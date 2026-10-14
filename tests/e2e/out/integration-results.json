@@ -1,5 +1,5 @@
 {
- "at": "2026-10-14T14:35:17.662Z",
+ "at": "2026-10-14T15:57:27.295Z",
  "results": [
   {
    "name": "I01 draft uses ST full prompt: card + persona + Author's Note + keyword lore + Horae + engine context",
@@ -52,9 +52,144 @@
    "detail": ""
   },
   {
+   "name": "R01 swipe A committed: Mira alive, ambush diverged",
+   "pass": true,
+   "detail": "{\"medic-ambush\":\"diverged\"}"
+  },
+  {
+   "name": "Swipe: new variant generated privately and published as swipe #2 with new variant id",
+   "pass": true,
+   "detail": "swipes=2 id=1"
+  },
+  {
+   "name": "Swipe: replaced reply is not in the new candidate prompt",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R01 swipe B selected: Mira dead",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R01 switching back to swipe A restores its state without model calls",
+   "pass": true,
+   "detail": "tasks=0"
+  },
+  {
+   "name": "R02 regenerate replaces the reply; old variants are not in the candidate prompt",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R02 regenerated reply starts from the pre-response world (one ambush disposition)",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R03 continue revises the same reply; whole revised message validated; effects not double counted",
+   "pass": true,
+   "detail": "Mira 被你护在身后，伏击者仓皇撤退。VARIANT_C 她低声向你道谢。CONT_D"
+  },
+  {
+   "name": "R17 cancelled regenerate restores the prior reply; no empty/late message",
+   "pass": true,
+   "detail": "len 3->3"
+  },
+  {
+   "name": "Cancel: user message preserved, no GM message created, late result discarded",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "P13/C01 timeskip adjudicates every crossed event in order (HARD begins offscreen)",
+   "pass": true,
+   "detail": "{\"medic-ambush\":\"occurred\",\"council-broadcast\":\"occurred\",\"conflict-begins\":\"occurred\"}"
+  },
+  {
+   "name": "E06 content-only edit detected by hash; user message re-extracted",
+   "pass": true,
+   "detail": "rev 6->7"
+  },
+  {
+   "name": "E04 deleting the GM timeskip removes its offscreen events and time advance",
+   "pass": true,
+   "detail": "{\"d\":{},\"c\":{\"lo\":480,\"hi\":480,\"precision\":\"minute\"}}"
+  },
+  {
+   "name": "R13 metadata durable across reload (pack snapshot, hash, interpretations)",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "I10 compact status and inspector preference restored after reload",
+   "pass": true,
+   "detail": "pill=true insp=true"
+  },
+  {
+   "name": "Deterministic replay on reload needs no model calls",
+   "pass": true,
+   "detail": "tasks=0"
+  },
+  {
+   "name": "R14 externally edited chat detected by manifest comparison before caches are trusted",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "W05 unrelated FREE market destruction adjudicated while the player was elsewhere; persists with offscreen provenance",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "W07 draft-only market + shopping rejected; accepted narration respects the ruins",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "W07 fresh lookup: evaluator received the destroyed condition and the destruction record",
+   "pass": true,
+   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_688ee153a9c6aad42ca70fe4] D1 15:00 — Old Market explosion: An accidental stored-fuel explosion destroys Old Market. In this fixture the trading structures are ruined and ordinary trading there"
+  },
+  {
+   "name": "W07 corrected history reached the repair generation prompt (before publication)",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "W08/W09 repair introduced a new anecdote; it was discovered, looked up (loan + return records) and checked again",
+   "pass": true,
+   "detail": "evals=3 ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_22deb89e257dd0f75064e899] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict."
+  },
+  {
+   "name": "W20 accepted reply carries a content-bound coverage manifest",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "W04 mention alone retrieves both the loan and the later return into the real GM prompt",
+   "pass": true,
+   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_22deb89e257dd0f75064e899] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict. (Occurred in this branch along its original route.)\n  actors: Archivist, Courier, Archive Key\n  actual outcome: Archive Key.holder=\"courier\"\n  later changes: Archive Key.holder -> \"archivist\" at D1 0"
+  },
+  {
+   "name": "Runtime player event committed with code-assigned runtime entity id",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "W01 causal retrieval without mention: the player theft enters the next GM prompt",
+   "pass": true,
+   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_22deb89e257dd0f75064e899] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict. (Occurred in this branch along its original route.)\n  actors: Archivist, Courier, Archive Key\n  actual outcome: Archive Key.holder=\"courier\"\n  later changes: Archive Key.holder -> \"archivist\" at D1 0"
+  },
+  {
+   "name": "W12 knowledge boundary labeled for the secret theft",
+   "pass": true,
+   "detail": ""
+  },
+  {
    "name": "I13 malformed model JSON: bounded retry then actionable error; user input kept; no GM message",
    "pass": true,
-   "detail": "{\"status\":\"error\",\"errorKind\":\"invalid_model_json\",\"reason\":\"invalid structured output for extract_user: no parseable JSON object in model output\",\"at\":1791988513504}"
+   "detail": "{\"status\":\"error\",\"errorKind\":\"invalid_model_json\",\"reason\":\"invalid structured output for extract_user: no parseable JSON object in model output\",\"at\":1791993298629}"
   },
   {
    "name": "Retry after failure completes the turn",
@@ -75,6 +210,91 @@
    "name": "I12 missing Horae API gives a compatibility diagnosis (no guessed private writes)",
    "pass": true,
    "detail": ""
+  },
+  {
+   "name": "Setup: rescue committed with authorized player action",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "E02/E12 edited user message: retained GM rescue exposed as the first conflict; text preserved; no invented rescue",
+   "pass": true,
+   "detail": "{\"status\":\"conflict\",\"messageId\":\"msg_1686ed969fdfee67d2543ee3\",\"messageIndex\":2,\"reason\":\"Reviewer: the rescue is not authorized by the edited user message and no separate cause is described (\\\"你拉着 Mira 冲出包围\\\")\",\"at\":1791993310105}"
+  },
+  {
+   "name": "Advancement frozen while the conflict is unresolved (no generation)",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "E13 resolving the conflict by editing the identified reply clears recovery",
+   "pass": true,
+   "detail": "{\"status\":\"ok\"}"
+  },
+  {
+   "name": "R05/E14 branch gets a new branch identity and an isolated copy of the shared prefix",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "E14 regenerating in the branch produces a fresh suffix",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R05 parent branch unaffected by the child branch",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R07 late result after chat switch is discarded (neither chat receives it)",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R15 second tab for the same campaign is not the writer",
+   "pass": true,
+   "detail": "owner2=false"
+  },
+  {
+   "name": "I11 group chat: explicit activation guard, no enforcement claim",
+   "pass": true,
+   "detail": "group=1791993356454 Group chats are not supported in v1 until a designated-GM adapter is validated. Canon Engine was not activated."
+  },
+  {
+   "name": "Existing chat bootstrap: all persisted messages examined once (not just the last-N context)",
+   "pass": true,
+   "detail": "examined=5 tasks=discover,evaluate,extract_user,discover,evaluate,extract_user,discover,evaluate"
+  },
+  {
+   "name": "I06 binding does not reset Persona/inventory/Horae state",
+   "pass": true,
+   "detail": "[\"银色徽章\"]"
+  },
+  {
+   "name": "I04 stale Horae memory after a GM edit: repair attempted, then excluded from the ACTUAL outgoing prompt",
+   "pass": true,
+   "detail": "snapshot=false badge=false"
+  },
+  {
+   "name": "I04 repair: supported Horae re-analysis runs once and the prompt carries fresh state without the erased item",
+   "pass": true,
+   "detail": "reanalyzed=true"
+  },
+  {
+   "name": "I05 next turn waits for Horae to finish the accepted reply (fresh location, no stale time)",
+   "pass": true,
+   "detail": "main=2 chat=[\"你登上了钟楼，风很大。\",\"我俯瞰城市。\",\"你俯瞰整座城市。\"] snap=Current State Snapshot — recorded automatically from the story so far, for narrative continuity reference]\n[State is recorded and updated automatically in the background; reply with story prose only, without any state lines or tags]\n[Scene|钟楼顶层]\n\n[Item List] (empty) notices=[{\"level\":\"warn\",\"text\":\"Horae memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use Horae's re-analyze to repair it.\",\"at\":1791993412032}]"
+  },
+  {
+   "name": "I07 lore saying a character later died cannot override the actual alive state; lore never enters extraction/evaluation as evidence",
+   "pass": true,
+   "detail": "last=Mira 正在诊所里为伤员包扎。 tasks=extract_user,discover,evaluate,discover,evaluate st={\"status\":\"ok\"} n=[{\"level\":\"warn\",\"text\":\"Horae memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use Horae's re-analyze to repair it.\",\"at\":1791993412032}]"
+  },
+  {
+   "name": "E08 first-message edit rebuilds from the binding seed; Persona/RPG not re-initialized",
+   "pass": true,
+   "detail": "{\"status\":\"ok\"}"
   }
  ]
 }

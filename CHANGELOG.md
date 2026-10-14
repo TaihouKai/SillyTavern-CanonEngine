@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0 — 2026-10-15
+
+First live-model testing (Venice; see docs/TEST_REPORT.md). Fixes for real-model behavior:
+- Prompt SHAPEs list every enum's allowed values (generated from the runtime schemas); retry feedback names the offending value and the allowed ones.
+- Structured-output repair: case/synonym enum slips, scalars in nullable-object fields, free-text items in `intended_effects`, extra nested fields (unknown top-level fields are still rejected).
+- No false conflicts: free-text predicate values are never compared deterministically; "unsupported" blocks only claims about past events/causes; the reviewer is told that preparations for a future event do not mean it started.
+- Discover skips scenery no record could contradict (3× smaller outputs on real models).
+- Planner: steps only for near-horizon anchors (max 8); an invalid/truncated plan no longer blocks the reply (provider failures remain operational errors).
+- Internal tasks run at temperature ≤ `taskTemperature` (default 0.2) without changing the story temperature; task timeout 300 s.
+
 ## 1.1.4 — 2026-10-14
 
 - Enabling requires an open chat; with no chat open the drawer says so and nothing is written to SillyTavern's placeholder metadata.

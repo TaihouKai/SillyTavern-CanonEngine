@@ -320,7 +320,7 @@ try {
   if (want('S6')) {
     console.log('\n== S6 guards: malformed JSON, extra fields, Horae diagnosis, Hard pre-set ==');
     await freshChat();
-    await mock('/control', { malformedNext: { extract_user: 2 }, mainQueue: ['NEVER_SHOWN_1'], clearLogs: true });
+    await mock('/control', { malformedNext: { extract_user: 3 }, mainQueue: ['NEVER_SHOWN_1'], clearLogs: true });
     const b = (await chat(page)).length;
     await send(page, '我向前走。');
     let msgs = await chat(page);

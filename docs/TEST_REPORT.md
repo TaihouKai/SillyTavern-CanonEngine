@@ -18,9 +18,9 @@ Date: 2026-10-14. Handoff revision 1.1, pack schema 1.0.0, engine 1.0.0.
 
 | Suite | Where it runs | Result |
 | --- | --- | --- |
-| `tests/unit/*` (111 tests): P, C, E, R, W01–W19, schema fixtures, 22 invalid-pack variants | in-process, fake host + scripted model, delayed promises for races | **111 / 111 pass** |
-| `tests/e2e/integration.mjs` (59 checks, sections S1–S9) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **59 / 59 pass** on the final build (v1.0.1) |
-| `tests/e2e/story-session.mjs` (10 checks) | real ST, UI-only: wizard upload, composer, swipe arrow, ST edit/delete buttons, reload | **10 / 10 pass** on the final build |
+| `tests/unit/*` (121 tests): P, C, E, R, W01–W19, schema fixtures, 22 invalid-pack variants, structured-output repair | in-process, fake host + scripted model | **121 / 121 pass** |
+| `tests/e2e/integration.mjs` (59 checks, sections S1–S9) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **59 / 59 pass** on the final build (v1.2.0) |
+| `tests/e2e/story-session.mjs` (12 checks) | real ST, UI-only: wizard via real file dialog, pack library, composer, swipe arrow, ST edit/delete buttons, reload | **12 / 12 pass** |
 | `dist/canon-lint.mjs` | both sample packs valid; World Info file rejected with the specific error | pass |
 
 Reproduce: start ST with this extension installed, `node tests/e2e/mockServer.mjs 5555`, then `npm test`, `node tests/e2e/integration.mjs` (or one section, e.g. `S5`) and `node tests/e2e/story-session.mjs`. Results are written to `tests/e2e/out/*.json`; screenshots `tests/e2e/out/story-*.png`.
@@ -133,6 +133,18 @@ Legend: **U** = unit/in-process (`tests/unit/<file>`), **E** = real ST/Horae int
 | W17, W18 | U retrieval (UNKNOWN explicit; runtime ids; renaming cannot bypass history; containment, partial damage, exception) | pass |
 | W19 | U retrieval (all matched records kept in compact mode; optional dropped first; explicit capacity error) | pass |
 | W20 | E S5 (real ST, controller-driven retrieval, no function calling, pre-generation and draft-only references, repairs, content-bound manifest) | pass |
+
+## Live-model session (Venice, 2026-10-15)
+
+A capped local proxy (US$0.60 hard limit) forwarded ST's custom OpenAI-compatible connection to Venice. Pack: the 169-event Chinese Toaru chronicle; start 2020-09-18 17:00; GM card with the recommended world rules.
+
+| Model | Result |
+| --- | --- |
+| `qwen3-235b-a22b-instruct-2507` | exposed: invented enum values, scalar in nullable-object fields, false conflicts on free-text values and on "preparations for a future event", oversized discover output → task timeouts |
+| `z-ai-glm-5-3-flash` | exposed: planner writing steps for the whole future register (truncated at 4096 tokens), string `intended_effects`; model rejects disabled thinking |
+| `qwen-3-8-flash` (thinking off) | exposed: broken/truncated JSON at the user's temperature 1.0, extra nested fields. **After fixes: bind + 3 turns committed** (Chinese GM prose; time skip moved the clock to 2020-09-19 06:00; no false conflicts), 130–180 s and US$0.017–0.029 per turn |
+
+Fixes (1.2.0): enum lists generated from the schemas into every prompt SHAPE; enum/synonym/nullable/extra-nested-field repair (top-level extras still rejected, C06); free-text values never compared deterministically; "unsupported" blocks only past-event/causal claims; leaner discover; planner limited to the near horizon and non-fatal on invalid plan JSON (provider failures still operational, C15); internal tasks at temperature ≤ 0.2; 300 s task timeout. Total live spend for all runs: about US$0.28.
 
 ## Observations and remaining limitations
 

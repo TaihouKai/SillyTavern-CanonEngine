@@ -85,7 +85,7 @@ Each managed turn uses your connection several times: user extraction, draft, wh
 
 ## Known limitations (v1)
 
-- **No live-model run was possible on the build machine** (no API key is configured). All behavior was verified with deterministic mocked model outputs in a real ST + Horae installation; real-model narrative interpretation quality is not proven. The deterministic gates (evidence, Hard invariants, state contradictions, agency, coverage) bound but cannot eliminate semantic model errors.
+- **Live-model testing is limited.** Besides the deterministic mocked suites, a short live session (bind + 3 turns incl. a time skip, Chinese 169-event pack) was run through Venice with `qwen-3-8-flash` (also exercised: `qwen3-235b-a22b-instruct-2507`, `z-ai-glm-5-3-flash`). Expect 2–3 minutes and roughly US$0.02–0.03 per turn on such models (4–10 model calls). Small models produce imperfect JSON; the engine repairs unambiguous slips and retries, but other providers/models are untested. The deterministic gates bound but cannot eliminate semantic model errors.
 - Group chats are unsupported (activation is refused). Simultaneous writes to the same chat from different browsers/devices are unsupported; within one browser profile a second tab is blocked from writing. ST's server-side chat integrity check is the only cross-device protection.
 - Engine-managed replies are buffered (no token streaming). *Continue* is implemented as a private continuation instruction (not ST's assistant prefill) and the whole revised message is validated.
 - When Horae memory is stale after edits and its supported re-analysis cannot refresh it in time, Horae's whole injected snapshot is excluded from that reply (not partially repaired).

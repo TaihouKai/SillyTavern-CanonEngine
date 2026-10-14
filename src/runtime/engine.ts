@@ -32,6 +32,8 @@ export interface EngineSettings {
   opportunityWindowMinutes: number;
   horaeWaitMs: number;
   debug: boolean;
+  /** Sampling temperature for internal structured tasks (not the GM's story replies). */
+  taskTemperature: number;
 }
 
 export const DEFAULT_SETTINGS: EngineSettings = {
@@ -46,6 +48,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   opportunityWindowMinutes: 720,
   horaeWaitMs: 60000,
   debug: false,
+  taskTemperature: 0.2,
 };
 
 export type OpPhase = 'idle' | 'reconciling' | 'planning' | 'generating' | 'validating' | 'committing' | 'error' | 'conflict' | 'disabled';
@@ -1043,12 +1046,21 @@ export class CanonEngine {
     }
     if (!needs) return { plan, forced: plan!.mode === 'FORCED_CONVERGENCE' };
     const facts = this.stateFacts(index, [...pack.entities.keys(), ...state.runtimeEntities.keys()], clock);
-    const res = await runPlanning({
+    let res: Awaited<ReturnType<typeof runPlanning>>;
+    try {
+      res = await runPlanning({
       port: this.host.model, pack, index, state, clockTick: clock, worldRevision: c.revision, prefixHash: this.current?.replay.fingerprint || '',
       affected: (c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors || [], maxOrdinary: this.settings.maxOrdinaryPlanner, allowForcedAttempt: this.settings.forcedPlannerAttempt,
       signal, operationId, readyWindow: this.settings.readyWindowMinutes, facts, persona: this.host.persona().name, log: (l) => this.debugLog('task', l),
       impactForced: !!(c as CampaignData & { _impactForced?: boolean })._impactForced,
-    });
+      });
+    } catch (e) {
+      // A model that cannot produce a valid plan (malformed/truncated JSON) is treated like "no valid
+      // plan": the reply proceeds and HARD obligations stay enforced at their deadlines. Provider
+      // failures and cancellation remain operational errors (C15).
+      if (!(e instanceof EngineError) || e.kind !== 'invalid_model_json') throw e;
+      res = { plan: null, forced: false, errors: [(e as Error).message] } as unknown as Awaited<ReturnType<typeof runPlanning>>;
+    }
     if (!res.plan) {
       // No valid plan: HARD obligations are still enforced at their checkpoints by the gate and adjudicator.
       if (plan) plan.status = 'stale';

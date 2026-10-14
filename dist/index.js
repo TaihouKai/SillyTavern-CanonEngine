@@ -12631,6 +12631,24 @@ function repairEnums(root, errors) {
   let changed = false;
   const nullable = new Set(errors.filter((e) => e.keyword === "type" && e.params?.type === "null").map((e) => e.instancePath));
   for (const e of errors) {
+    const extra = e.keyword === "additionalProperties" && e.instancePath ? e.params?.additionalProperty : void 0;
+    const obj = extra ? valueAt(root, e.instancePath) : void 0;
+    if (obj && typeof obj === "object" && extra && extra in obj) {
+      delete obj[extra];
+      changed = true;
+    }
+  }
+  const drops = errors.filter((e) => e.keyword === "type" && e.params?.type === "object" && /\/intended_effects\/\d+$/.test(e.instancePath)).map((e) => e.instancePath).sort((a, b) => Number(b.split("/").pop()) - Number(a.split("/").pop()));
+  for (const path of [...new Set(drops)]) {
+    const parts = path.split("/").slice(1);
+    const idx = Number(parts.pop());
+    const arr = valueAt(root, "/" + parts.join("/"));
+    if (Array.isArray(arr) && typeof arr[idx] !== "object") {
+      arr.splice(idx, 1);
+      changed = true;
+    }
+  }
+  for (const e of errors) {
     if (e.keyword !== "type" || e.params?.type !== "object" || !nullable.has(e.instancePath) || !e.instancePath) continue;
     const parts = e.instancePath.split("/").slice(1);
     const key = parts.pop();
@@ -12680,7 +12698,12 @@ ${system}` },
       const data = extractJson(raw);
       const v = validators[task];
       if (!v(data)) {
-        if (repairEnums(data, v.errors || []) && v(data)) {
+        let fixed = false;
+        for (let k = 0; k < 6 && repairEnums(data, v.errors || []); k++) if (v(data)) {
+          fixed = true;
+          break;
+        }
+        if (fixed) {
           opts.log?.({ task, attempt, ok: true, operationId: opts.operationId });
           return data;
         }
@@ -14266,7 +14289,8 @@ TASK: Impact assessment of newly accepted changes against the active plan and th
 SHAPE: {"changed":[{"entity_id":"","predicate":""}],"affected_anchors":[],"affected_steps":[],"scope":"local","severity":"none","replan":false,"explanation":""}`,
   plan: `${COMMON}
 TASK: Plan future world actions so every protected HARD contract is realized exactly (required description, outcomes, time bounds) from the ACTUAL current world. Prefer: existing causes -> plausible extensions -> original actions/actors -> extraordinary correction (only when allowed_mode is FORCED_CONVERGENCE; say why cheaper routes are inadequate in inadequacy_note). Steps are intentions, not facts. Never require the player's consent or choose the player's actions (requires_player_consent must be false; offer opportunities instead). Never drop, rename, reschedule or weaken an anchor; never declare an alternate world. Creating new actors/resources requires explicit establishment steps. Times must be within anchor bounds and after the current time.
-SHAPE: {"rationale":"","protected_anchor_ids":[],"assumptions":[{"text":"","fact":null}],"risks":[],"mode":"NORMAL","steps":[{"step_id":"s1","actors":[],"targets":[],"earliest":{"day":0,"minute":0},"latest":{"day":0,"minute":0},"prerequisites":[],"action":"","intended_effects":[],"visibility":"secret","knowers":[],"depends_on":[],"means":"ordinary","serves_anchor":null,"requires_player_consent":false}],"inadequacy_note":""}`
+Write steps ONLY for the anchors in protected_hard_detailed (the near horizon). hard_register is context for later anchors: do NOT write steps for them; they are planned when they come near. Use at most 8 steps; keep "action" to one short sentence.
+SHAPE: {"rationale":"","protected_anchor_ids":[],"assumptions":[{"text":"","fact":null}],"risks":[],"mode":"NORMAL","steps":[{"step_id":"s1","actors":[],"targets":[],"earliest":{"day":0,"minute":0},"latest":{"day":0,"minute":0},"prerequisites":[],"action":"","intended_effects":[{"entity_id":"","predicate":"","value":true}],"visibility":"secret","knowers":[],"depends_on":[],"means":"ordinary","serves_anchor":null,"requires_player_consent":false}],"inadequacy_note":""}`
 };
 function enumsOf(schema) {
   const found = /* @__PURE__ */ new Map();
@@ -15349,7 +15373,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.1.4";
+var ENGINE_VERSION = "1.2.0";
 
 // src/runtime/engine.ts
 var DEFAULT_SETTINGS = {
@@ -15363,7 +15387,8 @@ var DEFAULT_SETTINGS = {
   readyWindowMinutes: 1440,
   opportunityWindowMinutes: 720,
   horaeWaitMs: 6e4,
-  debug: false
+  debug: false,
+  taskTemperature: 0.2
 };
 var MAX_MANIFESTS = 40;
 var CanonEngine = class {
@@ -16463,25 +16488,31 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     }
     if (!needs) return { plan: plan2, forced: plan2.mode === "FORCED_CONVERGENCE" };
     const facts = this.stateFacts(index, [...pack2.entities.keys(), ...state.runtimeEntities.keys()], clock);
-    const res = await runPlanning({
-      port: this.host.model,
-      pack: pack2,
-      index,
-      state,
-      clockTick: clock,
-      worldRevision: c.revision,
-      prefixHash: this.current?.replay.fingerprint || "",
-      affected: c._affectedAnchors || [],
-      maxOrdinary: this.settings.maxOrdinaryPlanner,
-      allowForcedAttempt: this.settings.forcedPlannerAttempt,
-      signal,
-      operationId,
-      readyWindow: this.settings.readyWindowMinutes,
-      facts,
-      persona: this.host.persona().name,
-      log: (l) => this.debugLog("task", l),
-      impactForced: !!c._impactForced
-    });
+    let res;
+    try {
+      res = await runPlanning({
+        port: this.host.model,
+        pack: pack2,
+        index,
+        state,
+        clockTick: clock,
+        worldRevision: c.revision,
+        prefixHash: this.current?.replay.fingerprint || "",
+        affected: c._affectedAnchors || [],
+        maxOrdinary: this.settings.maxOrdinaryPlanner,
+        allowForcedAttempt: this.settings.forcedPlannerAttempt,
+        signal,
+        operationId,
+        readyWindow: this.settings.readyWindowMinutes,
+        facts,
+        persona: this.host.persona().name,
+        log: (l) => this.debugLog("task", l),
+        impactForced: !!c._impactForced
+      });
+    } catch (e) {
+      if (!(e instanceof EngineError) || e.kind !== "invalid_model_json") throw e;
+      res = { plan: null, forced: false, errors: [e.message] };
+    }
     if (!res.plan) {
       if (plan2) plan2.status = "stale";
       this.notice("warn", `Planner could not produce a valid plan (${res.errors.slice(-2).join(" | ") || "no output"}). Hard obligations remain enforced at their deadlines.`);
@@ -17076,6 +17107,8 @@ var StHost = class {
 var StModel = class {
   queue = Promise.resolve();
   horaePresent = false;
+  /** Read at call time so the drawer setting applies immediately. */
+  taskTemperature = () => 0.2;
   serialize(fn) {
     const p = this.queue.then(fn, fn);
     this.queue = p.catch(() => void 0);
@@ -17093,16 +17126,26 @@ var StModel = class {
       gen.raw = { token, messages: messages.map((m) => ({ ...m })) };
       try {
         let budget = opts.maxTokens || 4096;
-        for (let attempt = 1; ; attempt++) {
-          try {
-            const out = await c.generateRaw({ prompt: msgs, responseLength: budget, trimNames: false });
-            return String(out ?? "");
-          } catch (e) {
-            const empty = /No message generated/i.test(e.message);
-            if (!empty || opts.signal?.aborted) throw e;
-            if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort or use a non-reasoning model for this chat), a provider content filter blocking the request, or a very small max response length.`);
-            budget = Math.min(budget * 2, 16384);
+        const cs = c.chatCompletionSettings;
+        const savedTemp = cs?.temp_openai;
+        const restoreTemp = () => {
+          if (cs && savedTemp !== void 0) cs.temp_openai = savedTemp;
+        };
+        if (cs && savedTemp !== void 0) cs.temp_openai = Math.min(Number(savedTemp), this.taskTemperature());
+        try {
+          for (let attempt = 1; ; attempt++) {
+            try {
+              const out = await c.generateRaw({ prompt: msgs, responseLength: budget, trimNames: false });
+              return String(out ?? "");
+            } catch (e) {
+              const empty = /No message generated/i.test(e.message);
+              if (!empty || opts.signal?.aborted) throw e;
+              if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort or use a non-reasoning model for this chat), a provider content filter blocking the request, or a very small max response length.`);
+              budget = Math.min(budget * 2, 16384);
+            }
           }
+        } finally {
+          restoreTemp();
         }
       } finally {
         if (gen.raw?.token === token) gen.raw = null;
@@ -17926,7 +17969,7 @@ function renderSettings() {
   if (comp.gmRule) lines.push(`<div class="canon-note warn">${t("gmConflict")}</div>`);
   if (hd.version && !hd.ok) lines.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc2(hd.missing.join(", "))}</div>`);
   lines.push(`<details><summary>${t("advanced")}</summary><div class="canon-adv">
-    ${num("maxRepairs", s.maxRepairs)}${num("maxOrdinaryPlanner", s.maxOrdinaryPlanner)}${num("budgetChars", s.budgetChars)}${num("taskTimeoutMs", s.taskTimeoutMs)}${num("draftTimeoutMs", s.draftTimeoutMs)}${num("horizonMinutes", s.horizonMinutes)}
+    ${num("maxRepairs", s.maxRepairs)}${num("maxOrdinaryPlanner", s.maxOrdinaryPlanner)}${num("budgetChars", s.budgetChars)}${num("taskTimeoutMs", s.taskTimeoutMs)}${num("draftTimeoutMs", s.draftTimeoutMs)}${num("horizonMinutes", s.horizonMinutes)}${num("taskTemperature", s.taskTemperature)}
     <label><input type="checkbox" data-set="forcedPlannerAttempt" ${s.forcedPlannerAttempt ? "checked" : ""}> forcedPlannerAttempt</label>
     <label><input type="checkbox" data-set="debug" ${s.debug ? "checked" : ""}> ${t("debug")}</label>
     <label>UI <select data-set="uiLang"><option value="zh" ${s.uiLang !== "en" ? "selected" : ""}>\u4E2D\u6587</option><option value="en" ${s.uiLang === "en" ? "selected" : ""}>English</option></select></label>
@@ -18446,11 +18489,15 @@ async function init() {
   const model = new StModel();
   host = new StHost(model);
   model.horaePresent = !!HoraeAdapter.detect();
+  model.taskTemperature = () => {
+    const t2 = Number(globalSettings().taskTemperature);
+    return Number.isFinite(t2) ? t2 : 0.2;
+  };
   engine = new CanonEngine(host, globalSettings());
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.1.4" };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.2.0" };
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
   const first = (ev, fn) => typeof es.makeFirst === "function" ? es.makeFirst(ev, fn) : es.on(ev, fn);
@@ -18497,7 +18544,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
-  console.log("[CanonEngine] v1.1.4 loaded");
+  console.log("[CanonEngine] v1.2.0 loaded");
 }
 (async () => {
   try {

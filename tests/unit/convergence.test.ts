@@ -28,6 +28,15 @@ const st = (x: ReturnType<typeof makeEngine>) => x.engine.current!.replay.state;
 const rescue = { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush of Mira', 'Mira survives', { pack_event_id: 'medic-ambush', disposition: 'diverged', origin: 'player', actors: ['mira'] })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira survives', occurrence_ref: 'o1' }] };
 
 describe('convergence', () => {
+  it('a failing planner does not block the GM reply (real-model finding)', async () => {
+    const x = await setup();
+    (x.model as any).rules.unshift({ task: 'plan', raw: '{"rationale":"truncated by max tokens", "steps":[{"step_id":"s1",', once: false });
+    expect(await turn(x, 'I look around the harbor.', 'Gulls circle the quiet harbor. [P1]', { scene_end: at(1, 9, 45) })).toBe(true);
+    expect(x.host.chat.slice(-1)[0].text).toContain('[P1]');
+    expect(x.model.tasks('plan').length).toBeGreaterThan(0);
+    expect(x.engine.notices.some((n) => /Planner could not produce a valid plan/.test(n.text))).toBe(true);
+  });
+
   it('C02/C03 rescue diverges FREE death; broadcast omitted; HARD begins via an alternate adjudicated route', async () => {
     const x = await setup();
     expect(await turn(x, 'I shield Mira.', 'The bolts miss. Mira survives. [A1]', rescue)).toBe(true);

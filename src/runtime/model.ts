@@ -86,6 +86,22 @@ function repairEnums(root: unknown, errors: { keyword: string; instancePath: str
   // "null or object" fields given a scalar (e.g. "time": "傍晚", "fact": "…"): the value carries no
   // typed data, so treat it as unknown (null) rather than failing the turn.
   const nullable = new Set(errors.filter((e) => e.keyword === 'type' && (e.params as { type?: string })?.type === 'null').map((e) => e.instancePath));
+  // Extra properties the engine never reads, inside nested items (models like to add "reason",
+  // "confidence", ...). Unknown TOP-LEVEL fields stay a schema violation: they may be attempted
+  // mutations such as "drop_anchor" and must reject the whole output (C06).
+  for (const e of errors) {
+    const extra = e.keyword === 'additionalProperties' && e.instancePath ? (e.params as { additionalProperty?: string })?.additionalProperty : undefined;
+    const obj: any = extra ? valueAt(root, e.instancePath) : undefined;
+    if (obj && typeof obj === 'object' && extra && extra in obj) { delete obj[extra]; changed = true; }
+  }
+  // Free-text items in a typed effects list carry no typed data: drop them (highest index first).
+  const drops = errors.filter((e) => e.keyword === 'type' && (e.params as { type?: string })?.type === 'object' && /\/intended_effects\/\d+$/.test(e.instancePath))
+    .map((e) => e.instancePath).sort((a, b) => Number(b.split('/').pop()) - Number(a.split('/').pop()));
+  for (const path of [...new Set(drops)]) {
+    const parts = path.split('/').slice(1); const idx = Number(parts.pop());
+    const arr: any = valueAt(root, '/' + parts.join('/'));
+    if (Array.isArray(arr) && typeof arr[idx] !== 'object') { arr.splice(idx, 1); changed = true; }
+  }
   for (const e of errors) {
     if (e.keyword !== 'type' || (e.params as { type?: string })?.type !== 'object' || !nullable.has(e.instancePath) || !e.instancePath) continue;
     const parts = e.instancePath.split('/').slice(1);
@@ -139,7 +155,9 @@ export async function callStructured<T>(
       const v = validators[task];
       if (!v(data)) {
         // Repair unambiguous enum slips (case, common synonyms) instead of failing the turn.
-        if (repairEnums(data, (v.errors || []) as any[]) && v(data)) {
+        let fixed = false;
+        for (let k = 0; k < 6 && repairEnums(data, (v.errors || []) as any[]); k++) if (v(data)) { fixed = true; break; }
+        if (fixed) {
           opts.log?.({ task, attempt, ok: true, operationId: opts.operationId });
           return data as T;
         }

@@ -172,7 +172,7 @@ function renderSettings() {
   if (comp.gmRule) lines.push(`<div class="canon-note warn">${t('gmConflict')}</div>`);
   if (hd.version && !hd.ok) lines.push(`<div class="canon-note warn">${t('unsupportedHorae')}: ${esc(hd.missing.join(', '))}</div>`);
   lines.push(`<details><summary>${t('advanced')}</summary><div class="canon-adv">
-    ${num('maxRepairs', s.maxRepairs)}${num('maxOrdinaryPlanner', s.maxOrdinaryPlanner)}${num('budgetChars', s.budgetChars)}${num('taskTimeoutMs', s.taskTimeoutMs)}${num('draftTimeoutMs', s.draftTimeoutMs)}${num('horizonMinutes', s.horizonMinutes)}
+    ${num('maxRepairs', s.maxRepairs)}${num('maxOrdinaryPlanner', s.maxOrdinaryPlanner)}${num('budgetChars', s.budgetChars)}${num('taskTimeoutMs', s.taskTimeoutMs)}${num('draftTimeoutMs', s.draftTimeoutMs)}${num('horizonMinutes', s.horizonMinutes)}${num('taskTemperature', s.taskTemperature)}
     <label><input type="checkbox" data-set="forcedPlannerAttempt" ${s.forcedPlannerAttempt ? 'checked' : ''}> forcedPlannerAttempt</label>
     <label><input type="checkbox" data-set="debug" ${s.debug ? 'checked' : ''}> ${t('debug')}</label>
     <label>UI <select data-set="uiLang"><option value="zh" ${s.uiLang !== 'en' ? 'selected' : ''}>中文</option><option value="en" ${s.uiLang === 'en' ? 'selected' : ''}>English</option></select></label>

@@ -306,6 +306,8 @@ export class StHost implements HostPort {
 export class StModel implements ModelPort {
   private queue: Promise<unknown> = Promise.resolve();
   horaePresent = false;
+  /** Read at call time so the drawer setting applies immediately. */
+  taskTemperature: () => number = () => 0.2;
 
   private serialize<T>(fn: () => Promise<T>): Promise<T> {
     const p = this.queue.then(fn, fn);
@@ -326,16 +328,26 @@ export class StModel implements ModelPort {
         // Empty replies are common with reasoning models (thinking uses up the budget) and with
         // provider content filters. Retry with a larger budget before giving up.
         let budget = opts.maxTokens || 4096;
-        for (let attempt = 1; ; attempt++) {
-          try {
-            const out = await c.generateRaw({ prompt: msgs, responseLength: budget, trimNames: false });
-            return String(out ?? '');
-          } catch (e) {
-            const empty = /No message generated/i.test((e as Error).message);
-            if (!empty || opts.signal?.aborted) throw e;
-            if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort or use a non-reasoning model for this chat), a provider content filter blocking the request, or a very small max response length.`);
-            budget = Math.min(budget * 2, 16384);
+        // Internal analysis must be near-deterministic: at the user's story temperature (often 1.0)
+        // small models drift and emit broken or truncated JSON. Override only for this request.
+        const cs = c.chatCompletionSettings as Record<string, unknown> | undefined;
+        const savedTemp = cs?.temp_openai;
+        const restoreTemp = () => { if (cs && savedTemp !== undefined) cs.temp_openai = savedTemp; };
+        if (cs && savedTemp !== undefined) cs.temp_openai = Math.min(Number(savedTemp), this.taskTemperature());
+        try {
+          for (let attempt = 1; ; attempt++) {
+            try {
+              const out = await c.generateRaw({ prompt: msgs, responseLength: budget, trimNames: false });
+              return String(out ?? '');
+            } catch (e) {
+              const empty = /No message generated/i.test((e as Error).message);
+              if (!empty || opts.signal?.aborted) throw e;
+              if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort or use a non-reasoning model for this chat), a provider content filter blocking the request, or a very small max response length.`);
+              budget = Math.min(budget * 2, 16384);
+            }
           }
+        } finally {
+          restoreTemp();
         }
       } finally {
         if (gen.raw?.token === token) gen.raw = null;

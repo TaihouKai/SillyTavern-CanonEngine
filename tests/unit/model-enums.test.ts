@@ -60,3 +60,21 @@ describe('nullable object slips', () => {
     expect(p.seen.length).toBe(1);
   });
 });
+
+describe('extra properties', () => {
+  it('drops properties the schema does not define instead of failing', async () => {
+    const c = { ...claim('state'), confidence: 0.9, reason: 'x' };
+    const p = port([{ references: [ref('direct')], claims: [c] }]);
+    const out = await callStructured<any>(p, 'discover', 'sys', {});
+    expect(out.claims[0]).not.toHaveProperty('confidence');
+    expect(p.seen.length).toBe(1);
+  });
+});
+
+describe('top-level extra fields', () => {
+  it('rejects unknown top-level fields (possible mutations) instead of stripping them', async () => {
+    const bad = { references: [ref('direct')], claims: [claim('state')], drop_anchor: 'conflict-begins' };
+    const p = port([bad, bad, bad]);
+    await expect(callStructured<any>(p, 'discover', 'sys', {})).rejects.toThrow(/additional properties/);
+  });
+});
