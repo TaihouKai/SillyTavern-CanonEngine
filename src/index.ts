@@ -129,12 +129,13 @@ async function init() {
   const model = new StModel();
   host = new StHost(model);
   model.horaePresent = !!HoraeAdapter.detect();
+  model.taskProfileId = () => String(globalSettings().taskProfileId || '');
   model.taskTemperature = () => { const t = Number(globalSettings().taskTemperature); return Number.isFinite(t) ? t : 0.2; };
   engine = new CanonEngine(host, globalSettings());
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock!.isOwner();
   (globalThis as any).canonEngineGenerateInterceptor = interceptor;
-  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: '1.2.0' };
+  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: '1.3.0' };
 
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
@@ -171,7 +172,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => undefined).finally(() => refreshUi());
   }
-  console.log('[CanonEngine] v1.2.0 loaded');
+  console.log('[CanonEngine] v1.3.0 loaded');
 }
 
 // ST loads extension modules after the app initializes; init immediately when possible.

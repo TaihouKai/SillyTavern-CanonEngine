@@ -531,6 +531,36 @@ try {
     const rpgAfter = await page.evaluate(() => JSON.stringify(window.Horae.getRpgState?.() || null));
     check(results, 'E08 first-message edit rebuilds from the binding seed; Persona/RPG not re-initialized', st.recovery.status !== 'error' && pb2 === pb && rpgAfter === rpgBefore, JSON.stringify(st.recovery));
   }
+
+  // ---------------------------------------------------------------------------------------------
+  if (want('S10')) {
+    console.log('\n== S10 separate analysis connection profile ==');
+    // A saved ST connection profile for analysis (same mock server, different model id).
+    await page.evaluate((url) => {
+      const c = SillyTavern.getContext();
+      const cm = c.extensionSettings.connectionManager || (c.extensionSettings.connectionManager = { profiles: [] });
+      cm.profiles = (cm.profiles || []).filter((p) => p.id !== 'canon-e2e-analysis');
+      cm.profiles.push({ id: 'canon-e2e-analysis', name: 'Canon E2E analysis', mode: 'cc', api: 'custom', 'api-url': url + '/v1', model: 'mock-task' });
+      c.extensionSettings.canonEngine.taskProfileId = 'canon-e2e-analysis';
+    }, 'http://127.0.0.1:5555');
+    await freshChat();
+    await page.evaluate(() => { SillyTavern.getContext().chatCompletionSettings.temp_openai = 1; });
+    await mock('/control', { mainQueue: ['海风吹过港口。PROFILE_OK'], clearLogs: true });
+    await send(page, '我看向港口。');
+    const tl = await taskLogs();
+    const ml = await mainLogs();
+    const opts = await page.$$eval('#canon-engine-settings [data-set="taskProfileId"] option', (o) => o.map((x) => x.textContent));
+    check(results, 'P01 internal analysis tasks go to the analysis profile (model mock-task, temperature 0.2)', tl.length >= 2 && tl.every((t) => t.model === 'mock-task' && Number(t.temperature) === 0.2), tl.map((t) => `${t.task}:${t.model}:${t.temperature}`).join(' '));
+    check(results, 'P02 the story draft stays on the chat connection (model mock-main, story temperature)', ml.length === 1 && ml[0].model === 'mock-main' && Number(ml[0].temperature) === 1 && (await lastAi()).mes.includes('PROFILE_OK'), ml.map((m) => `${m.model}:${m.temperature}`).join(' '));
+    check(results, 'P03 the drawer lists the saved profile as an analysis connection', opts.some((o) => /Canon E2E analysis/.test(o)), opts.join(' | '));
+    // a deleted profile gives an actionable error instead of silently using the main model
+    await page.evaluate(() => { const c = SillyTavern.getContext(); c.extensionSettings.connectionManager.profiles = c.extensionSettings.connectionManager.profiles.filter((p) => p.id !== 'canon-e2e-analysis'); });
+    await mock('/control', { mainQueue: ['NEVER_SHOWN_P'], clearLogs: true });
+    await send(page, '我继续看。');
+    const stP = await engineState(page);
+    check(results, 'P04 a missing analysis profile stops the turn with an actionable error', stP.recovery.status === 'error' && /no longer exists/.test(stP.recovery.reason || ''), JSON.stringify(stP.recovery));
+    await page.evaluate(() => { SillyTavern.getContext().extensionSettings.canonEngine.taskProfileId = ''; SillyTavern.getContext().saveSettingsDebounced(); });
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }

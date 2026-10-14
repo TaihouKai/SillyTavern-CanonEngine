@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.0 — 2026-10-15
+
+- **Analysis connection:** internal analysis tasks can use a separate SillyTavern Connection Profile (fast/cheap model) while the GM's story replies stay on the chat's connection. Uses ST's `ConnectionManagerRequestService`; temperature override applies to the profile request; a missing profile stops the turn with an actionable error. Integration section S10 (P01–P04).
+- Attachments read via `extra.files` (no deprecated-getter console trace).
+
 ## 1.2.0 — 2026-10-15
 
 First live-model testing (Venice; see docs/TEST_REPORT.md). Fixes for real-model behavior:

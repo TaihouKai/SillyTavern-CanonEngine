@@ -171,6 +171,7 @@ function renderSettings() {
   if (comp.books.length) lines.push(`<div class="canon-note warn">${t('competing')} ${comp.books.map(esc).join(', ')}<br>${t('competingHint')}</div>`);
   if (comp.gmRule) lines.push(`<div class="canon-note warn">${t('gmConflict')}</div>`);
   if (hd.version && !hd.ok) lines.push(`<div class="canon-note warn">${t('unsupportedHorae')}: ${esc(hd.missing.join(', '))}</div>`);
+  lines.push(profileSelect(s.taskProfileId || ''));
   lines.push(`<details><summary>${t('advanced')}</summary><div class="canon-adv">
     ${num('maxRepairs', s.maxRepairs)}${num('maxOrdinaryPlanner', s.maxOrdinaryPlanner)}${num('budgetChars', s.budgetChars)}${num('taskTimeoutMs', s.taskTimeoutMs)}${num('draftTimeoutMs', s.draftTimeoutMs)}${num('horizonMinutes', s.horizonMinutes)}${num('taskTemperature', s.taskTemperature)}
     <label><input type="checkbox" data-set="forcedPlannerAttempt" ${s.forcedPlannerAttempt ? 'checked' : ''}> forcedPlannerAttempt</label>
@@ -178,6 +179,17 @@ function renderSettings() {
     <label>UI <select data-set="uiLang"><option value="zh" ${s.uiLang !== 'en' ? 'selected' : ''}>中文</option><option value="en" ${s.uiLang === 'en' ? 'selected' : ''}>English</option></select></label>
     </div></details>`);
   body.innerHTML = lines.join('');
+}
+
+function profileSelect(current: string): string {
+  let profiles: { id: string; name: string; model?: string }[] = [];
+  try { profiles = (ctx() as any).ConnectionManagerRequestService?.getSupportedProfiles?.() || []; } catch { profiles = []; }
+  const missing = current && !profiles.some((p) => p.id === current);
+  const opts = [`<option value="">${t('taskProfileSame')}</option>`]
+    .concat(profiles.map((p) => `<option value="${esc(p.id)}" ${p.id === current ? 'selected' : ''}>${esc(p.name)}${p.model ? ` · ${esc(p.model)}` : ''}</option>`))
+    .concat(missing ? [`<option value="${esc(current)}" selected>⚠ ${esc(current)}</option>`] : []);
+  return `<div class="canon-profile"><label>${t('taskProfile')} <select class="text_pole" data-set="taskProfileId">${opts.join('')}</select></label>
+    <div class="canon-note">${profiles.length ? t('taskProfileHint') : t('taskProfileNone')}</div></div>`;
 }
 
 function num(key: string, v: number) {

@@ -71,6 +71,16 @@ Operational problems are shown out of story: invalid pack, unresolved starting t
 - **导出战役备份** downloads a JSON backup (contains the full pack and hidden/spoiler data). **导入战役备份** restores it into the open chat and revalidates it against the transcript.
 - A chat stays pinned to the pack snapshot it was bound with. To change versions use **更新历史包…**: it previews changed/added/deleted event ids and changed HARD contracts, requires a backup export first, then creates a new binding revision.
 
+## Analysis connection (recommended)
+
+Each turn the engine makes several internal analysis calls (extract, discover, review, plan) that need careful JSON, not literary quality. You can keep your preferred model for the story and send only those calls to a fast, cheap, non-reasoning model:
+
+1. In SillyTavern, connect to the analysis model once and save it as a **Connection Profile** (plug icon → Connection Profiles → save).
+2. Switch back to your story connection.
+3. In *Extensions → Canon Engine*, choose that profile under **分析用连接**.
+
+The GM's story replies always use the chat's own connection; only internal analysis uses the profile (at `taskTemperature`, default 0.2). If the chosen profile is deleted, turns stop with an actionable error instead of silently using the story model.
+
 ## Context size
 
 The engine context (rules + retrieved history + state) typically adds 2–5k tokens per turn. Use a model context of at least 16k–32k tokens. If SillyTavern trims the engine context because the prompt does not fit, the turn stops with a *Context capacity* error instead of generating an unchecked reply.

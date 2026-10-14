@@ -311,6 +311,39 @@ export class StModel implements ModelPort {
   horaePresent = false;
   /** Read at call time so the drawer setting applies immediately. */
   taskTemperature: () => number = () => 0.2;
+  /** Connection profile for internal analysis tasks ('' = the chat's own connection). Story drafts never use it. */
+  taskProfileId: () => string = () => '';
+
+  /** One internal-task completion, through the task profile when one is configured. */
+  private async complete(msgs: ChatMsg[], budget: number, signal?: AbortSignal): Promise<string> {
+    const c = ctx();
+    const profileId = this.taskProfileId();
+    if (profileId) {
+      const svc = (c as any).ConnectionManagerRequestService;
+      if (!svc) throw new Error('the analysis connection profile needs the SillyTavern Connection Manager (Connection Profiles), which is not available');
+      let profile: any;
+      try { profile = svc.getProfile(profileId); } catch { throw new Error('the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings'); }
+      try {
+        const res = await svc.sendRequest(profileId, msgs, budget, { stream: false, signal: signal || null, extractData: true, includePreset: true }, { temperature: this.taskTemperature() });
+        const out = String((res as { content?: string })?.content ?? '').trim();
+        if (!out) throw new Error('No message generated');
+        return out;
+      } catch (e) {
+        const err = e as Error & { cause?: Error };
+        if (/No message generated/.test(err.message)) throw err;
+        throw new Error(`analysis profile "${profile?.name || profileId}": ${err.cause?.message || err.message}`);
+      }
+    }
+    // Same connection as the chat: ST's generateRaw, at a temporarily lowered temperature.
+    const cs = c.chatCompletionSettings as Record<string, unknown> | undefined;
+    const savedTemp = cs?.temp_openai;
+    if (cs && savedTemp !== undefined) cs.temp_openai = Math.min(Number(savedTemp), this.taskTemperature());
+    try {
+      return String((await c.generateRaw({ prompt: msgs, responseLength: budget, trimNames: false })) ?? '');
+    } finally {
+      if (cs && savedTemp !== undefined) cs.temp_openai = savedTemp;
+    }
+  }
 
   private serialize<T>(fn: () => Promise<T>): Promise<T> {
     const p = this.queue.then(fn, fn);
@@ -331,26 +364,17 @@ export class StModel implements ModelPort {
         // Empty replies are common with reasoning models (thinking uses up the budget) and with
         // provider content filters. Retry with a larger budget before giving up.
         let budget = opts.maxTokens || 4096;
-        // Internal analysis must be near-deterministic: at the user's story temperature (often 1.0)
-        // small models drift and emit broken or truncated JSON. Override only for this request.
-        const cs = c.chatCompletionSettings as Record<string, unknown> | undefined;
-        const savedTemp = cs?.temp_openai;
-        const restoreTemp = () => { if (cs && savedTemp !== undefined) cs.temp_openai = savedTemp; };
-        if (cs && savedTemp !== undefined) cs.temp_openai = Math.min(Number(savedTemp), this.taskTemperature());
-        try {
-          for (let attempt = 1; ; attempt++) {
-            try {
-              const out = await c.generateRaw({ prompt: msgs, responseLength: budget, trimNames: false });
-              return String(out ?? '');
-            } catch (e) {
-              const empty = /No message generated/i.test((e as Error).message);
-              if (!empty || opts.signal?.aborted) throw e;
-              if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort or use a non-reasoning model for this chat), a provider content filter blocking the request, or a very small max response length.`);
-              budget = Math.min(budget * 2, 16384);
-            }
+        // Internal analysis runs near-deterministically (taskTemperature): at a story temperature
+        // such as 1.0, models drift and emit broken or truncated JSON.
+        for (let attempt = 1; ; attempt++) {
+          try {
+            return await this.complete(msgs, budget, opts.signal);
+          } catch (e) {
+            const empty = /No message generated/i.test((e as Error).message);
+            if (!empty || opts.signal?.aborted) throw e;
+            if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort, or choose a fast non-reasoning model as the analysis connection in the Canon Engine settings), a provider content filter blocking the request, or a very small max response length.`);
+            budget = Math.min(budget * 2, 16384);
           }
-        } finally {
-          restoreTemp();
         }
       } finally {
         if (gen.raw?.token === token) gen.raw = null;

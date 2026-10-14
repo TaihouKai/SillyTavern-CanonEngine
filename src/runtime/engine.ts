@@ -34,6 +34,8 @@ export interface EngineSettings {
   debug: boolean;
   /** Sampling temperature for internal structured tasks (not the GM's story replies). */
   taskTemperature: number;
+  /** ST connection profile id for internal analysis tasks; '' = the chat's own connection. */
+  taskProfileId: string;
 }
 
 export const DEFAULT_SETTINGS: EngineSettings = {
@@ -49,6 +51,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   horaeWaitMs: 60000,
   debug: false,
   taskTemperature: 0.2,
+  taskProfileId: '',
 };
 
 export type OpPhase = 'idle' | 'reconciling' | 'planning' | 'generating' | 'validating' | 'committing' | 'error' | 'conflict' | 'disabled';

@@ -15373,7 +15373,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.2.0";
+var ENGINE_VERSION = "1.3.0";
 
 // src/runtime/engine.ts
 var DEFAULT_SETTINGS = {
@@ -15388,7 +15388,8 @@ var DEFAULT_SETTINGS = {
   opportunityWindowMinutes: 720,
   horaeWaitMs: 6e4,
   debug: false,
-  taskTemperature: 0.2
+  taskTemperature: 0.2,
+  taskProfileId: ""
 };
 var MAX_MANIFESTS = 40;
 var CanonEngine = class {
@@ -17110,6 +17111,41 @@ var StModel = class {
   horaePresent = false;
   /** Read at call time so the drawer setting applies immediately. */
   taskTemperature = () => 0.2;
+  /** Connection profile for internal analysis tasks ('' = the chat's own connection). Story drafts never use it. */
+  taskProfileId = () => "";
+  /** One internal-task completion, through the task profile when one is configured. */
+  async complete(msgs, budget, signal) {
+    const c = ctx();
+    const profileId = this.taskProfileId();
+    if (profileId) {
+      const svc = c.ConnectionManagerRequestService;
+      if (!svc) throw new Error("the analysis connection profile needs the SillyTavern Connection Manager (Connection Profiles), which is not available");
+      let profile;
+      try {
+        profile = svc.getProfile(profileId);
+      } catch {
+        throw new Error("the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings");
+      }
+      try {
+        const res = await svc.sendRequest(profileId, msgs, budget, { stream: false, signal: signal || null, extractData: true, includePreset: true }, { temperature: this.taskTemperature() });
+        const out = String(res?.content ?? "").trim();
+        if (!out) throw new Error("No message generated");
+        return out;
+      } catch (e) {
+        const err = e;
+        if (/No message generated/.test(err.message)) throw err;
+        throw new Error(`analysis profile "${profile?.name || profileId}": ${err.cause?.message || err.message}`);
+      }
+    }
+    const cs = c.chatCompletionSettings;
+    const savedTemp = cs?.temp_openai;
+    if (cs && savedTemp !== void 0) cs.temp_openai = Math.min(Number(savedTemp), this.taskTemperature());
+    try {
+      return String(await c.generateRaw({ prompt: msgs, responseLength: budget, trimNames: false }) ?? "");
+    } finally {
+      if (cs && savedTemp !== void 0) cs.temp_openai = savedTemp;
+    }
+  }
   serialize(fn) {
     const p = this.queue.then(fn, fn);
     this.queue = p.catch(() => void 0);
@@ -17127,26 +17163,15 @@ var StModel = class {
       gen.raw = { token, messages: messages.map((m) => ({ ...m })) };
       try {
         let budget = opts.maxTokens || 4096;
-        const cs = c.chatCompletionSettings;
-        const savedTemp = cs?.temp_openai;
-        const restoreTemp = () => {
-          if (cs && savedTemp !== void 0) cs.temp_openai = savedTemp;
-        };
-        if (cs && savedTemp !== void 0) cs.temp_openai = Math.min(Number(savedTemp), this.taskTemperature());
-        try {
-          for (let attempt = 1; ; attempt++) {
-            try {
-              const out = await c.generateRaw({ prompt: msgs, responseLength: budget, trimNames: false });
-              return String(out ?? "");
-            } catch (e) {
-              const empty = /No message generated/i.test(e.message);
-              if (!empty || opts.signal?.aborted) throw e;
-              if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort or use a non-reasoning model for this chat), a provider content filter blocking the request, or a very small max response length.`);
-              budget = Math.min(budget * 2, 16384);
-            }
+        for (let attempt = 1; ; attempt++) {
+          try {
+            return await this.complete(msgs, budget, opts.signal);
+          } catch (e) {
+            const empty = /No message generated/i.test(e.message);
+            if (!empty || opts.signal?.aborted) throw e;
+            if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort, or choose a fast non-reasoning model as the analysis connection in the Canon Engine settings), a provider content filter blocking the request, or a very small max response length.`);
+            budget = Math.min(budget * 2, 16384);
           }
-        } finally {
-          restoreTemp();
         }
       } finally {
         if (gen.raw?.token === token) gen.raw = null;
@@ -17354,6 +17379,10 @@ var D = {
   libUpdate: { zh: "\u66F4\u65B0\u4E3A\u6B64\u5305\u2026", en: "Update to this pack\u2026" },
   libDelete: { zh: "\u4ECE\u5386\u53F2\u5305\u5E93\u5220\u9664", en: "Remove from library" },
   packOrigin: { zh: "\u5386\u53F2\u5305\u8BF4\u660E\u7684\u7B2C0\u5929", en: "Pack day 0" },
+  taskProfile: { zh: "\u5206\u6790\u7528\u8FDE\u63A5\uFF08\u5185\u90E8\u68C0\u67E5\u7528\u7684\u6A21\u578B\uFF09", en: "Analysis connection (model for internal checks)" },
+  taskProfileSame: { zh: "\u4E0E\u5F53\u524D\u5BF9\u8BDD\u76F8\u540C\uFF08\u9ED8\u8BA4\uFF09", en: "Same as the chat (default)" },
+  taskProfileHint: { zh: "GM \u7684\u6545\u4E8B\u56DE\u590D\u59CB\u7EC8\u4F7F\u7528\u5F53\u524D\u5BF9\u8BDD\u7684\u8FDE\u63A5\u3002\u8FD9\u91CC\u53EA\u51B3\u5B9A\u5F15\u64CE\u5185\u90E8\u7684\u5206\u6790\u8BF7\u6C42\uFF08\u63D0\u53D6\u3001\u6838\u5BF9\u3001\u89C4\u5212\uFF09\u3002\u5EFA\u8BAE\u9009\u4E00\u4E2A\u5FEB\u901F\u3001\u4FBF\u5B9C\u3001\u975E\u63A8\u7406\u7684\u6A21\u578B\u7684\u8FDE\u63A5\u914D\u7F6E\u3002\u5728 SillyTavern \u7684\u201C\u8FDE\u63A5\u914D\u7F6E\u201D\u4E2D\u521B\u5EFA\u914D\u7F6E\u540E\u5373\u53EF\u5728\u6B64\u9009\u62E9\u3002", en: "The GM's story replies always use the chat's connection. This only selects the model for the engine's internal analysis (extraction, checks, planning). A fast, cheap, non-reasoning model is recommended. Create profiles in SillyTavern's Connection Profiles." },
+  taskProfileNone: { zh: "\u6CA1\u6709\u53EF\u7528\u7684\u8FDE\u63A5\u914D\u7F6E\uFF08\u8BF7\u5148\u5728 SillyTavern \u7684\u201C\u8FDE\u63A5\u914D\u7F6E\u201D\u4E2D\u4FDD\u5B58\u4E00\u4E2A\uFF09\u3002", en: "No connection profiles yet (save one in SillyTavern's Connection Profiles first)." },
   spoilers: { zh: "\u663E\u793A\u5267\u900F\uFF08\u672A\u6765\u951A\u70B9\u4E0E\u8BA1\u5212\uFF09", en: "Show spoilers (future anchors and plans)" },
   tabOverview: { zh: "\u6982\u89C8", en: "Overview" },
   tabFacts: { zh: "\u5F53\u524D\u4E8B\u5B9E", en: "Facts" },
@@ -17969,6 +17998,7 @@ function renderSettings() {
   if (comp.books.length) lines.push(`<div class="canon-note warn">${t("competing")} ${comp.books.map(esc2).join(", ")}<br>${t("competingHint")}</div>`);
   if (comp.gmRule) lines.push(`<div class="canon-note warn">${t("gmConflict")}</div>`);
   if (hd.version && !hd.ok) lines.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc2(hd.missing.join(", "))}</div>`);
+  lines.push(profileSelect(s.taskProfileId || ""));
   lines.push(`<details><summary>${t("advanced")}</summary><div class="canon-adv">
     ${num("maxRepairs", s.maxRepairs)}${num("maxOrdinaryPlanner", s.maxOrdinaryPlanner)}${num("budgetChars", s.budgetChars)}${num("taskTimeoutMs", s.taskTimeoutMs)}${num("draftTimeoutMs", s.draftTimeoutMs)}${num("horizonMinutes", s.horizonMinutes)}${num("taskTemperature", s.taskTemperature)}
     <label><input type="checkbox" data-set="forcedPlannerAttempt" ${s.forcedPlannerAttempt ? "checked" : ""}> forcedPlannerAttempt</label>
@@ -17976,6 +18006,18 @@ function renderSettings() {
     <label>UI <select data-set="uiLang"><option value="zh" ${s.uiLang !== "en" ? "selected" : ""}>\u4E2D\u6587</option><option value="en" ${s.uiLang === "en" ? "selected" : ""}>English</option></select></label>
     </div></details>`);
   body.innerHTML = lines.join("");
+}
+function profileSelect(current) {
+  let profiles = [];
+  try {
+    profiles = ctx().ConnectionManagerRequestService?.getSupportedProfiles?.() || [];
+  } catch {
+    profiles = [];
+  }
+  const missing = current && !profiles.some((p) => p.id === current);
+  const opts = [`<option value="">${t("taskProfileSame")}</option>`].concat(profiles.map((p) => `<option value="${esc2(p.id)}" ${p.id === current ? "selected" : ""}>${esc2(p.name)}${p.model ? ` \xB7 ${esc2(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc2(current)}" selected>\u26A0 ${esc2(current)}</option>`] : []);
+  return `<div class="canon-profile"><label>${t("taskProfile")} <select class="text_pole" data-set="taskProfileId">${opts.join("")}</select></label>
+    <div class="canon-note">${profiles.length ? t("taskProfileHint") : t("taskProfileNone")}</div></div>`;
 }
 function num(key, v) {
   return `<label class="canon-num">${key} <input type="number" class="text_pole" data-set="${key}" value="${v}"></label>`;
@@ -18490,6 +18532,7 @@ async function init() {
   const model = new StModel();
   host = new StHost(model);
   model.horaePresent = !!HoraeAdapter.detect();
+  model.taskProfileId = () => String(globalSettings().taskProfileId || "");
   model.taskTemperature = () => {
     const t2 = Number(globalSettings().taskTemperature);
     return Number.isFinite(t2) ? t2 : 0.2;
@@ -18498,7 +18541,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.2.0" };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.3.0" };
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
   const first = (ev, fn) => typeof es.makeFirst === "function" ? es.makeFirst(ev, fn) : es.on(ev, fn);
@@ -18545,7 +18588,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
-  console.log("[CanonEngine] v1.2.0 loaded");
+  console.log("[CanonEngine] v1.3.0 loaded");
 }
 (async () => {
   try {
