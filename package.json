@@ -6,10 +6,13 @@
   "type": "module",
   "scripts": {
     "gen:validators": "node scripts/gen-validators.mjs",
-    "build": "node scripts/gen-validators.mjs && node scripts/build.mjs",
+    "build": "node scripts/gen-validators.mjs && node scripts/build.mjs && node scripts/build-cli.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "lint:pack": "node scripts/lint-pack.mjs"
+    "e2e:mock": "node tests/e2e/mockServer.mjs 5555",
+    "e2e": "node tests/e2e/integration.mjs",
+    "e2e:story": "node tests/e2e/story-session.mjs",
+    "lint:pack": "node dist/canon-lint.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

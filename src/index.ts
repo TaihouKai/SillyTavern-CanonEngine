@@ -131,6 +131,7 @@ async function init() {
   model.horaePresent = !!HoraeAdapter.detect();
   engine = new CanonEngine(host, globalSettings());
   lock = new WriterLock(engine.instanceId);
+  host.writerCheck = () => lock!.isOwner();
   (globalThis as any).canonEngineGenerateInterceptor = interceptor;
   (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: '1.0.0' };
 

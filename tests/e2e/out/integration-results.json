@@ -1,0 +1,115 @@
+{
+ "at": "2026-10-14T10:30:44.031Z",
+ "results": [
+  {
+   "name": "I01 draft uses ST full prompt: card + persona + Author's Note + keyword lore + Horae + engine context",
+   "pass": true,
+   "detail": "main=1"
+  },
+  {
+   "name": "I09 private draft request is not streamed; global streaming setting untouched",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "I08 internal tasks are isolated (2 messages; no card/AN/lore/Horae injection; Persona only as an explicit extractor input; no recursive story turn)",
+   "pass": true,
+   "detail": "extract_user:2,plan:2,discover:2,evaluate:2"
+  },
+  {
+   "name": "I03 accepted reply published once through native lifecycle",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "I03 Horae analyzes only the accepted text",
+   "pass": true,
+   "detail": "晨雾笼罩着森林边缘的小屋，Seraphina 为你端来热茶。"
+  },
+  {
+   "name": "R01 swipe A committed: Mira alive, ambush diverged",
+   "pass": true,
+   "detail": "{\"medic-ambush\":\"diverged\"}"
+  },
+  {
+   "name": "Swipe: new variant generated privately and published as swipe #2 with new variant id",
+   "pass": true,
+   "detail": "swipes=2 id=1"
+  },
+  {
+   "name": "Swipe: replaced reply is not in the new candidate prompt",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R01 swipe B selected: Mira dead",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R01 switching back to swipe A restores its state without model calls",
+   "pass": true,
+   "detail": "tasks=0"
+  },
+  {
+   "name": "R02 regenerate replaces the reply; old variants are not in the candidate prompt",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R02 regenerated reply starts from the pre-response world (one ambush disposition)",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R03 continue revises the same reply; whole revised message validated; effects not double counted",
+   "pass": true,
+   "detail": "Mira 被你护在身后，伏击者仓皇撤退。VARIANT_C 她低声向你道谢。CONT_D"
+  },
+  {
+   "name": "R17 cancelled regenerate restores the prior reply; no empty/late message",
+   "pass": true,
+   "detail": "len 3->3"
+  },
+  {
+   "name": "Cancel: user message preserved, no GM message created, late result discarded",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "Setup: rescue committed with authorized player action",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "E02/E12 edited user message: retained GM rescue exposed as the first conflict; text preserved; no invented rescue",
+   "pass": true,
+   "detail": "{\"status\":\"conflict\",\"messageId\":\"msg_bb4173ddf3bc799e24017896\",\"messageIndex\":2,\"reason\":\"Reviewer: the rescue is not authorized by the edited user message and no separate cause is described (\\\"你拉着 Mira 冲出包围\\\")\",\"at\":1791973826488}"
+  },
+  {
+   "name": "Advancement frozen while the conflict is unresolved (no generation)",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "E13 resolving the conflict by editing the identified reply clears recovery",
+   "pass": true,
+   "detail": "{\"status\":\"ok\"}"
+  },
+  {
+   "name": "R05/E14 branch gets a new branch identity and an isolated copy of the shared prefix",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "E14 regenerating in the branch produces a fresh suffix",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R05 parent branch unaffected by the child branch",
+   "pass": true,
+   "detail": ""
+  }
+ ]
+}

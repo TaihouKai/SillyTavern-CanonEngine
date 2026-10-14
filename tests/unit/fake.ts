@@ -27,6 +27,8 @@ export class FakeHost implements HostPort {
     this.model = model || new ScriptedModel();
     this.chat.push({ role: 'gm', text: 'Welcome to the harbor. (greeting)', mid: newId('msg'), vid: newId('var') });
   }
+  writer = true;
+  isWriter() { return this.writer; }
   chatId() { return this.chatIdValue; }
   isGroup() { return this.group; }
   integrity() { return this.integrityValue; }

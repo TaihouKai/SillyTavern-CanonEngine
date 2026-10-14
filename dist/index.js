@@ -13931,7 +13931,9 @@ var CanonEngine = class {
       this.setStatus("disabled", "group chats unsupported");
       return null;
     }
-    const allowModel = opts.allowModel !== false;
+    const readOnly = !!this.host.isWriter && !this.host.isWriter();
+    const allowModel = opts.allowModel !== false && !readOnly;
+    const chatAtStart = this.host.chatId();
     const pack2 = this.pack();
     await this.recoverPending(c);
     let entries = this.transcriptFor(opts);
@@ -13967,6 +13969,9 @@ var CanonEngine = class {
       }
       throw e;
     }
+    if (this.host.chatId() !== chatAtStart || this.campaign() !== c) {
+      throw new EngineError("stale_response", "chat changed during reconciliation");
+    }
     const issue = r.issue;
     const result = r;
     this.current = { replay: result, index: new WorldIndex(pack2, result.state) };
@@ -13996,6 +14001,11 @@ var CanonEngine = class {
     if (fingerprintChanged || changedFrom >= 0) {
       c.revision++;
       for (const p of c.planRevisions) if (p.status === "active" && changedFrom >= 0) p.status = "stale";
+    }
+    if (readOnly) {
+      this.setStatus("disabled", "Another tab is the active writer for this campaign; this tab is read-only.");
+      this.emit();
+      return result;
     }
     try {
       const wasUnsaved = c.recoveryState.status === "unsaved";
@@ -14411,6 +14421,10 @@ var CanonEngine = class {
     }
     if (this.opActive) {
       this.notice("warn", "Canon Engine is already working on a reply. Wait or cancel it first.");
+      return false;
+    }
+    if (this.host.isWriter && !this.host.isWriter()) {
+      this.notice("error", "Another tab is the active writer for this campaign; generation is blocked here.");
       return false;
     }
     const operationId = newId("op");
@@ -15131,6 +15145,10 @@ var StHost = class {
   model;
   saving = Promise.resolve();
   pendingStamp = null;
+  writerCheck = null;
+  isWriter() {
+    return this.writerCheck ? this.writerCheck() : true;
+  }
   constructor(model) {
     this.model = model;
     this.horae = HoraeAdapter.detect();
@@ -16133,6 +16151,7 @@ async function init() {
   model.horaePresent = !!HoraeAdapter.detect();
   engine = new CanonEngine(host, globalSettings());
   lock = new WriterLock(engine.instanceId);
+  host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
   globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.0.0" };
   const es = c.eventSource;

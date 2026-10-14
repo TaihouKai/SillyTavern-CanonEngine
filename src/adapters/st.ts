@@ -63,6 +63,9 @@ export class StHost implements HostPort {
   model: ModelPort;
   private saving: Promise<void> = Promise.resolve();
   pendingStamp: null | { messageId: string; variantId: string; commitId: string } = null;
+  writerCheck: (() => boolean) | null = null;
+
+  isWriter(): boolean { return this.writerCheck ? this.writerCheck() : true; }
 
   constructor(model: ModelPort) {
     this.model = model;

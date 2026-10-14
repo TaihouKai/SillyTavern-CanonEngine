@@ -327,6 +327,28 @@ describe('races, persistence and recovery', () => {
     expect(st(x).occurrences.size).toBeGreaterThan(0);
   });
 
+  it('R15 a non-writer tab neither saves nor generates; a chat switch during reconciliation adopts nothing', async () => {
+    const x = await setup();
+    x.host.writer = false;
+    const saves = x.host.saves;
+    x.host.addUser('I look.');
+    await x.engine.reconcile('read-only');
+    expect(x.host.saves).toBe(saves);
+    expect(await x.engine.runOperation('normal')).toBe(false);
+    x.host.writer = true;
+    // chat switch while a model call inside reconcile is pending
+    const gate = deferred();
+    x.model.taskGate.extract_user = () => gate.promise;
+    x.host.addUser('Another message.');
+    const p = x.engine.reconcile('switch').catch((e) => e.kind);
+    await new Promise((r) => setTimeout(r, 20));
+    const savesBefore = x.host.saves;
+    x.host.chatIdValue = 'other-chat';
+    gate.resolve();
+    expect(await p).toBe('stale_response');
+    expect(x.host.saves).toBe(savesBefore);
+  });
+
   it('R16 the bound snapshot is unchanged when the source pack changes; updates need explicit review', async () => {
     const x = await setup();
     const hash = x.engine.campaign()!.packHash;

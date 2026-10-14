@@ -44,6 +44,8 @@ export interface HostPort {
   publish(req: PublishRequest, interp: Interpretation): Promise<void>;
   /** Restore a native prior reply captured before a failed/cancelled regenerate/swipe. */
   restorePrior(op: OpType, prior: unknown): Promise<void>;
+  /** False when another tab of this browser profile owns the campaign (read-only here). */
+  isWriter?(): boolean;
   /** Wait until native UI transitions (e.g. swipe animation/revert) have settled. */
   settle?(): Promise<void>;
   persona(): { name: string; description: string };

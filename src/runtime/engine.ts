@@ -283,7 +283,9 @@ export class CanonEngine {
     const c = this.campaign();
     if (!c || !c.enabled) { this.current = null; return null; }
     if (this.host.isGroup()) { this.setStatus('disabled', 'group chats unsupported'); return null; }
-    const allowModel = opts.allowModel !== false;
+    const readOnly = !!this.host.isWriter && !this.host.isWriter();
+    const allowModel = opts.allowModel !== false && !readOnly;
+    const chatAtStart = this.host.chatId();
     const pack = this.pack();
     await this.recoverPending(c);
     let entries = this.transcriptFor(opts);
@@ -317,6 +319,10 @@ export class CanonEngine {
       try { await this.host.save(); } catch { /* reported below */ }
       throw e;
     }
+    if (this.host.chatId() !== chatAtStart || this.campaign() !== c) {
+      // The chat changed while models were working: never adopt or save state for another chat.
+      throw new EngineError('stale_response', 'chat changed during reconciliation');
+    }
     const issue = r!.issue;
     const result = r!;
     this.current = { replay: result, index: new WorldIndex(pack, result.state) };
@@ -345,6 +351,11 @@ export class CanonEngine {
       c.revision++;
       // Plans derived from an older source prefix are stale (revalidated or replanned before use).
       for (const p of c.planRevisions) if (p.status === 'active' && changedFrom >= 0) p.status = 'stale';
+    }
+    if (readOnly) {
+      this.setStatus('disabled', 'Another tab is the active writer for this campaign; this tab is read-only.');
+      this.emit();
+      return result;
     }
     try {
       const wasUnsaved = c.recoveryState.status === 'unsaved';
@@ -690,6 +701,7 @@ export class CanonEngine {
     if (!c0 || !c0.enabled) return false;
     if (this.host.isGroup()) { this.notice('error', 'Canon Engine does not support group chats in v1; generation was blocked to avoid an unprotected turn.'); return false; }
     if (this.opActive) { this.notice('warn', 'Canon Engine is already working on a reply. Wait or cancel it first.'); return false; }
+    if (this.host.isWriter && !this.host.isWriter()) { this.notice('error', 'Another tab is the active writer for this campaign; generation is blocked here.'); return false; }
     const operationId = newId('op');
     const abort = new AbortController();
     this.opActive = { operationId, abort, fences: null, op };
