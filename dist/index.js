@@ -11426,6 +11426,12 @@ function parseTickLabel(s) {
   if (hh > 23 || mm > 59) return null;
   return day * DAY + hh * 60 + mm;
 }
+function parseOriginLabel(label) {
+  const m = String(label || "").match(/(\d{3,6})\s*(?:-|\/|年)\s*(\d{1,2})\s*(?:-|\/|月)\s*(\d{1,2})/);
+  if (!m) return null;
+  const o = { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
+  return o.m >= 1 && o.m <= 12 && o.d >= 1 && o.d <= 31 ? o : null;
+}
 function parseDateLabel(s, origin) {
   if (!origin) return null;
   const m = String(s).trim().match(/^(\d{1,6})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/);
@@ -13701,7 +13707,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.1.1";
+var ENGINE_VERSION = "1.1.2";
 
 // src/runtime/engine.ts
 var DEFAULT_SETTINGS = {
@@ -13803,6 +13809,7 @@ var CanonEngine = class {
       errors: [],
       warnings: r.warnings,
       summary: {
+        originLabel: L.pack.calendar.origin_label,
         title: L.pack.title,
         version: L.pack.pack_version,
         packId: L.pack.pack_id,
@@ -15595,6 +15602,7 @@ var D = {
   libEnable: { zh: "\u7528\u6B64\u5305\u542F\u7528", en: "Enable with this pack" },
   libUpdate: { zh: "\u66F4\u65B0\u4E3A\u6B64\u5305\u2026", en: "Update to this pack\u2026" },
   libDelete: { zh: "\u4ECE\u5386\u53F2\u5305\u5E93\u5220\u9664", en: "Remove from library" },
+  packOrigin: { zh: "\u5386\u53F2\u5305\u8BF4\u660E\u7684\u7B2C0\u5929", en: "Pack day 0" },
   spoilers: { zh: "\u663E\u793A\u5267\u900F\uFF08\u672A\u6765\u951A\u70B9\u4E0E\u8BA1\u5212\uFF09", en: "Show spoilers (future anchors and plans)" },
   tabOverview: { zh: "\u6982\u89C8", en: "Overview" },
   tabFacts: { zh: "\u5F53\u524D\u4E8B\u5B9E", en: "Facts" },
@@ -16328,8 +16336,12 @@ function openBindWizard(text) {
     return;
   }
   const S = p.summary;
-  const startDefault = formatTick(parseCoverageStart(S.coverage));
-  const evOptions = E.previewEvents(text).map((e) => `<option value="${e.lo - 1}">${esc2(e.title)} (${esc2(formatTick(e.lo))})</option>`).join("");
+  const origin0 = parseOriginLabel(S.originLabel);
+  const covStart = parseCoverageStart(S.coverage);
+  const defTick = covStart <= 480 ? 480 : covStart;
+  const startDefault = formatTick(defTick, origin0).replace(/ \(D-?\d+\)$/, "");
+  const originDefault = origin0 ? `${origin0.y}-${String(origin0.m).padStart(2, "0")}-${String(origin0.d).padStart(2, "0")}` : "";
+  const evOptions = E.previewEvents(text).map((e) => `<option value="${e.lo - 1}">${esc2(e.title)} (${esc2(formatTick(e.lo, origin0))})</option>`).join("");
   const el = modal(`<h3>${t("wizardTitle")}</h3>
     <div><b>${esc2(S.title)}</b> v${esc2(S.version)} <small>(${esc2(S.packId)}, ${esc2(S.hash.slice(0, 12))})</small></div>
     <div>${t("validation")}: <b>${t("ok")}</b> \xB7 ${t("coverage")}: ${esc2(S.coverage)} \xB7 ${t("hardCount")}: ${S.hardCount}</div>
@@ -16338,12 +16350,16 @@ function openBindWizard(text) {
     ${existing ? `<div class="canon-note">${t("existingChat")}</div>` : ""}
     <label>${t("startTime")} <input class="text_pole canon-start" value="${esc2(startDefault)}" placeholder="D0 08:00 \u6216 2020-07-20 08:00\uFF08\u9700\u586B\u5199\u4E0B\u65B9\u7B2C0\u5929\u65E5\u671F\uFF09"></label>
     <label>${t("startBefore")} <select class="canon-start-ev"><option value="">\u2014</option>${evOptions}</select></label>
-    <label>${t("originDate")} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD"></label>
+    <label>${t("originDate")} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD" value="${esc2(originDefault)}"></label>
+    ${S.originLabel ? `<div class="canon-note">${t("packOrigin")}: ${esc2(S.originLabel)}</div>` : ""}
     <div class="canon-row"><button class="menu_button canon-confirm">${t("confirmBind")}</button><button class="menu_button" data-close>${t("close")}</button></div>
     <div class="canon-wizard-status"></div>`);
   el.querySelector(".canon-start-ev").addEventListener("change", (ev) => {
     const v = ev.target.value;
-    if (v) el.querySelector(".canon-start").value = formatTick(Number(v));
+    if (!v) return;
+    const om = el.querySelector(".canon-origin").value.trim().match(/^(\d{1,6})-(\d{1,2})-(\d{1,2})$/);
+    const og = om ? { y: Number(om[1]), m: Number(om[2]), d: Number(om[3]) } : null;
+    el.querySelector(".canon-start").value = formatTick(Number(v), og).replace(/ \(D-?\d+\)$/, "");
   });
   el.querySelector(".canon-confirm").addEventListener("click", async () => {
     const o = el.querySelector(".canon-origin").value.trim().match(/^(\d{1,6})-(\d{1,2})-(\d{1,2})$/);
@@ -16715,7 +16731,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.1.1" };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.1.2" };
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
   const first = (ev, fn) => typeof es.makeFirst === "function" ? es.makeFirst(ev, fn) : es.on(ev, fn);
@@ -16762,7 +16778,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
-  console.log("[CanonEngine] v1.1.1 loaded");
+  console.log("[CanonEngine] v1.1.2 loaded");
 }
 (async () => {
   try {

@@ -7,7 +7,7 @@ import { ctx, NS, gen } from '../adapters/st';
 import { HoraeAdapter } from '../adapters/horae';
 import type { WriterLock } from '../adapters/lock';
 import { interpretationsFor, baseKey } from '../runtime/replay';
-import { parseTickLabel, parseDateLabel, formatTick } from '../domain/time';
+import { parseTickLabel, parseDateLabel, parseOriginLabel, formatTick } from '../domain/time';
 import { t, setLang } from './i18n';
 import { GraphPanel, packGraph, currentGraph } from './graph';
 import { listLibrary, saveToLibrary, loadFromLibrary, removeFromLibrary, type LibraryEntry } from './library';
@@ -277,8 +277,13 @@ function openBindWizard(text: string) {
     return;
   }
   const S = p.summary;
-  const startDefault = formatTick(parseCoverageStart(S.coverage));
-  const evOptions = E.previewEvents(text).map((e) => `<option value="${e.lo - 1}">${esc(e.title)} (${esc(formatTick(e.lo))})</option>`).join('');
+  // Default: the pack's day-0 date (from its calendar label) and day 0 08:00 when covered.
+  const origin0 = parseOriginLabel(S.originLabel);
+  const covStart = parseCoverageStart(S.coverage);
+  const defTick = covStart <= 480 ? 480 : covStart;
+  const startDefault = formatTick(defTick, origin0).replace(/ \(D-?\d+\)$/, '');
+  const originDefault = origin0 ? `${origin0.y}-${String(origin0.m).padStart(2, '0')}-${String(origin0.d).padStart(2, '0')}` : '';
+  const evOptions = E.previewEvents(text).map((e) => `<option value="${e.lo - 1}">${esc(e.title)} (${esc(formatTick(e.lo, origin0))})</option>`).join('');
   const el = modal(`<h3>${t('wizardTitle')}</h3>
     <div><b>${esc(S.title)}</b> v${esc(S.version)} <small>(${esc(S.packId)}, ${esc(S.hash.slice(0, 12))})</small></div>
     <div>${t('validation')}: <b>${t('ok')}</b> · ${t('coverage')}: ${esc(S.coverage)} · ${t('hardCount')}: ${S.hardCount}</div>
@@ -287,12 +292,16 @@ function openBindWizard(text: string) {
     ${existing ? `<div class="canon-note">${t('existingChat')}</div>` : ''}
     <label>${t('startTime')} <input class="text_pole canon-start" value="${esc(startDefault)}" placeholder="D0 08:00 或 2020-07-20 08:00（需填写下方第0天日期）"></label>
     <label>${t('startBefore')} <select class="canon-start-ev"><option value="">—</option>${evOptions}</select></label>
-    <label>${t('originDate')} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD"></label>
+    <label>${t('originDate')} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD" value="${esc(originDefault)}"></label>
+    ${S.originLabel ? `<div class="canon-note">${t('packOrigin')}: ${esc(S.originLabel)}</div>` : ''}
     <div class="canon-row"><button class="menu_button canon-confirm">${t('confirmBind')}</button><button class="menu_button" data-close>${t('close')}</button></div>
     <div class="canon-wizard-status"></div>`);
   el.querySelector('.canon-start-ev')!.addEventListener('change', (ev) => {
     const v = (ev.target as HTMLSelectElement).value;
-    if (v) (el.querySelector('.canon-start') as HTMLInputElement).value = formatTick(Number(v));
+    if (!v) return;
+    const om = (el.querySelector('.canon-origin') as HTMLInputElement).value.trim().match(/^(\d{1,6})-(\d{1,2})-(\d{1,2})$/);
+    const og = om ? { y: Number(om[1]), m: Number(om[2]), d: Number(om[3]) } : null;
+    (el.querySelector('.canon-start') as HTMLInputElement).value = formatTick(Number(v), og).replace(/ \(D-?\d+\)$/, '');
   });
   el.querySelector('.canon-confirm')!.addEventListener('click', async () => {
     const o = (el.querySelector('.canon-origin') as HTMLInputElement).value.trim().match(/^(\d{1,6})-(\d{1,2})-(\d{1,2})$/);

@@ -68,6 +68,14 @@ export function compareStoryTime(a: StoryTime, b: StoryTime): number {
 }
 
 /** Parse "YYYY-MM-DD HH:MM" (or "YYYY-MM-DD") relative to a display origin date for day 0. */
+/** Find a calendar date for day 0 in a pack's free-text calendar label ("2020-07-19" or "2020年7月19日"). */
+export function parseOriginLabel(label: string | undefined | null): { y: number; m: number; d: number } | null {
+  const m = String(label || '').match(/(\d{3,6})\s*(?:-|\/|年)\s*(\d{1,2})\s*(?:-|\/|月)\s*(\d{1,2})/);
+  if (!m) return null;
+  const o = { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
+  return o.m >= 1 && o.m <= 12 && o.d >= 1 && o.d <= 31 ? o : null;
+}
+
 export function parseDateLabel(s: string, origin: { y: number; m: number; d: number } | null): number | null {
   if (!origin) return null;
   const m = String(s).trim().match(/^(\d{1,6})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/);

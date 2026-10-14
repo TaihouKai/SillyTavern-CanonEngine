@@ -151,14 +151,14 @@ export class CanonEngine {
   // ---------------------------------------------------------------------------------------------
   // Binding
 
-  previewPack(text: string): { ok: boolean; errors: LintIssue[]; warnings: LintIssue[]; summary?: { title: string; version: string; packId: string; hash: string; hardCount: number; events: number; entities: number; coverage: string; hard: { id: string; title: string; when: string; required: string }[] } } {
+  previewPack(text: string): { ok: boolean; errors: LintIssue[]; warnings: LintIssue[]; summary?: { originLabel: string; title: string; version: string; packId: string; hash: string; hardCount: number; events: number; entities: number; coverage: string; hard: { id: string; title: string; when: string; required: string }[] } } {
     const r = validatePackText(text);
     if (!r.ok || !r.loaded) return { ok: false, errors: r.errors, warnings: r.warnings };
     const L = r.loaded;
     return {
       ok: true, errors: [], warnings: r.warnings,
       summary: {
-        title: L.pack.title, version: L.pack.pack_version, packId: L.pack.pack_id, hash: L.hash, hardCount: L.hardEvents.length, events: L.pack.events.length,
+        originLabel: L.pack.calendar.origin_label, title: L.pack.title, version: L.pack.pack_version, packId: L.pack.pack_id, hash: L.hash, hardCount: L.hardEvents.length, events: L.pack.events.length,
         entities: L.pack.entities.length, coverage: `${formatTick(L.coverage.start)} – ${formatTick(L.coverage.end)}`,
         hard: L.hardEvents.map((id) => { const e = L.events.get(id)!; return { id, title: e.title, when: e.when.label, required: e.required_description || '' }; }),
       },

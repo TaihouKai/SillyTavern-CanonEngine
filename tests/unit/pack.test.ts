@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { validatePack, validatePackText, valuesEqual, normalizeValue, WORLD_INFO_ERROR } from '../../src/domain/pack';
 import { reduce, evalCondition, factAt, triLabel, applyRecord } from '../../src/domain/reducer';
 import { buildBootstrap, crossedCandidates, adjudicateDefault, occurrenceWindow, hardDeadlinesReached } from '../../src/domain/schedule';
-import { formatTick, toTick, parseDateLabel } from '../../src/domain/time';
+import { formatTick, toTick, parseDateLabel, parseOriginLabel } from '../../src/domain/time';
 import { hashObject } from '../../src/domain/util';
 import type { LedgerRecord } from '../../src/domain/types';
 import { demoRaw, unrelatedRaw, load, T } from './helpers';
@@ -165,6 +165,9 @@ describe('clock, conditions, reducer', () => {
     expect(toTick({ day: -1, minute: 30 })).toBe(-1410);
     expect(parseDateLabel('2020-07-20 08:00', { y: 2020, m: 7, d: 19 })).toBe(T(1, 8));
     expect(parseDateLabel('2019-07-19', { y: 2020, m: 7, d: 19 })).toBe(T(-366, 0));
+    expect(parseOriginLabel('第0天 = 2020年7月19日（旧约第1卷开始之日）')).toEqual({ y: 2020, m: 7, d: 19 });
+    expect(parseOriginLabel('Day 0 is 1999-12-31')).toEqual({ y: 1999, m: 12, d: 31 });
+    expect(parseOriginLabel('arrival at the harbor')).toBeNull();
   });
 
   it('P15 a fluent change after a fulfilled HARD occurrence does not unfulfil it', () => {

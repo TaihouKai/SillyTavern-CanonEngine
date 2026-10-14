@@ -67,6 +67,7 @@ const D: Record<string, { zh: string; en: string }> = {
   libEnable: { zh: '用此包启用', en: 'Enable with this pack' },
   libUpdate: { zh: '更新为此包…', en: 'Update to this pack…' },
   libDelete: { zh: '从历史包库删除', en: 'Remove from library' },
+  packOrigin: { zh: '历史包说明的第0天', en: 'Pack day 0' },
   spoilers: { zh: '显示剧透（未来锚点与计划）', en: 'Show spoilers (future anchors and plans)' },
   tabOverview: { zh: '概览', en: 'Overview' },
   tabFacts: { zh: '当前事实', en: 'Facts' },
