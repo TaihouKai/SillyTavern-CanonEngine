@@ -16,7 +16,7 @@ import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, int
 import { buildPacket, retrieve, type ClaimInput, type RefInput, type Retrieval } from './context';
 import { runGate, type EvalOutput, type GateResult } from './gate';
 import { adjudicateInterval } from './adjudicator';
-import { assessImpact, impactCandidates, refreshPlan, runPlanning } from './planner';
+import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, Interpretation, OpType, PlanRevision, RecordDraft, SourceEntry } from './types';
 import { ENGINE_VERSION, STORAGE_VERSION } from './types';
 
@@ -108,6 +108,7 @@ export class CanonEngine {
     this.emit();
   }
   noticeSeq = 0;
+  private coverageNoticeShown = false;
   notice(level: 'info' | 'warn' | 'error', text: string) {
     this.noticeSeq++;
     this.notices.push({ level, text, at: this.host.now() });
@@ -337,8 +338,8 @@ export class CanonEngine {
       };
       this.setStatus('conflict', `Message #${issue.index} conflicts with the edited history: ${c.recoveryState.reason}`, { canRetry: true });
     } else {
-      if (c.recoveryState.status !== 'ok') c.recoveryState = { status: 'ok' };
-      if (prevPhase !== 'error' || !this.opActive) this.setStatus('idle');
+      if (c.recoveryState.status !== 'ok' && c.recoveryState.status !== 'unsaved') c.recoveryState = { status: 'ok' };
+      if (c.recoveryState.status !== 'unsaved' && (prevPhase !== 'error' || !this.opActive)) this.setStatus('idle');
     }
     if (fingerprintChanged || changedFrom >= 0) {
       c.revision++;
@@ -346,7 +347,14 @@ export class CanonEngine {
       for (const p of c.planRevisions) if (p.status === 'active' && changedFrom >= 0) p.status = 'stale';
     }
     try {
+      const wasUnsaved = c.recoveryState.status === 'unsaved';
       await this.host.save();
+      if (wasUnsaved) {
+        // Durable now: only a successful save clears the persistence-failure state.
+        c.recoveryState = { status: 'ok' };
+        await this.host.save();
+        this.setStatus('idle', 'Saved');
+      }
     } catch (e) {
       c.recoveryState = { status: 'unsaved', reason: (e as Error).message, at: this.host.now() };
       this.setStatus('error', 'Saving the rebuilt state failed: ' + (e as Error).message, { errorKind: 'persistence_failure', canRetry: true });
@@ -395,9 +403,13 @@ export class CanonEngine {
     };
   }
 
+  /** Candidate occurrences offered to discovery/extraction models (they map indirect references to ids). */
   private occurrenceCatalogue(index: WorldIndex, text: string, limit = 40) {
     const hits = new Set(index.semanticSearch(text, limit, 0.8).map((h) => h.occurrenceId));
     for (const m of index.scanEntities(text)) for (const o of index.occurrencesForEntity(m.id)) hits.add(o);
+    // recent actual occurrences (indirect references usually point at recent history)
+    const recent = [...index.state.occurrences.values()].sort((a, b) => b.seq - a.seq).slice(0, 15);
+    for (const o of recent) hits.add(o.occurrenceId);
     return [...hits].slice(0, limit).map((id) => { const o = index.state.occurrences.get(id)!; return { id, title: o.title, time: formatStoryTime(o.time), refPhrases: o.refPhrases }; });
   }
 
@@ -477,6 +489,11 @@ export class CanonEngine {
       stagedNotes: [],
     });
     const gate = review.gate;
+    // Deterministic agency check after a source edit: narrated player actions must still be
+    // authorized by the (edited) user message; otherwise the retained reply is an editorial conflict.
+    const sourceChanged = (reevalReasons || []).some((x) => /authorized|content changed|no longer in the selected transcript/.test(x));
+    const unauthorized = sourceChanged ? gate.playerActions.find((a) => !a.authorizedBy) : undefined;
+    if (unauthorized) gate.violations.unshift(`Narrated player action "${unauthorized.quote}" is not authorized by the edited user message, and no separate cause is described.`);
     const conflict = review.evaluation.decision === 'conflict' || gate.violations.length > 0;
     const interp = this.interpretationFromGate(entry.messageId, entry.variantId, entry.contentHash, gate, review, index, userEntry, r.state.clock.lo, 'retained_reeval', newId('cmt'));
     interp.basisStateHash = basis;
@@ -698,6 +715,10 @@ export class CanonEngine {
         let index = this.current!.index;
         const clock = committedState.clock.lo;
 
+        if (clock > pack.coverage.end && !this.coverageNoticeShown) {
+          this.coverageNoticeShown = true;
+          this.notice('warn', `Pack coverage ended at ${formatTick(pack.coverage.end, c.binding.originDate)}. No further canon is scheduled; bind an updated pack to continue with authored history.`);
+        }
         // Horae freshness barrier / stale-memory handling
         const horaeNote = await this.horaeBarrier(abort.signal);
 
@@ -852,7 +873,7 @@ export class CanonEngine {
         } else {
           this.lastFailedOp = { op, prior: undefined };
           const c = this.campaign();
-          if (c && kind !== 'conflicting_transcript') c.recoveryState = { status: 'error', errorKind: kind, reason: err.message, at: this.host.now() };
+          if (c && kind !== 'conflicting_transcript' && c.recoveryState.status !== 'unsaved') c.recoveryState = { status: 'error', errorKind: kind, reason: err.message, at: this.host.now() };
           this.setStatus(kind === 'conflicting_transcript' ? 'conflict' : 'error', err.message, { errorKind: kind, canRetry: kind !== 'conflicting_transcript' });
           this.notice('error', `${labelForError(kind)}: ${err.message}`);
         }
@@ -942,7 +963,6 @@ export class CanonEngine {
       this.host.log('info', `discarded unpublished journal ${j.commitId}`);
     }
     c.pendingTransaction = null;
-    if (c.recoveryState.status === 'unsaved') c.recoveryState = { status: 'ok' };
   }
 
   /** Retry: save again after a persistence failure, or rerun the failed operation. */
@@ -997,6 +1017,13 @@ export class CanonEngine {
       const detailedDone = plan.protectedAnchorIds.filter((id) => state.dispositions.get(id)?.disposition === 'occurred');
       if (detailedDone.length) needs = true; // roll the horizon forward
     }
+    if (plan && !needs) {
+      // Deterministic triggers independent of the impact model: a protected anchor's prerequisite
+      // changed truth value, or a diagnosed large-scale change requires forced convergence.
+      const sig = preconditionSignature(pack, state, plan.protectedAnchorIds, clock);
+      if (plan.preconditionSignature && sig !== plan.preconditionSignature) needs = true;
+      if (plan.mode !== 'FORCED_CONVERGENCE' && diagnoseForced(pack, state, planScope(pack, state), clock)) needs = true;
+    }
     if (!needs) return { plan, forced: plan!.mode === 'FORCED_CONVERGENCE' };
     const facts = this.stateFacts(index, [...pack.entities.keys(), ...state.runtimeEntities.keys()], clock);
     const res = await runPlanning({
@@ -1012,6 +1039,7 @@ export class CanonEngine {
       return { plan: plan && plan.status === 'active' ? plan : null, forced: false };
     }
     for (const p of c.planRevisions) if (p.status === 'active' || p.status === 'stale') p.status = 'superseded';
+    res.plan.preconditionSignature = preconditionSignature(pack, state, res.plan.protectedAnchorIds, clock);
     c.planRevisions.push(res.plan);
     c.planRevisions = c.planRevisions.slice(-10);
     c.activePlanId = res.plan.planId;

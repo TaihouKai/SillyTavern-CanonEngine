@@ -1,0 +1,38 @@
+{
+ "statements": [
+  {
+   "kind": "attempted_action",
+   "quote": "I shield Mira",
+   "summary": "tries to protect Mira",
+   "entities": [
+    "mira"
+   ],
+   "facts": [],
+   "event_id": null,
+   "time": null,
+   "ambiguous": false
+  },
+  {
+   "kind": "asserted_fact",
+   "quote": "the gate is locked",
+   "summary": "gate locked",
+   "entities": [],
+   "facts": [],
+   "event_id": null,
+   "time": null,
+   "ambiguous": false
+  }
+ ],
+ "references": [
+  {
+   "phrase": "the man I rescued",
+   "quote": "the man I rescued",
+   "kind": "entity",
+   "mode": "indirect",
+   "candidates": []
+  }
+ ],
+ "scene_entities": [
+  "mira"
+ ]
+}

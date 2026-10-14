@@ -1,0 +1,36 @@
+{
+ "adjudications": [
+  {
+   "event_id": "conflict-begins",
+   "decision": "occurred",
+   "time": {
+    "lo": {
+     "day": 2,
+     "minute": 540
+    },
+    "hi": {
+     "day": 2,
+     "minute": 540
+    },
+    "precision": "minute"
+   },
+   "account": "Council militias attack the Union docks; the armed conflict begins.",
+   "actors": [
+    "council",
+    "union"
+   ],
+   "causes": [],
+   "effects": [
+    {
+     "op": "set",
+     "entity_id": "conflict",
+     "predicate": "active",
+     "value": true
+    }
+   ],
+   "plan_step_ids": [],
+   "reason": "alternate cause",
+   "extraordinary": false
+  }
+ ]
+}

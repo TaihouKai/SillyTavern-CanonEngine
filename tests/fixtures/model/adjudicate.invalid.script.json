@@ -1,0 +1,17 @@
+{
+ "adjudications": [
+  {
+   "event_id": "x",
+   "decision": "occurred",
+   "account": "x",
+   "effects": [
+    {
+     "op": "eval",
+     "entity_id": "a",
+     "predicate": "b"
+    }
+   ],
+   "reason": "x"
+  }
+ ]
+}

@@ -1,0 +1,32 @@
+{
+ "references": [
+  {
+   "id": "r1",
+   "quote": "Old Market",
+   "phrase": "Old Market",
+   "ref_kind": "place",
+   "mode": "direct",
+   "assertion": "narrator",
+   "temporal": "present",
+   "candidate_ids": [
+    "old-market"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "id": "c1",
+   "quote": "busy stalls",
+   "kind": "operation",
+   "entity_phrases": [
+    "Old Market"
+   ],
+   "assertion": "narrator",
+   "expected": {
+    "entity_id": "old-market",
+    "predicate": "condition",
+    "value": "intact"
+   }
+  }
+ ]
+}

@@ -1,0 +1,58 @@
+{
+ "decision": "repair",
+ "scene_end": {
+  "lo": {
+   "day": 2,
+   "minute": 540
+  },
+  "hi": {
+   "day": 2,
+   "minute": 540
+  },
+  "precision": "minute"
+ },
+ "flashback": false,
+ "claim_checks": [
+  {
+   "claim_id": "c1",
+   "verdict": "contradiction",
+   "record_ids": [
+    "occ_x"
+   ],
+   "note": "market destroyed"
+  }
+ ],
+ "transitions": [],
+ "occurrences": [],
+ "state_claims": [
+  {
+   "entity_id": "old-market",
+   "predicate": "condition",
+   "value": "intact",
+   "quote": "busy stalls",
+   "at": null
+  }
+ ],
+ "player_actions": [],
+ "step_enactments": [],
+ "new_entities": [],
+ "violations": [
+  {
+   "code": "state",
+   "quote": "busy stalls",
+   "detail": "destroyed venue shown operating"
+  }
+ ],
+ "hard_checks": [
+  {
+   "event_id": "conflict-begins",
+   "status": "not_due",
+   "occurrence_ref": null,
+   "quote": null
+  }
+ ],
+ "scene_entities": [
+  "old-market"
+ ],
+ "summary": ""
+}

@@ -8,7 +8,8 @@
 .canon-status .canon-actions { display:flex; gap:4px; }
 .canon-btn { padding:1px 8px !important; margin:0 !important; font-size:0.9em; }
 @keyframes canon-pulse { 0%{opacity:1} 50%{opacity:.3} 100%{opacity:1} }
-.canon-settings-body .canon-row { display:flex; flex-wrap:wrap; gap:4px; margin:6px 0; }
+.canon-row { display:flex; flex-wrap:wrap; gap:4px; margin:6px 0; }
+.canon-row .menu_button, .canon-tabs .menu_button, .canon-modal .menu_button, .canon-insp-head .menu_button, .canon-status .menu_button { width:auto !important; white-space:nowrap; flex:0 0 auto; }
 .canon-note { margin:6px 0; padding:4px 8px; border-left:3px solid #6af; background:rgba(100,160,255,.08); }
 .canon-note.warn { border-color:#fb3; background:rgba(255,190,50,.08); }
 .canon-note.err { border-color:#e44; background:rgba(230,60,60,.1); }
@@ -23,6 +24,7 @@
 .canon-insp-head { display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid var(--SmartThemeBorderColor, #555); }
 .canon-insp-head label { margin-left:auto; font-size:.85em; }
 .canon-tabs { display:flex; flex-wrap:wrap; gap:2px; padding:4px; }
+.canon-insp-head label { display:flex; align-items:center; gap:4px; white-space:nowrap; }
 .canon-tabs .active { outline:1px solid var(--SmartThemeQuoteColor, #fa6); }
 .canon-insp-body { overflow:auto; padding:6px 10px; font-size:.9em; }
 .canon-table { border-collapse:collapse; width:100%; } .canon-table td, .canon-table th { border:1px solid rgba(128,128,128,.3); padding:2px 4px; text-align:left; vertical-align:top; }

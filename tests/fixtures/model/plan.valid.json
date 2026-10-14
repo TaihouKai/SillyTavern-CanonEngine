@@ -1,0 +1,52 @@
+{
+ "rationale": "Council grievance from the failed ambush",
+ "protected_anchor_ids": [
+  "conflict-begins",
+  "conflict-ends"
+ ],
+ "assumptions": [
+  {
+   "text": "Mira alive",
+   "fact": {
+    "entity_id": "mira",
+    "predicate": "alive",
+    "value": true
+   }
+  }
+ ],
+ "risks": [
+  "player interference"
+ ],
+ "mode": "NORMAL",
+ "steps": [
+  {
+   "step_id": "s1",
+   "actors": [
+    "council"
+   ],
+   "targets": [
+    "union"
+   ],
+   "earliest": {
+    "day": 1,
+    "minute": 780
+   },
+   "latest": {
+    "day": 2,
+    "minute": 500
+   },
+   "prerequisites": [],
+   "action": "Council militias mobilize",
+   "intended_effects": [],
+   "visibility": "secret",
+   "knowers": [
+    "council"
+   ],
+   "depends_on": [],
+   "means": "ordinary",
+   "serves_anchor": "conflict-begins",
+   "requires_player_consent": false
+  }
+ ],
+ "inadequacy_note": ""
+}

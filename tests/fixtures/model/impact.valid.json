@@ -1,0 +1,16 @@
+{
+ "changed": [
+  {
+   "entity_id": "mira",
+   "predicate": "alive"
+  }
+ ],
+ "affected_anchors": [
+  "conflict-begins"
+ ],
+ "affected_steps": [],
+ "scope": "local",
+ "severity": "major",
+ "replan": true,
+ "explanation": "broadcast route invalidated"
+}

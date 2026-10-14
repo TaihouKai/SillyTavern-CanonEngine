@@ -1,0 +1,14 @@
+{
+ "decision": "retain",
+ "scene_end": null,
+ "claim_checks": [],
+ "transitions": [],
+ "occurrences": [],
+ "state_claims": [],
+ "player_actions": [],
+ "violations": [],
+ "hard_checks": [],
+ "set_pack_classification": {
+  "conflict-ends": "FREE"
+ }
+}

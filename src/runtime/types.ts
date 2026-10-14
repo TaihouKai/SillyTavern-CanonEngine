@@ -88,6 +88,8 @@ export interface PlanRevision {
   inadequacyNote: string;
   createdAtRevision: number;
   status: 'active' | 'stale' | 'superseded';
+  /** Truth values of protected anchors' original prerequisites when the plan was made. */
+  preconditionSignature?: string;
 }
 
 export interface CoverageEntry {
@@ -182,6 +184,8 @@ export interface CampaignData {
   recoveryState: RecoveryState;
   uiPreferences: { inspectorOpen: boolean; spoilers: boolean };
   configRevisions: { at: number; summary: string }[];
+  /** Last durable-save verification token (adapter-owned). */
+  saveToken?: string;
 }
 
 export interface Fences {

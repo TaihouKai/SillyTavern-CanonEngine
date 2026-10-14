@@ -88,9 +88,9 @@ export function normalizeText(s: string): string {
 
 /** True when `quote` occurs verbatim (modulo whitespace) inside `text`. Empty quotes never match. */
 export function quoteInText(quote: string, text: string): boolean {
-  const q = normalizeText(quote);
+  const q = normalizeText(quote).toLowerCase();
   if (q.length < 2) return false;
-  return normalizeText(text).includes(q);
+  return normalizeText(text).toLowerCase().includes(q);
 }
 
 export function uniq<T>(arr: Iterable<T>): T[] {

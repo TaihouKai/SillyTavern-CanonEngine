@@ -236,11 +236,12 @@ try {
     await sleep(3000);
     await waitIdle(page);
     const afterReload = await campaign(page);
+    await page.waitForSelector('#canon-inspector', { timeout: 15000 }).catch(() => {});
     const pill = await page.$eval('#canon-engine-status', (e) => getComputedStyle(e).display !== 'none').catch(() => false);
     const insp = await page.$('#canon-inspector');
     const tlR = await taskLogs();
     check(results, 'R13 metadata durable across reload (pack snapshot, hash, interpretations)', afterReload && afterReload.packHash === before.packHash && Object.keys(afterReload.interpretations).length === Object.keys(before.interpretations).length);
-    check(results, 'I10 compact status and inspector preference restored after reload', pill && !!insp);
+    check(results, 'I10 compact status and inspector preference restored after reload', pill && !!insp, `pill=${pill} insp=${!!insp}`);
     check(results, 'Deterministic replay on reload needs no model calls', tlR.length === 0, `tasks=${tlR.length}`);
     await page.evaluate(() => { const c = SillyTavern.getContext().chatMetadata.canonEngine; c.uiPreferences.inspectorOpen = false; });
     // R14: tamper the stored fingerprint + edit chat offline -> mismatch detected before trusting caches

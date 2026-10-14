@@ -126,16 +126,44 @@ export class StHost implements HostPort {
     if (data) md[NS] = data; else delete md[NS];
   }
 
-  /** Durable save: ST's saveChat (throws on failure), serialized. */
+  /**
+   * Durable save. Uses ST's own serialized save path (saveChatConditional, which coordinates with
+   * ST's and other extensions' saves - concurrent direct saves fail on Windows with EPERM during
+   * the atomic rename) and then VERIFIES the result by reading the chat file back, because that
+   * path swallows errors. Throws when the save cannot be verified.
+   */
   async save(): Promise<void> {
     const run = async () => {
-      const mod = await loadStModule();
       if (this.isGroup()) throw new Error('group chats are not supported');
-      await mod.saveChat();
+      const c = ctx();
+      const camp = this.getCampaign();
+      const token = newId('sv');
+      if (camp) camp.saveToken = token;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        await c.saveChat();
+        if (!camp) return;
+        if (await this.verifySaved(token)) return;
+        await new Promise((r) => setTimeout(r, 300 * attempt));
+      }
+      throw new Error('the chat file could not be saved (server did not persist the engine state)');
     };
     const p = this.saving.then(run, run);
     this.saving = p.catch(() => undefined);
     return p;
+  }
+
+  private async verifySaved(token: string): Promise<boolean> {
+    const c = ctx();
+    const ch = c.characters?.[c.characterId];
+    if (!ch) return false;
+    try {
+      const resp = await fetch('/api/chats/get', { method: 'POST', headers: c.getRequestHeaders(), cache: 'no-cache', body: JSON.stringify({ ch_name: ch.name, file_name: String(ch.chat || '').replace(/\.jsonl$/, ''), avatar_url: ch.avatar }) });
+      if (!resp.ok) return false;
+      const data = await resp.json();
+      return Array.isArray(data) && data[0]?.chat_metadata?.[NS]?.saveToken === token;
+    } catch {
+      return false;
+    }
   }
 
   async publish(req: PublishRequest, _interp: Interpretation): Promise<void> {

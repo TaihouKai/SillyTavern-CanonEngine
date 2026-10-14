@@ -369,6 +369,31 @@
      },
      "quote": {
       "type": "string"
+     },
+     "at": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "day": {
+          "type": "integer"
+         },
+         "minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+         }
+        },
+        "required": [
+         "day",
+         "minute"
+        ],
+        "additionalProperties": false
+       }
+      ]
      }
     },
     "required": [

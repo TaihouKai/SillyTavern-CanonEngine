@@ -23,7 +23,7 @@ export interface EvalOutput {
     time?: EvalOutput['scene_end']; causes?: string[]; quote: string; pack_event_id?: string | null; disposition?: 'occurred' | 'diverged' | null;
     ref_phrases?: string[]; visibility?: 'public' | 'restricted' | 'secret'; knowers?: string[]; origin?: 'player' | 'gm' | 'intervention';
   }[];
-  state_claims: { entity_id: string; predicate: string; value: FactValue; quote: string }[];
+  state_claims: { entity_id: string; predicate: string; value: FactValue; quote: string; at?: { day: number; minute: number } | null }[];
   player_actions: { quote: string; authorized_by_quote: string | null }[];
   step_enactments?: { step_id: string; occurrence_ref: string; quote: string }[];
   new_entities?: { ref: string; name: string; kind: RuntimeEntity['kind']; description: string; quote: string }[];
@@ -258,19 +258,21 @@ export function runGate(g: GateInput): GateResult {
   const cp = { tick: Math.max(sceneEnd.lo, g.clockTick) };
   const setInReply = (eid: Id, pred: Id, v: FactValue) =>
     occRecords.some((r) => r.factsSetOrUnset.some((d) => d.op === 'set' && d.entity_id === eid && d.predicate === pred && valuesEqual(d.value, v)));
-  const checkClaim = (eid: Id, pred: Id, value: FactValue, quote: string, label: string) => {
-    const f = factAt(index.state, eid, pred, flashback ? undefined : cp);
+  const checkClaim = (eid: Id, pred: Id, value: FactValue, quote: string, label: string, atTick?: number) => {
+    // Each claim is checked at its own story checkpoint (flashbacks use then-valid facts).
+    const claimCp = atTick !== undefined ? { tick: atTick } : cp;
+    const f = factAt(index.state, eid, pred, claimCp);
     if (f.known && !valuesEqual(f.value!, value)) {
-      if (setInReply(eid, pred, value)) return; // a genuine staged change with its own occurrence
+      if (atTick === undefined && setInReply(eid, pred, value)) return; // a genuine staged change with its own occurrence
       const rec = f.supportRecordId ? index.state.recordById.get(f.supportRecordId) : undefined;
       violations.push(`${label} "${quote}" presupposes ${index.entityName(eid)}.${pred}=${JSON.stringify(value)}, but the actual state is ${JSON.stringify(f.value)} (established by: ${rec?.summary || 'record'}). No supported change is recorded through this scene.`);
       return;
     }
     if (!f.known) {
       // containment: an unknown own state inside a destroyed parent
-      const st = index.entityState(eid, cp);
+      const st = index.entityState(eid, claimCp);
       for (const p of st.parents) {
-        const pf = factAt(index.state, p.parentId, pred, cp);
+        const pf = factAt(index.state, p.parentId, pred, claimCp);
         if (pf.known && typeof pf.value === 'string' && DESTRUCTIVE.test(pf.value) && !valuesEqual(pf.value, value)) {
           violations.push(`${label} "${quote}" presents ${index.entityName(eid)} as ${pred}=${JSON.stringify(value)}, but it lies inside ${p.parentName}, whose ${pred} is ${JSON.stringify(pf.value)}, and no supported exception is recorded.`);
         }
@@ -282,11 +284,12 @@ export function runGate(g: GateInput): GateResult {
     const eid = resolveId(c.entity_id);
     if (!eid || !pack.predicates.has(c.predicate)) continue;
     stateClaims.push({ entity_id: eid, predicate: c.predicate, value: c.value, quote: c.quote });
-    checkClaim(eid, c.predicate, c.value, c.quote, 'Narration');
+    if (flashback && !c.at) continue; // a flashback claim without its time cannot be checked against the present
+    checkClaim(eid, c.predicate, c.value, c.quote, c.at ? 'Flashback' : 'Narration', c.at ? toTick(c.at) : undefined);
   }
   // discovery "expected" facts on narrator-asserted claims are checked deterministically too
   for (const c of g.claims) {
-    if (!c.expected || !['narrator', 'new_event'].includes(c.assertion)) continue;
+    if (!c.expected || !['narrator', 'new_event'].includes(c.assertion) || flashback) continue;
     if (!quoteInText(c.quote, text)) continue;
     const eid = resolveId(c.expected.entity_id);
     if (!eid || !pack.predicates.has(c.expected.predicate)) continue;

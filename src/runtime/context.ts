@@ -97,6 +97,15 @@ export function retrieve(index: WorldIndex, spec: RetrievalSpec): Retrieval {
       ev.occurrenceIds.forEach((x) => occIds.add(x));
       ev.packEventIds.forEach((x) => packIds.add(x));
     }
+    // Indirect references ("the man I rescued", "that errand"): resolve through actual occurrences.
+    if (!entityIds.size && !occIds.size && r.kind !== 'event') {
+      const ev = index.resolveEventPhrase(r.phrase + ' ' + r.quote);
+      for (const o of ev.occurrenceIds) {
+        occIds.add(o);
+        const oc = index.state.occurrences.get(o)!;
+        for (const a of [...oc.affected, ...oc.actors]) if (index.entityKind(a) === (r.kind === 'person' ? 'person' : index.entityKind(a))) entityIds.add(a);
+      }
+    }
     if (ent.ambiguous && entityIds.size > 1 && !candIds.length) ambiguous.push(`${r.phrase}: ${[...entityIds].join(' | ')}`);
     entry.resolved = { entityIds: [...entityIds], occurrenceIds: [...occIds], packEventIds: [...packIds] };
     entry.disposition = entityIds.size + occIds.size + packIds.size === 0 ? (r.kind === 'event' ? 'unresolved' : 'new') : entityIds.size > 1 && !candIds.length ? 'ambiguous' : 'resolved';
@@ -181,6 +190,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   const optional: string[] = [];
   required.push(`[CANON ENGINE CONTEXT — persisted engine data for this request. Categories are distinct; do not print them.]`);
   required.push(`CLOCK & SCENE: committed story time ${formatStoryTime(index.state.clock, inp.origin)}. ${inp.sceneLabel}`);
+  if (checkpointTick > pack.coverage.end) required.push(`PACK COVERAGE ENDED at ${formatTick(pack.coverage.end, inp.origin)}: there is no further scheduled canon. Do not invent canonical events; continue only from actual history and the user's choices.`);
   // Actual history
   const occIds = [...retrieval.occurrences.keys()].filter((id) => index.state.occurrences.has(id));
   occIds.sort((a, b) => index.state.occurrences.get(a)!.time.lo - index.state.occurrences.get(b)!.time.lo);
