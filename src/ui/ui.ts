@@ -53,7 +53,11 @@ function mountTopButton() {
   btn.className = 'drawer';
   btn.innerHTML = `<div class="drawer-toggle drawer-header canon-top-toggle"><div class="drawer-icon fa-solid fa-diagram-project fa-fw closedIcon" title="${t('graphTitle')}"></div></div>`;
   btn.querySelector('.canon-top-toggle')!.addEventListener('click', (ev) => { ev.stopPropagation(); graphPanel!.toggle(); btn.querySelector('.drawer-icon')!.classList.toggle('openIcon', graphPanel!.isOpen()); btn.querySelector('.drawer-icon')!.classList.toggle('closedIcon', !graphPanel!.isOpen()); });
-  if (holder) holder.appendChild(btn); else document.body.appendChild(btn);
+  // Sit immediately left of the Persona and Character icons when they exist.
+  const before = document.getElementById('persona-management-button') || document.getElementById('rightNavHolder');
+  if (holder && before?.parentElement === holder) holder.insertBefore(btn, before);
+  else if (holder) holder.appendChild(btn);
+  else document.body.appendChild(btn);
 }
 
 export function openGraph() { graphPanel?.toggle(true); }

@@ -16048,7 +16048,9 @@ function mountTopButton() {
     btn.querySelector(".drawer-icon").classList.toggle("openIcon", graphPanel.isOpen());
     btn.querySelector(".drawer-icon").classList.toggle("closedIcon", !graphPanel.isOpen());
   });
-  if (holder) holder.appendChild(btn);
+  const before = document.getElementById("persona-management-button") || document.getElementById("rightNavHolder");
+  if (holder && before?.parentElement === holder) holder.insertBefore(btn, before);
+  else if (holder) holder.appendChild(btn);
   else document.body.appendChild(btn);
 }
 function mountStatus() {
