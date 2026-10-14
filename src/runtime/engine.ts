@@ -10,7 +10,7 @@ import { EngineError, hashObject, newId, quoteInText, sha256, uniq, deepClone } 
 import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
 import type { HostPort } from './host';
-import { callStructured } from './model';
+import { callStructured, taskDefaults } from './model';
 import { CONTINUE_INSTRUCTION, GM_INTEGRATION_RULES, PROMPTS, REPAIR_INSTRUCTION } from './prompts';
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, type ClaimInput, type RefInput, type Retrieval } from './context';
@@ -37,6 +37,8 @@ export interface EngineSettings {
   /** ST connection profile id for internal analysis tasks; '' = the chat's own connection. */
   taskProfileId: string;
 }
+
+const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check' };
 
 export const DEFAULT_SETTINGS: EngineSettings = {
   maxOrdinaryPlanner: 2,
@@ -92,6 +94,9 @@ export class CanonEngine {
   status: StatusInfo = { phase: 'idle', message: '', canRetry: false, canCancel: false };
   epoch = 0;
   private packCache: { hash: string; loaded: LoadedPack } | null = null;
+  private progressBase = '';
+  /** Lets the user cancel a reconcile that runs outside an operation (chat load, edits). */
+  private reconcileAbort: AbortController | null = null;
   current: { replay: ReplayResult; index: WorldIndex } | null = null;
   private opActive: { operationId: string; abort: AbortController; fences: Fences | null; op: OpType } | null = null;
   private mutex: Promise<void> = Promise.resolve();
@@ -110,7 +115,7 @@ export class CanonEngine {
   onChange(fn: () => void) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   private emit() { for (const f of this.listeners) try { f(); } catch { /* ignore UI errors */ } }
   private setStatus(phase: OpPhase, message = '', extra: Partial<StatusInfo> = {}) {
-    this.status = { phase, message, canRetry: false, canCancel: !!this.opActive, ...extra };
+    this.status = { phase, message, canRetry: false, canCancel: !!this.opActive || !!this.reconcileAbort, ...extra };
     this.emit();
   }
   noticeSeq = 0;
@@ -287,11 +292,25 @@ export class CanonEngine {
   }
 
   private async reconcileInner(reason: string, opts: { allowModel?: boolean; signal?: AbortSignal; excludeLastAssistant?: boolean }): Promise<ReplayResult | null> {
+    if (opts.signal) return this.reconcileBody(reason, opts);
+    const ac = new AbortController();
+    this.reconcileAbort = ac;
+    try { return await this.reconcileBody(reason, { ...opts, signal: ac.signal }); } finally { if (this.reconcileAbort === ac) this.reconcileAbort = null; }
+  }
+
+  private async reconcileBody(reason: string, opts: { allowModel?: boolean; signal?: AbortSignal; excludeLastAssistant?: boolean }): Promise<ReplayResult | null> {
     const c = this.campaign();
     if (!c || !c.enabled) { this.current = null; return null; }
     if (this.host.isGroup()) { this.setStatus('disabled', 'group chats unsupported'); return null; }
     const readOnly = !!this.host.isWriter && !this.host.isWriter();
     const allowModel = opts.allowModel !== false && !readOnly;
+    taskDefaults.callTimeoutMs = this.settings.taskTimeoutMs;
+    taskDefaults.observer = (task, attempt) => {
+      const phase = this.status.phase;
+      if (!['reconciling', 'planning', 'validating'].includes(phase)) return;
+      const base = (phase === 'reconciling' && this.progressBase) || this.status.message.split(' · ')[0];
+      this.setStatus(phase, `${base} · ${TASK_LABEL[task] || task}${attempt > 1 ? ` (retry ${attempt - 1})` : ''}`);
+    };
     WorldIndex.displayOrigin = c.binding.originDate || null;
     const chatAtStart = this.host.chatId();
     const pack = this.pack();
@@ -310,6 +329,8 @@ export class CanonEngine {
         if (!allowModel) break;
         if (++guard > entries.length * 2 + 4) throw new EngineError('conflicting_transcript', 'reconciliation did not converge');
         const issue = r.issue;
+        this.progressBase = `Examining message ${issue.index + 1}/${entries.length} (${issue.entry.role === 'user' ? 'player' : 'GM'})`;
+        this.setStatus('reconciling', this.progressBase);
         const interp = issue.status === 'missing'
           ? await this.interpretMessage(issue.entry, issue.index, entries, r, opts.signal, null)
           : await this.interpretMessage(issue.entry, issue.index, entries, r, opts.signal, issue.reasons);
@@ -320,7 +341,9 @@ export class CanonEngine {
         const now = this.transcriptFor(opts);
         if (earliestChange(entries.map((e) => ({ ...e })), now) !== -1) { entries = now; }
       }
+      this.progressBase = '';
     } catch (e) {
+      this.progressBase = '';
       const err = e as EngineError;
       c.recoveryState = { status: 'error', errorKind: err.kind || 'provider_failure', reason: err.message, at: this.host.now() };
       this.setStatus('error', err.message, { errorKind: err.kind, canRetry: true });
@@ -445,7 +468,7 @@ export class CanonEngine {
       registry: this.registry(index),
       occurrences: this.occurrenceCatalogue(index, entry.text),
       opportunities,
-    }, { signal, operationId, log: (l) => this.debugLog('task', l) }), this.settings.taskTimeoutMs, signal);
+    }, { signal, operationId, log: (l) => this.debugLog('task', l) }), this.settings.taskTimeoutMs * 4, signal);
     const records: RecordDraft[] = [];
     const intents: Interpretation['intents'] = [];
     const configRequests: string[] = [];
@@ -586,7 +609,7 @@ export class CanonEngine {
       scene_framing: a.userEntry ? `Player input: ${a.userEntry.text}` : '',
       registry: this.registry(index),
       occurrences: this.occurrenceCatalogue(index, a.text + ' ' + (a.userEntry?.text || '')),
-    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l) }), this.settings.taskTimeoutMs, a.signal);
+    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l) }), this.settings.taskTimeoutMs * 4, a.signal);
     const refs: RefInput[] = disc.references.filter((r) => quoteInText(r.quote, a.text) || !r.quote).map((r) => ({ id: r.id, quote: r.quote, phrase: r.phrase, kind: r.ref_kind, assertion: r.assertion, temporal: r.temporal, candidates: r.candidate_ids }));
     const claims: ClaimInput[] = disc.claims.filter((c) => quoteInText(c.quote, a.text)).map((c) => ({ id: c.id, quote: c.quote, kind: c.kind, entityPhrases: c.entity_phrases || [], assertion: c.assertion, expected: c.expected || null }));
     // Deterministic discovery floor: every known entity/occurrence named in the text gets a lookup
@@ -630,7 +653,7 @@ export class CanonEngine {
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== 'invalidated').map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
       registry: this.registry(index),
       reeval_reasons: a.reevalReasons || [],
-    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l) }), this.settings.taskTimeoutMs, a.signal);
+    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l) }), this.settings.taskTimeoutMs * 4, a.signal);
     const gate = runGate({
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced,
@@ -669,6 +692,9 @@ export class CanonEngine {
   cancel() {
     if (this.opActive) {
       this.opActive.abort.abort();
+      this.notice('info', 'Cancelled.');
+    } else if (this.reconcileAbort) {
+      this.reconcileAbort.abort();
       this.notice('info', 'Cancelled.');
     }
   }
@@ -1097,7 +1123,7 @@ export class CanonEngine {
       plan: plan ? { assumptions: plan.assumptions, steps: plan.steps.map((s) => ({ step_id: s.step_id, action: s.action, serves_anchor: s.serves_anchor })) } : null,
       candidate_anchors: cand.anchors,
       hard_register: pendingHard(pack, state).map((h) => ({ id: h.event.id, required: h.event.required_description, deadline: h.event.when.latest })),
-    }, signal, operationId, (l) => this.debugLog('task', l)), this.settings.taskTimeoutMs, signal);
+    }, signal, operationId, (l) => this.debugLog('task', l)), this.settings.taskTimeoutMs * 4, signal);
     const validAnchors = out.affected_anchors.filter((a) => pack.events.get(a)?.classification === 'HARD');
     if (out.replan || out.scope !== 'local') {
       if (plan) plan.status = 'stale';

@@ -78,3 +78,24 @@ describe('top-level extra fields', () => {
     await expect(callStructured<any>(p, 'discover', 'sys', {})).rejects.toThrow(/additional properties/);
   });
 });
+
+describe('per-call timeout', () => {
+  it('times out a hung call, aborts it, and lets the next call run', async () => {
+    let aborted = false;
+    let calls = 0;
+    const p = {
+      async runTask(_t: string, _m: unknown, o: { signal?: AbortSignal }) {
+        calls++;
+        if (calls === 1) return new Promise<string>((_, rej) => o.signal?.addEventListener('abort', () => { aborted = true; rej(new Error('aborted')); }));
+        return JSON.stringify({ references: [ref('direct')], claims: [claim('state')] });
+      },
+      async generateDraft() { return ''; },
+    } as unknown as ModelPort;
+    const t0 = Date.now();
+    await expect(callStructured<any>(p, 'discover', 'sys', {}, { callTimeoutMs: 80 })).rejects.toThrow(/timed out after 0s \(one call\)/);
+    expect(Date.now() - t0).toBeLessThan(2000);
+    expect(aborted).toBe(true);
+    const ok = await callStructured<any>(p, 'discover', 'sys', {}, { callTimeoutMs: 80 });
+    expect(ok.claims[0].kind).toBe('state');
+  });
+});

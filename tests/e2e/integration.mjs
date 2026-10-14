@@ -561,6 +561,51 @@ try {
     check(results, 'P04 a missing analysis profile stops the turn with an actionable error', stP.recovery.status === 'error' && /no longer exists/.test(stP.recovery.reason || ''), JSON.stringify(stP.recovery));
     await page.evaluate(() => { SillyTavern.getContext().extensionSettings.canonEngine.taskProfileId = ''; SillyTavern.getContext().saveSettingsDebounced(); });
   }
+
+  // ---------------------------------------------------------------------------------------------
+  if (want('S11')) {
+    console.log('\n== S11 slow analysis: progress, cancel, per-call timeout ==');
+    await freshChat();
+    await mock('/control', { mainQueue: ['你望向港口。SLOW_A'], clearLogs: true });
+    await send(page, '我看向港口。');
+    await mock('/control', { mainQueue: ['海鸥在头顶盘旋。SLOW_B'], clearLogs: true });
+    await send(page, '我继续看。');
+    // Edit the first player message: the dependent messages must be re-examined by the (slow) model.
+    await mock('/control', { taskDelayMs: 1500, clearLogs: true });
+    const userIdx = (await chat(page)).findIndex((m) => m.is_user);
+    await page.evaluate(({ idx }) => {
+      const el = document.querySelector(`#chat .mes[mesid="${idx}"]`);
+      el.querySelector('.mes_edit').click();
+      setTimeout(() => {
+        const ta = document.querySelector('#curEditTextarea');
+        ta.value = '我看向远处的灯塔。';
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        document.querySelector(`#chat .mes[mesid="${idx}"] .mes_edit_done`).click();
+      }, 400);
+    }, { idx: userIdx });
+    let seen = '';
+    for (let i = 0; i < 40 && !/Examining message \d+\/\d+ \(.+\) · /.test(seen); i++) { await sleep(250); seen = await page.$eval('#canon-engine-status', (e) => e.innerText).catch(() => ''); }
+    check(results, 'T01 a slow reconcile shows which message and which step it is on', /Examining message \d+\/\d+ \((player|GM)\) · (reading the player message|finding references|checking consistency)/.test(seen), seen.replace(/\s+/g, ' ').slice(0, 200));
+    const hasCancel = await page.$('#canon-engine-status [data-act="cancel"]');
+    if (hasCancel) await hasCancel.click();
+    await waitIdle(page, 30000).catch(() => {});
+    let st = await engineState(page);
+    check(results, 'T02 a background reconcile can be cancelled from the status bar', !!hasCancel && st.recovery.status === 'error' && /cancel/i.test(`${st.recovery.errorKind} ${st.recovery.reason}`), JSON.stringify(st.recovery));
+    // Per-call timeout: one hung call fails fast with a clear message; the next turn is not blocked.
+    await page.evaluate(() => { window.CanonEngine.engine.settings.taskTimeoutMs = 2000; });
+    await mock('/control', { taskDelayMs: 6000, clearLogs: true });
+    const t0 = Date.now();
+    await page.evaluate(async () => { await window.CanonEngine.engine.retry().catch(() => {}); });
+    await waitIdle(page, 60000).catch(() => {});
+    st = await engineState(page);
+    check(results, 'T03 a hung analysis call times out per call with an actionable message', st.recovery.status === 'error' && /timed out after 2s \(one call\)/.test(st.recovery.reason || '') && Date.now() - t0 < 20000, `${Date.now() - t0}ms ${JSON.stringify(st.recovery).slice(0, 220)}`);
+    await page.evaluate(() => { window.CanonEngine.engine.settings.taskTimeoutMs = 300000; });
+    await mock('/control', { taskDelayMs: 0, mainQueue: ['灯塔的光扫过海面。SLOW_C'], clearLogs: true });
+    await page.evaluate(async () => { await window.CanonEngine.engine.retry().catch(() => {}); });
+    await waitIdle(page, 60000).catch(() => {});
+    st = await engineState(page);
+    check(results, 'T04 after the timeout, Retry completes normally (nothing left blocking the queue)', st.recovery.status === 'ok', JSON.stringify(st.recovery).slice(0, 200));
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }

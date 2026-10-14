@@ -360,6 +360,9 @@ export class StModel implements ModelPort {
       if (this.horaePresent) msgs[0].content += `\n[HORAE_INTERNAL:NO_CONTEXT_INJECTION:canon]\n[HORAE_INTERNAL:NO_VECTOR_RECALL:canon]`;
       const token = newId('raw');
       gen.raw = { token, messages: messages.map((m) => ({ ...m })) };
+      // generateRaw has no signal parameter; ST aborts raw generations on GENERATION_STOPPED.
+      const stopRaw = () => { if (!this.taskProfileId()) try { (c as any).eventSource?.emit((c as any).eventTypes?.GENERATION_STOPPED ?? 'generation_stopped'); } catch { /* ignore */ } };
+      opts.signal?.addEventListener('abort', stopRaw, { once: true });
       try {
         // Empty replies are common with reasoning models (thinking uses up the budget) and with
         // provider content filters. Retry with a larger budget before giving up.
@@ -377,6 +380,7 @@ export class StModel implements ModelPort {
           }
         }
       } finally {
+        opts.signal?.removeEventListener('abort', stopRaw);
         if (gen.raw?.token === token) gen.raw = null;
       }
     });

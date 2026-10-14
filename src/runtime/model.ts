@@ -126,6 +126,9 @@ function repairEnums(root: unknown, errors: { keyword: string; instancePath: str
   return changed;
 }
 
+/** Defaults applied to every structured call (set by the controller from its settings). */
+export const taskDefaults: { callTimeoutMs: number; observer: ((task: TaskName, attempt: number) => void) | null } = { callTimeoutMs: 0, observer: null };
+
 export interface StructuredLog { task: TaskName; attempt: number; ok: boolean; error?: string; operationId?: string }
 
 export async function callStructured<T>(
@@ -133,7 +136,7 @@ export async function callStructured<T>(
   task: TaskName,
   system: string,
   input: unknown,
-  opts: { signal?: AbortSignal; maxAttempts?: number; operationId?: string; log?: (l: StructuredLog) => void; maxTokens?: number } = {},
+  opts: { signal?: AbortSignal; maxAttempts?: number; operationId?: string; log?: (l: StructuredLog) => void; maxTokens?: number; callTimeoutMs?: number; onAttempt?: (attempt: number) => void } = {},
 ): Promise<T> {
   const maxAttempts = Math.max(1, opts.maxAttempts ?? 3);
   const messages: ChatMsg[] = [
@@ -144,11 +147,28 @@ export async function callStructured<T>(
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (opts.signal?.aborted) throw new EngineError('cancelled', 'operation cancelled');
     let raw: string;
+    opts.onAttempt?.(attempt);
+    try { taskDefaults.observer?.(task, attempt); } catch { /* UI only */ }
+    const callTimeoutMs = opts.callTimeoutMs ?? taskDefaults.callTimeoutMs;
+    // The time limit applies to each model call, and an expired call is really aborted so that a
+    // hung request cannot block the calls queued behind it.
+    const ac = new AbortController();
+    const onOuterAbort = () => ac.abort();
+    opts.signal?.addEventListener('abort', onOuterAbort, { once: true });
+    let timedOut = false;
+    const timer = callTimeoutMs ? setTimeout(() => { timedOut = true; ac.abort(); }, callTimeoutMs) : null;
     try {
-      raw = await port.runTask(task, messages, { signal: opts.signal, maxTokens: opts.maxTokens });
+      raw = await Promise.race([
+        port.runTask(task, messages, { signal: ac.signal, maxTokens: opts.maxTokens }),
+        new Promise<never>((_, rej) => ac.signal.addEventListener('abort', () => rej(new Error('aborted')), { once: true })),
+      ]);
     } catch (e) {
       if (opts.signal?.aborted) throw new EngineError('cancelled', 'operation cancelled');
+      if (timedOut) throw new EngineError('provider_failure', `model request for ${task} timed out after ${Math.round(callTimeoutMs / 1000)}s (one call). The analysis model is too slow or not responding; choose a faster analysis connection in the Canon Engine settings, or raise taskTimeoutMs.`);
       throw new EngineError('provider_failure', `model request failed for ${task}: ${(e as Error).message}`);
+    } finally {
+      if (timer) clearTimeout(timer);
+      opts.signal?.removeEventListener('abort', onOuterAbort);
     }
     try {
       const data = extractJson(raw);

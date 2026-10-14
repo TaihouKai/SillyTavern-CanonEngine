@@ -12677,6 +12677,7 @@ function repairEnums(root, errors) {
   }
   return changed;
 }
+var taskDefaults = { callTimeoutMs: 0, observer: null };
 async function callStructured(port, task, system, input, opts = {}) {
   const maxAttempts = Math.max(1, opts.maxAttempts ?? 3);
   const messages = [
@@ -12688,11 +12689,32 @@ ${system}` },
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (opts.signal?.aborted) throw new EngineError("cancelled", "operation cancelled");
     let raw;
+    opts.onAttempt?.(attempt);
     try {
-      raw = await port.runTask(task, messages, { signal: opts.signal, maxTokens: opts.maxTokens });
+      taskDefaults.observer?.(task, attempt);
+    } catch {
+    }
+    const callTimeoutMs = opts.callTimeoutMs ?? taskDefaults.callTimeoutMs;
+    const ac = new AbortController();
+    const onOuterAbort = () => ac.abort();
+    opts.signal?.addEventListener("abort", onOuterAbort, { once: true });
+    let timedOut = false;
+    const timer = callTimeoutMs ? setTimeout(() => {
+      timedOut = true;
+      ac.abort();
+    }, callTimeoutMs) : null;
+    try {
+      raw = await Promise.race([
+        port.runTask(task, messages, { signal: ac.signal, maxTokens: opts.maxTokens }),
+        new Promise((_, rej) => ac.signal.addEventListener("abort", () => rej(new Error("aborted")), { once: true }))
+      ]);
     } catch (e) {
       if (opts.signal?.aborted) throw new EngineError("cancelled", "operation cancelled");
+      if (timedOut) throw new EngineError("provider_failure", `model request for ${task} timed out after ${Math.round(callTimeoutMs / 1e3)}s (one call). The analysis model is too slow or not responding; choose a faster analysis connection in the Canon Engine settings, or raise taskTimeoutMs.`);
       throw new EngineError("provider_failure", `model request failed for ${task}: ${e.message}`);
+    } finally {
+      if (timer) clearTimeout(timer);
+      opts.signal?.removeEventListener("abort", onOuterAbort);
     }
     try {
       const data = extractJson(raw);
@@ -15373,9 +15395,10 @@ async function assessImpact(port, input, signal, operationId, log) {
 
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.3.0";
+var ENGINE_VERSION = "1.3.1";
 
 // src/runtime/engine.ts
+var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check" };
 var DEFAULT_SETTINGS = {
   maxOrdinaryPlanner: 2,
   forcedPlannerAttempt: true,
@@ -15398,6 +15421,9 @@ var CanonEngine = class {
   status = { phase: "idle", message: "", canRetry: false, canCancel: false };
   epoch = 0;
   packCache = null;
+  progressBase = "";
+  /** Lets the user cancel a reconcile that runs outside an operation (chat load, edits). */
+  reconcileAbort = null;
   current = null;
   opActive = null;
   mutex = Promise.resolve();
@@ -15422,7 +15448,7 @@ var CanonEngine = class {
     }
   }
   setStatus(phase, message = "", extra = {}) {
-    this.status = { phase, message, canRetry: false, canCancel: !!this.opActive, ...extra };
+    this.status = { phase, message, canRetry: false, canCancel: !!this.opActive || !!this.reconcileAbort, ...extra };
     this.emit();
   }
   noticeSeq = 0;
@@ -15609,6 +15635,16 @@ var CanonEngine = class {
     return all;
   }
   async reconcileInner(reason, opts) {
+    if (opts.signal) return this.reconcileBody(reason, opts);
+    const ac = new AbortController();
+    this.reconcileAbort = ac;
+    try {
+      return await this.reconcileBody(reason, { ...opts, signal: ac.signal });
+    } finally {
+      if (this.reconcileAbort === ac) this.reconcileAbort = null;
+    }
+  }
+  async reconcileBody(reason, opts) {
     const c = this.campaign();
     if (!c || !c.enabled) {
       this.current = null;
@@ -15620,6 +15656,13 @@ var CanonEngine = class {
     }
     const readOnly = !!this.host.isWriter && !this.host.isWriter();
     const allowModel = opts.allowModel !== false && !readOnly;
+    taskDefaults.callTimeoutMs = this.settings.taskTimeoutMs;
+    taskDefaults.observer = (task, attempt) => {
+      const phase = this.status.phase;
+      if (!["reconciling", "planning", "validating"].includes(phase)) return;
+      const base = phase === "reconciling" && this.progressBase || this.status.message.split(" \xB7 ")[0];
+      this.setStatus(phase, `${base} \xB7 ${TASK_LABEL[task] || task}${attempt > 1 ? ` (retry ${attempt - 1})` : ""}`);
+    };
     WorldIndex.displayOrigin = c.binding.originDate || null;
     const chatAtStart = this.host.chatId();
     const pack2 = this.pack();
@@ -15638,6 +15681,8 @@ var CanonEngine = class {
         if (!allowModel) break;
         if (++guard > entries.length * 2 + 4) throw new EngineError("conflicting_transcript", "reconciliation did not converge");
         const issue2 = r.issue;
+        this.progressBase = `Examining message ${issue2.index + 1}/${entries.length} (${issue2.entry.role === "user" ? "player" : "GM"})`;
+        this.setStatus("reconciling", this.progressBase);
         const interp = issue2.status === "missing" ? await this.interpretMessage(issue2.entry, issue2.index, entries, r, opts.signal, null) : await this.interpretMessage(issue2.entry, issue2.index, entries, r, opts.signal, issue2.reasons);
         const list = interpretationsFor(c.interpretations, interp.key).filter((x) => x.basisStateHash !== interp.basisStateHash);
         list.push(interp);
@@ -15647,7 +15692,9 @@ var CanonEngine = class {
           entries = now;
         }
       }
+      this.progressBase = "";
     } catch (e) {
+      this.progressBase = "";
       const err = e;
       c.recoveryState = { status: "error", errorKind: err.kind || "provider_failure", reason: err.message, at: this.host.now() };
       this.setStatus("error", err.message, { errorKind: err.kind, canRetry: true });
@@ -15769,7 +15816,7 @@ var CanonEngine = class {
       registry: this.registry(index),
       occurrences: this.occurrenceCatalogue(index, entry.text),
       opportunities
-    }, { signal, operationId, log: (l) => this.debugLog("task", l) }), this.settings.taskTimeoutMs, signal);
+    }, { signal, operationId, log: (l) => this.debugLog("task", l) }), this.settings.taskTimeoutMs * 4, signal);
     const records = [];
     const intents = [];
     const configRequests = [];
@@ -15948,7 +15995,7 @@ var CanonEngine = class {
       scene_framing: a.userEntry ? `Player input: ${a.userEntry.text}` : "",
       registry: this.registry(index),
       occurrences: this.occurrenceCatalogue(index, a.text + " " + (a.userEntry?.text || ""))
-    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l) }), this.settings.taskTimeoutMs, a.signal);
+    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l) }), this.settings.taskTimeoutMs * 4, a.signal);
     const refs = disc.references.filter((r) => quoteInText(r.quote, a.text) || !r.quote).map((r) => ({ id: r.id, quote: r.quote, phrase: r.phrase, kind: r.ref_kind, assertion: r.assertion, temporal: r.temporal, candidates: r.candidate_ids }));
     const claims = disc.claims.filter((c2) => quoteInText(c2.quote, a.text)).map((c2) => ({ id: c2.id, quote: c2.quote, kind: c2.kind, entityPhrases: c2.entity_phrases || [], assertion: c2.assertion, expected: c2.expected || null }));
     const seenEnt = /* @__PURE__ */ new Set();
@@ -16004,7 +16051,7 @@ var CanonEngine = class {
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== "invalidated").map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
       registry: this.registry(index),
       reeval_reasons: a.reevalReasons || []
-    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l) }), this.settings.taskTimeoutMs, a.signal);
+    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l) }), this.settings.taskTimeoutMs * 4, a.signal);
     const gate = runGate({
       pack: pack2,
       index,
@@ -16062,6 +16109,9 @@ var CanonEngine = class {
   cancel() {
     if (this.opActive) {
       this.opActive.abort.abort();
+      this.notice("info", "Cancelled.");
+    } else if (this.reconcileAbort) {
+      this.reconcileAbort.abort();
       this.notice("info", "Cancelled.");
     }
   }
@@ -16549,7 +16599,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
       plan: plan2 ? { assumptions: plan2.assumptions, steps: plan2.steps.map((s) => ({ step_id: s.step_id, action: s.action, serves_anchor: s.serves_anchor })) } : null,
       candidate_anchors: cand.anchors,
       hard_register: pendingHard(pack2, state).map((h) => ({ id: h.event.id, required: h.event.required_description, deadline: h.event.when.latest }))
-    }, signal, operationId, (l) => this.debugLog("task", l)), this.settings.taskTimeoutMs, signal);
+    }, signal, operationId, (l) => this.debugLog("task", l)), this.settings.taskTimeoutMs * 4, signal);
     const validAnchors = out.affected_anchors.filter((a) => pack2.events.get(a)?.classification === "HARD");
     if (out.replan || out.scope !== "local") {
       if (plan2) plan2.status = "stale";
@@ -17161,6 +17211,13 @@ var StModel = class {
 [HORAE_INTERNAL:NO_VECTOR_RECALL:canon]`;
       const token = newId("raw");
       gen.raw = { token, messages: messages.map((m) => ({ ...m })) };
+      const stopRaw = () => {
+        if (!this.taskProfileId()) try {
+          c.eventSource?.emit(c.eventTypes?.GENERATION_STOPPED ?? "generation_stopped");
+        } catch {
+        }
+      };
+      opts.signal?.addEventListener("abort", stopRaw, { once: true });
       try {
         let budget = opts.maxTokens || 4096;
         for (let attempt = 1; ; attempt++) {
@@ -17174,6 +17231,7 @@ var StModel = class {
           }
         }
       } finally {
+        opts.signal?.removeEventListener("abort", stopRaw);
         if (gen.raw?.token === token) gen.raw = null;
       }
     });
@@ -17919,7 +17977,7 @@ function renderStatus() {
   el.style.display = "";
   const st = E.status;
   const phase = camp.enabled ? H.isGroup() ? "disabled" : st.phase : "disabled";
-  const busy = E.isBusy();
+  const busy = E.isBusy() || !!st.canCancel || st.phase === "reconciling";
   const lockOk = getLock()?.isOwner() ?? true;
   const conflict = camp.recoveryState.status === "conflict";
   const err = phase === "error" || camp.recoveryState.status === "error" || camp.recoveryState.status === "unsaved";
@@ -17932,7 +17990,7 @@ function renderStatus() {
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc2(t("phase_" + (conflict ? "conflict" : phase)))}</span>
     <span class="canon-msg" title="${esc2(msg)}">${esc2(msg)}</span>
     <span class="canon-actions">
-      ${busy ? `<button class="menu_button canon-btn" data-act="cancel">${t("cancel")}</button>` : ""}
+      ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t("cancel")}</button>` : ""}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t("retry")}</button>` : ""}
       ${conflict ? `<button class="menu_button canon-btn" data-act="goto">${t("editIt")}</button><button class="menu_button canon-btn" data-act="branch">${t("branchRegen")}</button>` : ""}
       <button class="menu_button canon-btn" data-act="inspect">${t("inspect")}</button>
@@ -18541,7 +18599,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.3.0" };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.3.1" };
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
   const first = (ev, fn) => typeof es.makeFirst === "function" ? es.makeFirst(ev, fn) : es.on(ev, fn);
@@ -18588,7 +18646,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
-  console.log("[CanonEngine] v1.3.0 loaded");
+  console.log("[CanonEngine] v1.3.1 loaded");
 }
 (async () => {
   try {

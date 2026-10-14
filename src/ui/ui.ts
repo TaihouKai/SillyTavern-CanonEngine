@@ -92,7 +92,7 @@ function renderStatus() {
   el.style.display = '';
   const st = E.status;
   const phase = camp.enabled ? (H.isGroup() ? 'disabled' : st.phase) : 'disabled';
-  const busy = E.isBusy();
+  const busy = E.isBusy() || !!st.canCancel || st.phase === 'reconciling';
   const lockOk = getLock()?.isOwner() ?? true;
   const conflict = camp.recoveryState.status === 'conflict';
   const err = phase === 'error' || camp.recoveryState.status === 'error' || camp.recoveryState.status === 'unsaved';
@@ -105,7 +105,7 @@ function renderStatus() {
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc(t('phase_' + (conflict ? 'conflict' : phase)))}</span>
     <span class="canon-msg" title="${esc(msg)}">${esc(msg)}</span>
     <span class="canon-actions">
-      ${busy ? `<button class="menu_button canon-btn" data-act="cancel">${t('cancel')}</button>` : ''}
+      ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t('cancel')}</button>` : ''}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t('retry')}</button>` : ''}
       ${conflict ? `<button class="menu_button canon-btn" data-act="goto">${t('editIt')}</button><button class="menu_button canon-btn" data-act="branch">${t('branchRegen')}</button>` : ''}
       <button class="menu_button canon-btn" data-act="inspect">${t('inspect')}</button>
