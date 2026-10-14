@@ -37,7 +37,7 @@ On this VM it is already linked into the test install: `C:\Users\agent\st-test\p
 
 1. Open the GM chat. In *Extensions → Canon Engine* click **为此对话启用（导入 .canon.json）** and choose the pack file.
 2. The wizard shows title/version/hash, validation result, coverage and the HARD count (or precise errors — e.g. a World Info file gets a specific "not a history pack" error).
-3. Set the **starting time** on the pack clock (`D<day> HH:MM`) or pick "start just before event …". Optionally give the display date of day 0 (display only; no real-world clock is ever used). Horae's current story date/time is shown when available.
+3. Set the **starting time** on the pack clock (`D<day> HH:MM`), or — after filling in the display date of day 0 — as a calendar date (`2020-07-20 08:00`), or pick "start just before event …". The day-0 date is display only; no real-world clock is ever used. Horae's current story date/time is shown when available.
 4. Confirm. For an existing chat every persisted message is examined once (not just the model's context window). Persona, inventory, skills and Horae state are **not** reset. A summary shows the mapped start, examined messages, deviations and unresolved issues; **撤销绑定** undoes it.
 5. Follow the setup notices: disable the old *history/timeline* lorebook (ordinary setting lore may stay), and remove the old GM-card sentence "history comes from World Info" if present — the engine injects scoped replacement rules (`src/runtime/prompts.ts`, from `GM_INTEGRATION_RULES.md`) while enabled; your card file is never modified.
 
@@ -62,6 +62,10 @@ Operational problems are shown out of story: invalid pack, unresolved starting t
 - Campaign data is stored inside the chat file (`chat_metadata.canonEngine`), so ordinary ST chat backups include it.
 - **导出战役备份** downloads a JSON backup (contains the full pack and hidden/spoiler data). **导入战役备份** restores it into the open chat and revalidates it against the transcript.
 - A chat stays pinned to the pack snapshot it was bound with. To change versions use **更新历史包…**: it previews changed/added/deleted event ids and changed HARD contracts, requires a backup export first, then creates a new binding revision.
+
+## Context size
+
+The engine context (rules + retrieved history + state) typically adds 2–5k tokens per turn. Use a model context of at least 16k–32k tokens. If SillyTavern trims the engine context because the prompt does not fit, the turn stops with a *Context capacity* error instead of generating an unchecked reply.
 
 ## Advanced settings
 

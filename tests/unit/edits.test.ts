@@ -349,6 +349,20 @@ describe('races, persistence and recovery', () => {
     expect(x.host.saves).toBe(savesBefore);
   });
 
+  it('operational errors persist across rebuilds until Retry or a successful turn', async () => {
+    const x = await setup();
+    x.model.failTask.draft = 1;
+    x.host.addUser('I look.');
+    expect(await x.engine.runOperation('normal')).toBe(false);
+    await x.engine.reconcile('post');
+    expect(x.engine.campaign()!.recoveryState.status).toBe('error');
+    expect(x.engine.status.phase).toBe('error');
+    x.model.draft('Waves. [OK1]');
+    await x.engine.retry();
+    expect(x.engine.campaign()!.recoveryState.status).toBe('ok');
+    expect(x.host.chat.slice(-1)[0].text).toContain('[OK1]');
+  });
+
   it('R16 the bound snapshot is unchanged when the source pack changes; updates need explicit review', async () => {
     const x = await setup();
     const hash = x.engine.campaign()!.packHash;

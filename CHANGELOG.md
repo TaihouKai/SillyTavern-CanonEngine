@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 — 2026-10-14
+
+- Refuse drafts whose final prompt lost the engine context (ST trims injections that exceed the context size) with an actionable capacity error.
+- Operational errors now persist across rebuilds until Retry or a successful turn.
+- Wizard accepts a calendar start date (`YYYY-MM-DD HH:MM`) relative to the day-0 display date.
+- Context packet shows history/state dates in calendar form when a day-0 date is bound; Chinese packs get Chinese auto-generated account text.
+
 ## 1.0.0 — 2026-10-14
 
 First implementation of the Canon Engine v1 handoff (revision 1.1, pack schema 1.0.0).

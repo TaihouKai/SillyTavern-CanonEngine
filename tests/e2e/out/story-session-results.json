@@ -1,15 +1,15 @@
 {
- "at": "2026-10-14T10:31:16.760Z",
+ "at": "2026-10-14T13:10:37.840Z",
  "results": [
   {
    "name": "Wizard preview shows title/version, validation, coverage and Hard count",
    "pass": true,
-   "detail": "绑定历史包\nHarbor Convergence — Synthetic Example v1.0.0 (demo-harbor, 8abaf8d9baf1)\n校验结果: 通过 · 覆盖时间: D0 08:00 – D5 23:59 · HARD 锚点数: 2\n开局时间（数据时间轴）\n或：从某事件之前开始\n—\nAmbush of Mira (D1 10:00)\nCouncil broadcast "
+   "detail": "绑定历史包\nHarbor Convergence — Synthetic Example v1.0.0 (demo-harbor, 8abaf8d9baf1)\n校验结果: 通过 · 覆盖时间: D0 08:00 – D5 23:59 · HARD 锚点数: 2\n开局时间（D天数 时:分，或填写第0天日期后用 年-月-日 时:分）\n或：从某事件之前开始\n—\nAmbush of Mira (D1 10"
   },
   {
    "name": "Binding summary shows start time, pack, examined messages and issues",
    "pass": true,
-   "detail": "绑定摘要\n开局时间（数据时间轴）: D1 09:00 · demo-harbor@1.0.0\n已检查消息: 1\n主要偏离: —\n未解决问题: —\n保留绑定\n撤销绑定"
+   "detail": "绑定摘要\n开局时间（D天数 时:分，或填写第0天日期后用 年-月-日 时:分）: D1 09:00 · demo-harbor@1.0.0\n已检查消息: 1\n主要偏离: —\n未解决问题: —\n保留绑定\n撤销绑定"
   },
   {
    "name": "Major deviation shows one spoiler-free red banner beside the reply (plugin UI, not prose)",

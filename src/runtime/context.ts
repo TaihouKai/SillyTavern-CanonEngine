@@ -171,6 +171,7 @@ function histLine(h: HistoryRecordView, triggers: Set<string> | undefined, compa
 }
 
 function stateLine(s: EntityStateView, checkpoint: string): string {
+  // "since" labels are produced by entityState in pack-day form; keep them compact.
   const f = s.facts.length ? s.facts.map((x) => `${x.predicate}=${x.display} (since ${x.since}${x.support ? `; ${x.support}` : ''})`).join('; ') : 'no established facts';
   const lines = [`- ${s.name} [${s.entityId}] (${s.kind}): ${f}. No other supported change through ${checkpoint}.`];
   if (s.unknown.length) lines.push(`  UNKNOWN (not established; do not assume normality): ${s.unknown.join(', ')}`);
@@ -194,7 +195,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   // Actual history
   const occIds = [...retrieval.occurrences.keys()].filter((id) => index.state.occurrences.has(id));
   occIds.sort((a, b) => index.state.occurrences.get(a)!.time.lo - index.state.occurrences.get(b)!.time.lo);
-  const hist = occIds.map((id) => histLine(index.historyView(id)!, retrieval.occurrences.get(id), compact));
+  const hist = occIds.map((id) => histLine(index.historyView(id, inp.origin)!, retrieval.occurrences.get(id), compact));
   required.push('ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n' + (hist.length ? hist.join('\n') : '- (no matching actual occurrences)'));
   // Entity state
   const ents = [...retrieval.entities.keys()].filter((id) => index.entityExists(id));

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { validatePack, validatePackText, valuesEqual, normalizeValue, WORLD_INFO_ERROR } from '../../src/domain/pack';
 import { reduce, evalCondition, factAt, triLabel, applyRecord } from '../../src/domain/reducer';
 import { buildBootstrap, crossedCandidates, adjudicateDefault, occurrenceWindow, hardDeadlinesReached } from '../../src/domain/schedule';
-import { formatTick, toTick } from '../../src/domain/time';
+import { formatTick, toTick, parseDateLabel } from '../../src/domain/time';
 import { hashObject } from '../../src/domain/util';
 import type { LedgerRecord } from '../../src/domain/types';
 import { demoRaw, unrelatedRaw, load, T } from './helpers';
@@ -163,6 +163,8 @@ describe('clock, conditions, reducer', () => {
     process.env.TZ = realTz;
     expect(before).toBe('2020-07-03 09:00 (D2)');
     expect(toTick({ day: -1, minute: 30 })).toBe(-1410);
+    expect(parseDateLabel('2020-07-20 08:00', { y: 2020, m: 7, d: 19 })).toBe(T(1, 8));
+    expect(parseDateLabel('2019-07-19', { y: 2020, m: 7, d: 19 })).toBe(T(-366, 0));
   });
 
   it('P15 a fluent change after a fulfilled HARD occurrence does not unfulfil it', () => {

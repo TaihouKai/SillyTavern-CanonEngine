@@ -285,6 +285,7 @@ export class CanonEngine {
     if (this.host.isGroup()) { this.setStatus('disabled', 'group chats unsupported'); return null; }
     const readOnly = !!this.host.isWriter && !this.host.isWriter();
     const allowModel = opts.allowModel !== false && !readOnly;
+    WorldIndex.displayOrigin = c.binding.originDate || null;
     const chatAtStart = this.host.chatId();
     const pack = this.pack();
     await this.recoverPending(c);
@@ -344,8 +345,10 @@ export class CanonEngine {
       };
       this.setStatus('conflict', `Message #${issue.index} conflicts with the edited history: ${c.recoveryState.reason}`, { canRetry: true });
     } else {
-      if (c.recoveryState.status !== 'ok' && c.recoveryState.status !== 'unsaved') c.recoveryState = { status: 'ok' };
-      if (c.recoveryState.status !== 'unsaved' && (prevPhase !== 'error' || !this.opActive)) this.setStatus('idle');
+      // A rebuild resolves editorial conflicts; operational errors persist until Retry or a successful turn.
+      if (c.recoveryState.status === 'conflict') c.recoveryState = { status: 'ok' };
+      if (c.recoveryState.status === 'ok') { if (!this.opActive) this.setStatus('idle'); }
+      else if (c.recoveryState.status === 'error' && !this.opActive) this.setStatus('error', c.recoveryState.reason || '', { errorKind: c.recoveryState.errorKind, canRetry: true });
     }
     if (fingerprintChanged || changedFrom >= 0) {
       c.revision++;
@@ -864,6 +867,7 @@ export class CanonEngine {
         await this.commit(c, { op, interp, fences, candidate, commitId, messageId, variantId, contentHash, prior, excludeLast });
         committed = true;
         trace.outcome = 'committed';
+        { const cc = this.campaign(); if (cc && cc.recoveryState.status === 'error') { cc.recoveryState = { status: 'ok' }; } }
         this.lastFailedOp = null;
         // Post-commit impact (best effort; never blocks the accepted reply)
         try { await this.postCommitImpact(interp, abort.signal, operationId); } catch (e) { this.host.log('warn', 'impact assessment failed: ' + (e as Error).message); }

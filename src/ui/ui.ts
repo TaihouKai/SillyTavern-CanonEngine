@@ -7,7 +7,7 @@ import { ctx, NS, gen } from '../adapters/st';
 import { HoraeAdapter } from '../adapters/horae';
 import type { WriterLock } from '../adapters/lock';
 import { interpretationsFor, baseKey } from '../runtime/replay';
-import { parseTickLabel, formatTick } from '../domain/time';
+import { parseTickLabel, parseDateLabel, formatTick } from '../domain/time';
 import { t, setLang } from './i18n';
 
 export { t };
@@ -216,7 +216,7 @@ function openBindWizard(text: string) {
     ${p.warnings.length ? `<details><summary>${t('warnings')} (${p.warnings.length})</summary><ul class="canon-list">${p.warnings.map((w) => `<li>${esc(w.path)} ${esc(w.message)}</li>`).join('')}</ul></details>` : ''}
     ${horae && (horae.date || horae.time) ? `<div class="canon-note">${t('horaeDetected')}: ${esc(horae.date || '')} ${esc(horae.time || '')} ${esc(horae.location || '')}</div>` : ''}
     ${existing ? `<div class="canon-note">${t('existingChat')}</div>` : ''}
-    <label>${t('startTime')} <input class="text_pole canon-start" value="${esc(startDefault)}" placeholder="D0 08:00"></label>
+    <label>${t('startTime')} <input class="text_pole canon-start" value="${esc(startDefault)}" placeholder="D0 08:00 或 2020-07-20 08:00（需填写下方第0天日期）"></label>
     <label>${t('startBefore')} <select class="canon-start-ev"><option value="">—</option>${evOptions}</select></label>
     <label>${t('originDate')} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD"></label>
     <div class="canon-row"><button class="menu_button canon-confirm">${t('confirmBind')}</button><button class="menu_button" data-close>${t('close')}</button></div>
@@ -226,8 +226,9 @@ function openBindWizard(text: string) {
     if (v) (el.querySelector('.canon-start') as HTMLInputElement).value = formatTick(Number(v));
   });
   el.querySelector('.canon-confirm')!.addEventListener('click', async () => {
-    const startTick = parseTickLabel((el.querySelector('.canon-start') as HTMLInputElement).value);
     const o = (el.querySelector('.canon-origin') as HTMLInputElement).value.trim().match(/^(\d{1,6})-(\d{1,2})-(\d{1,2})$/);
+    const startRaw = (el.querySelector('.canon-start') as HTMLInputElement).value;
+    const startTick = parseTickLabel(startRaw) ?? parseDateLabel(startRaw, o ? { y: Number(o[1]), m: Number(o[2]), d: Number(o[3]) } : null);
     const status = el.querySelector('.canon-wizard-status') as HTMLElement;
     if (startTick === null) { status.innerHTML = `<div class="canon-note err">${t('startTime')}?</div>`; return; }
     try {

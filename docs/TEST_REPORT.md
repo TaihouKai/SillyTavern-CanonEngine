@@ -18,9 +18,9 @@ Date: 2026-10-14. Handoff revision 1.1, pack schema 1.0.0, engine 1.0.0.
 
 | Suite | Where it runs | Result |
 | --- | --- | --- |
-| `tests/unit/*` (110 tests): P, C, E, R, W01–W19, schema fixtures, 22 invalid-pack variants | in-process, fake host + scripted model, delayed promises for races | **110 / 110 pass** |
-| `tests/e2e/integration.mjs` (59 checks, sections S1–S9) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **59 / 59 pass** on the build before the last hardening commit. Re-run on the final build: S1–S8 49 / 49 pass; the run was then stopped by the host for low memory before S9 (S9 had passed 7/7 on the previous build) |
-| `tests/e2e/story-session.mjs` (10 checks) | real ST, UI-only: wizard upload, composer, swipe arrow, ST edit/delete buttons, reload | **10 / 10 pass** (on the build before the final writer-lock/stale-chat hardening; not re-run afterwards because of the memory stop) |
+| `tests/unit/*` (111 tests): P, C, E, R, W01–W19, schema fixtures, 22 invalid-pack variants | in-process, fake host + scripted model, delayed promises for races | **111 / 111 pass** |
+| `tests/e2e/integration.mjs` (59 checks, sections S1–S9) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **59 / 59 pass** on the final build (v1.0.1) |
+| `tests/e2e/story-session.mjs` (10 checks) | real ST, UI-only: wizard upload, composer, swipe arrow, ST edit/delete buttons, reload | **10 / 10 pass** on the final build |
 | `dist/canon-lint.mjs` | both sample packs valid; World Info file rejected with the specific error | pass |
 
 Reproduce: start ST with this extension installed, `node tests/e2e/mockServer.mjs 5555`, then `npm test`, `node tests/e2e/integration.mjs` (or one section, e.g. `S5`) and `node tests/e2e/story-session.mjs`. Results are written to `tests/e2e/out/*.json`; screenshots `tests/e2e/out/story-*.png`.
@@ -135,6 +135,8 @@ Legend: **U** = unit/in-process (`tests/unit/<file>`), **E** = real ST/Horae int
 | W20 | E S5 (real ST, controller-driven retrieval, no function calling, pre-generation and draft-only references, repairs, content-bound manifest) | pass |
 
 ## Observations and remaining limitations
+
+- **Context capacity (found with a large real pack).** When the configured model context is too small, ST silently trims in-chat injections. The engine now inspects the final assembled prompt and refuses to accept a draft whose prompt lost the engine context (actionable `capacity` error; verified at a 3k context, and normal operation verified at 32k with a 169-event pack).
 
 - **Windows save races.** Direct `saveChat` calls raced with ST/Horae saves and failed with `EPERM` during ST's atomic rename. Fixed by saving through ST's serialized path and verifying each save by reading the file back. In the final full run ST still logged rare transient `EPERM` rename failures (Windows file locking); the verification detected them and the retry succeeded (no test failed, no data lost), but ST shows its own "Chat could not be saved" toast when it happens.
 - Live-model behaviour, cost and latency are unmeasured (no key). Expect 4–7 calls per ordinary turn.

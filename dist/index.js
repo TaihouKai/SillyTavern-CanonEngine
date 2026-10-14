@@ -11426,6 +11426,15 @@ function parseTickLabel(s) {
   if (hh > 23 || mm > 59) return null;
   return day * DAY + hh * 60 + mm;
 }
+function parseDateLabel(s, origin) {
+  if (!origin) return null;
+  const m = String(s).trim().match(/^(\d{1,6})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/);
+  if (!m) return null;
+  const day = Math.round((Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) - Date.UTC(origin.y, origin.m - 1, origin.d)) / 864e5);
+  const hh = m[4] ? Number(m[4]) : 0, mm = m[5] ? Number(m[5]) : 0;
+  if (hh > 23 || mm > 59) return null;
+  return day * DAY + hh * 60 + mm;
+}
 
 // src/domain/util.ts
 function stableStringify(value) {
@@ -12124,7 +12133,7 @@ function adjudicateDefault(pack2, state, c, when, origin = "offscreen") {
     const occ = {
       occurrenceId: occId,
       title: ev.title,
-      account: `${ev.summary} (Occurred in this branch along its original route at ${formatTick(when.lo)}${when.hi !== when.lo ? "\u2013" + formatTick(when.hi) : ""}.)`,
+      account: /^zh/i.test(pack2.pack.language) ? `${ev.summary}\uFF08\u672C\u5206\u652F\u4E2D\u6309\u539F\u4F5C\u8DEF\u7EBF\u53D1\u751F\u3002\uFF09` : `${ev.summary} (Occurred in this branch along its original route.)`,
       actors: ev.entity_ids,
       affected: ev.entity_ids,
       locations: ev.location_ids,
@@ -12266,7 +12275,9 @@ function tokens(text) {
   return out;
 }
 var STOP = /* @__PURE__ */ new Set(["the", "a", "an", "of", "to", "and", "or", "in", "on", "at", "by", "for", "with", "is", "was", "were", "be", "it", "that", "this", "as", "from", "his", "her", "their", "you", "your", "i", "my", "me", "we", "our"]);
-var WorldIndex = class {
+var WorldIndex = class _WorldIndex {
+  /** Display origin (calendar date of day 0) of the active binding; affects labels only. */
+  static displayOrigin = null;
   pack;
   state;
   byEntity = /* @__PURE__ */ new Map();
@@ -12408,7 +12419,7 @@ var WorldIndex = class {
     }
     return [...out];
   }
-  historyView(id) {
+  historyView(id, origin = _WorldIndex.displayOrigin) {
     const o = this.state.occurrences.get(id);
     if (!o) return null;
     const rec = this.state.recordById.get(o.recordId);
@@ -12417,7 +12428,7 @@ var WorldIndex = class {
       for (const t2 of factHistory(this.state, d.entity_id, d.predicate)) {
         if (t2.seq > o.seq) {
           const r = this.state.recordById.get(t2.recordId);
-          later.push(`${this.entityName(d.entity_id)}.${d.predicate} -> ${t2.op === "set" ? JSON.stringify(t2.value) : "UNKNOWN"} at ${formatTick(t2.tick)} (${r?.summary || t2.recordId})`);
+          later.push(`${this.entityName(d.entity_id)}.${d.predicate} -> ${t2.op === "set" ? JSON.stringify(t2.value) : "UNKNOWN"} at ${formatTick(t2.tick, origin)} (${r?.summary || t2.recordId})`);
         }
       }
     }
@@ -12426,7 +12437,7 @@ var WorldIndex = class {
       title: o.title,
       status: "occurred",
       account: o.account,
-      time: formatStoryTime(o.time),
+      time: formatStoryTime(o.time, origin),
       timeTicks: o.time,
       origin: o.origin,
       actors: o.actors.map((x) => this.entityName(x)),
@@ -12475,14 +12486,14 @@ var WorldIndex = class {
       const pred = k.slice(entityId.length + 1);
       seenPreds.add(pred);
       const f = factAt(this.state, entityId, pred, cp);
-      for (const u of f.uncertain) uncertain.push(`${pred} may change to ${JSON.stringify(u.value)} within ${formatTick(u.tick)}\u2013${formatTick(u.tickHi)}`);
+      for (const u of f.uncertain) uncertain.push(`${pred} may change to ${JSON.stringify(u.value)} within ${formatTick(u.tick, _WorldIndex.displayOrigin)}\u2013${formatTick(u.tickHi, _WorldIndex.displayOrigin)}`);
       if (!f.known) continue;
       const rec = f.supportRecordId ? this.state.recordById.get(f.supportRecordId) : void 0;
       facts.push({
         predicate: pred,
         value: f.value,
         display: Array.isArray(f.value) ? f.value.map((x) => this.entityName(x)).join(", ") : this.pack.predicates.get(pred)?.value_type === "entity_ref" ? this.entityName(String(f.value)) : String(f.value),
-        since: formatTick(f.validFrom),
+        since: formatTick(f.validFrom, _WorldIndex.displayOrigin),
         supportRecordId: f.supportRecordId,
         support: rec ? rec.summary : ""
       });
@@ -12952,7 +12963,7 @@ function buildPacket(inp, compact = false) {
   if (checkpointTick > pack2.coverage.end) required.push(`PACK COVERAGE ENDED at ${formatTick(pack2.coverage.end, inp.origin)}: there is no further scheduled canon. Do not invent canonical events; continue only from actual history and the user's choices.`);
   const occIds = [...retrieval.occurrences.keys()].filter((id) => index.state.occurrences.has(id));
   occIds.sort((a, b) => index.state.occurrences.get(a).time.lo - index.state.occurrences.get(b).time.lo);
-  const hist = occIds.map((id) => histLine(index.historyView(id), retrieval.occurrences.get(id), compact));
+  const hist = occIds.map((id) => histLine(index.historyView(id, inp.origin), retrieval.occurrences.get(id), compact));
   required.push("ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n" + (hist.length ? hist.join("\n") : "- (no matching actual occurrences)"));
   const ents = [...retrieval.entities.keys()].filter((id) => index.entityExists(id));
   const states = ents.map((id) => stateLine(index.entityState(id, { tick: checkpointTick }), cpLabel));
@@ -13690,7 +13701,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.0.0";
+var ENGINE_VERSION = "1.0.1";
 
 // src/runtime/engine.ts
 var DEFAULT_SETTINGS = {
@@ -13933,6 +13944,7 @@ var CanonEngine = class {
     }
     const readOnly = !!this.host.isWriter && !this.host.isWriter();
     const allowModel = opts.allowModel !== false && !readOnly;
+    WorldIndex.displayOrigin = c.binding.originDate || null;
     const chatAtStart = this.host.chatId();
     const pack2 = this.pack();
     await this.recoverPending(c);
@@ -13995,8 +14007,10 @@ var CanonEngine = class {
       };
       this.setStatus("conflict", `Message #${issue.index} conflicts with the edited history: ${c.recoveryState.reason}`, { canRetry: true });
     } else {
-      if (c.recoveryState.status !== "ok" && c.recoveryState.status !== "unsaved") c.recoveryState = { status: "ok" };
-      if (c.recoveryState.status !== "unsaved" && (prevPhase !== "error" || !this.opActive)) this.setStatus("idle");
+      if (c.recoveryState.status === "conflict") c.recoveryState = { status: "ok" };
+      if (c.recoveryState.status === "ok") {
+        if (!this.opActive) this.setStatus("idle");
+      } else if (c.recoveryState.status === "error" && !this.opActive) this.setStatus("error", c.recoveryState.reason || "", { errorKind: c.recoveryState.errorKind, canRetry: true });
     }
     if (fingerprintChanged || changedFrom >= 0) {
       c.revision++;
@@ -14611,6 +14625,12 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         await this.commit(c, { op, interp, fences, candidate, commitId, messageId, variantId, contentHash, prior, excludeLast });
         committed = true;
         trace.outcome = "committed";
+        {
+          const cc = this.campaign();
+          if (cc && cc.recoveryState.status === "error") {
+            cc.recoveryState = { status: "ok" };
+          }
+        }
         this.lastFailedOp = null;
         try {
           await this.postCommitImpact(interp, abort.signal, operationId);
@@ -15397,6 +15417,10 @@ var StModel = class {
       try {
         const out = await c.generateQuietPrompt({ quietPrompt: req.instruction || "", removeReasoning: true, skipWIAN: false });
         if (req.signal?.aborted) throw new Error("aborted");
+        const captured = gen.draft?.token === token ? gen.draft.captured : null;
+        if (captured && !captured.some((m) => typeof m.content === "string" && m.content.includes("[CANON ENGINE CONTEXT"))) {
+          throw new EngineError("capacity", "SillyTavern dropped the Canon Engine context from the prompt because it did not fit the configured context size. Increase \u201CContext Size (tokens)\u201D in the API settings, or lower budgetChars in Canon Engine advanced settings.");
+        }
         return String(out ?? "");
       } finally {
         req.signal?.removeEventListener("abort", onAbort);
@@ -15537,7 +15561,7 @@ var D = {
   coverage: { zh: "\u8986\u76D6\u65F6\u95F4", en: "Coverage" },
   hardCount: { zh: "HARD \u951A\u70B9\u6570", en: "Hard anchors" },
   warnings: { zh: "\u9700\u4F5C\u8005\u590D\u67E5\u7684\u63D0\u793A", en: "Author review warnings" },
-  startTime: { zh: "\u5F00\u5C40\u65F6\u95F4\uFF08\u6570\u636E\u65F6\u95F4\u8F74\uFF09", en: "Starting time (pack clock)" },
+  startTime: { zh: "\u5F00\u5C40\u65F6\u95F4\uFF08D\u5929\u6570 \u65F6:\u5206\uFF0C\u6216\u586B\u5199\u7B2C0\u5929\u65E5\u671F\u540E\u7528 \u5E74-\u6708-\u65E5 \u65F6:\u5206\uFF09", en: "Starting time (D<day> HH:MM, or YYYY-MM-DD HH:MM when the day-0 date is set)" },
   startBefore: { zh: "\u6216\uFF1A\u4ECE\u67D0\u4E8B\u4EF6\u4E4B\u524D\u5F00\u59CB", en: "Or: start just before event" },
   originDate: { zh: "\u7B2C 0 \u5929\u5BF9\u5E94\u7684\u663E\u793A\u65E5\u671F\uFF08\u53EF\u9009\uFF0C\u4EC5\u663E\u793A\u7528\uFF09", en: "Display date for day 0 (optional, display only)" },
   horaeDetected: { zh: "Horae \u5F53\u524D\u8BB0\u5F55\u7684\u5267\u60C5\u65F6\u95F4", en: "Story time recorded by Horae" },
@@ -15786,7 +15810,7 @@ function openBindWizard(text) {
     ${p.warnings.length ? `<details><summary>${t("warnings")} (${p.warnings.length})</summary><ul class="canon-list">${p.warnings.map((w) => `<li>${esc(w.path)} ${esc(w.message)}</li>`).join("")}</ul></details>` : ""}
     ${horae && (horae.date || horae.time) ? `<div class="canon-note">${t("horaeDetected")}: ${esc(horae.date || "")} ${esc(horae.time || "")} ${esc(horae.location || "")}</div>` : ""}
     ${existing ? `<div class="canon-note">${t("existingChat")}</div>` : ""}
-    <label>${t("startTime")} <input class="text_pole canon-start" value="${esc(startDefault)}" placeholder="D0 08:00"></label>
+    <label>${t("startTime")} <input class="text_pole canon-start" value="${esc(startDefault)}" placeholder="D0 08:00 \u6216 2020-07-20 08:00\uFF08\u9700\u586B\u5199\u4E0B\u65B9\u7B2C0\u5929\u65E5\u671F\uFF09"></label>
     <label>${t("startBefore")} <select class="canon-start-ev"><option value="">\u2014</option>${evOptions}</select></label>
     <label>${t("originDate")} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD"></label>
     <div class="canon-row"><button class="menu_button canon-confirm">${t("confirmBind")}</button><button class="menu_button" data-close>${t("close")}</button></div>
@@ -15796,8 +15820,9 @@ function openBindWizard(text) {
     if (v) el.querySelector(".canon-start").value = formatTick(Number(v));
   });
   el.querySelector(".canon-confirm").addEventListener("click", async () => {
-    const startTick = parseTickLabel(el.querySelector(".canon-start").value);
     const o = el.querySelector(".canon-origin").value.trim().match(/^(\d{1,6})-(\d{1,2})-(\d{1,2})$/);
+    const startRaw = el.querySelector(".canon-start").value;
+    const startTick = parseTickLabel(startRaw) ?? parseDateLabel(startRaw, o ? { y: Number(o[1]), m: Number(o[2]), d: Number(o[3]) } : null);
     const status = el.querySelector(".canon-wizard-status");
     if (startTick === null) {
       status.innerHTML = `<div class="canon-note err">${t("startTime")}?</div>`;
@@ -16153,7 +16178,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.0.0" };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.0.1" };
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
   const first = (ev, fn) => typeof es.makeFirst === "function" ? es.makeFirst(ev, fn) : es.on(ev, fn);
@@ -16200,7 +16225,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
-  console.log("[CanonEngine] v1.0.0 loaded");
+  console.log("[CanonEngine] v1.0.1 loaded");
 }
 (async () => {
   try {

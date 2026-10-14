@@ -39,7 +39,7 @@ const D: Record<string, { zh: string; en: string }> = {
   coverage: { zh: '覆盖时间', en: 'Coverage' },
   hardCount: { zh: 'HARD 锚点数', en: 'Hard anchors' },
   warnings: { zh: '需作者复查的提示', en: 'Author review warnings' },
-  startTime: { zh: '开局时间（数据时间轴）', en: 'Starting time (pack clock)' },
+  startTime: { zh: '开局时间（D天数 时:分，或填写第0天日期后用 年-月-日 时:分）', en: 'Starting time (D<day> HH:MM, or YYYY-MM-DD HH:MM when the day-0 date is set)' },
   startBefore: { zh: '或：从某事件之前开始', en: 'Or: start just before event' },
   originDate: { zh: '第 0 天对应的显示日期（可选，仅显示用）', en: 'Display date for day 0 (optional, display only)' },
   horaeDetected: { zh: 'Horae 当前记录的剧情时间', en: 'Story time recorded by Horae' },

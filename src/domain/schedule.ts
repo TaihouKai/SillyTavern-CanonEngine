@@ -93,7 +93,7 @@ export function adjudicateDefault(pack: LoadedPack, state: WorldState, c: Candid
     const occ: Occurrence = {
       occurrenceId: occId,
       title: ev.title,
-      account: `${ev.summary} (Occurred in this branch along its original route at ${formatTick(when.lo)}${when.hi !== when.lo ? '–' + formatTick(when.hi) : ''}.)`,
+      account: /^zh/i.test(pack.pack.language) ? `${ev.summary}（本分支中按原作路线发生。）` : `${ev.summary} (Occurred in this branch along its original route.)`,
       actors: ev.entity_ids,
       affected: ev.entity_ids,
       locations: ev.location_ids,

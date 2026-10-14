@@ -66,3 +66,14 @@ export function intervalCrosses(fromExclusive: number, toInclusive: number, lo: 
 export function compareStoryTime(a: StoryTime, b: StoryTime): number {
   return a.lo - b.lo || a.hi - b.hi;
 }
+
+/** Parse "YYYY-MM-DD HH:MM" (or "YYYY-MM-DD") relative to a display origin date for day 0. */
+export function parseDateLabel(s: string, origin: { y: number; m: number; d: number } | null): number | null {
+  if (!origin) return null;
+  const m = String(s).trim().match(/^(\d{1,6})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/);
+  if (!m) return null;
+  const day = Math.round((Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) - Date.UTC(origin.y, origin.m - 1, origin.d)) / 86400000);
+  const hh = m[4] ? Number(m[4]) : 0, mm = m[5] ? Number(m[5]) : 0;
+  if (hh > 23 || mm > 59) return null;
+  return day * DAY + hh * 60 + mm;
+}

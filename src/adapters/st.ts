@@ -9,7 +9,7 @@ import type { HostPort, PublishRequest } from '../runtime/host';
 import type { CampaignData, Interpretation, OpType, SourceEntry } from '../runtime/types';
 import type { ChatMsg, DraftRequest, ModelPort, TaskName } from '../runtime/model';
 import { TASK_TAG } from '../runtime/model';
-import { newId, sha256, deepClone } from '../domain/util';
+import { newId, sha256, deepClone, EngineError } from '../domain/util';
 import { HoraeAdapter } from './horae';
 import { excludeHoraeForOperation } from '../runtime/engine';
 
@@ -306,6 +306,12 @@ export class StModel implements ModelPort {
       try {
         const out = await c.generateQuietPrompt({ quietPrompt: req.instruction || '', removeReasoning: true, skipWIAN: false });
         if (req.signal?.aborted) throw new Error('aborted');
+        // ST trims in-chat injections that do not fit the model's context size. Never accept a
+        // draft whose final prompt lost the engine context.
+        const captured = gen.draft?.token === token ? gen.draft.captured : null;
+        if (captured && !captured.some((m: any) => typeof m.content === 'string' && m.content.includes('[CANON ENGINE CONTEXT'))) {
+          throw new EngineError('capacity', 'SillyTavern dropped the Canon Engine context from the prompt because it did not fit the configured context size. Increase “Context Size (tokens)” in the API settings, or lower budgetChars in Canon Engine advanced settings.');
+        }
         return String(out ?? '');
       } finally {
         req.signal?.removeEventListener('abort', onAbort);

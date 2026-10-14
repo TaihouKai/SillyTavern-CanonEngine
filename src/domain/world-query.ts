@@ -72,6 +72,8 @@ function tokens(text: string): string[] {
 const STOP = new Set(['the', 'a', 'an', 'of', 'to', 'and', 'or', 'in', 'on', 'at', 'by', 'for', 'with', 'is', 'was', 'were', 'be', 'it', 'that', 'this', 'as', 'from', 'his', 'her', 'their', 'you', 'your', 'i', 'my', 'me', 'we', 'our']);
 
 export class WorldIndex {
+  /** Display origin (calendar date of day 0) of the active binding; affects labels only. */
+  static displayOrigin: { y: number; m: number; d: number } | null = null;
   readonly pack: LoadedPack;
   readonly state: WorldState;
   private byEntity = new Map<Id, Set<string>>();
@@ -221,7 +223,7 @@ export class WorldIndex {
     return [...out];
   }
 
-  historyView(id: string): HistoryRecordView | null {
+  historyView(id: string, origin: { y: number; m: number; d: number } | null = WorldIndex.displayOrigin): HistoryRecordView | null {
     const o = this.state.occurrences.get(id);
     if (!o) return null;
     const rec = this.state.recordById.get(o.recordId);
@@ -230,7 +232,7 @@ export class WorldIndex {
       for (const t of factHistory(this.state, d.entity_id, d.predicate)) {
         if (t.seq > o.seq) {
           const r = this.state.recordById.get(t.recordId);
-          later.push(`${this.entityName(d.entity_id)}.${d.predicate} -> ${t.op === 'set' ? JSON.stringify(t.value) : 'UNKNOWN'} at ${formatTick(t.tick)} (${r?.summary || t.recordId})`);
+          later.push(`${this.entityName(d.entity_id)}.${d.predicate} -> ${t.op === 'set' ? JSON.stringify(t.value) : 'UNKNOWN'} at ${formatTick(t.tick, origin)} (${r?.summary || t.recordId})`);
         }
       }
     }
@@ -239,7 +241,7 @@ export class WorldIndex {
       title: o.title,
       status: 'occurred',
       account: o.account,
-      time: formatStoryTime(o.time),
+      time: formatStoryTime(o.time, origin),
       timeTicks: o.time,
       origin: o.origin,
       actors: o.actors.map((x) => this.entityName(x)),
@@ -290,14 +292,14 @@ export class WorldIndex {
       const pred = k.slice(entityId.length + 1);
       seenPreds.add(pred);
       const f = factAt(this.state, entityId, pred, cp);
-      for (const u of f.uncertain) uncertain.push(`${pred} may change to ${JSON.stringify(u.value)} within ${formatTick(u.tick)}–${formatTick(u.tickHi)}`);
+      for (const u of f.uncertain) uncertain.push(`${pred} may change to ${JSON.stringify(u.value)} within ${formatTick(u.tick, WorldIndex.displayOrigin)}–${formatTick(u.tickHi, WorldIndex.displayOrigin)}`);
       if (!f.known) continue;
       const rec = f.supportRecordId ? this.state.recordById.get(f.supportRecordId) : undefined;
       facts.push({
         predicate: pred,
         value: f.value!,
         display: Array.isArray(f.value) ? f.value.map((x) => this.entityName(x)).join(', ') : this.pack.predicates.get(pred)?.value_type === 'entity_ref' ? this.entityName(String(f.value)) : String(f.value),
-        since: formatTick(f.validFrom!),
+        since: formatTick(f.validFrom!, WorldIndex.displayOrigin),
         supportRecordId: f.supportRecordId,
         support: rec ? rec.summary : '',
       });
