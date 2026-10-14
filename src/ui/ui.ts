@@ -146,7 +146,10 @@ function renderSettings() {
   const libRows = (bound: boolean) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc(e.file)}"><b>${esc(e.title)}</b> v${esc(e.version)} · ${esc(e.hash.slice(0, 8))} · ${Math.round(e.size / 1024)} KB</span>
       ${bound ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t('libUpdate')}</button>` : `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}">${t('libEnable')}</button>`}
       <button class="menu_button canon-btn" data-act="lib-del" data-i="${i}" title="${t('libDelete')}">✕</button></div>`).join('');
-  if (!camp) {
+  if (!H.chatId()) {
+    lines.push(`<div class="canon-note warn">${t('noChat')}</div>`);
+    if (lib.length) lines.push(`<details class="canon-lib"><summary>${t('library')} (${lib.length})</summary>${libRows(true).replace(/<button[^>]*data-act="lib-update"[^>]*>[^<]*<\/button>/g, '')}</details>`);
+  } else if (!camp) {
     lines.push(`<div>${t('notBound')}</div>`);
     lines.push(`<div class="canon-lib"><div class="canon-lib-head">${t('library')}</div>${lib.length ? libRows(false) : `<div class="canon-note">${t('libEmpty')}</div>`}</div>`);
     lines.push(`<button class="menu_button" data-act="enable">${t('enable')}</button>`);
@@ -190,12 +193,14 @@ async function onSettingsClick(ev: Event) {
   const libEntry = (): LibraryEntry | undefined => listLibrary()[Number(b.dataset.i)];
   try {
     if (act === 'enable' || act === 'import' || act === 'update') {
+      if (!H.chatId()) { toast('error', t('noChat')); return; }
       if (H.isGroup()) { toast('error', t('groupUnsupported')); return; }
       fileMode = act as typeof fileMode;
       file.value = '';
       file.click();
     } else if (act === 'lib-enable' || act === 'lib-update') {
       const e = libEntry(); if (!e) return;
+      if (!H.chatId()) { toast('error', t('noChat')); return; }
       if (H.isGroup()) { toast('error', t('groupUnsupported')); return; }
       const text = await loadFromLibrary(e);
       if (act === 'lib-enable') openBindWizard(text); else openUpdateWizard(text);

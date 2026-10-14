@@ -120,12 +120,13 @@ export class StHost implements HostPort {
   }
 
   getCampaign(): CampaignData | null {
+    if (!this.chatId()) return null; // ST keeps placeholder metadata while no chat is open
     const md = ctx().chatMetadata;
     return (md && md[NS]) || null;
   }
   setCampaign(data: CampaignData | null): void {
     const md = ctx().chatMetadata;
-    if (!md) return;
+    if (!md || (data && !this.chatId())) return;
     if (data) md[NS] = data; else delete md[NS];
   }
 
@@ -322,8 +323,20 @@ export class StModel implements ModelPort {
       const token = newId('raw');
       gen.raw = { token, messages: messages.map((m) => ({ ...m })) };
       try {
-        const out = await c.generateRaw({ prompt: msgs, responseLength: opts.maxTokens || 4096, trimNames: false });
-        return String(out ?? '');
+        // Empty replies are common with reasoning models (thinking uses up the budget) and with
+        // provider content filters. Retry with a larger budget before giving up.
+        let budget = opts.maxTokens || 4096;
+        for (let attempt = 1; ; attempt++) {
+          try {
+            const out = await c.generateRaw({ prompt: msgs, responseLength: budget, trimNames: false });
+            return String(out ?? '');
+          } catch (e) {
+            const empty = /No message generated/i.test((e as Error).message);
+            if (!empty || opts.signal?.aborted) throw e;
+            if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort or use a non-reasoning model for this chat), a provider content filter blocking the request, or a very small max response length.`);
+            budget = Math.min(budget * 2, 16384);
+          }
+        }
       } finally {
         if (gen.raw?.token === token) gen.raw = null;
       }

@@ -13707,7 +13707,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.1.3";
+var ENGINE_VERSION = "1.1.4";
 
 // src/runtime/engine.ts
 var DEFAULT_SETTINGS = {
@@ -13832,6 +13832,7 @@ var CanonEngine = class {
   }
   /** Create the chat's binding: pinned snapshot + bootstrap seed. Existing chats are interpreted afterwards by reconcile(). */
   async bind(packText, opts) {
+    if (!this.host.chatId()) throw new EngineError("incompatible_adapter", "No chat is open. Open a character chat first, then enable Canon Engine for it.");
     if (this.host.isGroup()) throw new EngineError("incompatible_adapter", "Group chats are not supported in v1 until a designated-GM adapter is validated. Canon Engine was not activated.");
     const r = validatePackText(packText);
     if (!r.ok || !r.loaded) throw new EngineError("invalid_pack", r.errors.map((e) => `${e.path}: ${e.message}`).join("\n"));
@@ -15237,12 +15238,13 @@ var StHost = class {
     return contentHashOf("gm", String(ctx().name2 || ""), text, "");
   }
   getCampaign() {
+    if (!this.chatId()) return null;
     const md = ctx().chatMetadata;
     return md && md[NS] || null;
   }
   setCampaign(data) {
     const md = ctx().chatMetadata;
-    if (!md) return;
+    if (!md || data && !this.chatId()) return;
     if (data) md[NS] = data;
     else delete md[NS];
   }
@@ -15448,8 +15450,18 @@ var StModel = class {
       const token = newId("raw");
       gen.raw = { token, messages: messages.map((m) => ({ ...m })) };
       try {
-        const out = await c.generateRaw({ prompt: msgs, responseLength: opts.maxTokens || 4096, trimNames: false });
-        return String(out ?? "");
+        let budget = opts.maxTokens || 4096;
+        for (let attempt = 1; ; attempt++) {
+          try {
+            const out = await c.generateRaw({ prompt: msgs, responseLength: budget, trimNames: false });
+            return String(out ?? "");
+          } catch (e) {
+            const empty = /No message generated/i.test(e.message);
+            if (!empty || opts.signal?.aborted) throw e;
+            if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort or use a non-reasoning model for this chat), a provider content filter blocking the request, or a very small max response length.`);
+            budget = Math.min(budget * 2, 16384);
+          }
+        }
       } finally {
         if (gen.raw?.token === token) gen.raw = null;
       }
@@ -15591,6 +15603,7 @@ function setLang(l) {
 }
 var D = {
   title: { zh: "Canon Engine \u5386\u53F2\u5F15\u64CE", en: "Canon Engine" },
+  noChat: { zh: "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u89D2\u8272\u5BF9\u8BDD\uFF0C\u518D\u4E3A\u8BE5\u5BF9\u8BDD\u542F\u7528 Canon Engine\u3002", en: "Open a character chat first, then enable Canon Engine for it." },
   notBound: { zh: "\u6B64\u5BF9\u8BDD\u672A\u542F\u7528 Canon Engine\u3002", en: "Canon Engine is not enabled for this chat." },
   enable: { zh: "\u4E3A\u6B64\u5BF9\u8BDD\u542F\u7528\uFF08\u5BFC\u5165 .canon.json\uFF09", en: "Enable for this chat (import .canon.json)" },
   inspect: { zh: "\u68C0\u67E5\u9762\u677F", en: "Inspector" },
@@ -16245,7 +16258,10 @@ function renderSettings() {
   const libRows = (bound) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc2(e.file)}"><b>${esc2(e.title)}</b> v${esc2(e.version)} \xB7 ${esc2(e.hash.slice(0, 8))} \xB7 ${Math.round(e.size / 1024)} KB</span>
       ${bound ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t("libUpdate")}</button>` : `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}">${t("libEnable")}</button>`}
       <button class="menu_button canon-btn" data-act="lib-del" data-i="${i}" title="${t("libDelete")}">\u2715</button></div>`).join("");
-  if (!camp) {
+  if (!H.chatId()) {
+    lines.push(`<div class="canon-note warn">${t("noChat")}</div>`);
+    if (lib.length) lines.push(`<details class="canon-lib"><summary>${t("library")} (${lib.length})</summary>${libRows(true).replace(/<button[^>]*data-act="lib-update"[^>]*>[^<]*<\/button>/g, "")}</details>`);
+  } else if (!camp) {
     lines.push(`<div>${t("notBound")}</div>`);
     lines.push(`<div class="canon-lib"><div class="canon-lib-head">${t("library")}</div>${lib.length ? libRows(false) : `<div class="canon-note">${t("libEmpty")}</div>`}</div>`);
     lines.push(`<button class="menu_button" data-act="enable">${t("enable")}</button>`);
@@ -16287,6 +16303,10 @@ async function onSettingsClick(ev) {
   const libEntry = () => listLibrary()[Number(b.dataset.i)];
   try {
     if (act === "enable" || act === "import" || act === "update") {
+      if (!H.chatId()) {
+        toast("error", t("noChat"));
+        return;
+      }
       if (H.isGroup()) {
         toast("error", t("groupUnsupported"));
         return;
@@ -16297,6 +16317,10 @@ async function onSettingsClick(ev) {
     } else if (act === "lib-enable" || act === "lib-update") {
       const e = libEntry();
       if (!e) return;
+      if (!H.chatId()) {
+        toast("error", t("noChat"));
+        return;
+      }
       if (H.isGroup()) {
         toast("error", t("groupUnsupported"));
         return;
@@ -16784,7 +16808,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.1.3" };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.1.4" };
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
   const first = (ev, fn) => typeof es.makeFirst === "function" ? es.makeFirst(ev, fn) : es.on(ev, fn);
@@ -16831,7 +16855,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
-  console.log("[CanonEngine] v1.1.3 loaded");
+  console.log("[CanonEngine] v1.1.4 loaded");
 }
 (async () => {
   try {

@@ -1,5 +1,5 @@
 {
- "at": "2026-10-14T14:25:32.393Z",
+ "at": "2026-10-14T14:35:17.662Z",
  "results": [
   {
    "name": "I01 draft uses ST full prompt: card + persona + Author's Note + keyword lore + Horae + engine context",
@@ -27,9 +27,34 @@
    "detail": "晨雾笼罩着森林边缘的小屋，Seraphina 为你端来热茶。"
   },
   {
+   "name": "I02 sentinel absent from chat and Horae metadata",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "I02 sentinel absent from the active ledger and stored manifests",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "I02 sentinel never reached Horae analysis or vector embedding",
+   "pass": true,
+   "detail": "aux=1 embed=0"
+  },
+  {
+   "name": "I02 repair request is private and cites the violation",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "I02 sentinel absent from the next real prompt",
+   "pass": true,
+   "detail": ""
+  },
+  {
    "name": "I13 malformed model JSON: bounded retry then actionable error; user input kept; no GM message",
    "pass": true,
-   "detail": "{\"status\":\"error\",\"errorKind\":\"invalid_model_json\",\"reason\":\"invalid structured output for extract_user: no parseable JSON object in model output\",\"at\":1791987891517}"
+   "detail": "{\"status\":\"error\",\"errorKind\":\"invalid_model_json\",\"reason\":\"invalid structured output for extract_user: no parseable JSON object in model output\",\"at\":1791988513504}"
   },
   {
    "name": "Retry after failure completes the turn",
@@ -50,21 +75,6 @@
    "name": "I12 missing Horae API gives a compatibility diagnosis (no guessed private writes)",
    "pass": true,
    "detail": ""
-  },
-  {
-   "name": "R07 late result after chat switch is discarded (neither chat receives it)",
-   "pass": true,
-   "detail": ""
-  },
-  {
-   "name": "R15 second tab for the same campaign is not the writer",
-   "pass": true,
-   "detail": "owner2=false"
-  },
-  {
-   "name": "I11 group chat: explicit activation guard, no enforcement claim",
-   "pass": true,
-   "detail": "group=1791987924577 Group chats are not supported in v1 until a designated-GM adapter is validated. Canon Engine was not activated."
   }
  ]
 }

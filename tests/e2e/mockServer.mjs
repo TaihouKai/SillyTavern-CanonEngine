@@ -11,7 +11,7 @@
 import http from 'node:http';
 
 const PORT = Number(process.argv[2] || 5555);
-const fresh = () => ({ logs: [], mainQueue: [], mainRules: [], taskRules: [], auxRules: [], auxDelayMs: 0, auxFailNext: 0, mainDelayMs: 0, taskDelayMs: 0, malformedNext: {} });
+const fresh = () => ({ logs: [], mainQueue: [], mainRules: [], taskRules: [], auxRules: [], auxDelayMs: 0, auxFailNext: 0, mainDelayMs: 0, taskDelayMs: 0, malformedNext: {}, emptyNext: {} });
 let state = fresh();
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -139,6 +139,7 @@ const server = http.createServer(async (req, res) => {
       if (state.taskDelayMs) await sleep(state.taskDelayMs);
       const rule = findRule(state.taskRules, task, text);
       if (rule?.delayMs) await sleep(rule.delayMs);
+      if ((state.emptyNext[task] || 0) > 0) { state.emptyNext[task]--; entry.response = ''; entry.maxTokens = body.max_tokens; return send(res, 200, completion('', body.model)); }
       if ((state.malformedNext[task] || 0) > 0) { state.malformedNext[task]--; entry.response = 'not json at all'; return send(res, 200, completion('Sure! Here is the analysis: not json at all', body.model)); }
       let out;
       if (rule?.raw !== undefined) out = rule.raw;

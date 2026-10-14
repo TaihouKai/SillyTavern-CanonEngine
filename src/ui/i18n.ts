@@ -5,6 +5,7 @@ export function getLang(): Lang { return lang; }
 
 const D: Record<string, { zh: string; en: string }> = {
   title: { zh: 'Canon Engine 历史引擎', en: 'Canon Engine' },
+  noChat: { zh: '请先打开一个角色对话，再为该对话启用 Canon Engine。', en: 'Open a character chat first, then enable Canon Engine for it.' },
   notBound: { zh: '此对话未启用 Canon Engine。', en: 'Canon Engine is not enabled for this chat.' },
   enable: { zh: '为此对话启用（导入 .canon.json）', en: 'Enable for this chat (import .canon.json)' },
   inspect: { zh: '检查面板', en: 'Inspector' },

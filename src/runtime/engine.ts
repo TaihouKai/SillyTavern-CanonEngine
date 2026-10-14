@@ -173,6 +173,7 @@ export class CanonEngine {
 
   /** Create the chat's binding: pinned snapshot + bootstrap seed. Existing chats are interpreted afterwards by reconcile(). */
   async bind(packText: string, opts: { startTick: number; originDate?: { y: number; m: number; d: number } | null; startLabel?: string; mode: 'new' | 'existing' }): Promise<{ unresolved: string[]; pending: string[]; examined: number }> {
+    if (!this.host.chatId()) throw new EngineError('incompatible_adapter', 'No chat is open. Open a character chat first, then enable Canon Engine for it.');
     if (this.host.isGroup()) throw new EngineError('incompatible_adapter', 'Group chats are not supported in v1 until a designated-GM adapter is validated. Canon Engine was not activated.');
     const r = validatePackText(packText);
     if (!r.ok || !r.loaded) throw new EngineError('invalid_pack', r.errors.map((e) => `${e.path}: ${e.message}`).join('\n'));
