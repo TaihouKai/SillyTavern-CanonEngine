@@ -38,7 +38,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   maxOrdinaryPlanner: 2,
   forcedPlannerAttempt: true,
   maxRepairs: 2,
-  taskTimeoutMs: 180000,
+  taskTimeoutMs: 300000,
   draftTimeoutMs: 300000,
   budgetChars: 24000,
   horizonMinutes: 3 * 1440,

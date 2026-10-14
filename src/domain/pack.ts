@@ -400,3 +400,16 @@ export function loadPinnedPack(pack: CanonPack): LoadedPack {
   if (!r.ok || !r.loaded) throw new Error('Pinned pack snapshot failed validation: ' + r.errors.map((e) => `${e.path} ${e.message}`).join('; '));
   return r.loaded;
 }
+
+/**
+ * Whether a model-reported value for a typed predicate can be compared deterministically with the
+ * stored fact. Booleans, numbers and entity references can; strings only when the predicate has a
+ * closed vocabulary that contains the claimed value. Free-text values ("正常运转" vs "active") are
+ * paraphrases, not contradictions, and are left to the semantic reviewer.
+ */
+export function claimComparable(pack: LoadedPack, predicate: Id, value: unknown): boolean {
+  const p = pack.predicates.get(predicate);
+  if (!p) return false;
+  if (p.value_type !== 'string') return true;
+  return Array.isArray(p.allowed_values) && p.allowed_values.length > 0 && (p.allowed_values as unknown[]).includes(value);
+}

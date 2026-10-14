@@ -3,7 +3,7 @@
 // The evaluator's own verdicts never bypass these checks.
 import type { FactDelta, FactValue, Id, Occurrence, RuntimeEntity, StoryTime } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
-import { normalizeValue, valuesEqual } from '../domain/pack';
+import { claimComparable, normalizeValue, valuesEqual } from '../domain/pack';
 import { factAt } from '../domain/reducer';
 import type { WorldIndex } from '../domain/world-query';
 import { toTick, formatTick } from '../domain/time';
@@ -262,7 +262,7 @@ export function runGate(g: GateInput): GateResult {
     // Each claim is checked at its own story checkpoint (flashbacks use then-valid facts).
     const claimCp = atTick !== undefined ? { tick: atTick } : cp;
     const f = factAt(index.state, eid, pred, claimCp);
-    if (f.known && !valuesEqual(f.value!, value)) {
+    if (f.known && !valuesEqual(f.value!, value) && claimComparable(pack, pred, value)) {
       if (atTick === undefined && setInReply(eid, pred, value)) return; // a genuine staged change with its own occurrence
       const rec = f.supportRecordId ? index.state.recordById.get(f.supportRecordId) : undefined;
       violations.push(`${label} "${quote}" presupposes ${index.entityName(eid)}.${pred}=${JSON.stringify(value)}, but the actual state is ${JSON.stringify(f.value)} (established by: ${rec?.summary || 'record'}). No supported change is recorded through this scene.`);
@@ -304,8 +304,12 @@ export function runGate(g: GateInput): GateResult {
     const chk = checks.get(c.id);
     if (!chk) { coverageGaps.push(`claim ${c.id} ("${c.quote.slice(0, 80)}") was not reviewed`); continue; }
     if (chk.verdict === 'contradiction') violations.push(`Contradiction with actual history/state: "${c.quote}"${chk.note ? ` — ${chk.note}` : ''}`);
-    if (chk.verdict === 'unsupported' && ['recollection', 'causal', 'state', 'operation', 'presence'].includes(c.kind) && ['narrator', 'new_event'].includes(c.assertion)) {
-      violations.push(`Unsupported historical/state claim (no actual record): "${c.quote}"${chk.note ? ` — ${chk.note}` : ''}`);
+    // Only claims about what HAPPENED (recollections, causes) need an actual record. Present-scene
+    // details without a record are compatible new details unless they contradict something.
+    if (chk.verdict === 'unsupported' && ['recollection', 'causal'].includes(c.kind) && ['narrator', 'new_event'].includes(c.assertion)) {
+      violations.push(`Unsupported historical claim (no actual record): "${c.quote}"${chk.note ? ` — ${chk.note}` : ''}`);
+    } else if (chk.verdict === 'unsupported' && ['narrator', 'new_event'].includes(c.assertion)) {
+      warnings.push(`present-state detail without a record (accepted as new detail): "${c.quote.slice(0, 80)}"`);
     }
     if (chk.verdict === 'unsupported' && c.kind === 'recollection' && c.assertion === 'dialogue') warnings.push(`character recollection without record (kept as a belief): "${c.quote.slice(0, 80)}"`);
   }
