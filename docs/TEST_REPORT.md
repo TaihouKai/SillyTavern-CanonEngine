@@ -18,8 +18,8 @@ Date: 2026-10-14. Handoff revision 1.1, pack schema 1.0.0, engine 1.0.0.
 
 | Suite | Where it runs | Result |
 | --- | --- | --- |
-| `tests/unit/*` (124 tests): P, C, E, R, W01–W19, schema fixtures, 22 invalid-pack variants, structured-output repair | in-process, fake host + scripted model | **124 / 124 pass** |
-| `tests/e2e/integration.mjs` (68 checks, sections S1–S11) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **68 / 68 pass** on the final build (v1.3.3) |
+| `tests/unit/*` (126 tests): P, C, E, R, W01–W19, schema fixtures, 22 invalid-pack variants, structured-output repair | in-process, fake host + scripted model | **126 / 126 pass** |
+| `tests/e2e/integration.mjs` (72 checks, sections S1–S12) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **72 / 72 pass** on the final build (v1.3.4) |
 | `tests/e2e/story-session.mjs` (12 checks) | real ST, UI-only: wizard via real file dialog, pack library, composer, swipe arrow, ST edit/delete buttons, reload | **12 / 12 pass** |
 | `dist/canon-lint.mjs` | both sample packs valid; World Info file rejected with the specific error | pass |
 

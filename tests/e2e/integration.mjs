@@ -614,6 +614,25 @@ try {
     st = await engineState(page);
     check(results, 'T04 after the timeout, Retry completes normally (nothing left blocking the queue)', st.recovery.status === 'ok', JSON.stringify(st.recovery).slice(0, 200));
   }
+
+  // ---------------------------------------------------------------------------------------------
+  if (want('S12')) {
+    console.log('\n== S12 public clock API and turn timings ==');
+    await mock('/control', { mainQueue: [], mainRules: [], taskRules: [], taskDelayMs: 0, clearLogs: true });
+    await newChat(page);
+    await page.evaluate(() => { window.__clockEvents = []; document.addEventListener('canon-engine:clock', (e) => window.__clockEvents.push(e.detail)); });
+    await bind(page, packText('demo.canon.json'), tick(1, 9, 30), { y: 2020, m: 7, d: 19 });
+    await mock('/control', { mainQueue: ['港口的钟敲了十下。CLOCK_A'], taskRules: [rule('evaluate', 'CLOCK_A', { scene_end: { lo: D(1, 10), hi: D(1, 10), precision: 'minute' } })], clearLogs: true });
+    await send(page, '我等到十点。');
+    const clk = await page.evaluate(() => window.CanonEngine.api.getClock());
+    const evs = await page.evaluate(() => window.__clockEvents);
+    check(results, 'K01 window.CanonEngine.api.getClock() returns the committed clock with a calendar date', clk.active && clk.date === '2020/07/20' && clk.time === '10:00' && clk.day === 1, JSON.stringify(clk));
+    check(results, 'K02 a canon-engine:clock event fires when the clock changes', evs.some((e) => e.active && e.time === '10:00'), JSON.stringify(evs.slice(-2)));
+    const timing = await page.$eval('#canon-engine-status .canon-timing', (e) => e.innerText).catch(() => '');
+    check(results, 'K03 the status bar shows the last turn\'s step timings', /上一回合|Last turn/.test(timing) && /(生成回复|story reply)/.test(timing), timing);
+    check(results, 'K04 an idle status bar offers no Cancel button', !(await page.$('#canon-engine-status [data-act="cancel"]')));
+    await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'k-timing.png'), clip: { x: 300, y: 880, width: 800, height: 120 } }).catch(() => {});
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }

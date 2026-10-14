@@ -12677,7 +12677,7 @@ function repairEnums(root, errors) {
   }
   return changed;
 }
-var taskDefaults = { callTimeoutMs: 0, observer: null };
+var taskDefaults = { callTimeoutMs: 0, observer: null, onDone: null };
 function looksTruncated(text) {
   const start = text.indexOf("{");
   if (start < 0) return false;
@@ -12722,6 +12722,7 @@ ${system}` },
       timedOut = true;
       ac.abort();
     }, callTimeoutMs) : null;
+    const callStart = Date.now();
     try {
       raw = await Promise.race([
         port.runTask(task, messages, { signal: ac.signal, maxTokens: budget }),
@@ -12734,6 +12735,10 @@ ${system}` },
     } finally {
       if (timer) clearTimeout(timer);
       opts.signal?.removeEventListener("abort", onOuterAbort);
+      try {
+        taskDefaults.onDone?.(task, Date.now() - callStart);
+      } catch {
+      }
     }
     try {
       const data = extractJson(raw);
@@ -15422,7 +15427,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.3.3";
+var ENGINE_VERSION = "1.3.4";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -15451,6 +15456,15 @@ var CanonEngine = class {
   epoch = 0;
   packCache = null;
   progressBase = "";
+  /** True while the reconcile step is reading the player's current input (part of the turn, not catch-up). */
+  examiningInput = false;
+  /** Per-step durations of the running operation, and the summary of the last finished one. */
+  stepTimes = [];
+  lastTimings = null;
+  timeStep(step, p) {
+    const t0 = Date.now();
+    return p.finally(() => this.stepTimes.push({ step, ms: Date.now() - t0 }));
+  }
   /** Lets the user cancel a reconcile that runs outside an operation (chat load, edits). */
   reconcileAbort = null;
   current = null;
@@ -15477,7 +15491,8 @@ var CanonEngine = class {
     }
   }
   setStatus(phase, message = "", extra = {}) {
-    this.status = { phase, message, canRetry: false, canCancel: !!this.opActive || !!this.reconcileAbort, ...extra };
+    const working = !["idle", "error", "conflict", "disabled"].includes(phase);
+    this.status = { phase, message, canRetry: false, canCancel: working && (!!this.opActive || !!this.reconcileAbort), ...extra };
     this.emit();
   }
   noticeSeq = 0;
@@ -15712,6 +15727,7 @@ var CanonEngine = class {
         const issue2 = r.issue;
         this.progressBase = `Examining message ${issue2.index + 1}/${entries.length} (${issue2.entry.role === "user" ? "player" : "GM"})`;
         this.setStatus("reconciling", this.progressBase);
+        this.examiningInput = !!this.opActive && issue2.index === entries.length - 1 && issue2.entry.role === "user";
         const interp = issue2.status === "missing" ? await this.interpretMessage(issue2.entry, issue2.index, entries, r, opts.signal, null) : await this.interpretMessage(issue2.entry, issue2.index, entries, r, opts.signal, issue2.reasons);
         const list = interpretationsFor(c.interpretations, interp.key).filter((x) => x.basisStateHash !== interp.basisStateHash);
         list.push(interp);
@@ -15722,8 +15738,10 @@ var CanonEngine = class {
         }
       }
       this.progressBase = "";
+      this.examiningInput = false;
     } catch (e) {
       this.progressBase = "";
+      this.examiningInput = false;
       const err = e;
       c.recoveryState = { status: "error", errorKind: err.kind || "provider_failure", reason: err.message, at: this.host.now() };
       this.setStatus("error", err.message, { errorKind: err.kind, canRetry: true });
@@ -16199,6 +16217,11 @@ var CanonEngine = class {
     const operationId = newId("op");
     const abort = new AbortController();
     this.opActive = { operationId, abort, fences: null, op };
+    this.stepTimes = [];
+    const opStart = Date.now();
+    taskDefaults.onDone = (task, ms) => {
+      if (this.opActive?.operationId === operationId) this.stepTimes.push({ step: this.status.phase === "reconciling" && !this.examiningInput ? "reconcile" : task, ms });
+    };
     const trace = { operationId, op, attempts: [], prompts: [], outcome: "failed" };
     this.lastTrace = trace;
     this.traces.push(trace);
@@ -16224,7 +16247,7 @@ var CanonEngine = class {
           this.coverageNoticeShown = true;
           this.notice("warn", `Pack coverage ended at ${formatTick(pack2.coverage.end, c.binding.originDate)}. No further canon is scheduled; bind an updated pack to continue with authored history.`);
         }
-        const horaeNote = await this.horaeBarrier(abort.signal);
+        const horaeNote = await this.timeStep("horae", this.horaeBarrier(abort.signal));
         let userEntry = null;
         for (let k = entries.length - 1; k >= 0; k--) if (entries[k].role === "user") {
           userEntry = entries[k];
@@ -16282,7 +16305,7 @@ var CanonEngine = class {
         const engineContext = GM_INTEGRATION_RULES + "\n\n" + packet.text;
         this.setStatus("generating", "Generating (private draft)\u2026");
         trace.prompts.push({ kind: "engine_context", text: engineContext });
-        let draft = await this.withTimeout(this.host.model.generateDraft({ engineContext, instruction: continuing ? CONTINUE_INSTRUCTION : "", excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal);
+        let draft = await this.timeStep("draft", this.withTimeout(this.host.model.generateDraft({ engineContext, instruction: continuing ? CONTINUE_INSTRUCTION : "", excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
         this.checkFences(fences, excludeLast);
         let candidate = continuing ? joinContinuation(continuedEntry.text, draft) : draft;
         if (!candidate.trim()) throw new EngineError("provider_failure", "the model returned an empty reply");
@@ -16346,9 +16369,9 @@ var CanonEngine = class {
           packet = buildPacket(packetArgs);
           const repairCtx = GM_INTEGRATION_RULES + "\n\n" + packet.text;
           trace.prompts.push({ kind: `repair_${attempt + 1}`, text: repairCtx });
-          draft = await this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, instruction: (continuing ? CONTINUE_INSTRUCTION + "\n" : "") + REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6e3)) + (continuing ? `
+          draft = await this.timeStep("repair", this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, instruction: (continuing ? CONTINUE_INSTRUCTION + "\n" : "") + REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6e3)) + (continuing ? `
 Existing part of the reply (keep it unchanged; output only the continuation):
-${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal);
+${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
           this.checkFences(fences, excludeLast);
           candidate = continuing ? joinContinuation(continuedEntry.text, draft) : draft;
         }
@@ -16421,6 +16444,15 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
       }
       return false;
     } finally {
+      const agg = /* @__PURE__ */ new Map();
+      for (const s of this.stepTimes) {
+        const a = agg.get(s.step) || { ms: 0, count: 0 };
+        a.ms += s.ms;
+        a.count++;
+        agg.set(s.step, a);
+      }
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })) };
+      if (this.settings.debug) this.debugLog("timing", this.lastTimings);
       this.opActive = null;
       this.emit();
       if (!committed) void this.reconcile("post_operation", { allowModel: false }).catch(() => void 0);
@@ -17349,6 +17381,50 @@ function saveHint(seen) {
   return "Press Retry; if it keeps failing, reload the page and send these details.";
 }
 
+// src/api.ts
+var pad = (n) => String(n).padStart(2, "0");
+function publicClock(engine2) {
+  const c = engine2.campaign();
+  const st = engine2.current?.replay.state;
+  if (!c || !c.enabled || !st) return { active: false };
+  const origin = c.binding.originDate || null;
+  const lo = st.clock.lo;
+  const t2 = fromTick(lo);
+  let date = null;
+  let weekday = null;
+  if (origin) {
+    const d = new Date(Date.UTC(origin.y, origin.m - 1, origin.d) + t2.day * 864e5);
+    date = `${d.getUTCFullYear()}/${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}`;
+    weekday = d.getUTCDay();
+  }
+  return {
+    active: true,
+    packId: c.packSnapshot.pack_id,
+    tick: lo,
+    tickHi: st.clock.hi,
+    precision: st.clock.precision,
+    day: t2.day,
+    minute: t2.minute,
+    date,
+    time: `${pad(Math.floor(t2.minute / 60))}:${pad(t2.minute % 60)}`,
+    weekday,
+    label: formatTick(lo, origin)
+  };
+}
+function installClockEvents(engine2) {
+  let last = "";
+  engine2.onChange(() => {
+    const clk = publicClock(engine2);
+    const sig = JSON.stringify(clk);
+    if (sig === last) return;
+    last = sig;
+    try {
+      document.dispatchEvent(new CustomEvent("canon-engine:clock", { detail: clk }));
+    } catch {
+    }
+  });
+}
+
 // src/adapters/lock.ts
 var PREFIX = "canonEngine.writer.";
 var STALE_MS = 6e3;
@@ -17489,6 +17565,17 @@ var D = {
   taskExtraBody: { zh: "\u5206\u6790\u8BF7\u6C42\u7684\u989D\u5916\u53C2\u6570\uFF08YAML\uFF0C\u53EF\u9009\uFF09", en: "Extra parameters for analysis requests (YAML, optional)" },
   taskExtraBodyHint: { zh: "\u4F1A\u52A0\u5230\u6BCF\u4E2A\u5206\u6790\u8BF7\u6C42\u91CC\uFF08\u53EA\u5BF9\u201C\u81EA\u5B9A\u4E49\uFF08\u517C\u5BB9OpenAI\uFF09\u201D\u8FDE\u63A5\u751F\u6548\uFF09\u3002Venice \u63A8\u7406\u6A21\u578B\u8BF7\u586B\uFF1Avenice_parameters: {disable_thinking: true}", en: "Added to every analysis request (Custom OpenAI-compatible connections). For Venice reasoning models: venice_parameters: {disable_thinking: true}" },
   taskProfileNone: { zh: "\u6CA1\u6709\u53EF\u7528\u7684\u8FDE\u63A5\u914D\u7F6E\uFF08\u8BF7\u5148\u5728 SillyTavern \u7684\u201C\u8FDE\u63A5\u914D\u7F6E\u201D\u4E2D\u4FDD\u5B58\u4E00\u4E2A\uFF09\u3002", en: "No connection profiles yet (save one in SillyTavern's Connection Profiles first)." },
+  lastTurn: { zh: "\u4E0A\u4E00\u56DE\u5408", en: "Last turn" },
+  step_extract_user: { zh: "\u8BFB\u53D6\u73A9\u5BB6\u8F93\u5165", en: "read input" },
+  step_plan: { zh: "\u89C4\u5212", en: "plan" },
+  step_draft: { zh: "\u751F\u6210\u56DE\u590D", en: "story reply" },
+  step_repair: { zh: "\u4FEE\u6539\u56DE\u590D", en: "revise reply" },
+  step_discover: { zh: "\u627E\u51FA\u5F15\u7528", en: "discover" },
+  step_evaluate: { zh: "\u6838\u5BF9\u4E00\u81F4\u6027", en: "review" },
+  step_adjudicate: { zh: "\u5E55\u540E\u4E8B\u4EF6", en: "offscreen" },
+  step_impact: { zh: "\u5F71\u54CD\u8BC4\u4F30", en: "impact" },
+  step_horae: { zh: "\u7B49\u5F85 Horae", en: "wait for Horae" },
+  step_reconcile: { zh: "\u6574\u7406\u5DF2\u6709\u6D88\u606F", en: "reconcile" },
   spoilers: { zh: "\u663E\u793A\u5267\u900F\uFF08\u672A\u6765\u951A\u70B9\u4E0E\u8BA1\u5212\uFF09", en: "Show spoilers (future anchors and plans)" },
   tabOverview: { zh: "\u6982\u89C8", en: "Overview" },
   tabFacts: { zh: "\u5F53\u524D\u4E8B\u5B9E", en: "Facts" },
@@ -18034,9 +18121,12 @@ function renderStatus() {
   else if (conflict) msg = t("conflictMarker") + (camp.recoveryState.reason ? ` (${camp.recoveryState.reason.slice(0, 160)})` : "");
   else if (err) msg = `${labelForError(camp.recoveryState.errorKind || st.errorKind || "")}: ${(camp.recoveryState.reason || st.message || "").slice(0, 220)}`;
   else if (busy) msg = st.message;
+  const tm = E.lastTimings;
+  const dur = (ms) => ms >= 6e4 ? `${Math.floor(ms / 6e4)}m${Math.round(ms % 6e4 / 1e3)}s` : `${Math.max(1, Math.round(ms / 1e3))}s`;
+  const timing = !busy && !err && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2(tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}`).join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}`).join(" \xB7 ")}</span>` : "";
   el.dataset.phase = conflict ? "conflict" : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc2(t("phase_" + (conflict ? "conflict" : phase)))}</span>
-    <span class="canon-msg" title="${esc2(msg)}">${esc2(msg)}</span>
+    <span class="canon-msg" title="${esc2(msg)}">${esc2(msg)}</span>${timing}
     <span class="canon-actions">
       ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t("cancel")}</button>` : ""}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t("retry")}</button>` : ""}
@@ -18652,7 +18742,8 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.3.3" };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.3.4", api: { getClock: () => publicClock(engine) } };
+  installClockEvents(engine);
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
   const first = (ev, fn) => typeof es.makeFirst === "function" ? es.makeFirst(ev, fn) : es.on(ev, fn);
@@ -18699,7 +18790,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
-  console.log("[CanonEngine] v1.3.3 loaded");
+  console.log("[CanonEngine] v1.3.4 loaded");
 }
 (async () => {
   try {

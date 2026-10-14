@@ -101,6 +101,15 @@ export class CanonEngine {
   epoch = 0;
   private packCache: { hash: string; loaded: LoadedPack } | null = null;
   private progressBase = '';
+  /** True while the reconcile step is reading the player's current input (part of the turn, not catch-up). */
+  private examiningInput = false;
+  /** Per-step durations of the running operation, and the summary of the last finished one. */
+  private stepTimes: { step: string; ms: number }[] = [];
+  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number }[]; ok: boolean } | null = null;
+  private timeStep<T>(step: string, p: Promise<T>): Promise<T> {
+    const t0 = Date.now();
+    return p.finally(() => this.stepTimes.push({ step, ms: Date.now() - t0 }));
+  }
   /** Lets the user cancel a reconcile that runs outside an operation (chat load, edits). */
   private reconcileAbort: AbortController | null = null;
   current: { replay: ReplayResult; index: WorldIndex } | null = null;
@@ -121,7 +130,8 @@ export class CanonEngine {
   onChange(fn: () => void) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   private emit() { for (const f of this.listeners) try { f(); } catch { /* ignore UI errors */ } }
   private setStatus(phase: OpPhase, message = '', extra: Partial<StatusInfo> = {}) {
-    this.status = { phase, message, canRetry: false, canCancel: !!this.opActive || !!this.reconcileAbort, ...extra };
+    const working = !['idle', 'error', 'conflict', 'disabled'].includes(phase);
+    this.status = { phase, message, canRetry: false, canCancel: working && (!!this.opActive || !!this.reconcileAbort), ...extra };
     this.emit();
   }
   noticeSeq = 0;
@@ -337,6 +347,7 @@ export class CanonEngine {
         const issue = r.issue;
         this.progressBase = `Examining message ${issue.index + 1}/${entries.length} (${issue.entry.role === 'user' ? 'player' : 'GM'})`;
         this.setStatus('reconciling', this.progressBase);
+        this.examiningInput = !!this.opActive && issue.index === entries.length - 1 && issue.entry.role === 'user';
         const interp = issue.status === 'missing'
           ? await this.interpretMessage(issue.entry, issue.index, entries, r, opts.signal, null)
           : await this.interpretMessage(issue.entry, issue.index, entries, r, opts.signal, issue.reasons);
@@ -348,8 +359,10 @@ export class CanonEngine {
         if (earliestChange(entries.map((e) => ({ ...e })), now) !== -1) { entries = now; }
       }
       this.progressBase = '';
+      this.examiningInput = false;
     } catch (e) {
       this.progressBase = '';
+      this.examiningInput = false;
       const err = e as EngineError;
       c.recoveryState = { status: 'error', errorKind: err.kind || 'provider_failure', reason: err.message, at: this.host.now() };
       this.setStatus('error', err.message, { errorKind: err.kind, canRetry: true });
@@ -747,6 +760,9 @@ export class CanonEngine {
     const operationId = newId('op');
     const abort = new AbortController();
     this.opActive = { operationId, abort, fences: null, op };
+    this.stepTimes = [];
+    const opStart = Date.now();
+    taskDefaults.onDone = (task, ms) => { if (this.opActive?.operationId === operationId) this.stepTimes.push({ step: this.status.phase === 'reconciling' && !this.examiningInput ? 'reconcile' : task, ms }); };
     const trace: OperationTrace = { operationId, op, attempts: [], prompts: [], outcome: 'failed' };
     this.lastTrace = trace;
     this.traces.push(trace);
@@ -774,7 +790,7 @@ export class CanonEngine {
           this.notice('warn', `Pack coverage ended at ${formatTick(pack.coverage.end, c.binding.originDate)}. No further canon is scheduled; bind an updated pack to continue with authored history.`);
         }
         // Horae freshness barrier / stale-memory handling
-        const horaeNote = await this.horaeBarrier(abort.signal);
+        const horaeNote = await this.timeStep('horae', this.horaeBarrier(abort.signal));
 
         // The operation's user source (last user message in the prefix).
         let userEntry: SourceEntry | null = null;
@@ -826,7 +842,7 @@ export class CanonEngine {
         // Draft (private)
         this.setStatus('generating', 'Generating (private draft)…');
         trace.prompts.push({ kind: 'engine_context', text: engineContext });
-        let draft = await this.withTimeout(this.host.model.generateDraft({ engineContext, instruction: continuing ? CONTINUE_INSTRUCTION : '', excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal);
+        let draft = await this.timeStep('draft', this.withTimeout(this.host.model.generateDraft({ engineContext, instruction: continuing ? CONTINUE_INSTRUCTION : '', excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
         this.checkFences(fences, excludeLast);
         let candidate = continuing ? joinContinuation(continuedEntry!.text, draft) : draft;
         if (!candidate.trim()) throw new EngineError('provider_failure', 'the model returned an empty reply');
@@ -873,7 +889,7 @@ export class CanonEngine {
           packet = buildPacket(packetArgs);
           const repairCtx = GM_INTEGRATION_RULES + '\n\n' + packet.text;
           trace.prompts.push({ kind: `repair_${attempt + 1}`, text: repairCtx });
-          draft = await this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, instruction: (continuing ? CONTINUE_INSTRUCTION + '\n' : '') + REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6000)) + (continuing ? `\nExisting part of the reply (keep it unchanged; output only the continuation):\n${continuedEntry!.text}` : ''), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal);
+          draft = await this.timeStep('repair', this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, instruction: (continuing ? CONTINUE_INSTRUCTION + '\n' : '') + REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6000)) + (continuing ? `\nExisting part of the reply (keep it unchanged; output only the continuation):\n${continuedEntry!.text}` : ''), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
           this.checkFences(fences, excludeLast);
           candidate = continuing ? joinContinuation(continuedEntry!.text, draft) : draft;
         }
@@ -935,6 +951,10 @@ export class CanonEngine {
       }
       return false;
     } finally {
+      const agg = new Map<string, { ms: number; count: number }>();
+      for (const s of this.stepTimes) { const a = agg.get(s.step) || { ms: 0, count: 0 }; a.ms += s.ms; a.count++; agg.set(s.step, a); }
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })) };
+      if (this.settings.debug) this.debugLog('timing', this.lastTimings);
       this.opActive = null;
       this.emit();
       // Rebuild once more in case the source changed while we were busy (deterministic, no model).

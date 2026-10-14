@@ -1,6 +1,7 @@
 // Canon Engine v1 — SillyTavern extension entry point.
 import { CanonEngine, DEFAULT_SETTINGS, type EngineSettings } from './runtime/engine';
 import { StHost, StModel, ctx, gen, promptReadyFirst, promptReadyLast, loadStModule, NS } from './adapters/st';
+import { publicClock, installClockEvents } from './api';
 import { HoraeAdapter } from './adapters/horae';
 import { WriterLock } from './adapters/lock';
 import { mountUi, refreshUi, renderMessageDecorations, t } from './ui/ui';
@@ -138,7 +139,8 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock!.isOwner();
   (globalThis as any).canonEngineGenerateInterceptor = interceptor;
-  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: '1.3.3' };
+  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: '1.3.4', api: { getClock: () => publicClock(engine!) } };
+  installClockEvents(engine);
 
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
@@ -175,7 +177,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => undefined).finally(() => refreshUi());
   }
-  console.log('[CanonEngine] v1.3.3 loaded');
+  console.log('[CanonEngine] v1.3.4 loaded');
 }
 
 // ST loads extension modules after the app initializes; init immediately when possible.

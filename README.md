@@ -103,6 +103,18 @@ Each managed turn uses your connection several times: user extraction, draft, wh
 - Semantic candidate search is lexical (word/CJK-bigram IDF) plus model-side mapping over an occurrence catalogue; no embeddings.
 - Background generations that would post directly to chat (`quietToLoud`) are blocked while the engine is enabled.
 
+## For other extensions: clock API
+
+Canon Engine publishes its committed story clock (read-only):
+
+```js
+const clk = window.CanonEngine?.api?.getClock?.();
+// { active: true, packId, tick, tickHi, precision, day, minute, date: "2020/09/18" | null, time: "20:00", weekday: 5, label: "2020-09-18 20:00 (D61)" }
+document.addEventListener('canon-engine:clock', (e) => console.log(e.detail)); // fires when it changes
+```
+
+`active` is false when the current chat is not bound or the engine is disabled. `date` is null when the chat has no day-0 calendar date.
+
 ## For developers
 
 | Path | Content |

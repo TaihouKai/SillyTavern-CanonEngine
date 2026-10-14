@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.4 — 2026-10-15
+
+- **Turn timings:** after each turn the status bar shows how long each step took (e.g. `上一回合 1m12s：生成回复 48s · 核对一致性 12s · …`), sorted by time; catch-up examination of older messages is reported separately.
+- **Public clock API for other extensions:** `window.CanonEngine.api.getClock()` returns `{ active, packId, tick, tickHi, precision, day, minute, date: "YYYY/MM/DD"|null, time: "HH:MM", weekday, label }`, and a `canon-engine:clock` event fires on `document` whenever it changes. Read-only.
+- Fix: an idle status bar no longer shows a stale Cancel button.
+- Integration section S12 (K01–K04).
+
 ## 1.3.3 — 2026-10-15
 
 - Analysis output budget scales with the analyzed text (extract/discover/review: 4k–16k tokens) instead of a fixed 4096, so long GM replies are not cut off mid-JSON.

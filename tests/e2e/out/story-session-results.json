@@ -1,5 +1,5 @@
 {
- "at": "2026-10-14T18:12:29.587Z",
+ "at": "2026-10-14T18:38:50.726Z",
  "results": [
   {
    "name": "Wizard preview shows title/version, validation, coverage and Hard count",
@@ -44,7 +44,7 @@
   {
    "name": "After reload the compact status is visible and ready; banner restored with the variant",
    "pass": true,
-   "detail": "Canon\n就绪\n取消\n检查面板"
+   "detail": "Canon\n就绪\n检查面板"
   },
   {
    "name": "Play continues normally after reload",

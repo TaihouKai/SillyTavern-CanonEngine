@@ -77,13 +77,13 @@ export function packText(name = 'demo.canon.json') {
 }
 
 /** Programmatic binding through the engine API (the wizard calls the same functions). */
-export async function bind(page, text, startTick) {
-  return page.evaluate(async ({ text, startTick }) => {
+export async function bind(page, text, startTick, originDate = null) {
+  return page.evaluate(async ({ text, startTick, originDate }) => {
     const E = window.CanonEngine.engine;
-    const r = await E.bind(text, { startTick, mode: SillyTavern.getContext().chat.length > 1 ? 'existing' : 'new' });
+    const r = await E.bind(text, { startTick, originDate, mode: SillyTavern.getContext().chat.length > 1 ? 'existing' : 'new' });
     await E.reconcile('test_bind');
     return r;
-  }, { text, startTick });
+  }, { text, startTick, originDate });
 }
 
 export async function waitIdle(page, timeout = 90000) {

@@ -101,9 +101,14 @@ function renderStatus() {
   else if (conflict) msg = t('conflictMarker') + (camp.recoveryState.reason ? ` (${camp.recoveryState.reason.slice(0, 160)})` : '');
   else if (err) msg = `${labelForError(camp.recoveryState.errorKind || st.errorKind || '')}: ${(camp.recoveryState.reason || st.message || '').slice(0, 220)}`;
   else if (busy) msg = st.message;
+  const tm = E.lastTimings;
+  const dur = (ms: number) => (ms >= 60000 ? `${Math.floor(ms / 60000)}m${Math.round((ms % 60000) / 1000)}s` : `${Math.max(1, Math.round(ms / 1000))}s`);
+  const timing = !busy && !err && !conflict && tm && tm.steps.length
+    ? `<span class="canon-timing" title="${esc(tm.steps.map((s) => `${t('step_' + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` ×${s.count}` : ''}`).join('\n'))}">${t('lastTurn')} ${dur(tm.totalMs)}：${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc(t('step_' + s.step))} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}`).join(' · ')}</span>`
+    : '';
   el.dataset.phase = conflict ? 'conflict' : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc(t('phase_' + (conflict ? 'conflict' : phase)))}</span>
-    <span class="canon-msg" title="${esc(msg)}">${esc(msg)}</span>
+    <span class="canon-msg" title="${esc(msg)}">${esc(msg)}</span>${timing}
     <span class="canon-actions">
       ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t('cancel')}</button>` : ''}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t('retry')}</button>` : ''}

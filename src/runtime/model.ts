@@ -129,7 +129,7 @@ function repairEnums(root: unknown, errors: { keyword: string; instancePath: str
 }
 
 /** Defaults applied to every structured call (set by the controller from its settings). */
-export const taskDefaults: { callTimeoutMs: number; observer: ((task: TaskName, attempt: number) => void) | null } = { callTimeoutMs: 0, observer: null };
+export const taskDefaults: { callTimeoutMs: number; observer: ((task: TaskName, attempt: number) => void) | null; onDone: ((task: TaskName, ms: number) => void) | null } = { callTimeoutMs: 0, observer: null, onDone: null };
 
 /** A reply that starts a JSON object but never closes it (length limit reached). */
 function looksTruncated(text: string): boolean {
@@ -173,6 +173,7 @@ export async function callStructured<T>(
     opts.signal?.addEventListener('abort', onOuterAbort, { once: true });
     let timedOut = false;
     const timer = callTimeoutMs ? setTimeout(() => { timedOut = true; ac.abort(); }, callTimeoutMs) : null;
+    const callStart = Date.now();
     try {
       raw = await Promise.race([
         port.runTask(task, messages, { signal: ac.signal, maxTokens: budget }),
@@ -185,6 +186,7 @@ export async function callStructured<T>(
     } finally {
       if (timer) clearTimeout(timer);
       opts.signal?.removeEventListener('abort', onOuterAbort);
+      try { taskDefaults.onDone?.(task, Date.now() - callStart); } catch { /* UI only */ }
     }
     try {
       const data = extractJson(raw);
