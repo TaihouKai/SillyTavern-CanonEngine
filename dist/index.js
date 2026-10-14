@@ -16840,7 +16840,8 @@ var gen = {
   lastDraftPrompt: null
 };
 function attachmentIdentity(m) {
-  const files = m?.extra?.files || (m?.extra?.file ? [m.extra.file] : []);
+  const legacy = m?.extra ? Object.getOwnPropertyDescriptor(m.extra, "file") : void 0;
+  const files = Array.isArray(m?.extra?.files) ? m.extra.files : legacy && "value" in legacy && legacy.value ? [legacy.value] : [];
   const media = Array.isArray(m?.extra?.media) ? m.extra.media : [];
   return [...files.map((f) => f?.url || f?.name || ""), ...media.map((x) => x?.url || "")].join("|");
 }

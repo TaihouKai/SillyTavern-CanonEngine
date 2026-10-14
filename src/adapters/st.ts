@@ -49,7 +49,10 @@ export const gen = {
 };
 
 function attachmentIdentity(m: any): string {
-  const files = m?.extra?.files || (m?.extra?.file ? [m.extra.file] : []);
+  // ST >= 1.19 stores attachments in extra.files; extra.file is a deprecated getter that logs a
+  // console trace when read, so only read it when it is a plain (pre-1.19) data property.
+  const legacy = m?.extra ? Object.getOwnPropertyDescriptor(m.extra, 'file') : undefined;
+  const files = Array.isArray(m?.extra?.files) ? m.extra.files : legacy && 'value' in legacy && legacy.value ? [legacy.value] : [];
   const media = Array.isArray(m?.extra?.media) ? m.extra.media : [];
   return [...files.map((f: any) => f?.url || f?.name || ''), ...media.map((x: any) => x?.url || '')].join('|');
 }
