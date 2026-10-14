@@ -313,6 +313,18 @@ export class StModel implements ModelPort {
   taskTemperature: () => number = () => 0.2;
   /** Connection profile for internal analysis tasks ('' = the chat's own connection). Story drafts never use it. */
   taskProfileId: () => string = () => '';
+  /** Extra body parameters (YAML) for profile requests; overrides what the active chat settings would add. */
+  taskExtraBody: () => string = () => '';
+
+  /** Human-readable name of the connection internal tasks use (for error messages). */
+  describeTaskConnection(): string {
+    const id = this.taskProfileId();
+    if (!id) {
+      const cs = (ctx().chatCompletionSettings || {}) as Record<string, unknown>;
+      return `the chat's own connection (${cs.custom_model || cs.openai_model || 'current model'})`;
+    }
+    try { const p = (ctx() as any).ConnectionManagerRequestService.getProfile(id); return `analysis profile "${p.name}" (${p.model || 'model not set'})`; } catch { return 'a missing analysis profile'; }
+  }
 
   /** One internal-task completion, through the task profile when one is configured. */
   private async complete(msgs: ChatMsg[], budget: number, signal?: AbortSignal): Promise<string> {
@@ -324,7 +336,11 @@ export class StModel implements ModelPort {
       let profile: any;
       try { profile = svc.getProfile(profileId); } catch { throw new Error('the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings'); }
       try {
-        const res = await svc.sendRequest(profileId, msgs, budget, { stream: false, signal: signal || null, extractData: true, includePreset: true }, { temperature: this.taskTemperature() });
+        // SillyTavern builds profile requests from the ACTIVE chat settings overlaid with the profile's
+        // preset, so "Include Body Parameters" (e.g. Venice's disable_thinking) would otherwise come
+        // from the story connection. taskExtraBody pins them for analysis requests.
+        const extra = this.taskExtraBody().trim();
+        const res = await svc.sendRequest(profileId, msgs, budget, { stream: false, signal: signal || null, extractData: true, includePreset: true }, { temperature: this.taskTemperature(), ...(extra ? { custom_include_body: extra } : {}) });
         const out = String((res as { content?: string })?.content ?? '').trim();
         if (!out) throw new Error('No message generated');
         return out;

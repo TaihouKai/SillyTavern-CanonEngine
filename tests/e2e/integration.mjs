@@ -553,6 +553,14 @@ try {
     check(results, 'P01 internal analysis tasks go to the analysis profile (model mock-task, temperature 0.2)', tl.length >= 2 && tl.every((t) => t.model === 'mock-task' && Number(t.temperature) === 0.2), tl.map((t) => `${t.task}:${t.model}:${t.temperature}`).join(' '));
     check(results, 'P02 the story draft stays on the chat connection (model mock-main, story temperature)', ml.length === 1 && ml[0].model === 'mock-main' && Number(ml[0].temperature) === 1 && (await lastAi()).mes.includes('PROFILE_OK'), ml.map((m) => `${m.model}:${m.temperature}`).join(' '));
     check(results, 'P03 the drawer lists the saved profile as an analysis connection', opts.some((o) => /Canon E2E analysis/.test(o)), opts.join(' | '));
+    // extra body parameters (e.g. Venice disable_thinking) reach analysis requests only
+    await page.evaluate(() => { SillyTavern.getContext().extensionSettings.canonEngine.taskExtraBody = 'venice_parameters:\n  disable_thinking: true'; });
+    await mock('/control', { mainQueue: ['潮水退去。PROFILE_EXTRA'], clearLogs: true });
+    await send(page, '我看向沙滩。');
+    const tl2 = await taskLogs();
+    const ml2 = await mainLogs();
+    check(results, 'P05 extra request parameters are sent with analysis requests, not with the story request', tl2.length >= 2 && tl2.every((t) => t.venice?.disable_thinking === true) && ml2.length === 1 && !ml2[0].venice, `${tl2.map((t) => JSON.stringify(t.venice)).join(' ')} | main ${JSON.stringify(ml2[0]?.venice)}`);
+    await page.evaluate(() => { SillyTavern.getContext().extensionSettings.canonEngine.taskExtraBody = ''; });
     // a deleted profile gives an actionable error instead of silently using the main model
     await page.evaluate(() => { const c = SillyTavern.getContext(); c.extensionSettings.connectionManager.profiles = c.extensionSettings.connectionManager.profiles.filter((p) => p.id !== 'canon-e2e-analysis'); });
     await mock('/control', { mainQueue: ['NEVER_SHOWN_P'], clearLogs: true });
@@ -598,7 +606,7 @@ try {
     await page.evaluate(async () => { await window.CanonEngine.engine.retry().catch(() => {}); });
     await waitIdle(page, 60000).catch(() => {});
     st = await engineState(page);
-    check(results, 'T03 a hung analysis call times out per call with an actionable message', st.recovery.status === 'error' && /timed out after 2s \(one call\)/.test(st.recovery.reason || '') && Date.now() - t0 < 20000, `${Date.now() - t0}ms ${JSON.stringify(st.recovery).slice(0, 220)}`);
+    check(results, 'T03 a hung analysis call times out per call with an actionable message', st.recovery.status === 'error' && /timed out after 2s \(one call, via the chat's own connection \(mock-main\)\)/.test(st.recovery.reason || '') && Date.now() - t0 < 20000, `${Date.now() - t0}ms ${JSON.stringify(st.recovery).slice(0, 220)}`);
     await page.evaluate(() => { window.CanonEngine.engine.settings.taskTimeoutMs = 300000; });
     await mock('/control', { taskDelayMs: 0, mainQueue: ['灯塔的光扫过海面。SLOW_C'], clearLogs: true });
     await page.evaluate(async () => { await window.CanonEngine.engine.retry().catch(() => {}); });

@@ -18,6 +18,8 @@ export interface DraftRequest {
 }
 
 export interface ModelPort {
+  /** Optional: which connection/model internal tasks use (shown in timeout errors). */
+  describeTaskConnection?(): string;
   /** Isolated structured task (no character card/persona/lore injection). */
   runTask(task: TaskName, messages: ChatMsg[], opts: { signal?: AbortSignal; maxTokens?: number }): Promise<string>;
   /** GM draft through the host's full prompt assembly; must stay private (not a chat message). */
@@ -164,7 +166,7 @@ export async function callStructured<T>(
       ]);
     } catch (e) {
       if (opts.signal?.aborted) throw new EngineError('cancelled', 'operation cancelled');
-      if (timedOut) throw new EngineError('provider_failure', `model request for ${task} timed out after ${Math.round(callTimeoutMs / 1000)}s (one call). The analysis model is too slow or not responding; choose a faster analysis connection in the Canon Engine settings, or raise taskTimeoutMs.`);
+      if (timedOut) throw new EngineError('provider_failure', `model request for ${task} timed out after ${Math.round(callTimeoutMs / 1000)}s (one call, via ${port.describeTaskConnection?.() || 'the configured connection'}). The model is too slow or not responding: if it is a reasoning model, turn thinking off (Canon Engine settings → extra request parameters), choose a faster analysis connection, or raise taskTimeoutMs.`);
       throw new EngineError('provider_failure', `model request failed for ${task}: ${(e as Error).message}`);
     } finally {
       if (timer) clearTimeout(timer);

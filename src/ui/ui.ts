@@ -188,8 +188,11 @@ function profileSelect(current: string): string {
   const opts = [`<option value="">${t('taskProfileSame')}</option>`]
     .concat(profiles.map((p) => `<option value="${esc(p.id)}" ${p.id === current ? 'selected' : ''}>${esc(p.name)}${p.model ? ` · ${esc(p.model)}` : ''}</option>`))
     .concat(missing ? [`<option value="${esc(current)}" selected>⚠ ${esc(current)}</option>`] : []);
+  const extra = String((getSettings() as any).taskExtraBody || '');
   return `<div class="canon-profile"><label>${t('taskProfile')} <select class="text_pole" data-set="taskProfileId">${opts.join('')}</select></label>
-    <div class="canon-note">${profiles.length ? t('taskProfileHint') : t('taskProfileNone')}</div></div>`;
+    <div class="canon-note">${profiles.length ? t('taskProfileHint') : t('taskProfileNone')}</div>
+    ${current ? `<label>${t('taskExtraBody')} <textarea class="text_pole canon-extra" rows="2" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc(extra)}</textarea></label>
+    <div class="canon-note">${t('taskExtraBodyHint')}</div>` : ''}</div>`;
 }
 
 function num(key: string, v: number) {
@@ -243,7 +246,7 @@ async function onSettingsChange(ev: Event) {
   const key = tgt.dataset.set;
   if (!key) return;
   const s = getSettings() as any;
-  s[key] = tgt.type === 'checkbox' ? tgt.checked : tgt.tagName === 'SELECT' ? tgt.value : Number(tgt.value);
+  s[key] = tgt.type === 'checkbox' ? tgt.checked : tgt.tagName === 'SELECT' || tgt.tagName === 'TEXTAREA' ? tgt.value : Number(tgt.value);
   if (key === 'uiLang') setLang(tgt.value === 'en' ? 'en' : 'zh');
   Object.assign(E.settings, s);
   ctx().saveSettingsDebounced?.();

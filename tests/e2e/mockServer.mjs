@@ -134,7 +134,7 @@ const server = http.createServer(async (req, res) => {
     if (task) {
       const input = taskInput(messages);
       const text = JSON.stringify(input);
-      const entry = { type: 'task', task, at: Date.now(), messages, input, model: body.model, temperature: body.temperature, stream: !!body.stream };
+      const entry = { type: 'task', task, at: Date.now(), messages, input, model: body.model, temperature: body.temperature, stream: !!body.stream, venice: body.venice_parameters };
       state.logs.push(entry);
       if (state.taskDelayMs) await sleep(state.taskDelayMs);
       const rule = findRule(state.taskRules, task, text);
@@ -157,7 +157,7 @@ const server = http.createServer(async (req, res) => {
     if (rule) content = rule.response;
     else if (state.mainQueue.length) content = state.mainQueue.shift();
     else content = `默认叙事：GM 回应了「${lu.slice(0, 30)}」。`;
-    state.logs.push({ type: 'main', at: Date.now(), messages, stream: !!body.stream, response: content, model: body.model, temperature: body.temperature });
+    state.logs.push({ type: 'main', at: Date.now(), messages, stream: !!body.stream, response: content, model: body.model, temperature: body.temperature, venice: body.venice_parameters });
     if (state.mainDelayMs) await sleep(state.mainDelayMs);
     if (body.stream) return streamCompletion(res, content, body.model);
     return send(res, 200, completion(content, body.model));

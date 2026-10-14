@@ -36,6 +36,8 @@ export interface EngineSettings {
   taskTemperature: number;
   /** ST connection profile id for internal analysis tasks; '' = the chat's own connection. */
   taskProfileId: string;
+  /** Extra request-body parameters (YAML, as in ST's "Include Body Parameters") for analysis-profile requests. */
+  taskExtraBody: string;
 }
 
 const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check' };
@@ -54,6 +56,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   debug: false,
   taskTemperature: 0.2,
   taskProfileId: '',
+  taskExtraBody: '',
 };
 
 export type OpPhase = 'idle' | 'reconciling' | 'planning' | 'generating' | 'validating' | 'committing' | 'error' | 'conflict' | 'disabled';

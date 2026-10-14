@@ -78,6 +78,7 @@ Each turn the engine makes several internal analysis calls (extract, discover, r
 1. In SillyTavern, connect to the analysis model once and save it as a **Connection Profile** (plug icon → Connection Profiles → save).
 2. Switch back to your story connection.
 3. In *Extensions → Canon Engine*, choose that profile under **分析用连接**.
+4. If the analysis model is a reasoning model, put its "thinking off" parameter in **分析请求的额外参数** (Venice: `venice_parameters: {disable_thinking: true}`). SillyTavern takes Include Body Parameters from the active chat preset, not from the profile, so set them here.
 
 The GM's story replies always use the chat's own connection; only internal analysis uses the profile (at `taskTemperature`, default 0.2). If the chosen profile is deleted, turns stop with an actionable error instead of silently using the story model.
 

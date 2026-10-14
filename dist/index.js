@@ -12710,7 +12710,7 @@ ${system}` },
       ]);
     } catch (e) {
       if (opts.signal?.aborted) throw new EngineError("cancelled", "operation cancelled");
-      if (timedOut) throw new EngineError("provider_failure", `model request for ${task} timed out after ${Math.round(callTimeoutMs / 1e3)}s (one call). The analysis model is too slow or not responding; choose a faster analysis connection in the Canon Engine settings, or raise taskTimeoutMs.`);
+      if (timedOut) throw new EngineError("provider_failure", `model request for ${task} timed out after ${Math.round(callTimeoutMs / 1e3)}s (one call, via ${port.describeTaskConnection?.() || "the configured connection"}). The model is too slow or not responding: if it is a reasoning model, turn thinking off (Canon Engine settings \u2192 extra request parameters), choose a faster analysis connection, or raise taskTimeoutMs.`);
       throw new EngineError("provider_failure", `model request failed for ${task}: ${e.message}`);
     } finally {
       if (timer) clearTimeout(timer);
@@ -15395,7 +15395,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.3.1";
+var ENGINE_VERSION = "1.3.2";
 
 // src/runtime/engine.ts
 var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check" };
@@ -15412,7 +15412,8 @@ var DEFAULT_SETTINGS = {
   horaeWaitMs: 6e4,
   debug: false,
   taskTemperature: 0.2,
-  taskProfileId: ""
+  taskProfileId: "",
+  taskExtraBody: ""
 };
 var MAX_MANIFESTS = 40;
 var CanonEngine = class {
@@ -17163,6 +17164,22 @@ var StModel = class {
   taskTemperature = () => 0.2;
   /** Connection profile for internal analysis tasks ('' = the chat's own connection). Story drafts never use it. */
   taskProfileId = () => "";
+  /** Extra body parameters (YAML) for profile requests; overrides what the active chat settings would add. */
+  taskExtraBody = () => "";
+  /** Human-readable name of the connection internal tasks use (for error messages). */
+  describeTaskConnection() {
+    const id = this.taskProfileId();
+    if (!id) {
+      const cs = ctx().chatCompletionSettings || {};
+      return `the chat's own connection (${cs.custom_model || cs.openai_model || "current model"})`;
+    }
+    try {
+      const p = ctx().ConnectionManagerRequestService.getProfile(id);
+      return `analysis profile "${p.name}" (${p.model || "model not set"})`;
+    } catch {
+      return "a missing analysis profile";
+    }
+  }
   /** One internal-task completion, through the task profile when one is configured. */
   async complete(msgs, budget, signal) {
     const c = ctx();
@@ -17177,7 +17194,8 @@ var StModel = class {
         throw new Error("the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings");
       }
       try {
-        const res = await svc.sendRequest(profileId, msgs, budget, { stream: false, signal: signal || null, extractData: true, includePreset: true }, { temperature: this.taskTemperature() });
+        const extra = this.taskExtraBody().trim();
+        const res = await svc.sendRequest(profileId, msgs, budget, { stream: false, signal: signal || null, extractData: true, includePreset: true }, { temperature: this.taskTemperature(), ...extra ? { custom_include_body: extra } : {} });
         const out = String(res?.content ?? "").trim();
         if (!out) throw new Error("No message generated");
         return out;
@@ -17440,6 +17458,8 @@ var D = {
   taskProfile: { zh: "\u5206\u6790\u7528\u8FDE\u63A5\uFF08\u5185\u90E8\u68C0\u67E5\u7528\u7684\u6A21\u578B\uFF09", en: "Analysis connection (model for internal checks)" },
   taskProfileSame: { zh: "\u4E0E\u5F53\u524D\u5BF9\u8BDD\u76F8\u540C\uFF08\u9ED8\u8BA4\uFF09", en: "Same as the chat (default)" },
   taskProfileHint: { zh: "GM \u7684\u6545\u4E8B\u56DE\u590D\u59CB\u7EC8\u4F7F\u7528\u5F53\u524D\u5BF9\u8BDD\u7684\u8FDE\u63A5\u3002\u8FD9\u91CC\u53EA\u51B3\u5B9A\u5F15\u64CE\u5185\u90E8\u7684\u5206\u6790\u8BF7\u6C42\uFF08\u63D0\u53D6\u3001\u6838\u5BF9\u3001\u89C4\u5212\uFF09\u3002\u5EFA\u8BAE\u9009\u4E00\u4E2A\u5FEB\u901F\u3001\u4FBF\u5B9C\u3001\u975E\u63A8\u7406\u7684\u6A21\u578B\u7684\u8FDE\u63A5\u914D\u7F6E\u3002\u5728 SillyTavern \u7684\u201C\u8FDE\u63A5\u914D\u7F6E\u201D\u4E2D\u521B\u5EFA\u914D\u7F6E\u540E\u5373\u53EF\u5728\u6B64\u9009\u62E9\u3002", en: "The GM's story replies always use the chat's connection. This only selects the model for the engine's internal analysis (extraction, checks, planning). A fast, cheap, non-reasoning model is recommended. Create profiles in SillyTavern's Connection Profiles." },
+  taskExtraBody: { zh: "\u5206\u6790\u8BF7\u6C42\u7684\u989D\u5916\u53C2\u6570\uFF08YAML\uFF0C\u53EF\u9009\uFF09", en: "Extra parameters for analysis requests (YAML, optional)" },
+  taskExtraBodyHint: { zh: "\u4F1A\u52A0\u5230\u6BCF\u4E2A\u5206\u6790\u8BF7\u6C42\u91CC\uFF08\u53EA\u5BF9\u201C\u81EA\u5B9A\u4E49\uFF08\u517C\u5BB9OpenAI\uFF09\u201D\u8FDE\u63A5\u751F\u6548\uFF09\u3002Venice \u63A8\u7406\u6A21\u578B\u8BF7\u586B\uFF1Avenice_parameters: {disable_thinking: true}", en: "Added to every analysis request (Custom OpenAI-compatible connections). For Venice reasoning models: venice_parameters: {disable_thinking: true}" },
   taskProfileNone: { zh: "\u6CA1\u6709\u53EF\u7528\u7684\u8FDE\u63A5\u914D\u7F6E\uFF08\u8BF7\u5148\u5728 SillyTavern \u7684\u201C\u8FDE\u63A5\u914D\u7F6E\u201D\u4E2D\u4FDD\u5B58\u4E00\u4E2A\uFF09\u3002", en: "No connection profiles yet (save one in SillyTavern's Connection Profiles first)." },
   spoilers: { zh: "\u663E\u793A\u5267\u900F\uFF08\u672A\u6765\u951A\u70B9\u4E0E\u8BA1\u5212\uFF09", en: "Show spoilers (future anchors and plans)" },
   tabOverview: { zh: "\u6982\u89C8", en: "Overview" },
@@ -18074,8 +18094,11 @@ function profileSelect(current) {
   }
   const missing = current && !profiles.some((p) => p.id === current);
   const opts = [`<option value="">${t("taskProfileSame")}</option>`].concat(profiles.map((p) => `<option value="${esc2(p.id)}" ${p.id === current ? "selected" : ""}>${esc2(p.name)}${p.model ? ` \xB7 ${esc2(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc2(current)}" selected>\u26A0 ${esc2(current)}</option>`] : []);
+  const extra = String(getSettings().taskExtraBody || "");
   return `<div class="canon-profile"><label>${t("taskProfile")} <select class="text_pole" data-set="taskProfileId">${opts.join("")}</select></label>
-    <div class="canon-note">${profiles.length ? t("taskProfileHint") : t("taskProfileNone")}</div></div>`;
+    <div class="canon-note">${profiles.length ? t("taskProfileHint") : t("taskProfileNone")}</div>
+    ${current ? `<label>${t("taskExtraBody")} <textarea class="text_pole canon-extra" rows="2" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc2(extra)}</textarea></label>
+    <div class="canon-note">${t("taskExtraBodyHint")}</div>` : ""}</div>`;
 }
 function num(key, v) {
   return `<label class="canon-num">${key} <input type="number" class="text_pole" data-set="${key}" value="${v}"></label>`;
@@ -18145,7 +18168,7 @@ async function onSettingsChange(ev) {
   const key = tgt.dataset.set;
   if (!key) return;
   const s = getSettings();
-  s[key] = tgt.type === "checkbox" ? tgt.checked : tgt.tagName === "SELECT" ? tgt.value : Number(tgt.value);
+  s[key] = tgt.type === "checkbox" ? tgt.checked : tgt.tagName === "SELECT" || tgt.tagName === "TEXTAREA" ? tgt.value : Number(tgt.value);
   if (key === "uiLang") setLang(tgt.value === "en" ? "en" : "zh");
   Object.assign(E.settings, s);
   ctx().saveSettingsDebounced?.();
@@ -18483,6 +18506,7 @@ var lastGenStart = null;
 function globalSettings() {
   const es = ctx().extensionSettings;
   es[SETTINGS_KEY] = { ...DEFAULT_SETTINGS, inspectorOpen: false, ...es[SETTINGS_KEY] || {} };
+  if (es[SETTINGS_KEY].taskTimeoutMs === 18e4) es[SETTINGS_KEY].taskTimeoutMs = DEFAULT_SETTINGS.taskTimeoutMs;
   return es[SETTINGS_KEY];
 }
 function getEngine() {
@@ -18591,6 +18615,7 @@ async function init() {
   host = new StHost(model);
   model.horaePresent = !!HoraeAdapter.detect();
   model.taskProfileId = () => String(globalSettings().taskProfileId || "");
+  model.taskExtraBody = () => String(globalSettings().taskExtraBody || "");
   model.taskTemperature = () => {
     const t2 = Number(globalSettings().taskTemperature);
     return Number.isFinite(t2) ? t2 : 0.2;
@@ -18599,7 +18624,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.3.1" };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.3.2" };
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
   const first = (ev, fn) => typeof es.makeFirst === "function" ? es.makeFirst(ev, fn) : es.on(ev, fn);
@@ -18646,7 +18671,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
-  console.log("[CanonEngine] v1.3.1 loaded");
+  console.log("[CanonEngine] v1.3.2 loaded");
 }
 (async () => {
   try {

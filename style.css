@@ -125,3 +125,4 @@
 /* ---------------------------------------------------------------- analysis connection */
 .canon-profile { margin: 6px 0; }
 .canon-profile select { width: 100%; margin: 2px 0 4px; }
+.canon-profile textarea.canon-extra { width: 100%; font-family: monospace; font-size: 12px; margin: 2px 0 4px; }

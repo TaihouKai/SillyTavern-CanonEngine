@@ -19,6 +19,8 @@ let lastGenStart: { type: string; params: any; prior: any } | null = null;
 export function globalSettings(): EngineSettings & { inspectorOpen: boolean } {
   const es = ctx().extensionSettings;
   es[SETTINGS_KEY] = { ...DEFAULT_SETTINGS, inspectorOpen: false, ...(es[SETTINGS_KEY] || {}) };
+  // 1.3.1 measured timeouts per call; the old whole-check default (180 s) is too short for that.
+  if (es[SETTINGS_KEY].taskTimeoutMs === 180000) es[SETTINGS_KEY].taskTimeoutMs = DEFAULT_SETTINGS.taskTimeoutMs;
   return es[SETTINGS_KEY];
 }
 
@@ -130,12 +132,13 @@ async function init() {
   host = new StHost(model);
   model.horaePresent = !!HoraeAdapter.detect();
   model.taskProfileId = () => String(globalSettings().taskProfileId || '');
+  model.taskExtraBody = () => String(globalSettings().taskExtraBody || '');
   model.taskTemperature = () => { const t = Number(globalSettings().taskTemperature); return Number.isFinite(t) ? t : 0.2; };
   engine = new CanonEngine(host, globalSettings());
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock!.isOwner();
   (globalThis as any).canonEngineGenerateInterceptor = interceptor;
-  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: '1.3.1' };
+  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: '1.3.2' };
 
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
@@ -172,7 +175,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => undefined).finally(() => refreshUi());
   }
-  console.log('[CanonEngine] v1.3.1 loaded');
+  console.log('[CanonEngine] v1.3.2 loaded');
 }
 
 // ST loads extension modules after the app initializes; init immediately when possible.

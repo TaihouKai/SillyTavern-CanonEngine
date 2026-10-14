@@ -73,6 +73,8 @@ const D: Record<string, { zh: string; en: string }> = {
   taskProfile: { zh: '分析用连接（内部检查用的模型）', en: 'Analysis connection (model for internal checks)' },
   taskProfileSame: { zh: '与当前对话相同（默认）', en: 'Same as the chat (default)' },
   taskProfileHint: { zh: 'GM 的故事回复始终使用当前对话的连接。这里只决定引擎内部的分析请求（提取、核对、规划）。建议选一个快速、便宜、非推理的模型的连接配置。在 SillyTavern 的“连接配置”中创建配置后即可在此选择。', en: "The GM's story replies always use the chat's connection. This only selects the model for the engine's internal analysis (extraction, checks, planning). A fast, cheap, non-reasoning model is recommended. Create profiles in SillyTavern's Connection Profiles." },
+  taskExtraBody: { zh: '分析请求的额外参数（YAML，可选）', en: 'Extra parameters for analysis requests (YAML, optional)' },
+  taskExtraBodyHint: { zh: '会加到每个分析请求里（只对“自定义（兼容OpenAI）”连接生效）。Venice 推理模型请填：venice_parameters: {disable_thinking: true}', en: 'Added to every analysis request (Custom OpenAI-compatible connections). For Venice reasoning models: venice_parameters: {disable_thinking: true}' },
   taskProfileNone: { zh: '没有可用的连接配置（请先在 SillyTavern 的“连接配置”中保存一个）。', en: "No connection profiles yet (save one in SillyTavern's Connection Profiles first)." },
   spoilers: { zh: '显示剧透（未来锚点与计划）', en: 'Show spoilers (future anchors and plans)' },
   tabOverview: { zh: '概览', en: 'Overview' },

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.2 — 2026-10-15
+
+- **Extra request parameters for analysis** (`taskExtraBody`, YAML): ST builds profile requests from the active chat settings plus the profile's preset, so a profile's "Include Body Parameters" (e.g. Venice `disable_thinking`) could silently come from the story connection instead. The engine now sends these parameters itself with every analysis request (P05).
+- Saved old default `taskTimeoutMs` 180 s is upgraded to 300 s (now a per-call limit).
+- Timeout errors name the connection and model that was used.
+
 ## 1.3.1 — 2026-10-15
 
 - Timeouts apply to **each model call** (`taskTimeoutMs`) instead of a whole check with all its retries, and an expired call is really aborted (profile requests via their signal, `generateRaw` via ST's stop event), so a hung request no longer blocks the calls queued behind it. Planner and offscreen adjudication calls now have a timeout too.

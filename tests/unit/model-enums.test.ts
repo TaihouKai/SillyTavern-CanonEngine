@@ -92,7 +92,7 @@ describe('per-call timeout', () => {
       async generateDraft() { return ''; },
     } as unknown as ModelPort;
     const t0 = Date.now();
-    await expect(callStructured<any>(p, 'discover', 'sys', {}, { callTimeoutMs: 80 })).rejects.toThrow(/timed out after 0s \(one call\)/);
+    await expect(callStructured<any>(p, 'discover', 'sys', {}, { callTimeoutMs: 80 })).rejects.toThrow(/timed out after 0s \(one call, via /);
     expect(Date.now() - t0).toBeLessThan(2000);
     expect(aborted).toBe(true);
     const ok = await callStructured<any>(p, 'discover', 'sys', {}, { callTimeoutMs: 80 });
