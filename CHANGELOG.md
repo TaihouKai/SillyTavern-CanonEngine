@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.3 — 2026-10-15
+
+- Analysis output budget scales with the analyzed text (extract/discover/review: 4k–16k tokens) instead of a fixed 4096, so long GM replies are not cut off mid-JSON.
+- A reply cut off at the length limit is retried with a doubled budget and a brevity request (previously retried at the same budget).
+- "No parseable JSON" errors include the reply length, whether it was cut off, and its last characters.
+
 ## 1.3.2 — 2026-10-15
 
 - **Extra request parameters for analysis** (`taskExtraBody`, YAML): ST builds profile requests from the active chat settings plus the profile's preset, so a profile's "Include Body Parameters" (e.g. Venice `disable_thinking`) could silently come from the story connection instead. The engine now sends these parameters itself with every analysis request (P05).

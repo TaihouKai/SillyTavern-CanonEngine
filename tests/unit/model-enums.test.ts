@@ -99,3 +99,28 @@ describe('per-call timeout', () => {
     expect(ok.claims[0].kind).toBe('state');
   });
 });
+
+describe('truncated replies', () => {
+  it('retries a reply cut off at the length limit with a doubled budget', async () => {
+    const budgets: number[] = [];
+    const seen: string[][] = [];
+    const full = JSON.stringify({ references: [ref('direct')], claims: [claim('state')] });
+    const p = {
+      async runTask(_t: string, m: { content: string }[], o: { maxTokens?: number }) {
+        budgets.push(o.maxTokens || 0); seen.push(m.map((x) => x.content));
+        return budgets.length === 1 ? full.slice(0, 60) : full;
+      },
+      async generateDraft() { return ''; },
+    } as unknown as ModelPort;
+    const out = await callStructured<any>(p, 'discover', 'sys', {}, { maxTokens: 5000 });
+    expect(out.claims[0].kind).toBe('state');
+    expect(budgets).toEqual([5000, 10000]);
+    expect(seen[1][seen[1].length - 1]).toMatch(/cut off at the length limit/);
+  });
+
+  it('reports length and ending when the output never parses', async () => {
+    const p = port(['not json', 'still not json', 'nope']);
+    (p as any).runTask = async () => 'Sure, here you go: nothing';
+    await expect(callStructured<any>(p, 'discover', 'sys', {})).rejects.toThrow(/no parseable JSON object in model output \(\d+ chars; ends with: /);
+  });
+});

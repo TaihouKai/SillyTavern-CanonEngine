@@ -138,7 +138,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock!.isOwner();
   (globalThis as any).canonEngineGenerateInterceptor = interceptor;
-  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: '1.3.2' };
+  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: '1.3.3' };
 
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
@@ -175,7 +175,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => undefined).finally(() => refreshUi());
   }
-  console.log('[CanonEngine] v1.3.2 loaded');
+  console.log('[CanonEngine] v1.3.3 loaded');
 }
 
 // ST loads extension modules after the app initializes; init immediately when possible.

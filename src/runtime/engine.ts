@@ -40,6 +40,9 @@ export interface EngineSettings {
   taskExtraBody: string;
 }
 
+/** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
+const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + String(text || '').length * 4));
+
 const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check' };
 
 export const DEFAULT_SETTINGS: EngineSettings = {
@@ -471,7 +474,7 @@ export class CanonEngine {
       registry: this.registry(index),
       occurrences: this.occurrenceCatalogue(index, entry.text),
       opportunities,
-    }, { signal, operationId, log: (l) => this.debugLog('task', l) }), this.settings.taskTimeoutMs * 4, signal);
+    }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(entry.text) }), this.settings.taskTimeoutMs * 4, signal);
     const records: RecordDraft[] = [];
     const intents: Interpretation['intents'] = [];
     const configRequests: string[] = [];
@@ -612,7 +615,7 @@ export class CanonEngine {
       scene_framing: a.userEntry ? `Player input: ${a.userEntry.text}` : '',
       registry: this.registry(index),
       occurrences: this.occurrenceCatalogue(index, a.text + ' ' + (a.userEntry?.text || '')),
-    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l) }), this.settings.taskTimeoutMs * 4, a.signal);
+    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     const refs: RefInput[] = disc.references.filter((r) => quoteInText(r.quote, a.text) || !r.quote).map((r) => ({ id: r.id, quote: r.quote, phrase: r.phrase, kind: r.ref_kind, assertion: r.assertion, temporal: r.temporal, candidates: r.candidate_ids }));
     const claims: ClaimInput[] = disc.claims.filter((c) => quoteInText(c.quote, a.text)).map((c) => ({ id: c.id, quote: c.quote, kind: c.kind, entityPhrases: c.entity_phrases || [], assertion: c.assertion, expected: c.expected || null }));
     // Deterministic discovery floor: every known entity/occurrence named in the text gets a lookup
@@ -656,7 +659,7 @@ export class CanonEngine {
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== 'invalidated').map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
       registry: this.registry(index),
       reeval_reasons: a.reevalReasons || [],
-    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l) }), this.settings.taskTimeoutMs * 4, a.signal);
+    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     const gate = runGate({
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced,
