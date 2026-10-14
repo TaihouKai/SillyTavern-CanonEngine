@@ -49,6 +49,14 @@ On this VM it is already linked into the test install: `C:\Users\agent\st-test\p
 - A spoiler-free red banner may appear beside a reply after a major deviation. It belongs to that reply variant and disappears if the reply is deleted or swiped away.
 - **检查面板** (inspector): current time, facts with provenance, actual history, deviations, anchors, plan, recovery status. Future anchors/plans stay hidden until you tick *显示剧透*. *Debug mode* (advanced settings) adds the final outgoing GM prompt, operation traces, coverage manifests and raw JSON.
 
+### History graph
+
+The **diagram icon in SillyTavern's top bar** opens the Canon Engine history graph. Time runs left to right; lanes separate HARD / SOFT / FREE events and events created in this playthrough; arrows are the pack's relations (enables / motivates / precedes / related) and, in the playthrough view, the actual causes recorded during play. A dashed red line marks the current story time.
+
+- **本局历史 (this playthrough):** every canon event's actual status (occurred / changed / did not happen / pending / future) plus new events from play, linked by their real causes. Future events stay hidden until *显示剧透* is ticked.
+- **原作历史包 (pack):** the canonical graph as authored (contains spoilers).
+- Search, arc filter, lane toggles, drag to pan, wheel to zoom, *全览* to fit; click an event for its summary, required outcome, actual account and relations.
+
 ### Edits, deletions and conflicts
 
 Edit or delete any message with ST's normal tools. The engine finds the earliest changed position, replays the unchanged prefix deterministically (no model calls), re-examines changed and dependent messages, and rebuilds facts, plans, banners and Horae context. If a retained later message can no longer follow your edit (example: you change "I save Mira" to "I leave", but a later GM reply still narrates the rescue), its text is **kept**, the message is marked, and generation pauses with two actions: **定位此消息** (edit that message) or **从此处分支并重新生成** (native branch + regenerate). Nothing is auto-deleted or retconned.

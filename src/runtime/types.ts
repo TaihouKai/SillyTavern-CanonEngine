@@ -2,7 +2,7 @@
 import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } from '../domain/types';
 
 export const STORAGE_VERSION = 1;
-export const ENGINE_VERSION = '1.0.1';
+export const ENGINE_VERSION = '1.1.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 

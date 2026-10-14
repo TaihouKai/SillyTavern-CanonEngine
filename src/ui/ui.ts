@@ -9,6 +9,7 @@ import type { WriterLock } from '../adapters/lock';
 import { interpretationsFor, baseKey } from '../runtime/replay';
 import { parseTickLabel, parseDateLabel, formatTick } from '../domain/time';
 import { t, setLang } from './i18n';
+import { GraphPanel, packGraph, currentGraph } from './graph';
 
 export { t };
 
@@ -19,6 +20,7 @@ let getSettings: () => EngineSettings & { inspectorOpen: boolean; uiLang?: strin
 let getLock: () => WriterLock | null;
 let inspectorEl: HTMLElement | null = null;
 let inspectorTab = 'overview';
+let graphPanel: GraphPanel | null = null;
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
@@ -28,8 +30,33 @@ export function mountUi(engine: CanonEngine, host: StHost, settings: typeof getS
   setLang(s.uiLang === 'en' ? 'en' : 'zh');
   mountSettings();
   mountStatus();
+  mountTopButton();
   refreshUi();
 }
+
+// ---------------------------------------------------------------------------------------------
+// Top-bar button + history graph panel
+function mountTopButton() {
+  if (document.getElementById('canon-engine-top-button')) return;
+  graphPanel = new GraphPanel((sp) => {
+    void sp;
+    const src = (() => { try { return E.graphSource(); } catch { return null; } })();
+    const camp = E.campaign();
+    const spoilers = !!camp?.uiPreferences.spoilers;
+    if (!src) return { pack: null, current: null, spoilers };
+    const pg = packGraph(src.pack, src.origin); pg.nowTick = src.state ? src.state.clock.lo : null;
+    return { pack: pg, current: src.state ? currentGraph(src.pack, src.state, src.origin, spoilers) : null, spoilers };
+  }, (v) => { const camp = E.campaign(); if (camp) camp.uiPreferences.spoilers = v; });
+  const holder = document.getElementById('top-settings-holder');
+  const btn = document.createElement('div');
+  btn.id = 'canon-engine-top-button';
+  btn.className = 'drawer';
+  btn.innerHTML = `<div class="drawer-toggle drawer-header canon-top-toggle"><div class="drawer-icon fa-solid fa-diagram-project fa-fw closedIcon" title="${t('graphTitle')}"></div></div>`;
+  btn.querySelector('.canon-top-toggle')!.addEventListener('click', (ev) => { ev.stopPropagation(); graphPanel!.toggle(); btn.querySelector('.drawer-icon')!.classList.toggle('openIcon', graphPanel!.isOpen()); btn.querySelector('.drawer-icon')!.classList.toggle('closedIcon', !graphPanel!.isOpen()); });
+  if (holder) holder.appendChild(btn); else document.body.appendChild(btn);
+}
+
+export function openGraph() { graphPanel?.toggle(true); }
 
 // ---------------------------------------------------------------------------------------------
 function mountStatus() {
@@ -436,6 +463,7 @@ export function refreshUi() {
   renderSettings();
   renderInspector();
   renderMessageDecorations();
+  if (graphPanel) { const c = E.campaign(); const st = (() => { try { return E.graphSource()?.state; } catch { return null; } })(); graphPanel.refreshIfChanged(`${c?.packHash || ''}|${st?.lastSeq ?? ''}|${st?.clock.lo ?? ''}|${c?.uiPreferences.spoilers ? 1 : 0}`); }
   if (E.noticeSeq > lastNoticeCount) {
     const fresh = Math.min(E.noticeSeq - lastNoticeCount, E.notices.length);
     for (const n of E.notices.slice(-fresh)) toast(n.level === 'warn' ? 'warning' : n.level, n.text);

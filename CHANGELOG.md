@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0 — 2026-10-14
+
+- History graph panel (top-bar button): canonical pack graph and the current playthrough's actual history (statuses, runtime events, actual causal links), time-ordered swim lanes, pan/zoom, search, arc filter, details pane; future events hidden unless spoilers are enabled.
+
 ## 1.0.1 — 2026-10-14
 
 - Refuse drafts whose final prompt lost the engine context (ST trims injections that exceed the context size) with an actionable capacity error.

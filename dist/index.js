@@ -11653,10 +11653,10 @@ function lintPack(pack2) {
   const warnings = [];
   const err = (path, message) => errors.push({ level: "error", path, message });
   const warn = (path, message) => warnings.push({ level: "warning", path, message });
-  const ns = (arr, name) => {
+  const ns = (arr, name2) => {
     const m = /* @__PURE__ */ new Map();
     arr.forEach((x, i) => {
-      if (m.has(x.id)) err(`/${name}/${i}/id`, `duplicate ${name} id "${x.id}"`);
+      if (m.has(x.id)) err(`/${name2}/${i}/id`, `duplicate ${name2} id "${x.id}"`);
       else m.set(x.id, x);
     });
     return m;
@@ -12555,12 +12555,12 @@ function extractJson(text) {
   for (const c of candidates) {
     const start = c.indexOf("{");
     if (start < 0) continue;
-    let depth = 0, inStr = false, esc2 = false;
+    let depth = 0, inStr = false, esc3 = false;
     for (let i = start; i < c.length; i++) {
       const ch = c[i];
       if (inStr) {
-        if (esc2) esc2 = false;
-        else if (ch === "\\") esc2 = true;
+        if (esc3) esc3 = false;
+        else if (ch === "\\") esc3 = true;
         else if (ch === '"') inStr = false;
         continue;
       }
@@ -13701,7 +13701,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.0.1";
+var ENGINE_VERSION = "1.1.0";
 
 // src/runtime/engine.ts
 var DEFAULT_SETTINGS = {
@@ -14982,6 +14982,12 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
   }
   // ---------------------------------------------------------------------------------------------
   // Inspector data
+  /** Read-only data for the history graph views (pack + current replayed state). */
+  graphSource() {
+    const c = this.campaign();
+    if (!c) return null;
+    return { pack: this.pack(), state: this.current?.replay.state || null, origin: c.binding.originDate || null };
+  }
   inspector(spoilers) {
     const c = this.campaign();
     if (!c || !this.current) return null;
@@ -15157,8 +15163,8 @@ function attachmentIdentity(m) {
   const media = Array.isArray(m?.extra?.media) ? m.extra.media : [];
   return [...files.map((f) => f?.url || f?.name || ""), ...media.map((x) => x?.url || "")].join("|");
 }
-function contentHashOf(role, name, text, attach) {
-  return sha256(`${role}\0${name}\0${text}\0${attach}`);
+function contentHashOf(role, name2, text, attach) {
+  return sha256(`${role}\0${name2}\0${text}\0${attach}`);
 }
 var StHost = class {
   horae;
@@ -15574,6 +15580,16 @@ var D = {
   unresolved: { zh: "\u672A\u89E3\u51B3\u95EE\u9898", en: "Unresolved issues" },
   keep: { zh: "\u4FDD\u7559\u7ED1\u5B9A", en: "Keep binding" },
   undoBind: { zh: "\u64A4\u9500\u7ED1\u5B9A", en: "Undo binding" },
+  graphTitle: { zh: "Canon Engine \u5386\u53F2\u56FE", en: "Canon Engine history graph" },
+  graphCurrent: { zh: "\u672C\u5C40\u5386\u53F2", en: "This playthrough" },
+  graphPack: { zh: "\u539F\u4F5C\u5386\u53F2\u5305", en: "Pack (canon)" },
+  graphSearch: { zh: "\u641C\u7D22\u4E8B\u4EF6\u2026", en: "Search events\u2026" },
+  graphAllArcs: { zh: "\u5168\u90E8\u7BC7\u7AE0", en: "All arcs" },
+  graphFit: { zh: "\u5168\u89C8", en: "Fit" },
+  graphNoData: { zh: "\u6B64\u5BF9\u8BDD\u672A\u542F\u7528 Canon Engine\uFF08\u5148\u5728\u6269\u5C55\u8BBE\u7F6E\u4E2D\u5BFC\u5165 .canon.json\uFF09\u3002", en: "Canon Engine is not enabled for this chat." },
+  graphPick: { zh: "\u70B9\u51FB\u4E8B\u4EF6\u67E5\u770B\u8BE6\u60C5\u3002\u62D6\u52A8\u5E73\u79FB\uFF0C\u6EDA\u8F6E\u7F29\u653E\uFF0CShift+\u6EDA\u8F6E\u6A2A\u5411\u79FB\u52A8\u3002", en: "Click an event for details. Drag to pan, wheel to zoom, Shift+wheel to scroll." },
+  graphPackNote: { zh: "\u539F\u4F5C\u53C2\u8003\uFF1A\u5305\u542B\u5168\u90E8\u672A\u6765\u4E8B\u4EF6\uFF08\u5267\u900F\uFF09", en: "Canon reference: includes all future events (spoilers)" },
+  graphCurrentNote: { zh: "\u672C\u5C40\u5B9E\u9645\u5386\u53F2\uFF1A\u542B\u4F60\u7684\u884C\u52A8\u9020\u6210\u7684\u6539\u53D8\u4E0E\u672C\u5C40\u65B0\u4E8B\u4EF6", en: "Actual history of this playthrough, including your changes" },
   spoilers: { zh: "\u663E\u793A\u5267\u900F\uFF08\u672A\u6765\u951A\u70B9\u4E0E\u8BA1\u5212\uFF09", en: "Show spoilers (future anchors and plans)" },
   tabOverview: { zh: "\u6982\u89C8", en: "Overview" },
   tabFacts: { zh: "\u5F53\u524D\u4E8B\u5B9E", en: "Facts" },
@@ -15600,6 +15616,385 @@ function t(key) {
   return e ? e[lang] : key;
 }
 
+// src/ui/graph.ts
+var ORIGIN_LABEL = { player: "\u73A9\u5BB6", gm: "GM/NPC", canon: "\u6B63\u53F2", offscreen: "\u573A\u5916", bootstrap: "\u5F00\u5C40\u524D", intervention: "\u5E72\u9884" };
+function packGraph(L, origin) {
+  const nodes = [];
+  for (const ev of L.pack.events) {
+    const ti = L.timeIndex.find((x) => x.id === ev.id);
+    nodes.push({
+      id: ev.id,
+      title: ev.title,
+      lane: ev.classification,
+      tick: ti ? ti.lo : Number.NEGATIVE_INFINITY,
+      when: ti ? (ti.lo === ti.hi ? formatTick(ti.lo, origin) : `${formatTick(ti.lo, origin)} \u2013 ${formatTick(ti.hi, origin)}`) + ` \xB7 ${ev.when.label}` : ev.when.label,
+      short: ti ? shortRange(ti.lo, ti.hi, origin) : ev.when.label,
+      summary: ev.summary,
+      required: ev.required_description,
+      arc: ev.arc_id,
+      detail: [
+        ...ev.outcomes.length ? [`\u539F\u4F5C\u7ED3\u679C\uFF1A${ev.outcomes.map((o) => `${name(L, o.entity_id)}.${o.predicate}=${JSON.stringify(o.value)}`).join("\uFF1B")}`] : [],
+        ...ev.author_note ? [`\u6CE8\uFF1A${ev.author_note}`] : []
+      ]
+    });
+  }
+  const edges = L.pack.edges.map((e) => ({ from: e.from, to: e.to, kind: e.relation, note: e.note }));
+  return { nodes, edges, nowTick: null, arcs: L.pack.arcs.map((a) => ({ id: a.id, title: a.title })) };
+}
+function currentGraph(L, s, origin, spoilers) {
+  const now = s.clock.lo;
+  const g = packGraph(L, origin);
+  const occByPack = /* @__PURE__ */ new Map();
+  for (const o of s.occurrences.values()) if (o.packEventId) occByPack.set(o.packEventId, [...occByPack.get(o.packEventId) || [], o.occurrenceId]);
+  for (const n of g.nodes) {
+    const d = s.dispositions.get(n.id);
+    const ti = L.timeIndex.find((x) => x.id === n.id);
+    if (d) n.status = d.disposition;
+    else if (!ti) n.status = "unscheduled";
+    else if (ti.lo > now) n.status = "future";
+    else if (ti.hi >= now) n.status = "pending";
+    else n.status = "unresolved";
+    if (d) {
+      const occ = d.occurrenceId ? s.occurrences.get(d.occurrenceId) : void 0;
+      const actual = occ?.outcome.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${occ.outcome.map((x) => x.op === "set" ? `${name(L, x.entity_id, s)}.${x.predicate}=${JSON.stringify(x.value)}` : `${x.entity_id}.${x.predicate} \u672A\u77E5`).join("\uFF1B")}`] : [];
+      n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`, ...occ ? [`\u5B9E\u9645\u7ECF\u8FC7\uFF1A${occ.account}`, `\u6765\u6E90\uFF1A${ORIGIN_LABEL[occ.origin] || occ.origin}`] : [], ...actual, ...n.detail || []];
+    } else n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`, ...n.detail || []];
+    if (!spoilers && (n.status === "future" || n.status === "pending")) {
+      n.masked = true;
+      n.title = n.lane === "HARD" ? "HARD \u951A\u70B9\uFF08\u5267\u900F\u5DF2\u9690\u85CF\uFF09" : "\uFF1F\uFF1F\uFF1F";
+      n.summary = "\uFF08\u672A\u6765\u4E8B\u4EF6\uFF1B\u52FE\u9009\u201C\u663E\u793A\u5267\u900F\u201D\u67E5\u770B\uFF09";
+      n.required = n.lane === "HARD" ? "\uFF08\u5267\u900F\u5DF2\u9690\u85CF\uFF09" : null;
+      n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`];
+    }
+  }
+  for (const o of s.occurrences.values()) {
+    if (o.packEventId) continue;
+    g.nodes.push({
+      id: o.occurrenceId,
+      title: o.title,
+      lane: "RUNTIME",
+      tick: o.time.lo,
+      when: formatStoryTime(o.time, origin),
+      short: shortRange(o.time.lo, o.time.hi, origin),
+      summary: o.account,
+      status: "runtime",
+      origin: o.origin,
+      detail: [`\u6765\u6E90\uFF1A${ORIGIN_LABEL[o.origin] || o.origin}`, ...o.outcome.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${o.outcome.map((d) => d.op === "set" ? `${name(L, d.entity_id, s)}.${d.predicate}=${JSON.stringify(d.value)}` : `${d.entity_id}.${d.predicate} \u672A\u77E5`).join("\uFF1B")}`] : []]
+    });
+  }
+  const nodeOf = (occId) => {
+    const o = s.occurrences.get(occId);
+    return o?.packEventId || occId;
+  };
+  for (const o of s.occurrences.values()) for (const c of o.causes) g.edges.push({ from: nodeOf(c), to: nodeOf(o.occurrenceId), kind: "cause", note: "\u672C\u5C40\u5B9E\u9645\u56E0\u679C" });
+  if (!spoilers) {
+    const hidden = new Set(g.nodes.filter((n) => n.masked && n.lane !== "HARD").map((n) => n.id));
+    g.nodes = g.nodes.filter((n) => !hidden.has(n.id));
+    g.edges = g.edges.filter((e) => !hidden.has(e.from) && !hidden.has(e.to));
+  }
+  g.nowTick = now;
+  void occByPack;
+  return g;
+}
+function shortRange(lo, hi, origin) {
+  const a = formatTick(lo, origin).split(" ")[0], b = formatTick(hi, origin).split(" ")[0];
+  return a === b ? a : `${a} ~ ${b.replace(/^(\d{4})-/, (m, y) => a.startsWith(y) ? "" : m)}`;
+}
+function name(L, id, s) {
+  return L.entities.get(id)?.name || s?.runtimeEntities.get(id)?.name || id;
+}
+function statusLabel(st) {
+  const m = { occurred: "\u5DF2\u53D1\u751F", diverged: "\u5DF2\u6539\u53D8", omitted: "\u672A\u53D1\u751F", pending: "\u8FDB\u884C\u4E2D/\u4E34\u8FD1", future: "\u672A\u6765", unresolved: "\u65F6\u95F4\u5DF2\u8FC7\u4F46\u672A\u5224\u5B9A", unscheduled: "\u65F6\u95F4\u4E0D\u660E\uFF08\u80CC\u666F\uFF09", runtime: "\u672C\u5C40\u4E8B\u4EF6" };
+  return st ? m[st] || st : "";
+}
+var NODE_W = 168;
+var NODE_H = 46;
+var STEP = 64;
+var ROW_GAP = 10;
+var LANE_PAD = 28;
+var AXIS_H = 34;
+var LEFT = 92;
+var LANES = ["HARD", "SOFT", "FREE", "RUNTIME"];
+var LANE_LABEL = { HARD: "HARD \u5FC5\u7136", SOFT: "SOFT \u91CD\u8981", FREE: "FREE \u80CC\u666F", RUNTIME: "\u672C\u5C40\u4E8B\u4EF6" };
+function layout(g) {
+  const sorted = [...g.nodes].sort((a, b) => a.tick - b.tick || LANES.indexOf(a.lane) - LANES.indexOf(b.lane) || a.title.localeCompare(b.title));
+  const xOf = /* @__PURE__ */ new Map();
+  let x = LEFT, prevTick = null;
+  for (const n of sorted) {
+    if (prevTick !== null && n.tick !== prevTick) x += STEP;
+    xOf.set(n.id, x);
+    prevTick = n.tick;
+  }
+  const rowsByLane = { HARD: [], SOFT: [], FREE: [], RUNTIME: [] };
+  const rowOf = /* @__PURE__ */ new Map();
+  for (const n of sorted) {
+    const rows = rowsByLane[n.lane];
+    const nx = xOf.get(n.id);
+    let r = rows.findIndex((end) => end + 8 <= nx);
+    if (r < 0) {
+      rows.push(0);
+      r = rows.length - 1;
+    }
+    rows[r] = nx + NODE_W;
+    rowOf.set(n.id, r);
+  }
+  const laneY = {};
+  let y = AXIS_H;
+  for (const l of LANES) {
+    const rows = Math.max(1, rowsByLane[l].length);
+    if (!g.nodes.some((n) => n.lane === l)) {
+      laneY[l] = [y, y];
+      continue;
+    }
+    laneY[l] = [y, y + LANE_PAD + rows * (NODE_H + ROW_GAP)];
+    y = laneY[l][1] + 6;
+  }
+  const placed = sorted.map((n) => ({ ...n, x: xOf.get(n.id), y: laneY[n.lane][0] + LANE_PAD / 2 + rowOf.get(n.id) * (NODE_H + ROW_GAP) }));
+  const ticks = [];
+  let lastLabel = "";
+  for (const n of placed) {
+    if (!Number.isFinite(n.tick)) continue;
+    const lab = n.when.slice(0, 7);
+    if (lab !== lastLabel) {
+      ticks.push({ x: n.x, label: lab });
+      lastLabel = lab;
+    }
+  }
+  let nowX = null;
+  if (g.nowTick !== null) {
+    const after = placed.find((n) => n.tick > g.nowTick);
+    nowX = after ? after.x - STEP / 2 : placed.length ? placed[placed.length - 1].x + NODE_W + 10 : LEFT;
+  }
+  const width = (placed.length ? Math.max(...placed.map((p) => p.x)) : LEFT) + NODE_W + 40;
+  return { placed, width, height: y + 10, laneY, ticks, nowX };
+}
+var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+function renderGraphSvg(g, mode) {
+  const L = layout(g);
+  const pos = new Map(L.placed.map((p) => [p.id, p]));
+  const lanes = LANES.filter((l) => L.laneY[l][1] > L.laneY[l][0]).map((l, i) => `<rect x="0" y="${L.laneY[l][0]}" width="${L.width}" height="${L.laneY[l][1] - L.laneY[l][0]}" class="cg-lane cg-lane-${i % 2}"/><text x="8" y="${L.laneY[l][0] + 18}" class="cg-lane-label">${LANE_LABEL[l]}</text>`).join("");
+  const ticks = L.ticks.map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label">${esc(tk.label)}</text>`).join("");
+  const edges = g.edges.map((e) => {
+    const a = pos.get(e.from), b = pos.get(e.to);
+    if (!a || !b) return "";
+    const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2, x2 = b.x, y2 = b.y + NODE_H / 2;
+    const dx = Math.max(40, Math.abs(x2 - x1) / 2);
+    const d = x2 >= x1 ? `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}` : `M${a.x + NODE_W / 2},${a.y + NODE_H} C${a.x + NODE_W / 2},${a.y + NODE_H + 60} ${b.x + NODE_W / 2},${b.y + NODE_H + 60} ${b.x + NODE_W / 2},${b.y + NODE_H}`;
+    return `<path d="${d}" class="cg-edge cg-edge-${esc(e.kind)}" data-from="${esc(e.from)}" data-to="${esc(e.to)}" marker-end="url(#cg-arrow-${esc(e.kind)})"><title>${esc(e.kind)}${e.note ? "\uFF1A" + esc(e.note) : ""}</title></path>`;
+  }).join("");
+  const nodes = L.placed.map((n) => {
+    const cls = mode === "pack" ? `cg-c-${n.lane}` : `cg-c-${n.lane} cg-s-${n.status}`;
+    const title = n.title.length > 13 ? n.title.slice(0, 12) + "\u2026" : n.title;
+    const subRaw = mode === "current" && n.status ? `${statusLabel(n.status)} \xB7 ${n.short || ""}` : n.short || n.when.split(" \xB7 ")[0];
+    const sub = subRaw.length > 26 ? subRaw.slice(0, 25) + "\u2026" : subRaw;
+    return `<g class="cg-node ${cls}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${NODE_W}" height="${NODE_H}" rx="7"/><text x="8" y="18" class="cg-node-title">${esc(title)}</text><text x="8" y="36" class="cg-node-sub">${esc(sub)}</text><title>${esc(n.title)}</title></g>`;
+  }).join("");
+  const now = L.nowX !== null ? `<line x1="${L.nowX}" y1="0" x2="${L.nowX}" y2="${L.height}" class="cg-now"/><text x="${L.nowX + 4}" y="12" class="cg-now-label">\u73B0\u5728</text>` : "";
+  const markers = ["enables", "motivates", "precedes", "related", "cause"].map((k) => `<marker id="cg-arrow-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="cg-arrow-${k}"/></marker>`).join("");
+  return `<svg class="cg-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMin meet" data-w="${L.width}" data-h="${L.height}" viewBox="0 0 ${Math.min(L.width, 1600)} ${L.height}"><defs>${markers}</defs>${lanes}${ticks}${edges}${nodes}${now}</svg>`;
+}
+var GraphPanel = class {
+  el;
+  data = { pack: null, current: null };
+  mode = "current";
+  filter = { q: "", arc: "", lanes: /* @__PURE__ */ new Set(["HARD", "SOFT", "FREE", "RUNTIME"]) };
+  vb = { x: 0, y: 0, w: 1600, h: 600 };
+  keepView = false;
+  sig = "";
+  selected = null;
+  getData;
+  setSpoilers;
+  constructor(getData, setSpoilers) {
+    this.getData = getData;
+    this.setSpoilers = setSpoilers;
+    this.el = document.createElement("div");
+    this.el.id = "canon-graph-panel";
+    this.el.className = "canon-graph-panel";
+    this.el.style.display = "none";
+    document.body.appendChild(this.el);
+    this.el.addEventListener("click", (ev) => this.onClick(ev));
+    this.el.addEventListener("input", (ev) => this.onInput(ev));
+    this.el.addEventListener("change", (ev) => this.onInput(ev));
+  }
+  isOpen() {
+    return this.el.style.display !== "none";
+  }
+  toggle(open) {
+    const o = open ?? !this.isOpen();
+    this.el.style.display = o ? "" : "none";
+    if (o) this.refresh();
+  }
+  refresh() {
+    if (!this.isOpen()) return;
+    const d = this.getData(false);
+    this.data = { pack: d.pack, current: d.current };
+    if (!d.current && this.mode === "current") this.mode = "pack";
+    const g0 = this.mode === "pack" ? d.pack : d.current;
+    const g = g0 ? this.applyFilter(g0) : null;
+    const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc(a.id)}" ${a.id === this.filter.arc ? "selected" : ""}>${esc(a.title)}</option>`).join("");
+    this.el.innerHTML = `
+      <div class="cg-head">
+        <b>${t("graphTitle")}</b>
+        <div class="cg-tabs">
+          <button class="menu_button ${this.mode === "current" ? "active" : ""}" data-mode="current" ${d.current ? "" : "disabled"}>${t("graphCurrent")}</button>
+          <button class="menu_button ${this.mode === "pack" ? "active" : ""}" data-mode="pack" ${d.pack ? "" : "disabled"}>${t("graphPack")}</button>
+        </div>
+        <input class="text_pole cg-q" placeholder="${t("graphSearch")}" value="${esc(this.filter.q)}">
+        <select class="text_pole cg-arc"><option value="">${t("graphAllArcs")}</option>${arcs}</select>
+        ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? "checked" : ""}>${LANE_LABEL[l]}</label>`).join("")}
+        <label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? "checked" : ""}>${t("spoilers")}</label>
+        <button class="menu_button" data-act="fit">${t("graphFit")}</button>
+        <button class="menu_button" data-act="close">\u2715</button>
+      </div>
+      <div class="cg-legend">${this.legend()}<span class="cg-hint">${this.mode === "pack" ? t("graphPackNote") : t("graphCurrentNote")}</span></div>
+      <div class="cg-body">
+        <div class="cg-canvas">${!g ? `<div class="cg-empty">${t("graphNoData")}</div>` : renderGraphSvg(g, this.mode)}</div>
+        <div class="cg-detail"><div class="cg-empty">${t("graphPick")}</div></div>
+      </div>`;
+    this.bindCanvas();
+    if (this.selected) this.select(this.selected);
+  }
+  /** Re-render only when the underlying data changed; keeps viewport and selection. */
+  refreshIfChanged(sig) {
+    if (sig === this.sig) return;
+    this.sig = sig;
+    if (!this.isOpen()) return;
+    this.keepView = true;
+    this.refresh();
+  }
+  legend() {
+    if (this.mode === "pack") return `<span class="cg-key cg-c-HARD">HARD</span><span class="cg-key cg-c-SOFT">SOFT</span><span class="cg-key cg-c-FREE">FREE</span><span class="cg-ek cg-edge-enables">\u4FC3\u6210</span><span class="cg-ek cg-edge-motivates">\u52A8\u673A</span><span class="cg-ek cg-edge-precedes">\u5148\u540E</span><span class="cg-ek cg-edge-related">\u76F8\u5173</span>`;
+    return ["occurred", "diverged", "omitted", "pending", "future", "runtime"].map((s) => `<span class="cg-key cg-s-${s}">${statusLabel(s)}</span>`).join("") + `<span class="cg-ek cg-edge-cause">\u672C\u5C40\u56E0\u679C</span><span class="cg-ek cg-edge-enables">\u539F\u4F5C\u5173\u7CFB</span>`;
+  }
+  applyFilter(g) {
+    const q = this.filter.q.trim().toLowerCase();
+    const nodes = g.nodes.filter((n) => this.filter.lanes.has(n.lane) && (!this.filter.arc || n.arc === this.filter.arc) && (!q || `${n.title} ${n.summary}`.toLowerCase().includes(q)));
+    const ids = new Set(nodes.map((n) => n.id));
+    return { ...g, nodes, edges: g.edges.filter((e) => ids.has(e.from) && ids.has(e.to)) };
+  }
+  bindCanvas() {
+    const svg = this.el.querySelector(".cg-svg");
+    if (!svg) return;
+    const W = Number(svg.dataset.w), H2 = Number(svg.dataset.h);
+    const canvas = this.el.querySelector(".cg-canvas");
+    const nowLine = svg.querySelector(".cg-now");
+    const startX = nowLine ? Math.max(0, Number(nowLine.getAttribute("x1")) - (canvas.clientWidth || 1e3) * 0.6) : 0;
+    const cw = canvas.clientWidth || 1e3, ch = canvas.clientHeight || 600;
+    if (!this.keepView) this.vb = { x: startX, y: 0, w: cw, h: ch };
+    this.keepView = false;
+    const apply = () => svg.setAttribute("viewBox", `${this.vb.x} ${this.vb.y} ${this.vb.w} ${this.vb.h}`);
+    apply();
+    let drag = null;
+    svg.addEventListener("mousedown", (e) => {
+      if (e.target.closest(".cg-node")) return;
+      drag = { x: e.clientX, y: e.clientY, vx: this.vb.x, vy: this.vb.y };
+      svg.classList.add("cg-grab");
+    });
+    window.addEventListener("mouseup", () => {
+      drag = null;
+      svg.classList.remove("cg-grab");
+    });
+    svg.addEventListener("mousemove", (e) => {
+      if (!drag) return;
+      const k = this.vb.w / svg.clientWidth;
+      this.vb.x = drag.vx - (e.clientX - drag.x) * k;
+      this.vb.y = drag.vy - (e.clientY - drag.y) * k;
+      apply();
+    });
+    svg.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        this.vb.x += (e.deltaX || e.deltaY) * (this.vb.w / svg.clientWidth);
+        apply();
+        return;
+      }
+      const r = svg.getBoundingClientRect();
+      const px = this.vb.x + (e.clientX - r.left) / r.width * this.vb.w;
+      const py = this.vb.y + (e.clientY - r.top) / r.height * this.vb.h;
+      const f = e.deltaY > 0 ? 1.15 : 1 / 1.15;
+      const nw = Math.min(Math.max(this.vb.w * f, cw / 3), Math.max(W, cw) * 1.2);
+      const nf = nw / this.vb.w;
+      this.vb = { x: px - (px - this.vb.x) * nf, y: py - (py - this.vb.y) * nf, w: nw, h: this.vb.h * nf };
+      apply();
+    }, { passive: false });
+    this.fit = () => {
+      const k = Math.max(W / cw, H2 / ch, 1);
+      this.vb = { x: 0, y: 0, w: cw * k, h: ch * k };
+      apply();
+    };
+  }
+  onInput(ev) {
+    const tg = ev.target;
+    if (tg.classList.contains("cg-q")) {
+      this.filter.q = tg.value;
+      if (ev.type === "change") {
+        this.keepView = false;
+        this.refresh();
+      }
+      return;
+    }
+    if (tg.classList.contains("cg-arc")) {
+      this.filter.arc = tg.value;
+      this.keepView = true;
+      this.refresh();
+      return;
+    }
+    if (tg.dataset.lane) {
+      if (tg.checked) this.filter.lanes.add(tg.dataset.lane);
+      else this.filter.lanes.delete(tg.dataset.lane);
+      this.keepView = true;
+      this.refresh();
+      return;
+    }
+    if (tg.classList.contains("cg-spoil")) {
+      this.setSpoilers(tg.checked);
+      this.keepView = true;
+      this.refresh();
+    }
+  }
+  onClick(ev) {
+    const tg = ev.target;
+    const b = tg.closest("[data-mode],[data-act]");
+    if (b?.dataset.mode) {
+      this.mode = b.dataset.mode;
+      this.selected = null;
+      this.refresh();
+      return;
+    }
+    if (b?.dataset.act === "close") {
+      this.toggle(false);
+      return;
+    }
+    if (b?.dataset.act === "fit") {
+      this.fit?.();
+      return;
+    }
+    const node = tg.closest(".cg-node");
+    if (node) this.select(node.dataset.id);
+  }
+  select(id) {
+    const g = this.mode === "pack" ? this.data.pack : this.data.current;
+    const n = g?.nodes.find((x) => x.id === id);
+    if (!g || !n) return;
+    this.selected = id;
+    this.el.querySelectorAll(".cg-node.cg-sel").forEach((x) => x.classList.remove("cg-sel"));
+    this.el.querySelectorAll(".cg-edge.cg-hl").forEach((x) => x.classList.remove("cg-hl"));
+    this.el.querySelector(`.cg-node[data-id="${CSS.escape(id)}"]`)?.classList.add("cg-sel");
+    this.el.querySelectorAll(`.cg-edge[data-from="${CSS.escape(id)}"], .cg-edge[data-to="${CSS.escape(id)}"]`).forEach((x) => x.classList.add("cg-hl"));
+    const titleOf = (x) => g.nodes.find((k) => k.id === x)?.title || x;
+    const ins = g.edges.filter((e) => e.to === id).map((e) => `\u2190 ${esc(titleOf(e.from))}\uFF08${esc(e.kind)}\uFF09`);
+    const outs = g.edges.filter((e) => e.from === id).map((e) => `\u2192 ${esc(titleOf(e.to))}\uFF08${esc(e.kind)}\uFF09`);
+    this.el.querySelector(".cg-detail").innerHTML = `
+      <h3>${esc(n.title)}</h3>
+      <div class="cg-badges"><span class="cg-key cg-c-${n.lane}">${n.lane === "RUNTIME" ? "\u672C\u5C40\u4E8B\u4EF6" : n.lane}</span>${n.status ? `<span class="cg-key cg-s-${n.status}">${statusLabel(n.status)}</span>` : ""}</div>
+      <div class="cg-when">${esc(n.when)}</div>
+      ${n.required ? `<div class="cg-req"><b>\u5FC5\u987B\u5B9E\u73B0\uFF1A</b>${esc(n.required)}</div>` : ""}
+      <p>${esc(n.summary)}</p>
+      ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join("")}
+      ${ins.length || outs.length ? `<div class="cg-rel"><b>\u5173\u7CFB</b><br>${[...ins, ...outs].join("<br>")}</div>` : ""}`;
+  }
+};
+
 // src/ui/ui.ts
 var E;
 var H;
@@ -15607,7 +16002,8 @@ var getSettings;
 var getLock;
 var inspectorEl = null;
 var inspectorTab = "overview";
-var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var graphPanel = null;
+var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 function mountUi(engine2, host2, settings, lock2) {
   E = engine2;
   H = host2;
@@ -15617,7 +16013,43 @@ function mountUi(engine2, host2, settings, lock2) {
   setLang(s.uiLang === "en" ? "en" : "zh");
   mountSettings();
   mountStatus();
+  mountTopButton();
   refreshUi();
+}
+function mountTopButton() {
+  if (document.getElementById("canon-engine-top-button")) return;
+  graphPanel = new GraphPanel((sp) => {
+    void sp;
+    const src = (() => {
+      try {
+        return E.graphSource();
+      } catch {
+        return null;
+      }
+    })();
+    const camp = E.campaign();
+    const spoilers = !!camp?.uiPreferences.spoilers;
+    if (!src) return { pack: null, current: null, spoilers };
+    const pg = packGraph(src.pack, src.origin);
+    pg.nowTick = src.state ? src.state.clock.lo : null;
+    return { pack: pg, current: src.state ? currentGraph(src.pack, src.state, src.origin, spoilers) : null, spoilers };
+  }, (v) => {
+    const camp = E.campaign();
+    if (camp) camp.uiPreferences.spoilers = v;
+  });
+  const holder = document.getElementById("top-settings-holder");
+  const btn = document.createElement("div");
+  btn.id = "canon-engine-top-button";
+  btn.className = "drawer";
+  btn.innerHTML = `<div class="drawer-toggle drawer-header canon-top-toggle"><div class="drawer-icon fa-solid fa-diagram-project fa-fw closedIcon" title="${t("graphTitle")}"></div></div>`;
+  btn.querySelector(".canon-top-toggle").addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    graphPanel.toggle();
+    btn.querySelector(".drawer-icon").classList.toggle("openIcon", graphPanel.isOpen());
+    btn.querySelector(".drawer-icon").classList.toggle("closedIcon", !graphPanel.isOpen());
+  });
+  if (holder) holder.appendChild(btn);
+  else document.body.appendChild(btn);
 }
 function mountStatus() {
   if (document.getElementById("canon-engine-status")) return;
@@ -15659,8 +16091,8 @@ function renderStatus() {
   else if (err) msg = `${labelForError(camp.recoveryState.errorKind || st.errorKind || "")}: ${(camp.recoveryState.reason || st.message || "").slice(0, 220)}`;
   else if (busy) msg = st.message;
   el.dataset.phase = conflict ? "conflict" : phase;
-  el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc(t("phase_" + (conflict ? "conflict" : phase)))}</span>
-    <span class="canon-msg" title="${esc(msg)}">${esc(msg)}</span>
+  el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc2(t("phase_" + (conflict ? "conflict" : phase)))}</span>
+    <span class="canon-msg" title="${esc2(msg)}">${esc2(msg)}</span>
     <span class="canon-actions">
       ${busy ? `<button class="menu_button canon-btn" data-act="cancel">${t("cancel")}</button>` : ""}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t("retry")}</button>` : ""}
@@ -15692,7 +16124,7 @@ function renderSettings() {
     lines.push(`<div>${t("notBound")}</div><button class="menu_button" data-act="enable">${t("enable")}</button>`);
   } else {
     let title = camp.packSnapshot.title;
-    lines.push(`<div><b>${esc(title)}</b> v${esc(camp.packVersion)} \xB7 hash ${esc(camp.packHash.slice(0, 10))} \xB7 rev ${camp.revision}${camp.enabled ? "" : " \xB7 " + t("phase_disabled")}</div>`);
+    lines.push(`<div><b>${esc2(title)}</b> v${esc2(camp.packVersion)} \xB7 hash ${esc2(camp.packHash.slice(0, 10))} \xB7 rev ${camp.revision}${camp.enabled ? "" : " \xB7 " + t("phase_disabled")}</div>`);
     lines.push(`<div class="canon-row">
       <button class="menu_button" data-act="inspect">${t("inspect")}</button>
       <button class="menu_button" data-act="rebuild">${t("rebuild")}</button>
@@ -15704,9 +16136,9 @@ function renderSettings() {
       <button class="menu_button" data-act="unbind">${t("unbind")}</button></div>`);
   }
   const comp = detectCompetingLore();
-  if (comp.books.length) lines.push(`<div class="canon-note warn">${t("competing")} ${comp.books.map(esc).join(", ")}<br>${t("competingHint")}</div>`);
+  if (comp.books.length) lines.push(`<div class="canon-note warn">${t("competing")} ${comp.books.map(esc2).join(", ")}<br>${t("competingHint")}</div>`);
   if (comp.gmRule) lines.push(`<div class="canon-note warn">${t("gmConflict")}</div>`);
-  if (hd.version && !hd.ok) lines.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc(hd.missing.join(", "))}</div>`);
+  if (hd.version && !hd.ok) lines.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc2(hd.missing.join(", "))}</div>`);
   lines.push(`<details><summary>${t("advanced")}</summary><div class="canon-adv">
     ${num("maxRepairs", s.maxRepairs)}${num("maxOrdinaryPlanner", s.maxOrdinaryPlanner)}${num("budgetChars", s.budgetChars)}${num("taskTimeoutMs", s.taskTimeoutMs)}${num("draftTimeoutMs", s.draftTimeoutMs)}${num("horizonMinutes", s.horizonMinutes)}
     <label><input type="checkbox" data-set="forcedPlannerAttempt" ${s.forcedPlannerAttempt ? "checked" : ""}> forcedPlannerAttempt</label>
@@ -15798,19 +16230,19 @@ function openBindWizard(text) {
   const existing = chatLen > 1;
   const horae = H.horae?.status().scene;
   if (!p.ok || !p.summary) {
-    modal(`<h3>${t("wizardTitle")}</h3><div class="canon-note err">${t("validation")}: ${t("failed")}</div><ul class="canon-list">${p.errors.slice(0, 40).map((e) => `<li><code>${esc(e.path)}</code> ${esc(e.message)}</li>`).join("")}</ul><button class="menu_button" data-close>${t("close")}</button>`);
+    modal(`<h3>${t("wizardTitle")}</h3><div class="canon-note err">${t("validation")}: ${t("failed")}</div><ul class="canon-list">${p.errors.slice(0, 40).map((e) => `<li><code>${esc2(e.path)}</code> ${esc2(e.message)}</li>`).join("")}</ul><button class="menu_button" data-close>${t("close")}</button>`);
     return;
   }
   const S = p.summary;
   const startDefault = formatTick(parseCoverageStart(S.coverage));
-  const evOptions = E.previewEvents(text).map((e) => `<option value="${e.lo - 1}">${esc(e.title)} (${esc(formatTick(e.lo))})</option>`).join("");
+  const evOptions = E.previewEvents(text).map((e) => `<option value="${e.lo - 1}">${esc2(e.title)} (${esc2(formatTick(e.lo))})</option>`).join("");
   const el = modal(`<h3>${t("wizardTitle")}</h3>
-    <div><b>${esc(S.title)}</b> v${esc(S.version)} <small>(${esc(S.packId)}, ${esc(S.hash.slice(0, 12))})</small></div>
-    <div>${t("validation")}: <b>${t("ok")}</b> \xB7 ${t("coverage")}: ${esc(S.coverage)} \xB7 ${t("hardCount")}: ${S.hardCount}</div>
-    ${p.warnings.length ? `<details><summary>${t("warnings")} (${p.warnings.length})</summary><ul class="canon-list">${p.warnings.map((w) => `<li>${esc(w.path)} ${esc(w.message)}</li>`).join("")}</ul></details>` : ""}
-    ${horae && (horae.date || horae.time) ? `<div class="canon-note">${t("horaeDetected")}: ${esc(horae.date || "")} ${esc(horae.time || "")} ${esc(horae.location || "")}</div>` : ""}
+    <div><b>${esc2(S.title)}</b> v${esc2(S.version)} <small>(${esc2(S.packId)}, ${esc2(S.hash.slice(0, 12))})</small></div>
+    <div>${t("validation")}: <b>${t("ok")}</b> \xB7 ${t("coverage")}: ${esc2(S.coverage)} \xB7 ${t("hardCount")}: ${S.hardCount}</div>
+    ${p.warnings.length ? `<details><summary>${t("warnings")} (${p.warnings.length})</summary><ul class="canon-list">${p.warnings.map((w) => `<li>${esc2(w.path)} ${esc2(w.message)}</li>`).join("")}</ul></details>` : ""}
+    ${horae && (horae.date || horae.time) ? `<div class="canon-note">${t("horaeDetected")}: ${esc2(horae.date || "")} ${esc2(horae.time || "")} ${esc2(horae.location || "")}</div>` : ""}
     ${existing ? `<div class="canon-note">${t("existingChat")}</div>` : ""}
-    <label>${t("startTime")} <input class="text_pole canon-start" value="${esc(startDefault)}" placeholder="D0 08:00 \u6216 2020-07-20 08:00\uFF08\u9700\u586B\u5199\u4E0B\u65B9\u7B2C0\u5929\u65E5\u671F\uFF09"></label>
+    <label>${t("startTime")} <input class="text_pole canon-start" value="${esc2(startDefault)}" placeholder="D0 08:00 \u6216 2020-07-20 08:00\uFF08\u9700\u586B\u5199\u4E0B\u65B9\u7B2C0\u5929\u65E5\u671F\uFF09"></label>
     <label>${t("startBefore")} <select class="canon-start-ev"><option value="">\u2014</option>${evOptions}</select></label>
     <label>${t("originDate")} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD"></label>
     <div class="canon-row"><button class="menu_button canon-confirm">${t("confirmBind")}</button><button class="menu_button" data-close>${t("close")}</button></div>
@@ -15836,10 +16268,10 @@ function openBindWizard(text) {
       const insp = E.inspector(false);
       const camp = E.campaign();
       el.querySelector(".canon-modal").innerHTML = `<h3>${t("bindingSummary")}</h3>
-        <div>${t("startTime")}: ${esc(camp.binding.startLabel)} \xB7 ${esc(camp.packSnapshot.pack_id)}@${esc(camp.packVersion)}</div>
+        <div>${t("startTime")}: ${esc2(camp.binding.startLabel)} \xB7 ${esc2(camp.packSnapshot.pack_id)}@${esc2(camp.packVersion)}</div>
         <div>${t("examined")}: ${res.examined}</div>
-        <div>${t("deviations")}: ${insp?.deviations.length ? insp.deviations.map((d) => esc(`${d.title}: ${d.disposition}`)).join("; ") : "\u2014"}</div>
-        <div>${t("unresolved")}: ${[...res.unresolved, camp.recoveryState.status !== "ok" ? camp.recoveryState.reason : ""].filter(Boolean).map(esc).join("; ") || "\u2014"}</div>
+        <div>${t("deviations")}: ${insp?.deviations.length ? insp.deviations.map((d) => esc2(`${d.title}: ${d.disposition}`)).join("; ") : "\u2014"}</div>
+        <div>${t("unresolved")}: ${[...res.unresolved, camp.recoveryState.status !== "ok" ? camp.recoveryState.reason : ""].filter(Boolean).map(esc2).join("; ") || "\u2014"}</div>
         <div class="canon-row"><button class="menu_button" data-close>${t("keep")}</button><button class="menu_button canon-undo">${t("undoBind")}</button></div>`;
       el.querySelector(".canon-undo").addEventListener("click", async () => {
         H.setCampaign(null);
@@ -15848,7 +16280,7 @@ function openBindWizard(text) {
         refreshUi();
       });
     } catch (e) {
-      status.innerHTML = `<div class="canon-note err">${esc(e.message)}</div>`;
+      status.innerHTML = `<div class="canon-note err">${esc2(e.message)}</div>`;
     }
     refreshUi();
   });
@@ -15860,12 +16292,12 @@ function parseCoverageStart(cov) {
 function openUpdateWizard(text) {
   const d = E.diffPack(text);
   if (!d.ok) {
-    modal(`<div class="canon-note err">${d.errors.map((e) => esc(e.message)).join("<br>")}</div><button class="menu_button" data-close>${t("close")}</button>`);
+    modal(`<div class="canon-note err">${d.errors.map((e) => esc2(e.message)).join("<br>")}</div><button class="menu_button" data-close>${t("close")}</button>`);
     return;
   }
   const el = modal(`<h3>${t("updatePack")}</h3><div class="canon-note">${t("updatePreview")}</div>
-    <div>changed: ${esc(d.changed.join(", ") || "\u2014")}</div><div>deleted: ${esc(d.deleted.join(", ") || "\u2014")}</div><div>added: ${esc(d.added.join(", ") || "\u2014")}</div>
-    <div><b>HARD contract changes:</b> ${esc(d.hardChanged.join(", ") || "\u2014")}</div>
+    <div>changed: ${esc2(d.changed.join(", ") || "\u2014")}</div><div>deleted: ${esc2(d.deleted.join(", ") || "\u2014")}</div><div>added: ${esc2(d.added.join(", ") || "\u2014")}</div>
+    <div><b>HARD contract changes:</b> ${esc2(d.hardChanged.join(", ") || "\u2014")}</div>
     <div class="canon-row"><button class="menu_button canon-exp">${t("exportBackup")}</button><button class="menu_button canon-apply" disabled>${t("applyUpdate")}</button><button class="menu_button" data-close>${t("close")}</button></div>`);
   el.querySelector(".canon-exp").addEventListener("click", () => {
     download(`canon-backup-before-update-${Date.now()}.json`, E.exportBackup());
@@ -15925,26 +16357,26 @@ function renderInspector() {
   const tabs = ["overview", "facts", "history", "deviations", "anchors", "plan", ...E.settings.debug ? ["debug"] : []];
   const tabName = { overview: t("tabOverview"), facts: t("tabFacts"), history: t("tabHistory"), deviations: t("tabDeviations"), anchors: t("tabAnchors"), plan: t("tabPlan"), debug: t("tabDebug") };
   let body = "";
-  if (!d) body = `<div>${esc(E.status.message || t("phase_reconciling"))}</div>`;
+  if (!d) body = `<div>${esc2(E.status.message || t("phase_reconciling"))}</div>`;
   else if (inspectorTab === "overview") {
-    body = `<div><b>${esc(d.title)}</b> \xB7 hash ${esc(d.packHash)}</div><div>\u23F1 ${esc(d.time)}</div><div>rev ${d.revision} \xB7 branch ${esc(d.branchId.slice(0, 12))}</div>
-      <div>${esc(d.recovery.status)} ${esc(d.recovery.reason || "")}</div>
-      <ul class="canon-list">${d.notices.map((n) => `<li class="${n.level}">${esc(n.text)}</li>`).join("")}</ul>`;
+    body = `<div><b>${esc2(d.title)}</b> \xB7 hash ${esc2(d.packHash)}</div><div>\u23F1 ${esc2(d.time)}</div><div>rev ${d.revision} \xB7 branch ${esc2(d.branchId.slice(0, 12))}</div>
+      <div>${esc2(d.recovery.status)} ${esc2(d.recovery.reason || "")}</div>
+      <ul class="canon-list">${d.notices.map((n) => `<li class="${n.level}">${esc2(n.text)}</li>`).join("")}</ul>`;
   } else if (inspectorTab === "facts") {
-    body = `<table class="canon-table"><tr><th>entity</th><th>predicate</th><th>value</th><th>since</th><th>source</th></tr>${d.facts.map((f) => `<tr><td>${esc(f.entity)}</td><td>${esc(f.predicate)}</td><td>${esc(f.value)}</td><td>${esc(f.since)}</td><td>${esc(f.source)}</td></tr>`).join("")}</table>`;
+    body = `<table class="canon-table"><tr><th>entity</th><th>predicate</th><th>value</th><th>since</th><th>source</th></tr>${d.facts.map((f) => `<tr><td>${esc2(f.entity)}</td><td>${esc2(f.predicate)}</td><td>${esc2(f.value)}</td><td>${esc2(f.since)}</td><td>${esc2(f.source)}</td></tr>`).join("")}</table>`;
   } else if (inspectorTab === "history") {
-    body = `<ul class="canon-list">${d.occurrences.map((o) => `<li><b>${esc(o.time)}</b> ${esc(o.title)} <small>(${esc(o.origin)})</small><br><small>${esc(o.account)}</small></li>`).join("")}</ul>`;
+    body = `<ul class="canon-list">${d.occurrences.map((o) => `<li><b>${esc2(o.time)}</b> ${esc2(o.title)} <small>(${esc2(o.origin)})</small><br><small>${esc2(o.account)}</small></li>`).join("")}</ul>`;
   } else if (inspectorTab === "deviations") {
-    body = `<ul class="canon-list">${d.deviations.map((x) => `<li>${esc(x.title)}: <b>${esc(x.disposition)}</b> \u2014 ${esc(x.reason)}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
+    body = `<ul class="canon-list">${d.deviations.map((x) => `<li>${esc2(x.title)}: <b>${esc2(x.disposition)}</b> \u2014 ${esc2(x.reason)}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
   } else if (inspectorTab === "anchors") {
-    body = `<ul class="canon-list">${d.anchors.map((a) => `<li>${esc(spoilers ? a.title : "\u2022\u2022\u2022")} \u2014 <b>${esc(a.status)}</b> ${esc(a.when)}<br><small>${esc(a.required)}</small></li>`).join("")}</ul>`;
+    body = `<ul class="canon-list">${d.anchors.map((a) => `<li>${esc2(spoilers ? a.title : "\u2022\u2022\u2022")} \u2014 <b>${esc2(a.status)}</b> ${esc2(a.when)}<br><small>${esc2(a.required)}</small></li>`).join("")}</ul>`;
   } else if (inspectorTab === "plan") {
-    body = `<pre class="canon-pre">${esc(JSON.stringify(d.plan, null, 1))}</pre>`;
+    body = `<pre class="canon-pre">${esc2(JSON.stringify(d.plan, null, 1))}</pre>`;
   } else if (inspectorTab === "debug") {
-    body = `<h4>Last operation</h4><pre class="canon-pre">${esc(JSON.stringify(d.lastTrace, null, 1))}</pre>
-      <h4>Final draft prompt (as sent)</h4><pre class="canon-pre">${esc(JSON.stringify(gen.lastDraftPrompt, null, 1))}</pre>
-      <h4>Coverage manifests</h4><pre class="canon-pre">${esc(JSON.stringify(d.manifests, null, 1))}</pre>
-      <h4>Raw campaign JSON</h4><pre class="canon-pre">${esc(JSON.stringify({ ...camp, packSnapshot: "[omitted]" }, null, 1)).slice(0, 2e5)}</pre>`;
+    body = `<h4>Last operation</h4><pre class="canon-pre">${esc2(JSON.stringify(d.lastTrace, null, 1))}</pre>
+      <h4>Final draft prompt (as sent)</h4><pre class="canon-pre">${esc2(JSON.stringify(gen.lastDraftPrompt, null, 1))}</pre>
+      <h4>Coverage manifests</h4><pre class="canon-pre">${esc2(JSON.stringify(d.manifests, null, 1))}</pre>
+      <h4>Raw campaign JSON</h4><pre class="canon-pre">${esc2(JSON.stringify({ ...camp, packSnapshot: "[omitted]" }, null, 1)).slice(0, 2e5)}</pre>`;
   }
   inspectorEl.innerHTML = `<div class="canon-insp-head"><b>${t("inspect")}</b>
       <label><input type="checkbox" data-act="spoilers" ${spoilers ? "checked" : ""}> ${t("spoilers")}</label>
@@ -15995,8 +16427,8 @@ async function branchFromConflict() {
       /* @vite-ignore */
       bmUrl
     );
-    const name = await bookmarks.branchChat(idx - 1);
-    if (!name) return;
+    const name2 = await bookmarks.branchChat(idx - 1);
+    if (!name2) return;
     await new Promise((r) => setTimeout(r, 1500));
     const chat = ctx().chat || [];
     const last = chat[chat.length - 1];
@@ -16031,10 +16463,10 @@ function toast(level, msg) {
   if (tr) tr[level === "error" ? "error" : level === "warning" ? "warning" : "info"](msg, "Canon Engine");
   else console.log("[CanonEngine]", msg);
 }
-function download(name, text) {
+function download(name2, text) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
-  a.download = name;
+  a.download = name2;
   document.body.appendChild(a);
   a.click();
   setTimeout(() => {
@@ -16049,6 +16481,17 @@ function refreshUi() {
   renderSettings();
   renderInspector();
   renderMessageDecorations();
+  if (graphPanel) {
+    const c = E.campaign();
+    const st = (() => {
+      try {
+        return E.graphSource()?.state;
+      } catch {
+        return null;
+      }
+    })();
+    graphPanel.refreshIfChanged(`${c?.packHash || ""}|${st?.lastSeq ?? ""}|${st?.clock.lo ?? ""}|${c?.uiPreferences.spoilers ? 1 : 0}`);
+  }
   if (E.noticeSeq > lastNoticeCount) {
     const fresh = Math.min(E.noticeSeq - lastNoticeCount, E.notices.length);
     for (const n of E.notices.slice(-fresh)) toast(n.level === "warn" ? "warning" : n.level, n.text);
@@ -16178,7 +16621,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.0.1" };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.1.0" };
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
   const first = (ev, fn) => typeof es.makeFirst === "function" ? es.makeFirst(ev, fn) : es.on(ev, fn);
@@ -16225,7 +16668,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
-  console.log("[CanonEngine] v1.0.1 loaded");
+  console.log("[CanonEngine] v1.1.0 loaded");
 }
 (async () => {
   try {

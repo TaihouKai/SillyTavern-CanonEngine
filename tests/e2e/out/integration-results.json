@@ -1,20 +1,105 @@
 {
- "at": "2026-10-14T13:10:04.908Z",
+ "at": "2026-10-14T13:41:14.032Z",
  "results": [
   {
-   "name": "R07 late result after chat switch is discarded (neither chat receives it)",
+   "name": "I01 draft uses ST full prompt: card + persona + Author's Note + keyword lore + Horae + engine context",
+   "pass": true,
+   "detail": "main=1"
+  },
+  {
+   "name": "I09 private draft request is not streamed; global streaming setting untouched",
    "pass": true,
    "detail": ""
   },
   {
-   "name": "R15 second tab for the same campaign is not the writer",
+   "name": "I08 internal tasks are isolated (2 messages; no card/AN/lore/Horae injection; Persona only as an explicit extractor input; no recursive story turn)",
    "pass": true,
-   "detail": "owner2=false"
+   "detail": "extract_user:2,plan:2,discover:2,evaluate:2"
   },
   {
-   "name": "I11 group chat: explicit activation guard, no enforcement claim",
+   "name": "I03 accepted reply published once through native lifecycle",
    "pass": true,
-   "detail": "group=1791983397155 Group chats are not supported in v1 until a designated-GM adapter is validated. Canon Engine was not activated."
+   "detail": ""
+  },
+  {
+   "name": "I03 Horae analyzes only the accepted text",
+   "pass": true,
+   "detail": "晨雾笼罩着森林边缘的小屋，Seraphina 为你端来热茶。"
+  },
+  {
+   "name": "R01 swipe A committed: Mira alive, ambush diverged",
+   "pass": true,
+   "detail": "{\"medic-ambush\":\"diverged\"}"
+  },
+  {
+   "name": "Swipe: new variant generated privately and published as swipe #2 with new variant id",
+   "pass": true,
+   "detail": "swipes=2 id=1"
+  },
+  {
+   "name": "Swipe: replaced reply is not in the new candidate prompt",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R01 swipe B selected: Mira dead",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R01 switching back to swipe A restores its state without model calls",
+   "pass": true,
+   "detail": "tasks=0"
+  },
+  {
+   "name": "R02 regenerate replaces the reply; old variants are not in the candidate prompt",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R02 regenerated reply starts from the pre-response world (one ambush disposition)",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "R03 continue revises the same reply; whole revised message validated; effects not double counted",
+   "pass": true,
+   "detail": "Mira 被你护在身后，伏击者仓皇撤退。VARIANT_C 她低声向你道谢。CONT_D"
+  },
+  {
+   "name": "R17 cancelled regenerate restores the prior reply; no empty/late message",
+   "pass": true,
+   "detail": "len 3->3"
+  },
+  {
+   "name": "Cancel: user message preserved, no GM message created, late result discarded",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "I13 malformed model JSON: bounded retry then actionable error; user input kept; no GM message",
+   "pass": true,
+   "detail": "{\"status\":\"error\",\"errorKind\":\"invalid_model_json\",\"reason\":\"invalid structured output for extract_user: no parseable JSON object in model output\",\"at\":1791985269721}"
+  },
+  {
+   "name": "Retry after failure completes the turn",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "I13/C06 extra mutation fields (drop_anchor) rejected by schema; never applied",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "C17 setting conflict.active without enacting the HARD event is rejected",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "I12 missing Horae API gives a compatibility diagnosis (no guessed private writes)",
+   "pass": true,
+   "detail": ""
   }
  ]
 }

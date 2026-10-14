@@ -1196,6 +1196,13 @@ export class CanonEngine {
   // ---------------------------------------------------------------------------------------------
   // Inspector data
 
+  /** Read-only data for the history graph views (pack + current replayed state). */
+  graphSource(): { pack: LoadedPack; state: WorldState | null; origin: { y: number; m: number; d: number } | null } | null {
+    const c = this.campaign();
+    if (!c) return null;
+    return { pack: this.pack(), state: this.current?.replay.state || null, origin: c.binding.originDate || null };
+  }
+
   inspector(spoilers: boolean) {
     const c = this.campaign();
     if (!c || !this.current) return null;
