@@ -1,0 +1,76 @@
+{
+ "type": "object",
+ "properties": {
+  "changed": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "entity_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+     },
+     "predicate": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+     }
+    },
+    "required": [
+     "entity_id",
+     "predicate"
+    ],
+    "additionalProperties": false
+   },
+   "maxItems": 200
+  },
+  "affected_anchors": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "maxItems": 200
+  },
+  "affected_steps": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "maxItems": 200
+  },
+  "scope": {
+   "enum": [
+    "local",
+    "global",
+    "unknown"
+   ]
+  },
+  "severity": {
+   "enum": [
+    "none",
+    "minor",
+    "major"
+   ]
+  },
+  "replan": {
+   "type": "boolean"
+  },
+  "explanation": {
+   "type": "string"
+  }
+ },
+ "required": [
+  "changed",
+  "affected_anchors",
+  "affected_steps",
+  "scope",
+  "severity",
+  "replan",
+  "explanation"
+ ],
+ "additionalProperties": false,
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:canon-engine:task:impact",
+ "title": "Canon Engine task output: impact"
+}

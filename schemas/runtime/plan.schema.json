@@ -1,0 +1,273 @@
+{
+ "type": "object",
+ "properties": {
+  "rationale": {
+   "type": "string"
+  },
+  "protected_anchor_ids": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "maxItems": 200
+  },
+  "assumptions": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "text": {
+      "type": "string"
+     },
+     "fact": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "entity_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+         },
+         "predicate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+         },
+         "value": {
+          "oneOf": [
+           {
+            "type": "boolean"
+           },
+           {
+            "type": "number"
+           },
+           {
+            "type": "string"
+           },
+           {
+            "type": "array",
+            "items": {
+             "type": "string"
+            }
+           }
+          ]
+         }
+        },
+        "required": [
+         "entity_id",
+         "predicate",
+         "value"
+        ],
+        "additionalProperties": false
+       }
+      ]
+     }
+    },
+    "required": [
+     "text",
+     "fact"
+    ],
+    "additionalProperties": false
+   },
+   "maxItems": 200
+  },
+  "risks": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "maxItems": 200
+  },
+  "mode": {
+   "enum": [
+    "NORMAL",
+    "FORCED_CONVERGENCE"
+   ]
+  },
+  "steps": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "step_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+     },
+     "actors": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 200
+     },
+     "targets": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 200
+     },
+     "earliest": {
+      "type": "object",
+      "properties": {
+       "day": {
+        "type": "integer"
+       },
+       "minute": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1439
+       }
+      },
+      "required": [
+       "day",
+       "minute"
+      ],
+      "additionalProperties": false
+     },
+     "latest": {
+      "type": "object",
+      "properties": {
+       "day": {
+        "type": "integer"
+       },
+       "minute": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1439
+       }
+      },
+      "required": [
+       "day",
+       "minute"
+      ],
+      "additionalProperties": false
+     },
+     "prerequisites": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 200
+     },
+     "action": {
+      "type": "string"
+     },
+     "intended_effects": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "entity_id": {
+         "type": "string",
+         "minLength": 1,
+         "maxLength": 200
+        },
+        "predicate": {
+         "type": "string",
+         "minLength": 1,
+         "maxLength": 200
+        },
+        "value": {
+         "oneOf": [
+          {
+           "type": "boolean"
+          },
+          {
+           "type": "number"
+          },
+          {
+           "type": "string"
+          },
+          {
+           "type": "array",
+           "items": {
+            "type": "string"
+           }
+          }
+         ]
+        }
+       },
+       "required": [
+        "entity_id",
+        "predicate",
+        "value"
+       ],
+       "additionalProperties": false
+      },
+      "maxItems": 200
+     },
+     "visibility": {
+      "enum": [
+       "public",
+       "restricted",
+       "secret"
+      ]
+     },
+     "knowers": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 200
+     },
+     "depends_on": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 200
+     },
+     "means": {
+      "enum": [
+       "ordinary",
+       "extraordinary"
+      ]
+     },
+     "serves_anchor": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "requires_player_consent": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "step_id",
+     "actors",
+     "earliest",
+     "latest",
+     "action",
+     "intended_effects",
+     "means",
+     "serves_anchor",
+     "requires_player_consent"
+    ],
+    "additionalProperties": false
+   },
+   "maxItems": 40
+  },
+  "inadequacy_note": {
+   "type": "string"
+  }
+ },
+ "required": [
+  "rationale",
+  "protected_anchor_ids",
+  "assumptions",
+  "risks",
+  "mode",
+  "steps"
+ ],
+ "additionalProperties": false,
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:canon-engine:task:plan",
+ "title": "Canon Engine task output: plan"
+}

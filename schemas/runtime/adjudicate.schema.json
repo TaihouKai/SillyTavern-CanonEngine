@@ -1,0 +1,193 @@
+{
+ "type": "object",
+ "properties": {
+  "adjudications": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+     },
+     "decision": {
+      "enum": [
+       "occurred",
+       "diverged",
+       "omitted",
+       "postponed"
+      ]
+     },
+     "time": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "lo": {
+          "type": "object",
+          "properties": {
+           "day": {
+            "type": "integer"
+           },
+           "minute": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1439
+           }
+          },
+          "required": [
+           "day",
+           "minute"
+          ],
+          "additionalProperties": false
+         },
+         "hi": {
+          "type": "object",
+          "properties": {
+           "day": {
+            "type": "integer"
+           },
+           "minute": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1439
+           }
+          },
+          "required": [
+           "day",
+           "minute"
+          ],
+          "additionalProperties": false
+         },
+         "precision": {
+          "enum": [
+           "minute",
+           "day",
+           "range",
+           "approx"
+          ]
+         }
+        },
+        "required": [
+         "lo",
+         "hi",
+         "precision"
+        ],
+        "additionalProperties": false
+       }
+      ]
+     },
+     "account": {
+      "type": "string"
+     },
+     "actors": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 200
+     },
+     "causes": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 200
+     },
+     "effects": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "op": {
+         "enum": [
+          "set",
+          "unset"
+         ]
+        },
+        "entity_id": {
+         "type": "string",
+         "minLength": 1,
+         "maxLength": 200
+        },
+        "predicate": {
+         "type": "string",
+         "minLength": 1,
+         "maxLength": 200
+        },
+        "value": {
+         "oneOf": [
+          {
+           "type": "boolean"
+          },
+          {
+           "type": "number"
+          },
+          {
+           "type": "string"
+          },
+          {
+           "type": "array",
+           "items": {
+            "type": "string"
+           }
+          }
+         ]
+        },
+        "quote": {
+         "type": "string"
+        },
+        "occurrence_ref": {
+         "type": [
+          "string",
+          "null"
+         ]
+        }
+       },
+       "required": [
+        "op",
+        "entity_id",
+        "predicate"
+       ],
+       "additionalProperties": false
+      },
+      "maxItems": 200
+     },
+     "plan_step_ids": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 200
+     },
+     "reason": {
+      "type": "string"
+     },
+     "extraordinary": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "event_id",
+     "decision",
+     "account",
+     "effects",
+     "reason"
+    ],
+    "additionalProperties": false
+   },
+   "maxItems": 200
+  }
+ },
+ "required": [
+  "adjudications"
+ ],
+ "additionalProperties": false,
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:canon-engine:task:adjudicate",
+ "title": "Canon Engine task output: adjudicate"
+}

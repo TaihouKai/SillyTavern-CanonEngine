@@ -1,0 +1,825 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:canon-engine:pack:1.0.0",
+  "title": "Canon Engine v1 History Pack",
+  "description": "Structural validation only. Semantic validation is specified in HISTORY_PACK_AUTHORING_GUIDE.md.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "pack_id": {
+      "$ref": "#/$defs/id"
+    },
+    "pack_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "language": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "calendar": {
+      "type": "object",
+      "properties": {
+        "system": {
+          "const": "relative_day"
+        },
+        "origin_label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "day_length_minutes": {
+          "const": 1440
+        },
+        "time_zone_label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "system",
+        "origin_label",
+        "day_length_minutes",
+        "time_zone_label",
+        "notes"
+      ],
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/time"
+        },
+        "end": {
+          "$ref": "#/$defs/time"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "notes"
+      ],
+      "additionalProperties": false
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      },
+      "minItems": 1
+    },
+    "predicates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/predicate"
+      },
+      "minItems": 1
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entity"
+      },
+      "minItems": 1
+    },
+    "initial_state": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/time"
+        },
+        "facts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/initial_fact"
+          }
+        }
+      },
+      "required": [
+        "at",
+        "facts"
+      ],
+      "additionalProperties": false
+    },
+    "arcs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/arc"
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/event"
+      },
+      "minItems": 1
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "pack_id",
+    "pack_version",
+    "title",
+    "language",
+    "description",
+    "calendar",
+    "coverage",
+    "sources",
+    "predicates",
+    "entities",
+    "initial_state",
+    "arcs",
+    "events",
+    "edges"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "time": {
+      "type": "object",
+      "properties": {
+        "day": {
+          "type": "integer"
+        },
+        "minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+        }
+      },
+      "required": [
+        "day",
+        "minute"
+      ],
+      "additionalProperties": false
+    },
+    "value": {
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        }
+      ]
+    },
+    "fact": {
+      "type": "object",
+      "properties": {
+        "entity_id": {
+          "$ref": "#/$defs/id"
+        },
+        "predicate": {
+          "$ref": "#/$defs/id"
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        }
+      },
+      "required": [
+        "entity_id",
+        "predicate",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "effect": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "set"
+            },
+            "fact": {
+              "$ref": "#/$defs/fact"
+            }
+          },
+          "required": [
+            "op",
+            "fact"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "unset"
+            },
+            "entity_id": {
+              "$ref": "#/$defs/id"
+            },
+            "predicate": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "op",
+            "entity_id",
+            "predicate"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "condition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "all": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/condition"
+              }
+            }
+          },
+          "required": [
+            "all"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "any": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/condition"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "any"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "not": {
+              "$ref": "#/$defs/condition"
+            }
+          },
+          "required": [
+            "not"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fact": {
+              "$ref": "#/$defs/fact"
+            }
+          },
+          "required": [
+            "fact"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "occurred": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "occurred"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "primary",
+            "secondary",
+            "editorial",
+            "example"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "locator",
+        "kind",
+        "notes"
+      ],
+      "additionalProperties": false
+    },
+    "predicate": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value_type": {
+          "enum": [
+            "boolean",
+            "number",
+            "string",
+            "entity_ref",
+            "entity_set"
+          ]
+        },
+        "allowed_values": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/value"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "value_type"
+      ],
+      "additionalProperties": false
+    },
+    "entity": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "kind": {
+          "enum": [
+            "person",
+            "organization",
+            "place",
+            "object",
+            "world",
+            "other"
+          ]
+        },
+        "static_description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "aliases",
+        "kind",
+        "static_description",
+        "source_refs"
+      ],
+      "additionalProperties": false
+    },
+    "when": {
+      "type": "object",
+      "properties": {
+        "earliest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "precision": {
+          "enum": [
+            "minute",
+            "day",
+            "range",
+            "unknown"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "enum": [
+            "documented",
+            "editorial",
+            "unknown"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "earliest",
+        "latest",
+        "precision",
+        "label",
+        "basis",
+        "notes"
+      ],
+      "additionalProperties": false
+    },
+    "visibility": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "enum": [
+            "public",
+            "restricted",
+            "secret"
+          ]
+        },
+        "knower_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "mode",
+        "knower_ids"
+      ],
+      "additionalProperties": false
+    },
+    "participation": {
+      "type": "object",
+      "properties": {
+        "offer": {
+          "enum": [
+            "when_relevant",
+            "never"
+          ]
+        },
+        "hook": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "offer",
+        "hook"
+      ],
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classification": {
+          "enum": [
+            "HARD",
+            "SOFT",
+            "FREE"
+          ]
+        },
+        "required_description": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "when": {
+          "$ref": "#/$defs/when"
+        },
+        "entity_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "location_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "arc_id": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "canonical_preconditions": {
+          "$ref": "#/$defs/condition"
+        },
+        "outcomes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fact"
+          }
+        },
+        "canonical_effects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/effect"
+          }
+        },
+        "visibility": {
+          "$ref": "#/$defs/visibility"
+        },
+        "participation": {
+          "$ref": "#/$defs/participation"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "author_note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "summary",
+        "classification",
+        "required_description",
+        "when",
+        "entity_ids",
+        "location_ids",
+        "arc_id",
+        "canonical_preconditions",
+        "outcomes",
+        "canonical_effects",
+        "visibility",
+        "participation",
+        "source_refs",
+        "author_note"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "classification": {
+                "const": "HARD"
+              }
+            },
+            "required": [
+              "classification"
+            ]
+          },
+          "then": {
+            "properties": {
+              "required_description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "outcomes": {
+                "minItems": 1
+              },
+              "when": {
+                "properties": {
+                  "earliest": {
+                    "$ref": "#/$defs/time"
+                  },
+                  "latest": {
+                    "$ref": "#/$defs/time"
+                  },
+                  "precision": {
+                    "enum": [
+                      "minute",
+                      "day",
+                      "range"
+                    ]
+                  },
+                  "basis": {
+                    "enum": [
+                      "documented",
+                      "editorial"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "required_description": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "edge": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "from": {
+          "$ref": "#/$defs/id"
+        },
+        "to": {
+          "$ref": "#/$defs/id"
+        },
+        "relation": {
+          "enum": [
+            "enables",
+            "motivates",
+            "precedes",
+            "related"
+          ]
+        },
+        "basis": {
+          "enum": [
+            "documented",
+            "inferred",
+            "editorial"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "from",
+        "to",
+        "relation",
+        "basis",
+        "source_refs",
+        "note"
+      ],
+      "additionalProperties": false
+    },
+    "arc": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "summary",
+        "event_ids"
+      ],
+      "additionalProperties": false
+    },
+    "initial_fact": {
+      "type": "object",
+      "properties": {
+        "fact": {
+          "$ref": "#/$defs/fact"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "fact",
+        "source_refs",
+        "note"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

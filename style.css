@@ -1,0 +1,31 @@
+/* Canon Engine v1 UI */
+.canon-status { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:0.85em; padding:2px 8px; margin:2px 0; border-radius:8px; background:var(--black30a, rgba(0,0,0,.3)); color:var(--SmartThemeBodyColor, #ddd); }
+.canon-status .canon-dot { width:8px; height:8px; border-radius:50%; background:#6c6; display:inline-block; }
+.canon-status[data-phase="reconciling"] .canon-dot, .canon-status[data-phase="planning"] .canon-dot, .canon-status[data-phase="generating"] .canon-dot, .canon-status[data-phase="validating"] .canon-dot, .canon-status[data-phase="committing"] .canon-dot { background:#fc3; animation: canon-pulse 1s infinite; }
+.canon-status[data-phase="error"] .canon-dot, .canon-status[data-phase="conflict"] .canon-dot { background:#e44; }
+.canon-status[data-phase="disabled"] .canon-dot { background:#888; }
+.canon-status .canon-msg { flex:1 1 200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.85; }
+.canon-status .canon-actions { display:flex; gap:4px; }
+.canon-btn { padding:1px 8px !important; margin:0 !important; font-size:0.9em; }
+@keyframes canon-pulse { 0%{opacity:1} 50%{opacity:.3} 100%{opacity:1} }
+.canon-settings-body .canon-row { display:flex; flex-wrap:wrap; gap:4px; margin:6px 0; }
+.canon-note { margin:6px 0; padding:4px 8px; border-left:3px solid #6af; background:rgba(100,160,255,.08); }
+.canon-note.warn { border-color:#fb3; background:rgba(255,190,50,.08); }
+.canon-note.err { border-color:#e44; background:rgba(230,60,60,.1); }
+.canon-adv { display:flex; flex-direction:column; gap:4px; }
+.canon-num input { width:120px; display:inline-block; }
+.canon-modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999; display:flex; align-items:center; justify-content:center; }
+.canon-modal { background:var(--SmartThemeBlurTintColor, #222); color:var(--SmartThemeBodyColor, #ddd); border:1px solid var(--SmartThemeBorderColor, #555); border-radius:10px; padding:14px; width:min(720px, 94vw); max-height:86vh; overflow:auto; display:flex; flex-direction:column; gap:6px; }
+.canon-modal label { display:flex; flex-direction:column; gap:2px; }
+.canon-list { margin:4px 0; padding-left:18px; max-height:40vh; overflow:auto; }
+.canon-list li.error { color:#f88; } .canon-list li.warn { color:#fc6; }
+.canon-inspector { position:fixed; right:8px; top:60px; width:min(560px, 96vw); max-height:80vh; z-index:9998; background:var(--SmartThemeBlurTintColor, #222); color:var(--SmartThemeBodyColor, #ddd); border:1px solid var(--SmartThemeBorderColor, #555); border-radius:10px; display:flex; flex-direction:column; box-shadow:0 4px 20px rgba(0,0,0,.5); }
+.canon-insp-head { display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid var(--SmartThemeBorderColor, #555); }
+.canon-insp-head label { margin-left:auto; font-size:.85em; }
+.canon-tabs { display:flex; flex-wrap:wrap; gap:2px; padding:4px; }
+.canon-tabs .active { outline:1px solid var(--SmartThemeQuoteColor, #fa6); }
+.canon-insp-body { overflow:auto; padding:6px 10px; font-size:.9em; }
+.canon-table { border-collapse:collapse; width:100%; } .canon-table td, .canon-table th { border:1px solid rgba(128,128,128,.3); padding:2px 4px; text-align:left; vertical-align:top; }
+.canon-pre { white-space:pre-wrap; word-break:break-word; font-size:.8em; max-height:40vh; overflow:auto; }
+.canon-banner { margin-top:6px; padding:4px 8px; border-radius:6px; background:rgba(200,30,30,.18); border:1px solid rgba(220,50,50,.6); color:#f99; font-size:.9em; }
+.canon-conflict { margin-top:6px; padding:4px 8px; border-radius:6px; background:rgba(230,150,20,.15); border:1px solid rgba(240,170,40,.7); color:#fc6; font-size:.9em; }

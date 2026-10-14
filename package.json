@@ -1,0 +1,25 @@
+{
+  "name": "sillytavern-canon-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Canon Engine v1 - SillyTavern extension that keeps actual story history and steers toward immutable Hard Anchors.",
+  "type": "module",
+  "scripts": {
+    "gen:validators": "node scripts/gen-validators.mjs",
+    "build": "node scripts/gen-validators.mjs && node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint:pack": "node scripts/lint-pack.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

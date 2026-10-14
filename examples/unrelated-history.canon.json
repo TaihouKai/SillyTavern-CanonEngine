@@ -1,0 +1,946 @@
+{
+  "$schema": "../schemas/canon-pack.schema.json",
+  "schema_version": "1.0.0",
+  "pack_id": "demo-unrelated-history",
+  "pack_version": "1.0.0",
+  "title": "Unrelated History — Synthetic Retrieval Example",
+  "language": "en",
+  "description": "Complete fictional pack extending the harbor demo with an unrelated market destruction and an archive key loan/return. Tests history retrieval by causality OR mention and persistent state independently of anchors. No real franchise canon.",
+  "calendar": {
+    "system": "relative_day",
+    "origin_label": "Day 0 of the fictional harbor story",
+    "day_length_minutes": 1440,
+    "time_zone_label": "Harbor local time",
+    "notes": "Binding maps day 0 to a chosen story-calendar display date. No real-world clock is used."
+  },
+  "coverage": {
+    "start": {
+      "day": 0,
+      "minute": 480
+    },
+    "end": {
+      "day": 5,
+      "minute": 1439
+    },
+    "notes": "Finite demonstration coverage only."
+  },
+  "sources": [
+    {
+      "id": "example-source",
+      "title": "Invented implementation fixture",
+      "locator": "This handoff package / examples/unrelated-history.canon.json",
+      "kind": "example",
+      "notes": "Not a source for any published fictional world."
+    }
+  ],
+  "predicates": [
+    {
+      "id": "exists",
+      "description": "Whether the entity physically exists.",
+      "value_type": "boolean"
+    },
+    {
+      "id": "alive",
+      "description": "Whether a person is alive.",
+      "value_type": "boolean"
+    },
+    {
+      "id": "active",
+      "description": "Whether a conflict is currently ongoing.",
+      "value_type": "boolean"
+    },
+    {
+      "id": "victor",
+      "description": "The organization that won the completed conflict.",
+      "value_type": "entity_ref"
+    },
+    {
+      "id": "broadcast",
+      "description": "Whether the council broadcast has occurred.",
+      "value_type": "boolean"
+    },
+    {
+      "id": "festival_held",
+      "description": "Whether the harbor festival has occurred.",
+      "value_type": "boolean"
+    },
+    {
+      "id": "condition",
+      "description": "Physical condition of the identified place or object.",
+      "value_type": "string",
+      "allowed_values": [
+        "intact",
+        "destroyed"
+      ]
+    },
+    {
+      "id": "holder",
+      "description": "Established current custodian of the identified object.",
+      "value_type": "entity_ref"
+    }
+  ],
+  "entities": [
+    {
+      "id": "planet",
+      "name": "The planet",
+      "aliases": [],
+      "kind": "world",
+      "static_description": "The physical world containing the harbor.",
+      "source_refs": [
+        "example-source"
+      ]
+    },
+    {
+      "id": "harbor",
+      "name": "Harbor",
+      "aliases": [],
+      "kind": "place",
+      "static_description": "A coastal city with trade and civic institutions.",
+      "source_refs": [
+        "example-source"
+      ]
+    },
+    {
+      "id": "mira",
+      "name": "Mira",
+      "aliases": [
+        "Doctor Mira"
+      ],
+      "kind": "person",
+      "static_description": "A medic trained in emergency care.",
+      "source_refs": [
+        "example-source"
+      ]
+    },
+    {
+      "id": "union",
+      "name": "The Union",
+      "aliases": [],
+      "kind": "organization",
+      "static_description": "A political coalition with military resources.",
+      "source_refs": [
+        "example-source"
+      ]
+    },
+    {
+      "id": "council",
+      "name": "The Council",
+      "aliases": [],
+      "kind": "organization",
+      "static_description": "A rival political institution.",
+      "source_refs": [
+        "example-source"
+      ]
+    },
+    {
+      "id": "conflict",
+      "name": "The harbor conflict",
+      "aliases": [],
+      "kind": "other",
+      "static_description": "An event entity used to track conflict status.",
+      "source_refs": [
+        "example-source"
+      ]
+    },
+    {
+      "id": "old-market",
+      "name": "Old Market",
+      "aliases": [
+        "旧市场",
+        "Old Bazaar"
+      ],
+      "kind": "place",
+      "static_description": "A named trading site in Harbor. Physical condition and operating status are temporal facts.",
+      "source_refs": [
+        "example-source"
+      ]
+    },
+    {
+      "id": "archive-key",
+      "name": "Archive Key",
+      "aliases": [
+        "档案室钥匙"
+      ],
+      "kind": "object",
+      "static_description": "The uniquely identified key associated with the local archive.",
+      "source_refs": [
+        "example-source"
+      ]
+    },
+    {
+      "id": "archivist",
+      "name": "Archivist",
+      "aliases": [
+        "档案管理员"
+      ],
+      "kind": "person",
+      "static_description": "The archivist associated with the local archive.",
+      "source_refs": [
+        "example-source"
+      ]
+    },
+    {
+      "id": "courier",
+      "name": "Courier",
+      "aliases": [
+        "信使"
+      ],
+      "kind": "person",
+      "static_description": "A local courier; a distinct person from the archivist.",
+      "source_refs": [
+        "example-source"
+      ]
+    }
+  ],
+  "initial_state": {
+    "at": {
+      "day": 0,
+      "minute": 480
+    },
+    "facts": [
+      {
+        "fact": {
+          "entity_id": "planet",
+          "predicate": "exists",
+          "value": true
+        },
+        "source_refs": [
+          "example-source"
+        ],
+        "note": "Baseline fact."
+      },
+      {
+        "fact": {
+          "entity_id": "mira",
+          "predicate": "alive",
+          "value": true
+        },
+        "source_refs": [
+          "example-source"
+        ],
+        "note": "Baseline fact."
+      },
+      {
+        "fact": {
+          "entity_id": "conflict",
+          "predicate": "active",
+          "value": false
+        },
+        "source_refs": [
+          "example-source"
+        ],
+        "note": "Baseline fact."
+      },
+      {
+        "fact": {
+          "entity_id": "council",
+          "predicate": "broadcast",
+          "value": false
+        },
+        "source_refs": [
+          "example-source"
+        ],
+        "note": "Baseline fact."
+      },
+      {
+        "fact": {
+          "entity_id": "harbor",
+          "predicate": "festival_held",
+          "value": false
+        },
+        "source_refs": [
+          "example-source"
+        ],
+        "note": "Baseline fact."
+      },
+      {
+        "fact": {
+          "entity_id": "old-market",
+          "predicate": "condition",
+          "value": "intact"
+        },
+        "source_refs": [
+          "example-source"
+        ],
+        "note": "Synthetic baseline; later effects do not erase their establishing occurrences."
+      },
+      {
+        "fact": {
+          "entity_id": "archive-key",
+          "predicate": "holder",
+          "value": "archivist"
+        },
+        "source_refs": [
+          "example-source"
+        ],
+        "note": "Synthetic baseline; later effects do not erase their establishing occurrences."
+      }
+    ]
+  },
+  "arcs": [
+    {
+      "id": "harbor-conflict",
+      "title": "Harbor conflict",
+      "summary": "A branching route around two fixed milestones.",
+      "event_ids": [
+        "medic-ambush",
+        "council-broadcast",
+        "conflict-begins",
+        "harbor-festival",
+        "conflict-ends"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "medic-ambush",
+      "title": "Ambush of Mira",
+      "summary": "In the unmodified example history, Mira dies in an ambush.",
+      "classification": "FREE",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 1,
+          "minute": 600
+        },
+        "latest": {
+          "day": 1,
+          "minute": 600
+        },
+        "precision": "minute",
+        "label": "Day 1, 10:00",
+        "basis": "editorial",
+        "notes": "Synthetic example timing; not a date from any published franchise."
+      },
+      "entity_ids": [
+        "mira",
+        "council"
+      ],
+      "location_ids": [
+        "harbor"
+      ],
+      "arc_id": "harbor-conflict",
+      "canonical_preconditions": {
+        "all": [
+          {
+            "fact": {
+              "entity_id": "mira",
+              "predicate": "alive",
+              "value": true
+            }
+          },
+          {
+            "fact": {
+              "entity_id": "planet",
+              "predicate": "exists",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": [
+        {
+          "entity_id": "mira",
+          "predicate": "alive",
+          "value": false
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "mira",
+            "predicate": "alive",
+            "value": false
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "Offer a local opportunity only if the player can plausibly observe or influence this event."
+      },
+      "source_refs": [
+        "example-source"
+      ],
+      "author_note": "Author-chosen example classification."
+    },
+    {
+      "id": "council-broadcast",
+      "title": "Council broadcast",
+      "summary": "The council broadcasts a grievance that contributes to the conflict.",
+      "classification": "SOFT",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 1,
+          "minute": 720
+        },
+        "latest": {
+          "day": 1,
+          "minute": 720
+        },
+        "precision": "minute",
+        "label": "Day 1, 12:00",
+        "basis": "editorial",
+        "notes": "Synthetic example timing; not a date from any published franchise."
+      },
+      "entity_ids": [
+        "council",
+        "conflict"
+      ],
+      "location_ids": [
+        "harbor"
+      ],
+      "arc_id": "harbor-conflict",
+      "canonical_preconditions": {
+        "all": [
+          {
+            "occurred": "medic-ambush"
+          },
+          {
+            "fact": {
+              "entity_id": "planet",
+              "predicate": "exists",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": [
+        {
+          "entity_id": "council",
+          "predicate": "broadcast",
+          "value": true
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "council",
+            "predicate": "broadcast",
+            "value": true
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "Offer a local opportunity only if the player can plausibly observe or influence this event."
+      },
+      "source_refs": [
+        "example-source"
+      ],
+      "author_note": "Author-chosen example classification."
+    },
+    {
+      "id": "conflict-begins",
+      "title": "The harbor conflict begins",
+      "summary": "The armed conflict between the Union and the Council begins at the specified time.",
+      "classification": "HARD",
+      "required_description": "The armed conflict between the Union and the Council begins at the specified time.",
+      "when": {
+        "earliest": {
+          "day": 2,
+          "minute": 540
+        },
+        "latest": {
+          "day": 2,
+          "minute": 540
+        },
+        "precision": "minute",
+        "label": "Day 2, 09:00",
+        "basis": "editorial",
+        "notes": "Synthetic example timing; not a date from any published franchise."
+      },
+      "entity_ids": [
+        "union",
+        "council",
+        "conflict"
+      ],
+      "location_ids": [
+        "harbor"
+      ],
+      "arc_id": "harbor-conflict",
+      "canonical_preconditions": {
+        "all": [
+          {
+            "fact": {
+              "entity_id": "council",
+              "predicate": "broadcast",
+              "value": true
+            }
+          },
+          {
+            "fact": {
+              "entity_id": "planet",
+              "predicate": "exists",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": [
+        {
+          "entity_id": "conflict",
+          "predicate": "active",
+          "value": true
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "conflict",
+            "predicate": "active",
+            "value": true
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "Offer a local opportunity only if the player can plausibly observe or influence this event."
+      },
+      "source_refs": [
+        "example-source"
+      ],
+      "author_note": "Author-chosen example classification."
+    },
+    {
+      "id": "harbor-festival",
+      "title": "Harbor festival",
+      "summary": "Residents hold a harbor festival despite the wider conflict.",
+      "classification": "SOFT",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 3,
+          "minute": 960
+        },
+        "latest": {
+          "day": 3,
+          "minute": 960
+        },
+        "precision": "minute",
+        "label": "Day 3, 16:00",
+        "basis": "editorial",
+        "notes": "Synthetic example timing; not a date from any published franchise."
+      },
+      "entity_ids": [
+        "harbor"
+      ],
+      "location_ids": [
+        "harbor"
+      ],
+      "arc_id": "harbor-conflict",
+      "canonical_preconditions": {
+        "all": [
+          {
+            "fact": {
+              "entity_id": "planet",
+              "predicate": "exists",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": [
+        {
+          "entity_id": "harbor",
+          "predicate": "festival_held",
+          "value": true
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "harbor",
+            "predicate": "festival_held",
+            "value": true
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "Offer a local opportunity only if the player can plausibly observe or influence this event."
+      },
+      "source_refs": [
+        "example-source"
+      ],
+      "author_note": "Author-chosen example classification."
+    },
+    {
+      "id": "conflict-ends",
+      "title": "Union victory",
+      "summary": "The armed conflict ends at the specified time with the Union victorious over the Council.",
+      "classification": "HARD",
+      "required_description": "The armed conflict ends at the specified time with the Union victorious over the Council.",
+      "when": {
+        "earliest": {
+          "day": 4,
+          "minute": 1080
+        },
+        "latest": {
+          "day": 4,
+          "minute": 1080
+        },
+        "precision": "minute",
+        "label": "Day 4, 18:00",
+        "basis": "editorial",
+        "notes": "Synthetic example timing; not a date from any published franchise."
+      },
+      "entity_ids": [
+        "union",
+        "council",
+        "conflict"
+      ],
+      "location_ids": [
+        "harbor"
+      ],
+      "arc_id": "harbor-conflict",
+      "canonical_preconditions": {
+        "all": [
+          {
+            "occurred": "conflict-begins"
+          },
+          {
+            "fact": {
+              "entity_id": "conflict",
+              "predicate": "active",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": [
+        {
+          "entity_id": "conflict",
+          "predicate": "active",
+          "value": false
+        },
+        {
+          "entity_id": "conflict",
+          "predicate": "victor",
+          "value": "union"
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "conflict",
+            "predicate": "active",
+            "value": false
+          }
+        },
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "conflict",
+            "predicate": "victor",
+            "value": "union"
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "Offer a local opportunity only if the player can plausibly observe or influence this event."
+      },
+      "source_refs": [
+        "example-source"
+      ],
+      "author_note": "Author-chosen example classification."
+    },
+    {
+      "id": "archive-key-loan",
+      "title": "Archive key loan",
+      "summary": "The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict.",
+      "classification": "FREE",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 1,
+          "minute": 480
+        },
+        "latest": {
+          "day": 1,
+          "minute": 480
+        },
+        "precision": "minute",
+        "label": "Day 1, 08:00",
+        "basis": "editorial",
+        "notes": "Invented fixture timing; not franchise chronology."
+      },
+      "entity_ids": [
+        "archivist",
+        "courier",
+        "archive-key"
+      ],
+      "location_ids": [
+        "harbor"
+      ],
+      "arc_id": null,
+      "canonical_preconditions": {
+        "all": [
+          {
+            "fact": {
+              "entity_id": "archive-key",
+              "predicate": "holder",
+              "value": "archivist"
+            }
+          },
+          {
+            "fact": {
+              "entity_id": "planet",
+              "predicate": "exists",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": [
+        {
+          "entity_id": "archive-key",
+          "predicate": "holder",
+          "value": "courier"
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "archive-key",
+            "predicate": "holder",
+            "value": "courier"
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "Offer participation only if the player is plausibly present and able to act; otherwise adjudicate through story-time progression."
+      },
+      "source_refs": [
+        "example-source"
+      ],
+      "author_note": "The loan occurrence remains history after return. Do not add an anchor edge for retrieval."
+    },
+    {
+      "id": "archive-key-return",
+      "title": "Archive key return",
+      "summary": "After the delivery, the courier returns the Archive Key to the archivist. The earlier loan still happened even though custody now matches the initial baseline.",
+      "classification": "FREE",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 1,
+          "minute": 510
+        },
+        "latest": {
+          "day": 1,
+          "minute": 510
+        },
+        "precision": "minute",
+        "label": "Day 1, 08:30",
+        "basis": "editorial",
+        "notes": "Invented fixture timing; not franchise chronology."
+      },
+      "entity_ids": [
+        "archivist",
+        "courier",
+        "archive-key"
+      ],
+      "location_ids": [
+        "harbor"
+      ],
+      "arc_id": null,
+      "canonical_preconditions": {
+        "all": [
+          {
+            "occurred": "archive-key-loan"
+          },
+          {
+            "fact": {
+              "entity_id": "archive-key",
+              "predicate": "holder",
+              "value": "courier"
+            }
+          }
+        ]
+      },
+      "outcomes": [
+        {
+          "entity_id": "archive-key",
+          "predicate": "holder",
+          "value": "archivist"
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "archive-key",
+            "predicate": "holder",
+            "value": "archivist"
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "Offer participation only if the player is plausibly present and able to act; otherwise adjudicate through story-time progression."
+      },
+      "source_refs": [
+        "example-source"
+      ],
+      "author_note": "If play changes the loan, adjudicate the actual outcome instead of blindly applying this return."
+    },
+    {
+      "id": "market-destruction",
+      "title": "Old Market explosion",
+      "summary": "An accidental stored-fuel explosion destroys Old Market. In this fixture the trading structures are ruined and ordinary trading there cannot continue without a later supported restoration. No culprit, casualty count, player involvement or connection to the conflict is established.",
+      "classification": "FREE",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 1,
+          "minute": 900
+        },
+        "latest": {
+          "day": 1,
+          "minute": 900
+        },
+        "precision": "minute",
+        "label": "Day 1, 15:00",
+        "basis": "editorial",
+        "notes": "Invented fixture timing; not franchise chronology."
+      },
+      "entity_ids": [
+        "old-market"
+      ],
+      "location_ids": [
+        "old-market"
+      ],
+      "arc_id": null,
+      "canonical_preconditions": {
+        "all": [
+          {
+            "fact": {
+              "entity_id": "old-market",
+              "predicate": "condition",
+              "value": "intact"
+            }
+          },
+          {
+            "fact": {
+              "entity_id": "planet",
+              "predicate": "exists",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": [
+        {
+          "entity_id": "old-market",
+          "predicate": "condition",
+          "value": "destroyed"
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "old-market",
+            "predicate": "condition",
+            "value": "destroyed"
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "Offer participation only if the player is plausibly present and able to act; otherwise adjudicate through story-time progression."
+      },
+      "source_refs": [
+        "example-source"
+      ],
+      "author_note": "Isolated FREE event. No restoration event is authored. Player observation is not required; public visibility does not give every remote actor instant knowledge."
+    }
+  ],
+  "edges": [
+    {
+      "id": "death-broadcast",
+      "from": "medic-ambush",
+      "to": "council-broadcast",
+      "relation": "motivates",
+      "basis": "editorial",
+      "source_refs": [
+        "example-source"
+      ],
+      "note": "Original motivation only; an alternate route may avoid this death."
+    },
+    {
+      "id": "broadcast-conflict",
+      "from": "council-broadcast",
+      "to": "conflict-begins",
+      "relation": "enables",
+      "basis": "editorial",
+      "source_refs": [
+        "example-source"
+      ],
+      "note": "The original escalation route, not an extra Hard contract."
+    },
+    {
+      "id": "begin-end",
+      "from": "conflict-begins",
+      "to": "conflict-ends",
+      "relation": "precedes",
+      "basis": "editorial",
+      "source_refs": [
+        "example-source"
+      ],
+      "note": "The conflict begins before its end."
+    },
+    {
+      "id": "loan-before-return",
+      "from": "archive-key-loan",
+      "to": "archive-key-return",
+      "relation": "precedes",
+      "basis": "editorial",
+      "source_refs": [
+        "example-source"
+      ],
+      "note": "The return follows its loan. Neither event belongs to the conflict chain."
+    }
+  ]
+}

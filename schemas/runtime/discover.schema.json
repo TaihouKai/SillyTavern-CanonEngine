@@ -1,0 +1,193 @@
+{
+ "type": "object",
+ "properties": {
+  "references": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+     },
+     "quote": {
+      "type": "string"
+     },
+     "phrase": {
+      "type": "string"
+     },
+     "ref_kind": {
+      "enum": [
+       "person",
+       "place",
+       "object",
+       "organization",
+       "event",
+       "other"
+      ]
+     },
+     "mode": {
+      "enum": [
+       "direct",
+       "indirect",
+       "alias",
+       "pronoun"
+      ]
+     },
+     "assertion": {
+      "enum": [
+       "narrator",
+       "new_event",
+       "belief",
+       "rumor",
+       "lie",
+       "hypothetical",
+       "flashback",
+       "dialogue",
+       "user_input",
+       "plan"
+      ]
+     },
+     "temporal": {
+      "enum": [
+       "present",
+       "past",
+       "flashback",
+       "future"
+      ]
+     },
+     "candidate_ids": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 200
+     }
+    },
+    "required": [
+     "id",
+     "quote",
+     "phrase",
+     "ref_kind",
+     "assertion",
+     "temporal"
+    ],
+    "additionalProperties": false
+   },
+   "maxItems": 200
+  },
+  "claims": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+     },
+     "quote": {
+      "type": "string"
+     },
+     "kind": {
+      "enum": [
+       "state",
+       "capability",
+       "recollection",
+       "causal",
+       "location",
+       "presence",
+       "operation",
+       "time"
+      ]
+     },
+     "entity_phrases": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 200
+     },
+     "assertion": {
+      "enum": [
+       "narrator",
+       "new_event",
+       "belief",
+       "rumor",
+       "lie",
+       "hypothetical",
+       "flashback",
+       "dialogue",
+       "user_input",
+       "plan"
+      ]
+     },
+     "expected": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "entity_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+         },
+         "predicate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+         },
+         "value": {
+          "oneOf": [
+           {
+            "type": "boolean"
+           },
+           {
+            "type": "number"
+           },
+           {
+            "type": "string"
+           },
+           {
+            "type": "array",
+            "items": {
+             "type": "string"
+            }
+           }
+          ]
+         }
+        },
+        "required": [
+         "entity_id",
+         "predicate",
+         "value"
+        ],
+        "additionalProperties": false
+       }
+      ]
+     }
+    },
+    "required": [
+     "id",
+     "quote",
+     "kind",
+     "assertion"
+    ],
+    "additionalProperties": false
+   },
+   "maxItems": 200
+  }
+ },
+ "required": [
+  "references",
+  "claims"
+ ],
+ "additionalProperties": false,
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:canon-engine:task:discover",
+ "title": "Canon Engine task output: discover"
+}

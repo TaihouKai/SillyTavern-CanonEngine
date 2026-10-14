@@ -1,0 +1,180 @@
+{
+ "type": "object",
+ "properties": {
+  "statements": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "kind": {
+      "enum": [
+       "asserted_fact",
+       "attempted_action",
+       "spoken_dialogue",
+       "belief",
+       "hypothetical",
+       "ooc_config_request",
+       "time_proposal",
+       "participation_decline"
+      ]
+     },
+     "quote": {
+      "type": "string"
+     },
+     "summary": {
+      "type": "string"
+     },
+     "entities": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 200
+     },
+     "facts": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "entity_id": {
+         "type": "string",
+         "minLength": 1,
+         "maxLength": 200
+        },
+        "predicate": {
+         "type": "string",
+         "minLength": 1,
+         "maxLength": 200
+        },
+        "value": {
+         "oneOf": [
+          {
+           "type": "boolean"
+          },
+          {
+           "type": "number"
+          },
+          {
+           "type": "string"
+          },
+          {
+           "type": "array",
+           "items": {
+            "type": "string"
+           }
+          }
+         ]
+        }
+       },
+       "required": [
+        "entity_id",
+        "predicate",
+        "value"
+       ],
+       "additionalProperties": false
+      },
+      "maxItems": 200
+     },
+     "event_id": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "time": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "day": {
+          "type": "integer"
+         },
+         "minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+         }
+        },
+        "required": [
+         "day",
+         "minute"
+        ],
+        "additionalProperties": false
+       }
+      ]
+     },
+     "ambiguous": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "kind",
+     "quote",
+     "summary"
+    ],
+    "additionalProperties": false
+   },
+   "maxItems": 200
+  },
+  "references": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "phrase": {
+      "type": "string"
+     },
+     "quote": {
+      "type": "string"
+     },
+     "kind": {
+      "enum": [
+       "entity",
+       "event"
+      ]
+     },
+     "mode": {
+      "enum": [
+       "direct",
+       "indirect",
+       "alias",
+       "pronoun"
+      ]
+     },
+     "candidates": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 200
+     }
+    },
+    "required": [
+     "phrase",
+     "quote",
+     "kind"
+    ],
+    "additionalProperties": false
+   },
+   "maxItems": 200
+  },
+  "scene_entities": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "maxItems": 200
+  }
+ },
+ "required": [
+  "statements",
+  "references"
+ ],
+ "additionalProperties": false,
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:canon-engine:task:extract-user",
+ "title": "Canon Engine task output: extract-user"
+}
