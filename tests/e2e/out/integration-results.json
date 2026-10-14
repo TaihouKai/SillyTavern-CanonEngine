@@ -1,5 +1,5 @@
 {
- "at": "2026-10-14T13:41:14.032Z",
+ "at": "2026-10-14T13:58:16.232Z",
  "results": [
   {
    "name": "I01 draft uses ST full prompt: card + persona + Author's Note + keyword lore + Horae + engine context",
@@ -27,59 +27,34 @@
    "detail": "晨雾笼罩着森林边缘的小屋，Seraphina 为你端来热茶。"
   },
   {
-   "name": "R01 swipe A committed: Mira alive, ambush diverged",
-   "pass": true,
-   "detail": "{\"medic-ambush\":\"diverged\"}"
-  },
-  {
-   "name": "Swipe: new variant generated privately and published as swipe #2 with new variant id",
-   "pass": true,
-   "detail": "swipes=2 id=1"
-  },
-  {
-   "name": "Swipe: replaced reply is not in the new candidate prompt",
+   "name": "I02 sentinel absent from chat and Horae metadata",
    "pass": true,
    "detail": ""
   },
   {
-   "name": "R01 swipe B selected: Mira dead",
+   "name": "I02 sentinel absent from the active ledger and stored manifests",
    "pass": true,
    "detail": ""
   },
   {
-   "name": "R01 switching back to swipe A restores its state without model calls",
+   "name": "I02 sentinel never reached Horae analysis or vector embedding",
    "pass": true,
-   "detail": "tasks=0"
+   "detail": "aux=1 embed=0"
   },
   {
-   "name": "R02 regenerate replaces the reply; old variants are not in the candidate prompt",
-   "pass": true,
-   "detail": ""
-  },
-  {
-   "name": "R02 regenerated reply starts from the pre-response world (one ambush disposition)",
+   "name": "I02 repair request is private and cites the violation",
    "pass": true,
    "detail": ""
   },
   {
-   "name": "R03 continue revises the same reply; whole revised message validated; effects not double counted",
-   "pass": true,
-   "detail": "Mira 被你护在身后，伏击者仓皇撤退。VARIANT_C 她低声向你道谢。CONT_D"
-  },
-  {
-   "name": "R17 cancelled regenerate restores the prior reply; no empty/late message",
-   "pass": true,
-   "detail": "len 3->3"
-  },
-  {
-   "name": "Cancel: user message preserved, no GM message created, late result discarded",
+   "name": "I02 sentinel absent from the next real prompt",
    "pass": true,
    "detail": ""
   },
   {
    "name": "I13 malformed model JSON: bounded retry then actionable error; user input kept; no GM message",
    "pass": true,
-   "detail": "{\"status\":\"error\",\"errorKind\":\"invalid_model_json\",\"reason\":\"invalid structured output for extract_user: no parseable JSON object in model output\",\"at\":1791985269721}"
+   "detail": "{\"status\":\"error\",\"errorKind\":\"invalid_model_json\",\"reason\":\"invalid structured output for extract_user: no parseable JSON object in model output\",\"at\":1791986292063}"
   },
   {
    "name": "Retry after failure completes the turn",

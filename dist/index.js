@@ -13701,7 +13701,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.1.0";
+var ENGINE_VERSION = "1.1.1";
 
 // src/runtime/engine.ts
 var DEFAULT_SETTINGS = {
@@ -15590,6 +15590,11 @@ var D = {
   graphPick: { zh: "\u70B9\u51FB\u4E8B\u4EF6\u67E5\u770B\u8BE6\u60C5\u3002\u62D6\u52A8\u5E73\u79FB\uFF0C\u6EDA\u8F6E\u7F29\u653E\uFF0CShift+\u6EDA\u8F6E\u6A2A\u5411\u79FB\u52A8\u3002", en: "Click an event for details. Drag to pan, wheel to zoom, Shift+wheel to scroll." },
   graphPackNote: { zh: "\u539F\u4F5C\u53C2\u8003\uFF1A\u5305\u542B\u5168\u90E8\u672A\u6765\u4E8B\u4EF6\uFF08\u5267\u900F\uFF09", en: "Canon reference: includes all future events (spoilers)" },
   graphCurrentNote: { zh: "\u672C\u5C40\u5B9E\u9645\u5386\u53F2\uFF1A\u542B\u4F60\u7684\u884C\u52A8\u9020\u6210\u7684\u6539\u53D8\u4E0E\u672C\u5C40\u65B0\u4E8B\u4EF6", en: "Actual history of this playthrough, including your changes" },
+  library: { zh: "\u5386\u53F2\u5305\u5E93\uFF08\u5DF2\u5BFC\u5165\u7684\u5386\u53F2\u5305\uFF0C\u4FDD\u5B58\u5728 SillyTavern \u6570\u636E\u76EE\u5F55\uFF09", en: "Pack library (saved in the SillyTavern data folder)" },
+  libEmpty: { zh: "\u8FD8\u6CA1\u6709\u4FDD\u5B58\u7684\u5386\u53F2\u5305\u3002\u5BFC\u5165\u4E00\u6B21\u540E\u4F1A\u81EA\u52A8\u4FDD\u5B58\u5728\u8FD9\u91CC\u3002", en: "No saved packs yet. Imported packs are saved here automatically." },
+  libEnable: { zh: "\u7528\u6B64\u5305\u542F\u7528", en: "Enable with this pack" },
+  libUpdate: { zh: "\u66F4\u65B0\u4E3A\u6B64\u5305\u2026", en: "Update to this pack\u2026" },
+  libDelete: { zh: "\u4ECE\u5386\u53F2\u5305\u5E93\u5220\u9664", en: "Remove from library" },
   spoilers: { zh: "\u663E\u793A\u5267\u900F\uFF08\u672A\u6765\u951A\u70B9\u4E0E\u8BA1\u5212\uFF09", en: "Show spoilers (future anchors and plans)" },
   tabOverview: { zh: "\u6982\u89C8", en: "Overview" },
   tabFacts: { zh: "\u5F53\u524D\u4E8B\u5B9E", en: "Facts" },
@@ -15995,6 +16000,49 @@ var GraphPanel = class {
   }
 };
 
+// src/ui/library.ts
+function settingsObj() {
+  const es = ctx().extensionSettings;
+  return es.canonEngine || (es.canonEngine = {});
+}
+function listLibrary() {
+  return [...settingsObj().library || []].sort((a, b) => b.added - a.added);
+}
+function headers() {
+  const h = ctx().getRequestHeaders?.() || {};
+  return { ...h, "Content-Type": "application/json" };
+}
+function toBase64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode(...bytes.subarray(i, i + 32768));
+  return btoa(bin);
+}
+var safe = (s) => s.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 60) || "pack";
+async function saveToLibrary(text, meta) {
+  const lib = settingsObj().library || [];
+  const existing = lib.find((e) => e.hash === meta.hash);
+  if (existing) return existing;
+  const name2 = `canon-pack-${safe(meta.packId)}-${safe(meta.version)}-${meta.hash.slice(0, 10)}.json`;
+  const r = await fetch("/api/files/upload", { method: "POST", headers: headers(), body: JSON.stringify({ name: name2, data: toBase64(text) }) });
+  if (!r.ok) throw new Error(`Saving the pack to the SillyTavern files folder failed (HTTP ${r.status}): ${(await r.text()).slice(0, 200)}`);
+  const { path } = await r.json();
+  const entry = { file: String(path), title: meta.title, packId: meta.packId, version: meta.version, hash: meta.hash, size: text.length, added: Date.now() };
+  settingsObj().library = [...lib, entry];
+  ctx().saveSettingsDebounced?.();
+  return entry;
+}
+async function loadFromLibrary(e) {
+  const r = await fetch("/" + e.file.replace(/^\/+/, ""), { cache: "no-store", headers: ctx().getRequestHeaders?.() || {} });
+  if (!r.ok) throw new Error(`The saved pack file is missing (${e.file}, HTTP ${r.status}). Remove it from the list and import it again.`);
+  return await r.text();
+}
+async function removeFromLibrary(e) {
+  await fetch("/api/files/delete", { method: "POST", headers: headers(), body: JSON.stringify({ path: e.file }) }).catch(() => void 0);
+  settingsObj().library = (settingsObj().library || []).filter((x) => x.hash !== e.hash);
+  ctx().saveSettingsDebounced?.();
+}
+
 // src/ui/ui.ts
 var E;
 var H;
@@ -16113,6 +16161,17 @@ function mountSettings() {
   root.appendChild(wrap);
   wrap.addEventListener("click", onSettingsClick);
   wrap.addEventListener("change", onSettingsChange);
+  if (!document.getElementById("canon-engine-file")) {
+    const fi = document.createElement("input");
+    fi.type = "file";
+    fi.accept = ".json,application/json";
+    fi.id = "canon-engine-file";
+    fi.style.display = "none";
+    fi.addEventListener("change", () => {
+      void onFileChosen(fi);
+    });
+    document.body.appendChild(fi);
+  }
 }
 function renderSettings() {
   const body = document.querySelector("#canon-engine-settings .canon-settings-body");
@@ -16122,8 +16181,14 @@ function renderSettings() {
   const hd = HoraeAdapter.diagnose();
   const lines = [];
   if (H.isGroup()) lines.push(`<div class="canon-note warn">${t("groupUnsupported")}</div>`);
+  const lib = listLibrary();
+  const libRows = (bound) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc2(e.file)}"><b>${esc2(e.title)}</b> v${esc2(e.version)} \xB7 ${esc2(e.hash.slice(0, 8))} \xB7 ${Math.round(e.size / 1024)} KB</span>
+      ${bound ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t("libUpdate")}</button>` : `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}">${t("libEnable")}</button>`}
+      <button class="menu_button canon-btn" data-act="lib-del" data-i="${i}" title="${t("libDelete")}">\u2715</button></div>`).join("");
   if (!camp) {
-    lines.push(`<div>${t("notBound")}</div><button class="menu_button" data-act="enable">${t("enable")}</button>`);
+    lines.push(`<div>${t("notBound")}</div>`);
+    lines.push(`<div class="canon-lib"><div class="canon-lib-head">${t("library")}</div>${lib.length ? libRows(false) : `<div class="canon-note">${t("libEmpty")}</div>`}</div>`);
+    lines.push(`<button class="menu_button" data-act="enable">${t("enable")}</button>`);
   } else {
     let title = camp.packSnapshot.title;
     lines.push(`<div><b>${esc2(title)}</b> v${esc2(camp.packVersion)} \xB7 hash ${esc2(camp.packHash.slice(0, 10))} \xB7 rev ${camp.revision}${camp.enabled ? "" : " \xB7 " + t("phase_disabled")}</div>`);
@@ -16136,6 +16201,7 @@ function renderSettings() {
       <button class="menu_button" data-act="update">${t("updatePack")}</button>
       <button class="menu_button" data-act="toggle">${camp.enabled ? t("disable") : t("reenable")}</button>
       <button class="menu_button" data-act="unbind">${t("unbind")}</button></div>`);
+    if (lib.length) lines.push(`<details class="canon-lib"><summary>${t("library")} (${lib.length})</summary>${libRows(true)}</details>`);
   }
   const comp = detectCompetingLore();
   if (comp.books.length) lines.push(`<div class="canon-note warn">${t("competing")} ${comp.books.map(esc2).join(", ")}<br>${t("competingHint")}</div>`);
@@ -16147,7 +16213,6 @@ function renderSettings() {
     <label><input type="checkbox" data-set="debug" ${s.debug ? "checked" : ""}> ${t("debug")}</label>
     <label>UI <select data-set="uiLang"><option value="zh" ${s.uiLang !== "en" ? "selected" : ""}>\u4E2D\u6587</option><option value="en" ${s.uiLang === "en" ? "selected" : ""}>English</option></select></label>
     </div></details>`);
-  lines.push('<input type="file" accept=".json,application/json" class="canon-file" style="display:none">');
   body.innerHTML = lines.join("");
 }
 function num(key, v) {
@@ -16158,7 +16223,8 @@ async function onSettingsClick(ev) {
   const b = ev.target.closest("[data-act]");
   if (!b) return;
   const act = b.dataset.act;
-  const file = document.querySelector("#canon-engine-settings .canon-file");
+  const file = document.getElementById("canon-engine-file");
+  const libEntry = () => listLibrary()[Number(b.dataset.i)];
   try {
     if (act === "enable" || act === "import" || act === "update") {
       if (H.isGroup()) {
@@ -16168,6 +16234,21 @@ async function onSettingsClick(ev) {
       fileMode = act;
       file.value = "";
       file.click();
+    } else if (act === "lib-enable" || act === "lib-update") {
+      const e = libEntry();
+      if (!e) return;
+      if (H.isGroup()) {
+        toast("error", t("groupUnsupported"));
+        return;
+      }
+      const text = await loadFromLibrary(e);
+      if (act === "lib-enable") openBindWizard(text);
+      else openUpdateWizard(text);
+    } else if (act === "lib-del") {
+      const e = libEntry();
+      if (!e) return;
+      if (!confirm(`${t("libDelete")}: ${e.title} v${e.version}?`)) return;
+      await removeFromLibrary(e);
     } else if (act === "inspect") toggleInspector(true);
     else if (act === "rebuild") {
       await E.reconcile("manual_rebuild");
@@ -16191,22 +16272,6 @@ async function onSettingsClick(ev) {
 }
 async function onSettingsChange(ev) {
   const tgt = ev.target;
-  if (tgt.classList.contains("canon-file")) {
-    const f = tgt.files?.[0];
-    if (!f) return;
-    const text = await f.text();
-    if (fileMode === "enable") openBindWizard(text);
-    else if (fileMode === "import") {
-      try {
-        const r = await E.importBackup(text);
-        toast("info", `${r.matchedMessages}/${r.total}`);
-      } catch (e) {
-        toast("error", e.message);
-      }
-    } else openUpdateWizard(text);
-    refreshUi();
-    return;
-  }
   const key = tgt.dataset.set;
   if (!key) return;
   const s = getSettings();
@@ -16215,6 +16280,33 @@ async function onSettingsChange(ev) {
   Object.assign(E.settings, s);
   ctx().saveSettingsDebounced?.();
   refreshUi();
+}
+async function onFileChosen(fi) {
+  const f = fi.files?.[0];
+  if (!f) return;
+  try {
+    const text = await f.text();
+    if (fileMode === "import") {
+      const r = await E.importBackup(text);
+      toast("info", `${r.matchedMessages}/${r.total}`);
+    } else {
+      const p = E.previewPack(text);
+      if (p.ok && p.summary) {
+        try {
+          await saveToLibrary(text, p.summary);
+        } catch (e) {
+          toast("warning", e.message);
+        }
+      }
+      if (fileMode === "enable") openBindWizard(text);
+      else openUpdateWizard(text);
+    }
+  } catch (e) {
+    toast("error", e.message);
+  } finally {
+    fi.value = "";
+    refreshUi();
+  }
 }
 function modal(html) {
   const el = document.createElement("div");
@@ -16623,7 +16715,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.1.0" };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.1.1" };
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
   const first = (ev, fn) => typeof es.makeFirst === "function" ? es.makeFirst(ev, fn) : es.on(ev, fn);
@@ -16670,7 +16762,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
-  console.log("[CanonEngine] v1.1.0 loaded");
+  console.log("[CanonEngine] v1.1.1 loaded");
 }
 (async () => {
   try {

@@ -35,7 +35,7 @@ On this VM it is already linked into the test install: `C:\Users\agent\st-test\p
 
 ## First-time setup for a chat
 
-1. Open the GM chat. In *Extensions → Canon Engine* click **为此对话启用（导入 .canon.json）** and choose the pack file.
+1. Open the GM chat. In *Extensions → Canon Engine* either pick a saved pack from the **历史包库** list (**用此包启用**) or click **为此对话启用（导入 .canon.json）** and choose a file. Every valid imported pack is saved to the library automatically: it is stored in SillyTavern's user files folder (`data/<user>/user/files/canon-pack-*.json`, listed in the extension settings), so it survives restarts and Docker container updates whenever `data/` is a volume. **✕** removes a pack from the library; bound chats are unaffected because each chat keeps its own pinned copy.
 2. The wizard shows title/version/hash, validation result, coverage and the HARD count (or precise errors — e.g. a World Info file gets a specific "not a history pack" error).
 3. Set the **starting time** on the pack clock (`D<day> HH:MM`), or — after filling in the display date of day 0 — as a calendar date (`2020-07-20 08:00`), or pick "start just before event …". The day-0 date is display only; no real-world clock is ever used. Horae's current story date/time is shown when available.
 4. Confirm. For an existing chat every persisted message is examined once (not just the model's context window). Persona, inventory, skills and Horae state are **not** reset. A summary shows the mapped start, examined messages, deviations and unresolved issues; **撤销绑定** undoes it.

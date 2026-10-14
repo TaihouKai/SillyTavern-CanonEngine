@@ -114,3 +114,10 @@
   .canon-graph-panel .cg-body { flex-direction: column; }
   .canon-graph-panel .cg-detail { width: auto; max-height: 35%; border-left: none; border-top: 1px solid var(--SmartThemeBorderColor, #555); }
 }
+
+/* ---------------------------------------------------------------- pack library */
+.canon-lib { margin: 6px 0; }
+.canon-lib-head { font-weight: bold; margin-bottom: 4px; }
+.canon-lib-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px solid var(--SmartThemeBorderColor, #444); }
+.canon-lib-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.canon-lib-row .menu_button { margin: 0; width: auto; padding: 2px 8px; white-space: nowrap; }

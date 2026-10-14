@@ -23,7 +23,18 @@ try {
   // ---- bind through the wizard (file upload) ----
   await page.evaluate(() => document.querySelector('#canon-engine-settings .inline-drawer-toggle')?.click());
   await page.evaluate(() => document.querySelector('#extensionsMenuButton, #extensions-settings-button .drawer-toggle')?.click());
-  await page.setInputFiles('#canon-engine-settings .canon-file', join(ROOT, 'examples', 'demo.canon.json'));
+  // real user path: click the button, the drawer re-renders, then the file is chosen in the dialog
+  await page.evaluate(async () => {
+    const es = SillyTavern.getContext().extensionSettings.canonEngine;
+    for (const e of es.library || []) await fetch('/api/files/delete', { method: 'POST', headers: SillyTavern.getContext().getRequestHeaders(), body: JSON.stringify({ path: e.file }) });
+    es.library = [];
+  });
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.evaluate(() => document.querySelector('#canon-engine-settings [data-act="enable"]').click()),
+  ]);
+  await page.waitForTimeout(400); // let the drawer re-render while the dialog is "open"
+  await chooser.setFiles(join(ROOT, 'examples', 'demo.canon.json'));
   await page.waitForSelector('.canon-modal .canon-confirm', { timeout: 15000 });
   const preview = await page.$eval('.canon-modal', (e) => e.innerText);
   check(results, 'Wizard preview shows title/version, validation, coverage and Hard count', /Harbor Convergence/.test(preview) && /1\.0\.0/.test(preview) && /HARD/.test(preview) && /2/.test(preview), preview.slice(0, 200));
@@ -120,6 +131,18 @@ try {
   msgs = await chat(page);
   check(results, 'Play continues normally after reload', msgs[msgs.length - 1].mes.includes('巡逻'));
   await shot('06-continued');
+  // ---- pack library: a new chat can bind the saved pack without re-uploading ----
+  await newChat(page);
+  await page.waitForTimeout(800);
+  const libText = await page.$eval('#canon-engine-settings .canon-lib', (e) => e.innerText).catch(() => '');
+  const libFile = await page.evaluate(() => (SillyTavern.getContext().extensionSettings.canonEngine.library || [])[0]?.file || '');
+  check(results, 'Imported pack was saved to the library (ST user files) and is listed in a new chat', /Harbor Convergence/.test(libText) && /^\/?user\/files\/canon-pack-/.test(libFile), `${libFile} | ${libText.slice(0, 120)}`);
+  await page.evaluate(() => document.querySelector('#canon-engine-settings [data-act="lib-enable"]').click());
+  await page.waitForSelector('.canon-modal .canon-confirm', { timeout: 15000 });
+  const libPreview = await page.$eval('.canon-modal', (e) => e.innerText);
+  check(results, 'Choosing the saved pack opens the binding wizard', /Harbor Convergence/.test(libPreview));
+  await shot('07-library');
+  await page.click('.canon-modal [data-close]');
 } catch (e) {
   console.error('FATAL', e);
   results.push({ name: 'FATAL', pass: false, detail: String(e?.stack || e).slice(0, 800) });

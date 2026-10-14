@@ -10,6 +10,7 @@ import { interpretationsFor, baseKey } from '../runtime/replay';
 import { parseTickLabel, parseDateLabel, formatTick } from '../domain/time';
 import { t, setLang } from './i18n';
 import { GraphPanel, packGraph, currentGraph } from './graph';
+import { listLibrary, saveToLibrary, loadFromLibrary, removeFromLibrary, type LibraryEntry } from './library';
 
 export { t };
 
@@ -123,6 +124,14 @@ function mountSettings() {
   root.appendChild(wrap);
   wrap.addEventListener('click', onSettingsClick);
   wrap.addEventListener('change', onSettingsChange);
+  // The file input lives outside the re-rendered drawer body: the drawer is redrawn while the
+  // OS file dialog is open, which would otherwise detach the input and lose the selection.
+  if (!document.getElementById('canon-engine-file')) {
+    const fi = document.createElement('input');
+    fi.type = 'file'; fi.accept = '.json,application/json'; fi.id = 'canon-engine-file'; fi.style.display = 'none';
+    fi.addEventListener('change', () => { void onFileChosen(fi); });
+    document.body.appendChild(fi);
+  }
 }
 
 function renderSettings() {
@@ -133,8 +142,14 @@ function renderSettings() {
   const hd = HoraeAdapter.diagnose();
   const lines: string[] = [];
   if (H.isGroup()) lines.push(`<div class="canon-note warn">${t('groupUnsupported')}</div>`);
+  const lib = listLibrary();
+  const libRows = (bound: boolean) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc(e.file)}"><b>${esc(e.title)}</b> v${esc(e.version)} · ${esc(e.hash.slice(0, 8))} · ${Math.round(e.size / 1024)} KB</span>
+      ${bound ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t('libUpdate')}</button>` : `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}">${t('libEnable')}</button>`}
+      <button class="menu_button canon-btn" data-act="lib-del" data-i="${i}" title="${t('libDelete')}">✕</button></div>`).join('');
   if (!camp) {
-    lines.push(`<div>${t('notBound')}</div><button class="menu_button" data-act="enable">${t('enable')}</button>`);
+    lines.push(`<div>${t('notBound')}</div>`);
+    lines.push(`<div class="canon-lib"><div class="canon-lib-head">${t('library')}</div>${lib.length ? libRows(false) : `<div class="canon-note">${t('libEmpty')}</div>`}</div>`);
+    lines.push(`<button class="menu_button" data-act="enable">${t('enable')}</button>`);
   } else {
     let title = camp.packSnapshot.title;
     lines.push(`<div><b>${esc(title)}</b> v${esc(camp.packVersion)} · hash ${esc(camp.packHash.slice(0, 10))} · rev ${camp.revision}${camp.enabled ? '' : ' · ' + t('phase_disabled')}</div>`);
@@ -147,6 +162,7 @@ function renderSettings() {
       <button class="menu_button" data-act="update">${t('updatePack')}</button>
       <button class="menu_button" data-act="toggle">${camp.enabled ? t('disable') : t('reenable')}</button>
       <button class="menu_button" data-act="unbind">${t('unbind')}</button></div>`);
+    if (lib.length) lines.push(`<details class="canon-lib"><summary>${t('library')} (${lib.length})</summary>${libRows(true)}</details>`);
   }
   const comp = detectCompetingLore();
   if (comp.books.length) lines.push(`<div class="canon-note warn">${t('competing')} ${comp.books.map(esc).join(', ')}<br>${t('competingHint')}</div>`);
@@ -158,7 +174,6 @@ function renderSettings() {
     <label><input type="checkbox" data-set="debug" ${s.debug ? 'checked' : ''}> ${t('debug')}</label>
     <label>UI <select data-set="uiLang"><option value="zh" ${s.uiLang !== 'en' ? 'selected' : ''}>中文</option><option value="en" ${s.uiLang === 'en' ? 'selected' : ''}>English</option></select></label>
     </div></details>`);
-  lines.push('<input type="file" accept=".json,application/json" class="canon-file" style="display:none">');
   body.innerHTML = lines.join('');
 }
 
@@ -171,13 +186,23 @@ async function onSettingsClick(ev: Event) {
   const b = (ev.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
   if (!b) return;
   const act = b.dataset.act;
-  const file = document.querySelector('#canon-engine-settings .canon-file') as HTMLInputElement;
+  const file = document.getElementById('canon-engine-file') as HTMLInputElement;
+  const libEntry = (): LibraryEntry | undefined => listLibrary()[Number(b.dataset.i)];
   try {
     if (act === 'enable' || act === 'import' || act === 'update') {
       if (H.isGroup()) { toast('error', t('groupUnsupported')); return; }
       fileMode = act as typeof fileMode;
       file.value = '';
       file.click();
+    } else if (act === 'lib-enable' || act === 'lib-update') {
+      const e = libEntry(); if (!e) return;
+      if (H.isGroup()) { toast('error', t('groupUnsupported')); return; }
+      const text = await loadFromLibrary(e);
+      if (act === 'lib-enable') openBindWizard(text); else openUpdateWizard(text);
+    } else if (act === 'lib-del') {
+      const e = libEntry(); if (!e) return;
+      if (!confirm(`${t('libDelete')}: ${e.title} v${e.version}?`)) return;
+      await removeFromLibrary(e);
     } else if (act === 'inspect') toggleInspector(true);
     else if (act === 'rebuild') { await E.reconcile('manual_rebuild'); toast('info', 'OK'); }
     else if (act === 'retry') await E.retry();
@@ -198,17 +223,6 @@ async function onSettingsClick(ev: Event) {
 
 async function onSettingsChange(ev: Event) {
   const tgt = ev.target as HTMLInputElement;
-  if (tgt.classList.contains('canon-file')) {
-    const f = tgt.files?.[0];
-    if (!f) return;
-    const text = await f.text();
-    if (fileMode === 'enable') openBindWizard(text);
-    else if (fileMode === 'import') {
-      try { const r = await E.importBackup(text); toast('info', `${r.matchedMessages}/${r.total}`); } catch (e) { toast('error', (e as Error).message); }
-    } else openUpdateWizard(text);
-    refreshUi();
-    return;
-  }
   const key = tgt.dataset.set;
   if (!key) return;
   const s = getSettings() as any;
@@ -217,6 +231,30 @@ async function onSettingsChange(ev: Event) {
   Object.assign(E.settings, s);
   ctx().saveSettingsDebounced?.();
   refreshUi();
+}
+
+async function onFileChosen(fi: HTMLInputElement) {
+  const f = fi.files?.[0];
+  if (!f) return;
+  try {
+    const text = await f.text();
+    if (fileMode === 'import') {
+      const r = await E.importBackup(text);
+      toast('info', `${r.matchedMessages}/${r.total}`);
+    } else {
+      // Keep valid packs in the library so later chats can pick them without re-uploading.
+      const p = E.previewPack(text);
+      if (p.ok && p.summary) {
+        try { await saveToLibrary(text, p.summary); } catch (e) { toast('warning', (e as Error).message); }
+      }
+      if (fileMode === 'enable') openBindWizard(text); else openUpdateWizard(text);
+    }
+  } catch (e) {
+    toast('error', (e as Error).message);
+  } finally {
+    fi.value = '';
+    refreshUi();
+  }
 }
 
 // ---------------------------------------------------------------------------------------------

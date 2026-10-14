@@ -1,5 +1,5 @@
 {
- "at": "2026-10-14T13:40:27.189Z",
+ "at": "2026-10-14T13:58:58.869Z",
  "results": [
   {
    "name": "Wizard preview shows title/version, validation, coverage and Hard count",
@@ -48,6 +48,16 @@
   },
   {
    "name": "Play continues normally after reload",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "Imported pack was saved to the library (ST user files) and is listed in a new chat",
+   "pass": true,
+   "detail": "/user/files/canon-pack-demo-harbor-1_0_0-8abaf8d9ba.json | 历史包库（已导入的历史包，保存在 SillyTavern 数据目录）Harbor Convergence — Synthetic Example v1.0.0 · 8abaf8d9 · 15 KB\n      用此包启用\n      ✕"
+  },
+  {
+   "name": "Choosing the saved pack opens the binding wizard",
    "pass": true,
    "detail": ""
   }
