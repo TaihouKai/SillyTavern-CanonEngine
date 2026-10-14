@@ -142,30 +142,67 @@ export class StHost implements HostPort {
       const camp = this.getCampaign();
       const token = newId('sv');
       if (camp) camp.saveToken = token;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        await c.saveChat();
+      const seen: string[] = [];
+      // A slow server (e.g. Docker on a NAS) or another extension's save can keep ST busy; ST then
+      // silently skips our save. Retry with growing back-off (~10 s total) before reporting.
+      const delays = [500, 1000, 2000, 3000, 4000];
+      for (let attempt = 1; attempt <= delays.length + 1; attempt++) {
+        const req = await this.watchSaveRequest(() => c.saveChat());
         if (!camp) return;
-        if (await this.verifySaved(token)) return;
-        await new Promise((r) => setTimeout(r, 300 * attempt));
+        const v = await this.verifySaved(token);
+        if (v.ok) return;
+        seen.push(`attempt ${attempt}: ${req}; read-back: ${v.detail}`);
+        console.warn('[CanonEngine] save not verified', seen[seen.length - 1]);
+        if (attempt > delays.length) break;
+        await new Promise((r) => setTimeout(r, delays[attempt - 1]));
       }
-      throw new Error('the chat file could not be saved (server did not persist the engine state)');
+      throw new Error(`the chat file could not be saved (server did not persist the engine state). ${saveHint(seen)} Details (${seen.length} attempts): ${[...new Set(seen.map((x) => x.replace(/^attempt \d+: /, '')))].join(' | ')}`);
     };
     const p = this.saving.then(run, run);
     this.saving = p.catch(() => undefined);
     return p;
   }
 
-  private async verifySaved(token: string): Promise<boolean> {
+  /** Runs ST's save while recording what happened to its /api/chats/save request (ST swallows errors). */
+  private async watchSaveRequest(run: () => Promise<unknown>): Promise<string> {
+    const orig = window.fetch;
+    let info = 'SillyTavern sent no save request (save skipped: another save still running, or no chat file)';
+    const wrapped = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const isSave = /\/api\/chats\/save/.test(url);
+      try {
+        const r = await orig(input as RequestInfo, init);
+        if (isSave) {
+          const size = typeof init?.body === 'string' ? init.body.length : (init?.body as Blob | undefined)?.size ?? 0;
+          let body = '';
+          if (!r.ok) { try { body = (await r.clone().text()).slice(0, 160); } catch { /* ignore */ } }
+          info = `save request HTTP ${r.status}${r.statusText ? ' ' + r.statusText : ''} (${Math.round(size / 1024)} KB${(init?.headers as any)?.['Content-Encoding'] ? ', compressed' : ''})${body ? ': ' + body : ''}`;
+        }
+        return r;
+      } catch (e) {
+        if (isSave) info = `save request failed: ${(e as Error).message}`;
+        throw e;
+      }
+    };
+    window.fetch = wrapped as typeof fetch;
+    try { await run(); } finally { if (window.fetch === wrapped) window.fetch = orig; }
+    return info;
+  }
+
+  private async verifySaved(token: string): Promise<{ ok: boolean; detail: string }> {
     const c = ctx();
     const ch = c.characters?.[c.characterId];
-    if (!ch) return false;
+    if (!ch) return { ok: false, detail: 'no current character' };
     try {
       const resp = await fetch('/api/chats/get', { method: 'POST', headers: c.getRequestHeaders(), cache: 'no-cache', body: JSON.stringify({ ch_name: ch.name, file_name: String(ch.chat || '').replace(/\.jsonl$/, ''), avatar_url: ch.avatar }) });
-      if (!resp.ok) return false;
+      if (!resp.ok) return { ok: false, detail: `HTTP ${resp.status} reading chat "${ch.chat}"` };
       const data = await resp.json();
-      return Array.isArray(data) && data[0]?.chat_metadata?.[NS]?.saveToken === token;
-    } catch {
-      return false;
+      if (!Array.isArray(data) || !data.length) return { ok: false, detail: `chat "${ch.chat}" not found on the server` };
+      const saved = data[0]?.chat_metadata?.[NS];
+      if (!saved) return { ok: false, detail: `chat "${ch.chat}" has no engine data` };
+      return saved.saveToken === token ? { ok: true, detail: 'ok' } : { ok: false, detail: 'older engine data on the server' };
+    } catch (e) {
+      return { ok: false, detail: `read-back failed: ${(e as Error).message}` };
     }
   }
 
@@ -359,4 +396,13 @@ export function promptReadyLast(eventData: any) {
 /** True when a message list is one of our internal task prompts. */
 export function isTaskPrompt(messages: ChatMsg[]): boolean {
   return messages.some((m) => m.content.includes(TASK_TAG('evaluate').slice(0, 19)));
+}
+
+function saveHint(seen: string[]): string {
+  const all = seen.join(' ');
+  if (/HTTP 413/.test(all)) return 'The request was too large for something between the browser and SillyTavern (usually a reverse proxy such as nginx: raise client_max_body_size, e.g. to 50m).';
+  if (/HTTP 400/.test(all) && /integrity/i.test(all)) return 'SillyTavern refused the save because the chat file changed elsewhere (another browser/device has this chat open). Close other tabs/devices and reload.';
+  if (/HTTP 403|HTTP 401/.test(all)) return 'SillyTavern refused the save (session/CSRF expired). Reload the page.';
+  if (/no save request/.test(all)) return 'SillyTavern skipped the save. Wait a moment and press Retry.';
+  return 'Press Retry; if it keeps failing, reload the page and send these details.';
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.3 — 2026-10-14
+
+- Save failures now report the cause: the HTTP status of SillyTavern's save request (e.g. 413 from a reverse proxy, integrity conflict, expired session), skipped saves, and what the server returned on read-back, with a matching hint.
+- Saves retry with growing back-off (~10 s) when SillyTavern skips a save because another save is still running.
+- Binding wizard: the day-0 field is labelled as the pack's calendar anchor and asks for confirmation when changed.
+
 ## 1.1.2 — 2026-10-14
 
 - Binding wizard pre-fills the day-0 display date from the pack's `calendar.origin_label` (when it contains a date) and defaults the start to day 0 08:00 instead of the coverage start; event and start labels use calendar dates.

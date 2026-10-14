@@ -306,6 +306,7 @@ function openBindWizard(text: string) {
   el.querySelector('.canon-confirm')!.addEventListener('click', async () => {
     const o = (el.querySelector('.canon-origin') as HTMLInputElement).value.trim().match(/^(\d{1,6})-(\d{1,2})-(\d{1,2})$/);
     const startRaw = (el.querySelector('.canon-start') as HTMLInputElement).value;
+    if (origin0 && o && (Number(o[1]) !== origin0.y || Number(o[2]) !== origin0.m || Number(o[3]) !== origin0.d) && !confirm(t('originMismatch'))) return;
     const startTick = parseTickLabel(startRaw) ?? parseDateLabel(startRaw, o ? { y: Number(o[1]), m: Number(o[2]), d: Number(o[3]) } : null);
     const status = el.querySelector('.canon-wizard-status') as HTMLElement;
     if (startTick === null) { status.innerHTML = `<div class="canon-note err">${t('startTime')}?</div>`; return; }

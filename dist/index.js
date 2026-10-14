@@ -13707,7 +13707,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.1.2";
+var ENGINE_VERSION = "1.1.3";
 
 // src/runtime/engine.ts
 var DEFAULT_SETTINGS = {
@@ -15259,29 +15259,72 @@ var StHost = class {
       const camp = this.getCampaign();
       const token = newId("sv");
       if (camp) camp.saveToken = token;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        await c.saveChat();
+      const seen = [];
+      const delays = [500, 1e3, 2e3, 3e3, 4e3];
+      for (let attempt = 1; attempt <= delays.length + 1; attempt++) {
+        const req = await this.watchSaveRequest(() => c.saveChat());
         if (!camp) return;
-        if (await this.verifySaved(token)) return;
-        await new Promise((r) => setTimeout(r, 300 * attempt));
+        const v = await this.verifySaved(token);
+        if (v.ok) return;
+        seen.push(`attempt ${attempt}: ${req}; read-back: ${v.detail}`);
+        console.warn("[CanonEngine] save not verified", seen[seen.length - 1]);
+        if (attempt > delays.length) break;
+        await new Promise((r) => setTimeout(r, delays[attempt - 1]));
       }
-      throw new Error("the chat file could not be saved (server did not persist the engine state)");
+      throw new Error(`the chat file could not be saved (server did not persist the engine state). ${saveHint(seen)} Details (${seen.length} attempts): ${[...new Set(seen.map((x) => x.replace(/^attempt \d+: /, "")))].join(" | ")}`);
     };
     const p = this.saving.then(run, run);
     this.saving = p.catch(() => void 0);
     return p;
   }
+  /** Runs ST's save while recording what happened to its /api/chats/save request (ST swallows errors). */
+  async watchSaveRequest(run) {
+    const orig = window.fetch;
+    let info = "SillyTavern sent no save request (save skipped: another save still running, or no chat file)";
+    const wrapped = async (input, init2) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const isSave = /\/api\/chats\/save/.test(url);
+      try {
+        const r = await orig(input, init2);
+        if (isSave) {
+          const size = typeof init2?.body === "string" ? init2.body.length : init2?.body?.size ?? 0;
+          let body = "";
+          if (!r.ok) {
+            try {
+              body = (await r.clone().text()).slice(0, 160);
+            } catch {
+            }
+          }
+          info = `save request HTTP ${r.status}${r.statusText ? " " + r.statusText : ""} (${Math.round(size / 1024)} KB${init2?.headers?.["Content-Encoding"] ? ", compressed" : ""})${body ? ": " + body : ""}`;
+        }
+        return r;
+      } catch (e) {
+        if (isSave) info = `save request failed: ${e.message}`;
+        throw e;
+      }
+    };
+    window.fetch = wrapped;
+    try {
+      await run();
+    } finally {
+      if (window.fetch === wrapped) window.fetch = orig;
+    }
+    return info;
+  }
   async verifySaved(token) {
     const c = ctx();
     const ch = c.characters?.[c.characterId];
-    if (!ch) return false;
+    if (!ch) return { ok: false, detail: "no current character" };
     try {
       const resp = await fetch("/api/chats/get", { method: "POST", headers: c.getRequestHeaders(), cache: "no-cache", body: JSON.stringify({ ch_name: ch.name, file_name: String(ch.chat || "").replace(/\.jsonl$/, ""), avatar_url: ch.avatar }) });
-      if (!resp.ok) return false;
+      if (!resp.ok) return { ok: false, detail: `HTTP ${resp.status} reading chat "${ch.chat}"` };
       const data = await resp.json();
-      return Array.isArray(data) && data[0]?.chat_metadata?.[NS]?.saveToken === token;
-    } catch {
-      return false;
+      if (!Array.isArray(data) || !data.length) return { ok: false, detail: `chat "${ch.chat}" not found on the server` };
+      const saved = data[0]?.chat_metadata?.[NS];
+      if (!saved) return { ok: false, detail: `chat "${ch.chat}" has no engine data` };
+      return saved.saveToken === token ? { ok: true, detail: "ok" } : { ok: false, detail: "older engine data on the server" };
+    } catch (e) {
+      return { ok: false, detail: `read-back failed: ${e.message}` };
     }
   }
   async publish(req, _interp) {
@@ -15470,6 +15513,14 @@ function promptReadyLast(eventData) {
     gen.draft.captured = eventData.chat.map((m) => ({ role: m.role, content: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }));
   }
 }
+function saveHint(seen) {
+  const all = seen.join(" ");
+  if (/HTTP 413/.test(all)) return "The request was too large for something between the browser and SillyTavern (usually a reverse proxy such as nginx: raise client_max_body_size, e.g. to 50m).";
+  if (/HTTP 400/.test(all) && /integrity/i.test(all)) return "SillyTavern refused the save because the chat file changed elsewhere (another browser/device has this chat open). Close other tabs/devices and reload.";
+  if (/HTTP 403|HTTP 401/.test(all)) return "SillyTavern refused the save (session/CSRF expired). Reload the page.";
+  if (/no save request/.test(all)) return "SillyTavern skipped the save. Wait a moment and press Retry.";
+  return "Press Retry; if it keeps failing, reload the page and send these details.";
+}
 
 // src/adapters/lock.ts
 var PREFIX = "canonEngine.writer.";
@@ -15576,7 +15627,8 @@ var D = {
   warnings: { zh: "\u9700\u4F5C\u8005\u590D\u67E5\u7684\u63D0\u793A", en: "Author review warnings" },
   startTime: { zh: "\u5F00\u5C40\u65F6\u95F4\uFF08D\u5929\u6570 \u65F6:\u5206\uFF0C\u6216\u586B\u5199\u7B2C0\u5929\u65E5\u671F\u540E\u7528 \u5E74-\u6708-\u65E5 \u65F6:\u5206\uFF09", en: "Starting time (D<day> HH:MM, or YYYY-MM-DD HH:MM when the day-0 date is set)" },
   startBefore: { zh: "\u6216\uFF1A\u4ECE\u67D0\u4E8B\u4EF6\u4E4B\u524D\u5F00\u59CB", en: "Or: start just before event" },
-  originDate: { zh: "\u7B2C 0 \u5929\u5BF9\u5E94\u7684\u663E\u793A\u65E5\u671F\uFF08\u53EF\u9009\uFF0C\u4EC5\u663E\u793A\u7528\uFF09", en: "Display date for day 0 (optional, display only)" },
+  originDate: { zh: "\u7B2C 0 \u5929\u7684\u65E5\u5386\u65E5\u671F\uFF08\u7531\u5386\u53F2\u5305\u51B3\u5B9A\uFF0C\u7528\u4E8E\u6362\u7B97\u4E0A\u9762\u7684\u65E5\u671F\uFF1B\u4E00\u822C\u4E0D\u8981\u6539\uFF09", en: "Calendar date of day 0 (from the pack; used to convert the date above \u2014 normally leave it)" },
+  originMismatch: { zh: "\u7B2C0\u5929\u65E5\u671F\u4E0E\u5386\u53F2\u5305\u8BF4\u660E\u7684\u4E0D\u4E00\u81F4\u3002\u5F00\u5C40\u65F6\u95F4\u4F1A\u6309\u4F60\u586B\u7684\u7B2C0\u5929\u6362\u7B97\uFF0C\u53EF\u80FD\u843D\u5728\u5B8C\u5168\u4E0D\u540C\u7684\u65E5\u5B50\u3002\u786E\u5B9A\u8981\u8FD9\u6837\u505A\u5417\uFF1F", en: "The day-0 date differs from the pack. The start date will be converted with your value and may land on a completely different day. Continue?" },
   horaeDetected: { zh: "Horae \u5F53\u524D\u8BB0\u5F55\u7684\u5267\u60C5\u65F6\u95F4", en: "Story time recorded by Horae" },
   existingChat: { zh: "\u8FD9\u662F\u5DF2\u6709\u5BF9\u8BDD\uFF1A\u7ED1\u5B9A\u540E\u4F1A\u9010\u6761\u68C0\u67E5\u5DF2\u6709\u6D88\u606F\uFF08\u4E0D\u4F1A\u91CD\u7F6E Persona\u3001\u7269\u54C1\u6216 Horae \u72B6\u6001\uFF09\u3002", en: "Existing chat: messages will be examined once after binding (Persona, items and Horae state are not reset)." },
   confirmBind: { zh: "\u786E\u8BA4\u7ED1\u5B9A", en: "Confirm binding" },
@@ -16364,6 +16416,7 @@ function openBindWizard(text) {
   el.querySelector(".canon-confirm").addEventListener("click", async () => {
     const o = el.querySelector(".canon-origin").value.trim().match(/^(\d{1,6})-(\d{1,2})-(\d{1,2})$/);
     const startRaw = el.querySelector(".canon-start").value;
+    if (origin0 && o && (Number(o[1]) !== origin0.y || Number(o[2]) !== origin0.m || Number(o[3]) !== origin0.d) && !confirm(t("originMismatch"))) return;
     const startTick = parseTickLabel(startRaw) ?? parseDateLabel(startRaw, o ? { y: Number(o[1]), m: Number(o[2]), d: Number(o[3]) } : null);
     const status = el.querySelector(".canon-wizard-status");
     if (startTick === null) {
@@ -16731,7 +16784,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.1.2" };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.1.3" };
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;
   const first = (ev, fn) => typeof es.makeFirst === "function" ? es.makeFirst(ev, fn) : es.on(ev, fn);
@@ -16778,7 +16831,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
-  console.log("[CanonEngine] v1.1.2 loaded");
+  console.log("[CanonEngine] v1.1.3 loaded");
 }
 (async () => {
   try {
