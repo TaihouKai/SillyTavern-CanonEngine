@@ -132,8 +132,37 @@ function repairItems(root: unknown, errors: { keyword: string; instancePath: str
   return changed;
 }
 
+/** Lists whose malformed items carry nothing the engine can use and may simply be dropped
+ *  (a step enactment without a valid occurrence reference is ignored by the gate anyway). */
+const DROPPABLE_ITEMS = new Set(['step_enactments']);
+function dropBadItems(root: unknown, errors: { instancePath: string }[]): boolean {
+  const bad = new Map<string, Set<number>>();
+  for (const e of errors) {
+    const m = /^\/([a-z_]+)\/(\d+)(\/|$)/.exec(e.instancePath || '');
+    if (m && DROPPABLE_ITEMS.has(m[1])) bad.set(m[1], (bad.get(m[1]) || new Set()).add(Number(m[2])));
+  }
+  let changed = false;
+  for (const [list, idx] of bad) {
+    const arr: any = (root as any)?.[list];
+    if (!Array.isArray(arr)) continue;
+    for (const i of [...idx].sort((a, b) => b - a)) if (i < arr.length) { arr.splice(i, 1); changed = true; }
+  }
+  return changed;
+}
+
 function repairEnums(root: unknown, errors: { keyword: string; instancePath: string; params?: unknown }[]): boolean {
   let changed = repairItems(root, errors);
+  if (dropBadItems(root, errors)) changed = true;
+  // A missing/null evidence quote in a list whose items are only RECORDED (never a check that could hide a
+  // problem, unlike player_actions/state_claims): the gate treats an empty quote as "no evidence"
+  // and ignores that item, so an empty string is the faithful repair.
+  for (const e of errors) {
+    const p = e.params as { type?: string; missingProperty?: string } | undefined;
+    let obj: any; let key = '';
+    if (e.keyword === 'type' && p?.type === 'string' && /^\/(transitions|occurrences|new_entities|step_enactments)\/\d+\/quote$/.test(e.instancePath)) { obj = valueAt(root, e.instancePath.replace(/\/quote$/, '')); key = 'quote'; }
+    else if (e.keyword === 'required' && p?.missingProperty === 'quote' && /^\/(transitions|occurrences|new_entities|step_enactments)\/\d+$/.test(e.instancePath)) { obj = valueAt(root, e.instancePath); key = 'quote'; }
+    if (obj && typeof obj === 'object' && (obj[key] === null || obj[key] === undefined)) { obj[key] = ''; changed = true; }
+  }
   // "null or object" fields given a scalar (e.g. "time": "傍晚", "fact": "…"): the value carries no
   // typed data, so treat it as unknown (null) rather than failing the turn.
   const nullable = new Set(errors.filter((e) => e.keyword === 'type' && (e.params as { type?: string })?.type === 'null').map((e) => e.instancePath));

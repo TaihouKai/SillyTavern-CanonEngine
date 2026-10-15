@@ -168,4 +168,22 @@ describe('temporary provider errors', () => {
       { ref: 'n2', name: '禁闭室', kind: 'place', description: '', quote: '禁闭室' },
     ]);
   });
+  it('a step enactment without an occurrence reference is dropped, not failed (real-model finding)', async () => {
+    const base = { decision: 'retain', scene_end: null, claim_checks: [], transitions: [], occurrences: [], state_claims: [], player_actions: [], violations: [], hard_checks: [] };
+    const p = port([{ ...base, step_enactments: [{ step_id: 's1', occurrence_ref: null, quote: 'x' }, { step_id: 's2', occurrence_ref: 'o1', quote: 'y' }] }]);
+    const out = await callStructured<any>(p, 'evaluate', 'sys', {});
+    expect(p.seen.length).toBe(1);
+    expect(out.step_enactments).toEqual([{ step_id: 's2', occurrence_ref: 'o1', quote: 'y' }]);
+  });
+  it('a missing or null evidence quote becomes empty (the gate then ignores the item) instead of failing', async () => {
+    const base = { decision: 'retain', scene_end: null, claim_checks: [], occurrences: [], violations: [], hard_checks: [] };
+    const p = port([{ ...base, player_actions: [], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: null, occurrence_ref: null }], state_claims: [] }]);
+    const out = await callStructured<any>(p, 'evaluate', 'sys', {});
+    expect(p.seen.length).toBe(1);
+    expect(out.transitions[0].quote).toBe('');
+    // checks that could hide a problem are not patched: the output is sent back instead
+    const q = port([{ ...base, transitions: [], state_claims: [], player_actions: [{ quote: null, authorized_by_quote: null }] }, { ...base, transitions: [], state_claims: [], player_actions: [] }]);
+    await callStructured<any>(q, 'evaluate', 'sys', {});
+    expect(q.seen.length).toBe(2);
+  });
 });

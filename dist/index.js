@@ -12726,8 +12726,43 @@ function repairItems(root, errors) {
   }
   return changed;
 }
+var DROPPABLE_ITEMS = /* @__PURE__ */ new Set(["step_enactments"]);
+function dropBadItems(root, errors) {
+  const bad = /* @__PURE__ */ new Map();
+  for (const e of errors) {
+    const m = /^\/([a-z_]+)\/(\d+)(\/|$)/.exec(e.instancePath || "");
+    if (m && DROPPABLE_ITEMS.has(m[1])) bad.set(m[1], (bad.get(m[1]) || /* @__PURE__ */ new Set()).add(Number(m[2])));
+  }
+  let changed = false;
+  for (const [list, idx] of bad) {
+    const arr = root?.[list];
+    if (!Array.isArray(arr)) continue;
+    for (const i of [...idx].sort((a, b) => b - a)) if (i < arr.length) {
+      arr.splice(i, 1);
+      changed = true;
+    }
+  }
+  return changed;
+}
 function repairEnums(root, errors) {
   let changed = repairItems(root, errors);
+  if (dropBadItems(root, errors)) changed = true;
+  for (const e of errors) {
+    const p = e.params;
+    let obj;
+    let key = "";
+    if (e.keyword === "type" && p?.type === "string" && /^\/(transitions|occurrences|new_entities|step_enactments)\/\d+\/quote$/.test(e.instancePath)) {
+      obj = valueAt(root, e.instancePath.replace(/\/quote$/, ""));
+      key = "quote";
+    } else if (e.keyword === "required" && p?.missingProperty === "quote" && /^\/(transitions|occurrences|new_entities|step_enactments)\/\d+$/.test(e.instancePath)) {
+      obj = valueAt(root, e.instancePath);
+      key = "quote";
+    }
+    if (obj && typeof obj === "object" && (obj[key] === null || obj[key] === void 0)) {
+      obj[key] = "";
+      changed = true;
+    }
+  }
   const nullable = new Set(errors.filter((e) => e.keyword === "type" && e.params?.type === "null").map((e) => e.instancePath));
   for (const e of errors) {
     const extra = e.keyword === "additionalProperties" && e.instancePath ? e.params?.additionalProperty : void 0;
@@ -14470,7 +14505,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place or activity meaningfully changes, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
 5. violations: unauthorized player actions/consent/dialogue, contradictions, unsupported recollections, leaking secret knowledge to characters who cannot know it, engine labels/JSON in prose, skipping a due obligation.
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it).
-SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null}],"step_enactments":[],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":""}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":""}`,
+SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null}],"step_enactments":[{"step_id":"s1","occurrence_ref":"o1","quote":""}],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":""}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":""}`,
   adjudicate: `${COMMON}
 TASK: Offscreen adjudication for a story-time advance. For each candidate canonical event in the interval decide what ACTUALLY happens given actual state (not the original summary): occurred (original result), diverged (event happens but with a different actual result), omitted (does not happen; FREE/SOFT only, with reason), postponed (SOFT only, still within its bounds). HARD events MUST occur within their bounds with every required outcome, even if extraordinary means are needed (extraordinary=true only when authorized_forced=true). When the actual state blocks the original route, the account must name the concrete cause (who, by what means). Give actors, causes (actual occurrence ids), typed effects, a concise account of what occurred and why. A plan step reference alone is not evidence of success.
 SHAPE: {"adjudications":[{"event_id":"","decision":"occurred","time":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"account":"","actors":[],"causes":[],"effects":[{"op":"set","entity_id":"","predicate":"","value":true}],"plan_step_ids":[],"reason":"","extraordinary":false}]}`,
@@ -15629,7 +15664,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.17";
+var ENGINE_RELEASE = "1.3.18";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
