@@ -178,7 +178,7 @@ function repairEnums(root: unknown, errors: { keyword: string; instancePath: str
 }
 
 /** Defaults applied to every structured call (set by the controller from its settings). */
-export const taskDefaults: { callTimeoutMs: number; observer: ((task: TaskName, attempt: number) => void) | null; onDone: ((task: TaskName, ms: number) => void) | null } = { callTimeoutMs: 0, observer: null, onDone: null };
+export const taskDefaults: { callTimeoutMs: number; observer: ((task: TaskName, attempt: number) => void) | null; onDone: ((task: TaskName, ms: number, attempt: number) => void) | null; onReject: ((task: TaskName, error: string) => void) | null } = { callTimeoutMs: 0, observer: null, onDone: null, onReject: null };
 
 /** A reply that starts a JSON object but never closes it (length limit reached). */
 function looksTruncated(text: string): boolean {
@@ -259,7 +259,7 @@ export async function callStructured<T>(
     } finally {
       if (timer) clearTimeout(timer);
       opts.signal?.removeEventListener('abort', onOuterAbort);
-      try { taskDefaults.onDone?.(task, Date.now() - callStart); } catch { /* UI only */ }
+      try { taskDefaults.onDone?.(task, Date.now() - callStart, attempt); } catch { /* UI only */ }
     }
     try {
       const data = extractJson(raw);
@@ -287,6 +287,7 @@ export async function callStructured<T>(
       const cutOff = looksTruncated(text);
       if (/no parseable JSON/.test(lastErr)) lastErr += ` (${text.length} chars${cutOff ? ', cut off mid-JSON: the reply hit its length limit' : ''}; ends with: ${JSON.stringify(text.slice(-80))})`;
       opts.log?.({ task, attempt, ok: false, error: lastErr, operationId: opts.operationId });
+      try { taskDefaults.onReject?.(task, lastErr); } catch { /* UI only */ }
       if (cutOff) {
         // A truncated reply will be truncated again at the same budget: raise it and ask for brevity.
         budget = Math.min(16384, Math.round(budget * 2));

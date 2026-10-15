@@ -31,4 +31,17 @@ describe('public clock API and turn timings', () => {
     for (const s of ['extract_user', 'draft', 'discover', 'evaluate']) expect(steps).toContain(s);
     expect(tm.totalMs).toBeGreaterThanOrEqual(0);
   });
+  it('counts resent structured calls and keeps why they were rejected', async () => {
+    const x = makeEngine();
+    await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
+    await x.engine.reconcile('t');
+    x.host.addUser('I look around.');
+    x.model.draft('Gulls circle. [T2]');
+    (x.model as any).rules.unshift({ task: 'evaluate', raw: '{"decision":"retain","new_entities":"oops"}', once: true });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    const ev = x.engine.lastTimings!.steps.find((s) => s.step === 'evaluate')!;
+    expect(ev.count).toBe(2);
+    expect(ev.retries).toBe(1);
+    expect(x.engine.lastTimings!.rejects!.join(' ')).toMatch(/^evaluate: schema violation/);
+  });
 });

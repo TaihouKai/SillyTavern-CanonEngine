@@ -12776,7 +12776,7 @@ function repairEnums(root, errors) {
   }
   return changed;
 }
-var taskDefaults = { callTimeoutMs: 0, observer: null, onDone: null };
+var taskDefaults = { callTimeoutMs: 0, observer: null, onDone: null, onReject: null };
 function looksTruncated(text) {
   const start = text.indexOf("{");
   if (start < 0) return false;
@@ -12859,7 +12859,7 @@ ${system}` },
       if (timer) clearTimeout(timer);
       opts.signal?.removeEventListener("abort", onOuterAbort);
       try {
-        taskDefaults.onDone?.(task, Date.now() - callStart);
+        taskDefaults.onDone?.(task, Date.now() - callStart, attempt);
       } catch {
       }
     }
@@ -12891,6 +12891,10 @@ ${system}` },
       const cutOff = looksTruncated(text);
       if (/no parseable JSON/.test(lastErr)) lastErr += ` (${text.length} chars${cutOff ? ", cut off mid-JSON: the reply hit its length limit" : ""}; ends with: ${JSON.stringify(text.slice(-80))})`;
       opts.log?.({ task, attempt, ok: false, error: lastErr, operationId: opts.operationId });
+      try {
+        taskDefaults.onReject?.(task, lastErr);
+      } catch {
+      }
       if (cutOff) {
         budget = Math.min(16384, Math.round(budget * 2));
         messages.push({ role: "user", content: "Your previous reply was cut off at the length limit before the JSON was complete. Reply again with the COMPLETE JSON object: keep every quote under 15 characters, keep notes to a few words, and skip trivial scenery." });
@@ -15674,6 +15678,7 @@ var CanonEngine = class {
   examiningInput = false;
   /** Per-step durations of the running operation, and the summary of the last finished one. */
   stepTimes = [];
+  rejects = [];
   lastTimings = null;
   lastReply = null;
   timeStep(step, p) {
@@ -16465,10 +16470,14 @@ var CanonEngine = class {
     const abort = new AbortController();
     this.opActive = { operationId, abort, fences: null, op };
     this.stepTimes = [];
+    this.rejects = [];
     this.lastReply = null;
     const opStart = Date.now();
-    taskDefaults.onDone = (task, ms) => {
-      if (this.opActive?.operationId === operationId) this.stepTimes.push({ step: this.status.phase === "reconciling" && !this.examiningInput ? "reconcile" : task, ms });
+    taskDefaults.onDone = (task, ms, attempt) => {
+      if (this.opActive?.operationId === operationId) this.stepTimes.push({ step: this.status.phase === "reconciling" && !this.examiningInput ? "reconcile" : task, ms, retry: attempt > 1 });
+    };
+    taskDefaults.onReject = (task, error) => {
+      if (this.opActive?.operationId === operationId) this.rejects.push(`${task}: ${error.slice(0, 200)}`);
     };
     const trace = { operationId, op, attempts: [], prompts: [], outcome: "failed" };
     this.lastTrace = trace;
@@ -16631,7 +16640,7 @@ var CanonEngine = class {
             const situation = `${this.recentSituation(index)}
 Current turn \u2014 player input: ${userEntry?.text || "(none)"}
 Why the drafts were rejected: ${violations.slice(0, 4).join(" | ")}`;
-            planInfo = await this.timeStep("plan", this.ensurePlan(index, abort.signal, operationId, { force: true, situation })).catch((e) => {
+            planInfo = await this.ensurePlan(index, abort.signal, operationId, { force: true, situation }).catch((e) => {
               if (e instanceof EngineError && e.kind === "cancelled") throw e;
               return planInfo;
             });
@@ -16722,12 +16731,13 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     } finally {
       const agg = /* @__PURE__ */ new Map();
       for (const s of this.stepTimes) {
-        const a = agg.get(s.step) || { ms: 0, count: 0 };
+        const a = agg.get(s.step) || { ms: 0, count: 0, retries: 0 };
         a.ms += s.ms;
         a.count++;
+        if (s.retry) a.retries++;
         agg.set(s.step, a);
       }
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null };
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, rejects: this.rejects.slice(-6) };
       if (this.settings.debug) this.debugLog("timing", this.lastTimings);
       this.opActive = null;
       this.emit();
@@ -17911,6 +17921,8 @@ var D = {
   taskExtraBodyHint: { zh: "\u4F1A\u52A0\u5230\u6BCF\u4E2A\u5206\u6790\u8BF7\u6C42\u91CC\uFF08\u53EA\u5BF9\u201C\u81EA\u5B9A\u4E49\uFF08\u517C\u5BB9OpenAI\uFF09\u201D\u8FDE\u63A5\u751F\u6548\uFF09\u3002Venice \u63A8\u7406\u6A21\u578B\u8BF7\u586B\uFF1Avenice_parameters: {disable_thinking: true}", en: "Added to every analysis request (Custom OpenAI-compatible connections). For Venice reasoning models: venice_parameters: {disable_thinking: true}" },
   taskProfileNone: { zh: "\u6CA1\u6709\u53EF\u7528\u7684\u8FDE\u63A5\u914D\u7F6E\uFF08\u8BF7\u5148\u5728 SillyTavern \u7684\u201C\u8FDE\u63A5\u914D\u7F6E\u201D\u4E2D\u4FDD\u5B58\u4E00\u4E2A\uFF09\u3002", en: "No connection profiles yet (save one in SillyTavern's Connection Profiles first)." },
   lastTurn: { zh: "\u4E0A\u4E00\u56DE\u5408", en: "Last turn" },
+  resent: { zh: "\u91CD\u53D1", en: "resent" },
+  resentWhy: { zh: "\u91CD\u53D1\u539F\u56E0\uFF08\u6A21\u578B\u8F93\u51FA\u683C\u5F0F\u4E0D\u5BF9\uFF09", en: "Why output was resent (malformed model output)" },
   replyLen: { zh: "\u56DE\u590D", en: "reply" },
   charsUnit: { zh: "\u5B57", en: " chars" },
   cutOff: { zh: "\uFF08\u88AB\u622A\u65AD\uFF09", en: "(cut off)" },
@@ -18497,7 +18509,7 @@ function renderStatus() {
     rp.finish ? `finish_reason: ${rp.finish}` : ""
   ].filter(Boolean).join("\n") : "";
   const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc2(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
-  const timing = !busy && !err && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2(tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}`).join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}`).join(" \xB7 ")}${replyPart}</span>` : "";
+  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc2(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}</span>` : "";
   el.dataset.phase = conflict ? "conflict" : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc2(t("phase_" + (conflict ? "conflict" : phase)))}</span>
     <span class="canon-msg" title="${esc2(msg)}">${esc2(msg)}</span>${timing}

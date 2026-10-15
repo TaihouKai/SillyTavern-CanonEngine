@@ -127,8 +127,9 @@ export class CanonEngine {
   /** True while the reconcile step is reading the player's current input (part of the turn, not catch-up). */
   private examiningInput = false;
   /** Per-step durations of the running operation, and the summary of the last finished one. */
-  private stepTimes: { step: string; ms: number }[] = [];
-  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number }[]; ok: boolean; reply?: ReplyStats | null } | null = null;
+  private stepTimes: { step: string; ms: number; retry?: boolean }[] = [];
+  private rejects: string[] = [];
+  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number; retries: number }[]; ok: boolean; reply?: ReplyStats | null; rejects?: string[] } | null = null;
   private lastReply: ReplyStats | null = null;
   private timeStep<T>(step: string, p: Promise<T>): Promise<T> {
     const t0 = Date.now();
@@ -816,9 +817,12 @@ export class CanonEngine {
     const abort = new AbortController();
     this.opActive = { operationId, abort, fences: null, op };
     this.stepTimes = [];
+    this.rejects = [];
     this.lastReply = null;
     const opStart = Date.now();
-    taskDefaults.onDone = (task, ms) => { if (this.opActive?.operationId === operationId) this.stepTimes.push({ step: this.status.phase === 'reconciling' && !this.examiningInput ? 'reconcile' : task, ms }); };
+    taskDefaults.onDone = (task, ms, attempt) => { if (this.opActive?.operationId === operationId) this.stepTimes.push({ step: this.status.phase === 'reconciling' && !this.examiningInput ? 'reconcile' : task, ms, retry: attempt > 1 }); };
+    // Why a structured reply was rejected and sent again (shown in the timing tooltip).
+    taskDefaults.onReject = (task, error) => { if (this.opActive?.operationId === operationId) this.rejects.push(`${task}: ${error.slice(0, 200)}`); };
     const trace: OperationTrace = { operationId, op, attempts: [], prompts: [], outcome: 'failed' };
     this.lastTrace = trace;
     this.traces.push(trace);
@@ -960,7 +964,7 @@ export class CanonEngine {
             (c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors = uniq([...((c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors || []), ...anchors]);
             this.setStatus('planning', 'Planning a route for the HARD event…');
             const situation = `${this.recentSituation(index)}\nCurrent turn — player input: ${userEntry?.text || '(none)'}\nWhy the drafts were rejected: ${violations.slice(0, 4).join(' | ')}`;
-            planInfo = await this.timeStep('plan', this.ensurePlan(index, abort.signal, operationId, { force: true, situation })).catch((e) => { if (e instanceof EngineError && e.kind === 'cancelled') throw e; return planInfo; });
+            planInfo = await this.ensurePlan(index, abort.signal, operationId, { force: true, situation }).catch((e) => { if (e instanceof EngineError && e.kind === 'cancelled') throw e; return planInfo; });
             plan = planInfo.plan;
             packetArgs.plan = plan; packetArgs.forced = planInfo.forced;
             route = (plan?.steps || []).filter((s) => s.status !== 'invalidated' && (!s.serves_anchor || anchors.includes(s.serves_anchor)))
@@ -1033,9 +1037,9 @@ export class CanonEngine {
       }
       return false;
     } finally {
-      const agg = new Map<string, { ms: number; count: number }>();
-      for (const s of this.stepTimes) { const a = agg.get(s.step) || { ms: 0, count: 0 }; a.ms += s.ms; a.count++; agg.set(s.step, a); }
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null };
+      const agg = new Map<string, { ms: number; count: number; retries: number }>();
+      for (const s of this.stepTimes) { const a = agg.get(s.step) || { ms: 0, count: 0, retries: 0 }; a.ms += s.ms; a.count++; if (s.retry) a.retries++; agg.set(s.step, a); }
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, rejects: this.rejects.slice(-6) };
       if (this.settings.debug) this.debugLog('timing', this.lastTimings);
       this.opActive = null;
       this.emit();
