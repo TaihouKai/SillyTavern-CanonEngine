@@ -641,9 +641,11 @@ try {
     const saved = await page.evaluate(() => SillyTavern.getContext().extensionSettings.canonEngine.replyLength);
     await mock('/control', { mainQueue: ['港口很安静。LEN_A'], clearLogs: true });
     await send(page, '我四处看看。');
-    const p = (await mainLogs()).map(promptText).join('\n');
+    const msgs = (await mainLogs())[0]?.messages || [];
+    const li = msgs.findIndex((m) => String(m.content).includes('本回合回复篇幅要求：正文约800~1200字'));
+    const lastUser = msgs.map((m) => m.role).lastIndexOf('user');
     check(results, 'R01 the reply length typed in the panel is saved as text', saved === '正文约800~1200字', JSON.stringify(saved));
-    check(results, 'R02 the story draft prompt carries the reply length', p.includes('Reply length: 正文约800~1200字.'), p.slice(p.indexOf('Reply length'), p.indexOf('Reply length') + 80));
+    check(results, 'R02 the length instruction comes after the latest player message, right before the reply', li >= 0 && li > lastUser && msgs.slice(li + 1).every((m) => m.role !== 'user' && m.role !== 'assistant'), msgs.map((m, i) => `${i}:${m.role}:${String(m.content).slice(0, 24)}`).slice(-4).join(' | '));
     await setLen('');
   }
 } catch (e) {

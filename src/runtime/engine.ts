@@ -11,7 +11,7 @@ import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
 import type { HostPort } from './host';
 import { callStructured, taskDefaults } from './model';
-import { CONTINUE_INSTRUCTION, GM_INTEGRATION_RULES, PROMPTS, REPAIR_INSTRUCTION } from './prompts';
+import { CONTINUE_INSTRUCTION, GM_INTEGRATION_RULES, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, type ClaimInput, type RefInput, type Retrieval } from './context';
 import { runGate, type EvalOutput, type GateResult } from './gate';
@@ -105,9 +105,10 @@ export class CanonEngine {
   private packCache: { hash: string; loaded: LoadedPack } | null = null;
   /** Discovery result per (operation, text): re-reviewing the same draft against staged history reuses it. */
   private discCache = new Map<string, DiscoverOut>();
-  private gmRules(): string {
+  private gmRules(): string { return GM_INTEGRATION_RULES; }
+  private lengthNote(): string {
     const len = String(this.settings.replyLength || '').trim();
-    return GM_INTEGRATION_RULES + (len ? `\nReply length: ${len}. This applies to every reply, including revised drafts.` : '');
+    return len ? replyLengthNote(len) : '';
   }
   private rememberDiscovery(key: string, d: DiscoverOut): DiscoverOut {
     if (this.discCache.size > 16) this.discCache.clear();
@@ -857,7 +858,7 @@ export class CanonEngine {
         // Draft (private)
         this.setStatus('generating', 'Generating (private draft)…');
         trace.prompts.push({ kind: 'engine_context', text: engineContext });
-        let draft = await this.timeStep('draft', this.withTimeout(this.host.model.generateDraft({ engineContext, instruction: continuing ? CONTINUE_INSTRUCTION : '', excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
+        let draft = await this.timeStep('draft', this.withTimeout(this.host.model.generateDraft({ engineContext, lengthNote: continuing ? '' : this.lengthNote(), instruction: continuing ? CONTINUE_INSTRUCTION : '', excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
         this.checkFences(fences, excludeLast);
         let candidate = continuing ? joinContinuation(continuedEntry!.text, draft) : draft;
         if (!candidate.trim()) throw new EngineError('provider_failure', 'the model returned an empty reply');
@@ -904,7 +905,7 @@ export class CanonEngine {
           packet = buildPacket(packetArgs);
           const repairCtx = this.gmRules() + '\n\n' + packet.text;
           trace.prompts.push({ kind: `repair_${attempt + 1}`, text: repairCtx });
-          draft = await this.timeStep('repair', this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, instruction: (continuing ? CONTINUE_INSTRUCTION + '\n' : '') + REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6000)) + (continuing ? `\nExisting part of the reply (keep it unchanged; output only the continuation):\n${continuedEntry!.text}` : ''), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
+          draft = await this.timeStep('repair', this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, lengthNote: continuing ? '' : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + '\n' : '') + REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6000)) + (continuing ? `\nExisting part of the reply (keep it unchanged; output only the continuation):\n${continuedEntry!.text}` : ''), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
           this.checkFences(fences, excludeLast);
           candidate = continuing ? joinContinuation(continuedEntry!.text, draft) : draft;
         }

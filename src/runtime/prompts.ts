@@ -106,4 +106,9 @@ Facts you must respect (actual history/state at this scene):
 ${facts}
 Change only what is needed to fix these problems; keep the full length, detail and style a normal reply would have (do not shorten or summarize). Do not rewrite previously accepted history. Do not mention this request. Output only the narrative.`;
 
+/** Length instruction placed after the latest message. The lower bound is a floor: models undershoot targets. */
+export const replyLengthNote = (len: string) => /[㐀-鿿]/.test(len)
+  ? `[CANON ENGINE — 回复篇幅] 本回合回复篇幅要求：${len}。下限是最低篇幅，不是上限：写到下限之前不要收尾。篇幅不够时，继续展开当前场景——环境与感官细节、NPC 的行动、对话与反应、已发生行动的直接后果——不要替用户行动，也不要跳过时间。`
+  : `[CANON ENGINE — reply length] Reply length for this turn: ${len}. The lower end is a minimum, not a ceiling: do not wrap up before reaching it. If the reply is still short, keep developing the current scene (surroundings and sensory detail, NPC actions, dialogue and reactions, direct consequences of what already happened) instead of acting for the user or skipping time.`;
+
 export const CONTINUE_INSTRUCTION = `[Canon Engine private instruction — not part of the story] Continue the last GM message exactly from where it stops. Output only the continuation text (do not repeat the existing part).`;

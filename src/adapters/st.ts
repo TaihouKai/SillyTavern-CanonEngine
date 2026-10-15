@@ -18,6 +18,7 @@ declare const SillyTavern: { getContext(): any };
 
 export const NS = 'canonEngine';
 const EXT_PROMPT_KEY = 'canon_engine_context';
+const EXT_LENGTH_KEY = 'canon_engine_length';
 
 export interface StModule {
   saveChat: (o?: any) => Promise<void>;
@@ -410,6 +411,8 @@ export class StModel implements ModelPort {
       const token = newId('draft');
       gen.draft = { token, excludeLastAssistant: req.excludeLastAssistant, captured: null, before: null, injectedRemoved: 0 };
       c.setExtensionPrompt(EXT_PROMPT_KEY, req.engineContext, mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
+      // Depth 0: after the latest message, so nothing sits between the length instruction and the reply.
+      c.setExtensionPrompt(EXT_LENGTH_KEY, req.lengthNote || '', mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
       const onAbort = () => { try { c.stopGeneration?.(); } catch { /* ignore */ } };
       req.signal?.addEventListener('abort', onAbort, { once: true });
       try {
@@ -425,6 +428,7 @@ export class StModel implements ModelPort {
       } finally {
         req.signal?.removeEventListener('abort', onAbort);
         c.setExtensionPrompt(EXT_PROMPT_KEY, '', mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
+        c.setExtensionPrompt(EXT_LENGTH_KEY, '', mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
         if (gen.draft?.token === token) {
           gen.lastDraftPrompt = gen.draft.captured;
           gen.draft = null;
@@ -455,7 +459,7 @@ export function promptReadyLast(eventData: any) {
       const before = gen.draft.before;
       for (let i = eventData.chat.length - 1; i >= 0; i--) {
         const m = eventData.chat[i];
-        if (!before.has(m) && m?.role === 'system' && typeof m.content === 'string' && !m.content.includes('[CANON ENGINE CONTEXT')) {
+        if (!before.has(m) && m?.role === 'system' && typeof m.content === 'string' && !m.content.includes('[CANON ENGINE')) {
           eventData.chat.splice(i, 1);
           gen.draft.injectedRemoved++;
         }

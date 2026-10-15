@@ -235,9 +235,9 @@ describe('reply length setting', () => {
   it('puts the configured reply length into the draft instructions, and nothing when empty', async () => {
     const x = await setup();
     expect(await turn(x, 'I wait.', 'The harbor is quiet. [L0]')).toBe(true);
-    expect(String((x.model.tasks('draft').slice(-1)[0].input as any).engineContext)).not.toMatch(/Reply length:/);
+    expect((x.model.tasks('draft').slice(-1)[0].input as any).lengthNote).toBe('');
     x.engine.settings.replyLength = '正文约800~1200字';
     expect(await turn(x, 'I wait more.', 'Gulls circle the pier. [L1]')).toBe(true);
-    expect(String((x.model.tasks('draft').slice(-1)[0].input as any).engineContext)).toContain('Reply length: 正文约800~1200字.');
+    expect((x.model.tasks('draft').slice(-1)[0].input as any).lengthNote).toContain('本回合回复篇幅要求：正文约800~1200字。下限是最低篇幅');
   });
 });

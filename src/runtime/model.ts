@@ -12,6 +12,8 @@ export interface DraftRequest {
   engineContext: string;
   /** Extra instruction appended as the quiet prompt (continue / repair). Empty for ordinary replies. */
   instruction: string;
+  /** Reply-length instruction, placed after the latest message (the last thing before the reply). */
+  lengthNote?: string;
   /** Operation projection: remove the replaced reply from the prompt (swipe). */
   excludeLastAssistant: boolean;
   signal?: AbortSignal;

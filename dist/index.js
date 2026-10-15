@@ -14391,6 +14391,7 @@ ${violations.map((v, i) => `${i + 1}. ${v}`).join("\n")}
 Facts you must respect (actual history/state at this scene):
 ${facts}
 Change only what is needed to fix these problems; keep the full length, detail and style a normal reply would have (do not shorten or summarize). Do not rewrite previously accepted history. Do not mention this request. Output only the narrative.`;
+var replyLengthNote = (len) => /[㐀-鿿]/.test(len) ? `[CANON ENGINE \u2014 \u56DE\u590D\u7BC7\u5E45] \u672C\u56DE\u5408\u56DE\u590D\u7BC7\u5E45\u8981\u6C42\uFF1A${len}\u3002\u4E0B\u9650\u662F\u6700\u4F4E\u7BC7\u5E45\uFF0C\u4E0D\u662F\u4E0A\u9650\uFF1A\u5199\u5230\u4E0B\u9650\u4E4B\u524D\u4E0D\u8981\u6536\u5C3E\u3002\u7BC7\u5E45\u4E0D\u591F\u65F6\uFF0C\u7EE7\u7EED\u5C55\u5F00\u5F53\u524D\u573A\u666F\u2014\u2014\u73AF\u5883\u4E0E\u611F\u5B98\u7EC6\u8282\u3001NPC \u7684\u884C\u52A8\u3001\u5BF9\u8BDD\u4E0E\u53CD\u5E94\u3001\u5DF2\u53D1\u751F\u884C\u52A8\u7684\u76F4\u63A5\u540E\u679C\u2014\u2014\u4E0D\u8981\u66FF\u7528\u6237\u884C\u52A8\uFF0C\u4E5F\u4E0D\u8981\u8DF3\u8FC7\u65F6\u95F4\u3002` : `[CANON ENGINE \u2014 reply length] Reply length for this turn: ${len}. The lower end is a minimum, not a ceiling: do not wrap up before reaching it. If the reply is still short, keep developing the current scene (surroundings and sensory detail, NPC actions, dialogue and reactions, direct consequences of what already happened) instead of acting for the user or skipping time.`;
 var CONTINUE_INSTRUCTION = `[Canon Engine private instruction \u2014 not part of the story] Continue the last GM message exactly from where it stops. Output only the continuation text (do not repeat the existing part).`;
 
 // src/runtime/replay.ts
@@ -15463,9 +15464,11 @@ var CanonEngine = class {
   /** Discovery result per (operation, text): re-reviewing the same draft against staged history reuses it. */
   discCache = /* @__PURE__ */ new Map();
   gmRules() {
+    return GM_INTEGRATION_RULES;
+  }
+  lengthNote() {
     const len = String(this.settings.replyLength || "").trim();
-    return GM_INTEGRATION_RULES + (len ? `
-Reply length: ${len}. This applies to every reply, including revised drafts.` : "");
+    return len ? replyLengthNote(len) : "";
   }
   rememberDiscovery(key, d) {
     if (this.discCache.size > 16) this.discCache.clear();
@@ -16323,7 +16326,7 @@ Reply length: ${len}. This applies to every reply, including revised drafts.` : 
         const engineContext = this.gmRules() + "\n\n" + packet.text;
         this.setStatus("generating", "Generating (private draft)\u2026");
         trace.prompts.push({ kind: "engine_context", text: engineContext });
-        let draft = await this.timeStep("draft", this.withTimeout(this.host.model.generateDraft({ engineContext, instruction: continuing ? CONTINUE_INSTRUCTION : "", excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
+        let draft = await this.timeStep("draft", this.withTimeout(this.host.model.generateDraft({ engineContext, lengthNote: continuing ? "" : this.lengthNote(), instruction: continuing ? CONTINUE_INSTRUCTION : "", excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
         this.checkFences(fences, excludeLast);
         let candidate = continuing ? joinContinuation(continuedEntry.text, draft) : draft;
         if (!candidate.trim()) throw new EngineError("provider_failure", "the model returned an empty reply");
@@ -16387,7 +16390,7 @@ Reply length: ${len}. This applies to every reply, including revised drafts.` : 
           packet = buildPacket(packetArgs);
           const repairCtx = this.gmRules() + "\n\n" + packet.text;
           trace.prompts.push({ kind: `repair_${attempt + 1}`, text: repairCtx });
-          draft = await this.timeStep("repair", this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, instruction: (continuing ? CONTINUE_INSTRUCTION + "\n" : "") + REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6e3)) + (continuing ? `
+          draft = await this.timeStep("repair", this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, lengthNote: continuing ? "" : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + "\n" : "") + REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6e3)) + (continuing ? `
 Existing part of the reply (keep it unchanged; output only the continuation):
 ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
           this.checkFences(fences, excludeLast);
@@ -16951,6 +16954,7 @@ var HoraeAdapter = class _HoraeAdapter {
 // src/adapters/st.ts
 var NS = "canonEngine";
 var EXT_PROMPT_KEY = "canon_engine_context";
+var EXT_LENGTH_KEY = "canon_engine_length";
 var stModule = null;
 async function loadStModule() {
   if (stModule) return stModule;
@@ -17340,6 +17344,7 @@ var StModel = class {
       const token = newId("draft");
       gen.draft = { token, excludeLastAssistant: req.excludeLastAssistant, captured: null, before: null, injectedRemoved: 0 };
       c.setExtensionPrompt(EXT_PROMPT_KEY, req.engineContext, mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
+      c.setExtensionPrompt(EXT_LENGTH_KEY, req.lengthNote || "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
       const onAbort = () => {
         try {
           c.stopGeneration?.();
@@ -17358,6 +17363,7 @@ var StModel = class {
       } finally {
         req.signal?.removeEventListener("abort", onAbort);
         c.setExtensionPrompt(EXT_PROMPT_KEY, "", mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
+        c.setExtensionPrompt(EXT_LENGTH_KEY, "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
         if (gen.draft?.token === token) {
           gen.lastDraftPrompt = gen.draft.captured;
           gen.draft = null;
@@ -17381,7 +17387,7 @@ function promptReadyLast(eventData) {
       const before = gen.draft.before;
       for (let i = eventData.chat.length - 1; i >= 0; i--) {
         const m = eventData.chat[i];
-        if (!before.has(m) && m?.role === "system" && typeof m.content === "string" && !m.content.includes("[CANON ENGINE CONTEXT")) {
+        if (!before.has(m) && m?.role === "system" && typeof m.content === "string" && !m.content.includes("[CANON ENGINE")) {
           eventData.chat.splice(i, 1);
           gen.draft.injectedRemoved++;
         }
