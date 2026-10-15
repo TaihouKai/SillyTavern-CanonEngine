@@ -18,7 +18,7 @@ import { runGate, type EvalOutput, type GateResult } from './gate';
 import { adjudicateInterval } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, Interpretation, OpType, PlanRevision, RecordDraft, SourceEntry } from './types';
-import { ENGINE_VERSION, STORAGE_VERSION } from './types';
+import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 
 export interface EngineSettings {
   maxOrdinaryPlanner: number;
@@ -714,6 +714,19 @@ export class CanonEngine {
     return { gate, evaluation, retrieval, manifest, facts: packet.facts, packetText: packet.text, claims, refs };
   }
 
+  /** Plain-text report of a failed turn: error, every attempt's problems, resent calls, step timings. */
+  private failureReport(trace: OperationTrace, tm: NonNullable<CanonEngine['lastTimings']>): string {
+    const dur = (ms: number) => (ms >= 60000 ? `${Math.floor(ms / 60000)}m${Math.round((ms % 60000) / 1000)}s` : `${Math.round(ms / 1000)}s`);
+    const lines = [`Canon Engine ${ENGINE_RELEASE} — failed turn (${trace.op}) at ${new Date(this.host.now()).toLocaleString()}, took ${dur(tm.totalMs)}`, '', `Error: ${trace.error || '(unknown)'}`];
+    trace.attempts.forEach((a, i) => {
+      lines.push('', `Attempt ${i + 1}${i === 0 ? ' (first draft)' : i > this.settings.maxRepairs ? ' (final HARD repair)' : ` (repair ${i})`}: ${a.violations.length ? `${a.violations.length} problem(s)` : 'no problems'}`);
+      for (const v of a.violations) lines.push(`  - ${v}`);
+    });
+    if (tm.rejects?.length) { lines.push('', 'Model output rejected and resent:'); for (const r of tm.rejects) lines.push(`  - ${r}`); }
+    lines.push('', 'Steps: ' + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? ` (resent ${s.retries})` : ''}`).join(' · '));
+    return lines.join('\n').slice(0, 12000);
+  }
+
   /** Recent actual events for the planner: untyped history (e.g. someone detained) that the fact list does not show. */
   private recentSituation(index: WorldIndex): string {
     const tick = index.state.clock.lo;
@@ -1040,6 +1053,11 @@ export class CanonEngine {
       const agg = new Map<string, { ms: number; count: number; retries: number }>();
       for (const s of this.stepTimes) { const a = agg.get(s.step) || { ms: 0, count: 0, retries: 0 }; a.ms += s.ms; a.count++; if (s.retry) a.retries++; agg.set(s.step, a); }
       this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, rejects: this.rejects.slice(-6) };
+      if (!committed && trace.outcome === 'failed') {
+        // Keep the whole story of a failed turn where the user can read it later (saved with the chat).
+        const c = this.campaign();
+        if (c && c.recoveryState.status === 'error') { c.recoveryState.details = this.failureReport(trace, this.lastTimings); void this.host.save().catch(() => {}); }
+      }
       if (this.settings.debug) this.debugLog('timing', this.lastTimings);
       this.opActive = null;
       this.emit();

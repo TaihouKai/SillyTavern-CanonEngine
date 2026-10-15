@@ -3,6 +3,8 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
+/** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
+export const ENGINE_RELEASE = '1.3.17';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -131,6 +133,8 @@ export interface RecoveryState {
   quote?: string;
   errorKind?: string;
   at?: number;
+  /** Full plain-text report of the failed turn (every attempt's problems, resent calls, timing). */
+  details?: string;
 }
 
 export interface PendingTransaction {

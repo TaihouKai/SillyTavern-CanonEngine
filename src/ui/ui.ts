@@ -79,6 +79,7 @@ function mountStatus() {
     if (act === 'inspect') toggleInspector(true);
     if (act === 'cancel') E.cancel();
     if (act === 'retry') void E.retry().finally(refreshUi);
+    if (act === 'details') showFailureReport();
     if (act === 'goto') gotoConflict();
     if (act === 'branch') void branchFromConflict();
   });
@@ -118,6 +119,7 @@ function renderStatus() {
     <span class="canon-actions">
       ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t('cancel')}</button>` : ''}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t('retry')}</button>` : ''}
+      ${!busy && err && camp.recoveryState.details ? `<button class="menu_button canon-btn" data-act="details">${t('details')}</button>` : ''}
       ${conflict ? `<button class="menu_button canon-btn" data-act="goto">${t('editIt')}</button><button class="menu_button canon-btn" data-act="branch">${t('branchRegen')}</button>` : ''}
       <button class="menu_button canon-btn" data-act="inspect">${t('inspect')}</button>
     </span>`;
@@ -528,7 +530,9 @@ function detectCompetingLore(): { books: string[]; gmRule: boolean } {
 
 function toast(level: 'info' | 'error' | 'warning', msg: string) {
   const tr = (globalThis as any).toastr;
-  if (tr) tr[level === 'error' ? 'error' : level === 'warning' ? 'warning' : 'info'](msg, 'Canon Engine');
+  // Errors stay until closed (a long turn often fails while nobody is watching); warnings linger longer than info.
+  const opts = level === 'error' ? { timeOut: 0, extendedTimeOut: 0, closeButton: true, tapToDismiss: false } : level === 'warning' ? { timeOut: 15000, closeButton: true } : {};
+  if (tr) tr[level === 'error' ? 'error' : level === 'warning' ? 'warning' : 'info'](msg, 'Canon Engine', opts);
   else console.log('[CanonEngine]', msg);
 }
 
@@ -541,9 +545,44 @@ function download(name: string, text: string) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
+/** Full report of the last failed turn, readable and copyable at any time (it is saved with the chat). */
+function showFailureReport() {
+  const text = E.campaign()?.recoveryState.details;
+  if (!text) return;
+  document.getElementById('canon-report')?.remove();
+  const box = document.createElement('div');
+  box.id = 'canon-report';
+  box.className = 'canon-report';
+  box.innerHTML = `<div class="canon-report-card"><div class="canon-report-head"><b>${t('details')}</b>
+    <span><button class="menu_button canon-btn" data-r="copy">${t('copy')}</button><button class="menu_button canon-btn" data-r="close">${t('close')}</button></span></div>
+    <pre class="canon-report-text"></pre></div>`;
+  (box.querySelector('.canon-report-text') as HTMLElement).textContent = text;
+  box.addEventListener('click', (ev) => {
+    const r = (ev.target as HTMLElement).closest('[data-r]') as HTMLElement | null;
+    if (ev.target === box || r?.dataset.r === 'close') box.remove();
+    else if (r?.dataset.r === 'copy') void navigator.clipboard?.writeText(text).then(() => { r.textContent = t('copied'); }).catch(() => {});
+  });
+  document.body.appendChild(box);
+}
+
+// A long turn usually finishes while the user is elsewhere: mark the browser tab until they come back.
+let wasBusy = false;
+let baseTitle = '';
+function markTab() {
+  const tm = E.lastTimings;
+  if (!tm || tm.totalMs < 30000 || !document.hidden) return;
+  baseTitle = baseTitle || document.title;
+  document.title = `${tm.ok ? '✔' : '✖'} Canon ${tm.ok ? t('tabDone') : t('tabFailed')} · ${baseTitle}`;
+  const restore = () => { if (!document.hidden) { document.title = baseTitle; baseTitle = ''; document.removeEventListener('visibilitychange', restore); } };
+  document.addEventListener('visibilitychange', restore);
+}
+
 let lastNoticeCount = 0;
 export function refreshUi() {
   if (!E) return;
+  const busyNow = E.isBusy();
+  if (wasBusy && !busyNow) markTab();
+  wasBusy = busyNow;
   renderStatus();
   renderSettings();
   renderInspector();

@@ -701,6 +701,14 @@ try {
     await send(page, '我四处看看。');
     const ml2 = await mainLogs();
     check(results, 'H03 problems that are not about HARD events get no extra attempt', ml2.length === 3, String(ml2.length));
+    const sticky = await page.$$eval('#toast-container .toast-error', (els) => els.length).catch(() => 0);
+    await page.click('#canon-engine-status [data-act="details"]').catch(() => {});
+    const report = await page.$eval('#canon-report .canon-report-text', (e) => e.textContent).catch(() => '');
+    check(results, 'H04 a failed turn offers 详情 with the full report (every attempt, its problems, the step timings)', /Attempt 1 \(first draft\)[\s\S]*the tone is wrong[\s\S]*Attempt 3 \(repair 2\)[\s\S]*Steps: /.test(report), report.slice(0, 300));
+    await sleep(6000);
+    check(results, 'H05 the error toast stays until closed', sticky > 0 && (await page.$$eval('#toast-container .toast-error', (els) => els.length).catch(() => 0)) > 0, String(sticky));
+    await page.click('#canon-report [data-r="close"]').catch(() => {});
+    await page.evaluate(() => document.querySelectorAll('#toast-container .toast').forEach((t) => t.remove()));
   }
   if (want('S17')) {
     console.log('\n== S17 scene grouping toggle ==');

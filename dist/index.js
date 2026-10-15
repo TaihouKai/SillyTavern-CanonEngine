@@ -15629,6 +15629,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
+var ENGINE_RELEASE = "1.3.17";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16357,6 +16358,21 @@ var CanonEngine = class {
     } : null;
     return { gate, evaluation, retrieval, manifest, facts: packet.facts, packetText: packet.text, claims, refs };
   }
+  /** Plain-text report of a failed turn: error, every attempt's problems, resent calls, step timings. */
+  failureReport(trace, tm) {
+    const dur = (ms) => ms >= 6e4 ? `${Math.floor(ms / 6e4)}m${Math.round(ms % 6e4 / 1e3)}s` : `${Math.round(ms / 1e3)}s`;
+    const lines = [`Canon Engine ${ENGINE_RELEASE} \u2014 failed turn (${trace.op}) at ${new Date(this.host.now()).toLocaleString()}, took ${dur(tm.totalMs)}`, "", `Error: ${trace.error || "(unknown)"}`];
+    trace.attempts.forEach((a, i) => {
+      lines.push("", `Attempt ${i + 1}${i === 0 ? " (first draft)" : i > this.settings.maxRepairs ? " (final HARD repair)" : ` (repair ${i})`}: ${a.violations.length ? `${a.violations.length} problem(s)` : "no problems"}`);
+      for (const v of a.violations) lines.push(`  - ${v}`);
+    });
+    if (tm.rejects?.length) {
+      lines.push("", "Model output rejected and resent:");
+      for (const r of tm.rejects) lines.push(`  - ${r}`);
+    }
+    lines.push("", "Steps: " + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? ` (resent ${s.retries})` : ""}`).join(" \xB7 "));
+    return lines.join("\n").slice(0, 12e3);
+  }
   /** Recent actual events for the planner: untyped history (e.g. someone detained) that the fact list does not show. */
   recentSituation(index) {
     const tick = index.state.clock.lo;
@@ -16738,6 +16754,14 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         agg.set(s.step, a);
       }
       this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, rejects: this.rejects.slice(-6) };
+      if (!committed && trace.outcome === "failed") {
+        const c = this.campaign();
+        if (c && c.recoveryState.status === "error") {
+          c.recoveryState.details = this.failureReport(trace, this.lastTimings);
+          void this.host.save().catch(() => {
+          });
+        }
+      }
       if (this.settings.debug) this.debugLog("timing", this.lastTimings);
       this.opActive = null;
       this.emit();
@@ -17921,6 +17945,11 @@ var D = {
   taskExtraBodyHint: { zh: "\u4F1A\u52A0\u5230\u6BCF\u4E2A\u5206\u6790\u8BF7\u6C42\u91CC\uFF08\u53EA\u5BF9\u201C\u81EA\u5B9A\u4E49\uFF08\u517C\u5BB9OpenAI\uFF09\u201D\u8FDE\u63A5\u751F\u6548\uFF09\u3002Venice \u63A8\u7406\u6A21\u578B\u8BF7\u586B\uFF1Avenice_parameters: {disable_thinking: true}", en: "Added to every analysis request (Custom OpenAI-compatible connections). For Venice reasoning models: venice_parameters: {disable_thinking: true}" },
   taskProfileNone: { zh: "\u6CA1\u6709\u53EF\u7528\u7684\u8FDE\u63A5\u914D\u7F6E\uFF08\u8BF7\u5148\u5728 SillyTavern \u7684\u201C\u8FDE\u63A5\u914D\u7F6E\u201D\u4E2D\u4FDD\u5B58\u4E00\u4E2A\uFF09\u3002", en: "No connection profiles yet (save one in SillyTavern's Connection Profiles first)." },
   lastTurn: { zh: "\u4E0A\u4E00\u56DE\u5408", en: "Last turn" },
+  details: { zh: "\u8BE6\u60C5", en: "Details" },
+  copy: { zh: "\u590D\u5236", en: "Copy" },
+  copied: { zh: "\u5DF2\u590D\u5236", en: "Copied" },
+  tabDone: { zh: "\u56DE\u590D\u5B8C\u6210", en: "reply ready" },
+  tabFailed: { zh: "\u56DE\u590D\u5931\u8D25", en: "turn failed" },
   resent: { zh: "\u91CD\u53D1", en: "resent" },
   resentWhy: { zh: "\u91CD\u53D1\u539F\u56E0\uFF08\u6A21\u578B\u8F93\u51FA\u683C\u5F0F\u4E0D\u5BF9\uFF09", en: "Why output was resent (malformed model output)" },
   replyLen: { zh: "\u56DE\u590D", en: "reply" },
@@ -18477,6 +18506,7 @@ function mountStatus() {
     if (act === "inspect") toggleInspector(true);
     if (act === "cancel") E.cancel();
     if (act === "retry") void E.retry().finally(refreshUi);
+    if (act === "details") showFailureReport();
     if (act === "goto") gotoConflict();
     if (act === "branch") void branchFromConflict();
   });
@@ -18516,6 +18546,7 @@ function renderStatus() {
     <span class="canon-actions">
       ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t("cancel")}</button>` : ""}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t("retry")}</button>` : ""}
+      ${!busy && err && camp.recoveryState.details ? `<button class="menu_button canon-btn" data-act="details">${t("details")}</button>` : ""}
       ${conflict ? `<button class="menu_button canon-btn" data-act="goto">${t("editIt")}</button><button class="menu_button canon-btn" data-act="branch">${t("branchRegen")}</button>` : ""}
       <button class="menu_button canon-btn" data-act="inspect">${t("inspect")}</button>
     </span>`;
@@ -18962,7 +18993,8 @@ ${ch?.scenario || ""}`;
 }
 function toast(level, msg) {
   const tr = globalThis.toastr;
-  if (tr) tr[level === "error" ? "error" : level === "warning" ? "warning" : "info"](msg, "Canon Engine");
+  const opts = level === "error" ? { timeOut: 0, extendedTimeOut: 0, closeButton: true, tapToDismiss: false } : level === "warning" ? { timeOut: 15e3, closeButton: true } : {};
+  if (tr) tr[level === "error" ? "error" : level === "warning" ? "warning" : "info"](msg, "Canon Engine", opts);
   else console.log("[CanonEngine]", msg);
 }
 function download(name2, text) {
@@ -18976,9 +19008,49 @@ function download(name2, text) {
     a.remove();
   }, 1e3);
 }
+function showFailureReport() {
+  const text = E.campaign()?.recoveryState.details;
+  if (!text) return;
+  document.getElementById("canon-report")?.remove();
+  const box = document.createElement("div");
+  box.id = "canon-report";
+  box.className = "canon-report";
+  box.innerHTML = `<div class="canon-report-card"><div class="canon-report-head"><b>${t("details")}</b>
+    <span><button class="menu_button canon-btn" data-r="copy">${t("copy")}</button><button class="menu_button canon-btn" data-r="close">${t("close")}</button></span></div>
+    <pre class="canon-report-text"></pre></div>`;
+  box.querySelector(".canon-report-text").textContent = text;
+  box.addEventListener("click", (ev) => {
+    const r = ev.target.closest("[data-r]");
+    if (ev.target === box || r?.dataset.r === "close") box.remove();
+    else if (r?.dataset.r === "copy") void navigator.clipboard?.writeText(text).then(() => {
+      r.textContent = t("copied");
+    }).catch(() => {
+    });
+  });
+  document.body.appendChild(box);
+}
+var wasBusy = false;
+var baseTitle = "";
+function markTab() {
+  const tm = E.lastTimings;
+  if (!tm || tm.totalMs < 3e4 || !document.hidden) return;
+  baseTitle = baseTitle || document.title;
+  document.title = `${tm.ok ? "\u2714" : "\u2716"} Canon ${tm.ok ? t("tabDone") : t("tabFailed")} \xB7 ${baseTitle}`;
+  const restore = () => {
+    if (!document.hidden) {
+      document.title = baseTitle;
+      baseTitle = "";
+      document.removeEventListener("visibilitychange", restore);
+    }
+  };
+  document.addEventListener("visibilitychange", restore);
+}
 var lastNoticeCount = 0;
 function refreshUi() {
   if (!E) return;
+  const busyNow = E.isBusy();
+  if (wasBusy && !busyNow) markTab();
+  wasBusy = busyNow;
   renderStatus();
   renderSettings();
   renderInspector();
@@ -19131,7 +19203,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: "1.3.4", api: { getClock: () => publicClock(engine) } };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: ENGINE_RELEASE, api: { getClock: () => publicClock(engine) } };
   installClockEvents(engine);
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;

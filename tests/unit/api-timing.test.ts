@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
 import { publicClock } from '../../src/api';
+import { ENGINE_RELEASE } from '../../src/runtime/types';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 
@@ -43,5 +44,28 @@ describe('public clock API and turn timings', () => {
     expect(ev.count).toBe(2);
     expect(ev.retries).toBe(1);
     expect(x.engine.lastTimings!.rejects!.join(' ')).toMatch(/^evaluate: schema violation/);
+  });
+  it('a failed turn keeps a full report with every attempt and the resend reasons (saved with the chat)', async () => {
+    const x = makeEngine();
+    await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
+    await x.engine.reconcile('t');
+    x.host.addUser('I look around.');
+    x.model.draft('Bad tone. [F1]', 'Bad tone. [F2]', 'Bad tone. [F3]');
+    x.model.on('evaluate', null, { decision: 'repair', violations: [{ code: 'tone', quote: 'Bad tone', detail: 'the tone is wrong' }] });
+    (x.model as any).rules.unshift({ task: 'discover', raw: 'not json at all', once: true });
+    expect(await x.engine.runOperation('normal')).toBe(false);
+    const rep = x.engine.campaign()!.recoveryState.details!;
+    expect(rep).toMatch(/^Canon Engine \d+\.\d+\.\d+ — failed turn \(normal\)/);
+    expect(rep).toMatch(/Error: The reply could not be validated within 2 repairs/);
+    expect(rep).toMatch(/Attempt 1 \(first draft\): 1 problem[\s\S]*the tone is wrong[\s\S]*Attempt 3 \(repair 2\)/);
+    expect(rep).toMatch(/Model output rejected and resent:\n  - discover: no parseable JSON/);
+    expect(rep).toMatch(/Steps: .*discover .*\(resent 1\)/);
+  });
+
+  it('the release number shown to users matches package.json and manifest.json', () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
+    const man = JSON.parse(readFileSync(join(ROOT, 'manifest.json'), 'utf8')).version;
+    expect(ENGINE_RELEASE).toBe(pkg);
+    expect(ENGINE_RELEASE).toBe(man);
   });
 });

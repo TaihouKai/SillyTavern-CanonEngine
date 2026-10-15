@@ -6,6 +6,7 @@ import { HoraeAdapter } from './adapters/horae';
 import { WriterLock } from './adapters/lock';
 import { mountUi, refreshUi, renderMessageDecorations, t } from './ui/ui';
 import type { OpType } from './runtime/types';
+import { ENGINE_RELEASE } from './runtime/types';
 import { deepClone } from './domain/util';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -141,7 +142,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock!.isOwner();
   (globalThis as any).canonEngineGenerateInterceptor = interceptor;
-  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: '1.3.4', api: { getClock: () => publicClock(engine!) } };
+  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: ENGINE_RELEASE, api: { getClock: () => publicClock(engine!) } };
   installClockEvents(engine);
 
   const es = c.eventSource;
