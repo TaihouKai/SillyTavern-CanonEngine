@@ -12653,15 +12653,81 @@ var ENUM_SYNONYMS = {
   cause: "causal",
   normal: "ordinary",
   mundane: "ordinary",
-  natural: "ordinary"
+  natural: "ordinary",
+  // entity kinds
+  character: "person",
+  npc: "person",
+  human: "person",
+  people: "person",
+  individual: "person",
+  girl: "person",
+  boy: "person",
+  group: "organization",
+  faction: "organization",
+  org: "organization",
+  item: "object",
+  thing: "object",
+  artifact: "object",
+  location: "place",
+  area: "place",
+  building: "place"
 };
 function valueAt(root, path) {
   let cur = root;
   for (const k of path.split("/").slice(1)) cur = cur?.[k.replace(/~1/g, "/").replace(/~0/g, "~")];
   return cur;
 }
-function repairEnums(root, errors) {
+var ITEM_ALIASES = {
+  new_entities: {
+    name: ["entity_name", "title", "label", "entity", "display_name", "id", "entity_id", "\u540D\u79F0", "\u540D\u5B57"],
+    kind: ["type", "entity_type", "entity_kind", "category", "class"],
+    description: ["desc", "summary", "details", "detail", "note", "notes", "account", "role"],
+    quote: ["evidence", "evidence_quote", "source_quote", "text", "span"]
+  }
+};
+var ITEM_DEFAULTS = {
+  new_entities: (item, idx) => ({ ref: `n${idx + 1}`, kind: "other", description: "", quote: typeof item.name === "string" ? item.name : "" })
+};
+function repairItems(root, errors) {
   let changed = false;
+  const lists = /* @__PURE__ */ new Set();
+  for (const e of errors) {
+    const m = /^\/([a-z_]+)\/\d+/.exec(e.instancePath || "");
+    if (m && ITEM_ALIASES[m[1]]) lists.add(m[1]);
+  }
+  for (const list of lists) {
+    const arr = root?.[list];
+    if (!Array.isArray(arr)) continue;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const item = arr[i];
+      if (!item || typeof item !== "object") {
+        arr.splice(i, 1);
+        changed = true;
+        continue;
+      }
+      for (const [field, aliases] of Object.entries(ITEM_ALIASES[list])) {
+        if (typeof item[field] === "string" && item[field]) continue;
+        const alias = aliases.find((a) => typeof item[a] === "string" && item[a]);
+        if (alias) {
+          item[field] = item[alias];
+          if (alias !== "id" && alias !== "entity_id") delete item[alias];
+          changed = true;
+        }
+      }
+      for (const [field, v] of Object.entries(ITEM_DEFAULTS[list](item, i))) if (item[field] === void 0 || item[field] === null) {
+        item[field] = v;
+        changed = true;
+      }
+      if (typeof item.name !== "string" || !item.name.trim()) {
+        arr.splice(i, 1);
+        changed = true;
+      }
+    }
+  }
+  return changed;
+}
+function repairEnums(root, errors) {
+  let changed = repairItems(root, errors);
   const nullable = new Set(errors.filter((e) => e.keyword === "type" && e.params?.type === "null").map((e) => e.instancePath));
   for (const e of errors) {
     const extra = e.keyword === "additionalProperties" && e.instancePath ? e.params?.additionalProperty : void 0;
@@ -14400,7 +14466,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place or activity meaningfully changes, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
 5. violations: unauthorized player actions/consent/dialogue, contradictions, unsupported recollections, leaking secret knowledge to characters who cannot know it, engine labels/JSON in prose, skipping a due obligation.
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it).
-SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null}],"step_enactments":[],"new_entities":[],"violations":[{"code":"","quote":"","detail":""}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":""}`,
+SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null}],"step_enactments":[],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":""}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":""}`,
   adjudicate: `${COMMON}
 TASK: Offscreen adjudication for a story-time advance. For each candidate canonical event in the interval decide what ACTUALLY happens given actual state (not the original summary): occurred (original result), diverged (event happens but with a different actual result), omitted (does not happen; FREE/SOFT only, with reason), postponed (SOFT only, still within its bounds). HARD events MUST occur within their bounds with every required outcome, even if extraordinary means are needed (extraordinary=true only when authorized_forced=true). When the actual state blocks the original route, the account must name the concrete cause (who, by what means). Give actors, causes (actual occurrence ids), typed effects, a concise account of what occurred and why. A plan step reference alone is not evidence of success.
 SHAPE: {"adjudications":[{"event_id":"","decision":"occurred","time":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"account":"","actors":[],"causes":[],"effects":[{"op":"set","entity_id":"","predicate":"","value":true}],"plan_step_ids":[],"reason":"","extraordinary":false}]}`,

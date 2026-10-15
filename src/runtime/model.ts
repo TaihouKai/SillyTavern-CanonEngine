@@ -81,6 +81,9 @@ const ENUM_SYNONYMS: Record<string, string | string[]> = {
   current: 'present', now: 'present', ongoing: 'present', past_event: 'past',
   location_claim: 'location', place: 'location', ability: ['capability', 'ordinary'], cause: 'causal',
   normal: 'ordinary', mundane: 'ordinary', natural: 'ordinary',
+  // entity kinds
+  character: 'person', npc: 'person', human: 'person', people: 'person', individual: 'person', girl: 'person', boy: 'person',
+  group: 'organization', faction: 'organization', org: 'organization', item: 'object', thing: 'object', artifact: 'object', location: 'place', area: 'place', building: 'place',
 };
 
 function valueAt(root: unknown, path: string): unknown {
@@ -90,8 +93,47 @@ function valueAt(root: unknown, path: string): unknown {
 }
 
 /** Fixes enum values that differ only by case/spacing or by a well-known synonym. Returns true if anything changed. */
-function repairEnums(root: unknown, errors: { keyword: string; instancePath: string; params?: unknown }[]): boolean {
+/** Field names models use instead of the schema's, for items of a list (keyed by list name). */
+const ITEM_ALIASES: Record<string, Record<string, string[]>> = {
+  new_entities: {
+    name: ['entity_name', 'title', 'label', 'entity', 'display_name', 'id', 'entity_id', '名称', '名字'],
+    kind: ['type', 'entity_type', 'entity_kind', 'category', 'class'],
+    description: ['desc', 'summary', 'details', 'detail', 'note', 'notes', 'account', 'role'],
+    quote: ['evidence', 'evidence_quote', 'source_quote', 'text', 'span'],
+  },
+};
+const ITEM_DEFAULTS: Record<string, (item: any, idx: number) => Record<string, unknown>> = {
+  new_entities: (item, idx) => ({ ref: `n${idx + 1}`, kind: 'other', description: '', quote: typeof item.name === 'string' ? item.name : '' }),
+};
+
+/** Renames alias fields and fills harmless defaults in list items; drops items that still lack their identity. */
+function repairItems(root: unknown, errors: { keyword: string; instancePath: string }[]): boolean {
   let changed = false;
+  const lists = new Set<string>();
+  for (const e of errors) {
+    const m = /^\/([a-z_]+)\/\d+/.exec(e.instancePath || '');
+    if (m && ITEM_ALIASES[m[1]]) lists.add(m[1]);
+  }
+  for (const list of lists) {
+    const arr: any = (root as any)?.[list];
+    if (!Array.isArray(arr)) continue;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const item = arr[i];
+      if (!item || typeof item !== 'object') { arr.splice(i, 1); changed = true; continue; }
+      for (const [field, aliases] of Object.entries(ITEM_ALIASES[list])) {
+        if (typeof item[field] === 'string' && item[field]) continue;
+        const alias = aliases.find((a) => typeof item[a] === 'string' && item[a]);
+        if (alias) { item[field] = item[alias]; if (alias !== 'id' && alias !== 'entity_id') delete item[alias]; changed = true; }
+      }
+      for (const [field, v] of Object.entries(ITEM_DEFAULTS[list](item, i))) if (item[field] === undefined || item[field] === null) { item[field] = v; changed = true; }
+      if (typeof item.name !== 'string' || !item.name.trim()) { arr.splice(i, 1); changed = true; }
+    }
+  }
+  return changed;
+}
+
+function repairEnums(root: unknown, errors: { keyword: string; instancePath: string; params?: unknown }[]): boolean {
+  let changed = repairItems(root, errors);
   // "null or object" fields given a scalar (e.g. "time": "傍晚", "fact": "…"): the value carries no
   // typed data, so treat it as unknown (null) rather than failing the turn.
   const nullable = new Set(errors.filter((e) => e.keyword === 'type' && (e.params as { type?: string })?.type === 'null').map((e) => e.instancePath));

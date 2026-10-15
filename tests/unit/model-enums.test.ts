@@ -154,4 +154,18 @@ describe('temporary provider errors', () => {
       expect(calls2).toBe(1);
     } finally { TRANSIENT_DELAYS_MS.splice(0, TRANSIENT_DELAYS_MS.length, ...saved); }
   });
+  it('new_entities with other field names are renamed, not failed (real-model finding)', async () => {
+    const base = { decision: 'retain', scene_end: null, claim_checks: [], transitions: [], occurrences: [], state_claims: [], player_actions: [], violations: [], hard_checks: [] };
+    const p = port([{ ...base, new_entities: [
+      { entity_id: '茵蒂克丝', type: 'character', description: '自称茵蒂克丝的银发少女', quote: '自称茵蒂克丝' },
+      { title: '禁闭室', entity_type: 'location', evidence: '禁闭室' },
+      { description: 'no identity at all' },
+    ] }]);
+    const out = await callStructured<any>(p, 'evaluate', 'sys', {});
+    expect(p.seen.length).toBe(1);
+    expect(out.new_entities).toEqual([
+      { ref: 'n1', name: '茵蒂克丝', kind: 'person', description: '自称茵蒂克丝的银发少女', quote: '自称茵蒂克丝' },
+      { ref: 'n2', name: '禁闭室', kind: 'place', description: '', quote: '禁闭室' },
+    ]);
+  });
 });
