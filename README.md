@@ -84,7 +84,7 @@ The GM's story replies always use the chat's own connection; only internal analy
 
 ## Reply length
 
-**回复长度** (optional, in the panel) adds a length target such as `正文约800~1200字` to every draft and revision. It is placed after the latest message (the last thing the model reads), and the lower bound is stated as a minimum, because models tend to undershoot length targets. No extra request is made for length. Leave it empty to rely on your own prompt.
+**回复长度** (optional, in the panel) adds a length target such as `正文约800~1200字` to every draft and revision. It is placed after the latest message (the last thing the model reads), and it asks for both ends of the range: no wrapping up before the lower bound, and closing the scene near the upper bound. No extra request is made for length. Leave it empty to rely on your own prompt.
 
 ## Context size
 

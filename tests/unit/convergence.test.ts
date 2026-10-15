@@ -238,6 +238,6 @@ describe('reply length setting', () => {
     expect((x.model.tasks('draft').slice(-1)[0].input as any).lengthNote).toBe('');
     x.engine.settings.replyLength = '正文约800~1200字';
     expect(await turn(x, 'I wait more.', 'Gulls circle the pier. [L1]')).toBe(true);
-    expect((x.model.tasks('draft').slice(-1)[0].input as any).lengthNote).toContain('本回合回复篇幅要求：正文约800~1200字。下限是最低篇幅');
+    expect((x.model.tasks('draft').slice(-1)[0].input as any).lengthNote).toContain('本回合回复篇幅要求：正文约800~1200字。写在这个范围内');
   });
 });
