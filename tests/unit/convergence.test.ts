@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { makeEngine, tick, at, D, occ } from './fake';
 import { factAt } from '../../src/domain/reducer';
 import { validatePlan, planScope, type PlanOutput } from '../../src/runtime/planner';
+import { refersToHard } from '../../src/runtime/gate';
 import { ROOT } from './helpers';
 import * as V from '../../src/generated/validators.js';
 
@@ -248,6 +249,12 @@ describe('convergence', () => {
       hard_checks: [{ event_id: 'conflict-begins', status: 'not_due', occurrence_ref: null, quote: null }],
     });
     expect(ok).toBe(true);
+    // the reviewer may also call it "contradicted" through its HARD check (live finding): still not due, so not a violation
+    const z = await setup(tick(1, 13));
+    expect(await turn(z, 'I lock the Council envoy in the cellar.', 'The envoy stays locked in the cellar overnight. [N3]', {
+      scene_end: at(1, 14),
+      hard_checks: [{ event_id: 'conflict-begins', status: 'contradicted', occurrence_ref: null, quote: 'locked in the cellar' }],
+    })).toBe(true);
     // but a depicted HARD event without a credible cause is still rejected
     const y = await setup(tick(2, 8, 50));
     await turn(y, 'I watch.', 'At nine the conflict simply begins. [N2]', {
@@ -258,6 +265,20 @@ describe('convergence', () => {
       violations: [{ code: 'hard_cause', quote: 'the conflict simply begins', detail: 'HARD realized without a credible cause: conflict-begins just happens.' }],
     });
     expect(y.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/without a credible cause/); // first draft rejected for it
+  });
+
+  it('C17e free-text complaints that restate a fulfilled HARD event are ignored; the structured check decides (live finding)', async () => {
+    const x = await setup(tick(2, 8, 50));
+    const ok = await turn(x, 'I hold the Council envoy in the cellar.', 'The envoy slips out at dawn; at nine the militias storm the Union docks. [R1]', {
+      scene_end: at(2, 9, 5),
+      occurrences: [occ('o1', 'Council attacks the docks', 'storm the Union docks', { pack_event_id: 'conflict-begins', disposition: 'occurred', time: at(2, 9), actors: ['council', 'union'] })],
+      transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true, quote: 'storm the Union docks', occurrence_ref: 'o1' }],
+      hard_checks: [{ event_id: 'conflict-begins', status: 'fulfilled', occurrence_ref: 'o1', quote: 'storm the Union docks' }],
+      violations: [{ code: 'contradiction', quote: 'The envoy slips out at dawn', detail: 'Holding the envoy conflicts with the requirement that the armed conflict between the Union and the Council begins.' }],
+    });
+    expect(ok).toBe(true);
+    expect(refersToHard('xx 落在上条当麻宿舍 yy', 'e1', 'T', '茵蒂克丝进入学园都市并落在上条当麻宿舍')).toBe(true);
+    expect(refersToHard('the tone is wrong', 'e1', 'T', 'The armed conflict between the Union and the Council begins')).toBe(false);
   });
 
   it('C18 a draft that skips further ahead re-runs crossed-interval checks and must realize crossed HARD events', async () => {

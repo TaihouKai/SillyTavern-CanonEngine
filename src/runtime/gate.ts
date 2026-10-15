@@ -68,6 +68,18 @@ export interface GateResult {
 
 const DESTRUCTIVE = /(destroy|ruin|demolish|collaps|dead|dissolv|gone|burn|毁|废|塌|灭|亡|解散)/i;
 
+/** Does a reviewer's text refer to this HARD event (id, title, or a run of its required description)? */
+export function refersToHard(text: string, id: string, title: string, required: string): boolean {
+  if (text.includes(id) || (title && text.includes(title))) return true;
+  // a copied phrase of the description: 6+ consecutive CJK characters, or 4+ consecutive words
+  const t = text.replace(/\s+/g, ' ');
+  const cjk = required.match(/[\u3400-\u9fff]+/g) || [];
+  for (const run of cjk) for (let i = 0; i + 6 <= run.length; i++) if (t.includes(run.slice(i, i + 6))) return true;
+  const words = required.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  for (let i = 0; i + 4 <= words.length; i++) if (t.toLowerCase().includes(words.slice(i, i + 4).join(' '))) return true;
+  return false;
+}
+
 export function toStoryTime(t: EvalOutput['scene_end'] | undefined | null): StoryTime | null {
   if (!t) return null;
   const lo = toTick(t.lo), hi = toTick(t.hi);
@@ -265,7 +277,17 @@ export function runGate(g: GateInput): GateResult {
     }
   }
   // Reviewer-reported contradictions of HARD contracts
-  for (const h of ev.hard_checks) if (h.status === 'contradicted') violations.push(`Reviewer: text contradicts HARD "${pack.events.get(h.event_id)?.title || h.event_id}" (${h.quote || ''}).`);
+  // HARD events not yet due at the end of this reply (and not depicted in it): see the reviewer-violation filter below.
+  const depicted = new Set(ev.occurrences.map((o) => o.pack_event_id).filter(Boolean));
+  const notDue = [...pendingHardMap.values()].filter((c) => !depicted.has(c.event.id) && !hardFulfilled.includes(c.event.id) && !g.stagedHard.has(c.event.id) && c.hi > Math.max(sceneEnd.lo, g.clockTick) && !(!flashback && c.hi <= sceneEnd.hi));
+  for (const h of ev.hard_checks) {
+    if (h.status !== 'contradicted') continue;
+    // Not yet due: confinement, distance or obstacles do not contradict it (the world can still bring it
+    // about, and the deadline rule forces it). A typed fact that rules out the outcome is caught above.
+    const nd = notDue.find((c) => c.event.id === h.event_id);
+    if (nd) { warnings.push(`reviewer "contradicted" for not-yet-due HARD "${nd.event.title}" ignored (deadline ${formatTick(nd.hi)}): ${h.quote || ''}`); continue; }
+    violations.push(`Reviewer: text contradicts HARD "${pack.events.get(h.event_id)?.title || h.event_id}" (${h.quote || ''}).`);
+  }
 
   // ---- player agency ---------------------------------------------------------------------------
   const playerActions: PlayerAction[] = [];
@@ -350,12 +372,14 @@ export function runGate(g: GateInput): GateResult {
   // can still bring it about offscreen (adjudicated when story time passes it). Deadlines are enforced
   // above; an explicit contradiction comes through hard_checks. Reviewer complaints about such an event
   // ("no escape route yet", "the meeting is not depicted") are therefore ignored.
-  const depicted = new Set(ev.occurrences.map((o) => o.pack_event_id).filter(Boolean));
-  const notDue = [...pendingHardMap.values()].filter((c) => !depicted.has(c.event.id) && !hardFulfilled.includes(c.event.id) && !g.stagedHard.has(c.event.id) && c.hi > Math.max(sceneEnd.lo, g.clockTick) && !(!flashback && c.hi <= sceneEnd.hi));
   for (const v of ev.violations) {
     if (v.quote && !quoteInText(v.quote, text)) { warnings.push(`reviewer violation without valid evidence ignored: ${v.detail}`); continue; }
-    const about = notDue.find((c) => `${v.code} ${v.detail}`.includes(c.event.id) || `${v.code} ${v.detail}`.includes(c.event.title));
-    if (about && !/without a credible cause/.test(v.detail)) { warnings.push(`reviewer violation about not-yet-due HARD "${about.event.title}" ignored: ${v.detail.slice(0, 160)}`); continue; }
+    // HARD conformance is decided by the structured HARD checks and deadlines above. A free-text
+    // complaint that only restates a HARD event (live finding: the reviewer treated the canonical ROUTE
+    // in the description as actual history and called the player's own actions a contradiction) is
+    // ignored when that event is not yet due or is confirmed fulfilled in this reply.
+    const about = [...pendingHardMap.values()].find((c) => (notDue.includes(c) || hardFulfilled.includes(c.event.id)) && refersToHard(`${v.code} ${v.detail}`, c.event.id, c.event.title, c.event.required_description || ''));
+    if (about && !/without a credible cause/.test(v.detail)) { warnings.push(`reviewer violation restating HARD "${about.event.title}" ignored (${hardFulfilled.includes(about.event.id) ? 'fulfilled in this reply' : 'not yet due'}): ${v.detail.slice(0, 160)}`); continue; }
     violations.push(`Reviewer: ${v.detail}${v.quote ? ` ("${v.quote}")` : ''}`);
   }
   if (/\[CANON[ _]ENGINE|ACTUAL HISTORY|FUTURE OBLIGATIONS|"entity_id"|<\/?canon/i.test(text)) violations.push('The reply leaks internal engine labels/JSON into the narrative.');

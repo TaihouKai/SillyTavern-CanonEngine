@@ -14745,6 +14745,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
 2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it), state_claims (facts the narration presupposes; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null), player_actions (player-character actions depicted; authorized_by_quote = verbatim span of the user's message that authorized it, or null), step_enactments, new_entities (genuinely new people/places/objects introduced).
 3. scene_end: story time when the reply ends (bounds; do not invent minutes \u2014 use range/approx when only "afternoon" is known). flashback=true if the reply is framed as a flashback.
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
+   HARD conformance belongs ONLY in hard_checks, never in violations or claim checks. A HARD description fixes the RESULT; the route it mentions (how or where it happened in the original) is not actual history, and the player's actions may change it. The player's actions from the current input are actual events of this turn: never call them unsupported, and never report them or their consequences as contradicting a HARD event.
    A HARD event that is not yet due is never a violation: ending the scene before it, or leaving it to happen offscreen without the player, is valid (the controller enforces deadlines and adjudicates offscreen events). Confinement, distance or obstacles do not contradict it \u2014 the world can still bring it about. Use "contradicted" only when the text says it will not happen or establishes a fact that rules out its required outcome itself.
    Credible cause: if the actual history/state rules out the event's usual route (a required participant is detained, guarded, far away, incapacitated...), it is fulfilled only when the text shows or clearly implies a concrete cause for how it still comes about (who or what, by what means). Otherwise give status "missing" and a violation whose detail begins with "HARD realized without a credible cause:". An unexplained vanishing, a glitch or "some invisible force" is not a cause unless it is the established ability of a specific character.
    Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place or activity meaningfully changes, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
@@ -15193,6 +15194,15 @@ function buildPacket(inp, compact = false) {
 
 // src/runtime/gate.ts
 var DESTRUCTIVE = /(destroy|ruin|demolish|collaps|dead|dissolv|gone|burn|毁|废|塌|灭|亡|解散)/i;
+function refersToHard(text, id, title, required) {
+  if (text.includes(id) || title && text.includes(title)) return true;
+  const t2 = text.replace(/\s+/g, " ");
+  const cjk = required.match(/[\u3400-\u9fff]+/g) || [];
+  for (const run of cjk) for (let i = 0; i + 6 <= run.length; i++) if (t2.includes(run.slice(i, i + 6))) return true;
+  const words = required.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  for (let i = 0; i + 4 <= words.length; i++) if (t2.toLowerCase().includes(words.slice(i, i + 4).join(" "))) return true;
+  return false;
+}
 function toStoryTime(t2) {
   if (!t2) return null;
   const lo = toTick(t2.lo), hi = toTick(t2.hi);
@@ -15411,7 +15421,17 @@ function runGate(g) {
       violations.push(`The reply's end time is ambiguous (${formatTick(sceneEnd.lo)}\u2013${formatTick(sceneEnd.hi)}) around the HARD checkpoint "${c.event.title}" at ${formatTick(c.hi)}. Either stop the scene clearly before it, or depict it: ${c.event.required_description}`);
     }
   }
-  for (const h of ev.hard_checks) if (h.status === "contradicted") violations.push(`Reviewer: text contradicts HARD "${pack2.events.get(h.event_id)?.title || h.event_id}" (${h.quote || ""}).`);
+  const depicted = new Set(ev.occurrences.map((o) => o.pack_event_id).filter(Boolean));
+  const notDue = [...pendingHardMap.values()].filter((c) => !depicted.has(c.event.id) && !hardFulfilled.includes(c.event.id) && !g.stagedHard.has(c.event.id) && c.hi > Math.max(sceneEnd.lo, g.clockTick) && !(!flashback && c.hi <= sceneEnd.hi));
+  for (const h of ev.hard_checks) {
+    if (h.status !== "contradicted") continue;
+    const nd = notDue.find((c) => c.event.id === h.event_id);
+    if (nd) {
+      warnings.push(`reviewer "contradicted" for not-yet-due HARD "${nd.event.title}" ignored (deadline ${formatTick(nd.hi)}): ${h.quote || ""}`);
+      continue;
+    }
+    violations.push(`Reviewer: text contradicts HARD "${pack2.events.get(h.event_id)?.title || h.event_id}" (${h.quote || ""}).`);
+  }
   const playerActions = [];
   for (const a of ev.player_actions) {
     if (!hasQuote(a.quote)) continue;
@@ -15482,16 +15502,14 @@ function runGate(g) {
       if (chk && chk.verdict === "unsupported") violations.push(`The reply asserts a past event with no actual record: "${e.quote}"`);
     }
   }
-  const depicted = new Set(ev.occurrences.map((o) => o.pack_event_id).filter(Boolean));
-  const notDue = [...pendingHardMap.values()].filter((c) => !depicted.has(c.event.id) && !hardFulfilled.includes(c.event.id) && !g.stagedHard.has(c.event.id) && c.hi > Math.max(sceneEnd.lo, g.clockTick) && !(!flashback && c.hi <= sceneEnd.hi));
   for (const v of ev.violations) {
     if (v.quote && !quoteInText(v.quote, text)) {
       warnings.push(`reviewer violation without valid evidence ignored: ${v.detail}`);
       continue;
     }
-    const about = notDue.find((c) => `${v.code} ${v.detail}`.includes(c.event.id) || `${v.code} ${v.detail}`.includes(c.event.title));
+    const about = [...pendingHardMap.values()].find((c) => (notDue.includes(c) || hardFulfilled.includes(c.event.id)) && refersToHard(`${v.code} ${v.detail}`, c.event.id, c.event.title, c.event.required_description || ""));
     if (about && !/without a credible cause/.test(v.detail)) {
-      warnings.push(`reviewer violation about not-yet-due HARD "${about.event.title}" ignored: ${v.detail.slice(0, 160)}`);
+      warnings.push(`reviewer violation restating HARD "${about.event.title}" ignored (${hardFulfilled.includes(about.event.id) ? "fulfilled in this reply" : "not yet due"}): ${v.detail.slice(0, 160)}`);
       continue;
     }
     violations.push(`Reviewer: ${v.detail}${v.quote ? ` ("${v.quote}")` : ""}`);
@@ -15916,7 +15934,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.21";
+var ENGINE_RELEASE = "1.3.22";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
