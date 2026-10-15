@@ -51,7 +51,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   maxRepairs: 2,
   taskTimeoutMs: 300000,
   draftTimeoutMs: 300000,
-  budgetChars: 24000,
+  budgetChars: 60000,
   horizonMinutes: 3 * 1440,
   readyWindowMinutes: 1440,
   opportunityWindowMinutes: 720,

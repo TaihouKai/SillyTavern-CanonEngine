@@ -22,6 +22,8 @@ export function globalSettings(): EngineSettings & { inspectorOpen: boolean } {
   es[SETTINGS_KEY] = { ...DEFAULT_SETTINGS, inspectorOpen: false, ...(es[SETTINGS_KEY] || {}) };
   // 1.3.1 measured timeouts per call; the old whole-check default (180 s) is too short for that.
   if (es[SETTINGS_KEY].taskTimeoutMs === 180000) es[SETTINGS_KEY].taskTimeoutMs = DEFAULT_SETTINGS.taskTimeoutMs;
+  // 1.3.5: the old 24000-char packet budget was too small for large packs (e.g. a full light-novel arc).
+  if (es[SETTINGS_KEY].budgetChars === 24000) es[SETTINGS_KEY].budgetChars = DEFAULT_SETTINGS.budgetChars;
   return es[SETTINGS_KEY];
 }
 

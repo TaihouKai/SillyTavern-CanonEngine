@@ -88,7 +88,7 @@ The engine context (rules + retrieved history + state) typically adds 2–5k tok
 
 ## Advanced settings
 
-`maxRepairs` (2), `maxOrdinaryPlanner` (2), `forcedPlannerAttempt` (on), `budgetChars` (context packet budget), `taskTimeoutMs`, `draftTimeoutMs`, `horizonMinutes`, debug mode, UI language (中文/English). Required matched history and scene constraints are never silently truncated; if they cannot fit, the turn stops with a capacity error.
+`maxRepairs` (2), `maxOrdinaryPlanner` (2), `forcedPlannerAttempt` (on), `budgetChars` (context packet budget, 60000; when the full packet does not fit, a compact form that keeps every fact is tried first), `taskTimeoutMs`, `draftTimeoutMs`, `horizonMinutes`, debug mode, UI language (中文/English). Required matched history and scene constraints are never silently truncated; if they cannot fit, the turn stops with a capacity error.
 
 ## Cost and latency
 

@@ -170,10 +170,10 @@ function histLine(h: HistoryRecordView, triggers: Set<string> | undefined, compa
   return parts.join('\n');
 }
 
-function stateLine(s: EntityStateView, checkpoint: string): string {
+function stateLine(s: EntityStateView, checkpoint: string, compact: boolean): string {
   // "since" labels are produced by entityState in pack-day form; keep them compact.
-  const f = s.facts.length ? s.facts.map((x) => `${x.predicate}=${x.display} (since ${x.since}${x.support ? `; ${x.support}` : ''})`).join('; ') : 'no established facts';
-  const lines = [`- ${s.name} [${s.entityId}] (${s.kind}): ${f}. No other supported change through ${checkpoint}.`];
+  const f = s.facts.length ? s.facts.map((x) => `${x.predicate}=${x.display} (since ${x.since}${!compact && x.support ? `; ${x.support}` : ''})`).join('; ') : 'no established facts';
+  const lines = [`- ${s.name} [${s.entityId}] (${s.kind}): ${f}.${compact ? '' : ` No other supported change through ${checkpoint}.`}`];
   if (s.unknown.length) lines.push(`  UNKNOWN (not established; do not assume normality): ${s.unknown.join(', ')}`);
   if (s.uncertain.length) lines.push(`  uncertain timing: ${s.uncertain.join('; ')}`);
   for (const p of s.parents) lines.push(`  inside ${p.parentName} [${p.parentId}] via ${p.predicate}: ${p.parentFacts.join('; ') || 'no facts'}`);
@@ -199,8 +199,13 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   required.push('ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n' + (hist.length ? hist.join('\n') : '- (no matching actual occurrences)'));
   // Entity state
   const ents = [...retrieval.entities.keys()].filter((id) => index.entityExists(id));
-  const states = ents.map((id) => stateLine(index.entityState(id, { tick: checkpointTick }), cpLabel));
-  required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops):\n` + (states.length ? states.join('\n') : '- (no referenced entities)'));
+  const views = ents.map((id) => index.entityState(id, { tick: checkpointTick }));
+  // Compact form keeps every fact: the per-entity "no other change" sentence moves into the header,
+  // the support note behind each fact is left out, and entities with nothing established share one line.
+  const bare = compact ? views.filter((v) => !v.facts.length && !v.unknown.length && !v.uncertain.length && !v.parents.length) : [];
+  const states = views.filter((v) => !bare.includes(v)).map((v) => stateLine(v, cpLabel, compact));
+  if (bare.length) states.push(`- no established facts: ${bare.map((v) => `${v.name} [${v.entityId}]`).join(', ')}`);
+  required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops${compact ? `; no other supported change through ${cpLabel}` : ''}):\n` + (states.length ? states.join('\n') : '- (no referenced entities)'));
   // Explicit canon statuses for referenced canonical events (non-occurrence distinctions)
   const canon = [...retrieval.canonEvents].map((id) => index.canonStatus(id, checkpointTick)).filter(Boolean) as CanonStatusView[];
   if (canon.length) required.push('REFERENCED CANON EVENTS — status in THIS branch (pending/future/omitted are NOT accomplished):\n' + canon.map(canonLine).join('\n'));
@@ -240,7 +245,8 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   }
   if (reqText.length > inp.budgetChars) {
     if (!compact) return buildPacket(inp, true);
-    throw new EngineError('capacity', `Required Canon Engine context (${reqText.length} chars) exceeds the configured budget (${inp.budgetChars}). Matched history and scene constraints are never silently dropped; raise the budget in advanced settings.`);
+    const need = Math.ceil((reqText.length + 2000) / 10000) * 10000;
+    throw new EngineError('capacity', `Required Canon Engine context (${reqText.length} chars: ${hist.length} history records, ${states.length} entity states) exceeds the configured budget (${inp.budgetChars}). Matched history and scene constraints are never silently dropped; raise budgetChars in Canon Engine advanced settings (高级设置) to at least ${need}.`);
   }
   const facts = [hist.join('\n'), states.join('\n')].filter(Boolean).join('\n');
   return { text, facts, hash: sha256(text), required: reqText.length, optional: text.length - reqText.length, truncatedOptional: truncated };

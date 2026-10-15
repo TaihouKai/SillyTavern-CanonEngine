@@ -14666,9 +14666,9 @@ function histLine(h, triggers, compact) {
   if (!compact && h.evidence.length) parts.push(`  evidence: ${h.evidence.slice(0, 2).map((e) => `"${e.quote.slice(0, 120)}"`).join(" ")}`);
   return parts.join("\n");
 }
-function stateLine(s, checkpoint) {
-  const f = s.facts.length ? s.facts.map((x) => `${x.predicate}=${x.display} (since ${x.since}${x.support ? `; ${x.support}` : ""})`).join("; ") : "no established facts";
-  const lines = [`- ${s.name} [${s.entityId}] (${s.kind}): ${f}. No other supported change through ${checkpoint}.`];
+function stateLine(s, checkpoint, compact) {
+  const f = s.facts.length ? s.facts.map((x) => `${x.predicate}=${x.display} (since ${x.since}${!compact && x.support ? `; ${x.support}` : ""})`).join("; ") : "no established facts";
+  const lines = [`- ${s.name} [${s.entityId}] (${s.kind}): ${f}.${compact ? "" : ` No other supported change through ${checkpoint}.`}`];
   if (s.unknown.length) lines.push(`  UNKNOWN (not established; do not assume normality): ${s.unknown.join(", ")}`);
   if (s.uncertain.length) lines.push(`  uncertain timing: ${s.uncertain.join("; ")}`);
   for (const p of s.parents) lines.push(`  inside ${p.parentName} [${p.parentId}] via ${p.predicate}: ${p.parentFacts.join("; ") || "no facts"}`);
@@ -14690,8 +14690,11 @@ function buildPacket(inp, compact = false) {
   const hist = occIds.map((id) => histLine(index.historyView(id, inp.origin), retrieval.occurrences.get(id), compact));
   required.push("ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n" + (hist.length ? hist.join("\n") : "- (no matching actual occurrences)"));
   const ents = [...retrieval.entities.keys()].filter((id) => index.entityExists(id));
-  const states = ents.map((id) => stateLine(index.entityState(id, { tick: checkpointTick }), cpLabel));
-  required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops):
+  const views = ents.map((id) => index.entityState(id, { tick: checkpointTick }));
+  const bare = compact ? views.filter((v) => !v.facts.length && !v.unknown.length && !v.uncertain.length && !v.parents.length) : [];
+  const states = views.filter((v) => !bare.includes(v)).map((v) => stateLine(v, cpLabel, compact));
+  if (bare.length) states.push(`- no established facts: ${bare.map((v) => `${v.name} [${v.entityId}]`).join(", ")}`);
+  required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops${compact ? `; no other supported change through ${cpLabel}` : ""}):
 ` + (states.length ? states.join("\n") : "- (no referenced entities)"));
   const canon = [...retrieval.canonEvents].map((id) => index.canonStatus(id, checkpointTick)).filter(Boolean);
   if (canon.length) required.push("REFERENCED CANON EVENTS \u2014 status in THIS branch (pending/future/omitted are NOT accomplished):\n" + canon.map(canonLine).join("\n"));
@@ -14726,7 +14729,8 @@ function buildPacket(inp, compact = false) {
   }
   if (reqText.length > inp.budgetChars) {
     if (!compact) return buildPacket(inp, true);
-    throw new EngineError("capacity", `Required Canon Engine context (${reqText.length} chars) exceeds the configured budget (${inp.budgetChars}). Matched history and scene constraints are never silently dropped; raise the budget in advanced settings.`);
+    const need = Math.ceil((reqText.length + 2e3) / 1e4) * 1e4;
+    throw new EngineError("capacity", `Required Canon Engine context (${reqText.length} chars: ${hist.length} history records, ${states.length} entity states) exceeds the configured budget (${inp.budgetChars}). Matched history and scene constraints are never silently dropped; raise budgetChars in Canon Engine advanced settings (\u9AD8\u7EA7\u8BBE\u7F6E) to at least ${need}.`);
   }
   const facts = [hist.join("\n"), states.join("\n")].filter(Boolean).join("\n");
   return { text, facts, hash: sha256(text), required: reqText.length, optional: text.length - reqText.length, truncatedOptional: truncated };
@@ -15438,7 +15442,7 @@ var DEFAULT_SETTINGS = {
   maxRepairs: 2,
   taskTimeoutMs: 3e5,
   draftTimeoutMs: 3e5,
-  budgetChars: 24e3,
+  budgetChars: 6e4,
   horizonMinutes: 3 * 1440,
   readyWindowMinutes: 1440,
   opportunityWindowMinutes: 720,
@@ -18625,6 +18629,7 @@ function globalSettings() {
   const es = ctx().extensionSettings;
   es[SETTINGS_KEY] = { ...DEFAULT_SETTINGS, inspectorOpen: false, ...es[SETTINGS_KEY] || {} };
   if (es[SETTINGS_KEY].taskTimeoutMs === 18e4) es[SETTINGS_KEY].taskTimeoutMs = DEFAULT_SETTINGS.taskTimeoutMs;
+  if (es[SETTINGS_KEY].budgetChars === 24e3) es[SETTINGS_KEY].budgetChars = DEFAULT_SETTINGS.budgetChars;
   return es[SETTINGS_KEY];
 }
 function getEngine() {
