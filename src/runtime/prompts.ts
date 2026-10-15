@@ -106,6 +106,21 @@ Facts you must respect (actual history/state at this scene):
 ${facts}
 Change only what is needed to fix these problems; keep the full length, detail and style a normal reply would have (do not shorten or summarize). Do not rewrite previously accepted history. Do not mention this request. Output only the narrative.`;
 
+/** Last resort after normal repairs failed on HARD problems: realize the HARD outcome by any means, however contrived. */
+export const HARD_LAST_RESORT_INSTRUCTION = (violations: string[], hard: string[], facts: string) => `[Canon Engine private revision request — not part of the story — FINAL ATTEMPT]
+Every previous draft for this turn was rejected because it breaks a HARD canon event. HARD events are fixed points of this world: their required outcome WILL happen at its authored time, no matter what anyone did before. This rule overrides plausibility, pacing and dramatic taste.
+HARD events you must honor in this reply:
+${hard.map((h, i) => `${i + 1}. ${h}`).join('\n')}
+Remaining problems with the last draft:
+${violations.map((v, i) => `${i + 1}. ${v}`).join('\n')}
+Facts you must respect (actual history/state at this scene):
+${facts}
+How to fix it:
+- Everything the player actually did stays done; do not erase or reverse it. Make the HARD outcome happen anyway through a separate cause: an escape, an outside intervention, an NPC acting off-screen, an accident, a malfunction, a misunderstanding, sheer coincidence. An unlikely or contrived cause is acceptable here; contradicting the HARD event is not.
+- If the HARD event's time has not been reached and the user's message does not require passing it, you may instead end the scene clearly before that time.
+- Never state or imply that the HARD event was prevented, cancelled, averted or will not happen.
+Keep the full length, detail and style a normal reply would have. Do not mention this request. Output only the narrative.`;
+
 /** Length instruction placed after the latest message. Both ends count: a floor-only wording made replies run far past the range. */
 export const replyLengthNote = (len: string) => /[㐀-鿿]/.test(len)
   ? `[CANON ENGINE — 回复篇幅] 本回合回复篇幅要求：${len}。写在这个范围内：不到下限不要收尾，篇幅不够时继续展开当前场景（环境与感官细节、NPC 的行动、对话与反应、已发生行动的直接后果），不要替用户行动，也不要跳过时间；接近上限时收束当前场景，把下一步留给用户，不要明显超出上限。`

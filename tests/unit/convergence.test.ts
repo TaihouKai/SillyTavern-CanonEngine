@@ -77,7 +77,7 @@ describe('convergence', () => {
     void okBegin;
     const good = { scene_end: at(4, 18, 10), occurrences: [occ('o1', 'Union victory', 'the Council banners fall', { pack_event_id: 'conflict-ends', disposition: 'occurred', time: at(4, 18) })], transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: false, quote: 'the Council banners fall', occurrence_ref: 'o1' }, { op: 'set', entity_id: 'conflict', predicate: 'victor', value: 'union', quote: 'the Council banners fall', occurrence_ref: 'o1' }] };
     x.host.addUser('I watch the final battle.');
-    x.model.draft('The Council banners fall... no — the Council triumphs over the Union. [W1]', 'The Council banners fall... the Council triumphs. [W2]', 'The Council banners fall... still the Council. [W3]');
+    x.model.draft('The Council banners fall... no — the Council triumphs over the Union. [W1]', 'The Council banners fall... the Council triumphs. [W2]', 'The Council banners fall... still the Council. [W3]', 'The Council banners fall... the Council again. [W4]');
     x.model.on('evaluate', (i) => String(i.candidate).includes('[W'), { ...good, hard_checks: [{ event_id: 'conflict-ends', status: 'contradicted', occurrence_ref: 'o1', quote: 'the Council triumphs' }] });
     expect(await x.engine.runOperation('normal')).toBe(false);
     expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/contradicts HARD|Reviewer/);
@@ -85,7 +85,7 @@ describe('convergence', () => {
     // structured wrong winner
     const y = await setup(tick(4, 17));
     y.host.addUser('I watch.');
-    y.model.draft('The Council banners rise. [X1]', 'The Council banners rise. [X2]', 'The Council banners rise. [X3]');
+    y.model.draft('The Council banners rise. [X1]', 'The Council banners rise. [X2]', 'The Council banners rise. [X3]', 'The Council banners rise. [X4]');
     y.model.on('evaluate', (i) => String(i.candidate).includes('[X'), { ...good, occurrences: [occ('o1', 'end', 'The Council banners rise', { pack_event_id: 'conflict-ends', disposition: 'occurred', time: at(4, 18) })], transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'victor', value: 'council', quote: 'The Council banners rise', occurrence_ref: 'o1' }], hard_checks: [{ event_id: 'conflict-ends', status: 'fulfilled', occurrence_ref: 'o1', quote: 'x' }] });
     expect(await y.engine.runOperation('normal')).toBe(false);
     expect(y.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/exact required outcome/);
@@ -190,10 +190,11 @@ describe('convergence', () => {
   it('C17 setting a HARD outcome fact without enacting the event is rejected', async () => {
     const x = await setup();
     x.host.addUser('I wait.');
-    x.model.draft('War is declared by decree. [S1]', 'War is declared by decree. [S2]', 'War is declared by decree. [S3]');
+    x.model.draft('War is declared by decree. [S1]', 'War is declared by decree. [S2]', 'War is declared by decree. [S3]', 'War is declared by decree. [S4]');
     x.model.on('evaluate', null, { transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true, quote: 'War is declared by decree', occurrence_ref: null }] });
     expect(await x.engine.runOperation('normal')).toBe(false);
     expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/required outcome of pending HARD/);
+    expect(x.engine.lastTrace!.prompts.some((p) => p.kind === 'repair_hard_last_resort')).toBe(true); // one final HARD repair before giving up
     expect(factAt(st(x), 'conflict', 'active').value).toBe(false);
   });
 

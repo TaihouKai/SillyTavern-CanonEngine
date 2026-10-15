@@ -11,7 +11,7 @@ import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
 import type { HostPort } from './host';
 import { callStructured, taskDefaults } from './model';
-import { CONTINUE_INSTRUCTION, GM_INTEGRATION_RULES, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
+import { CONTINUE_INSTRUCTION, GM_INTEGRATION_RULES, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, type ClaimInput, type RefInput, type Retrieval } from './context';
 import { runGate, type EvalOutput, type GateResult } from './gate';
@@ -873,8 +873,9 @@ export class CanonEngine {
         // Validate / repair loop (finite)
         let accepted: { review: ReviewResult; adj: Awaited<ReturnType<typeof adjudicateInterval>> | null } | null = null;
         let lastViolations: string[] = [];
-        for (let attempt = 0; attempt <= this.settings.maxRepairs; attempt++) {
-          this.setStatus('validating', attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})…` : 'Validating…');
+        let lastResort = false; // one extra, harsher repair when HARD problems survive the normal repairs
+        for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
+          this.setStatus('validating', attempt > this.settings.maxRepairs ? 'Re-checking final HARD repair…' : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})…` : 'Validating…');
           let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds: retrieval ? [...retrieval.entities.keys()] : [], reevalReasons: null, stagedNotes: [], fences, attempt });
           this.checkFences(fences, excludeLast);
           // Interval adjudication for the proposed advance (repeat if the draft goes farther than expected)
@@ -904,20 +905,27 @@ export class CanonEngine {
           trace.attempts.push({ candidateHash: sha256(candidate), violations, coverageGaps: review.gate.coverageGaps, manifestId: review.manifest?.manifestId || '' });
           if (!violations.length && review.manifest?.complete) { accepted = { review, adj }; break; }
           lastViolations = violations;
-          if (attempt === this.settings.maxRepairs) break;
-          this.setStatus('generating', `Repairing draft (${attempt + 1}/${this.settings.maxRepairs})…`);
+          const hardStuck = !lastResort && attempt === this.settings.maxRepairs && violations.some((v) => /\bHARD\b/.test(v));
+          if (attempt >= this.settings.maxRepairs && !hardStuck) break;
+          if (hardStuck) lastResort = true;
+          this.setStatus('generating', hardStuck ? 'Final HARD repair…' : `Repairing draft (${attempt + 1}/${this.settings.maxRepairs})…`);
           const facts = review.facts || packet.facts;
           packetArgs.retrieval = mergeRetrieval(packetArgs.retrieval, review.retrieval);
           packetArgs.stagedNotes = adj?.notes || [];
           packet = buildPacket(packetArgs);
           const repairCtx = this.gmRules() + '\n\n' + packet.text;
-          trace.prompts.push({ kind: `repair_${attempt + 1}`, text: repairCtx });
-          draft = await this.timeStep('repair', this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, lengthNote: continuing ? '' : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + '\n' : '') + REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6000)) + (continuing ? `\nExisting part of the reply (keep it unchanged; output only the continuation):\n${continuedEntry!.text}` : ''), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
+          trace.prompts.push({ kind: hardStuck ? 'repair_hard_last_resort' : `repair_${attempt + 1}`, text: repairCtx });
+          const replyEnd = Math.max(review.gate.sceneEnd?.hi ?? clock, clock);
+          const hardReqs = hardStuck ? pendingHard(pack, index.state)
+            .filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title)))
+            .map((h) => `${h.event.title} (${formatTick(h.lo)}${h.hi !== h.lo ? `–${formatTick(h.hi)}` : ''}): ${h.event.required_description}`) : [];
+          const repairInstruction = hardStuck ? HARD_LAST_RESORT_INSTRUCTION(violations.slice(0, 8), hardReqs, facts.slice(0, 6000)) : REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6000));
+          draft = await this.timeStep('repair', this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, lengthNote: continuing ? '' : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + '\n' : '') + repairInstruction + (continuing ? `\nExisting part of the reply (keep it unchanged; output only the continuation):\n${continuedEntry!.text}` : ''), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
           this.checkFences(fences, excludeLast);
           candidate = continuing ? joinContinuation(continuedEntry!.text, draft) : draft;
         }
         if (!accepted) {
-          throw new EngineError('narrative_validation_failure', `The reply could not be validated within ${this.settings.maxRepairs} repairs. Last problems: ${lastViolations.slice(0, 3).join(' | ')}`);
+          throw new EngineError('narrative_validation_failure', `The reply could not be validated within ${this.settings.maxRepairs} repairs${lastResort ? ' plus a final HARD repair' : ''}. Last problems: ${lastViolations.slice(0, 3).join(' | ')}`);
         }
 
         // Commit

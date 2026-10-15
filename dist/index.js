@@ -14415,6 +14415,19 @@ ${violations.map((v, i) => `${i + 1}. ${v}`).join("\n")}
 Facts you must respect (actual history/state at this scene):
 ${facts}
 Change only what is needed to fix these problems; keep the full length, detail and style a normal reply would have (do not shorten or summarize). Do not rewrite previously accepted history. Do not mention this request. Output only the narrative.`;
+var HARD_LAST_RESORT_INSTRUCTION = (violations, hard, facts) => `[Canon Engine private revision request \u2014 not part of the story \u2014 FINAL ATTEMPT]
+Every previous draft for this turn was rejected because it breaks a HARD canon event. HARD events are fixed points of this world: their required outcome WILL happen at its authored time, no matter what anyone did before. This rule overrides plausibility, pacing and dramatic taste.
+HARD events you must honor in this reply:
+${hard.map((h, i) => `${i + 1}. ${h}`).join("\n")}
+Remaining problems with the last draft:
+${violations.map((v, i) => `${i + 1}. ${v}`).join("\n")}
+Facts you must respect (actual history/state at this scene):
+${facts}
+How to fix it:
+- Everything the player actually did stays done; do not erase or reverse it. Make the HARD outcome happen anyway through a separate cause: an escape, an outside intervention, an NPC acting off-screen, an accident, a malfunction, a misunderstanding, sheer coincidence. An unlikely or contrived cause is acceptable here; contradicting the HARD event is not.
+- If the HARD event's time has not been reached and the user's message does not require passing it, you may instead end the scene clearly before that time.
+- Never state or imply that the HARD event was prevented, cancelled, averted or will not happen.
+Keep the full length, detail and style a normal reply would have. Do not mention this request. Output only the narrative.`;
 var replyLengthNote = (len) => /[㐀-鿿]/.test(len) ? `[CANON ENGINE \u2014 \u56DE\u590D\u7BC7\u5E45] \u672C\u56DE\u5408\u56DE\u590D\u7BC7\u5E45\u8981\u6C42\uFF1A${len}\u3002\u5199\u5728\u8FD9\u4E2A\u8303\u56F4\u5185\uFF1A\u4E0D\u5230\u4E0B\u9650\u4E0D\u8981\u6536\u5C3E\uFF0C\u7BC7\u5E45\u4E0D\u591F\u65F6\u7EE7\u7EED\u5C55\u5F00\u5F53\u524D\u573A\u666F\uFF08\u73AF\u5883\u4E0E\u611F\u5B98\u7EC6\u8282\u3001NPC \u7684\u884C\u52A8\u3001\u5BF9\u8BDD\u4E0E\u53CD\u5E94\u3001\u5DF2\u53D1\u751F\u884C\u52A8\u7684\u76F4\u63A5\u540E\u679C\uFF09\uFF0C\u4E0D\u8981\u66FF\u7528\u6237\u884C\u52A8\uFF0C\u4E5F\u4E0D\u8981\u8DF3\u8FC7\u65F6\u95F4\uFF1B\u63A5\u8FD1\u4E0A\u9650\u65F6\u6536\u675F\u5F53\u524D\u573A\u666F\uFF0C\u628A\u4E0B\u4E00\u6B65\u7559\u7ED9\u7528\u6237\uFF0C\u4E0D\u8981\u660E\u663E\u8D85\u51FA\u4E0A\u9650\u3002` : `[CANON ENGINE \u2014 reply length] Reply length for this turn: ${len}. Stay within this range: do not wrap up before the lower end; if the reply is still short, keep developing the current scene (surroundings and sensory detail, NPC actions, dialogue and reactions, direct consequences of what already happened) instead of acting for the user or skipping time. Near the upper end, bring the current beat to a close and leave the next step to the user; do not run clearly past it.`;
 var CONTINUE_INSTRUCTION = `[Canon Engine private instruction \u2014 not part of the story] Continue the last GM message exactly from where it stops. Output only the continuation text (do not repeat the existing part).`;
 
@@ -16359,8 +16372,9 @@ var CanonEngine = class {
         if (!candidate.trim()) throw new EngineError("provider_failure", "the model returned an empty reply");
         let accepted = null;
         let lastViolations = [];
-        for (let attempt = 0; attempt <= this.settings.maxRepairs; attempt++) {
-          this.setStatus("validating", attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})\u2026` : "Validating\u2026");
+        let lastResort = false;
+        for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
+          this.setStatus("validating", attempt > this.settings.maxRepairs ? "Re-checking final HARD repair\u2026" : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})\u2026` : "Validating\u2026");
           let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds: retrieval ? [...retrieval.entities.keys()] : [], reevalReasons: null, stagedNotes: [], fences, attempt });
           this.checkFences(fences, excludeLast);
           let adj = null;
@@ -16409,22 +16423,27 @@ var CanonEngine = class {
             break;
           }
           lastViolations = violations;
-          if (attempt === this.settings.maxRepairs) break;
-          this.setStatus("generating", `Repairing draft (${attempt + 1}/${this.settings.maxRepairs})\u2026`);
+          const hardStuck = !lastResort && attempt === this.settings.maxRepairs && violations.some((v) => /\bHARD\b/.test(v));
+          if (attempt >= this.settings.maxRepairs && !hardStuck) break;
+          if (hardStuck) lastResort = true;
+          this.setStatus("generating", hardStuck ? "Final HARD repair\u2026" : `Repairing draft (${attempt + 1}/${this.settings.maxRepairs})\u2026`);
           const facts = review.facts || packet.facts;
           packetArgs.retrieval = mergeRetrieval(packetArgs.retrieval, review.retrieval);
           packetArgs.stagedNotes = adj?.notes || [];
           packet = buildPacket(packetArgs);
           const repairCtx = this.gmRules() + "\n\n" + packet.text;
-          trace.prompts.push({ kind: `repair_${attempt + 1}`, text: repairCtx });
-          draft = await this.timeStep("repair", this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, lengthNote: continuing ? "" : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + "\n" : "") + REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6e3)) + (continuing ? `
+          trace.prompts.push({ kind: hardStuck ? "repair_hard_last_resort" : `repair_${attempt + 1}`, text: repairCtx });
+          const replyEnd = Math.max(review.gate.sceneEnd?.hi ?? clock, clock);
+          const hardReqs = hardStuck ? pendingHard(pack2, index.state).filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title))).map((h) => `${h.event.title} (${formatTick(h.lo)}${h.hi !== h.lo ? `\u2013${formatTick(h.hi)}` : ""}): ${h.event.required_description}`) : [];
+          const repairInstruction = hardStuck ? HARD_LAST_RESORT_INSTRUCTION(violations.slice(0, 8), hardReqs, facts.slice(0, 6e3)) : REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6e3));
+          draft = await this.timeStep("repair", this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, lengthNote: continuing ? "" : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + "\n" : "") + repairInstruction + (continuing ? `
 Existing part of the reply (keep it unchanged; output only the continuation):
 ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
           this.checkFences(fences, excludeLast);
           candidate = continuing ? joinContinuation(continuedEntry.text, draft) : draft;
         }
         if (!accepted) {
-          throw new EngineError("narrative_validation_failure", `The reply could not be validated within ${this.settings.maxRepairs} repairs. Last problems: ${lastViolations.slice(0, 3).join(" | ")}`);
+          throw new EngineError("narrative_validation_failure", `The reply could not be validated within ${this.settings.maxRepairs} repairs${lastResort ? " plus a final HARD repair" : ""}. Last problems: ${lastViolations.slice(0, 3).join(" | ")}`);
         }
         this.setStatus("committing", "Saving\u2026");
         this.checkFences(fences, excludeLast);

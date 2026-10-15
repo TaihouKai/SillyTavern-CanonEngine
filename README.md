@@ -63,7 +63,7 @@ Edit or delete any message with ST's normal tools. The engine finds the earliest
 
 ### Errors and recovery
 
-Operational problems are shown out of story: invalid pack, unresolved starting time, conflicting retained transcript, provider failure, invalid model JSON, narrative validation failure (after at most 2 repairs), stale response, incompatible adapter, stale memory, persistence failure, context capacity. **重试** reruns the failed turn or re-saves after a failed save. Your input and the last valid state are always kept; no empty or error message is ever added to the chat.
+Operational problems are shown out of story: invalid pack, unresolved starting time, conflicting retained transcript, provider failure, invalid model JSON, narrative validation failure (after at most 2 repairs, plus one final repair when a HARD event is still broken — it may realize the HARD outcome through any cause, however contrived, rather than give up), stale response, incompatible adapter, stale memory, persistence failure, context capacity. **重试** reruns the failed turn or re-saves after a failed save. Your input and the last valid state are always kept; no empty or error message is ever added to the chat.
 
 ## Backup, restore, pack updates
 
@@ -96,7 +96,7 @@ The engine context (rules + retrieved history + state) typically adds 2–5k tok
 
 ## Cost and latency
 
-Each managed turn uses your connection several times: user extraction, draft, whole-draft discovery, evaluation; plus planning, offscreen adjudication and impact assessment when needed, and up to two repairs (each repeats discovery + evaluation). Expect roughly 4–7 model calls for an ordinary turn.
+Each managed turn uses your connection several times: user extraction, draft, whole-draft discovery, evaluation; plus planning, offscreen adjudication and impact assessment when needed, and up to two repairs (each repeats discovery + evaluation; a third, final one only when a HARD event is still broken). Expect roughly 4–7 model calls for an ordinary turn.
 
 ## Known limitations (v1)
 

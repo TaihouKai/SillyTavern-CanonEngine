@@ -685,6 +685,23 @@ try {
     check(results, 'L03 a reply cut off at the output limit is flagged in the status line', /截断|cut off/.test(t2), t2);
     check(results, 'L04 and a warning explains how to fix it', /cut off at the output limit/.test(toasts), toasts.slice(0, 300));
   }
+  if (want('S16')) {
+    console.log('\n== S16 final HARD repair ==');
+    await freshChat();
+    const hardBad = (m) => rule('evaluate', m, { decision: 'repair', violations: [{ code: 'hard', quote: m, detail: 'text contradicts HARD "the ambush"' }] });
+    const plainBad = (m) => rule('evaluate', m, { decision: 'repair', violations: [{ code: 'other', quote: m, detail: 'the tone is wrong' }] });
+    await mock('/control', { mainQueue: ['伏击被彻底阻止了。HB_1', '伏击不会发生了。HB_2', '没有人来伏击。HB_3', '一阵巧合让伏击照常发生。HB_OK'], taskRules: [hardBad('HB_1'), hardBad('HB_2'), hardBad('HB_3')], clearLogs: true });
+    await send(page, '我把所有伏兵都抓起来。');
+    const ml = await mainLogs();
+    const ai = await lastAi();
+    check(results, 'H01 when normal repairs leave a HARD problem, one extra final repair is made and can be accepted', ml.length === 4 && /HB_OK/.test(ai?.mes || ''), `${ml.length} ${ai?.mes}`);
+    check(results, 'H02 the final repair asks for the HARD outcome by any means', !!ml[3] && /FINAL ATTEMPT/.test(promptText(ml[3])) && /contrived/.test(promptText(ml[3])) && !/FINAL ATTEMPT/.test(promptText(ml[2])), (ml[3] ? promptText(ml[3]) : '').slice(-300));
+    await freshChat();
+    await mock('/control', { mainQueue: ['语气不对。PB_1', '语气不对。PB_2', '语气不对。PB_3', '不该用到。PB_4'], taskRules: [plainBad('PB_1'), plainBad('PB_2'), plainBad('PB_3')], clearLogs: true });
+    await send(page, '我四处看看。');
+    const ml2 = await mainLogs();
+    check(results, 'H03 problems that are not about HARD events get no extra attempt', ml2.length === 3, String(ml2.length));
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }
