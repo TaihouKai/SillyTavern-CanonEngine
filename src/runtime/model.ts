@@ -1,6 +1,17 @@
 // Model port abstraction + structured JSON task runner with local validation and bounded repair.
 // Model output is data only: never executed, never written to storage directly.
 import * as V from '../generated/validators.js';
+import { normalizeToSchema } from './normalize';
+import extractUserSchema from '../../schemas/runtime/extract-user.schema.json';
+import discoverSchema from '../../schemas/runtime/discover.schema.json';
+import evaluateSchema from '../../schemas/runtime/evaluate.schema.json';
+import adjudicateSchema from '../../schemas/runtime/adjudicate.schema.json';
+import impactSchema from '../../schemas/runtime/impact.schema.json';
+import planSchema from '../../schemas/runtime/plan.schema.json';
+
+const TASK_SCHEMAS: Record<string, Record<string, any>> = {
+  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema,
+};
 import { EngineError } from '../domain/util';
 
 export type TaskName = 'extract_user' | 'discover' | 'evaluate' | 'adjudicate' | 'impact' | 'plan';
@@ -135,10 +146,11 @@ const ITEM_DEFAULTS: Record<string, (item: any, idx: number) => Record<string, u
 };
 
 /** Renames alias fields and fills harmless defaults in list items; drops items that still lack their identity. */
-function repairItems(root: unknown, errors: { keyword: string; instancePath: string }[]): boolean {
+function repairItems(root: unknown, errors: { keyword: string; instancePath: string }[] | 'all'): boolean {
   let changed = false;
   const lists = new Set<string>();
-  for (const e of errors) {
+  if (errors === 'all') Object.keys(ITEM_ALIASES).forEach((k) => lists.add(k));
+  else for (const e of errors) {
     const m = /^\/([a-z_]+)\/\d+/.exec(e.instancePath || '');
     if (m && ITEM_ALIASES[m[1]]) lists.add(m[1]);
   }
@@ -183,16 +195,6 @@ function dropBadItems(root: unknown, errors: { instancePath: string }[]): boolea
 
 function repairEnums(root: unknown, errors: { keyword: string; instancePath: string; params?: unknown }[]): boolean {
   let changed = repairItems(root, errors);
-  // A missing/null evidence quote in a list whose items are only RECORDED (never a check that could hide a
-  // problem, unlike player_actions/state_claims): the gate treats an empty quote as "no evidence"
-  // and ignores that item, so an empty string is the faithful repair.
-  for (const e of errors) {
-    const p = e.params as { type?: string; missingProperty?: string } | undefined;
-    let obj: any; let key = '';
-    if (e.keyword === 'type' && p?.type === 'string' && /^\/(transitions|occurrences|new_entities|step_enactments)\/\d+\/quote$/.test(e.instancePath)) { obj = valueAt(root, e.instancePath.replace(/\/quote$/, '')); key = 'quote'; }
-    else if (e.keyword === 'required' && p?.missingProperty === 'quote' && /^\/(transitions|occurrences|new_entities|step_enactments)\/\d+$/.test(e.instancePath)) { obj = valueAt(root, e.instancePath); key = 'quote'; }
-    if (obj && typeof obj === 'object' && (obj[key] === null || obj[key] === undefined)) { obj[key] = ''; changed = true; }
-  }
   // "null or object" fields given a scalar (e.g. "time": "傍晚", "fact": "…"): the value carries no
   // typed data, so treat it as unknown (null) rather than failing the turn.
   const nullable = new Set(errors.filter((e) => e.keyword === 'type' && (e.params as { type?: string })?.type === 'null').map((e) => e.instancePath));
@@ -321,7 +323,14 @@ export async function callStructured<T>(
       try { taskDefaults.onDone?.(task, Date.now() - callStart, attempt); } catch { /* UI only */ }
     }
     try {
-      const data = extractJson(raw);
+      let data = extractJson(raw);
+      // Schema-driven normalization first (see normalize.ts); only what decides a check is sent back.
+      repairItems(data, 'all');
+      const normNotes: string[] = [];
+      data = normalizeToSchema(data, TASK_SCHEMAS[task], normNotes);
+      const drops = normNotes.filter((n) => n.startsWith('dropped'));
+      for (const n of drops) try { taskDefaults.onReject?.(task, `kept after a fix: ${n}`); } catch { /* UI only */ }
+      if (normNotes.length > drops.length) opts.log?.({ task, attempt, ok: true, error: `normalized: ${normNotes.filter((n) => !n.startsWith('dropped')).slice(0, 8).join('; ')}`, operationId: opts.operationId });
       const v = validators[task];
       if (!v(data)) {
         // Repair unambiguous enum slips (case, common synonyms) instead of failing the turn.

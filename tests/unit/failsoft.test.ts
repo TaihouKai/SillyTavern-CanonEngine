@@ -59,9 +59,9 @@ describe('fail-soft analysis', () => {
     await x.engine.reconcile('t');
     x.host.addUser('I walk the docks.');
     x.model.draft('You walk the docks at dawn. [E1]');
-    x.model.on('evaluate', (i) => String(i.candidate).includes('[E1]'), { scene_end: at(1, 9, 45), occurrences: [occ('o1', 'Dock walk', 'walk the docks', { origin: 'player' }), { ref: 'o2', title: 42 }] });
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[E1]'), { scene_end: at(1, 9, 45), occurrences: [occ('o1', 'Dock walk', 'walk the docks', { origin: 'player' }), { ref: 'o2', account: 'no title' }] });
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect([...x.engine.current!.replay.state.occurrences.values()].some((o) => o.title === 'Dock walk')).toBe(true);
-    expect(x.engine.lastTimings!.rejects!.join(' ')).toMatch(/evaluate: kept after a fix: dropped malformed occurrences item/);
+    expect(x.engine.lastTimings!.rejects!.join(' ')).toMatch(/evaluate: kept after a fix: dropped occurrences item/);
   });
 });
