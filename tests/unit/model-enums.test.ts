@@ -24,12 +24,15 @@ describe('structured output enum handling (real-model findings)', () => {
   });
 
   it('tells the model the offending value and the allowed values on retry', async () => {
-    const p = port([{ references: [ref('direct')], claims: [claim('event')] }, { references: [ref('direct')], claims: [claim('state')] }]);
-    const out = await callStructured<any>(p, 'discover', 'sys', {});
-    expect(out.claims[0].kind).toBe('state');
+    // (a strict list: review verdicts are checks, so a bad value is sent back rather than dropped)
+    const base = { decision: 'retain', scene_end: null, transitions: [], occurrences: [], state_claims: [], player_actions: [], violations: [], hard_checks: [] };
+    const cc = (verdict: string) => ({ claim_id: 'c1', verdict, record_ids: [], note: '' });
+    const p = port([{ ...base, claim_checks: [cc('maybe')] }, { ...base, claim_checks: [cc('consistent')] }]);
+    const out = await callStructured<any>(p, 'evaluate', 'sys', {});
+    expect(out.claim_checks[0].verdict).toBe('consistent');
     const feedback = p.seen[1][p.seen[1].length - 1];
-    expect(feedback).toContain('got "event"');
-    expect(feedback).toContain('allowed: state, capability, recollection, causal, location, presence, operation, time');
+    expect(feedback).toContain('got "maybe"');
+    expect(feedback).toContain('allowed: consistent, contradiction, unsupported');
   });
 });
 

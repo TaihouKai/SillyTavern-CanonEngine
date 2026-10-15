@@ -649,12 +649,18 @@ export class CanonEngine {
     const pack = index.pack;
     const tick = index.state.clock.lo;
     const discKey = `${a.operationId}|${sha256(a.text + '\n' + (a.userEntry?.text || ''))}`;
+    // Discovery helps the review find what to look up. If its output is unusable, fall back to the
+    // deterministic name matching below instead of failing the turn; the review itself stays strict.
     const disc = this.discCache.get(discKey) || this.rememberDiscovery(discKey, await this.withTimeout(callStructured<DiscoverOut>(this.host.model, 'discover', PROMPTS.discover, {
       text: a.text,
       scene_framing: a.userEntry ? `Player input: ${a.userEntry.text}` : '',
       registry: this.registry(index),
       occurrences: this.occurrenceCatalogue(index, a.text + ' ' + (a.userEntry?.text || '')),
-    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal));
+    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal).catch((e) => {
+      if (!(e instanceof EngineError) || e.kind !== 'invalid_model_json') throw e;
+      this.rejects.push(`discover: unusable after retries, used built-in name matching instead (${(e as Error).message.slice(0, 160)})`);
+      return { references: [], claims: [] } as DiscoverOut;
+    }));
     const refs: RefInput[] = disc.references.filter((r) => quoteInText(r.quote, a.text) || !r.quote).map((r) => ({ id: r.id, quote: r.quote, phrase: r.phrase, kind: r.ref_kind, assertion: r.assertion, temporal: r.temporal, candidates: r.candidate_ids }));
     const claims: ClaimInput[] = disc.claims.filter((c) => quoteInText(c.quote, a.text)).map((c) => ({ id: c.id, quote: c.quote, kind: c.kind, entityPhrases: c.entity_phrases || [], assertion: c.assertion, expected: c.expected || null }));
     // Deterministic discovery floor: every known entity/occurrence named in the text gets a lookup
@@ -722,7 +728,7 @@ export class CanonEngine {
       lines.push('', `Attempt ${i + 1}${i === 0 ? ' (first draft)' : i > this.settings.maxRepairs ? ' (final HARD repair)' : ` (repair ${i})`}: ${a.violations.length ? `${a.violations.length} problem(s)` : 'no problems'}`);
       for (const v of a.violations) lines.push(`  - ${v}`);
     });
-    if (tm.rejects?.length) { lines.push('', 'Model output rejected and resent:'); for (const r of tm.rejects) lines.push(`  - ${r}`); }
+    if (tm.rejects?.length) { lines.push('', 'Model output problems (resent, or kept after an automatic fix):'); for (const r of tm.rejects) lines.push(`  - ${r}`); }
     lines.push('', 'Steps: ' + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? ` (resent ${s.retries})` : ''}`).join(' · '));
     return lines.join('\n').slice(0, 12000);
   }

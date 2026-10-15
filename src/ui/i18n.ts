@@ -88,7 +88,7 @@ const D: Record<string, { zh: string; en: string }> = {
   tabDone: { zh: '回复完成', en: 'reply ready' },
   tabFailed: { zh: '回复失败', en: 'turn failed' },
   resent: { zh: '重发', en: 'resent' },
-  resentWhy: { zh: '重发原因（模型输出格式不对）', en: 'Why output was resent (malformed model output)' },
+  resentWhy: { zh: '模型输出问题（已重发或已自动修正）', en: 'Model output problems (resent or fixed automatically)' },
   replyLen: { zh: '回复', en: 'reply' },
   charsUnit: { zh: '字', en: ' chars' },
   cutOff: { zh: '（被截断）', en: '(cut off)' },

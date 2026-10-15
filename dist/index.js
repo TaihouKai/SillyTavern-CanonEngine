@@ -12625,6 +12625,39 @@ function extractJson(text) {
   }
   throw new Error("no parseable JSON object in model output");
 }
+function salvageTruncatedJson(text) {
+  const s = String(text ?? "");
+  const start = s.indexOf("{");
+  if (start < 0) return null;
+  const stack = [];
+  let inStr = false, esc3 = false;
+  let cut = null;
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) {
+      if (esc3) esc3 = false;
+      else if (ch === "\\") esc3 = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === "{" || ch === "[") stack.push(ch);
+    else if (ch === "}" || ch === "]") {
+      stack.pop();
+      if (!stack.length) return null;
+      cut = { at: i + 1, open: stack.join("") };
+    }
+  }
+  if (!cut) return null;
+  const close = cut.open.split("").reverse().map((c) => c === "{" ? "}" : "]").join("");
+  try {
+    return JSON.parse(s.slice(start, cut.at) + close);
+  } catch {
+    return null;
+  }
+}
+var SALVAGEABLE = /* @__PURE__ */ new Set(["discover", "extract_user"]);
+var SALVAGE_LISTS = { discover: ["references", "claims"], extract_user: ["statements", "references"] };
 var ENUM_SYNONYMS = {
   descriptor: "indirect",
   description: "indirect",
@@ -12726,7 +12759,8 @@ function repairItems(root, errors) {
   }
   return changed;
 }
-var DROPPABLE_ITEMS = /* @__PURE__ */ new Set(["step_enactments"]);
+var repairNotes = [];
+var DROPPABLE_ITEMS = /* @__PURE__ */ new Set(["step_enactments", "new_entities", "transitions", "occurrences", "references", "claims", "statements"]);
 function dropBadItems(root, errors) {
   const bad = /* @__PURE__ */ new Map();
   for (const e of errors) {
@@ -12738,6 +12772,7 @@ function dropBadItems(root, errors) {
     const arr = root?.[list];
     if (!Array.isArray(arr)) continue;
     for (const i of [...idx].sort((a, b) => b - a)) if (i < arr.length) {
+      repairNotes.push(`dropped malformed ${list} item: ${JSON.stringify(arr[i]).slice(0, 120)}`);
       arr.splice(i, 1);
       changed = true;
     }
@@ -12746,7 +12781,6 @@ function dropBadItems(root, errors) {
 }
 function repairEnums(root, errors) {
   let changed = repairItems(root, errors);
-  if (dropBadItems(root, errors)) changed = true;
   for (const e of errors) {
     const p = e.params;
     let obj;
@@ -12903,12 +12937,27 @@ ${system}` },
       const v = validators[task];
       if (!v(data)) {
         let fixed = false;
+        repairNotes = [];
         for (let k = 0; k < 6 && repairEnums(data, v.errors || []); k++) if (v(data)) {
           fixed = true;
           break;
         }
+        for (let k = 0; !fixed && k < 3 && dropBadItems(data, v.errors || []); k++) {
+          if (v(data)) {
+            fixed = true;
+            break;
+          }
+          for (let j = 0; j < 6 && repairEnums(data, v.errors || []); j++) if (v(data)) {
+            fixed = true;
+            break;
+          }
+        }
         if (fixed) {
           opts.log?.({ task, attempt, ok: true, operationId: opts.operationId });
+          for (const n of repairNotes) try {
+            taskDefaults.onReject?.(task, `kept after a fix: ${n}`);
+          } catch {
+          }
           return data;
         }
         const errs = (v.errors || []).slice(0, 8).map((e) => {
@@ -12929,6 +12978,24 @@ ${system}` },
       try {
         taskDefaults.onReject?.(task, lastErr);
       } catch {
+      }
+      if (cutOff && SALVAGEABLE.has(task)) {
+        const part = salvageTruncatedJson(text);
+        if (part) {
+          for (const k of ["references", "claims", "statements"]) if ((SALVAGE_LISTS[task] || []).includes(k) && !Array.isArray(part[k])) part[k] = [];
+        }
+        const v = validators[task];
+        if (part && (v(part) || (() => {
+          for (let k = 0; k < 6 && repairEnums(part, v.errors || []); k++) if (v(part)) return true;
+          return false;
+        })())) {
+          opts.log?.({ task, attempt, ok: true, error: "salvaged complete items from a cut-off reply", operationId: opts.operationId });
+          try {
+            taskDefaults.onReject?.(task, "reply cut off at the length limit; kept its complete items");
+          } catch {
+          }
+          return part;
+        }
       }
       if (cutOff) {
         budget = Math.min(16384, Math.round(budget * 2));
@@ -14486,10 +14553,10 @@ For each meaningful statement give kind:
 Also list references to entities or past events (direct, indirect like "the man I rescued", aliases, pronouns) with candidate ids, and scene_entities the user's action involves.
 SHAPE: {"statements":[{"kind":"asserted_fact|attempted_action|spoken_dialogue|belief|hypothetical|ooc_config_request|time_proposal|participation_decline","quote":"...","summary":"...","entities":["id"],"facts":[{"entity_id":"","predicate":"","value":true}],"event_id":null,"time":null,"ambiguous":false}],"references":[{"phrase":"","quote":"","kind":"entity|event","mode":"direct|indirect|alias|pronoun","candidates":["id"]}],"scene_entities":["id"]}`,
   discover: `${COMMON}
-TASK: Reference and claim discovery over the COMPLETE candidate text. Find EVERY:
+TASK: Reference and claim discovery over the COMPLETE candidate text. Find the references and claims worth checking (at most 40 references and 40 claims; when there are more, keep the ones a record could contradict: past events, known people/places/objects/organizations, possession, presence, causes):
 - reference to a person, place, object, organization or past event \u2014 direct names, aliases, indirect phrases ("that explosion", "our agreement"), pronouns with clear antecedents, new route stops, incidental NPCs, recollections in dialogue;
 - state-dependent claim, explicit or implicit: shopping/trading requires an operating venue; greeting someone in person requires them alive and present; using/holding an object requires its existence and possession; an organization acting requires it to exist/operate; recollections assert what happened; time statements.
-Skip generic scenery that no record could contradict (drinks, traffic lights, clothing, furniture, weather, unnamed passers-by): include an object only when its existence, possession or condition matters, and an unnamed person only when they act or speak. Group repeated mentions of the same thing into one reference. Keep quotes short (a few words).
+Skip generic scenery that no record could contradict (drinks, traffic lights, clothing, furniture, weather, unnamed passers-by): include an object only when its existence, possession or condition matters, and an unnamed person only when they act or speak. Group repeated mentions of the same thing into one reference. Ordinary dialogue (greetings, feelings, reactions, small talk) is not a claim unless it asserts a past event or the state of a known person/place/object. Keep quotes short (a few words).
 Label each with assertion: narrator (narration asserts truth), new_event (the text proposes something happening now), belief, rumor, lie, hypothetical, flashback, dialogue (a character's claim), plan.
 Give candidate_ids from the registry/occurrence catalogue when you can. When a claim maps to a typed fact give "expected" (e.g. {"entity_id":"old-market","predicate":"condition","value":"intact"} for "busy stalls of the Old Market").
 SHAPE: {"references":[{"id":"r1","quote":"","phrase":"","ref_kind":"person|place|object|organization|event|other","mode":"direct|indirect|alias|pronoun","assertion":"narrator|new_event|belief|rumor|lie|hypothetical|flashback|dialogue|user_input|plan","temporal":"present|past|flashback|future","candidate_ids":[]}],"claims":[{"id":"c1","quote":"","kind":"state|capability|recollection|causal|location|presence|operation|time","entity_phrases":[],"assertion":"narrator|new_event|belief|rumor|lie|hypothetical|flashback|dialogue|user_input|plan","expected":null}]}
@@ -15664,7 +15731,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.18";
+var ENGINE_RELEASE = "1.3.19";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16299,7 +16366,11 @@ var CanonEngine = class {
       scene_framing: a.userEntry ? `Player input: ${a.userEntry.text}` : "",
       registry: this.registry(index),
       occurrences: this.occurrenceCatalogue(index, a.text + " " + (a.userEntry?.text || ""))
-    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal));
+    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal).catch((e) => {
+      if (!(e instanceof EngineError) || e.kind !== "invalid_model_json") throw e;
+      this.rejects.push(`discover: unusable after retries, used built-in name matching instead (${e.message.slice(0, 160)})`);
+      return { references: [], claims: [] };
+    }));
     const refs = disc.references.filter((r) => quoteInText(r.quote, a.text) || !r.quote).map((r) => ({ id: r.id, quote: r.quote, phrase: r.phrase, kind: r.ref_kind, assertion: r.assertion, temporal: r.temporal, candidates: r.candidate_ids }));
     const claims = disc.claims.filter((c2) => quoteInText(c2.quote, a.text)).map((c2) => ({ id: c2.id, quote: c2.quote, kind: c2.kind, entityPhrases: c2.entity_phrases || [], assertion: c2.assertion, expected: c2.expected || null }));
     const seenEnt = /* @__PURE__ */ new Set();
@@ -16402,7 +16473,7 @@ var CanonEngine = class {
       for (const v of a.violations) lines.push(`  - ${v}`);
     });
     if (tm.rejects?.length) {
-      lines.push("", "Model output rejected and resent:");
+      lines.push("", "Model output problems (resent, or kept after an automatic fix):");
       for (const r of tm.rejects) lines.push(`  - ${r}`);
     }
     lines.push("", "Steps: " + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? ` (resent ${s.retries})` : ""}`).join(" \xB7 "));
@@ -17986,7 +18057,7 @@ var D = {
   tabDone: { zh: "\u56DE\u590D\u5B8C\u6210", en: "reply ready" },
   tabFailed: { zh: "\u56DE\u590D\u5931\u8D25", en: "turn failed" },
   resent: { zh: "\u91CD\u53D1", en: "resent" },
-  resentWhy: { zh: "\u91CD\u53D1\u539F\u56E0\uFF08\u6A21\u578B\u8F93\u51FA\u683C\u5F0F\u4E0D\u5BF9\uFF09", en: "Why output was resent (malformed model output)" },
+  resentWhy: { zh: "\u6A21\u578B\u8F93\u51FA\u95EE\u9898\uFF08\u5DF2\u91CD\u53D1\u6216\u5DF2\u81EA\u52A8\u4FEE\u6B63\uFF09", en: "Model output problems (resent or fixed automatically)" },
   replyLen: { zh: "\u56DE\u590D", en: "reply" },
   charsUnit: { zh: "\u5B57", en: " chars" },
   cutOff: { zh: "\uFF08\u88AB\u622A\u65AD\uFF09", en: "(cut off)" },

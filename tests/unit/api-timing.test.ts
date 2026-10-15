@@ -58,7 +58,7 @@ describe('public clock API and turn timings', () => {
     expect(rep).toMatch(/^Canon Engine \d+\.\d+\.\d+ — failed turn \(normal\)/);
     expect(rep).toMatch(/Error: The reply could not be validated within 2 repairs/);
     expect(rep).toMatch(/Attempt 1 \(first draft\): 1 problem[\s\S]*the tone is wrong[\s\S]*Attempt 3 \(repair 2\)/);
-    expect(rep).toMatch(/Model output rejected and resent:\n  - discover: no parseable JSON/);
+    expect(rep).toMatch(/Model output problems \(resent, or kept after an automatic fix\):\n  - discover: no parseable JSON/);
     expect(rep).toMatch(/Steps: .*discover .*\(resent 1\)/);
   });
 

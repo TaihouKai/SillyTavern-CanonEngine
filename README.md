@@ -98,7 +98,7 @@ The engine context (rules + retrieved history + state) typically adds 2–5k tok
 
 ## Cost and latency
 
-Each managed turn uses your connection several times: user extraction, draft, whole-draft discovery, evaluation; plus planning, offscreen adjudication and impact assessment when needed, and up to two repairs (each repeats discovery + evaluation; a third, final one with a fresh plan only when a HARD event is still broken). The planner sees recent actual events as well as tracked facts, so a route accounts for things like a character being detained. The reviewer accepts a HARD event only when the reply shows a credible cause whenever the actual situation rules out its usual route. Expect roughly 4–7 model calls for an ordinary turn.
+Each managed turn uses your connection several times: user extraction, draft, whole-draft discovery, evaluation; plus planning, offscreen adjudication and impact assessment when needed, and up to two repairs (each repeats discovery + evaluation; a third, final one with a fresh plan only when a HARD event is still broken). The planner sees recent actual events as well as tracked facts, so a route accounts for things like a character being detained. The reviewer accepts a HARD event only when the reply shows a credible cause whenever the actual situation rules out its usual route. Expect roughly 4–7 model calls for an ordinary turn. Only the final review is strict: a malformed or cut-off reply from a helper step (discovery, reading the player message) keeps its complete items or falls back to built-in name matching, and malformed items in record-only lists are dropped; every such fix is listed in the timing tooltip and in 详情.
 
 ## Known limitations (v1)
 

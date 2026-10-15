@@ -74,6 +74,34 @@ export function extractJson(text: string): unknown {
   throw new Error('no parseable JSON object in model output');
 }
 
+/** A reply cut off mid-JSON: keep every complete item and close the open brackets. Null if nothing usable. */
+export function salvageTruncatedJson(text: string): unknown | null {
+  const s = String(text ?? '');
+  const start = s.indexOf('{');
+  if (start < 0) return null;
+  const stack: string[] = [];
+  let inStr = false, esc = false;
+  let cut: { at: number; open: string } | null = null;
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true;
+    else if (ch === '{' || ch === '[') stack.push(ch);
+    else if (ch === '}' || ch === ']') {
+      stack.pop();
+      if (!stack.length) return null; // complete object: not a truncation
+      cut = { at: i + 1, open: stack.join('') };
+    }
+  }
+  if (!cut) return null;
+  const close = cut.open.split('').reverse().map((c) => (c === '{' ? '}' : ']')).join('');
+  try { return JSON.parse(s.slice(start, cut.at) + close); } catch { return null; }
+}
+
+/** Tasks whose output only helps the review (missing tail items are tolerable, the review itself stays strict). */
+const SALVAGEABLE: ReadonlySet<string> = new Set(['discover', 'extract_user']);
+const SALVAGE_LISTS: Record<string, string[]> = { discover: ['references', 'claims'], extract_user: ['statements', 'references'] };
+
 const ENUM_SYNONYMS: Record<string, string | string[]> = {
   descriptor: 'indirect', description: 'indirect', descriptive: 'indirect', epithet: 'indirect', title: 'indirect', role: 'indirect',
   name: 'direct', named: 'direct', explicit: 'direct', proper_name: 'direct', nickname: 'alias', pron: 'pronoun',
@@ -132,9 +160,12 @@ function repairItems(root: unknown, errors: { keyword: string; instancePath: str
   return changed;
 }
 
-/** Lists whose malformed items carry nothing the engine can use and may simply be dropped
- *  (a step enactment without a valid occurrence reference is ignored by the gate anyway). */
-const DROPPABLE_ITEMS = new Set(['step_enactments']);
+/** Lists whose items only RECORD or LOOK UP things: a malformed item is dropped instead of failing the
+ *  turn (at worst something goes unrecorded; a dropped HARD occurrence still fails the HARD check).
+ *  Lists that are checks (player_actions, state_claims, claim_checks, violations, hard_checks) stay strict. */
+/** What the automatic repairs of the current call changed (reported to the user). */
+let repairNotes: string[] = [];
+const DROPPABLE_ITEMS = new Set(['step_enactments', 'new_entities', 'transitions', 'occurrences', 'references', 'claims', 'statements']);
 function dropBadItems(root: unknown, errors: { instancePath: string }[]): boolean {
   const bad = new Map<string, Set<number>>();
   for (const e of errors) {
@@ -145,14 +176,13 @@ function dropBadItems(root: unknown, errors: { instancePath: string }[]): boolea
   for (const [list, idx] of bad) {
     const arr: any = (root as any)?.[list];
     if (!Array.isArray(arr)) continue;
-    for (const i of [...idx].sort((a, b) => b - a)) if (i < arr.length) { arr.splice(i, 1); changed = true; }
+    for (const i of [...idx].sort((a, b) => b - a)) if (i < arr.length) { repairNotes.push(`dropped malformed ${list} item: ${JSON.stringify(arr[i]).slice(0, 120)}`); arr.splice(i, 1); changed = true; }
   }
   return changed;
 }
 
 function repairEnums(root: unknown, errors: { keyword: string; instancePath: string; params?: unknown }[]): boolean {
   let changed = repairItems(root, errors);
-  if (dropBadItems(root, errors)) changed = true;
   // A missing/null evidence quote in a list whose items are only RECORDED (never a check that could hide a
   // problem, unlike player_actions/state_claims): the gate treats an empty quote as "no evidence"
   // and ignores that item, so an empty string is the faithful repair.
@@ -296,9 +326,16 @@ export async function callStructured<T>(
       if (!v(data)) {
         // Repair unambiguous enum slips (case, common synonyms) instead of failing the turn.
         let fixed = false;
+        repairNotes = [];
         for (let k = 0; k < 6 && repairEnums(data, (v.errors || []) as any[]); k++) if (v(data)) { fixed = true; break; }
+        // Last resort, after the targeted fixes: drop items of record-only lists that are still malformed.
+        for (let k = 0; !fixed && k < 3 && dropBadItems(data, (v.errors || []) as any[]); k++) {
+          if (v(data)) { fixed = true; break; }
+          for (let j = 0; j < 6 && repairEnums(data, (v.errors || []) as any[]); j++) if (v(data)) { fixed = true; break; }
+        }
         if (fixed) {
           opts.log?.({ task, attempt, ok: true, operationId: opts.operationId });
+          for (const n of repairNotes) try { taskDefaults.onReject?.(task, `kept after a fix: ${n}`); } catch { /* UI only */ }
           return data as T;
         }
         const errs = ((v.errors || []) as any[]).slice(0, 8).map((e) => {
@@ -317,6 +354,18 @@ export async function callStructured<T>(
       if (/no parseable JSON/.test(lastErr)) lastErr += ` (${text.length} chars${cutOff ? ', cut off mid-JSON: the reply hit its length limit' : ''}; ends with: ${JSON.stringify(text.slice(-80))})`;
       opts.log?.({ task, attempt, ok: false, error: lastErr, operationId: opts.operationId });
       try { taskDefaults.onReject?.(task, lastErr); } catch { /* UI only */ }
+      if (cutOff && SALVAGEABLE.has(task)) {
+        // Helper output cut off at the length limit: keep its complete items rather than paying for a
+        // longer resend that is likely to be cut off again.
+        const part = salvageTruncatedJson(text) as Record<string, unknown> | null;
+        if (part) for (const k of ['references', 'claims', 'statements']) if ((SALVAGE_LISTS[task] || []).includes(k) && !Array.isArray(part[k])) part[k] = [];
+        const v = validators[task];
+        if (part && (v(part) || (() => { for (let k = 0; k < 6 && repairEnums(part, (v.errors || []) as any[]); k++) if (v(part)) return true; return false; })())) {
+          opts.log?.({ task, attempt, ok: true, error: 'salvaged complete items from a cut-off reply', operationId: opts.operationId });
+          try { taskDefaults.onReject?.(task, 'reply cut off at the length limit; kept its complete items'); } catch { /* UI only */ }
+          return part as T;
+        }
+      }
       if (cutOff) {
         // A truncated reply will be truncated again at the same budget: raise it and ask for brevity.
         budget = Math.min(16384, Math.round(budget * 2));
