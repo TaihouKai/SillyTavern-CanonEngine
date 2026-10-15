@@ -86,6 +86,8 @@ The GM's story replies always use the chat's own connection; only internal analy
 
 **回复长度** (optional, in the panel) adds a length target such as `正文约800~1200字` to every draft and revision. It is placed after the latest message (the last thing the model reads), and it asks for both ends of the range: no wrapping up before the lower bound, and closing the scene near the upper bound. No extra request is made for length. Leave it empty to rely on your own prompt.
 
+**合并同一场景的本局事件** (checkbox in the panel, off by default) files consecutive beats of one ongoing scene (same place, same activity) into one 本局事件 box instead of a box per beat: a zoo visit with animals, a rest and a meal becomes one or two boxes. The analysis pass decides, in the same call it already makes, whether a beat continues the current box or starts a new one; it still records every beat with its own account, so nothing is dropped. The graph shows a chain as one box, and the prompt writes its retrieved beats as one history block. Canon events always get their own box. Only later turns are affected; existing boxes stay as they are.
+
 ## Context size
 
 The engine context (rules + retrieved history + state) typically adds 2–5k tokens per turn. Use a model context of at least 16k–32k tokens. If SillyTavern trims the engine context because the prompt does not fit, the turn stops with a *Context capacity* error instead of generating an unchecked reply.

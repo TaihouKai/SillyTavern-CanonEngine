@@ -177,5 +177,5 @@ export function deferred<T = void>() {
 
 /** Helper to build an evaluator occurrence patch. */
 export function occ(ref: string, title: string, quote: string, extra: any = {}) {
-  return { ref, title, account: extra.account || title, actors: extra.actors || [], affected: extra.affected || [], locations: extra.locations || [], time: extra.time ?? null, causes: extra.causes || [], quote, pack_event_id: extra.pack_event_id ?? null, disposition: extra.disposition ?? null, ref_phrases: extra.ref_phrases || [], visibility: extra.visibility || 'public', knowers: extra.knowers || [], origin: extra.origin || 'gm' };
+  return { ref, title, account: extra.account || title, actors: extra.actors || [], affected: extra.affected || [], locations: extra.locations || [], time: extra.time ?? null, causes: extra.causes || [], quote, pack_event_id: extra.pack_event_id ?? null, disposition: extra.disposition ?? null, ref_phrases: extra.ref_phrases || [], ...(extra.continues !== undefined ? { continues: extra.continues } : {}), visibility: extra.visibility || 'public', knowers: extra.knowers || [], origin: extra.origin || 'gm' };
 }

@@ -6,7 +6,7 @@ import { valuesEqual } from '../domain/pack';
 import { buildBootstrap, pendingHard } from '../domain/schedule';
 import { WorldIndex } from '../domain/world-query';
 import { formatTick, formatStoryTime, toTick } from '../domain/time';
-import { EngineError, hashObject, newId, quoteInText, sha256, uniq, deepClone } from '../domain/util';
+import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
 import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
 import type { HostPort } from './host';
@@ -40,6 +40,8 @@ export interface EngineSettings {
   taskExtraBody: string;
   /** Optional reply-length target for story drafts and repairs, e.g. "正文约800~1200字"; '' = none. */
   replyLength: string;
+  /** Scene grouping: beats of the same ongoing scene continue one 本局事件 box instead of each making a new one. */
+  sceneGrouping: boolean;
 }
 
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
@@ -68,6 +70,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   taskProfileId: '',
   taskExtraBody: '',
   replyLength: '',
+  sceneGrouping: false,
 };
 
 export type OpPhase = 'idle' | 'reconciling' | 'planning' | 'generating' | 'validating' | 'committing' | 'error' | 'conflict' | 'disabled';
@@ -694,7 +697,9 @@ export class CanonEngine {
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== 'invalidated').map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
       registry: this.registry(index),
       reeval_reasons: a.reevalReasons || [],
+      ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
+    if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
     const gate = runGate({
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced,
@@ -706,6 +711,27 @@ export class CanonEngine {
       overlayHash: hashObject(a.stagedNotes), entries: gate.coverage, suppliedContextHash: sha256(packet.text), complete: gate.coverageGaps.length === 0, gaps: gate.coverageGaps, attempt: a.attempt ?? 0,
     } : null;
     return { gate, evaluation, retrieval, manifest, facts: packet.facts, packetText: packet.text, claims, refs };
+  }
+
+  /** Scene grouping input: the latest ordinary (non-canon) scene boxes a new beat may continue. */
+  private sceneBoxes(index: WorldIndex): { occurrence_id: string; title: string; beats: string[]; places: string[]; time: string }[] {
+    const tick = index.state.clock.lo;
+    const occs = index.state.occurrences;
+    const recent = [...occs.values()].filter((o) => !o.packEventId && o.time.hi >= tick - 360).sort((a, b) => b.time.lo - a.time.lo || b.seq - a.seq);
+    const out: ReturnType<CanonEngine['sceneBoxes']> = [];
+    const seen = new Set<string>();
+    for (const o of recent) {
+      const root = sceneRoot(occs, o.occurrenceId);
+      if (seen.has(root)) continue;
+      seen.add(root);
+      const members = [...occs.values()].filter((m) => !m.packEventId && sceneRoot(occs, m.occurrenceId) === root).sort((a, b) => a.time.lo - b.time.lo);
+      out.push({
+        occurrence_id: o.occurrenceId, title: occs.get(root)!.title, beats: members.map((m) => m.title).slice(-6),
+        places: uniq(members.flatMap((m) => m.locations)).map((l) => index.entityName(l)), time: formatTick(o.time.lo),
+      });
+      if (out.length >= 2) break;
+    }
+    return out;
   }
 
   // ---------------------------------------------------------------------------------------------

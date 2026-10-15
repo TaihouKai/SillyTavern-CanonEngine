@@ -74,6 +74,8 @@ const D: Record<string, { zh: string; en: string }> = {
   taskProfileSame: { zh: '与当前对话相同（默认）', en: 'Same as the chat (default)' },
   taskProfileHint: { zh: 'GM 的故事回复始终使用当前对话的连接。这里只决定引擎内部的分析请求（提取、核对、规划）。建议选一个快速、便宜、非推理的模型的连接配置。在 SillyTavern 的“连接配置”中创建配置后即可在此选择。', en: "The GM's story replies always use the chat's connection. This only selects the model for the engine's internal analysis (extraction, checks, planning). A fast, cheap, non-reasoning model is recommended. Create profiles in SillyTavern's Connection Profiles." },
   replyLength: { zh: '回复长度（可选）', en: 'Reply length (optional)' },
+  sceneGrouping: { zh: '合并同一场景的本局事件', en: 'Group events of the same scene' },
+  sceneGroupingHint: { zh: '开启后，同一场景里接续发生的小事（同一地点、同一活动）记在同一个本局事件框里，而不是每件事各开一个框。所有事件照常记录，只是归到一起；换地点、换活动或发生原作事件时另开新框。只影响之后的回合。', en: 'When on, consecutive beats of the same scene (same place, same activity) are filed into one event box instead of one box each. Everything is still recorded, just grouped; a new box starts when the place or activity changes or a canon event happens. Affects later turns only.' },
   replyLengthPlaceholder: { zh: '例如：正文约800~1200字', en: 'e.g. about 600-900 words' },
   replyLengthHint: { zh: '写进 Canon Engine 每次生成和修改回复时的指令里，离生成位置最近。留空则不加长度要求。', en: 'Added to Canon Engine instructions for every draft and revision, closest to the generation point. Leave empty for no length instruction.' },
   taskExtraBody: { zh: '分析请求的额外参数（YAML，可选）', en: 'Extra parameters for analysis requests (YAML, optional)' },

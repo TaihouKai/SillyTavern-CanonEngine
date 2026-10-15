@@ -184,6 +184,7 @@ function renderSettings() {
   if (hd.version && !hd.ok) lines.push(`<div class="canon-note warn">${t('unsupportedHorae')}: ${esc(hd.missing.join(', '))}</div>`);
   lines.push(profileSelect(s.taskProfileId || ''));
   lines.push(`<label class="canon-len">${t('replyLength')} <input type="text" class="text_pole" data-set="replyLength" value="${esc(String(s.replyLength || ''))}" placeholder="${esc(t('replyLengthPlaceholder'))}"></label><div class="canon-note">${t('replyLengthHint')}</div>`);
+  lines.push(`<label class="canon-group"><input type="checkbox" data-set="sceneGrouping" ${s.sceneGrouping ? 'checked' : ''}> ${t('sceneGrouping')}</label><div class="canon-note">${t('sceneGroupingHint')}</div>`);
   lines.push(`<details><summary>${t('advanced')}</summary><div class="canon-adv">
     ${num('maxRepairs', s.maxRepairs)}${num('maxOrdinaryPlanner', s.maxOrdinaryPlanner)}${num('budgetChars', s.budgetChars)}${num('taskTimeoutMs', s.taskTimeoutMs)}${num('draftTimeoutMs', s.draftTimeoutMs)}${num('horizonMinutes', s.horizonMinutes)}${num('taskTemperature', s.taskTemperature)}
     <label><input type="checkbox" data-set="forcedPlannerAttempt" ${s.forcedPlannerAttempt ? 'checked' : ''}> forcedPlannerAttempt</label>

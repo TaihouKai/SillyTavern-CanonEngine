@@ -123,3 +123,15 @@ export class EngineError extends Error {
     this.details = details;
   }
 }
+
+/** Scene grouping: the first occurrence of the chain that `id` continues (itself when it continues nothing). */
+export function sceneRoot(occs: Map<string, { continues?: string }>, id: string): string {
+  let cur = id;
+  const seen = new Set<string>([cur]);
+  for (;;) {
+    const next = occs.get(cur)?.continues;
+    if (!next || seen.has(next) || !occs.has(next)) return cur;
+    seen.add(next);
+    cur = next;
+  }
+}

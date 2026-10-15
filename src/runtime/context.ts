@@ -5,7 +5,7 @@ import type { LoadedPack } from '../domain/pack';
 import { WorldIndex, type HistoryRecordView, type EntityStateView, type CanonStatusView } from '../domain/world-query';
 import { formatStoryTime, formatTick } from '../domain/time';
 import { pendingHard } from '../domain/schedule';
-import { EngineError, sha256 } from '../domain/util';
+import { EngineError, sceneRoot, sha256 } from '../domain/util';
 import type { CoverageEntry, PlanRevision } from './types';
 
 export interface RefInput {
@@ -170,6 +170,23 @@ function histLine(h: HistoryRecordView, triggers: Set<string> | undefined, compa
   return parts.join('\n');
 }
 
+/** One block for several retrieved beats of the same scene (scene grouping): shared metadata once. */
+function sceneHistLine(hs: HistoryRecordView[], triggers: (Set<string> | undefined)[], compact: boolean): string {
+  const ids = new Set(hs.map((h) => h.occurrenceId));
+  const all = <T,>(f: (h: HistoryRecordView) => T[]) => [...new Set(hs.flatMap(f))];
+  const parts = [`- [${hs.map((h) => h.occurrenceId).join(', ')}] one scene, ${hs[0].time} → ${hs[hs.length - 1].time} — ${hs[0].title}:`];
+  for (const h of hs) parts.push(`  · ${h.time} ${h.title}: ${compact && h.account.length > 220 ? h.account.slice(0, 217) + '…' : h.account}`);
+  const actors = all((h) => h.actors), outcome = all((h) => h.outcome), later = all((h) => h.laterChanges);
+  const causes = all((h) => h.causes.filter((c) => !ids.has(c.occurrenceId)).map((c) => `${c.title} [${c.occurrenceId}]`));
+  if (actors.length) parts.push(`  actors: ${actors.join(', ')}`);
+  if (outcome.length) parts.push(`  actual outcome: ${outcome.join('; ')}`);
+  if (causes.length) parts.push(`  caused by: ${causes.join('; ')}`);
+  if (later.length) parts.push(`  later changes: ${later.join('; ')}`);
+  const why = [...new Set(triggers.flatMap((t) => (t ? [...t] : [])))];
+  parts.push(`  origin: ${all((h) => [h.origin]).join('/')}; visibility: ${all((h) => [h.visibility]).join('/')}${why.length ? `; retrieved because: ${why.join('+')}` : ''}`);
+  return parts.join('\n');
+}
+
 function stateLine(s: EntityStateView, checkpoint: string, compact: boolean): string {
   // "since" labels are produced by entityState in pack-day form; keep them compact.
   const f = s.facts.length ? s.facts.map((x) => `${x.predicate}=${x.display} (since ${x.since}${!compact && x.support ? `; ${x.support}` : ''})`).join('; ') : 'no established facts';
@@ -195,7 +212,11 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   // Actual history
   const occIds = [...retrieval.occurrences.keys()].filter((id) => index.state.occurrences.has(id));
   occIds.sort((a, b) => index.state.occurrences.get(a)!.time.lo - index.state.occurrences.get(b)!.time.lo);
-  const hist = occIds.map((id) => histLine(index.historyView(id, inp.origin)!, retrieval.occurrences.get(id), compact));
+  const groups = new Map<string, string[]>();
+  for (const id of occIds) { const root = sceneRoot(index.state.occurrences, id); groups.set(root, [...(groups.get(root) || []), id]); }
+  const hist = [...groups.values()].map((ids) => ids.length === 1
+    ? histLine(index.historyView(ids[0], inp.origin)!, retrieval.occurrences.get(ids[0]), compact)
+    : sceneHistLine(ids.map((id) => index.historyView(id, inp.origin)!), ids.map((id) => retrieval.occurrences.get(id)), compact));
   required.push('ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n' + (hist.length ? hist.join('\n') : '- (no matching actual occurrences)'));
   // Entity state
   const ents = [...retrieval.entities.keys()].filter((id) => index.entityExists(id));

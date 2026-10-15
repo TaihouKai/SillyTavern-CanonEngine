@@ -21,7 +21,7 @@ export interface EvalOutput {
   occurrences: {
     ref: string; title: string; account: string; actors: string[]; affected?: string[]; locations?: string[];
     time?: EvalOutput['scene_end']; causes?: string[]; quote: string; pack_event_id?: string | null; disposition?: 'occurred' | 'diverged' | null;
-    ref_phrases?: string[]; visibility?: 'public' | 'restricted' | 'secret'; knowers?: string[]; origin?: 'player' | 'gm' | 'intervention';
+    ref_phrases?: string[]; continues?: string | null; visibility?: 'public' | 'restricted' | 'secret'; knowers?: string[]; origin?: 'player' | 'gm' | 'intervention';
   }[];
   state_claims: { entity_id: string; predicate: string; value: FactValue; quote: string; at?: { day: number; minute: number } | null }[];
   player_actions: { quote: string; authorized_by_quote: string | null }[];
@@ -207,6 +207,11 @@ export function runGate(g: GateInput): GateResult {
           }
         }
       }
+    }
+    if (o.continues && !packEventId) {
+      const prev = occByRef.get(o.continues) || index.state.occurrences.get(o.continues);
+      if (prev && !prev.packEventId && prev.occurrenceId !== occ.occurrenceId) occ.continues = prev.occurrenceId;
+      else warnings.push(`occurrence "${o.title}": continues=${o.continues} ignored (unknown or canonical box)`);
     }
     occByRef.set(o.ref, occ);
     occRecords.push({

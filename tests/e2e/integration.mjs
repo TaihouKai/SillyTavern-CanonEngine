@@ -702,6 +702,21 @@ try {
     const ml2 = await mainLogs();
     check(results, 'H03 problems that are not about HARD events get no extra attempt', ml2.length === 3, String(ml2.length));
   }
+  if (want('S17')) {
+    console.log('\n== S17 scene grouping toggle ==');
+    await freshChat();
+    const setGroup = (v) => page.evaluate((v) => { const el = document.querySelector('[data-set="sceneGrouping"]'); el.checked = v; el.dispatchEvent(new Event('change', { bubbles: true })); }, v);
+    const label = await page.$eval('[data-set="sceneGrouping"]', (el) => el.closest('label').innerText).catch(() => '');
+    await setGroup(true);
+    const saved = await page.evaluate(() => SillyTavern.getContext().extensionSettings.canonEngine.sceneGrouping);
+    await mock('/control', { mainQueue: ['你沿着港口散步。GRP_A', '你在码头边吃了烤鱼。GRP_B'], taskRules: [rule('evaluate', 'GRP_A', { occurrences: [{ ref: 'o1', title: '港口散步', account: '玩家沿着港口散步。', actors: [], affected: [], locations: ['harbor'], time: null, causes: [], quote: '沿着港口散步', pack_event_id: null, disposition: null, ref_phrases: [], visibility: 'public', knowers: [], origin: 'player' }] })], clearLogs: true });
+    await send(page, '我在港口散步。');
+    await send(page, '我买烤鱼吃。');
+    const ev = (await taskLogs('evaluate')).map((t) => t.input).filter((i) => String(i.candidate).includes('GRP_B')).slice(-1)[0];
+    check(results, 'G01 the scene grouping checkbox is in the panel and its value is saved', /合并同一场景|Group events/.test(label) && saved === true, `${label} ${saved}`);
+    check(results, 'G02 with it on, the reviewer is offered the current scene box to continue', ev?.scene_grouping?.[0]?.title === '港口散步' && /^occ/.test(ev.scene_grouping[0].occurrence_id || ''), JSON.stringify(ev?.scene_grouping));
+    await setGroup(false);
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }

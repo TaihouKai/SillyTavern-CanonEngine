@@ -4,6 +4,7 @@
 import type { LoadedPack } from '../domain/pack';
 import type { WorldState } from '../domain/reducer';
 import { formatTick, formatStoryTime } from '../domain/time';
+import { sceneRoot, uniq } from '../domain/util';
 import { t } from './i18n';
 
 export type GStatus = 'occurred' | 'diverged' | 'omitted' | 'pending' | 'future' | 'unresolved' | 'unscheduled' | 'runtime';
@@ -74,18 +75,37 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
       n.detail = [`本局状态：${statusLabel(n.status)}`];
     }
   }
-  // runtime occurrences (actual play) that are not a canon event's own record
+  // runtime occurrences (actual play) that are not a canon event's own record; a scene chain
+  // (occurrences that continue one another) is shown as one box
+  const chains = new Map<string, Array<typeof s.occurrences extends Map<string, infer V> ? V : never>>();
   for (const o of s.occurrences.values()) {
     if (o.packEventId) continue;
+    const root = sceneRoot(s.occurrences, o.occurrenceId);
+    chains.set(root, [...(chains.get(root) || []), o]);
+  }
+  const outcomeText = (o: { outcome: { op: string; entity_id: string; predicate: string; value?: unknown }[] }) => o.outcome.map((d) => (d.op === 'set' ? `${name(L, d.entity_id, s)}.${d.predicate}=${JSON.stringify(d.value)}` : `${d.entity_id}.${d.predicate} 未知`));
+  for (const [root, members] of chains) {
+    members.sort((a, b) => a.time.lo - b.time.lo);
+    const first = s.occurrences.get(root) || members[0];
+    const lo = Math.min(...members.map((m) => m.time.lo)), hi = Math.max(...members.map((m) => m.time.hi));
+    const span = members.length > 1 ? { lo, hi, precision: 'range' as const } : first.time;
+    const outcomes = members.flatMap(outcomeText);
     g.nodes.push({
-      id: o.occurrenceId, title: o.title, lane: 'RUNTIME', tick: o.time.lo, when: formatStoryTime(o.time, origin), short: shortRange(o.time.lo, o.time.hi, origin), summary: o.account,
-      status: 'runtime', origin: o.origin,
-      detail: [`来源：${ORIGIN_LABEL[o.origin] || o.origin}`, ...(o.outcome.length ? [`本局结果：${o.outcome.map((d) => (d.op === 'set' ? `${name(L, d.entity_id, s)}.${d.predicate}=${JSON.stringify(d.value)}` : `${d.entity_id}.${d.predicate} 未知`)).join('；')}`] : [])],
+      id: root, title: members.length > 1 ? `${first.title}（${members.length}段）` : first.title, lane: 'RUNTIME', tick: lo, when: formatStoryTime(span, origin), short: shortRange(lo, hi, origin),
+      summary: members.length > 1 ? members.map((m) => `${m.title}：${m.account}`).join('\n') : first.account,
+      status: 'runtime', origin: first.origin,
+      detail: [`来源：${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join('、')}`, ...(members.length > 1 ? [`同一场景：${members.map((m) => `${formatTick(m.time.lo, origin).split(' ').pop()} ${m.title}`).join(' → ')}`] : []), ...(outcomes.length ? [`本局结果：${outcomes.join('；')}`] : [])],
     });
   }
-  // actual causal links (occurrence -> occurrence), mapped onto canon nodes where applicable
-  const nodeOf = (occId: string) => { const o = s.occurrences.get(occId); return o?.packEventId || occId; };
-  for (const o of s.occurrences.values()) for (const c of o.causes) g.edges.push({ from: nodeOf(c), to: nodeOf(o.occurrenceId), kind: 'cause', note: '本局实际因果' });
+  // actual causal links (occurrence -> occurrence), mapped onto canon nodes / scene boxes where applicable
+  const nodeOf = (occId: string) => { const o = s.occurrences.get(occId); return o?.packEventId || sceneRoot(s.occurrences, occId); };
+  const edgeSeen = new Set<string>();
+  for (const o of s.occurrences.values()) for (const c of o.causes) {
+    const from = nodeOf(c), to = nodeOf(o.occurrenceId);
+    if (from === to || edgeSeen.has(`${from}>${to}`)) continue;
+    edgeSeen.add(`${from}>${to}`);
+    g.edges.push({ from, to, kind: 'cause', note: '本局实际因果' });
+  }
   if (!spoilers) {
     const hidden = new Set(g.nodes.filter((n) => n.masked && n.lane !== 'HARD').map((n) => n.id));
     g.nodes = g.nodes.filter((n) => !hidden.has(n.id));
@@ -352,7 +372,7 @@ export class GraphPanel {
       <div class="cg-badges"><span class="cg-key cg-c-${n.lane}">${n.lane === 'RUNTIME' ? '本局事件' : n.lane}</span>${n.status ? `<span class="cg-key cg-s-${n.status}">${statusLabel(n.status)}</span>` : ''}</div>
       <div class="cg-when">${esc(n.when)}</div>
       ${n.required ? `<div class="cg-req"><b>必须实现：</b>${esc(n.required)}</div>` : ''}
-      <p>${esc(n.summary)}</p>
+      <p style="white-space:pre-line">${esc(n.summary)}</p>
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join('')}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>关系</b><br>${[...ins, ...outs].join('<br>')}</div>` : ''}`;
   }

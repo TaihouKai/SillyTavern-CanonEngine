@@ -300,6 +300,13 @@
       },
       "maxItems": 200
      },
+     "continues": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "maxLength": 200
+     },
      "visibility": {
       "enum": [
        "public",
