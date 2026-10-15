@@ -12696,6 +12696,21 @@ function looksTruncated(text) {
   }
   return depth > 0;
 }
+var TRANSIENT_DELAYS_MS = [3e3, 1e4];
+var TRANSIENT_RE = /service unavailable|bad gateway|gateway time-?out|too many requests|overloaded|rate.?limit|temporarily|\b(429|500|502|503|504|520|522|524|529)\b|ECONNRESET|ETIMEDOUT|socket hang up|failed to fetch|networkerror|fetch failed|network error/i;
+var isTransient = (msg) => TRANSIENT_RE.test(String(msg || ""));
+function abortableSleep(ms, signal) {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const t2 = setTimeout(done, ms);
+    function done() {
+      clearTimeout(t2);
+      signal?.removeEventListener("abort", done);
+      resolve();
+    }
+    signal?.addEventListener("abort", done, { once: true });
+  });
+}
 async function callStructured(port, task, system, input, opts = {}) {
   const maxAttempts = Math.max(1, opts.maxAttempts ?? 3);
   const messages = [
@@ -12705,6 +12720,7 @@ ${system}` },
   ];
   let lastErr = "";
   let budget = opts.maxTokens || 4096;
+  let transientRetries = 0;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (opts.signal?.aborted) throw new EngineError("cancelled", "operation cancelled");
     let raw;
@@ -12731,7 +12747,15 @@ ${system}` },
     } catch (e) {
       if (opts.signal?.aborted) throw new EngineError("cancelled", "operation cancelled");
       if (timedOut) throw new EngineError("provider_failure", `model request for ${task} timed out after ${Math.round(callTimeoutMs / 1e3)}s (one call, via ${port.describeTaskConnection?.() || "the configured connection"}). The model is too slow or not responding: if it is a reasoning model, turn thinking off (Canon Engine settings \u2192 extra request parameters), choose a faster analysis connection, or raise taskTimeoutMs.`);
-      throw new EngineError("provider_failure", `model request failed for ${task}: ${e.message}`);
+      if (isTransient(e.message) && transientRetries < TRANSIENT_DELAYS_MS.length) {
+        const wait = TRANSIENT_DELAYS_MS[transientRetries++];
+        opts.log?.({ task, attempt, ok: false, error: `transient provider error, retrying in ${wait / 1e3}s: ${e.message}`, operationId: opts.operationId });
+        await abortableSleep(wait, opts.signal);
+        if (opts.signal?.aborted) throw new EngineError("cancelled", "operation cancelled");
+        attempt--;
+        continue;
+      }
+      throw new EngineError("provider_failure", `model request failed for ${task}: ${e.message}${transientRetries ? ` (after ${transientRetries} automatic retr${transientRetries === 1 ? "y" : "ies"})` : ""}`);
     } finally {
       if (timer) clearTimeout(timer);
       opts.signal?.removeEventListener("abort", onOuterAbort);
@@ -15437,6 +15461,7 @@ var ENGINE_VERSION = "1.3.4";
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
 var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check" };
+var replyChars = (text) => String(text || "").replace(/\s+/g, "").length;
 var DEFAULT_SETTINGS = {
   maxOrdinaryPlanner: 2,
   forcedPlannerAttempt: true,
@@ -15481,6 +15506,7 @@ var CanonEngine = class {
   /** Per-step durations of the running operation, and the summary of the last finished one. */
   stepTimes = [];
   lastTimings = null;
+  lastReply = null;
   timeStep(step, p) {
     const t0 = Date.now();
     return p.finally(() => this.stepTimes.push({ step, ms: Date.now() - t0 }));
@@ -16239,6 +16265,7 @@ var CanonEngine = class {
     const abort = new AbortController();
     this.opActive = { operationId, abort, fences: null, op };
     this.stepTimes = [];
+    this.lastReply = null;
     const opStart = Date.now();
     taskDefaults.onDone = (task, ms) => {
       if (this.opActive?.operationId === operationId) this.stepTimes.push({ step: this.status.phase === "reconciling" && !this.examiningInput ? "reconcile" : task, ms });
@@ -16421,8 +16448,11 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
           c.manifests[accepted.review.manifest.manifestId] = accepted.review.manifest;
           trimManifests(c);
         }
+        const info = this.host.model.lastDraftInfo?.() || null;
+        this.lastReply = { chars: replyChars(continuing ? draft : candidate), ...info || {} };
         await this.commit(c, { op, interp, fences, candidate, commitId, messageId, variantId, contentHash, prior, excludeLast });
         committed = true;
+        if (info?.finish === "length") this.notice("warn", `The reply was cut off at the output limit${info.maxTokens || info.reasoningTokens ? ` (${[info.maxTokens ? `limit ${info.maxTokens} tokens` : "", info.reasoningTokens ? `thinking used ${info.reasoningTokens}` : ""].filter(Boolean).join("; ")})` : ""}. Raise the maximum response length (\u6700\u5927\u56DE\u590D\u957F\u5EA6) in your API preset.`);
         trace.outcome = "committed";
         {
           const cc = this.campaign();
@@ -16472,7 +16502,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         a.count++;
         agg.set(s.step, a);
       }
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })) };
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null };
       if (this.settings.debug) this.debugLog("timing", this.lastTimings);
       this.opActive = null;
       this.emit();
@@ -16988,7 +17018,8 @@ var gen = {
   lastDraftPrompt: null,
   /** Reasoning of the most recent private draft. ST's quiet generation drops it, so it is captured here
    * and attached when that draft is published (the accepted draft is always the latest one). */
-  lastDraftReasoning: ""
+  lastDraftReasoning: "",
+  lastDraftInfo: null
 };
 function attachmentIdentity(m) {
   const legacy = m?.extra ? Object.getOwnPropertyDescriptor(m.extra, "file") : void 0;
@@ -17259,6 +17290,9 @@ var StHost = class {
   }
 };
 var StModel = class {
+  lastDraftInfo() {
+    return gen.lastDraftInfo;
+  }
   queue = Promise.resolve();
   horaePresent = false;
   /** Read at call time so the drawer setting applies immediately. */
@@ -17364,6 +17398,7 @@ var StModel = class {
       gen.draft = { token, excludeLastAssistant: req.excludeLastAssistant, captured: null, before: null, injectedRemoved: 0 };
       const rmod = await loadReasoningModule();
       gen.lastDraftReasoning = "";
+      gen.lastDraftInfo = null;
       const origFetch = window.fetch;
       let apiReasoning = null;
       const tap = async (input, init2) => {
@@ -17371,7 +17406,17 @@ var StModel = class {
         try {
           const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
           if (url.includes("/api/backends/chat-completions/generate") && typeof init2?.body === "string" && init2.body.includes("[CANON ENGINE CONTEXT") && res.ok) {
-            apiReasoning = res.clone().json().then((d) => String(rmod.extractReasoningFromData?.(d) || "")).catch(() => "");
+            let maxTokens;
+            try {
+              const b = JSON.parse(init2.body);
+              maxTokens = Number(b.max_tokens ?? b.max_completion_tokens) || void 0;
+            } catch {
+            }
+            apiReasoning = res.clone().json().then((d) => {
+              const u = d?.usage || {};
+              gen.lastDraftInfo = { finish: d?.choices?.[0]?.finish_reason || void 0, outputTokens: u.completion_tokens, reasoningTokens: u.completion_tokens_details?.reasoning_tokens, maxTokens };
+              return String(rmod.extractReasoningFromData?.(d) || "");
+            }).catch(() => "");
           }
         } catch {
         }
@@ -17637,6 +17682,12 @@ var D = {
   taskExtraBodyHint: { zh: "\u4F1A\u52A0\u5230\u6BCF\u4E2A\u5206\u6790\u8BF7\u6C42\u91CC\uFF08\u53EA\u5BF9\u201C\u81EA\u5B9A\u4E49\uFF08\u517C\u5BB9OpenAI\uFF09\u201D\u8FDE\u63A5\u751F\u6548\uFF09\u3002Venice \u63A8\u7406\u6A21\u578B\u8BF7\u586B\uFF1Avenice_parameters: {disable_thinking: true}", en: "Added to every analysis request (Custom OpenAI-compatible connections). For Venice reasoning models: venice_parameters: {disable_thinking: true}" },
   taskProfileNone: { zh: "\u6CA1\u6709\u53EF\u7528\u7684\u8FDE\u63A5\u914D\u7F6E\uFF08\u8BF7\u5148\u5728 SillyTavern \u7684\u201C\u8FDE\u63A5\u914D\u7F6E\u201D\u4E2D\u4FDD\u5B58\u4E00\u4E2A\uFF09\u3002", en: "No connection profiles yet (save one in SillyTavern's Connection Profiles first)." },
   lastTurn: { zh: "\u4E0A\u4E00\u56DE\u5408", en: "Last turn" },
+  replyLen: { zh: "\u56DE\u590D", en: "reply" },
+  charsUnit: { zh: "\u5B57", en: " chars" },
+  cutOff: { zh: "\uFF08\u88AB\u622A\u65AD\uFF09", en: "(cut off)" },
+  outTokens: { zh: "\u8F93\u51FA token", en: "output tokens" },
+  thinking: { zh: "\u5176\u4E2D\u601D\u8003", en: "thinking" },
+  limit: { zh: "\u4E0A\u9650", en: "limit" },
   step_extract_user: { zh: "\u8BFB\u53D6\u73A9\u5BB6\u8F93\u5165", en: "read input" },
   step_plan: { zh: "\u89C4\u5212", en: "plan" },
   step_draft: { zh: "\u751F\u6210\u56DE\u590D", en: "story reply" },
@@ -18194,7 +18245,13 @@ function renderStatus() {
   else if (busy) msg = st.message;
   const tm = E.lastTimings;
   const dur = (ms) => ms >= 6e4 ? `${Math.floor(ms / 6e4)}m${Math.round(ms % 6e4 / 1e3)}s` : `${Math.max(1, Math.round(ms / 1e3))}s`;
-  const timing = !busy && !err && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2(tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}`).join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}`).join(" \xB7 ")}</span>` : "";
+  const rp = tm?.reply;
+  const replyBits = rp ? [
+    rp.outputTokens ? `${t("outTokens")} ${rp.outputTokens}${rp.reasoningTokens ? ` (${t("thinking")} ${rp.reasoningTokens})` : ""}${rp.maxTokens ? ` / ${t("limit")} ${rp.maxTokens}` : ""}` : "",
+    rp.finish ? `finish_reason: ${rp.finish}` : ""
+  ].filter(Boolean).join("\n") : "";
+  const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc2(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
+  const timing = !busy && !err && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2(tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}`).join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}`).join(" \xB7 ")}${replyPart}</span>` : "";
   el.dataset.phase = conflict ? "conflict" : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc2(t("phase_" + (conflict ? "conflict" : phase)))}</span>
     <span class="canon-msg" title="${esc2(msg)}">${esc2(msg)}</span>${timing}

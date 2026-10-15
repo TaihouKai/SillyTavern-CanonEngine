@@ -59,6 +59,7 @@ export const gen = {
   /** Reasoning of the most recent private draft. ST's quiet generation drops it, so it is captured here
    * and attached when that draft is published (the accepted draft is always the latest one). */
   lastDraftReasoning: '',
+  lastDraftInfo: null as null | import('../runtime/model').DraftInfo,
 };
 
 function attachmentIdentity(m: any): string {
@@ -322,6 +323,7 @@ export class StHost implements HostPort {
 // Model port over ST's configured connection
 
 export class StModel implements ModelPort {
+  lastDraftInfo() { return gen.lastDraftInfo; }
   private queue: Promise<unknown> = Promise.resolve();
   horaePresent = false;
   /** Read at call time so the drawer setting applies immediately. */
@@ -426,6 +428,7 @@ export class StModel implements ModelPort {
       gen.draft = { token, excludeLastAssistant: req.excludeLastAssistant, captured: null, before: null, injectedRemoved: 0 };
       const rmod = await loadReasoningModule();
       gen.lastDraftReasoning = '';
+      gen.lastDraftInfo = null;
       // Quiet generations return only the text. Read the API's reasoning field from our own draft
       // request's response (identified by the engine context in its body), as ST does for normal replies.
       const origFetch = window.fetch;
@@ -435,7 +438,13 @@ export class StModel implements ModelPort {
         try {
           const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
           if (url.includes('/api/backends/chat-completions/generate') && typeof init?.body === 'string' && init.body.includes('[CANON ENGINE CONTEXT') && res.ok) {
-            apiReasoning = res.clone().json().then((d) => String(rmod.extractReasoningFromData?.(d) || '')).catch(() => '');
+            let maxTokens: number | undefined;
+            try { const b = JSON.parse(init.body); maxTokens = Number(b.max_tokens ?? b.max_completion_tokens) || undefined; } catch { /* stats are optional */ }
+            apiReasoning = res.clone().json().then((d) => {
+              const u = d?.usage || {};
+              gen.lastDraftInfo = { finish: d?.choices?.[0]?.finish_reason || undefined, outputTokens: u.completion_tokens, reasoningTokens: u.completion_tokens_details?.reasoning_tokens, maxTokens };
+              return String(rmod.extractReasoningFromData?.(d) || '');
+            }).catch(() => '');
           }
         } catch { /* reasoning is optional */ }
         return res;

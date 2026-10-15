@@ -103,8 +103,14 @@ function renderStatus() {
   else if (busy) msg = st.message;
   const tm = E.lastTimings;
   const dur = (ms: number) => (ms >= 60000 ? `${Math.floor(ms / 60000)}m${Math.round((ms % 60000) / 1000)}s` : `${Math.max(1, Math.round(ms / 1000))}s`);
+  const rp = tm?.reply;
+  const replyBits = rp ? [
+    rp.outputTokens ? `${t('outTokens')} ${rp.outputTokens}${rp.reasoningTokens ? ` (${t('thinking')} ${rp.reasoningTokens})` : ''}${rp.maxTokens ? ` / ${t('limit')} ${rp.maxTokens}` : ''}` : '',
+    rp.finish ? `finish_reason: ${rp.finish}` : '',
+  ].filter(Boolean).join('\n') : '';
+  const replyPart = rp ? ` · <span class="canon-reply${rp.finish === 'length' ? ' cut' : ''}" title="${esc(replyBits)}">${t('replyLen')} ${rp.chars}${t('charsUnit')}${rp.finish === 'length' ? ` ${t('cutOff')}` : ''}</span>` : '';
   const timing = !busy && !err && !conflict && tm && tm.steps.length
-    ? `<span class="canon-timing" title="${esc(tm.steps.map((s) => `${t('step_' + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` ×${s.count}` : ''}`).join('\n'))}">${t('lastTurn')} ${dur(tm.totalMs)}：${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc(t('step_' + s.step))} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}`).join(' · ')}</span>`
+    ? `<span class="canon-timing" title="${esc(tm.steps.map((s) => `${t('step_' + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` ×${s.count}` : ''}`).join('\n'))}">${t('lastTurn')} ${dur(tm.totalMs)}：${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc(t('step_' + s.step))} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}`).join(' · ')}${replyPart}</span>`
     : '';
   el.dataset.phase = conflict ? 'conflict' : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc(t('phase_' + (conflict ? 'conflict' : phase)))}</span>

@@ -124,3 +124,34 @@ describe('truncated replies', () => {
     await expect(callStructured<any>(p, 'discover', 'sys', {})).rejects.toThrow(/no parseable JSON object in model output \(\d+ chars; ends with: /);
   });
 });
+
+import { TRANSIENT_DELAYS_MS } from '../../src/runtime/model';
+describe('temporary provider errors', () => {
+  it('waits and re-sends after a 503, without spending a parse attempt', async () => {
+    const saved = TRANSIENT_DELAYS_MS.splice(0, TRANSIENT_DELAYS_MS.length, 5, 5);
+    try {
+      let calls = 0;
+      const p = {
+        async runTask() { calls++; if (calls <= 2) throw new Error('Service Unavailable'); return JSON.stringify({ references: [ref('direct')], claims: [claim('state')] }); },
+        async generateDraft() { return ''; },
+      } as unknown as ModelPort;
+      const out = await callStructured<any>(p, 'discover', 'sys', {}, { maxAttempts: 1 });
+      expect(out.claims[0].kind).toBe('state');
+      expect(calls).toBe(3);
+    } finally { TRANSIENT_DELAYS_MS.splice(0, TRANSIENT_DELAYS_MS.length, ...saved); }
+  });
+
+  it('gives up after the retries and says so; other errors are not retried', async () => {
+    const saved = TRANSIENT_DELAYS_MS.splice(0, TRANSIENT_DELAYS_MS.length, 5, 5);
+    try {
+      let calls = 0;
+      const p = { async runTask() { calls++; throw new Error('Service Unavailable'); }, async generateDraft() { return ''; } } as unknown as ModelPort;
+      await expect(callStructured<any>(p, 'discover', 'sys', {})).rejects.toThrow(/Service Unavailable \(after 2 automatic retries\)/);
+      expect(calls).toBe(3);
+      let calls2 = 0;
+      const q = { async runTask() { calls2++; throw new Error('Invalid API key'); }, async generateDraft() { return ''; } } as unknown as ModelPort;
+      await expect(callStructured<any>(q, 'discover', 'sys', {})).rejects.toThrow(/Invalid API key$/);
+      expect(calls2).toBe(1);
+    } finally { TRANSIENT_DELAYS_MS.splice(0, TRANSIENT_DELAYS_MS.length, ...saved); }
+  });
+});

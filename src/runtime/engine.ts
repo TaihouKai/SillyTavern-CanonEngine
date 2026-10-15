@@ -47,6 +47,11 @@ const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + Str
 
 const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check' };
 
+/** Length and provider stats of the published reply, shown after the turn timings. */
+export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
+/** Characters as a reader counts them: everything except whitespace. */
+export const replyChars = (text: string) => String(text || '').replace(/\s+/g, '').length;
+
 export const DEFAULT_SETTINGS: EngineSettings = {
   maxOrdinaryPlanner: 2,
   forcedPlannerAttempt: true,
@@ -120,7 +125,8 @@ export class CanonEngine {
   private examiningInput = false;
   /** Per-step durations of the running operation, and the summary of the last finished one. */
   private stepTimes: { step: string; ms: number }[] = [];
-  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number }[]; ok: boolean } | null = null;
+  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number }[]; ok: boolean; reply?: ReplyStats | null } | null = null;
+  private lastReply: ReplyStats | null = null;
   private timeStep<T>(step: string, p: Promise<T>): Promise<T> {
     const t0 = Date.now();
     return p.finally(() => this.stepTimes.push({ step, ms: Date.now() - t0 }));
@@ -777,6 +783,7 @@ export class CanonEngine {
     const abort = new AbortController();
     this.opActive = { operationId, abort, fences: null, op };
     this.stepTimes = [];
+    this.lastReply = null;
     const opStart = Date.now();
     taskDefaults.onDone = (task, ms) => { if (this.opActive?.operationId === operationId) this.stepTimes.push({ step: this.status.phase === 'reconciling' && !this.examiningInput ? 'reconcile' : task, ms }); };
     const trace: OperationTrace = { operationId, op, attempts: [], prompts: [], outcome: 'failed' };
@@ -935,8 +942,11 @@ export class CanonEngine {
         }
         // Only the accepted candidate's coverage manifest is retained (rejected drafts stay out of storage).
         if (accepted.review.manifest) { c.manifests[accepted.review.manifest.manifestId] = accepted.review.manifest; trimManifests(c); }
+        const info = this.host.model.lastDraftInfo?.() || null;
+        this.lastReply = { chars: replyChars(continuing ? draft : candidate), ...(info || {}) };
         await this.commit(c, { op, interp, fences, candidate, commitId, messageId, variantId, contentHash, prior, excludeLast });
         committed = true;
+        if (info?.finish === 'length') this.notice('warn', `The reply was cut off at the output limit${info.maxTokens || info.reasoningTokens ? ` (${[info.maxTokens ? `limit ${info.maxTokens} tokens` : '', info.reasoningTokens ? `thinking used ${info.reasoningTokens}` : ''].filter(Boolean).join('; ')})` : ''}. Raise the maximum response length (最大回复长度) in your API preset.`);
         trace.outcome = 'committed';
         { const cc = this.campaign(); if (cc && cc.recoveryState.status === 'error') { cc.recoveryState = { status: 'ok' }; } }
         this.lastFailedOp = null;
@@ -969,7 +979,7 @@ export class CanonEngine {
     } finally {
       const agg = new Map<string, { ms: number; count: number }>();
       for (const s of this.stepTimes) { const a = agg.get(s.step) || { ms: 0, count: 0 }; a.ms += s.ms; a.count++; agg.set(s.step, a); }
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })) };
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null };
       if (this.settings.debug) this.debugLog('timing', this.lastTimings);
       this.opActive = null;
       this.emit();

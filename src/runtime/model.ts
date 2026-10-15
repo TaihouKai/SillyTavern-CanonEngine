@@ -19,6 +19,9 @@ export interface DraftRequest {
   signal?: AbortSignal;
 }
 
+/** What the provider reported for the latest draft (all optional: not every API returns them). */
+export interface DraftInfo { finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
+
 export interface ModelPort {
   /** Optional: which connection/model internal tasks use (shown in timeout errors). */
   describeTaskConnection?(): string;
@@ -26,6 +29,8 @@ export interface ModelPort {
   runTask(task: TaskName, messages: ChatMsg[], opts: { signal?: AbortSignal; maxTokens?: number }): Promise<string>;
   /** GM draft through the host's full prompt assembly; must stay private (not a chat message). */
   generateDraft(req: DraftRequest): Promise<string>;
+  /** Optional: provider stats of the most recent draft (finish reason, token use, output limit). */
+  lastDraftInfo?(): DraftInfo | null;
 }
 
 export const TASK_TAG = (t: TaskName) => `[CANON_ENGINE_TASK:${t}]`;
@@ -148,6 +153,19 @@ function looksTruncated(text: string): boolean {
 
 export interface StructuredLog { task: TaskName; attempt: number; ok: boolean; error?: string; operationId?: string }
 
+/** Waits before re-sending a request that failed with a temporary provider error. */
+export const TRANSIENT_DELAYS_MS = [3000, 10000];
+const TRANSIENT_RE = /service unavailable|bad gateway|gateway time-?out|too many requests|overloaded|rate.?limit|temporarily|\b(429|500|502|503|504|520|522|524|529)\b|ECONNRESET|ETIMEDOUT|socket hang up|failed to fetch|networkerror|fetch failed|network error/i;
+export const isTransient = (msg: string) => TRANSIENT_RE.test(String(msg || ''));
+function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const t = setTimeout(done, ms);
+    function done() { clearTimeout(t); signal?.removeEventListener('abort', done); resolve(); }
+    signal?.addEventListener('abort', done, { once: true });
+  });
+}
+
 export async function callStructured<T>(
   port: ModelPort,
   task: TaskName,
@@ -162,6 +180,7 @@ export async function callStructured<T>(
   ];
   let lastErr = '';
   let budget = opts.maxTokens || 4096;
+  let transientRetries = 0;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (opts.signal?.aborted) throw new EngineError('cancelled', 'operation cancelled');
     let raw: string;
@@ -184,7 +203,17 @@ export async function callStructured<T>(
     } catch (e) {
       if (opts.signal?.aborted) throw new EngineError('cancelled', 'operation cancelled');
       if (timedOut) throw new EngineError('provider_failure', `model request for ${task} timed out after ${Math.round(callTimeoutMs / 1000)}s (one call, via ${port.describeTaskConnection?.() || 'the configured connection'}). The model is too slow or not responding: if it is a reasoning model, turn thinking off (Canon Engine settings → extra request parameters), choose a faster analysis connection, or raise taskTimeoutMs.`);
-      throw new EngineError('provider_failure', `model request failed for ${task}: ${(e as Error).message}`);
+      // Temporary provider trouble (503, 429, gateway errors, dropped connections): wait and send the
+      // same request again. Nothing was produced, so this does not count as a parse attempt.
+      if (isTransient((e as Error).message) && transientRetries < TRANSIENT_DELAYS_MS.length) {
+        const wait = TRANSIENT_DELAYS_MS[transientRetries++];
+        opts.log?.({ task, attempt, ok: false, error: `transient provider error, retrying in ${wait / 1000}s: ${(e as Error).message}`, operationId: opts.operationId });
+        await abortableSleep(wait, opts.signal);
+        if (opts.signal?.aborted) throw new EngineError('cancelled', 'operation cancelled');
+        attempt--;
+        continue;
+      }
+      throw new EngineError('provider_failure', `model request failed for ${task}: ${(e as Error).message}${transientRetries ? ` (after ${transientRetries} automatic retr${transientRetries === 1 ? 'y' : 'ies'})` : ''}`);
     } finally {
       if (timer) clearTimeout(timer);
       opts.signal?.removeEventListener('abort', onOuterAbort);

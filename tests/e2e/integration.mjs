@@ -671,6 +671,20 @@ try {
       o.oai_settings.show_thoughts = v.show; p.power_user.reasoning.auto_parse = v.parse;
     }, prev);
   }
+  if (want('S15')) {
+    console.log('\n== S15 reply length readout ==');
+    await freshChat();
+    await mock('/control', { mainQueue: [{ content: '港口很安静，海风吹过码头。LEN_OK', usage: { prompt_tokens: 100, completion_tokens: 900, total_tokens: 1000, completion_tokens_details: { reasoning_tokens: 600 } } }, { content: '灯塔的光扫过海面，远处传来', finish: 'length', usage: { prompt_tokens: 100, completion_tokens: 2048, total_tokens: 2148, completion_tokens_details: { reasoning_tokens: 1700 } } }], clearLogs: true });
+    await send(page, '我看海。');
+    const t1 = await page.$eval('#canon-engine-status .canon-timing', (e) => ({ text: e.innerText, tip: e.querySelector('.canon-reply')?.title || '' })).catch(() => ({ text: '', tip: '' }));
+    await send(page, '我继续看。');
+    const t2 = await page.$eval('#canon-engine-status .canon-timing', (e) => e.innerText).catch(() => '');
+    const toasts = await page.$$eval('#toast-container .toast', (els) => els.map((e) => e.innerText).join(' | ')).catch(() => '');
+    check(results, 'L01 the status line shows the published reply length in characters', /回复 \d+字|reply \d+ chars/.test(t1.text) && !/截断|cut off/.test(t1.text), t1.text);
+    check(results, 'L02 the hover text shows output tokens, thinking tokens and the output limit', /900/.test(t1.tip) && /600/.test(t1.tip), t1.tip);
+    check(results, 'L03 a reply cut off at the output limit is flagged in the status line', /截断|cut off/.test(t2), t2);
+    check(results, 'L04 and a warning explains how to fix it', /cut off at the output limit/.test(toasts), toasts.slice(0, 300));
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }

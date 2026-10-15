@@ -128,3 +128,4 @@
 .canon-profile textarea.canon-extra { width: 100%; font-family: monospace; font-size: 12px; margin: 2px 0 4px; }
 .canon-status { flex-wrap: wrap; }
 .canon-status .canon-timing { order: 10; flex-basis: 100%; font-size: 11.5px; opacity: 0.75; white-space: normal; line-height: 1.4; padding-left: 14px; }
+.canon-status .canon-reply.cut { color: var(--warning, #e0a040); font-weight: 600; }
