@@ -159,8 +159,13 @@ const server = http.createServer(async (req, res) => {
     else content = `默认叙事：GM 回应了「${lu.slice(0, 30)}」。`;
     state.logs.push({ type: 'main', at: Date.now(), messages, stream: !!body.stream, response: content, model: body.model, temperature: body.temperature, venice: body.venice_parameters });
     if (state.mainDelayMs) await sleep(state.mainDelayMs);
+    // A queued { content, reasoning } reply carries API-level reasoning (reasoning_content), like DeepSeek/Venice.
+    let reasoning = null;
+    if (content && typeof content === 'object') { reasoning = content.reasoning; content = content.content; }
     if (body.stream) return streamCompletion(res, content, body.model);
-    return send(res, 200, completion(content, body.model));
+    const out = completion(content, body.model);
+    if (reasoning) out.choices[0].message.reasoning_content = reasoning;
+    return send(res, 200, out);
   }
   send(res, 404, { error: 'not found', url });
 });

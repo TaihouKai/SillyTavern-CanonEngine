@@ -16965,13 +16965,30 @@ async function loadStModule() {
   );
   return stModule;
 }
+var reasoningModule = null;
+async function loadReasoningModule() {
+  if (reasoningModule) return reasoningModule;
+  const url = "/scripts/reasoning.js";
+  try {
+    reasoningModule = await import(
+      /* @vite-ignore */
+      url
+    );
+  } catch {
+    reasoningModule = {};
+  }
+  return reasoningModule;
+}
 function ctx() {
   return SillyTavern.getContext();
 }
 var gen = {
   draft: null,
   raw: null,
-  lastDraftPrompt: null
+  lastDraftPrompt: null,
+  /** Reasoning of the most recent private draft. ST's quiet generation drops it, so it is captured here
+   * and attached when that draft is published (the accepted draft is always the latest one). */
+  lastDraftReasoning: ""
 };
 function attachmentIdentity(m) {
   const legacy = m?.extra ? Object.getOwnPropertyDescriptor(m.extra, "file") : void 0;
@@ -17141,6 +17158,8 @@ var StHost = class {
     const c = ctx();
     const chat = c.chat;
     this.pendingStamp = { messageId: req.messageId, variantId: req.variantId, commitId: req.commitId };
+    const reasoning = gen.lastDraftReasoning;
+    gen.lastDraftReasoning = "";
     try {
       if (req.op === "swipe") {
         const last = chat[chat.length - 1];
@@ -17156,11 +17175,11 @@ var StHost = class {
         } catch {
         }
         last.swipe_id = last.swipes.length;
-        await c.saveReply({ type: "swipe", getMessage: req.text });
+        await c.saveReply({ type: "swipe", getMessage: req.text, reasoning });
       } else if (req.op === "continue") {
         await c.saveReply({ type: "appendFinal", getMessage: req.text });
       } else {
-        await c.saveReply({ type: "normal", getMessage: req.text });
+        await c.saveReply({ type: "normal", getMessage: req.text, reasoning });
       }
       const m = chat[chat.length - 1];
       if (m && !m.is_user) {
@@ -17343,6 +17362,22 @@ var StModel = class {
       const mod = await loadStModule();
       const token = newId("draft");
       gen.draft = { token, excludeLastAssistant: req.excludeLastAssistant, captured: null, before: null, injectedRemoved: 0 };
+      const rmod = await loadReasoningModule();
+      gen.lastDraftReasoning = "";
+      const origFetch = window.fetch;
+      let apiReasoning = null;
+      const tap = async (input, init2) => {
+        const res = await origFetch(input, init2);
+        try {
+          const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+          if (url.includes("/api/backends/chat-completions/generate") && typeof init2?.body === "string" && init2.body.includes("[CANON ENGINE CONTEXT") && res.ok) {
+            apiReasoning = res.clone().json().then((d) => String(rmod.extractReasoningFromData?.(d) || "")).catch(() => "");
+          }
+        } catch {
+        }
+        return res;
+      };
+      window.fetch = tap;
       c.setExtensionPrompt(EXT_PROMPT_KEY, req.engineContext, mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
       c.setExtensionPrompt(EXT_LENGTH_KEY, req.lengthNote || "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
       const onAbort = () => {
@@ -17353,14 +17388,23 @@ var StModel = class {
       };
       req.signal?.addEventListener("abort", onAbort, { once: true });
       try {
-        const out = await c.generateQuietPrompt({ quietPrompt: req.instruction || "", removeReasoning: true, skipWIAN: false });
+        const out = await c.generateQuietPrompt({ quietPrompt: req.instruction || "", removeReasoning: false, skipWIAN: false });
         if (req.signal?.aborted) throw new Error("aborted");
         const captured = gen.draft?.token === token ? gen.draft.captured : null;
         if (captured && !captured.some((m) => typeof m.content === "string" && m.content.includes("[CANON ENGINE CONTEXT"))) {
           throw new EngineError("capacity", "SillyTavern dropped the Canon Engine context from the prompt because it did not fit the configured context size. Increase \u201CContext Size (tokens)\u201D in the API settings, or lower budgetChars in Canon Engine advanced settings.");
         }
-        return String(out ?? "");
+        let text = String(out ?? "");
+        let parsed = "";
+        const stripped = typeof rmod.removeReasoningFromString === "function" ? String(rmod.removeReasoningFromString(text)) : text;
+        if (stripped !== text) {
+          parsed = String(rmod.parseReasoningFromString?.(text)?.reasoning || "");
+          text = stripped;
+        }
+        gen.lastDraftReasoning = (apiReasoning ? await apiReasoning : "") || parsed;
+        return text;
       } finally {
+        if (window.fetch === tap) window.fetch = origFetch;
         req.signal?.removeEventListener("abort", onAbort);
         c.setExtensionPrompt(EXT_PROMPT_KEY, "", mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
         c.setExtensionPrompt(EXT_LENGTH_KEY, "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);

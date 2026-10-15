@@ -38,6 +38,15 @@ export async function loadStModule(): Promise<StModule> {
   return stModule;
 }
 
+let reasoningModule: any = null;
+/** ST's reasoning helpers (same module instance as ST's own). Optional: missing exports mean no reasoning. */
+async function loadReasoningModule(): Promise<any> {
+  if (reasoningModule) return reasoningModule;
+  const url = '/scripts/reasoning.js';
+  try { reasoningModule = await import(/* @vite-ignore */ url); } catch { reasoningModule = {}; }
+  return reasoningModule;
+}
+
 export function ctx(): any {
   return SillyTavern.getContext();
 }
@@ -47,6 +56,9 @@ export const gen = {
   draft: null as null | { token: string; excludeLastAssistant: boolean; captured: any[] | null; before: Set<any> | null; injectedRemoved: number },
   raw: null as null | { token: string; messages: ChatMsg[] },
   lastDraftPrompt: null as null | any[],
+  /** Reasoning of the most recent private draft. ST's quiet generation drops it, so it is captured here
+   * and attached when that draft is published (the accepted draft is always the latest one). */
+  lastDraftReasoning: '',
 };
 
 function attachmentIdentity(m: any): string {
@@ -215,6 +227,8 @@ export class StHost implements HostPort {
     const c = ctx();
     const chat: any[] = c.chat;
     this.pendingStamp = { messageId: req.messageId, variantId: req.variantId, commitId: req.commitId };
+    const reasoning = gen.lastDraftReasoning;
+    gen.lastDraftReasoning = '';
     try {
       if (req.op === 'swipe') {
         // ST reverts its own slot after the aborted native overswipe (endSwipe clamp), so the
@@ -225,11 +239,11 @@ export class StHost implements HostPort {
         await this.settleSwipe();
         try { (await loadStModule() as any).syncMesToSwipe?.(chat.length - 1); } catch { /* optional */ }
         last.swipe_id = last.swipes.length;
-        await c.saveReply({ type: 'swipe', getMessage: req.text });
+        await c.saveReply({ type: 'swipe', getMessage: req.text, reasoning });
       } else if (req.op === 'continue') {
         await c.saveReply({ type: 'appendFinal', getMessage: req.text });
       } else {
-        await c.saveReply({ type: 'normal', getMessage: req.text });
+        await c.saveReply({ type: 'normal', getMessage: req.text, reasoning });
       }
       // Ensure the stamp landed (MESSAGE_RECEIVED hook) even if another listener replaced extra.
       const m = chat[chat.length - 1];
@@ -410,13 +424,30 @@ export class StModel implements ModelPort {
       const mod = await loadStModule();
       const token = newId('draft');
       gen.draft = { token, excludeLastAssistant: req.excludeLastAssistant, captured: null, before: null, injectedRemoved: 0 };
+      const rmod = await loadReasoningModule();
+      gen.lastDraftReasoning = '';
+      // Quiet generations return only the text. Read the API's reasoning field from our own draft
+      // request's response (identified by the engine context in its body), as ST does for normal replies.
+      const origFetch = window.fetch;
+      let apiReasoning: Promise<string> | null = null;
+      const tap = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const res = await origFetch(input, init);
+        try {
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+          if (url.includes('/api/backends/chat-completions/generate') && typeof init?.body === 'string' && init.body.includes('[CANON ENGINE CONTEXT') && res.ok) {
+            apiReasoning = res.clone().json().then((d) => String(rmod.extractReasoningFromData?.(d) || '')).catch(() => '');
+          }
+        } catch { /* reasoning is optional */ }
+        return res;
+      };
+      window.fetch = tap as typeof fetch;
       c.setExtensionPrompt(EXT_PROMPT_KEY, req.engineContext, mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
       // Depth 0: after the latest message, so nothing sits between the length instruction and the reply.
       c.setExtensionPrompt(EXT_LENGTH_KEY, req.lengthNote || '', mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
       const onAbort = () => { try { c.stopGeneration?.(); } catch { /* ignore */ } };
       req.signal?.addEventListener('abort', onAbort, { once: true });
       try {
-        const out = await c.generateQuietPrompt({ quietPrompt: req.instruction || '', removeReasoning: true, skipWIAN: false });
+        const out = await c.generateQuietPrompt({ quietPrompt: req.instruction || '', removeReasoning: false, skipWIAN: false });
         if (req.signal?.aborted) throw new Error('aborted');
         // ST trims in-chat injections that do not fit the model's context size. Never accept a
         // draft whose final prompt lost the engine context.
@@ -424,8 +455,15 @@ export class StModel implements ModelPort {
         if (captured && !captured.some((m: any) => typeof m.content === 'string' && m.content.includes('[CANON ENGINE CONTEXT'))) {
           throw new EngineError('capacity', 'SillyTavern dropped the Canon Engine context from the prompt because it did not fit the configured context size. Increase “Context Size (tokens)” in the API settings, or lower budgetChars in Canon Engine advanced settings.');
         }
-        return String(out ?? '');
+        // Reasoning inside the text (auto-parse templates such as <think>): split it off as ST would.
+        let text = String(out ?? '');
+        let parsed = '';
+        const stripped = typeof rmod.removeReasoningFromString === 'function' ? String(rmod.removeReasoningFromString(text)) : text;
+        if (stripped !== text) { parsed = String(rmod.parseReasoningFromString?.(text)?.reasoning || ''); text = stripped; }
+        gen.lastDraftReasoning = (apiReasoning ? await apiReasoning : '') || parsed;
+        return text;
       } finally {
+        if (window.fetch === (tap as typeof fetch)) window.fetch = origFetch;
         req.signal?.removeEventListener('abort', onAbort);
         c.setExtensionPrompt(EXT_PROMPT_KEY, '', mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
         c.setExtensionPrompt(EXT_LENGTH_KEY, '', mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);

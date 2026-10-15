@@ -648,6 +648,29 @@ try {
     check(results, 'R02 the length instruction comes after the latest player message, right before the reply', li >= 0 && li > lastUser && msgs.slice(li + 1).every((m) => m.role !== 'user' && m.role !== 'assistant'), msgs.map((m, i) => `${i}:${m.role}:${String(m.content).slice(0, 24)}`).slice(-4).join(' | '));
     await setLen('');
   }
+  if (want('S14')) {
+    console.log('\n== S14 reasoning of the accepted draft is kept ==');
+    await freshChat();
+    const prev = await page.evaluate(async () => {
+      const o = await import('/scripts/openai.js'); const p = await import('/scripts/power-user.js');
+      const v = { show: o.oai_settings.show_thoughts, parse: p.power_user.reasoning.auto_parse };
+      o.oai_settings.show_thoughts = true; p.power_user.reasoning.auto_parse = true; return v;
+    });
+    await mock('/control', { mainQueue: [{ content: '港口的灯一盏盏亮起。RSN_A', reasoning: 'THINK_API_77: 先描写灯光。' }, '<think>THINK_TAG_88: 写海鸥。</think>海鸥落在桅杆上。RSN_B'], clearLogs: true });
+    const lastRaw = () => page.evaluate(() => { const c = SillyTavern.getContext().chat; const m = c[c.length - 1]; return { mes: m.mes, extra: { reasoning: m.extra?.reasoning } }; });
+    await send(page, '我看着港口。');
+    const a = await lastRaw();
+    await send(page, '我继续看。');
+    const b = await lastRaw();
+    const shown = await page.$$eval('#chat .mes .mes_reasoning', (els) => els.filter((e) => /THINK_(API_77|TAG_88)/.test(e.textContent || '')).length).catch(() => -1);
+    check(results, 'Q01 API reasoning (reasoning_content) of the accepted draft is saved with the reply', a.extra?.reasoning?.includes('THINK_API_77') && a.mes.includes('RSN_A') && !a.mes.includes('THINK_API'), JSON.stringify({ r: a.extra?.reasoning, mes: a.mes }));
+    check(results, 'Q02 reasoning inside the text (<think>) is split off into the reasoning block', b.extra?.reasoning?.includes('THINK_TAG_88') && b.mes.includes('RSN_B') && !b.mes.includes('THINK_TAG'), JSON.stringify({ r: b.extra?.reasoning, mes: b.mes }));
+    check(results, 'Q03 the reasoning block is rendered in the chat', shown >= 2, String(shown));
+    await page.evaluate(async (v) => {
+      const o = await import('/scripts/openai.js'); const p = await import('/scripts/power-user.js');
+      o.oai_settings.show_thoughts = v.show; p.power_user.reasoning.auto_parse = v.parse;
+    }, prev);
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }
