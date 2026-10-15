@@ -178,17 +178,39 @@ function repairItems(root: unknown, errors: { keyword: string; instancePath: str
 /** What the automatic repairs of the current call changed (reported to the user). */
 let repairNotes: string[] = [];
 const DROPPABLE_ITEMS = new Set(['step_enactments', 'new_entities', 'transitions', 'occurrences', 'references', 'claims', 'statements']);
-function dropBadItems(root: unknown, errors: { instancePath: string }[]): boolean {
-  const bad = new Map<string, Set<number>>();
-  for (const e of errors) {
-    const m = /^\/([a-z_]+)\/(\d+)(\/|$)/.exec(e.instancePath || '');
-    if (m && DROPPABLE_ITEMS.has(m[1])) bad.set(m[1], (bad.get(m[1]) || new Set()).add(Number(m[2])));
-  }
+/** Last resort for items of record-only lists that still fail validation. The offending FIELD is
+ *  neutralized first (nullable -> null, optional -> removed, a bad list element -> removed); the whole
+ *  item is dropped only when a required field it cannot do without is broken. An occurrence that
+ *  realizes a canonical event (pack_event_id) is never dropped: losing it would turn its outcome facts
+ *  into "set without the event" violations, so such a reply is sent back instead. */
+function dropBadItems(root: unknown, errors: { instancePath: string; message?: string }[], schema: Record<string, any>): boolean {
   let changed = false;
-  for (const [list, idx] of bad) {
+  const dropping = new Map<string, Map<number, string>>();
+  for (const e of errors) {
+    const m = /^\/([a-z_]+)\/(\d+)(?:\/([^/]+)(?:\/(\d+))?)?/.exec(e.instancePath || '');
+    if (!m || !DROPPABLE_ITEMS.has(m[1])) continue;
+    const [, list, idxS, field, elemS] = m;
+    const item: any = (root as any)?.[list]?.[Number(idxS)];
+    if (!item || typeof item !== 'object') continue;
+    const itemS = schema?.properties?.[list]?.items || {};
+    const fs = field ? itemS.properties?.[field] : undefined;
+    const why = `${e.instancePath} ${e.message || ''}`.trim();
+    if (field && fs && field in item) {
+      const types = Array.isArray(fs.type) ? fs.type : [fs.type];
+      const nullOk = types.includes('null') || (Array.isArray(fs.enum) && fs.enum.includes(null)) || (Array.isArray(fs.oneOf) && fs.oneOf.some((o: any) => o.type === 'null'));
+      if (elemS !== undefined && Array.isArray(item[field])) { item[field].splice(Number(elemS), 1); repairNotes.push(`removed a bad element (${why})`); changed = true; continue; }
+      if (nullOk) { item[field] = null; repairNotes.push(`set ${list}/${idxS}/${field} to null (${why})`); changed = true; continue; }
+      if (!(itemS.required || []).includes(field)) { delete item[field]; repairNotes.push(`removed ${list}/${idxS}/${field} (${why})`); changed = true; continue; }
+    }
+    if (list === 'occurrences' && item.pack_event_id) continue; // canonical occurrence: send back instead
+    const mm = dropping.get(list) || new Map<number, string>();
+    mm.set(Number(idxS), why);
+    dropping.set(list, mm);
+  }
+  for (const [list, idx] of dropping) {
     const arr: any = (root as any)?.[list];
     if (!Array.isArray(arr)) continue;
-    for (const i of [...idx].sort((a, b) => b - a)) if (i < arr.length) { repairNotes.push(`dropped malformed ${list} item: ${JSON.stringify(arr[i]).slice(0, 120)}`); arr.splice(i, 1); changed = true; }
+    for (const [i, why] of [...idx].sort((a, b) => b[0] - a[0])) if (i < arr.length) { repairNotes.push(`dropped malformed ${list} item (${why}): ${JSON.stringify(arr[i]).slice(0, 100)}`); arr.splice(i, 1); changed = true; }
   }
   return changed;
 }
@@ -338,7 +360,7 @@ export async function callStructured<T>(
         repairNotes = [];
         for (let k = 0; k < 6 && repairEnums(data, (v.errors || []) as any[]); k++) if (v(data)) { fixed = true; break; }
         // Last resort, after the targeted fixes: drop items of record-only lists that are still malformed.
-        for (let k = 0; !fixed && k < 3 && dropBadItems(data, (v.errors || []) as any[]); k++) {
+        for (let k = 0; !fixed && k < 3 && dropBadItems(data, (v.errors || []) as any[], TASK_SCHEMAS[task]); k++) {
           if (v(data)) { fixed = true; break; }
           for (let j = 0; j < 6 && repairEnums(data, (v.errors || []) as any[]); j++) if (v(data)) { fixed = true; break; }
         }

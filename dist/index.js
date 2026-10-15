@@ -14436,18 +14436,50 @@ function repairItems(root, errors) {
 }
 var repairNotes = [];
 var DROPPABLE_ITEMS = /* @__PURE__ */ new Set(["step_enactments", "new_entities", "transitions", "occurrences", "references", "claims", "statements"]);
-function dropBadItems(root, errors) {
-  const bad = /* @__PURE__ */ new Map();
-  for (const e of errors) {
-    const m = /^\/([a-z_]+)\/(\d+)(\/|$)/.exec(e.instancePath || "");
-    if (m && DROPPABLE_ITEMS.has(m[1])) bad.set(m[1], (bad.get(m[1]) || /* @__PURE__ */ new Set()).add(Number(m[2])));
-  }
+function dropBadItems(root, errors, schema) {
   let changed = false;
-  for (const [list, idx] of bad) {
+  const dropping = /* @__PURE__ */ new Map();
+  for (const e of errors) {
+    const m = /^\/([a-z_]+)\/(\d+)(?:\/([^/]+)(?:\/(\d+))?)?/.exec(e.instancePath || "");
+    if (!m || !DROPPABLE_ITEMS.has(m[1])) continue;
+    const [, list, idxS, field, elemS] = m;
+    const item = root?.[list]?.[Number(idxS)];
+    if (!item || typeof item !== "object") continue;
+    const itemS = schema?.properties?.[list]?.items || {};
+    const fs = field ? itemS.properties?.[field] : void 0;
+    const why = `${e.instancePath} ${e.message || ""}`.trim();
+    if (field && fs && field in item) {
+      const types = Array.isArray(fs.type) ? fs.type : [fs.type];
+      const nullOk = types.includes("null") || Array.isArray(fs.enum) && fs.enum.includes(null) || Array.isArray(fs.oneOf) && fs.oneOf.some((o) => o.type === "null");
+      if (elemS !== void 0 && Array.isArray(item[field])) {
+        item[field].splice(Number(elemS), 1);
+        repairNotes.push(`removed a bad element (${why})`);
+        changed = true;
+        continue;
+      }
+      if (nullOk) {
+        item[field] = null;
+        repairNotes.push(`set ${list}/${idxS}/${field} to null (${why})`);
+        changed = true;
+        continue;
+      }
+      if (!(itemS.required || []).includes(field)) {
+        delete item[field];
+        repairNotes.push(`removed ${list}/${idxS}/${field} (${why})`);
+        changed = true;
+        continue;
+      }
+    }
+    if (list === "occurrences" && item.pack_event_id) continue;
+    const mm = dropping.get(list) || /* @__PURE__ */ new Map();
+    mm.set(Number(idxS), why);
+    dropping.set(list, mm);
+  }
+  for (const [list, idx] of dropping) {
     const arr = root?.[list];
     if (!Array.isArray(arr)) continue;
-    for (const i of [...idx].sort((a, b) => b - a)) if (i < arr.length) {
-      repairNotes.push(`dropped malformed ${list} item: ${JSON.stringify(arr[i]).slice(0, 120)}`);
+    for (const [i, why] of [...idx].sort((a, b) => b[0] - a[0])) if (i < arr.length) {
+      repairNotes.push(`dropped malformed ${list} item (${why}): ${JSON.stringify(arr[i]).slice(0, 100)}`);
       arr.splice(i, 1);
       changed = true;
     }
@@ -14610,7 +14642,7 @@ ${system}` },
           fixed = true;
           break;
         }
-        for (let k = 0; !fixed && k < 3 && dropBadItems(data, v.errors || []); k++) {
+        for (let k = 0; !fixed && k < 3 && dropBadItems(data, v.errors || [], TASK_SCHEMAS[task]); k++) {
           if (v(data)) {
             fixed = true;
             break;
@@ -14713,6 +14745,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
 2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it), state_claims (facts the narration presupposes; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null), player_actions (player-character actions depicted; authorized_by_quote = verbatim span of the user's message that authorized it, or null), step_enactments, new_entities (genuinely new people/places/objects introduced).
 3. scene_end: story time when the reply ends (bounds; do not invent minutes \u2014 use range/approx when only "afternoon" is known). flashback=true if the reply is framed as a flashback.
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
+   A HARD event that is not yet due is never a violation: ending the scene before it, or leaving it to happen offscreen without the player, is valid (the controller enforces deadlines and adjudicates offscreen events). Confinement, distance or obstacles do not contradict it \u2014 the world can still bring it about. Use "contradicted" only when the text says it will not happen or establishes a fact that rules out its required outcome itself.
    Credible cause: if the actual history/state rules out the event's usual route (a required participant is detained, guarded, far away, incapacitated...), it is fulfilled only when the text shows or clearly implies a concrete cause for how it still comes about (who or what, by what means). Otherwise give status "missing" and a violation whose detail begins with "HARD realized without a credible cause:". An unexplained vanishing, a glitch or "some invisible force" is not a cause unless it is the established ability of a specific character.
    Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place or activity meaningfully changes, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
 5. violations: unauthorized player actions/consent/dialogue, contradictions, unsupported recollections, leaking secret knowledge to characters who cannot know it, engine labels/JSON in prose, skipping a due obligation.
@@ -15449,9 +15482,16 @@ function runGate(g) {
       if (chk && chk.verdict === "unsupported") violations.push(`The reply asserts a past event with no actual record: "${e.quote}"`);
     }
   }
+  const depicted = new Set(ev.occurrences.map((o) => o.pack_event_id).filter(Boolean));
+  const notDue = [...pendingHardMap.values()].filter((c) => !depicted.has(c.event.id) && !hardFulfilled.includes(c.event.id) && !g.stagedHard.has(c.event.id) && c.hi > Math.max(sceneEnd.lo, g.clockTick) && !(!flashback && c.hi <= sceneEnd.hi));
   for (const v of ev.violations) {
     if (v.quote && !quoteInText(v.quote, text)) {
       warnings.push(`reviewer violation without valid evidence ignored: ${v.detail}`);
+      continue;
+    }
+    const about = notDue.find((c) => `${v.code} ${v.detail}`.includes(c.event.id) || `${v.code} ${v.detail}`.includes(c.event.title));
+    if (about && !/without a credible cause/.test(v.detail)) {
+      warnings.push(`reviewer violation about not-yet-due HARD "${about.event.title}" ignored: ${v.detail.slice(0, 160)}`);
       continue;
     }
     violations.push(`Reviewer: ${v.detail}${v.quote ? ` ("${v.quote}")` : ""}`);
@@ -15876,7 +15916,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.20";
+var ENGINE_RELEASE = "1.3.21";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -19259,6 +19299,31 @@ function download(name2, text) {
     a.remove();
   }, 1e3);
 }
+function copyText(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.top = "0";
+  ta.style.left = "0";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  ta.remove();
+  if (!ok) try {
+    void navigator.clipboard?.writeText(text);
+    ok = !!navigator.clipboard;
+  } catch {
+  }
+  return ok;
+}
 function showFailureReport() {
   const text = E.campaign()?.recoveryState.details;
   if (!text) return;
@@ -19273,10 +19338,9 @@ function showFailureReport() {
   box.addEventListener("click", (ev) => {
     const r = ev.target.closest("[data-r]");
     if (ev.target === box || r?.dataset.r === "close") box.remove();
-    else if (r?.dataset.r === "copy") void navigator.clipboard?.writeText(text).then(() => {
-      r.textContent = t("copied");
-    }).catch(() => {
-    });
+    else if (r?.dataset.r === "copy") {
+      if (copyText(text)) r.textContent = t("copied");
+    }
   });
   document.body.appendChild(box);
 }

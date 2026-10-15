@@ -63,4 +63,22 @@ describe('schema-driven normalization', () => {
     const out = await callStructured<any>(p, 'discover', 'sys', {});
     expect(out.references.length).toBe(200);
   });
+  it('N07 a canonical occurrence with a broken field keeps the occurrence: the field is neutralized (real-model finding)', async () => {
+    const hard = { ref: 'o1', title: 'Conflict begins', account: 'militias attack', actors: ['council'], quote: 'attack', pack_event_id: 'conflict-begins', disposition: 'occurred', time: { lo: '2020-07-20 09:00' }, origin: 'offscreen' };
+    const p = port([{ ...base, occurrences: [hard], transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true, quote: 'attack', occurrence_ref: 'o1' }] }]);
+    const out = await callStructured<any>(p, 'evaluate', 'sys', {});
+    expect(p.seen).toBe(1);
+    expect(out.occurrences.length).toBe(1);
+    expect(out.occurrences[0].pack_event_id).toBe('conflict-begins');
+    expect(out.occurrences[0].time).toBeNull();
+    expect(out.occurrences[0].origin).toBeUndefined();
+  });
+
+  it('N08 a canonical occurrence that cannot be fixed is sent back, never dropped', async () => {
+    const hard = { ref: 'o1', title: 'Conflict begins', account: 'a', actors: 'council', quote: 'attack', pack_event_id: 'conflict-begins' };
+    const p = port([{ ...base, occurrences: [{ ...hard, actors: 7 }] }, { ...base, occurrences: [{ ...hard, actors: ['council'] }] }]);
+    const out = await callStructured<any>(p, 'evaluate', 'sys', {});
+    expect(p.seen).toBe(2);
+    expect(out.occurrences[0].pack_event_id).toBe('conflict-begins');
+  });
 });

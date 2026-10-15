@@ -705,6 +705,9 @@ try {
     await page.click('#canon-engine-status [data-act="details"]').catch(() => {});
     const report = await page.$eval('#canon-report .canon-report-text', (e) => e.textContent).catch(() => '');
     check(results, 'H04 a failed turn offers 详情 with the full report (every attempt, its problems, the step timings)', /Attempt 1 \(first draft\)[\s\S]*the tone is wrong[\s\S]*Attempt 3 \(repair 2\)[\s\S]*Steps: /.test(report), report.slice(0, 300));
+    await page.click('#canon-report [data-r="copy"]').catch(() => {});
+    const copyLabel = await page.$eval('#canon-report [data-r="copy"]', (e) => e.textContent).catch(() => '');
+    check(results, 'H06 复制 copies the report (works without the https-only clipboard API)', /已复制|Copied/.test(copyLabel), copyLabel);
     await sleep(6000);
     check(results, 'H05 the error toast stays until closed', sticky > 0 && (await page.$$eval('#toast-container .toast-error', (els) => els.length).catch(() => 0)) > 0, String(sticky));
     await page.click('#canon-report [data-r="close"]').catch(() => {});

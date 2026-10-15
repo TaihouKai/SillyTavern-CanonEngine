@@ -545,6 +545,22 @@ function download(name: string, text: string) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
+/** Copy text. navigator.clipboard only exists on https/localhost; a Tavern on plain http over the LAN
+ *  needs the selection + execCommand route. */
+function copyText(text: string): boolean {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed'; ta.style.top = '0'; ta.style.left = '0'; ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  ta.remove();
+  if (!ok) try { void navigator.clipboard?.writeText(text); ok = !!navigator.clipboard; } catch { /* ignore */ }
+  return ok;
+}
+
 /** Full report of the last failed turn, readable and copyable at any time (it is saved with the chat). */
 function showFailureReport() {
   const text = E.campaign()?.recoveryState.details;
@@ -560,7 +576,7 @@ function showFailureReport() {
   box.addEventListener('click', (ev) => {
     const r = (ev.target as HTMLElement).closest('[data-r]') as HTMLElement | null;
     if (ev.target === box || r?.dataset.r === 'close') box.remove();
-    else if (r?.dataset.r === 'copy') void navigator.clipboard?.writeText(text).then(() => { r.textContent = t('copied'); }).catch(() => {});
+    else if (r?.dataset.r === 'copy') { if (copyText(text)) r.textContent = t('copied'); }
   });
   document.body.appendChild(box);
 }

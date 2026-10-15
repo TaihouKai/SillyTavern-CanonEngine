@@ -239,6 +239,27 @@ describe('convergence', () => {
     expect(st(y).dispositions.get('conflict-begins')?.disposition).toBe('occurred');
   });
 
+  it('C17d a HARD event that is not yet due is never a violation; it may still happen offscreen (real-model finding)', async () => {
+    const x = await setup(tick(1, 13));
+    // the reply ends well before the HARD checkpoint (D2 09:00); the reviewer complains anyway
+    const ok = await turn(x, 'I lock the Council envoy in the cellar.', 'The envoy is locked in the cellar; somewhere, the militias keep arming. [N1]', {
+      scene_end: at(1, 14),
+      violations: [{ code: 'hard_route', quote: 'locked in the cellar', detail: 'HARD conflict-begins cannot happen naturally: the envoy is locked up and no escape route is given.' }],
+      hard_checks: [{ event_id: 'conflict-begins', status: 'not_due', occurrence_ref: null, quote: null }],
+    });
+    expect(ok).toBe(true);
+    // but a depicted HARD event without a credible cause is still rejected
+    const y = await setup(tick(2, 8, 50));
+    await turn(y, 'I watch.', 'At nine the conflict simply begins. [N2]', {
+      scene_end: at(2, 9, 5),
+      occurrences: [occ('o1', 'Conflict begins', 'the conflict simply begins', { pack_event_id: 'conflict-begins', disposition: 'occurred', time: at(2, 9) })],
+      transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true, quote: 'the conflict simply begins', occurrence_ref: 'o1' }],
+      hard_checks: [{ event_id: 'conflict-begins', status: 'missing', occurrence_ref: 'o1', quote: null }],
+      violations: [{ code: 'hard_cause', quote: 'the conflict simply begins', detail: 'HARD realized without a credible cause: conflict-begins just happens.' }],
+    });
+    expect(y.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/without a credible cause/); // first draft rejected for it
+  });
+
   it('C18 a draft that skips further ahead re-runs crossed-interval checks and must realize crossed HARD events', async () => {
     const x = await setup();
     const discBefore = x.model.tasks('discover').length;

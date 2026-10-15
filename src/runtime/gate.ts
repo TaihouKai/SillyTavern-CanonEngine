@@ -346,8 +346,16 @@ export function runGate(g: GateInput): GateResult {
       if (chk && chk.verdict === 'unsupported') violations.push(`The reply asserts a past event with no actual record: "${e.quote}"`);
     }
   }
+  // A HARD event that is not yet due is never a violation: the scene may end before it, and the world
+  // can still bring it about offscreen (adjudicated when story time passes it). Deadlines are enforced
+  // above; an explicit contradiction comes through hard_checks. Reviewer complaints about such an event
+  // ("no escape route yet", "the meeting is not depicted") are therefore ignored.
+  const depicted = new Set(ev.occurrences.map((o) => o.pack_event_id).filter(Boolean));
+  const notDue = [...pendingHardMap.values()].filter((c) => !depicted.has(c.event.id) && !hardFulfilled.includes(c.event.id) && !g.stagedHard.has(c.event.id) && c.hi > Math.max(sceneEnd.lo, g.clockTick) && !(!flashback && c.hi <= sceneEnd.hi));
   for (const v of ev.violations) {
     if (v.quote && !quoteInText(v.quote, text)) { warnings.push(`reviewer violation without valid evidence ignored: ${v.detail}`); continue; }
+    const about = notDue.find((c) => `${v.code} ${v.detail}`.includes(c.event.id) || `${v.code} ${v.detail}`.includes(c.event.title));
+    if (about && !/without a credible cause/.test(v.detail)) { warnings.push(`reviewer violation about not-yet-due HARD "${about.event.title}" ignored: ${v.detail.slice(0, 160)}`); continue; }
     violations.push(`Reviewer: ${v.detail}${v.quote ? ` ("${v.quote}")` : ''}`);
   }
   if (/\[CANON[ _]ENGINE|ACTUAL HISTORY|FUTURE OBLIGATIONS|"entity_id"|<\/?canon/i.test(text)) violations.push('The reply leaks internal engine labels/JSON into the narrative.');
