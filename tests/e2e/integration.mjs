@@ -633,6 +633,19 @@ try {
     check(results, 'K04 an idle status bar offers no Cancel button', !(await page.$('#canon-engine-status [data-act="cancel"]')));
     await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'k-timing.png'), clip: { x: 300, y: 880, width: 800, height: 120 } }).catch(() => {});
   }
+  if (want('S13')) {
+    console.log('\n== S13 reply length setting ==');
+    await freshChat();
+    const setLen = (v) => page.evaluate((v) => { const el = document.querySelector('[data-set="replyLength"]'); el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }, v);
+    await setLen('正文约800~1200字');
+    const saved = await page.evaluate(() => SillyTavern.getContext().extensionSettings.canonEngine.replyLength);
+    await mock('/control', { mainQueue: ['港口很安静。LEN_A'], clearLogs: true });
+    await send(page, '我四处看看。');
+    const p = (await mainLogs()).map(promptText).join('\n');
+    check(results, 'R01 the reply length typed in the panel is saved as text', saved === '正文约800~1200字', JSON.stringify(saved));
+    check(results, 'R02 the story draft prompt carries the reply length', p.includes('Reply length: 正文约800~1200字.'), p.slice(p.indexOf('Reply length'), p.indexOf('Reply length') + 80));
+    await setLen('');
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }

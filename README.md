@@ -82,6 +82,10 @@ Each turn the engine makes several internal analysis calls (extract, discover, r
 
 The GM's story replies always use the chat's own connection; only internal analysis uses the profile (at `taskTemperature`, default 0.2). If the chosen profile is deleted, turns stop with an actionable error instead of silently using the story model.
 
+## Reply length
+
+**回复长度** (optional, in the panel) adds a length target such as `正文约800~1200字` to Canon Engine's instructions for every draft and revision. These instructions sit right before generation, so they outweigh a length rule at the top of a long prompt. Leave it empty to rely on your own prompt.
+
 ## Context size
 
 The engine context (rules + retrieved history + state) typically adds 2–5k tokens per turn. Use a model context of at least 16k–32k tokens. If SillyTavern trims the engine context because the prompt does not fit, the turn stops with a *Context capacity* error instead of generating an unchecked reply.

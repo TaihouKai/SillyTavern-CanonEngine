@@ -6,7 +6,7 @@ HARD obligations retain the exact required event content, outcome and authored t
 Follow the user's authorized action scope. Do not supply new voluntary player actions, decisions, dialogue, consent, or equipment/skill use. NPCs and world events act independently with knowledge and resources they actually possess. Keep system knowledge separate from NPC knowledge and player-visible information.
 The accepted current state overrides stale temporal descriptions in ordinary lore. Keep static setting rules and character identity. Do not assume an unrecorded event already happened or a plan succeeded. Do not silently jump past a due obligation.
 Use the supplied actual-history records whenever an earlier event is causally relevant or mentioned, including indirectly. Preserve its actual actors, actions, outcomes and relevant later changes. This includes player actions and unrelated events, not just canonical milestones. Current facts do not erase earlier occurrences whose effects were reversed. Respect the current state of every depicted entity, including incidental route stops, people and objects. A missing record is not permission to invent a recollection, restoration or normal condition. Keep a character's belief or rumor distinct from established truth.
-Write only the requested narrative in the user's language, preserving the normal scene length and style. Do not print internal JSON, engine labels, debug information, banner markup or planner reasoning. Stop at the next meaningful player choice.`;
+Write only the requested narrative in the user's language. Keep the reply length, pacing and level of detail that the GM instructions ask for: this context adds constraints, not a reason to write less. Do not print internal JSON, engine labels, debug information, banner markup or planner reasoning. Develop the scene fully, then leave the next decision to the player instead of taking it for them.`;
 
 const COMMON = `You are an internal structured-analysis component of Canon Engine (a story-continuity engine). You output exactly ONE JSON object and nothing else.
 Format: strict JSON (double quotes, no comments, no trailing commas). In SHAPE, "a|b|c" means exactly one of those strings. A field shown as null is either null or the object shape used elsewhere in SHAPE (times are {"day":int,"minute":int}); never put free text in it.
@@ -104,6 +104,6 @@ Your previous draft for this turn was not accepted. Write a revised COMPLETE rep
 ${violations.map((v, i) => `${i + 1}. ${v}`).join('\n')}
 Facts you must respect (actual history/state at this scene):
 ${facts}
-Do not rewrite previously accepted history. Do not mention this request. Output only the narrative.`;
+Change only what is needed to fix these problems; keep the full length, detail and style a normal reply would have (do not shorten or summarize). Do not rewrite previously accepted history. Do not mention this request. Output only the narrative.`;
 
 export const CONTINUE_INSTRUCTION = `[Canon Engine private instruction — not part of the story] Continue the last GM message exactly from where it stops. Output only the continuation text (do not repeat the existing part).`;

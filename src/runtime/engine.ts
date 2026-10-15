@@ -38,6 +38,8 @@ export interface EngineSettings {
   taskProfileId: string;
   /** Extra request-body parameters (YAML, as in ST's "Include Body Parameters") for analysis-profile requests. */
   taskExtraBody: string;
+  /** Optional reply-length target for story drafts and repairs, e.g. "正文约800~1200字"; '' = none. */
+  replyLength: string;
 }
 
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
@@ -60,6 +62,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   taskTemperature: 0.2,
   taskProfileId: '',
   taskExtraBody: '',
+  replyLength: '',
 };
 
 export type OpPhase = 'idle' | 'reconciling' | 'planning' | 'generating' | 'validating' | 'committing' | 'error' | 'conflict' | 'disabled';
@@ -100,6 +103,17 @@ export class CanonEngine {
   status: StatusInfo = { phase: 'idle', message: '', canRetry: false, canCancel: false };
   epoch = 0;
   private packCache: { hash: string; loaded: LoadedPack } | null = null;
+  /** Discovery result per (operation, text): re-reviewing the same draft against staged history reuses it. */
+  private discCache = new Map<string, DiscoverOut>();
+  private gmRules(): string {
+    const len = String(this.settings.replyLength || '').trim();
+    return GM_INTEGRATION_RULES + (len ? `\nReply length: ${len}. This applies to every reply, including revised drafts.` : '');
+  }
+  private rememberDiscovery(key: string, d: DiscoverOut): DiscoverOut {
+    if (this.discCache.size > 16) this.discCache.clear();
+    this.discCache.set(key, d);
+    return d;
+  }
   private progressBase = '';
   /** True while the reconcile step is reading the player's current input (part of the turn, not catch-up). */
   private examiningInput = false;
@@ -623,12 +637,13 @@ export class CanonEngine {
     const { index } = a;
     const pack = index.pack;
     const tick = index.state.clock.lo;
-    const disc = await this.withTimeout(callStructured<DiscoverOut>(this.host.model, 'discover', PROMPTS.discover, {
+    const discKey = `${a.operationId}|${sha256(a.text + '\n' + (a.userEntry?.text || ''))}`;
+    const disc = this.discCache.get(discKey) || this.rememberDiscovery(discKey, await this.withTimeout(callStructured<DiscoverOut>(this.host.model, 'discover', PROMPTS.discover, {
       text: a.text,
       scene_framing: a.userEntry ? `Player input: ${a.userEntry.text}` : '',
       registry: this.registry(index),
       occurrences: this.occurrenceCatalogue(index, a.text + ' ' + (a.userEntry?.text || '')),
-    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
+    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal));
     const refs: RefInput[] = disc.references.filter((r) => quoteInText(r.quote, a.text) || !r.quote).map((r) => ({ id: r.id, quote: r.quote, phrase: r.phrase, kind: r.ref_kind, assertion: r.assertion, temporal: r.temporal, candidates: r.candidate_ids }));
     const claims: ClaimInput[] = disc.claims.filter((c) => quoteInText(c.quote, a.text)).map((c) => ({ id: c.id, quote: c.quote, kind: c.kind, entityPhrases: c.entity_phrases || [], assertion: c.assertion, expected: c.expected || null }));
     // Deterministic discovery floor: every known entity/occurrence named in the text gets a lookup
@@ -837,7 +852,7 @@ export class CanonEngine {
           plan, forced: planInfo.forced, stagedNotes: [] as string[], opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`), budgetChars: this.settings.budgetChars, horizon: this.settings.horizonMinutes,
         };
         let packet = buildPacket(packetArgs);
-        const engineContext = GM_INTEGRATION_RULES + '\n\n' + packet.text;
+        const engineContext = this.gmRules() + '\n\n' + packet.text;
 
         // Draft (private)
         this.setStatus('generating', 'Generating (private draft)…');
@@ -887,7 +902,7 @@ export class CanonEngine {
           packetArgs.retrieval = mergeRetrieval(packetArgs.retrieval, review.retrieval);
           packetArgs.stagedNotes = adj?.notes || [];
           packet = buildPacket(packetArgs);
-          const repairCtx = GM_INTEGRATION_RULES + '\n\n' + packet.text;
+          const repairCtx = this.gmRules() + '\n\n' + packet.text;
           trace.prompts.push({ kind: `repair_${attempt + 1}`, text: repairCtx });
           draft = await this.timeStep('repair', this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, instruction: (continuing ? CONTINUE_INSTRUCTION + '\n' : '') + REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6000)) + (continuing ? `\nExisting part of the reply (keep it unchanged; output only the continuation):\n${continuedEntry!.text}` : ''), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
           this.checkFences(fences, excludeLast);

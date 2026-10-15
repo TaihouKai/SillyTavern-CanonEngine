@@ -199,11 +199,13 @@ describe('convergence', () => {
 
   it('C18 a draft that skips further ahead re-runs crossed-interval checks and must realize crossed HARD events', async () => {
     const x = await setup();
+    const discBefore = x.model.tasks('discover').length;
     // draft jumps to day 3 without depicting the HARD beginning; adjudicator stages it offscreen
     expect(await turn(x, 'I rest a little.', 'Two days pass in a blur. [J1]', { scene_end: at(3, 8) })).toBe(true);
     const s = st(x);
     expect(s.dispositions.get('conflict-begins')?.disposition).toBe('occurred');
     expect(x.model.tasks('evaluate').length).toBeGreaterThanOrEqual(2); // re-reviewed with staged offscreen history
+    expect(x.model.tasks('discover').length - discBefore).toBe(1); // same draft text: discovery is reused, not re-run
     const second = x.model.tasks('evaluate').slice(-1)[0].input;
     expect(second.staged_offscreen.join(' ')).toMatch(/conflict begins/i);
   });
@@ -226,5 +228,16 @@ describe('convergence', () => {
     expect(x.model.tasks('extract_user').every((c) => !JSON.stringify(c.input).includes('move toward'))).toBe(true);
     const ctx = x.model.tasks('draft').slice(-1)[0].input.engineContext as string;
     expect(ctx).toMatch(/PROPOSED ACTIONS \(intentions, NOT accomplished; NPCs know only what they plausibly know\)/);
+  });
+});
+
+describe('reply length setting', () => {
+  it('puts the configured reply length into the draft instructions, and nothing when empty', async () => {
+    const x = await setup();
+    expect(await turn(x, 'I wait.', 'The harbor is quiet. [L0]')).toBe(true);
+    expect(String((x.model.tasks('draft').slice(-1)[0].input as any).engineContext)).not.toMatch(/Reply length:/);
+    x.engine.settings.replyLength = '正文约800~1200字';
+    expect(await turn(x, 'I wait more.', 'Gulls circle the pier. [L1]')).toBe(true);
+    expect(String((x.model.tasks('draft').slice(-1)[0].input as any).engineContext)).toContain('Reply length: 正文约800~1200字.');
   });
 });

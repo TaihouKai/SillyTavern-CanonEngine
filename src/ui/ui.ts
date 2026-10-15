@@ -177,6 +177,7 @@ function renderSettings() {
   if (comp.gmRule) lines.push(`<div class="canon-note warn">${t('gmConflict')}</div>`);
   if (hd.version && !hd.ok) lines.push(`<div class="canon-note warn">${t('unsupportedHorae')}: ${esc(hd.missing.join(', '))}</div>`);
   lines.push(profileSelect(s.taskProfileId || ''));
+  lines.push(`<label class="canon-len">${t('replyLength')} <input type="text" class="text_pole" data-set="replyLength" value="${esc(String(s.replyLength || ''))}" placeholder="${esc(t('replyLengthPlaceholder'))}"></label><div class="canon-note">${t('replyLengthHint')}</div>`);
   lines.push(`<details><summary>${t('advanced')}</summary><div class="canon-adv">
     ${num('maxRepairs', s.maxRepairs)}${num('maxOrdinaryPlanner', s.maxOrdinaryPlanner)}${num('budgetChars', s.budgetChars)}${num('taskTimeoutMs', s.taskTimeoutMs)}${num('draftTimeoutMs', s.draftTimeoutMs)}${num('horizonMinutes', s.horizonMinutes)}${num('taskTemperature', s.taskTemperature)}
     <label><input type="checkbox" data-set="forcedPlannerAttempt" ${s.forcedPlannerAttempt ? 'checked' : ''}> forcedPlannerAttempt</label>
@@ -251,7 +252,7 @@ async function onSettingsChange(ev: Event) {
   const key = tgt.dataset.set;
   if (!key) return;
   const s = getSettings() as any;
-  s[key] = tgt.type === 'checkbox' ? tgt.checked : tgt.tagName === 'SELECT' || tgt.tagName === 'TEXTAREA' ? tgt.value : Number(tgt.value);
+  s[key] = tgt.type === 'checkbox' ? tgt.checked : tgt.tagName === 'SELECT' || tgt.tagName === 'TEXTAREA' || tgt.type === 'text' ? tgt.value : Number(tgt.value);
   if (key === 'uiLang') setLang(tgt.value === 'en' ? 'en' : 'zh');
   Object.assign(E.settings, s);
   ctx().saveSettingsDebounced?.();

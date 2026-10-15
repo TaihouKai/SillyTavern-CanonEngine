@@ -1,5 +1,5 @@
 {
- "at": "2026-10-15T02:32:40.690Z",
+ "at": "2026-10-15T03:02:00.300Z",
  "results": [
   {
    "name": "I01 draft uses ST full prompt: card + persona + Author's Note + keyword lore + Horae + engine context",
@@ -149,7 +149,7 @@
   {
    "name": "W07 fresh lookup: evaluator received the destroyed condition and the destruction record",
    "pass": true,
-   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_fa22ef4d1b70c055d7b58660] D1 15:00 — Old Market explosion: An accidental stored-fuel explosion destroys Old Market. In this fixture the trading structures are ruined and ordinary trading there"
+   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_2fba942b2c39caee9a722bb8] D1 15:00 — Old Market explosion: An accidental stored-fuel explosion destroys Old Market. In this fixture the trading structures are ruined and ordinary trading there"
   },
   {
    "name": "W07 corrected history reached the repair generation prompt (before publication)",
@@ -159,7 +159,7 @@
   {
    "name": "W08/W09 repair introduced a new anecdote; it was discovered, looked up (loan + return records) and checked again",
    "pass": true,
-   "detail": "evals=3 ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_b478c133dc7ec5fafddbde96] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict."
+   "detail": "evals=3 ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_39158729fa304068cab72863] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict."
   },
   {
    "name": "W20 accepted reply carries a content-bound coverage manifest",
@@ -169,7 +169,7 @@
   {
    "name": "W04 mention alone retrieves both the loan and the later return into the real GM prompt",
    "pass": true,
-   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_b478c133dc7ec5fafddbde96] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict. (Occurred in this branch along its original route.)\n  actors: Archivist, Courier, Archive Key\n  actual outcome: Archive Key.holder=\"courier\"\n  later changes: Archive Key.holder -> \"archivist\" at D1 0"
+   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_39158729fa304068cab72863] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict. (Occurred in this branch along its original route.)\n  actors: Archivist, Courier, Archive Key\n  actual outcome: Archive Key.holder=\"courier\"\n  later changes: Archive Key.holder -> \"archivist\" at D1 0"
   },
   {
    "name": "Runtime player event committed with code-assigned runtime entity id",
@@ -179,7 +179,7 @@
   {
    "name": "W01 causal retrieval without mention: the player theft enters the next GM prompt",
    "pass": true,
-   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_b478c133dc7ec5fafddbde96] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict. (Occurred in this branch along its original route.)\n  actors: Archivist, Courier, Archive Key\n  actual outcome: Archive Key.holder=\"courier\"\n  later changes: Archive Key.holder -> \"archivist\" at D1 0"
+   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_39158729fa304068cab72863] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict. (Occurred in this branch along its original route.)\n  actors: Archivist, Courier, Archive Key\n  actual outcome: Archive Key.holder=\"courier\"\n  later changes: Archive Key.holder -> \"archivist\" at D1 0"
   },
   {
    "name": "W12 knowledge boundary labeled for the secret theft",
@@ -189,7 +189,7 @@
   {
    "name": "I13 malformed model JSON: bounded retry then actionable error; user input kept; no GM message",
    "pass": true,
-   "detail": "{\"status\":\"error\",\"errorKind\":\"invalid_model_json\",\"reason\":\"invalid structured output for extract_user: no parseable JSON object in model output (43 chars; ends with: \\\"Sure! Here is the analysis: not json at all\\\")\",\"at\":1792031386919}"
+   "detail": "{\"status\":\"error\",\"errorKind\":\"invalid_model_json\",\"reason\":\"invalid structured output for extract_user: no parseable JSON object in model output (43 chars; ends with: \\\"Sure! Here is the analysis: not json at all\\\")\",\"at\":1792033140537}"
   },
   {
    "name": "Retry after failure completes the turn",
@@ -219,7 +219,7 @@
   {
    "name": "E02/E12 edited user message: retained GM rescue exposed as the first conflict; text preserved; no invented rescue",
    "pass": true,
-   "detail": "{\"status\":\"conflict\",\"messageId\":\"msg_d372b748b2a822fc91dd65d9\",\"messageIndex\":2,\"reason\":\"Reviewer: the rescue is not authorized by the edited user message and no separate cause is described (\\\"你拉着 Mira 冲出包围\\\")\",\"at\":1792031398718}"
+   "detail": "{\"status\":\"conflict\",\"messageId\":\"msg_a158515c1280868067e79bb7\",\"messageIndex\":2,\"reason\":\"Reviewer: the rescue is not authorized by the edited user message and no separate cause is described (\\\"你拉着 Mira 冲出包围\\\")\",\"at\":1792033152432}"
   },
   {
    "name": "Advancement frozen while the conflict is unresolved (no generation)",
@@ -259,7 +259,7 @@
   {
    "name": "I11 group chat: explicit activation guard, no enforcement claim",
    "pass": true,
-   "detail": "group=1792031445124 Group chats are not supported in v1 until a designated-GM adapter is validated. Canon Engine was not activated."
+   "detail": "group=1792033198874 Group chats are not supported in v1 until a designated-GM adapter is validated. Canon Engine was not activated."
   },
   {
    "name": "Existing chat bootstrap: all persisted messages examined once (not just the last-N context)",
@@ -284,12 +284,12 @@
   {
    "name": "I05 next turn waits for Horae to finish the accepted reply (fresh location, no stale time)",
    "pass": true,
-   "detail": "main=2 chat=[\"你登上了钟楼，风很大。\",\"我俯瞰城市。\",\"你俯瞰整座城市。\"] snap=Current State Snapshot — recorded automatically from the story so far, for narrative continuity reference]\n[State is recorded and updated automatically in the background; reply with story prose only, without any state lines or tags]\n[Scene|钟楼顶层]\n\n[Item List] (empty) notices=[{\"level\":\"warn\",\"text\":\"Horae memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use Horae's re-analyze to repair it.\",\"at\":1792031500649}]"
+   "detail": "main=2 chat=[\"你登上了钟楼，风很大。\",\"我俯瞰城市。\",\"你俯瞰整座城市。\"] snap=Current State Snapshot — recorded automatically from the story so far, for narrative continuity reference]\n[State is recorded and updated automatically in the background; reply with story prose only, without any state lines or tags]\n[Scene|钟楼顶层]\n\n[Item List] (empty) notices=[{\"level\":\"warn\",\"text\":\"Horae memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use Horae's re-analyze to repair it.\",\"at\":1792033254809}]"
   },
   {
    "name": "I07 lore saying a character later died cannot override the actual alive state; lore never enters extraction/evaluation as evidence",
    "pass": true,
-   "detail": "last=Mira 正在诊所里为伤员包扎。 tasks=extract_user,discover,evaluate,discover,evaluate st={\"status\":\"ok\"} n=[{\"level\":\"warn\",\"text\":\"Horae memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use Horae's re-analyze to repair it.\",\"at\":1792031500649}]"
+   "detail": "last=Mira 正在诊所里为伤员包扎。 tasks=extract_user,discover,evaluate,discover,evaluate st={\"status\":\"ok\"} n=[{\"level\":\"warn\",\"text\":\"Horae memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use Horae's re-analyze to repair it.\",\"at\":1792033254809}]"
   },
   {
    "name": "E08 first-message edit rebuilds from the binding seed; Persona/RPG not re-initialized",
@@ -319,7 +319,7 @@
   {
    "name": "P04 a missing analysis profile stops the turn with an actionable error",
    "pass": true,
-   "detail": "{\"status\":\"error\",\"errorKind\":\"provider_failure\",\"reason\":\"model request failed for extract_user: the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings\",\"at\":1792031543506}"
+   "detail": "{\"status\":\"error\",\"errorKind\":\"provider_failure\",\"reason\":\"model request failed for extract_user: the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings\",\"at\":1792033297475}"
   },
   {
    "name": "T01 a slow reconcile shows which message and which step it is on",
@@ -329,12 +329,12 @@
   {
    "name": "T02 a background reconcile can be cancelled from the status bar",
    "pass": true,
-   "detail": "{\"status\":\"error\",\"errorKind\":\"cancelled\",\"reason\":\"operation cancelled\",\"at\":1792031551640}"
+   "detail": "{\"status\":\"error\",\"errorKind\":\"cancelled\",\"reason\":\"operation cancelled\",\"at\":1792033305771}"
   },
   {
    "name": "T03 a hung analysis call times out per call with an actionable message",
    "pass": true,
-   "detail": "2509ms {\"status\":\"error\",\"errorKind\":\"provider_failure\",\"reason\":\"model request for extract_user timed out after 2s (one call, via the chat's own connection (mock-main)). The model is too slow or not responding: if it is a reas"
+   "detail": "2481ms {\"status\":\"error\",\"errorKind\":\"provider_failure\",\"reason\":\"model request for extract_user timed out after 2s (one call, via the chat's own connection (mock-main)). The model is too slow or not responding: if it is a reas"
   },
   {
    "name": "T04 after the timeout, Retry completes normally (nothing left blocking the queue)",
@@ -354,12 +354,22 @@
   {
    "name": "K03 the status bar shows the last turn's step timings",
    "pass": true,
-   "detail": "上一回合 1s：生成回复 1s · 找出引用 1s×2 · 核对一致性 1s×2 · 读取玩家输入 1s · 规划 1s · 影响评估 1s · 等待 Horae 1s"
+   "detail": "上一回合 1s：生成回复 1s · 核对一致性 1s×2 · 找出引用 1s · 读取玩家输入 1s · 规划 1s · 影响评估 1s · 等待 Horae 1s"
   },
   {
    "name": "K04 an idle status bar offers no Cancel button",
    "pass": true,
    "detail": ""
+  },
+  {
+   "name": "R01 the reply length typed in the panel is saved as text",
+   "pass": true,
+   "detail": "\"正文约800~1200字\""
+  },
+  {
+   "name": "R02 the story draft prompt carries the reply length",
+   "pass": true,
+   "detail": "Reply length: 正文约800~1200字. This applies to every reply, including revised draft"
   }
  ]
 }
