@@ -713,6 +713,13 @@ export class CanonEngine {
     return { gate, evaluation, retrieval, manifest, facts: packet.facts, packetText: packet.text, claims, refs };
   }
 
+  /** Recent actual events for the planner: untyped history (e.g. someone detained) that the fact list does not show. */
+  private recentSituation(index: WorldIndex): string {
+    const tick = index.state.clock.lo;
+    const recent = [...index.state.occurrences.values()].filter((o) => o.time.lo >= tick - 2 * 1440).sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq).slice(-10);
+    return recent.length ? 'Recent actual events:\n' + recent.map((o) => `- ${formatTick(o.time.lo)} ${o.title}: ${o.account.slice(0, 300)}`).join('\n') : 'No recent recorded events.';
+  }
+
   /** Scene grouping input: the latest ordinary (non-canon) scene boxes a new beat may continue. */
   private sceneBoxes(index: WorldIndex): { occurrence_id: string; title: string; beats: string[]; places: string[]; time: string }[] {
     const tick = index.state.clock.lo;
@@ -860,8 +867,8 @@ export class CanonEngine {
 
         // Planning (rolling, bounded)
         this.setStatus('planning', 'Planning…');
-        const planInfo = await this.ensurePlan(index, abort.signal, operationId);
-        const plan = planInfo.plan;
+        let planInfo = await this.ensurePlan(index, abort.signal, operationId);
+        let plan = planInfo.plan;
         this.checkFences(fences, excludeLast);
 
         // Pre-generation retrieval: user references + scene + causal seeds + semantic expansion
@@ -945,7 +952,22 @@ export class CanonEngine {
           const hardReqs = hardStuck ? pendingHard(pack, index.state)
             .filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title)))
             .map((h) => `${h.event.title} (${formatTick(h.lo)}${h.hi !== h.lo ? `–${formatTick(h.hi)}` : ''}): ${h.event.required_description}`) : [];
-          const repairInstruction = hardStuck ? HARD_LAST_RESORT_INSTRUCTION(violations.slice(0, 8), hardReqs, facts.slice(0, 6000)) : REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6000));
+          let route: string[] = [];
+          if (hardStuck) {
+            // Plan a concrete in-world route for the broken HARD event(s) from the actual situation, then repair along it.
+            const anchors = pendingHard(pack, index.state).filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title))).map((h) => h.event.id);
+            const c = this.campaign()!;
+            (c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors = uniq([...((c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors || []), ...anchors]);
+            this.setStatus('planning', 'Planning a route for the HARD event…');
+            const situation = `${this.recentSituation(index)}\nCurrent turn — player input: ${userEntry?.text || '(none)'}\nWhy the drafts were rejected: ${violations.slice(0, 4).join(' | ')}`;
+            planInfo = await this.timeStep('plan', this.ensurePlan(index, abort.signal, operationId, { force: true, situation })).catch((e) => { if (e instanceof EngineError && e.kind === 'cancelled') throw e; return planInfo; });
+            plan = planInfo.plan;
+            packetArgs.plan = plan; packetArgs.forced = planInfo.forced;
+            route = (plan?.steps || []).filter((s) => s.status !== 'invalidated' && (!s.serves_anchor || anchors.includes(s.serves_anchor)))
+              .map((s) => `${formatTick(s.earliest)}–${formatTick(s.latest)} ${s.actors.map((a) => index.entityName(a)).join(', ')}: ${s.action} (${s.means})`).slice(0, 6);
+            packet = buildPacket(packetArgs);
+          }
+          const repairInstruction = hardStuck ? HARD_LAST_RESORT_INSTRUCTION(violations.slice(0, 8), hardReqs, facts.slice(0, 6000), route) : REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6000));
           draft = await this.timeStep('repair', this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, lengthNote: continuing ? '' : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + '\n' : '') + repairInstruction + (continuing ? `\nExisting part of the reply (keep it unchanged; output only the continuation):\n${continuedEntry!.text}` : ''), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
           this.checkFences(fences, excludeLast);
           candidate = continuing ? joinContinuation(continuedEntry!.text, draft) : draft;
@@ -1128,7 +1150,7 @@ export class CanonEngine {
   // ---------------------------------------------------------------------------------------------
   // Planning helpers
 
-  private async ensurePlan(index: WorldIndex, signal: AbortSignal, operationId: string): Promise<{ plan: PlanRevision | null; forced: boolean }> {
+  private async ensurePlan(index: WorldIndex, signal: AbortSignal, operationId: string, opts: { force?: boolean; situation?: string } = {}): Promise<{ plan: PlanRevision | null; forced: boolean }> {
     const c = this.campaign()!;
     const pack = this.pack();
     const state = index.state;
@@ -1159,6 +1181,7 @@ export class CanonEngine {
       if (plan.preconditionSignature && sig !== plan.preconditionSignature) needs = true;
       if (plan.mode !== 'FORCED_CONVERGENCE' && diagnoseForced(pack, state, planScope(pack, state), clock)) needs = true;
     }
+    if (opts.force) needs = true;
     if (!needs) return { plan, forced: plan!.mode === 'FORCED_CONVERGENCE' };
     const facts = this.stateFacts(index, [...pack.entities.keys(), ...state.runtimeEntities.keys()], clock);
     let res: Awaited<ReturnType<typeof runPlanning>>;
@@ -1167,6 +1190,7 @@ export class CanonEngine {
       port: this.host.model, pack, index, state, clockTick: clock, worldRevision: c.revision, prefixHash: this.current?.replay.fingerprint || '',
       affected: (c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors || [], maxOrdinary: this.settings.maxOrdinaryPlanner, allowForcedAttempt: this.settings.forcedPlannerAttempt,
       signal, operationId, readyWindow: this.settings.readyWindowMinutes, facts, persona: this.host.persona().name, log: (l) => this.debugLog('task', l),
+      situation: opts.situation ?? this.recentSituation(index),
       impactForced: !!(c as CampaignData & { _impactForced?: boolean })._impactForced,
       });
     } catch (e) {

@@ -143,6 +143,8 @@ export async function runPlanning(args: {
   port: ModelPort; pack: LoadedPack; index: WorldIndex; state: WorldState; clockTick: number; worldRevision: number; prefixHash: string;
   affected: Id[]; maxOrdinary: number; allowForcedAttempt: boolean; signal?: AbortSignal; operationId: string; readyWindow: number;
   facts: string; persona: string; log?: (l: unknown) => void; impactForced?: boolean;
+  /** Recent actual events and the current situation (untyped history the facts do not show, e.g. someone detained). */
+  situation?: string;
 }): Promise<PlanningResult> {
   const { pack, index, state, clockTick } = args;
   const scope = planScope(pack, state, args.affected);
@@ -168,6 +170,7 @@ export async function runPlanning(args: {
       protected_hard_detailed: hardInput(scope.detailed),
       hard_register: scope.register.map((id) => ({ id, deadline: pack.events.get(id)!.when.latest, required: pack.events.get(id)!.required_description })),
       actual_world: args.facts,
+      recent_situation: args.situation || '',
       deviations: [...state.dispositions].filter(([, d]) => d.disposition !== 'occurred').map(([id, d]) => ({ id, disposition: d.disposition, reason: d.reason })),
       entities: [...pack.entities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind })).concat([...state.runtimeEntities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind }))),
       predicates: [...pack.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values })),

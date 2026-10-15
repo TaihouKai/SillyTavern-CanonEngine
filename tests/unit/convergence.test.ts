@@ -198,6 +198,24 @@ describe('convergence', () => {
     expect(factAt(st(x), 'conflict', 'active').value).toBe(false);
   });
 
+  it('C17b the final HARD repair first plans a route from the actual situation and repairs along it', async () => {
+    const x = await setup();
+    await turn(x, 'I lock Mira in the harbor cellar.', 'You bar the cellar door behind Mira. [L1]', { scene_end: at(1, 9, 45), occurrences: [occ('o1', 'Mira locked in the cellar', 'bar the cellar door', { origin: 'player', actors: ['mira'] })] });
+    const plansBefore = x.model.tasks('plan').length;
+    x.host.addUser('I wait.');
+    x.model.draft('War is declared by decree. [S1]', 'War is declared by decree. [S2]', 'War is declared by decree. [S3]', 'War is declared by decree. [S4]');
+    x.model.on('evaluate', null, { transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true, quote: 'War is declared by decree', occurrence_ref: null }] });
+    expect(await x.engine.runOperation('normal')).toBe(false);
+    const plans = x.model.tasks('plan').slice(plansBefore);
+    const last = plans[plans.length - 1].input;
+    expect(last.recent_situation).toMatch(/Mira locked in the cellar/); // untyped history reaches the planner
+    expect(last.recent_situation).toMatch(/Why the drafts were rejected/);
+    const final = x.model.tasks('draft').slice(-1)[0].input.instruction as string;
+    expect(final).toMatch(/FINAL ATTEMPT/);
+    expect(final).toMatch(/Prepared route[\s\S]*move toward conflict-ends/);
+    expect(final).toMatch(/Never use an unexplained vanishing/);
+  });
+
   it('C18 a draft that skips further ahead re-runs crossed-interval checks and must realize crossed HARD events', async () => {
     const x = await setup();
     const discBefore = x.model.tasks('discover').length;

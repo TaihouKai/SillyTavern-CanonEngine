@@ -695,7 +695,7 @@ try {
     const ml = await mainLogs();
     const ai = await lastAi();
     check(results, 'H01 when normal repairs leave a HARD problem, one extra final repair is made and can be accepted', ml.length === 4 && /HB_OK/.test(ai?.mes || ''), `${ml.length} ${ai?.mes}`);
-    check(results, 'H02 the final repair asks for the HARD outcome by any means', !!ml[3] && /FINAL ATTEMPT/.test(promptText(ml[3])) && /contrived/.test(promptText(ml[3])) && !/FINAL ATTEMPT/.test(promptText(ml[2])), (ml[3] ? promptText(ml[3]) : '').slice(-300));
+    check(results, 'H02 the final repair asks for the HARD outcome through a concrete cause', !!ml[3] && /FINAL ATTEMPT/.test(promptText(ml[3])) && /unexplained vanishing/.test(promptText(ml[3])) && !/FINAL ATTEMPT/.test(promptText(ml[2])), (ml[3] ? promptText(ml[3]) : '').slice(-300));
     await freshChat();
     await mock('/control', { mainQueue: ['语气不对。PB_1', '语气不对。PB_2', '语气不对。PB_3', '不该用到。PB_4'], taskRules: [plainBad('PB_1'), plainBad('PB_2'), plainBad('PB_3')], clearLogs: true });
     await send(page, '我四处看看。');

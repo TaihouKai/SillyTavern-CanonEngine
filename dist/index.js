@@ -14396,18 +14396,20 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
 2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it), state_claims (facts the narration presupposes; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null), player_actions (player-character actions depicted; authorized_by_quote = verbatim span of the user's message that authorized it, or null), step_enactments, new_entities (genuinely new people/places/objects introduced).
 3. scene_end: story time when the reply ends (bounds; do not invent minutes \u2014 use range/approx when only "afternoon" is known). flashback=true if the reply is framed as a flashback.
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
+   Credible cause: if the actual history/state rules out the event's usual route (a required participant is detained, guarded, far away, incapacitated...), it is fulfilled only when the text shows or clearly implies a concrete cause for how it still comes about (who or what, by what means). Otherwise give status "missing" and a violation whose detail begins with "HARD realized without a credible cause:". An unexplained vanishing, a glitch or "some invisible force" is not a cause unless it is the established ability of a specific character.
    Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place or activity meaningfully changes, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
 5. violations: unauthorized player actions/consent/dialogue, contradictions, unsupported recollections, leaking secret knowledge to characters who cannot know it, engine labels/JSON in prose, skipping a due obligation.
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it).
 SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null}],"step_enactments":[],"new_entities":[],"violations":[{"code":"","quote":"","detail":""}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":""}`,
   adjudicate: `${COMMON}
-TASK: Offscreen adjudication for a story-time advance. For each candidate canonical event in the interval decide what ACTUALLY happens given actual state (not the original summary): occurred (original result), diverged (event happens but with a different actual result), omitted (does not happen; FREE/SOFT only, with reason), postponed (SOFT only, still within its bounds). HARD events MUST occur within their bounds with every required outcome, even if extraordinary means are needed (extraordinary=true only when authorized_forced=true). Give actors, causes (actual occurrence ids), typed effects, a concise account of what occurred and why. A plan step reference alone is not evidence of success.
+TASK: Offscreen adjudication for a story-time advance. For each candidate canonical event in the interval decide what ACTUALLY happens given actual state (not the original summary): occurred (original result), diverged (event happens but with a different actual result), omitted (does not happen; FREE/SOFT only, with reason), postponed (SOFT only, still within its bounds). HARD events MUST occur within their bounds with every required outcome, even if extraordinary means are needed (extraordinary=true only when authorized_forced=true). When the actual state blocks the original route, the account must name the concrete cause (who, by what means). Give actors, causes (actual occurrence ids), typed effects, a concise account of what occurred and why. A plan step reference alone is not evidence of success.
 SHAPE: {"adjudications":[{"event_id":"","decision":"occurred","time":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"account":"","actors":[],"causes":[],"effects":[{"op":"set","entity_id":"","predicate":"","value":true}],"plan_step_ids":[],"reason":"","extraordinary":false}]}`,
   impact: `${COMMON}
 TASK: Impact assessment of newly accepted changes against the active plan and the complete future HARD register. Report changed facts, affected plan steps and anchors (ids from input only), scope (local/global/unknown), severity (none/minor/major \u2014 major only if the change substantially destroys a protected path or requires extraordinary correction; entity count is not severity), and whether replanning is needed.
 SHAPE: {"changed":[{"entity_id":"","predicate":""}],"affected_anchors":[],"affected_steps":[],"scope":"local","severity":"none","replan":false,"explanation":""}`,
   plan: `${COMMON}
 TASK: Plan future world actions so every protected HARD contract is realized exactly (required description, outcomes, time bounds) from the ACTUAL current world. Prefer: existing causes -> plausible extensions -> original actions/actors -> extraordinary correction (only when allowed_mode is FORCED_CONVERGENCE; say why cheaper routes are inadequate in inadequacy_note). Steps are intentions, not facts. Never require the player's consent or choose the player's actions (requires_player_consent must be false; offer opportunities instead). Never drop, rename, reschedule or weaken an anchor; never declare an alternate world. Creating new actors/resources requires explicit establishment steps. Times must be within anchor bounds and after the current time.
+recent_situation lists recent actual events and the current situation; a route must work from it (e.g. a person who is detained or guarded must first get out, and the step must say who makes that possible and how). Choose actors who have both the means and a motive in this world; canonical characters and organizations who would plausibly act are preferred over coincidence.
 Write steps ONLY for the anchors in protected_hard_detailed (the near horizon). hard_register is context for later anchors: do NOT write steps for them; they are planned when they come near. Use at most 8 steps; keep "action" to one short sentence.
 SHAPE: {"rationale":"","protected_anchor_ids":[],"assumptions":[{"text":"","fact":null}],"risks":[],"mode":"NORMAL","steps":[{"step_id":"s1","actors":[],"targets":[],"earliest":{"day":0,"minute":0},"latest":{"day":0,"minute":0},"prerequisites":[],"action":"","intended_effects":[{"entity_id":"","predicate":"","value":true}],"visibility":"secret","knowers":[],"depends_on":[],"means":"ordinary","serves_anchor":null,"requires_player_consent":false}],"inadequacy_note":""}`
 };
@@ -14456,7 +14458,7 @@ ${violations.map((v, i) => `${i + 1}. ${v}`).join("\n")}
 Facts you must respect (actual history/state at this scene):
 ${facts}
 Change only what is needed to fix these problems; keep the full length, detail and style a normal reply would have (do not shorten or summarize). Do not rewrite previously accepted history. Do not mention this request. Output only the narrative.`;
-var HARD_LAST_RESORT_INSTRUCTION = (violations, hard, facts) => `[Canon Engine private revision request \u2014 not part of the story \u2014 FINAL ATTEMPT]
+var HARD_LAST_RESORT_INSTRUCTION = (violations, hard, facts, route = []) => `[Canon Engine private revision request \u2014 not part of the story \u2014 FINAL ATTEMPT]
 Every previous draft for this turn was rejected because it breaks a HARD canon event. HARD events are fixed points of this world: their required outcome WILL happen at its authored time, no matter what anyone did before. This rule overrides plausibility, pacing and dramatic taste.
 HARD events you must honor in this reply:
 ${hard.map((h, i) => `${i + 1}. ${h}`).join("\n")}
@@ -14465,7 +14467,11 @@ ${violations.map((v, i) => `${i + 1}. ${v}`).join("\n")}
 Facts you must respect (actual history/state at this scene):
 ${facts}
 How to fix it:
-- Everything the player actually did stays done; do not erase or reverse it. Make the HARD outcome happen anyway through a separate cause: an escape, an outside intervention, an NPC acting off-screen, an accident, a malfunction, a misunderstanding, sheer coincidence. An unlikely or contrived cause is acceptable here; contradicting the HARD event is not.
+${route.length ? `Prepared route (worked out by the planner from the actual situation; use it):
+${route.map((r) => `- ${r}`).join("\n")}
+` : ""}- Everything the player actually did stays done; do not erase or reverse it. Make the HARD outcome happen anyway through a separate cause${route.length ? ", following the prepared route" : ""}.
+- The cause must be concrete: a specific person, group or mechanism with the means and a motive in this world (the prepared route first, then characters or organizations who would plausibly act, then an accident or misunderstanding; pure coincidence only as the very last option). Show it, or leave concrete traces that point to it (damage, witnesses, an unconscious guard, something left behind). Never use an unexplained vanishing, a glitch or "some invisible force" unless it is the established ability of a specific character.
+- A far-fetched but concrete cause is acceptable here; contradicting the HARD event is not.
 - If the HARD event's time has not been reached and the user's message does not require passing it, you may instead end the scene clearly before that time.
 - Never state or imply that the HARD event was prevented, cancelled, averted or will not happen.
 Keep the full length, detail and style a normal reply would have. Do not mention this request. Output only the narrative.`;
@@ -15452,6 +15458,7 @@ async function runPlanning(args) {
       protected_hard_detailed: hardInput(scope.detailed),
       hard_register: scope.register.map((id) => ({ id, deadline: pack2.events.get(id).when.latest, required: pack2.events.get(id).required_description })),
       actual_world: args.facts,
+      recent_situation: args.situation || "",
       deviations: [...state.dispositions].filter(([, d]) => d.disposition !== "occurred").map(([id, d]) => ({ id, disposition: d.disposition, reason: d.reason })),
       entities: [...pack2.entities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind })).concat([...state.runtimeEntities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind }))),
       predicates: [...pack2.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values })),
@@ -16263,6 +16270,12 @@ var CanonEngine = class {
     } : null;
     return { gate, evaluation, retrieval, manifest, facts: packet.facts, packetText: packet.text, claims, refs };
   }
+  /** Recent actual events for the planner: untyped history (e.g. someone detained) that the fact list does not show. */
+  recentSituation(index) {
+    const tick = index.state.clock.lo;
+    const recent = [...index.state.occurrences.values()].filter((o) => o.time.lo >= tick - 2 * 1440).sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq).slice(-10);
+    return recent.length ? "Recent actual events:\n" + recent.map((o) => `- ${formatTick(o.time.lo)} ${o.title}: ${o.account.slice(0, 300)}`).join("\n") : "No recent recorded events.";
+  }
   /** Scene grouping input: the latest ordinary (non-canon) scene boxes a new beat may continue. */
   sceneBoxes(index) {
     const tick = index.state.clock.lo;
@@ -16418,8 +16431,8 @@ var CanonEngine = class {
           index = new WorldIndex(pack2, rr.state);
         }
         this.setStatus("planning", "Planning\u2026");
-        const planInfo = await this.ensurePlan(index, abort.signal, operationId);
-        const plan2 = planInfo.plan;
+        let planInfo = await this.ensurePlan(index, abort.signal, operationId);
+        let plan2 = planInfo.plan;
         this.checkFences(fences, excludeLast);
         const prevGm = (() => {
           for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === "gm") return entries[k];
@@ -16527,7 +16540,26 @@ var CanonEngine = class {
           trace.prompts.push({ kind: hardStuck ? "repair_hard_last_resort" : `repair_${attempt + 1}`, text: repairCtx });
           const replyEnd = Math.max(review.gate.sceneEnd?.hi ?? clock, clock);
           const hardReqs = hardStuck ? pendingHard(pack2, index.state).filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title))).map((h) => `${h.event.title} (${formatTick(h.lo)}${h.hi !== h.lo ? `\u2013${formatTick(h.hi)}` : ""}): ${h.event.required_description}`) : [];
-          const repairInstruction = hardStuck ? HARD_LAST_RESORT_INSTRUCTION(violations.slice(0, 8), hardReqs, facts.slice(0, 6e3)) : REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6e3));
+          let route = [];
+          if (hardStuck) {
+            const anchors = pendingHard(pack2, index.state).filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title))).map((h) => h.event.id);
+            const c2 = this.campaign();
+            c2._affectedAnchors = uniq([...c2._affectedAnchors || [], ...anchors]);
+            this.setStatus("planning", "Planning a route for the HARD event\u2026");
+            const situation = `${this.recentSituation(index)}
+Current turn \u2014 player input: ${userEntry?.text || "(none)"}
+Why the drafts were rejected: ${violations.slice(0, 4).join(" | ")}`;
+            planInfo = await this.timeStep("plan", this.ensurePlan(index, abort.signal, operationId, { force: true, situation })).catch((e) => {
+              if (e instanceof EngineError && e.kind === "cancelled") throw e;
+              return planInfo;
+            });
+            plan2 = planInfo.plan;
+            packetArgs.plan = plan2;
+            packetArgs.forced = planInfo.forced;
+            route = (plan2?.steps || []).filter((s) => s.status !== "invalidated" && (!s.serves_anchor || anchors.includes(s.serves_anchor))).map((s) => `${formatTick(s.earliest)}\u2013${formatTick(s.latest)} ${s.actors.map((a) => index.entityName(a)).join(", ")}: ${s.action} (${s.means})`).slice(0, 6);
+            packet = buildPacket(packetArgs);
+          }
+          const repairInstruction = hardStuck ? HARD_LAST_RESORT_INSTRUCTION(violations.slice(0, 8), hardReqs, facts.slice(0, 6e3), route) : REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6e3));
           draft = await this.timeStep("repair", this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, lengthNote: continuing ? "" : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + "\n" : "") + repairInstruction + (continuing ? `
 Existing part of the reply (keep it unchanged; output only the continuation):
 ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
@@ -16726,7 +16758,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
   }
   // ---------------------------------------------------------------------------------------------
   // Planning helpers
-  async ensurePlan(index, signal, operationId) {
+  async ensurePlan(index, signal, operationId, opts = {}) {
     const c = this.campaign();
     const pack2 = this.pack();
     const state = index.state;
@@ -16760,6 +16792,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
       if (plan2.preconditionSignature && sig !== plan2.preconditionSignature) needs = true;
       if (plan2.mode !== "FORCED_CONVERGENCE" && diagnoseForced(pack2, state, planScope(pack2, state), clock)) needs = true;
     }
+    if (opts.force) needs = true;
     if (!needs) return { plan: plan2, forced: plan2.mode === "FORCED_CONVERGENCE" };
     const facts = this.stateFacts(index, [...pack2.entities.keys(), ...state.runtimeEntities.keys()], clock);
     let res;
@@ -16781,6 +16814,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         facts,
         persona: this.host.persona().name,
         log: (l) => this.debugLog("task", l),
+        situation: opts.situation ?? this.recentSituation(index),
         impactForced: !!c._impactForced
       });
     } catch (e) {
