@@ -42,6 +42,8 @@ const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 
 /** Neutral value for a missing field, or undefined when none is safe. */
 function neutral(s: Schema): unknown {
   if (nullable(s)) return null;
+  // a time bound given without its precision (seen from deepseek): "approx" keeps the time usable
+  if (Array.isArray(s.enum) && s.enum.includes('approx')) return 'approx';
   const t = typesOf(s);
   if (t.includes('array')) return [];
   if (t.includes('boolean')) return false;

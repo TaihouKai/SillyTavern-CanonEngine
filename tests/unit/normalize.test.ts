@@ -81,4 +81,11 @@ describe('schema-driven normalization', () => {
     expect(p.seen).toBe(2);
     expect(out.occurrences[0].pack_event_id).toBe('conflict-begins');
   });
+  it('N09 a time without its precision keeps the time (precision "approx") instead of becoming null (live finding)', async () => {
+    const t = { lo: { day: 0, minute: 720 }, hi: { day: 0, minute: 780 } };
+    const p = port([{ ...base, occurrences: [{ ref: 'o1', title: 'Walk', account: 'a', actors: [], quote: 'q', time: t }] }]);
+    const out = await callStructured<any>(p, 'evaluate', 'sys', {});
+    expect(p.seen).toBe(1);
+    expect(out.occurrences[0].time).toEqual({ ...t, precision: 'approx' });
+  });
 });

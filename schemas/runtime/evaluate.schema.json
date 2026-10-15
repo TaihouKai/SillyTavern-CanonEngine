@@ -518,6 +518,9 @@
      },
      "detail": {
       "type": "string"
+     },
+     "blocking": {
+      "type": "boolean"
      }
     },
     "required": [

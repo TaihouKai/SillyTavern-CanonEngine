@@ -281,6 +281,17 @@ describe('convergence', () => {
     expect(refersToHard('the tone is wrong', 'e1', 'T', 'The armed conflict between the Union and the Council begins')).toBe(false);
   });
 
+  it('C17f a reviewer note marked non-blocking does not reject the reply; an unmarked violation still does (live finding)', async () => {
+    const x = await setup();
+    expect(await turn(x, 'I walk the docks.', 'You walk the docks; a clerk waves. [B1]', { scene_end: at(1, 9, 45), violations: [{ code: 'npc', quote: 'a clerk waves', detail: 'a clerk appears; a reasonable scene extension', blocking: false }] })).toBe(true);
+    x.host.addUser('I keep walking.');
+    x.model.draft('You keep walking; a clerk waves. [B2]', 'You keep walking. [B3]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[B2]'), { scene_end: at(1, 10), violations: [{ code: 'x', quote: 'a clerk waves', detail: 'must fix' }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/must fix/);
+    expect(x.host.chat.slice(-1)[0].text).toContain('[B3]');
+  });
+
   it('C18 a draft that skips further ahead re-runs crossed-interval checks and must realize crossed HARD events', async () => {
     const x = await setup();
     const discBefore = x.model.tasks('discover').length;

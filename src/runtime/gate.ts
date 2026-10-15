@@ -27,7 +27,7 @@ export interface EvalOutput {
   player_actions: { quote: string; authorized_by_quote: string | null }[];
   step_enactments?: { step_id: string; occurrence_ref: string; quote: string }[];
   new_entities?: { ref: string; name: string; kind: RuntimeEntity['kind']; description: string; quote: string }[];
-  violations: { code: string; quote?: string; detail: string }[];
+  violations: { code: string; quote?: string; detail: string; blocking?: boolean }[];
   hard_checks: { event_id: string; status: 'fulfilled' | 'not_due' | 'missing' | 'contradicted'; occurrence_ref?: string | null; quote?: string | null }[];
   scene_entities?: string[];
   summary?: string;
@@ -373,6 +373,8 @@ export function runGate(g: GateInput): GateResult {
   // above; an explicit contradiction comes through hard_checks. Reviewer complaints about such an event
   // ("no escape route yet", "the meeting is not depicted") are therefore ignored.
   for (const v of ev.violations) {
+    // the reviewer itself marked it non-blocking (minor/acceptable); a missing flag counts as blocking
+    if (v.blocking === false) { warnings.push(`non-blocking reviewer note: ${v.detail.slice(0, 160)}`); continue; }
     if (v.quote && !quoteInText(v.quote, text)) { warnings.push(`reviewer violation without valid evidence ignored: ${v.detail}`); continue; }
     // HARD conformance is decided by the structured HARD checks and deadlines above. A free-text
     // complaint that only restates a HARD event (live finding: the reviewer treated the canonical ROUTE
