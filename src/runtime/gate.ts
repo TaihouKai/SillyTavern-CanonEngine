@@ -145,7 +145,8 @@ export function runGate(g: GateInput): GateResult {
   // ---- HARD invariants ------------------------------------------------------------------------
   const pendingHardMap = new Map(pendingHard(pack, index.state).map((c) => [c.event.id, c]));
   const hardOutcomeKeys = new Map<string, Id>();
-  for (const [id, c] of pendingHardMap) for (const o of c.event.outcomes) hardOutcomeKeys.set(`${o.entity_id}|${o.predicate}`, id);
+  // the earliest pending HARD event that requires the fact (a fact can be required by several, e.g. a conflict starting and ending)
+  for (const [id, c] of pendingHardMap) for (const o of c.event.outcomes) if (!hardOutcomeKeys.has(`${o.entity_id}|${o.predicate}`)) hardOutcomeKeys.set(`${o.entity_id}|${o.predicate}`, id);
 
   // occurrences
   const occByRef = new Map<string, Occurrence>();
@@ -153,10 +154,27 @@ export function runGate(g: GateInput): GateResult {
   const hardFulfilled: Id[] = [];
   const transitionsByRef = new Map<string, FactDelta[]>();
   const looseDeltas: { d: FactDelta; quote: string }[] = [];
+  // Reviewer bookkeeping slips around HARD events (real-model finding): the HARD check names the
+  // occurrence that fulfils it but that occurrence lacks pack_event_id, or a required outcome fact with
+  // exactly the required value is filed under a sibling occurrence (or none). Re-file them; a different
+  // value is still a violation below.
+  for (const h of ev.hard_checks) {
+    if (h.status !== 'fulfilled' || !h.occurrence_ref || !pendingHardMap.has(h.event_id) || ev.occurrences.some((x) => x.pack_event_id === h.event_id)) continue;
+    const o = ev.occurrences.find((x) => x.ref === h.occurrence_ref && !x.pack_event_id);
+    if (o) { o.pack_event_id = h.event_id; o.disposition = 'occurred'; warnings.push(`occurrence "${o.title}" linked to HARD ${h.event_id} from the reviewer's HARD check`); }
+  }
+  const hardOccRef = new Map<Id, string>();
+  for (const o of ev.occurrences) if (o.pack_event_id && pendingHardMap.has(o.pack_event_id)) hardOccRef.set(o.pack_event_id, o.ref);
   for (const t of ev.transitions) {
     if (!hasQuote(t.quote)) { warnings.push(`transition ${t.entity_id}.${t.predicate} dropped: evidence quote not found`); continue; }
     const d = checkDelta(t, 'transition');
     if (!d) continue;
+    // (a fact can be a required outcome of several HARD events, e.g. a conflict starting and ending)
+    const hardRef = d.op === 'set' ? [...hardOccRef].find(([hid]) => pendingHardMap.get(hid)!.event.outcomes.some((r) => r.entity_id === d.entity_id && r.predicate === d.predicate && valuesEqual(r.value, d.value!)))?.[1] : undefined;
+    if (hardRef && t.occurrence_ref !== hardRef) {
+      warnings.push(`transition ${d.entity_id}.${d.predicate} re-filed under the HARD occurrence ${hardRef} (was ${t.occurrence_ref || 'none'})`);
+      t.occurrence_ref = hardRef;
+    }
     if (t.occurrence_ref) transitionsByRef.set(t.occurrence_ref, [...(transitionsByRef.get(t.occurrence_ref) || []), d]);
     else looseDeltas.push({ d, quote: t.quote! });
   }

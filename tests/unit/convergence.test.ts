@@ -212,8 +212,31 @@ describe('convergence', () => {
     expect(last.recent_situation).toMatch(/Why the drafts were rejected/);
     const final = x.model.tasks('draft').slice(-1)[0].input.instruction as string;
     expect(final).toMatch(/FINAL ATTEMPT/);
-    expect(final).toMatch(/Prepared route[\s\S]*move toward conflict-ends/);
+    expect(final).toMatch(/Prepared route[\s\S]*move toward conflict-begins/);
     expect(final).toMatch(/Never use an unexplained vanishing/);
+  });
+
+  it('C17c reviewer slips around a depicted HARD event are re-filed, not rejected (real-model finding)', async () => {
+    // required outcome filed under a sibling occurrence
+    const x = await setup(tick(2, 8, 50));
+    const ok = await turn(x, 'I watch the docks.', 'At nine the Council militias storm the Union docks; a decree declares the conflict open. [H1]', {
+      scene_end: at(2, 9, 5),
+      occurrences: [occ('o1', 'Council attacks the docks', 'storm the Union docks', { pack_event_id: 'conflict-begins', disposition: 'occurred', time: at(2, 9), actors: ['council', 'union'] }), occ('o2', 'Decree issued', 'a decree declares the conflict open', { time: at(2, 9) })],
+      transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true, quote: 'a decree declares the conflict open', occurrence_ref: 'o2' }],
+      hard_checks: [{ event_id: 'conflict-begins', status: 'fulfilled', occurrence_ref: 'o1', quote: 'storm the Union docks' }],
+    });
+    expect(ok).toBe(true);
+    expect(st(x).dispositions.get('conflict-begins')?.disposition).toBe('occurred');
+    // HARD check names the occurrence, but the occurrence lacks pack_event_id
+    const y = await setup(tick(2, 8, 50));
+    const ok2 = await turn(y, 'I watch the docks.', 'At nine the Council militias storm the Union docks. [H2]', {
+      scene_end: at(2, 9, 5),
+      occurrences: [occ('o1', 'Council attacks the docks', 'storm the Union docks', { time: at(2, 9), actors: ['council', 'union'] })],
+      transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true, quote: 'storm the Union docks', occurrence_ref: 'o1' }],
+      hard_checks: [{ event_id: 'conflict-begins', status: 'fulfilled', occurrence_ref: 'o1', quote: 'storm the Union docks' }],
+    });
+    expect(ok2).toBe(true);
+    expect(st(y).dispositions.get('conflict-begins')?.disposition).toBe('occurred');
   });
 
   it('C18 a draft that skips further ahead re-runs crossed-interval checks and must realize crossed HARD events', async () => {

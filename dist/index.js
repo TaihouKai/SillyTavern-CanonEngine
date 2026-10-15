@@ -14995,12 +14995,23 @@ function runGate(g) {
   if (!sceneEnd) sceneEnd = { lo: g.clockTick, hi: g.clockTick, precision: "approx" };
   const pendingHardMap = new Map(pendingHard(pack2, index.state).map((c) => [c.event.id, c]));
   const hardOutcomeKeys = /* @__PURE__ */ new Map();
-  for (const [id, c] of pendingHardMap) for (const o of c.event.outcomes) hardOutcomeKeys.set(`${o.entity_id}|${o.predicate}`, id);
+  for (const [id, c] of pendingHardMap) for (const o of c.event.outcomes) if (!hardOutcomeKeys.has(`${o.entity_id}|${o.predicate}`)) hardOutcomeKeys.set(`${o.entity_id}|${o.predicate}`, id);
   const occByRef = /* @__PURE__ */ new Map();
   const occRecords = [];
   const hardFulfilled = [];
   const transitionsByRef = /* @__PURE__ */ new Map();
   const looseDeltas = [];
+  for (const h of ev.hard_checks) {
+    if (h.status !== "fulfilled" || !h.occurrence_ref || !pendingHardMap.has(h.event_id) || ev.occurrences.some((x) => x.pack_event_id === h.event_id)) continue;
+    const o = ev.occurrences.find((x) => x.ref === h.occurrence_ref && !x.pack_event_id);
+    if (o) {
+      o.pack_event_id = h.event_id;
+      o.disposition = "occurred";
+      warnings.push(`occurrence "${o.title}" linked to HARD ${h.event_id} from the reviewer's HARD check`);
+    }
+  }
+  const hardOccRef = /* @__PURE__ */ new Map();
+  for (const o of ev.occurrences) if (o.pack_event_id && pendingHardMap.has(o.pack_event_id)) hardOccRef.set(o.pack_event_id, o.ref);
   for (const t2 of ev.transitions) {
     if (!hasQuote(t2.quote)) {
       warnings.push(`transition ${t2.entity_id}.${t2.predicate} dropped: evidence quote not found`);
@@ -15008,6 +15019,11 @@ function runGate(g) {
     }
     const d = checkDelta(t2, "transition");
     if (!d) continue;
+    const hardRef = d.op === "set" ? [...hardOccRef].find(([hid]) => pendingHardMap.get(hid).event.outcomes.some((r) => r.entity_id === d.entity_id && r.predicate === d.predicate && valuesEqual(r.value, d.value)))?.[1] : void 0;
+    if (hardRef && t2.occurrence_ref !== hardRef) {
+      warnings.push(`transition ${d.entity_id}.${d.predicate} re-filed under the HARD occurrence ${hardRef} (was ${t2.occurrence_ref || "none"})`);
+      t2.occurrence_ref = hardRef;
+    }
     if (t2.occurrence_ref) transitionsByRef.set(t2.occurrence_ref, [...transitionsByRef.get(t2.occurrence_ref) || [], d]);
     else looseDeltas.push({ d, quote: t2.quote });
   }
