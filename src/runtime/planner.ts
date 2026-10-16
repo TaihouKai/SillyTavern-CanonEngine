@@ -44,6 +44,9 @@ export function planScope(pack: LoadedPack, state: WorldState, affected: Id[] = 
  *  are only the step's intent; the step itself stays). Returns notes on what changed. */
 export function normalizePlanEffects(out: PlanOutput, pack: LoadedPack, scope: PlanScope): string[] {
   const notes: string[] = [];
+  // protecting the anchors in scope is a declaration; a planner that forgets to list one is corrected
+  if (!Array.isArray(out.protected_anchor_ids)) out.protected_anchor_ids = [];
+  for (const d of scope.detailed) if (!out.protected_anchor_ids.includes(d)) { out.protected_anchor_ids.push(d); notes.push(`protected_anchor_ids: added ${d}`); }
   const hards = scope.detailed.concat(scope.register);
   for (const s of out.steps || []) {
     if (!Array.isArray(s.intended_effects)) { s.intended_effects = []; continue; }
@@ -99,12 +102,14 @@ export function validatePlan(out: PlanOutput, pack: LoadedPack, index: WorldInde
       const eid = e.entity_id;
       if (!index.entityExists(eid) && !eid.startsWith('new:')) errs.push(`step ${s.step_id}: unknown entity ${eid} (new actors must be named "new:<name>" and established by a step)`);
       // Outcomes are checkpoint facts: an effect conflicts only with the anchor it serves or with an
-      // anchor whose checkpoint window the step overlaps.
+      // anchor whose deadline falls inside the step (an intermediate state before the anchor, e.g. a
+      // villain "deceived" before his plan "fails", is not a contradiction).
       for (const hid of scope.detailed.concat(scope.register)) {
         const pe = pack.events.get(hid)!;
         const hlo = pe.when.earliest ? toTick(pe.when.earliest) : -Infinity;
         const hhi = pe.when.latest ? toTick(pe.when.latest) : Infinity;
-        const overlaps = s.serves_anchor === hid || (hi >= hlo && lo <= hhi);
+        void hlo;
+        const overlaps = s.serves_anchor === hid || (lo <= hhi && hi >= hhi);
         if (!overlaps) continue;
         for (const o of pe.outcomes) if (o.entity_id === e.entity_id && o.predicate === e.predicate && !valuesEqual(o.value, e.value)) {
           errs.push(`step ${s.step_id}: intends ${e.entity_id}.${e.predicate}=${JSON.stringify(e.value)}, contradicting HARD ${hid}'s required outcome ${JSON.stringify(o.value)}`);

@@ -103,6 +103,8 @@ describe('convergence', () => {
     const step = (extra: any) => ({ step_id: 's1', actors: ['council'], earliest: D(1, 12), latest: D(1, 13), action: 'act', intended_effects: [], means: 'ordinary', serves_anchor: 'conflict-begins', requires_player_consent: false, ...extra });
     expect(validatePlan({ ...base, steps: [step({ earliest: D(3, 0), latest: D(3, 1) })] } as any, L, idx, scope, tick(1, 9, 30), false).join()).toMatch(/after anchor .*deadline/);
     expect(validatePlan({ ...base, steps: [step({ serves_anchor: 'conflict-ends', earliest: D(4, 10), latest: D(4, 18), intended_effects: [{ entity_id: 'conflict', predicate: 'victor', value: 'council' }] })] } as any, L, idx, scope, tick(1, 9, 30), false).join()).toMatch(/contradicting HARD/);
+    // an intermediate state before an anchor's deadline is not a contradiction (e.g. a villain deceived before his plan fails)
+    expect(validatePlan({ ...base, steps: [step({ serves_anchor: null, earliest: D(4, 10), latest: D(4, 17), intended_effects: [{ entity_id: 'conflict', predicate: 'victor', value: 'council' }] })] } as any, L, idx, scope, tick(1, 9, 30), false).join()).not.toMatch(/contradicting HARD/);
     expect(validatePlan({ ...base, rationale: 'shift to a parallel world where the Council wins' }, L, idx, scope, tick(1, 9, 30), false).join()).toMatch(/alternate world/);
     expect(validatePlan({ ...base, steps: [step({ requires_player_consent: true })] } as any, L, idx, scope, tick(1, 9, 30), false).join()).toMatch(/consent/);
     expect(validatePlan({ ...base, protected_anchor_ids: ['conflict-begins'] }, L, idx, scope, tick(1, 9, 30), false).join()).toMatch(/does not protect HARD anchor conflict-ends/);
@@ -213,6 +215,15 @@ describe('convergence', () => {
     expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/required outcome of pending HARD/);
     expect(x.engine.lastTrace!.prompts.some((p) => p.kind === 'repair_hard_last_resort')).toBe(true); // one final HARD repair before giving up
     expect(factAt(st(x), 'conflict', 'active').value).toBe(false);
+  });
+
+  it('C17g a fact a far-future HARD event later requires may change to other values meanwhile (live finding: whereabouts)', async () => {
+    const x = await setup();
+    x.host.addUser('I wait.');
+    x.model.draft('The council claims the harbor. [G1]');
+    x.model.on('evaluate', null, { transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'victor', value: 'council', quote: 'The council claims the harbor', occurrence_ref: null }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).not.toMatch(/required outcome of pending HARD/);
   });
 
   it('C17b the final HARD repair first plans a route from the actual situation and repairs along it', async () => {

@@ -15387,7 +15387,20 @@ function runGate(g) {
   if (!sceneEnd) sceneEnd = { lo: g.clockTick, hi: g.clockTick, precision: "approx" };
   const pendingHardMap = new Map(pendingHard(pack2, index.state).map((c) => [c.event.id, c]));
   const hardOutcomeKeys = /* @__PURE__ */ new Map();
-  for (const [id, c] of pendingHardMap) for (const o of c.event.outcomes) if (!hardOutcomeKeys.has(`${o.entity_id}|${o.predicate}`)) hardOutcomeKeys.set(`${o.entity_id}|${o.predicate}`, id);
+  for (const [id, c] of pendingHardMap) for (const o of c.event.outcomes) {
+    const k = `${o.entity_id}|${o.predicate}`;
+    hardOutcomeKeys.set(k, [...hardOutcomeKeys.get(k) || [], id]);
+  }
+  const nextHard = [...pendingHardMap.keys()].slice(0, 2);
+  const preempted = (d, at) => {
+    if (d.op !== "set") return void 0;
+    const cur = factAt(index.state, d.entity_id, d.predicate, { tick: Number.MAX_SAFE_INTEGER });
+    if (cur.known && valuesEqual(cur.value, d.value)) return void 0;
+    return (hardOutcomeKeys.get(`${d.entity_id}|${d.predicate}`) || []).find((id) => {
+      const c = pendingHardMap.get(id);
+      return (nextHard.includes(id) || c.lo <= at + 2 * 1440) && c.event.outcomes.some((o) => o.entity_id === d.entity_id && o.predicate === d.predicate && valuesEqual(o.value, d.value));
+    });
+  };
   const occByRef = /* @__PURE__ */ new Map();
   const occRecords = [];
   const hardFulfilled = [];
@@ -15501,13 +15514,13 @@ function runGate(g) {
   }
   for (const [ref, ds] of transitionsByRef) if (!occByRef.has(ref)) ds.forEach((d) => looseDeltas.push({ d, quote: "" }));
   for (const { d } of looseDeltas) {
-    const hid = hardOutcomeKeys.get(`${d.entity_id}|${d.predicate}`);
+    const hid = preempted(d, sceneEnd.hi);
     if (hid) violations.push(`Fact ${d.entity_id}.${d.predicate} is a required outcome of pending HARD "${pack2.events.get(hid).title}"; it can only be established by depicting that event occurring at its authored time.`);
   }
   for (const r of occRecords) {
     if (r.packEventId && pack2.events.get(r.packEventId)?.classification === "HARD") continue;
     for (const d of r.factsSetOrUnset) {
-      const hid = hardOutcomeKeys.get(`${d.entity_id}|${d.predicate}`);
+      const hid = preempted(d, r.storyTime.hi);
       if (hid) violations.push(`"${r.summary}" sets ${d.entity_id}.${d.predicate}, a required outcome of pending HARD "${pack2.events.get(hid).title}", without that event occurring.`);
     }
   }
@@ -15814,6 +15827,11 @@ function planScope(pack2, state, affected = []) {
 }
 function normalizePlanEffects(out, pack2, scope) {
   const notes = [];
+  if (!Array.isArray(out.protected_anchor_ids)) out.protected_anchor_ids = [];
+  for (const d of scope.detailed) if (!out.protected_anchor_ids.includes(d)) {
+    out.protected_anchor_ids.push(d);
+    notes.push(`protected_anchor_ids: added ${d}`);
+  }
   const hards = scope.detailed.concat(scope.register);
   for (const s of out.steps || []) {
     if (!Array.isArray(s.intended_effects)) {
@@ -15877,7 +15895,8 @@ function validatePlan(out, pack2, index, scope, clockTick, allowForced) {
         const pe = pack2.events.get(hid);
         const hlo = pe.when.earliest ? toTick(pe.when.earliest) : -Infinity;
         const hhi = pe.when.latest ? toTick(pe.when.latest) : Infinity;
-        const overlaps = s.serves_anchor === hid || hi >= hlo && lo <= hhi;
+        void hlo;
+        const overlaps = s.serves_anchor === hid || lo <= hhi && hi >= hhi;
         if (!overlaps) continue;
         for (const o of pe.outcomes) if (o.entity_id === e.entity_id && o.predicate === e.predicate && !valuesEqual(o.value, e.value)) {
           errs.push(`step ${s.step_id}: intends ${e.entity_id}.${e.predicate}=${JSON.stringify(e.value)}, contradicting HARD ${hid}'s required outcome ${JSON.stringify(o.value)}`);
@@ -16076,7 +16095,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.35";
+var ENGINE_RELEASE = "1.3.36";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));

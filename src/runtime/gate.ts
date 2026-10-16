@@ -156,9 +156,22 @@ export function runGate(g: GateInput): GateResult {
 
   // ---- HARD invariants ------------------------------------------------------------------------
   const pendingHardMap = new Map(pendingHard(pack, index.state).map((c) => [c.event.id, c]));
-  const hardOutcomeKeys = new Map<string, Id>();
-  // the earliest pending HARD event that requires the fact (a fact can be required by several, e.g. a conflict starting and ending)
-  for (const [id, c] of pendingHardMap) for (const o of c.event.outcomes) if (!hardOutcomeKeys.has(`${o.entity_id}|${o.predicate}`)) hardOutcomeKeys.set(`${o.entity_id}|${o.predicate}`, id);
+  const hardOutcomeKeys = new Map<string, Id[]>();
+  for (const [id, c] of pendingHardMap) for (const o of c.event.outcomes) { const k = `${o.entity_id}|${o.predicate}`; hardOutcomeKeys.set(k, [...(hardOutcomeKeys.get(k) || []), id]); }
+  /** A change pre-empts a pending HARD event only when it establishes that event's exact required value
+   *  (as a change, not the value already holding) while the event is near (one of the next two pending HARD
+   *  events, or its window opens within 2 days of the scene). Other values of the same fact are ordinary story (e.g. someone's whereabouts changes long
+   *  before a HARD event that later requires a particular whereabouts). */
+  const nextHard = [...pendingHardMap.keys()].slice(0, 2);
+  const preempted = (d: FactDelta, at: number): Id | undefined => {
+    if (d.op !== 'set') return undefined;
+    const cur = factAt(index.state, d.entity_id, d.predicate, { tick: Number.MAX_SAFE_INTEGER });
+    if (cur.known && valuesEqual(cur.value!, d.value)) return undefined;
+    return (hardOutcomeKeys.get(`${d.entity_id}|${d.predicate}`) || []).find((id) => {
+      const c = pendingHardMap.get(id)!;
+      return (nextHard.includes(id) || c.lo <= at + 2 * 1440) && c.event.outcomes.some((o) => o.entity_id === d.entity_id && o.predicate === d.predicate && valuesEqual(o.value, d.value));
+    });
+  };
 
   // occurrences
   const occByRef = new Map<string, Occurrence>();
@@ -255,13 +268,13 @@ export function runGate(g: GateInput): GateResult {
 
   // C17: HARD outcome facts can only be produced by the HARD occurrence itself
   for (const { d } of looseDeltas) {
-    const hid = hardOutcomeKeys.get(`${d.entity_id}|${d.predicate}`);
+    const hid = preempted(d, sceneEnd.hi);
     if (hid) violations.push(`Fact ${d.entity_id}.${d.predicate} is a required outcome of pending HARD "${pack.events.get(hid)!.title}"; it can only be established by depicting that event occurring at its authored time.`);
   }
   for (const r of occRecords) {
     if (r.packEventId && pack.events.get(r.packEventId)?.classification === 'HARD') continue;
     for (const d of r.factsSetOrUnset) {
-      const hid = hardOutcomeKeys.get(`${d.entity_id}|${d.predicate}`);
+      const hid = preempted(d, r.storyTime.hi);
       if (hid) violations.push(`"${r.summary}" sets ${d.entity_id}.${d.predicate}, a required outcome of pending HARD "${pack.events.get(hid)!.title}", without that event occurring.`);
     }
   }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.36 — 2026-10-17
+
+- Fix (live finding): a reply was rejected because it moved a character whose location a far-future HARD event later requires (上条 outside a restaurant on 9/19 vs. 新入生 on 10/31 requiring him in 学园都市). A reply now pre-empts a HARD event only when it establishes that event's exact required value, as a change, while the event is near (one of the next two pending HARD events, or within 2 days). Other values of the same fact are ordinary story.
+- Fix: planner steps may set an intermediate state before an anchor's deadline (e.g. 木原幻生 deceived before his plan fails); only a step serving the anchor or still running at its deadline can contradict its outcome. A planner that forgets to list an anchor in protected_anchor_ids is corrected instead of rejected.
+- Tests C17g and an intermediate-state plan check.
+
 ## 1.3.35 — 2026-10-17
 
 - **强制完成 (force complete):** clicking a canon event in 本局历史 shows a red button under its description (click twice to confirm). The event is recorded as happened along its original route, with its effects and HARD outcomes; later events that depend on it see it as happened, and the plan is rechecked on the next turn. Forced events show 撤销强制完成 to undo it. The record is kept with the chat and replayed after the message that was last when you pressed it.
