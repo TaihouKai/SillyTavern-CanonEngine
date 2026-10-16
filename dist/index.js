@@ -15954,7 +15954,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.25";
+var ENGINE_RELEASE = "1.3.26";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -17629,6 +17629,15 @@ function attachmentIdentity(m) {
   const media = Array.isArray(m?.extra?.media) ? m.extra.media : [];
   return [...files.map((f) => f?.url || f?.name || ""), ...media.map((x) => x?.url || "")].join("|");
 }
+function isGenuineSystem(m) {
+  if (!m?.is_system) return false;
+  if (m.is_user) return false;
+  const x = m.extra || {};
+  if (x.type || x.tool_invocations || x.isSmallSys) return true;
+  if (m.name === "SillyTavern System") return true;
+  if (x[NS]?.mid) return false;
+  return !x.api && !x.model && !Array.isArray(m.swipes);
+}
 function contentHashOf(role, name2, text, attach) {
   return sha256(`${role}\0${name2}\0${text}\0${attach}`);
 }
@@ -17666,7 +17675,7 @@ var StHost = class {
     const seen = /* @__PURE__ */ new Set();
     chat.forEach((m, index) => {
       if (!m) return;
-      const role = m.is_system ? "system" : m.is_user ? "user" : "gm";
+      const role = isGenuineSystem(m) ? "system" : m.is_user ? "user" : "gm";
       if (!m.extra || typeof m.extra !== "object") m.extra = {};
       let id = m.extra[NS];
       if (!id || typeof id !== "object" || !id.mid) {

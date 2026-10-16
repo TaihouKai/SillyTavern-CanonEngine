@@ -75,6 +75,20 @@ function attachmentIdentity(m: any): string {
   return [...files.map((f: any) => f?.url || f?.name || ''), ...media.map((x: any) => x?.url || '')].join('|');
 }
 
+/** A real system message (help, comment, narrator /sys, tool calls), as opposed to a player or GM
+ *  message the user hid. ST's hide (eye icon, /hide, extensions that hide summarized messages) only
+ *  sets is_system on the message; hiding keeps it out of the prompt but does not erase it from the story. */
+export function isGenuineSystem(m: any): boolean {
+  if (!m?.is_system) return false;
+  if (m.is_user) return false;
+  const x = m.extra || {};
+  if (x.type || x.tool_invocations || x.isSmallSys) return true;
+  if (m.name === 'SillyTavern System') return true;
+  // a message Canon Engine already registered as a GM reply stays one when hidden
+  if (x[NS]?.mid) return false;
+  return !x.api && !x.model && !Array.isArray(m.swipes);
+}
+
 export function contentHashOf(role: string, name: string, text: string, attach: string): string {
   return sha256(`${role}\u0000${name}\u0000${text}\u0000${attach}`);
 }
@@ -107,7 +121,7 @@ export class StHost implements HostPort {
     const seen = new Set<string>();
     chat.forEach((m, index) => {
       if (!m) return;
-      const role: SourceEntry['role'] = m.is_system ? 'system' : m.is_user ? 'user' : 'gm';
+      const role: SourceEntry['role'] = isGenuineSystem(m) ? 'system' : m.is_user ? 'user' : 'gm';
       if (!m.extra || typeof m.extra !== 'object') m.extra = {};
       let id = m.extra[NS];
       if (!id || typeof id !== 'object' || !id.mid) {

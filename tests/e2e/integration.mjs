@@ -745,6 +745,25 @@ try {
     check(results, 'G02 with it on, the reviewer is offered the current scene box to continue', ev?.scene_grouping?.[0]?.title === '港口散步' && /^occ/.test(ev.scene_grouping[0].occurrence_id || ''), JSON.stringify(ev?.scene_grouping));
     await setGroup(false);
   }
+  if (want('S18')) {
+    console.log('\n== S18 hidden messages stay story history ==');
+    await freshChat();
+    await mock('/control', { mainQueue: ['你沿着港口散步。HID_A', '你继续向前。HID_B'], taskRules: [rule('evaluate', 'HID_A', { occurrences: [{ ref: 'o1', title: '港口散步', account: '玩家沿着港口散步。', actors: [], affected: [], locations: ['harbor'], time: null, causes: [], quote: '沿着港口散步', pack_event_id: null, disposition: null, ref_phrases: [], visibility: 'public', knowers: [], origin: 'player' }] })], clearLogs: true });
+    await send(page, '我在港口散步。');
+    const n = await page.evaluate(() => SillyTavern.getContext().chat.length);
+    // hide the player message and the reply (ST's /hide, as the eye icon or a summarizing extension does)
+    await page.evaluate((n) => SillyTavern.getContext().executeSlashCommandsWithOptions(`/hide ${n - 2}-${n - 1}`), n);
+    await mock('/control', { clearLogs: true });
+    await page.evaluate(() => window.CanonEngine.engine.reconcile('test'));
+    await waitIdle(page);
+    const hidden = (await chat(page)).slice(-2).every((m) => m.is_system);
+    const reExamined = (await logs()).filter((l) => l.task === 'extract_user' || l.task === 'evaluate').length;
+    const st = await engineState(page);
+    check(results, 'HM03 hiding messages does not re-examine them or erase what they established', hidden && reExamined === 0 && st.occurrences.some((o) => o.title === '港口散步'), `hidden=${hidden} calls=${reExamined} occ=${st?.occurrences.map((o) => o.title).join(',')}`);
+    await send(page, '我继续走。');
+    const st2 = await engineState(page);
+    check(results, 'HM04 the next turn after hiding works and keeps the hidden turn in history', st2.occurrences.some((o) => o.title === '港口散步') && st2.recovery?.status !== 'error' && (await chat(page)).slice(-1)[0].mes.includes('HID_B'), JSON.stringify(st2.recovery));
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }
