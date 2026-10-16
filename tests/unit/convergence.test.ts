@@ -170,6 +170,17 @@ describe('convergence', () => {
     expect(active.length).toBe(0);
   });
 
+  it('C12b a change made by enacting a plan step is the plan working: no impact assessment, no banner', async () => {
+    const x = await setup();
+    x.model.on('impact', null, { changed: [{ entity_id: 'mira', predicate: 'alive' }], affected_anchors: ['conflict-begins'], affected_steps: [], scope: 'local', severity: 'major', replan: true, explanation: 'unknown change' }, true);
+    const onPlan = { scene_end: at(1, 9, 40), occurrences: [occ('o1', 'Mira is wounded', 'Mira is wounded', { origin: 'gm', actors: ['mira'] })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira is wounded', occurrence_ref: 'o1' }], step_enactments: [{ step_id: 's1', occurrence_ref: 'o1', quote: 'Mira is wounded' }] };
+    await turn(x, 'I watch.', 'Mira is wounded. [PS1]', onPlan);
+    const recs = Object.values(x.engine.campaign()!.interpretations).flat().flatMap((i) => i.records);
+    expect(recs.some((r) => r.enactedStepIds?.includes('s1') && r.factsSetOrUnset.length)).toBe(true);
+    expect(x.model.tasks('impact').length).toBe(0);
+    expect(Object.values(x.engine.campaign()!.interpretations).flat().filter((i) => i.banner).length).toBe(0);
+  });
+
   it('C15 provider failure during planning is an operational error, not a supernatural correction', async () => {
     const x = await setup();
     x.model.failTask.plan = 5;

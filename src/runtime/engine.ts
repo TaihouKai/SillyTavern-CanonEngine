@@ -1263,11 +1263,19 @@ export class CanonEngine {
     for (const r of interp.records) for (const d of r.factsSetOrUnset) { changedKeys.add(`${d.entity_id}|${d.predicate}`); changedEntities.add(d.entity_id); }
     for (const r of interp.records) if (r.disposition && r.disposition !== 'occurred' && r.packEventId) pack.events.get(r.packEventId)?.outcomes.forEach((o) => changedKeys.add(`${o.entity_id}|${o.predicate}`));
     const plan = this.activePlan();
+    // Changes made by enacting the plan's own steps, with no canon deviation, are the plan working
+    // (e.g. the planned poisoning sets the victim's condition): nothing to assess.
+    const deviating = interp.records.some((r) => r.disposition && r.disposition !== 'occurred');
+    const offPlan = interp.records.filter((r) => !(r.enactedStepIds && r.enactedStepIds.length) && r.factsSetOrUnset.length);
+    if (!deviating && !offPlan.length) return;
     const cand = impactCandidates(pack, plan, changedKeys, changedEntities);
     if (!cand.relevant) return;
     const state = this.current.replay.state;
+    const enacted = new Set(interp.records.flatMap((r) => r.enactedStepIds || []));
     const out = await this.withTimeout(assessImpact(this.host.model, {
-      accepted_changes: [...changedKeys], deviations: interp.records.filter((r) => r.disposition && r.disposition !== 'occurred').map((r) => ({ event: r.packEventId, disposition: r.disposition, reason: r.dispositionReason })),
+      accepted_changes: interp.records.flatMap((r) => r.factsSetOrUnset.map((d) => ({ entity_id: d.entity_id, predicate: d.predicate, op: d.op, value: d.op === 'set' ? d.value : null, by_plan_step: (r.enactedStepIds || [])[0] || null, event: r.summary }))),
+      enacted_plan_steps: plan ? plan.steps.filter((x) => enacted.has(x.step_id)).map((x) => ({ step_id: x.step_id, action: x.action, serves_anchor: x.serves_anchor })) : [],
+      deviations: interp.records.filter((r) => r.disposition && r.disposition !== 'occurred').map((r) => ({ event: r.packEventId, disposition: r.disposition, reason: r.dispositionReason })),
       plan: plan ? { assumptions: plan.assumptions, steps: plan.steps.map((s) => ({ step_id: s.step_id, action: s.action, serves_anchor: s.serves_anchor })) } : null,
       candidate_anchors: cand.anchors,
       hard_register: pendingHard(pack, state).map((h) => ({ id: h.event.id, required: h.event.required_description, deadline: h.event.when.latest })),

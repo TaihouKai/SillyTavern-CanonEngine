@@ -14772,7 +14772,7 @@ SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0
 TASK: Offscreen adjudication for a story-time advance. For each candidate canonical event in the interval decide what ACTUALLY happens given actual state (not the original summary): occurred (original result), diverged (event happens but with a different actual result), omitted (does not happen; FREE/SOFT only, with reason), postponed (SOFT only, still within its bounds). HARD events MUST occur within their bounds with every required outcome, even if extraordinary means are needed (extraordinary=true only when authorized_forced=true). When the actual state blocks the original route, the account must name the concrete cause (who, by what means). Give actors, causes (actual occurrence ids), typed effects, a concise account of what occurred and why. A plan step reference alone is not evidence of success.
 SHAPE: {"adjudications":[{"event_id":"","decision":"occurred","time":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"account":"","actors":[],"causes":[],"effects":[{"op":"set","entity_id":"","predicate":"","value":true}],"plan_step_ids":[],"reason":"","extraordinary":false}]}`,
   impact: `${COMMON}
-TASK: Impact assessment of newly accepted changes against the active plan and the complete future HARD register. Report changed facts, affected plan steps and anchors (ids from input only), scope (local/global/unknown), severity (none/minor/major \u2014 major only if the change substantially destroys a protected path or requires extraordinary correction; entity count is not severity), and whether replanning is needed.
+TASK: Impact assessment of newly accepted changes against the active plan and the complete future HARD register. Report changed facts, affected plan steps and anchors (ids from input only), scope (local/global/unknown), severity (none/minor/major \u2014 major only if the change substantially destroys a protected path or requires extraordinary correction; entity count is not severity), and whether replanning is needed. A change made by an enacted plan step (by_plan_step, enacted_plan_steps) or one that follows an anchor's original route is the plan working, not a deviation: severity none, no replan. Judge each change by its actual value; never assume the worst about a change.
 SHAPE: {"changed":[{"entity_id":"","predicate":""}],"affected_anchors":[],"affected_steps":[],"scope":"local","severity":"none","replan":false,"explanation":""}`,
   plan: `${COMMON}
 TASK: Plan future world actions so every protected HARD contract is realized exactly (required description, outcomes, time bounds) from the ACTUAL current world. Prefer: existing causes -> plausible extensions -> original actions/actors -> extraordinary correction (only when allowed_mode is FORCED_CONVERGENCE; say why cheaper routes are inadequate in inadequacy_note). Steps are intentions, not facts. Never require the player's consent or choose the player's actions (requires_player_consent must be false; offer opportunities instead). Never drop, rename, reschedule or weaken an anchor; never declare an alternate world. Creating new actors/resources requires explicit establishment steps. Times must be within anchor bounds and after the current time.
@@ -15994,7 +15994,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.29";
+var ENGINE_RELEASE = "1.3.30";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -17342,11 +17342,16 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     }
     for (const r of interp.records) if (r.disposition && r.disposition !== "occurred" && r.packEventId) pack2.events.get(r.packEventId)?.outcomes.forEach((o) => changedKeys.add(`${o.entity_id}|${o.predicate}`));
     const plan2 = this.activePlan();
+    const deviating = interp.records.some((r) => r.disposition && r.disposition !== "occurred");
+    const offPlan = interp.records.filter((r) => !(r.enactedStepIds && r.enactedStepIds.length) && r.factsSetOrUnset.length);
+    if (!deviating && !offPlan.length) return;
     const cand = impactCandidates(pack2, plan2, changedKeys, changedEntities);
     if (!cand.relevant) return;
     const state = this.current.replay.state;
+    const enacted = new Set(interp.records.flatMap((r) => r.enactedStepIds || []));
     const out = await this.withTimeout(assessImpact(this.host.model, {
-      accepted_changes: [...changedKeys],
+      accepted_changes: interp.records.flatMap((r) => r.factsSetOrUnset.map((d) => ({ entity_id: d.entity_id, predicate: d.predicate, op: d.op, value: d.op === "set" ? d.value : null, by_plan_step: (r.enactedStepIds || [])[0] || null, event: r.summary }))),
+      enacted_plan_steps: plan2 ? plan2.steps.filter((x) => enacted.has(x.step_id)).map((x) => ({ step_id: x.step_id, action: x.action, serves_anchor: x.serves_anchor })) : [],
       deviations: interp.records.filter((r) => r.disposition && r.disposition !== "occurred").map((r) => ({ event: r.packEventId, disposition: r.disposition, reason: r.dispositionReason })),
       plan: plan2 ? { assumptions: plan2.assumptions, steps: plan2.steps.map((s) => ({ step_id: s.step_id, action: s.action, serves_anchor: s.serves_anchor })) } : null,
       candidate_anchors: cand.anchors,

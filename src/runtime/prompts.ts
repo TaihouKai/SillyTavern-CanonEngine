@@ -53,7 +53,7 @@ TASK: Offscreen adjudication for a story-time advance. For each candidate canoni
 SHAPE: {"adjudications":[{"event_id":"","decision":"occurred","time":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"account":"","actors":[],"causes":[],"effects":[{"op":"set","entity_id":"","predicate":"","value":true}],"plan_step_ids":[],"reason":"","extraordinary":false}]}`,
 
   impact: `${COMMON}
-TASK: Impact assessment of newly accepted changes against the active plan and the complete future HARD register. Report changed facts, affected plan steps and anchors (ids from input only), scope (local/global/unknown), severity (none/minor/major — major only if the change substantially destroys a protected path or requires extraordinary correction; entity count is not severity), and whether replanning is needed.
+TASK: Impact assessment of newly accepted changes against the active plan and the complete future HARD register. Report changed facts, affected plan steps and anchors (ids from input only), scope (local/global/unknown), severity (none/minor/major — major only if the change substantially destroys a protected path or requires extraordinary correction; entity count is not severity), and whether replanning is needed. A change made by an enacted plan step (by_plan_step, enacted_plan_steps) or one that follows an anchor's original route is the plan working, not a deviation: severity none, no replan. Judge each change by its actual value; never assume the worst about a change.
 SHAPE: {"changed":[{"entity_id":"","predicate":""}],"affected_anchors":[],"affected_steps":[],"scope":"local","severity":"none","replan":false,"explanation":""}`,
 
   plan: `${COMMON}
