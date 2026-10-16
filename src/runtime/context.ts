@@ -256,6 +256,10 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   if (inp.opportunities.length) optional.push('PARTICIPATION OPPORTUNITIES (offer in-world only if plausible; never force; a decline is respected):\n' + inp.opportunities.map((s) => '- ' + s).join('\n'));
   const canonRef = dueSoon.slice(0, 3).map((h) => `- ${h.event.title}: original route — ${h.event.summary}`);
   if (canonRef.length) optional.push('CANON REFERENCE (original routes; reference only, NOT facts):\n' + canonRef.join('\n'));
+  const open = pack.timeIndex
+    .filter((t) => t.lo <= checkpointTick && t.hi > checkpointTick && !index.state.dispositions.has(t.id) && pack.events.get(t.id)?.classification !== 'HARD')
+    .slice(0, 4).map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}`; });
+  if (open.length) optional.push('CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n' + open.join('\n'));
 
   const reqText = required.join('\n\n');
   let text = reqText;

@@ -15193,6 +15193,11 @@ function buildPacket(inp, compact = false) {
   if (inp.opportunities.length) optional.push("PARTICIPATION OPPORTUNITIES (offer in-world only if plausible; never force; a decline is respected):\n" + inp.opportunities.map((s) => "- " + s).join("\n"));
   const canonRef = dueSoon.slice(0, 3).map((h) => `- ${h.event.title}: original route \u2014 ${h.event.summary}`);
   if (canonRef.length) optional.push("CANON REFERENCE (original routes; reference only, NOT facts):\n" + canonRef.join("\n"));
+  const open = pack2.timeIndex.filter((t2) => t2.lo <= checkpointTick && t2.hi > checkpointTick && !index.state.dispositions.has(t2.id) && pack2.events.get(t2.id)?.classification !== "HARD").slice(0, 4).map((t2) => {
+    const e = pack2.events.get(t2.id);
+    return `- ${e.title} (${formatTick(t2.lo, inp.origin)} \u2013 ${formatTick(t2.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + "\u2026" : e.summary}`;
+  });
+  if (open.length) optional.push("CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n" + open.join("\n"));
   const reqText = required.join("\n\n");
   let text = reqText;
   let truncated = false;
@@ -15596,9 +15601,9 @@ async function adjudicateInterval(args) {
   let forcedUsed = false;
   const cands = crossedCandidates(pack2, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id));
   for (const c of cands) {
-    const when = occurrenceWindow(c, args.fromExclusive, args.toInclusive);
+    const when = occurrenceWindow(c, -Infinity, args.toInclusive);
     const windowStillOpen = c.hi > args.toInclusive;
-    if (windowStillOpen && c.event.classification === "HARD") continue;
+    if (windowStillOpen) continue;
     const p = adjudicateDefault(pack2, scratch, c, when);
     if (p.mode === "deterministic" && p.record) {
       records.push(p.record);
@@ -15994,7 +15999,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.30";
+var ENGINE_RELEASE = "1.3.31";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));

@@ -45,11 +45,14 @@ export async function adjudicateInterval(args: {
   const notes: string[] = [];
   let forcedUsed = false;
   const cands = crossedCandidates(pack, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id));
-  // Only events whose window opens by the end; HARD events still open after the end stay pending.
+  // Only events whose window has closed by the end. An event whose window is still open stays pending
+  // (it may still happen later inside its bounds, offscreen or in the story): a whole-day event is
+  // not settled as done the moment the day begins.
   for (const c of cands) {
-    const when = occurrenceWindow(c, args.fromExclusive, args.toInclusive);
+    // the whole window: it went by without the event being settled, so it may have happened at any point in it
+    const when = occurrenceWindow(c, -Infinity, args.toInclusive);
     const windowStillOpen = c.hi > args.toInclusive;
-    if (windowStillOpen && c.event.classification === 'HARD') continue; // may still happen later inside its bounds
+    if (windowStillOpen) continue;
     const p = adjudicateDefault(pack, scratch, c, when);
     if (p.mode === 'deterministic' && p.record) {
       records.push(p.record);
