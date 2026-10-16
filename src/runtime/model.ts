@@ -25,6 +25,9 @@ export interface DraftRequest {
   instruction: string;
   /** Reply-length instruction, placed after the latest message (the last thing before the reply). */
   lengthNote?: string;
+  /** Names of this turn's relevant entities (scene, references, planned actors). The host exposes only
+   *  these to its keyword lore scan; the engine context itself is never scanned. */
+  loreNames?: string[];
   /** Operation projection: remove the replaced reply from the prompt (swipe). */
   excludeLastAssistant: boolean;
   signal?: AbortSignal;

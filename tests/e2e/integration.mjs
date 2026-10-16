@@ -98,6 +98,10 @@ try {
     check(results, 'I02 sentinel never reached Horae analysis or vector embedding', !al.some((a) => JSON.stringify(a.messages).includes('SENTINEL')) && !emb.some((e) => JSON.stringify(e.input).includes('SENTINEL')), `aux=${al.length} embed=${emb.length}`);
     const repairPrompt = (await mainLogs())[1];
     check(results, 'I02 repair request is private and cites the violation', !!repairPrompt && promptText(repairPrompt).includes('sentinel event must be rejected'));
+    // the revision request is an unscanned system injection, not ST's quiet prompt (which ST scans for World Info keys)
+    const rm = repairPrompt?.messages || [];
+    const ri = rm.findIndex((m) => String(m.content).includes('private revision request'));
+    check(results, 'I02 repair request is a system injection after the latest player message, not a quiet user prompt', ri >= 0 && rm[ri].role === 'system' && ri > rm.map((m) => m.role).lastIndexOf('user'), rm.map((m, i) => `${i}:${m.role}:${String(m.content).slice(0, 24)}`).slice(-4).join(' | '));
     await mock('/control', { mainQueue: ['你继续前行。'], clearLogs: true });
     await send(page, '我继续走。');
     const next = (await mainLogs())[0];
@@ -639,13 +643,26 @@ try {
     const setLen = (v) => page.evaluate((v) => { const el = document.querySelector('[data-set="replyLength"]'); el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }, v);
     await setLen('正文约800~1200字');
     const saved = await page.evaluate(() => SillyTavern.getContext().extensionSettings.canonEngine.replyLength);
-    await mock('/control', { mainQueue: ['港口很安静。LEN_A'], clearLogs: true });
-    await send(page, '我四处看看。');
+    // a real lorebook: one entry keyed on the referenced entity, one on an entity of the registry that is not in play
+    const mkEntry = (uid, key, content) => ({ uid, key: [key], keysecondary: [], comment: key, content, constant: false, selective: false, disable: false, order: 100, position: 0, depth: 4, probability: 100, useProbability: false, excludeRecursion: true });
+    await page.evaluate(async (data) => {
+      const c = SillyTavern.getContext();
+      await fetch('/api/worldinfo/edit', { method: 'POST', headers: c.getRequestHeaders(), body: JSON.stringify({ name: 'canon-e2e-lore', data }) });
+      await (await import('/scripts/world-info.js')).updateWorldInfoList();
+      await c.executeSlashCommandsWithOptions('/world silent=true canon-e2e-lore');
+    }, { entries: { 0: mkEntry(0, 'Mira', 'LORE_MIRA_7'), 1: mkEntry(1, 'The Council', 'LORE_COUNCIL_9') } });
+    await mock('/control', { mainQueue: ['港口很安静。LEN_A'], clearLogs: true, taskRules:[rule('extract_user', '去找那位医生', { references: [{ phrase: '那位医生', quote: '那位医生', kind: 'entity', mode: 'indirect', candidates: ['mira'] }] })] });
+    await send(page, '我去找那位医生聊聊。');
     const msgs = (await mainLogs())[0]?.messages || [];
     const li = msgs.findIndex((m) => String(m.content).includes('本回合回复篇幅要求：正文约800~1200字'));
     const lastUser = msgs.map((m) => m.role).lastIndexOf('user');
     check(results, 'R01 the reply length typed in the panel is saved as text', saved === '正文约800~1200字', JSON.stringify(saved));
     check(results, 'R02 the length instruction comes after the latest player message, right before the reply', li >= 0 && li > lastUser && msgs.slice(li + 1).every((m) => m.role !== 'user' && m.role !== 'assistant'), msgs.map((m, i) => `${i}:${m.role}:${String(m.content).slice(0, 24)}`).slice(-4).join(' | '));
+    const lore = { content: (msgs.map((m) => String(m.content)).join(' ').match(/\[Canon Engine: relevant to this turn:[^\]]*\]/) || [''])[0] };
+    check(results, 'R03 a short list of this turn’s relevant names is offered to the lorebook scan (not the whole registry)', !!lore.content && String(lore.content).includes('Mira') && !String(lore.content).includes('The Council') && String(lore.content).length < 600, String(lore?.content || '').slice(0, 200));
+    const all = msgs.map((m) => String(m.content)).join('\n');
+    check(results, 'R04 the lorebook entry of the referenced entity is pulled; an entry of a registry entity not in play is not', all.includes('LORE_MIRA_7') && !all.includes('LORE_COUNCIL_9'), `mira=${all.includes('LORE_MIRA_7')} council=${all.includes('LORE_COUNCIL_9')}`);
+    await page.evaluate(() => SillyTavern.getContext().executeSlashCommandsWithOptions('/world state=off silent=true canon-e2e-lore'));
     await setLen('');
   }
   if (want('S14')) {

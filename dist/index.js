@@ -15953,7 +15953,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.23";
+var ENGINE_RELEASE = "1.3.24";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -15992,6 +15992,15 @@ var CanonEngine = class {
   lengthNote() {
     const len = String(this.settings.replyLength || "").trim();
     return len ? replyLengthNote(len) : "";
+  }
+  /** Entities whose lore the story model needs this turn: the scene, what the player and the last reply
+   *  referred to, and the planner's actors. A bounded list, never the whole registry. */
+  loreNames(index, retrieval, plan2) {
+    const ids = [];
+    for (const [id, tags] of retrieval.entities) if (tags.has("scene") || tags.has("mentioned")) ids.push(id);
+    for (const s of (plan2?.steps || []).filter((s2) => s2.status === "ready" || s2.status === "proposed").slice(0, 6)) ids.push(...s.actors);
+    for (const [id, tags] of retrieval.entities) if (tags.has("causal")) ids.push(id);
+    return uniq(ids.map((id) => index.entityName(id)).filter((n) => n && n.length <= 40)).slice(0, 16);
   }
   rememberDiscovery(key, d) {
     if (this.discCache.size > 16) this.discCache.clear();
@@ -16904,9 +16913,10 @@ var CanonEngine = class {
         };
         let packet = buildPacket(packetArgs);
         const engineContext = this.gmRules() + "\n\n" + packet.text;
+        const loreNames = this.loreNames(index, retrieval, plan2);
         this.setStatus("generating", "Generating (private draft)\u2026");
         trace.prompts.push({ kind: "engine_context", text: engineContext });
-        let draft = await this.timeStep("draft", this.withTimeout(this.host.model.generateDraft({ engineContext, lengthNote: continuing ? "" : this.lengthNote(), instruction: continuing ? CONTINUE_INSTRUCTION : "", excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
+        let draft = await this.timeStep("draft", this.withTimeout(this.host.model.generateDraft({ engineContext, loreNames, lengthNote: continuing ? "" : this.lengthNote(), instruction: continuing ? CONTINUE_INSTRUCTION : "", excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
         this.checkFences(fences, excludeLast);
         let candidate = continuing ? joinContinuation(continuedEntry.text, draft) : draft;
         if (!candidate.trim()) throw new EngineError("provider_failure", "the model returned an empty reply");
@@ -16995,7 +17005,7 @@ Why the drafts were rejected: ${violations.slice(0, 4).join(" | ")}`;
             packet = buildPacket(packetArgs);
           }
           const repairInstruction = hardStuck ? HARD_LAST_RESORT_INSTRUCTION(violations.slice(0, 8), hardReqs, facts.slice(0, 6e3), route) : REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6e3));
-          draft = await this.timeStep("repair", this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, lengthNote: continuing ? "" : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + "\n" : "") + repairInstruction + (continuing ? `
+          draft = await this.timeStep("repair", this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, loreNames: uniq([...loreNames, ...this.loreNames(index, retrieval, plan2)]).slice(0, 16), lengthNote: continuing ? "" : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + "\n" : "") + repairInstruction + (continuing ? `
 Existing part of the reply (keep it unchanged; output only the continuation):
 ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
           this.checkFences(fences, excludeLast);
@@ -17574,6 +17584,8 @@ var HoraeAdapter = class _HoraeAdapter {
 var NS = "canonEngine";
 var EXT_PROMPT_KEY = "canon_engine_context";
 var EXT_LENGTH_KEY = "canon_engine_length";
+var EXT_INSTRUCTION_KEY = "canon_engine_instruction";
+var EXT_LORE_KEY = "canon_engine_lore";
 var stModule = null;
 async function loadStModule() {
   if (stModule) return stModule;
@@ -18014,6 +18026,9 @@ var StModel = class {
       window.fetch = tap;
       c.setExtensionPrompt(EXT_PROMPT_KEY, req.engineContext, mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
       c.setExtensionPrompt(EXT_LENGTH_KEY, req.lengthNote || "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
+      c.setExtensionPrompt(EXT_INSTRUCTION_KEY, req.instruction || "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
+      const lore = (req.loreNames || []).length ? `[Canon Engine: relevant to this turn: ${req.loreNames.join(", ")}]` : "";
+      c.setExtensionPrompt(EXT_LORE_KEY, lore, mod.extension_prompt_types.IN_CHAT, 1, true, mod.extension_prompt_roles.SYSTEM);
       const onAbort = () => {
         try {
           c.stopGeneration?.();
@@ -18022,7 +18037,7 @@ var StModel = class {
       };
       req.signal?.addEventListener("abort", onAbort, { once: true });
       try {
-        const out = await c.generateQuietPrompt({ quietPrompt: req.instruction || "", removeReasoning: false, skipWIAN: false });
+        const out = await c.generateQuietPrompt({ quietPrompt: "", removeReasoning: false, skipWIAN: false });
         if (req.signal?.aborted) throw new Error("aborted");
         const captured = gen.draft?.token === token ? gen.draft.captured : null;
         if (captured && !captured.some((m) => typeof m.content === "string" && m.content.includes("[CANON ENGINE CONTEXT"))) {
@@ -18042,6 +18057,8 @@ var StModel = class {
         req.signal?.removeEventListener("abort", onAbort);
         c.setExtensionPrompt(EXT_PROMPT_KEY, "", mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
         c.setExtensionPrompt(EXT_LENGTH_KEY, "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
+        c.setExtensionPrompt(EXT_INSTRUCTION_KEY, "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
+        c.setExtensionPrompt(EXT_LORE_KEY, "", mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
         if (gen.draft?.token === token) {
           gen.lastDraftPrompt = gen.draft.captured;
           gen.draft = null;

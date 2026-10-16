@@ -118,6 +118,15 @@ export class CanonEngine {
     const len = String(this.settings.replyLength || '').trim();
     return len ? replyLengthNote(len) : '';
   }
+  /** Entities whose lore the story model needs this turn: the scene, what the player and the last reply
+   *  referred to, and the planner's actors. A bounded list, never the whole registry. */
+  private loreNames(index: WorldIndex, retrieval: Retrieval, plan: { steps: { status: string; actors: Id[] }[] } | null): string[] {
+    const ids: Id[] = [];
+    for (const [id, tags] of retrieval.entities) if (tags.has('scene') || tags.has('mentioned')) ids.push(id);
+    for (const s of (plan?.steps || []).filter((s) => s.status === 'ready' || s.status === 'proposed').slice(0, 6)) ids.push(...s.actors);
+    for (const [id, tags] of retrieval.entities) if (tags.has('causal')) ids.push(id);
+    return uniq(ids.map((id) => index.entityName(id)).filter((n) => n && n.length <= 40)).slice(0, 16);
+  }
   private rememberDiscovery(key: string, d: DiscoverOut): DiscoverOut {
     if (this.discCache.size > 16) this.discCache.clear();
     this.discCache.set(key, d);
@@ -917,11 +926,12 @@ export class CanonEngine {
         };
         let packet = buildPacket(packetArgs);
         const engineContext = this.gmRules() + '\n\n' + packet.text;
+        const loreNames = this.loreNames(index, retrieval, plan);
 
         // Draft (private)
         this.setStatus('generating', 'Generating (private draft)…');
         trace.prompts.push({ kind: 'engine_context', text: engineContext });
-        let draft = await this.timeStep('draft', this.withTimeout(this.host.model.generateDraft({ engineContext, lengthNote: continuing ? '' : this.lengthNote(), instruction: continuing ? CONTINUE_INSTRUCTION : '', excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
+        let draft = await this.timeStep('draft', this.withTimeout(this.host.model.generateDraft({ engineContext, loreNames, lengthNote: continuing ? '' : this.lengthNote(), instruction: continuing ? CONTINUE_INSTRUCTION : '', excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
         this.checkFences(fences, excludeLast);
         let candidate = continuing ? joinContinuation(continuedEntry!.text, draft) : draft;
         if (!candidate.trim()) throw new EngineError('provider_failure', 'the model returned an empty reply');
@@ -991,7 +1001,7 @@ export class CanonEngine {
             packet = buildPacket(packetArgs);
           }
           const repairInstruction = hardStuck ? HARD_LAST_RESORT_INSTRUCTION(violations.slice(0, 8), hardReqs, facts.slice(0, 6000), route) : REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6000));
-          draft = await this.timeStep('repair', this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, lengthNote: continuing ? '' : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + '\n' : '') + repairInstruction + (continuing ? `\nExisting part of the reply (keep it unchanged; output only the continuation):\n${continuedEntry!.text}` : ''), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
+          draft = await this.timeStep('repair', this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, loreNames: uniq([...loreNames, ...this.loreNames(index, retrieval, plan)]).slice(0, 16), lengthNote: continuing ? '' : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + '\n' : '') + repairInstruction + (continuing ? `\nExisting part of the reply (keep it unchanged; output only the continuation):\n${continuedEntry!.text}` : ''), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
           this.checkFences(fences, excludeLast);
           candidate = continuing ? joinContinuation(continuedEntry!.text, draft) : draft;
         }

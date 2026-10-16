@@ -19,6 +19,10 @@ declare const SillyTavern: { getContext(): any };
 export const NS = 'canonEngine';
 const EXT_PROMPT_KEY = 'canon_engine_context';
 const EXT_LENGTH_KEY = 'canon_engine_length';
+// Sorts before EXT_LENGTH_KEY (ST orders injections by key), so the length note stays last at depth 0.
+const EXT_INSTRUCTION_KEY = 'canon_engine_instruction';
+// The only Canon Engine injection that ST scans for World Info keys: a short list of this turn's relevant names.
+const EXT_LORE_KEY = 'canon_engine_lore';
 
 export interface StModule {
   saveChat: (o?: any) => Promise<void>;
@@ -453,10 +457,18 @@ export class StModel implements ModelPort {
       c.setExtensionPrompt(EXT_PROMPT_KEY, req.engineContext, mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
       // Depth 0: after the latest message, so nothing sits between the length instruction and the reply.
       c.setExtensionPrompt(EXT_LENGTH_KEY, req.lengthNote || '', mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
+      // Continue/repair instructions go in as an unscanned injection, not as the quiet prompt: ST scans the
+      // quiet prompt for World Info keys, and a repair's facts list names every pack entity (live finding:
+      // a 1373-entry lorebook added ~50k tokens to one repair).
+      c.setExtensionPrompt(EXT_INSTRUCTION_KEY, req.instruction || '', mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
+      // Lore for the characters the engine brings into play (e.g. a planned pursuer nobody named in the
+      // last messages) comes from the user's lorebooks through this scanned line.
+      const lore = (req.loreNames || []).length ? `[Canon Engine: relevant to this turn: ${req.loreNames!.join(', ')}]` : '';
+      c.setExtensionPrompt(EXT_LORE_KEY, lore, mod.extension_prompt_types.IN_CHAT, 1, true, mod.extension_prompt_roles.SYSTEM);
       const onAbort = () => { try { c.stopGeneration?.(); } catch { /* ignore */ } };
       req.signal?.addEventListener('abort', onAbort, { once: true });
       try {
-        const out = await c.generateQuietPrompt({ quietPrompt: req.instruction || '', removeReasoning: false, skipWIAN: false });
+        const out = await c.generateQuietPrompt({ quietPrompt: '', removeReasoning: false, skipWIAN: false });
         if (req.signal?.aborted) throw new Error('aborted');
         // ST trims in-chat injections that do not fit the model's context size. Never accept a
         // draft whose final prompt lost the engine context.
@@ -476,6 +488,8 @@ export class StModel implements ModelPort {
         req.signal?.removeEventListener('abort', onAbort);
         c.setExtensionPrompt(EXT_PROMPT_KEY, '', mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
         c.setExtensionPrompt(EXT_LENGTH_KEY, '', mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
+        c.setExtensionPrompt(EXT_INSTRUCTION_KEY, '', mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
+        c.setExtensionPrompt(EXT_LORE_KEY, '', mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
         if (gen.draft?.token === token) {
           gen.lastDraftPrompt = gen.draft.captured;
           gen.draft = null;

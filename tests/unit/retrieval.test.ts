@@ -61,6 +61,15 @@ async function turn(x: X, user: string, draft: string | string[], evalPatches: R
 const ref = (phrase: string, kind: string, extra: any = {}) => ({ phrase, quote: extra.quote || phrase, kind, mode: extra.mode || 'direct', candidates: extra.candidates || [] });
 
 describe('W: actual history and world state', () => {
+  it('W21 only the relevant names of this turn are offered to the host lore scan, never the whole registry (live finding)', async () => {
+    const x = await setup();
+    await turn(x, 'I greet the courier.', 'The courier nods. [L1]', {}, { references: [ref('courier', 'entity', { candidates: ['courier'] })] });
+    const names = x.model.tasks('draft').slice(-1)[0].input.loreNames as string[];
+    const all = [...x.engine.current!.replay.state.runtimeEntities.keys()].length + JSON.parse(PACK).entities.length;
+    expect(names).toContain(x.engine.current!.index.entityName('courier'));
+    expect(names.length).toBeLessThanOrEqual(16);
+    expect(names.length).toBeLessThan(all);
+  });
   it('W05 timeskip crosses the unrelated FREE market destruction while the player is elsewhere', async () => {
     const x = await setup(tick(1, 7));
     expect(await turn(x, 'I sleep at the inn until morning.', 'You sleep until dawn. [W5]', { '[W5]': { scene_end: at(2, 8) } })).toBe(true);
