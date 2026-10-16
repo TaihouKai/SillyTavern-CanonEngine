@@ -1,6 +1,6 @@
 // History graph views: the pack's canonical graph and the current playthrough's actual history.
-// Pure SVG (no external libraries). Layout: time runs left→right (ordinal by event time),
-// swim lanes by classification (HARD / SOFT / FREE / 本局事件), greedy row packing inside lanes.
+// Pure SVG (no external libraries). Layout: a real time axis left→right (each box spans its event's
+// start to end), swim lanes by classification (HARD / SOFT / FREE / 本局事件), greedy row packing inside lanes.
 import type { LoadedPack } from '../domain/pack';
 import type { WorldState } from '../domain/reducer';
 import { formatTick, formatStoryTime } from '../domain/time';
@@ -13,6 +13,10 @@ export interface GNode {
   title: string;
   lane: 'HARD' | 'SOFT' | 'FREE' | 'RUNTIME';
   tick: number;
+  /** End of the event's time window (defaults to tick). */
+  tickHi?: number;
+  /** Second line of the box (set by the renderer). */
+  sub?: string;
   when: string;
   short?: string;
   summary: string;
@@ -24,7 +28,7 @@ export interface GNode {
   masked?: boolean;
 }
 export interface GEdge { from: string; to: string; kind: string; note?: string }
-export interface GraphData { nodes: GNode[]; edges: GEdge[]; nowTick: number | null; arcs: { id: string; title: string }[] }
+export interface GraphData { nodes: GNode[]; edges: GEdge[]; nowTick: number | null; arcs: { id: string; title: string }[]; origin?: { y: number; m: number; d: number } | null }
 
 const ORIGIN_LABEL: Record<string, string> = { player: '玩家', gm: 'GM/NPC', canon: '正史', offscreen: '场外', bootstrap: '开局前', intervention: '干预' };
 
@@ -34,7 +38,7 @@ export function packGraph(L: LoadedPack, origin: { y: number; m: number; d: numb
   for (const ev of L.pack.events) {
     const ti = L.timeIndex.find((x) => x.id === ev.id);
     nodes.push({
-      id: ev.id, title: ev.title, lane: ev.classification, tick: ti ? ti.lo : Number.NEGATIVE_INFINITY,
+      id: ev.id, title: ev.title, lane: ev.classification, tick: ti ? ti.lo : Number.NEGATIVE_INFINITY, tickHi: ti ? ti.hi : undefined,
       when: ti ? (ti.lo === ti.hi ? formatTick(ti.lo, origin) : `${formatTick(ti.lo, origin)} – ${formatTick(ti.hi, origin)}`) + ` · ${ev.when.label}` : ev.when.label,
       short: ti ? shortRange(ti.lo, ti.hi, origin) : ev.when.label,
       summary: ev.summary, required: ev.required_description, arc: ev.arc_id,
@@ -45,7 +49,7 @@ export function packGraph(L: LoadedPack, origin: { y: number; m: number; d: numb
     });
   }
   const edges: GEdge[] = L.pack.edges.map((e) => ({ from: e.from, to: e.to, kind: e.relation, note: e.note }));
-  return { nodes, edges, nowTick: null, arcs: L.pack.arcs.map((a) => ({ id: a.id, title: a.title })) };
+  return { nodes, edges, nowTick: null, arcs: L.pack.arcs.map((a) => ({ id: a.id, title: a.title })), origin };
 }
 
 /** Current playthrough (Graph B): canon statuses + runtime occurrences with actual causal links. */
@@ -91,10 +95,10 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
     const span = members.length > 1 ? { lo, hi, precision: 'range' as const } : first.time;
     const outcomes = members.flatMap(outcomeText);
     g.nodes.push({
-      id: root, title: members.length > 1 ? `${first.title}（${members.length}段）` : first.title, lane: 'RUNTIME', tick: lo, when: formatStoryTime(span, origin), short: shortRange(lo, hi, origin),
+      id: root, title: members.length > 1 ? `${first.title}（${members.length}段）` : first.title, lane: 'RUNTIME', tick: lo, tickHi: hi, when: formatStoryTime(span, origin), short: shortRange(lo, hi, origin),
       summary: members.length > 1 ? members.map((m) => `${m.title}：${m.account}`).join('\n') : first.account,
       status: 'runtime', origin: first.origin,
-      detail: [`来源：${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join('、')}`, ...(members.length > 1 ? [`同一场景：${members.map((m) => `${formatTick(m.time.lo, origin).split(' ').pop()} ${m.title}`).join(' → ')}`] : []), ...(outcomes.length ? [`本局结果：${outcomes.join('；')}`] : [])],
+      detail: [`来源：${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join('、')}`, ...(members.length > 1 ? [`同一场景：${members.map((m) => `${formatTick(m.time.lo, origin).split(' ')[1]} ${m.title}`).join(' → ')}`] : []), ...(outcomes.length ? [`本局结果：${outcomes.join('；')}`] : [])],
     });
   }
   // actual causal links (occurrence -> occurrence), mapped onto canon nodes / scene boxes where applicable
@@ -118,7 +122,9 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
 
 function shortRange(lo: number, hi: number, origin: { y: number; m: number; d: number } | null): string {
   const a = formatTick(lo, origin).split(' ')[0], b = formatTick(hi, origin).split(' ')[0];
-  return a === b ? a : `${a} ~ ${b.replace(/^(\d{4})-/, (m, y) => (a.startsWith(y) ? '' : m))}`;
+  const hm = (t: number) => formatTick(t, origin).split(' ')[1];
+  if (a === b) return hi - lo >= 1439 ? a : `${a} ${hm(lo)}${hi > lo ? '–' + hm(hi) : ''}`;
+  return `${a} ~ ${b.replace(/^(\d{4})-/, (m, y) => (a.startsWith(y) ? '' : m))}`;
 }
 
 function name(L: LoadedPack, id: string, s?: WorldState): string {
@@ -133,78 +139,161 @@ export function statusLabel(st?: GStatus): string {
 // ---------------------------------------------------------------------------------------------
 // Layout + rendering
 
-const NODE_W = 168, NODE_H = 46, STEP = 64, ROW_GAP = 10, LANE_PAD = 28, AXIS_H = 34, LEFT = 92;
+// Time axis: x is a monotone function of story time. Between consecutive event boundaries the
+// distance grows with the logarithm of the gap, so hours stay readable next to decades while order
+// and overlap stay exact. A box runs from its start to its end time; a box too narrow for its text
+// shows the text beside it.
+const NODE_H = 46, ROW_GAP = 10, LANE_PAD = 28, AXIS_H = 40, LEFT = 92, MIN_BAR = 10, UNK_W = 168;
 const LANES: GNode['lane'][] = ['HARD', 'SOFT', 'FREE', 'RUNTIME'];
 const LANE_LABEL: Record<string, string> = { HARD: 'HARD 必然', SOFT: 'SOFT 重要', FREE: 'FREE 背景', RUNTIME: '本局事件' };
 
-interface Placed extends GNode { x: number; y: number }
+interface Placed extends GNode { x: number; y: number; w: number; inside: boolean; title2: string; sub2: string }
 
-function layout(g: GraphData): { placed: Placed[]; width: number; height: number; laneY: Record<string, [number, number]>; ticks: { x: number; label: string }[]; nowX: number | null } {
-  const sorted = [...g.nodes].sort((a, b) => a.tick - b.tick || LANES.indexOf(a.lane) - LANES.indexOf(b.lane) || a.title.localeCompare(b.title));
-  const xOf = new Map<string, number>();
-  let x = LEFT, prevTick: number | null = null;
-  for (const n of sorted) {
-    if (prevTick !== null && n.tick !== prevTick) x += STEP;
-    xOf.set(n.id, x);
-    prevTick = n.tick;
-  }
+/** Pixels between two adjacent boundaries `dt` minutes apart. */
+const gapPx = (dt: number) => (dt <= 0 ? 0 : 10 + 26 * Math.log2(1 + dt / 60));
+const textW = (s: string, px: number) => [...s].reduce((a, c) => a + (/[\u0000-ÿ]/.test(c) ? px * 0.56 : px), 0);
+
+export function timeScale(ticks: number[], x0: number): { x: (t: number) => number; end: number } {
+  const bps = [...new Set(ticks.filter(Number.isFinite))].sort((a, b) => a - b);
+  const xs: number[] = [];
+  let x = x0;
+  bps.forEach((t, i) => { if (i) x += gapPx(t - bps[i - 1]); xs.push(x); });
+  const at = (t: number) => {
+    if (!bps.length) return x0;
+    if (t <= bps[0]) return xs[0] - gapPx(bps[0] - t);
+    if (t >= bps[bps.length - 1]) return xs[xs.length - 1] + gapPx(t - bps[bps.length - 1]);
+    let lo = 0, hi = bps.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (bps[m] <= t) lo = m; else hi = m; }
+    return xs[lo] + ((t - bps[lo]) / (bps[hi] - bps[lo])) * (xs[hi] - xs[lo]);
+  };
+  return { x: at, end: xs.length ? xs[xs.length - 1] : x0 };
+}
+
+function layout(g: GraphData): { placed: Placed[]; width: number; height: number; laneY: Record<string, [number, number]>; ticks: { x: number; label: string; major: boolean }[]; nowX: number | null; axisStart: number } {
+  const sorted = [...g.nodes].sort((a, b) => a.tick - b.tick || (a.tickHi ?? a.tick) - (b.tickHi ?? b.tick) || LANES.indexOf(a.lane) - LANES.indexOf(b.lane) || a.title.localeCompare(b.title));
+  const unknown = sorted.filter((n) => !Number.isFinite(n.tick));
+  // undated background events sit in their own column left of the axis
+  const unkRows = Math.max(...LANES.map((l) => unknown.filter((n) => n.lane === l).length), 0);
+  const axisStart = LEFT + (unknown.length ? UNK_W + 40 : 0);
+  const bounds = sorted.filter((n) => Number.isFinite(n.tick)).flatMap((n) => [n.tick, n.tickHi ?? n.tick]);
+  if (g.nowTick !== null) bounds.push(g.nowTick);
+  const sc = timeScale(bounds, axisStart + 10);
   const rowsByLane: Record<string, number[]> = { HARD: [], SOFT: [], FREE: [], RUNTIME: [] };
-  const rowOf = new Map<string, number>();
+  const geo = new Map<string, { x: number; w: number; row: number; inside: boolean; title2: string; sub2: string }>();
+  const unkIdx: Record<string, number> = { HARD: 0, SOFT: 0, FREE: 0, RUNTIME: 0 };
   for (const n of sorted) {
+    const subRaw = n.sub || n.short || n.when.split(' · ')[0];
+    if (!Number.isFinite(n.tick)) {
+      const row = unkIdx[n.lane]++;
+      geo.set(n.id, { x: LEFT, w: UNK_W, row, inside: true, title2: clip(n.title, 13), sub2: clip(subRaw, 26) });
+      continue;
+    }
+    const x = sc.x(n.tick);
+    const w = Math.max(MIN_BAR, sc.x(n.tickHi ?? n.tick) - x);
+    const title2 = clip(n.title, 16), sub2 = clip(subRaw, 28);
+    const need = Math.max(textW(title2, 12.5), textW(sub2, 10.5)) + 16;
+    const inside = w >= need;
+    const end = x + w + (inside ? 0 : 6 + need);
     const rows = rowsByLane[n.lane];
-    const nx = xOf.get(n.id)!;
-    let r = rows.findIndex((end) => end + 8 <= nx);
+    let r = rows.findIndex((e) => e + 8 <= x);
     if (r < 0) { rows.push(0); r = rows.length - 1; }
-    rows[r] = nx + NODE_W;
-    rowOf.set(n.id, r);
+    rows[r] = end;
+    geo.set(n.id, { x, w, row: r, inside, title2, sub2 });
   }
   const laneY: Record<string, [number, number]> = {};
   let y = AXIS_H;
   for (const l of LANES) {
-    const rows = Math.max(1, rowsByLane[l].length);
     if (!g.nodes.some((n) => n.lane === l)) { laneY[l] = [y, y]; continue; }
+    const rows = Math.max(1, rowsByLane[l].length, unknown.length ? unkIdx[l] : 0);
     laneY[l] = [y, y + LANE_PAD + rows * (NODE_H + ROW_GAP)];
     y = laneY[l][1] + 6;
   }
-  const placed: Placed[] = sorted.map((n) => ({ ...n, x: xOf.get(n.id)!, y: laneY[n.lane][0] + LANE_PAD / 2 + rowOf.get(n.id)! * (NODE_H + ROW_GAP) }));
-  // month ticks
-  const ticks: { x: number; label: string }[] = [];
-  let lastLabel = '';
-  for (const n of placed) {
-    if (!Number.isFinite(n.tick)) continue;
-    const lab = n.when.slice(0, 7);
-    if (lab !== lastLabel) { ticks.push({ x: n.x, label: lab }); lastLabel = lab; }
-  }
-  let nowX: number | null = null;
-  if (g.nowTick !== null) {
-    const after = placed.find((n) => n.tick > g.nowTick!);
-    nowX = after ? after.x - STEP / 2 : (placed.length ? placed[placed.length - 1].x + NODE_W + 10 : LEFT);
-  }
-  const width = (placed.length ? Math.max(...placed.map((p) => p.x)) : LEFT) + NODE_W + 40;
-  return { placed, width, height: y + 10, laneY, ticks, nowX };
+  void unkRows;
+  const placed: Placed[] = sorted.map((n) => { const p = geo.get(n.id)!; return { ...n, x: p.x, w: p.w, inside: p.inside, title2: p.title2, sub2: p.sub2, y: laneY[n.lane][0] + LANE_PAD / 2 + p.row * (NODE_H + ROW_GAP) }; });
+  const ticks = axisTicks(g, sc, bounds);
+  const nowX = g.nowTick !== null ? sc.x(g.nowTick) : null;
+  const width = Math.max(sc.end, ...placed.map((p) => p.x + p.w + (p.inside ? 0 : 6 + textW(p.title2, 12.5) + 16))) + 60;
+  return { placed, width, height: y + 10, laneY, ticks, nowX, axisStart };
 }
+
+/** Year / month / day / hour marks, as dense as the scale allows without overlapping labels. */
+function axisTicks(g: GraphData, sc: { x: (t: number) => number }, bounds: number[]) {
+  const out: { x: number; label: string; major: boolean }[] = [];
+  if (!bounds.length) return out;
+  const lo = Math.min(...bounds), hi = Math.max(...bounds);
+  const origin = g.origin || null;
+  const cands: { t: number; label: string; major: boolean }[] = [];
+  const day0 = Math.floor(lo / 1440), day1 = Math.ceil(hi / 1440);
+  if (origin) {
+    // calendar: month starts (major, with the year at January / first) and day starts
+    const base = Date.UTC(origin.y, origin.m - 1, origin.d);
+    const dayOf = (d: number) => new Date(base + d * 86400000);
+    let prevY = NaN;
+    const span = day1 - day0;
+    if (span > 4000) {
+      for (let yr = dayOf(day0).getUTCFullYear(); yr <= dayOf(day1).getUTCFullYear() + 1; yr++) {
+        const d = Math.round((Date.UTC(yr, 0, 1) - base) / 86400000);
+        cands.push({ t: d * 1440, label: `${yr}`, major: true });
+      }
+    }
+    for (let d = Math.max(day0, day1 - 20000); d <= day1; d++) {
+      const dt = dayOf(d);
+      const yr = dt.getUTCFullYear(), mo = dt.getUTCMonth() + 1, dd = dt.getUTCDate();
+      if (dd === 1) { cands.push({ t: d * 1440, label: yr !== prevY ? `${yr}-${String(mo).padStart(2, '0')}` : `${mo}月`, major: true }); prevY = yr; }
+      else cands.push({ t: d * 1440, label: `${mo}/${dd}`, major: false });
+    }
+  } else {
+    for (let d = Math.max(day0, day1 - 20000); d <= day1; d++) cands.push({ t: d * 1440, label: `D${d}`, major: d % 30 === 0 });
+  }
+  // hour marks inside days that are drawn wide enough
+  for (let d = day0; d <= day1 && d - day0 < 2000; d++) {
+    if (sc.x((d + 1) * 1440) - sc.x(d * 1440) < 240) continue;
+    for (let h = 3; h < 24; h += 3) cands.push({ t: d * 1440 + h * 60, label: `${String(h).padStart(2, '0')}:00`, major: false });
+  }
+  // majors first, then minors in the free space; a label needs its own width to the next mark
+  const placedX: { x: number; w: number }[] = [];
+  const free = (x: number, w: number) => placedX.every((p) => x + w <= p.x || x >= p.x + p.w);
+  for (const major of [true, false]) {
+    for (const c of cands.filter((k) => k.major === major).sort((a, b) => a.t - b.t)) {
+      const x = sc.x(c.t);
+      const w = textW(c.label, 11) + 10;
+      if (!free(x, w)) continue;
+      placedX.push({ x, w });
+      out.push({ x, label: c.label, major: c.major });
+    }
+  }
+  return out.sort((a, b) => a.x - b.x);
+}
+
+const clip = (s: string, n: number) => ([...s].length > n ? [...s].slice(0, n - 1).join('') + '…' : s);
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
 export function renderGraphSvg(g: GraphData, mode: 'pack' | 'current'): string {
-  const L = layout(g);
+  const g2 = { ...g, nodes: g.nodes.map((n) => ({ ...n, sub: mode === 'current' && n.status ? `${statusLabel(n.status)} · ${n.short || ''}` : n.short || n.when.split(' · ')[0] })) };
+  const L = layout(g2);
   const pos = new Map(L.placed.map((p) => [p.id, p]));
   const lanes = LANES.filter((l) => L.laneY[l][1] > L.laneY[l][0]).map((l, i) => `<rect x="0" y="${L.laneY[l][0]}" width="${L.width}" height="${L.laneY[l][1] - L.laneY[l][0]}" class="cg-lane cg-lane-${i % 2}"/><text x="8" y="${L.laneY[l][0] + 18}" class="cg-lane-label">${LANE_LABEL[l]}</text>`).join('');
-  const ticks = L.ticks.map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label">${esc(tk.label)}</text>`).join('');
+  const ticks = L.ticks.map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick${tk.major ? ' cg-tick-major' : ''}"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label${tk.major ? ' cg-tick-major' : ''}">${esc(tk.label)}</text>`).join('')
+    + (L.axisStart > LEFT ? `<text x="${LEFT}" y="${AXIS_H - 12}" class="cg-tick-label">时间不明</text><line x1="${L.axisStart - 20}" y1="${AXIS_H - 6}" x2="${L.axisStart - 20}" y2="${L.height}" class="cg-tick cg-tick-major"/>` : '');
   const edges = g.edges.map((e) => {
     const a = pos.get(e.from), b = pos.get(e.to);
     if (!a || !b) return '';
-    const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2, x2 = b.x, y2 = b.y + NODE_H / 2;
+    const x1 = a.x + a.w, y1 = a.y + NODE_H / 2, x2 = b.x, y2 = b.y + NODE_H / 2;
     const dx = Math.max(40, Math.abs(x2 - x1) / 2);
-    const d = x2 >= x1 ? `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}` : `M${a.x + NODE_W / 2},${a.y + NODE_H} C${a.x + NODE_W / 2},${a.y + NODE_H + 60} ${b.x + NODE_W / 2},${b.y + NODE_H + 60} ${b.x + NODE_W / 2},${b.y + NODE_H}`;
+    const d = x2 >= x1 ? `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}` : `M${a.x + a.w / 2},${a.y + NODE_H} C${a.x + a.w / 2},${a.y + NODE_H + 60} ${b.x + b.w / 2},${b.y + NODE_H + 60} ${b.x + b.w / 2},${b.y + NODE_H}`;
     return `<path d="${d}" class="cg-edge cg-edge-${esc(e.kind)}" data-from="${esc(e.from)}" data-to="${esc(e.to)}" marker-end="url(#cg-arrow-${esc(e.kind)})"><title>${esc(e.kind)}${e.note ? '：' + esc(e.note) : ''}</title></path>`;
   }).join('');
   const nodes = L.placed.map((n) => {
     const cls = mode === 'pack' ? `cg-c-${n.lane}` : `cg-c-${n.lane} cg-s-${n.status}`;
-    const title = n.title.length > 13 ? n.title.slice(0, 12) + '…' : n.title;
-    const subRaw = mode === 'current' && n.status ? `${statusLabel(n.status)} · ${n.short || ''}` : n.short || n.when.split(' · ')[0];
-    const sub = subRaw.length > 26 ? subRaw.slice(0, 25) + '…' : subRaw;
-    return `<g class="cg-node ${cls}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${NODE_W}" height="${NODE_H}" rx="7"/><text x="8" y="18" class="cg-node-title">${esc(title)}</text><text x="8" y="36" class="cg-node-sub">${esc(sub)}</text><title>${esc(n.title)}</title></g>`;
+    const tx = n.inside ? 8 : n.w + 6;
+    const tc = n.inside ? '' : ' cg-out';
+    return `<g class="cg-node ${cls}${n.inside ? '' : ' cg-narrow'}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${NODE_H}" rx="${Math.min(7, n.w / 2)}"/>`
+      + (n.inside ? '' : `<rect class="cg-hit" x="${n.w}" width="${Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12}" height="${NODE_H}"/>`)
+      + `<text x="${tx}" y="18" class="cg-node-title${tc}">${esc(n.title2)}</text><text x="${tx}" y="36" class="cg-node-sub${tc}">${esc(n.sub2)}</text>`
+      // a long bar repeats its title so it stays readable wherever it is in view
+      + (n.inside && n.w > 1400 ? Array.from({ length: Math.floor((n.w - 400) / 1000) }, (_, k) => `<text x="${8 + (k + 1) * 1000}" y="18" class="cg-node-title">${esc(n.title2)}</text>`).join('') : '')
+      + `<title>${esc(n.title)} · ${esc(n.when)}</title></g>`;
   }).join('');
   const now = L.nowX !== null ? `<line x1="${L.nowX}" y1="0" x2="${L.nowX}" y2="${L.height}" class="cg-now"/><text x="${L.nowX + 4}" y="12" class="cg-now-label">现在</text>` : '';
   const markers = ['enables', 'motivates', 'precedes', 'related', 'cause'].map((k) => `<marker id="cg-arrow-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="cg-arrow-${k}"/></marker>`).join('');

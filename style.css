@@ -162,3 +162,10 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
   background:var(--SmartThemeBlurTintColor, #222); color:var(--SmartThemeBodyColor, #ddd); border:1px solid var(--SmartThemeBorderColor, #555); box-shadow:0 4px 14px rgba(0,0,0,.45); }
 .canon-settings-body .canon-note { margin:0; font-size:.9em; }
 .canon-settings-body .canon-lib { margin:0; }
+
+/* ---------------------------------------------------------------- history graph: time axis */
+.cg-svg .cg-node rect.cg-hit { fill: transparent; stroke: none; filter: none; }
+.cg-svg .cg-node-title.cg-out { fill: var(--SmartThemeBodyColor, #ddd); }
+.cg-svg .cg-node-sub.cg-out { fill: var(--SmartThemeBodyColor, #ddd); opacity: 0.7; }
+.cg-tick.cg-tick-major { opacity: 0.3; stroke-dasharray: none; }
+.cg-tick-label.cg-tick-major { font-weight: bold; opacity: 0.9; }

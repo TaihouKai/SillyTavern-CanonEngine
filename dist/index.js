@@ -15999,7 +15999,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.31";
+var ENGINE_RELEASE = "1.3.32";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -18452,6 +18452,7 @@ function packGraph(L, origin) {
       title: ev.title,
       lane: ev.classification,
       tick: ti ? ti.lo : Number.NEGATIVE_INFINITY,
+      tickHi: ti ? ti.hi : void 0,
       when: ti ? (ti.lo === ti.hi ? formatTick(ti.lo, origin) : `${formatTick(ti.lo, origin)} \u2013 ${formatTick(ti.hi, origin)}`) + ` \xB7 ${ev.when.label}` : ev.when.label,
       short: ti ? shortRange(ti.lo, ti.hi, origin) : ev.when.label,
       summary: ev.summary,
@@ -18464,7 +18465,7 @@ function packGraph(L, origin) {
     });
   }
   const edges = L.pack.edges.map((e) => ({ from: e.from, to: e.to, kind: e.relation, note: e.note }));
-  return { nodes, edges, nowTick: null, arcs: L.pack.arcs.map((a) => ({ id: a.id, title: a.title })) };
+  return { nodes, edges, nowTick: null, arcs: L.pack.arcs.map((a) => ({ id: a.id, title: a.title })), origin };
 }
 function currentGraph(L, s, origin, spoilers) {
   const now = s.clock.lo;
@@ -18510,12 +18511,13 @@ function currentGraph(L, s, origin, spoilers) {
       title: members.length > 1 ? `${first.title}\uFF08${members.length}\u6BB5\uFF09` : first.title,
       lane: "RUNTIME",
       tick: lo,
+      tickHi: hi,
       when: formatStoryTime(span, origin),
       short: shortRange(lo, hi, origin),
       summary: members.length > 1 ? members.map((m) => `${m.title}\uFF1A${m.account}`).join("\n") : first.account,
       status: "runtime",
       origin: first.origin,
-      detail: [`\u6765\u6E90\uFF1A${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join("\u3001")}`, ...members.length > 1 ? [`\u540C\u4E00\u573A\u666F\uFF1A${members.map((m) => `${formatTick(m.time.lo, origin).split(" ").pop()} ${m.title}`).join(" \u2192 ")}`] : [], ...outcomes.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${outcomes.join("\uFF1B")}`] : []]
+      detail: [`\u6765\u6E90\uFF1A${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join("\u3001")}`, ...members.length > 1 ? [`\u540C\u4E00\u573A\u666F\uFF1A${members.map((m) => `${formatTick(m.time.lo, origin).split(" ")[1]} ${m.title}`).join(" \u2192 ")}`] : [], ...outcomes.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${outcomes.join("\uFF1B")}`] : []]
     });
   }
   const nodeOf = (occId) => {
@@ -18540,7 +18542,9 @@ function currentGraph(L, s, origin, spoilers) {
 }
 function shortRange(lo, hi, origin) {
   const a = formatTick(lo, origin).split(" ")[0], b = formatTick(hi, origin).split(" ")[0];
-  return a === b ? a : `${a} ~ ${b.replace(/^(\d{4})-/, (m, y) => a.startsWith(y) ? "" : m)}`;
+  const hm = (t2) => formatTick(t2, origin).split(" ")[1];
+  if (a === b) return hi - lo >= 1439 ? a : `${a} ${hm(lo)}${hi > lo ? "\u2013" + hm(hi) : ""}`;
+  return `${a} ~ ${b.replace(/^(\d{4})-/, (m, y) => a.startsWith(y) ? "" : m)}`;
 }
 function name(L, id, s) {
   return L.entities.get(id)?.name || s?.runtimeEntities.get(id)?.name || id;
@@ -18549,87 +18553,160 @@ function statusLabel(st) {
   const m = { occurred: "\u5DF2\u53D1\u751F", diverged: "\u5DF2\u6539\u53D8", omitted: "\u672A\u53D1\u751F", pending: "\u8FDB\u884C\u4E2D/\u4E34\u8FD1", future: "\u672A\u6765", unresolved: "\u65F6\u95F4\u5DF2\u8FC7\u4F46\u672A\u5224\u5B9A", unscheduled: "\u65F6\u95F4\u4E0D\u660E\uFF08\u80CC\u666F\uFF09", runtime: "\u672C\u5C40\u4E8B\u4EF6" };
   return st ? m[st] || st : "";
 }
-var NODE_W = 168;
 var NODE_H = 46;
-var STEP = 64;
 var ROW_GAP = 10;
 var LANE_PAD = 28;
-var AXIS_H = 34;
+var AXIS_H = 40;
 var LEFT = 92;
+var MIN_BAR = 10;
+var UNK_W = 168;
 var LANES = ["HARD", "SOFT", "FREE", "RUNTIME"];
 var LANE_LABEL = { HARD: "HARD \u5FC5\u7136", SOFT: "SOFT \u91CD\u8981", FREE: "FREE \u80CC\u666F", RUNTIME: "\u672C\u5C40\u4E8B\u4EF6" };
+var gapPx = (dt) => dt <= 0 ? 0 : 10 + 26 * Math.log2(1 + dt / 60);
+var textW = (s, px) => [...s].reduce((a, c) => a + (/[\u0000-ÿ]/.test(c) ? px * 0.56 : px), 0);
+function timeScale(ticks, x0) {
+  const bps = [...new Set(ticks.filter(Number.isFinite))].sort((a, b) => a - b);
+  const xs = [];
+  let x = x0;
+  bps.forEach((t2, i) => {
+    if (i) x += gapPx(t2 - bps[i - 1]);
+    xs.push(x);
+  });
+  const at = (t2) => {
+    if (!bps.length) return x0;
+    if (t2 <= bps[0]) return xs[0] - gapPx(bps[0] - t2);
+    if (t2 >= bps[bps.length - 1]) return xs[xs.length - 1] + gapPx(t2 - bps[bps.length - 1]);
+    let lo = 0, hi = bps.length - 1;
+    while (hi - lo > 1) {
+      const m = lo + hi >> 1;
+      if (bps[m] <= t2) lo = m;
+      else hi = m;
+    }
+    return xs[lo] + (t2 - bps[lo]) / (bps[hi] - bps[lo]) * (xs[hi] - xs[lo]);
+  };
+  return { x: at, end: xs.length ? xs[xs.length - 1] : x0 };
+}
 function layout(g) {
-  const sorted = [...g.nodes].sort((a, b) => a.tick - b.tick || LANES.indexOf(a.lane) - LANES.indexOf(b.lane) || a.title.localeCompare(b.title));
-  const xOf = /* @__PURE__ */ new Map();
-  let x = LEFT, prevTick = null;
-  for (const n of sorted) {
-    if (prevTick !== null && n.tick !== prevTick) x += STEP;
-    xOf.set(n.id, x);
-    prevTick = n.tick;
-  }
+  const sorted = [...g.nodes].sort((a, b) => a.tick - b.tick || (a.tickHi ?? a.tick) - (b.tickHi ?? b.tick) || LANES.indexOf(a.lane) - LANES.indexOf(b.lane) || a.title.localeCompare(b.title));
+  const unknown = sorted.filter((n) => !Number.isFinite(n.tick));
+  const unkRows = Math.max(...LANES.map((l) => unknown.filter((n) => n.lane === l).length), 0);
+  const axisStart = LEFT + (unknown.length ? UNK_W + 40 : 0);
+  const bounds = sorted.filter((n) => Number.isFinite(n.tick)).flatMap((n) => [n.tick, n.tickHi ?? n.tick]);
+  if (g.nowTick !== null) bounds.push(g.nowTick);
+  const sc = timeScale(bounds, axisStart + 10);
   const rowsByLane = { HARD: [], SOFT: [], FREE: [], RUNTIME: [] };
-  const rowOf = /* @__PURE__ */ new Map();
+  const geo = /* @__PURE__ */ new Map();
+  const unkIdx = { HARD: 0, SOFT: 0, FREE: 0, RUNTIME: 0 };
   for (const n of sorted) {
+    const subRaw = n.sub || n.short || n.when.split(" \xB7 ")[0];
+    if (!Number.isFinite(n.tick)) {
+      const row = unkIdx[n.lane]++;
+      geo.set(n.id, { x: LEFT, w: UNK_W, row, inside: true, title2: clip(n.title, 13), sub2: clip(subRaw, 26) });
+      continue;
+    }
+    const x = sc.x(n.tick);
+    const w = Math.max(MIN_BAR, sc.x(n.tickHi ?? n.tick) - x);
+    const title2 = clip(n.title, 16), sub2 = clip(subRaw, 28);
+    const need = Math.max(textW(title2, 12.5), textW(sub2, 10.5)) + 16;
+    const inside = w >= need;
+    const end = x + w + (inside ? 0 : 6 + need);
     const rows = rowsByLane[n.lane];
-    const nx = xOf.get(n.id);
-    let r = rows.findIndex((end) => end + 8 <= nx);
+    let r = rows.findIndex((e) => e + 8 <= x);
     if (r < 0) {
       rows.push(0);
       r = rows.length - 1;
     }
-    rows[r] = nx + NODE_W;
-    rowOf.set(n.id, r);
+    rows[r] = end;
+    geo.set(n.id, { x, w, row: r, inside, title2, sub2 });
   }
   const laneY = {};
   let y = AXIS_H;
   for (const l of LANES) {
-    const rows = Math.max(1, rowsByLane[l].length);
     if (!g.nodes.some((n) => n.lane === l)) {
       laneY[l] = [y, y];
       continue;
     }
+    const rows = Math.max(1, rowsByLane[l].length, unknown.length ? unkIdx[l] : 0);
     laneY[l] = [y, y + LANE_PAD + rows * (NODE_H + ROW_GAP)];
     y = laneY[l][1] + 6;
   }
-  const placed = sorted.map((n) => ({ ...n, x: xOf.get(n.id), y: laneY[n.lane][0] + LANE_PAD / 2 + rowOf.get(n.id) * (NODE_H + ROW_GAP) }));
-  const ticks = [];
-  let lastLabel = "";
-  for (const n of placed) {
-    if (!Number.isFinite(n.tick)) continue;
-    const lab = n.when.slice(0, 7);
-    if (lab !== lastLabel) {
-      ticks.push({ x: n.x, label: lab });
-      lastLabel = lab;
+  void unkRows;
+  const placed = sorted.map((n) => {
+    const p = geo.get(n.id);
+    return { ...n, x: p.x, w: p.w, inside: p.inside, title2: p.title2, sub2: p.sub2, y: laneY[n.lane][0] + LANE_PAD / 2 + p.row * (NODE_H + ROW_GAP) };
+  });
+  const ticks = axisTicks(g, sc, bounds);
+  const nowX = g.nowTick !== null ? sc.x(g.nowTick) : null;
+  const width = Math.max(sc.end, ...placed.map((p) => p.x + p.w + (p.inside ? 0 : 6 + textW(p.title2, 12.5) + 16))) + 60;
+  return { placed, width, height: y + 10, laneY, ticks, nowX, axisStart };
+}
+function axisTicks(g, sc, bounds) {
+  const out = [];
+  if (!bounds.length) return out;
+  const lo = Math.min(...bounds), hi = Math.max(...bounds);
+  const origin = g.origin || null;
+  const cands = [];
+  const day0 = Math.floor(lo / 1440), day1 = Math.ceil(hi / 1440);
+  if (origin) {
+    const base = Date.UTC(origin.y, origin.m - 1, origin.d);
+    const dayOf = (d) => new Date(base + d * 864e5);
+    let prevY = NaN;
+    const span = day1 - day0;
+    if (span > 4e3) {
+      for (let yr = dayOf(day0).getUTCFullYear(); yr <= dayOf(day1).getUTCFullYear() + 1; yr++) {
+        const d = Math.round((Date.UTC(yr, 0, 1) - base) / 864e5);
+        cands.push({ t: d * 1440, label: `${yr}`, major: true });
+      }
+    }
+    for (let d = Math.max(day0, day1 - 2e4); d <= day1; d++) {
+      const dt = dayOf(d);
+      const yr = dt.getUTCFullYear(), mo = dt.getUTCMonth() + 1, dd = dt.getUTCDate();
+      if (dd === 1) {
+        cands.push({ t: d * 1440, label: yr !== prevY ? `${yr}-${String(mo).padStart(2, "0")}` : `${mo}\u6708`, major: true });
+        prevY = yr;
+      } else cands.push({ t: d * 1440, label: `${mo}/${dd}`, major: false });
+    }
+  } else {
+    for (let d = Math.max(day0, day1 - 2e4); d <= day1; d++) cands.push({ t: d * 1440, label: `D${d}`, major: d % 30 === 0 });
+  }
+  for (let d = day0; d <= day1 && d - day0 < 2e3; d++) {
+    if (sc.x((d + 1) * 1440) - sc.x(d * 1440) < 240) continue;
+    for (let h = 3; h < 24; h += 3) cands.push({ t: d * 1440 + h * 60, label: `${String(h).padStart(2, "0")}:00`, major: false });
+  }
+  const placedX = [];
+  const free = (x, w) => placedX.every((p) => x + w <= p.x || x >= p.x + p.w);
+  for (const major of [true, false]) {
+    for (const c of cands.filter((k) => k.major === major).sort((a, b) => a.t - b.t)) {
+      const x = sc.x(c.t);
+      const w = textW(c.label, 11) + 10;
+      if (!free(x, w)) continue;
+      placedX.push({ x, w });
+      out.push({ x, label: c.label, major: c.major });
     }
   }
-  let nowX = null;
-  if (g.nowTick !== null) {
-    const after = placed.find((n) => n.tick > g.nowTick);
-    nowX = after ? after.x - STEP / 2 : placed.length ? placed[placed.length - 1].x + NODE_W + 10 : LEFT;
-  }
-  const width = (placed.length ? Math.max(...placed.map((p) => p.x)) : LEFT) + NODE_W + 40;
-  return { placed, width, height: y + 10, laneY, ticks, nowX };
+  return out.sort((a, b) => a.x - b.x);
 }
+var clip = (s, n) => [...s].length > n ? [...s].slice(0, n - 1).join("") + "\u2026" : s;
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 function renderGraphSvg(g, mode) {
-  const L = layout(g);
+  const g2 = { ...g, nodes: g.nodes.map((n) => ({ ...n, sub: mode === "current" && n.status ? `${statusLabel(n.status)} \xB7 ${n.short || ""}` : n.short || n.when.split(" \xB7 ")[0] })) };
+  const L = layout(g2);
   const pos = new Map(L.placed.map((p) => [p.id, p]));
   const lanes = LANES.filter((l) => L.laneY[l][1] > L.laneY[l][0]).map((l, i) => `<rect x="0" y="${L.laneY[l][0]}" width="${L.width}" height="${L.laneY[l][1] - L.laneY[l][0]}" class="cg-lane cg-lane-${i % 2}"/><text x="8" y="${L.laneY[l][0] + 18}" class="cg-lane-label">${LANE_LABEL[l]}</text>`).join("");
-  const ticks = L.ticks.map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label">${esc(tk.label)}</text>`).join("");
+  const ticks = L.ticks.map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick${tk.major ? " cg-tick-major" : ""}"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label${tk.major ? " cg-tick-major" : ""}">${esc(tk.label)}</text>`).join("") + (L.axisStart > LEFT ? `<text x="${LEFT}" y="${AXIS_H - 12}" class="cg-tick-label">\u65F6\u95F4\u4E0D\u660E</text><line x1="${L.axisStart - 20}" y1="${AXIS_H - 6}" x2="${L.axisStart - 20}" y2="${L.height}" class="cg-tick cg-tick-major"/>` : "");
   const edges = g.edges.map((e) => {
     const a = pos.get(e.from), b = pos.get(e.to);
     if (!a || !b) return "";
-    const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2, x2 = b.x, y2 = b.y + NODE_H / 2;
+    const x1 = a.x + a.w, y1 = a.y + NODE_H / 2, x2 = b.x, y2 = b.y + NODE_H / 2;
     const dx = Math.max(40, Math.abs(x2 - x1) / 2);
-    const d = x2 >= x1 ? `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}` : `M${a.x + NODE_W / 2},${a.y + NODE_H} C${a.x + NODE_W / 2},${a.y + NODE_H + 60} ${b.x + NODE_W / 2},${b.y + NODE_H + 60} ${b.x + NODE_W / 2},${b.y + NODE_H}`;
+    const d = x2 >= x1 ? `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}` : `M${a.x + a.w / 2},${a.y + NODE_H} C${a.x + a.w / 2},${a.y + NODE_H + 60} ${b.x + b.w / 2},${b.y + NODE_H + 60} ${b.x + b.w / 2},${b.y + NODE_H}`;
     return `<path d="${d}" class="cg-edge cg-edge-${esc(e.kind)}" data-from="${esc(e.from)}" data-to="${esc(e.to)}" marker-end="url(#cg-arrow-${esc(e.kind)})"><title>${esc(e.kind)}${e.note ? "\uFF1A" + esc(e.note) : ""}</title></path>`;
   }).join("");
   const nodes = L.placed.map((n) => {
     const cls = mode === "pack" ? `cg-c-${n.lane}` : `cg-c-${n.lane} cg-s-${n.status}`;
-    const title = n.title.length > 13 ? n.title.slice(0, 12) + "\u2026" : n.title;
-    const subRaw = mode === "current" && n.status ? `${statusLabel(n.status)} \xB7 ${n.short || ""}` : n.short || n.when.split(" \xB7 ")[0];
-    const sub = subRaw.length > 26 ? subRaw.slice(0, 25) + "\u2026" : subRaw;
-    return `<g class="cg-node ${cls}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${NODE_W}" height="${NODE_H}" rx="7"/><text x="8" y="18" class="cg-node-title">${esc(title)}</text><text x="8" y="36" class="cg-node-sub">${esc(sub)}</text><title>${esc(n.title)}</title></g>`;
+    const tx = n.inside ? 8 : n.w + 6;
+    const tc = n.inside ? "" : " cg-out";
+    return `<g class="cg-node ${cls}${n.inside ? "" : " cg-narrow"}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${NODE_H}" rx="${Math.min(7, n.w / 2)}"/>` + (n.inside ? "" : `<rect class="cg-hit" x="${n.w}" width="${Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12}" height="${NODE_H}"/>`) + `<text x="${tx}" y="18" class="cg-node-title${tc}">${esc(n.title2)}</text><text x="${tx}" y="36" class="cg-node-sub${tc}">${esc(n.sub2)}</text>` + (n.inside && n.w > 1400 ? Array.from({ length: Math.floor((n.w - 400) / 1e3) }, (_, k) => `<text x="${8 + (k + 1) * 1e3}" y="18" class="cg-node-title">${esc(n.title2)}</text>`).join("") : "") + `<title>${esc(n.title)} \xB7 ${esc(n.when)}</title></g>`;
   }).join("");
   const now = L.nowX !== null ? `<line x1="${L.nowX}" y1="0" x2="${L.nowX}" y2="${L.height}" class="cg-now"/><text x="${L.nowX + 4}" y="12" class="cg-now-label">\u73B0\u5728</text>` : "";
   const markers = ["enables", "motivates", "precedes", "related", "cause"].map((k) => `<marker id="cg-arrow-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="cg-arrow-${k}"/></marker>`).join("");
