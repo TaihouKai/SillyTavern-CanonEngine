@@ -38,6 +38,42 @@ export function planScope(pack: LoadedPack, state: WorldState, affected: Id[] = 
   return { detailed, register: pend.filter((p) => !detailed.includes(p)) };
 }
 
+/** Repairs mistyped intended effects in place. A planner often writes `true` for "this outcome happens"
+ *  on a string/enum predicate (exterior.condition=true for a HARD requiring "毁坏"): that is the anchor's
+ *  own outcome, so it takes the anchor's value. Other mistyped or disallowed effects are dropped (effects
+ *  are only the step's intent; the step itself stays). Returns notes on what changed. */
+export function normalizePlanEffects(out: PlanOutput, pack: LoadedPack, scope: PlanScope): string[] {
+  const notes: string[] = [];
+  const hards = scope.detailed.concat(scope.register);
+  for (const s of out.steps || []) {
+    if (!Array.isArray(s.intended_effects)) { s.intended_effects = []; continue; }
+    s.intended_effects = s.intended_effects.filter((e) => {
+      const p = pack.predicates.get(e?.predicate);
+      if (!p) return true; // reported by validatePlan
+      let v: unknown = e.value;
+      if (typeof v === 'boolean' && p.value_type !== 'boolean') {
+        const order = s.serves_anchor ? [s.serves_anchor, ...hards.filter((h) => h !== s.serves_anchor)] : hards;
+        const o = v ? order.map((h) => pack.events.get(h)?.outcomes.find((x) => x.entity_id === e.entity_id && x.predicate === e.predicate)).find(Boolean) : undefined;
+        if (o) { notes.push(`step ${s.step_id}: ${e.entity_id}.${e.predicate}=true read as ${JSON.stringify(o.value)}`); e.value = o.value as never; return true; }
+        notes.push(`step ${s.step_id}: dropped ${e.entity_id}.${e.predicate}=${JSON.stringify(v)} (wrong type for ${p.value_type})`);
+        return false;
+      }
+      if (p.value_type === 'number' && typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) { v = Number(v); e.value = v as never; }
+      const okType =
+        (p.value_type === 'boolean' && typeof v === 'boolean') ||
+        (p.value_type === 'number' && typeof v === 'number' && Number.isFinite(v)) ||
+        ((p.value_type === 'string' || p.value_type === 'entity_ref') && typeof v === 'string') ||
+        (p.value_type === 'entity_set' && Array.isArray(v));
+      if (!okType || (p.allowed_values && !p.allowed_values.some((a) => valuesEqual(a, v as never)))) {
+        notes.push(`step ${s.step_id}: dropped ${e.entity_id}.${e.predicate}=${JSON.stringify(v)} (not a valid ${p.id} value)`);
+        return false;
+      }
+      return true;
+    });
+  }
+  return notes;
+}
+
 export function validatePlan(out: PlanOutput, pack: LoadedPack, index: WorldIndex, scope: PlanScope, clockTick: number, allowForced: boolean): string[] {
   const errs: string[] = [];
   if (out.mode === 'FORCED_CONVERGENCE' && !allowForced) errs.push('forced convergence was not authorized by the controller');
@@ -178,6 +214,8 @@ export async function runPlanning(args: {
       player: args.persona,
     };
     const out = await callStructured<PlanOutput>(args.port, 'plan', PROMPTS.plan, input, { signal: args.signal, operationId: args.operationId, log: args.log });
+    const fixed = normalizePlanEffects(out, pack, scope);
+    if (fixed.length) args.log?.({ kind: 'plan_effects_normalized', notes: fixed });
     const errs = validatePlan(out, pack, index, scope, clockTick, mode === 'FORCED_CONVERGENCE');
     if (errs.length) { errors.push(...errs); return null; }
     return toPlanRevision(out, args.worldRevision, args.prefixHash, clockTick, args.readyWindow);

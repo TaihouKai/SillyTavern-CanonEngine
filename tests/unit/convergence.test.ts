@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, D, occ } from './fake';
 import { factAt } from '../../src/domain/reducer';
-import { validatePlan, planScope, type PlanOutput } from '../../src/runtime/planner';
+import { validatePlan, normalizePlanEffects, planScope, type PlanOutput } from '../../src/runtime/planner';
 import { refersToHard } from '../../src/runtime/gate';
 import { ROOT } from './helpers';
 import * as V from '../../src/generated/validators.js';
@@ -107,6 +107,11 @@ describe('convergence', () => {
     expect(validatePlan({ ...base, steps: [step({ requires_player_consent: true })] } as any, L, idx, scope, tick(1, 9, 30), false).join()).toMatch(/consent/);
     expect(validatePlan({ ...base, protected_anchor_ids: ['conflict-begins'] }, L, idx, scope, tick(1, 9, 30), false).join()).toMatch(/does not protect HARD anchor conflict-ends/);
     expect(validatePlan({ ...base, mode: 'FORCED_CONVERGENCE' }, L, idx, scope, tick(1, 9, 30), false).join()).toMatch(/not authorized/);
+    // C06b a boolean "this outcome happens" on a non-boolean predicate takes the anchor's value; other mistyped effects are dropped
+    const typed: PlanOutput = { ...base, steps: [step({ serves_anchor: 'conflict-ends', earliest: D(4, 10), latest: D(4, 18), intended_effects: [{ entity_id: 'conflict', predicate: 'victor', value: true }, { entity_id: 'conflict', predicate: 'victor', value: false }] })] } as any;
+    expect(normalizePlanEffects(typed, L, scope)).toHaveLength(2);
+    expect(typed.steps[0].intended_effects).toEqual([{ entity_id: 'conflict', predicate: 'victor', value: 'union' }]);
+    expect(validatePlan(typed, L, idx, scope, tick(1, 9, 30), false)).toEqual([]);
   });
 
   it('C07 a planned attack is not a fact; C08 an obsolete due step is invalidated and triggers replanning', async () => {

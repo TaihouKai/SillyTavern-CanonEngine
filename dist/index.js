@@ -14778,6 +14778,7 @@ SHAPE: {"changed":[{"entity_id":"","predicate":""}],"affected_anchors":[],"affec
 TASK: Plan future world actions so every protected HARD contract is realized exactly (required description, outcomes, time bounds) from the ACTUAL current world. Prefer: existing causes -> plausible extensions -> original actions/actors -> extraordinary correction (only when allowed_mode is FORCED_CONVERGENCE; say why cheaper routes are inadequate in inadequacy_note). Steps are intentions, not facts. Never require the player's consent or choose the player's actions (requires_player_consent must be false; offer opportunities instead). Never drop, rename, reschedule or weaken an anchor; never declare an alternate world. Creating new actors/resources requires explicit establishment steps. Times must be within anchor bounds and after the current time.
 recent_situation lists recent actual events and the current situation; a route must work from it (e.g. a person who is detained or guarded must first get out, and the step must say who makes that possible and how). Choose actors who have both the means and a motive in this world; canonical characters and organizations who would plausibly act are preferred over coincidence.
 Write steps ONLY for the anchors in protected_hard_detailed (the near horizon). hard_register is context for later anchors: do NOT write steps for them; they are planned when they come near. Use at most 8 steps; keep "action" to one short sentence.
+Each intended_effects value must have its predicate's declared type and be one of its "allowed" values when listed (a string predicate takes a string such as "\u6BC1\u574F", never true/false). For a step that brings about a HARD outcome, copy that outcome's exact value.
 SHAPE: {"rationale":"","protected_anchor_ids":[],"assumptions":[{"text":"","fact":null}],"risks":[],"mode":"NORMAL","steps":[{"step_id":"s1","actors":[],"targets":[],"earliest":{"day":0,"minute":0},"latest":{"day":0,"minute":0},"prerequisites":[],"action":"","intended_effects":[{"entity_id":"","predicate":"","value":true}],"visibility":"secret","knowers":[],"depends_on":[],"means":"ordinary","serves_anchor":null,"requires_player_consent":false}],"inadequacy_note":""}`
 };
 function enumsOf(schema) {
@@ -15730,6 +15731,43 @@ function planScope(pack2, state, affected = []) {
   const detailed = [.../* @__PURE__ */ new Set([...pend.slice(0, 2), ...affected.filter((a) => pend.includes(a))])];
   return { detailed, register: pend.filter((p) => !detailed.includes(p)) };
 }
+function normalizePlanEffects(out, pack2, scope) {
+  const notes = [];
+  const hards = scope.detailed.concat(scope.register);
+  for (const s of out.steps || []) {
+    if (!Array.isArray(s.intended_effects)) {
+      s.intended_effects = [];
+      continue;
+    }
+    s.intended_effects = s.intended_effects.filter((e) => {
+      const p = pack2.predicates.get(e?.predicate);
+      if (!p) return true;
+      let v = e.value;
+      if (typeof v === "boolean" && p.value_type !== "boolean") {
+        const order = s.serves_anchor ? [s.serves_anchor, ...hards.filter((h) => h !== s.serves_anchor)] : hards;
+        const o = v ? order.map((h) => pack2.events.get(h)?.outcomes.find((x) => x.entity_id === e.entity_id && x.predicate === e.predicate)).find(Boolean) : void 0;
+        if (o) {
+          notes.push(`step ${s.step_id}: ${e.entity_id}.${e.predicate}=true read as ${JSON.stringify(o.value)}`);
+          e.value = o.value;
+          return true;
+        }
+        notes.push(`step ${s.step_id}: dropped ${e.entity_id}.${e.predicate}=${JSON.stringify(v)} (wrong type for ${p.value_type})`);
+        return false;
+      }
+      if (p.value_type === "number" && typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) {
+        v = Number(v);
+        e.value = v;
+      }
+      const okType = p.value_type === "boolean" && typeof v === "boolean" || p.value_type === "number" && typeof v === "number" && Number.isFinite(v) || (p.value_type === "string" || p.value_type === "entity_ref") && typeof v === "string" || p.value_type === "entity_set" && Array.isArray(v);
+      if (!okType || p.allowed_values && !p.allowed_values.some((a) => valuesEqual(a, v))) {
+        notes.push(`step ${s.step_id}: dropped ${e.entity_id}.${e.predicate}=${JSON.stringify(v)} (not a valid ${p.id} value)`);
+        return false;
+      }
+      return true;
+    });
+  }
+  return notes;
+}
 function validatePlan(out, pack2, index, scope, clockTick, allowForced) {
   const errs = [];
   if (out.mode === "FORCED_CONVERGENCE" && !allowForced) errs.push("forced convergence was not authorized by the controller");
@@ -15877,6 +15915,8 @@ async function runPlanning(args) {
       player: args.persona
     };
     const out = await callStructured(args.port, "plan", PROMPTS.plan, input, { signal: args.signal, operationId: args.operationId, log: args.log });
+    const fixed = normalizePlanEffects(out, pack2, scope);
+    if (fixed.length) args.log?.({ kind: "plan_effects_normalized", notes: fixed });
     const errs = validatePlan(out, pack2, index, scope, clockTick, mode === "FORCED_CONVERGENCE");
     if (errs.length) {
       errors.push(...errs);
@@ -15954,7 +15994,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.26";
+var ENGINE_RELEASE = "1.3.27";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
