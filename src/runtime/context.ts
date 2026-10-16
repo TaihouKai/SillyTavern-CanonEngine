@@ -244,7 +244,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   // Plan
   if (inp.plan) {
     const ready = inp.plan.steps.filter((s) => s.status === 'ready' || s.status === 'proposed').slice(0, 6);
-    if (ready.length) required.push('PROPOSED ACTIONS (intentions, NOT accomplished; NPCs know only what they plausibly know):\n' + ready.map((s) => `- [${s.step_id}] ${formatTick(s.earliest)}–${formatTick(s.latest)} ${s.actors.map((a) => index.entityName(a)).join(', ')}: ${s.action} (${s.means}; ${s.visibility})`).join('\n'));
+    if (ready.length) required.push('PROPOSED ACTIONS (intentions, NOT accomplished; NPCs know only what they plausibly know; if the user\'s message skips past a window, that action happened off-screen during the skip):\n' + ready.map((s) => `- [${s.step_id}] ${formatTick(s.earliest)}–${formatTick(s.latest)} ${s.actors.map((a) => index.entityName(a)).join(', ')}: ${s.action} (${s.means}; ${s.visibility})`).join('\n'));
   }
   if (inp.stagedNotes.length) required.push('STAGED THIS OPERATION (validated but uncommitted):\n' + inp.stagedNotes.map((s) => '- ' + s).join('\n'));
   // Knowledge boundaries

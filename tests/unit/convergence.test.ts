@@ -322,7 +322,7 @@ describe('convergence', () => {
     await turn(x, 'I look.', 'Nothing. [K1]', {});
     expect(x.model.tasks('extract_user').every((c) => !JSON.stringify(c.input).includes('move toward'))).toBe(true);
     const ctx = x.model.tasks('draft').slice(-1)[0].input.engineContext as string;
-    expect(ctx).toMatch(/PROPOSED ACTIONS \(intentions, NOT accomplished; NPCs know only what they plausibly know\)/);
+    expect(ctx).toMatch(/PROPOSED ACTIONS \(intentions, NOT accomplished; NPCs know only what they plausibly know; if the user's message skips past a window, that action happened off-screen during the skip\)/);
   });
 });
 
