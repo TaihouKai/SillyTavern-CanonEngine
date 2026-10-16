@@ -137,6 +137,8 @@ export interface LedgerRecord {
   packEventId?: Id;
   disposition?: 'occurred' | 'diverged' | 'omitted';
   dispositionReason?: string;
+  /** Replaces an existing disposition (the player forced the event to complete). */
+  override?: boolean;
   adjudicationId?: string;
   triggerCommitId?: string;
   /** For participation declines. */

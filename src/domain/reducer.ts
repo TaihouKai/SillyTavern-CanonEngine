@@ -84,7 +84,7 @@ export function applyRecord(state: WorldState, rec: LedgerRecord): void {
       sourceMessageIds: rec.sourceRefs.map((s) => s.messageId),
     });
   }
-  if (rec.packEventId && rec.disposition && !state.dispositions.has(rec.packEventId)) {
+  if (rec.packEventId && rec.disposition && (rec.override || !state.dispositions.has(rec.packEventId))) {
     state.dispositions.set(rec.packEventId, {
       disposition: rec.disposition,
       recordId: rec.recordId,

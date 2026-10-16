@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.3.34';
+export const ENGINE_RELEASE = '1.3.35';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -190,7 +190,12 @@ export interface CampaignData {
   configRevisions: { at: number; summary: string }[];
   /** Last durable-save verification token (adapter-owned). */
   saveToken?: string;
+  /** Records the player added by hand ("强制完成"), replayed after the message that was last when they were made
+   *  (or at the end of the transcript if that message is gone). */
+  manualRecords?: ManualRecord[];
 }
+
+export interface ManualRecord { afterMessageId: string | null; record: RecordDraft; at: number }
 
 export interface Fences {
   sessionId: string;

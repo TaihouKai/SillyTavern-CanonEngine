@@ -6,7 +6,7 @@ import type { LedgerRecord } from '../domain/types';
 import type { WorldState } from '../domain/reducer';
 import { applyRecord, emptyState, evalCondition, factAt, triLabel } from '../domain/reducer';
 import { hashObject, quoteInText, sha256 } from '../domain/util';
-import type { Interpretation, RecordDraft, SourceEntry } from './types';
+import type { Interpretation, ManualRecord, RecordDraft, SourceEntry } from './types';
 
 export const baseKey = (e: { messageId: string; variantId: string; contentHash: string }) => `${e.messageId}:${e.variantId}:${e.contentHash}`;
 
@@ -81,6 +81,8 @@ export interface ReplayInput {
   affectedEntities?: Set<string>;
   /** First index at which the source changed relative to the accepted manifest (or -1). */
   changedFrom?: number;
+  /** Records the player added by hand, applied after their anchor message (or at the end). */
+  manual?: ManualRecord[];
 }
 
 export function interpretationEntities(i: Interpretation): Set<string> {
@@ -160,6 +162,16 @@ export function replay(input: ReplayInput): ReplayResult {
     applyRecord(state, rec);
     ledger.push(rec);
   }
+  const manual = input.manual || [];
+  const present = new Set(entries.filter((e) => e.role !== 'system').map((e) => e.messageId));
+  const applyManual = (pred: (m: ManualRecord) => boolean) => {
+    for (const m of manual) if (pred(m)) {
+      const rec = draftToRecord(m.record, ++seq, branchId, 'manual');
+      applyRecord(state, rec);
+      ledger.push(rec);
+    }
+  };
+  applyManual((m) => m.afterMessageId === null);
   const prefixHashes = fingerprintPrefix(entries);
   const stateHashes: string[] = [];
   const applied: ReplayResult['applied'] = [];
@@ -199,7 +211,9 @@ export function replay(input: ReplayInput): ReplayResult {
       ledger.push(rec);
     }
     applied.push({ index: i, key, interp: chosen });
+    applyManual((m) => m.afterMessageId === e.messageId);
   }
+  applyManual((m) => m.afterMessageId !== null && !present.has(m.afterMessageId));
   return finish(null);
 
   function finish(issue: ReplayIssue | null): ReplayResult {

@@ -49,7 +49,9 @@ function mountTopButton() {
     if (!src) return { pack: null, current: null, spoilers };
     const pg = packGraph(src.pack, src.origin); pg.nowTick = src.state ? src.state.clock.lo : null;
     return { pack: pg, current: src.state ? currentGraph(src.pack, src.state, src.origin, spoilers) : null, spoilers };
-  }, (v) => { const camp = E.campaign(); if (camp) camp.uiPreferences.spoilers = v; });
+  }, (v) => { const camp = E.campaign(); if (camp) camp.uiPreferences.spoilers = v; }, async (act, id) => {
+    try { if (act === 'force') await E.forceComplete(id); else await E.undoForce(id); } catch (e) { toast('error', (e as Error).message); }
+  });
   const holder = document.getElementById('top-settings-holder');
   const btn = document.createElement('div');
   btn.id = 'canon-engine-top-button';

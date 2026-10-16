@@ -4,7 +4,7 @@ import type { Id } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { WorldIndex, type HistoryRecordView, type EntityStateView, type CanonStatusView } from '../domain/world-query';
 import { formatStoryTime, formatTick } from '../domain/time';
-import { pendingHard } from '../domain/schedule';
+import { pendingHard, situationOf, upcomingRoute } from '../domain/schedule';
 import { evalCondition, triLabel } from '../domain/reducer';
 import { EngineError, sceneRoot, sha256 } from '../domain/util';
 import type { CoverageEntry, PlanRevision } from './types';
@@ -262,6 +262,8 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
       // an event whose original preconditions already failed will not happen; do not suggest it
       && triLabel(evalCondition(pack.events.get(t.id)!.canonical_preconditions, index.state, pack, { tick: checkpointTick })) !== 'FALSE')
     .slice(0, 4).map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}`; });
+  const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${situationOf(u.event.summary)}`);
+  if (soon.length) optional.push('WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing — NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them; the player may change them, and actual play wins over this:\n' + soon.join('\n'));
   if (open.length) optional.push('CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n' + open.join('\n'));
 
   const reqText = required.join('\n\n');

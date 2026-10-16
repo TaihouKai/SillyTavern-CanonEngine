@@ -152,6 +152,68 @@ export function adjudicateDefault(pack: LoadedPack, state: WorldState, c: Candid
   return { eventId: ev.id, mode: 'needs_model', precondition, explanation };
 }
 
+/** The player forced a canon event to complete ("强制完成"): it occurs along its original route with its
+ *  effects and HARD outcomes, whatever its preconditions say. A past window keeps its time; an open or
+ *  future window is completed now (facts apply from the current time, the clock does not move). */
+export function forcedCompletion(pack: LoadedPack, state: WorldState, eventId: Id, nowTick: number): Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'> {
+  const ev = pack.events.get(eventId);
+  if (!ev) throw new Error(`unknown event ${eventId}`);
+  const t = pack.timeIndex.find((x) => x.id === eventId);
+  const when: StoryTime = !t || t.lo > nowTick ? { lo: nowTick, hi: nowTick, precision: 'minute' }
+    : t.hi <= nowTick ? { lo: t.lo, hi: t.hi, precision: t.lo === t.hi ? 'minute' : 'range' }
+    : { lo: t.lo, hi: nowTick, precision: t.lo === nowTick ? 'minute' : 'range' };
+  const deltas = effectsToDeltas(ev.canonical_effects);
+  for (const o of ev.outcomes) if (!deltas.some((d) => d.entity_id === o.entity_id && d.predicate === o.predicate)) deltas.push({ op: 'set', entity_id: o.entity_id, predicate: o.predicate, value: o.value });
+  const zh = /^zh/i.test(pack.pack.language);
+  const occId = newId('occ');
+  const prior = state.dispositions.get(eventId);
+  return {
+    recordId: newId('rec'),
+    kind: 'canon_occurrence',
+    storyTime: when,
+    sourceRefs: [],
+    factsSetOrUnset: deltas,
+    eventOccurrenceIds: [occId],
+    occurrences: [{
+      occurrenceId: occId, title: ev.title,
+      account: zh ? `${ev.summary}（玩家在本局历史中强制完成。）` : `${ev.summary} (Forced to complete by the player.)`,
+      actors: ev.entity_ids, affected: ev.entity_ids, locations: ev.location_ids, time: when, outcome: deltas, causes: [],
+      refPhrases: [ev.title], packEventId: ev.id, origin: 'intervention', visibility: ev.visibility,
+    }],
+    visibility: ev.visibility,
+    summary: `${ev.title}: occurred (forced by the player)`,
+    evidenceKind: 'adjudication',
+    packEventId: ev.id,
+    disposition: 'occurred',
+    dispositionReason: 'forced to complete by the player' + (prior ? ` (was ${prior.disposition})` : ''),
+    override: true,
+  };
+}
+
+/** Text of an event summary that describes its starting situation ("起因：…" / "Cause: …"), i.e. what the
+ *  characters know and intend before it happens; falls back to the first sentence. */
+export function situationOf(summary: string): string {
+  const m = summary.match(/(?:起因|Cause|Background)[：:]\s*([\s\S]*?)(?=(?:经过|结果|Course|Result|What happened)[：:]|$)/i);
+  let s = (m ? m[1] : summary.split(/(?<=[。！？.!?])\s*/)[0] || summary).trim();
+  if (s.length > 180) s = s.slice(0, 177) + '…';
+  return s;
+}
+
+/** Non-HARD original events whose window opens within (now, now+horizon], not settled and still possible. */
+export function upcomingRoute(pack: LoadedPack, state: WorldState, nowTick: number, horizon: number, limit = 6): { event: PackEvent; lo: number; hi: number }[] {
+  const out: { event: PackEvent; lo: number; hi: number }[] = [];
+  for (const t of pack.timeIndex) {
+    if (t.lo > nowTick + horizon) break;
+    if (t.lo <= nowTick || state.dispositions.has(t.id)) continue;
+    const ev = pack.events.get(t.id)!;
+    if (ev.classification === 'HARD') continue;
+    if (triLabel(evalCondition(ev.canonical_preconditions, state, pack, { tick: t.lo })) === 'FALSE') continue;
+    out.push({ event: ev, lo: t.lo, hi: t.hi });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 /** Pre-start bootstrap for a new binding: baseline facts + canonical history through the start point. */
 export function buildBootstrap(pack: LoadedPack, startTick: number): { records: Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>[]; unresolved: { eventId: Id; explanation: string[] }[]; pending: Id[] } {
   const records: Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>[] = [];

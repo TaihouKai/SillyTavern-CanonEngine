@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.35 — 2026-10-17
+
+- **强制完成 (force complete):** clicking a canon event in 本局历史 shows a red button under its description (click twice to confirm). The event is recorded as happened along its original route, with its effects and HARD outcomes; later events that depend on it see it as happened, and the plan is rechecked on the next turn. Forced events show 撤销强制完成 to undo it. The record is kept with the chat and replayed after the message that was last when you pressed it.
+- **Where other characters stand:** the GM gets, as background only, the starting situation (起因) of non-HARD original events of the next 24 hours, i.e. what those characters know, want and are doing now, so nobody notices or pursues something earlier than they would. It is explicitly not a list of things that must happen, and the GM is told not to steer toward them. The planner gets the same list so its HARD steps do not make anyone act on knowledge they would not have yet, and prefers routes out of public view when a HARD outcome is secret.
+- Unit tests F01–F04, U01–U02.
+
 ## 1.3.4 — 2026-10-15
 
 - **Turn timings:** after each turn the status bar shows how long each step took (e.g. `上一回合 1m12s：生成回复 48s · 核对一致性 12s · …`), sorted by time; catch-up examination of older messages is reported separately.

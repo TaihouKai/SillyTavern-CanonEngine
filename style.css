@@ -169,3 +169,5 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .cg-svg .cg-node-sub.cg-out { fill: var(--SmartThemeBodyColor, #ddd); opacity: 0.7; }
 .cg-tick.cg-tick-major { opacity: 0.3; stroke-dasharray: none; }
 .cg-tick-label.cg-tick-major { font-weight: bold; opacity: 0.9; }
+.canon-graph-panel .cg-force { margin: 6px 0; background: #c9302c; color: #fff; border-color: #a52a2a; }
+.canon-graph-panel .cg-unforce { margin: 6px 0; }

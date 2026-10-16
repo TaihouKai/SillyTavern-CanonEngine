@@ -3,7 +3,7 @@
 import type { Id, LedgerRecord, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { valuesEqual } from '../domain/pack';
-import { buildBootstrap, pendingHard } from '../domain/schedule';
+import { buildBootstrap, pendingHard, forcedCompletion } from '../domain/schedule';
 import { WorldIndex } from '../domain/world-query';
 import { formatTick, formatStoryTime, toTick } from '../domain/time';
 import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
@@ -374,7 +374,7 @@ export class CanonEngine {
     let guard = 0;
     try {
       for (;;) {
-        r = replay({ pack, branchId: c.branchId, bootstrap: c.bootstrapRecords, entries, store: c.interpretations, affectedEntities: affected, changedFrom });
+        r = replay({ pack, branchId: c.branchId, bootstrap: c.bootstrapRecords, manual: c.manualRecords, entries, store: c.interpretations, affectedEntities: affected, changedFrom });
         if (!r.issue || r.issue.status === 'conflict') break;
         if (!allowModel) break;
         if (++guard > entries.length * 2 + 4) throw new EngineError('conflicting_transcript', 'reconciliation did not converge');
@@ -892,7 +892,7 @@ export class CanonEngine {
         // Prefix for a continuation excludes the partial reply being revised from the "world" view.
         if (continuing) {
           const prefixEntries = entries.slice(0, -1);
-          const rr = replay({ pack, branchId: c.branchId, bootstrap: c.bootstrapRecords, entries: prefixEntries, store: c.interpretations });
+          const rr = replay({ pack, branchId: c.branchId, bootstrap: c.bootstrapRecords, manual: c.manualRecords, entries: prefixEntries, store: c.interpretations });
           if (rr.issue) throw new EngineError('conflicting_transcript', 'cannot rebuild the prefix of the continued reply');
           index = new WorldIndex(pack, rr.state);
         }
@@ -1123,7 +1123,7 @@ export class CanonEngine {
     const c2 = this.campaign()!;
     const entries = this.host.readTranscript();
     const pack = this.pack();
-    const r = replay({ pack, branchId: c2.branchId, bootstrap: c2.bootstrapRecords, entries, store: c2.interpretations });
+    const r = replay({ pack, branchId: c2.branchId, bootstrap: c2.bootstrapRecords, manual: c2.manualRecords, entries, store: c2.interpretations });
     if (r.issue) this.host.log('warn', 'post-commit replay issue: ' + r.issue.reasons.join('; '));
     this.current = { replay: r, index: new WorldIndex(pack, r.state) };
     c2.ledgerRecords = r.ledger;
@@ -1391,6 +1391,45 @@ export class CanonEngine {
     // new and force a model re-examination of every reply that names a pack entity.
     this.packCache = null;
     await this.reconcile('pack_update');
+  }
+
+  /** "强制完成": the player marks a canon event as completed. It is recorded along its original route
+   *  (effects, HARD outcomes, downstream preconditions), anchored after the current last message. */
+  async forceComplete(eventId: Id): Promise<void> {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError('incompatible_adapter', 'engine state unavailable');
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; wait or cancel it first.');
+    await this.exclusive(async () => {
+      const pack = this.pack();
+      const state = this.current!.replay.state;
+      if (state.dispositions.get(eventId)?.disposition === 'occurred') return;
+      const rec = forcedCompletion(pack, state, eventId, state.clock.lo);
+      const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
+      c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: `forced to complete: ${eventId}` });
+      c.planRevisions.forEach((p) => { if (p.status === 'active') p.status = 'stale'; });
+    });
+    await this.reconcile('force_complete', { allowModel: false });
+    await this.host.save();
+  }
+
+  /** Undo a "强制完成". */
+  async undoForce(eventId: Id): Promise<void> {
+    const c = this.campaign();
+    if (!c) return;
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; wait or cancel it first.');
+    await this.exclusive(async () => {
+      c.manualRecords = (c.manualRecords || []).filter((m) => m.record.packEventId !== eventId);
+      c.configRevisions.push({ at: this.host.now(), summary: `undid forced completion: ${eventId}` });
+      c.planRevisions.forEach((p) => { if (p.status === 'active') p.status = 'stale'; });
+    });
+    await this.reconcile('undo_force', { allowModel: false });
+    await this.host.save();
+  }
+
+  /** Events the player forced to complete. */
+  forcedEvents(): Set<Id> {
+    return new Set((this.campaign()?.manualRecords || []).map((m) => m.record.packEventId!).filter(Boolean));
   }
 
   // ---------------------------------------------------------------------------------------------

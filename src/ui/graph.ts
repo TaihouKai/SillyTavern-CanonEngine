@@ -26,6 +26,8 @@ export interface GNode {
   origin?: string;
   detail?: string[];
   masked?: boolean;
+  /** The player forced this event to complete ("强制完成"). */
+  forced?: boolean;
 }
 export interface GEdge { from: string; to: string; kind: string; note?: string }
 export interface GraphData { nodes: GNode[]; edges: GEdge[]; nowTick: number | null; arcs: { id: string; title: string }[]; origin?: { y: number; m: number; d: number } | null }
@@ -69,6 +71,7 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
     if (d) {
       const occ = d.occurrenceId ? s.occurrences.get(d.occurrenceId) : undefined;
       const actual = occ?.outcome.length ? [`本局结果：${occ.outcome.map((x) => (x.op === 'set' ? `${name(L, x.entity_id, s)}.${x.predicate}=${JSON.stringify(x.value)}` : `${x.entity_id}.${x.predicate} 未知`)).join('；')}`] : [];
+      if (occ?.origin === 'intervention') n.forced = true;
       n.detail = [`本局状态：${statusLabel(n.status)}`, ...(occ ? [`实际经过：${occ.account}`, `来源：${ORIGIN_LABEL[occ.origin] || occ.origin}`] : []), ...actual, ...(n.detail || [])];
     } else n.detail = [`本局状态：${statusLabel(n.status)}`, ...(n.detail || [])];
     if (!spoilers && (n.status === 'future' || n.status === 'pending')) {
@@ -312,10 +315,13 @@ export class GraphPanel {
   private selected: string | null = null;
   private getData: (spoilers: boolean) => { pack: GraphData | null; current: GraphData | null; spoilers: boolean };
   private setSpoilers: (v: boolean) => void;
+  private onEventAction: (act: 'force' | 'unforce', id: string) => Promise<void>;
+  private armed: string | null = null;
 
-  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void) {
+  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined) {
     this.getData = getData;
     this.setSpoilers = setSpoilers;
+    this.onEventAction = onEventAction;
     this.el = document.createElement('div');
     this.el.id = 'canon-graph-panel';
     this.el.className = 'canon-graph-panel';
@@ -440,6 +446,16 @@ export class GraphPanel {
     if (b?.dataset.mode) { this.mode = b.dataset.mode as 'pack' | 'current'; this.selected = null; this.refresh(); return; }
     if (b?.dataset.act === 'close') { this.toggle(false); return; }
     if (b?.dataset.act === 'fit') { (this as unknown as { fit?: () => void }).fit?.(); return; }
+    if (b && (b.dataset.act === 'force' || b.dataset.act === 'unforce')) {
+      const id = b.dataset.id!, act = b.dataset.act;
+      // two clicks: the first arms the button (no browser dialog), the second acts
+      if (this.armed !== act + ':' + id) { this.armed = act + ':' + id; b.textContent = act === 'force' ? t('forceConfirm') : t('unforceConfirm'); return; }
+      this.armed = null;
+      (b as HTMLButtonElement).disabled = true;
+      b.textContent = '…';
+      void this.onEventAction(act, id).finally(() => { this.keepView = true; this.refresh(); });
+      return;
+    }
     const node = tg.closest('.cg-node') as SVGGElement | null;
     if (node) this.select(node.dataset.id!);
   }
@@ -449,6 +465,7 @@ export class GraphPanel {
     const n = g?.nodes.find((x) => x.id === id);
     if (!g || !n) return;
     this.selected = id;
+    this.armed = null;
     this.el.querySelectorAll('.cg-node.cg-sel').forEach((x) => x.classList.remove('cg-sel'));
     this.el.querySelectorAll('.cg-edge.cg-hl').forEach((x) => x.classList.remove('cg-hl'));
     this.el.querySelector(`.cg-node[data-id="${CSS.escape(id)}"]`)?.classList.add('cg-sel');
@@ -462,6 +479,8 @@ export class GraphPanel {
       <div class="cg-when">${esc(n.when)}</div>
       ${n.required ? `<div class="cg-req"><b>必须实现：</b>${esc(n.required)}</div>` : ''}
       <p style="white-space:pre-line">${esc(n.summary)}</p>
+      ${this.mode === 'current' && n.lane !== 'RUNTIME' && n.status !== 'occurred' && n.status !== 'diverged' ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t('force')}</button>` : ''}
+      ${this.mode === 'current' && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${t('unforce')}</button>` : ''}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join('')}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>关系</b><br>${[...ins, ...outs].join('<br>')}</div>` : ''}`;
   }

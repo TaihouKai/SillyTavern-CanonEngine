@@ -12038,7 +12038,7 @@ function applyRecord(state, rec) {
       sourceMessageIds: rec.sourceRefs.map((s) => s.messageId)
     });
   }
-  if (rec.packEventId && rec.disposition && !state.dispositions.has(rec.packEventId)) {
+  if (rec.packEventId && rec.disposition && (rec.override || !state.dispositions.has(rec.packEventId))) {
     state.dispositions.set(rec.packEventId, {
       disposition: rec.disposition,
       recordId: rec.recordId,
@@ -12246,6 +12246,66 @@ function adjudicateDefault(pack2, state, c, when, origin = "offscreen") {
     };
   }
   return { eventId: ev.id, mode: "needs_model", precondition, explanation };
+}
+function forcedCompletion(pack2, state, eventId, nowTick) {
+  const ev = pack2.events.get(eventId);
+  if (!ev) throw new Error(`unknown event ${eventId}`);
+  const t2 = pack2.timeIndex.find((x) => x.id === eventId);
+  const when = !t2 || t2.lo > nowTick ? { lo: nowTick, hi: nowTick, precision: "minute" } : t2.hi <= nowTick ? { lo: t2.lo, hi: t2.hi, precision: t2.lo === t2.hi ? "minute" : "range" } : { lo: t2.lo, hi: nowTick, precision: t2.lo === nowTick ? "minute" : "range" };
+  const deltas = effectsToDeltas(ev.canonical_effects);
+  for (const o of ev.outcomes) if (!deltas.some((d) => d.entity_id === o.entity_id && d.predicate === o.predicate)) deltas.push({ op: "set", entity_id: o.entity_id, predicate: o.predicate, value: o.value });
+  const zh = /^zh/i.test(pack2.pack.language);
+  const occId = newId("occ");
+  const prior = state.dispositions.get(eventId);
+  return {
+    recordId: newId("rec"),
+    kind: "canon_occurrence",
+    storyTime: when,
+    sourceRefs: [],
+    factsSetOrUnset: deltas,
+    eventOccurrenceIds: [occId],
+    occurrences: [{
+      occurrenceId: occId,
+      title: ev.title,
+      account: zh ? `${ev.summary}\uFF08\u73A9\u5BB6\u5728\u672C\u5C40\u5386\u53F2\u4E2D\u5F3A\u5236\u5B8C\u6210\u3002\uFF09` : `${ev.summary} (Forced to complete by the player.)`,
+      actors: ev.entity_ids,
+      affected: ev.entity_ids,
+      locations: ev.location_ids,
+      time: when,
+      outcome: deltas,
+      causes: [],
+      refPhrases: [ev.title],
+      packEventId: ev.id,
+      origin: "intervention",
+      visibility: ev.visibility
+    }],
+    visibility: ev.visibility,
+    summary: `${ev.title}: occurred (forced by the player)`,
+    evidenceKind: "adjudication",
+    packEventId: ev.id,
+    disposition: "occurred",
+    dispositionReason: "forced to complete by the player" + (prior ? ` (was ${prior.disposition})` : ""),
+    override: true
+  };
+}
+function situationOf(summary) {
+  const m = summary.match(/(?:起因|Cause|Background)[：:]\s*([\s\S]*?)(?=(?:经过|结果|Course|Result|What happened)[：:]|$)/i);
+  let s = (m ? m[1] : summary.split(/(?<=[。！？.!?])\s*/)[0] || summary).trim();
+  if (s.length > 180) s = s.slice(0, 177) + "\u2026";
+  return s;
+}
+function upcomingRoute(pack2, state, nowTick, horizon, limit = 6) {
+  const out = [];
+  for (const t2 of pack2.timeIndex) {
+    if (t2.lo > nowTick + horizon) break;
+    if (t2.lo <= nowTick || state.dispositions.has(t2.id)) continue;
+    const ev = pack2.events.get(t2.id);
+    if (ev.classification === "HARD") continue;
+    if (triLabel(evalCondition(ev.canonical_preconditions, state, pack2, { tick: t2.lo })) === "FALSE") continue;
+    out.push({ event: ev, lo: t2.lo, hi: t2.hi });
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 function buildBootstrap(pack2, startTick) {
   const records = [];
@@ -14778,6 +14838,7 @@ SHAPE: {"changed":[{"entity_id":"","predicate":""}],"affected_anchors":[],"affec
   plan: `${COMMON}
 TASK: Plan future world actions so every protected HARD contract is realized exactly (required description, outcomes, time bounds) from the ACTUAL current world. Prefer: existing causes -> plausible extensions -> original actions/actors -> extraordinary correction (only when allowed_mode is FORCED_CONVERGENCE; say why cheaper routes are inadequate in inadequacy_note). Steps are intentions, not facts. Never require the player's consent or choose the player's actions (requires_player_consent must be false; offer opportunities instead). Never drop, rename, reschedule or weaken an anchor; never declare an alternate world. Creating new actors/resources requires explicit establishment steps. Times must be within anchor bounds and after the current time.
 recent_situation lists recent actual events and the current situation; a route must work from it (e.g. a person who is detained or guarded must first get out, and the step must say who makes that possible and how). Choose actors who have both the means and a motive in this world; canonical characters and organizations who would plausibly act are preferred over coincidence.
+others_original_situation is background: what other characters know and are doing in the original story over the next day. Do not plan for it; just do not make anyone act on knowledge they would not have yet (e.g. notice a secret event earlier than they would), and prefer routes that stay out of public view when a HARD outcome is secret.
 Write steps ONLY for the anchors in protected_hard_detailed (the near horizon). hard_register is context for later anchors: do NOT write steps for them; they are planned when they come near. Use at most 8 steps; keep "action" to one short sentence.
 Each intended_effects value must have its predicate's declared type and be one of its "allowed" values when listed (a string predicate takes a string such as "\u6BC1\u574F", never true/false). For a step that brings about a HARD outcome, copy that outcome's exact value.
 SHAPE: {"rationale":"","protected_anchor_ids":[],"assumptions":[{"text":"","fact":null}],"risks":[],"mode":"NORMAL","steps":[{"step_id":"s1","actors":[],"targets":[],"earliest":{"day":0,"minute":0},"latest":{"day":0,"minute":0},"prerequisites":[],"action":"","intended_effects":[{"entity_id":"","predicate":"","value":true}],"visibility":"secret","knowers":[],"depends_on":[],"means":"ordinary","serves_anchor":null,"requires_player_consent":false}],"inadequacy_note":""}`
@@ -14955,6 +15016,16 @@ function replay(input) {
     applyRecord(state, rec);
     ledger.push(rec);
   }
+  const manual = input.manual || [];
+  const present = new Set(entries.filter((e) => e.role !== "system").map((e) => e.messageId));
+  const applyManual = (pred) => {
+    for (const m of manual) if (pred(m)) {
+      const rec = draftToRecord(m.record, ++seq, branchId, "manual");
+      applyRecord(state, rec);
+      ledger.push(rec);
+    }
+  };
+  applyManual((m) => m.afterMessageId === null);
   const prefixHashes = fingerprintPrefix(entries);
   const stateHashes = [];
   const applied = [];
@@ -14995,7 +15066,9 @@ function replay(input) {
       ledger.push(rec);
     }
     applied.push({ index: i, key, interp: chosen });
+    applyManual((m) => m.afterMessageId === e.messageId);
   }
+  applyManual((m) => m.afterMessageId !== null && !present.has(m.afterMessageId));
   return finish(null);
   function finish(issue) {
     return {
@@ -15198,6 +15271,8 @@ function buildPacket(inp, compact = false) {
     const e = pack2.events.get(t2.id);
     return `- ${e.title} (${formatTick(t2.lo, inp.origin)} \u2013 ${formatTick(t2.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + "\u2026" : e.summary}`;
   });
+  const soon = upcomingRoute(pack2, index.state, checkpointTick, 24 * 60).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${situationOf(u.event.summary)}`);
+  if (soon.length) optional.push("WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing \u2014 NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them; the player may change them, and actual play wins over this:\n" + soon.join("\n"));
   if (open.length) optional.push("CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n" + open.join("\n"));
   const reqText = required.join("\n\n");
   let text = reqText;
@@ -15914,6 +15989,7 @@ async function runPlanning(args) {
       hard_register: scope.register.map((id) => ({ id, deadline: pack2.events.get(id).when.latest, required: pack2.events.get(id).required_description })),
       actual_world: args.facts,
       recent_situation: args.situation || "",
+      others_original_situation: upcomingRoute(pack2, state, clockTick, 24 * 60).map((u) => ({ id: u.event.id, at: formatTick(u.lo), situation: situationOf(u.event.summary) })),
       deviations: [...state.dispositions].filter(([, d]) => d.disposition !== "occurred").map(([id, d]) => ({ id, disposition: d.disposition, reason: d.reason })),
       entities: [...pack2.entities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind })).concat([...state.runtimeEntities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind }))),
       predicates: [...pack2.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values })),
@@ -16000,7 +16076,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.34";
+var ENGINE_RELEASE = "1.3.35";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16321,7 +16397,7 @@ var CanonEngine = class {
     let guard = 0;
     try {
       for (; ; ) {
-        r = replay({ pack: pack2, branchId: c.branchId, bootstrap: c.bootstrapRecords, entries, store: c.interpretations, affectedEntities: affected, changedFrom });
+        r = replay({ pack: pack2, branchId: c.branchId, bootstrap: c.bootstrapRecords, manual: c.manualRecords, entries, store: c.interpretations, affectedEntities: affected, changedFrom });
         if (!r.issue || r.issue.status === "conflict") break;
         if (!allowModel) break;
         if (++guard > entries.length * 2 + 4) throw new EngineError("conflicting_transcript", "reconciliation did not converge");
@@ -16917,7 +16993,7 @@ var CanonEngine = class {
         if (userInterp?.configRequests?.length) for (const n of userInterp.configRequests) this.notice("warn", n);
         if (continuing) {
           const prefixEntries = entries.slice(0, -1);
-          const rr = replay({ pack: pack2, branchId: c.branchId, bootstrap: c.bootstrapRecords, entries: prefixEntries, store: c.interpretations });
+          const rr = replay({ pack: pack2, branchId: c.branchId, bootstrap: c.bootstrapRecords, manual: c.manualRecords, entries: prefixEntries, store: c.interpretations });
           if (rr.issue) throw new EngineError("conflicting_transcript", "cannot rebuild the prefix of the continued reply");
           index = new WorldIndex(pack2, rr.state);
         }
@@ -17196,7 +17272,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     const c2 = this.campaign();
     const entries = this.host.readTranscript();
     const pack2 = this.pack();
-    const r = replay({ pack: pack2, branchId: c2.branchId, bootstrap: c2.bootstrapRecords, entries, store: c2.interpretations });
+    const r = replay({ pack: pack2, branchId: c2.branchId, bootstrap: c2.bootstrapRecords, manual: c2.manualRecords, entries, store: c2.interpretations });
     if (r.issue) this.host.log("warn", "post-commit replay issue: " + r.issue.reasons.join("; "));
     this.current = { replay: r, index: new WorldIndex(pack2, r.state) };
     c2.ledgerRecords = r.ledger;
@@ -17473,6 +17549,46 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     c.planRevisions.forEach((p) => p.status = "stale");
     this.packCache = null;
     await this.reconcile("pack_update");
+  }
+  /** "强制完成": the player marks a canon event as completed. It is recorded along its original route
+   *  (effects, HARD outcomes, downstream preconditions), anchored after the current last message. */
+  async forceComplete(eventId) {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError("incompatible_adapter", "engine state unavailable");
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; wait or cancel it first.");
+    await this.exclusive(async () => {
+      const pack2 = this.pack();
+      const state = this.current.replay.state;
+      if (state.dispositions.get(eventId)?.disposition === "occurred") return;
+      const rec = forcedCompletion(pack2, state, eventId, state.clock.lo);
+      const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+      c.manualRecords = [...c.manualRecords || [], { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: `forced to complete: ${eventId}` });
+      c.planRevisions.forEach((p) => {
+        if (p.status === "active") p.status = "stale";
+      });
+    });
+    await this.reconcile("force_complete", { allowModel: false });
+    await this.host.save();
+  }
+  /** Undo a "强制完成". */
+  async undoForce(eventId) {
+    const c = this.campaign();
+    if (!c) return;
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; wait or cancel it first.");
+    await this.exclusive(async () => {
+      c.manualRecords = (c.manualRecords || []).filter((m) => m.record.packEventId !== eventId);
+      c.configRevisions.push({ at: this.host.now(), summary: `undid forced completion: ${eventId}` });
+      c.planRevisions.forEach((p) => {
+        if (p.status === "active") p.status = "stale";
+      });
+    });
+    await this.reconcile("undo_force", { allowModel: false });
+    await this.host.save();
+  }
+  /** Events the player forced to complete. */
+  forcedEvents() {
+    return new Set((this.campaign()?.manualRecords || []).map((m) => m.record.packEventId).filter(Boolean));
   }
   // ---------------------------------------------------------------------------------------------
   // Inspector data
@@ -18315,6 +18431,10 @@ var D = {
   undoBind: { zh: "\u64A4\u9500\u7ED1\u5B9A", en: "Undo binding" },
   graphTitle: { zh: "Canon Engine \u5386\u53F2\u56FE", en: "Canon Engine history graph" },
   graphCurrent: { zh: "\u672C\u5C40\u5386\u53F2", en: "This playthrough" },
+  force: { zh: "\u5F3A\u5236\u5B8C\u6210", en: "Force complete" },
+  forceConfirm: { zh: "\u518D\u70B9\u4E00\u6B21\u786E\u8BA4\uFF1A\u6309\u539F\u4F5C\u8DEF\u7EBF\u6807\u8BB0\u4E3A\u5DF2\u53D1\u751F", en: "Click again to confirm: mark as happened (original route)" },
+  unforce: { zh: "\u64A4\u9500\u5F3A\u5236\u5B8C\u6210", en: "Undo force complete" },
+  unforceConfirm: { zh: "\u518D\u70B9\u4E00\u6B21\u786E\u8BA4\u64A4\u9500", en: "Click again to confirm undo" },
   graphPack: { zh: "\u539F\u4F5C\u5386\u53F2\u5305", en: "Pack (canon)" },
   graphSearch: { zh: "\u641C\u7D22\u4E8B\u4EF6\u2026", en: "Search events\u2026" },
   graphAllArcs: { zh: "\u5168\u90E8\u7BC7\u7AE0", en: "All arcs" },
@@ -18483,6 +18603,7 @@ function currentGraph(L, s, origin, spoilers) {
     if (d) {
       const occ = d.occurrenceId ? s.occurrences.get(d.occurrenceId) : void 0;
       const actual = occ?.outcome.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${occ.outcome.map((x) => x.op === "set" ? `${name(L, x.entity_id, s)}.${x.predicate}=${JSON.stringify(x.value)}` : `${x.entity_id}.${x.predicate} \u672A\u77E5`).join("\uFF1B")}`] : [];
+      if (occ?.origin === "intervention") n.forced = true;
       n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`, ...occ ? [`\u5B9E\u9645\u7ECF\u8FC7\uFF1A${occ.account}`, `\u6765\u6E90\uFF1A${ORIGIN_LABEL[occ.origin] || occ.origin}`] : [], ...actual, ...n.detail || []];
     } else n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`, ...n.detail || []];
     if (!spoilers && (n.status === "future" || n.status === "pending")) {
@@ -18723,9 +18844,12 @@ var GraphPanel = class {
   selected = null;
   getData;
   setSpoilers;
-  constructor(getData, setSpoilers) {
+  onEventAction;
+  armed = null;
+  constructor(getData, setSpoilers, onEventAction = async () => void 0) {
     this.getData = getData;
     this.setSpoilers = setSpoilers;
+    this.onEventAction = onEventAction;
     this.el = document.createElement("div");
     this.el.id = "canon-graph-panel";
     this.el.className = "canon-graph-panel";
@@ -18888,6 +19012,22 @@ var GraphPanel = class {
       this.fit?.();
       return;
     }
+    if (b && (b.dataset.act === "force" || b.dataset.act === "unforce")) {
+      const id = b.dataset.id, act = b.dataset.act;
+      if (this.armed !== act + ":" + id) {
+        this.armed = act + ":" + id;
+        b.textContent = act === "force" ? t("forceConfirm") : t("unforceConfirm");
+        return;
+      }
+      this.armed = null;
+      b.disabled = true;
+      b.textContent = "\u2026";
+      void this.onEventAction(act, id).finally(() => {
+        this.keepView = true;
+        this.refresh();
+      });
+      return;
+    }
     const node = tg.closest(".cg-node");
     if (node) this.select(node.dataset.id);
   }
@@ -18896,6 +19036,7 @@ var GraphPanel = class {
     const n = g?.nodes.find((x) => x.id === id);
     if (!g || !n) return;
     this.selected = id;
+    this.armed = null;
     this.el.querySelectorAll(".cg-node.cg-sel").forEach((x) => x.classList.remove("cg-sel"));
     this.el.querySelectorAll(".cg-edge.cg-hl").forEach((x) => x.classList.remove("cg-hl"));
     this.el.querySelector(`.cg-node[data-id="${CSS.escape(id)}"]`)?.classList.add("cg-sel");
@@ -18909,6 +19050,8 @@ var GraphPanel = class {
       <div class="cg-when">${esc(n.when)}</div>
       ${n.required ? `<div class="cg-req"><b>\u5FC5\u987B\u5B9E\u73B0\uFF1A</b>${esc(n.required)}</div>` : ""}
       <p style="white-space:pre-line">${esc(n.summary)}</p>
+      ${this.mode === "current" && n.lane !== "RUNTIME" && n.status !== "occurred" && n.status !== "diverged" ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t("force")}</button>` : ""}
+      ${this.mode === "current" && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${t("unforce")}</button>` : ""}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join("")}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>\u5173\u7CFB</b><br>${[...ins, ...outs].join("<br>")}</div>` : ""}`;
   }
@@ -18999,6 +19142,13 @@ function mountTopButton() {
   }, (v) => {
     const camp = E.campaign();
     if (camp) camp.uiPreferences.spoilers = v;
+  }, async (act, id) => {
+    try {
+      if (act === "force") await E.forceComplete(id);
+      else await E.undoForce(id);
+    } catch (e) {
+      toast("error", e.message);
+    }
   });
   const holder = document.getElementById("top-settings-holder");
   const btn = document.createElement("div");

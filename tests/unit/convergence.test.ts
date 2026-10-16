@@ -139,7 +139,7 @@ describe('convergence', () => {
     expect(st(x).declines.has('medic-ambush')).toBe(true);
     await turn(x, 'I order tea.', 'Tea arrives. [O3]', {});
     const ctx3 = x.model.tasks('draft').slice(-1)[0].input.engineContext as string;
-    expect(ctx3).not.toMatch(/PARTICIPATION OPPORTUNITIES[\s\S]*Ambush of Mira/);
+    expect((ctx3.split('PARTICIPATION OPPORTUNITIES')[1] || '').split('\n\n')[0]).not.toMatch(/Ambush of Mira/);
     // E15: remove the decline (user message) -> opportunity rebuilds
     const idx = x.host.chat.indexOf(declineMsg);
     x.host.remove(idx + 1); // its GM reply

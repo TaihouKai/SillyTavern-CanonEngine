@@ -4,7 +4,7 @@ import type { LoadedPack } from '../domain/pack';
 import { valuesEqual } from '../domain/pack';
 import type { WorldState } from '../domain/reducer';
 import { evalCondition, factAt, triLabel } from '../domain/reducer';
-import { pendingHard, explainCondition } from '../domain/schedule';
+import { pendingHard, explainCondition, situationOf, upcomingRoute } from '../domain/schedule';
 import { formatTick, toTick } from '../domain/time';
 import { newId } from '../domain/util';
 import type { WorldIndex } from '../domain/world-query';
@@ -207,6 +207,7 @@ export async function runPlanning(args: {
       hard_register: scope.register.map((id) => ({ id, deadline: pack.events.get(id)!.when.latest, required: pack.events.get(id)!.required_description })),
       actual_world: args.facts,
       recent_situation: args.situation || '',
+      others_original_situation: upcomingRoute(pack, state, clockTick, 24 * 60).map((u) => ({ id: u.event.id, at: formatTick(u.lo), situation: situationOf(u.event.summary) })),
       deviations: [...state.dispositions].filter(([, d]) => d.disposition !== 'occurred').map(([id, d]) => ({ id, disposition: d.disposition, reason: d.reason })),
       entities: [...pack.entities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind })).concat([...state.runtimeEntities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind }))),
       predicates: [...pack.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values })),
