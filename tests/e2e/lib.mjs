@@ -44,6 +44,9 @@ export async function openST(page) {
 export async function connect(page) {
   await page.evaluate(async (mockUrl) => {
     const $ = window.jQuery;
+    // the analysis connection must be chosen before enabling; the tests use the chat's own (mock) connection
+    const es = SillyTavern.getContext().extensionSettings.canonEngine;
+    if (es && !es.taskProfileId) es.taskProfileId = '__chat__';
     $('#main_api').val('openai').trigger('change');
     await new Promise((r) => setTimeout(r, 200));
     $('#chat_completion_source').val('custom').trigger('change');

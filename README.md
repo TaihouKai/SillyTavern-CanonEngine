@@ -71,7 +71,9 @@ Operational problems are shown out of story: invalid pack, unresolved starting t
 - **导出战役备份** downloads a JSON backup (contains the full pack and hidden/spoiler data). **导入战役备份** restores it into the open chat and revalidates it against the transcript.
 - A chat stays pinned to the pack snapshot it was bound with. To change versions use **更新历史包…**: it previews changed/added/deleted event ids and changed HARD contracts, requires a backup export first, then creates a new binding revision.
 
-## Analysis connection (recommended)
+## Analysis connection (required choice)
+
+A chat can only be enabled after an analysis connection is chosen: either a saved profile or, explicitly, **与当前对话相同** (same as the chat, costly with big models). Chats enabled before this was required keep working and show a reminder.
 
 Each turn the engine makes several internal analysis calls (extract, discover, review, plan) that need careful JSON, not literary quality. You can keep your preferred model for the story and send only those calls to a fast, cheap, non-reasoning model:
 

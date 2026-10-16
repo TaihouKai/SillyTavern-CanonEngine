@@ -4,7 +4,7 @@ import { StHost, StModel, ctx, gen, promptReadyFirst, promptReadyLast, loadStMod
 import { publicClock, installClockEvents } from './api';
 import { HoraeAdapter } from './adapters/horae';
 import { WriterLock } from './adapters/lock';
-import { mountUi, refreshUi, renderMessageDecorations, t } from './ui/ui';
+import { CHAT_PROFILE, mountUi, refreshUi, renderMessageDecorations, t } from './ui/ui';
 import type { OpType } from './runtime/types';
 import { ENGINE_RELEASE } from './runtime/types';
 import { deepClone } from './domain/util';
@@ -135,7 +135,7 @@ async function init() {
   const model = new StModel();
   host = new StHost(model);
   model.horaePresent = !!HoraeAdapter.detect();
-  model.taskProfileId = () => String(globalSettings().taskProfileId || '');
+  model.taskProfileId = () => { const id = String(globalSettings().taskProfileId || ''); return id === CHAT_PROFILE ? '' : id; };
   model.taskExtraBody = () => String(globalSettings().taskExtraBody || '');
   model.taskTemperature = () => { const t = Number(globalSettings().taskTemperature); return Number.isFinite(t) ? t : 0.2; };
   engine = new CanonEngine(host, globalSettings());

@@ -14428,17 +14428,17 @@ function repairItems(root, errors) {
         changed = true;
         continue;
       }
-      for (const [field, aliases] of Object.entries(ITEM_ALIASES[list])) {
-        if (typeof item[field] === "string" && item[field]) continue;
+      for (const [field2, aliases] of Object.entries(ITEM_ALIASES[list])) {
+        if (typeof item[field2] === "string" && item[field2]) continue;
         const alias = aliases.find((a) => typeof item[a] === "string" && item[a]);
         if (alias) {
-          item[field] = item[alias];
+          item[field2] = item[alias];
           if (alias !== "id" && alias !== "entity_id") delete item[alias];
           changed = true;
         }
       }
-      for (const [field, v] of Object.entries(ITEM_DEFAULTS[list](item, i))) if (item[field] === void 0 || item[field] === null) {
-        item[field] = v;
+      for (const [field2, v] of Object.entries(ITEM_DEFAULTS[list](item, i))) if (item[field2] === void 0 || item[field2] === null) {
+        item[field2] = v;
         changed = true;
       }
       if (typeof item.name !== "string" || !item.name.trim()) {
@@ -14457,30 +14457,30 @@ function dropBadItems(root, errors, schema) {
   for (const e of errors) {
     const m = /^\/([a-z_]+)\/(\d+)(?:\/([^/]+)(?:\/(\d+))?)?/.exec(e.instancePath || "");
     if (!m || !DROPPABLE_ITEMS.has(m[1])) continue;
-    const [, list, idxS, field, elemS] = m;
+    const [, list, idxS, field2, elemS] = m;
     const item = root?.[list]?.[Number(idxS)];
     if (!item || typeof item !== "object") continue;
     const itemS = schema?.properties?.[list]?.items || {};
-    const fs = field ? itemS.properties?.[field] : void 0;
+    const fs = field2 ? itemS.properties?.[field2] : void 0;
     const why = `${e.instancePath} ${e.message || ""}`.trim();
-    if (field && fs && field in item) {
+    if (field2 && fs && field2 in item) {
       const types = Array.isArray(fs.type) ? fs.type : [fs.type];
       const nullOk = types.includes("null") || Array.isArray(fs.enum) && fs.enum.includes(null) || Array.isArray(fs.oneOf) && fs.oneOf.some((o) => o.type === "null");
-      if (elemS !== void 0 && Array.isArray(item[field])) {
-        item[field].splice(Number(elemS), 1);
+      if (elemS !== void 0 && Array.isArray(item[field2])) {
+        item[field2].splice(Number(elemS), 1);
         repairNotes.push(`removed a bad element (${why})`);
         changed = true;
         continue;
       }
       if (nullOk) {
-        item[field] = null;
-        repairNotes.push(`set ${list}/${idxS}/${field} to null (${why})`);
+        item[field2] = null;
+        repairNotes.push(`set ${list}/${idxS}/${field2} to null (${why})`);
         changed = true;
         continue;
       }
-      if (!(itemS.required || []).includes(field)) {
-        delete item[field];
-        repairNotes.push(`removed ${list}/${idxS}/${field} (${why})`);
+      if (!(itemS.required || []).includes(field2)) {
+        delete item[field2];
+        repairNotes.push(`removed ${list}/${idxS}/${field2} (${why})`);
         changed = true;
         continue;
       }
@@ -15994,7 +15994,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.27";
+var ENGINE_RELEASE = "1.3.28";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -18265,19 +18265,10 @@ var D = {
   title: { zh: "Canon Engine \u5386\u53F2\u5F15\u64CE", en: "Canon Engine" },
   noChat: { zh: "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u89D2\u8272\u5BF9\u8BDD\uFF0C\u518D\u4E3A\u8BE5\u5BF9\u8BDD\u542F\u7528 Canon Engine\u3002", en: "Open a character chat first, then enable Canon Engine for it." },
   notBound: { zh: "\u6B64\u5BF9\u8BDD\u672A\u542F\u7528 Canon Engine\u3002", en: "Canon Engine is not enabled for this chat." },
-  enable: { zh: "\u4E3A\u6B64\u5BF9\u8BDD\u542F\u7528\uFF08\u5BFC\u5165 .canon.json\uFF09", en: "Enable for this chat (import .canon.json)" },
   inspect: { zh: "\u68C0\u67E5\u9762\u677F", en: "Inspector" },
-  rebuild: { zh: "\u4ECE\u5F53\u524D\u5BF9\u8BDD\u91CD\u5EFA", en: "Rebuild from transcript" },
   retry: { zh: "\u91CD\u8BD5", en: "Retry" },
   cancel: { zh: "\u53D6\u6D88", en: "Cancel" },
-  exportBackup: { zh: "\u5BFC\u51FA\u6218\u5F79\u5907\u4EFD", en: "Export campaign backup" },
-  importBackup: { zh: "\u5BFC\u5165\u6218\u5F79\u5907\u4EFD", en: "Import campaign backup" },
-  updatePack: { zh: "\u66F4\u65B0\u5386\u53F2\u5305\u2026", en: "Update pack\u2026" },
-  disable: { zh: "\u5BF9\u6B64\u5BF9\u8BDD\u505C\u7528", en: "Disable for this chat" },
-  reenable: { zh: "\u91CD\u65B0\u542F\u7528", en: "Re-enable" },
   unbind: { zh: "\u89E3\u9664\u7ED1\u5B9A\uFF08\u5220\u9664\u672C\u5BF9\u8BDD\u7684\u5F15\u64CE\u6570\u636E\uFF09", en: "Unbind (delete engine data for this chat)" },
-  advanced: { zh: "\u9AD8\u7EA7\u8BBE\u7F6E", en: "Advanced settings" },
-  debug: { zh: "\u8C03\u8BD5\u6A21\u5F0F\uFF08\u663E\u793A\u63D0\u793A\u8BCD\u4E0E\u8986\u76D6\u6E05\u5355\uFF09", en: "Debug mode (prompt inspector, coverage manifests)" },
   phase_idle: { zh: "\u5C31\u7EEA", en: "Ready" },
   phase_reconciling: { zh: "\u6574\u7406\u5BF9\u8BDD\u4E2D", en: "Reconciling" },
   phase_planning: { zh: "\u89C4\u5212\u4E2D", en: "Planning" },
@@ -18322,23 +18313,12 @@ var D = {
   graphPick: { zh: "\u70B9\u51FB\u4E8B\u4EF6\u67E5\u770B\u8BE6\u60C5\u3002\u62D6\u52A8\u5E73\u79FB\uFF0C\u6EDA\u8F6E\u7F29\u653E\uFF0CShift+\u6EDA\u8F6E\u6A2A\u5411\u79FB\u52A8\u3002", en: "Click an event for details. Drag to pan, wheel to zoom, Shift+wheel to scroll." },
   graphPackNote: { zh: "\u539F\u4F5C\u53C2\u8003\uFF1A\u5305\u542B\u5168\u90E8\u672A\u6765\u4E8B\u4EF6\uFF08\u5267\u900F\uFF09", en: "Canon reference: includes all future events (spoilers)" },
   graphCurrentNote: { zh: "\u672C\u5C40\u5B9E\u9645\u5386\u53F2\uFF1A\u542B\u4F60\u7684\u884C\u52A8\u9020\u6210\u7684\u6539\u53D8\u4E0E\u672C\u5C40\u65B0\u4E8B\u4EF6", en: "Actual history of this playthrough, including your changes" },
-  library: { zh: "\u5386\u53F2\u5305\u5E93\uFF08\u5DF2\u5BFC\u5165\u7684\u5386\u53F2\u5305\uFF0C\u4FDD\u5B58\u5728 SillyTavern \u6570\u636E\u76EE\u5F55\uFF09", en: "Pack library (saved in the SillyTavern data folder)" },
-  libEmpty: { zh: "\u8FD8\u6CA1\u6709\u4FDD\u5B58\u7684\u5386\u53F2\u5305\u3002\u5BFC\u5165\u4E00\u6B21\u540E\u4F1A\u81EA\u52A8\u4FDD\u5B58\u5728\u8FD9\u91CC\u3002", en: "No saved packs yet. Imported packs are saved here automatically." },
   libEnable: { zh: "\u7528\u6B64\u5305\u542F\u7528", en: "Enable with this pack" },
   libUpdate: { zh: "\u66F4\u65B0\u4E3A\u6B64\u5305\u2026", en: "Update to this pack\u2026" },
   libDelete: { zh: "\u4ECE\u5386\u53F2\u5305\u5E93\u5220\u9664", en: "Remove from library" },
   packOrigin: { zh: "\u5386\u53F2\u5305\u8BF4\u660E\u7684\u7B2C0\u5929", en: "Pack day 0" },
-  taskProfile: { zh: "\u5206\u6790\u7528\u8FDE\u63A5\uFF08\u5185\u90E8\u68C0\u67E5\u7528\u7684\u6A21\u578B\uFF09", en: "Analysis connection (model for internal checks)" },
-  taskProfileSame: { zh: "\u4E0E\u5F53\u524D\u5BF9\u8BDD\u76F8\u540C\uFF08\u9ED8\u8BA4\uFF09", en: "Same as the chat (default)" },
-  taskProfileHint: { zh: "GM \u7684\u6545\u4E8B\u56DE\u590D\u59CB\u7EC8\u4F7F\u7528\u5F53\u524D\u5BF9\u8BDD\u7684\u8FDE\u63A5\u3002\u8FD9\u91CC\u53EA\u51B3\u5B9A\u5F15\u64CE\u5185\u90E8\u7684\u5206\u6790\u8BF7\u6C42\uFF08\u63D0\u53D6\u3001\u6838\u5BF9\u3001\u89C4\u5212\uFF09\u3002\u5EFA\u8BAE\u9009\u4E00\u4E2A\u5FEB\u901F\u3001\u4FBF\u5B9C\u3001\u975E\u63A8\u7406\u7684\u6A21\u578B\u7684\u8FDE\u63A5\u914D\u7F6E\u3002\u5728 SillyTavern \u7684\u201C\u8FDE\u63A5\u914D\u7F6E\u201D\u4E2D\u521B\u5EFA\u914D\u7F6E\u540E\u5373\u53EF\u5728\u6B64\u9009\u62E9\u3002", en: "The GM's story replies always use the chat's connection. This only selects the model for the engine's internal analysis (extraction, checks, planning). A fast, cheap, non-reasoning model is recommended. Create profiles in SillyTavern's Connection Profiles." },
-  replyLength: { zh: "\u56DE\u590D\u957F\u5EA6\uFF08\u53EF\u9009\uFF09", en: "Reply length (optional)" },
   sceneGrouping: { zh: "\u5408\u5E76\u540C\u4E00\u573A\u666F\u7684\u672C\u5C40\u4E8B\u4EF6", en: "Group events of the same scene" },
-  sceneGroupingHint: { zh: "\u5F00\u542F\u540E\uFF0C\u540C\u4E00\u573A\u666F\u91CC\u63A5\u7EED\u53D1\u751F\u7684\u5C0F\u4E8B\uFF08\u540C\u4E00\u5730\u70B9\u3001\u540C\u4E00\u6D3B\u52A8\uFF09\u8BB0\u5728\u540C\u4E00\u4E2A\u672C\u5C40\u4E8B\u4EF6\u6846\u91CC\uFF0C\u800C\u4E0D\u662F\u6BCF\u4EF6\u4E8B\u5404\u5F00\u4E00\u4E2A\u6846\u3002\u6240\u6709\u4E8B\u4EF6\u7167\u5E38\u8BB0\u5F55\uFF0C\u53EA\u662F\u5F52\u5230\u4E00\u8D77\uFF1B\u6362\u5730\u70B9\u3001\u6362\u6D3B\u52A8\u6216\u53D1\u751F\u539F\u4F5C\u4E8B\u4EF6\u65F6\u53E6\u5F00\u65B0\u6846\u3002\u53EA\u5F71\u54CD\u4E4B\u540E\u7684\u56DE\u5408\u3002", en: "When on, consecutive beats of the same scene (same place, same activity) are filed into one event box instead of one box each. Everything is still recorded, just grouped; a new box starts when the place or activity changes or a canon event happens. Affects later turns only." },
   replyLengthPlaceholder: { zh: "\u4F8B\u5982\uFF1A\u6B63\u6587\u7EA6800~1200\u5B57", en: "e.g. about 600-900 words" },
-  replyLengthHint: { zh: "\u5199\u8FDB Canon Engine \u6BCF\u6B21\u751F\u6210\u548C\u4FEE\u6539\u56DE\u590D\u65F6\u7684\u6307\u4EE4\u91CC\uFF0C\u79BB\u751F\u6210\u4F4D\u7F6E\u6700\u8FD1\u3002\u7559\u7A7A\u5219\u4E0D\u52A0\u957F\u5EA6\u8981\u6C42\u3002", en: "Added to Canon Engine instructions for every draft and revision, closest to the generation point. Leave empty for no length instruction." },
-  taskExtraBody: { zh: "\u5206\u6790\u8BF7\u6C42\u7684\u989D\u5916\u53C2\u6570\uFF08YAML\uFF0C\u53EF\u9009\uFF09", en: "Extra parameters for analysis requests (YAML, optional)" },
-  taskExtraBodyHint: { zh: "\u4F1A\u52A0\u5230\u6BCF\u4E2A\u5206\u6790\u8BF7\u6C42\u91CC\uFF08\u53EA\u5BF9\u201C\u81EA\u5B9A\u4E49\uFF08\u517C\u5BB9OpenAI\uFF09\u201D\u8FDE\u63A5\u751F\u6548\uFF09\u3002Venice \u63A8\u7406\u6A21\u578B\u8BF7\u586B\uFF1Avenice_parameters: {disable_thinking: true}", en: "Added to every analysis request (Custom OpenAI-compatible connections). For Venice reasoning models: venice_parameters: {disable_thinking: true}" },
-  taskProfileNone: { zh: "\u6CA1\u6709\u53EF\u7528\u7684\u8FDE\u63A5\u914D\u7F6E\uFF08\u8BF7\u5148\u5728 SillyTavern \u7684\u201C\u8FDE\u63A5\u914D\u7F6E\u201D\u4E2D\u4FDD\u5B58\u4E00\u4E2A\uFF09\u3002", en: "No connection profiles yet (save one in SillyTavern's Connection Profiles first)." },
   lastTurn: { zh: "\u4E0A\u4E00\u56DE\u5408", en: "Last turn" },
   details: { zh: "\u8BE6\u60C5", en: "Details" },
   copy: { zh: "\u590D\u5236", en: "Copy" },
@@ -18382,7 +18362,69 @@ var D = {
   applyUpdate: { zh: "\u5DF2\u5BFC\u51FA\u5907\u4EFD\uFF0C\u5E94\u7528\u66F4\u65B0", en: "Backup exported \u2014 apply update" },
   rebuilding: { zh: "\u6B63\u5728\u68C0\u67E5\u5DF2\u6709\u6D88\u606F\u2026", en: "Examining existing messages\u2026" },
   unsupportedHorae: { zh: "Horae \u517C\u5BB9\u6027\u8BCA\u65AD\uFF1A\u7F3A\u5C11\u63A5\u53E3", en: "Horae compatibility: missing APIs" },
-  pickFile: { zh: "\u9009\u62E9 .canon.json \u6587\u4EF6", en: "Choose a .canon.json file" }
+  pickFile: { zh: "\u9009\u62E9 .canon.json \u6587\u4EF6", en: "Choose a .canon.json file" },
+  enable: { zh: "\u4E3A\u6B64\u5BF9\u8BDD\u542F\u7528\uFF08\u5BFC\u5165 .canon.json\uFF09", en: "Enable for this chat (import .canon.json)" },
+  rebuild: { zh: "\u91CD\u65B0\u68C0\u67E5\u5BF9\u8BDD", en: "Re-check chat" },
+  exportBackup: { zh: "\u5BFC\u51FA\u5907\u4EFD", en: "Export backup" },
+  importBackup: { zh: "\u5BFC\u5165\u5907\u4EFD", en: "Import backup" },
+  updatePack: { zh: "\u66F4\u6362\u5386\u53F2\u5305\u2026", en: "Change pack\u2026" },
+  disable: { zh: "\u6682\u505C\u5F15\u64CE", en: "Pause engine" },
+  reenable: { zh: "\u6062\u590D\u5F15\u64CE", en: "Resume engine" },
+  unbindShort: { zh: "\u89E3\u9664\u7ED1\u5B9A", en: "Unbind" },
+  debug: { zh: "\u8C03\u8BD5\u6A21\u5F0F", en: "Debug mode" },
+  library: { zh: "\u5386\u53F2\u5305\u5E93", en: "Pack library" },
+  libraryTip: { zh: "\u5BFC\u5165\u8FC7\u7684\u5386\u53F2\u5305\u4F1A\u81EA\u52A8\u5B58\u5728\u8FD9\u91CC\uFF0C\u4E0B\u6B21\u7ED9\u522B\u7684\u5BF9\u8BDD\u542F\u7528\u65F6\u76F4\u63A5\u9009\uFF0C\u4E0D\u7528\u518D\u4E0A\u4F20\u3002", en: "Packs you imported are kept here, so you can pick them for other chats without uploading again." },
+  libEmpty: { zh: "\u8FD8\u6CA1\u6709\u4FDD\u5B58\u7684\u5386\u53F2\u5305\u3002\u5BFC\u5165\u4E00\u6B21\u540E\u4F1A\u81EA\u52A8\u5B58\u5728\u8FD9\u91CC\u3002", en: "No saved packs yet. Imported packs are kept here automatically." },
+  secChat: { zh: "\u672C\u5BF9\u8BDD", en: "This chat" },
+  secChatTip: { zh: "\u5F15\u64CE\u53EA\u5728\u4F60\u542F\u7528\u4E86\u5B83\u7684\u5BF9\u8BDD\u91CC\u5DE5\u4F5C\u3002\u6BCF\u4E2A\u5BF9\u8BDD\u5355\u72EC\u542F\u7528\u3001\u5355\u72EC\u4FDD\u5B58\u3002", en: "The engine only works in chats where you enable it. Each chat is enabled and saved on its own." },
+  needProfileFirst: { zh: "\u5148\u5728\u4E0B\u9762\u300C\u5206\u6790\u7528\u8FDE\u63A5\u300D\u91CC\u9009\u4E00\u4E2A\uFF0C\u624D\u80FD\u542F\u7528\u3002", en: "Choose an analysis connection below before enabling." },
+  needProfileTurns: { zh: "\u8FD8\u6CA1\u9009\u300C\u5206\u6790\u7528\u8FDE\u63A5\u300D\uFF1A\u73B0\u5728\u5185\u90E8\u68C0\u67E5\u7528\u7684\u662F\u6545\u4E8B\u6A21\u578B\u3002\u8BF7\u5728\u4E0B\u9762\u9009\u4E00\u4E2A\u3002", en: "No analysis connection chosen: internal checks currently use the story model. Choose one below." },
+  inspectTip: { zh: "\u67E5\u770B\u5F15\u64CE\u8BB0\u4E0B\u7684\u4E8B\u5B9E\u3001\u5386\u53F2\u3001\u504F\u79BB\u548C\u8BA1\u5212\u3002", en: "See the facts, history, changes and plans the engine has recorded." },
+  retryTip: { zh: "\u4E0A\u4E00\u56DE\u5408\u51FA\u9519\u65F6\uFF0C\u70B9\u8FD9\u91CC\u518D\u8BD5\u4E00\u6B21\u3002", en: "If the last turn failed, try again." },
+  rebuildTip: { zh: "\u628A\u6574\u4E2A\u5BF9\u8BDD\u91CD\u65B0\u8BFB\u4E00\u904D\uFF0C\u4FEE\u6B63\u5F15\u64CE\u7684\u8BB0\u5F55\u3002\u6539\u52A8\u8FC7\u7684\u6D88\u606F\u4F1A\u91CD\u65B0\u5206\u6790\u3002", en: "Read the whole chat again and fix the engine records. Changed messages are analyzed again." },
+  exportTip: { zh: "\u628A\u672C\u5BF9\u8BDD\u7684\u5F15\u64CE\u6570\u636E\u5B58\u6210\u6587\u4EF6\u3002\u91CC\u9762\u6709\u5267\u900F\uFF0C\u522B\u968F\u4FBF\u5206\u4EAB\u3002", en: "Save this chat's engine data to a file. It contains spoilers." },
+  importTip: { zh: "\u4ECE\u5907\u4EFD\u6587\u4EF6\u6062\u590D\u672C\u5BF9\u8BDD\u7684\u5F15\u64CE\u6570\u636E\u3002", en: "Restore this chat's engine data from a backup file." },
+  updateTip: { zh: "\u6362\u6210\u65B0\u7248\u672C\u7684\u5386\u53F2\u5305\uFF0C\u5DF2\u7ECF\u73A9\u8FC7\u7684\u5267\u60C5\u4F1A\u4FDD\u7559\u3002", en: "Switch to a newer pack version. What you already played is kept." },
+  toggleTip: { zh: "\u6682\u505C\u540E\u7167\u5E38\u804A\u5929\uFF0C\u53EA\u662F\u5F15\u64CE\u4E0D\u518D\u68C0\u67E5\u3002\u6570\u636E\u90FD\u4F1A\u4FDD\u7559\u3002", en: "While paused you chat normally without checks. Data is kept." },
+  unbindTip: { zh: "\u5220\u9664\u672C\u5BF9\u8BDD\u7684\u5168\u90E8\u5F15\u64CE\u6570\u636E\u3002\u804A\u5929\u6D88\u606F\u4E0D\u53D7\u5F71\u54CD\u3002", en: "Delete all engine data for this chat. Chat messages are not touched." },
+  secModel: { zh: "\u6A21\u578B\u4E0E\u56DE\u590D", en: "Model and replies" },
+  taskProfile: { zh: "\u5206\u6790\u7528\u8FDE\u63A5", en: "Analysis connection" },
+  taskProfilePick: { zh: "\u2014 \u8BF7\u9009\u62E9 \u2014", en: "\u2014 choose \u2014" },
+  taskProfileSame: { zh: "\u4E0E\u5F53\u524D\u5BF9\u8BDD\u76F8\u540C", en: "Same as the chat" },
+  taskProfileShort: { zh: "\u5F15\u64CE\u5185\u90E8\u68C0\u67E5\u7528\u7684\u6A21\u578B\u3002", en: "The model the engine uses for its own checks." },
+  taskProfileMissing: { zh: "\u5FC5\u987B\u9009\u4E00\u4E2A\u3002\u63A8\u8350\u53C8\u5FEB\u53C8\u4FBF\u5B9C\u3001\u4E0D\u5E26\u601D\u8003\u7684\u6A21\u578B\u3002", en: "Required. A fast, cheap model without thinking is best." },
+  taskProfileNone: { zh: "\u8FD8\u6CA1\u6709\u8FDE\u63A5\u914D\u7F6E\uFF1A\u5148\u5728\u9876\u90E8\u63D2\u5934\u56FE\u6807 \u2192 \u8FDE\u63A5\u914D\u7F6E \u91CC\u4FDD\u5B58\u4E00\u4E2A\u3002", en: "No connection profiles yet: save one under the plug icon \u2192 Connection Profiles." },
+  taskProfileSameWarn: { zh: "\u5185\u90E8\u68C0\u67E5\u4E5F\u4F1A\u7528\u6545\u4E8B\u6A21\u578B\u3002\u5982\u679C\u5B83\u662F\u5927\u6A21\u578B\uFF0C\u4F1A\u5F88\u8D39\u94B1\u3002", en: "Internal checks will also use the story model. Costly if it is a big model." },
+  taskProfileTip: { zh: "\u6545\u4E8B\u56DE\u590D\u6C38\u8FDC\u7528\u5F53\u524D\u5BF9\u8BDD\u7684\u8FDE\u63A5\uFF0C\u8FD9\u91CC\u4E0D\u5F71\u54CD\u5B83\u3002\n\u5F15\u64CE\u6BCF\u56DE\u5408\u8FD8\u8981\u505A\u51E0\u6B21\u5185\u90E8\u68C0\u67E5\uFF08\u8BFB\u61C2\u5267\u60C5\u3001\u6838\u5BF9\u539F\u4F5C\u3001\u5B89\u6392\u540E\u7EED\uFF09\uFF0C\u8FD9\u4E9B\u8BF7\u6C42\u8D70\u8FD9\u91CC\u9009\u7684\u8FDE\u63A5\u3002\u63A8\u8350\u53C8\u5FEB\u53C8\u4FBF\u5B9C\u3001\u4E0D\u5E26\u601D\u8003\u7684\u6A21\u578B\u3002\n\u5728\u9876\u90E8\u63D2\u5934\u56FE\u6807 \u2192 \u8FDE\u63A5\u914D\u7F6E \u91CC\u4FDD\u5B58\u4E00\u4E2A\u914D\u7F6E\uFF0C\u5C31\u80FD\u5728\u8FD9\u91CC\u9009\u5230\u3002", en: "Story replies always use the chat's own connection; this does not change them.\nEach turn the engine also runs a few internal checks (understanding the story, comparing with canon, planning ahead). Those go to the connection chosen here. A fast, cheap model without thinking is best.\nSave a profile under the plug icon \u2192 Connection Profiles to see it here." },
+  taskExtraBody: { zh: "\u5206\u6790\u8BF7\u6C42\u7684\u989D\u5916\u53C2\u6570", en: "Extra request parameters" },
+  taskExtraBodyShort: { zh: "\u53EF\u9009\uFF0C\u4E00\u822C\u7559\u7A7A\u3002", en: "Optional, usually empty." },
+  taskExtraBodyTip: { zh: "\u4F1A\u52A0\u8FDB\u6BCF\u4E2A\u5185\u90E8\u68C0\u67E5\u8BF7\u6C42\uFF08\u53EA\u5BF9\u201C\u81EA\u5B9A\u4E49\uFF08\u517C\u5BB9OpenAI\uFF09\u201D\u8FDE\u63A5\u6709\u6548\uFF09\u3002\n\u7528 Venice \u7684\u601D\u8003\u6A21\u578B\u65F6\u586B\uFF1Avenice_parameters: {disable_thinking: true}\uFF0C\u5173\u6389\u601D\u8003\uFF0C\u66F4\u5FEB\u66F4\u7701\u94B1\u3002", en: "Added to every internal check request (Custom OpenAI-compatible connections only).\nFor Venice thinking models: venice_parameters: {disable_thinking: true} turns thinking off, which is faster and cheaper." },
+  replyLength: { zh: "\u56DE\u590D\u957F\u5EA6", en: "Reply length" },
+  replyLengthShort: { zh: "\u53EF\u9009\uFF0C\u7559\u7A7A\u5C31\u4E0D\u9650\u5236\u3002", en: "Optional; leave empty for no limit." },
+  replyLengthTip: { zh: "\u5F15\u64CE\u6BCF\u6B21\u8BA9\u6A21\u578B\u5199\u56DE\u590D\u6216\u6539\u56DE\u590D\u65F6\uFF0C\u90FD\u4F1A\u9644\u4E0A\u8FD9\u53E5\u8981\u6C42\u3002", en: "Added to the instructions every time the engine asks the model to write or revise a reply." },
+  secEvents: { zh: "\u4E8B\u4EF6\u8BB0\u5F55", en: "Event log" },
+  sceneGroupingTip: { zh: "\u5F00\u542F\u540E\uFF0C\u540C\u4E00\u4E2A\u5730\u65B9\u3001\u540C\u4E00\u4EF6\u4E8B\u91CC\u63A5\u8FDE\u53D1\u751F\u7684\u5C0F\u4E8B\u4F1A\u8BB0\u6210\u4E00\u4E2A\u4E8B\u4EF6\uFF0C\u5386\u53F2\u56FE\u66F4\u6E05\u723D\u3002\n\u6362\u5730\u70B9\u3001\u6362\u6D3B\u52A8\u6216\u53D1\u751F\u539F\u4F5C\u4E8B\u4EF6\u65F6\uFF0C\u4F1A\u53E6\u8D77\u4E00\u4E2A\u3002\u53EA\u5F71\u54CD\u4E4B\u540E\u7684\u56DE\u5408\u3002", en: "When on, small things that happen one after another in the same place and activity are recorded as one event, keeping the history graph tidy.\nA new one starts when the place or activity changes or a canon event happens. Affects later turns only." },
+  advanced: { zh: "\u9AD8\u7EA7\u8BBE\u7F6E", en: "Advanced settings" },
+  advancedShort: { zh: "\u4E00\u822C\u4E0D\u7528\u6539", en: "usually leave as is" },
+  adv_maxRepairs: { zh: "\u56DE\u590D\u6700\u591A\u6539\u5199\u51E0\u6B21", en: "Max rewrites per reply" },
+  adv_maxRepairsTip: { zh: "\u56DE\u590D\u548C\u539F\u4F5C\u6216\u524D\u6587\u5BF9\u4E0D\u4E0A\u65F6\uFF0C\u5F15\u64CE\u4F1A\u8BA9\u6A21\u578B\u6539\u5199\u3002\u6B21\u6570\u8D8A\u591A\u8D8A\u51C6\uFF0C\u4E5F\u8D8A\u6162\u8D8A\u8D39\u94B1\u3002", en: "When a reply doesn't fit canon or earlier events, the engine asks for a rewrite. More tries are more accurate but slower and costlier." },
+  adv_maxOrdinaryPlanner: { zh: "\u89C4\u5212\u6700\u591A\u91CD\u8BD5\u51E0\u6B21", en: "Max planning retries" },
+  adv_maxOrdinaryPlannerTip: { zh: "\u5F15\u64CE\u5B89\u6392\u540E\u7EED\u5267\u60C5\u65F6\uFF0C\u8BA1\u5212\u4E0D\u5408\u683C\u5C31\u91CD\u8BD5\uFF0C\u6700\u591A\u8FD9\u4E48\u591A\u6B21\u3002", en: "When planning what happens next, a bad plan is retried up to this many times." },
+  adv_forcedPlannerAttempt: { zh: "\u8BA1\u5212\u90FD\u5931\u8D25\u65F6\uFF0C\u5141\u8BB8\u5F3A\u884C\u62C9\u56DE\u539F\u4F5C", en: "If plans fail, allow forcing canon back" },
+  adv_forcedPlannerAttemptTip: { zh: "\u666E\u901A\u5B89\u6392\u90FD\u4E0D\u884C\u65F6\uFF0C\u5141\u8BB8\u7528\u5DE7\u5408\u3001\u5916\u529B\u7B49\u975E\u5E38\u624B\u6BB5\uFF0C\u8BA9\u539F\u4F5C\u4E00\u5B9A\u4F1A\u53D1\u751F\u7684\u4E8B\u4EF6\u7167\u5E38\u53D1\u751F\u3002", en: "When ordinary plans fail, allow unusual means (coincidence, outside forces) so must-happen canon events still happen." },
+  adv_budgetChars: { zh: "\u6BCF\u56DE\u5408\u8D44\u6599\u4E0A\u9650\uFF08\u5B57\u7B26\uFF09", en: "Context limit per turn (chars)" },
+  adv_budgetCharsTip: { zh: "\u6BCF\u56DE\u5408\u7ED9\u6A21\u578B\u770B\u7684\u5267\u60C5\u8D44\u6599\u6700\u591A\u591A\u5C11\u5B57\u3002\u4E0D\u591F\u65F6\u4F1A\u62A5\u9519\u63D0\u9192\u4F60\u8C03\u5927\u3002", en: "How much story material the model gets each turn. If it is not enough, you get an error telling you to raise it." },
+  adv_horizonMinutes: { zh: "\u63D0\u524D\u63D0\u9192\u591A\u4E45\uFF08\u5267\u60C5\u5206\u949F\uFF09", en: "Look-ahead (story minutes)" },
+  adv_horizonMinutesTip: { zh: "\u539F\u4F5C\u5FC5\u53D1\u751F\u7684\u4E8B\u4EF6\u5728\u8FD9\u4E48\u4E45\u4E4B\u5185\u8981\u5230\u65F6\uFF0C\u4F1A\u63D0\u524D\u544A\u8BC9 GM\u3002\u9ED8\u8BA4 4320 = 3 \u5929\u3002", en: "Must-happen canon events coming within this time are shown to the GM in advance. Default 4320 = 3 days." },
+  adv_taskTimeoutMs: { zh: "\u5185\u90E8\u68C0\u67E5\u8D85\u65F6\uFF08\u6BEB\u79D2\uFF09", en: "Check timeout (ms)" },
+  adv_taskTimeoutMsTip: { zh: "\u4E00\u6B21\u5185\u90E8\u68C0\u67E5\u8D85\u8FC7\u8FD9\u4E48\u4E45\u5C31\u653E\u5F03\u3002300000 = 5 \u5206\u949F\u3002", en: "An internal check gives up after this long. 300000 = 5 minutes." },
+  adv_draftTimeoutMs: { zh: "\u56DE\u590D\u8D85\u65F6\uFF08\u6BEB\u79D2\uFF09", en: "Reply timeout (ms)" },
+  adv_draftTimeoutMsTip: { zh: "\u5199\u4E00\u6761\u56DE\u590D\u8D85\u8FC7\u8FD9\u4E48\u4E45\u5C31\u653E\u5F03\u3002300000 = 5 \u5206\u949F\u3002", en: "Writing a reply gives up after this long. 300000 = 5 minutes." },
+  adv_taskTemperature: { zh: "\u5185\u90E8\u68C0\u67E5\u6E29\u5EA6", en: "Check temperature" },
+  adv_taskTemperatureTip: { zh: "\u5185\u90E8\u68C0\u67E5\u7684\u968F\u673A\u7A0B\u5EA6\u3002\u4F4E\u4E00\u70B9\u66F4\u7A33\u5B9A\uFF0C\u4E00\u822C\u4E0D\u7528\u6539\u3002", en: "How random internal checks are. Lower is steadier; usually leave it." },
+  debugTip: { zh: "\u5728\u68C0\u67E5\u9762\u677F\u91CC\u591A\u663E\u793A\u63D0\u793A\u8BCD\u7B49\u6280\u672F\u4FE1\u606F\uFF0C\u6392\u67E5\u95EE\u9898\u65F6\u7528\u3002", en: "Shows prompts and other technical details in the Inspector, for troubleshooting." },
+  uiLang: { zh: "\u754C\u9762\u8BED\u8A00", en: "Language" },
+  gmConflictShort: { zh: "GM \u89D2\u8272\u5361\u91CC\u6709\u65E7\u7684\u201C\u5386\u53F2\u770B\u4E16\u754C\u4E66\u201D\u89C4\u5219\u3002", en: 'The GM card has an old "history comes from lore" rule.' }
 };
 function t(key) {
   const e = D[key];
@@ -18831,6 +18873,7 @@ async function removeFromLibrary(e) {
 // src/ui/ui.ts
 var E;
 var H;
+var CHAT_PROFILE = "__chat__";
 var getSettings;
 var getLock;
 var inspectorEl = null;
@@ -18955,6 +18998,7 @@ function mountSettings() {
     <div class="inline-drawer-toggle inline-drawer-header"><b>${t("title")}</b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div>
     <div class="inline-drawer-content canon-settings-body"></div></div>`;
   root.appendChild(wrap);
+  installTips();
   wrap.addEventListener("click", onSettingsClick);
   wrap.addEventListener("change", onSettingsChange);
   if (!document.getElementById("canon-engine-file")) {
@@ -18975,65 +19019,133 @@ function renderSettings() {
   const camp = E.campaign();
   const s = getSettings();
   const hd = HoraeAdapter.diagnose();
-  const lines = [];
-  if (H.isGroup()) lines.push(`<div class="canon-note warn">${t("groupUnsupported")}</div>`);
-  const lib = listLibrary();
-  const libRows = (bound) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc2(e.file)}"><b>${esc2(e.title)}</b> v${esc2(e.version)} \xB7 ${esc2(e.hash.slice(0, 8))} \xB7 ${Math.round(e.size / 1024)} KB</span>
-      ${bound ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t("libUpdate")}</button>` : `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}">${t("libEnable")}</button>`}
-      <button class="menu_button canon-btn" data-act="lib-del" data-i="${i}" title="${t("libDelete")}">\u2715</button></div>`).join("");
-  if (!H.chatId()) {
-    lines.push(`<div class="canon-note warn">${t("noChat")}</div>`);
-    if (lib.length) lines.push(`<details class="canon-lib"><summary>${t("library")} (${lib.length})</summary>${libRows(true).replace(/<button[^>]*data-act="lib-update"[^>]*>[^<]*<\/button>/g, "")}</details>`);
-  } else if (!camp) {
-    lines.push(`<div>${t("notBound")}</div>`);
-    lines.push(`<div class="canon-lib"><div class="canon-lib-head">${t("library")}</div>${lib.length ? libRows(false) : `<div class="canon-note">${t("libEmpty")}</div>`}</div>`);
-    lines.push(`<button class="menu_button" data-act="enable">${t("enable")}</button>`);
-  } else {
-    let title = camp.packSnapshot.title;
-    lines.push(`<div><b>${esc2(title)}</b> v${esc2(camp.packVersion)} \xB7 hash ${esc2(camp.packHash.slice(0, 10))} \xB7 rev ${camp.revision}${camp.enabled ? "" : " \xB7 " + t("phase_disabled")}</div>`);
-    lines.push(`<div class="canon-row">
-      <button class="menu_button" data-act="inspect">${t("inspect")}</button>
-      <button class="menu_button" data-act="rebuild">${t("rebuild")}</button>
-      <button class="menu_button" data-act="retry">${t("retry")}</button>
-      <button class="menu_button" data-act="export">${t("exportBackup")}</button>
-      <button class="menu_button" data-act="import">${t("importBackup")}</button>
-      <button class="menu_button" data-act="update">${t("updatePack")}</button>
-      <button class="menu_button" data-act="toggle">${camp.enabled ? t("disable") : t("reenable")}</button>
-      <button class="menu_button" data-act="unbind">${t("unbind")}</button></div>`);
-    if (lib.length) lines.push(`<details class="canon-lib"><summary>${t("library")} (${lib.length})</summary>${libRows(true)}</details>`);
-  }
+  const profileOk = !!s.taskProfileId;
+  const out = [];
+  if (H.isGroup()) out.push(`<div class="canon-note warn">${t("groupUnsupported")}</div>`);
   const comp = detectCompetingLore();
-  if (comp.books.length) lines.push(`<div class="canon-note warn">${t("competing")} ${comp.books.map(esc2).join(", ")}<br>${t("competingHint")}</div>`);
-  if (comp.gmRule) lines.push(`<div class="canon-note warn">${t("gmConflict")}</div>`);
-  if (hd.version && !hd.ok) lines.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc2(hd.missing.join(", "))}</div>`);
-  lines.push(profileSelect(s.taskProfileId || ""));
-  lines.push(`<label class="canon-len">${t("replyLength")} <input type="text" class="text_pole" data-set="replyLength" value="${esc2(String(s.replyLength || ""))}" placeholder="${esc2(t("replyLengthPlaceholder"))}"></label><div class="canon-note">${t("replyLengthHint")}</div>`);
-  lines.push(`<label class="canon-group"><input type="checkbox" data-set="sceneGrouping" ${s.sceneGrouping ? "checked" : ""}> ${t("sceneGrouping")}</label><div class="canon-note">${t("sceneGroupingHint")}</div>`);
-  lines.push(`<details><summary>${t("advanced")}</summary><div class="canon-adv">
-    ${num("maxRepairs", s.maxRepairs)}${num("maxOrdinaryPlanner", s.maxOrdinaryPlanner)}${num("budgetChars", s.budgetChars)}${num("taskTimeoutMs", s.taskTimeoutMs)}${num("draftTimeoutMs", s.draftTimeoutMs)}${num("horizonMinutes", s.horizonMinutes)}${num("taskTemperature", s.taskTemperature)}
-    <label><input type="checkbox" data-set="forcedPlannerAttempt" ${s.forcedPlannerAttempt ? "checked" : ""}> forcedPlannerAttempt</label>
-    <label><input type="checkbox" data-set="debug" ${s.debug ? "checked" : ""}> ${t("debug")}</label>
-    <label>UI <select data-set="uiLang"><option value="zh" ${s.uiLang !== "en" ? "selected" : ""}>\u4E2D\u6587</option><option value="en" ${s.uiLang === "en" ? "selected" : ""}>English</option></select></label>
-    </div></details>`);
-  body.innerHTML = lines.join("");
+  if (comp.books.length) out.push(`<div class="canon-note warn">${t("competing")} ${comp.books.map(esc2).join(", ")} ${tip("competingHint")}</div>`);
+  if (comp.gmRule) out.push(`<div class="canon-note warn">${t("gmConflictShort")} ${tip("gmConflict")}</div>`);
+  if (hd.version && !hd.ok) out.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc2(hd.missing.join(", "))}</div>`);
+  const lib = listLibrary();
+  const libRows = (mode) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc2(e.file)}"><b>${esc2(e.title)}</b> v${esc2(e.version)} \xB7 ${Math.round(e.size / 1024)} KB</span>
+      ${mode === "update" ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t("libUpdate")}</button>` : ""}
+      ${mode === "enable" ? `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}" ${profileOk ? "" : "disabled"}>${t("libEnable")}</button>` : ""}
+      <button class="menu_button canon-btn" data-act="lib-del" data-i="${i}" title="${t("libDelete")}">\u2715</button></div>`).join("");
+  const chat = [];
+  if (!H.chatId()) {
+    chat.push(`<div class="canon-hint">${t("noChat")}</div>`);
+    if (lib.length) chat.push(`<details class="canon-lib"><summary>${t("library")} (${lib.length}) ${tip("libraryTip")}</summary>${libRows("none")}</details>`);
+  } else if (!camp) {
+    chat.push(`<div class="canon-hint">${t("notBound")}</div>`);
+    if (!profileOk) chat.push(`<div class="canon-note warn">${t("needProfileFirst")}</div>`);
+    chat.push(`<div class="canon-lib"><div class="canon-lib-head">${t("library")} ${tip("libraryTip")}</div>${lib.length ? libRows("enable") : `<div class="canon-hint">${t("libEmpty")}</div>`}</div>`);
+    chat.push(`<div class="canon-btns"><button class="menu_button" data-act="enable" ${profileOk ? "" : "disabled"}>${t("enable")}</button></div>`);
+  } else {
+    chat.push(`<div class="canon-pack"><b>${esc2(camp.packSnapshot.title)}</b> <span>v${esc2(camp.packVersion)}</span>${camp.enabled ? "" : ` <span class="canon-tag">${t("phase_disabled")}</span>`}</div>`);
+    if (!profileOk) chat.push(`<div class="canon-note warn">${t("needProfileTurns")}</div>`);
+    const btn = (act, label, tipKey, cls = "") => `<button class="menu_button ${cls}" data-act="${act}" title="${esc2(t(tipKey))}">${label}</button>`;
+    chat.push(`<div class="canon-btns">
+      ${btn("inspect", t("inspect"), "inspectTip")}${btn("retry", t("retry"), "retryTip")}${btn("rebuild", t("rebuild"), "rebuildTip")}</div>
+      <div class="canon-btns">${btn("export", t("exportBackup"), "exportTip")}${btn("import", t("importBackup"), "importTip")}${btn("update", t("updatePack"), "updateTip")}</div>
+      <div class="canon-btns">${btn("toggle", camp.enabled ? t("disable") : t("reenable"), "toggleTip")}${btn("unbind", t("unbindShort"), "unbindTip", "canon-danger")}</div>`);
+    if (lib.length) chat.push(`<details class="canon-lib"><summary>${t("library")} (${lib.length}) ${tip("libraryTip")}</summary>${libRows("update")}</details>`);
+  }
+  out.push(card(t("secChat"), "secChatTip", chat.join("")));
+  out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc2(String(s.replyLength || ""))}" placeholder="${esc2(t("replyLengthPlaceholder"))}">`, t("replyLengthShort"))));
+  out.push(card(t("secEvents"), "", check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip")));
+  const adv = [
+    num("maxRepairs", s.maxRepairs),
+    num("maxOrdinaryPlanner", s.maxOrdinaryPlanner),
+    check("forcedPlannerAttempt", !!s.forcedPlannerAttempt, t("adv_forcedPlannerAttempt"), "adv_forcedPlannerAttemptTip"),
+    num("budgetChars", s.budgetChars),
+    num("horizonMinutes", s.horizonMinutes),
+    num("taskTimeoutMs", s.taskTimeoutMs),
+    num("draftTimeoutMs", s.draftTimeoutMs),
+    num("taskTemperature", s.taskTemperature),
+    check("debug", !!s.debug, t("debug"), "debugTip"),
+    `<div class="canon-frow"><span class="canon-lbl">${t("uiLang")}</span><select class="text_pole canon-small" data-set="uiLang"><option value="zh" ${s.uiLang !== "en" ? "selected" : ""}>\u4E2D\u6587</option><option value="en" ${s.uiLang === "en" ? "selected" : ""}>English</option></select></div>`
+  ];
+  out.push(`<details class="canon-card canon-adv"><summary class="canon-card-title">${t("advanced")} <span class="canon-sub">${t("advancedShort")}</span></summary>${adv.join("")}</details>`);
+  body.innerHTML = out.join("");
 }
-function profileSelect(current) {
+function tip(key) {
+  return key ? `<span class="canon-info" tabindex="0" role="button" aria-label="${esc2(t(key))}" data-tip="${esc2(t(key))}"><i class="fa-solid fa-circle-info"></i></span>` : "";
+}
+function card(title, tipKey, inner) {
+  return `<div class="canon-card"><div class="canon-card-title">${title} ${tip(tipKey)}</div>${inner}</div>`;
+}
+function field(label, tipKey, control, hint = "") {
+  return `<div class="canon-field"><div class="canon-lbl">${label} ${tip(tipKey)}</div>${control}${hint ? `<div class="canon-hint">${hint}</div>` : ""}</div>`;
+}
+function check(key, on, label, tipKey) {
+  return `<div class="canon-frow"><label class="checkbox_label canon-check"><input type="checkbox" data-set="${key}" ${on ? "checked" : ""}><span>${label}</span></label>${tip(tipKey)}</div>`;
+}
+function num(key, v) {
+  return `<div class="canon-frow"><span class="canon-lbl">${t("adv_" + key)} ${tip("adv_" + key + "Tip")}</span><input type="number" class="text_pole canon-small" data-set="${key}" value="${v}"></div>`;
+}
+function profileField(current) {
   let profiles = [];
   try {
     profiles = ctx().ConnectionManagerRequestService?.getSupportedProfiles?.() || [];
   } catch {
     profiles = [];
   }
-  const missing = current && !profiles.some((p) => p.id === current);
-  const opts = [`<option value="">${t("taskProfileSame")}</option>`].concat(profiles.map((p) => `<option value="${esc2(p.id)}" ${p.id === current ? "selected" : ""}>${esc2(p.name)}${p.model ? ` \xB7 ${esc2(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc2(current)}" selected>\u26A0 ${esc2(current)}</option>`] : []);
+  const missing = current && current !== CHAT_PROFILE && !profiles.some((p) => p.id === current);
+  const opts = [`<option value="" ${current ? "" : "selected"} disabled>${t("taskProfilePick")}</option>`].concat(profiles.map((p) => `<option value="${esc2(p.id)}" ${p.id === current ? "selected" : ""}>${esc2(p.name)}${p.model ? ` \xB7 ${esc2(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc2(current)}" selected>\u26A0 ${esc2(current)}</option>`] : []).concat([`<option value="${CHAT_PROFILE}" ${current === CHAT_PROFILE ? "selected" : ""}>${t("taskProfileSame")}</option>`]);
+  const hint = !current ? `<div class="canon-hint warn">${profiles.length ? t("taskProfileMissing") : t("taskProfileNone")}</div>` : current === CHAT_PROFILE ? `<div class="canon-hint warn">${t("taskProfileSameWarn")}</div>` : `<div class="canon-hint">${t("taskProfileShort")}</div>`;
   const extra = String(getSettings().taskExtraBody || "");
-  return `<div class="canon-profile"><label>${t("taskProfile")} <select class="text_pole" data-set="taskProfileId">${opts.join("")}</select></label>
-    <div class="canon-note">${profiles.length ? t("taskProfileHint") : t("taskProfileNone")}</div>
-    ${current ? `<label>${t("taskExtraBody")} <textarea class="text_pole canon-extra" rows="2" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc2(extra)}</textarea></label>
-    <div class="canon-note">${t("taskExtraBodyHint")}</div>` : ""}</div>`;
+  const profileUsed = current && current !== CHAT_PROFILE;
+  return `<div class="canon-field canon-profile${current ? "" : " canon-required"}"><div class="canon-lbl">${t("taskProfile")} ${tip("taskProfileTip")}</div>
+    <select class="text_pole" data-set="taskProfileId">${opts.join("")}</select>${hint}</div>
+    ${profileUsed ? field(t("taskExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc2(extra)}</textarea>`, t("taskExtraBodyShort")) : ""}`;
 }
-function num(key, v) {
-  return `<label class="canon-num">${key} <input type="number" class="text_pole" data-set="${key}" value="${v}"></label>`;
+var tipEl = null;
+var tipFor = null;
+function installTips() {
+  if (tipEl) return;
+  tipEl = document.createElement("div");
+  tipEl.className = "canon-tip";
+  tipEl.style.display = "none";
+  document.body.appendChild(tipEl);
+  const show = (el) => {
+    tipFor = el;
+    tipEl.textContent = el.dataset.tip || "";
+    tipEl.style.display = "block";
+    const r = el.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    const left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8));
+    const top = r.bottom + 6 + h > window.innerHeight - 8 ? r.top - h - 6 : r.bottom + 6;
+    tipEl.style.left = `${left}px`;
+    tipEl.style.top = `${Math.max(8, top)}px`;
+  };
+  const hide = () => {
+    tipFor = null;
+    tipEl.style.display = "none";
+  };
+  const icon = (ev) => ev.target?.closest?.(".canon-info");
+  document.addEventListener("mouseover", (ev) => {
+    const el = icon(ev);
+    if (el) show(el);
+  });
+  document.addEventListener("mouseout", (ev) => {
+    if (icon(ev) && tipFor && !tipFor.contains(document.activeElement)) hide();
+  });
+  document.addEventListener("focusin", (ev) => {
+    const el = icon(ev);
+    if (el) show(el);
+  });
+  document.addEventListener("focusout", (ev) => {
+    if (icon(ev)) hide();
+  });
+  document.addEventListener("click", (ev) => {
+    const el = icon(ev);
+    if (el) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (tipFor === el && tipEl.style.display === "block") hide();
+      else show(el);
+    } else if (tipFor) hide();
+  }, true);
+  window.addEventListener("scroll", hide, true);
 }
 var fileMode = "enable";
 async function onSettingsClick(ev) {
@@ -19376,11 +19488,11 @@ function detectCompetingLore() {
     const charBook = c.characters?.[c.characterId]?.data?.extensions?.world;
     for (const b of [...sel, ...global, charBook].filter(Boolean)) if (re.test(String(b))) books.add(String(b));
     const ch = c.characters?.[c.characterId];
-    const card = `${ch?.description || ""}
+    const card2 = `${ch?.description || ""}
 ${ch?.data?.system_prompt || ""}
 ${ch?.personality || ""}
 ${ch?.scenario || ""}`;
-    const gmRule = /(世界书|World ?Info|lorebook)[^\n]{0,40}(历史|时间线|history|timeline)|(历史|时间线|history|timeline)[^\n]{0,40}(世界书|World ?Info|lorebook)/i.test(card);
+    const gmRule = /(世界书|World ?Info|lorebook)[^\n]{0,40}(历史|时间线|history|timeline)|(历史|时间线|history|timeline)[^\n]{0,40}(世界书|World ?Info|lorebook)/i.test(card2);
     return { books: [...books], gmRule };
   } catch {
     return { books: [...books], gmRule: false };
@@ -19612,7 +19724,10 @@ async function init() {
   const model = new StModel();
   host = new StHost(model);
   model.horaePresent = !!HoraeAdapter.detect();
-  model.taskProfileId = () => String(globalSettings().taskProfileId || "");
+  model.taskProfileId = () => {
+    const id = String(globalSettings().taskProfileId || "");
+    return id === CHAT_PROFILE ? "" : id;
+  };
   model.taskExtraBody = () => String(globalSettings().taskExtraBody || "");
   model.taskTemperature = () => {
     const t2 = Number(globalSettings().taskTemperature);

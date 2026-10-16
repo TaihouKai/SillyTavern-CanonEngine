@@ -17,6 +17,8 @@ export { t };
 /* eslint-disable @typescript-eslint/no-explicit-any */
 let E: CanonEngine;
 let H: StHost;
+/** taskProfileId value for "analysis uses the chat's own connection", chosen explicitly ('' = not chosen yet). */
+export const CHAT_PROFILE = '__chat__';
 let getSettings: () => EngineSettings & { inspectorOpen: boolean; uiLang?: string };
 let getLock: () => WriterLock | null;
 let inspectorEl: HTMLElement | null = null;
@@ -135,6 +137,7 @@ function mountSettings() {
     <div class="inline-drawer-toggle inline-drawer-header"><b>${t('title')}</b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div>
     <div class="inline-drawer-content canon-settings-body"></div></div>`;
   root.appendChild(wrap);
+  installTips();
   wrap.addEventListener('click', onSettingsClick);
   wrap.addEventListener('change', onSettingsChange);
   // The file input lives outside the re-rendered drawer body: the drawer is redrawn while the
@@ -153,65 +156,126 @@ function renderSettings() {
   const camp = E.campaign();
   const s = getSettings();
   const hd = HoraeAdapter.diagnose();
-  const lines: string[] = [];
-  if (H.isGroup()) lines.push(`<div class="canon-note warn">${t('groupUnsupported')}</div>`);
-  const lib = listLibrary();
-  const libRows = (bound: boolean) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc(e.file)}"><b>${esc(e.title)}</b> v${esc(e.version)} · ${esc(e.hash.slice(0, 8))} · ${Math.round(e.size / 1024)} KB</span>
-      ${bound ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t('libUpdate')}</button>` : `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}">${t('libEnable')}</button>`}
-      <button class="menu_button canon-btn" data-act="lib-del" data-i="${i}" title="${t('libDelete')}">✕</button></div>`).join('');
-  if (!H.chatId()) {
-    lines.push(`<div class="canon-note warn">${t('noChat')}</div>`);
-    if (lib.length) lines.push(`<details class="canon-lib"><summary>${t('library')} (${lib.length})</summary>${libRows(true).replace(/<button[^>]*data-act="lib-update"[^>]*>[^<]*<\/button>/g, '')}</details>`);
-  } else if (!camp) {
-    lines.push(`<div>${t('notBound')}</div>`);
-    lines.push(`<div class="canon-lib"><div class="canon-lib-head">${t('library')}</div>${lib.length ? libRows(false) : `<div class="canon-note">${t('libEmpty')}</div>`}</div>`);
-    lines.push(`<button class="menu_button" data-act="enable">${t('enable')}</button>`);
-  } else {
-    let title = camp.packSnapshot.title;
-    lines.push(`<div><b>${esc(title)}</b> v${esc(camp.packVersion)} · hash ${esc(camp.packHash.slice(0, 10))} · rev ${camp.revision}${camp.enabled ? '' : ' · ' + t('phase_disabled')}</div>`);
-    lines.push(`<div class="canon-row">
-      <button class="menu_button" data-act="inspect">${t('inspect')}</button>
-      <button class="menu_button" data-act="rebuild">${t('rebuild')}</button>
-      <button class="menu_button" data-act="retry">${t('retry')}</button>
-      <button class="menu_button" data-act="export">${t('exportBackup')}</button>
-      <button class="menu_button" data-act="import">${t('importBackup')}</button>
-      <button class="menu_button" data-act="update">${t('updatePack')}</button>
-      <button class="menu_button" data-act="toggle">${camp.enabled ? t('disable') : t('reenable')}</button>
-      <button class="menu_button" data-act="unbind">${t('unbind')}</button></div>`);
-    if (lib.length) lines.push(`<details class="canon-lib"><summary>${t('library')} (${lib.length})</summary>${libRows(true)}</details>`);
-  }
+  const profileOk = !!s.taskProfileId;
+  const out: string[] = [];
+  if (H.isGroup()) out.push(`<div class="canon-note warn">${t('groupUnsupported')}</div>`);
   const comp = detectCompetingLore();
-  if (comp.books.length) lines.push(`<div class="canon-note warn">${t('competing')} ${comp.books.map(esc).join(', ')}<br>${t('competingHint')}</div>`);
-  if (comp.gmRule) lines.push(`<div class="canon-note warn">${t('gmConflict')}</div>`);
-  if (hd.version && !hd.ok) lines.push(`<div class="canon-note warn">${t('unsupportedHorae')}: ${esc(hd.missing.join(', '))}</div>`);
-  lines.push(profileSelect(s.taskProfileId || ''));
-  lines.push(`<label class="canon-len">${t('replyLength')} <input type="text" class="text_pole" data-set="replyLength" value="${esc(String(s.replyLength || ''))}" placeholder="${esc(t('replyLengthPlaceholder'))}"></label><div class="canon-note">${t('replyLengthHint')}</div>`);
-  lines.push(`<label class="canon-group"><input type="checkbox" data-set="sceneGrouping" ${s.sceneGrouping ? 'checked' : ''}> ${t('sceneGrouping')}</label><div class="canon-note">${t('sceneGroupingHint')}</div>`);
-  lines.push(`<details><summary>${t('advanced')}</summary><div class="canon-adv">
-    ${num('maxRepairs', s.maxRepairs)}${num('maxOrdinaryPlanner', s.maxOrdinaryPlanner)}${num('budgetChars', s.budgetChars)}${num('taskTimeoutMs', s.taskTimeoutMs)}${num('draftTimeoutMs', s.draftTimeoutMs)}${num('horizonMinutes', s.horizonMinutes)}${num('taskTemperature', s.taskTemperature)}
-    <label><input type="checkbox" data-set="forcedPlannerAttempt" ${s.forcedPlannerAttempt ? 'checked' : ''}> forcedPlannerAttempt</label>
-    <label><input type="checkbox" data-set="debug" ${s.debug ? 'checked' : ''}> ${t('debug')}</label>
-    <label>UI <select data-set="uiLang"><option value="zh" ${s.uiLang !== 'en' ? 'selected' : ''}>中文</option><option value="en" ${s.uiLang === 'en' ? 'selected' : ''}>English</option></select></label>
-    </div></details>`);
-  body.innerHTML = lines.join('');
+  if (comp.books.length) out.push(`<div class="canon-note warn">${t('competing')} ${comp.books.map(esc).join(', ')} ${tip('competingHint')}</div>`);
+  if (comp.gmRule) out.push(`<div class="canon-note warn">${t('gmConflictShort')} ${tip('gmConflict')}</div>`);
+  if (hd.version && !hd.ok) out.push(`<div class="canon-note warn">${t('unsupportedHorae')}: ${esc(hd.missing.join(', '))}</div>`);
+
+  // ---- this chat
+  const lib = listLibrary();
+  const libRows = (mode: 'enable' | 'update' | 'none') => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc(e.file)}"><b>${esc(e.title)}</b> v${esc(e.version)} · ${Math.round(e.size / 1024)} KB</span>
+      ${mode === 'update' ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t('libUpdate')}</button>` : ''}
+      ${mode === 'enable' ? `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}" ${profileOk ? '' : 'disabled'}>${t('libEnable')}</button>` : ''}
+      <button class="menu_button canon-btn" data-act="lib-del" data-i="${i}" title="${t('libDelete')}">✕</button></div>`).join('');
+  const chat: string[] = [];
+  if (!H.chatId()) {
+    chat.push(`<div class="canon-hint">${t('noChat')}</div>`);
+    if (lib.length) chat.push(`<details class="canon-lib"><summary>${t('library')} (${lib.length}) ${tip('libraryTip')}</summary>${libRows('none')}</details>`);
+  } else if (!camp) {
+    chat.push(`<div class="canon-hint">${t('notBound')}</div>`);
+    if (!profileOk) chat.push(`<div class="canon-note warn">${t('needProfileFirst')}</div>`);
+    chat.push(`<div class="canon-lib"><div class="canon-lib-head">${t('library')} ${tip('libraryTip')}</div>${lib.length ? libRows('enable') : `<div class="canon-hint">${t('libEmpty')}</div>`}</div>`);
+    chat.push(`<div class="canon-btns"><button class="menu_button" data-act="enable" ${profileOk ? '' : 'disabled'}>${t('enable')}</button></div>`);
+  } else {
+    chat.push(`<div class="canon-pack"><b>${esc(camp.packSnapshot.title)}</b> <span>v${esc(camp.packVersion)}</span>${camp.enabled ? '' : ` <span class="canon-tag">${t('phase_disabled')}</span>`}</div>`);
+    if (!profileOk) chat.push(`<div class="canon-note warn">${t('needProfileTurns')}</div>`);
+    const btn = (act: string, label: string, tipKey: string, cls = '') => `<button class="menu_button ${cls}" data-act="${act}" title="${esc(t(tipKey))}">${label}</button>`;
+    chat.push(`<div class="canon-btns">
+      ${btn('inspect', t('inspect'), 'inspectTip')}${btn('retry', t('retry'), 'retryTip')}${btn('rebuild', t('rebuild'), 'rebuildTip')}</div>
+      <div class="canon-btns">${btn('export', t('exportBackup'), 'exportTip')}${btn('import', t('importBackup'), 'importTip')}${btn('update', t('updatePack'), 'updateTip')}</div>
+      <div class="canon-btns">${btn('toggle', camp.enabled ? t('disable') : t('reenable'), 'toggleTip')}${btn('unbind', t('unbindShort'), 'unbindTip', 'canon-danger')}</div>`);
+    if (lib.length) chat.push(`<details class="canon-lib"><summary>${t('library')} (${lib.length}) ${tip('libraryTip')}</summary>${libRows('update')}</details>`);
+  }
+  out.push(card(t('secChat'), 'secChatTip', chat.join('')));
+
+  // ---- model and replies
+  out.push(card(t('secModel'), '', profileField(s.taskProfileId || '') +
+    field(t('replyLength'), 'replyLengthTip', `<input type="text" class="text_pole" data-set="replyLength" value="${esc(String(s.replyLength || ''))}" placeholder="${esc(t('replyLengthPlaceholder'))}">`, t('replyLengthShort'))));
+
+  // ---- event log
+  out.push(card(t('secEvents'), '', check('sceneGrouping', !!s.sceneGrouping, t('sceneGrouping'), 'sceneGroupingTip')));
+
+  // ---- advanced
+  const adv = [num('maxRepairs', s.maxRepairs), num('maxOrdinaryPlanner', s.maxOrdinaryPlanner), check('forcedPlannerAttempt', !!s.forcedPlannerAttempt, t('adv_forcedPlannerAttempt'), 'adv_forcedPlannerAttemptTip'),
+    num('budgetChars', s.budgetChars), num('horizonMinutes', s.horizonMinutes), num('taskTimeoutMs', s.taskTimeoutMs), num('draftTimeoutMs', s.draftTimeoutMs), num('taskTemperature', s.taskTemperature),
+    check('debug', !!s.debug, t('debug'), 'debugTip'),
+    `<div class="canon-frow"><span class="canon-lbl">${t('uiLang')}</span><select class="text_pole canon-small" data-set="uiLang"><option value="zh" ${s.uiLang !== 'en' ? 'selected' : ''}>中文</option><option value="en" ${s.uiLang === 'en' ? 'selected' : ''}>English</option></select></div>`];
+  out.push(`<details class="canon-card canon-adv"><summary class="canon-card-title">${t('advanced')} <span class="canon-sub">${t('advancedShort')}</span></summary>${adv.join('')}</details>`);
+  body.innerHTML = out.join('');
 }
 
-function profileSelect(current: string): string {
-  let profiles: { id: string; name: string; model?: string }[] = [];
-  try { profiles = (ctx() as any).ConnectionManagerRequestService?.getSupportedProfiles?.() || []; } catch { profiles = []; }
-  const missing = current && !profiles.some((p) => p.id === current);
-  const opts = [`<option value="">${t('taskProfileSame')}</option>`]
-    .concat(profiles.map((p) => `<option value="${esc(p.id)}" ${p.id === current ? 'selected' : ''}>${esc(p.name)}${p.model ? ` · ${esc(p.model)}` : ''}</option>`))
-    .concat(missing ? [`<option value="${esc(current)}" selected>⚠ ${esc(current)}</option>`] : []);
-  const extra = String((getSettings() as any).taskExtraBody || '');
-  return `<div class="canon-profile"><label>${t('taskProfile')} <select class="text_pole" data-set="taskProfileId">${opts.join('')}</select></label>
-    <div class="canon-note">${profiles.length ? t('taskProfileHint') : t('taskProfileNone')}</div>
-    ${current ? `<label>${t('taskExtraBody')} <textarea class="text_pole canon-extra" rows="2" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc(extra)}</textarea></label>
-    <div class="canon-note">${t('taskExtraBodyHint')}</div>` : ''}</div>`;
+/** An (i) icon; its text shows on hover, focus or tap (see installTips). */
+function tip(key: string): string {
+  return key ? `<span class="canon-info" tabindex="0" role="button" aria-label="${esc(t(key))}" data-tip="${esc(t(key))}"><i class="fa-solid fa-circle-info"></i></span>` : '';
+}
+
+function card(title: string, tipKey: string, inner: string): string {
+  return `<div class="canon-card"><div class="canon-card-title">${title} ${tip(tipKey)}</div>${inner}</div>`;
+}
+
+function field(label: string, tipKey: string, control: string, hint = ''): string {
+  return `<div class="canon-field"><div class="canon-lbl">${label} ${tip(tipKey)}</div>${control}${hint ? `<div class="canon-hint">${hint}</div>` : ''}</div>`;
+}
+
+function check(key: string, on: boolean, label: string, tipKey: string): string {
+  return `<div class="canon-frow"><label class="checkbox_label canon-check"><input type="checkbox" data-set="${key}" ${on ? 'checked' : ''}><span>${label}</span></label>${tip(tipKey)}</div>`;
 }
 
 function num(key: string, v: number) {
-  return `<label class="canon-num">${key} <input type="number" class="text_pole" data-set="${key}" value="${v}"></label>`;
+  return `<div class="canon-frow"><span class="canon-lbl">${t('adv_' + key)} ${tip('adv_' + key + 'Tip')}</span><input type="number" class="text_pole canon-small" data-set="${key}" value="${v}"></div>`;
+}
+
+function profileField(current: string): string {
+  let profiles: { id: string; name: string; model?: string }[] = [];
+  try { profiles = (ctx() as any).ConnectionManagerRequestService?.getSupportedProfiles?.() || []; } catch { profiles = []; }
+  const missing = current && current !== CHAT_PROFILE && !profiles.some((p) => p.id === current);
+  const opts = [`<option value="" ${current ? '' : 'selected'} disabled>${t('taskProfilePick')}</option>`]
+    .concat(profiles.map((p) => `<option value="${esc(p.id)}" ${p.id === current ? 'selected' : ''}>${esc(p.name)}${p.model ? ` · ${esc(p.model)}` : ''}</option>`))
+    .concat(missing ? [`<option value="${esc(current)}" selected>⚠ ${esc(current)}</option>`] : [])
+    .concat([`<option value="${CHAT_PROFILE}" ${current === CHAT_PROFILE ? 'selected' : ''}>${t('taskProfileSame')}</option>`]);
+  const hint = !current ? `<div class="canon-hint warn">${profiles.length ? t('taskProfileMissing') : t('taskProfileNone')}</div>`
+    : current === CHAT_PROFILE ? `<div class="canon-hint warn">${t('taskProfileSameWarn')}</div>` : `<div class="canon-hint">${t('taskProfileShort')}</div>`;
+  const extra = String((getSettings() as any).taskExtraBody || '');
+  const profileUsed = current && current !== CHAT_PROFILE;
+  return `<div class="canon-field canon-profile${current ? '' : ' canon-required'}"><div class="canon-lbl">${t('taskProfile')} ${tip('taskProfileTip')}</div>
+    <select class="text_pole" data-set="taskProfileId">${opts.join('')}</select>${hint}</div>
+    ${profileUsed ? field(t('taskExtraBody'), 'taskExtraBodyTip', `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc(extra)}</textarea>`, t('taskExtraBodyShort')) : ''}`;
+}
+
+let tipEl: HTMLElement | null = null;
+let tipFor: HTMLElement | null = null;
+/** One floating tooltip for every (i) icon: hover or keyboard focus shows it, a tap toggles it. */
+function installTips() {
+  if (tipEl) return;
+  tipEl = document.createElement('div');
+  tipEl.className = 'canon-tip';
+  tipEl.style.display = 'none';
+  document.body.appendChild(tipEl);
+  const show = (el: HTMLElement) => {
+    tipFor = el;
+    tipEl!.textContent = el.dataset.tip || '';
+    tipEl!.style.display = 'block';
+    const r = el.getBoundingClientRect(), w = tipEl!.offsetWidth, h = tipEl!.offsetHeight;
+    const left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8));
+    const top = r.bottom + 6 + h > window.innerHeight - 8 ? r.top - h - 6 : r.bottom + 6;
+    tipEl!.style.left = `${left}px`;
+    tipEl!.style.top = `${Math.max(8, top)}px`;
+  };
+  const hide = () => { tipFor = null; tipEl!.style.display = 'none'; };
+  const icon = (ev: Event) => (ev.target as HTMLElement | null)?.closest?.('.canon-info') as HTMLElement | null;
+  document.addEventListener('mouseover', (ev) => { const el = icon(ev); if (el) show(el); });
+  document.addEventListener('mouseout', (ev) => { if (icon(ev) && tipFor && !tipFor.contains(document.activeElement)) hide(); });
+  document.addEventListener('focusin', (ev) => { const el = icon(ev); if (el) show(el); });
+  document.addEventListener('focusout', (ev) => { if (icon(ev)) hide(); });
+  document.addEventListener('click', (ev) => {
+    const el = icon(ev);
+    if (el) { ev.preventDefault(); ev.stopPropagation(); if (tipFor === el && tipEl!.style.display === 'block') hide(); else show(el); }
+    else if (tipFor) hide();
+  }, true);
+  window.addEventListener('scroll', hide, true);
 }
 
 let fileMode: 'enable' | 'import' | 'update' = 'enable';

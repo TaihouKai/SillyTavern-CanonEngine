@@ -571,7 +571,7 @@ try {
     await send(page, '我继续看。');
     const stP = await engineState(page);
     check(results, 'P04 a missing analysis profile stops the turn with an actionable error', stP.recovery.status === 'error' && /no longer exists/.test(stP.recovery.reason || ''), JSON.stringify(stP.recovery));
-    await page.evaluate(() => { SillyTavern.getContext().extensionSettings.canonEngine.taskProfileId = ''; SillyTavern.getContext().saveSettingsDebounced(); });
+    await page.evaluate(() => { SillyTavern.getContext().extensionSettings.canonEngine.taskProfileId = '__chat__'; SillyTavern.getContext().saveSettingsDebounced(); });
   }
 
   // ---------------------------------------------------------------------------------------------
