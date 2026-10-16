@@ -379,6 +379,23 @@ describe('races, persistence and recovery', () => {
     expect(x.engine.campaign()!.configRevisions.some((r) => /pack updated/.test(r.summary))).toBe(true);
   });
 
+  it('R16b a pack update over unchanged messages that name pack entities re-examines nothing', async () => {
+    const x = await setup(tick(1, 11, 0)); // the ambush (day 1 10:00) is backstory, part of the binding seed
+    await turn(x, 'I ask Mira about the harbor.', 'Mira points at the harbor and the Council banners. [U1]', { scene_end: at(1, 11, 10) });
+    await turn(x, 'I follow Mira.', 'Mira walks past the Union post toward the harbor. [U2]', { scene_end: at(1, 11, 20) });
+    const changed = JSON.parse(demo);
+    // retime the backstory event (changes the binding seed, like a real pack revision)
+    changed.events[0].when = { ...changed.events[0].when, earliest: { day: 1, minute: 620 }, latest: { day: 1, minute: 620 } };
+    changed.events[0].canonical_effects.push({ op: 'set', fact: { entity_id: 'harbor', predicate: 'exists', value: true } });
+    changed.pack_version = '1.1.0';
+    const calls = x.model.calls.length;
+    await x.engine.applyPackUpdate(JSON.stringify(changed));
+    if (x.model.calls.length > calls) console.log('CALLS', JSON.stringify(x.model.calls.slice(calls).map((c) => c.task)));
+    expect(x.model.calls.slice(calls).map((c) => c.task)).toEqual([]);
+    expect(x.engine.campaign()!.recoveryState.status).toBe('ok');
+    expect(x.engine.campaign()!.packVersion).toBe('1.1.0');
+  });
+
   it('R17 a failed regeneration restores the prior selected reply; user input preserved', async () => {
     const x = await setup();
     await turn(x, 'I look.', 'Waves. [P1]', {});

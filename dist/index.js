@@ -15999,7 +15999,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.32";
+var ENGINE_RELEASE = "1.3.33";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -17470,7 +17470,6 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     c.bootstrapRecords = buildBootstrap(r.loaded, c.binding.startTick).records;
     c.configRevisions.push({ at: this.host.now(), summary: `pack updated to ${r.loaded.pack.pack_id}@${r.loaded.pack.pack_version}` });
     c.planRevisions.forEach((p) => p.status = "stale");
-    c.manifest = [];
     this.packCache = null;
     await this.reconcile("pack_update");
   }

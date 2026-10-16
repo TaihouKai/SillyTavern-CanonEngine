@@ -1385,8 +1385,10 @@ export class CanonEngine {
     c.bootstrapRecords = buildBootstrap(r.loaded, c.binding.startTick).records;
     c.configRevisions.push({ at: this.host.now(), summary: `pack updated to ${r.loaded.pack.pack_id}@${r.loaded.pack.pack_version}` });
     c.planRevisions.forEach((p) => (p.status = 'stale'));
-    // Interpretations reference ids of the old pack; keep them but revalidate everything.
-    c.manifest = [];
+    // Interpretations reference ids of the old pack; keep them and revalidate them deterministically
+    // against the new bootstrap (replay checks every one whose basis state changed). The messages
+    // themselves did not change, so the manifest is kept: clearing it would mark every message as
+    // new and force a model re-examination of every reply that names a pack entity.
     this.packCache = null;
     await this.reconcile('pack_update');
   }
