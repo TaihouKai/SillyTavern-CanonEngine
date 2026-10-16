@@ -43,4 +43,18 @@ describe('event windows', () => {
     const p = buildPacket({ pack: L, index, retrieval, checkpointTick: T(3, 7, 37), origin: null, sceneLabel: '', playerScope: [], plan: null, forced: false, stagedNotes: [], opportunities: [], budgetChars: 60000, horizon: 0 } as any);
     expect(p.text).toMatch(/CANON EVENTS WITHIN THEIR WINDOW[\s\S]*Harbor|CANON EVENTS WITHIN THEIR WINDOW[\s\S]*festival/i);
   });
+
+  it('W04 an event in its window whose preconditions already failed is not suggested to the GM', () => {
+    const raw = demoRaw() as any;
+    const fest = raw.events.find((e: any) => e.id === 'harbor-festival');
+    fest.when = { ...fest.when, earliest: { day: 3, minute: 0 }, latest: { day: 3, minute: 1439 }, precision: 'day' };
+    fest.canonical_preconditions = { fact: { entity_id: 'mira', predicate: 'alive', value: true } }; // Mira died in the ambush (backstory)
+    const L = load(raw);
+    const recs = buildBootstrap(L, T(2, 23)).records.map((r, i) => ({ ...r, sequence: i + 1, branchId: 'b', commitId: 'c' }) as LedgerRecord);
+    const s = reduce(L, recs);
+    const index = new WorldIndex(L, s);
+    const retrieval = retrieve(index, { refs: [], claims: [], sceneEntityIds: [], causalSeedEntityIds: [], freeText: [], checkpointTick: T(3, 7, 37) });
+    const p = buildPacket({ pack: L, index, retrieval, checkpointTick: T(3, 7, 37), origin: null, sceneLabel: '', playerScope: [], plan: null, forced: false, stagedNotes: [], opportunities: [], budgetChars: 60000, horizon: 0 } as any);
+    expect(p.text).not.toMatch(/CANON EVENTS WITHIN THEIR WINDOW[\s\S]*festival/i);
+  });
 });

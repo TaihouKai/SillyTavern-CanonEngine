@@ -14762,6 +14762,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
 3. scene_end: story time when the reply ends (bounds; do not invent minutes \u2014 use range/approx when only "afternoon" is known). flashback=true if the reply is framed as a flashback.
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
    HARD conformance belongs ONLY in hard_checks, never in violations or claim checks. A HARD description fixes the RESULT; the route it mentions (how or where it happened in the original) is not actual history, and the player's actions may change it. The player's actions from the current input are actual events of this turn: never call them unsupported, and never report them or their consequences as contradicting a HARD event.
+   HARD outcome values describe an objective state of the world, independent of who knows about it (e.g. a person secretly hidden by one side is "hidden" even to those who hid her). When the reply depicts that state, record the transition with the exact required value.
    A HARD event that is not yet due is never a violation: ending the scene before it, or leaving it to happen offscreen without the player, is valid (the controller enforces deadlines and adjudicates offscreen events). Confinement, distance or obstacles do not contradict it \u2014 the world can still bring it about. Use "contradicted" only when the text says it will not happen or establishes a fact that rules out its required outcome itself.
    Credible cause: if the actual history/state rules out the event's usual route (a required participant is detained, guarded, far away, incapacitated...), it is fulfilled only when the text shows or clearly implies a concrete cause for how it still comes about (who or what, by what means). Otherwise give status "missing" and a violation whose detail begins with "HARD realized without a credible cause:". An unexplained vanishing, a glitch or "some invisible force" is not a cause unless it is the established ability of a specific character.
    Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place or activity meaningfully changes, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
@@ -15193,7 +15194,7 @@ function buildPacket(inp, compact = false) {
   if (inp.opportunities.length) optional.push("PARTICIPATION OPPORTUNITIES (offer in-world only if plausible; never force; a decline is respected):\n" + inp.opportunities.map((s) => "- " + s).join("\n"));
   const canonRef = dueSoon.slice(0, 3).map((h) => `- ${h.event.title}: original route \u2014 ${h.event.summary}`);
   if (canonRef.length) optional.push("CANON REFERENCE (original routes; reference only, NOT facts):\n" + canonRef.join("\n"));
-  const open = pack2.timeIndex.filter((t2) => t2.lo <= checkpointTick && t2.hi > checkpointTick && !index.state.dispositions.has(t2.id) && pack2.events.get(t2.id)?.classification !== "HARD").slice(0, 4).map((t2) => {
+  const open = pack2.timeIndex.filter((t2) => t2.lo <= checkpointTick && t2.hi > checkpointTick && !index.state.dispositions.has(t2.id) && pack2.events.get(t2.id)?.classification !== "HARD" && triLabel(evalCondition(pack2.events.get(t2.id).canonical_preconditions, index.state, pack2, { tick: checkpointTick })) !== "FALSE").slice(0, 4).map((t2) => {
     const e = pack2.events.get(t2.id);
     return `- ${e.title} (${formatTick(t2.lo, inp.origin)} \u2013 ${formatTick(t2.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + "\u2026" : e.summary}`;
   });
@@ -15999,7 +16000,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.33";
+var ENGINE_RELEASE = "1.3.34";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));

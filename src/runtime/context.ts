@@ -5,6 +5,7 @@ import type { LoadedPack } from '../domain/pack';
 import { WorldIndex, type HistoryRecordView, type EntityStateView, type CanonStatusView } from '../domain/world-query';
 import { formatStoryTime, formatTick } from '../domain/time';
 import { pendingHard } from '../domain/schedule';
+import { evalCondition, triLabel } from '../domain/reducer';
 import { EngineError, sceneRoot, sha256 } from '../domain/util';
 import type { CoverageEntry, PlanRevision } from './types';
 
@@ -257,7 +258,9 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   const canonRef = dueSoon.slice(0, 3).map((h) => `- ${h.event.title}: original route — ${h.event.summary}`);
   if (canonRef.length) optional.push('CANON REFERENCE (original routes; reference only, NOT facts):\n' + canonRef.join('\n'));
   const open = pack.timeIndex
-    .filter((t) => t.lo <= checkpointTick && t.hi > checkpointTick && !index.state.dispositions.has(t.id) && pack.events.get(t.id)?.classification !== 'HARD')
+    .filter((t) => t.lo <= checkpointTick && t.hi > checkpointTick && !index.state.dispositions.has(t.id) && pack.events.get(t.id)?.classification !== 'HARD'
+      // an event whose original preconditions already failed will not happen; do not suggest it
+      && triLabel(evalCondition(pack.events.get(t.id)!.canonical_preconditions, index.state, pack, { tick: checkpointTick })) !== 'FALSE')
     .slice(0, 4).map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}`; });
   if (open.length) optional.push('CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n' + open.join('\n'));
 
