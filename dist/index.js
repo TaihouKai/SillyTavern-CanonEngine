@@ -15994,7 +15994,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.28";
+var ENGINE_RELEASE = "1.3.29";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -18314,7 +18314,7 @@ var D = {
   graphPackNote: { zh: "\u539F\u4F5C\u53C2\u8003\uFF1A\u5305\u542B\u5168\u90E8\u672A\u6765\u4E8B\u4EF6\uFF08\u5267\u900F\uFF09", en: "Canon reference: includes all future events (spoilers)" },
   graphCurrentNote: { zh: "\u672C\u5C40\u5B9E\u9645\u5386\u53F2\uFF1A\u542B\u4F60\u7684\u884C\u52A8\u9020\u6210\u7684\u6539\u53D8\u4E0E\u672C\u5C40\u65B0\u4E8B\u4EF6", en: "Actual history of this playthrough, including your changes" },
   libEnable: { zh: "\u7528\u6B64\u5305\u542F\u7528", en: "Enable with this pack" },
-  libUpdate: { zh: "\u66F4\u65B0\u4E3A\u6B64\u5305\u2026", en: "Update to this pack\u2026" },
+  libUpdate: { zh: "\u66F4\u65B0", en: "Update" },
   libDelete: { zh: "\u4ECE\u5386\u53F2\u5305\u5E93\u5220\u9664", en: "Remove from library" },
   packOrigin: { zh: "\u5386\u53F2\u5305\u8BF4\u660E\u7684\u7B2C0\u5929", en: "Pack day 0" },
   sceneGrouping: { zh: "\u5408\u5E76\u540C\u4E00\u573A\u666F\u7684\u672C\u5C40\u4E8B\u4EF6", en: "Group events of the same scene" },

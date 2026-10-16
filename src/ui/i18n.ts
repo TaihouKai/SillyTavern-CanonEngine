@@ -56,7 +56,7 @@ const D: Record<string, { zh: string; en: string }> = {
   graphPackNote: { zh: '原作参考：包含全部未来事件（剧透）', en: 'Canon reference: includes all future events (spoilers)' },
   graphCurrentNote: { zh: '本局实际历史：含你的行动造成的改变与本局新事件', en: 'Actual history of this playthrough, including your changes' },
   libEnable: { zh: '用此包启用', en: 'Enable with this pack' },
-  libUpdate: { zh: '更新为此包…', en: 'Update to this pack…' },
+  libUpdate: { zh: '更新', en: 'Update' },
   libDelete: { zh: '从历史包库删除', en: 'Remove from library' },
   packOrigin: { zh: '历史包说明的第0天', en: 'Pack day 0' },
   sceneGrouping: { zh: '合并同一场景的本局事件', en: 'Group events of the same scene' },
