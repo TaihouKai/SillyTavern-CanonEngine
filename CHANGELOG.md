@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.38 — 2026-10-17
+
+- **Story time follows Horae (live finding):** the clock only moved when a reply stated a time ("两小时后", "傍晚"), because the reviewer was told not to invent minutes; Horae, which estimates time every turn, ran hours ahead. Now, with Horae installed and up to date, each new reply starts no earlier than Horae's story time at the end of the previous reply (new setting 故事时间跟随 Horae, default on; ignored for swipes/regenerations/continuations, when Horae is busy or stale, without a calendar date, when Horae is behind, or more than 3 days ahead).
+- The reviewer now estimates how long each reply realistically takes (a short exchange minutes, a meal 30-60 minutes, travel by distance) instead of keeping the time unchanged when no time is stated; explicit times in the text still win.
+- Tests H01-H03.
+
 ## 1.3.37 — 2026-10-17
 
 - Turn timing tooltip: small automatic fixes (a malformed field set to empty, the rest of the model output kept, no extra call) are listed in their own section, grouped by kind with a count (e.g. `evaluate: set occurrences/#/time to null … ×5`), and marked as safe to ignore. Resent outputs and dropped items stay under model output problems.

@@ -14819,7 +14819,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
 1. For EVERY claim id in "claims" return a claim_check verdict: consistent (agrees with retrieved records/state), contradiction (conflicts: e.g. a destroyed place shown operating, a dead person greeting, wrong actor/outcome of a past event, using a missing object), unsupported (asserts that something HAPPENED in the past, or a cause, with no supporting record), belief_ok (a character's belief/rumor/lie presented as such), new_detail (compatible new detail), not_applicable. Cite record_ids you relied on.
    Ordinary present-scene details with no record (weather, crowds, shops, decorations, minor NPCs) are new_detail, never contradiction. Preparations, schedules, anticipation or rumors of a FUTURE event ("flags for tomorrow's festival") do not assert that the event has started. A different wording of a free-text state ("\u6B63\u5E38\u8FD0\u8F6C" vs "operating normally") is consistent.
 2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it), state_claims (facts the narration presupposes; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null), player_actions (player-character actions depicted; authorized_by_quote = a span COPIED VERBATIM from the player's message that covers it, or null). An action is authorized when it carries out what the player wrote, including its natural steps and immediate details (for "I take her back to the cell and lock her up": stopping her, taking her belongings, escorting her, locking the door). Use null only for a NEW decision, goal or line of dialogue the player did not express, step_enactments, new_entities (genuinely new people/places/objects introduced).
-3. scene_end: story time when the reply ends (bounds; do not invent minutes \u2014 use range/approx when only "afternoon" is known). flashback=true if the reply is framed as a flashback.
+3. scene_end: story time when the reply ends. Story time passes in every scene: estimate how long what the reply depicts realistically takes (a short exchange a few minutes, a longer conversation 10-30 minutes, a meal 30-60 minutes, walking/travel by distance, waiting, sleeping) and add it to the time the scene starts. lo = the earliest realistic end, hi = the latest; precision "approx" for an estimate, "minute" only when the text states the time. Do not keep lo at current_time unless the reply really covers only a moment. An explicit time or skip in the text ("two hours later", "\u508D\u665A") wins over estimates. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback.
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
    HARD conformance belongs ONLY in hard_checks, never in violations or claim checks. A HARD description fixes the RESULT; the route it mentions (how or where it happened in the original) is not actual history, and the player's actions may change it. The player's actions from the current input are actual events of this turn: never call them unsupported, and never report them or their consequences as contradicting a HARD event.
    HARD outcome values describe an objective state of the world, independent of who knows about it (e.g. a person secretly hidden by one side is "hidden" even to those who hid her). When the reply depicts that state, record the transition with the exact required value.
@@ -16095,7 +16095,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.37";
+var ENGINE_RELEASE = "1.3.38";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16112,6 +16112,7 @@ var DEFAULT_SETTINGS = {
   readyWindowMinutes: 1440,
   opportunityWindowMinutes: 720,
   horaeWaitMs: 6e4,
+  followHoraeTime: true,
   debug: false,
   taskTemperature: 0.2,
   taskProfileId: "",
@@ -16701,6 +16702,29 @@ var CanonEngine = class {
     }
     return interp;
   }
+  /** Horae's story time at the end of the previous reply as a tick, when it is usable: a new reply (not a
+   *  swipe/regenerate/continue), Horae fresh, a calendar date, later than the engine clock and at most 3 days ahead. */
+  horaeTick(clock) {
+    if (!this.settings.followHoraeTime) return null;
+    const h = this.horaeTimeHint().horae_time;
+    const origin = this.campaign()?.binding.originDate || null;
+    if (!h || !origin) return null;
+    const m = h.match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
+    if (!m) return null;
+    const t2 = parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin);
+    return t2 !== null && t2 > clock && t2 <= clock + 3 * 1440 ? t2 : null;
+  }
+  /** Horae's story time at the end of the previous reply (supporting evidence for the reviewer's scene_end). */
+  horaeTimeHint() {
+    try {
+      const st = this.host.horae?.status();
+      if (this.opActive?.op !== "normal") return {};
+      if (!st?.available || st.busy || st.staleIndexes.length || !st.scene?.time) return {};
+      return { horae_time: [st.scene.date, st.scene.time].filter(Boolean).join(" ") };
+    } catch {
+      return {};
+    }
+  }
   timeAdvance(end, commitId) {
     return { recordId: newId("rec"), kind: "time_advance", storyTime: { lo: end.lo, hi: end.lo, precision: end.precision }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: "public", knower_ids: [] }, summary: `Story time advanced to ${formatStoryTime(end)}`, evidenceKind: "direct", triggerCommitId: commitId };
   }
@@ -16805,6 +16829,7 @@ var CanonEngine = class {
       candidate: a.text,
       player_action_scope: a.userEntry ? a.userEntry.text : "",
       current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
+      ...a.mode !== "retained" ? this.horaeTimeHint() : {},
       retrieved_context: packet.text,
       claims: claims.map((c2) => ({ id: c2.id, quote: c2.quote, kind: c2.kind, assertion: c2.assertion, expected: c2.expected })),
       references: refs.map((r) => ({ id: r.id, quote: r.quote, kind: r.kind, assertion: r.assertion })),
@@ -16816,6 +16841,15 @@ var CanonEngine = class {
       ...this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
+    const floor = a.mode !== "retained" ? this.horaeTick(tick) : null;
+    if (floor !== null && !evaluation.flashback) {
+      const lo = evaluation.scene_end ? toTick(evaluation.scene_end.lo) : tick;
+      if (lo < floor) {
+        const hi = Math.max(evaluation.scene_end ? toTick(evaluation.scene_end.hi) : floor, floor);
+        evaluation.scene_end = { lo: fromTick(floor), hi: fromTick(hi), precision: "approx" };
+        this.debugLog("task", { kind: "scene_end_from_horae", from: formatTick(lo), to: formatTick(floor) });
+      }
+    }
     const gate = runGate({
       pack: pack2,
       index,
@@ -18485,6 +18519,8 @@ var D = {
   libDelete: { zh: "\u4ECE\u5386\u53F2\u5305\u5E93\u5220\u9664", en: "Remove from library" },
   packOrigin: { zh: "\u5386\u53F2\u5305\u8BF4\u660E\u7684\u7B2C0\u5929", en: "Pack day 0" },
   sceneGrouping: { zh: "\u5408\u5E76\u540C\u4E00\u573A\u666F\u7684\u672C\u5C40\u4E8B\u4EF6", en: "Group events of the same scene" },
+  followHoraeTime: { zh: "\u6545\u4E8B\u65F6\u95F4\u8DDF\u968F Horae", en: "Follow Horae story time" },
+  followHoraeTimeTip: { zh: "\u88C5\u4E86 Horae \u65F6\uFF1A\u6BCF\u4E2A\u65B0\u56DE\u5408\u4ECE Horae \u8BB0\u5F55\u7684\u65F6\u95F4\u5F00\u59CB\uFF08\u5B83\u6BCF\u56DE\u5408\u90FD\u4F1A\u63A8\u7B97\u65F6\u95F4\uFF09\u3002\n\u672C\u56DE\u5408\u672C\u8EAB\u7ECF\u8FC7\u7684\u65F6\u95F4\u4ECD\u7531 Canon Engine \u4F30\u7B97\u3002\u6CA1\u6709 Horae \u6216 Horae \u5C1A\u672A\u66F4\u65B0\u65F6\u81EA\u52A8\u4E0D\u7528\u3002", en: "With Horae installed: each new turn starts at the story time Horae recorded (it estimates time every turn).\nThe time the turn itself takes is still estimated by Canon Engine. Not used without Horae or while Horae is not up to date." },
   replyLengthPlaceholder: { zh: "\u4F8B\u5982\uFF1A\u6B63\u6587\u7EA6800~1200\u5B57", en: "e.g. about 600-900 words" },
   lastTurn: { zh: "\u4E0A\u4E00\u56DE\u5408", en: "Last turn" },
   details: { zh: "\u8BE6\u60C5", en: "Details" },
@@ -19327,7 +19363,7 @@ function renderSettings() {
   }
   out.push(card(t("secChat"), "secChatTip", chat.join("")));
   out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc2(String(s.replyLength || ""))}" placeholder="${esc2(t("replyLengthPlaceholder"))}">`, t("replyLengthShort"))));
-  out.push(card(t("secEvents"), "", check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip")));
+  out.push(card(t("secEvents"), "", check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip") + check("followHoraeTime", s.followHoraeTime !== false, t("followHoraeTime"), "followHoraeTimeTip")));
   const adv = [
     num("maxRepairs", s.maxRepairs),
     num("maxOrdinaryPlanner", s.maxOrdinaryPlanner),

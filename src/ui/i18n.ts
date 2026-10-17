@@ -64,6 +64,8 @@ const D: Record<string, { zh: string; en: string }> = {
   libDelete: { zh: '从历史包库删除', en: 'Remove from library' },
   packOrigin: { zh: '历史包说明的第0天', en: 'Pack day 0' },
   sceneGrouping: { zh: '合并同一场景的本局事件', en: 'Group events of the same scene' },
+  followHoraeTime: { zh: '故事时间跟随 Horae', en: 'Follow Horae story time' },
+  followHoraeTimeTip: { zh: '装了 Horae 时：每个新回合从 Horae 记录的时间开始（它每回合都会推算时间）。\n本回合本身经过的时间仍由 Canon Engine 估算。没有 Horae 或 Horae 尚未更新时自动不用。', en: 'With Horae installed: each new turn starts at the story time Horae recorded (it estimates time every turn).\nThe time the turn itself takes is still estimated by Canon Engine. Not used without Horae or while Horae is not up to date.' },
   replyLengthPlaceholder: { zh: '例如：正文约800~1200字', en: 'e.g. about 600-900 words' },
   lastTurn: { zh: '上一回合', en: 'Last turn' },
   details: { zh: '详情', en: 'Details' },

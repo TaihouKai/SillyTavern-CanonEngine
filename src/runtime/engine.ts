@@ -5,7 +5,7 @@ import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } fro
 import { valuesEqual } from '../domain/pack';
 import { buildBootstrap, pendingHard, forcedCompletion } from '../domain/schedule';
 import { WorldIndex } from '../domain/world-query';
-import { formatTick, formatStoryTime, toTick } from '../domain/time';
+import { formatTick, formatStoryTime, fromTick, parseDateLabel, toTick } from '../domain/time';
 import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
 import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
@@ -31,6 +31,8 @@ export interface EngineSettings {
   readyWindowMinutes: number;
   opportunityWindowMinutes: number;
   horaeWaitMs: number;
+  /** Take Horae's story time as the start of each new reply when Horae is installed and fresh. */
+  followHoraeTime: boolean;
   debug: boolean;
   /** Sampling temperature for internal structured tasks (not the GM's story replies). */
   taskTemperature: number;
@@ -65,6 +67,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   readyWindowMinutes: 1440,
   opportunityWindowMinutes: 720,
   horaeWaitMs: 60000,
+  followHoraeTime: true,
   debug: false,
   taskTemperature: 0.2,
   taskProfileId: '',
@@ -628,6 +631,30 @@ export class CanonEngine {
     return interp;
   }
 
+  /** Horae's story time at the end of the previous reply as a tick, when it is usable: a new reply (not a
+   *  swipe/regenerate/continue), Horae fresh, a calendar date, later than the engine clock and at most 3 days ahead. */
+  private horaeTick(clock: number): number | null {
+    if (!this.settings.followHoraeTime) return null;
+    const h = this.horaeTimeHint().horae_time;
+    const origin = this.campaign()?.binding.originDate || null;
+    if (!h || !origin) return null;
+    const m = h.match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
+    if (!m) return null;
+    const t = parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin);
+    return t !== null && t > clock && t <= clock + 3 * 1440 ? t : null;
+  }
+
+  /** Horae's story time at the end of the previous reply (supporting evidence for the reviewer's scene_end). */
+  private horaeTimeHint(): { horae_time?: string } {
+    try {
+      const st = this.host.horae?.status();
+      // swipe/regenerate/continue: Horae's latest state already includes the reply being replaced
+      if (this.opActive?.op !== 'normal') return {};
+      if (!st?.available || st.busy || st.staleIndexes.length || !st.scene?.time) return {};
+      return { horae_time: [st.scene.date, st.scene.time].filter(Boolean).join(' ') };
+    } catch { return {}; }
+  }
+
   private timeAdvance(end: StoryTime, commitId: string): RecordDraft {
     return { recordId: newId('rec'), kind: 'time_advance', storyTime: { lo: end.lo, hi: end.lo, precision: end.precision }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] }, summary: `Story time advanced to ${formatStoryTime(end)}`, evidenceKind: 'direct', triggerCommitId: commitId };
   }
@@ -720,6 +747,7 @@ export class CanonEngine {
       candidate: a.text,
       player_action_scope: a.userEntry ? a.userEntry.text : '',
       current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
+      ...(a.mode !== 'retained' ? this.horaeTimeHint() : {}),
       retrieved_context: packet.text,
       claims: claims.map((c) => ({ id: c.id, quote: c.quote, kind: c.kind, assertion: c.assertion, expected: c.expected })),
       references: refs.map((r) => ({ id: r.id, quote: r.quote, kind: r.kind, assertion: r.assertion })),
@@ -731,6 +759,17 @@ export class CanonEngine {
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
+    // Horae tracks story time every turn; its time at the end of the previous reply is where this reply
+    // starts at the earliest. The engine's own estimate only fills in the time this reply itself takes.
+    const floor = a.mode !== 'retained' ? this.horaeTick(tick) : null;
+    if (floor !== null && !evaluation.flashback) {
+      const lo = evaluation.scene_end ? toTick(evaluation.scene_end.lo) : tick;
+      if (lo < floor) {
+        const hi = Math.max(evaluation.scene_end ? toTick(evaluation.scene_end.hi) : floor, floor);
+        evaluation.scene_end = { lo: fromTick(floor), hi: fromTick(hi), precision: 'approx' } as EvalOutput['scene_end'];
+        this.debugLog('task', { kind: 'scene_end_from_horae', from: formatTick(lo), to: formatTick(floor) });
+      }
+    }
     const gate = runGate({
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced,

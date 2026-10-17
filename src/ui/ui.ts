@@ -198,7 +198,7 @@ function renderSettings() {
     field(t('replyLength'), 'replyLengthTip', `<input type="text" class="text_pole" data-set="replyLength" value="${esc(String(s.replyLength || ''))}" placeholder="${esc(t('replyLengthPlaceholder'))}">`, t('replyLengthShort'))));
 
   // ---- event log
-  out.push(card(t('secEvents'), '', check('sceneGrouping', !!s.sceneGrouping, t('sceneGrouping'), 'sceneGroupingTip')));
+  out.push(card(t('secEvents'), '', check('sceneGrouping', !!s.sceneGrouping, t('sceneGrouping'), 'sceneGroupingTip') + check('followHoraeTime', s.followHoraeTime !== false, t('followHoraeTime'), 'followHoraeTimeTip')));
 
   // ---- advanced
   const adv = [num('maxRepairs', s.maxRepairs), num('maxOrdinaryPlanner', s.maxOrdinaryPlanner), check('forcedPlannerAttempt', !!s.forcedPlannerAttempt, t('adv_forcedPlannerAttempt'), 'adv_forcedPlannerAttemptTip'),
