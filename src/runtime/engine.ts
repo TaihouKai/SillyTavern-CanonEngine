@@ -105,6 +105,21 @@ export interface OperationTrace {
 
 const MAX_MANIFESTS = 40;
 
+/** Resent model outputs vs. small automatic fixes (a field set to empty and the rest kept, no extra call).
+ *  Fixes are grouped by kind with a count, so a turn with many similar fixes stays readable. */
+export function splitRejects(all: string[]): { rejects: string[]; fixes: string[] } {
+  const fixes = new Map<string, number>();
+  const rejects: string[] = [];
+  for (const r of all) {
+    const m = r.match(/^(\w+): kept after a fix: (.*)$/s);
+    // a dropped item loses something the reply said: keep it with the real problems
+    if (!m || /^dropped/.test(m[2])) { rejects.push(r); continue; }
+    const k = `${m[1]}: ${m[2].replace(/\/\d+\//g, '/#/').replace(/: \{.*$/s, '').slice(0, 140)}`;
+    fixes.set(k, (fixes.get(k) || 0) + 1);
+  }
+  return { rejects: rejects.slice(-6), fixes: [...fixes].map(([k, n]) => (n > 1 ? `${k} ×${n}` : k)).slice(0, 6) };
+}
+
 export class CanonEngine {
   host: HostPort;
   settings: EngineSettings;
@@ -138,7 +153,7 @@ export class CanonEngine {
   /** Per-step durations of the running operation, and the summary of the last finished one. */
   private stepTimes: { step: string; ms: number; retry?: boolean }[] = [];
   private rejects: string[] = [];
-  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number; retries: number }[]; ok: boolean; reply?: ReplyStats | null; rejects?: string[] } | null = null;
+  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number; retries: number }[]; ok: boolean; reply?: ReplyStats | null; rejects?: string[]; fixes?: string[] } | null = null;
   private lastReply: ReplyStats | null = null;
   private timeStep<T>(step: string, p: Promise<T>): Promise<T> {
     const t0 = Date.now();
@@ -737,7 +752,8 @@ export class CanonEngine {
       lines.push('', `Attempt ${i + 1}${i === 0 ? ' (first draft)' : i > this.settings.maxRepairs ? ' (final HARD repair)' : ` (repair ${i})`}: ${a.violations.length ? `${a.violations.length} problem(s)` : 'no problems'}`);
       for (const v of a.violations) lines.push(`  - ${v}`);
     });
-    if (tm.rejects?.length) { lines.push('', 'Model output problems (resent, or kept after an automatic fix):'); for (const r of tm.rejects) lines.push(`  - ${r}`); }
+    if (tm.rejects?.length) { lines.push('', 'Model output problems (resent, or an unusable item dropped):'); for (const r of tm.rejects) lines.push(`  - ${r}`); }
+    if (tm.fixes?.length) { lines.push('', 'Small automatic fixes (no resend, result kept):'); for (const r of tm.fixes) lines.push(`  - ${r}`); }
     lines.push('', 'Steps: ' + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? ` (resent ${s.retries})` : ''}`).join(' · '));
     return lines.join('\n').slice(0, 12000);
   }
@@ -1068,7 +1084,7 @@ export class CanonEngine {
     } finally {
       const agg = new Map<string, { ms: number; count: number; retries: number }>();
       for (const s of this.stepTimes) { const a = agg.get(s.step) || { ms: 0, count: 0, retries: 0 }; a.ms += s.ms; a.count++; if (s.retry) a.retries++; agg.set(s.step, a); }
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, rejects: this.rejects.slice(-6) };
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, ...splitRejects(this.rejects) };
       if (!committed && trace.outcome === 'failed') {
         // Keep the whole story of a failed turn where the user can read it later (saved with the chat).
         const c = this.campaign();

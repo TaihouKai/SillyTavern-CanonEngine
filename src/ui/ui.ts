@@ -115,7 +115,7 @@ function renderStatus() {
   ].filter(Boolean).join('\n') : '';
   const replyPart = rp ? ` · <span class="canon-reply${rp.finish === 'length' ? ' cut' : ''}" title="${esc(replyBits)}">${t('replyLen')} ${rp.chars}${t('charsUnit')}${rp.finish === 'length' ? ` ${t('cutOff')}` : ''}</span>` : '';
   const timing = !busy && !conflict && tm && tm.steps.length
-    ? `<span class="canon-timing" title="${esc([...tm.steps.map((s) => `${t('step_' + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` ×${s.count}` : ''}${s.retries ? ` (${t('resent')} ${s.retries})` : ''}`), ...(tm.rejects?.length ? ['', `${t('resentWhy')}:`, ...tm.rejects] : [])].join('\n'))}">${t('lastTurn')} ${dur(tm.totalMs)}：${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc(t('step_' + s.step))} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? `（${esc(t('resent'))}${s.retries}）` : ''}`).join(' · ')}${replyPart}</span>`
+    ? `<span class="canon-timing" title="${esc([...tm.steps.map((s) => `${t('step_' + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` ×${s.count}` : ''}${s.retries ? ` (${t('resent')} ${s.retries})` : ''}`), ...(tm.rejects?.length ? ['', `${t('resentWhy')}:`, ...tm.rejects] : []), ...(tm.fixes?.length ? ['', `${t('fixedWhy')}:`, ...tm.fixes] : [])].join('\n'))}">${t('lastTurn')} ${dur(tm.totalMs)}：${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc(t('step_' + s.step))} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? `（${esc(t('resent'))}${s.retries}）` : ''}`).join(' · ')}${replyPart}</span>`
     : '';
   el.dataset.phase = conflict ? 'conflict' : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc(t('phase_' + (conflict ? 'conflict' : phase)))}</span>

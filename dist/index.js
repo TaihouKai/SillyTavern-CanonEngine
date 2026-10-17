@@ -16095,7 +16095,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.36";
+var ENGINE_RELEASE = "1.3.37";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16120,6 +16120,20 @@ var DEFAULT_SETTINGS = {
   sceneGrouping: false
 };
 var MAX_MANIFESTS = 40;
+function splitRejects(all) {
+  const fixes = /* @__PURE__ */ new Map();
+  const rejects = [];
+  for (const r of all) {
+    const m = r.match(/^(\w+): kept after a fix: (.*)$/s);
+    if (!m || /^dropped/.test(m[2])) {
+      rejects.push(r);
+      continue;
+    }
+    const k = `${m[1]}: ${m[2].replace(/\/\d+\//g, "/#/").replace(/: \{.*$/s, "").slice(0, 140)}`;
+    fixes.set(k, (fixes.get(k) || 0) + 1);
+  }
+  return { rejects: rejects.slice(-6), fixes: [...fixes].map(([k, n]) => n > 1 ? `${k} \xD7${n}` : k).slice(0, 6) };
+}
 var CanonEngine = class {
   host;
   settings;
@@ -16846,8 +16860,12 @@ var CanonEngine = class {
       for (const v of a.violations) lines.push(`  - ${v}`);
     });
     if (tm.rejects?.length) {
-      lines.push("", "Model output problems (resent, or kept after an automatic fix):");
+      lines.push("", "Model output problems (resent, or an unusable item dropped):");
       for (const r of tm.rejects) lines.push(`  - ${r}`);
+    }
+    if (tm.fixes?.length) {
+      lines.push("", "Small automatic fixes (no resend, result kept):");
+      for (const r of tm.fixes) lines.push(`  - ${r}`);
     }
     lines.push("", "Steps: " + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? ` (resent ${s.retries})` : ""}`).join(" \xB7 "));
     return lines.join("\n").slice(0, 12e3);
@@ -17233,7 +17251,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         if (s.retry) a.retries++;
         agg.set(s.step, a);
       }
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, rejects: this.rejects.slice(-6) };
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, ...splitRejects(this.rejects) };
       if (!committed && trace.outcome === "failed") {
         const c = this.campaign();
         if (c && c.recoveryState.status === "error") {
@@ -18475,7 +18493,8 @@ var D = {
   tabDone: { zh: "\u56DE\u590D\u5B8C\u6210", en: "reply ready" },
   tabFailed: { zh: "\u56DE\u590D\u5931\u8D25", en: "turn failed" },
   resent: { zh: "\u91CD\u53D1", en: "resent" },
-  resentWhy: { zh: "\u6A21\u578B\u8F93\u51FA\u95EE\u9898\uFF08\u5DF2\u91CD\u53D1\u6216\u5DF2\u81EA\u52A8\u4FEE\u6B63\uFF09", en: "Model output problems (resent or fixed automatically)" },
+  resentWhy: { zh: "\u6A21\u578B\u8F93\u51FA\u95EE\u9898\uFF08\u5DF2\u91CD\u53D1\uFF0C\u6216\u4E22\u5F03\u4E86\u65E0\u6CD5\u4F7F\u7528\u7684\u6761\u76EE\uFF09", en: "Model output problems (resent, or an unusable item dropped)" },
+  fixedWhy: { zh: "\u5C0F\u7684\u81EA\u52A8\u4FEE\u6B63\uFF08\u672A\u91CD\u53D1\uFF0C\u7ED3\u679C\u7167\u5E38\u4FDD\u7559\uFF0C\u53EF\u5FFD\u7565\uFF09", en: "Small automatic fixes (no resend, result kept; safe to ignore)" },
   replyLen: { zh: "\u56DE\u590D", en: "reply" },
   charsUnit: { zh: "\u5B57", en: " chars" },
   cutOff: { zh: "\uFF08\u88AB\u622A\u65AD\uFF09", en: "(cut off)" },
@@ -19233,7 +19252,7 @@ function renderStatus() {
     rp.finish ? `finish_reason: ${rp.finish}` : ""
   ].filter(Boolean).join("\n") : "";
   const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc2(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
-  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc2(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}</span>` : "";
+  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc2(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}</span>` : "";
   el.dataset.phase = conflict ? "conflict" : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc2(t("phase_" + (conflict ? "conflict" : phase)))}</span>
     <span class="canon-msg" title="${esc2(msg)}">${esc2(msg)}</span>${timing}
