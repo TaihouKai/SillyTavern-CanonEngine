@@ -16109,7 +16109,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.39";
+var ENGINE_RELEASE = "1.3.40";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16482,6 +16482,7 @@ var CanonEngine = class {
     const issue = r.issue;
     const result = r;
     this.current = { replay: result, index: new WorldIndex(pack2, result.state) };
+    if (!issue) this.pruneFocus(c, pack2, result.state);
     const fingerprintChanged = result.fingerprint !== c.transcriptFingerprint;
     c.ledgerRecords = result.ledger;
     c.manifest = entries.slice(0, issue ? issue.index : entries.length).map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
@@ -17361,6 +17362,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     const r = replay({ pack: pack2, branchId: c2.branchId, bootstrap: c2.bootstrapRecords, manual: c2.manualRecords, entries, store: c2.interpretations });
     if (r.issue) this.host.log("warn", "post-commit replay issue: " + r.issue.reasons.join("; "));
     this.current = { replay: r, index: new WorldIndex(pack2, r.state) };
+    if (!r.issue) this.pruneFocus(c2, pack2, r.state);
     c2.ledgerRecords = r.ledger;
     c2.manifest = entries.map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
     c2.transcriptFingerprint = r.fingerprint;
@@ -17687,6 +17689,15 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     });
     await this.host.save();
     return on;
+  }
+  /** A focused event that has been settled (happened, changed or did not happen) or whose window has passed is unfocused. */
+  pruneFocus(c, pack2, state) {
+    if (!c.focusEvents?.length) return;
+    const keep = c.focusEvents.filter((id) => {
+      const t2 = pack2.timeIndex.find((x) => x.id === id);
+      return !state.dispositions.has(id) && (!t2 || t2.hi >= state.clock.lo);
+    });
+    if (keep.length !== c.focusEvents.length) c.focusEvents = keep;
   }
   focusEvents() {
     return new Set(this.campaign()?.focusEvents || []);

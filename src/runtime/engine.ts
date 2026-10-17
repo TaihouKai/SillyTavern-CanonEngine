@@ -428,6 +428,7 @@ export class CanonEngine {
     const issue = r!.issue;
     const result = r!;
     this.current = { replay: result, index: new WorldIndex(pack, result.state) };
+    if (!issue) this.pruneFocus(c, pack, result.state);
     const fingerprintChanged = result.fingerprint !== c.transcriptFingerprint;
     c.ledgerRecords = result.ledger;
     c.manifest = entries.slice(0, issue ? issue.index : entries.length).map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
@@ -1181,6 +1182,7 @@ export class CanonEngine {
     const r = replay({ pack, branchId: c2.branchId, bootstrap: c2.bootstrapRecords, manual: c2.manualRecords, entries, store: c2.interpretations });
     if (r.issue) this.host.log('warn', 'post-commit replay issue: ' + r.issue.reasons.join('; '));
     this.current = { replay: r, index: new WorldIndex(pack, r.state) };
+    if (!r.issue) this.pruneFocus(c2, pack, r.state);
     c2.ledgerRecords = r.ledger;
     c2.manifest = entries.map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
     c2.transcriptFingerprint = r.fingerprint;
@@ -1495,6 +1497,13 @@ export class CanonEngine {
     c.planRevisions.forEach((p) => { if (p.status === 'active') p.status = 'stale'; });
     await this.host.save();
     return on;
+  }
+
+  /** A focused event that has been settled (happened, changed or did not happen) or whose window has passed is unfocused. */
+  private pruneFocus(c: CampaignData, pack: LoadedPack, state: WorldState) {
+    if (!c.focusEvents?.length) return;
+    const keep = c.focusEvents.filter((id) => { const t = pack.timeIndex.find((x) => x.id === id); return !state.dispositions.has(id) && (!t || t.hi >= state.clock.lo); });
+    if (keep.length !== c.focusEvents.length) c.focusEvents = keep;
   }
 
   focusEvents(): Set<Id> { return new Set(this.campaign()?.focusEvents || []); }

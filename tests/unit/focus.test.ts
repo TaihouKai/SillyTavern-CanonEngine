@@ -49,4 +49,11 @@ describe('focus', () => {
     expect(plans.length).toBeGreaterThan(0);
     expect(plans.slice(-1)[0].input.player_interests.map((i: any) => i.id)).toContain('council-broadcast');
   });
+
+  it('FO4 a focused event is unfocused automatically once it has happened', async () => {
+    const x = await setup();
+    await x.engine.toggleFocus('council-broadcast');
+    await x.engine.forceComplete('council-broadcast');
+    expect(x.engine.campaign()!.focusEvents).toEqual([]);
+  });
 });

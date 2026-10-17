@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.40 — 2026-10-17
+
+- 关注 is cancelled automatically once the event is settled (happened, happened differently or did not happen) or its window has passed. Test FO4.
+
 ## 1.3.39 — 2026-10-17
 
 - **关注 (focus):** SOFT/FREE events that have not happened yet get a ☆ 关注 button in 本局历史 (focused events show ★). From 24 hours before a focused event's window until it ends (while it can still happen), the GM is asked to give the player character natural in-world chances to be present or involved when it starts — an invitation, news, an errand or a chance meeting — without forcing its course or result, acting for the player, or ignoring a decline. When the planner runs for HARD anchors it may add up to 2 non-binding steps that create such a chance (no extra model calls).
