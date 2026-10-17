@@ -211,13 +211,13 @@ describe('clock, conditions, reducer', () => {
     const s = reduce(L, boot(L, T(0, 9)));
     applyRecord(s, { recordId: 'resc', commitId: 'c1', branchId: 'b', sequence: 100, kind: 'canon_occurrence', storyTime: { lo: T(1, 10), hi: T(1, 10), precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true }], eventOccurrenceIds: ['o1'], occurrences: [{ occurrenceId: 'o1', title: 'Ambush of Mira', account: 'The player shields Mira; she survives.', actors: ['mira'], affected: ['mira'], locations: ['harbor'], time: { lo: T(1, 10), hi: T(1, 10), precision: 'minute' }, outcome: [], causes: [], refPhrases: ['ambush'], packEventId: 'medic-ambush', origin: 'player', visibility: { mode: 'public', knower_ids: [] } }], visibility: { mode: 'public', knower_ids: [] }, summary: 'rescue', evidenceKind: 'direct', packEventId: 'medic-ambush', disposition: 'diverged' });
     expect(crossedCandidates(L, s, T(1, 10), T(5, 0)).map((c) => c.event.id)).not.toContain('medic-ambush');
-    // broadcast's original precondition (ambush occurred) is now FALSE -> SOFT omitted with reason
+    // the ambush happened differently: whether the broadcast that depends on it still follows is judged on
+    // the actual state by the model (neither the original route nor an automatic omission)
     const c = crossedCandidates(L, s, T(1, 10), T(5, 0)).find((x) => x.event.id === 'council-broadcast')!;
     const p = adjudicateDefault(L, s, c, occurrenceWindow(c, T(1, 10), T(5, 0)));
-    expect(p.record?.disposition).toBe('omitted');
-    expect(p.record?.dispositionReason).toMatch(/occurred\(medic-ambush\) is FALSE/);
-    // HARD conflict-begins now needs model adjudication (never omitted)
-    applyRecord(s, { ...p.record!, sequence: 101, branchId: 'b', commitId: 'c2' });
+    expect(p.mode).toBe('needs_model');
+    expect(p.precondition).toBe('UNKNOWN');
+    // HARD conflict-begins needs model adjudication too (never omitted)
     const h = crossedCandidates(L, s, T(1, 12), T(5, 0)).find((x) => x.event.id === 'conflict-begins')!;
     expect(adjudicateDefault(L, s, h, occurrenceWindow(h, T(1, 12), T(5, 0))).mode).toBe('needs_model');
     expect(factAt(s, 'mira', 'alive').value).toBe(true);

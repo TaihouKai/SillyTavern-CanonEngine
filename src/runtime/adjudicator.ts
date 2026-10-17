@@ -54,6 +54,21 @@ export async function adjudicateInterval(args: {
     const windowStillOpen = c.hi > args.toInclusive;
     if (windowStillOpen) continue;
     const p = adjudicateDefault(pack, scratch, c, when);
+    // The original route assumes the original situation. When actual play has recently involved this
+    // event's characters, what they know or do may no longer fit it: let the model judge from actual play
+    // (falling back to the original route if it cannot).
+    const play = p.mode === 'deterministic' && p.record?.disposition === 'occurred' && c.event.classification !== 'HARD' && args.port ? recentPlay(pack, scratch, c) : [];
+    if (play.length) {
+      const judged = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, play);
+      if (judged && !judged.postponed) {
+        records.push(judged.record);
+        basis.push({ eventId: c.event.id, precondition: p.precondition, mode: 'model' });
+        applyRecord(scratch, { ...judged.record, sequence: ++seq, branchId: 'stage', commitId: 'stage' });
+        notes.push(`${formatTick(judged.record.storyTime.lo)} ${c.event.title}: ${judged.record.disposition} — ${judged.record.occurrences?.[0]?.account?.slice(0, 160) || judged.record.dispositionReason}`);
+        continue;
+      }
+      if (judged?.postponed) { notes.push(`${c.event.title}: postponed within its bounds`); continue; }
+    }
     if (p.mode === 'deterministic' && p.record) {
       records.push(p.record);
       basis.push({ eventId: c.event.id, precondition: p.precondition, mode: 'deterministic' });
@@ -92,14 +107,38 @@ export async function adjudicateInterval(args: {
   return { records, basis, stagedHard, notes, forcedUsed };
 }
 
+/** Actual play (player/GM scenes, not canon records) involving this event's people from 2 days before its window. */
+function recentPlay(pack: LoadedPack, s: WorldState, c: Candidate): string[] {
+  const people = new Set(c.event.entity_ids.filter((id) => pack.entities.get(id)?.kind === 'person'));
+  if (!people.size) return [];
+  const out: string[] = [];
+  for (const o of s.occurrences.values()) {
+    if (o.packEventId || (o.origin !== 'player' && o.origin !== 'gm') || o.time.hi < c.lo - 2 * 1440) continue;
+    if (![...o.actors, ...o.affected].some((x) => people.has(x))) continue;
+    out.push(`${formatTick(o.time.lo)} ${o.title}: ${o.account.length > 300 ? o.account.slice(0, 297) + '…' : o.account}`);
+  }
+  return out.slice(-12);
+}
+
+function occurredIds(c: import('../domain/types').Condition): string[] {
+  if ('all' in c) return c.all.flatMap(occurredIds);
+  if ('any' in c) return c.any.flatMap(occurredIds);
+  if ('not' in c) return [];
+  return 'occurred' in c ? [c.occurred] : [];
+}
+
 async function modelAdjudicate(
-  args: Parameters<typeof adjudicateInterval>[0], scratch: WorldState, c: Candidate, when: StoryTime, pre: string, explanation: string[], forced: boolean,
+  args: Parameters<typeof adjudicateInterval>[0], scratch: WorldState, c: Candidate, when: StoryTime, pre: string, explanation: string[], forced: boolean, play: string[] = [],
 ): Promise<{ record: RecordDraft; postponed?: boolean } | null> {
   const { pack } = args;
   const ev = c.event;
   const input = {
     candidate: { id: ev.id, title: ev.title, classification: ev.classification, required_description: ev.required_description, original_summary: ev.summary, window: { lo: ev.when.earliest, hi: ev.when.latest }, adjudication_window: { lo: formatTick(when.lo), hi: formatTick(when.hi) }, original_outcomes: ev.outcomes, original_effects: ev.canonical_effects, entities: ev.entity_ids },
     original_preconditions_now: pre,
+    ...(play.length ? { recent_actual_play_with_these_characters: play } : {}),
+    // prerequisite events that happened differently in this playthrough: judge from what actually happened
+    upstream_happened_differently: occurredIds(ev.canonical_preconditions).map((id) => ({ id, d: scratch.dispositions.get(id) })).filter((x) => x.d?.disposition === 'diverged')
+      .map((x) => ({ id: x.id, title: pack.events.get(x.id)?.title, actual: (x.d!.occurrenceId && scratch.occurrences.get(x.d!.occurrenceId)?.account) || x.d!.reason || '' })),
     unmet_conditions: explanation,
     actual_world: args.facts,
     plan_steps: (args.plan?.steps || []).filter((s) => s.serves_anchor === ev.id || s.latest >= when.lo).slice(0, 10),

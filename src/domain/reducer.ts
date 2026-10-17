@@ -205,7 +205,9 @@ export function evalCondition(c: Condition, state: WorldState, pack: LoadedPack,
   const d = state.dispositions.get(c.occurred);
   if (d) {
     if (d.tick > cp.tick) return false;
-    return d.disposition === 'occurred';
+    // happened differently: it did happen, but whether what depends on it still follows is a judgement on
+    // the actual state (adjudicated with the model), not a deterministic yes/no from the original route
+    return d.disposition === 'occurred' ? true : d.disposition === 'diverged' ? UNKNOWN : false;
   }
   const ev = pack.events.get(c.occurred);
   const idx = pack.timeIndex.find((t) => t.id === c.occurred);

@@ -12125,7 +12125,7 @@ function evalCondition(c, state, pack2, cp) {
   const d = state.dispositions.get(c.occurred);
   if (d) {
     if (d.tick > cp.tick) return false;
-    return d.disposition === "occurred";
+    return d.disposition === "occurred" ? true : d.disposition === "diverged" ? UNKNOWN : false;
   }
   const ev = pack2.events.get(c.occurred);
   const idx = pack2.timeIndex.find((t2) => t2.id === c.occurred);
@@ -14841,7 +14841,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it).
 SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null}],"step_enactments":[{"step_id":"s1","occurrence_ref":"o1","quote":""}],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":"","blocking":true}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":""}`,
   adjudicate: `${COMMON}
-TASK: Offscreen adjudication for a story-time advance. For each candidate canonical event in the interval decide what ACTUALLY happens given actual state (not the original summary): occurred (original result), diverged (event happens but with a different actual result), omitted (does not happen; FREE/SOFT only, with reason), postponed (SOFT only, still within its bounds). HARD events MUST occur within their bounds with every required outcome, even if extraordinary means are needed (extraordinary=true only when authorized_forced=true). When the actual state blocks the original route, the account must name the concrete cause (who, by what means). Give actors, causes (actual occurrence ids), typed effects, a concise account of what occurred and why. A plan step reference alone is not evidence of success.
+TASK: Offscreen adjudication for a story-time advance. For each candidate canonical event in the interval decide what ACTUALLY happens given actual state (not the original summary): occurred (original result), diverged (event happens but with a different actual result), omitted (does not happen; FREE/SOFT only, with reason), postponed (SOFT only, still within its bounds). HARD events MUST occur within their bounds with every required outcome, even if extraordinary means are needed (extraordinary=true only when authorized_forced=true). When the actual state blocks the original route, the account must name the concrete cause (who, by what means). upstream_happened_differently lists prerequisite events that happened differently in this playthrough: decide from what actually happened whether the candidate still comes about, in what form, or not at all (its original summary may assume things that are no longer true, e.g. someone not knowing something). recent_actual_play_with_these_characters, when given, is what actually happened in play with this event's people: the original summary assumes the original situation (who knows what, who is where), so decide from actual play whether it happens as written, happens differently (diverged, with the actual result), or not at all. Give actors, causes (actual occurrence ids), typed effects, a concise account of what occurred and why. A plan step reference alone is not evidence of success.
 SHAPE: {"adjudications":[{"event_id":"","decision":"occurred","time":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"account":"","actors":[],"causes":[],"effects":[{"op":"set","entity_id":"","predicate":"","value":true}],"plan_step_ids":[],"reason":"","extraordinary":false}]}`,
   impact: `${COMMON}
 TASK: Impact assessment of newly accepted changes against the active plan and the complete future HARD register. Report changed facts, affected plan steps and anchors (ids from input only), scope (local/global/unknown), severity (none/minor/major \u2014 major only if the change substantially destroys a protected path or requires extraordinary correction; entity count is not severity), and whether replanning is needed. A change made by an enacted plan step (by_plan_step, enacted_plan_steps) or one that follows an anchor's original route is the plan working, not a deviation: severity none, no replan. Judge each change by its actual value; never assume the worst about a change.
@@ -15707,6 +15707,21 @@ async function adjudicateInterval(args) {
     const windowStillOpen = c.hi > args.toInclusive;
     if (windowStillOpen) continue;
     const p = adjudicateDefault(pack2, scratch, c, when);
+    const play = p.mode === "deterministic" && p.record?.disposition === "occurred" && c.event.classification !== "HARD" && args.port ? recentPlay(pack2, scratch, c) : [];
+    if (play.length) {
+      const judged = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, play);
+      if (judged && !judged.postponed) {
+        records.push(judged.record);
+        basis.push({ eventId: c.event.id, precondition: p.precondition, mode: "model" });
+        applyRecord(scratch, { ...judged.record, sequence: ++seq, branchId: "stage", commitId: "stage" });
+        notes.push(`${formatTick(judged.record.storyTime.lo)} ${c.event.title}: ${judged.record.disposition} \u2014 ${judged.record.occurrences?.[0]?.account?.slice(0, 160) || judged.record.dispositionReason}`);
+        continue;
+      }
+      if (judged?.postponed) {
+        notes.push(`${c.event.title}: postponed within its bounds`);
+        continue;
+      }
+    }
     if (p.mode === "deterministic" && p.record) {
       records.push(p.record);
       basis.push({ eventId: c.event.id, precondition: p.precondition, mode: "deterministic" });
@@ -15755,12 +15770,32 @@ async function adjudicateInterval(args) {
   }
   return { records, basis, stagedHard, notes, forcedUsed };
 }
-async function modelAdjudicate(args, scratch, c, when, pre, explanation, forced) {
+function recentPlay(pack2, s, c) {
+  const people = new Set(c.event.entity_ids.filter((id) => pack2.entities.get(id)?.kind === "person"));
+  if (!people.size) return [];
+  const out = [];
+  for (const o of s.occurrences.values()) {
+    if (o.packEventId || o.origin !== "player" && o.origin !== "gm" || o.time.hi < c.lo - 2 * 1440) continue;
+    if (![...o.actors, ...o.affected].some((x) => people.has(x))) continue;
+    out.push(`${formatTick(o.time.lo)} ${o.title}: ${o.account.length > 300 ? o.account.slice(0, 297) + "\u2026" : o.account}`);
+  }
+  return out.slice(-12);
+}
+function occurredIds(c) {
+  if ("all" in c) return c.all.flatMap(occurredIds);
+  if ("any" in c) return c.any.flatMap(occurredIds);
+  if ("not" in c) return [];
+  return "occurred" in c ? [c.occurred] : [];
+}
+async function modelAdjudicate(args, scratch, c, when, pre, explanation, forced, play = []) {
   const { pack: pack2 } = args;
   const ev = c.event;
   const input = {
     candidate: { id: ev.id, title: ev.title, classification: ev.classification, required_description: ev.required_description, original_summary: ev.summary, window: { lo: ev.when.earliest, hi: ev.when.latest }, adjudication_window: { lo: formatTick(when.lo), hi: formatTick(when.hi) }, original_outcomes: ev.outcomes, original_effects: ev.canonical_effects, entities: ev.entity_ids },
     original_preconditions_now: pre,
+    ...play.length ? { recent_actual_play_with_these_characters: play } : {},
+    // prerequisite events that happened differently in this playthrough: judge from what actually happened
+    upstream_happened_differently: occurredIds(ev.canonical_preconditions).map((id) => ({ id, d: scratch.dispositions.get(id) })).filter((x) => x.d?.disposition === "diverged").map((x) => ({ id: x.id, title: pack2.events.get(x.id)?.title, actual: x.d.occurrenceId && scratch.occurrences.get(x.d.occurrenceId)?.account || x.d.reason || "" })),
     unmet_conditions: explanation,
     actual_world: args.facts,
     plan_steps: (args.plan?.steps || []).filter((s) => s.serves_anchor === ev.id || s.latest >= when.lo).slice(0, 10),
@@ -16109,7 +16144,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.40";
+var ENGINE_RELEASE = "1.3.41";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));

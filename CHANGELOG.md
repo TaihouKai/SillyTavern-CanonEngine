@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.41 — 2026-10-18
+
+- **Happened differently counts as "it happened, judge the rest":** an event that depends on another event having happened (`occurred`) is no longer cancelled automatically when that event happened differently (diverged); whether it still follows, and how, is decided by the model from what actually happened (the adjudicator gets the actual account of the changed prerequisite).
+- **Settling SOFT/FREE events after actual play involved their people:** when an event's window closes and its preconditions hold, it used to be recorded along its original route without a model call, even if the story had just changed what its characters know or do (e.g. 美琴 already knowing where 10032 is). Now, if actual play involved the event's people since 2 days before its window, the model judges it from that play (as written, happened differently, or not at all), falling back to the original route if it cannot. Events untouched by play still settle with no model call.
+- Tests PA1-PA2; C02 updated.
+
 ## 1.3.40 — 2026-10-17
 
 - 关注 is cancelled automatically once the event is settled (happened, happened differently or did not happen) or its window has passed. Test FO4.
