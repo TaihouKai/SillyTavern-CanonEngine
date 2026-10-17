@@ -12294,6 +12294,17 @@ function situationOf(summary) {
   if (s.length > 180) s = s.slice(0, 177) + "\u2026";
   return s;
 }
+function focusedLive(pack2, state, ids, nowTick, lead = 24 * 60) {
+  const out = [];
+  for (const t2 of pack2.timeIndex) {
+    if (!ids.includes(t2.id) || state.dispositions.has(t2.id) || t2.hi < nowTick || t2.lo > nowTick + lead) continue;
+    const ev = pack2.events.get(t2.id);
+    if (ev.classification === "HARD") continue;
+    if (triLabel(evalCondition(ev.canonical_preconditions, state, pack2, { tick: Math.max(nowTick, t2.lo) })) === "FALSE") continue;
+    out.push({ event: ev, lo: t2.lo, hi: t2.hi });
+  }
+  return out;
+}
 function upcomingRoute(pack2, state, nowTick, horizon, limit = 6) {
   const out = [];
   for (const t2 of pack2.timeIndex) {
@@ -14839,7 +14850,8 @@ SHAPE: {"changed":[{"entity_id":"","predicate":""}],"affected_anchors":[],"affec
 TASK: Plan future world actions so every protected HARD contract is realized exactly (required description, outcomes, time bounds) from the ACTUAL current world. Prefer: existing causes -> plausible extensions -> original actions/actors -> extraordinary correction (only when allowed_mode is FORCED_CONVERGENCE; say why cheaper routes are inadequate in inadequacy_note). Steps are intentions, not facts. Never require the player's consent or choose the player's actions (requires_player_consent must be false; offer opportunities instead). Never drop, rename, reschedule or weaken an anchor; never declare an alternate world. Creating new actors/resources requires explicit establishment steps. Times must be within anchor bounds and after the current time.
 recent_situation lists recent actual events and the current situation; a route must work from it (e.g. a person who is detained or guarded must first get out, and the step must say who makes that possible and how). Choose actors who have both the means and a motive in this world; canonical characters and organizations who would plausibly act are preferred over coincidence.
 others_original_situation is background: what other characters know and are doing in the original story over the next day. Do not plan for it; just do not make anyone act on knowledge they would not have yet (e.g. notice a secret event earlier than they would), and prefer routes that stay out of public view when a HARD outcome is secret.
-Write steps ONLY for the anchors in protected_hard_detailed (the near horizon). hard_register is context for later anchors: do NOT write steps for them; they are planned when they come near. Use at most 8 steps; keep "action" to one short sentence.
+player_interests lists non-HARD events the player wants to experience. You MAY add up to 2 extra steps (serves_anchor null, ordinary means) that give the player character a natural in-world chance to be present when such an event starts (an invitation, news reaching them, an errand that brings them there). Never force the event's course or result and never require the player's consent. These steps never take priority over protecting the HARD anchors.
+Write steps ONLY for the anchors in protected_hard_detailed (plus the optional player_interests steps) (the near horizon). hard_register is context for later anchors: do NOT write steps for them; they are planned when they come near. Use at most 8 steps; keep "action" to one short sentence.
 Each intended_effects value must have its predicate's declared type and be one of its "allowed" values when listed (a string predicate takes a string such as "\u6BC1\u574F", never true/false). For a step that brings about a HARD outcome, copy that outcome's exact value.
 SHAPE: {"rationale":"","protected_anchor_ids":[],"assumptions":[{"text":"","fact":null}],"risks":[],"mode":"NORMAL","steps":[{"step_id":"s1","actors":[],"targets":[],"earliest":{"day":0,"minute":0},"latest":{"day":0,"minute":0},"prerequisites":[],"action":"","intended_effects":[{"entity_id":"","predicate":"","value":true}],"visibility":"secret","knowers":[],"depends_on":[],"means":"ordinary","serves_anchor":null,"requires_player_consent":false}],"inadequacy_note":""}`
 };
@@ -15264,6 +15276,7 @@ function buildPacket(inp, compact = false) {
   if (restricted.length) required.push("KNOWLEDGE BOUNDARIES (world truth vs who knows it):\n" + restricted.map((o) => `- ${o.title}: ${o.visibility.mode}; known to ${o.visibility.knower_ids.length ? o.visibility.knower_ids.map((x) => index.entityName(x)).join(", ") : "no established knowledge holder"} \u2014 physical consequences remain visible; do not disclose the hidden cause to the player or other NPCs.`).join("\n"));
   if (retrieval.ambiguous.length) required.push("AMBIGUOUS REFERENCES (do not guess; keep ambiguity in narration):\n" + retrieval.ambiguous.map((a) => "- " + a).join("\n"));
   required.push("PLAYER SCOPE (exact current player input; do not add actions/consent/dialogue beyond it):\n" + (inp.playerScope.length ? inp.playerScope.map((s) => "- " + s).join("\n") : "- (no new player input in this operation)"));
+  if (inp.focus?.length) optional.push('PLAYER WANTS TO EXPERIENCE (\u5173\u6CE8; for these events only this overrides "do not steer"): give the player character natural in-world chances to be present or involved when each one starts \u2014 an invitation, a rumor or news that reaches them, an errand or a chance meeting that brings them there, characters who would plausibly involve them. Lead up to it plausibly; do not force its course or result, do not act or decide for the player, and accept a decline:\n' + inp.focus.join("\n"));
   if (inp.opportunities.length) optional.push("PARTICIPATION OPPORTUNITIES (offer in-world only if plausible; never force; a decline is respected):\n" + inp.opportunities.map((s) => "- " + s).join("\n"));
   const canonRef = dueSoon.slice(0, 3).map((h) => `- ${h.event.title}: original route \u2014 ${h.event.summary}`);
   if (canonRef.length) optional.push("CANON REFERENCE (original routes; reference only, NOT facts):\n" + canonRef.join("\n"));
@@ -16008,6 +16021,7 @@ async function runPlanning(args) {
       hard_register: scope.register.map((id) => ({ id, deadline: pack2.events.get(id).when.latest, required: pack2.events.get(id).required_description })),
       actual_world: args.facts,
       recent_situation: args.situation || "",
+      player_interests: args.interests || [],
       others_original_situation: upcomingRoute(pack2, state, clockTick, 24 * 60).map((u) => ({ id: u.event.id, at: formatTick(u.lo), situation: situationOf(u.event.summary) })),
       deviations: [...state.dispositions].filter(([, d]) => d.disposition !== "occurred").map(([id, d]) => ({ id, disposition: d.disposition, reason: d.reason })),
       entities: [...pack2.entities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind })).concat([...state.runtimeEntities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind }))),
@@ -16095,7 +16109,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.38";
+var ENGINE_RELEASE = "1.3.39";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -17102,6 +17116,7 @@ var CanonEngine = class {
           forced: planInfo.forced,
           stagedNotes: [],
           opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`),
+          focus: this.focusLines(index, clock),
           budgetChars: this.settings.budgetChars,
           horizon: this.settings.horizonMinutes
         };
@@ -17463,6 +17478,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         persona: this.host.persona().name,
         log: (l) => this.debugLog("task", l),
         situation: opts.situation ?? this.recentSituation(index),
+        interests: focusedLive(pack2, state, c.focusEvents || [], clock).map((f) => ({ id: f.event.id, title: f.event.title, window: `${formatTick(f.lo)} \u2013 ${formatTick(f.hi)}`, original_route: f.event.summary })),
         impactForced: !!c._impactForced
       });
     } catch (e) {
@@ -17656,6 +17672,30 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     });
     await this.reconcile("undo_force", { allowModel: false });
     await this.host.save();
+  }
+  /** 关注: mark/unmark an event the player wants to experience. */
+  async toggleFocus(eventId) {
+    const c = this.campaign();
+    if (!c) return false;
+    const cur = new Set(c.focusEvents || []);
+    const on = !cur.has(eventId);
+    if (on) cur.add(eventId);
+    else cur.delete(eventId);
+    c.focusEvents = [...cur];
+    c.planRevisions.forEach((p) => {
+      if (p.status === "active") p.status = "stale";
+    });
+    await this.host.save();
+    return on;
+  }
+  focusEvents() {
+    return new Set(this.campaign()?.focusEvents || []);
+  }
+  focusLines(index, clock) {
+    const c = this.campaign();
+    if (!c?.focusEvents?.length) return [];
+    const origin = c.binding.originDate || null;
+    return focusedLive(index.pack, index.state, c.focusEvents, clock).map((f) => `- ${f.event.title} (${formatTick(f.lo, origin)} \u2013 ${formatTick(f.hi, origin)}${f.lo <= clock ? ", under way now" : ""}): ${f.event.summary.length > 260 ? f.event.summary.slice(0, 257) + "\u2026" : f.event.summary}`);
   }
   /** Events the player forced to complete. */
   forcedEvents() {
@@ -18503,6 +18543,9 @@ var D = {
   graphTitle: { zh: "Canon Engine \u5386\u53F2\u56FE", en: "Canon Engine history graph" },
   graphCurrent: { zh: "\u672C\u5C40\u5386\u53F2", en: "This playthrough" },
   force: { zh: "\u5F3A\u5236\u5B8C\u6210", en: "Force complete" },
+  focus: { zh: "\u2606 \u5173\u6CE8", en: "\u2606 Focus" },
+  unfocus: { zh: "\u2605 \u53D6\u6D88\u5173\u6CE8", en: "\u2605 Unfocus" },
+  focusTip: { zh: "\u5173\u6CE8\u540E\uFF0C\u4E8B\u4EF6\u4E34\u8FD1\u65F6 GM \u4F1A\u81EA\u7136\u5730\u7ED9\u4F60\u7684\u89D2\u8272\u673A\u4F1A\u5230\u573A\u6216\u53C2\u4E0E\uFF08\u9080\u8BF7\u3001\u4F20\u95FB\u3001\u987A\u8DEF\u2026\uFF09\uFF0C\u4F46\u4E0D\u4F1A\u5F3A\u884C\u51B3\u5B9A\u5B83\u7684\u7ECF\u8FC7\u548C\u7ED3\u679C\u3002", en: "When focused, as the event nears the GM gives your character natural chances to be there or take part (an invitation, news, an errand\u2026) without forcing how it goes or ends." },
   forceConfirm: { zh: "\u518D\u70B9\u4E00\u6B21\u786E\u8BA4\uFF1A\u6309\u539F\u4F5C\u8DEF\u7EBF\u6807\u8BB0\u4E3A\u5DF2\u53D1\u751F", en: "Click again to confirm: mark as happened (original route)" },
   unforce: { zh: "\u64A4\u9500\u5F3A\u5236\u5B8C\u6210", en: "Undo force complete" },
   unforceConfirm: { zh: "\u518D\u70B9\u4E00\u6B21\u786E\u8BA4\u64A4\u9500", en: "Click again to confirm undo" },
@@ -19086,6 +19129,14 @@ var GraphPanel = class {
       this.fit?.();
       return;
     }
+    if (b?.dataset.act === "focus") {
+      b.disabled = true;
+      void this.onEventAction("focus", b.dataset.id).finally(() => {
+        this.keepView = true;
+        this.refresh();
+      });
+      return;
+    }
     if (b && (b.dataset.act === "force" || b.dataset.act === "unforce")) {
       const id = b.dataset.id, act = b.dataset.act;
       if (this.armed !== act + ":" + id) {
@@ -19124,6 +19175,7 @@ var GraphPanel = class {
       <div class="cg-when">${esc(n.when)}</div>
       ${n.required ? `<div class="cg-req"><b>\u5FC5\u987B\u5B9E\u73B0\uFF1A</b>${esc(n.required)}</div>` : ""}
       <p style="white-space:pre-line">${esc(n.summary)}</p>
+      ${this.mode === "current" && (n.lane === "SOFT" || n.lane === "FREE") && (n.status === "future" || n.status === "pending") ? `<button class="menu_button cg-focus${n.focused ? " active" : ""}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t("focusTip"))}">${n.focused ? t("unfocus") : t("focus")}</button>` : ""}
       ${this.mode === "current" && n.lane !== "RUNTIME" && n.status !== "occurred" && n.status !== "diverged" ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t("force")}</button>` : ""}
       ${this.mode === "current" && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${t("unforce")}</button>` : ""}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join("")}
@@ -19212,13 +19264,22 @@ function mountTopButton() {
     if (!src) return { pack: null, current: null, spoilers };
     const pg = packGraph(src.pack, src.origin);
     pg.nowTick = src.state ? src.state.clock.lo : null;
-    return { pack: pg, current: src.state ? currentGraph(src.pack, src.state, src.origin, spoilers) : null, spoilers };
+    const cur = src.state ? currentGraph(src.pack, src.state, src.origin, spoilers) : null;
+    if (cur) {
+      const f = E.focusEvents();
+      for (const n of cur.nodes) if (f.has(n.id) && (n.status === "future" || n.status === "pending")) {
+        n.focused = true;
+        n.title = "\u2605 " + n.title;
+      }
+    }
+    return { pack: pg, current: cur, spoilers };
   }, (v) => {
     const camp = E.campaign();
     if (camp) camp.uiPreferences.spoilers = v;
   }, async (act, id) => {
     try {
       if (act === "force") await E.forceComplete(id);
+      else if (act === "focus") await E.toggleFocus(id);
       else await E.undoForce(id);
     } catch (e) {
       toast("error", e.message);

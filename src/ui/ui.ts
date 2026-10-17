@@ -48,9 +48,11 @@ function mountTopButton() {
     const spoilers = !!camp?.uiPreferences.spoilers;
     if (!src) return { pack: null, current: null, spoilers };
     const pg = packGraph(src.pack, src.origin); pg.nowTick = src.state ? src.state.clock.lo : null;
-    return { pack: pg, current: src.state ? currentGraph(src.pack, src.state, src.origin, spoilers) : null, spoilers };
+    const cur = src.state ? currentGraph(src.pack, src.state, src.origin, spoilers) : null;
+    if (cur) { const f = E.focusEvents(); for (const n of cur.nodes) if (f.has(n.id) && (n.status === 'future' || n.status === 'pending')) { n.focused = true; n.title = '★ ' + n.title; } }
+    return { pack: pg, current: cur, spoilers };
   }, (v) => { const camp = E.campaign(); if (camp) camp.uiPreferences.spoilers = v; }, async (act, id) => {
-    try { if (act === 'force') await E.forceComplete(id); else await E.undoForce(id); } catch (e) { toast('error', (e as Error).message); }
+    try { if (act === 'force') await E.forceComplete(id); else if (act === 'focus') await E.toggleFocus(id); else await E.undoForce(id); } catch (e) { toast('error', (e as Error).message); }
   });
   const holder = document.getElementById('top-settings-holder');
   const btn = document.createElement('div');

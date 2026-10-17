@@ -171,3 +171,5 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .cg-tick-label.cg-tick-major { font-weight: bold; opacity: 0.9; }
 .canon-graph-panel .cg-force { margin: 6px 0; background: #c9302c; color: #fff; border-color: #a52a2a; }
 .canon-graph-panel .cg-unforce { margin: 6px 0; }
+.canon-graph-panel .cg-focus { margin: 6px 6px 6px 0; }
+.canon-graph-panel .cg-focus.active { background: #d4a017; color: #000; border-color: #b8860b; }

@@ -153,6 +153,8 @@ export interface PacketInput {
   forced: boolean;
   stagedNotes: string[];
   opportunities: string[];
+  /** Player-focused (关注) events that can still start soon. */
+  focus?: string[];
   budgetChars: number;
   horizon: number;
 }
@@ -254,6 +256,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   if (retrieval.ambiguous.length) required.push('AMBIGUOUS REFERENCES (do not guess; keep ambiguity in narration):\n' + retrieval.ambiguous.map((a) => '- ' + a).join('\n'));
   required.push('PLAYER SCOPE (exact current player input; do not add actions/consent/dialogue beyond it):\n' + (inp.playerScope.length ? inp.playerScope.map((s) => '- ' + s).join('\n') : '- (no new player input in this operation)'));
   // Optional
+  if (inp.focus?.length) optional.push('PLAYER WANTS TO EXPERIENCE (关注; for these events only this overrides "do not steer"): give the player character natural in-world chances to be present or involved when each one starts — an invitation, a rumor or news that reaches them, an errand or a chance meeting that brings them there, characters who would plausibly involve them. Lead up to it plausibly; do not force its course or result, do not act or decide for the player, and accept a decline:\n' + inp.focus.join('\n'));
   if (inp.opportunities.length) optional.push('PARTICIPATION OPPORTUNITIES (offer in-world only if plausible; never force; a decline is respected):\n' + inp.opportunities.map((s) => '- ' + s).join('\n'));
   const canonRef = dueSoon.slice(0, 3).map((h) => `- ${h.event.title}: original route — ${h.event.summary}`);
   if (canonRef.length) optional.push('CANON REFERENCE (original routes; reference only, NOT facts):\n' + canonRef.join('\n'));

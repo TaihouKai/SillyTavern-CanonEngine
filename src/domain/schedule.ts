@@ -199,6 +199,20 @@ export function situationOf(summary: string): string {
   return s;
 }
 
+/** Events the player marked 关注 that can still start: not settled, preconditions not FALSE, window not over,
+ *  and opening within `lead` minutes. */
+export function focusedLive(pack: LoadedPack, state: WorldState, ids: Id[], nowTick: number, lead = 24 * 60): { event: PackEvent; lo: number; hi: number }[] {
+  const out: { event: PackEvent; lo: number; hi: number }[] = [];
+  for (const t of pack.timeIndex) {
+    if (!ids.includes(t.id) || state.dispositions.has(t.id) || t.hi < nowTick || t.lo > nowTick + lead) continue;
+    const ev = pack.events.get(t.id)!;
+    if (ev.classification === 'HARD') continue;
+    if (triLabel(evalCondition(ev.canonical_preconditions, state, pack, { tick: Math.max(nowTick, t.lo) })) === 'FALSE') continue;
+    out.push({ event: ev, lo: t.lo, hi: t.hi });
+  }
+  return out;
+}
+
 /** Non-HARD original events whose window opens within (now, now+horizon], not settled and still possible. */
 export function upcomingRoute(pack: LoadedPack, state: WorldState, nowTick: number, horizon: number, limit = 6): { event: PackEvent; lo: number; hi: number }[] {
   const out: { event: PackEvent; lo: number; hi: number }[] = [];

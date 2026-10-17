@@ -28,6 +28,8 @@ export interface GNode {
   masked?: boolean;
   /** The player forced this event to complete ("强制完成"). */
   forced?: boolean;
+  /** The player marked this event 关注. */
+  focused?: boolean;
 }
 export interface GEdge { from: string; to: string; kind: string; note?: string }
 export interface GraphData { nodes: GNode[]; edges: GEdge[]; nowTick: number | null; arcs: { id: string; title: string }[]; origin?: { y: number; m: number; d: number } | null }
@@ -315,7 +317,7 @@ export class GraphPanel {
   private selected: string | null = null;
   private getData: (spoilers: boolean) => { pack: GraphData | null; current: GraphData | null; spoilers: boolean };
   private setSpoilers: (v: boolean) => void;
-  private onEventAction: (act: 'force' | 'unforce', id: string) => Promise<void>;
+  private onEventAction: (act: 'force' | 'unforce' | 'focus', id: string) => Promise<void>;
   private armed: string | null = null;
 
   constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined) {
@@ -446,6 +448,11 @@ export class GraphPanel {
     if (b?.dataset.mode) { this.mode = b.dataset.mode as 'pack' | 'current'; this.selected = null; this.refresh(); return; }
     if (b?.dataset.act === 'close') { this.toggle(false); return; }
     if (b?.dataset.act === 'fit') { (this as unknown as { fit?: () => void }).fit?.(); return; }
+    if (b?.dataset.act === 'focus') {
+      (b as HTMLButtonElement).disabled = true;
+      void this.onEventAction('focus', b.dataset.id!).finally(() => { this.keepView = true; this.refresh(); });
+      return;
+    }
     if (b && (b.dataset.act === 'force' || b.dataset.act === 'unforce')) {
       const id = b.dataset.id!, act = b.dataset.act;
       // two clicks: the first arms the button (no browser dialog), the second acts
@@ -479,6 +486,7 @@ export class GraphPanel {
       <div class="cg-when">${esc(n.when)}</div>
       ${n.required ? `<div class="cg-req"><b>必须实现：</b>${esc(n.required)}</div>` : ''}
       <p style="white-space:pre-line">${esc(n.summary)}</p>
+      ${this.mode === 'current' && (n.lane === 'SOFT' || n.lane === 'FREE') && (n.status === 'future' || n.status === 'pending') ? `<button class="menu_button cg-focus${n.focused ? ' active' : ''}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t('focusTip'))}">${n.focused ? t('unfocus') : t('focus')}</button>` : ''}
       ${this.mode === 'current' && n.lane !== 'RUNTIME' && n.status !== 'occurred' && n.status !== 'diverged' ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t('force')}</button>` : ''}
       ${this.mode === 'current' && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${t('unforce')}</button>` : ''}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join('')}

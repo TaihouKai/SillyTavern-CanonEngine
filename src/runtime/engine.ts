@@ -3,7 +3,7 @@
 import type { Id, LedgerRecord, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { valuesEqual } from '../domain/pack';
-import { buildBootstrap, pendingHard, forcedCompletion } from '../domain/schedule';
+import { buildBootstrap, pendingHard, forcedCompletion, focusedLive } from '../domain/schedule';
 import { WorldIndex } from '../domain/world-query';
 import { formatTick, formatStoryTime, fromTick, parseDateLabel, toTick } from '../domain/time';
 import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
@@ -977,7 +977,7 @@ export class CanonEngine {
         const packetArgs = {
           pack, index, retrieval, checkpointTick: clock, origin: c.binding.originDate, sceneLabel,
           playerScope: userEntry && (lastIsUser || op === 'regenerate' || op === 'swipe') ? [userEntry.text, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
-          plan, forced: planInfo.forced, stagedNotes: [] as string[], opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`), budgetChars: this.settings.budgetChars, horizon: this.settings.horizonMinutes,
+          plan, forced: planInfo.forced, stagedNotes: [] as string[], opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`), focus: this.focusLines(index, clock), budgetChars: this.settings.budgetChars, horizon: this.settings.horizonMinutes,
         };
         let packet = buildPacket(packetArgs);
         const engineContext = this.gmRules() + '\n\n' + packet.text;
@@ -1284,6 +1284,7 @@ export class CanonEngine {
       affected: (c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors || [], maxOrdinary: this.settings.maxOrdinaryPlanner, allowForcedAttempt: this.settings.forcedPlannerAttempt,
       signal, operationId, readyWindow: this.settings.readyWindowMinutes, facts, persona: this.host.persona().name, log: (l) => this.debugLog('task', l),
       situation: opts.situation ?? this.recentSituation(index),
+      interests: focusedLive(pack, state, c.focusEvents || [], clock).map((f) => ({ id: f.event.id, title: f.event.title, window: `${formatTick(f.lo)} – ${formatTick(f.hi)}`, original_route: f.event.summary })),
       impactForced: !!(c as CampaignData & { _impactForced?: boolean })._impactForced,
       });
     } catch (e) {
@@ -1480,6 +1481,29 @@ export class CanonEngine {
     });
     await this.reconcile('undo_force', { allowModel: false });
     await this.host.save();
+  }
+
+  /** 关注: mark/unmark an event the player wants to experience. */
+  async toggleFocus(eventId: Id): Promise<boolean> {
+    const c = this.campaign();
+    if (!c) return false;
+    const cur = new Set(c.focusEvents || []);
+    const on = !cur.has(eventId);
+    if (on) cur.add(eventId); else cur.delete(eventId);
+    c.focusEvents = [...cur];
+    // the planner may now add (or drop) steps that bring the player to it
+    c.planRevisions.forEach((p) => { if (p.status === 'active') p.status = 'stale'; });
+    await this.host.save();
+    return on;
+  }
+
+  focusEvents(): Set<Id> { return new Set(this.campaign()?.focusEvents || []); }
+
+  private focusLines(index: WorldIndex, clock: number): string[] {
+    const c = this.campaign();
+    if (!c?.focusEvents?.length) return [];
+    const origin = c.binding.originDate || null;
+    return focusedLive(index.pack, index.state, c.focusEvents, clock).map((f) => `- ${f.event.title} (${formatTick(f.lo, origin)} – ${formatTick(f.hi, origin)}${f.lo <= clock ? ', under way now' : ''}): ${f.event.summary.length > 260 ? f.event.summary.slice(0, 257) + '…' : f.event.summary}`);
   }
 
   /** Events the player forced to complete. */

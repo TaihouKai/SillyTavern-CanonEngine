@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.3.38';
+export const ENGINE_RELEASE = '1.3.39';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -193,6 +193,8 @@ export interface CampaignData {
   /** Records the player added by hand ("强制完成"), replayed after the message that was last when they were made
    *  (or at the end of the transcript if that message is gone). */
   manualRecords?: ManualRecord[];
+  /** Events the player marked 关注 (wants to experience): the GM/planner give the player chances to be there when they start. */
+  focusEvents?: string[];
 }
 
 export interface ManualRecord { afterMessageId: string | null; record: RecordDraft; at: number }
