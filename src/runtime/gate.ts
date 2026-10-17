@@ -8,7 +8,7 @@ import { factAt } from '../domain/reducer';
 import type { WorldIndex } from '../domain/world-query';
 import { toTick, formatTick } from '../domain/time';
 import { pendingHard } from '../domain/schedule';
-import { newId, quoteInText, uniq } from '../domain/util';
+import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
 import type { ClaimInput, Retrieval } from './context';
 import type { CoverageEntry, PlanRevision, PlayerAction, RecordDraft, StateClaim } from './types';
 
@@ -253,8 +253,14 @@ export function runGate(g: GateInput): GateResult {
     }
     if (o.continues && !packEventId) {
       const prev = occByRef.get(o.continues) || index.state.occurrences.get(o.continues);
-      if (prev && !prev.packEventId && prev.occurrenceId !== occ.occurrenceId) occ.continues = prev.occurrenceId;
-      else warnings.push(`occurrence "${o.title}": continues=${o.continues} ignored (unknown or canonical box)`);
+      if (prev && !prev.packEventId && prev.occurrenceId !== occ.occurrenceId) {
+        // the box the previous beat belongs to (committed members plus earlier beats of this reply)
+        const all = new Map<string, Occurrence>([...index.state.occurrences, ...[...occByRef.values()].map((x) => [x.occurrenceId, x] as [string, Occurrence])]);
+        const root = sceneRoot(all, prev.occurrenceId);
+        const members = [...all.values()].filter((m) => !m.packEventId && sceneRoot(all, m.occurrenceId) === root);
+        if (breaksSceneBox(members, occ)) warnings.push(`occurrence "${o.title}": starts a new box (the scene box would exceed its time/place/size limits)`);
+        else occ.continues = prev.occurrenceId;
+      } else warnings.push(`occurrence "${o.title}": continues=${o.continues} ignored (unknown or canonical box)`);
     }
     occByRef.set(o.ref, occ);
     occRecords.push({

@@ -4,7 +4,7 @@
 import type { LoadedPack } from '../domain/pack';
 import type { WorldState } from '../domain/reducer';
 import { formatTick, formatStoryTime } from '../domain/time';
-import { sceneRoot, uniq } from '../domain/util';
+import { sceneRoot, segmentSceneChain, uniq } from '../domain/util';
 import { t } from './i18n';
 
 export type GStatus = 'occurred' | 'diverged' | 'omitted' | 'pending' | 'future' | 'unresolved' | 'unscheduled' | 'runtime';
@@ -93,9 +93,15 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
     chains.set(root, [...(chains.get(root) || []), o]);
   }
   const outcomeText = (o: { outcome: { op: string; entity_id: string; predicate: string; value?: unknown }[] }) => o.outcome.map((d) => (d.op === 'set' ? `${name(L, d.entity_id, s)}.${d.predicate}=${JSON.stringify(d.value)}` : `${d.entity_id}.${d.predicate} 未知`));
-  for (const [root, members] of chains) {
-    members.sort((a, b) => a.time.lo - b.time.lo);
-    const first = s.occurrences.get(root) || members[0];
+  const segments: [string, typeof s.occurrences extends Map<string, infer V> ? V[] : never][] = [];
+  for (const [root, ms] of chains) {
+    ms.sort((a, b) => a.time.lo - b.time.lo);
+    segmentSceneChain(ms).forEach((seg, i) => segments.push([i === 0 ? root : seg[0].occurrenceId, seg]));
+  }
+  const boxOf = new Map<string, string>();
+  for (const [id, seg] of segments) for (const m of seg) boxOf.set(m.occurrenceId, id);
+  for (const [root, members] of segments) {
+    const first = members[0];
     const lo = Math.min(...members.map((m) => m.time.lo)), hi = Math.max(...members.map((m) => m.time.hi));
     const span = members.length > 1 ? { lo, hi, precision: 'range' as const } : first.time;
     const outcomes = members.flatMap(outcomeText);
@@ -107,7 +113,7 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
     });
   }
   // actual causal links (occurrence -> occurrence), mapped onto canon nodes / scene boxes where applicable
-  const nodeOf = (occId: string) => { const o = s.occurrences.get(occId); return o?.packEventId || sceneRoot(s.occurrences, occId); };
+  const nodeOf = (occId: string) => { const o = s.occurrences.get(occId); return o?.packEventId || boxOf.get(occId) || sceneRoot(s.occurrences, occId); };
   const edgeSeen = new Set<string>();
   for (const o of s.occurrences.values()) for (const c of o.causes) {
     const from = nodeOf(c), to = nodeOf(o.occurrenceId);

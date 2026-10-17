@@ -11633,6 +11633,26 @@ var EngineError = class extends Error {
     this.details = details;
   }
 };
+var SCENE_BOX = { maxMembers: 4, maxSpanMinutes: 90 };
+function breaksSceneBox(members, next) {
+  if (!members.length) return false;
+  if (members.length >= SCENE_BOX.maxMembers) return true;
+  const lo = Math.min(...members.map((m) => m.time.lo), next.time.lo);
+  const hi = Math.max(...members.map((m) => m.time.hi), next.time.hi);
+  if (hi - lo > SCENE_BOX.maxSpanMinutes) return true;
+  const places = new Set(members.flatMap((m) => m.locations));
+  if (places.size && next.locations.length && !next.locations.some((l) => places.has(l))) return true;
+  return false;
+}
+function segmentSceneChain(members) {
+  const out = [];
+  for (const m of members) {
+    const cur = out[out.length - 1];
+    if (!cur || breaksSceneBox(cur, m)) out.push([m]);
+    else cur.push(m);
+  }
+  return out;
+}
 function sceneRoot(occs, id) {
   let cur = id;
   const seen = /* @__PURE__ */ new Set([cur]);
@@ -14831,12 +14851,13 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    Ordinary present-scene details with no record (weather, crowds, shops, decorations, minor NPCs) are new_detail, never contradiction. Preparations, schedules, anticipation or rumors of a FUTURE event ("flags for tomorrow's festival") do not assert that the event has started. A different wording of a free-text state ("\u6B63\u5E38\u8FD0\u8F6C" vs "operating normally") is consistent.
 2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it), state_claims (facts the narration presupposes; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null), player_actions (player-character actions depicted; authorized_by_quote = a span COPIED VERBATIM from the player's message that covers it, or null). An action is authorized when it carries out what the player wrote, including its natural steps and immediate details (for "I take her back to the cell and lock her up": stopping her, taking her belongings, escorting her, locking the door). Use null only for a NEW decision, goal or line of dialogue the player did not express, step_enactments, new_entities (genuinely new people/places/objects introduced).
 3. scene_end: story time when the reply ends. Story time passes in every scene: estimate how long what the reply depicts realistically takes (a short exchange a few minutes, a longer conversation 10-30 minutes, a meal 30-60 minutes, walking/travel by distance, waiting, sleeping) and add it to the time the scene starts. lo = the earliest realistic end, hi = the latest; precision "approx" for an estimate, "minute" only when the text states the time. Do not keep lo at current_time unless the reply really covers only a moment. An explicit time or skip in the text ("two hours later", "\u508D\u665A") wins over estimates. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback.
+   canon_events_now lists the canonical (non-HARD) events whose time window is open around this scene. If the reply depicts one of them happening \u2014 even with other participants (e.g. the player tagging along) or a different course \u2014 record that occurrence with its pack_event_id: disposition "occurred" if its original result holds, "diverged" if the result is different. Never file such an event as an ordinary scene beat.
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
    HARD conformance belongs ONLY in hard_checks, never in violations or claim checks. A HARD description fixes the RESULT; the route it mentions (how or where it happened in the original) is not actual history, and the player's actions may change it. The player's actions from the current input are actual events of this turn: never call them unsupported, and never report them or their consequences as contradicting a HARD event.
    HARD outcome values describe an objective state of the world, independent of who knows about it (e.g. a person secretly hidden by one side is "hidden" even to those who hid her). When the reply depicts that state, record the transition with the exact required value.
    A HARD event that is not yet due is never a violation: ending the scene before it, or leaving it to happen offscreen without the player, is valid (the controller enforces deadlines and adjudicates offscreen events). Confinement, distance or obstacles do not contradict it \u2014 the world can still bring it about. Use "contradicted" only when the text says it will not happen or establishes a fact that rules out its required outcome itself.
    Credible cause: if the actual history/state rules out the event's usual route (a required participant is detained, guarded, far away, incapacitated...), it is fulfilled only when the text shows or clearly implies a concrete cause for how it still comes about (who or what, by what means). Otherwise give status "missing" and a violation whose detail begins with "HARD realized without a credible cause:". An unexplained vanishing, a glitch or "some invisible force" is not a cause unless it is the established ability of a specific character.
-   Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place or activity meaningfully changes, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
+   Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place changes (leaving a building or shop, getting into or out of a vehicle, arriving somewhere else) or the activity changes, when more than about 30 minutes pass between beats, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
 5. violations: ONLY problems that require rewriting the reply \u2014 unauthorized player actions/consent/dialogue, contradictions, unsupported recollections, leaking secret knowledge to characters who cannot know it, engine labels/JSON in prose, skipping a due obligation, time moving backwards. Not violations: story time moving forward within the scene, NPCs present or acting on their own, plausible new scene details, the natural completion of an action the player authorized, a plan step whose window the player's time skip passed narrated as having happened off-screen (record it as an occurrence at its own time, with a step_enactment). Set blocking=true for a problem that must be fixed; if you consider something minor or acceptable, leave it out (or set blocking=false).
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it).
 SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null}],"step_enactments":[{"step_id":"s1","occurrence_ref":"o1","quote":""}],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":"","blocking":true}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":""}`,
@@ -15505,8 +15526,13 @@ function runGate(g) {
     }
     if (o.continues && !packEventId) {
       const prev = occByRef.get(o.continues) || index.state.occurrences.get(o.continues);
-      if (prev && !prev.packEventId && prev.occurrenceId !== occ.occurrenceId) occ.continues = prev.occurrenceId;
-      else warnings.push(`occurrence "${o.title}": continues=${o.continues} ignored (unknown or canonical box)`);
+      if (prev && !prev.packEventId && prev.occurrenceId !== occ.occurrenceId) {
+        const all = new Map([...index.state.occurrences, ...[...occByRef.values()].map((x) => [x.occurrenceId, x])]);
+        const root = sceneRoot(all, prev.occurrenceId);
+        const members = [...all.values()].filter((m) => !m.packEventId && sceneRoot(all, m.occurrenceId) === root);
+        if (breaksSceneBox(members, occ)) warnings.push(`occurrence "${o.title}": starts a new box (the scene box would exceed its time/place/size limits)`);
+        else occ.continues = prev.occurrenceId;
+      } else warnings.push(`occurrence "${o.title}": continues=${o.continues} ignored (unknown or canonical box)`);
     }
     occByRef.set(o.ref, occ);
     occRecords.push({
@@ -16144,7 +16170,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.41";
+var ENGINE_RELEASE = "1.3.42";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16888,6 +16914,7 @@ var CanonEngine = class {
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== "invalidated").map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
       registry: this.registry(index),
       reeval_reasons: a.reevalReasons || [],
+      canon_events_now: this.canonNow(index, tick),
       ...this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
@@ -16961,6 +16988,20 @@ var CanonEngine = class {
     return recent.length ? "Recent actual events:\n" + recent.map((o) => `- ${formatTick(o.time.lo)} ${o.title}: ${o.account.slice(0, 300)}`).join("\n") : "No recent recorded events.";
   }
   /** Scene grouping input: the latest ordinary (non-canon) scene boxes a new beat may continue. */
+  /** Non-HARD canon events whose window is open now or opens within 12 hours, not settled yet (for the reviewer). */
+  canonNow(index, tick) {
+    const pack2 = index.pack;
+    const out = [];
+    for (const t2 of pack2.timeIndex) {
+      if (t2.lo > tick + 720) break;
+      if (t2.hi < tick || index.state.dispositions.has(t2.id)) continue;
+      const ev = pack2.events.get(t2.id);
+      if (ev.classification === "HARD") continue;
+      out.push({ id: ev.id, title: ev.title, window: `${formatTick(t2.lo)} \u2013 ${formatTick(t2.hi)}`, original: ev.summary.length > 220 ? ev.summary.slice(0, 217) + "\u2026" : ev.summary });
+      if (out.length >= 10) break;
+    }
+    return out;
+  }
   sceneBoxes(index) {
     const tick = index.state.clock.lo;
     const occs = index.state.occurrences;
@@ -18784,9 +18825,15 @@ function currentGraph(L, s, origin, spoilers) {
     chains.set(root, [...chains.get(root) || [], o]);
   }
   const outcomeText = (o) => o.outcome.map((d) => d.op === "set" ? `${name(L, d.entity_id, s)}.${d.predicate}=${JSON.stringify(d.value)}` : `${d.entity_id}.${d.predicate} \u672A\u77E5`);
-  for (const [root, members] of chains) {
-    members.sort((a, b) => a.time.lo - b.time.lo);
-    const first = s.occurrences.get(root) || members[0];
+  const segments = [];
+  for (const [root, ms] of chains) {
+    ms.sort((a, b) => a.time.lo - b.time.lo);
+    segmentSceneChain(ms).forEach((seg, i) => segments.push([i === 0 ? root : seg[0].occurrenceId, seg]));
+  }
+  const boxOf = /* @__PURE__ */ new Map();
+  for (const [id, seg] of segments) for (const m of seg) boxOf.set(m.occurrenceId, id);
+  for (const [root, members] of segments) {
+    const first = members[0];
     const lo = Math.min(...members.map((m) => m.time.lo)), hi = Math.max(...members.map((m) => m.time.hi));
     const span = members.length > 1 ? { lo, hi, precision: "range" } : first.time;
     const outcomes = members.flatMap(outcomeText);
@@ -18806,7 +18853,7 @@ function currentGraph(L, s, origin, spoilers) {
   }
   const nodeOf = (occId) => {
     const o = s.occurrences.get(occId);
-    return o?.packEventId || sceneRoot(s.occurrences, occId);
+    return o?.packEventId || boxOf.get(occId) || sceneRoot(s.occurrences, occId);
   };
   const edgeSeen = /* @__PURE__ */ new Set();
   for (const o of s.occurrences.values()) for (const c of o.causes) {

@@ -125,6 +125,32 @@ export class EngineError extends Error {
 }
 
 /** Scene grouping: the first occurrence of the chain that `id` continues (itself when it continues nothing). */
+/** Limits of one scene box: beyond these a "continuation" starts a new box (a box is one stretch of one
+ *  activity in one place, not a whole afternoon). */
+export const SCENE_BOX = { maxMembers: 4, maxSpanMinutes: 90 };
+
+/** Would adding `next` to the box made of `members` break the box limits? */
+export function breaksSceneBox(members: { time: { lo: number; hi: number }; locations: string[] }[], next: { time: { lo: number; hi: number }; locations: string[] }): boolean {
+  if (!members.length) return false;
+  if (members.length >= SCENE_BOX.maxMembers) return true;
+  const lo = Math.min(...members.map((m) => m.time.lo), next.time.lo);
+  const hi = Math.max(...members.map((m) => m.time.hi), next.time.hi);
+  if (hi - lo > SCENE_BOX.maxSpanMinutes) return true;
+  const places = new Set(members.flatMap((m) => m.locations));
+  if (places.size && next.locations.length && !next.locations.some((l) => places.has(l))) return true;
+  return false;
+}
+
+/** Splits a continues-chain (sorted by time) into boxes that respect the limits. */
+export function segmentSceneChain<T extends { time: { lo: number; hi: number }; locations: string[] }>(members: T[]): T[][] {
+  const out: T[][] = [];
+  for (const m of members) {
+    const cur = out[out.length - 1];
+    if (!cur || breaksSceneBox(cur, m)) out.push([m]); else cur.push(m);
+  }
+  return out;
+}
+
 export function sceneRoot(occs: Map<string, { continues?: string }>, id: string): string {
   let cur = id;
   const seen = new Set<string>([cur]);

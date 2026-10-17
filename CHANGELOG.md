@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.42 — 2026-10-18
+
+- **Scene boxes no longer swallow an afternoon (live finding):** one 本局事件 box held seven beats from leaving a restaurant, a car ride and arriving at Judgment 177 to a raid there (13:00-16:45). A box now holds at most 4 beats within 90 minutes in one place; the reviewer is told that leaving a building, a vehicle ride, arriving elsewhere or a gap over ~30 minutes starts a new box, and the engine enforces the limits even if the reviewer says "continues". Existing over-long boxes are shown split by the same limits.
+- **Canon events the player takes part in are recognised:** the reviewer now always gets the non-HARD canon events whose window is open around the scene (canon_events_now) and records a depicted one with its id — "occurred" if its result holds, "diverged" if not — instead of filing it as an ordinary scene beat (the raid on 177 had been filed as a player scene).
+- Tests BL1-BL3.
+
 ## 1.3.41 — 2026-10-18
 
 - **Happened differently counts as "it happened, judge the rest":** an event that depends on another event having happened (`occurred`) is no longer cancelled automatically when that event happened differently (diverged); whether it still follows, and how, is decided by the model from what actually happened (the adjudicator gets the actual account of the changed prerequisite).

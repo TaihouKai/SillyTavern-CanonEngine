@@ -757,6 +757,7 @@ export class CanonEngine {
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== 'invalidated').map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
       registry: this.registry(index),
       reeval_reasons: a.reevalReasons || [],
+      canon_events_now: this.canonNow(index, tick),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
@@ -806,6 +807,21 @@ export class CanonEngine {
   }
 
   /** Scene grouping input: the latest ordinary (non-canon) scene boxes a new beat may continue. */
+/** Non-HARD canon events whose window is open now or opens within 12 hours, not settled yet (for the reviewer). */
+  private canonNow(index: WorldIndex, tick: number): { id: string; title: string; window: string; original: string }[] {
+    const pack = index.pack;
+    const out: { id: string; title: string; window: string; original: string }[] = [];
+    for (const t of pack.timeIndex) {
+      if (t.lo > tick + 720) break;
+      if (t.hi < tick || index.state.dispositions.has(t.id)) continue;
+      const ev = pack.events.get(t.id)!;
+      if (ev.classification === 'HARD') continue;
+      out.push({ id: ev.id, title: ev.title, window: `${formatTick(t.lo)} – ${formatTick(t.hi)}`, original: ev.summary.length > 220 ? ev.summary.slice(0, 217) + '…' : ev.summary });
+      if (out.length >= 10) break;
+    }
+    return out;
+  }
+
   private sceneBoxes(index: WorldIndex): { occurrence_id: string; title: string; beats: string[]; places: string[]; time: string }[] {
     const tick = index.state.clock.lo;
     const occs = index.state.occurrences;
