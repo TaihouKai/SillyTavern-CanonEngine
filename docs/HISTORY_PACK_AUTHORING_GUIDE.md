@@ -1,4 +1,4 @@
-# Canon Engine v1 — history-pack authoring guide
+# Canon Engine — history-pack authoring guide
 
 This is the independent input-format specification for an author or coding agent creating a **new history data file**. Read it without needing the earlier design conversation. The companion `schemas/canon-pack.schema.json` is the exact structural contract. `examples/demo.canon.json` is a complete valid example using an invented world.
 
@@ -39,7 +39,7 @@ Unknown fields are rejected rather than silently interpreted. Arrays have no inh
 
 ### 3.1 The canonical coordinate system
 
-V1 uses a simple relative day clock:
+The engine uses a simple relative day clock:
 
 ```json
 {
@@ -93,7 +93,7 @@ A long event and its completion can be separate ordinary event records. Mark eit
 
 ### 3.3 Coverage and the initial baseline
 
-`coverage.start` and `coverage.end` define where the pack can support scheduled play. `initial_state.at` equals `coverage.start` in v1. Scheduled event bounds must fall within coverage and strictly after the initial baseline checkpoint; a milestone already true at the baseline belongs in baseline facts or a cited bootstrap record, not a duplicate scheduled transition at the same checkpoint.
+`coverage.start` and `coverage.end` define where the pack can support scheduled play. `initial_state.at` equals `coverage.start`. Scheduled event bounds must fall within coverage and strictly after the initial baseline checkpoint; a milestone already true at the baseline belongs in baseline facts or a cited bootstrap record, not a duplicate scheduled transition at the same checkpoint.
 
 If play starts later, the engine derives a baseline through the starting time and overlays the actual transcript. Events whose interval contains the start time are pending unless supported as already accomplished. A binding must not silently start before the covered baseline or promise canon after coverage ends. Past coverage, show that canon data has ended and require an explicit choice to continue without further scheduled canon or bind an updated pack. Do not invent missing canon.
 
@@ -127,7 +127,7 @@ Declare every predicate once. A predicate has `id`, `description`, `value_type`,
 | `entity_ref` | Defined entity ID string | `victor: "union"` |
 | `entity_set` | Array of distinct defined entity IDs | `members: ["mira", "ren"]` |
 
-`allowed_values` can constrain a finite vocabulary. Equality for an entity set ignores array order; normalize the set before hashing/comparison. Numbers must be finite; NaN/Infinity are not JSON. Null is not a fact value in v1: an absent fact is UNKNOWN. Use an explicit string enum such as `"none"` only when absence is an established, meaningful state and the predicate type permits it.
+`allowed_values` can constrain a finite vocabulary. Equality for an entity set ignores array order; normalize the set before hashing/comparison. Numbers must be finite; NaN/Infinity are not JSON. Null is not a fact value: an absent fact is UNKNOWN. Use an explicit string enum such as `"none"` only when absence is an established, meaningful state and the predicate type permits it.
 
 A fact is:
 
@@ -140,6 +140,27 @@ An initial fact wraps that object with `source_refs` and `note`. At most one cur
 Do not try to model every adjective or every item in the world's inventory. Structure what matters for time, identity, anchor outcomes, dependencies and persistent contradictions. Narrative summaries carry detail, but Hard-defining requirements must also have explicit outcomes where possible.
 
 This includes facts unrelated to any anchor: physical condition of places/objects, life/location of people, custody/ownership, institutional status, access and established knowledge. A past occurrence also remains meaningful after its effects end; do not collapse all history into the final fact values. The runtime retains validated occurrence accounts as well as state projections.
+
+### 6.1 Fact values must be objective
+
+A fact value states what is true in the world, not what some observer knows or believes. The runtime compares Hard outcomes **exactly**, and the reviewer has to decide whether a depicted scene establishes the value; a value that is true for one side and false for another cannot be checked and will be recorded inconsistently.
+
+Never use perspective words as values: “missing / 失踪”, “whereabouts unknown / 下落不明”, “fate unknown / 生死不明”, “disappeared / 不知所踪”, “exposed / 暴露”, “secret / 秘密” as a state, “revealed himself / 公开现身”. Write the state itself:
+
+| Subjective (do not use) | Objective (use) |
+| --- | --- |
+| `status: "失踪"` (missing to whom?) | `whereabouts: "被秘密带离并藏匿"` — true even for the side that hid her |
+| `status: "下落不明"` after a fall into the sea | `whereabouts: "随伯利恒之星坠入北冰洋"` |
+| `status: "生死不明"` | the concrete result that happened, e.g. `power: "失去理想放逐"` |
+| `status: "暴露魔法师身份"` | a knowledge fact on the knower: `kamijou-touma.knows: "土御门元春是魔法师"` |
+| `status: "现身"` | `status: "以本来面目入侵学园都市"` |
+
+Rules:
+- Knowledge is a fact **about the knower** (`knows` on the person who knows), never a property of the thing known.
+- A location predicate (`whereabouts`) holds a place or a placement, not an outcome such as “rescued”.
+- Use each predicate for its declared domain (`condition` is for places and objects, not people).
+- The same rule applies to `required_description`: describe what objectively happens (“taken away and hidden”), and put who saw or knew it, or what the public believed, in the summary.
+- Summaries may still tell the story from the characters’ side (“对美琴与外界而言就是失踪”); only facts and Hard contracts must be objective.
 
 ## 7. Events and the Hard contract
 
@@ -221,7 +242,7 @@ These are **canonical** prerequisites. A HARD event can use a new validated rout
 
 `unset` removes known current knowledge of a fact from the state model, returning it to UNKNOWN; it is not an arbitrary undo command. Use it only with an established reason, not to conceal an inconvenient outcome. Runtime deltas must still cite evidence. No event can unset or overwrite its own mandatory outcome at the same logical checkpoint.
 
-Effects are canonical proposals, not unconditional database writes. Validate the actual route and actual consequences before commitment. For the original route, every outcome must be supported by the event's final set effects or an explicit unchanged fact whose truth is validated; the release linter should require a matching final set effect for clarity. Effects on a key must be unambiguous; v1 rejects multiple writes to the same entity/predicate within one event. Alternative routes can have different incidental effects while preserving Hard outcomes.
+Effects are canonical proposals, not unconditional database writes. Validate the actual route and actual consequences before commitment. For the original route, every outcome must be supported by the event's final set effects or an explicit unchanged fact whose truth is validated; the release linter should require a matching final set effect for clarity. Effects on a key must be unambiguous; the engine rejects multiple writes to the same entity/predicate within one event. Alternative routes can have different incidental effects while preserving Hard outcomes.
 
 Once an effect is actualized, it persists until a supported later transition changes/unsets it or a source revision invalidates it. HARD/SOFT/FREE governs whether the event must occur, not how long an enacted consequence is remembered. Do not restore baseline values when an event ends or leaves the active arc. Encode important incidental changes in `canonical_effects` even when they are not Hard-defining `outcomes`. A prose-only description of a persistent contradiction is too weak for the deterministic state checks.
 
@@ -277,8 +298,13 @@ For the author's existing franchise references, validate internal consistency ag
 3. Write baseline facts with provenance.
 4. Write distinct events. Split a large narrative entry if it contains independently meaningful milestones; do not mechanically create an event per old keyword/index entry.
 5. Assign HARD/SOFT/FREE according to the user's intended experience. Runtime importance is not a reason to silently promote a node.
+   Keep classification consistent with causality inside the playable period: an event that another SOFT/HARD event cannot happen without (`enables`) is at least SOFT. Never merge an important beat into a trivial FREE event (split it: e.g. a lunch scene stays FREE, the raid that later enables a memory wipe is SOFT). Deep backstory before any realistic campaign start may stay FREE even when it feeds later events — classification only controls how much the engine protects an event from the player.
+   One event = one beat with one cause. Do not bundle beats that have different causes or different people just because they happen on the same day or in the same arc ("同一时期…", "同日…", "另一边…", "当晚…"): a lunch scene and a raid, a character's discovery and another character's countermeasure, a HARD event and a side bet made at it. When the story changes one beat, a bundle drags the others along (they are settled or cancelled together). Test: could the player plausibly change one part while the other still happens? If yes, split them and link them. Background sentences that belong to another event go into that event, not here.
+   Use `enables` only when B truly cannot happen without A; a reason is `motivates`, mere order is `precedes`. Encode a true necessity of a SOFT/FREE event as a canonical precondition (`occurred`), so that preventing the upstream event omits the downstream one instead of letting it happen anyway. Do not add upstream preconditions to HARD events for this purpose: a HARD event always happens and only its route changes; keep the link.
 6. State each Hard contract plainly and encode its outcomes. Keep incidental casualties and routes out of the locked requirements unless intended.
+   Check every outcome and effect value (all events, not only Hard ones) against §6.1: no perspective words, knowledge on the knower, each predicate used for its own domain.
 7. Add only supported causal/order links and useful arc groups.
+   When you split an event or add one, link it in the same change (e.g. the first half of an incident `enables` its climax). Afterwards list the events with no links at all and confirm each one is genuinely standalone.
 8. Add visibility/participation information and precise source references.
 9. Validate structure and semantics, then test the untouched route plus at least one altered route to each important Hard chain. Also test unrelated persistent consequences and historical mentions after an effect has ended, as described below.
 10. Report uncertainties and classification choices in an authoring report. Deliver one new-format pack. The user should not have to edit its JSON to play.
@@ -314,7 +340,7 @@ These are field fragments, not complete packs. The complete event in `examples/u
 
 The same sample includes an archive key loan and return. Its final holder matches the baseline, but both occurrences remain history. If someone mentions the loan afterward, the GM must receive who lent/borrowed the key, what happened and that it was returned. Looking only at the current holder would miss the answer. Player-caused thefts, rescues, promises and other runtime occurrences follow the same principle; do not attempt to pre-author future player choices in the pack.
 
-Structure only supported scope. “Part of the district was damaged” is not evidence that every building was destroyed or every resident killed. Where containment matters, an ordinary declared `entity_ref` predicate can express a known parent place; runtime interpretation still needs evidence about the affected area and exceptions. V1 does not require a full geographic model.
+Structure only supported scope. “Part of the district was damaged” is not evidence that every building was destroyed or every resident killed. Where containment matters, an ordinary declared `entity_ref` predicate can express a known parent place; runtime interpretation still needs evidence about the affected area and exceptions. The engine does not require a full geographic model.
 
 Before handing off an authored pack, check:
 
@@ -325,7 +351,7 @@ Before handing off an authored pack, check:
 - Offscreen occurrence, player knowledge and world state are distinct.
 - Validation includes both the main narrative and one unrelated-history/scene case. Format validity alone does not prove runtime retrieval works.
 
-## Appendix — implementation tooling (Canon Engine v1.0.0)
+## Appendix — implementation tooling
 
 The shipped implementation keeps this guide and `schemas/canon-pack.schema.json` unchanged (pack schema `1.0.0`; no new pack fields). Validate a pack exactly as the extension does — JSON Schema plus every release-blocking semantic check in §10, with author-review warnings — without SillyTavern:
 

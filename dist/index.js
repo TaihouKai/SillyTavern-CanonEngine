@@ -11809,7 +11809,7 @@ function lintPack(pack2) {
   const covStart = toTick(pack2.coverage.start);
   const covEnd = toTick(pack2.coverage.end);
   if (covEnd < covStart) err("/coverage", "coverage.end precedes coverage.start");
-  if (toTick(pack2.initial_state.at) !== covStart) err("/initial_state/at", "initial_state.at must equal coverage.start in v1");
+  if (toTick(pack2.initial_state.at) !== covStart) err("/initial_state/at", "initial_state.at must equal coverage.start");
   const baseline = /* @__PURE__ */ new Map();
   pack2.initial_state.facts.forEach((f, i) => {
     checkFact(f.fact, `/initial_state/facts/${i}/fact`);
@@ -16170,7 +16170,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.42";
+var ENGINE_RELEASE = "1.3.43";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16357,7 +16357,7 @@ var CanonEngine = class {
   /** Create the chat's binding: pinned snapshot + bootstrap seed. Existing chats are interpreted afterwards by reconcile(). */
   async bind(packText, opts) {
     if (!this.host.chatId()) throw new EngineError("incompatible_adapter", "No chat is open. Open a character chat first, then enable Canon Engine for it.");
-    if (this.host.isGroup()) throw new EngineError("incompatible_adapter", "Group chats are not supported in v1 until a designated-GM adapter is validated. Canon Engine was not activated.");
+    if (this.host.isGroup()) throw new EngineError("incompatible_adapter", "Group chats are not supported yet (no validated designated-GM adapter). Canon Engine was not activated.");
     const r = validatePackText(packText);
     if (!r.ok || !r.loaded) throw new EngineError("invalid_pack", r.errors.map((e) => `${e.path}: ${e.message}`).join("\n"));
     const L = r.loaded;
@@ -17093,7 +17093,7 @@ var CanonEngine = class {
     const c0 = this.campaign();
     if (!c0 || !c0.enabled) return false;
     if (this.host.isGroup()) {
-      this.notice("error", "Canon Engine does not support group chats in v1; generation was blocked to avoid an unprotected turn.");
+      this.notice("error", "Canon Engine does not support group chats; generation was blocked to avoid an unprotected turn.");
       return false;
     }
     if (this.opActive) {
@@ -18605,7 +18605,7 @@ var D = {
   busy: { zh: "Canon Engine \u6B63\u5728\u5904\u7406\u4E0A\u4E00\u6761\u56DE\u590D\uFF0C\u8BF7\u7A0D\u5019\u6216\u5148\u53D6\u6D88\u3002", en: "Canon Engine is still working on a reply. Wait or cancel first." },
   notWriter: { zh: "\u53E6\u4E00\u4E2A\u6D4F\u89C8\u5668\u6807\u7B7E\u9875\u6B63\u5728\u5199\u5165\u8FD9\u4E2A\u6218\u5F79\uFF1B\u672C\u9875\u6682\u4E0D\u751F\u6210\u3002\u8BF7\u5173\u95ED\u5176\u4ED6\u6807\u7B7E\u9875\u3002", en: "Another tab is the active writer for this campaign; generation is blocked here." },
   blockedLoud: { zh: "\u5DF2\u963B\u6B62\u4E00\u4E2A\u4F1A\u76F4\u63A5\u5199\u5165\u804A\u5929\u7684\u540E\u53F0\u751F\u6210\uFF08\u672A\u7ECF\u8FC7 Canon Engine \u68C0\u67E5\uFF09\u3002", en: "Blocked a background generation that would post directly to chat without validation." },
-  groupUnsupported: { zh: "\u7B2C\u4E00\u7248\u4E0D\u652F\u6301\u7FA4\u804A\uFF1A\u672A\u7ECF\u9A8C\u8BC1\u7684\u7FA4\u804A\u6A21\u5F0F\u4E0D\u4F1A\u542F\u7528\u5F15\u64CE\u3002", en: "Group chats are not supported in v1; the engine will not activate." },
+  groupUnsupported: { zh: "\u6682\u4E0D\u652F\u6301\u7FA4\u804A\uFF1A\u7FA4\u804A\u4E2D\u4E0D\u4F1A\u542F\u7528\u5F15\u64CE\u3002", en: "Group chats are not supported; the engine will not activate." },
   wizardTitle: { zh: "\u7ED1\u5B9A\u5386\u53F2\u5305", en: "Bind history pack" },
   validation: { zh: "\u6821\u9A8C\u7ED3\u679C", en: "Validation" },
   ok: { zh: "\u901A\u8FC7", en: "Passed" },
@@ -20250,7 +20250,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
-  console.log("[CanonEngine] v1.3.4 loaded");
+  console.log(`[CanonEngine] ${ENGINE_RELEASE} loaded`);
 }
 (async () => {
   try {

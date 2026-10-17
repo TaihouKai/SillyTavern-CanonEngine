@@ -1,4 +1,4 @@
-# Canon Engine v1 — persistent and model-response schemas
+# Canon Engine — persistent and model-response schemas
 
 These runtime schemas are separate from the authored pack schema (`schemas/canon-pack.schema.json`, version `1.0.0`, unchanged). Source of truth: `src/runtime/types.ts`, `src/domain/types.ts` and `schemas/runtime/*.schema.json`.
 
@@ -8,7 +8,8 @@ These runtime schemas are separate from the authored pack schema (`schemas/canon
 | --- | --- | --- |
 | `chat_metadata.canonEngine` (saved inside the ST chat file) | Canon Engine | The whole campaign: pinned pack snapshot + hash, binding, bootstrap seed, interpretations, active ledger projection, plans, coverage manifests, journal, recovery state, UI preferences |
 | `message.extra.canonEngine` (and `swipe_info[i].extra.canonEngine`) | Canon Engine | `{ mid, vid, commitId? }` — opaque message id, variant id, accepting commit |
-| `extension_settings.canonEngine` | Canon Engine | Global preferences: limits, timeouts, budget, debug, UI language, default inspector state |
+| `extension_settings.canonEngine` | Canon Engine | Global preferences: analysis connection profile and extra request parameters, reply length, scene grouping, follow Horae time, limits, timeouts, budget, task temperature, debug, UI language, default inspector state |
+| `data/<user>/user/files/canon-pack-*.json` | Canon Engine | Pack library (imported packs; each chat still pins its own snapshot) |
 | `localStorage["canonEngine.writer.<sessionId>"]` | Canon Engine | Single-writer heartbeat for this browser profile only (not authoritative data) |
 
 Nothing else is written. Unrelated metadata and other extensions' fields are preserved. Because the campaign is inside the chat file, ordinary ST chat backup/export preserves it; browser storage is never the only copy.
@@ -35,7 +36,9 @@ Nothing else is written. Unrelated metadata and other extensions' fields are pre
 | `pendingTransaction` | Commit journal (§6) |
 | `recoveryState` | `ok` / `conflict` (editorial, with message id/index and reason) / `error` (with error kind) / `unsaved` (persistence failure) |
 | `uiPreferences` | `inspectorOpen`, `spoilers` |
-| `configRevisions` | Audit of binding/config changes (bind, enable/disable, branch, rename, pack update) |
+| `configRevisions` | Audit of binding/config changes (bind, enable/disable, branch, rename, pack update, force complete) |
+| `manualRecords` | Records the player added by hand (*强制完成*): `{ afterMessageId, record, at }`, replayed after that message (at the end if it is gone) |
+| `focusEvents` | Event ids the player marked *关注*; pruned when the event is settled or its window has passed |
 
 Story time is an integer tick `day * 1440 + minute` (signed day). `StoryTime = { lo, hi, precision }` keeps uncertainty; `lo == hi` is a point.
 
@@ -64,7 +67,7 @@ Required fields: `recordId`, `commitId`, `branchId`, `sequence`, `kind`, `storyT
 - `kind`: `initial_bootstrap`, `user_assertion`, `enacted_action`, `world_event`, `canon_occurrence`, `canon_disposition`, `authored_intervention`, `time_advance`, `participation_decline`, `runtime_entity`, `configuration_revision`. Models can never create `initial_bootstrap` or configuration records.
 - `sourceRefs`: `{ messageId, variantId, contentHash, spans: [{quote}] }`. Quotes are verified verbatim (case-insensitive, whitespace-normalized) against the source text.
 - `evidenceKind`: `direct`, `attempt`, `quote`, `hypothetical`, `dream`, `belief`, `outcome`, `adjudication`, `bootstrap`.
-- Canon records add `packEventId`, `disposition` (`occurred`/`diverged`/`omitted`), `dispositionReason`, `adjudicationId`, `triggerCommitId` (the time-advance commit that caused an offscreen adjudication).
+- Canon records add `packEventId`, `disposition` (`occurred`/`diverged`/`omitted`), `dispositionReason`, `adjudicationId`, `triggerCommitId` (the time-advance commit that caused an offscreen adjudication), and `override` (a forced completion replaces an earlier disposition). For `occurred` preconditions a `diverged` event counts as UNKNOWN (judged by the model), not as false.
 - `occurrences[]` (`Occurrence`): `occurrenceId`, `title`, faithful `account`, `actors`, `affected`, `locations`, `time`, actual `outcome` deltas, supported actual `causes` (occurrence ids — distinct from source dependency), `refPhrases` (aliases for later mentions), optional `packEventId`, `origin` (`player`/`gm`/`canon`/`offscreen`/`bootstrap`/`intervention`), `visibility`.
 - `runtimeEntities[]`: code-assigned ids `rt.<slug>.<random>`; a model can propose names, never ids, and cannot reuse a canonical id or rename a known identity.
 
@@ -95,9 +98,9 @@ All tasks: one JSON object, `additionalProperties: false` everywhere (extra muta
 | --- | --- |
 | `extract_user` | `statements[]` (`asserted_fact` / `attempted_action` / `spoken_dialogue` / `belief` / `hypothetical` / `ooc_config_request` / `time_proposal` / `participation_decline`, verbatim `quote`, typed `facts` only for explicit assertions), `references[]` (direct/indirect/alias/pronoun with candidate ids), `scene_entities` |
 | `discover` | `references[]` and `claims[]` over the whole candidate (kind, assertion label narrator/new_event/belief/rumor/lie/hypothetical/flashback/dialogue/plan, temporal scope, optional `expected` typed fact) |
-| `evaluate` | `decision` (retain/repair/conflict), `scene_end`, `flashback`, `claim_checks[]` (one per discovered claim), `transitions[]`, `occurrences[]`, `state_claims[]` (optional `at` time for flashbacks), `player_actions[]`, `step_enactments[]`, `new_entities[]`, `violations[]`, `hard_checks[]` |
-| `adjudicate` | `adjudications[]`: occurred/diverged/omitted/postponed with time, account, actors, causes, typed effects, reason, `extraordinary` |
+| `evaluate` | input adds `canon_events_now` (open non-HARD events), `horae_time` (new replies only), `scene_grouping`; output: `decision` (retain/repair/conflict), `scene_end`, `flashback`, `claim_checks[]` (one per discovered claim), `transitions[]`, `occurrences[]`, `state_claims[]` (optional `at` time for flashbacks), `player_actions[]`, `step_enactments[]`, `new_entities[]`, `violations[]`, `hard_checks[]` |
+| `adjudicate` | input adds `upstream_happened_differently` and `recent_actual_play_with_these_characters` when relevant; output: `adjudications[]`: occurred/diverged/omitted/postponed with time, account, actors, causes, typed effects, reason, `extraordinary` |
 | `impact` | changed facts, affected anchors/steps (ids validated), scope local/global/unknown, severity none/minor/major, replan |
-| `plan` | rationale, protected anchors, assumptions, risks, mode, steps (see §5), inadequacy note |
+| `plan` | input adds `player_interests` (*关注*) and `others_original_situation` (context only); output: rationale, protected anchors, assumptions, risks, mode, steps (see §5), inadequacy note |
 
 Retrieval, coverage and commit decisions are controller-owned; no task depends on provider function calling.

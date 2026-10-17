@@ -47,6 +47,10 @@ Implement a typed packet with these conceptual sections, omitting empty optional
 | Proposed actions | Ready plan steps, actors, prerequisites, intended consequences | Future successes labeled accomplished |
 | Knowledge boundaries | What particular actors can know, what is hidden from the player | Automatic omniscience |
 | Player scope | Exact current actions/words/established user assertions | Invented consent or a recommended action treated as chosen |
+| Canon events within their window | Non-HARD canon events whose window is open and whose preconditions are not false (settled offscreen if the story does not reach them) | Events whose preconditions already failed |
+| Where other characters stand | Starting situation (`起因`) of non-HARD original events of the next 24 hours: what characters know, want and are doing; background only, with an explicit instruction not to steer toward them | Obligations, foreshadowing instructions |
+| Player wants to experience | The player's *关注* events from 24 h before their window until it ends: give natural in-world chances to be present; never force course or result | Forced participation |
+| Participation opportunities | Events with a participation hook within the opportunity window, minus declined ones | Nagging after a decline |
 
 Provide a final assembled-prompt inspector in debug mode so integration tests can confirm that stale Horae/lore material has actually been removed or corrected. Do not expose the inspector to the GM as fictional dialogue.
 

@@ -1,29 +1,29 @@
-# Canon Engine v1 — test report
+# Canon Engine — test report
 
-Date: 2026-10-14. Handoff revision 1.1, pack schema 1.0.0, engine 1.0.0.
+Latest full run: 2026-10-18, engine 1.3.42, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
 
 ## Environment
 
 | Item | Version |
 | --- | --- |
 | SillyTavern | 1.19.0, `06bde939fb1e9c4c8d8641d810f0a916b5bce127`, unmodified (`C:\Users\agent\st-test`) |
-| Horae | fork `TaihouKai/SillyTavern-Horae-Metadata` 1.15.1, `204f5140…`, metadata mode, vector memory enabled |
+| Horae | fork `TaihouKai/SillyTavern-Horae-Metadata` 1.15.1, metadata mode, vector memory enabled |
 | Model adapter family | ST Chat Completion, source `custom` (OpenAI-compatible) → `tests/e2e/mockServer.mjs` |
 | Browser automation | Playwright 1.64 / Chromium (headless) |
 | Unit runner | vitest 5, Node 24.20 |
 
-**Live model:** not run. This machine has no provider API key configured (`secrets.json` is empty), so no live-model smoke test was possible. All model outputs were deterministic scripted fixtures. This proves the controller, gates, retrieval, persistence and ST/Horae integration — not the narrative judgment of any particular model.
+All automated suites use deterministic scripted model outputs. They prove the controller, gates, retrieval, persistence and ST/Horae integration — not the narrative judgment of any particular model. Live-model sessions are reported separately below.
 
 ## Summary
 
 | Suite | Where it runs | Result |
 | --- | --- | --- |
-| `tests/unit/*` (126 tests): P, C, E, R, W01–W19, schema fixtures, 22 invalid-pack variants, structured-output repair | in-process, fake host + scripted model | **126 / 126 pass** |
-| `tests/e2e/integration.mjs` (72 checks, sections S1–S12) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **72 / 72 pass** on the final build (v1.3.4) |
-| `tests/e2e/story-session.mjs` (12 checks) | real ST, UI-only: wizard via real file dialog, pack library, composer, swipe arrow, ST edit/delete buttons, reload | **12 / 12 pass** |
+| `tests/unit/*` (189 tests in 20 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **189 / 189 pass** |
+| `tests/e2e/integration.mjs` (94 checks, sections S1–S18) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **94 / 94 pass** |
+| `tests/e2e/story-session.mjs` (12 checks) | real ST, UI-only: wizard via real file dialog, pack library, composer, banner, swipe arrow, ST edit/delete buttons, reload | **12 / 12 pass** |
 | `dist/canon-lint.mjs` | both sample packs valid; World Info file rejected with the specific error | pass |
 
-Reproduce: start ST with this extension installed, `node tests/e2e/mockServer.mjs 5555`, then `npm test`, `node tests/e2e/integration.mjs` (or one section, e.g. `S5`) and `node tests/e2e/story-session.mjs`. Results are written to `tests/e2e/out/*.json`; screenshots `tests/e2e/out/story-*.png`.
+Reproduce: start ST with this extension installed, `node tests/e2e/mockServer.mjs 5555`, then `npm test`, `node tests/e2e/integration.mjs` (or one section, e.g. `S5`) and `node tests/e2e/story-session.mjs`. Results are written to `tests/e2e/out/*.json`. Stop the servers and browsers afterwards.
 
 ## Acceptance matrix
 
@@ -134,6 +134,25 @@ Legend: **U** = unit/in-process (`tests/unit/<file>`), **E** = real ST/Horae int
 | W19 | U retrieval (all matched records kept in compact mode; optional dropped first; explicit capacity error) | pass |
 | W20 | E S5 (real ST, controller-driven retrieval, no function calling, pre-generation and draft-only references, repairs, content-bound manifest) | pass |
 
+## Tests added after 1.0.0 (unit)
+
+| File | IDs | What it proves |
+| --- | --- | --- |
+| `api-timing` | — | public clock API; turn timings and the failed-turn report |
+| `failsoft`, `normalize`, `model-enums`, `fixes` | F, T01 | schema normalization, fail-soft helper tasks, enum repair; small automatic fixes grouped apart from resends |
+| `budget` | — | compact packet and capacity errors |
+| `hidden` | — | hidden messages stay story history |
+| `window` | W01–W04 | non-HARD events settle only after their window closes; GM told which events are in their window; impossible events not suggested |
+| `timeaxis` | — | history graph time axis |
+| `grouping`, `boxlimits` | G01–G04, BL1–BL3 | scene grouping; box limits (4 beats / 90 min / one place), enforced in the gate and in the graph; reviewer receives the open canon events |
+| `force` | F01–F04, U01–U02 | 强制完成 (effects, HARD outcomes, override, replay placement); where other characters stand (background only) |
+| `focus` | FO1–FO4 | 关注 reaches GM and planner; auto-cancelled once settled |
+| `horaetime` | H01–H03 | a new reply starts no earlier than Horae's time; ignored when behind, absent or implausible |
+| `playadj` | PA1–PA2 | a SOFT event whose people were involved in play is judged by the model; untouched events settle with no model call |
+| `convergence` (additions) | C17b–C17g | final HARD repair along a planned route; reviewer slips re-filed; only an exact, near HARD value counts as pre-emption; intermediate plan states allowed |
+| `pack` (C02 updated) | C02 | a diverged prerequisite makes dependent events a model judgement instead of an automatic omission |
+| `edits` (additions) | R16b | a pack update keeps the manifest (no needless re-examination) |
+
 ## Live-model session (Venice, 2026-10-15)
 
 A capped local proxy (US$0.60 hard limit) forwarded ST's custom OpenAI-compatible connection to Venice. Pack: the 169-event Chinese Toaru chronicle; start 2020-09-18 17:00; GM card with the recommended world rules.
@@ -151,7 +170,7 @@ Fixes (1.2.0): enum lists generated from the schemas into every prompt SHAPE; en
 - **Context capacity (found with a large real pack).** When the configured model context is too small, ST silently trims in-chat injections. The engine now inspects the final assembled prompt and refuses to accept a draft whose prompt lost the engine context (actionable `capacity` error; verified at a 3k context, and normal operation verified at 32k with a 169-event pack).
 
 - **Windows save races.** Direct `saveChat` calls raced with ST/Horae saves and failed with `EPERM` during ST's atomic rename. Fixed by saving through ST's serialized path and verifying each save by reading the file back. In the final full run ST still logged rare transient `EPERM` rename failures (Windows file locking); the verification detected them and the retry succeeded (no test failed, no data lost), but ST shows its own "Chat could not be saved" toast when it happens.
-- Live-model behaviour, cost and latency are unmeasured (no key). Expect 4–7 calls per ordinary turn.
+- Live-model behaviour was measured only on the Venice models above; expect 4–7 calls per ordinary turn. Later live findings from real play (e.g. over-long scene boxes, a far-future HARD outcome blocking ordinary movement, the clock lagging Horae) were turned into the unit tests listed above.
 - Horae: when stale memory cannot be refreshed in time, the whole Horae snapshot is excluded for that reply (no partial repair). Tested without an enabled Persona profile template.
 - Group chats unsupported; cross-device simultaneous writes unsupported.
 - Semantic search is lexical + model-mapped catalogue (no embeddings); paraphrase recall depends on the extraction/discovery model.

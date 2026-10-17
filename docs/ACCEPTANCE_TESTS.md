@@ -1,6 +1,6 @@
-# Canon Engine v1 — acceptance tests
+# Canon Engine — acceptance tests
 
-These are release requirements for the eventual implementation. This handoff has only validated its specification/schema/example; it has not run a plugin against ST. Implement domain tests with controlled model fixtures and run lifecycle/memory tests in an actual supported ST/Horae installation. A model saying a test passed is not evidence.
+These are the release requirements. They are implemented in `tests/unit` (controlled model fixtures) and `tests/e2e` (an actual ST/Horae installation); current results are in `TEST_REPORT.md`. A model saying a test passed is not evidence.
 
 Use `examples/demo.canon.json`. Mira's original death is FREE. The conflict begins at day 2, 09:00 and ends at day 4, 18:00 with Union victory; both are HARD. All names and dates are invented.
 

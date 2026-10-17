@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.43 — 2026-10-18
+
+- Docs brought up to date: README, Chinese user guide, compatibility record, architecture, runtime schemas, GM integration rules, acceptance tests, test report and the authoring guide (now including objective fact values, causality/classification, one-beat-per-event and linking rules). No more "v1" wording; the README points to the Chinese guide in Chinese.
+- UI and messages no longer say "v1" / "第一版" (group chats: 暂不支持).
+- Test fix: the UI story session's scripted impact reply matched an input format that changed in 1.3.30, so the banner checks failed; 12/12 again.
+
 ## 1.3.42 — 2026-10-18
 
 - **Scene boxes no longer swallow an afternoon (live finding):** one 本局事件 box held seven beats from leaving a restaurant, a car ride and arriving at Judgment 177 to a raid there (13:00-16:45). A box now holds at most 4 beats within 90 minutes in one place; the reviewer is told that leaving a building, a vehicle ride, arriving elsewhere or a gap over ~30 minutes starts a new box, and the engine enforces the limits even if the reviewer says "continues". Existing over-long boxes are shown split by the same limits.

@@ -23,7 +23,7 @@ const D: Record<string, { zh: string; en: string }> = {
   busy: { zh: 'Canon Engine 正在处理上一条回复，请稍候或先取消。', en: 'Canon Engine is still working on a reply. Wait or cancel first.' },
   notWriter: { zh: '另一个浏览器标签页正在写入这个战役；本页暂不生成。请关闭其他标签页。', en: 'Another tab is the active writer for this campaign; generation is blocked here.' },
   blockedLoud: { zh: '已阻止一个会直接写入聊天的后台生成（未经过 Canon Engine 检查）。', en: 'Blocked a background generation that would post directly to chat without validation.' },
-  groupUnsupported: { zh: '第一版不支持群聊：未经验证的群聊模式不会启用引擎。', en: 'Group chats are not supported in v1; the engine will not activate.' },
+  groupUnsupported: { zh: '暂不支持群聊：群聊中不会启用引擎。', en: 'Group chats are not supported; the engine will not activate.' },
   wizardTitle: { zh: '绑定历史包', en: 'Bind history pack' },
   validation: { zh: '校验结果', en: 'Validation' },
   ok: { zh: '通过', en: 'Passed' },

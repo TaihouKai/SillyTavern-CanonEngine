@@ -1,6 +1,6 @@
 # Actual-history retrieval and world-state context contract
 
-Handoff revision 1.1. This is a mandatory part of Canon Engine v1, not a future memory enhancement. It applies to every kind of established occurrence and consequence: player actions, GM-established events, enacted NPC actions, adjudicated canon, and offscreen history. Places are only one example.
+Handoff revision 1.1. This is a mandatory part of Canon Engine, not a future memory enhancement. It applies to every kind of established occurrence and consequence: player actions, GM-established events, enacted NPC actions, adjudicated canon, and offscreen history. Places are only one example.
 
 ## 1. The user's binding OR rule
 

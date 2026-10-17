@@ -1,4 +1,4 @@
-// Canon Engine v1 — SillyTavern extension entry point.
+// Canon Engine — SillyTavern extension entry point.
 import { CanonEngine, DEFAULT_SETTINGS, type EngineSettings } from './runtime/engine';
 import { StHost, StModel, ctx, gen, promptReadyFirst, promptReadyLast, loadStModule, NS } from './adapters/st';
 import { publicClock, installClockEvents } from './api';
@@ -180,7 +180,7 @@ async function init() {
     lock.setCampaign(camp?.enabled ? camp.sessionId : null);
     engine.onChatLoaded().catch(() => undefined).finally(() => refreshUi());
   }
-  console.log('[CanonEngine] v1.3.4 loaded');
+  console.log(`[CanonEngine] ${ENGINE_RELEASE} loaded`);
 }
 
 // ST loads extension modules after the app initializes; init immediately when possible.

@@ -186,7 +186,7 @@ export function lintPack(pack: CanonPack): { errors: LintIssue[]; warnings: Lint
   const covStart = toTick(pack.coverage.start);
   const covEnd = toTick(pack.coverage.end);
   if (covEnd < covStart) err('/coverage', 'coverage.end precedes coverage.start');
-  if (toTick(pack.initial_state.at) !== covStart) err('/initial_state/at', 'initial_state.at must equal coverage.start in v1');
+  if (toTick(pack.initial_state.at) !== covStart) err('/initial_state/at', 'initial_state.at must equal coverage.start');
   const baseline = new Map<string, number>();
   pack.initial_state.facts.forEach((f, i) => {
     checkFact(f.fact, `/initial_state/facts/${i}/fact`);

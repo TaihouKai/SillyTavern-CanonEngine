@@ -52,7 +52,7 @@ try {
     mainQueue: ['港口的风带来消息：有人计划在十点伏击诊所的医生 Mira。你要怎么做？', '弩箭从巷口射来，你及时把 Mira 拉到身后，她毫发无伤。', '你们穿过小巷来到避难所，Mira 松了一口气。', '（另一种可能）你们躲进了码头仓库，Mira 紧张地喘气。', '仓库外传来巡逻的脚步声。'],
     taskRules: [
       { task: 'evaluate', match: '毫发无伤', patch: { scene_end: at(1, 10, 5), player_actions: [{ quote: '你及时把 Mira 拉到身后', authorized_by_quote: '挡在 Mira 身前' }], occurrences: [{ ref: 'o1', title: 'Ambush of Mira', account: 'The player pulled Mira behind them; she survived the ambush.', actors: ['mira'], affected: ['mira'], locations: ['harbor'], time: null, causes: [], quote: '你及时把 Mira 拉到身后', pack_event_id: 'medic-ambush', disposition: 'diverged', ref_phrases: ['the ambush'], visibility: 'public', knowers: [], origin: 'player' }], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: '她毫发无伤', occurrence_ref: 'o1' }] } },
-      { task: 'impact', match: 'mira|alive', patch: { changed: [{ entity_id: 'mira', predicate: 'alive' }], affected_anchors: ['conflict-begins'], affected_steps: [], scope: 'local', severity: 'major', replan: true, explanation: 'original broadcast route invalidated' }, once: true },
+      { task: 'impact', match: '/mira[^]*alive/', patch: { changed: [{ entity_id: 'mira', predicate: 'alive' }], affected_anchors: ['conflict-begins'], affected_steps: [], scope: 'local', severity: 'major', replan: true, explanation: 'original broadcast route invalidated' }, once: true },
     ],
     clearLogs: true,
   });

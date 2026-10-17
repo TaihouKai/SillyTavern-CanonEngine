@@ -253,7 +253,7 @@ export class CanonEngine {
   /** Create the chat's binding: pinned snapshot + bootstrap seed. Existing chats are interpreted afterwards by reconcile(). */
   async bind(packText: string, opts: { startTick: number; originDate?: { y: number; m: number; d: number } | null; startLabel?: string; mode: 'new' | 'existing' }): Promise<{ unresolved: string[]; pending: string[]; examined: number }> {
     if (!this.host.chatId()) throw new EngineError('incompatible_adapter', 'No chat is open. Open a character chat first, then enable Canon Engine for it.');
-    if (this.host.isGroup()) throw new EngineError('incompatible_adapter', 'Group chats are not supported in v1 until a designated-GM adapter is validated. Canon Engine was not activated.');
+    if (this.host.isGroup()) throw new EngineError('incompatible_adapter', 'Group chats are not supported yet (no validated designated-GM adapter). Canon Engine was not activated.');
     const r = validatePackText(packText);
     if (!r.ok || !r.loaded) throw new EngineError('invalid_pack', r.errors.map((e) => `${e.path}: ${e.message}`).join('\n'));
     const L = r.loaded;
@@ -910,7 +910,7 @@ export class CanonEngine {
   async runOperation(op: OpType, prior?: unknown): Promise<boolean> {
     const c0 = this.campaign();
     if (!c0 || !c0.enabled) return false;
-    if (this.host.isGroup()) { this.notice('error', 'Canon Engine does not support group chats in v1; generation was blocked to avoid an unprotected turn.'); return false; }
+    if (this.host.isGroup()) { this.notice('error', 'Canon Engine does not support group chats; generation was blocked to avoid an unprotected turn.'); return false; }
     if (this.opActive) { this.notice('warn', 'Canon Engine is already working on a reply. Wait or cancel it first.'); return false; }
     if (this.host.isWriter && !this.host.isWriter()) { this.notice('error', 'Another tab is the active writer for this campaign; generation is blocked here.'); return false; }
     const operationId = newId('op');

@@ -11722,7 +11722,7 @@ function lintPack(pack2) {
   const covStart = toTick(pack2.coverage.start);
   const covEnd = toTick(pack2.coverage.end);
   if (covEnd < covStart) err("/coverage", "coverage.end precedes coverage.start");
-  if (toTick(pack2.initial_state.at) !== covStart) err("/initial_state/at", "initial_state.at must equal coverage.start in v1");
+  if (toTick(pack2.initial_state.at) !== covStart) err("/initial_state/at", "initial_state.at must equal coverage.start");
   const baseline = /* @__PURE__ */ new Map();
   pack2.initial_state.facts.forEach((f, i) => {
     checkFact(f.fact, `/initial_state/facts/${i}/fact`);
