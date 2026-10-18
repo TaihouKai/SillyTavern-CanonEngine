@@ -228,13 +228,15 @@ export class WorldIndex {
     if (!o) return null;
     const rec = this.state.recordById.get(o.recordId);
     const later: string[] = [];
+    // Only the latest change per fact (plus how many came before it): a frequently changing fact such as
+    // a location would otherwise repeat its whole movement log on every record that once set it.
     for (const d of o.outcome) {
-      for (const t of factHistory(this.state, d.entity_id, d.predicate)) {
-        if (t.seq > o.seq) {
-          const r = this.state.recordById.get(t.recordId);
-          later.push(`${this.entityName(d.entity_id)}.${d.predicate} -> ${t.op === 'set' ? JSON.stringify(t.value) : 'UNKNOWN'} at ${formatTick(t.tick, origin)} (${r?.summary || t.recordId})`);
-        }
-      }
+      const after = factHistory(this.state, d.entity_id, d.predicate).filter((t) => t.seq > o.seq);
+      const t = after[after.length - 1];
+      if (!t) continue;
+      const r = this.state.recordById.get(t.recordId);
+      const earlier = after.length > 1 ? ` [after ${after.length - 1} earlier change${after.length > 2 ? 's' : ''}]` : '';
+      later.push(`${this.entityName(d.entity_id)}.${d.predicate} -> ${t.op === 'set' ? JSON.stringify(t.value) : 'UNKNOWN'} at ${formatTick(t.tick, origin)} (${r?.summary || t.recordId})${earlier}`);
     }
     return {
       occurrenceId: o.occurrenceId,

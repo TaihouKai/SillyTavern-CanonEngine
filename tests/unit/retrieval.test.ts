@@ -112,7 +112,8 @@ describe('W: actual history and world state', () => {
     expect(h).toContain('Player rescued the drowning fisherman');
     expect(h).toContain('Harbormaster rang the storm bell');
     expect(h).toContain('Old Market explosion');
-    expect(h).toMatch(/retrieved because: mentioned/);
+    // the retrieval trigger stays in the retrieval/coverage audit; it is not repeated in the GM context
+    expect(h).not.toMatch(/retrieved because: /);
   });
 
   it('W03 indirect references, aliases and an ambiguous name are resolved or explicitly kept ambiguous', async () => {
@@ -141,6 +142,10 @@ describe('W: actual history and world state', () => {
     const h2 = HIST(lastDraftCtx(x));
     expect(h2).toContain('Player stole the archive key');
     expect(h2).toContain('Player returned the archive key');
+    // later changes list only the latest change per fact (with a count), not every intermediate one
+    const loan = x.engine.current!.index.historyView([...x.engine.current!.index.state.occurrences.values()].find((o) => o.title === 'Archive key loan')!.occurrenceId)!;
+    expect(loan.laterChanges.filter((l) => l.includes('.holder')).length).toBe(1);
+    expect(loan.laterChanges.find((l) => l.includes('.holder'))).toMatch(/-> "archivist".*\[after 2 earlier changes\]/);
   });
 
   it('W06 a user-named route through the market gets the destroyed condition and supporting history before generation', async () => {

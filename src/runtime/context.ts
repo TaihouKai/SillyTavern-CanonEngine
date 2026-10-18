@@ -161,14 +161,16 @@ export interface PacketInput {
 
 export interface Packet { text: string; facts: string; hash: string; required: number; optional: number; truncatedOptional: boolean }
 
+const clip = (s: string) => (s.length > 160 ? s.slice(0, 157) + '…' : s);
+
 function histLine(h: HistoryRecordView, triggers: Set<string> | undefined, compact: boolean): string {
   const acc = compact && h.account.length > 220 ? h.account.slice(0, 217) + '…' : h.account;
   const parts = [`- [${h.occurrenceId}] ${h.time} — ${h.title}: ${acc}`];
   if (h.actors.length) parts.push(`  actors: ${h.actors.join(', ')}`);
   if (h.outcome.length) parts.push(`  actual outcome: ${h.outcome.join('; ')}`);
   if (h.causes.length) parts.push(`  caused by: ${h.causes.map((c) => `${c.title} [${c.occurrenceId}]`).join('; ')}`);
-  if (h.laterChanges.length) parts.push(`  later changes: ${h.laterChanges.join('; ')}`);
-  parts.push(`  origin: ${h.origin}; visibility: ${h.visibility}${triggers ? `; retrieved because: ${[...triggers].join('+')}` : ''}`);
+  if (h.laterChanges.length) parts.push(`  later changes: ${(compact ? h.laterChanges.map(clip) : h.laterChanges).join('; ')}`);
+  parts.push(`  origin: ${h.origin}; visibility: ${h.visibility}`);
   if (!compact && h.evidence.length) parts.push(`  evidence: ${h.evidence.slice(0, 2).map((e) => `"${e.quote.slice(0, 120)}"`).join(' ')}`);
   return parts.join('\n');
 }
@@ -184,17 +186,16 @@ function sceneHistLine(hs: HistoryRecordView[], triggers: (Set<string> | undefin
   if (actors.length) parts.push(`  actors: ${actors.join(', ')}`);
   if (outcome.length) parts.push(`  actual outcome: ${outcome.join('; ')}`);
   if (causes.length) parts.push(`  caused by: ${causes.join('; ')}`);
-  if (later.length) parts.push(`  later changes: ${later.join('; ')}`);
-  const why = [...new Set(triggers.flatMap((t) => (t ? [...t] : [])))];
-  parts.push(`  origin: ${all((h) => [h.origin]).join('/')}; visibility: ${all((h) => [h.visibility]).join('/')}${why.length ? `; retrieved because: ${why.join('+')}` : ''}`);
+  if (later.length) parts.push(`  later changes: ${(compact ? later.map(clip) : later).join('; ')}`);
+  parts.push(`  origin: ${all((h) => [h.origin]).join('/')}; visibility: ${all((h) => [h.visibility]).join('/')}`);
   return parts.join('\n');
 }
 
-function stateLine(s: EntityStateView, checkpoint: string, compact: boolean): string {
-  // "since" labels are produced by entityState in pack-day form; keep them compact.
-  const f = s.facts.length ? s.facts.map((x) => `${x.predicate}=${x.display} (since ${x.since}${!compact && x.support ? `; ${x.support}` : ''})`).join('; ') : 'no established facts';
-  const lines = [`- ${s.name} [${s.entityId}] (${s.kind}): ${f}.${compact ? '' : ` No other supported change through ${checkpoint}.`}`];
-  if (s.unknown.length) lines.push(`  UNKNOWN (not established; do not assume normality): ${s.unknown.join(', ')}`);
+function stateLine(s: EntityStateView, compact: boolean, listed: Set<string>): string {
+  // "since" labels are produced by entityState in pack-day form; keep them compact. The support note is
+  // left out when the supporting record is already in ACTUAL HISTORY (it always is when it has an occurrence).
+  const f = s.facts.length ? s.facts.map((x) => `${x.predicate}=${x.display} (since ${x.since}${!compact && x.support && !listed.has(x.supportRecordId || '') ? `; ${x.support}` : ''})`).join('; ') : 'no established facts';
+  const lines = [`- ${s.name} [${s.entityId}] (${s.kind}): ${f}.`];
   if (s.uncertain.length) lines.push(`  uncertain timing: ${s.uncertain.join('; ')}`);
   for (const p of s.parents) lines.push(`  inside ${p.parentName} [${p.parentId}] via ${p.predicate}: ${p.parentFacts.join('; ') || 'no facts'}`);
   return lines.join('\n');
@@ -224,12 +225,14 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   // Entity state
   const ents = [...retrieval.entities.keys()].filter((id) => index.entityExists(id));
   const views = ents.map((id) => index.entityState(id, { tick: checkpointTick }));
-  // Compact form keeps every fact: the per-entity "no other change" sentence moves into the header,
-  // the support note behind each fact is left out, and entities with nothing established share one line.
-  const bare = compact ? views.filter((v) => !v.facts.length && !v.unknown.length && !v.uncertain.length && !v.parents.length) : [];
-  const states = views.filter((v) => !bare.includes(v)).map((v) => stateLine(v, cpLabel, compact));
+  const listed = new Set(occIds.map((id) => index.state.occurrences.get(id)!.recordId));
+  // Rules that hold for every entity are stated once in the header ("no other change", "not listed =
+  // UNKNOWN") and entities with nothing established share one line. The compact form also leaves out
+  // the support note behind each fact.
+  const bare = views.filter((v) => !v.facts.length && !v.uncertain.length && !v.parents.length);
+  const states = views.filter((v) => !bare.includes(v)).map((v) => stateLine(v, compact, listed));
   if (bare.length) states.push(`- no established facts: ${bare.map((v) => `${v.name} [${v.entityId}]`).join(', ')}`);
-  required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops${compact ? `; no other supported change through ${cpLabel}` : ''}):\n` + (states.length ? states.join('\n') : '- (no referenced entities)'));
+  required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops; no other supported change through ${cpLabel}; a property not listed for an entity is UNKNOWN — not established, do not assume normality):\n` + (states.length ? states.join('\n') : '- (no referenced entities)'));
   // Explicit canon statuses for referenced canonical events (non-occurrence distinctions)
   const canon = [...retrieval.canonEvents].map((id) => index.canonStatus(id, checkpointTick)).filter(Boolean) as CanonStatusView[];
   if (canon.length) required.push('REFERENCED CANON EVENTS — status in THIS branch (pending/future/omitted are NOT accomplished):\n' + canon.map(canonLine).join('\n'));
@@ -252,7 +255,8 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   if (inp.stagedNotes.length) required.push('STAGED THIS OPERATION (validated but uncommitted):\n' + inp.stagedNotes.map((s) => '- ' + s).join('\n'));
   // Knowledge boundaries
   const restricted = occIds.map((id) => index.state.occurrences.get(id)!).filter((o) => o.visibility.mode !== 'public');
-  if (restricted.length) required.push('KNOWLEDGE BOUNDARIES (world truth vs who knows it):\n' + restricted.map((o) => `- ${o.title}: ${o.visibility.mode}; known to ${o.visibility.knower_ids.length ? o.visibility.knower_ids.map((x) => index.entityName(x)).join(', ') : 'no established knowledge holder'} — physical consequences remain visible; do not disclose the hidden cause to the player or other NPCs.`).join('\n'));
+  // Each record above already carries its visibility and knowers: state the rule once.
+  if (restricted.length) required.push(`KNOWLEDGE BOUNDARIES (world truth vs who knows it): ${restricted.length} record(s) above are not public and are known only to the knowers listed with them (none listed: no established knowledge holder). Physical consequences remain visible; do not disclose the hidden cause to the player or other NPCs.`);
   if (retrieval.ambiguous.length) required.push('AMBIGUOUS REFERENCES (do not guess; keep ambiguity in narration):\n' + retrieval.ambiguous.map((a) => '- ' + a).join('\n'));
   required.push('PLAYER SCOPE (exact current player input; do not add actions/consent/dialogue beyond it):\n' + (inp.playerScope.length ? inp.playerScope.map((s) => '- ' + s).join('\n') : '- (no new player input in this operation)'));
   // Optional

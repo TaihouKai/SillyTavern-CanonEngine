@@ -12572,12 +12572,12 @@ var WorldIndex = class _WorldIndex {
     const rec = this.state.recordById.get(o.recordId);
     const later = [];
     for (const d of o.outcome) {
-      for (const t2 of factHistory(this.state, d.entity_id, d.predicate)) {
-        if (t2.seq > o.seq) {
-          const r = this.state.recordById.get(t2.recordId);
-          later.push(`${this.entityName(d.entity_id)}.${d.predicate} -> ${t2.op === "set" ? JSON.stringify(t2.value) : "UNKNOWN"} at ${formatTick(t2.tick, origin)} (${r?.summary || t2.recordId})`);
-        }
-      }
+      const after = factHistory(this.state, d.entity_id, d.predicate).filter((t3) => t3.seq > o.seq);
+      const t2 = after[after.length - 1];
+      if (!t2) continue;
+      const r = this.state.recordById.get(t2.recordId);
+      const earlier = after.length > 1 ? ` [after ${after.length - 1} earlier change${after.length > 2 ? "s" : ""}]` : "";
+      later.push(`${this.entityName(d.entity_id)}.${d.predicate} -> ${t2.op === "set" ? JSON.stringify(t2.value) : "UNKNOWN"} at ${formatTick(t2.tick, origin)} (${r?.summary || t2.recordId})${earlier}`);
     }
     return {
       occurrenceId: o.occurrenceId,
@@ -14485,6 +14485,7 @@ var ENUM_SYNONYMS = {
   area: "place",
   building: "place"
 };
+var PLAN_KINDS = /* @__PURE__ */ new Set(["plan", "intention", "intent", "goal", "schedule", "appointment", "promise", "order", "request"]);
 function valueAt(root, path) {
   let cur = root;
   for (const k of path.split("/").slice(1)) cur = cur?.[k.replace(/~1/g, "/").replace(/~0/g, "~")];
@@ -14545,6 +14546,7 @@ var DROPPABLE_ITEMS = /* @__PURE__ */ new Set(["step_enactments", "new_entities"
 function dropBadItems(root, errors, schema) {
   let changed = false;
   const dropping = /* @__PURE__ */ new Map();
+  const handled = /* @__PURE__ */ new Set();
   for (const e of errors) {
     const m = /^\/([a-z_]+)\/(\d+)(?:\/([^/]+)(?:\/(\d+))?)?/.exec(e.instancePath || "");
     if (!m || !DROPPABLE_ITEMS.has(m[1])) continue;
@@ -14554,6 +14556,9 @@ function dropBadItems(root, errors, schema) {
     const itemS = schema?.properties?.[list]?.items || {};
     const fs = field2 ? itemS.properties?.[field2] : void 0;
     const why = `${e.instancePath} ${e.message || ""}`.trim();
+    const fkey = `${list}/${idxS}/${field2}/${elemS ?? ""}`;
+    if (field2 && handled.has(fkey)) continue;
+    if (field2) handled.add(fkey);
     if (field2 && fs && field2 in item) {
       const types = Array.isArray(fs.type) ? fs.type : [fs.type];
       const nullOk = types.includes("null") || Array.isArray(fs.enum) && fs.enum.includes(null) || Array.isArray(fs.oneOf) && fs.oneOf.some((o) => o.type === "null");
@@ -14633,6 +14638,12 @@ function repairEnums(root, errors) {
     const cur = parent?.[key];
     if (typeof cur !== "string") continue;
     const norm = cur.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    if (key === "kind" && /\/claims\/\d+$/.test("/" + parts.join("/")) && PLAN_KINDS.has(norm) && allowed.includes("state")) {
+      parent.kind = "state";
+      parent.assertion = "plan";
+      changed = true;
+      continue;
+    }
     const syn = [].concat(ENUM_SYNONYMS[norm] ?? []);
     const pick = allowed.find((a) => a === norm) ?? syn.find((x) => allowed.includes(x));
     if (pick !== void 0) {
@@ -14844,7 +14855,7 @@ Skip generic scenery that no record could contradict (drinks, traffic lights, cl
 Label each with assertion: narrator (narration asserts truth), new_event (the text proposes something happening now), belief, rumor, lie, hypothetical, flashback, dialogue (a character's claim), plan.
 Give candidate_ids from the registry/occurrence catalogue when you can. When a claim maps to a typed fact give "expected" (e.g. {"entity_id":"old-market","predicate":"condition","value":"intact"} for "busy stalls of the Old Market").
 SHAPE: {"references":[{"id":"r1","quote":"","phrase":"","ref_kind":"person|place|object|organization|event|other","mode":"direct|indirect|alias|pronoun","assertion":"narrator|new_event|belief|rumor|lie|hypothetical|flashback|dialogue|user_input|plan","temporal":"present|past|flashback|future","candidate_ids":[]}],"claims":[{"id":"c1","quote":"","kind":"state|capability|recollection|causal|location|presence|operation|time","entity_phrases":[],"assertion":"narrator|new_event|belief|rumor|lie|hypothetical|flashback|dialogue|user_input|plan","expected":null}]}
-Enum fields take EXACTLY one of the listed values ("a|b|c" lists the choices). A described or epithet reference ("the girl in the nun habit") is mode "indirect". Something happening now is not a claim kind: put it under the fitting kind (state/presence/location/operation/causal) with assertion "new_event".`,
+Enum fields take EXACTLY one of the listed values ("a|b|c" lists the choices). A described or epithet reference ("the girl in the nun habit") is mode "indirect". Something happening now is not a claim kind: put it under the fitting kind (state/presence/location/operation/causal) with assertion "new_event". A plan, intention or appointment is not a claim kind either: use the fitting kind with assertion "plan".`,
   evaluate: `${COMMON}
 TASK: Final review of a candidate GM reply (or of a retained transcript message when mode="retained"). You receive the COMPLETE candidate, the player's exact action scope, retrieved ACTUAL HISTORY and ENTITY STATE for every discovered reference (fetched freshly by the controller), staged offscreen events, due HARD contracts, plan steps, and the discovered claims list.
 1. For EVERY claim id in "claims" return a claim_check verdict: consistent (agrees with retrieved records/state), contradiction (conflicts: e.g. a destroyed place shown operating, a dead person greeting, wrong actor/outcome of a past event, using a missing object), unsupported (asserts that something HAPPENED in the past, or a cause, with no supporting record), belief_ok (a character's belief/rumor/lie presented as such), new_detail (compatible new detail), not_applicable. Cite record_ids you relied on.
@@ -15215,14 +15226,15 @@ function retrieve(index, spec) {
   }
   return { entries, occurrences, entities, canonEvents, claims: spec.claims, ambiguous };
 }
+var clip = (s) => s.length > 160 ? s.slice(0, 157) + "\u2026" : s;
 function histLine(h, triggers, compact) {
   const acc = compact && h.account.length > 220 ? h.account.slice(0, 217) + "\u2026" : h.account;
   const parts = [`- [${h.occurrenceId}] ${h.time} \u2014 ${h.title}: ${acc}`];
   if (h.actors.length) parts.push(`  actors: ${h.actors.join(", ")}`);
   if (h.outcome.length) parts.push(`  actual outcome: ${h.outcome.join("; ")}`);
   if (h.causes.length) parts.push(`  caused by: ${h.causes.map((c) => `${c.title} [${c.occurrenceId}]`).join("; ")}`);
-  if (h.laterChanges.length) parts.push(`  later changes: ${h.laterChanges.join("; ")}`);
-  parts.push(`  origin: ${h.origin}; visibility: ${h.visibility}${triggers ? `; retrieved because: ${[...triggers].join("+")}` : ""}`);
+  if (h.laterChanges.length) parts.push(`  later changes: ${(compact ? h.laterChanges.map(clip) : h.laterChanges).join("; ")}`);
+  parts.push(`  origin: ${h.origin}; visibility: ${h.visibility}`);
   if (!compact && h.evidence.length) parts.push(`  evidence: ${h.evidence.slice(0, 2).map((e) => `"${e.quote.slice(0, 120)}"`).join(" ")}`);
   return parts.join("\n");
 }
@@ -15236,15 +15248,13 @@ function sceneHistLine(hs, triggers, compact) {
   if (actors.length) parts.push(`  actors: ${actors.join(", ")}`);
   if (outcome.length) parts.push(`  actual outcome: ${outcome.join("; ")}`);
   if (causes.length) parts.push(`  caused by: ${causes.join("; ")}`);
-  if (later.length) parts.push(`  later changes: ${later.join("; ")}`);
-  const why = [...new Set(triggers.flatMap((t2) => t2 ? [...t2] : []))];
-  parts.push(`  origin: ${all((h) => [h.origin]).join("/")}; visibility: ${all((h) => [h.visibility]).join("/")}${why.length ? `; retrieved because: ${why.join("+")}` : ""}`);
+  if (later.length) parts.push(`  later changes: ${(compact ? later.map(clip) : later).join("; ")}`);
+  parts.push(`  origin: ${all((h) => [h.origin]).join("/")}; visibility: ${all((h) => [h.visibility]).join("/")}`);
   return parts.join("\n");
 }
-function stateLine(s, checkpoint, compact) {
-  const f = s.facts.length ? s.facts.map((x) => `${x.predicate}=${x.display} (since ${x.since}${!compact && x.support ? `; ${x.support}` : ""})`).join("; ") : "no established facts";
-  const lines = [`- ${s.name} [${s.entityId}] (${s.kind}): ${f}.${compact ? "" : ` No other supported change through ${checkpoint}.`}`];
-  if (s.unknown.length) lines.push(`  UNKNOWN (not established; do not assume normality): ${s.unknown.join(", ")}`);
+function stateLine(s, compact, listed) {
+  const f = s.facts.length ? s.facts.map((x) => `${x.predicate}=${x.display} (since ${x.since}${!compact && x.support && !listed.has(x.supportRecordId || "") ? `; ${x.support}` : ""})`).join("; ") : "no established facts";
+  const lines = [`- ${s.name} [${s.entityId}] (${s.kind}): ${f}.`];
   if (s.uncertain.length) lines.push(`  uncertain timing: ${s.uncertain.join("; ")}`);
   for (const p of s.parents) lines.push(`  inside ${p.parentName} [${p.parentId}] via ${p.predicate}: ${p.parentFacts.join("; ") || "no facts"}`);
   return lines.join("\n");
@@ -15271,10 +15281,11 @@ function buildPacket(inp, compact = false) {
   required.push("ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n" + (hist.length ? hist.join("\n") : "- (no matching actual occurrences)"));
   const ents = [...retrieval.entities.keys()].filter((id) => index.entityExists(id));
   const views = ents.map((id) => index.entityState(id, { tick: checkpointTick }));
-  const bare = compact ? views.filter((v) => !v.facts.length && !v.unknown.length && !v.uncertain.length && !v.parents.length) : [];
-  const states = views.filter((v) => !bare.includes(v)).map((v) => stateLine(v, cpLabel, compact));
+  const listed = new Set(occIds.map((id) => index.state.occurrences.get(id).recordId));
+  const bare = views.filter((v) => !v.facts.length && !v.uncertain.length && !v.parents.length);
+  const states = views.filter((v) => !bare.includes(v)).map((v) => stateLine(v, compact, listed));
   if (bare.length) states.push(`- no established facts: ${bare.map((v) => `${v.name} [${v.entityId}]`).join(", ")}`);
-  required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops${compact ? `; no other supported change through ${cpLabel}` : ""}):
+  required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops; no other supported change through ${cpLabel}; a property not listed for an entity is UNKNOWN \u2014 not established, do not assume normality):
 ` + (states.length ? states.join("\n") : "- (no referenced entities)"));
   const canon = [...retrieval.canonEvents].map((id) => index.canonStatus(id, checkpointTick)).filter(Boolean);
   if (canon.length) required.push("REFERENCED CANON EVENTS \u2014 status in THIS branch (pending/future/omitted are NOT accomplished):\n" + canon.map(canonLine).join("\n"));
@@ -15294,7 +15305,7 @@ function buildPacket(inp, compact = false) {
   }
   if (inp.stagedNotes.length) required.push("STAGED THIS OPERATION (validated but uncommitted):\n" + inp.stagedNotes.map((s) => "- " + s).join("\n"));
   const restricted = occIds.map((id) => index.state.occurrences.get(id)).filter((o) => o.visibility.mode !== "public");
-  if (restricted.length) required.push("KNOWLEDGE BOUNDARIES (world truth vs who knows it):\n" + restricted.map((o) => `- ${o.title}: ${o.visibility.mode}; known to ${o.visibility.knower_ids.length ? o.visibility.knower_ids.map((x) => index.entityName(x)).join(", ") : "no established knowledge holder"} \u2014 physical consequences remain visible; do not disclose the hidden cause to the player or other NPCs.`).join("\n"));
+  if (restricted.length) required.push(`KNOWLEDGE BOUNDARIES (world truth vs who knows it): ${restricted.length} record(s) above are not public and are known only to the knowers listed with them (none listed: no established knowledge holder). Physical consequences remain visible; do not disclose the hidden cause to the player or other NPCs.`);
   if (retrieval.ambiguous.length) required.push("AMBIGUOUS REFERENCES (do not guess; keep ambiguity in narration):\n" + retrieval.ambiguous.map((a) => "- " + a).join("\n"));
   required.push("PLAYER SCOPE (exact current player input; do not add actions/consent/dialogue beyond it):\n" + (inp.playerScope.length ? inp.playerScope.map((s) => "- " + s).join("\n") : "- (no new player input in this operation)"));
   if (inp.focus?.length) optional.push('PLAYER WANTS TO EXPERIENCE (\u5173\u6CE8; for these events only this overrides "do not steer"): give the player character natural in-world chances to be present or involved when each one starts \u2014 an invitation, a rumor or news that reaches them, an errand or a chance meeting that brings them there, characters who would plausibly involve them. Lead up to it plausibly; do not force its course or result, do not act or decide for the player, and accept a decline:\n' + inp.focus.join("\n"));
@@ -16170,7 +16181,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.43";
+var ENGINE_RELEASE = "1.3.44";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16623,9 +16634,11 @@ var CanonEngine = class {
   }
   registry(index) {
     const pack2 = index.pack;
+    const ent = (e) => `${e.id} | ${e.name} | ${(e.aliases || []).join(", ")} | ${e.kind}`;
     return {
-      entities: [...pack2.entities.values()].map((e) => ({ id: e.id, name: e.name, aliases: e.aliases, kind: e.kind })).concat([...index.state.runtimeEntities.values()].map((e) => ({ id: e.id, name: e.name, aliases: e.aliases, kind: e.kind }))),
-      predicates: [...pack2.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values, description: p.description }))
+      entities_format: "id | name | aliases | kind",
+      entities: [...pack2.entities.values(), ...index.state.runtimeEntities.values()].map(ent),
+      predicates: [...pack2.predicates.values()].map((p) => `${p.id} (${p.value_type}${p.allowed_values?.length ? `: ${p.allowed_values.join("/")}` : ""}): ${p.description}`)
     };
   }
   /** Candidate occurrences offered to discovery/extraction models (they map indirect references to ids). */
@@ -16835,7 +16848,10 @@ var CanonEngine = class {
       dependsOn: userEntry ? [{ messageId: userEntry.messageId, contentHash: userEntry.contentHash }] : [],
       sceneEnd: gate.sceneEnd && gate.sceneEnd.lo >= clock ? gate.sceneEnd : gate.sceneEnd,
       flashback: gate.flashback,
-      sceneEntities: uniq([...gate.sceneEntities, ...review.retrieval.entities.keys()].filter((x) => index.entityExists(x) || gate.runtimeEntities.some((r) => r.id === x))).slice(0, 40),
+      // Who/what is in the scene after this reply: the reviewer's scene list plus what the reply itself names.
+      // Not everything the review looked up (causal/parent pulls, last turn's seeds): stored scene entities
+      // seed the next turn's retrieval, so including lookups made the set snowball to its cap.
+      sceneEntities: uniq([...gate.sceneEntities, ...review.retrieval.entries.flatMap((e) => e.resolved.entityIds)].filter((x) => index.entityExists(x) || gate.runtimeEntities.some((r) => r.id === x))).slice(0, 24),
       offscreenBasis: [],
       warnings: gate.warnings.slice(0, 20),
       manifestId: review.manifest?.manifestId
@@ -17171,6 +17187,7 @@ var CanonEngine = class {
         const horaeScene = this.host.horae?.status().scene;
         const horaeSceneIds = horaeScene ? uniq([horaeScene.location || "", ...horaeScene.characters || []].flatMap((n) => n ? index.resolveEntity(n).ids : [])) : [];
         const userRefs = userInterp?.refs || [];
+        const sceneSeeds = uniq([...prevGmInterp?.sceneEntities || [], ...horaeSceneIds, ...userInterp?.sceneEntities || []]);
         const retrieval = retrieve(index, {
           refs: lastIsUser || op !== "normal" ? userRefs : [],
           claims: [],
@@ -17211,7 +17228,7 @@ var CanonEngine = class {
         let lastResort = false;
         for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
           this.setStatus("validating", attempt > this.settings.maxRepairs ? "Re-checking final HARD repair\u2026" : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})\u2026` : "Validating\u2026");
-          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds: retrieval ? [...retrieval.entities.keys()] : [], reevalReasons: null, stagedNotes: [], fences, attempt });
+          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt });
           this.checkFences(fences, excludeLast);
           let adj = null;
           const end = review.gate.sceneEnd;
@@ -17233,7 +17250,7 @@ var CanonEngine = class {
             this.checkFences(fences, excludeLast);
             if (adj.records.length) {
               const stagedIndex = new WorldIndex(pack2, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
-              review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds: [...retrieval.entities.keys()], reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt });
+              review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt });
               review.gate = runGate({
                 pack: pack2,
                 index: stagedIndex,
@@ -17264,9 +17281,17 @@ var CanonEngine = class {
           if (hardStuck) lastResort = true;
           this.setStatus("generating", hardStuck ? "Final HARD repair\u2026" : `Repairing draft (${attempt + 1}/${this.settings.maxRepairs})\u2026`);
           const facts = review.facts || packet.facts;
+          const prevRetrieval = packetArgs.retrieval;
           packetArgs.retrieval = mergeRetrieval(packetArgs.retrieval, review.retrieval);
           packetArgs.stagedNotes = adj?.notes || [];
-          packet = buildPacket(packetArgs);
+          try {
+            packet = buildPacket(packetArgs);
+          } catch (e) {
+            if (!(e instanceof EngineError && e.kind === "capacity")) throw e;
+            packetArgs.retrieval = prevRetrieval;
+            packet = buildPacket(packetArgs);
+            this.rejects.push(`repair: kept after a fix: the records the rejected draft added did not fit the context budget; repaired with the draft's context`);
+          }
           const repairCtx = this.gmRules() + "\n\n" + packet.text;
           trace.prompts.push({ kind: hardStuck ? "repair_hard_last_resort" : `repair_${attempt + 1}`, text: repairCtx });
           const replyEnd = Math.max(review.gate.sceneEnd?.hi ?? clock, clock);
@@ -18932,12 +18957,12 @@ function layout(g) {
     const subRaw = n.sub || n.short || n.when.split(" \xB7 ")[0];
     if (!Number.isFinite(n.tick)) {
       const row = unkIdx[n.lane]++;
-      geo.set(n.id, { x: LEFT, w: UNK_W, row, inside: true, title2: clip(n.title, 13), sub2: clip(subRaw, 26) });
+      geo.set(n.id, { x: LEFT, w: UNK_W, row, inside: true, title2: clip2(n.title, 13), sub2: clip2(subRaw, 26) });
       continue;
     }
     const x = sc.x(n.tick);
     const w = Math.max(MIN_BAR, sc.x(n.tickHi ?? n.tick) - x);
-    const title2 = clip(n.title, 16), sub2 = clip(subRaw, 28);
+    const title2 = clip2(n.title, 16), sub2 = clip2(subRaw, 28);
     const need = Math.max(textW(title2, 12.5), textW(sub2, 10.5)) + 16;
     const inside = w >= need;
     const end = x + w + (inside ? 0 : 6 + need);
@@ -19017,7 +19042,7 @@ function axisTicks(g, sc, bounds) {
   }
   return out.sort((a, b) => a.x - b.x);
 }
-var clip = (s, n) => [...s].length > n ? [...s].slice(0, n - 1).join("") + "\u2026" : s;
+var clip2 = (s, n) => [...s].length > n ? [...s].slice(0, n - 1).join("") + "\u2026" : s;
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 function renderGraphSvg(g, mode) {
   const g2 = { ...g, nodes: g.nodes.map((n) => ({ ...n, sub: mode === "current" && n.status ? `${statusLabel(n.status)} \xB7 ${n.short || ""}` : n.short || n.when.split(" \xB7 ")[0] })) };

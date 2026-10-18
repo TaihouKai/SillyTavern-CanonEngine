@@ -513,9 +513,13 @@ export class CanonEngine {
 
   private registry(index: WorldIndex) {
     const pack = index.pack;
+    // One line per entry ("id | name | aliases | kind"): the same content as objects at about half the
+    // size; it goes into several calls per turn and grows with the cast.
+    const ent = (e: { id: string; name: string; aliases?: string[]; kind: string }) => `${e.id} | ${e.name} | ${(e.aliases || []).join(', ')} | ${e.kind}`;
     return {
-      entities: [...pack.entities.values()].map((e) => ({ id: e.id, name: e.name, aliases: e.aliases, kind: e.kind })).concat([...index.state.runtimeEntities.values()].map((e) => ({ id: e.id, name: e.name, aliases: e.aliases, kind: e.kind }))),
-      predicates: [...pack.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values, description: p.description })),
+      entities_format: 'id | name | aliases | kind',
+      entities: [...pack.entities.values(), ...index.state.runtimeEntities.values()].map(ent),
+      predicates: [...pack.predicates.values()].map((p) => `${p.id} (${p.value_type}${p.allowed_values?.length ? `: ${p.allowed_values.join('/')}` : ''}): ${p.description}`),
     };
   }
 
@@ -684,7 +688,10 @@ export class CanonEngine {
       playerActions: gate.playerActions.map((a) => ({ quote: a.quote, authorizedBy: a.authorizedBy && userEntry ? { messageId: userEntry.messageId, quote: a.authorizedBy.quote } : null })),
       dependsOn: userEntry ? [{ messageId: userEntry.messageId, contentHash: userEntry.contentHash }] : [],
       sceneEnd: gate.sceneEnd && gate.sceneEnd.lo >= clock ? gate.sceneEnd : gate.sceneEnd, flashback: gate.flashback,
-      sceneEntities: uniq([...gate.sceneEntities, ...review.retrieval.entities.keys()].filter((x) => index.entityExists(x) || gate.runtimeEntities.some((r) => r.id === x))).slice(0, 40),
+      // Who/what is in the scene after this reply: the reviewer's scene list plus what the reply itself names.
+      // Not everything the review looked up (causal/parent pulls, last turn's seeds): stored scene entities
+      // seed the next turn's retrieval, so including lookups made the set snowball to its cap.
+      sceneEntities: uniq([...gate.sceneEntities, ...review.retrieval.entries.flatMap((e) => e.resolved.entityIds)].filter((x) => index.entityExists(x) || gate.runtimeEntities.some((r) => r.id === x))).slice(0, 24),
       offscreenBasis: [], warnings: gate.warnings.slice(0, 20), manifestId: review.manifest?.manifestId,
     };
   }
@@ -981,6 +988,7 @@ export class CanonEngine {
         const horaeScene = this.host.horae?.status().scene;
         const horaeSceneIds = horaeScene ? uniq([horaeScene.location || '', ...(horaeScene.characters || [])].flatMap((n) => (n ? index.resolveEntity(n).ids : []))) : [];
         const userRefs = ((userInterp as Interpretation & { refs?: RefInput[] })?.refs) || [];
+        const sceneSeeds = uniq([...(prevGmInterp?.sceneEntities || []), ...horaeSceneIds, ...(userInterp?.sceneEntities || [])]);
         const retrieval = retrieve(index, {
           refs: lastIsUser || op !== 'normal' ? userRefs : [],
           claims: [],
@@ -1014,7 +1022,7 @@ export class CanonEngine {
         let lastResort = false; // one extra, harsher repair when HARD problems survive the normal repairs
         for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
           this.setStatus('validating', attempt > this.settings.maxRepairs ? 'Re-checking final HARD repair…' : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})…` : 'Validating…');
-          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds: retrieval ? [...retrieval.entities.keys()] : [], reevalReasons: null, stagedNotes: [], fences, attempt });
+          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt });
           this.checkFences(fences, excludeLast);
           // Interval adjudication for the proposed advance (repeat if the draft goes farther than expected)
           let adj: Awaited<ReturnType<typeof adjudicateInterval>> | null = null;
@@ -1030,7 +1038,7 @@ export class CanonEngine {
             if (adj.records.length) {
               // The evaluator must see staged offscreen history: review again with it (not a repair).
               const stagedIndex = new WorldIndex(pack, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
-              review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds: [...retrieval.entities.keys()], reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt });
+              review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt });
               // Gate HARD crossing with staged offscreen occurrences against the committed clock
               review.gate = runGate({
                 pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
@@ -1048,9 +1056,19 @@ export class CanonEngine {
           if (hardStuck) lastResort = true;
           this.setStatus('generating', hardStuck ? 'Final HARD repair…' : `Repairing draft (${attempt + 1}/${this.settings.maxRepairs})…`);
           const facts = review.facts || packet.facts;
+          const prevRetrieval = packetArgs.retrieval;
           packetArgs.retrieval = mergeRetrieval(packetArgs.retrieval, review.retrieval);
           packetArgs.stagedNotes = adj?.notes || [];
-          packet = buildPacket(packetArgs);
+          try {
+            packet = buildPacket(packetArgs);
+          } catch (e) {
+            // What the rejected draft added does not fit: repair with the context that fitted for the
+            // draft (the review's facts still reach the repair instruction) instead of failing the turn.
+            if (!(e instanceof EngineError && e.kind === 'capacity')) throw e;
+            packetArgs.retrieval = prevRetrieval;
+            packet = buildPacket(packetArgs);
+            this.rejects.push(`repair: kept after a fix: the records the rejected draft added did not fit the context budget; repaired with the draft's context`);
+          }
           const repairCtx = this.gmRules() + '\n\n' + packet.text;
           trace.prompts.push({ kind: hardStuck ? 'repair_hard_last_resort' : `repair_${attempt + 1}`, text: repairCtx });
           const replyEnd = Math.max(review.gate.sceneEnd?.hi ?? clock, clock);

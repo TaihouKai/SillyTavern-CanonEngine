@@ -128,6 +128,8 @@ const ENUM_SYNONYMS: Record<string, string | string[]> = {
   group: 'organization', faction: 'organization', org: 'organization', item: 'object', thing: 'object', artifact: 'object', location: 'place', area: 'place', building: 'place',
 };
 
+const PLAN_KINDS = new Set(['plan', 'intention', 'intent', 'goal', 'schedule', 'appointment', 'promise', 'order', 'request']);
+
 function valueAt(root: unknown, path: string): unknown {
   let cur: any = root;
   for (const k of path.split('/').slice(1)) cur = cur?.[k.replace(/~1/g, '/').replace(/~0/g, '~')];
@@ -189,6 +191,7 @@ const DROPPABLE_ITEMS = new Set(['step_enactments', 'new_entities', 'transitions
 function dropBadItems(root: unknown, errors: { instancePath: string; message?: string }[], schema: Record<string, any>): boolean {
   let changed = false;
   const dropping = new Map<string, Map<number, string>>();
+  const handled = new Set<string>();
   for (const e of errors) {
     const m = /^\/([a-z_]+)\/(\d+)(?:\/([^/]+)(?:\/(\d+))?)?/.exec(e.instancePath || '');
     if (!m || !DROPPABLE_ITEMS.has(m[1])) continue;
@@ -198,6 +201,10 @@ function dropBadItems(root: unknown, errors: { instancePath: string; message?: s
     const itemS = schema?.properties?.[list]?.items || {};
     const fs = field ? itemS.properties?.[field] : undefined;
     const why = `${e.instancePath} ${e.message || ''}`.trim();
+    // One broken field yields several schema errors (e.g. every branch of a oneOf): fix and report it once.
+    const fkey = `${list}/${idxS}/${field}/${elemS ?? ''}`;
+    if (field && handled.has(fkey)) continue;
+    if (field) handled.add(fkey);
     if (field && fs && field in item) {
       const types = Array.isArray(fs.type) ? fs.type : [fs.type];
       const nullOk = types.includes('null') || (Array.isArray(fs.enum) && fs.enum.includes(null)) || (Array.isArray(fs.oneOf) && fs.oneOf.some((o: any) => o.type === 'null'));
@@ -256,7 +263,11 @@ function repairEnums(root: unknown, errors: { keyword: string; instancePath: str
     const cur = parent?.[key];
     if (typeof cur !== 'string') continue;
     const norm = cur.trim().toLowerCase().replace(/[\s-]+/g, '_');
-    const syn = ([] as string[]).concat(ENUM_SYNONYMS[norm] ?? []);
+    // A claim labelled as a plan/intention ("明天七点，楼下"): the plan is its assertion, not its kind.
+    if (key === 'kind' && /\/claims\/\d+$/.test('/' + parts.join('/')) && PLAN_KINDS.has(norm) && allowed.includes('state')) {
+      parent.kind = 'state'; parent.assertion = 'plan'; changed = true; continue;
+    }
+    const syn =([] as string[]).concat(ENUM_SYNONYMS[norm] ?? []);
     const pick = allowed.find((a) => a === norm) ?? syn.find((x) => allowed.includes(x));
     if (pick !== undefined) { parent[key] = pick; changed = true; }
   }

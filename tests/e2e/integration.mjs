@@ -317,7 +317,8 @@ try {
     await send(page, '我回到档案室门口。');
     const p5 = promptText((await mainLogs())[0]);
     check(results, 'W01 causal retrieval without mention: the player theft enters the next GM prompt', HIST(p5).includes('Player stole the archive key'), HIST(p5).slice(0, 500));
-    check(results, 'W12 knowledge boundary labeled for the secret theft', /KNOWLEDGE BOUNDARIES[\s\S]*Player stole the archive key/.test(p5));
+    // the record carries its own visibility/knowers; the boundary rule is stated once
+    check(results, 'W12 knowledge boundary labeled for the secret theft', /Player stole the archive key[^\n]*(\n {2}[^\n]*)*?\n {2}origin: [^\n]*visibility: (restricted|secret)/.test(p5) && /KNOWLEDGE BOUNDARIES[^\n]*do not disclose the hidden cause/.test(p5));
   }
 
   // ---------------------------------------------------------------------------------------------

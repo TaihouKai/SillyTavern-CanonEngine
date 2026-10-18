@@ -23,6 +23,13 @@ describe('structured output enum handling (real-model findings)', () => {
     expect(p.seen.length).toBe(1);
   });
 
+  it('a claim labelled kind "plan" keeps the claim as a plan instead of dropping it', async () => {
+    const p = port([{ references: [], claims: [claim('plan'), claim('Intention')] }]);
+    const out = await callStructured<any>(p, 'discover', 'sys', {});
+    expect(out.claims.map((c: any) => [c.kind, c.assertion])).toEqual([['state', 'plan'], ['state', 'plan']]);
+    expect(p.seen.length).toBe(1);
+  });
+
   it('tells the model the offending value and the allowed values on retry', async () => {
     // (a strict list: review verdicts are checks, so a bad value is sent back rather than dropped)
     const base = { decision: 'retain', scene_end: null, transitions: [], occurrences: [], state_claims: [], player_actions: [], violations: [], hard_checks: [] };

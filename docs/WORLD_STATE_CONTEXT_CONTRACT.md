@@ -84,6 +84,8 @@ Honor supported containment and regional effects: a known shop within a fully de
 
 Required retrieved history and scene constraints are not lower priority just because they are FREE, old, offscreen or unrelated to a Hard Anchor. Compact records, eliminate duplicate prose, fetch detailed evidence on demand, and partition validation with shared revision/time fences when necessary. If essential context still cannot fit, surface the existing capacity/recovery error; do not drop a required matched event while claiming the OR rule was satisfied. Do not inject the entire world's history on ordinary turns.
 
+In the packet this means: a history record lists only the latest later change per fact (with a count of earlier ones); a fact's support note is omitted when its record is already listed; rules that hold for every entity (no other supported change; an unlisted property is UNKNOWN) and the knowledge-boundary rule are stated once; retrieval triggers stay in the coverage manifest. The scene entities stored for a reply are the reviewer's scene plus what the reply names, not everything the review looked up, so the next turn's seeds do not accumulate.
+
 ## 8. Source changes and release evidence
 
 Editing/deleting either role's message, changing a swipe/branch, regeneration, continuation, reload and binding changes must rebuild/invalidate affected occurrence indexes, causal links, state projections, query results, overlays, context packets and coverage manifests. A surviving summary is not independent evidence for a removed event. A late retrieval/evaluation result is fenced exactly like a planner response. Whether the removed event related to an anchor is irrelevant.
