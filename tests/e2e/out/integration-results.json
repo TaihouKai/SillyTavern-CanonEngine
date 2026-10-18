@@ -1,5 +1,5 @@
 {
- "at": "2026-10-18T06:20:27.774Z",
+ "at": "2026-10-18T06:33:46.227Z",
  "results": [
   {
    "name": "I01 draft uses ST full prompt: card + persona + Author's Note + keyword lore + Horae + engine context",
@@ -154,7 +154,7 @@
   {
    "name": "W07 fresh lookup: evaluator received the destroyed condition and the destruction record",
    "pass": true,
-   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_15f2947c5711f6deb51050fb] D1 15:00 — Old Market explosion: An accidental stored-fuel explosion destroys Old Market. In this fixture the trading structures are ruined and ordinary trading there"
+   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_6996c13b9c104714b6dd974a] D1 15:00 — Old Market explosion: An accidental stored-fuel explosion destroys Old Market. In this fixture the trading structures are ruined and ordinary trading there"
   },
   {
    "name": "W07 corrected history reached the repair generation prompt (before publication)",
@@ -164,7 +164,7 @@
   {
    "name": "W08/W09 repair introduced a new anecdote; it was discovered, looked up (loan + return records) and checked again",
    "pass": true,
-   "detail": "evals=3 ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_b3c9bb374dfd1e7d139c6796] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict."
+   "detail": "evals=3 ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_499a1b2f0f436eeff519b138] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict."
   },
   {
    "name": "W20 accepted reply carries a content-bound coverage manifest",
@@ -174,7 +174,7 @@
   {
    "name": "W04 mention alone retrieves both the loan and the later return into the real GM prompt",
    "pass": true,
-   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_b3c9bb374dfd1e7d139c6796] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict. (Occurred in this branch along its original route.)\n  actors: Archivist, Courier, Archive Key\n  actual outcome: Archive Key.holder=\"courier\"\n  later changes: Archive Key.holder -> \"archivist\" at D1 0"
+   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_499a1b2f0f436eeff519b138] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict. (Occurred in this branch along its original route.)\n  actors: Archivist, Courier, Archive Key\n  actual outcome: Archive Key.holder=\"courier\"\n  later changes: Archive Key.holder -> \"archivist\" at D1 0"
   },
   {
    "name": "Runtime player event committed with code-assigned runtime entity id",
@@ -184,7 +184,7 @@
   {
    "name": "W01 causal retrieval without mention: the player theft enters the next GM prompt",
    "pass": true,
-   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_b3c9bb374dfd1e7d139c6796] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict. (Occurred in this branch along its original route.)\n  actors: Archivist, Courier, Archive Key\n  actual outcome: Archive Key.holder=\"courier\"\n  later changes: Archive Key.holder -> \"rt.entity.aed6fc\" "
+   "detail": "ACTUAL HISTORY (retrieved because causally relevant OR mentioned; actually happened in this branch):\n- [occ_499a1b2f0f436eeff519b138] D1 08:00 — Archive key loan: The archivist lends the Archive Key to the courier for an archive delivery. This local errand is unrelated to the Union–Council conflict. (Occurred in this branch along its original route.)\n  actors: Archivist, Courier, Archive Key\n  actual outcome: Archive Key.holder=\"courier\"\n  later changes: Archive Key.holder -> \"rt.entity.bb544d\" "
   },
   {
    "name": "W12 knowledge boundary labeled for the secret theft",
@@ -194,7 +194,7 @@
   {
    "name": "I13 malformed model JSON: bounded retry then actionable error; user input kept; no GM message",
    "pass": true,
-   "detail": "{\"status\":\"error\",\"errorKind\":\"invalid_model_json\",\"reason\":\"invalid structured output for extract_user: no parseable JSON object in model output (43 chars; ends with: \\\"Sure! Here is the analysis: not json at all\\\")\",\"at\":1792304193418,\"details\":\"Canon Engine 1.3.46 — failed turn (normal) at 10/18/2026, 3:16:33 PM, took 0s\\n\\nError: invalid structured output for extract_user: no parseable JSON object in model output (43 chars; ends with: \\\"Sure! Here is the analysis: not json at all\\\")\\n\\nModel output problems (resent, or an unusable item dropped):\\n  - extract_user: no parseable JSON object "
+   "detail": "{\"status\":\"error\",\"errorKind\":\"invalid_model_json\",\"reason\":\"invalid structured output for extract_user: no parseable JSON object in model output (43 chars; ends with: \\\"Sure! Here is the analysis: not json at all\\\")\",\"at\":1792304992524,\"details\":\"Canon Engine 1.3.47 — failed turn (normal) at 10/18/2026, 3:29:52 PM, took 0s\\n\\nError: invalid structured output for extract_user: no parseable JSON object in model output (43 chars; ends with: \\\"Sure! Here is the analysis: not json at all\\\")\\n\\nModel output problems (resent, or an unusable item dropped):\\n  - extract_user: no parseable JSON object "
   },
   {
    "name": "Retry after failure completes the turn",
@@ -224,7 +224,7 @@
   {
    "name": "E02/E12 edited user message: retained GM rescue exposed as the first conflict; text preserved; no invented rescue",
    "pass": true,
-   "detail": "{\"status\":\"conflict\",\"messageId\":\"msg_9a63f2928632702895a9f70a\",\"messageIndex\":2,\"reason\":\"Reviewer: the rescue is not authorized by the edited user message and no separate cause is described (\\\"你拉着 Mira 冲出包围\\\")\",\"at\":1792304205315}"
+   "detail": "{\"status\":\"conflict\",\"messageId\":\"msg_efc0dc377ef4ce3835efb13b\",\"messageIndex\":2,\"reason\":\"Reviewer: the rescue is not authorized by the edited user message and no separate cause is described (\\\"你拉着 Mira 冲出包围\\\")\",\"at\":1792305004412}"
   },
   {
    "name": "Advancement frozen while the conflict is unresolved (no generation)",
@@ -264,7 +264,7 @@
   {
    "name": "I11 group chat: explicit activation guard, no enforcement claim",
    "pass": true,
-   "detail": "group=1792304251774 Group chats are not supported yet (no validated designated-GM adapter). Canon Engine was not activated."
+   "detail": "group=1792305051276 Group chats are not supported yet (no validated designated-GM adapter). Canon Engine was not activated."
   },
   {
    "name": "Existing chat bootstrap: all persisted messages examined once (not just the last-N context)",
@@ -289,12 +289,12 @@
   {
    "name": "I05 next turn waits for Horae to finish the accepted reply (fresh location, no stale time)",
    "pass": true,
-   "detail": "main=2 chat=[\"你登上了钟楼，风很大。\",\"我俯瞰城市。\",\"你俯瞰整座城市。\"] snap=Current State Snapshot — recorded automatically from the story so far, for narrative continuity reference]\n[State is recorded and updated automatically in the background; reply with story prose only, without any state lines or tags]\n[Scene|钟楼顶层]\n\n[Item List] (empty) notices=[{\"level\":\"warn\",\"text\":\"Horae memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use Horae's re-analyze to repair it.\",\"at\":1792304307581}]"
+   "detail": "main=2 chat=[\"你登上了钟楼，风很大。\",\"我俯瞰城市。\",\"你俯瞰整座城市。\"] snap=Current State Snapshot — recorded automatically from the story so far, for narrative continuity reference]\n[State is recorded and updated automatically in the background; reply with story prose only, without any state lines or tags]\n[Scene|钟楼顶层]\n\n[Item List] (empty) notices=[{\"level\":\"warn\",\"text\":\"Horae memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use Horae's re-analyze to repair it.\",\"at\":1792305106665}]"
   },
   {
    "name": "I07 lore saying a character later died cannot override the actual alive state; lore never enters extraction/evaluation as evidence",
    "pass": true,
-   "detail": "last=Mira 正在诊所里为伤员包扎。 tasks=extract_user,discover,evaluate,discover,evaluate st={\"status\":\"ok\"} n=[{\"level\":\"warn\",\"text\":\"Horae memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use Horae's re-analyze to repair it.\",\"at\":1792304307581}]"
+   "detail": "last=Mira 正在诊所里为伤员包扎。 tasks=extract_user,discover,evaluate,discover,evaluate st={\"status\":\"ok\"} n=[{\"level\":\"warn\",\"text\":\"Horae memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use Horae's re-analyze to repair it.\",\"at\":1792305106665}]"
   },
   {
    "name": "E08 first-message edit rebuilds from the binding seed; Persona/RPG not re-initialized",
@@ -324,7 +324,7 @@
   {
    "name": "P04 a missing analysis profile stops the turn with an actionable error",
    "pass": true,
-   "detail": "{\"status\":\"error\",\"errorKind\":\"provider_failure\",\"reason\":\"model request failed for extract_user: the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings\",\"at\":1792304350395,\"details\":\"Canon Engine 1.3.46 — failed turn (normal) at 10/18/2026, 3:19:10 PM, took 0s\\n\\nError: model request failed for extract_user: the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings\\n\\nSteps: extract_user 0s\"}"
+   "detail": "{\"status\":\"error\",\"errorKind\":\"provider_failure\",\"reason\":\"model request failed for extract_user: the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings\",\"at\":1792305149607,\"details\":\"Canon Engine 1.3.47 — failed turn (normal) at 10/18/2026, 3:32:29 PM, took 0s\\n\\nError: model request failed for extract_user: the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings\\n\\nSteps: extract_user 0s\"}"
   },
   {
    "name": "T01 a slow reconcile shows which message and which step it is on",
@@ -334,12 +334,12 @@
   {
    "name": "T02 a background reconcile can be cancelled from the status bar",
    "pass": true,
-   "detail": "{\"status\":\"error\",\"errorKind\":\"cancelled\",\"reason\":\"operation cancelled\",\"at\":1792304358784}"
+   "detail": "{\"status\":\"error\",\"errorKind\":\"cancelled\",\"reason\":\"operation cancelled\",\"at\":1792305157792}"
   },
   {
    "name": "T03 a hung analysis call times out per call with an actionable message",
    "pass": true,
-   "detail": "2514ms {\"status\":\"error\",\"errorKind\":\"provider_failure\",\"reason\":\"model request for extract_user timed out after 2s (one call, via the chat's own connection (mock-main)). The model is too slow or not responding: if it is a reas"
+   "detail": "2515ms {\"status\":\"error\",\"errorKind\":\"provider_failure\",\"reason\":\"model request for extract_user timed out after 2s (one call, via the chat's own connection (mock-main)). The model is too slow or not responding: if it is a reas"
   },
   {
    "name": "T04 after the timeout, Retry completes normally (nothing left blocking the queue)",
@@ -359,7 +359,7 @@
   {
    "name": "K03 the status bar shows the last turn's step timings",
    "pass": true,
-   "detail": "上一回合 1s：生成回复 1s · 读取玩家输入 1s · 核对一致性 1s×2 · 规划 1s · 找出引用 1s · 影响评估 1s · 等待 Horae 1s · 回复 16字 · 消耗 14 Token"
+   "detail": "上一回合 1s：生成回复 1s · 核对一致性 1s×2 · 找出引用 1s · 读取玩家输入 1s · 规划 1s · 影响评估 1s · 等待 Horae 1s · 回复 16字 · 消耗 14 Token"
   },
   {
    "name": "K04 an idle status bar offers no Cancel button",
@@ -404,7 +404,7 @@
   {
    "name": "L01 the status line shows the published reply length in characters",
    "pass": true,
-   "detail": "上一回合 1s：生成回复 1s · 读取玩家输入 1s · 找出引用 1s · 规划 1s · 核对一致性 1s · 等待 Horae 1s · 回复 19字 · 消耗 1,008 Token"
+   "detail": "上一回合 1s：生成回复 1s · 规划 1s · 读取玩家输入 1s · 找出引用 1s · 核对一致性 1s · 等待 Horae 1s · 回复 19字 · 消耗 1,008 Token"
   },
   {
    "name": "L02 the hover text shows output tokens, thinking tokens and the output limit",
@@ -414,7 +414,7 @@
   {
    "name": "L03 a reply cut off at the output limit is flagged in the status line",
    "pass": true,
-   "detail": "上一回合 1s：生成回复 1s · 找出引用 1s · 读取玩家输入 1s · 核对一致性 1s · 等待 Horae 1s · 回复 13字 （被截断） · 消耗 2,154 Token"
+   "detail": "上一回合 1s：生成回复 1s · 读取玩家输入 1s · 找出引用 1s · 核对一致性 1s · 等待 Horae 1s · 回复 13字 （被截断） · 消耗 2,154 Token"
   },
   {
    "name": "L04 and a warning explains how to fix it",
@@ -424,7 +424,12 @@
   {
    "name": "L05 the status line shows the provider-reported tokens of the whole turn (draft + analysis calls)",
    "pass": true,
-   "detail": "上一回合 1s：生成回复 1s · 读取玩家输入 1s · 找出引用 1s · 规划 1s · 核对一致性 1s · 等待 Horae 1s · 回复 19字 · 消耗 1,008 Token"
+   "detail": "上一回合 1s：生成回复 1s · 规划 1s · 读取玩家输入 1s · 找出引用 1s · 核对一致性 1s · 等待 Horae 1s · 回复 19字 · 消耗 1,008 Token"
+  },
+  {
+   "name": "L06 the hover splits the tokens into story model and analysis model",
+   "pass": true,
+   "detail": "输入 103 · 输出 2,051 · 4 次调用\n故事模型（生成与修改） 2,148 · 分析模型 6\n服务商返回的实际用量，包括本回合 Canon Engine 的所有请求（生成、修改和分析）；不含 Horae、Summaryception 等其他扩展的请求。"
   },
   {
    "name": "H01 when normal repairs leave a HARD problem, one extra final repair is made and can be accepted",
@@ -444,7 +449,7 @@
   {
    "name": "H04 a failed turn offers 详情 with the full report (every attempt, its problems, the step timings)",
    "pass": true,
-   "detail": "Canon Engine 1.3.46 — failed turn (normal) at 10/18/2026, 3:19:58 PM, took 1s\n\nError: The reply could not be validated within 2 repairs. Last problems: Reviewer: the tone is wrong (\"PB_3\")\n\nAttempt 1 (first draft): 1 problem(s)\n  - Reviewer: the tone is wrong (\"PB_1\")\n\nAttempt 2 (repair 1): 1 proble"
+   "detail": "Canon Engine 1.3.47 — failed turn (normal) at 10/18/2026, 3:33:16 PM, took 1s\n\nError: The reply could not be validated within 2 repairs. Last problems: Reviewer: the tone is wrong (\"PB_3\")\n\nAttempt 1 (first draft): 1 problem(s)\n  - Reviewer: the tone is wrong (\"PB_1\")\n\nAttempt 2 (repair 1): 1 proble"
   },
   {
    "name": "H06 复制 copies the report (works without the https-only clipboard API)",
@@ -464,7 +469,7 @@
   {
    "name": "G02 with it on, the reviewer is offered the current scene box to continue",
    "pass": true,
-   "detail": "[{\"occurrence_id\":\"occ_6eef617bca70cdf7b14f9791\",\"title\":\"港口散步\",\"beats\":[\"港口散步\"],\"places\":[\"Harbor\"],\"time\":\"D0 08:00\"}]"
+   "detail": "[{\"occurrence_id\":\"occ_c32ebdfad07c63ffa0b5756d\",\"title\":\"港口散步\",\"beats\":[\"港口散步\"],\"places\":[\"Harbor\"],\"time\":\"D0 08:00\"}]"
   },
   {
    "name": "HM03 hiding messages does not re-examine them or erase what they established",

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.47 — 2026-10-18
+
+- The token readout's hover now splits the total into the story model (drafts and repairs) and the analysis model, since the two usually differ a lot in price. Also in the failed-turn report.
+- e2e L06.
+
 ## 1.3.46 — 2026-10-18
 
 - **Tokens per turn in the status line:** after the reply length, "消耗 N Token" shows the tokens the provider reported for all of Canon Engine's requests in the turn — story draft, repairs and every analysis call (hover: input / output / number of calls). Other extensions' requests (Horae, Summaryception, …) are not counted. Calls whose response carries no usage are left out and marked with "+". Also in the failed-turn report.

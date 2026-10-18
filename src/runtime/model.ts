@@ -39,7 +39,7 @@ export interface DraftInfo { finish?: string; outputTokens?: number; reasoningTo
 
 /** Tokens the provider reported for the engine's own requests (drafts and analysis calls) since the last reset.
  *  unreported = calls whose response carried no usage. */
-export interface TokenUsage { input: number; output: number; calls: number; unreported: number }
+export interface TokenUsage { input: number; output: number; calls: number; unreported: number; /** the story-model share (drafts and repairs); the rest is analysis calls */ storyInput?: number; storyOutput?: number }
 
 export interface ModelPort {
   /** Optional: which connection/model internal tasks use (shown in timeout errors). */

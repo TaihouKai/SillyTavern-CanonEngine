@@ -75,7 +75,7 @@ describe('token usage of a turn', () => {
     const x = makeEngine();
     let tally = { input: 0, output: 0, calls: 0, unreported: 0 };
     const real = { runTask: x.model.runTask.bind(x.model), generateDraft: x.model.generateDraft.bind(x.model) };
-    (x.model as any).runTask = async (...a: any[]) => { tally.input += 100; tally.output += 10; tally.calls++; return real.runTask(...(a as [any, any, any])); };
+    (x.model as any).runTask = async (...a: any[]) => { tally.input += 100; tally.output += 10; tally.calls++; return (real.runTask as any)(...a); };
     (x.model as any).generateDraft = async (r: any) => { tally.input += 5000; tally.output += 800; tally.calls++; return real.generateDraft(r); };
     (x.model as any).takeUsage = () => { const u = tally; tally = { input: 0, output: 0, calls: 0, unreported: 0 }; return u; };
     await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });

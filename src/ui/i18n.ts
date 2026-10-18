@@ -89,6 +89,8 @@ const D: Record<string, { zh: string; en: string }> = {
   tokUsed: { zh: '消耗', en: 'used' },
   tokIn: { zh: '输入', en: 'input' },
   tokOut: { zh: '输出', en: 'output' },
+  tokStory: { zh: '故事模型（生成与修改）', en: 'story model (drafts, repairs)' },
+  tokAnalysis: { zh: '分析模型', en: 'analysis model' },
   tokCalls: { zh: '次调用', en: 'calls' },
   tokUnreported: { zh: '另有 {n} 次调用没有返回用量，未计入。', en: '{n} more call(s) returned no usage and are not counted.' },
   tokNote: { zh: '服务商返回的实际用量，包括本回合 Canon Engine 的所有请求（生成、修改和分析）；不含 Horae、Summaryception 等其他扩展的请求。', en: 'Usage reported by the provider for all Canon Engine requests this turn (drafts, repairs and analysis); other extensions such as Horae or Summaryception are not included.' },

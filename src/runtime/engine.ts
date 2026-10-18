@@ -813,7 +813,7 @@ export class CanonEngine {
     });
     if (tm.rejects?.length) { lines.push('', 'Model output problems (resent, or an unusable item dropped):'); for (const r of tm.rejects) lines.push(`  - ${r}`); }
     if (tm.fixes?.length) { lines.push('', 'Small automatic fixes (no resend, result kept):'); for (const r of tm.fixes) lines.push(`  - ${r}`); }
-    if (tm.tokens?.calls) lines.push('', `Tokens (provider-reported): ${tm.tokens.input + tm.tokens.output} = ${tm.tokens.input} in + ${tm.tokens.output} out over ${tm.tokens.calls} calls${tm.tokens.unreported ? ` (${tm.tokens.unreported} without usage)` : ''}`);
+    if (tm.tokens?.calls) lines.push('', `Tokens (provider-reported): ${tm.tokens.input + tm.tokens.output} = ${tm.tokens.input} in + ${tm.tokens.output} out over ${tm.tokens.calls} calls${tm.tokens.storyInput !== undefined ? `; story model ${(tm.tokens.storyInput || 0) + (tm.tokens.storyOutput || 0)}, analysis ${tm.tokens.input + tm.tokens.output - (tm.tokens.storyInput || 0) - (tm.tokens.storyOutput || 0)}` : ''}${tm.tokens.unreported ? ` (${tm.tokens.unreported} without usage)` : ''}`);
     lines.push('', 'Steps: ' + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? ` (resent ${s.retries})` : ''}`).join(' · '));
     return lines.join('\n').slice(0, 12000);
   }
