@@ -911,11 +911,18 @@ export class CanonEngine {
     if (fp !== f.sourcePrefixHash) throw new EngineError('stale_response', 'the selected transcript changed during the operation');
   }
 
-  private async withTimeout<T>(p: Promise<T>, ms: number, signal?: AbortSignal): Promise<T> {
+  private async withTimeout<T>(p: Promise<T>, ms: number, signal?: AbortSignal, message?: string): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const t = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new EngineError('provider_failure', `model request timed out after ${Math.round(ms / 1000)}s`)), ms); });
+    const t = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new EngineError('provider_failure', message || `model request timed out after ${Math.round(ms / 1000)}s`)), ms); });
     const ab = new Promise<never>((_, rej) => { signal?.addEventListener('abort', () => rej(new EngineError('cancelled', 'operation cancelled')), { once: true }); });
     try { return await Promise.race([p, t, ab]); } finally { clearTimeout(timer); }
+  }
+
+  /** Live finding: a reasoning story model at high effort ran past the reply timeout and the report only said
+   *  "model request timed out after 300s". */
+  private draftTimeoutMessage(): string {
+    const s = Math.round(this.settings.draftTimeoutMs / 1000);
+    return `the story model did not finish the reply within ${s}s (the reply timeout, draftTimeoutMs = ${this.settings.draftTimeoutMs}). A reasoning model can think for minutes before writing: lower its reasoning effort (e.g. reasoning_effort in the story connection's extra body parameters), or raise "Reply timeout (ms)" in the Canon Engine advanced settings. The provider may still bill what it generated before the stop.`;
   }
 
   private debugLog(kind: string, data: unknown) {
@@ -1024,7 +1031,7 @@ export class CanonEngine {
         // Draft (private)
         this.setStatus('generating', 'Generating (private draft)…');
         trace.prompts.push({ kind: 'engine_context', text: engineContext });
-        let draft = await this.timeStep('draft', this.withTimeout(this.host.model.generateDraft({ engineContext, loreNames, lengthNote: continuing ? '' : this.lengthNote(), instruction: continuing ? CONTINUE_INSTRUCTION : '', excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
+        let draft = await this.timeStep('draft', this.withTimeout(this.host.model.generateDraft({ engineContext, loreNames, lengthNote: continuing ? '' : this.lengthNote(), instruction: continuing ? CONTINUE_INSTRUCTION : '', excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal, this.draftTimeoutMessage()));
         this.checkFences(fences, excludeLast);
         let candidate = continuing ? joinContinuation(continuedEntry!.text, draft) : draft;
         if (!candidate.trim()) throw new EngineError('provider_failure', 'the model returned an empty reply');
@@ -1104,7 +1111,7 @@ export class CanonEngine {
             packet = buildPacket(packetArgs);
           }
           const repairInstruction = hardStuck ? HARD_LAST_RESORT_INSTRUCTION(violations.slice(0, 8), hardReqs, facts.slice(0, 6000), route) : REPAIR_INSTRUCTION(violations.slice(0, 8), facts.slice(0, 6000));
-          draft = await this.timeStep('repair', this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, loreNames: uniq([...loreNames, ...this.loreNames(index, retrieval, plan)]).slice(0, 16), lengthNote: continuing ? '' : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + '\n' : '') + repairInstruction + (continuing ? `\nExisting part of the reply (keep it unchanged; output only the continuation):\n${continuedEntry!.text}` : ''), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal));
+          draft = await this.timeStep('repair', this.withTimeout(this.host.model.generateDraft({ engineContext: repairCtx, loreNames: uniq([...loreNames, ...this.loreNames(index, retrieval, plan)]).slice(0, 16), lengthNote: continuing ? '' : this.lengthNote(), instruction: (continuing ? CONTINUE_INSTRUCTION + '\n' : '') + repairInstruction + (continuing ? `\nExisting part of the reply (keep it unchanged; output only the continuation):\n${continuedEntry!.text}` : ''), excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal, this.draftTimeoutMessage()));
           this.checkFences(fences, excludeLast);
           candidate = continuing ? joinContinuation(continuedEntry!.text, draft) : draft;
         }

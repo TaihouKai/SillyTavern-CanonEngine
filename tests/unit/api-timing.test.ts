@@ -70,6 +70,21 @@ describe('public clock API and turn timings', () => {
   });
 });
 
+describe('reply timeout', () => {
+  it('DT1 a story model that runs past the reply timeout fails with a message naming the setting and the fix', async () => {
+    const x = makeEngine({ draftTimeoutMs: 200 });
+    await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
+    await x.engine.reconcile('t');
+    (x.model as any).generateDraft = () => new Promise(() => {}); // still thinking
+    x.host.addUser('I look around.');
+    expect(await x.engine.runOperation('normal')).toBe(false);
+    const reason = x.engine.campaign()!.recoveryState.reason || '';
+    expect(reason).toMatch(/story model did not finish the reply within 0s \(the reply timeout, draftTimeoutMs = 200\)/);
+    expect(reason).toMatch(/reasoning effort/);
+    expect(reason).toMatch(/Reply timeout \(ms\)/);
+  });
+});
+
 describe('token usage of a turn', () => {
   it('TK1 the provider-reported tokens of every engine request in the turn are summed; earlier calls are not counted', async () => {
     const x = makeEngine();

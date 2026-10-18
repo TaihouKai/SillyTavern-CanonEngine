@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.51 — 2026-10-18
+
+- A reply that runs past the reply timeout now says so: "the story model did not finish the reply within 300s (the reply timeout, draftTimeoutMs = 300000)", with the two fixes (lower the story model's reasoning effort, or raise "Reply timeout (ms)" in the advanced settings) and a note that the provider may still bill what it generated (live finding: GLM 5.3 Flash at reasoning_effort high took 303s on one turn and passed the 300s limit on the next; the report only said "model request timed out after 300s").
+- Test DT1.
+
 ## 1.3.50 — 2026-10-18
 
 - **canon-lint finds temporary conditions nothing ends.** A fact holds until an event changes it, so an injury, a hospital stay or a whereabouts that no later event ends stays true for the rest of the timeline (live finding: 白井黑子 was still "被结标重伤（住院）" when canon has her fighting 警策看取 six days later; the GM spent its thinking reconciling the two every time she appeared, and the reviewer could flag the reply). Pack authors mark such predicates `"transient": true` (optional; existing packs are unchanged) and list settled values (healed, back home, a lasting disability) in `settled_values`; the lint then warns when an event sets one, no later event ever ends it, and the character takes part in later events. On the Toaru pack 1.1.2 it found 13 such conditions.
