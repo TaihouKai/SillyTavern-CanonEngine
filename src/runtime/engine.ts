@@ -33,6 +33,10 @@ export interface EngineSettings {
   horaeWaitMs: number;
   /** Take Horae's story time as the start of each new reply when Horae is installed and fresh. */
   followHoraeTime: boolean;
+  /** When a reply finishes while the tab is in the background: system notification (where allowed), tab title mark. */
+  notifyDone: boolean;
+  /** ...and a short chime. */
+  notifySound: boolean;
   debug: boolean;
   /** Sampling temperature for internal structured tasks (not the GM's story replies). */
   taskTemperature: number;
@@ -68,6 +72,8 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   opportunityWindowMinutes: 720,
   horaeWaitMs: 60000,
   followHoraeTime: true,
+  notifyDone: true,
+  notifySound: true,
   debug: false,
   taskTemperature: 0.2,
   taskProfileId: '',

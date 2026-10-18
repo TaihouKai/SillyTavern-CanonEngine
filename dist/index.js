@@ -16531,7 +16531,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.51";
+var ENGINE_RELEASE = "1.3.52";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16549,6 +16549,8 @@ var DEFAULT_SETTINGS = {
   opportunityWindowMinutes: 720,
   horaeWaitMs: 6e4,
   followHoraeTime: true,
+  notifyDone: true,
+  notifySound: true,
   debug: false,
   taskTemperature: 0.2,
   taskProfileId: "",
@@ -19199,6 +19201,17 @@ var D = {
   libDelete: { zh: "\u4ECE\u5386\u53F2\u5305\u5E93\u5220\u9664", en: "Remove from library" },
   packOrigin: { zh: "\u5386\u53F2\u5305\u8BF4\u660E\u7684\u7B2C0\u5929", en: "Pack day 0" },
   sceneGrouping: { zh: "\u5408\u5E76\u540C\u4E00\u573A\u666F\u7684\u672C\u5C40\u4E8B\u4EF6", en: "Group events of the same scene" },
+  notifyDone: { zh: "\u56DE\u590D\u5B8C\u6210\u65F6\u63D0\u9192", en: "Alert when a reply is ready" },
+  notifyDoneTip: { zh: "\u56DE\u5408\u5728\u540E\u53F0\u7ED3\u675F\u65F6\uFF08\u4F60\u5207\u5230\u4E86\u522B\u7684\u6807\u7B7E\u9875\u6216\u7A0B\u5E8F\uFF09\uFF1A\u53D1\u7CFB\u7EDF\u901A\u77E5\uFF0C\u5E76\u5728\u6807\u7B7E\u9875\u6807\u9898\u524D\u52A0\u4E0A\u201C\u2713 \u56DE\u590D\u5B8C\u6210\u201D\uFF0C\u56DE\u5230\u9875\u9762\u540E\u81EA\u52A8\u53BB\u6389\u3002\n\u56DE\u5408\u5931\u8D25\u65F6\u540C\u6837\u63D0\u9192\u3002\u6D4F\u89C8\u5668\u53EA\u5728 https \u6216 localhost \u4E0B\u5141\u8BB8\u7CFB\u7EDF\u901A\u77E5\uFF1B\u7528\u5C40\u57DF\u7F51 http \u5730\u5740\u6253\u5F00\u65F6\u53EA\u6709\u6807\u9898\u63D0\u793A\u548C\u63D0\u793A\u97F3\u3002", en: 'When a turn ends while the tab is in the background (you switched to another tab or app): a system notification, and "\u2713 Reply ready" in front of the tab title until you come back.\nAlso when a turn fails. Browsers allow system notifications only on https or localhost; on a LAN http address you get the title mark and the chime only.' },
+  notifySound: { zh: "\u63D0\u9192\u65F6\u54CD\u4E00\u58F0", en: "Chime with the alert" },
+  notifySoundTip: { zh: "\u63D0\u9192\u65F6\u64AD\u653E\u4E00\u58F0\u77ED\u4FC3\u7684\u63D0\u793A\u97F3\uFF08\u6210\u529F\u9AD8\u97F3\uFF0C\u5931\u8D25\u4F4E\u97F3\uFF09\u3002", en: "Play a short chime with the alert (rising when the reply is ready, falling when the turn failed)." },
+  notifyInsecure: { zh: "\u5F53\u524D\u5730\u5740\u4E0D\u662F https \u6216 localhost\uFF0C\u6D4F\u89C8\u5668\u4E0D\u5141\u8BB8\u7CFB\u7EDF\u901A\u77E5\uFF1A\u53EA\u4F1A\u6539\u6807\u7B7E\u9875\u6807\u9898\u5E76\u54CD\u4E00\u58F0\u3002\u60F3\u8981\u7CFB\u7EDF\u901A\u77E5\uFF1A\u7528 https \u6253\u5F00\u9152\u9986\uFF0C\u6216\u5728 Chrome \u7684 chrome://flags/#unsafely-treat-insecure-origin-as-secure \u91CC\u52A0\u5165 {origin}\u3002", en: "This address is not https or localhost, so the browser does not allow system notifications: you get the title mark and the chime only. For system notifications, open SillyTavern over https, or add {origin} at chrome://flags/#unsafely-treat-insecure-origin-as-secure in Chrome." },
+  notifyBlocked: { zh: "\u6D4F\u89C8\u5668\u5DF2\u62D2\u7EDD\u672C\u7AD9\u7684\u901A\u77E5\uFF1A\u5728\u5730\u5740\u680F\u5DE6\u4FA7\u7684\u7F51\u7AD9\u8BBE\u7F6E\u91CC\u5141\u8BB8\u201C\u901A\u77E5\u201D\u3002", en: 'The browser blocks notifications for this site: allow "Notifications" in the site settings (left of the address bar).' },
+  notifyTitleOk: { zh: "Canon\uFF1A\u56DE\u590D\u5B8C\u6210", en: "Canon: reply ready" },
+  notifyTitleFail: { zh: "Canon\uFF1A\u56DE\u5408\u5931\u8D25", en: "Canon: turn failed" },
+  notifyBodyOk: { zh: "{name} \xB7 \u56DE\u590D {n}\u5B57 \xB7 \u7528\u65F6 {t}", en: "{name} \xB7 {n} chars \xB7 took {t}" },
+  notifyMarkOk: { zh: "\u2713 \u56DE\u590D\u5B8C\u6210", en: "\u2713 Reply ready" },
+  notifyMarkFail: { zh: "\u2717 \u56DE\u5408\u5931\u8D25", en: "\u2717 Turn failed" },
   followHoraeTime: { zh: "\u6545\u4E8B\u65F6\u95F4\u8DDF\u968F Horae", en: "Follow Horae story time" },
   followHoraeTimeTip: { zh: "\u88C5\u4E86 Horae \u65F6\uFF1A\u6BCF\u4E2A\u65B0\u56DE\u5408\u4ECE Horae \u8BB0\u5F55\u7684\u65F6\u95F4\u5F00\u59CB\uFF08\u5B83\u6BCF\u56DE\u5408\u90FD\u4F1A\u63A8\u7B97\u65F6\u95F4\uFF09\u3002\n\u672C\u56DE\u5408\u672C\u8EAB\u7ECF\u8FC7\u7684\u65F6\u95F4\u4ECD\u7531 Canon Engine \u4F30\u7B97\u3002\u6CA1\u6709 Horae \u6216 Horae \u5C1A\u672A\u66F4\u65B0\u65F6\u81EA\u52A8\u4E0D\u7528\u3002", en: "With Horae installed: each new turn starts at the story time Horae recorded (it estimates time every turn).\nThe time the turn itself takes is still estimated by Canon Engine. Not used without Horae or while Horae is not up to date." },
   replyLengthPlaceholder: { zh: "\u4F8B\u5982\uFF1A\u6B63\u6587\u7EA6800~1200\u5B57", en: "e.g. about 600-900 words" },
@@ -19321,6 +19334,82 @@ var D = {
 function t(key) {
   const e = D[key];
   return e ? e[lang] : key;
+}
+
+// src/ui/notify.ts
+var titleBase = null;
+var audio = null;
+function systemNotificationsAvailable() {
+  return typeof window !== "undefined" && !!window.isSecureContext && typeof window.Notification === "function";
+}
+function primeNotifications() {
+  try {
+    if (systemNotificationsAvailable() && Notification.permission === "default") void Notification.requestPermission();
+  } catch {
+  }
+  try {
+    if (!audio && typeof AudioContext === "function") audio = new AudioContext();
+  } catch {
+  }
+}
+function inBackground() {
+  return document.hidden || typeof document.hasFocus === "function" && !document.hasFocus();
+}
+function markTitle(mark) {
+  if (titleBase === null) titleBase = document.title;
+  document.title = `${mark} ${titleBase}`;
+  const restore = () => {
+    if (document.hidden) return;
+    if (titleBase !== null) document.title = titleBase;
+    titleBase = null;
+    document.removeEventListener("visibilitychange", restore);
+    window.removeEventListener("focus", restore);
+  };
+  document.addEventListener("visibilitychange", restore);
+  window.addEventListener("focus", restore);
+}
+function chime(ok) {
+  try {
+    if (!audio) audio = new AudioContext();
+    void audio.resume();
+    const t0 = audio.currentTime;
+    (ok ? [660, 880] : [440, 330]).forEach((f, i) => {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.frequency.value = f;
+      g.gain.setValueAtTime(1e-4, t0 + i * 0.18);
+      g.gain.exponentialRampToValueAtTime(0.12, t0 + i * 0.18 + 0.02);
+      g.gain.exponentialRampToValueAtTime(1e-4, t0 + i * 0.18 + 0.3);
+      o.connect(g).connect(audio.destination);
+      o.start(t0 + i * 0.18);
+      o.stop(t0 + i * 0.18 + 0.32);
+    });
+  } catch {
+  }
+}
+function notifyDone(info, opts) {
+  const done = [];
+  if (!opts.force && !inBackground()) return done;
+  if (systemNotificationsAvailable() && Notification.permission === "granted") {
+    try {
+      const n = new Notification(info.title, { body: info.body, tag: "canon-engine-done" });
+      n.onclick = () => {
+        try {
+          window.focus();
+        } catch {
+        }
+        n.close();
+      };
+      done.push("notification");
+    } catch {
+    }
+  }
+  markTitle(opts.titleMark);
+  done.push("title");
+  if (opts.sound) {
+    chime(info.ok);
+    done.push("sound");
+  }
+  return done;
 }
 
 // src/ui/graph.ts
@@ -20098,7 +20187,7 @@ function renderSettings() {
     if (lib.length) chat.push(`<details class="canon-lib"><summary>${t("library")} (${lib.length}) ${tip("libraryTip")}</summary>${libRows("update")}</details>`);
   }
   out.push(card(t("secChat"), "secChatTip", chat.join("")));
-  out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc2(String(s.replyLength || ""))}" placeholder="${esc2(t("replyLengthPlaceholder"))}">`, t("replyLengthShort"))));
+  out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc2(String(s.replyLength || ""))}" placeholder="${esc2(t("replyLengthPlaceholder"))}">`, t("replyLengthShort")) + check("notifyDone", s.notifyDone !== false, t("notifyDone"), "notifyDoneTip") + (s.notifyDone !== false ? check("notifySound", s.notifySound !== false, t("notifySound"), "notifySoundTip") + notifyNote() : "")));
   out.push(card(t("secEvents"), "", check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip") + check("followHoraeTime", s.followHoraeTime !== false, t("followHoraeTime"), "followHoraeTimeTip")));
   const adv = [
     num("maxRepairs", s.maxRepairs),
@@ -20123,6 +20212,11 @@ function card(title, tipKey, inner) {
 }
 function field(label, tipKey, control, hint = "") {
   return `<div class="canon-field"><div class="canon-lbl">${label} ${tip(tipKey)}</div>${control}${hint ? `<div class="canon-hint">${hint}</div>` : ""}</div>`;
+}
+function notifyNote() {
+  if (!systemNotificationsAvailable()) return `<div class="canon-note">${esc2(t("notifyInsecure").replace("{origin}", location.origin))}</div>`;
+  if (Notification.permission === "denied") return `<div class="canon-note warn">${esc2(t("notifyBlocked"))}</div>`;
+  return "";
 }
 function check(key, on, label, tipKey) {
   return `<div class="canon-frow"><label class="checkbox_label canon-check"><input type="checkbox" data-set="${key}" ${on ? "checked" : ""}><span>${label}</span></label>${tip(tipKey)}</div>`;
@@ -20261,6 +20355,7 @@ async function onSettingsChange(ev) {
   const s = getSettings();
   s[key] = tgt.type === "checkbox" ? tgt.checked : tgt.tagName === "SELECT" || tgt.tagName === "TEXTAREA" || tgt.type === "text" ? tgt.value : Number(tgt.value);
   if (key === "uiLang") setLang(tgt.value === "en" ? "en" : "zh");
+  if (key === "notifyDone" && tgt.checked) primeNotifications();
   Object.assign(E.settings, s);
   ctx().saveSettingsDebounced?.();
   refreshUi();
@@ -20715,7 +20810,8 @@ async function interceptor(chat, _contextSize, abort, type) {
     }
     setTimeout(() => {
       ctx().deactivateSendButtons?.();
-      engine.runOperation(op, prior).finally(() => {
+      if (engine.settings.notifyDone) primeNotifications();
+      engine.runOperation(op, prior).then((ok) => announceDone(ok)).finally(() => {
         try {
           ctx().activateSendButtons?.();
         } catch {
@@ -20725,6 +20821,21 @@ async function interceptor(chat, _contextSize, abort, type) {
     }, 0);
   } catch (e) {
     console.error("[CanonEngine] interceptor error", e);
+  }
+}
+function announceDone(ok) {
+  try {
+    const e = engine;
+    if (!e.settings.notifyDone) return;
+    const rec = e.campaign()?.recoveryState;
+    if (!ok && (rec?.errorKind === "cancelled" || rec?.status === "ok")) return;
+    const tm = e.lastTimings;
+    const secs = tm ? Math.round(tm.totalMs / 1e3) : 0;
+    const took = secs >= 60 ? `${Math.floor(secs / 60)}m${secs % 60}s` : `${secs}s`;
+    const who = String(ctx().name2 || "Canon Engine");
+    const body = ok ? t("notifyBodyOk").replace("{name}", who).replace("{n}", String(tm?.reply?.chars ?? "?")).replace("{t}", took) : `${who}: ${String(rec?.reason || "").slice(0, 140)}`;
+    notifyDone({ ok, title: t(ok ? "notifyTitleOk" : "notifyTitleFail"), body }, { sound: !!e.settings.notifySound, titleMark: t(ok ? "notifyMarkOk" : "notifyMarkFail") });
+  } catch {
   }
 }
 function captureGenerationStart(type, params, dryRun) {

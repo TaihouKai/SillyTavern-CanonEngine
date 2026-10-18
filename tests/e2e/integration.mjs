@@ -716,6 +716,32 @@ try {
     check(results, 'L05 the status line shows the provider-reported tokens of the whole turn (draft + analysis calls)', used > 1000, t1.text);
     const tokTip = await page.$eval('#canon-engine-status .canon-tokens', (e) => e.title).catch(() => '');
     check(results, 'L06 the hover splits the tokens into story model and analysis model', /故事模型（生成与修改） [1-9][\d,]* · 分析模型 [1-9][\d,]*|story model \(drafts, repairs\) [1-9][\d,]* · analysis model [1-9][\d,]*/.test(tokTip), tokTip);
+    // reply-ready alert: the tab is in the background when the turn ends
+    await page.evaluate(() => {
+      // the alert is on by default; a previous run may have saved it off (N03)
+      SillyTavern.getContext().extensionSettings.canonEngine.notifyDone = true;
+      window.CanonEngine.engine.settings.notifyDone = true;
+      window.__shown = [];
+      window.Notification = class { static permission = 'granted'; static requestPermission() { return Promise.resolve('granted'); } constructor(title, o) { window.__shown.push({ title, body: o?.body }); } close() {} };
+      window.__realTitle = document.title;
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+      document.hasFocus = () => false;
+    });
+    await mock('/control', { mainQueue: ['潮水退去，礁石露了出来。NT_OK'], clearLogs: true });
+    await send(page, '我等潮水退去。');
+    const nt = await page.evaluate(() => ({ shown: window.__shown, title: document.title, secure: window.isSecureContext }));
+    await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
+    const titleAfter = await page.evaluate(() => document.title);
+    check(results, 'N01 a turn that ends in the background shows a system notification with the reply length and marks the tab title', nt.secure && nt.shown.length === 1 && nt.shown[0].title === 'Canon：回复完成' && /回复 \d+字 · 用时 \d+s/.test(nt.shown[0].body || '') && nt.title.startsWith('✓ 回复完成 '), JSON.stringify(nt));
+    check(results, 'N02 the title mark goes away when the tab is seen again', titleAfter === nt.title.replace(/^✓ 回复完成 /, '') && !titleAfter.includes('✓'), titleAfter);
+    // turned off in the settings: no alert
+    await page.evaluate(() => { const el = document.querySelector('[data-set="notifyDone"]'); el.checked = false; el.dispatchEvent(new Event('change', { bubbles: true })); window.__shown = []; Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); });
+    const soundHidden = await page.$('[data-set="notifySound"]');
+    await mock('/control', { mainQueue: ['海风停了。NT_OFF'], clearLogs: true });
+    await send(page, '我继续等。');
+    const off = await page.evaluate(() => ({ shown: window.__shown.length, title: document.title, saved: SillyTavern.getContext().extensionSettings.canonEngine.notifyDone }));
+    await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.hasFocus = () => true; const el = document.querySelector('[data-set="notifyDone"]'); el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); });
+    check(results, 'N03 the alert can be turned off in the Canon settings (saved; its chime option hides)', off.shown === 0 && !off.title.includes('✓') && off.saved === false && !soundHidden, JSON.stringify(off));
   }
   if (want('S16')) {
     console.log('\n== S16 final HARD repair ==');

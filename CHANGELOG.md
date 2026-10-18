@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.52 — 2026-10-18
+
+- **Alert when a reply is ready** (Canon settings → 模型与回复, on by default): when a turn ends while the tab is in the background, a system notification ("Canon：回复完成 · 回复 N字 · 用时 …", or "回合失败" with the reason), "✓ 回复完成" in front of the tab title until you come back, and optionally a short chime. For slow reasoning models (live: 5-minute turns). Browsers allow system notifications only on https or localhost; on a LAN http address the settings say so and the title mark and chime still work. Cancelled turns are not announced.
+- e2e N01–N03.
+
 ## 1.3.51 — 2026-10-18
 
 - A reply that runs past the reply timeout now says so: "the story model did not finish the reply within 300s (the reply timeout, draftTimeoutMs = 300000)", with the two fixes (lower the story model's reasoning effort, or raise "Reply timeout (ms)" in the advanced settings) and a note that the provider may still bill what it generated (live finding: GLM 5.3 Flash at reasoning_effort high took 303s on one turn and passed the 300s limit on the next; the report only said "model request timed out after 300s").

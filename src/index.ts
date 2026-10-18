@@ -8,6 +8,7 @@ import { CHAT_PROFILE, mountUi, refreshUi, renderMessageDecorations, t } from '.
 import type { OpType } from './runtime/types';
 import { ENGINE_RELEASE } from './runtime/types';
 import { deepClone } from './domain/util';
+import { notifyDone, primeNotifications } from './ui/notify';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -78,7 +79,8 @@ async function interceptor(chat: any[], _contextSize: number, abort: (immediate:
     // Start only after the native call unwinds.
     setTimeout(() => {
       ctx().deactivateSendButtons?.();
-      engine!.runOperation(op, prior).finally(() => {
+      if (engine!.settings.notifyDone) primeNotifications();
+      engine!.runOperation(op, prior).then((ok) => announceDone(ok)).finally(() => {
         try { ctx().activateSendButtons?.(); } catch { /* ignore */ }
         refreshUi();
       });
@@ -86,6 +88,24 @@ async function interceptor(chat: any[], _contextSize: number, abort: (immediate:
   } catch (e) {
     console.error('[CanonEngine] interceptor error', e);
   }
+}
+
+/** Slow turns: tell the player the reply is ready (or the turn failed) when the tab is in the background. */
+function announceDone(ok: boolean) {
+  try {
+    const e = engine!;
+    if (!e.settings.notifyDone) return;
+    const rec = e.campaign()?.recoveryState;
+    if (!ok && (rec?.errorKind === 'cancelled' || rec?.status === 'ok')) return; // cancelled, or nothing ran
+    const tm = e.lastTimings;
+    const secs = tm ? Math.round(tm.totalMs / 1000) : 0;
+    const took = secs >= 60 ? `${Math.floor(secs / 60)}m${secs % 60}s` : `${secs}s`;
+    const who = String(ctx().name2 || 'Canon Engine');
+    const body = ok
+      ? t('notifyBodyOk').replace('{name}', who).replace('{n}', String(tm?.reply?.chars ?? '?')).replace('{t}', took)
+      : `${who}: ${String(rec?.reason || '').slice(0, 140)}`;
+    notifyDone({ ok, title: t(ok ? 'notifyTitleOk' : 'notifyTitleFail'), body }, { sound: !!e.settings.notifySound, titleMark: t(ok ? 'notifyMarkOk' : 'notifyMarkFail') });
+  } catch { /* an alert must never break a turn */ }
 }
 
 function captureGenerationStart(type: string, params: any, dryRun: boolean) {

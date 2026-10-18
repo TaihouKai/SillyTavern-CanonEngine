@@ -9,6 +9,7 @@ import type { WriterLock } from '../adapters/lock';
 import { interpretationsFor, baseKey } from '../runtime/replay';
 import { parseTickLabel, parseDateLabel, parseOriginLabel, formatTick } from '../domain/time';
 import { t, setLang } from './i18n';
+import { primeNotifications, systemNotificationsAvailable } from './notify';
 import { GraphPanel, packGraph, currentGraph } from './graph';
 import { listLibrary, saveToLibrary, loadFromLibrary, removeFromLibrary, type LibraryEntry } from './library';
 
@@ -207,7 +208,9 @@ function renderSettings() {
 
   // ---- model and replies
   out.push(card(t('secModel'), '', profileField(s.taskProfileId || '') +
-    field(t('replyLength'), 'replyLengthTip', `<input type="text" class="text_pole" data-set="replyLength" value="${esc(String(s.replyLength || ''))}" placeholder="${esc(t('replyLengthPlaceholder'))}">`, t('replyLengthShort'))));
+    field(t('replyLength'), 'replyLengthTip', `<input type="text" class="text_pole" data-set="replyLength" value="${esc(String(s.replyLength || ''))}" placeholder="${esc(t('replyLengthPlaceholder'))}">`, t('replyLengthShort')) +
+    check('notifyDone', s.notifyDone !== false, t('notifyDone'), 'notifyDoneTip') +
+    (s.notifyDone !== false ? check('notifySound', s.notifySound !== false, t('notifySound'), 'notifySoundTip') + notifyNote() : '')));
 
   // ---- event log
   out.push(card(t('secEvents'), '', check('sceneGrouping', !!s.sceneGrouping, t('sceneGrouping'), 'sceneGroupingTip') + check('followHoraeTime', s.followHoraeTime !== false, t('followHoraeTime'), 'followHoraeTimeTip')));
@@ -232,6 +235,13 @@ function card(title: string, tipKey: string, inner: string): string {
 
 function field(label: string, tipKey: string, control: string, hint = ''): string {
   return `<div class="canon-field"><div class="canon-lbl">${label} ${tip(tipKey)}</div>${control}${hint ? `<div class="canon-hint">${hint}</div>` : ''}</div>`;
+}
+
+/** Why system notifications will not appear on this page, if they will not. */
+function notifyNote(): string {
+  if (!systemNotificationsAvailable()) return `<div class="canon-note">${esc(t('notifyInsecure').replace('{origin}', location.origin))}</div>`;
+  if (Notification.permission === 'denied') return `<div class="canon-note warn">${esc(t('notifyBlocked'))}</div>`;
+  return '';
 }
 
 function check(key: string, on: boolean, label: string, tipKey: string): string {
@@ -341,6 +351,7 @@ async function onSettingsChange(ev: Event) {
   const s = getSettings() as any;
   s[key] = tgt.type === 'checkbox' ? tgt.checked : tgt.tagName === 'SELECT' || tgt.tagName === 'TEXTAREA' || tgt.type === 'text' ? tgt.value : Number(tgt.value);
   if (key === 'uiLang') setLang(tgt.value === 'en' ? 'en' : 'zh');
+  if (key === 'notifyDone' && tgt.checked) primeNotifications(); // the click is the user gesture permission prompts want
   Object.assign(E.settings, s);
   ctx().saveSettingsDebounced?.();
   refreshUi();
