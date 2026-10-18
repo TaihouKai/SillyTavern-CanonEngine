@@ -1,7 +1,7 @@
 // SillyTavern adapter (verified against ST 1.19.0 @ 06bde939, see COMPATIBILITY.md).
 // - managed generation: native Generate is intercepted for bound chats and aborted; the engine
 //   then generates a PRIVATE draft with Generate('quiet') (full native prompt assembly, never
-//   streamed, no MESSAGE_RECEIVED/CHARACTER_MESSAGE_RENDERED) and publishes only accepted text
+//   streamed into the chat, no MESSAGE_RECEIVED/CHARACTER_MESSAGE_RENDERED) and publishes only accepted text
 //   through ST's own saveReply.
 // - isolation: internal structured tasks use generateRaw; prompt hooks of other extensions are
 //   neutralized by restoring the exact task messages at CHAT_COMPLETION_PROMPT_READY.
@@ -344,16 +344,75 @@ export class StHost implements HostPort {
  *  analysis calls carry a task tag); other extensions' requests are not counted. */
 const usage: import('../runtime/model').TokenUsage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0 };
 let usageTapped = false;
+/** Folds an OpenAI-style event stream back into one chat.completion object (null if the text is not a stream). */
+export function sseToCompletion(text: string): any {
+  let content = '', reasoning = '', finish: string | null = null, usage: any, id: any, model: any, seen = false;
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.startsWith('data:')) continue;
+    const data = line.slice(5).trim();
+    if (!data || data === '[DONE]') continue;
+    let o: any;
+    try { o = JSON.parse(data); } catch { continue; }
+    seen = true;
+    if (o.error) return { error: o.error };
+    id ??= o.id; model ??= o.model;
+    if (o.usage) usage = o.usage;
+    const ch = o.choices?.[0];
+    if (!ch) continue;
+    const d = ch.delta || ch.message || {};
+    if (typeof d.content === 'string') content += d.content;
+    const r = d.reasoning_content ?? d.reasoning;
+    if (typeof r === 'string') reasoning += r;
+    if (ch.finish_reason) finish = ch.finish_reason;
+  }
+  if (!seen) return null;
+  const message: any = { role: 'assistant', content };
+  if (reasoning) message.reasoning_content = reasoning;
+  return { id, object: 'chat.completion', model, choices: [{ index: 0, message, finish_reason: finish }], ...(usage ? { usage } : {}) };
+}
+
+/** Request body for streaming a non-streamed Canon request to a custom (OpenAI-compatible) endpoint, or null. */
+export function streamedBody(body: string): string | null {
+  let b: any;
+  try { b = JSON.parse(body); } catch { return null; }
+  if (b?.stream !== false || b.chat_completion_source !== 'custom') return null;
+  // The usage chunk is opt-in for streams; ST forwards "Include Body Parameters" (YAML) to the provider.
+  const yaml = String(b.custom_include_body || '');
+  const t = yaml.trim();
+  if (!/stream_options/.test(yaml) && !t.startsWith('{') && !t.startsWith('-')) b.custom_include_body = (t ? yaml.replace(/\s*$/, '\n') : '') + 'stream_options:\n  include_usage: true';
+  b.stream = true;
+  return JSON.stringify(b);
+}
+
 function tapUsage() {
   if (usageTapped || typeof window === 'undefined' || typeof window.fetch !== 'function') return;
   usageTapped = true;
   const orig = window.fetch.bind(window);
   window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const res = await orig(input, init);
+    let res: Response | null = null;
+    const url0 = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    const body0 = typeof init?.body === 'string' ? init.body : '';
+    // Canon's requests are not streamed to ST (drafts are private), but a long non-streamed request
+    // sits silent until the whole reply exists, and provider gateways close it (live finding: a
+    // reasoning model behind a custom endpoint answered "504 Gateway Timeout" after ~90s). Stream it
+    // to the provider so tokens keep the connection alive, then hand ST one ordinary completion.
+    const sb = url0.includes('/api/backends/chat-completions/generate') && (body0.includes('[CANON ENGINE CONTEXT') || body0.includes('[CANON_ENGINE_TASK:')) ? streamedBody(body0) : null;
+    if (sb) {
+      try {
+        const r = await orig(input, { ...init, body: sb });
+        if (r.ok) {
+          const text = await r.text();
+          const done = sseToCompletion(text);
+          res = done ? new Response(JSON.stringify(done), { status: 200, headers: { 'Content-Type': 'application/json' } }) : new Response(text, { status: r.status, statusText: r.statusText, headers: r.headers });
+        } else if (r.status < 400 || r.status >= 500) res = r; // 4xx: the provider may refuse streaming options; retry as sent
+      } catch (e) {
+        if ((e as Error)?.name === 'AbortError' || init?.signal?.aborted) throw e;
+      }
+    }
+    if (!res) res = await orig(input, init);
     try {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      const body = typeof init?.body === 'string' ? init.body : '';
-      if (/\/api\/backends\/(chat|text)-completions\/generate/.test(url) && (body.includes('[CANON ENGINE CONTEXT') || body.includes('[CANON_ENGINE_TASK:'))) {
+      const body = body0;
+      if (/\/api\/backends\/(chat|text)-completions\/generate/.test(url0) && (body.includes('[CANON ENGINE CONTEXT') || body.includes('[CANON_ENGINE_TASK:'))) {
         usage.calls++;
         res.clone().json().then((d) => {
           const u = d?.usage;

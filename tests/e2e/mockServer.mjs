@@ -72,12 +72,25 @@ function send(res, status, body, headers = {}) {
   res.end(typeof body === 'string' ? body : JSON.stringify(body));
 }
 const completion = (content, model) => ({ id: 'mock-' + Date.now(), object: 'chat.completion', created: Math.floor(Date.now() / 1000), model, choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });
-function streamCompletion(res, content, model) {
+function streamCompletion(res, content, model, { reasoning = null, finish = null, usage = null, includeUsage = false } = {}) {
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*' });
-  for (const c of content.match(/[\s\S]{1,40}/g) || ['']) res.write(`data: ${JSON.stringify({ id: 'mock', object: 'chat.completion.chunk', model, choices: [{ index: 0, delta: { content: c }, finish_reason: null }] })}\n\n`);
-  res.write(`data: ${JSON.stringify({ id: 'mock', object: 'chat.completion.chunk', model, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })}\n\n`);
+  const chunk = (delta, fr = null) => res.write(`data: ${JSON.stringify({ id: 'mock', object: 'chat.completion.chunk', model, choices: [{ index: 0, delta, finish_reason: fr }] })}\n\n`);
+  for (const c of (reasoning || '').match(/[\s\S]{1,40}/g) || []) chunk({ reasoning_content: c });
+  for (const c of content.match(/[\s\S]{1,40}/g) || ['']) chunk({ content: c });
+  chunk({}, finish || 'stop');
+  // like OpenAI/Venice: the usage chunk (empty choices) only when stream_options.include_usage is set
+  if (includeUsage) res.write(`data: ${JSON.stringify({ id: 'mock', object: 'chat.completion.chunk', model, choices: [], usage: usage || { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })}\n\n`);
   res.write('data: [DONE]\n\n');
   res.end();
+}
+/** Non-streamed or streamed reply, as the request asked. */
+function reply(res, body, content, extra = {}) {
+  if (body.stream) return streamCompletion(res, content, body.model, { ...extra, includeUsage: !!body.stream_options?.include_usage });
+  const out = completion(content, body.model);
+  if (extra.reasoning) out.choices[0].message.reasoning_content = extra.reasoning;
+  if (extra.finish) out.choices[0].finish_reason = extra.finish;
+  if (extra.usage) out.usage = extra.usage;
+  return send(res, 200, out);
 }
 function embed(text) {
   const dim = 64, v = new Array(dim).fill(0), s = String(text || '');
@@ -135,20 +148,20 @@ const server = http.createServer(async (req, res) => {
     if (task) {
       const input = taskInput(messages);
       const text = JSON.stringify(input);
-      const entry = { type: 'task', task, at: Date.now(), messages, input, model: body.model, temperature: body.temperature, stream: !!body.stream, venice: body.venice_parameters };
+      const entry = { type: 'task', task, at: Date.now(), messages, input, model: body.model, temperature: body.temperature, stream: !!body.stream, includeUsage: !!body.stream_options?.include_usage, venice: body.venice_parameters };
       state.logs.push(entry);
       if (state.taskDelayMs) await sleep(state.taskDelayMs);
       const rule = findRule(state.taskRules, task, text);
       if (rule?.delayMs) await sleep(rule.delayMs);
-      if ((state.emptyNext[task] || 0) > 0) { state.emptyNext[task]--; entry.response = ''; entry.maxTokens = body.max_tokens; return send(res, 200, completion('', body.model)); }
-      if ((state.malformedNext[task] || 0) > 0) { state.malformedNext[task]--; entry.response = 'not json at all'; return send(res, 200, completion('Sure! Here is the analysis: not json at all', body.model)); }
+      if ((state.emptyNext[task] || 0) > 0) { state.emptyNext[task]--; entry.response = ''; entry.maxTokens = body.max_tokens; return reply(res, body, ''); }
+      if ((state.malformedNext[task] || 0) > 0) { state.malformedNext[task]--; entry.response = 'not json at all'; return reply(res, body, 'Sure! Here is the analysis: not json at all'); }
       let out;
       if (rule?.raw !== undefined) out = rule.raw;
       else if (rule?.response) out = JSON.stringify(typeof rule.response === 'function' ? rule.response(input) : rule.response);
       else out = JSON.stringify(rule?.patch ? deepMerge(defaultTask(task, input), rule.patch) : defaultTask(task, input));
       entry.response = out;
       entry.rule = rule?.name || null;
-      return send(res, 200, completion(out, body.model));
+      return reply(res, body, out);
     }
     // GM draft (or any other main-connection request)
     const lu = lastUser(messages);
@@ -158,17 +171,12 @@ const server = http.createServer(async (req, res) => {
     if (rule) content = rule.response;
     else if (state.mainQueue.length) content = state.mainQueue.shift();
     else content = `默认叙事：GM 回应了「${lu.slice(0, 30)}」。`;
-    state.logs.push({ type: 'main', at: Date.now(), messages, stream: !!body.stream, response: content, model: body.model, temperature: body.temperature, venice: body.venice_parameters });
+    state.logs.push({ type: 'main', at: Date.now(), messages, stream: !!body.stream, includeUsage: !!body.stream_options?.include_usage, response: content, model: body.model, temperature: body.temperature, venice: body.venice_parameters });
     if (state.mainDelayMs) await sleep(state.mainDelayMs);
     // A queued { content, reasoning } reply carries API-level reasoning (reasoning_content), like DeepSeek/Venice.
     let reasoning = null, finish = null, usage = null;
     if (content && typeof content === 'object') { ({ reasoning, finish, usage } = content); content = content.content; }
-    if (body.stream) return streamCompletion(res, content, body.model);
-    const out = completion(content, body.model);
-    if (reasoning) out.choices[0].message.reasoning_content = reasoning;
-    if (finish) out.choices[0].finish_reason = finish;
-    if (usage) out.usage = usage;
-    return send(res, 200, out);
+    return reply(res, body, content, { reasoning, finish, usage });
   }
   send(res, 404, { error: 'not found', url });
 });

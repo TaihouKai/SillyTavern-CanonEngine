@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.48 — 2026-10-18
+
+- **No more "Gateway Timeout" with slow models on custom endpoints:** Canon's draft and analysis requests used to go to the provider unstreamed, so the connection stayed silent until the whole reply (including the model's thinking) was finished, and provider gateways closed it after about 90 seconds (live finding: GLM 5.3 Flash with `reasoning_effort: high` behind a custom endpoint failed with "Provider failure: Gateway Timeout" after 1m32s, while ST's API check — a tiny request — worked). With a custom (OpenAI-compatible) connection they are now streamed to the provider and folded back into one ordinary reply before SillyTavern sees it. Nothing changes in the chat: the draft is still private and appears only after review. The usage chunk is requested (`stream_options.include_usage`) so the token readout keeps working; a provider that refuses the streamed request (4xx) gets the request as before. Other connection types are unchanged.
+- Tests SR01–SR04, e2e I09 (updated), I14.
+
 ## 1.3.47 — 2026-10-18
 
 - The token readout's hover now splits the total into the story model (drafts and repairs) and the analysis model, since the two usually differ a lot in price. Also in the failed-turn report.

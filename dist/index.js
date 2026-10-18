@@ -16457,7 +16457,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.47";
+var ENGINE_RELEASE = "1.3.48";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -18628,16 +18628,75 @@ var StHost = class {
 };
 var usage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0 };
 var usageTapped = false;
+function sseToCompletion(text) {
+  let content = "", reasoning = "", finish = null, usage2, id, model, seen = false;
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.startsWith("data:")) continue;
+    const data = line.slice(5).trim();
+    if (!data || data === "[DONE]") continue;
+    let o;
+    try {
+      o = JSON.parse(data);
+    } catch {
+      continue;
+    }
+    seen = true;
+    if (o.error) return { error: o.error };
+    id ??= o.id;
+    model ??= o.model;
+    if (o.usage) usage2 = o.usage;
+    const ch = o.choices?.[0];
+    if (!ch) continue;
+    const d = ch.delta || ch.message || {};
+    if (typeof d.content === "string") content += d.content;
+    const r = d.reasoning_content ?? d.reasoning;
+    if (typeof r === "string") reasoning += r;
+    if (ch.finish_reason) finish = ch.finish_reason;
+  }
+  if (!seen) return null;
+  const message = { role: "assistant", content };
+  if (reasoning) message.reasoning_content = reasoning;
+  return { id, object: "chat.completion", model, choices: [{ index: 0, message, finish_reason: finish }], ...usage2 ? { usage: usage2 } : {} };
+}
+function streamedBody(body) {
+  let b;
+  try {
+    b = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (b?.stream !== false || b.chat_completion_source !== "custom") return null;
+  const yaml = String(b.custom_include_body || "");
+  const t2 = yaml.trim();
+  if (!/stream_options/.test(yaml) && !t2.startsWith("{") && !t2.startsWith("-")) b.custom_include_body = (t2 ? yaml.replace(/\s*$/, "\n") : "") + "stream_options:\n  include_usage: true";
+  b.stream = true;
+  return JSON.stringify(b);
+}
 function tapUsage() {
   if (usageTapped || typeof window === "undefined" || typeof window.fetch !== "function") return;
   usageTapped = true;
   const orig = window.fetch.bind(window);
   window.fetch = (async (input, init2) => {
-    const res = await orig(input, init2);
+    let res = null;
+    const url0 = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const body0 = typeof init2?.body === "string" ? init2.body : "";
+    const sb = url0.includes("/api/backends/chat-completions/generate") && (body0.includes("[CANON ENGINE CONTEXT") || body0.includes("[CANON_ENGINE_TASK:")) ? streamedBody(body0) : null;
+    if (sb) {
+      try {
+        const r = await orig(input, { ...init2, body: sb });
+        if (r.ok) {
+          const text = await r.text();
+          const done = sseToCompletion(text);
+          res = done ? new Response(JSON.stringify(done), { status: 200, headers: { "Content-Type": "application/json" } }) : new Response(text, { status: r.status, statusText: r.statusText, headers: r.headers });
+        } else if (r.status < 400 || r.status >= 500) res = r;
+      } catch (e) {
+        if (e?.name === "AbortError" || init2?.signal?.aborted) throw e;
+      }
+    }
+    if (!res) res = await orig(input, init2);
     try {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      const body = typeof init2?.body === "string" ? init2.body : "";
-      if (/\/api\/backends\/(chat|text)-completions\/generate/.test(url) && (body.includes("[CANON ENGINE CONTEXT") || body.includes("[CANON_ENGINE_TASK:"))) {
+      const body = body0;
+      if (/\/api\/backends\/(chat|text)-completions\/generate/.test(url0) && (body.includes("[CANON ENGINE CONTEXT") || body.includes("[CANON_ENGINE_TASK:"))) {
         usage.calls++;
         res.clone().json().then((d) => {
           const u = d?.usage;
