@@ -702,6 +702,8 @@ try {
     check(results, 'L02 the hover text shows output tokens, thinking tokens and the output limit', /900/.test(t1.tip) && /600/.test(t1.tip), t1.tip);
     check(results, 'L03 a reply cut off at the output limit is flagged in the status line', /截断|cut off/.test(t2), t2);
     check(results, 'L04 and a warning explains how to fix it', /cut off at the output limit/.test(toasts), toasts.slice(0, 300));
+    const used = Number(((t1.text.match(/消耗 ([\d,]+) Token|used ([\d,]+) Token/) || [])[1] || '0').replace(/,/g, ''));
+    check(results, 'L05 the status line shows the provider-reported tokens of the whole turn (draft + analysis calls)', used > 1000, t1.text);
   }
   if (want('S16')) {
     console.log('\n== S16 final HARD repair ==');

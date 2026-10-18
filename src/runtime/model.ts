@@ -37,6 +37,10 @@ export interface DraftRequest {
 /** What the provider reported for the latest draft (all optional: not every API returns them). */
 export interface DraftInfo { finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
 
+/** Tokens the provider reported for the engine's own requests (drafts and analysis calls) since the last reset.
+ *  unreported = calls whose response carried no usage. */
+export interface TokenUsage { input: number; output: number; calls: number; unreported: number }
+
 export interface ModelPort {
   /** Optional: which connection/model internal tasks use (shown in timeout errors). */
   describeTaskConnection?(): string;
@@ -46,6 +50,8 @@ export interface ModelPort {
   generateDraft(req: DraftRequest): Promise<string>;
   /** Optional: provider stats of the most recent draft (finish reason, token use, output limit). */
   lastDraftInfo?(): DraftInfo | null;
+  /** Optional: provider-reported token use of the engine's requests; take() returns and resets the tally. */
+  takeUsage?(): TokenUsage;
 }
 
 export const TASK_TAG = (t: TaskName) => `[CANON_ENGINE_TASK:${t}]`;

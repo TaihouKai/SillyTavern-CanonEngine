@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.46 — 2026-10-18
+
+- **Tokens per turn in the status line:** after the reply length, "消耗 N Token" shows the tokens the provider reported for all of Canon Engine's requests in the turn — story draft, repairs and every analysis call (hover: input / output / number of calls). Other extensions' requests (Horae, Summaryception, …) are not counted. Calls whose response carries no usage are left out and marked with "+". Also in the failed-turn report.
+- Tests TK1, e2e L05.
+
 ## 1.3.45 — 2026-10-18
 
 - **整理本局事件 (Tidy my events):** a button at the top of the timeline. The analysis model groups your 本局事件 into episodes (consecutive beats of one storyline), one box each with a title and a short summary (live finding: 112 events in two story days drew 40+ purple boxes even with scene grouping on). Display only — history, causes and the GM context are untouched. The engine checks the model's groups (known events only, each once, consecutive in time); anything else stays as it was. The model sees short aliases (e1, e2, …), not occurrence ids. Groups shrink when edits remove their events and disappear below two; events added later show normally until you press the button again; **还原** removes the grouping.

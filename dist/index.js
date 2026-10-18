@@ -16457,7 +16457,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.45";
+var ENGINE_RELEASE = "1.3.46";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -17283,6 +17283,7 @@ var CanonEngine = class {
       lines.push("", "Small automatic fixes (no resend, result kept):");
       for (const r of tm.fixes) lines.push(`  - ${r}`);
     }
+    if (tm.tokens?.calls) lines.push("", `Tokens (provider-reported): ${tm.tokens.input + tm.tokens.output} = ${tm.tokens.input} in + ${tm.tokens.output} out over ${tm.tokens.calls} calls${tm.tokens.unreported ? ` (${tm.tokens.unreported} without usage)` : ""}`);
     lines.push("", "Steps: " + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? ` (resent ${s.retries})` : ""}`).join(" \xB7 "));
     return lines.join("\n").slice(0, 12e3);
   }
@@ -17416,6 +17417,7 @@ var CanonEngine = class {
     this.rejects = [];
     this.lastReply = null;
     const opStart = Date.now();
+    this.host.model.takeUsage?.();
     taskDefaults.onDone = (task, ms, attempt) => {
       if (this.opActive?.operationId === operationId) this.stepTimes.push({ step: this.status.phase === "reconciling" && !this.examiningInput ? "reconcile" : task, ms, retry: attempt > 1 });
     };
@@ -17691,7 +17693,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         if (s.retry) a.retries++;
         agg.set(s.step, a);
       }
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, ...splitRejects(this.rejects) };
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null };
       if (!committed && trace.outcome === "failed") {
         const c = this.campaign();
         if (c && c.recoveryState.status === "error") {
@@ -18624,9 +18626,46 @@ var StHost = class {
     f(`[CanonEngine] ${msg}`, data === void 0 ? "" : data);
   }
 };
+var usage = { input: 0, output: 0, calls: 0, unreported: 0 };
+var usageTapped = false;
+function tapUsage() {
+  if (usageTapped || typeof window === "undefined" || typeof window.fetch !== "function") return;
+  usageTapped = true;
+  const orig = window.fetch.bind(window);
+  window.fetch = (async (input, init2) => {
+    const res = await orig(input, init2);
+    try {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const body = typeof init2?.body === "string" ? init2.body : "";
+      if (/\/api\/backends\/(chat|text)-completions\/generate/.test(url) && (body.includes("[CANON ENGINE CONTEXT") || body.includes("[CANON_ENGINE_TASK:"))) {
+        usage.calls++;
+        res.clone().json().then((d) => {
+          const u = d?.usage;
+          const inp = Number(u?.prompt_tokens ?? u?.input_tokens), out = Number(u?.completion_tokens ?? u?.output_tokens);
+          if (Number.isFinite(inp) || Number.isFinite(out)) {
+            usage.input += Number.isFinite(inp) ? inp : 0;
+            usage.output += Number.isFinite(out) ? out : 0;
+          } else usage.unreported++;
+        }).catch(() => {
+          usage.unreported++;
+        });
+      }
+    } catch {
+    }
+    return res;
+  });
+}
 var StModel = class {
+  constructor() {
+    tapUsage();
+  }
   lastDraftInfo() {
     return gen.lastDraftInfo;
+  }
+  takeUsage() {
+    const u = { ...usage };
+    usage.input = usage.output = usage.calls = usage.unreported = 0;
+    return u;
   }
   queue = Promise.resolve();
   horaePresent = false;
@@ -19028,6 +19067,12 @@ var D = {
   resentWhy: { zh: "\u6A21\u578B\u8F93\u51FA\u95EE\u9898\uFF08\u5DF2\u91CD\u53D1\uFF0C\u6216\u4E22\u5F03\u4E86\u65E0\u6CD5\u4F7F\u7528\u7684\u6761\u76EE\uFF09", en: "Model output problems (resent, or an unusable item dropped)" },
   fixedWhy: { zh: "\u5C0F\u7684\u81EA\u52A8\u4FEE\u6B63\uFF08\u672A\u91CD\u53D1\uFF0C\u7ED3\u679C\u7167\u5E38\u4FDD\u7559\uFF0C\u53EF\u5FFD\u7565\uFF09", en: "Small automatic fixes (no resend, result kept; safe to ignore)" },
   replyLen: { zh: "\u56DE\u590D", en: "reply" },
+  tokUsed: { zh: "\u6D88\u8017", en: "used" },
+  tokIn: { zh: "\u8F93\u5165", en: "input" },
+  tokOut: { zh: "\u8F93\u51FA", en: "output" },
+  tokCalls: { zh: "\u6B21\u8C03\u7528", en: "calls" },
+  tokUnreported: { zh: "\u53E6\u6709 {n} \u6B21\u8C03\u7528\u6CA1\u6709\u8FD4\u56DE\u7528\u91CF\uFF0C\u672A\u8BA1\u5165\u3002", en: "{n} more call(s) returned no usage and are not counted." },
+  tokNote: { zh: "\u670D\u52A1\u5546\u8FD4\u56DE\u7684\u5B9E\u9645\u7528\u91CF\uFF0C\u5305\u62EC\u672C\u56DE\u5408 Canon Engine \u7684\u6240\u6709\u8BF7\u6C42\uFF08\u751F\u6210\u3001\u4FEE\u6539\u548C\u5206\u6790\uFF09\uFF1B\u4E0D\u542B Horae\u3001Summaryception \u7B49\u5176\u4ED6\u6269\u5C55\u7684\u8BF7\u6C42\u3002", en: "Usage reported by the provider for all Canon Engine requests this turn (drafts, repairs and analysis); other extensions such as Horae or Summaryception are not included." },
   charsUnit: { zh: "\u5B57", en: " chars" },
   cutOff: { zh: "\uFF08\u88AB\u622A\u65AD\uFF09", en: "(cut off)" },
   outTokens: { zh: "\u8F93\u51FA token", en: "output tokens" },
@@ -19830,7 +19875,9 @@ function renderStatus() {
     rp.finish ? `finish_reason: ${rp.finish}` : ""
   ].filter(Boolean).join("\n") : "";
   const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc2(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
-  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc2(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}</span>` : "";
+  const tk = tm?.tokens;
+  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc2([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}</span>` : "";
+  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc2(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}</span>` : "";
   el.dataset.phase = conflict ? "conflict" : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc2(t("phase_" + (conflict ? "conflict" : phase)))}</span>
     <span class="canon-msg" title="${esc2(msg)}">${esc2(msg)}</span>${timing}

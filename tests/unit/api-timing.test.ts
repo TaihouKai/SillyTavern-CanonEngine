@@ -69,3 +69,24 @@ describe('public clock API and turn timings', () => {
     expect(ENGINE_RELEASE).toBe(man);
   });
 });
+
+describe('token usage of a turn', () => {
+  it('TK1 the provider-reported tokens of every engine request in the turn are summed; earlier calls are not counted', async () => {
+    const x = makeEngine();
+    let tally = { input: 0, output: 0, calls: 0, unreported: 0 };
+    const real = { runTask: x.model.runTask.bind(x.model), generateDraft: x.model.generateDraft.bind(x.model) };
+    (x.model as any).runTask = async (...a: any[]) => { tally.input += 100; tally.output += 10; tally.calls++; return real.runTask(...(a as [any, any, any])); };
+    (x.model as any).generateDraft = async (r: any) => { tally.input += 5000; tally.output += 800; tally.calls++; return real.generateDraft(r); };
+    (x.model as any).takeUsage = () => { const u = tally; tally = { input: 0, output: 0, calls: 0, unreported: 0 }; return u; };
+    await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
+    await x.engine.reconcile('t'); // calls before the turn are not part of it
+    x.host.addUser('I look around.');
+    x.model.draft('Gulls circle. [TK]');
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    const tk = x.engine.lastTimings!.tokens!;
+    const tasks = x.model.calls.filter((c) => c.task !== 'draft').length - x.model.calls.filter((c, i) => c.task !== 'draft' && i < x.model.calls.findIndex((d) => d.task === 'extract_user' && /look around/.test(JSON.stringify(d.input)))).length;
+    expect(tk.calls).toBe(1 + tasks);
+    expect(tk.input).toBe(5000 + 100 * tasks);
+    expect(tk.output).toBe(800 + 10 * tasks);
+  });
+});

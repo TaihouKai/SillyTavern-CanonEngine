@@ -340,8 +340,36 @@ export class StHost implements HostPort {
 // -------------------------------------------------------------------------------------------------
 // Model port over ST's configured connection
 
+/** Provider-reported token use of Canon Engine's own requests (story drafts carry the engine context,
+ *  analysis calls carry a task tag); other extensions' requests are not counted. */
+const usage: import('../runtime/model').TokenUsage = { input: 0, output: 0, calls: 0, unreported: 0 };
+let usageTapped = false;
+function tapUsage() {
+  if (usageTapped || typeof window === 'undefined' || typeof window.fetch !== 'function') return;
+  usageTapped = true;
+  const orig = window.fetch.bind(window);
+  window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const res = await orig(input, init);
+    try {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const body = typeof init?.body === 'string' ? init.body : '';
+      if (/\/api\/backends\/(chat|text)-completions\/generate/.test(url) && (body.includes('[CANON ENGINE CONTEXT') || body.includes('[CANON_ENGINE_TASK:'))) {
+        usage.calls++;
+        res.clone().json().then((d) => {
+          const u = d?.usage;
+          const inp = Number(u?.prompt_tokens ?? u?.input_tokens), out = Number(u?.completion_tokens ?? u?.output_tokens);
+          if (Number.isFinite(inp) || Number.isFinite(out)) { usage.input += Number.isFinite(inp) ? inp : 0; usage.output += Number.isFinite(out) ? out : 0; } else usage.unreported++;
+        }).catch(() => { usage.unreported++; });
+      }
+    } catch { /* counting is optional */ }
+    return res;
+  }) as typeof fetch;
+}
+
 export class StModel implements ModelPort {
+  constructor() { tapUsage(); }
   lastDraftInfo() { return gen.lastDraftInfo; }
+  takeUsage() { const u = { ...usage }; usage.input = usage.output = usage.calls = usage.unreported = 0; return u; }
   private queue: Promise<unknown> = Promise.resolve();
   horaePresent = false;
   /** Read at call time so the drawer setting applies immediately. */

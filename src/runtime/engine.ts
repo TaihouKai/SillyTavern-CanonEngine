@@ -156,7 +156,7 @@ export class CanonEngine {
   /** Per-step durations of the running operation, and the summary of the last finished one. */
   private stepTimes: { step: string; ms: number; retry?: boolean }[] = [];
   private rejects: string[] = [];
-  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number; retries: number }[]; ok: boolean; reply?: ReplyStats | null; rejects?: string[]; fixes?: string[] } | null = null;
+  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number; retries: number }[]; ok: boolean; reply?: ReplyStats | null; rejects?: string[]; fixes?: string[]; tokens?: import('./model').TokenUsage | null } | null = null;
   private lastReply: ReplyStats | null = null;
   private timeStep<T>(step: string, p: Promise<T>): Promise<T> {
     const t0 = Date.now();
@@ -813,6 +813,7 @@ export class CanonEngine {
     });
     if (tm.rejects?.length) { lines.push('', 'Model output problems (resent, or an unusable item dropped):'); for (const r of tm.rejects) lines.push(`  - ${r}`); }
     if (tm.fixes?.length) { lines.push('', 'Small automatic fixes (no resend, result kept):'); for (const r of tm.fixes) lines.push(`  - ${r}`); }
+    if (tm.tokens?.calls) lines.push('', `Tokens (provider-reported): ${tm.tokens.input + tm.tokens.output} = ${tm.tokens.input} in + ${tm.tokens.output} out over ${tm.tokens.calls} calls${tm.tokens.unreported ? ` (${tm.tokens.unreported} without usage)` : ''}`);
     lines.push('', 'Steps: ' + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? ` (resent ${s.retries})` : ''}`).join(' · '));
     return lines.join('\n').slice(0, 12000);
   }
@@ -938,6 +939,7 @@ export class CanonEngine {
     this.rejects = [];
     this.lastReply = null;
     const opStart = Date.now();
+    this.host.model.takeUsage?.(); // count this turn only
     taskDefaults.onDone = (task, ms, attempt) => { if (this.opActive?.operationId === operationId) this.stepTimes.push({ step: this.status.phase === 'reconciling' && !this.examiningInput ? 'reconcile' : task, ms, retry: attempt > 1 }); };
     // Why a structured reply was rejected and sent again (shown in the timing tooltip).
     taskDefaults.onReject = (task, error) => { if (this.opActive?.operationId === operationId) this.rejects.push(`${task}: ${error.slice(0, 200)}`); };
@@ -1169,7 +1171,7 @@ export class CanonEngine {
     } finally {
       const agg = new Map<string, { ms: number; count: number; retries: number }>();
       for (const s of this.stepTimes) { const a = agg.get(s.step) || { ms: 0, count: 0, retries: 0 }; a.ms += s.ms; a.count++; if (s.retry) a.retries++; agg.set(s.step, a); }
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, ...splitRejects(this.rejects) };
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null };
       if (!committed && trace.outcome === 'failed') {
         // Keep the whole story of a failed turn where the user can read it later (saved with the chat).
         const c = this.campaign();
