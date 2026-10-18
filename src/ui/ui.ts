@@ -237,9 +237,15 @@ function field(label: string, tipKey: string, control: string, hint = ''): strin
   return `<div class="canon-field"><div class="canon-lbl">${label} ${tip(tipKey)}</div>${control}${hint ? `<div class="canon-hint">${hint}</div>` : ''}</div>`;
 }
 
+const CHROME_FLAG = 'chrome://flags/#unsafely-treat-insecure-origin-as-secure';
+
 /** Why system notifications will not appear on this page, if they will not. */
 function notifyNote(): string {
-  if (!systemNotificationsAvailable()) return `<div class="canon-note">${esc(t('notifyInsecure').replace('{origin}', location.origin))}</div>`;
+  if (!systemNotificationsAvailable()) {
+    // chrome:// pages cannot be opened from a web page, so both values are one click to copy.
+    const row = (label: string, value: string) => `<div class="canon-copyrow"><span>${esc(label)}</span><code>${esc(value)}</code><button class="menu_button canon-btn" data-act="copyValue" data-value="${esc(value)}">${t('copy')}</button></div>`;
+    return `<div class="canon-note">${esc(t('notifyInsecure'))}${row(t('notifyFlagPage'), CHROME_FLAG)}${row(t('notifyFlagValue'), location.origin)}</div>`;
+  }
   if (Notification.permission === 'denied') return `<div class="canon-note warn">${esc(t('notifyBlocked'))}</div>`;
   return '';
 }
@@ -310,6 +316,7 @@ async function onSettingsClick(ev: Event) {
   const file = document.getElementById('canon-engine-file') as HTMLInputElement;
   const libEntry = (): LibraryEntry | undefined => listLibrary()[Number(b.dataset.i)];
   try {
+    if (act === 'copyValue') { if (copyText(b.dataset.value || '')) b.textContent = t('copied'); return; }
     if (act === 'enable' || act === 'import' || act === 'update') {
       if (!H.chatId()) { toast('error', t('noChat')); return; }
       if (H.isGroup()) { toast('error', t('groupUnsupported')); return; }

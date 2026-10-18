@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.53 — 2026-10-19
+
+- On a plain-http address, the note under 回复完成时提醒 now shows the Chrome page (`chrome://flags/#unsafely-treat-insecure-origin-as-secure`) and this SillyTavern address on their own lines, each with a 复制 button, and says what to do there (add the address, Enabled, relaunch). Web pages cannot open chrome:// pages, so copying is the shortest route.
+- e2e N04.
+
 ## 1.3.52 — 2026-10-18
 
 - **Alert when a reply is ready** (Canon settings → 模型与回复, on by default): when a turn ends while the tab is in the background, a system notification ("Canon：回复完成 · 回复 N字 · 用时 …", or "回合失败" with the reason), "✓ 回复完成" in front of the tab title until you come back, and optionally a short chime. For slow reasoning models (live: 5-minute turns). Browsers allow system notifications only on https or localhost; on a LAN http address the settings say so and the title mark and chime still work. Cancelled turns are not announced.

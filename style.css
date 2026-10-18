@@ -161,6 +161,10 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .canon-tip { position:fixed; z-index:20000; max-width:min(300px, calc(100vw - 16px)); padding:6px 9px; border-radius:6px; font-size:12.5px; line-height:1.5; white-space:pre-line; pointer-events:none;
   background:var(--SmartThemeBlurTintColor, #222); color:var(--SmartThemeBodyColor, #ddd); border:1px solid var(--SmartThemeBorderColor, #555); box-shadow:0 4px 14px rgba(0,0,0,.45); }
 .canon-settings-body .canon-note { margin:0; font-size:.9em; }
+.canon-copyrow { display:flex; align-items:center; gap:6px; margin-top:4px; flex-wrap:wrap; }
+.canon-copyrow > span { opacity:.8; white-space:nowrap; }
+.canon-copyrow code { flex:1 1 12em; min-width:0; overflow-wrap:anywhere; user-select:all; font-size:.9em; }
+.canon-copyrow .menu_button { margin:0; padding:2px 8px; flex:0 0 auto; width:auto; white-space:nowrap; }
 .canon-settings-body .canon-lib { margin:0; }
 
 /* ---------------------------------------------------------------- history graph: time axis */

@@ -16531,7 +16531,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.52";
+var ENGINE_RELEASE = "1.3.53";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -19205,7 +19205,9 @@ var D = {
   notifyDoneTip: { zh: "\u56DE\u5408\u5728\u540E\u53F0\u7ED3\u675F\u65F6\uFF08\u4F60\u5207\u5230\u4E86\u522B\u7684\u6807\u7B7E\u9875\u6216\u7A0B\u5E8F\uFF09\uFF1A\u53D1\u7CFB\u7EDF\u901A\u77E5\uFF0C\u5E76\u5728\u6807\u7B7E\u9875\u6807\u9898\u524D\u52A0\u4E0A\u201C\u2713 \u56DE\u590D\u5B8C\u6210\u201D\uFF0C\u56DE\u5230\u9875\u9762\u540E\u81EA\u52A8\u53BB\u6389\u3002\n\u56DE\u5408\u5931\u8D25\u65F6\u540C\u6837\u63D0\u9192\u3002\u6D4F\u89C8\u5668\u53EA\u5728 https \u6216 localhost \u4E0B\u5141\u8BB8\u7CFB\u7EDF\u901A\u77E5\uFF1B\u7528\u5C40\u57DF\u7F51 http \u5730\u5740\u6253\u5F00\u65F6\u53EA\u6709\u6807\u9898\u63D0\u793A\u548C\u63D0\u793A\u97F3\u3002", en: 'When a turn ends while the tab is in the background (you switched to another tab or app): a system notification, and "\u2713 Reply ready" in front of the tab title until you come back.\nAlso when a turn fails. Browsers allow system notifications only on https or localhost; on a LAN http address you get the title mark and the chime only.' },
   notifySound: { zh: "\u63D0\u9192\u65F6\u54CD\u4E00\u58F0", en: "Chime with the alert" },
   notifySoundTip: { zh: "\u63D0\u9192\u65F6\u64AD\u653E\u4E00\u58F0\u77ED\u4FC3\u7684\u63D0\u793A\u97F3\uFF08\u6210\u529F\u9AD8\u97F3\uFF0C\u5931\u8D25\u4F4E\u97F3\uFF09\u3002", en: "Play a short chime with the alert (rising when the reply is ready, falling when the turn failed)." },
-  notifyInsecure: { zh: "\u5F53\u524D\u5730\u5740\u4E0D\u662F https \u6216 localhost\uFF0C\u6D4F\u89C8\u5668\u4E0D\u5141\u8BB8\u7CFB\u7EDF\u901A\u77E5\uFF1A\u53EA\u4F1A\u6539\u6807\u7B7E\u9875\u6807\u9898\u5E76\u54CD\u4E00\u58F0\u3002\u60F3\u8981\u7CFB\u7EDF\u901A\u77E5\uFF1A\u7528 https \u6253\u5F00\u9152\u9986\uFF0C\u6216\u5728 Chrome \u7684 chrome://flags/#unsafely-treat-insecure-origin-as-secure \u91CC\u52A0\u5165 {origin}\u3002", en: "This address is not https or localhost, so the browser does not allow system notifications: you get the title mark and the chime only. For system notifications, open SillyTavern over https, or add {origin} at chrome://flags/#unsafely-treat-insecure-origin-as-secure in Chrome." },
+  notifyInsecure: { zh: "\u5F53\u524D\u5730\u5740\u4E0D\u662F https \u6216 localhost\uFF0C\u6D4F\u89C8\u5668\u4E0D\u5141\u8BB8\u7CFB\u7EDF\u901A\u77E5\uFF1A\u53EA\u4F1A\u6539\u6807\u7B7E\u9875\u6807\u9898\u5E76\u54CD\u4E00\u58F0\u3002\u60F3\u8981\u7CFB\u7EDF\u901A\u77E5\uFF1A\u7528 https \u6253\u5F00\u9152\u9986\uFF1B\u6216\u5728 Chrome \u5730\u5740\u680F\u6253\u5F00\u4E0B\u9762\u7684\u8BBE\u7F6E\u9875\uFF0C\u628A\u9152\u9986\u5730\u5740\u586B\u8FDB\u53BB\uFF0C\u9009 Enabled\uFF0C\u7136\u540E\u91CD\u542F Chrome\uFF08\u7F51\u9875\u65E0\u6CD5\u76F4\u63A5\u6253\u5F00 chrome:// \u9875\u9762\uFF0C\u8BF7\u590D\u5236\u540E\u7C98\u8D34\u5230\u5730\u5740\u680F\uFF09\u3002", en: "This address is not https or localhost, so the browser does not allow system notifications: you get the title mark and the chime only. For system notifications, open SillyTavern over https; or open the Chrome settings page below, add the SillyTavern address, choose Enabled and relaunch Chrome (web pages cannot open chrome:// pages: copy it and paste it into the address bar)." },
+  notifyFlagPage: { zh: "\u8BBE\u7F6E\u9875", en: "Settings page" },
+  notifyFlagValue: { zh: "\u8981\u586B\u7684\u5730\u5740", en: "Address to add" },
   notifyBlocked: { zh: "\u6D4F\u89C8\u5668\u5DF2\u62D2\u7EDD\u672C\u7AD9\u7684\u901A\u77E5\uFF1A\u5728\u5730\u5740\u680F\u5DE6\u4FA7\u7684\u7F51\u7AD9\u8BBE\u7F6E\u91CC\u5141\u8BB8\u201C\u901A\u77E5\u201D\u3002", en: 'The browser blocks notifications for this site: allow "Notifications" in the site settings (left of the address bar).' },
   notifyTitleOk: { zh: "Canon\uFF1A\u56DE\u590D\u5B8C\u6210", en: "Canon: reply ready" },
   notifyTitleFail: { zh: "Canon\uFF1A\u56DE\u5408\u5931\u8D25", en: "Canon: turn failed" },
@@ -20213,8 +20215,12 @@ function card(title, tipKey, inner) {
 function field(label, tipKey, control, hint = "") {
   return `<div class="canon-field"><div class="canon-lbl">${label} ${tip(tipKey)}</div>${control}${hint ? `<div class="canon-hint">${hint}</div>` : ""}</div>`;
 }
+var CHROME_FLAG = "chrome://flags/#unsafely-treat-insecure-origin-as-secure";
 function notifyNote() {
-  if (!systemNotificationsAvailable()) return `<div class="canon-note">${esc2(t("notifyInsecure").replace("{origin}", location.origin))}</div>`;
+  if (!systemNotificationsAvailable()) {
+    const row = (label, value) => `<div class="canon-copyrow"><span>${esc2(label)}</span><code>${esc2(value)}</code><button class="menu_button canon-btn" data-act="copyValue" data-value="${esc2(value)}">${t("copy")}</button></div>`;
+    return `<div class="canon-note">${esc2(t("notifyInsecure"))}${row(t("notifyFlagPage"), CHROME_FLAG)}${row(t("notifyFlagValue"), location.origin)}</div>`;
+  }
   if (Notification.permission === "denied") return `<div class="canon-note warn">${esc2(t("notifyBlocked"))}</div>`;
   return "";
 }
@@ -20296,6 +20302,10 @@ async function onSettingsClick(ev) {
   const file = document.getElementById("canon-engine-file");
   const libEntry = () => listLibrary()[Number(b.dataset.i)];
   try {
+    if (act === "copyValue") {
+      if (copyText(b.dataset.value || "")) b.textContent = t("copied");
+      return;
+    }
     if (act === "enable" || act === "import" || act === "update") {
       if (!H.chatId()) {
         toast("error", t("noChat"));

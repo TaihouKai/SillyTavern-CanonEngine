@@ -742,6 +742,21 @@ try {
     const off = await page.evaluate(() => ({ shown: window.__shown.length, title: document.title, saved: SillyTavern.getContext().extensionSettings.canonEngine.notifyDone }));
     await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.hasFocus = () => true; const el = document.querySelector('[data-set="notifyDone"]'); el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); });
     check(results, 'N03 the alert can be turned off in the Canon settings (saved; its chime option hides)', off.shown === 0 && !off.title.includes('✓') && off.saved === false && !soundHidden, JSON.stringify(off));
+    // on a plain-http LAN address the settings explain why, with the Chrome page and the address one click to copy
+    await page.evaluate(() => { Object.defineProperty(window, 'isSecureContext', { configurable: true, get: () => false }); const el = document.querySelector('[data-set="notifyDone"]'); el.dispatchEvent(new Event('change', { bubbles: true })); });
+    const rows = await page.$$eval('.canon-copyrow', (els) => els.map((e) => ({ text: e.querySelector('code')?.textContent, value: e.querySelector('button')?.dataset.value })));
+    await page.evaluate(() => document.querySelector('.canon-copyrow button').click());
+    const after = await page.$eval('.canon-copyrow button', (b) => b.textContent);
+    // look at it: open the extensions panel and the Canon drawer
+    await page.evaluate(() => { document.querySelector('#extensions-settings-button .drawer-toggle')?.click(); });
+    await sleep(600);
+    await page.evaluate(() => { const d = document.querySelector('#canon-engine-settings .inline-drawer-content'); if (d && getComputedStyle(d).display === 'none') document.querySelector('#canon-engine-settings .inline-drawer-toggle')?.click(); });
+    await sleep(600);
+    await page.evaluate(() => document.querySelector('.canon-copyrow')?.closest('.canon-note')?.scrollIntoView({ block: 'center' }));
+    await page.screenshot({ path: process.env.TEMP + '/n04-copyrows.png' }).catch(() => {});
+    await page.evaluate(() => { document.querySelector('#extensions-settings-button .drawer-toggle')?.click(); });
+    await page.evaluate(() => { Object.defineProperty(window, 'isSecureContext', { configurable: true, get: () => true }); });
+    check(results, 'N04 an http address shows the Chrome flag page and this address, each with a working copy button', rows.length === 2 && rows[0].value === 'chrome://flags/#unsafely-treat-insecure-origin-as-secure' && rows[1].value === await page.evaluate(() => location.origin) && after === '已复制', JSON.stringify({ rows, after }));
   }
   if (want('S16')) {
     console.log('\n== S16 final HARD repair ==');
