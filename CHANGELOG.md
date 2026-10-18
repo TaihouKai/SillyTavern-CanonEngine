@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.54 — 2026-10-19
+
+- **Canon events under way are not judged yet.** The reviewer had to file a canonical event as "occurred" or "diverged" the moment a reply showed it, so an event that had only started was recorded as 已改变 (live finding: 婚后光子遇袭与马场芳郎落败 marked changed when 上官鹭 had just charged the mechanical dog and 马场 was not yet beaten). It now has a third choice, "ongoing": the beat is recorded and linked to the event, the event keeps no result, the timeline shows it as 进行中 with the beats so far, the GM context says it is under way, and the next review sees those beats and judges the event in the reply where it ends. Offscreen catch-up leaves an event under way alone unless the story leaves it hanging for a day past its window.
+- **重新分析** on events marked 已发生 / 已改变 (timeline, two clicks): the reply that recorded the result is examined again with the current rules; later replies are revalidated as after an edit. Not offered for the starting history or a 强制完成.
+- Tests OG1–OG3, RA1–RA2; e2e RA01–RA02 (section S20).
+
 ## 1.3.53 — 2026-10-19
 
 - On a plain-http address, the note under 回复完成时提醒 now shows the Chrome page (`chrome://flags/#unsafely-treat-insecure-origin-as-secure`) and this SillyTavern address on their own lines, each with a 复制 button, and says what to do there (add the address, Enabled, relaunch). Web pages cannot open chrome:// pages, so copying is the shortest route.

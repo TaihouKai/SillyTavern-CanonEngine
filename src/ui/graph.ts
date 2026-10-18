@@ -28,6 +28,10 @@ export interface GNode {
   masked?: boolean;
   /** The player forced this event to complete ("强制完成"). */
   forced?: boolean;
+  /** Shown under way in play; the result is not settled yet. */
+  inProgress?: boolean;
+  /** Its 已发生/已改变 was recorded from a chat message and can be re-examined. */
+  reanalyzable?: boolean;
   /** The player marked this event 关注. */
   focused?: boolean;
 }
@@ -75,7 +79,12 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
       const actual = occ?.outcome.length ? [`本局结果：${occ.outcome.map((x) => (x.op === 'set' ? `${name(L, x.entity_id, s)}.${x.predicate}=${JSON.stringify(x.value)}` : `${x.entity_id}.${x.predicate} 未知`)).join('；')}`] : [];
       if (occ?.origin === 'intervention') n.forced = true;
       n.detail = [`本局状态：${statusLabel(n.status)}`, ...(occ ? [`实际经过：${occ.account}`, `来源：${ORIGIN_LABEL[occ.origin] || occ.origin}`] : []), ...actual, ...(n.detail || [])];
-    } else n.detail = [`本局状态：${statusLabel(n.status)}`, ...(n.detail || [])];
+    } else {
+      // shown under way in play, result not settled yet: judged when it ends
+      const beats = [...s.occurrences.values()].filter((o) => o.inProgressOf === n.id).sort((a, b) => a.time.lo - b.time.lo);
+      if (beats.length) n.inProgress = true;
+      n.detail = [`本局状态：${beats.length ? '进行中（结果未定，结束时再判定）' : statusLabel(n.status)}`, ...beats.map((o) => `已发生的部分：${o.account}`), ...(n.detail || [])];
+    }
     if (!spoilers && (n.status === 'future' || n.status === 'pending')) {
       n.masked = true;
       n.title = n.lane === 'HARD' ? 'HARD 锚点（剧透已隐藏）' : '？？？';
@@ -330,7 +339,7 @@ export class GraphPanel {
   private selected: string | null = null;
   private getData: (spoilers: boolean) => { pack: GraphData | null; current: GraphData | null; spoilers: boolean; digested?: boolean };
   private setSpoilers: (v: boolean) => void;
-  private onEventAction: (act: 'force' | 'unforce' | 'focus' | 'digest' | 'undigest', id: string) => Promise<void>;
+  private onEventAction: (act: 'force' | 'unforce' | 'focus' | 'digest' | 'undigest' | 'reanalyze', id: string) => Promise<void>;
   private armed: string | null = null;
 
   constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined) {
@@ -473,14 +482,14 @@ export class GraphPanel {
       void this.onEventAction('focus', b.dataset.id!).finally(() => { this.keepView = true; this.refresh(); });
       return;
     }
-    if (b && (b.dataset.act === 'force' || b.dataset.act === 'unforce')) {
+    if (b && (b.dataset.act === 'force' || b.dataset.act === 'unforce' || b.dataset.act === 'reanalyze')) {
       const id = b.dataset.id!, act = b.dataset.act;
       // two clicks: the first arms the button (no browser dialog), the second acts
-      if (this.armed !== act + ':' + id) { this.armed = act + ':' + id; b.textContent = act === 'force' ? t('forceConfirm') : t('unforceConfirm'); return; }
+      if (this.armed !== act + ':' + id) { this.armed = act + ':' + id; b.textContent = act === 'force' ? t('forceConfirm') : act === 'reanalyze' ? t('reanalyzeConfirm') : t('unforceConfirm'); return; }
       this.armed = null;
       (b as HTMLButtonElement).disabled = true;
       b.textContent = '…';
-      void this.onEventAction(act, id).finally(() => { this.keepView = true; this.refresh(); });
+      void this.onEventAction(act as 'force' | 'unforce' | 'reanalyze', id).finally(() => { this.keepView = true; this.refresh(); });
       return;
     }
     const node = tg.closest('.cg-node') as SVGGElement | null;
@@ -509,6 +518,7 @@ export class GraphPanel {
       ${this.mode === 'current' && (n.lane === 'SOFT' || n.lane === 'FREE') && (n.status === 'future' || n.status === 'pending') ? `<button class="menu_button cg-focus${n.focused ? ' active' : ''}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t('focusTip'))}">${n.focused ? t('unfocus') : t('focus')}</button>` : ''}
       ${this.mode === 'current' && n.lane !== 'RUNTIME' && n.status !== 'occurred' && n.status !== 'diverged' ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t('force')}</button>` : ''}
       ${this.mode === 'current' && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${t('unforce')}</button>` : ''}
+      ${this.mode === 'current' && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t('reanalyzeTip'))}">${t('reanalyze')}</button>` : ''}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join('')}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>关系</b><br>${[...ins, ...outs].join('<br>')}</div>` : ''}`;
   }

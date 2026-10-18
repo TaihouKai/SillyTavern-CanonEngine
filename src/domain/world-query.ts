@@ -1,6 +1,6 @@
 // Actual-history retrieval (causal OR mentioned) and independent entity/scene state queries.
 // Lookups never traverse the Hard graph and never depend on anchor relevance.
-import type { FactValue, Id, StoryTime } from './types';
+import type { FactValue, Id, Occurrence, StoryTime } from './types';
 import type { LoadedPack } from './pack';
 import { normalizeName } from './pack';
 import type { Checkpoint, OccurrenceEntry, WorldState } from './reducer';
@@ -263,6 +263,12 @@ export class WorldIndex {
     };
   }
 
+  /** Beats that show a canonical event under way without settling its result. */
+  inProgressBeats(eventId: Id): Occurrence[] {
+    if (this.state.dispositions.has(eventId)) return [];
+    return [...this.state.occurrences.values()].filter((o) => o.inProgressOf === eventId).sort((a, b) => a.time.lo - b.time.lo);
+  }
+
   canonStatus(eventId: Id, nowTick: number): CanonStatusView | null {
     const ev = this.pack.events.get(eventId);
     if (!ev) return null;
@@ -281,7 +287,8 @@ export class WorldIndex {
       note = 'not yet due; NOT accomplished history';
     } else if (t.hi >= nowTick) {
       status = 'pending';
-      note = 'window open; not yet occurred in this branch';
+      const beats = this.inProgressBeats(eventId);
+      note = beats.length ? `UNDER WAY in this branch (${beats.map((o) => o.title).join('; ')}); its result is not settled yet` : 'window open; not yet occurred in this branch';
     } else {
       status = 'unresolved';
       note = 'window passed without a recorded disposition';

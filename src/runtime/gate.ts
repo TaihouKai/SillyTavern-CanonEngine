@@ -20,7 +20,7 @@ export interface EvalOutput {
   transitions: { op: 'set' | 'unset'; entity_id: string; predicate: string; value?: FactValue; quote?: string; occurrence_ref?: string | null }[];
   occurrences: {
     ref: string; title: string; account: string; actors: string[]; affected?: string[]; locations?: string[];
-    time?: EvalOutput['scene_end']; causes?: string[]; quote: string; pack_event_id?: string | null; disposition?: 'occurred' | 'diverged' | null;
+    time?: EvalOutput['scene_end']; causes?: string[]; quote: string; pack_event_id?: string | null; disposition?: 'occurred' | 'diverged' | 'ongoing' | null;
     ref_phrases?: string[]; continues?: string | null; visibility?: 'public' | 'restricted' | 'secret'; knowers?: string[]; origin?: 'player' | 'gm' | 'intervention';
   }[];
   state_claims: { entity_id: string; predicate: string; value: FactValue; quote: string; at?: { day: number; minute: number } | null }[];
@@ -220,7 +220,11 @@ export function runGate(g: GateInput): GateResult {
     let kind: RecordDraft['kind'] = occ.origin === 'player' ? 'enacted_action' : occ.origin === 'intervention' ? 'authored_intervention' : 'world_event';
     let packEventId: Id | undefined;
     let disposition: 'occurred' | 'diverged' | undefined;
-    if (o.pack_event_id) {
+    if (o.pack_event_id && o.disposition === 'ongoing') {
+      // Under way, result not settled: an ordinary beat linked to the event; the event is judged when it ends.
+      const pe = pack.events.get(o.pack_event_id);
+      if (pe && !index.state.dispositions.has(pe.id)) occ.inProgressOf = pe.id;
+    } else if (o.pack_event_id) {
       const pe = pack.events.get(o.pack_event_id);
       if (!pe) violations.push(`Occurrence cites unknown canonical event "${o.pack_event_id}".`);
       else if (index.state.dispositions.has(pe.id)) violations.push(`"${pe.title}" already has a disposition in this branch; it cannot occur again as the same canonical event.`);

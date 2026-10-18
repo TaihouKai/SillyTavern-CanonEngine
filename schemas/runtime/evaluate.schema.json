@@ -290,6 +290,7 @@
       "enum": [
        "occurred",
        "diverged",
+       "ongoing",
        null
       ]
      },

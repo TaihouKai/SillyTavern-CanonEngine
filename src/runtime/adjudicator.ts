@@ -44,7 +44,10 @@ export async function adjudicateInterval(args: {
   const stagedHard = new Map<Id, Occurrence>();
   const notes: string[] = [];
   let forcedUsed = false;
-  const cands = crossedCandidates(pack, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id));
+  // An event the story shows under way (result not settled) is judged in play when it ends, not offscreen,
+  // unless the story leaves it hanging for a day past its window.
+  const underWay = new Set([...scratch.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean) as Id[]);
+  const cands = crossedCandidates(pack, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id) && !(underWay.has(c.event.id) && args.toInclusive <= c.hi + 1440));
   // Only events whose window has closed by the end. An event whose window is still open stays pending
   // (it may still happen later inside its bounds, offscreen or in the story): a whole-day event is
   // not settled as done the moment the day begins.

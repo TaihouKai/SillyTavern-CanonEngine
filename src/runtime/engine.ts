@@ -833,15 +833,16 @@ export class CanonEngine {
 
   /** Scene grouping input: the latest ordinary (non-canon) scene boxes a new beat may continue. */
 /** Non-HARD canon events whose window is open now or opens within 12 hours, not settled yet (for the reviewer). */
-  private canonNow(index: WorldIndex, tick: number): { id: string; title: string; window: string; original: string }[] {
+  private canonNow(index: WorldIndex, tick: number): { id: string; title: string; window: string; original: string; in_progress?: string[] }[] {
     const pack = index.pack;
-    const out: { id: string; title: string; window: string; original: string }[] = [];
+    const out: { id: string; title: string; window: string; original: string; in_progress?: string[] }[] = [];
     for (const t of pack.timeIndex) {
       if (t.lo > tick + 720) break;
       if (t.hi < tick || index.state.dispositions.has(t.id)) continue;
       const ev = pack.events.get(t.id)!;
       if (ev.classification === 'HARD') continue;
-      out.push({ id: ev.id, title: ev.title, window: `${formatTick(t.lo)} – ${formatTick(t.hi)}`, original: ev.summary.length > 220 ? ev.summary.slice(0, 217) + '…' : ev.summary });
+      const beats = index.inProgressBeats(ev.id);
+      out.push({ id: ev.id, title: ev.title, window: `${formatTick(t.lo)} – ${formatTick(t.hi)}`, original: ev.summary.length > 220 ? ev.summary.slice(0, 217) + '…' : ev.summary, ...(beats.length ? { in_progress: beats.map((o) => `${o.title}: ${o.account}`.slice(0, 200)) } : {}) });
       if (out.length >= 10) break;
     }
     return out;
@@ -1543,6 +1544,40 @@ export class CanonEngine {
     });
     await this.reconcile('undo_force', { allowModel: false });
     await this.host.save();
+  }
+
+  /** The chat message whose interpretation recorded this event's 已发生/已改变 (none for the starting history or a 强制完成). */
+  reanalyzableSource(eventId: Id): { key: string; messageId: string } | null {
+    const c = this.campaign();
+    const d = this.current?.replay.state.dispositions.get(eventId);
+    if (!c || !d || (d.disposition !== 'occurred' && d.disposition !== 'diverged')) return null;
+    for (const key of Object.keys(c.interpretations)) {
+      for (const v of interpretationsFor(c.interpretations, key)) {
+        if (v.records.some((r) => r.recordId === d.recordId)) return { key, messageId: v.messageId };
+      }
+    }
+    return null;
+  }
+
+  /** "重新分析": examine again the message that recorded this event's result, with the current rules
+   *  (e.g. an event recorded as 已改变 while it was still under way). Later messages are revalidated as
+   *  after any edit. Returns the event's status afterwards. */
+  async reanalyzeEvent(eventId: Id): Promise<string> {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError('incompatible_adapter', 'engine state unavailable');
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; wait or cancel it first.');
+    const src = this.reanalyzableSource(eventId);
+    if (!src) throw new EngineError('incompatible_adapter', 'This result was not recorded from a chat message (starting history or 强制完成); there is nothing to re-analyse.');
+    await this.exclusive(async () => {
+      delete c.interpretations[src.key];
+      c.configRevisions.push({ at: this.host.now(), summary: `re-analysed the message that recorded ${eventId}` });
+      c.planRevisions.forEach((p) => { if (p.status === 'active') p.status = 'stale'; });
+    });
+    await this.reconcile('reanalyze_event');
+    await this.host.save();
+    const d = this.current?.replay.state.dispositions.get(eventId);
+    if (d) return d.disposition;
+    return this.current?.index.inProgressBeats(eventId).length ? 'ongoing' : 'pending';
   }
 
   /** 关注: mark/unmark an event the player wants to experience. */

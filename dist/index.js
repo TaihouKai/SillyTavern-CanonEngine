@@ -6568,7 +6568,7 @@ function validate54(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate54.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 var evaluate = validate55;
-var schema80 = { "type": "object", "properties": { "decision": { "enum": ["retain", "repair", "conflict"] }, "scene_end": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "flashback": { "type": "boolean" }, "claim_checks": { "type": "array", "items": { "type": "object", "properties": { "claim_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "verdict": { "enum": ["consistent", "contradiction", "unsupported", "belief_ok", "new_detail", "not_applicable"] }, "record_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "note": { "type": "string" } }, "required": ["claim_id", "verdict"], "additionalProperties": false }, "maxItems": 400 }, "transitions": { "type": "array", "items": { "type": "object", "properties": { "op": { "enum": ["set", "unset"] }, "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "occurrence_ref": { "type": ["string", "null"] } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, "maxItems": 200 }, "occurrences": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "title": { "type": "string" }, "account": { "type": "string" }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "affected": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "locations": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "causes": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "quote": { "type": "string" }, "pack_event_id": { "type": ["string", "null"] }, "disposition": { "enum": ["occurred", "diverged", null] }, "ref_phrases": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "continues": { "type": ["string", "null"], "maxLength": 200 }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "origin": { "enum": ["player", "gm", "intervention"] } }, "required": ["ref", "title", "account", "actors", "quote"], "additionalProperties": false }, "maxItems": 200 }, "state_claims": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["entity_id", "predicate", "value", "quote"], "additionalProperties": false }, "maxItems": 200 }, "player_actions": { "type": "array", "items": { "type": "object", "properties": { "quote": { "type": "string" }, "authorized_by_quote": { "type": ["string", "null"] } }, "required": ["quote", "authorized_by_quote"], "additionalProperties": false }, "maxItems": 200 }, "step_enactments": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "occurrence_ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" } }, "required": ["step_id", "occurrence_ref", "quote"], "additionalProperties": false }, "maxItems": 200 }, "new_entities": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "name": { "type": "string" }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "description": { "type": "string" }, "quote": { "type": "string" } }, "required": ["ref", "name", "kind", "description", "quote"], "additionalProperties": false }, "maxItems": 200 }, "violations": { "type": "array", "items": { "type": "object", "properties": { "code": { "type": "string" }, "quote": { "type": "string" }, "detail": { "type": "string" }, "blocking": { "type": "boolean" } }, "required": ["code", "detail"], "additionalProperties": false }, "maxItems": 200 }, "hard_checks": { "type": "array", "items": { "type": "object", "properties": { "event_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "status": { "enum": ["fulfilled", "not_due", "missing", "contradicted"] }, "occurrence_ref": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } }, "required": ["event_id", "status"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "summary": { "type": "string" } }, "required": ["decision", "scene_end", "claim_checks", "transitions", "occurrences", "state_claims", "player_actions", "violations", "hard_checks"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:evaluate", "title": "Canon Engine task output: evaluate" };
+var schema80 = { "type": "object", "properties": { "decision": { "enum": ["retain", "repair", "conflict"] }, "scene_end": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "flashback": { "type": "boolean" }, "claim_checks": { "type": "array", "items": { "type": "object", "properties": { "claim_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "verdict": { "enum": ["consistent", "contradiction", "unsupported", "belief_ok", "new_detail", "not_applicable"] }, "record_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "note": { "type": "string" } }, "required": ["claim_id", "verdict"], "additionalProperties": false }, "maxItems": 400 }, "transitions": { "type": "array", "items": { "type": "object", "properties": { "op": { "enum": ["set", "unset"] }, "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "occurrence_ref": { "type": ["string", "null"] } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, "maxItems": 200 }, "occurrences": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "title": { "type": "string" }, "account": { "type": "string" }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "affected": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "locations": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "causes": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "quote": { "type": "string" }, "pack_event_id": { "type": ["string", "null"] }, "disposition": { "enum": ["occurred", "diverged", "ongoing", null] }, "ref_phrases": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "continues": { "type": ["string", "null"], "maxLength": 200 }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "origin": { "enum": ["player", "gm", "intervention"] } }, "required": ["ref", "title", "account", "actors", "quote"], "additionalProperties": false }, "maxItems": 200 }, "state_claims": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["entity_id", "predicate", "value", "quote"], "additionalProperties": false }, "maxItems": 200 }, "player_actions": { "type": "array", "items": { "type": "object", "properties": { "quote": { "type": "string" }, "authorized_by_quote": { "type": ["string", "null"] } }, "required": ["quote", "authorized_by_quote"], "additionalProperties": false }, "maxItems": 200 }, "step_enactments": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "occurrence_ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" } }, "required": ["step_id", "occurrence_ref", "quote"], "additionalProperties": false }, "maxItems": 200 }, "new_entities": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "name": { "type": "string" }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "description": { "type": "string" }, "quote": { "type": "string" } }, "required": ["ref", "name", "kind", "description", "quote"], "additionalProperties": false }, "maxItems": 200 }, "violations": { "type": "array", "items": { "type": "object", "properties": { "code": { "type": "string" }, "quote": { "type": "string" }, "detail": { "type": "string" }, "blocking": { "type": "boolean" } }, "required": ["code", "detail"], "additionalProperties": false }, "maxItems": 200 }, "hard_checks": { "type": "array", "items": { "type": "object", "properties": { "event_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "status": { "enum": ["fulfilled", "not_due", "missing", "contradicted"] }, "occurrence_ref": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } }, "required": ["event_id", "status"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "summary": { "type": "string" } }, "required": ["decision", "scene_end", "claim_checks", "transitions", "occurrences", "state_claims", "player_actions", "violations", "hard_checks"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:evaluate", "title": "Canon Engine task output: evaluate" };
 function validate55(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -7982,7 +7982,7 @@ function validate55(data, { instancePath = "", parentData, parentDataProperty, r
             }
             if (data27.disposition !== void 0) {
               let data49 = data27.disposition;
-              if (!(data49 === "occurred" || data49 === "diverged" || data49 === null)) {
+              if (!(data49 === "occurred" || data49 === "diverged" || data49 === "ongoing" || data49 === null)) {
                 const err122 = { instancePath: instancePath + "/occurrences/" + i4 + "/disposition", schemaPath: "#/properties/occurrences/items/properties/disposition/enum", keyword: "enum", params: { allowedValues: schema80.properties.occurrences.items.properties.disposition.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err122];
@@ -12912,6 +12912,11 @@ var WorldIndex = class _WorldIndex {
       packEventId: o.packEventId
     };
   }
+  /** Beats that show a canonical event under way without settling its result. */
+  inProgressBeats(eventId) {
+    if (this.state.dispositions.has(eventId)) return [];
+    return [...this.state.occurrences.values()].filter((o) => o.inProgressOf === eventId).sort((a, b) => a.time.lo - b.time.lo);
+  }
   canonStatus(eventId, nowTick) {
     const ev = this.pack.events.get(eventId);
     if (!ev) return null;
@@ -12930,7 +12935,8 @@ var WorldIndex = class _WorldIndex {
       note = "not yet due; NOT accomplished history";
     } else if (t2.hi >= nowTick) {
       status = "pending";
-      note = "window open; not yet occurred in this branch";
+      const beats = this.inProgressBeats(eventId);
+      note = beats.length ? `UNDER WAY in this branch (${beats.map((o) => o.title).join("; ")}); its result is not settled yet` : "window open; not yet occurred in this branch";
     } else {
       status = "unresolved";
       note = "window passed without a recorded disposition";
@@ -13812,6 +13818,7 @@ var evaluate_schema_default = {
             enum: [
               "occurred",
               "diverged",
+              "ongoing",
               null
             ]
           },
@@ -15205,7 +15212,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    Ordinary present-scene details with no record (weather, crowds, shops, decorations, minor NPCs) are new_detail, never contradiction. Preparations, schedules, anticipation or rumors of a FUTURE event ("flags for tomorrow's festival") do not assert that the event has started. A different wording of a free-text state ("\u6B63\u5E38\u8FD0\u8F6C" vs "operating normally") is consistent.
 2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it), state_claims (facts the narration presupposes; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null), player_actions (player-character actions depicted; authorized_by_quote = a span COPIED VERBATIM from the player's message that covers it, or null). An action is authorized when it carries out what the player wrote, including its natural steps and immediate details (for "I take her back to the cell and lock her up": stopping her, taking her belongings, escorting her, locking the door). Use null only for a NEW decision, goal or line of dialogue the player did not express, step_enactments, new_entities (genuinely new people/places/objects introduced).
 3. scene_end: story time when the reply ends. Story time passes in every scene: estimate how long what the reply depicts realistically takes (a short exchange a few minutes, a longer conversation 10-30 minutes, a meal 30-60 minutes, walking/travel by distance, waiting, sleeping) and add it to the time the scene starts. lo = the earliest realistic end, hi = the latest; precision "approx" for an estimate, "minute" only when the text states the time. Do not keep lo at current_time unless the reply really covers only a moment. An explicit time or skip in the text ("two hours later", "\u508D\u665A") wins over estimates. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback.
-   canon_events_now lists the canonical (non-HARD) events whose time window is open around this scene. If the reply depicts one of them happening \u2014 even with other participants (e.g. the player tagging along) or a different course \u2014 record that occurrence with its pack_event_id: disposition "occurred" if its original result holds, "diverged" if the result is different. Never file such an event as an ordinary scene beat.
+   canon_events_now lists the canonical (non-HARD) events whose time window is open around this scene. If the reply depicts one of them happening \u2014 even with other participants (e.g. the player tagging along) or a different course \u2014 record that occurrence with its pack_event_id and a disposition. Decide the result only when the event has CONCLUDED in this reply (its outcome happened, or it can no longer happen as written): "occurred" if its original result holds, "diverged" if the result is different. While it is still under way \u2014 the fight has started, the attack is in progress, nobody has won yet \u2014 use "ongoing": the result is not settled, and the event is judged in the reply where it ends. Never use "diverged" only because the result is not shown yet. An entry with in_progress lists the beats already shown; continue it ("ongoing" again, or "occurred"/"diverged" when it ends). Never file such an event as an ordinary scene beat.
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
    HARD conformance belongs ONLY in hard_checks, never in violations or claim checks. A HARD description fixes the RESULT; the route it mentions (how or where it happened in the original) is not actual history, and the player's actions may change it. The player's actions from the current input are actual events of this turn: never call them unsupported, and never report them or their consequences as contradicting a HARD event.
    HARD outcome values describe an objective state of the world, independent of who knows about it (e.g. a person secretly hidden by one side is "hidden" even to those who hid her). When the reply depicts that state, record the transition with the exact required value.
@@ -15855,7 +15862,10 @@ function runGate(g) {
     let kind = occ.origin === "player" ? "enacted_action" : occ.origin === "intervention" ? "authored_intervention" : "world_event";
     let packEventId;
     let disposition;
-    if (o.pack_event_id) {
+    if (o.pack_event_id && o.disposition === "ongoing") {
+      const pe = pack2.events.get(o.pack_event_id);
+      if (pe && !index.state.dispositions.has(pe.id)) occ.inProgressOf = pe.id;
+    } else if (o.pack_event_id) {
       const pe = pack2.events.get(o.pack_event_id);
       if (!pe) violations.push(`Occurrence cites unknown canonical event "${o.pack_event_id}".`);
       else if (index.state.dispositions.has(pe.id)) violations.push(`"${pe.title}" already has a disposition in this branch; it cannot occur again as the same canonical event.`);
@@ -16088,7 +16098,8 @@ async function adjudicateInterval(args) {
   const stagedHard = /* @__PURE__ */ new Map();
   const notes = [];
   let forcedUsed = false;
-  const cands = crossedCandidates(pack2, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id));
+  const underWay = new Set([...scratch.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean));
+  const cands = crossedCandidates(pack2, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id) && !(underWay.has(c.event.id) && args.toInclusive <= c.hi + 1440));
   for (const c of cands) {
     const when = occurrenceWindow(c, -Infinity, args.toInclusive);
     const windowStillOpen = c.hi > args.toInclusive;
@@ -16531,7 +16542,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.53";
+var ENGINE_RELEASE = "1.3.54";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -17379,7 +17390,8 @@ var CanonEngine = class {
       if (t2.hi < tick || index.state.dispositions.has(t2.id)) continue;
       const ev = pack2.events.get(t2.id);
       if (ev.classification === "HARD") continue;
-      out.push({ id: ev.id, title: ev.title, window: `${formatTick(t2.lo)} \u2013 ${formatTick(t2.hi)}`, original: ev.summary.length > 220 ? ev.summary.slice(0, 217) + "\u2026" : ev.summary });
+      const beats = index.inProgressBeats(ev.id);
+      out.push({ id: ev.id, title: ev.title, window: `${formatTick(t2.lo)} \u2013 ${formatTick(t2.hi)}`, original: ev.summary.length > 220 ? ev.summary.slice(0, 217) + "\u2026" : ev.summary, ...beats.length ? { in_progress: beats.map((o) => `${o.title}: ${o.account}`.slice(0, 200)) } : {} });
       if (out.length >= 10) break;
     }
     return out;
@@ -18148,6 +18160,40 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     });
     await this.reconcile("undo_force", { allowModel: false });
     await this.host.save();
+  }
+  /** The chat message whose interpretation recorded this event's 已发生/已改变 (none for the starting history or a 强制完成). */
+  reanalyzableSource(eventId) {
+    const c = this.campaign();
+    const d = this.current?.replay.state.dispositions.get(eventId);
+    if (!c || !d || d.disposition !== "occurred" && d.disposition !== "diverged") return null;
+    for (const key of Object.keys(c.interpretations)) {
+      for (const v of interpretationsFor(c.interpretations, key)) {
+        if (v.records.some((r) => r.recordId === d.recordId)) return { key, messageId: v.messageId };
+      }
+    }
+    return null;
+  }
+  /** "重新分析": examine again the message that recorded this event's result, with the current rules
+   *  (e.g. an event recorded as 已改变 while it was still under way). Later messages are revalidated as
+   *  after any edit. Returns the event's status afterwards. */
+  async reanalyzeEvent(eventId) {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError("incompatible_adapter", "engine state unavailable");
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; wait or cancel it first.");
+    const src = this.reanalyzableSource(eventId);
+    if (!src) throw new EngineError("incompatible_adapter", "This result was not recorded from a chat message (starting history or \u5F3A\u5236\u5B8C\u6210); there is nothing to re-analyse.");
+    await this.exclusive(async () => {
+      delete c.interpretations[src.key];
+      c.configRevisions.push({ at: this.host.now(), summary: `re-analysed the message that recorded ${eventId}` });
+      c.planRevisions.forEach((p) => {
+        if (p.status === "active") p.status = "stale";
+      });
+    });
+    await this.reconcile("reanalyze_event");
+    await this.host.save();
+    const d = this.current?.replay.state.dispositions.get(eventId);
+    if (d) return d.disposition;
+    return this.current?.index.inProgressBeats(eventId).length ? "ongoing" : "pending";
   }
   /** 关注: mark/unmark an event the player wants to experience. */
   async toggleFocus(eventId) {
@@ -19201,6 +19247,14 @@ var D = {
   libDelete: { zh: "\u4ECE\u5386\u53F2\u5305\u5E93\u5220\u9664", en: "Remove from library" },
   packOrigin: { zh: "\u5386\u53F2\u5305\u8BF4\u660E\u7684\u7B2C0\u5929", en: "Pack day 0" },
   sceneGrouping: { zh: "\u5408\u5E76\u540C\u4E00\u573A\u666F\u7684\u672C\u5C40\u4E8B\u4EF6", en: "Group events of the same scene" },
+  reanalyze: { zh: "\u91CD\u65B0\u5206\u6790", en: "Re-analyse" },
+  reanalyzeConfirm: { zh: "\u786E\u8BA4\u91CD\u65B0\u5206\u6790\uFF1F", en: "Re-analyse now?" },
+  reanalyzeTip: { zh: "\u91CD\u65B0\u68C0\u67E5\u8BB0\u4E0B\u8FD9\u4E2A\u7ED3\u679C\u7684\u90A3\u6761\u56DE\u590D\uFF0C\u6309\u73B0\u5728\u7684\u89C4\u5219\u5224\u65AD\u5B83\u662F\u5DF2\u53D1\u751F\u3001\u5DF2\u6539\u53D8\uFF0C\u8FD8\u662F\u4ECD\u5728\u8FDB\u884C\u4E2D\u3002\u4E4B\u540E\u7684\u56DE\u590D\u4F1A\u50CF\u4FEE\u6539\u8FC7\u6D88\u606F\u4E00\u6837\u91CD\u65B0\u6838\u5BF9\u3002\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\u3002", en: "Examine again the reply that recorded this result, with the current rules: occurred, changed, or still under way. Later replies are re-checked as after an edit. Uses the analysis model." },
+  reanalyzeDone: { zh: "\u91CD\u65B0\u5206\u6790\u5B8C\u6210\uFF1A{s}", en: "Re-analysed: {s}" },
+  reanalyzeStatus_occurred: { zh: "\u5DF2\u53D1\u751F", en: "occurred" },
+  reanalyzeStatus_diverged: { zh: "\u5DF2\u6539\u53D8", en: "changed" },
+  reanalyzeStatus_ongoing: { zh: "\u8FDB\u884C\u4E2D\uFF08\u7ED3\u675F\u65F6\u518D\u5224\u5B9A\uFF09", en: "under way (judged when it ends)" },
+  reanalyzeStatus_pending: { zh: "\u5C1A\u672A\u53D1\u751F", en: "not happened yet" },
   notifyDone: { zh: "\u56DE\u590D\u5B8C\u6210\u65F6\u63D0\u9192", en: "Alert when a reply is ready" },
   notifyDoneTip: { zh: "\u56DE\u5408\u5728\u540E\u53F0\u7ED3\u675F\u65F6\uFF08\u4F60\u5207\u5230\u4E86\u522B\u7684\u6807\u7B7E\u9875\u6216\u7A0B\u5E8F\uFF09\uFF1A\u53D1\u7CFB\u7EDF\u901A\u77E5\uFF0C\u5E76\u5728\u6807\u7B7E\u9875\u6807\u9898\u524D\u52A0\u4E0A\u201C\u2713 \u56DE\u590D\u5B8C\u6210\u201D\uFF0C\u56DE\u5230\u9875\u9762\u540E\u81EA\u52A8\u53BB\u6389\u3002\n\u56DE\u5408\u5931\u8D25\u65F6\u540C\u6837\u63D0\u9192\u3002\u6D4F\u89C8\u5668\u53EA\u5728 https \u6216 localhost \u4E0B\u5141\u8BB8\u7CFB\u7EDF\u901A\u77E5\uFF1B\u7528\u5C40\u57DF\u7F51 http \u5730\u5740\u6253\u5F00\u65F6\u53EA\u6709\u6807\u9898\u63D0\u793A\u548C\u63D0\u793A\u97F3\u3002", en: 'When a turn ends while the tab is in the background (you switched to another tab or app): a system notification, and "\u2713 Reply ready" in front of the tab title until you come back.\nAlso when a turn fails. Browsers allow system notifications only on https or localhost; on a LAN http address you get the title mark and the chime only.' },
   notifySound: { zh: "\u63D0\u9192\u65F6\u54CD\u4E00\u58F0", en: "Chime with the alert" },
@@ -19458,7 +19512,11 @@ function currentGraph(L, s, origin, spoilers, digest2 = []) {
       const actual = occ?.outcome.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${occ.outcome.map((x) => x.op === "set" ? `${name(L, x.entity_id, s)}.${x.predicate}=${JSON.stringify(x.value)}` : `${x.entity_id}.${x.predicate} \u672A\u77E5`).join("\uFF1B")}`] : [];
       if (occ?.origin === "intervention") n.forced = true;
       n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`, ...occ ? [`\u5B9E\u9645\u7ECF\u8FC7\uFF1A${occ.account}`, `\u6765\u6E90\uFF1A${ORIGIN_LABEL[occ.origin] || occ.origin}`] : [], ...actual, ...n.detail || []];
-    } else n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`, ...n.detail || []];
+    } else {
+      const beats = [...s.occurrences.values()].filter((o) => o.inProgressOf === n.id).sort((a, b) => a.time.lo - b.time.lo);
+      if (beats.length) n.inProgress = true;
+      n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${beats.length ? "\u8FDB\u884C\u4E2D\uFF08\u7ED3\u679C\u672A\u5B9A\uFF0C\u7ED3\u675F\u65F6\u518D\u5224\u5B9A\uFF09" : statusLabel(n.status)}`, ...beats.map((o) => `\u5DF2\u53D1\u751F\u7684\u90E8\u5206\uFF1A${o.account}`), ...n.detail || []];
+    }
     if (!spoilers && (n.status === "future" || n.status === "pending")) {
       n.masked = true;
       n.title = n.lane === "HARD" ? "HARD \u951A\u70B9\uFF08\u5267\u900F\u5DF2\u9690\u85CF\uFF09" : "\uFF1F\uFF1F\uFF1F";
@@ -19897,11 +19955,11 @@ var GraphPanel = class {
       });
       return;
     }
-    if (b && (b.dataset.act === "force" || b.dataset.act === "unforce")) {
+    if (b && (b.dataset.act === "force" || b.dataset.act === "unforce" || b.dataset.act === "reanalyze")) {
       const id = b.dataset.id, act = b.dataset.act;
       if (this.armed !== act + ":" + id) {
         this.armed = act + ":" + id;
-        b.textContent = act === "force" ? t("forceConfirm") : t("unforceConfirm");
+        b.textContent = act === "force" ? t("forceConfirm") : act === "reanalyze" ? t("reanalyzeConfirm") : t("unforceConfirm");
         return;
       }
       this.armed = null;
@@ -19938,6 +19996,7 @@ var GraphPanel = class {
       ${this.mode === "current" && (n.lane === "SOFT" || n.lane === "FREE") && (n.status === "future" || n.status === "pending") ? `<button class="menu_button cg-focus${n.focused ? " active" : ""}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t("focusTip"))}">${n.focused ? t("unfocus") : t("focus")}</button>` : ""}
       ${this.mode === "current" && n.lane !== "RUNTIME" && n.status !== "occurred" && n.status !== "diverged" ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t("force")}</button>` : ""}
       ${this.mode === "current" && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${t("unforce")}</button>` : ""}
+      ${this.mode === "current" && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t("reanalyzeTip"))}">${t("reanalyze")}</button>` : ""}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join("")}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>\u5173\u7CFB</b><br>${[...ins, ...outs].join("<br>")}</div>` : ""}`;
   }
@@ -20032,6 +20091,9 @@ function mountTopButton() {
         n.title = "\u2605 " + n.title;
       }
     }
+    if (cur) {
+      for (const n of cur.nodes) if ((n.status === "occurred" || n.status === "diverged") && E.reanalyzableSource(n.id)) n.reanalyzable = true;
+    }
     return { pack: pg, current: cur, spoilers, digested: !!camp?.eventDigest };
   }, (v) => {
     const camp = E.campaign();
@@ -20044,7 +20106,10 @@ function mountTopButton() {
         const r = await E.digestEvents();
         toast("info", t("digestDone").replace("{n}", String(r.events)).replace("{g}", String(r.groups)));
       } else if (act === "undigest") await E.clearDigest();
-      else await E.undoForce(id);
+      else if (act === "reanalyze") {
+        const st = await E.reanalyzeEvent(id);
+        toast("info", t("reanalyzeDone").replace("{s}", t("reanalyzeStatus_" + st)));
+      } else await E.undoForce(id);
     } catch (e) {
       toast("error", e.message);
     }

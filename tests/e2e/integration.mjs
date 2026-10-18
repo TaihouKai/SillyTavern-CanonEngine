@@ -841,6 +841,32 @@ try {
     check(results, 'DG02 还原 restores the original boxes', (await page.$$eval('.cg-node', (n) => n.length)) === before);
     await page.evaluate(() => document.querySelector('[data-act="close"]')?.click());
   }
+  if (want('S20')) {
+    console.log('\n== S20 events under way; 重新分析 ==');
+    await freshChat();
+    const amb = (disposition, q) => ({ scene_end: { lo: D(1, 10, 0), hi: D(1, 10, 0), precision: 'minute' }, occurrences: [{ ref: 'o1', title: '伏击开始', account: '弩箭飞向 Mira，战斗刚刚开始。', actors: ['mira'], affected: ['mira'], locations: ['harbor'], time: null, causes: [], quote: q, pack_event_id: 'medic-ambush', disposition, ref_phrases: [], visibility: 'public', knowers: [], origin: 'gm' }] });
+    // the reviewer (wrongly) files the start of the fight as a changed result
+    await mock('/control', { mainQueue: ['弩箭突然飞向 Mira。RA_A'], taskRules: [rule('evaluate', 'RA_A', amb('diverged', '弩箭突然飞向'))], clearLogs: true });
+    await send(page, '我跟着 Mira 走上大路。');
+    const st0 = await engineState(page);
+    await page.evaluate(() => document.querySelector('#canon-engine-top-button .canon-top-toggle')?.click());
+    await page.waitForSelector('.cg-node[data-id="medic-ambush"]', { timeout: 10000 });
+    await page.evaluate(() => document.querySelector('.cg-node[data-id="medic-ambush"]').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.waitForSelector('.cg-reanalyze', { timeout: 5000 }).catch(() => {});
+    const btn = await page.$eval('.cg-reanalyze', (b) => b.textContent).catch(() => '');
+    // now the reviewer sees it under way
+    await mock('/control', { taskRules: [rule('evaluate', 'RA_A', amb('ongoing', '弩箭突然飞向'))], clearLogs: true });
+    await page.click('.cg-reanalyze');
+    const armed = await page.$eval('.cg-reanalyze', (b) => b.textContent).catch(() => '');
+    await page.click('.cg-reanalyze');
+    await page.waitForFunction(() => [...document.querySelectorAll('#toast-container .toast')].some((x) => x.innerText.includes('重新分析完成')), null, { timeout: 60000 }).catch(() => {});
+    const toasts = await page.$$eval('#toast-container .toast', (els) => els.map((e) => e.innerText).join(' | ')).catch(() => '');
+    const st1 = await engineState(page);
+    const evals = (await taskLogs('evaluate')).filter((l) => JSON.stringify(l.input).includes('RA_A')).length;
+    check(results, 'RA01 an event recorded from a reply offers 重新分析 (two clicks)', st0.dispositions['medic-ambush'] === 'diverged' && btn === '重新分析' && armed === '确认重新分析？', `${JSON.stringify(st0.dispositions['medic-ambush'])} btn=${btn} armed=${armed}`);
+    check(results, 'RA02 重新分析 re-examines that reply: the fight is now under way, with no result yet', !st1.dispositions['medic-ambush'] && evals >= 1 && /重新分析完成：进行中/.test(toasts), JSON.stringify({ d: st1.dispositions['medic-ambush'], evals, toasts: toasts.replace(/\s+/g, ' ').slice(0, 120) }));
+    await page.evaluate(() => document.querySelector('[data-act="close"]')?.click());
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }

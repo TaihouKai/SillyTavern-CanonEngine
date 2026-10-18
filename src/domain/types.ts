@@ -117,6 +117,8 @@ export interface Occurrence {
   /** Reference phrases/aliases by which the occurrence may be mentioned later. */
   refPhrases: string[];
   packEventId?: Id;
+  /** A canonical event this beat shows under way whose result is not settled yet (it keeps no disposition). */
+  inProgressOf?: Id;
   /** Scene grouping: the earlier occurrence (same ongoing scene) this one continues; shown and summarized as one box. */
   continues?: string;
   origin: 'player' | 'gm' | 'canon' | 'offscreen' | 'bootstrap' | 'intervention';
