@@ -511,14 +511,25 @@ export class CanonEngine {
     return lines.join('\n');
   }
 
-  private registry(index: WorldIndex) {
+  /** Entities offered to extraction/discovery/review: the ones this text names (names and aliases), plus the
+   *  scene, recent events, the active plan and near HARD outcomes — not the whole cast (211 entities in a large
+   *  pack, in several calls per turn). Any other known entity can still be given by its exact name: the gate
+   *  resolves names to ids, and a "new" entity with a known name maps to the existing one. */
+  private registry(index: WorldIndex, text: string, extra: Iterable<Id> = []) {
     const pack = index.pack;
-    // One line per entry ("id | name | aliases | kind"): the same content as objects at about half the
-    // size; it goes into several calls per turn and grows with the cast.
+    const ids = new Set<Id>(extra);
+    for (const m of index.scanEntities(text)) ids.add(m.id);
+    for (const o of [...index.state.occurrences.values()].sort((a, b) => b.seq - a.seq).slice(0, 15)) [...o.actors, ...o.affected, ...o.locations].forEach((x) => ids.add(x));
+    for (const s of this.activePlan()?.steps || []) if (s.status !== 'invalidated') [...s.actors, ...(s.targets || [])].forEach((x) => ids.add(x));
+    const tick = index.state.clock.lo;
+    for (const h of pendingHard(pack, index.state)) if (h.lo <= tick + this.settings.horizonMinutes) h.event.outcomes.forEach((o) => ids.add(o.entity_id));
+    // One line per entry ("id | name | aliases | kind"): half the size of objects.
     const ent = (e: { id: string; name: string; aliases?: string[]; kind: string }) => `${e.id} | ${e.name} | ${(e.aliases || []).join(', ')} | ${e.kind}`;
+    const all = [...pack.entities.values(), ...index.state.runtimeEntities.values()];
     return {
       entities_format: 'id | name | aliases | kind',
-      entities: [...pack.entities.values(), ...index.state.runtimeEntities.values()].map(ent),
+      entities_note: `Entities relevant to this text (${ids.size} of ${all.length} known). For any other known person, place or thing use its exact name; the engine resolves it.`,
+      entities: all.filter((e) => ids.has(e.id)).map(ent),
       predicates: [...pack.predicates.values()].map((p) => `${p.id} (${p.value_type}${p.allowed_values?.length ? `: ${p.allowed_values.join('/')}` : ''}): ${p.description}`),
     };
   }
@@ -541,7 +552,7 @@ export class CanonEngine {
       message: entry.text,
       persona: this.host.persona(),
       current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
-      registry: this.registry(index),
+      registry: this.registry(index, entry.text),
       occurrences: this.occurrenceCatalogue(index, entry.text),
       opportunities,
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(entry.text) }), this.settings.taskTimeoutMs * 4, signal);
@@ -713,7 +724,7 @@ export class CanonEngine {
     const disc = this.discCache.get(discKey) || this.rememberDiscovery(discKey, await this.withTimeout(callStructured<DiscoverOut>(this.host.model, 'discover', PROMPTS.discover, {
       text: a.text,
       scene_framing: a.userEntry ? `Player input: ${a.userEntry.text}` : '',
-      registry: this.registry(index),
+      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), a.sceneSeeds),
       occurrences: this.occurrenceCatalogue(index, a.text + ' ' + (a.userEntry?.text || '')),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal).catch((e) => {
       if (!(e instanceof EngineError) || e.kind !== 'invalid_model_json') throw e;
@@ -746,7 +757,7 @@ export class CanonEngine {
     });
     const packet = buildPacket({
       pack, index, retrieval, checkpointTick: Math.max(tick, a.expectedEnd ?? tick), origin: this.campaign()?.binding.originDate || null, sceneLabel: '',
-      playerScope: a.userEntry ? [a.userEntry.text] : [], plan: a.plan, forced: a.forced, stagedNotes: a.stagedNotes, opportunities: [], budgetChars: this.settings.budgetChars * 2,
+      playerScope: a.userEntry ? [a.userEntry.text] : [], plan: a.plan, forced: a.forced, stagedNotes: a.stagedNotes, opportunities: [], budgetChars: this.settings.budgetChars * 2, review: true,
       horizon: this.settings.horizonMinutes,
     });
     const due = pendingHard(pack, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
@@ -762,7 +773,7 @@ export class CanonEngine {
       staged_offscreen: a.stagedNotes,
       due_hard: due.map((h) => ({ event_id: h.event.id, required_description: h.event.required_description, outcomes: h.event.outcomes, earliest: h.event.when.earliest, latest: h.event.when.latest })),
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== 'invalidated').map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
-      registry: this.registry(index),
+      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.entities.keys(), ...a.sceneSeeds]),
       reeval_reasons: a.reevalReasons || [],
       canon_events_now: this.canonNow(index, tick),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
@@ -1541,6 +1552,56 @@ export class CanonEngine {
   }
 
   focusEvents(): Set<Id> { return new Set(this.campaign()?.focusEvents || []); }
+
+  /** 整理本局事件: the analysis model groups the player's events (not canon events) into episodes for the
+   *  timeline. Display only — history, causes and the GM context are unchanged. Groups are checked here:
+   *  known ids only, each event once, members consecutive in time order; anything else stays ungrouped. */
+  async digestEvents(signal?: AbortSignal): Promise<{ groups: number; events: number }> {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError('incompatible_adapter', 'engine state unavailable');
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; wait or cancel it first.');
+    const state = this.current.replay.state;
+    const origin = c.binding.originDate || null;
+    const names = (ids: string[]) => ids.map((x) => this.current!.index.entityName(x)).join('、');
+    const events = [...state.occurrences.values()].filter((o) => !o.packEventId).sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq);
+    const groups: import('./types').DigestGroup[] = [];
+    const BATCH = 80;
+    for (let b = 0; b < events.length; b += BATCH) {
+      const batch = events.slice(b, b + BATCH);
+      // short aliases instead of long occurrence ids: cheaper, and nothing to mistype
+      const alias = new Map(batch.map((o, i) => [`e${i + 1}`, o.occurrenceId]));
+      const pos = new Map(batch.map((o, i) => [o.occurrenceId, i]));
+      const out = await this.withTimeout(callStructured<{ groups: { member_ids: string[]; title: string; summary: string }[] }>(this.host.model, 'digest', PROMPTS.digest, {
+        events: batch.map((o, i) => ({ id: `e${i + 1}`, time: formatTick(o.time.lo, origin), title: o.title, what: o.account.length > 140 ? o.account.slice(0, 137) + '…' : o.account, where: names(o.locations), who: names(o.actors) })),
+      }, { signal, operationId: 'digest', log: (l) => this.debugLog('task', l), maxTokens: 6000 }), this.settings.taskTimeoutMs * 4, signal);
+      const used = new Set<string>();
+      for (const g of out.groups) {
+        const ids = uniq(g.member_ids.map((x) => alias.get(x.trim()) || '').filter((x) => x && !used.has(x)));
+        const ps = ids.map((x) => pos.get(x)!).sort((p, q) => p - q);
+        if (ids.length < 2 || ps[ps.length - 1] - ps[0] !== ps.length - 1) continue; // not a consecutive run: leave ungrouped
+        ids.forEach((x) => used.add(x));
+        groups.push({ id: newId('dg'), title: g.title.trim().slice(0, 40), summary: g.summary.trim().slice(0, 600), members: ps.map((p) => batch[p].occurrenceId) });
+      }
+    }
+    c.eventDigest = { at: this.host.now(), groups };
+    await this.host.save();
+    return { groups: groups.length, events: groups.reduce((n, g) => n + g.members.length, 0) };
+  }
+
+  async clearDigest(): Promise<void> {
+    const c = this.campaign();
+    if (!c?.eventDigest) return;
+    delete c.eventDigest;
+    await this.host.save();
+  }
+
+  /** Digest groups whose events still exist (edits may have removed some); a group needs 2+ remaining events. */
+  digestGroups(): import('./types').DigestGroup[] {
+    const c = this.campaign();
+    const occ = this.current?.replay.state.occurrences;
+    if (!c?.eventDigest || !occ) return [];
+    return c.eventDigest.groups.map((g) => ({ ...g, members: g.members.filter((m) => occ.has(m)) })).filter((g) => g.members.length >= 2);
+  }
 
   private focusLines(index: WorldIndex, clock: number): string[] {
     const c = this.campaign();

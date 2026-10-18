@@ -139,6 +139,7 @@ export function defaultTask(task: TaskName, input: any): any {
       const c = input.candidate || {};
       return { adjudications: c.id ? [{ event_id: c.id, decision: 'occurred', time: null, account: `Offscreen: ${c.title}. ${c.required_description || c.original_summary}`, actors: c.entities || [], causes: [], effects: (c.original_outcomes || []).map((o: any) => ({ op: 'set', entity_id: o.entity_id, predicate: o.predicate, value: o.value })), plan_step_ids: [], reason: 'scripted', extraordinary: !!input.authorized_forced }] : [] };
     }
+    case 'digest': return { groups: [] };
     case 'impact': return { changed: [], affected_anchors: [], affected_steps: [], scope: 'local', severity: 'none', replan: false, explanation: 'scripted' };
     case 'plan': {
       const now = input.now?.tick ?? 0;

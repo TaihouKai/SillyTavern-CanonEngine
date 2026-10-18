@@ -8,13 +8,14 @@ import evaluateSchema from '../../schemas/runtime/evaluate.schema.json';
 import adjudicateSchema from '../../schemas/runtime/adjudicate.schema.json';
 import impactSchema from '../../schemas/runtime/impact.schema.json';
 import planSchema from '../../schemas/runtime/plan.schema.json';
+import digestSchema from '../../schemas/runtime/digest.schema.json';
 
 const TASK_SCHEMAS: Record<string, Record<string, any>> = {
-  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema,
+  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema,
 };
 import { EngineError } from '../domain/util';
 
-export type TaskName = 'extract_user' | 'discover' | 'evaluate' | 'adjudicate' | 'impact' | 'plan';
+export type TaskName = 'extract_user' | 'discover' | 'evaluate' | 'adjudicate' | 'impact' | 'plan' | 'digest';
 
 export interface ChatMsg { role: 'system' | 'user' | 'assistant'; content: string }
 
@@ -55,6 +56,7 @@ const validators: Record<TaskName, ((d: unknown) => boolean) & { errors?: { inst
   evaluate: V.evaluate,
   adjudicate: V.adjudicate,
   impact: V.impact,
+  digest: V.digest,
   plan: V.plan,
 };
 

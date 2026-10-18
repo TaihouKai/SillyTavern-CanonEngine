@@ -1,0 +1,26 @@
+{
+ "type": "object",
+ "properties": {
+  "groups": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "member_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 },
+      "minItems": 1,
+      "maxItems": 200
+     },
+     "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+     "summary": { "type": "string", "maxLength": 2000 }
+    },
+    "required": ["member_ids", "title", "summary"],
+    "additionalProperties": false
+   },
+   "maxItems": 400
+  }
+ },
+ "required": ["groups"],
+ "additionalProperties": false
+}

@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.3.44';
+export const ENGINE_RELEASE = '1.3.45';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -195,7 +195,12 @@ export interface CampaignData {
   manualRecords?: ManualRecord[];
   /** Events the player marked 关注 (wants to experience): the GM/planner give the player chances to be there when they start. */
   focusEvents?: string[];
+  /** 整理本局事件: display-only episodes of the player's events for the timeline (never used as history). */
+  eventDigest?: EventDigest;
 }
+
+export interface EventDigest { at: number; groups: DigestGroup[] }
+export interface DigestGroup { id: string; title: string; summary: string; members: string[] }
 
 export interface ManualRecord { afterMessageId: string | null; record: RecordDraft; at: number }
 

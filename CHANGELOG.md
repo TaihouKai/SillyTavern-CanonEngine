@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.45 — 2026-10-18
+
+- **整理本局事件 (Tidy my events):** a button at the top of the timeline. The analysis model groups your 本局事件 into episodes (consecutive beats of one storyline), one box each with a title and a short summary (live finding: 112 events in two story days drew 40+ purple boxes even with scene grouping on). Display only — history, causes and the GM context are untouched. The engine checks the model's groups (known events only, each once, consecutive in time); anything else stays as it was. The model sees short aliases (e1, e2, …), not occurrence ids. Groups shrink when edits remove their events and disappear below two; events added later show normally until you press the button again; **还原** removes the grouping.
+- **Smaller analysis calls (measured on the live campaign):** the registry sent to extraction, discovery and review now lists the entities relevant to the text — those it names, the scene, recent events, the active plan and near HARD outcomes — instead of the whole cast: 259 → 26 entities, about 10.7k → 1.1k characters in each of three calls per turn. Other entities can still be given by exact name (the gate resolves names; a "new" entity with a known name maps to the existing one).
+- **The reviewer's copy of the context** no longer repeats what it gets as separate inputs (player input, due HARD events, canon events now) or the GM-only background (canon routes, where others stand, participation hints).
+- **Causal history is followed 2 steps back** (3 for an event the text names) instead of to the start of play, so retrieval stops growing with campaign length; nearest causes first.
+- README/guide: realistic context sizes, and why SillyTavern's token counter overstates them (double-counted in-chat injections; an OpenAI tokenizer for unrecognised model names — about 1.6× for Chinese with a Qwen model).
+- Tests D01–D03, B04, B05.
+
 ## 1.3.44 — 2026-10-18
 
 - **The GM context no longer grows with every turn (live finding: a turn failed at 65k characters):** each history record listed *every* later change to the facts it had set, each with its full summary. A fact that changes almost every turn — the player character's location — dragged its whole movement log into every record that had once set it (4,000 characters on one record). A record now shows only the latest change per fact, with a count of the earlier ones; the current values are in the entity-state section anyway. On the live campaign the history section went from 28.4k to 17.7k characters (whole packet 46k → 36k). The compact form also shortens the summaries inside later changes.

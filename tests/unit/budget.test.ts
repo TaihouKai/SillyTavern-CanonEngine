@@ -107,3 +107,27 @@ describe('scene entities do not snowball', () => {
     expect(interp.sceneEntities).toEqual(['harbor']);
   });
 });
+
+describe('analysis inputs stay small', () => {
+  it('B04 the registry lists the entities relevant to the text, not the whole cast; the reviewer copy drops duplicated sections', async () => {
+    const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
+    const x = makeEngine();
+    await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
+    await x.engine.reconcile('t');
+    x.host.addUser('I look for Mira.');
+    x.model.draft('Mira waves from the pier. [R1]');
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    const ev = x.model.tasks('evaluate').map((c: any) => c.input).find((v: any) => String(v.candidate).includes('Mira waves'));
+    const all = x.engine.current!.index.pack.entities.size;
+    expect(ev.registry.entities.some((e: string) => e.startsWith('mira |'))).toBe(true);
+    expect(ev.registry.entities.length).toBeLessThan(all);
+    expect(ev.registry.entities_note).toMatch(/exact name/);
+    expect(ev.retrieved_context).not.toContain('PLAYER SCOPE');
+    expect(ev.retrieved_context).not.toContain('FUTURE OBLIGATIONS');
+    expect(ev.retrieved_context).not.toContain('WHERE OTHER CHARACTERS STAND');
+    // the story model's own context keeps them
+    const draft = x.model.tasks('draft')[0].input.engineContext;
+    expect(draft).toContain('PLAYER SCOPE');
+    expect(draft).toContain('FUTURE OBLIGATIONS');
+  });
+});

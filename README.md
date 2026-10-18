@@ -81,6 +81,7 @@ The **diagram icon in SillyTavern's top bar** opens the history graph. Boxes sit
 - **原作历史包 (pack):** the canonical graph as authored (contains spoilers).
 - Search, arc filter, lane toggles, drag to pan, wheel to zoom, *全览* to fit; click an event for its summary, required outcome, actual account and relations.
 - **强制完成** (red, under a canon event's description in 本局历史, click twice to confirm): records the event as happened along its original route, with its effects and HARD outcomes; later events that depend on it see it as happened, and the plan is rechecked on the next turn. **撤销强制完成** undoes it.
+- **整理本局事件** (top of the timeline): the analysis model groups your 本局事件 into episodes (consecutive beats of one storyline), one box each with a title and a short summary. Display only: history, causes and what the GM sees are unchanged; later events show as usual until you press it again; **还原** removes the grouping.
 - **☆ 关注** (future or ongoing SOFT/FREE events): from 24 hours before the event's window until it ends, the GM gives your character natural in-world chances to be there when it starts (an invitation, news, an errand) without forcing its course or result; the planner may add up to two such steps. Focus is cancelled automatically once the event is settled or its window passes.
 
 ### Edits, deletions and conflicts
@@ -105,7 +106,7 @@ Operational problems are shown out of story: invalid pack, unresolved starting t
 
 ## Context size
 
-The engine context (rules + retrieved history + state) typically adds 2–5k tokens per turn. Use a model context of at least 16k–32k tokens. If SillyTavern trims the engine context because the prompt does not fit, the turn stops with a *Context capacity* error instead of generating an unchecked reply.
+The engine context (rules + retrieved history + state) adds roughly 3–20k tokens to the story prompt, growing with the size of the pack and how much has happened (a large pack after a few days of story time: about 15k). Each turn also makes 3–4 analysis calls (extraction, discovery, review; planning and offscreen adjudication when needed) on the analysis connection; the review is the largest, about 1–2× the engine context. Use a model context of at least 64k tokens for a large pack. SillyTavern's own token counter may overstate the total: it double-counts in-chat injections across its categories and, for model names it does not recognise, counts with an OpenAI tokenizer (for Chinese text with a Qwen model about 1.6× too high). If SillyTavern trims the engine context because the prompt does not fit, the turn stops with a *Context capacity* error instead of generating an unchecked reply.
 
 ## Advanced settings
 

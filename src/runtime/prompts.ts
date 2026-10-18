@@ -66,6 +66,11 @@ player_interests lists non-HARD events the player wants to experience. You MAY a
 Write steps ONLY for the anchors in protected_hard_detailed (plus the optional player_interests steps) (the near horizon). hard_register is context for later anchors: do NOT write steps for them; they are planned when they come near. Use at most 8 steps; keep "action" to one short sentence.
 Each intended_effects value must have its predicate's declared type and be one of its "allowed" values when listed (a string predicate takes a string such as "毁坏", never true/false). For a step that brings about a HARD outcome, copy that outcome's exact value.
 SHAPE: {"rationale":"","protected_anchor_ids":[],"assumptions":[{"text":"","fact":null}],"risks":[],"mode":"NORMAL","steps":[{"step_id":"s1","actors":[],"targets":[],"earliest":{"day":0,"minute":0},"latest":{"day":0,"minute":0},"prerequisites":[],"action":"","intended_effects":[{"entity_id":"","predicate":"","value":true}],"visibility":"secret","knowers":[],"depends_on":[],"means":"ordinary","serves_anchor":null,"requires_player_consent":false}],"inadequacy_note":""}`,
+
+  digest: `${COMMON}
+TASK: Group the player's actual story events (in time order) into episodes for a timeline view. An episode is a run of CONSECUTIVE events that belong to one storyline or outing (e.g. going somewhere, what happens there, coming back), typically 3–15 events; a clear change of storyline, goal or day starts a new one. Every event id goes into exactly one group, in the given order; never reorder, skip or invent ids. A lone event may be its own group.
+For each group write a short title (at most 20 characters, in the language of the events) and a one- or two-sentence summary of what actually happened. Neutral and factual; no new facts.
+SHAPE: {"groups":[{"member_ids":[],"title":"","summary":""}]}`,
 } as const;
 
 // Every SHAPE lists the allowed values of its enum fields ("a|b|c"), generated from the runtime
@@ -76,6 +81,7 @@ import evaluateSchema from '../../schemas/runtime/evaluate.schema.json';
 import adjudicateSchema from '../../schemas/runtime/adjudicate.schema.json';
 import impactSchema from '../../schemas/runtime/impact.schema.json';
 import planSchema from '../../schemas/runtime/plan.schema.json';
+import digestSchema from '../../schemas/runtime/digest.schema.json';
 
 function enumsOf(schema: unknown): Map<string, string[]> {
   const found = new Map<string, string[]>();
@@ -106,7 +112,7 @@ export function annotateShape(prompt: string, schema: unknown): string {
 }
 
 const SCHEMAS: Record<keyof typeof RAW_PROMPTS, unknown> = {
-  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema,
+  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema,
 };
 export const PROMPTS = Object.fromEntries(Object.entries(RAW_PROMPTS).map(([k, v]) => [k, annotateShape(v, SCHEMAS[k as keyof typeof RAW_PROMPTS])])) as Record<keyof typeof RAW_PROMPTS, string>;
 

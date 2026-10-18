@@ -46,6 +46,7 @@ function defaultTask(task, input) {
       const c = input.candidate || {};
       return { adjudications: c.id ? [{ event_id: c.id, decision: 'occurred', time: null, account: `Offscreen: ${c.title} happened (${c.required_description || c.original_summary}).`, actors: c.entities || [], causes: [], effects: (c.original_outcomes || []).map((o) => ({ op: 'set', entity_id: o.entity_id, predicate: o.predicate, value: o.value })), plan_step_ids: [], reason: 'mock adjudication', extraordinary: !!input.authorized_forced }] : [] };
     }
+    case 'digest': return { groups: (input.events || []).length > 1 ? [{ member_ids: input.events.map((e) => e.id), title: 'mock episode', summary: 'mock' }] : [] };
     case 'impact': return { changed: [], affected_anchors: [], affected_steps: [], scope: 'local', severity: 'none', replan: false, explanation: 'mock' };
     case 'plan': {
       const now = input.now?.tick ?? 0;

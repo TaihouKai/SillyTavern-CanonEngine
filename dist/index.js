@@ -5526,13 +5526,249 @@ function validate51(data, { instancePath = "", parentData, parentDataProperty, r
   return errors === 0;
 }
 validate51.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var discover = validate52;
-var schema78 = { "type": "object", "properties": { "references": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" }, "phrase": { "type": "string" }, "ref_kind": { "enum": ["person", "place", "object", "organization", "event", "other"] }, "mode": { "enum": ["direct", "indirect", "alias", "pronoun"] }, "assertion": { "enum": ["narrator", "new_event", "belief", "rumor", "lie", "hypothetical", "flashback", "dialogue", "user_input", "plan"] }, "temporal": { "enum": ["present", "past", "flashback", "future"] }, "candidate_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 } }, "required": ["id", "quote", "phrase", "ref_kind", "assertion", "temporal"], "additionalProperties": false }, "maxItems": 200 }, "claims": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" }, "kind": { "enum": ["state", "capability", "recollection", "causal", "location", "presence", "operation", "time"] }, "entity_phrases": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "assertion": { "enum": ["narrator", "new_event", "belief", "rumor", "lie", "hypothetical", "flashback", "dialogue", "user_input", "plan"] }, "expected": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }] } }, "required": ["id", "quote", "kind", "assertion"], "additionalProperties": false }, "maxItems": 200 } }, "required": ["references", "claims"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:discover", "title": "Canon Engine task output: discover" };
+var digest = validate52;
 function validate52(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
   const evaluated0 = validate52.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.groups === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "groups" }, message: "must have required property 'groups'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "groups")) {
+        const err1 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err1];
+        } else {
+          vErrors.push(err1);
+        }
+        errors++;
+      }
+    }
+    if (data.groups !== void 0) {
+      let data0 = data.groups;
+      if (Array.isArray(data0)) {
+        if (data0.length > 400) {
+          const err2 = { instancePath: instancePath + "/groups", schemaPath: "#/properties/groups/maxItems", keyword: "maxItems", params: { limit: 400 }, message: "must NOT have more than 400 items" };
+          if (vErrors === null) {
+            vErrors = [err2];
+          } else {
+            vErrors.push(err2);
+          }
+          errors++;
+        }
+        const len0 = data0.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          let data1 = data0[i0];
+          if (data1 && typeof data1 == "object" && !Array.isArray(data1)) {
+            if (data1.member_ids === void 0) {
+              const err3 = { instancePath: instancePath + "/groups/" + i0, schemaPath: "#/properties/groups/items/required", keyword: "required", params: { missingProperty: "member_ids" }, message: "must have required property 'member_ids'" };
+              if (vErrors === null) {
+                vErrors = [err3];
+              } else {
+                vErrors.push(err3);
+              }
+              errors++;
+            }
+            if (data1.title === void 0) {
+              const err4 = { instancePath: instancePath + "/groups/" + i0, schemaPath: "#/properties/groups/items/required", keyword: "required", params: { missingProperty: "title" }, message: "must have required property 'title'" };
+              if (vErrors === null) {
+                vErrors = [err4];
+              } else {
+                vErrors.push(err4);
+              }
+              errors++;
+            }
+            if (data1.summary === void 0) {
+              const err5 = { instancePath: instancePath + "/groups/" + i0, schemaPath: "#/properties/groups/items/required", keyword: "required", params: { missingProperty: "summary" }, message: "must have required property 'summary'" };
+              if (vErrors === null) {
+                vErrors = [err5];
+              } else {
+                vErrors.push(err5);
+              }
+              errors++;
+            }
+            for (const key1 in data1) {
+              if (!(key1 === "member_ids" || key1 === "title" || key1 === "summary")) {
+                const err6 = { instancePath: instancePath + "/groups/" + i0, schemaPath: "#/properties/groups/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
+                if (vErrors === null) {
+                  vErrors = [err6];
+                } else {
+                  vErrors.push(err6);
+                }
+                errors++;
+              }
+            }
+            if (data1.member_ids !== void 0) {
+              let data2 = data1.member_ids;
+              if (Array.isArray(data2)) {
+                if (data2.length > 200) {
+                  const err7 = { instancePath: instancePath + "/groups/" + i0 + "/member_ids", schemaPath: "#/properties/groups/items/properties/member_ids/maxItems", keyword: "maxItems", params: { limit: 200 }, message: "must NOT have more than 200 items" };
+                  if (vErrors === null) {
+                    vErrors = [err7];
+                  } else {
+                    vErrors.push(err7);
+                  }
+                  errors++;
+                }
+                if (data2.length < 1) {
+                  const err8 = { instancePath: instancePath + "/groups/" + i0 + "/member_ids", schemaPath: "#/properties/groups/items/properties/member_ids/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
+                  if (vErrors === null) {
+                    vErrors = [err8];
+                  } else {
+                    vErrors.push(err8);
+                  }
+                  errors++;
+                }
+                const len1 = data2.length;
+                for (let i1 = 0; i1 < len1; i1++) {
+                  let data3 = data2[i1];
+                  if (typeof data3 === "string") {
+                    if (func2(data3) > 200) {
+                      const err9 = { instancePath: instancePath + "/groups/" + i0 + "/member_ids/" + i1, schemaPath: "#/properties/groups/items/properties/member_ids/items/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
+                      if (vErrors === null) {
+                        vErrors = [err9];
+                      } else {
+                        vErrors.push(err9);
+                      }
+                      errors++;
+                    }
+                    if (func2(data3) < 1) {
+                      const err10 = { instancePath: instancePath + "/groups/" + i0 + "/member_ids/" + i1, schemaPath: "#/properties/groups/items/properties/member_ids/items/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+                      if (vErrors === null) {
+                        vErrors = [err10];
+                      } else {
+                        vErrors.push(err10);
+                      }
+                      errors++;
+                    }
+                  } else {
+                    const err11 = { instancePath: instancePath + "/groups/" + i0 + "/member_ids/" + i1, schemaPath: "#/properties/groups/items/properties/member_ids/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err11];
+                    } else {
+                      vErrors.push(err11);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err12 = { instancePath: instancePath + "/groups/" + i0 + "/member_ids", schemaPath: "#/properties/groups/items/properties/member_ids/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err12];
+                } else {
+                  vErrors.push(err12);
+                }
+                errors++;
+              }
+            }
+            if (data1.title !== void 0) {
+              let data4 = data1.title;
+              if (typeof data4 === "string") {
+                if (func2(data4) > 200) {
+                  const err13 = { instancePath: instancePath + "/groups/" + i0 + "/title", schemaPath: "#/properties/groups/items/properties/title/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err13];
+                  } else {
+                    vErrors.push(err13);
+                  }
+                  errors++;
+                }
+                if (func2(data4) < 1) {
+                  const err14 = { instancePath: instancePath + "/groups/" + i0 + "/title", schemaPath: "#/properties/groups/items/properties/title/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err14];
+                  } else {
+                    vErrors.push(err14);
+                  }
+                  errors++;
+                }
+              } else {
+                const err15 = { instancePath: instancePath + "/groups/" + i0 + "/title", schemaPath: "#/properties/groups/items/properties/title/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err15];
+                } else {
+                  vErrors.push(err15);
+                }
+                errors++;
+              }
+            }
+            if (data1.summary !== void 0) {
+              let data5 = data1.summary;
+              if (typeof data5 === "string") {
+                if (func2(data5) > 2e3) {
+                  const err16 = { instancePath: instancePath + "/groups/" + i0 + "/summary", schemaPath: "#/properties/groups/items/properties/summary/maxLength", keyword: "maxLength", params: { limit: 2e3 }, message: "must NOT have more than 2000 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err16];
+                  } else {
+                    vErrors.push(err16);
+                  }
+                  errors++;
+                }
+              } else {
+                const err17 = { instancePath: instancePath + "/groups/" + i0 + "/summary", schemaPath: "#/properties/groups/items/properties/summary/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err17];
+                } else {
+                  vErrors.push(err17);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err18 = { instancePath: instancePath + "/groups/" + i0, schemaPath: "#/properties/groups/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            if (vErrors === null) {
+              vErrors = [err18];
+            } else {
+              vErrors.push(err18);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err19 = { instancePath: instancePath + "/groups", schemaPath: "#/properties/groups/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err19];
+        } else {
+          vErrors.push(err19);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err20 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err20];
+    } else {
+      vErrors.push(err20);
+    }
+    errors++;
+  }
+  validate52.errors = vErrors;
+  return errors === 0;
+}
+validate52.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var discover = validate53;
+var schema79 = { "type": "object", "properties": { "references": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" }, "phrase": { "type": "string" }, "ref_kind": { "enum": ["person", "place", "object", "organization", "event", "other"] }, "mode": { "enum": ["direct", "indirect", "alias", "pronoun"] }, "assertion": { "enum": ["narrator", "new_event", "belief", "rumor", "lie", "hypothetical", "flashback", "dialogue", "user_input", "plan"] }, "temporal": { "enum": ["present", "past", "flashback", "future"] }, "candidate_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 } }, "required": ["id", "quote", "phrase", "ref_kind", "assertion", "temporal"], "additionalProperties": false }, "maxItems": 200 }, "claims": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" }, "kind": { "enum": ["state", "capability", "recollection", "causal", "location", "presence", "operation", "time"] }, "entity_phrases": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "assertion": { "enum": ["narrator", "new_event", "belief", "rumor", "lie", "hypothetical", "flashback", "dialogue", "user_input", "plan"] }, "expected": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }] } }, "required": ["id", "quote", "kind", "assertion"], "additionalProperties": false }, "maxItems": 200 } }, "required": ["references", "claims"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:discover", "title": "Canon Engine task output: discover" };
+function validate53(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  ;
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate53.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -5706,7 +5942,7 @@ function validate52(data, { instancePath = "", parentData, parentDataProperty, r
             if (data1.ref_kind !== void 0) {
               let data5 = data1.ref_kind;
               if (!(data5 === "person" || data5 === "place" || data5 === "object" || data5 === "organization" || data5 === "event" || data5 === "other")) {
-                const err16 = { instancePath: instancePath + "/references/" + i0 + "/ref_kind", schemaPath: "#/properties/references/items/properties/ref_kind/enum", keyword: "enum", params: { allowedValues: schema78.properties.references.items.properties.ref_kind.enum }, message: "must be equal to one of the allowed values" };
+                const err16 = { instancePath: instancePath + "/references/" + i0 + "/ref_kind", schemaPath: "#/properties/references/items/properties/ref_kind/enum", keyword: "enum", params: { allowedValues: schema79.properties.references.items.properties.ref_kind.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err16];
                 } else {
@@ -5718,7 +5954,7 @@ function validate52(data, { instancePath = "", parentData, parentDataProperty, r
             if (data1.mode !== void 0) {
               let data6 = data1.mode;
               if (!(data6 === "direct" || data6 === "indirect" || data6 === "alias" || data6 === "pronoun")) {
-                const err17 = { instancePath: instancePath + "/references/" + i0 + "/mode", schemaPath: "#/properties/references/items/properties/mode/enum", keyword: "enum", params: { allowedValues: schema78.properties.references.items.properties.mode.enum }, message: "must be equal to one of the allowed values" };
+                const err17 = { instancePath: instancePath + "/references/" + i0 + "/mode", schemaPath: "#/properties/references/items/properties/mode/enum", keyword: "enum", params: { allowedValues: schema79.properties.references.items.properties.mode.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err17];
                 } else {
@@ -5730,7 +5966,7 @@ function validate52(data, { instancePath = "", parentData, parentDataProperty, r
             if (data1.assertion !== void 0) {
               let data7 = data1.assertion;
               if (!(data7 === "narrator" || data7 === "new_event" || data7 === "belief" || data7 === "rumor" || data7 === "lie" || data7 === "hypothetical" || data7 === "flashback" || data7 === "dialogue" || data7 === "user_input" || data7 === "plan")) {
-                const err18 = { instancePath: instancePath + "/references/" + i0 + "/assertion", schemaPath: "#/properties/references/items/properties/assertion/enum", keyword: "enum", params: { allowedValues: schema78.properties.references.items.properties.assertion.enum }, message: "must be equal to one of the allowed values" };
+                const err18 = { instancePath: instancePath + "/references/" + i0 + "/assertion", schemaPath: "#/properties/references/items/properties/assertion/enum", keyword: "enum", params: { allowedValues: schema79.properties.references.items.properties.assertion.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err18];
                 } else {
@@ -5742,7 +5978,7 @@ function validate52(data, { instancePath = "", parentData, parentDataProperty, r
             if (data1.temporal !== void 0) {
               let data8 = data1.temporal;
               if (!(data8 === "present" || data8 === "past" || data8 === "flashback" || data8 === "future")) {
-                const err19 = { instancePath: instancePath + "/references/" + i0 + "/temporal", schemaPath: "#/properties/references/items/properties/temporal/enum", keyword: "enum", params: { allowedValues: schema78.properties.references.items.properties.temporal.enum }, message: "must be equal to one of the allowed values" };
+                const err19 = { instancePath: instancePath + "/references/" + i0 + "/temporal", schemaPath: "#/properties/references/items/properties/temporal/enum", keyword: "enum", params: { allowedValues: schema79.properties.references.items.properties.temporal.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err19];
                 } else {
@@ -5913,7 +6149,7 @@ function validate52(data, { instancePath = "", parentData, parentDataProperty, r
             if (data12.kind !== void 0) {
               let data15 = data12.kind;
               if (!(data15 === "state" || data15 === "capability" || data15 === "recollection" || data15 === "causal" || data15 === "location" || data15 === "presence" || data15 === "operation" || data15 === "time")) {
-                const err35 = { instancePath: instancePath + "/claims/" + i2 + "/kind", schemaPath: "#/properties/claims/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema78.properties.claims.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+                const err35 = { instancePath: instancePath + "/claims/" + i2 + "/kind", schemaPath: "#/properties/claims/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema79.properties.claims.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err35];
                 } else {
@@ -5959,7 +6195,7 @@ function validate52(data, { instancePath = "", parentData, parentDataProperty, r
             if (data12.assertion !== void 0) {
               let data18 = data12.assertion;
               if (!(data18 === "narrator" || data18 === "new_event" || data18 === "belief" || data18 === "rumor" || data18 === "lie" || data18 === "hypothetical" || data18 === "flashback" || data18 === "dialogue" || data18 === "user_input" || data18 === "plan")) {
-                const err39 = { instancePath: instancePath + "/claims/" + i2 + "/assertion", schemaPath: "#/properties/claims/items/properties/assertion/enum", keyword: "enum", params: { allowedValues: schema78.properties.claims.items.properties.assertion.enum }, message: "must be equal to one of the allowed values" };
+                const err39 = { instancePath: instancePath + "/claims/" + i2 + "/assertion", schemaPath: "#/properties/claims/items/properties/assertion/enum", keyword: "enum", params: { allowedValues: schema79.properties.claims.items.properties.assertion.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err39];
                 } else {
@@ -6269,17 +6505,17 @@ function validate52(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate52.errors = vErrors;
+  validate53.errors = vErrors;
   return errors === 0;
 }
-validate52.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var evaluate = validate53;
-var schema79 = { "type": "object", "properties": { "decision": { "enum": ["retain", "repair", "conflict"] }, "scene_end": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "flashback": { "type": "boolean" }, "claim_checks": { "type": "array", "items": { "type": "object", "properties": { "claim_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "verdict": { "enum": ["consistent", "contradiction", "unsupported", "belief_ok", "new_detail", "not_applicable"] }, "record_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "note": { "type": "string" } }, "required": ["claim_id", "verdict"], "additionalProperties": false }, "maxItems": 400 }, "transitions": { "type": "array", "items": { "type": "object", "properties": { "op": { "enum": ["set", "unset"] }, "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "occurrence_ref": { "type": ["string", "null"] } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, "maxItems": 200 }, "occurrences": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "title": { "type": "string" }, "account": { "type": "string" }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "affected": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "locations": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "causes": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "quote": { "type": "string" }, "pack_event_id": { "type": ["string", "null"] }, "disposition": { "enum": ["occurred", "diverged", null] }, "ref_phrases": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "continues": { "type": ["string", "null"], "maxLength": 200 }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "origin": { "enum": ["player", "gm", "intervention"] } }, "required": ["ref", "title", "account", "actors", "quote"], "additionalProperties": false }, "maxItems": 200 }, "state_claims": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["entity_id", "predicate", "value", "quote"], "additionalProperties": false }, "maxItems": 200 }, "player_actions": { "type": "array", "items": { "type": "object", "properties": { "quote": { "type": "string" }, "authorized_by_quote": { "type": ["string", "null"] } }, "required": ["quote", "authorized_by_quote"], "additionalProperties": false }, "maxItems": 200 }, "step_enactments": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "occurrence_ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" } }, "required": ["step_id", "occurrence_ref", "quote"], "additionalProperties": false }, "maxItems": 200 }, "new_entities": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "name": { "type": "string" }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "description": { "type": "string" }, "quote": { "type": "string" } }, "required": ["ref", "name", "kind", "description", "quote"], "additionalProperties": false }, "maxItems": 200 }, "violations": { "type": "array", "items": { "type": "object", "properties": { "code": { "type": "string" }, "quote": { "type": "string" }, "detail": { "type": "string" }, "blocking": { "type": "boolean" } }, "required": ["code", "detail"], "additionalProperties": false }, "maxItems": 200 }, "hard_checks": { "type": "array", "items": { "type": "object", "properties": { "event_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "status": { "enum": ["fulfilled", "not_due", "missing", "contradicted"] }, "occurrence_ref": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } }, "required": ["event_id", "status"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "summary": { "type": "string" } }, "required": ["decision", "scene_end", "claim_checks", "transitions", "occurrences", "state_claims", "player_actions", "violations", "hard_checks"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:evaluate", "title": "Canon Engine task output: evaluate" };
-function validate53(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+validate53.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var evaluate = validate54;
+var schema80 = { "type": "object", "properties": { "decision": { "enum": ["retain", "repair", "conflict"] }, "scene_end": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "flashback": { "type": "boolean" }, "claim_checks": { "type": "array", "items": { "type": "object", "properties": { "claim_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "verdict": { "enum": ["consistent", "contradiction", "unsupported", "belief_ok", "new_detail", "not_applicable"] }, "record_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "note": { "type": "string" } }, "required": ["claim_id", "verdict"], "additionalProperties": false }, "maxItems": 400 }, "transitions": { "type": "array", "items": { "type": "object", "properties": { "op": { "enum": ["set", "unset"] }, "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "occurrence_ref": { "type": ["string", "null"] } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, "maxItems": 200 }, "occurrences": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "title": { "type": "string" }, "account": { "type": "string" }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "affected": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "locations": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "causes": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "quote": { "type": "string" }, "pack_event_id": { "type": ["string", "null"] }, "disposition": { "enum": ["occurred", "diverged", null] }, "ref_phrases": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "continues": { "type": ["string", "null"], "maxLength": 200 }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "origin": { "enum": ["player", "gm", "intervention"] } }, "required": ["ref", "title", "account", "actors", "quote"], "additionalProperties": false }, "maxItems": 200 }, "state_claims": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["entity_id", "predicate", "value", "quote"], "additionalProperties": false }, "maxItems": 200 }, "player_actions": { "type": "array", "items": { "type": "object", "properties": { "quote": { "type": "string" }, "authorized_by_quote": { "type": ["string", "null"] } }, "required": ["quote", "authorized_by_quote"], "additionalProperties": false }, "maxItems": 200 }, "step_enactments": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "occurrence_ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" } }, "required": ["step_id", "occurrence_ref", "quote"], "additionalProperties": false }, "maxItems": 200 }, "new_entities": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "name": { "type": "string" }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "description": { "type": "string" }, "quote": { "type": "string" } }, "required": ["ref", "name", "kind", "description", "quote"], "additionalProperties": false }, "maxItems": 200 }, "violations": { "type": "array", "items": { "type": "object", "properties": { "code": { "type": "string" }, "quote": { "type": "string" }, "detail": { "type": "string" }, "blocking": { "type": "boolean" } }, "required": ["code", "detail"], "additionalProperties": false }, "maxItems": 200 }, "hard_checks": { "type": "array", "items": { "type": "object", "properties": { "event_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "status": { "enum": ["fulfilled", "not_due", "missing", "contradicted"] }, "occurrence_ref": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } }, "required": ["event_id", "status"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "summary": { "type": "string" } }, "required": ["decision", "scene_end", "claim_checks", "transitions", "occurrences", "state_claims", "player_actions", "violations", "hard_checks"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:evaluate", "title": "Canon Engine task output: evaluate" };
+function validate54(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate53.evaluated;
+  const evaluated0 = validate54.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -6369,7 +6605,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
       errors++;
     }
     for (const key0 in data) {
-      if (!func1.call(schema79.properties, key0)) {
+      if (!func1.call(schema80.properties, key0)) {
         const err9 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
           vErrors = [err9];
@@ -6382,7 +6618,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.decision !== void 0) {
       let data0 = data.decision;
       if (!(data0 === "retain" || data0 === "repair" || data0 === "conflict")) {
-        const err10 = { instancePath: instancePath + "/decision", schemaPath: "#/properties/decision/enum", keyword: "enum", params: { allowedValues: schema79.properties.decision.enum }, message: "must be equal to one of the allowed values" };
+        const err10 = { instancePath: instancePath + "/decision", schemaPath: "#/properties/decision/enum", keyword: "enum", params: { allowedValues: schema80.properties.decision.enum }, message: "must be equal to one of the allowed values" };
         if (vErrors === null) {
           vErrors = [err10];
         } else {
@@ -6626,7 +6862,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
         if (data1.precision !== void 0) {
           let data8 = data1.precision;
           if (!(data8 === "minute" || data8 === "day" || data8 === "range" || data8 === "approx")) {
-            const err32 = { instancePath: instancePath + "/scene_end/precision", schemaPath: "#/properties/scene_end/oneOf/1/properties/precision/enum", keyword: "enum", params: { allowedValues: schema79.properties.scene_end.oneOf[1].properties.precision.enum }, message: "must be equal to one of the allowed values" };
+            const err32 = { instancePath: instancePath + "/scene_end/precision", schemaPath: "#/properties/scene_end/oneOf/1/properties/precision/enum", keyword: "enum", params: { allowedValues: schema80.properties.scene_end.oneOf[1].properties.precision.enum }, message: "must be equal to one of the allowed values" };
             if (vErrors === null) {
               vErrors = [err32];
             } else {
@@ -6763,7 +6999,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data11.verdict !== void 0) {
               let data13 = data11.verdict;
               if (!(data13 === "consistent" || data13 === "contradiction" || data13 === "unsupported" || data13 === "belief_ok" || data13 === "new_detail" || data13 === "not_applicable")) {
-                const err43 = { instancePath: instancePath + "/claim_checks/" + i0 + "/verdict", schemaPath: "#/properties/claim_checks/items/properties/verdict/enum", keyword: "enum", params: { allowedValues: schema79.properties.claim_checks.items.properties.verdict.enum }, message: "must be equal to one of the allowed values" };
+                const err43 = { instancePath: instancePath + "/claim_checks/" + i0 + "/verdict", schemaPath: "#/properties/claim_checks/items/properties/verdict/enum", keyword: "enum", params: { allowedValues: schema80.properties.claim_checks.items.properties.verdict.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err43];
                 } else {
@@ -6894,7 +7130,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data18.op !== void 0) {
               let data19 = data18.op;
               if (!(data19 === "set" || data19 === "unset")) {
-                const err55 = { instancePath: instancePath + "/transitions/" + i2 + "/op", schemaPath: "#/properties/transitions/items/properties/op/enum", keyword: "enum", params: { allowedValues: schema79.properties.transitions.items.properties.op.enum }, message: "must be equal to one of the allowed values" };
+                const err55 = { instancePath: instancePath + "/transitions/" + i2 + "/op", schemaPath: "#/properties/transitions/items/properties/op/enum", keyword: "enum", params: { allowedValues: schema80.properties.transitions.items.properties.op.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err55];
                 } else {
@@ -7091,7 +7327,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data18.occurrence_ref !== void 0) {
               let data25 = data18.occurrence_ref;
               if (typeof data25 !== "string" && data25 !== null) {
-                const err69 = { instancePath: instancePath + "/transitions/" + i2 + "/occurrence_ref", schemaPath: "#/properties/transitions/items/properties/occurrence_ref/type", keyword: "type", params: { type: schema79.properties.transitions.items.properties.occurrence_ref.type }, message: "must be string,null" };
+                const err69 = { instancePath: instancePath + "/transitions/" + i2 + "/occurrence_ref", schemaPath: "#/properties/transitions/items/properties/occurrence_ref/type", keyword: "type", params: { type: schema80.properties.transitions.items.properties.occurrence_ref.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err69];
                 } else {
@@ -7182,7 +7418,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
               errors++;
             }
             for (const key6 in data27) {
-              if (!func1.call(schema79.properties.occurrences.items.properties, key6)) {
+              if (!func1.call(schema80.properties.occurrences.items.properties, key6)) {
                 const err78 = { instancePath: instancePath + "/occurrences/" + i4, schemaPath: "#/properties/occurrences/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key6 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
                   vErrors = [err78];
@@ -7582,7 +7818,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
                 if (data37.precision !== void 0) {
                   let data44 = data37.precision;
                   if (!(data44 === "minute" || data44 === "day" || data44 === "range" || data44 === "approx")) {
-                    const err114 = { instancePath: instancePath + "/occurrences/" + i4 + "/time/precision", schemaPath: "#/properties/occurrences/items/properties/time/oneOf/1/properties/precision/enum", keyword: "enum", params: { allowedValues: schema79.properties.occurrences.items.properties.time.oneOf[1].properties.precision.enum }, message: "must be equal to one of the allowed values" };
+                    const err114 = { instancePath: instancePath + "/occurrences/" + i4 + "/time/precision", schemaPath: "#/properties/occurrences/items/properties/time/oneOf/1/properties/precision/enum", keyword: "enum", params: { allowedValues: schema80.properties.occurrences.items.properties.time.oneOf[1].properties.precision.enum }, message: "must be equal to one of the allowed values" };
                     if (vErrors === null) {
                       vErrors = [err114];
                     } else {
@@ -7677,7 +7913,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data27.pack_event_id !== void 0) {
               let data48 = data27.pack_event_id;
               if (typeof data48 !== "string" && data48 !== null) {
-                const err121 = { instancePath: instancePath + "/occurrences/" + i4 + "/pack_event_id", schemaPath: "#/properties/occurrences/items/properties/pack_event_id/type", keyword: "type", params: { type: schema79.properties.occurrences.items.properties.pack_event_id.type }, message: "must be string,null" };
+                const err121 = { instancePath: instancePath + "/occurrences/" + i4 + "/pack_event_id", schemaPath: "#/properties/occurrences/items/properties/pack_event_id/type", keyword: "type", params: { type: schema80.properties.occurrences.items.properties.pack_event_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err121];
                 } else {
@@ -7689,7 +7925,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data27.disposition !== void 0) {
               let data49 = data27.disposition;
               if (!(data49 === "occurred" || data49 === "diverged" || data49 === null)) {
-                const err122 = { instancePath: instancePath + "/occurrences/" + i4 + "/disposition", schemaPath: "#/properties/occurrences/items/properties/disposition/enum", keyword: "enum", params: { allowedValues: schema79.properties.occurrences.items.properties.disposition.enum }, message: "must be equal to one of the allowed values" };
+                const err122 = { instancePath: instancePath + "/occurrences/" + i4 + "/disposition", schemaPath: "#/properties/occurrences/items/properties/disposition/enum", keyword: "enum", params: { allowedValues: schema80.properties.occurrences.items.properties.disposition.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err122];
                 } else {
@@ -7735,7 +7971,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data27.continues !== void 0) {
               let data52 = data27.continues;
               if (typeof data52 !== "string" && data52 !== null) {
-                const err126 = { instancePath: instancePath + "/occurrences/" + i4 + "/continues", schemaPath: "#/properties/occurrences/items/properties/continues/type", keyword: "type", params: { type: schema79.properties.occurrences.items.properties.continues.type }, message: "must be string,null" };
+                const err126 = { instancePath: instancePath + "/occurrences/" + i4 + "/continues", schemaPath: "#/properties/occurrences/items/properties/continues/type", keyword: "type", params: { type: schema80.properties.occurrences.items.properties.continues.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err126];
                 } else {
@@ -7758,7 +7994,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data27.visibility !== void 0) {
               let data53 = data27.visibility;
               if (!(data53 === "public" || data53 === "restricted" || data53 === "secret")) {
-                const err128 = { instancePath: instancePath + "/occurrences/" + i4 + "/visibility", schemaPath: "#/properties/occurrences/items/properties/visibility/enum", keyword: "enum", params: { allowedValues: schema79.properties.occurrences.items.properties.visibility.enum }, message: "must be equal to one of the allowed values" };
+                const err128 = { instancePath: instancePath + "/occurrences/" + i4 + "/visibility", schemaPath: "#/properties/occurrences/items/properties/visibility/enum", keyword: "enum", params: { allowedValues: schema80.properties.occurrences.items.properties.visibility.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err128];
                 } else {
@@ -7804,7 +8040,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data27.origin !== void 0) {
               let data56 = data27.origin;
               if (!(data56 === "player" || data56 === "gm" || data56 === "intervention")) {
-                const err132 = { instancePath: instancePath + "/occurrences/" + i4 + "/origin", schemaPath: "#/properties/occurrences/items/properties/origin/enum", keyword: "enum", params: { allowedValues: schema79.properties.occurrences.items.properties.origin.enum }, message: "must be equal to one of the allowed values" };
+                const err132 = { instancePath: instancePath + "/occurrences/" + i4 + "/origin", schemaPath: "#/properties/occurrences/items/properties/origin/enum", keyword: "enum", params: { allowedValues: schema80.properties.occurrences.items.properties.origin.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err132];
                 } else {
@@ -8293,7 +8529,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data68.authorized_by_quote !== void 0) {
               let data70 = data68.authorized_by_quote;
               if (typeof data70 !== "string" && data70 !== null) {
-                const err171 = { instancePath: instancePath + "/player_actions/" + i13 + "/authorized_by_quote", schemaPath: "#/properties/player_actions/items/properties/authorized_by_quote/type", keyword: "type", params: { type: schema79.properties.player_actions.items.properties.authorized_by_quote.type }, message: "must be string,null" };
+                const err171 = { instancePath: instancePath + "/player_actions/" + i13 + "/authorized_by_quote", schemaPath: "#/properties/player_actions/items/properties/authorized_by_quote/type", keyword: "type", params: { type: schema80.properties.player_actions.items.properties.authorized_by_quote.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err171];
                 } else {
@@ -8586,7 +8822,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data77.kind !== void 0) {
               let data80 = data77.kind;
               if (!(data80 === "person" || data80 === "organization" || data80 === "place" || data80 === "object" || data80 === "world" || data80 === "other")) {
-                const err199 = { instancePath: instancePath + "/new_entities/" + i15 + "/kind", schemaPath: "#/properties/new_entities/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema79.properties.new_entities.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+                const err199 = { instancePath: instancePath + "/new_entities/" + i15 + "/kind", schemaPath: "#/properties/new_entities/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema80.properties.new_entities.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err199];
                 } else {
@@ -8825,7 +9061,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data90.status !== void 0) {
               let data92 = data90.status;
               if (!(data92 === "fulfilled" || data92 === "not_due" || data92 === "missing" || data92 === "contradicted")) {
-                const err221 = { instancePath: instancePath + "/hard_checks/" + i17 + "/status", schemaPath: "#/properties/hard_checks/items/properties/status/enum", keyword: "enum", params: { allowedValues: schema79.properties.hard_checks.items.properties.status.enum }, message: "must be equal to one of the allowed values" };
+                const err221 = { instancePath: instancePath + "/hard_checks/" + i17 + "/status", schemaPath: "#/properties/hard_checks/items/properties/status/enum", keyword: "enum", params: { allowedValues: schema80.properties.hard_checks.items.properties.status.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err221];
                 } else {
@@ -8837,7 +9073,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data90.occurrence_ref !== void 0) {
               let data93 = data90.occurrence_ref;
               if (typeof data93 !== "string" && data93 !== null) {
-                const err222 = { instancePath: instancePath + "/hard_checks/" + i17 + "/occurrence_ref", schemaPath: "#/properties/hard_checks/items/properties/occurrence_ref/type", keyword: "type", params: { type: schema79.properties.hard_checks.items.properties.occurrence_ref.type }, message: "must be string,null" };
+                const err222 = { instancePath: instancePath + "/hard_checks/" + i17 + "/occurrence_ref", schemaPath: "#/properties/hard_checks/items/properties/occurrence_ref/type", keyword: "type", params: { type: schema80.properties.hard_checks.items.properties.occurrence_ref.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err222];
                 } else {
@@ -8849,7 +9085,7 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
             if (data90.quote !== void 0) {
               let data94 = data90.quote;
               if (typeof data94 !== "string" && data94 !== null) {
-                const err223 = { instancePath: instancePath + "/hard_checks/" + i17 + "/quote", schemaPath: "#/properties/hard_checks/items/properties/quote/type", keyword: "type", params: { type: schema79.properties.hard_checks.items.properties.quote.type }, message: "must be string,null" };
+                const err223 = { instancePath: instancePath + "/hard_checks/" + i17 + "/quote", schemaPath: "#/properties/hard_checks/items/properties/quote/type", keyword: "type", params: { type: schema80.properties.hard_checks.items.properties.quote.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err223];
                 } else {
@@ -8932,17 +9168,17 @@ function validate53(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate53.errors = vErrors;
+  validate54.errors = vErrors;
   return errors === 0;
 }
-validate53.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var extract_user = validate54;
-var schema80 = { "type": "object", "properties": { "statements": { "type": "array", "items": { "type": "object", "properties": { "kind": { "enum": ["asserted_fact", "attempted_action", "spoken_dialogue", "belief", "hypothetical", "ooc_config_request", "time_proposal", "participation_decline"] }, "quote": { "type": "string" }, "summary": { "type": "string" }, "entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "facts": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "event_id": { "type": ["string", "null"] }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "ambiguous": { "type": "boolean" } }, "required": ["kind", "quote", "summary"], "additionalProperties": false }, "maxItems": 200 }, "references": { "type": "array", "items": { "type": "object", "properties": { "phrase": { "type": "string" }, "quote": { "type": "string" }, "kind": { "enum": ["entity", "event"] }, "mode": { "enum": ["direct", "indirect", "alias", "pronoun"] }, "candidates": { "type": "array", "items": { "type": "string" }, "maxItems": 200 } }, "required": ["phrase", "quote", "kind"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 } }, "required": ["statements", "references"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:extract-user", "title": "Canon Engine task output: extract-user" };
-function validate54(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+validate54.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var extract_user = validate55;
+var schema81 = { "type": "object", "properties": { "statements": { "type": "array", "items": { "type": "object", "properties": { "kind": { "enum": ["asserted_fact", "attempted_action", "spoken_dialogue", "belief", "hypothetical", "ooc_config_request", "time_proposal", "participation_decline"] }, "quote": { "type": "string" }, "summary": { "type": "string" }, "entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "facts": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "event_id": { "type": ["string", "null"] }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "ambiguous": { "type": "boolean" } }, "required": ["kind", "quote", "summary"], "additionalProperties": false }, "maxItems": 200 }, "references": { "type": "array", "items": { "type": "object", "properties": { "phrase": { "type": "string" }, "quote": { "type": "string" }, "kind": { "enum": ["entity", "event"] }, "mode": { "enum": ["direct", "indirect", "alias", "pronoun"] }, "candidates": { "type": "array", "items": { "type": "string" }, "maxItems": 200 } }, "required": ["phrase", "quote", "kind"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 } }, "required": ["statements", "references"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:extract-user", "title": "Canon Engine task output: extract-user" };
+function validate55(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate54.evaluated;
+  const evaluated0 = validate55.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -9036,7 +9272,7 @@ function validate54(data, { instancePath = "", parentData, parentDataProperty, r
             if (data1.kind !== void 0) {
               let data2 = data1.kind;
               if (!(data2 === "asserted_fact" || data2 === "attempted_action" || data2 === "spoken_dialogue" || data2 === "belief" || data2 === "hypothetical" || data2 === "ooc_config_request" || data2 === "time_proposal" || data2 === "participation_decline")) {
-                const err8 = { instancePath: instancePath + "/statements/" + i0 + "/kind", schemaPath: "#/properties/statements/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema80.properties.statements.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+                const err8 = { instancePath: instancePath + "/statements/" + i0 + "/kind", schemaPath: "#/properties/statements/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema81.properties.statements.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err8];
                 } else {
@@ -9352,7 +9588,7 @@ function validate54(data, { instancePath = "", parentData, parentDataProperty, r
             if (data1.event_id !== void 0) {
               let data13 = data1.event_id;
               if (typeof data13 !== "string" && data13 !== null) {
-                const err33 = { instancePath: instancePath + "/statements/" + i0 + "/event_id", schemaPath: "#/properties/statements/items/properties/event_id/type", keyword: "type", params: { type: schema80.properties.statements.items.properties.event_id.type }, message: "must be string,null" };
+                const err33 = { instancePath: instancePath + "/statements/" + i0 + "/event_id", schemaPath: "#/properties/statements/items/properties/event_id/type", keyword: "type", params: { type: schema81.properties.statements.items.properties.event_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err33];
                 } else {
@@ -9604,7 +9840,7 @@ function validate54(data, { instancePath = "", parentData, parentDataProperty, r
             if (data19.kind !== void 0) {
               let data22 = data19.kind;
               if (!(data22 === "entity" || data22 === "event")) {
-                const err54 = { instancePath: instancePath + "/references/" + i4 + "/kind", schemaPath: "#/properties/references/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema80.properties.references.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+                const err54 = { instancePath: instancePath + "/references/" + i4 + "/kind", schemaPath: "#/properties/references/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema81.properties.references.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err54];
                 } else {
@@ -9616,7 +9852,7 @@ function validate54(data, { instancePath = "", parentData, parentDataProperty, r
             if (data19.mode !== void 0) {
               let data23 = data19.mode;
               if (!(data23 === "direct" || data23 === "indirect" || data23 === "alias" || data23 === "pronoun")) {
-                const err55 = { instancePath: instancePath + "/references/" + i4 + "/mode", schemaPath: "#/properties/references/items/properties/mode/enum", keyword: "enum", params: { allowedValues: schema80.properties.references.items.properties.mode.enum }, message: "must be equal to one of the allowed values" };
+                const err55 = { instancePath: instancePath + "/references/" + i4 + "/mode", schemaPath: "#/properties/references/items/properties/mode/enum", keyword: "enum", params: { allowedValues: schema81.properties.references.items.properties.mode.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err55];
                 } else {
@@ -9722,17 +9958,17 @@ function validate54(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate54.errors = vErrors;
+  validate55.errors = vErrors;
   return errors === 0;
 }
-validate54.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var impact = validate55;
-var schema81 = { "type": "object", "properties": { "changed": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 } }, "required": ["entity_id", "predicate"], "additionalProperties": false }, "maxItems": 200 }, "affected_anchors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "affected_steps": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "scope": { "enum": ["local", "global", "unknown"] }, "severity": { "enum": ["none", "minor", "major"] }, "replan": { "type": "boolean" }, "explanation": { "type": "string" } }, "required": ["changed", "affected_anchors", "affected_steps", "scope", "severity", "replan", "explanation"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:impact", "title": "Canon Engine task output: impact" };
-function validate55(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+validate55.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var impact = validate56;
+var schema82 = { "type": "object", "properties": { "changed": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 } }, "required": ["entity_id", "predicate"], "additionalProperties": false }, "maxItems": 200 }, "affected_anchors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "affected_steps": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "scope": { "enum": ["local", "global", "unknown"] }, "severity": { "enum": ["none", "minor", "major"] }, "replan": { "type": "boolean" }, "explanation": { "type": "string" } }, "required": ["changed", "affected_anchors", "affected_steps", "scope", "severity", "replan", "explanation"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:impact", "title": "Canon Engine task output: impact" };
+function validate56(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate55.evaluated;
+  const evaluated0 = validate56.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -10012,7 +10248,7 @@ function validate55(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.scope !== void 0) {
       let data8 = data.scope;
       if (!(data8 === "local" || data8 === "global" || data8 === "unknown")) {
-        const err26 = { instancePath: instancePath + "/scope", schemaPath: "#/properties/scope/enum", keyword: "enum", params: { allowedValues: schema81.properties.scope.enum }, message: "must be equal to one of the allowed values" };
+        const err26 = { instancePath: instancePath + "/scope", schemaPath: "#/properties/scope/enum", keyword: "enum", params: { allowedValues: schema82.properties.scope.enum }, message: "must be equal to one of the allowed values" };
         if (vErrors === null) {
           vErrors = [err26];
         } else {
@@ -10024,7 +10260,7 @@ function validate55(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.severity !== void 0) {
       let data9 = data.severity;
       if (!(data9 === "none" || data9 === "minor" || data9 === "major")) {
-        const err27 = { instancePath: instancePath + "/severity", schemaPath: "#/properties/severity/enum", keyword: "enum", params: { allowedValues: schema81.properties.severity.enum }, message: "must be equal to one of the allowed values" };
+        const err27 = { instancePath: instancePath + "/severity", schemaPath: "#/properties/severity/enum", keyword: "enum", params: { allowedValues: schema82.properties.severity.enum }, message: "must be equal to one of the allowed values" };
         if (vErrors === null) {
           vErrors = [err27];
         } else {
@@ -10064,17 +10300,17 @@ function validate55(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate55.errors = vErrors;
+  validate56.errors = vErrors;
   return errors === 0;
 }
-validate55.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var plan = validate56;
-var schema82 = { "type": "object", "properties": { "rationale": { "type": "string" }, "protected_anchor_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "assumptions": { "type": "array", "items": { "type": "object", "properties": { "text": { "type": "string" }, "fact": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }] } }, "required": ["text", "fact"], "additionalProperties": false }, "maxItems": 200 }, "risks": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "mode": { "enum": ["NORMAL", "FORCED_CONVERGENCE"] }, "steps": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "targets": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "earliest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "latest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "prerequisites": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "action": { "type": "string" }, "intended_effects": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "depends_on": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "means": { "enum": ["ordinary", "extraordinary"] }, "serves_anchor": { "type": ["string", "null"] }, "requires_player_consent": { "type": "boolean" } }, "required": ["step_id", "actors", "earliest", "latest", "action", "intended_effects", "means", "serves_anchor", "requires_player_consent"], "additionalProperties": false }, "maxItems": 40 }, "inadequacy_note": { "type": "string" } }, "required": ["rationale", "protected_anchor_ids", "assumptions", "risks", "mode", "steps"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:plan", "title": "Canon Engine task output: plan" };
-function validate56(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+validate56.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var plan = validate57;
+var schema83 = { "type": "object", "properties": { "rationale": { "type": "string" }, "protected_anchor_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "assumptions": { "type": "array", "items": { "type": "object", "properties": { "text": { "type": "string" }, "fact": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }] } }, "required": ["text", "fact"], "additionalProperties": false }, "maxItems": 200 }, "risks": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "mode": { "enum": ["NORMAL", "FORCED_CONVERGENCE"] }, "steps": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "targets": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "earliest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "latest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "prerequisites": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "action": { "type": "string" }, "intended_effects": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "depends_on": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "means": { "enum": ["ordinary", "extraordinary"] }, "serves_anchor": { "type": ["string", "null"] }, "requires_player_consent": { "type": "boolean" } }, "required": ["step_id", "actors", "earliest", "latest", "action", "intended_effects", "means", "serves_anchor", "requires_player_consent"], "additionalProperties": false }, "maxItems": 40 }, "inadequacy_note": { "type": "string" } }, "required": ["rationale", "protected_anchor_ids", "assumptions", "risks", "mode", "steps"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:plan", "title": "Canon Engine task output: plan" };
+function validate57(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate56.evaluated;
+  const evaluated0 = validate57.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -10577,7 +10813,7 @@ function validate56(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.mode !== void 0) {
       let data13 = data.mode;
       if (!(data13 === "NORMAL" || data13 === "FORCED_CONVERGENCE")) {
-        const err40 = { instancePath: instancePath + "/mode", schemaPath: "#/properties/mode/enum", keyword: "enum", params: { allowedValues: schema82.properties.mode.enum }, message: "must be equal to one of the allowed values" };
+        const err40 = { instancePath: instancePath + "/mode", schemaPath: "#/properties/mode/enum", keyword: "enum", params: { allowedValues: schema83.properties.mode.enum }, message: "must be equal to one of the allowed values" };
         if (vErrors === null) {
           vErrors = [err40];
         } else {
@@ -10684,7 +10920,7 @@ function validate56(data, { instancePath = "", parentData, parentDataProperty, r
               errors++;
             }
             for (const key3 in data15) {
-              if (!func1.call(schema82.properties.steps.items.properties, key3)) {
+              if (!func1.call(schema83.properties.steps.items.properties, key3)) {
                 const err51 = { instancePath: instancePath + "/steps/" + i4, schemaPath: "#/properties/steps/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
                   vErrors = [err51];
@@ -11261,7 +11497,7 @@ function validate56(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.visibility !== void 0) {
               let data36 = data15.visibility;
               if (!(data36 === "public" || data36 === "restricted" || data36 === "secret")) {
-                const err100 = { instancePath: instancePath + "/steps/" + i4 + "/visibility", schemaPath: "#/properties/steps/items/properties/visibility/enum", keyword: "enum", params: { allowedValues: schema82.properties.steps.items.properties.visibility.enum }, message: "must be equal to one of the allowed values" };
+                const err100 = { instancePath: instancePath + "/steps/" + i4 + "/visibility", schemaPath: "#/properties/steps/items/properties/visibility/enum", keyword: "enum", params: { allowedValues: schema83.properties.steps.items.properties.visibility.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err100];
                 } else {
@@ -11341,7 +11577,7 @@ function validate56(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.means !== void 0) {
               let data41 = data15.means;
               if (!(data41 === "ordinary" || data41 === "extraordinary")) {
-                const err107 = { instancePath: instancePath + "/steps/" + i4 + "/means", schemaPath: "#/properties/steps/items/properties/means/enum", keyword: "enum", params: { allowedValues: schema82.properties.steps.items.properties.means.enum }, message: "must be equal to one of the allowed values" };
+                const err107 = { instancePath: instancePath + "/steps/" + i4 + "/means", schemaPath: "#/properties/steps/items/properties/means/enum", keyword: "enum", params: { allowedValues: schema83.properties.steps.items.properties.means.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err107];
                 } else {
@@ -11353,7 +11589,7 @@ function validate56(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.serves_anchor !== void 0) {
               let data42 = data15.serves_anchor;
               if (typeof data42 !== "string" && data42 !== null) {
-                const err108 = { instancePath: instancePath + "/steps/" + i4 + "/serves_anchor", schemaPath: "#/properties/steps/items/properties/serves_anchor/type", keyword: "type", params: { type: schema82.properties.steps.items.properties.serves_anchor.type }, message: "must be string,null" };
+                const err108 = { instancePath: instancePath + "/steps/" + i4 + "/serves_anchor", schemaPath: "#/properties/steps/items/properties/serves_anchor/type", keyword: "type", params: { type: schema83.properties.steps.items.properties.serves_anchor.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err108];
                 } else {
@@ -11413,10 +11649,10 @@ function validate56(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate56.errors = vErrors;
+  validate57.errors = vErrors;
   return errors === 0;
 }
-validate56.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+validate57.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 
 // src/domain/time.ts
 var DAY = 1440;
@@ -12537,19 +12773,22 @@ var WorldIndex = class _WorldIndex {
     return [...this.byEntity.get(id) || []];
   }
   /** Transitive supported causes (and optionally consequences) of the given occurrences. */
-  causalClosure(ids, { consequences = false, maxNodes = 200 } = {}) {
+  causalClosure(ids, { consequences = false, maxNodes = 200, maxDepth = Infinity } = {}) {
     const seen = /* @__PURE__ */ new Set();
-    const stack = [...ids];
-    while (stack.length && seen.size < maxNodes) {
-      const id = stack.pop();
-      if (seen.has(id)) continue;
-      seen.add(id);
-      const o = this.state.occurrences.get(id);
-      if (!o) continue;
-      for (const c of o.causes) if (!seen.has(c)) stack.push(c);
-      if (consequences) {
-        for (const c of this.reverseCauses.get(id) || []) if (!seen.has(c)) stack.push(c);
+    let level = [...ids];
+    for (let depth = 0; level.length && seen.size < maxNodes && depth <= maxDepth; depth++) {
+      const next = [];
+      for (const id of level) {
+        if (seen.has(id) || seen.size >= maxNodes) continue;
+        seen.add(id);
+        const o = this.state.occurrences.get(id);
+        if (!o) continue;
+        for (const c of o.causes) if (!seen.has(c)) next.push(c);
+        if (consequences) {
+          for (const c of this.reverseCauses.get(id) || []) if (!seen.has(c)) next.push(c);
+        }
       }
+      level = next;
     }
     return [...seen];
   }
@@ -14355,6 +14594,34 @@ var plan_schema_default = {
   title: "Canon Engine task output: plan"
 };
 
+// schemas/runtime/digest.schema.json
+var digest_schema_default = {
+  type: "object",
+  properties: {
+    groups: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          member_ids: {
+            type: "array",
+            items: { type: "string", minLength: 1, maxLength: 200 },
+            minItems: 1,
+            maxItems: 200
+          },
+          title: { type: "string", minLength: 1, maxLength: 200 },
+          summary: { type: "string", maxLength: 2e3 }
+        },
+        required: ["member_ids", "title", "summary"],
+        additionalProperties: false
+      },
+      maxItems: 400
+    }
+  },
+  required: ["groups"],
+  additionalProperties: false
+};
+
 // src/runtime/model.ts
 var TASK_SCHEMAS = {
   extract_user: extract_user_schema_default,
@@ -14362,7 +14629,8 @@ var TASK_SCHEMAS = {
   evaluate: evaluate_schema_default,
   adjudicate: adjudicate_schema_default,
   impact: impact_schema_default,
-  plan: plan_schema_default
+  plan: plan_schema_default,
+  digest: digest_schema_default
 };
 var TASK_TAG = (t2) => `[CANON_ENGINE_TASK:${t2}]`;
 var validators = {
@@ -14371,6 +14639,7 @@ var validators = {
   evaluate,
   adjudicate,
   impact,
+  digest,
   plan
 };
 function extractJson(text) {
@@ -14885,7 +15154,11 @@ others_original_situation is background: what other characters know and are doin
 player_interests lists non-HARD events the player wants to experience. You MAY add up to 2 extra steps (serves_anchor null, ordinary means) that give the player character a natural in-world chance to be present when such an event starts (an invitation, news reaching them, an errand that brings them there). Never force the event's course or result and never require the player's consent. These steps never take priority over protecting the HARD anchors.
 Write steps ONLY for the anchors in protected_hard_detailed (plus the optional player_interests steps) (the near horizon). hard_register is context for later anchors: do NOT write steps for them; they are planned when they come near. Use at most 8 steps; keep "action" to one short sentence.
 Each intended_effects value must have its predicate's declared type and be one of its "allowed" values when listed (a string predicate takes a string such as "\u6BC1\u574F", never true/false). For a step that brings about a HARD outcome, copy that outcome's exact value.
-SHAPE: {"rationale":"","protected_anchor_ids":[],"assumptions":[{"text":"","fact":null}],"risks":[],"mode":"NORMAL","steps":[{"step_id":"s1","actors":[],"targets":[],"earliest":{"day":0,"minute":0},"latest":{"day":0,"minute":0},"prerequisites":[],"action":"","intended_effects":[{"entity_id":"","predicate":"","value":true}],"visibility":"secret","knowers":[],"depends_on":[],"means":"ordinary","serves_anchor":null,"requires_player_consent":false}],"inadequacy_note":""}`
+SHAPE: {"rationale":"","protected_anchor_ids":[],"assumptions":[{"text":"","fact":null}],"risks":[],"mode":"NORMAL","steps":[{"step_id":"s1","actors":[],"targets":[],"earliest":{"day":0,"minute":0},"latest":{"day":0,"minute":0},"prerequisites":[],"action":"","intended_effects":[{"entity_id":"","predicate":"","value":true}],"visibility":"secret","knowers":[],"depends_on":[],"means":"ordinary","serves_anchor":null,"requires_player_consent":false}],"inadequacy_note":""}`,
+  digest: `${COMMON}
+TASK: Group the player's actual story events (in time order) into episodes for a timeline view. An episode is a run of CONSECUTIVE events that belong to one storyline or outing (e.g. going somewhere, what happens there, coming back), typically 3\u201315 events; a clear change of storyline, goal or day starts a new one. Every event id goes into exactly one group, in the given order; never reorder, skip or invent ids. A lone event may be its own group.
+For each group write a short title (at most 20 characters, in the language of the events) and a one- or two-sentence summary of what actually happened. Neutral and factual; no new facts.
+SHAPE: {"groups":[{"member_ids":[],"title":"","summary":""}]}`
 };
 function enumsOf(schema) {
   const found = /* @__PURE__ */ new Map();
@@ -14923,7 +15196,8 @@ var SCHEMAS = {
   evaluate: evaluate_schema_default,
   adjudicate: adjudicate_schema_default,
   impact: impact_schema_default,
-  plan: plan_schema_default
+  plan: plan_schema_default,
+  digest: digest_schema_default
 };
 var PROMPTS = Object.fromEntries(Object.entries(RAW_PROMPTS).map(([k, v]) => [k, annotateShape(v, SCHEMAS[k])]));
 var REPAIR_INSTRUCTION = (violations, facts) => `[Canon Engine private revision request \u2014 not part of the story]
@@ -15141,6 +15415,7 @@ function add(m, k, t2) {
   if (!m.has(k)) m.set(k, /* @__PURE__ */ new Set());
   m.get(k).add(t2);
 }
+var CAUSE_DEPTH = 2;
 function retrieve(index, spec) {
   const occurrences = /* @__PURE__ */ new Map();
   const entities = /* @__PURE__ */ new Map();
@@ -15152,7 +15427,7 @@ function retrieve(index, spec) {
     add(entities, id, trigger);
     for (const o of index.supportingOccurrences(id, cp)) {
       add(occurrences, o, trigger === "scene" ? "scene" : "causal");
-      for (const c of index.causalClosure([o])) add(occurrences, c, "causal");
+      for (const c of index.causalClosure([o], { maxDepth: CAUSE_DEPTH })) add(occurrences, c, "causal");
     }
     const st = index.entityState(id, cp);
     for (const p of st.parents) {
@@ -15201,7 +15476,7 @@ function retrieve(index, spec) {
     for (const id of entityIds) pullEntity(id, "mentioned", r.quote);
     for (const o of occIds) {
       add(occurrences, o, "mentioned");
-      for (const c of index.causalClosure([o])) if (c !== o) add(occurrences, c, "causal");
+      for (const c of index.causalClosure([o], { maxDepth: CAUSE_DEPTH + 1 })) if (c !== o) add(occurrences, c, "causal");
     }
     for (const p of packIds) canonEvents.add(p);
     entry.lookups.entityIds = [...entityIds];
@@ -15216,7 +15491,7 @@ function retrieve(index, spec) {
     if (!t2) continue;
     for (const h of index.semanticSearch(t2, 4, 2.5)) {
       add(occurrences, h.occurrenceId, "causal");
-      for (const c of index.causalClosure([h.occurrenceId])) add(occurrences, c, "causal");
+      for (const c of index.causalClosure([h.occurrenceId], { maxDepth: CAUSE_DEPTH })) add(occurrences, c, "causal");
     }
     for (const m of index.scanEntities(t2)) pullEntity(m.id, "mentioned", t2.slice(0, 400));
   }
@@ -15296,7 +15571,7 @@ function buildPacket(inp, compact = false) {
   const dueSoon = hard.filter((h) => h.lo <= horizonEnd);
   const later = hard.filter((h) => h.lo > horizonEnd);
   const hardLines = dueSoon.map((h) => `- [${h.event.id}] ${formatTick(h.lo, inp.origin)}${h.hi !== h.lo ? " \u2013 " + formatTick(h.hi, inp.origin) : ""}: ${h.event.required_description} REQUIRED OUTCOMES: ${h.event.outcomes.map((o) => `${o.entity_id}.${o.predicate}=${JSON.stringify(o.value)}`).join(", ")}${h.hi <= checkpointTick ? " **DUE NOW**" : ""}`);
-  required.push("FUTURE OBLIGATIONS (HARD; fixed content/outcome/time; route may change):\n" + (hardLines.length ? hardLines.join("\n") : "- none within the current horizon") + (later.length ? `
+  if (!inp.review) required.push("FUTURE OBLIGATIONS (HARD; fixed content/outcome/time; route may change):\n" + (hardLines.length ? hardLines.join("\n") : "- none within the current horizon") + (later.length ? `
 - later HARD obligations exist (${later.length}); do not contradict them.` : ""));
   if (inp.forced) required.push("MODE: FORCED CONVERGENCE authorized by the controller \u2014 extraordinary world intervention may be depicted as a new event. It cannot erase history or choose the player's actions.");
   if (inp.plan) {
@@ -15307,7 +15582,7 @@ function buildPacket(inp, compact = false) {
   const restricted = occIds.map((id) => index.state.occurrences.get(id)).filter((o) => o.visibility.mode !== "public");
   if (restricted.length) required.push(`KNOWLEDGE BOUNDARIES (world truth vs who knows it): ${restricted.length} record(s) above are not public and are known only to the knowers listed with them (none listed: no established knowledge holder). Physical consequences remain visible; do not disclose the hidden cause to the player or other NPCs.`);
   if (retrieval.ambiguous.length) required.push("AMBIGUOUS REFERENCES (do not guess; keep ambiguity in narration):\n" + retrieval.ambiguous.map((a) => "- " + a).join("\n"));
-  required.push("PLAYER SCOPE (exact current player input; do not add actions/consent/dialogue beyond it):\n" + (inp.playerScope.length ? inp.playerScope.map((s) => "- " + s).join("\n") : "- (no new player input in this operation)"));
+  if (!inp.review) required.push("PLAYER SCOPE (exact current player input; do not add actions/consent/dialogue beyond it):\n" + (inp.playerScope.length ? inp.playerScope.map((s) => "- " + s).join("\n") : "- (no new player input in this operation)"));
   if (inp.focus?.length) optional.push('PLAYER WANTS TO EXPERIENCE (\u5173\u6CE8; for these events only this overrides "do not steer"): give the player character natural in-world chances to be present or involved when each one starts \u2014 an invitation, a rumor or news that reaches them, an errand or a chance meeting that brings them there, characters who would plausibly involve them. Lead up to it plausibly; do not force its course or result, do not act or decide for the player, and accept a decline:\n' + inp.focus.join("\n"));
   if (inp.opportunities.length) optional.push("PARTICIPATION OPPORTUNITIES (offer in-world only if plausible; never force; a decline is respected):\n" + inp.opportunities.map((s) => "- " + s).join("\n"));
   const canonRef = dueSoon.slice(0, 3).map((h) => `- ${h.event.title}: original route \u2014 ${h.event.summary}`);
@@ -15319,6 +15594,7 @@ function buildPacket(inp, compact = false) {
   const soon = upcomingRoute(pack2, index.state, checkpointTick, 24 * 60).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${situationOf(u.event.summary)}`);
   if (soon.length) optional.push("WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing \u2014 NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them; the player may change them, and actual play wins over this:\n" + soon.join("\n"));
   if (open.length) optional.push("CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n" + open.join("\n"));
+  if (inp.review) optional.length = 0;
   const reqText = required.join("\n\n");
   let text = reqText;
   let truncated = false;
@@ -16181,7 +16457,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.44";
+var ENGINE_RELEASE = "1.3.45";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16632,12 +16908,24 @@ var CanonEngine = class {
     }
     return lines.join("\n");
   }
-  registry(index) {
+  /** Entities offered to extraction/discovery/review: the ones this text names (names and aliases), plus the
+   *  scene, recent events, the active plan and near HARD outcomes — not the whole cast (211 entities in a large
+   *  pack, in several calls per turn). Any other known entity can still be given by its exact name: the gate
+   *  resolves names to ids, and a "new" entity with a known name maps to the existing one. */
+  registry(index, text, extra = []) {
     const pack2 = index.pack;
+    const ids = new Set(extra);
+    for (const m of index.scanEntities(text)) ids.add(m.id);
+    for (const o of [...index.state.occurrences.values()].sort((a, b) => b.seq - a.seq).slice(0, 15)) [...o.actors, ...o.affected, ...o.locations].forEach((x) => ids.add(x));
+    for (const s of this.activePlan()?.steps || []) if (s.status !== "invalidated") [...s.actors, ...s.targets || []].forEach((x) => ids.add(x));
+    const tick = index.state.clock.lo;
+    for (const h of pendingHard(pack2, index.state)) if (h.lo <= tick + this.settings.horizonMinutes) h.event.outcomes.forEach((o) => ids.add(o.entity_id));
     const ent = (e) => `${e.id} | ${e.name} | ${(e.aliases || []).join(", ")} | ${e.kind}`;
+    const all = [...pack2.entities.values(), ...index.state.runtimeEntities.values()];
     return {
       entities_format: "id | name | aliases | kind",
-      entities: [...pack2.entities.values(), ...index.state.runtimeEntities.values()].map(ent),
+      entities_note: `Entities relevant to this text (${ids.size} of ${all.length} known). For any other known person, place or thing use its exact name; the engine resolves it.`,
+      entities: all.filter((e) => ids.has(e.id)).map(ent),
       predicates: [...pack2.predicates.values()].map((p) => `${p.id} (${p.value_type}${p.allowed_values?.length ? `: ${p.allowed_values.join("/")}` : ""}): ${p.description}`)
     };
   }
@@ -16660,7 +16948,7 @@ var CanonEngine = class {
       message: entry.text,
       persona: this.host.persona(),
       current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
-      registry: this.registry(index),
+      registry: this.registry(index, entry.text),
       occurrences: this.occurrenceCatalogue(index, entry.text),
       opportunities
     }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(entry.text) }), this.settings.taskTimeoutMs * 4, signal);
@@ -16867,7 +17155,7 @@ var CanonEngine = class {
     const disc = this.discCache.get(discKey) || this.rememberDiscovery(discKey, await this.withTimeout(callStructured(this.host.model, "discover", PROMPTS.discover, {
       text: a.text,
       scene_framing: a.userEntry ? `Player input: ${a.userEntry.text}` : "",
-      registry: this.registry(index),
+      registry: this.registry(index, a.text + " " + (a.userEntry?.text || ""), a.sceneSeeds),
       occurrences: this.occurrenceCatalogue(index, a.text + " " + (a.userEntry?.text || ""))
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal).catch((e) => {
       if (!(e instanceof EngineError) || e.kind !== "invalid_model_json") throw e;
@@ -16913,6 +17201,7 @@ var CanonEngine = class {
       stagedNotes: a.stagedNotes,
       opportunities: [],
       budgetChars: this.settings.budgetChars * 2,
+      review: true,
       horizon: this.settings.horizonMinutes
     });
     const due = pendingHard(pack2, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
@@ -16928,7 +17217,7 @@ var CanonEngine = class {
       staged_offscreen: a.stagedNotes,
       due_hard: due.map((h) => ({ event_id: h.event.id, required_description: h.event.required_description, outcomes: h.event.outcomes, earliest: h.event.when.earliest, latest: h.event.when.latest })),
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== "invalidated").map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
-      registry: this.registry(index),
+      registry: this.registry(index, a.text + " " + (a.userEntry?.text || ""), [...retrieval.entities.keys(), ...a.sceneSeeds]),
       reeval_reasons: a.reevalReasons || [],
       canon_events_now: this.canonNow(index, tick),
       ...this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}
@@ -17803,6 +18092,52 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
   focusEvents() {
     return new Set(this.campaign()?.focusEvents || []);
   }
+  /** 整理本局事件: the analysis model groups the player's events (not canon events) into episodes for the
+   *  timeline. Display only — history, causes and the GM context are unchanged. Groups are checked here:
+   *  known ids only, each event once, members consecutive in time order; anything else stays ungrouped. */
+  async digestEvents(signal) {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError("incompatible_adapter", "engine state unavailable");
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; wait or cancel it first.");
+    const state = this.current.replay.state;
+    const origin = c.binding.originDate || null;
+    const names = (ids) => ids.map((x) => this.current.index.entityName(x)).join("\u3001");
+    const events = [...state.occurrences.values()].filter((o) => !o.packEventId).sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq);
+    const groups = [];
+    const BATCH = 80;
+    for (let b = 0; b < events.length; b += BATCH) {
+      const batch = events.slice(b, b + BATCH);
+      const alias = new Map(batch.map((o, i) => [`e${i + 1}`, o.occurrenceId]));
+      const pos = new Map(batch.map((o, i) => [o.occurrenceId, i]));
+      const out = await this.withTimeout(callStructured(this.host.model, "digest", PROMPTS.digest, {
+        events: batch.map((o, i) => ({ id: `e${i + 1}`, time: formatTick(o.time.lo, origin), title: o.title, what: o.account.length > 140 ? o.account.slice(0, 137) + "\u2026" : o.account, where: names(o.locations), who: names(o.actors) }))
+      }, { signal, operationId: "digest", log: (l) => this.debugLog("task", l), maxTokens: 6e3 }), this.settings.taskTimeoutMs * 4, signal);
+      const used = /* @__PURE__ */ new Set();
+      for (const g of out.groups) {
+        const ids = uniq(g.member_ids.map((x) => alias.get(x.trim()) || "").filter((x) => x && !used.has(x)));
+        const ps = ids.map((x) => pos.get(x)).sort((p, q) => p - q);
+        if (ids.length < 2 || ps[ps.length - 1] - ps[0] !== ps.length - 1) continue;
+        ids.forEach((x) => used.add(x));
+        groups.push({ id: newId("dg"), title: g.title.trim().slice(0, 40), summary: g.summary.trim().slice(0, 600), members: ps.map((p) => batch[p].occurrenceId) });
+      }
+    }
+    c.eventDigest = { at: this.host.now(), groups };
+    await this.host.save();
+    return { groups: groups.length, events: groups.reduce((n, g) => n + g.members.length, 0) };
+  }
+  async clearDigest() {
+    const c = this.campaign();
+    if (!c?.eventDigest) return;
+    delete c.eventDigest;
+    await this.host.save();
+  }
+  /** Digest groups whose events still exist (edits may have removed some); a group needs 2+ remaining events. */
+  digestGroups() {
+    const c = this.campaign();
+    const occ = this.current?.replay.state.occurrences;
+    if (!c?.eventDigest || !occ) return [];
+    return c.eventDigest.groups.map((g) => ({ ...g, members: g.members.filter((m) => occ.has(m)) })).filter((g) => g.members.length >= 2);
+  }
   focusLines(index, clock) {
     const c = this.campaign();
     if (!c?.focusEvents?.length) return [];
@@ -18657,6 +18992,12 @@ var D = {
   force: { zh: "\u5F3A\u5236\u5B8C\u6210", en: "Force complete" },
   focus: { zh: "\u2606 \u5173\u6CE8", en: "\u2606 Focus" },
   unfocus: { zh: "\u2605 \u53D6\u6D88\u5173\u6CE8", en: "\u2605 Unfocus" },
+  digest: { zh: "\u6574\u7406\u672C\u5C40\u4E8B\u4EF6", en: "Tidy my events" },
+  digestBusy: { zh: "\u6574\u7406\u4E2D\u2026", en: "Tidying\u2026" },
+  digestTip: { zh: "\u8BA9\u5206\u6790\u6A21\u578B\u628A\u672C\u5C40\u4E8B\u4EF6\u6309\u60C5\u8282\u5F52\u6210\u51E0\u6BB5\uFF0C\u6BCF\u6BB5\u663E\u793A\u4E3A\u4E00\u4E2A\u6846\uFF08\u9644\u6807\u9898\u548C\u6458\u8981\uFF09\u3002\u53EA\u5F71\u54CD\u65F6\u95F4\u8F74\u7684\u663E\u793A\uFF0C\u4E0D\u6539\u53D8\u5386\u53F2\u8BB0\u5F55\u3001\u56E0\u679C\u6216 GM \u770B\u5230\u7684\u5185\u5BB9\u3002\u4E4B\u540E\u65B0\u589E\u7684\u4E8B\u4EF6\u7167\u5E38\u663E\u793A\uFF0C\u53EF\u4EE5\u518D\u70B9\u4E00\u6B21\u3002", en: "The analysis model groups your events into episodes, one box each (with a title and summary). Display only: history, causes and what the GM sees are unchanged. Later events show as usual; press again any time." },
+  undigest: { zh: "\u8FD8\u539F", en: "Undo tidy" },
+  undigestTip: { zh: "\u53D6\u6D88\u6574\u7406\uFF0C\u6062\u590D\u539F\u6765\u7684\u663E\u793A\u3002", en: "Remove the grouping and show the events as before." },
+  digestDone: { zh: "\u5DF2\u6574\u7406\uFF1A{n} \u4E2A\u4E8B\u4EF6\u5F52\u4E3A {g} \u6BB5\u3002", en: "Tidied: {n} events into {g} episodes." },
   focusTip: { zh: "\u5173\u6CE8\u540E\uFF0C\u4E8B\u4EF6\u4E34\u8FD1\u65F6 GM \u4F1A\u81EA\u7136\u5730\u7ED9\u4F60\u7684\u89D2\u8272\u673A\u4F1A\u5230\u573A\u6216\u53C2\u4E0E\uFF08\u9080\u8BF7\u3001\u4F20\u95FB\u3001\u987A\u8DEF\u2026\uFF09\uFF0C\u4F46\u4E0D\u4F1A\u5F3A\u884C\u51B3\u5B9A\u5B83\u7684\u7ECF\u8FC7\u548C\u7ED3\u679C\u3002", en: "When focused, as the event nears the GM gives your character natural chances to be there or take part (an invitation, news, an errand\u2026) without forcing how it goes or ends." },
   forceConfirm: { zh: "\u518D\u70B9\u4E00\u6B21\u786E\u8BA4\uFF1A\u6309\u539F\u4F5C\u8DEF\u7EBF\u6807\u8BB0\u4E3A\u5DF2\u53D1\u751F", en: "Click again to confirm: mark as happened (original route)" },
   unforce: { zh: "\u64A4\u9500\u5F3A\u5236\u5B8C\u6210", en: "Undo force complete" },
@@ -18816,7 +19157,7 @@ function packGraph(L, origin) {
   const edges = L.pack.edges.map((e) => ({ from: e.from, to: e.to, kind: e.relation, note: e.note }));
   return { nodes, edges, nowTick: null, arcs: L.pack.arcs.map((a) => ({ id: a.id, title: a.title })), origin };
 }
-function currentGraph(L, s, origin, spoilers) {
+function currentGraph(L, s, origin, spoilers, digest2 = []) {
   const now = s.clock.lo;
   const g = packGraph(L, origin);
   const occByPack = /* @__PURE__ */ new Map();
@@ -18843,9 +19184,11 @@ function currentGraph(L, s, origin, spoilers) {
       n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`];
     }
   }
+  const digestOf = /* @__PURE__ */ new Map();
+  for (const dg of digest2) for (const m of dg.members) if (s.occurrences.has(m)) digestOf.set(m, dg);
   const chains = /* @__PURE__ */ new Map();
   for (const o of s.occurrences.values()) {
-    if (o.packEventId) continue;
+    if (o.packEventId || digestOf.has(o.occurrenceId)) continue;
     const root = sceneRoot(s.occurrences, o.occurrenceId);
     chains.set(root, [...chains.get(root) || [], o]);
   }
@@ -18855,25 +19198,31 @@ function currentGraph(L, s, origin, spoilers) {
     ms.sort((a, b) => a.time.lo - b.time.lo);
     segmentSceneChain(ms).forEach((seg, i) => segments.push([i === 0 ? root : seg[0].occurrenceId, seg]));
   }
+  for (const dg of digest2) {
+    const ms = dg.members.map((m) => s.occurrences.get(m)).filter((o) => o && digestOf.get(o.occurrenceId) === dg).sort((a, b) => a.time.lo - b.time.lo);
+    if (ms.length) segments.push([`digest:${dg.id}`, ms, dg]);
+  }
   const boxOf = /* @__PURE__ */ new Map();
   for (const [id, seg] of segments) for (const m of seg) boxOf.set(m.occurrenceId, id);
-  for (const [root, members] of segments) {
+  for (const [root, members, dg] of segments) {
     const first = members[0];
     const lo = Math.min(...members.map((m) => m.time.lo)), hi = Math.max(...members.map((m) => m.time.hi));
     const span = members.length > 1 ? { lo, hi, precision: "range" } : first.time;
     const outcomes = members.flatMap(outcomeText);
     g.nodes.push({
       id: root,
-      title: members.length > 1 ? `${first.title}\uFF08${members.length}\u6BB5\uFF09` : first.title,
+      title: dg ? `${dg.title}\uFF08${members.length}\u6BB5\uFF09` : members.length > 1 ? `${first.title}\uFF08${members.length}\u6BB5\uFF09` : first.title,
       lane: "RUNTIME",
       tick: lo,
       tickHi: hi,
       when: formatStoryTime(span, origin),
       short: shortRange(lo, hi, origin),
-      summary: members.length > 1 ? members.map((m) => `${m.title}\uFF1A${m.account}`).join("\n") : first.account,
+      summary: dg ? `${dg.summary}
+
+${members.map((m) => `\xB7 ${formatTick(m.time.lo, origin).split(" ")[1]} ${m.title}`).join("\n")}` : members.length > 1 ? members.map((m) => `${m.title}\uFF1A${m.account}`).join("\n") : first.account,
       status: "runtime",
       origin: first.origin,
-      detail: [`\u6765\u6E90\uFF1A${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join("\u3001")}`, ...members.length > 1 ? [`\u540C\u4E00\u573A\u666F\uFF1A${members.map((m) => `${formatTick(m.time.lo, origin).split(" ")[1]} ${m.title}`).join(" \u2192 ")}`] : [], ...outcomes.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${outcomes.join("\uFF1B")}`] : []]
+      detail: [`\u6765\u6E90\uFF1A${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join("\u3001")}`, ...members.length > 1 && !dg ? [`\u540C\u4E00\u573A\u666F\uFF1A${members.map((m) => `${formatTick(m.time.lo, origin).split(" ")[1]} ${m.title}`).join(" \u2192 ")}`] : [], ...outcomes.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${outcomes.join("\uFF1B")}`] : []]
     });
   }
   const nodeOf = (occId) => {
@@ -19121,6 +19470,7 @@ var GraphPanel = class {
         <select class="text_pole cg-arc"><option value="">${t("graphAllArcs")}</option>${arcs}</select>
         ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? "checked" : ""}>${LANE_LABEL[l]}</label>`).join("")}
         <label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? "checked" : ""}>${t("spoilers")}</label>
+        ${this.mode === "current" && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t("digestTip"))}">${t("digest")}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t("undigestTip"))}">${t("undigest")}</button>` : ""}` : ""}
         <button class="menu_button" data-act="fit">${t("graphFit")}</button>
         <button class="menu_button" data-act="close">\u2715</button>
       </div>
@@ -19245,6 +19595,15 @@ var GraphPanel = class {
     }
     if (b?.dataset.act === "fit") {
       this.fit?.();
+      return;
+    }
+    if (b?.dataset.act === "digest" || b?.dataset.act === "undigest") {
+      b.disabled = true;
+      if (b.dataset.act === "digest") b.textContent = t("digestBusy");
+      void this.onEventAction(b.dataset.act, "").finally(() => {
+        this.keepView = true;
+        this.refresh();
+      });
       return;
     }
     if (b?.dataset.act === "focus") {
@@ -19382,7 +19741,7 @@ function mountTopButton() {
     if (!src) return { pack: null, current: null, spoilers };
     const pg = packGraph(src.pack, src.origin);
     pg.nowTick = src.state ? src.state.clock.lo : null;
-    const cur = src.state ? currentGraph(src.pack, src.state, src.origin, spoilers) : null;
+    const cur = src.state ? currentGraph(src.pack, src.state, src.origin, spoilers, E.digestGroups()) : null;
     if (cur) {
       const f = E.focusEvents();
       for (const n of cur.nodes) if (f.has(n.id) && (n.status === "future" || n.status === "pending")) {
@@ -19390,7 +19749,7 @@ function mountTopButton() {
         n.title = "\u2605 " + n.title;
       }
     }
-    return { pack: pg, current: cur, spoilers };
+    return { pack: pg, current: cur, spoilers, digested: !!camp?.eventDigest };
   }, (v) => {
     const camp = E.campaign();
     if (camp) camp.uiPreferences.spoilers = v;
@@ -19398,6 +19757,10 @@ function mountTopButton() {
     try {
       if (act === "force") await E.forceComplete(id);
       else if (act === "focus") await E.toggleFocus(id);
+      else if (act === "digest") {
+        const r = await E.digestEvents();
+        toast("info", t("digestDone").replace("{n}", String(r.events)).replace("{g}", String(r.groups)));
+      } else if (act === "undigest") await E.clearDigest();
       else await E.undoForce(id);
     } catch (e) {
       toast("error", e.message);

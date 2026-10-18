@@ -1,6 +1,6 @@
 # Canon Engine — test report
 
-Latest full run: 2026-10-18, engine 1.3.44, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
+Latest full run: 2026-10-18, engine 1.3.45, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
 
 ## Environment
 
@@ -18,8 +18,8 @@ All automated suites use deterministic scripted model outputs. They prove the co
 
 | Suite | Where it runs | Result |
 | --- | --- | --- |
-| `tests/unit/*` (194 tests in 20 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **194 / 194 pass** |
-| `tests/e2e/integration.mjs` (94 checks, sections S1–S18) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **94 / 94 pass** |
+| `tests/unit/*` (199 tests in 21 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **199 / 199 pass** |
+| `tests/e2e/integration.mjs` (96 checks, sections S1–S19) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **96 / 96 pass** |
 | `tests/e2e/story-session.mjs` (12 checks) | real ST, UI-only: wizard via real file dialog, pack library, composer, banner, swipe arrow, ST edit/delete buttons, reload | **12 / 12 pass** |
 | `dist/canon-lint.mjs` | both sample packs valid; World Info file rejected with the specific error | pass |
 
@@ -140,7 +140,8 @@ Legend: **U** = unit/in-process (`tests/unit/<file>`), **E** = real ST/Horae int
 | --- | --- | --- |
 | `api-timing` | — | public clock API; turn timings and the failed-turn report |
 | `failsoft`, `normalize`, `model-enums`, `fixes` | F, T01 | schema normalization, fail-soft helper tasks, enum repair; small automatic fixes grouped apart from resends |
-| `budget` | B01–B03 | compact packet and capacity errors; a repair never fails the turn on the budget; scene entities do not snowball; shared rules stated once |
+| `budget` | B01–B04 | compact packet and capacity errors; a repair never fails the turn on the budget; scene entities do not snowball; shared rules stated once; registry limited to relevant entities; reviewer copy without duplicated sections |
+| `digest` | D01–D03, B05 | 整理本局事件: checked consecutive groups, display only, undo, groups shrink with edits; causal depth limit |
 | `hidden` | — | hidden messages stay story history |
 | `window` | W01–W04 | non-HARD events settle only after their window closes; GM told which events are in their window; impossible events not suggested |
 | `timeaxis` | — | history graph time axis |

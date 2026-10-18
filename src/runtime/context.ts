@@ -52,6 +52,10 @@ function add<K>(m: Map<K, Set<'causal' | 'mentioned' | 'scene'>>, k: K, t: 'caus
   m.get(k)!.add(t);
 }
 
+/** How many steps of causes are followed back from a retrieved record (one more for an event the text names).
+ *  The whole chain back to the start of play grew with every turn; the nearest causes carry the "why". */
+const CAUSE_DEPTH = 2;
+
 export function retrieve(index: WorldIndex, spec: RetrievalSpec): Retrieval {
   const occurrences: Retrieval['occurrences'] = new Map();
   const entities: Retrieval['entities'] = new Map();
@@ -65,7 +69,7 @@ export function retrieve(index: WorldIndex, spec: RetrievalSpec): Retrieval {
     // Causal history behind the entity's current constraints (who/what established them).
     for (const o of index.supportingOccurrences(id, cp)) {
       add(occurrences, o, trigger === 'scene' ? 'scene' : 'causal');
-      for (const c of index.causalClosure([o])) add(occurrences, c, 'causal');
+      for (const c of index.causalClosure([o], { maxDepth: CAUSE_DEPTH })) add(occurrences, c, 'causal');
     }
     // Parent/containment constraints.
     const st = index.entityState(id, cp);
@@ -113,7 +117,7 @@ export function retrieve(index: WorldIndex, spec: RetrievalSpec): Retrieval {
     for (const id of entityIds) pullEntity(id, 'mentioned', r.quote);
     for (const o of occIds) {
       add(occurrences, o, 'mentioned');
-      for (const c of index.causalClosure([o])) if (c !== o) add(occurrences, c, 'causal');
+      for (const c of index.causalClosure([o], { maxDepth: CAUSE_DEPTH + 1 })) if (c !== o) add(occurrences, c, 'causal');
     }
     for (const p of packIds) canonEvents.add(p);
     entry.lookups.entityIds = [...entityIds];
@@ -129,7 +133,7 @@ export function retrieve(index: WorldIndex, spec: RetrievalSpec): Retrieval {
     if (!t) continue;
     for (const h of index.semanticSearch(t, 4, 2.5)) {
       add(occurrences, h.occurrenceId, 'causal');
-      for (const c of index.causalClosure([h.occurrenceId])) add(occurrences, c, 'causal');
+      for (const c of index.causalClosure([h.occurrenceId], { maxDepth: CAUSE_DEPTH })) add(occurrences, c, 'causal');
     }
     for (const m of index.scanEntities(t)) pullEntity(m.id, 'mentioned', t.slice(0, 400));
   }
@@ -157,6 +161,9 @@ export interface PacketInput {
   focus?: string[];
   budgetChars: number;
   horizon: number;
+  /** The reviewer's copy: it gets the player's input, due HARD events and canon events now as separate inputs,
+   *  so those sections and the GM-only background (canon routes, where others stand) are left out. */
+  review?: boolean;
 }
 
 export interface Packet { text: string; facts: string; hash: string; required: number; optional: number; truncatedOptional: boolean }
@@ -245,7 +252,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   const dueSoon = hard.filter((h) => h.lo <= horizonEnd);
   const later = hard.filter((h) => h.lo > horizonEnd);
   const hardLines = dueSoon.map((h) => `- [${h.event.id}] ${formatTick(h.lo, inp.origin)}${h.hi !== h.lo ? ' – ' + formatTick(h.hi, inp.origin) : ''}: ${h.event.required_description} REQUIRED OUTCOMES: ${h.event.outcomes.map((o) => `${o.entity_id}.${o.predicate}=${JSON.stringify(o.value)}`).join(', ')}${h.hi <= checkpointTick ? ' **DUE NOW**' : ''}`);
-  required.push('FUTURE OBLIGATIONS (HARD; fixed content/outcome/time; route may change):\n' + (hardLines.length ? hardLines.join('\n') : '- none within the current horizon') + (later.length ? `\n- later HARD obligations exist (${later.length}); do not contradict them.` : ''));
+  if (!inp.review) required.push('FUTURE OBLIGATIONS (HARD; fixed content/outcome/time; route may change):\n' + (hardLines.length ? hardLines.join('\n') : '- none within the current horizon') + (later.length ? `\n- later HARD obligations exist (${later.length}); do not contradict them.` : ''));
   if (inp.forced) required.push('MODE: FORCED CONVERGENCE authorized by the controller — extraordinary world intervention may be depicted as a new event. It cannot erase history or choose the player\'s actions.');
   // Plan
   if (inp.plan) {
@@ -258,7 +265,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   // Each record above already carries its visibility and knowers: state the rule once.
   if (restricted.length) required.push(`KNOWLEDGE BOUNDARIES (world truth vs who knows it): ${restricted.length} record(s) above are not public and are known only to the knowers listed with them (none listed: no established knowledge holder). Physical consequences remain visible; do not disclose the hidden cause to the player or other NPCs.`);
   if (retrieval.ambiguous.length) required.push('AMBIGUOUS REFERENCES (do not guess; keep ambiguity in narration):\n' + retrieval.ambiguous.map((a) => '- ' + a).join('\n'));
-  required.push('PLAYER SCOPE (exact current player input; do not add actions/consent/dialogue beyond it):\n' + (inp.playerScope.length ? inp.playerScope.map((s) => '- ' + s).join('\n') : '- (no new player input in this operation)'));
+  if (!inp.review) required.push('PLAYER SCOPE (exact current player input; do not add actions/consent/dialogue beyond it):\n' + (inp.playerScope.length ? inp.playerScope.map((s) => '- ' + s).join('\n') : '- (no new player input in this operation)'));
   // Optional
   if (inp.focus?.length) optional.push('PLAYER WANTS TO EXPERIENCE (关注; for these events only this overrides "do not steer"): give the player character natural in-world chances to be present or involved when each one starts — an invitation, a rumor or news that reaches them, an errand or a chance meeting that brings them there, characters who would plausibly involve them. Lead up to it plausibly; do not force its course or result, do not act or decide for the player, and accept a decline:\n' + inp.focus.join('\n'));
   if (inp.opportunities.length) optional.push('PARTICIPATION OPPORTUNITIES (offer in-world only if plausible; never force; a decline is respected):\n' + inp.opportunities.map((s) => '- ' + s).join('\n'));
@@ -273,6 +280,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   if (soon.length) optional.push('WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing — NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them; the player may change them, and actual play wins over this:\n' + soon.join('\n'));
   if (open.length) optional.push('CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n' + open.join('\n'));
 
+  if (inp.review) optional.length = 0;
   const reqText = required.join('\n\n');
   let text = reqText;
   let truncated = false;

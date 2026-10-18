@@ -765,6 +765,27 @@ try {
     const st2 = await engineState(page);
     check(results, 'HM04 the next turn after hiding works and keeps the hidden turn in history', st2.occurrences.some((o) => o.title === '港口散步') && st2.recovery?.status !== 'error' && (await chat(page)).slice(-1)[0].mes.includes('HID_B'), JSON.stringify(st2.recovery));
   }
+  if (want('S19')) {
+    console.log('\n== S19 整理本局事件 ==');
+    await freshChat();
+    const ev = (t, q) => ({ ref: 'o1', title: t, account: `玩家${t}。`, actors: [], affected: [], locations: ['harbor'], time: null, causes: [], quote: q, pack_event_id: null, disposition: null, ref_phrases: [], visibility: 'public', knowers: [], origin: 'player' });
+    await mock('/control', { mainQueue: ['你沿着港口散步。DG_A', '你在码头边吃了烤鱼。DG_B', '你看着船只进港。DG_C'], taskRules: [rule('evaluate', 'DG_A', { occurrences: [ev('港口散步', '沿着港口散步')] }), rule('evaluate', 'DG_B', { occurrences: [ev('吃烤鱼', '吃了烤鱼')] }), rule('evaluate', 'DG_C', { occurrences: [ev('看船进港', '看着船只进港')] })], clearLogs: true });
+    await send(page, '我在港口散步。');
+    await send(page, '我买烤鱼吃。');
+    await send(page, '我看船。');
+    await page.evaluate(() => window.CanonEngine && document.querySelector('#canon-engine-top-button .canon-top-toggle')?.click());
+    await page.waitForSelector('.cg-digest', { timeout: 10000 });
+    const before = await page.$$eval('.cg-node', (n) => n.length);
+    await page.click('.cg-digest');
+    await page.waitForFunction(() => [...document.querySelectorAll('.cg-node')].some((n) => n.textContent.includes('mock episode')), null, { timeout: 30000 });
+    const after = await page.$$eval('.cg-node', (n) => n.length);
+    const digestCalls = (await taskLogs('digest')).length;
+    check(results, 'DG01 the button groups the events into one episode box (display only)', after < before && digestCalls === 1 && (await engineState(page)).occurrences.length >= 3, `nodes ${before}->${after} calls=${digestCalls}`);
+    await page.click('[data-act="undigest"]');
+    await page.waitForFunction(() => ![...document.querySelectorAll('.cg-node')].some((n) => n.textContent.includes('mock episode')), null, { timeout: 10000 });
+    check(results, 'DG02 还原 restores the original boxes', (await page.$$eval('.cg-node', (n) => n.length)) === before);
+    await page.evaluate(() => document.querySelector('[data-act="close"]')?.click());
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }

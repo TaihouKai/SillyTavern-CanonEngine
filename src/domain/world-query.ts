@@ -194,17 +194,21 @@ export class WorldIndex {
   }
 
   /** Transitive supported causes (and optionally consequences) of the given occurrences. */
-  causalClosure(ids: string[], { consequences = false, maxNodes = 200 } = {}): string[] {
+  causalClosure(ids: string[], { consequences = false, maxNodes = 200, maxDepth = Infinity } = {}): string[] {
+    // breadth-first, so a depth limit keeps the nearest causes
     const seen = new Set<string>();
-    const stack = [...ids];
-    while (stack.length && seen.size < maxNodes) {
-      const id = stack.pop()!;
-      if (seen.has(id)) continue;
-      seen.add(id);
-      const o = this.state.occurrences.get(id);
-      if (!o) continue;
-      for (const c of o.causes) if (!seen.has(c)) stack.push(c);
-      if (consequences) for (const c of this.reverseCauses.get(id) || []) if (!seen.has(c)) stack.push(c);
+    let level = [...ids];
+    for (let depth = 0; level.length && seen.size < maxNodes && depth <= maxDepth; depth++) {
+      const next: string[] = [];
+      for (const id of level) {
+        if (seen.has(id) || seen.size >= maxNodes) continue;
+        seen.add(id);
+        const o = this.state.occurrences.get(id);
+        if (!o) continue;
+        for (const c of o.causes) if (!seen.has(c)) next.push(c);
+        if (consequences) for (const c of this.reverseCauses.get(id) || []) if (!seen.has(c)) next.push(c);
+      }
+      level = next;
     }
     return [...seen];
   }

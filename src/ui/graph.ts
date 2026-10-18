@@ -57,7 +57,7 @@ export function packGraph(L: LoadedPack, origin: { y: number; m: number; d: numb
 }
 
 /** Current playthrough (Graph B): canon statuses + runtime occurrences with actual causal links. */
-export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; m: number; d: number } | null, spoilers: boolean): GraphData {
+export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; m: number; d: number } | null, spoilers: boolean, digest: { id: string; title: string; summary: string; members: string[] }[] = []): GraphData {
   const now = s.clock.lo;
   const g = packGraph(L, origin);
   const occByPack = new Map<string, string[]>();
@@ -86,30 +86,37 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
   }
   // runtime occurrences (actual play) that are not a canon event's own record; a scene chain
   // (occurrences that continue one another) is shown as one box
+  // 整理本局事件: events in a digest episode are drawn as that episode's box
+  const digestOf = new Map<string, (typeof digest)[number]>();
+  for (const dg of digest) for (const m of dg.members) if (s.occurrences.has(m)) digestOf.set(m, dg);
   const chains = new Map<string, Array<typeof s.occurrences extends Map<string, infer V> ? V : never>>();
   for (const o of s.occurrences.values()) {
-    if (o.packEventId) continue;
+    if (o.packEventId || digestOf.has(o.occurrenceId)) continue;
     const root = sceneRoot(s.occurrences, o.occurrenceId);
     chains.set(root, [...(chains.get(root) || []), o]);
   }
   const outcomeText = (o: { outcome: { op: string; entity_id: string; predicate: string; value?: unknown }[] }) => o.outcome.map((d) => (d.op === 'set' ? `${name(L, d.entity_id, s)}.${d.predicate}=${JSON.stringify(d.value)}` : `${d.entity_id}.${d.predicate} 未知`));
-  const segments: [string, typeof s.occurrences extends Map<string, infer V> ? V[] : never][] = [];
+  const segments: [string, typeof s.occurrences extends Map<string, infer V> ? V[] : never, (typeof digest)[number]?][] = [];
   for (const [root, ms] of chains) {
     ms.sort((a, b) => a.time.lo - b.time.lo);
     segmentSceneChain(ms).forEach((seg, i) => segments.push([i === 0 ? root : seg[0].occurrenceId, seg]));
   }
+  for (const dg of digest) {
+    const ms = dg.members.map((m) => s.occurrences.get(m)!).filter((o) => o && digestOf.get(o.occurrenceId) === dg).sort((a, b) => a.time.lo - b.time.lo);
+    if (ms.length) segments.push([`digest:${dg.id}`, ms, dg]);
+  }
   const boxOf = new Map<string, string>();
   for (const [id, seg] of segments) for (const m of seg) boxOf.set(m.occurrenceId, id);
-  for (const [root, members] of segments) {
+  for (const [root, members, dg] of segments) {
     const first = members[0];
     const lo = Math.min(...members.map((m) => m.time.lo)), hi = Math.max(...members.map((m) => m.time.hi));
     const span = members.length > 1 ? { lo, hi, precision: 'range' as const } : first.time;
     const outcomes = members.flatMap(outcomeText);
     g.nodes.push({
-      id: root, title: members.length > 1 ? `${first.title}（${members.length}段）` : first.title, lane: 'RUNTIME', tick: lo, tickHi: hi, when: formatStoryTime(span, origin), short: shortRange(lo, hi, origin),
-      summary: members.length > 1 ? members.map((m) => `${m.title}：${m.account}`).join('\n') : first.account,
+      id: root, title: dg ? `${dg.title}（${members.length}段）` : members.length > 1 ? `${first.title}（${members.length}段）` : first.title, lane: 'RUNTIME', tick: lo, tickHi: hi, when: formatStoryTime(span, origin), short: shortRange(lo, hi, origin),
+      summary: dg ? `${dg.summary}\n\n${members.map((m) => `· ${formatTick(m.time.lo, origin).split(' ')[1]} ${m.title}`).join('\n')}` : members.length > 1 ? members.map((m) => `${m.title}：${m.account}`).join('\n') : first.account,
       status: 'runtime', origin: first.origin,
-      detail: [`来源：${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join('、')}`, ...(members.length > 1 ? [`同一场景：${members.map((m) => `${formatTick(m.time.lo, origin).split(' ')[1]} ${m.title}`).join(' → ')}`] : []), ...(outcomes.length ? [`本局结果：${outcomes.join('；')}`] : [])],
+      detail: [`来源：${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join('、')}`, ...(members.length > 1 && !dg ? [`同一场景：${members.map((m) => `${formatTick(m.time.lo, origin).split(' ')[1]} ${m.title}`).join(' → ')}`] : []), ...(outcomes.length ? [`本局结果：${outcomes.join('；')}`] : [])],
     });
   }
   // actual causal links (occurrence -> occurrence), mapped onto canon nodes / scene boxes where applicable
@@ -321,9 +328,9 @@ export class GraphPanel {
   private keepView = false;
   private sig = '';
   private selected: string | null = null;
-  private getData: (spoilers: boolean) => { pack: GraphData | null; current: GraphData | null; spoilers: boolean };
+  private getData: (spoilers: boolean) => { pack: GraphData | null; current: GraphData | null; spoilers: boolean; digested?: boolean };
   private setSpoilers: (v: boolean) => void;
-  private onEventAction: (act: 'force' | 'unforce' | 'focus', id: string) => Promise<void>;
+  private onEventAction: (act: 'force' | 'unforce' | 'focus' | 'digest' | 'undigest', id: string) => Promise<void>;
   private armed: string | null = null;
 
   constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined) {
@@ -366,6 +373,7 @@ export class GraphPanel {
         <select class="text_pole cg-arc"><option value="">${t('graphAllArcs')}</option>${arcs}</select>
         ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? 'checked' : ''}>${LANE_LABEL[l]}</label>`).join('')}
         <label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? 'checked' : ''}>${t('spoilers')}</label>
+        ${this.mode === 'current' && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t('digestTip'))}">${t('digest')}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t('undigestTip'))}">${t('undigest')}</button>` : ''}` : ''}
         <button class="menu_button" data-act="fit">${t('graphFit')}</button>
         <button class="menu_button" data-act="close">✕</button>
       </div>
@@ -454,6 +462,12 @@ export class GraphPanel {
     if (b?.dataset.mode) { this.mode = b.dataset.mode as 'pack' | 'current'; this.selected = null; this.refresh(); return; }
     if (b?.dataset.act === 'close') { this.toggle(false); return; }
     if (b?.dataset.act === 'fit') { (this as unknown as { fit?: () => void }).fit?.(); return; }
+    if (b?.dataset.act === 'digest' || b?.dataset.act === 'undigest') {
+      (b as HTMLButtonElement).disabled = true;
+      if (b.dataset.act === 'digest') b.textContent = t('digestBusy');
+      void this.onEventAction(b.dataset.act, '').finally(() => { this.keepView = true; this.refresh(); });
+      return;
+    }
     if (b?.dataset.act === 'focus') {
       (b as HTMLButtonElement).disabled = true;
       void this.onEventAction('focus', b.dataset.id!).finally(() => { this.keepView = true; this.refresh(); });
