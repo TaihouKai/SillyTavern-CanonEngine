@@ -45,6 +45,10 @@ export interface PackPredicate {
   id: Id; description: string;
   value_type: 'boolean' | 'number' | 'string' | 'entity_ref' | 'entity_set';
   allowed_values?: FactValue[];
+  /** A temporary condition (injury, being held, current whereabouts): lint expects a later event to end it. */
+  transient?: boolean;
+  /** Values of a transient predicate that are a settled state (healed, back home, a lasting disability). */
+  settled_values?: FactValue[];
 }
 export interface PackEdge { id: Id; from: Id; to: Id; relation: 'enables' | 'motivates' | 'precedes' | 'related'; basis: string; source_refs: Id[]; note: string }
 export interface PackArc { id: Id; title: string; summary: string; event_ids: Id[] }

@@ -103,6 +103,29 @@ describe('pack validation', () => {
     expect(errs(c)).toMatch(/within coverage/);
   });
 
+  it('TC01 a temporary condition no later event ends is flagged when the entity takes part in later events', () => {
+    const warns = (raw: any) => { const r = validatePack(raw); expect(r.errors).toEqual([]); return r.warnings.map((w) => `${w.path} ${w.message}`).join('\n'); };
+    const withInjury = (pred: object) => {
+      const a = demoRaw();
+      a.predicates.push({ id: 'injury', description: 'current injury', value_type: 'string', ...pred });
+      // council-broadcast (day 1) wounds the council; it takes part in conflict-begins (day 2) and conflict-ends (day 4)
+      a.events[1].canonical_effects.push({ op: 'set', fact: { entity_id: 'council', predicate: 'injury', value: 'wounded' } });
+      return a;
+    };
+    const a = withInjury({ transient: true });
+    expect(warns(a)).toMatch(/\/events\/1\/canonical_effects\/1 temporary condition council\.injury = "wounded" is never ended by a later event, but council takes part in later events: conflict-begins, conflict-ends/);
+    // ended by the next event the council is in: no warning, and the settled value is not flagged either
+    const b = withInjury({ transient: true, settled_values: ['healed'] });
+    b.events[2].canonical_effects.push({ op: 'set', fact: { entity_id: 'council', predicate: 'injury', value: 'healed' } });
+    expect(warns(b)).not.toMatch(/temporary condition/);
+    // a value listed as settled lasts; a predicate not marked transient is never checked
+    expect(warns(withInjury({ transient: true, settled_values: ['wounded'] }))).not.toMatch(/temporary condition/);
+    expect(warns(withInjury({}))).not.toMatch(/temporary condition/);
+    // settled_values need a transient predicate, and must match its value type
+    expect(warns(withInjury({ settled_values: ['healed'] }))).toMatch(/settled_values only apply to a transient predicate/);
+    expect(errs(withInjury({ transient: true, settled_values: [3] }))).toMatch(/settled_values\/0/);
+  });
+
   it('two HARD events with incompatible outcomes at the same checkpoint are a data error', () => {
     const a = demoRaw();
     const extra = JSON.parse(JSON.stringify(a.events[4]));

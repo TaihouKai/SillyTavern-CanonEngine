@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.50 — 2026-10-18
+
+- **canon-lint finds temporary conditions nothing ends.** A fact holds until an event changes it, so an injury, a hospital stay or a whereabouts that no later event ends stays true for the rest of the timeline (live finding: 白井黑子 was still "被结标重伤（住院）" when canon has her fighting 警策看取 six days later; the GM spent its thinking reconciling the two every time she appeared, and the reviewer could flag the reply). Pack authors mark such predicates `"transient": true` (optional; existing packs are unchanged) and list settled values (healed, back home, a lasting disability) in `settled_values`; the lint then warns when an event sets one, no later event ever ends it, and the character takes part in later events. On the Toaru pack 1.1.2 it found 13 such conditions.
+- Pack schema: optional predicate fields `transient` and `settled_values` (validated against the predicate type). Authoring guide §6 explains them, and why a recovered value is better than `unset` (an absent fact is UNKNOWN, not healthy).
+- Test TC01.
+
 ## 1.3.49 — 2026-10-18
 
 - The status line no longer shows the previous turn's error while a new turn is running (live finding: "生成中" next to the last turn's "Provider failure: Gateway Timeout", although the new turn was fine and only slow). The error is still shown when the turn fails, and after it until a turn succeeds.

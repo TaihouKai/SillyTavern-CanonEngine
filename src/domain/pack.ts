@@ -164,6 +164,8 @@ export function lintPack(pack: CanonPack): { errors: LintIssue[]; warnings: Lint
         checkValue(tmp, v, `/predicates/${i}/allowed_values/${j}`);
       });
     }
+    (p.settled_values || []).forEach((v, j) => checkValue(p, v, `/predicates/${i}/settled_values/${j}`));
+    if (p.settled_values && !p.transient) warn(`/predicates/${i}/settled_values`, `settled_values only apply to a transient predicate; set "transient": true or remove them`);
   });
 
   // entities
@@ -313,6 +315,27 @@ export function lintPack(pack: CanonPack): { errors: LintIssue[]; warnings: Lint
       if (me && dt && dt.lo > me.hi) warn(`/events/${i}/canonical_preconditions`, `requires occurrence of later event "${d}" (forward dependency; review)`);
     }
   });
+
+  // Temporary conditions nothing ends (review flag): an event sets a transient predicate (an injury, being
+  // held, a whereabouts) and the entity takes part in later events while no event changes it again, so the
+  // GM sees e.g. "hospitalized" for the rest of the timeline (live finding: 白井黑子 still 住院 when canon
+  // has her fighting six days later).
+  const timed = pack.events.map((ev, i) => ({ ev, i, t: whenToStoryTime(ev.when) })).filter((x) => x.t).sort((a, b) => a.t!.lo - b.t!.lo);
+  const touches = (ef: Effect, ent: Id, pred: Id) => (ef.op === 'set' ? ef.fact.entity_id === ent && ef.fact.predicate === pred : ef.entity_id === ent && ef.predicate === pred);
+  for (const a of timed) {
+    a.ev.canonical_effects.forEach((ef, j) => {
+      if (ef.op !== 'set') return;
+      const p = predicates.get(ef.fact.predicate);
+      if (!p?.transient || (p.settled_values || []).some((v) => valuesEqual(v, ef.fact.value))) return;
+      const ent = ef.fact.entity_id;
+      // A condition that a later event ends may rightly hold while the entity takes part in between
+      // (someone ill during an escape); only one nothing ever ends is reported.
+      const after = timed.filter((b) => b !== a && b.t!.lo > a.t!.lo);
+      if (after.some((b) => b.ev.canonical_effects.some((x) => touches(x, ent, ef.fact.predicate)))) return;
+      const later = after.filter((b) => b.t!.lo > a.t!.hi && b.ev.entity_ids.includes(ent)).map((b) => b.ev.id);
+      if (later.length) warn(`/events/${a.i}/canonical_effects/${j}`, `temporary condition ${ent}.${ef.fact.predicate} = ${JSON.stringify(ef.fact.value)} is never ended by a later event, but ${ent} takes part in later events: ${later.slice(0, 5).join(', ')}${later.length > 5 ? ` (+${later.length - 5} more)` : ''}. Add an event or effect that ends it, or list the value in the predicate's settled_values if it lasts`);
+    });
+  }
 
   // Exact-checkpoint HARD contradictions
   const hard = pack.events.filter((e) => e.classification === 'HARD' && e.when.earliest && e.when.latest);

@@ -393,6 +393,17 @@
           },
           "minItems": 1,
           "uniqueItems": true
+        },
+        "transient": {
+          "type": "boolean"
+        },
+        "settled_values": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/value"
+          },
+          "minItems": 1,
+          "uniqueItems": true
         }
       },
       "required": [

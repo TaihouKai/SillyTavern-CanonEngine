@@ -117,7 +117,15 @@ Runtime-created NPCs and interventions are stored under separate runtime IDs wit
 
 ## 6. Predicates and facts
 
-Declare every predicate once. A predicate has `id`, `description`, `value_type`, and optionally `allowed_values`.
+Declare every predicate once. A predicate has `id`, `description`, `value_type`, and optionally `allowed_values`, `transient` and `settled_values`.
+
+**Temporary conditions.** A fact holds until an event changes it. An injury, a hospital stay, being held prisoner or a current whereabouts that no later event ends therefore stays true for the rest of the timeline, and the GM is told that a character is "hospitalized" while canon has her fighting a week later. Mark such predicates `"transient": true`. `canon-lint` then warns when an event sets one and no later event ever ends it, although the character takes part in later events. End it with a later event or effect (for example `injury: "healed"`), and list values that are a settled state — healed, back home, a lasting disability — in `settled_values` so they are not flagged themselves:
+
+```json
+{"id": "injury", "description": "Current injury or physical condition.", "value_type": "string", "transient": true, "settled_values": ["healed"]}
+```
+
+Prefer a recovered value over `unset`: an absent fact is UNKNOWN to the engine ("do not assume normality"), not "healthy".
 
 | `value_type` | JSON value | Example |
 | --- | --- | --- |
@@ -287,7 +295,7 @@ Release-blocking checks:
 8. A meaningful baseline for dependency-critical state; missing optional facts remain unknown. A referenced source object exists even if its external locator cannot be fetched.
 9. Demonstrated Hard contradictions reported precisely. Do not claim a general proof of narrative satisfiability from a few graph checks.
 
-Warnings requiring author review: generic aliases, missing evidence detail, many unknown-time events, large unexplained time gaps, mixed time zones, circular motivational chains, temporal claims in static descriptions, duplicate events, incidental details overconstrained as Hard, and promising coverage without relevant events. These are review prompts, not excuses for the runtime to rewrite the source.
+Warnings requiring author review: generic aliases, missing evidence detail, many unknown-time events, large unexplained time gaps, mixed time zones, circular motivational chains, temporal claims in static descriptions, duplicate events, incidental details overconstrained as Hard, promising coverage without relevant events, and temporary conditions (`transient` predicates) that no later event ends. These are review prompts, not excuses for the runtime to rewrite the source.
 
 For the author's existing franchise references, validate internal consistency against the corrected source supplied for this task. Research new facts only under a separate request. Keep ambiguity explicit instead of inventing dates or asserting certainty.
 
@@ -353,7 +361,7 @@ Before handing off an authored pack, check:
 
 ## Appendix — implementation tooling
 
-The shipped implementation keeps this guide and `schemas/canon-pack.schema.json` unchanged (pack schema `1.0.0`; no new pack fields). Validate a pack exactly as the extension does — JSON Schema plus every release-blocking semantic check in §10, with author-review warnings — without SillyTavern:
+The shipped implementation keeps this guide and `schemas/canon-pack.schema.json` unchanged (pack schema `1.0.0`; the only additions are the optional predicate fields `transient` and `settled_values`, engine 1.3.50). Validate a pack exactly as the extension does — JSON Schema plus every release-blocking semantic check in §10, with author-review warnings — without SillyTavern:
 
 ```
 node dist/canon-lint.mjs my-world.canon.json          # human-readable report, exit code 1 on errors
