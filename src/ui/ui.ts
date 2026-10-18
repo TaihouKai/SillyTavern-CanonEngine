@@ -108,7 +108,9 @@ function renderStatus() {
   const busy = E.isBusy() || !!st.canCancel || st.phase === 'reconciling';
   const lockOk = getLock()?.isOwner() ?? true;
   const conflict = camp.recoveryState.status === 'conflict';
-  const err = phase === 'error' || camp.recoveryState.status === 'error' || camp.recoveryState.status === 'unsaved';
+  // The previous turn's failure stays in recoveryState until a turn succeeds; while a new operation runs,
+  // show its progress, not the old error (live finding: "生成中" next to the last turn's Gateway Timeout).
+  const err = phase === 'error' || (!busy && (camp.recoveryState.status === 'error' || camp.recoveryState.status === 'unsaved'));
   let msg = '';
   if (!lockOk) msg = t('notWriter');
   else if (conflict) msg = t('conflictMarker') + (camp.recoveryState.reason ? ` (${camp.recoveryState.reason.slice(0, 160)})` : '');

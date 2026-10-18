@@ -574,6 +574,15 @@ try {
     const stP = await engineState(page);
     check(results, 'P04 a missing analysis profile stops the turn with an actionable error', stP.recovery.status === 'error' && /no longer exists/.test(stP.recovery.reason || ''), JSON.stringify(stP.recovery));
     await page.evaluate(() => { SillyTavern.getContext().extensionSettings.canonEngine.taskProfileId = '__chat__'; SillyTavern.getContext().saveSettingsDebounced(); });
+    // the next turn (slow draft) shows its own progress, not the failure of the turn before
+    await mock('/control', { mainQueue: ['海浪拍着沙滩。P06_OK'], mainDelayMs: 3000, clearLogs: true });
+    await page.fill('#send_textarea', '我再看一眼。');
+    await page.click('#send_but');
+    let during = '';
+    for (let i = 0; i < 60; i++) { await sleep(200); if (await page.evaluate(() => window.CanonEngine.engine.isBusy())) { during = await page.$eval('#canon-engine-status', (e) => e.innerText).catch(() => ''); if (during.trim()) break; } }
+    await waitIdle(page);
+    await mock('/control', { mainDelayMs: 0 });
+    check(results, 'P06 while the next turn runs, the status shows its progress, not the error of the previous turn', !!during && !/no longer exists|Provider failure/.test(during), during.replace(/\s+/g, ' ').slice(0, 200));
   }
 
   // ---------------------------------------------------------------------------------------------

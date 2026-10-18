@@ -16457,7 +16457,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.48";
+var ENGINE_RELEASE = "1.3.49";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -19928,7 +19928,7 @@ function renderStatus() {
   const busy = E.isBusy() || !!st.canCancel || st.phase === "reconciling";
   const lockOk = getLock()?.isOwner() ?? true;
   const conflict = camp.recoveryState.status === "conflict";
-  const err = phase === "error" || camp.recoveryState.status === "error" || camp.recoveryState.status === "unsaved";
+  const err = phase === "error" || !busy && (camp.recoveryState.status === "error" || camp.recoveryState.status === "unsaved");
   let msg = "";
   if (!lockOk) msg = t("notWriter");
   else if (conflict) msg = t("conflictMarker") + (camp.recoveryState.reason ? ` (${camp.recoveryState.reason.slice(0, 160)})` : "");
