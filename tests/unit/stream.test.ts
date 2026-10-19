@@ -48,6 +48,25 @@ describe('streamed requests', () => {
       expect(model.takeUsage()).toMatchObject({ input: 1200, output: 30, calls: 1, unreported: 0 });
     });
 
+    it('SR05 a stream that goes silent without closing is given up after the stall time, with a clear reason; steady slow streams are not', async () => {
+      (globalThis as any).__canonStreamStallMs = 150;
+      const enc = new TextEncoder();
+      try {
+        // one chunk, then silence (the connection never closes)
+        handler = () => new Response(new ReadableStream({ start(c) { c.enqueue(enc.encode(`data: ${JSON.stringify(delta({ reasoning_content: 'thinking' }))}\n\n`)); } }), { status: 200 });
+        await expect(req('[CANON ENGINE CONTEXT x]')).rejects.toThrow(/sent nothing for 0s \(in the middle of the reply\); the connection stalled/);
+        // the provider never even starts
+        handler = () => new Promise(() => {}) as any;
+        await expect(req()).rejects.toThrow(/waiting for the provider to start the reply/);
+        // a slow model that keeps sending (every 60 ms for ~0.5 s) is never cut off
+        handler = () => new Response(new ReadableStream({ async start(c) {
+          for (let i = 0; i < 8; i++) { await new Promise((r) => setTimeout(r, 60)); c.enqueue(enc.encode(`data: ${JSON.stringify(delta({ content: 'x' }))}\n\n`)); }
+          c.enqueue(enc.encode('data: [DONE]\n\n')); c.close();
+        } }), { status: 200 });
+        expect((await (await req()).json()).choices[0].message.content).toBe('xxxxxxxx');
+      } finally { delete (globalThis as any).__canonStreamStallMs; }
+    });
+
     it('SR04 a provider that refuses the streamed request (4xx) gets the request as ST sent it; a 5xx is reported, not repeated', async () => {
       sent.length = 0;
       handler = (b) => b.stream ? new Response('{"error":"stream_options not allowed"}', { status: 400 }) : new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), { status: 200 });

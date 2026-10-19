@@ -874,6 +874,22 @@ try {
     const sec = tj.split('\n\n').find((s) => s.startsWith('CANON EVENTS ABOUT TO START')) || '';
     check(results, "TJ01 the story prompt lists the canon events that start before the player's requested time jump ends", /jumps story time to/.test(sec) && /council-broadcast/.test(sec) && !/harbor-festival/.test(sec), sec.slice(0, 400));
   }
+  if (want('S21')) {
+    console.log('\n== S21 a stalled stream ==');
+    await freshChat();
+    await page.evaluate(() => { window.__canonStreamStallMs = 4000; });
+    await mock('/control', { mainStallNext: 1, mainQueue: ['不会用到。'], clearLogs: true });
+    const t0 = Date.now();
+    await send(page, '我等着。');
+    const took = Date.now() - t0;
+    const stF = await engineState(page);
+    check(results, 'ST01 a reply stream that goes silent without closing fails after the stall time with a clear reason (not at the reply timeout)', stF.recovery?.status === 'error' && /sent nothing for 4s \(in the middle of the reply\); the connection stalled/.test(stF.recovery?.reason || '') && took < 60000, `${Math.round(took / 1000)}s ${JSON.stringify(stF.recovery)}`);
+    await page.evaluate(() => { delete window.__canonStreamStallMs; });
+    await mock('/control', { mainQueue: ['港口恢复了平静。ST_OK'], clearLogs: true });
+    await page.evaluate(() => document.querySelector('#canon-engine-status [data-act="retry"]')?.click());
+    await page.waitForFunction(() => SillyTavern.getContext().chat.slice(-1)[0]?.mes?.includes('ST_OK'), null, { timeout: 60000 }).catch(() => {});
+    check(results, 'ST02 retrying afterwards works', (await chat(page)).slice(-1)[0]?.mes?.includes('ST_OK'), (await chat(page)).slice(-1)[0]?.mes);
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }

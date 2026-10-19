@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.58 — 2026-10-19
+
+- **A stream that goes silent is given up after 5 minutes instead of waiting for the reply timeout.** Since 1.3.48 Canon streams its own requests to custom endpoints. A stream that stops sending without closing was waited on until the reply timeout (live: 33 minutes with no reply and no error at a 2000 s timeout). Any bytes — tokens, thinking, keep-alive comments — reset the timer, so a model that is thinking is never cut off; 5 minutes of total silence (before the reply starts or in the middle of it) ends the request with "the provider sent nothing for 300s …; the connection stalled". The stalled request is not re-sent unstreamed. Retry works as usual.
+- Test SR05; e2e ST01–ST02 (section S21; the mock provider can now stall a stream).
+
 ## 1.3.57 — 2026-10-19
 
 - **Time jumps the player asks for are read before the reply is written.** The player-message reader already recognised time skips ("睡到明天早上", "三小时后") but only passed them on as a note; it now gives their target time (a typical hour when only a part of day is said: morning 07:00, evening 18:00, …), and "CANON EVENTS ABOUT TO START" then covers everything starting before the jump ends, not just the next 2 hours (up to 10 events). The GM is told to reflect the ones the player character would witness, be woken by or hear about, leave the rest out of sight, and keep the jump the player asked for instead of cutting it short or stretching it. A target in the past or more than 7 days ahead is ignored.

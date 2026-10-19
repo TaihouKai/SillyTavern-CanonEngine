@@ -16565,7 +16565,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.57";
+var ENGINE_RELEASE = "1.3.58";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -18831,6 +18831,39 @@ function streamedBody(body) {
   b.stream = true;
   return JSON.stringify(b);
 }
+var STREAM_STALL_MS = 3e5;
+var StreamStall = class extends Error {
+};
+var lastDraftStall = null;
+function stallError(ms, what) {
+  return new StreamStall(`the provider sent nothing for ${Math.round(ms / 1e3)}s (${what}); the connection stalled, so Canon Engine stopped waiting. Check the provider's status or request log; try again.`);
+}
+async function withStall(p, ctrl, ms, what) {
+  let timer;
+  const t2 = new Promise((_, rej) => {
+    timer = setTimeout(() => {
+      rej(stallError(ms, what));
+      ctrl.abort();
+    }, ms);
+  });
+  try {
+    return await Promise.race([p, t2]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function readStream(r, ctrl, ms) {
+  if (!r.body) return r.text();
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let text = "";
+  for (; ; ) {
+    const { done, value } = await withStall(reader.read(), ctrl, ms, "in the middle of the reply");
+    if (done) break;
+    text += dec.decode(value, { stream: true });
+  }
+  return text + dec.decode();
+}
 function tapUsage() {
   if (usageTapped || typeof window === "undefined" || typeof window.fetch !== "function") return;
   usageTapped = true;
@@ -18841,14 +18874,23 @@ function tapUsage() {
     const body0 = typeof init2?.body === "string" ? init2.body : "";
     const sb = url0.includes("/api/backends/chat-completions/generate") && (body0.includes("[CANON ENGINE CONTEXT") || body0.includes("[CANON_ENGINE_TASK:")) ? streamedBody(body0) : null;
     if (sb) {
+      const ctrl = new AbortController();
+      const outer = init2?.signal;
+      if (outer?.aborted) ctrl.abort();
+      else outer?.addEventListener("abort", () => ctrl.abort(), { once: true });
+      const stallMs = Number(globalThis.__canonStreamStallMs) || STREAM_STALL_MS;
       try {
-        const r = await orig(input, { ...init2, body: sb });
+        const r = await withStall(orig(input, { ...init2, body: sb, signal: ctrl.signal }), ctrl, stallMs, "waiting for the provider to start the reply");
         if (r.ok) {
-          const text = await r.text();
+          const text = await readStream(r, ctrl, stallMs);
           const done = sseToCompletion(text);
           res = done ? new Response(JSON.stringify(done), { status: 200, headers: { "Content-Type": "application/json" } }) : new Response(text, { status: r.status, statusText: r.statusText, headers: r.headers });
         } else if (r.status < 400 || r.status >= 500) res = r;
       } catch (e) {
+        if (e instanceof StreamStall) {
+          if (body0.includes("[CANON ENGINE CONTEXT")) lastDraftStall = e.message;
+          throw e;
+        }
         if (e?.name === "AbortError" || init2?.signal?.aborted) throw e;
       }
     }
@@ -19034,8 +19076,16 @@ var StModel = class {
       };
       req.signal?.addEventListener("abort", onAbort, { once: true });
       try {
-        const out = await c.generateQuietPrompt({ quietPrompt: "", removeReasoning: false, skipWIAN: false });
+        lastDraftStall = null;
+        let out;
+        try {
+          out = await c.generateQuietPrompt({ quietPrompt: "", removeReasoning: false, skipWIAN: false });
+        } catch (e) {
+          if (lastDraftStall) throw new Error(lastDraftStall);
+          throw e;
+        }
         if (req.signal?.aborted) throw new Error("aborted");
+        if (lastDraftStall) throw new Error(lastDraftStall);
         const captured = gen.draft?.token === token ? gen.draft.captured : null;
         if (captured && !captured.some((m) => typeof m.content === "string" && m.content.includes("[CANON ENGINE CONTEXT"))) {
           throw new EngineError("capacity", "SillyTavern dropped the Canon Engine context from the prompt because it did not fit the configured context size. Increase \u201CContext Size (tokens)\u201D in the API settings, or lower budgetChars in Canon Engine advanced settings.");

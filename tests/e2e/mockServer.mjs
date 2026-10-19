@@ -11,7 +11,7 @@
 import http from 'node:http';
 
 const PORT = Number(process.argv[2] || 5555);
-const fresh = () => ({ logs: [], mainQueue: [], mainRules: [], taskRules: [], auxRules: [], auxDelayMs: 0, auxFailNext: 0, mainDelayMs: 0, taskDelayMs: 0, malformedNext: {}, emptyNext: {} });
+const fresh = () => ({ logs: [], mainQueue: [], mainRules: [], taskRules: [], auxRules: [], auxDelayMs: 0, auxFailNext: 0, mainDelayMs: 0, mainStallNext: 0, taskDelayMs: 0, malformedNext: {}, emptyNext: {} });
 let state = fresh();
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -173,6 +173,10 @@ const server = http.createServer(async (req, res) => {
     else content = `默认叙事：GM 回应了「${lu.slice(0, 30)}」。`;
     state.logs.push({ type: 'main', at: Date.now(), messages, stream: !!body.stream, includeUsage: !!body.stream_options?.include_usage, response: content, model: body.model, temperature: body.temperature, venice: body.venice_parameters });
     if (state.mainDelayMs) await sleep(state.mainDelayMs);
+    // a stream that starts and then goes silent without ever closing (a dead connection)
+    if (state.mainStallNext > 0 && body.stream) { state.mainStallNext--; res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Access-Control-Allow-Origin': '*' }); res.write(`data: ${JSON.stringify({ id: 'mock', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta: { reasoning_content: 'thinking' }, finish_reason: null }] })}
+
+`); return; }
     // A queued { content, reasoning } reply carries API-level reasoning (reasoning_content), like DeepSeek/Venice.
     let reasoning = null, finish = null, usage = null;
     if (content && typeof content === 'object') { ({ reasoning, finish, usage } = content); content = content.content; }

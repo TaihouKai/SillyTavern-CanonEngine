@@ -384,6 +384,39 @@ export function streamedBody(body: string): string | null {
   return JSON.stringify(b);
 }
 
+/** No data at all from the provider for this long ends a streamed request (see tapUsage). */
+export const STREAM_STALL_MS = 300000;
+
+class StreamStall extends Error {}
+/** Set when the story draft's stream stalled (SillyTavern's quiet generation may swallow the fetch error). */
+let lastDraftStall: string | null = null;
+
+function stallError(ms: number, what: string) {
+  return new StreamStall(`the provider sent nothing for ${Math.round(ms / 1000)}s (${what}); the connection stalled, so Canon Engine stopped waiting. Check the provider's status or request log; try again.`);
+}
+
+/** Resolve p, or abort and reject when it takes longer than ms. */
+async function withStall<T>(p: Promise<T>, ctrl: AbortController, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // reject first: aborting also rejects the pending read
+  const t = new Promise<never>((_, rej) => { timer = setTimeout(() => { rej(stallError(ms, what)); ctrl.abort(); }, ms); });
+  try { return await Promise.race([p, t]); } finally { clearTimeout(timer); }
+}
+
+/** Read a streamed body to the end; any bytes (tokens or keep-alive comments) reset the stall timer. */
+export async function readStream(r: Response, ctrl: AbortController, ms: number): Promise<string> {
+  if (!r.body) return r.text();
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let text = '';
+  for (;;) {
+    const { done, value } = await withStall(reader.read(), ctrl, ms, 'in the middle of the reply');
+    if (done) break;
+    text += dec.decode(value, { stream: true });
+  }
+  return text + dec.decode();
+}
+
 function tapUsage() {
   if (usageTapped || typeof window === 'undefined' || typeof window.fetch !== 'function') return;
   usageTapped = true;
@@ -398,14 +431,22 @@ function tapUsage() {
     // to the provider so tokens keep the connection alive, then hand ST one ordinary completion.
     const sb = url0.includes('/api/backends/chat-completions/generate') && (body0.includes('[CANON ENGINE CONTEXT') || body0.includes('[CANON_ENGINE_TASK:')) ? streamedBody(body0) : null;
     if (sb) {
+      // A stream that goes silent without closing would otherwise be waited on until the reply timeout
+      // (live: 33 minutes with no reply and no error). Thinking models keep sending tokens, so total
+      // silence for this long means the connection is dead.
+      const ctrl = new AbortController();
+      const outer = init?.signal;
+      if (outer?.aborted) ctrl.abort(); else outer?.addEventListener('abort', () => ctrl.abort(), { once: true });
+      const stallMs = Number((globalThis as any).__canonStreamStallMs) || STREAM_STALL_MS;
       try {
-        const r = await orig(input, { ...init, body: sb });
+        const r = await withStall(orig(input, { ...init, body: sb, signal: ctrl.signal }), ctrl, stallMs, 'waiting for the provider to start the reply');
         if (r.ok) {
-          const text = await r.text();
+          const text = await readStream(r, ctrl, stallMs);
           const done = sseToCompletion(text);
           res = done ? new Response(JSON.stringify(done), { status: 200, headers: { 'Content-Type': 'application/json' } }) : new Response(text, { status: r.status, statusText: r.statusText, headers: r.headers });
         } else if (r.status < 400 || r.status >= 500) res = r; // 4xx: the provider may refuse streaming options; retry as sent
       } catch (e) {
+        if (e instanceof StreamStall) { if (body0.includes('[CANON ENGINE CONTEXT')) lastDraftStall = e.message; throw e; }
         if ((e as Error)?.name === 'AbortError' || init?.signal?.aborted) throw e;
       }
     }
@@ -571,8 +612,11 @@ export class StModel implements ModelPort {
       const onAbort = () => { try { c.stopGeneration?.(); } catch { /* ignore */ } };
       req.signal?.addEventListener('abort', onAbort, { once: true });
       try {
-        const out = await c.generateQuietPrompt({ quietPrompt: '', removeReasoning: false, skipWIAN: false });
+        lastDraftStall = null;
+        let out: unknown;
+        try { out = await c.generateQuietPrompt({ quietPrompt: '', removeReasoning: false, skipWIAN: false }); } catch (e) { if (lastDraftStall) throw new Error(lastDraftStall); throw e; }
         if (req.signal?.aborted) throw new Error('aborted');
+        if (lastDraftStall) throw new Error(lastDraftStall);
         // ST trims in-chat injections that do not fit the model's context size. Never accept a
         // draft whose final prompt lost the engine context.
         const captured = gen.draft?.token === token ? gen.draft.captured : null;
