@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.62 — 2026-10-19
+
+- **The planner may plan the steps leading up to a HARD event.** A plan step that served a HARD event was rejected whenever it set a value different from that event's final outcome, even before the event: the steps toward 御坂10032号被秘密带走 had 10032 "在气球猎手比赛场地" and were refused as "contradicting HARD misaka-10032-abduction's required outcome 被秘密带离并藏匿" (live finding; the pack is consistent — those were the planner's own intermediate steps). The HARD event sets its outcome when it happens, so a step now conflicts only when it spans the event's deadline, whether or not it serves it.
+- Planner test extended.
+
 ## 1.3.61 — 2026-10-19
 
 - **A card greeting that is a setup instruction no longer leaves a conflict at binding.** The opening message of some cards tells the GM how to start ("当前世界设定…已载入。用户可以直接行动…") instead of being a scene; binding examined it like a story reply, the reviewer complained that it is "a meta-instruction prompt, not a story reply", and the complaint became an unresolved conflict on message #0 (live finding). A message already in the chat cannot be repaired, so for retained messages the reviewer's decision is what counts: complaints about a message it keeps (retain) are notes; a real contradiction is still a "conflict". The reviewer is also told that non-story text (OOC instructions, setup notes, rules, menus) establishes nothing and draws no complaints.

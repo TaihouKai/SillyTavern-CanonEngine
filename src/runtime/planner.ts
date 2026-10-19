@@ -101,15 +101,14 @@ export function validatePlan(out: PlanOutput, pack: LoadedPack, index: WorldInde
       if (!pack.predicates.has(e.predicate)) errs.push(`step ${s.step_id}: undeclared predicate ${e.predicate}`);
       const eid = e.entity_id;
       if (!index.entityExists(eid) && !eid.startsWith('new:')) errs.push(`step ${s.step_id}: unknown entity ${eid} (new actors must be named "new:<name>" and established by a step)`);
-      // Outcomes are checkpoint facts: an effect conflicts only with the anchor it serves or with an
-      // anchor whose deadline falls inside the step (an intermediate state before the anchor, e.g. a
-      // villain "deceived" before his plan "fails", is not a contradiction).
+      // Outcomes are checkpoint facts, and the anchor event itself sets them when it happens: an effect
+      // conflicts only with an anchor whose deadline falls inside the step. An intermediate state before
+      // it is not a contradiction, also for steps serving that anchor (e.g. a villain "deceived" before his
+      // plan "fails"; live finding: 10032 "at the balloon-hunt grounds" before she is "secretly taken away").
       for (const hid of scope.detailed.concat(scope.register)) {
         const pe = pack.events.get(hid)!;
-        const hlo = pe.when.earliest ? toTick(pe.when.earliest) : -Infinity;
         const hhi = pe.when.latest ? toTick(pe.when.latest) : Infinity;
-        void hlo;
-        const overlaps = s.serves_anchor === hid || (lo <= hhi && hi >= hhi);
+        const overlaps = lo <= hhi && hi >= hhi;
         if (!overlaps) continue;
         for (const o of pe.outcomes) if (o.entity_id === e.entity_id && o.predicate === e.predicate && !valuesEqual(o.value, e.value)) {
           errs.push(`step ${s.step_id}: intends ${e.entity_id}.${e.predicate}=${JSON.stringify(e.value)}, contradicting HARD ${hid}'s required outcome ${JSON.stringify(o.value)}`);

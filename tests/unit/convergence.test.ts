@@ -105,6 +105,9 @@ describe('convergence', () => {
     expect(validatePlan({ ...base, steps: [step({ serves_anchor: 'conflict-ends', earliest: D(4, 10), latest: D(4, 18), intended_effects: [{ entity_id: 'conflict', predicate: 'victor', value: 'council' }] })] } as any, L, idx, scope, tick(1, 9, 30), false).join()).toMatch(/contradicting HARD/);
     // an intermediate state before an anchor's deadline is not a contradiction (e.g. a villain deceived before his plan fails)
     expect(validatePlan({ ...base, steps: [step({ serves_anchor: null, earliest: D(4, 10), latest: D(4, 17), intended_effects: [{ entity_id: 'conflict', predicate: 'victor', value: 'council' }] })] } as any, L, idx, scope, tick(1, 9, 30), false).join()).not.toMatch(/contradicting HARD/);
+    // also for a step that serves the anchor: the anchor sets its outcome when it happens (live finding:
+    // 10032 "at the balloon-hunt grounds" before the HARD abduction leaves her "secretly taken away")
+    expect(validatePlan({ ...base, steps: [step({ serves_anchor: 'conflict-ends', earliest: D(4, 10), latest: D(4, 17), intended_effects: [{ entity_id: 'conflict', predicate: 'victor', value: 'council' }] })] } as any, L, idx, scope, tick(1, 9, 30), false).join()).not.toMatch(/contradicting HARD/);
     expect(validatePlan({ ...base, rationale: 'shift to a parallel world where the Council wins' }, L, idx, scope, tick(1, 9, 30), false).join()).toMatch(/alternate world/);
     expect(validatePlan({ ...base, steps: [step({ requires_player_consent: true })] } as any, L, idx, scope, tick(1, 9, 30), false).join()).toMatch(/consent/);
     expect(validatePlan({ ...base, protected_anchor_ids: ['conflict-begins'] }, L, idx, scope, tick(1, 9, 30), false).join()).toMatch(/does not protect HARD anchor conflict-ends/);

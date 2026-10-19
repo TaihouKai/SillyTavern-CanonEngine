@@ -16414,10 +16414,8 @@ function validatePlan(out, pack2, index, scope, clockTick, allowForced) {
       if (!index.entityExists(eid) && !eid.startsWith("new:")) errs.push(`step ${s.step_id}: unknown entity ${eid} (new actors must be named "new:<name>" and established by a step)`);
       for (const hid of scope.detailed.concat(scope.register)) {
         const pe = pack2.events.get(hid);
-        const hlo = pe.when.earliest ? toTick(pe.when.earliest) : -Infinity;
         const hhi = pe.when.latest ? toTick(pe.when.latest) : Infinity;
-        void hlo;
-        const overlaps = s.serves_anchor === hid || lo <= hhi && hi >= hhi;
+        const overlaps = lo <= hhi && hi >= hhi;
         if (!overlaps) continue;
         for (const o of pe.outcomes) if (o.entity_id === e.entity_id && o.predicate === e.predicate && !valuesEqual(o.value, e.value)) {
           errs.push(`step ${s.step_id}: intends ${e.entity_id}.${e.predicate}=${JSON.stringify(e.value)}, contradicting HARD ${hid}'s required outcome ${JSON.stringify(o.value)}`);
@@ -16617,7 +16615,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.61";
+var ENGINE_RELEASE = "1.3.62";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
