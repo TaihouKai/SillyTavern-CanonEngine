@@ -92,6 +92,9 @@ export interface StatusInfo {
   canCancel: boolean;
 }
 
+/** A time jump longer than this is not used to announce canon events (a typo or a misread date). */
+const MAX_TIME_JUMP_MINUTES = 7 * 1440;
+
 export interface ExtractUserOut {
   statements: { kind: string; quote: string; summary: string; entities?: string[]; facts?: { entity_id: string; predicate: string; value: never }[]; event_id?: string | null; time?: { day: number; minute: number } | null; ambiguous?: boolean }[];
   references: { phrase: string; quote: string; kind: 'entity' | 'event'; mode?: string; candidates?: string[] }[];
@@ -567,6 +570,7 @@ export class CanonEngine {
     const configRequests: string[] = [];
     const declines: string[] = [];
     const warnings: string[] = [];
+    let timeJumpTo: number | undefined;
     const st: StoryTime = { lo: tick, hi: tick, precision: 'minute' };
     const due = pendingHard(pack, index.state).filter((h) => h.hi <= tick);
     for (const s of out.statements) {
@@ -590,6 +594,11 @@ export class CanonEngine {
       } else if (s.kind === 'participation_decline' && s.event_id && pack.events.has(s.event_id)) {
         declines.push(s.event_id);
         records.push({ recordId: newId('rec'), kind: 'participation_decline', storyTime: st, sourceRefs: src, factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] }, summary: `Player declined to take part in ${pack.events.get(s.event_id)!.title}`, evidenceKind: 'direct', declinedEventId: s.event_id });
+      } else if (s.kind === 'time_proposal') {
+        intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
+        // the target time, so the GM can be told which canon events begin during the jump
+        const to = s.time && Number.isInteger(s.time.day) && Number.isInteger(s.time.minute) && s.time.minute >= 0 && s.time.minute < 1440 ? toTick(s.time) : null;
+        if (to !== null && to > tick && to - tick <= MAX_TIME_JUMP_MINUTES) timeJumpTo = Math.max(timeJumpTo ?? 0, to);
       } else if (s.kind === 'ooc_config_request') {
         configRequests.push(`Out-of-character request "${s.quote}" was not applied to the engine. Use Canon Engine settings to change the binding or disable it.`);
       } else {
@@ -599,7 +608,7 @@ export class CanonEngine {
     const refs: RefInput[] = out.references.map((r, i) => ({ id: `u${i + 1}`, quote: r.quote, phrase: r.phrase, kind: r.kind, assertion: 'user_input', temporal: r.kind === 'event' ? 'past' : 'present', candidates: r.candidates }));
     const interp: Interpretation = {
       key: baseKey(entry), messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, role: 'user', commitId: newId('cmt'),
-      createdAt: this.host.now(), origin: 'extraction', records, intents, stateClaims: [], playerActions: [], dependsOn: [], sceneEnd: null, flashback: false,
+      createdAt: this.host.now(), origin: 'extraction', records, intents, ...(timeJumpTo ? { timeJumpTo } : {}), stateClaims: [], playerActions: [], dependsOn: [], sceneEnd: null, flashback: false,
       sceneEntities: uniq([...(out.scene_entities || []).filter((x) => index.entityExists(x)), ...out.statements.flatMap((s) => (s.entities || []).filter((x) => index.entityExists(x)))]),
       offscreenBasis: [], warnings, configRequests, declines, basisStateHash: undefined,
     };
@@ -1030,6 +1039,7 @@ export class CanonEngine {
           pack, index, retrieval, checkpointTick: clock, origin: c.binding.originDate, sceneLabel,
           playerScope: userEntry && (lastIsUser || op === 'regenerate' || op === 'swipe') ? [userEntry.text, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
           plan, forced: planInfo.forced, stagedNotes: [] as string[], opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`), focus: this.focusLines(index, clock), budgetChars: this.settings.budgetChars, horizon: this.settings.horizonMinutes,
+          timeJumpTo: userEntry && (lastIsUser || op === 'regenerate' || op === 'swipe') && userInterp?.timeJumpTo && userInterp.timeJumpTo > clock ? userInterp.timeJumpTo : null,
         };
         let packet = buildPacket(packetArgs);
         const engineContext = this.gmRules() + '\n\n' + packet.text;

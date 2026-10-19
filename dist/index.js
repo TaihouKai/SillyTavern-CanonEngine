@@ -15194,7 +15194,7 @@ TASK: Classify the user's latest message (the player's input to a text adventure
 For each meaningful statement give kind:
 - asserted_fact: the user explicitly establishes an environmental/world fact (authoritative under the GM's input convention). Put typed facts in "facts" using registry entity ids and predicates when they map exactly; otherwise leave facts empty.
 - attempted_action: the player tries to do something (outcome NOT established: "I attack her" does not mean she died).
-- spoken_dialogue, belief, hypothetical ("if she died..."), ooc_config_request (out-of-character requests to change engine/pack/rules), time_proposal (explicit time skip/sleep "until morning"; give "time" when an absolute story time is stated or computable from current_time), participation_decline (explicitly declining to join an offered event; give event_id from opportunities).
+- spoken_dialogue, belief, hypothetical ("if she died..."), ooc_config_request (out-of-character requests to change engine/pack/rules), time_proposal (explicit time skip/sleep "until morning", "three hours later", "skip to the evening"; give "time" = the absolute story time {day, minute} the skip ends at, computed from current_time; when only a part of day is given use a typical hour: morning 07:00, noon 12:00, afternoon 15:00, evening 18:00, night 22:00, the next such time after current_time), participation_decline (explicitly declining to join an offered event; give event_id from opportunities).
 Also list references to entities or past events (direct, indirect like "the man I rescued", aliases, pronouns) with candidate ids, and scene_entities the user's action involves.
 SHAPE: {"statements":[{"kind":"asserted_fact|attempted_action|spoken_dialogue|belief|hypothetical|ooc_config_request|time_proposal|participation_decline","quote":"...","summary":"...","entities":["id"],"facts":[{"entity_id":"","predicate":"","value":true}],"event_id":null,"time":null,"ambiguous":false}],"references":[{"phrase":"","quote":"","kind":"entity|event","mode":"direct|indirect|alias|pronoun","candidates":["id"]}],"scene_entities":["id"]}`,
   discover: `${COMMON}
@@ -15584,7 +15584,7 @@ function retrieve(index, spec) {
 }
 var clip = (s) => s.length > 160 ? s.slice(0, 157) + "\u2026" : s;
 var START_SOON_MINUTES = 120;
-var minutesAway = (m) => m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
+var minutesAway = (m) => m >= 1440 ? `${Math.floor(m / 1440)} d ${Math.floor(m % 1440 / 60)} h` : m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
 function histLine(h, triggers, compact) {
   const acc = compact && h.account.length > 220 ? h.account.slice(0, 217) + "\u2026" : h.account;
   const parts = [`- [${h.occurrenceId}] ${h.time} \u2014 ${h.title}: ${acc}`];
@@ -15659,9 +15659,13 @@ function buildPacket(inp, compact = false) {
 ` + (states.length ? states.join("\n") : "- (no referenced entities)"));
   const canon = [...retrieval.canonEvents].map((id) => index.canonStatus(id, checkpointTick)).filter(Boolean);
   if (canon.length) required.push("REFERENCED CANON EVENTS \u2014 status in THIS branch (pending/future/omitted are NOT accomplished):\n" + canon.map(canonLine).join("\n"));
-  const starting = upcomingRoute(pack2, index.state, checkpointTick, START_SOON_MINUTES);
-  if (starting.length && !inp.review) required.push(`CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then \u2014 the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; its course and result follow from actual play:
+  const jump = inp.timeJumpTo && inp.timeJumpTo > checkpointTick ? inp.timeJumpTo - checkpointTick : 0;
+  const starting = upcomingRoute(pack2, index.state, checkpointTick, Math.max(START_SOON_MINUTES, jump), jump > START_SOON_MINUTES ? 10 : 6);
+  if (starting.length && !inp.review) {
+    const head = jump > START_SOON_MINUTES ? `CANON EVENTS ABOUT TO START \u2014 the player's message jumps story time to ${formatTick(inp.timeJumpTo, inp.origin)}; these start before then (NOT happened yet). Each begins at its time during the jump \u2014 the world does not wait: reflect the ones the player character would witness, be woken or interrupted by, or plausibly hear about; the others happen out of sight and you do not mention them. Keep the jump the player asked for: do not cut it short or stretch it to reach or avoid an event; their course and result follow from actual play` : `CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then \u2014 the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; its course and result follow from actual play`;
+    required.push(`${head}:
 ` + starting.map((u) => `- ${u.event.title} [${u.event.id}] starts ${formatTick(u.lo, inp.origin)} (in ${minutesAway(u.lo - checkpointTick)}): ${situationOf(u.event.summary)}`).join("\n"));
+  }
   const underWay = underWayEvents(index, checkpointTick);
   if (underWay.length) required.push("CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand: their course and result follow from actual play and the player's choices; the original route is reference only):\n" + underWay.map((u) => `- ${u.title} [${u.id}] (window ${formatTick(u.lo, inp.origin)} \u2013 ${formatTick(u.hi, inp.origin)}): so far \u2014 ${u.beats.join(" \u2192 ")}. Original route (reference): ${u.summary.length > 160 ? u.summary.slice(0, 157) + "\u2026" : u.summary}`).join("\n"));
   const devs = [...index.state.dispositions].filter(([, d]) => d.disposition !== "occurred").map(([id, d]) => `- ${pack2.events.get(id)?.title} [${id}] (${pack2.events.get(id)?.classification}): ${d.disposition} \u2014 ${d.reason || ""}`);
@@ -16561,7 +16565,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.56";
+var ENGINE_RELEASE = "1.3.57";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16588,6 +16592,7 @@ var DEFAULT_SETTINGS = {
   replyLength: "",
   sceneGrouping: false
 };
+var MAX_TIME_JUMP_MINUTES = 7 * 1440;
 var MAX_MANIFESTS = 40;
 function splitRejects(all) {
   const fixes = /* @__PURE__ */ new Map();
@@ -17063,6 +17068,7 @@ var CanonEngine = class {
     const configRequests = [];
     const declines = [];
     const warnings = [];
+    let timeJumpTo;
     const st = { lo: tick, hi: tick, precision: "minute" };
     const due = pendingHard(pack2, index.state).filter((h) => h.hi <= tick);
     for (const s of out.statements) {
@@ -17088,6 +17094,10 @@ var CanonEngine = class {
       } else if (s.kind === "participation_decline" && s.event_id && pack2.events.has(s.event_id)) {
         declines.push(s.event_id);
         records.push({ recordId: newId("rec"), kind: "participation_decline", storyTime: st, sourceRefs: src, factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: "public", knower_ids: [] }, summary: `Player declined to take part in ${pack2.events.get(s.event_id).title}`, evidenceKind: "direct", declinedEventId: s.event_id });
+      } else if (s.kind === "time_proposal") {
+        intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
+        const to = s.time && Number.isInteger(s.time.day) && Number.isInteger(s.time.minute) && s.time.minute >= 0 && s.time.minute < 1440 ? toTick(s.time) : null;
+        if (to !== null && to > tick && to - tick <= MAX_TIME_JUMP_MINUTES) timeJumpTo = Math.max(timeJumpTo ?? 0, to);
       } else if (s.kind === "ooc_config_request") {
         configRequests.push(`Out-of-character request "${s.quote}" was not applied to the engine. Use Canon Engine settings to change the binding or disable it.`);
       } else {
@@ -17106,6 +17116,7 @@ var CanonEngine = class {
       origin: "extraction",
       records,
       intents,
+      ...timeJumpTo ? { timeJumpTo } : {},
       stateClaims: [],
       playerActions: [],
       dependsOn: [],
@@ -17616,7 +17627,8 @@ var CanonEngine = class {
           opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`),
           focus: this.focusLines(index, clock),
           budgetChars: this.settings.budgetChars,
-          horizon: this.settings.horizonMinutes
+          horizon: this.settings.horizonMinutes,
+          timeJumpTo: userEntry && (lastIsUser || op === "regenerate" || op === "swipe") && userInterp?.timeJumpTo && userInterp.timeJumpTo > clock ? userInterp.timeJumpTo : null
         };
         let packet = buildPacket(packetArgs);
         const engineContext = this.gmRules() + "\n\n" + packet.text;

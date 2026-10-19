@@ -866,6 +866,13 @@ try {
     check(results, 'RA01 an event recorded from a reply offers 重新分析 (two clicks)', st0.dispositions['medic-ambush'] === 'diverged' && btn === '重新分析' && armed === '确认重新分析？', `${JSON.stringify(st0.dispositions['medic-ambush'])} btn=${btn} armed=${armed}`);
     check(results, 'RA02 重新分析 re-examines that reply: the fight is now under way, with no result yet', !st1.dispositions['medic-ambush'] && evals >= 1 && /重新分析完成：进行中/.test(toasts), JSON.stringify({ d: st1.dispositions['medic-ambush'], evals, toasts: toasts.replace(/\s+/g, ' ').slice(0, 120) }));
     await page.evaluate(() => document.querySelector('[data-act="close"]')?.click());
+    // a time jump the player asks for: the GM is told what starts before its end
+    await freshChat();
+    await mock('/control', { mainQueue: ['你一觉睡到天亮。TJ_A'], taskRules: [rule('extract_user', '睡到明天早上', { statements: [{ kind: 'time_proposal', quote: '睡到明天早上', summary: '睡到第二天早上', entities: [], facts: [], event_id: null, time: { day: 2, minute: 420 }, ambiguous: false }] })], clearLogs: true });
+    await send(page, '我回旅店睡到明天早上。');
+    const tj = (await mainLogs()).map(promptText).join('\n');
+    const sec = tj.split('\n\n').find((s) => s.startsWith('CANON EVENTS ABOUT TO START')) || '';
+    check(results, "TJ01 the story prompt lists the canon events that start before the player's requested time jump ends", /jumps story time to/.test(sec) && /council-broadcast/.test(sec) && !/harbor-festival/.test(sec), sec.slice(0, 400));
   }
 } catch (e) {
   console.error('FATAL', e);

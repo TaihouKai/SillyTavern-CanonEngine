@@ -80,6 +80,30 @@ describe('canonical events under way', () => {
     expect(bg).not.toMatch(/Ambush/i);
   });
 
+  it('TJ1 a time jump the player asks for announces every canon event starting before its end', async () => {
+    const x = await setup(); // 09:30; ambush 10:00, broadcast 12:00 (both day 1); the HARD conflict starts day 2 09:00
+    x.model.on('extract_user', (i) => String(i.message).includes('tomorrow morning'), { statements: [{ kind: 'time_proposal', quote: 'I sleep until tomorrow morning', summary: 'sleeps until the next morning', entities: [], facts: [], event_id: null, time: { day: 2, minute: 420 }, ambiguous: false }], references: [], scene_entities: [] }, true);
+    expect(await turn(x, 'I sleep until tomorrow morning.', 'You wake at dawn. [TJ1a]', { scene_end: at(2, 7, 0) })).toBe(true);
+    const ctx = String(x.model.tasks('draft').slice(-1)[0].input.engineContext);
+    const sec = ctx.split('\n\n').find((s) => s.startsWith('CANON EVENTS ABOUT TO START')) || '';
+    expect(sec).toMatch(/the player's message jumps story time to .*; these start before then/);
+    expect(sec).toMatch(/Keep the jump the player asked for/);
+    expect(sec).toMatch(/\[medic-ambush\] starts .*\(in 30 min\)/);
+    expect(sec).toMatch(/\[council-broadcast\] starts .*\(in 2 h 30 min\)/); // beyond the usual 2 hours, inside the jump
+    expect(sec).not.toMatch(/harbor-festival/); // day 3: after the jump
+  });
+
+  it('TJ2 a jump backwards or implausibly far is ignored: the usual two hours apply', async () => {
+    for (const time of [{ day: 1, minute: 300 }, { day: 30, minute: 0 }]) {
+      const x = await setup();
+      x.model.on('extract_user', (i) => String(i.message).includes('skip'), { statements: [{ kind: 'time_proposal', quote: 'I skip ahead', summary: 'skip', entities: [], facts: [], event_id: null, time, ambiguous: false }], references: [], scene_entities: [] }, true);
+      expect(await turn(x, 'I skip ahead.', 'Time passes. [TJ2]', { scene_end: at(1, 9, 40) })).toBe(true);
+      const sec = String(x.model.tasks('draft').slice(-1)[0].input.engineContext).split('\n\n').find((s) => s.startsWith('CANON EVENTS ABOUT TO START')) || '';
+      expect(sec).toMatch(/within 2 hours of story time/);
+      expect(sec).not.toMatch(/council-broadcast/);
+    }
+  });
+
   it('OG2 the reviewer is told not to call an event changed only because its result is not shown yet', () => {
     const PROMPTS = PROMPTS_;
     expect(PROMPTS.evaluate).toMatch(/Never use "diverged" only because the result is not shown yet/);

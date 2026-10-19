@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.57 — 2026-10-19
+
+- **Time jumps the player asks for are read before the reply is written.** The player-message reader already recognised time skips ("睡到明天早上", "三小时后") but only passed them on as a note; it now gives their target time (a typical hour when only a part of day is said: morning 07:00, evening 18:00, …), and "CANON EVENTS ABOUT TO START" then covers everything starting before the jump ends, not just the next 2 hours (up to 10 events). The GM is told to reflect the ones the player character would witness, be woken by or hear about, leave the rest out of sight, and keep the jump the player asked for instead of cutting it short or stretching it. A target in the past or more than 7 days ahead is ignored.
+- Tests TJ1–TJ2; e2e TJ01.
+
 ## 1.3.56 — 2026-10-19
 
 - **The GM is told which canon events are about to start.** A reply's end time is only decided after it is written (by the review, with Horae's time as the floor), so a reply could carry the story from 07:59 to 08:01 past the start of an event the GM never heard of — it only appeared in the optional 24-hour background ("do not steer toward these"). Each reply now gets a required "CANON EVENTS ABOUT TO START" section: non-HARD events starting within 2 hours of story time, with their start time ("in 30 min") and starting situation, and the rule that if the reply's time reaches a start the event begins then (shown where the player character is or would notice, otherwise out of sight), and that time is never hurried or delayed to reach or avoid it. HARD events were already listed as obligations. Not repeated in the background list.

@@ -159,6 +159,8 @@ export interface PacketInput {
   opportunities: string[];
   /** Player-focused (关注) events that can still start soon. */
   focus?: string[];
+  /** Story time the player's message explicitly jumps to ("睡到明天早上"): canon events starting before then are announced. */
+  timeJumpTo?: number | null;
   budgetChars: number;
   horizon: number;
   /** The reviewer's copy: it gets the player's input, due HARD events and canon events now as separate inputs,
@@ -171,7 +173,7 @@ export interface Packet { text: string; facts: string; hash: string; required: n
 const clip = (s: string) => (s.length > 160 ? s.slice(0, 157) + '…' : s);
 /** Canon events starting within this much story time are announced to the GM ("about to start"). */
 export const START_SOON_MINUTES = 120;
-const minutesAway = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`);
+const minutesAway = (m: number) => (m >= 1440 ? `${Math.floor(m / 1440)} d ${Math.floor((m % 1440) / 60)} h` : m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`);
 
 function histLine(h: HistoryRecordView, triggers: Set<string> | undefined, compact: boolean): string {
   const acc = compact && h.account.length > 220 ? h.account.slice(0, 217) + '…' : h.account;
@@ -263,8 +265,15 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   if (canon.length) required.push('REFERENCED CANON EVENTS — status in THIS branch (pending/future/omitted are NOT accomplished):\n' + canon.map(canonLine).join('\n'));
   // Canon events starting shortly: the reply's own end time is only decided after it is written, so the GM
   // is told what begins if its story time gets there (not a reason to steer toward them).
-  const starting = upcomingRoute(pack, index.state, checkpointTick, START_SOON_MINUTES);
-  if (starting.length && !inp.review) required.push(`CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then — the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; its course and result follow from actual play:\n` + starting.map((u) => `- ${u.event.title} [${u.event.id}] starts ${formatTick(u.lo, inp.origin)} (in ${minutesAway(u.lo - checkpointTick)}): ${situationOf(u.event.summary)}`).join('\n'));
+  // A time jump the player asked for ("睡到明天早上") reaches further: everything starting before its target.
+  const jump = inp.timeJumpTo && inp.timeJumpTo > checkpointTick ? inp.timeJumpTo - checkpointTick : 0;
+  const starting = upcomingRoute(pack, index.state, checkpointTick, Math.max(START_SOON_MINUTES, jump), jump > START_SOON_MINUTES ? 10 : 6);
+  if (starting.length && !inp.review) {
+    const head = jump > START_SOON_MINUTES
+      ? `CANON EVENTS ABOUT TO START — the player's message jumps story time to ${formatTick(inp.timeJumpTo!, inp.origin)}; these start before then (NOT happened yet). Each begins at its time during the jump — the world does not wait: reflect the ones the player character would witness, be woken or interrupted by, or plausibly hear about; the others happen out of sight and you do not mention them. Keep the jump the player asked for: do not cut it short or stretch it to reach or avoid an event; their course and result follow from actual play`
+      : `CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then — the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; its course and result follow from actual play`;
+    required.push(`${head}:\n` + starting.map((u) => `- ${u.event.title} [${u.event.id}] starts ${formatTick(u.lo, inp.origin)} (in ${minutesAway(u.lo - checkpointTick)}): ${situationOf(u.event.summary)}`).join('\n'));
+  }
   // Canon events the story has started but not finished: always shown, whether or not the latest messages name them.
   const underWay = underWayEvents(index, checkpointTick);
   if (underWay.length) required.push('CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand: their course and result follow from actual play and the player\'s choices; the original route is reference only):\n' + underWay.map((u) => `- ${u.title} [${u.id}] (window ${formatTick(u.lo, inp.origin)} – ${formatTick(u.hi, inp.origin)}): so far — ${u.beats.join(' → ')}. Original route (reference): ${u.summary.length > 160 ? u.summary.slice(0, 157) + '…' : u.summary}`).join('\n'));

@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.3.56';
+export const ENGINE_RELEASE = '1.3.57';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -36,6 +36,8 @@ export interface Interpretation {
   origin: 'engine_commit' | 'extraction' | 'bootstrap_import' | 'retained_reeval';
   records: RecordDraft[];
   intents: Intent[];
+  /** Player message: the story time it explicitly jumps to (time_proposal with a computable time), if later than now. */
+  timeJumpTo?: number;
   stateClaims: StateClaim[];
   playerActions: PlayerAction[];
   /** Message ids (with hashes) whose content this interpretation depended on. */
