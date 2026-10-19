@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
+import { factAt } from '../../src/domain/reducer';
 import { PROMPTS as PROMPTS_ } from '../../src/runtime/prompts';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
@@ -122,6 +123,34 @@ describe('canonical events under way', () => {
     const PROMPTS = PROMPTS_;
     expect(PROMPTS.evaluate).toMatch(/Never use "diverged" only because the result is not shown yet/);
     expect(PROMPTS.evaluate).toMatch(/"ongoing"/);
+  });
+});
+
+describe('关联本局事件', () => {
+  it('LK1 story events the reviewer did not recognise can be linked to the canon event by hand, as changed or occurred, and undone', async () => {
+    const x = await setup(); // 09:30; ambush 10:00 (original result: Mira killed)
+    const beat = { scene_end: at(1, 9, 50), occurrences: [occ('o1', 'Bandits jump Mira on the road', 'Bandits jump Mira', { actors: ['mira'] })] };
+    expect(await turn(x, 'I walk with Mira.', 'Bandits jump Mira; you drive them off. [LK1]', beat)).toBe(true);
+    expect(st(x).dispositions.has('medic-ambush')).toBe(false); // not recognised
+    const cands = x.engine.linkCandidates('medic-ambush');
+    const b = cands.find((c) => c.title === 'Bandits jump Mira on the road');
+    expect(b).toBeTruthy();
+    // the result differs: what play established stands (Mira lives)
+    await x.engine.linkEvent('medic-ambush', [b!.id], 'diverged');
+    let d = st(x).dispositions.get('medic-ambush');
+    expect(d?.disposition).toBe('diverged');
+    const linked = st(x).occurrences.get(d!.occurrenceId!)!;
+    expect(linked.linkedFrom).toEqual([b!.id]);
+    expect(linked.causes).toEqual([b!.id]);
+    expect(factAt(st(x), 'mira', 'alive').value).not.toBe(false);
+    // undo, then link as the original result
+    await x.engine.undoForce('medic-ambush');
+    expect(st(x).dispositions.has('medic-ambush')).toBe(false);
+    await x.engine.linkEvent('medic-ambush', [b!.id], 'occurred');
+    d = st(x).dispositions.get('medic-ambush');
+    expect(d?.disposition).toBe('occurred');
+    expect(factAt(st(x), 'mira', 'alive').value).toBe(false); // the original outcome applies
+    await expect(x.engine.linkEvent('medic-ambush', [], 'occurred')).rejects.toThrow(/at least one/);
   });
 });
 

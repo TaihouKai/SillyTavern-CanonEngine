@@ -12618,6 +12618,53 @@ function forcedCompletion(pack2, state, eventId, nowTick) {
     override: true
   };
 }
+function linkedCompletion(pack2, state, eventId, beatIds, disposition) {
+  const ev = pack2.events.get(eventId);
+  if (!ev) throw new Error(`unknown event ${eventId}`);
+  const beats = beatIds.map((id) => state.occurrences.get(id)).filter(Boolean);
+  if (!beats.length) throw new Error("no story events to link");
+  const when = { lo: Math.min(...beats.map((b) => b.time.lo)), hi: Math.max(...beats.map((b) => b.time.hi)), precision: "range" };
+  const deltas = disposition === "occurred" ? effectsToDeltas(ev.canonical_effects) : [];
+  if (disposition === "occurred") {
+    for (const o of ev.outcomes) if (!deltas.some((d) => d.entity_id === o.entity_id && d.predicate === o.predicate)) deltas.push({ op: "set", entity_id: o.entity_id, predicate: o.predicate, value: o.value });
+  }
+  const zh = /^zh/i.test(pack2.pack.language);
+  const uniqIds = (xs) => [...new Set(xs)];
+  const occId = newId("occ");
+  const prior = state.dispositions.get(eventId);
+  const story = beats.map((b) => b.account || b.title).join(zh ? "\uFF1B" : "; ");
+  return {
+    recordId: newId("rec"),
+    kind: "canon_occurrence",
+    storyTime: when,
+    sourceRefs: [],
+    factsSetOrUnset: deltas,
+    eventOccurrenceIds: [occId],
+    occurrences: [{
+      occurrenceId: occId,
+      title: ev.title,
+      account: zh ? `${story}\uFF08\u73A9\u5BB6\u5173\u8054\uFF1A${disposition === "occurred" ? "\u539F\u4F5C\u7ED3\u679C\u6210\u7ACB" : "\u7ED3\u679C\u4E0E\u539F\u4F5C\u4E0D\u540C"}\u3002\uFF09` : `${story} (Linked by the player: ${disposition === "occurred" ? "the original result holds" : "the result differs from the original"}.)`,
+      actors: uniqIds(beats.flatMap((b) => b.actors)),
+      affected: uniqIds(beats.flatMap((b) => b.affected)),
+      locations: uniqIds(beats.flatMap((b) => b.locations)),
+      time: when,
+      outcome: deltas,
+      causes: beats.map((b) => b.occurrenceId),
+      refPhrases: [ev.title],
+      packEventId: ev.id,
+      origin: "intervention",
+      visibility: ev.visibility,
+      linkedFrom: beats.map((b) => b.occurrenceId)
+    }],
+    visibility: ev.visibility,
+    summary: `${ev.title}: ${disposition} (linked by the player to ${beats.length} story event(s))`,
+    evidenceKind: "adjudication",
+    packEventId: ev.id,
+    disposition,
+    dispositionReason: `linked by the player to: ${beats.map((b) => b.title).join("; ")}` + (prior ? ` (was ${prior.disposition})` : ""),
+    override: true
+  };
+}
 function situationOf(summary) {
   const m = summary.match(/(?:起因|Cause|Background)[：:]\s*([\s\S]*?)(?=(?:经过|结果|Course|Result|What happened)[：:]|$)/i);
   let s = (m ? m[1] : summary.split(/(?<=[。！？.!?])\s*/)[0] || summary).trim();
@@ -16566,7 +16613,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.59";
+var ENGINE_RELEASE = "1.3.60";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -18197,6 +18244,36 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     await this.reconcile("undo_force", { allowModel: false });
     await this.host.save();
   }
+  /** Story events that may be this canonical event (关联本局事件): beats not tied to a canonical event, from a day
+   *  before its window to a day after it (or the last two days for an event without a time), newest first. */
+  linkCandidates(eventId) {
+    const st = this.current?.replay.state;
+    const pack2 = this.current?.index.pack;
+    if (!st || !pack2 || !pack2.events.has(eventId)) return [];
+    const t2 = pack2.timeIndex.find((x) => x.id === eventId);
+    const lo = t2 ? t2.lo - 1440 : st.clock.lo - 2 * 1440, hi = t2 ? t2.hi + 1440 : st.clock.hi;
+    const origin = this.campaign()?.binding.originDate || null;
+    return [...st.occurrences.values()].filter((o) => !o.packEventId && o.time.hi >= lo && o.time.lo <= hi).sort((a, b) => b.time.lo - a.time.lo || b.seq - a.seq).slice(0, 30).map((o) => ({ id: o.occurrenceId, title: o.title, when: formatTick(o.time.lo, origin) }));
+  }
+  /** "关联本局事件": record that these story events ARE the canonical event (anchored after the latest message,
+   *  undone with undoForce). */
+  async linkEvent(eventId, occurrenceIds, disposition) {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError("incompatible_adapter", "engine state unavailable");
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; wait or cancel it first.");
+    if (!occurrenceIds.length) throw new EngineError("incompatible_adapter", "Choose at least one story event to link.");
+    await this.exclusive(async () => {
+      const rec = linkedCompletion(this.pack(), this.current.replay.state, eventId, occurrenceIds, disposition);
+      const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: `linked ${eventId} (${disposition}) to ${occurrenceIds.length} story event(s)` });
+      c.planRevisions.forEach((p) => {
+        if (p.status === "active") p.status = "stale";
+      });
+    });
+    await this.reconcile("link_event", { allowModel: false });
+    await this.host.save();
+  }
   /** The chat message whose interpretation recorded this event's 已发生/已改变 (none for the starting history or a 强制完成). */
   reanalyzableSource(eventId) {
     const c = this.campaign();
@@ -19333,6 +19410,17 @@ var D = {
   libDelete: { zh: "\u4ECE\u5386\u53F2\u5305\u5E93\u5220\u9664", en: "Remove from library" },
   packOrigin: { zh: "\u5386\u53F2\u5305\u8BF4\u660E\u7684\u7B2C0\u5929", en: "Pack day 0" },
   sceneGrouping: { zh: "\u5408\u5E76\u540C\u4E00\u573A\u666F\u7684\u672C\u5C40\u4E8B\u4EF6", en: "Group events of the same scene" },
+  link: { zh: "\u5173\u8054\u672C\u5C40\u4E8B\u4EF6", en: "Link story events" },
+  linkTip: { zh: "\u8FD9\u4E2A\u539F\u4F5C\u4E8B\u4EF6\u5176\u5B9E\u5DF2\u7ECF\u5728\u672C\u5C40\u91CC\u53D1\u751F\u4E86\uFF0C\u53EA\u662F\u6CA1\u6709\u88AB\u8BA4\u51FA\u6765\uFF1A\u9009\u51FA\u5BF9\u5E94\u7684\u672C\u5C40\u4E8B\u4EF6\uFF0C\u8BB0\u4E3A\u5DF2\u53D1\u751F\u6216\u5DF2\u6539\u53D8\u3002\u53EF\u4EE5\u64A4\u9500\u3002", en: "This canon event already happened in the story but was not recognised: choose the story events it consists of and record it as occurred or changed. Can be undone." },
+  linkPick: { zh: "\u52FE\u9009\u7EC4\u6210\u8FD9\u4E2A\u539F\u4F5C\u4E8B\u4EF6\u7684\u672C\u5C40\u4E8B\u4EF6\uFF1A", en: "Tick the story events that make up this canon event:" },
+  linkPickFirst: { zh: "\u5148\u52FE\u9009\u81F3\u5C11\u4E00\u4E2A\u672C\u5C40\u4E8B\u4EF6\u3002", en: "Tick at least one story event first." },
+  linkNone: { zh: "\u8FD9\u4E2A\u4E8B\u4EF6\u7684\u65F6\u95F4\u524D\u540E\u6CA1\u6709\u53EF\u5173\u8054\u7684\u672C\u5C40\u4E8B\u4EF6\u3002", en: "No story events around this event's time to link." },
+  linkOccurred: { zh: "\u7ED3\u679C\u4E0E\u539F\u4F5C\u76F8\u540C\uFF08\u5DF2\u53D1\u751F\uFF09", en: "Same result (occurred)" },
+  linkOccurredTip: { zh: "\u539F\u4F5C\u7ED3\u679C\u6210\u7ACB\uFF1A\u8BB0\u4E3A\u5DF2\u53D1\u751F\uFF0C\u5E76\u5199\u5165\u539F\u4F5C\u7684\u7ED3\u679C\uFF08\u4F8B\u5982\u67D0\u4EBA\u843D\u8D25\uFF09\u3002", en: "The original result holds: recorded as occurred, with the original outcome applied (e.g. someone defeated)." },
+  linkDiverged: { zh: "\u7ED3\u679C\u4E0D\u540C\uFF08\u5DF2\u6539\u53D8\uFF09", en: "Different result (changed)" },
+  linkDivergedTip: { zh: "\u7ED3\u679C\u4E0E\u539F\u4F5C\u4E0D\u540C\uFF1A\u8BB0\u4E3A\u5DF2\u6539\u53D8\uFF0C\u4EE5\u672C\u5C40\u5B9E\u9645\u53D1\u751F\u7684\u4E3A\u51C6\uFF0C\u4E0D\u5199\u5165\u539F\u4F5C\u7ED3\u679C\u3002", en: "The result differs: recorded as changed; what happened in the story stands and the original outcome is not applied." },
+  linkDone: { zh: "\u5DF2\u5173\u8054\u3002", en: "Linked." },
+  unlink: { zh: "\u64A4\u9500\u5173\u8054", en: "Undo link" },
   reanalyze: { zh: "\u91CD\u65B0\u5206\u6790", en: "Re-analyse" },
   reanalyzeConfirm: { zh: "\u786E\u8BA4\u91CD\u65B0\u5206\u6790\uFF1F", en: "Re-analyse now?" },
   reanalyzeTip: { zh: "\u91CD\u65B0\u68C0\u67E5\u8BB0\u4E0B\u8FD9\u4E2A\u7ED3\u679C\u7684\u90A3\u6761\u56DE\u590D\uFF0C\u6309\u73B0\u5728\u7684\u89C4\u5219\u5224\u65AD\u5B83\u662F\u5DF2\u53D1\u751F\u3001\u5DF2\u6539\u53D8\uFF0C\u8FD8\u662F\u4ECD\u5728\u8FDB\u884C\u4E2D\u3002\u4E4B\u540E\u7684\u56DE\u590D\u4F1A\u50CF\u4FEE\u6539\u8FC7\u6D88\u606F\u4E00\u6837\u91CD\u65B0\u6838\u5BF9\u3002\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\u3002", en: "Examine again the reply that recorded this result, with the current rules: occurred, changed, or still under way. Later replies are re-checked as after an edit. Uses the analysis model." },
@@ -19597,6 +19685,7 @@ function currentGraph(L, s, origin, spoilers, digest2 = []) {
       const occ = d.occurrenceId ? s.occurrences.get(d.occurrenceId) : void 0;
       const actual = occ?.outcome.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${occ.outcome.map((x) => x.op === "set" ? `${name(L, x.entity_id, s)}.${x.predicate}=${JSON.stringify(x.value)}` : `${x.entity_id}.${x.predicate} \u672A\u77E5`).join("\uFF1B")}`] : [];
       if (occ?.origin === "intervention") n.forced = true;
+      if (occ?.linkedFrom?.length) n.linked = true;
       n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`, ...occ ? [`\u5B9E\u9645\u7ECF\u8FC7\uFF1A${occ.account}`, `\u6765\u6E90\uFF1A${ORIGIN_LABEL[occ.origin] || occ.origin}`] : [], ...actual, ...n.detail || []];
     } else {
       const beats = [...s.occurrences.values()].filter((o) => o.inProgressOf === n.id).sort((a, b) => a.time.lo - b.time.lo);
@@ -19856,11 +19945,13 @@ var GraphPanel = class {
   getData;
   setSpoilers;
   onEventAction;
+  linkCandidates;
   armed = null;
-  constructor(getData, setSpoilers, onEventAction = async () => void 0) {
+  constructor(getData, setSpoilers, onEventAction = async () => void 0, linkCandidates = () => []) {
     this.getData = getData;
     this.setSpoilers = setSpoilers;
     this.onEventAction = onEventAction;
+    this.linkCandidates = linkCandidates;
     this.el = document.createElement("div");
     this.el.id = "canon-graph-panel";
     this.el.className = "canon-graph-panel";
@@ -20033,6 +20124,33 @@ var GraphPanel = class {
       });
       return;
     }
+    if (b?.dataset.act === "linkopen") {
+      const id = b.dataset.id;
+      const box = this.el.querySelector(".cg-linkpick");
+      if (!box) return;
+      if (box.innerHTML) {
+        box.innerHTML = "";
+        return;
+      }
+      const cands = this.linkCandidates(id);
+      box.innerHTML = cands.length ? `<div class="cg-linkhint">${esc(t("linkPick"))}</div>` + cands.map((c) => `<label class="cg-linkrow"><input type="checkbox" value="${esc(c.id)}"> <span class="cg-linkwhen">${esc(c.when)}</span> ${esc(c.title)}</label>`).join("") + `<div class="cg-linkbtns"><button class="menu_button" data-act="link-occurred" data-id="${esc(id)}" title="${esc(t("linkOccurredTip"))}">${t("linkOccurred")}</button><button class="menu_button" data-act="link-diverged" data-id="${esc(id)}" title="${esc(t("linkDivergedTip"))}">${t("linkDiverged")}</button></div>` : `<div class="cg-linkhint">${esc(t("linkNone"))}</div>`;
+      return;
+    }
+    if (b && (b.dataset.act === "link-occurred" || b.dataset.act === "link-diverged")) {
+      const ids = [...this.el.querySelectorAll(".cg-linkpick input:checked")].map((x) => x.value);
+      if (!ids.length) {
+        const h = this.el.querySelector(".cg-linkhint");
+        if (h) h.textContent = t("linkPickFirst");
+        return;
+      }
+      b.disabled = true;
+      b.textContent = "\u2026";
+      void this.onEventAction(b.dataset.act, b.dataset.id, ids).finally(() => {
+        this.keepView = true;
+        this.refresh();
+      });
+      return;
+    }
     if (b?.dataset.act === "focus") {
       b.disabled = true;
       void this.onEventAction("focus", b.dataset.id).finally(() => {
@@ -20081,7 +20199,8 @@ var GraphPanel = class {
       <p style="white-space:pre-line">${esc(n.summary)}</p>
       ${this.mode === "current" && (n.lane === "SOFT" || n.lane === "FREE") && (n.status === "future" || n.status === "pending") ? `<button class="menu_button cg-focus${n.focused ? " active" : ""}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t("focusTip"))}">${n.focused ? t("unfocus") : t("focus")}</button>` : ""}
       ${this.mode === "current" && n.lane !== "RUNTIME" && n.status !== "occurred" && n.status !== "diverged" ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t("force")}</button>` : ""}
-      ${this.mode === "current" && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${t("unforce")}</button>` : ""}
+      ${this.mode === "current" && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.linked ? t("unlink") : t("unforce")}</button>` : ""}
+      ${this.mode === "current" && n.lane !== "RUNTIME" && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t("linkTip"))}">${t("link")}</button><div class="cg-linkpick"></div>` : ""}
       ${this.mode === "current" && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t("reanalyzeTip"))}">${t("reanalyze")}</button>` : ""}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join("")}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>\u5173\u7CFB</b><br>${[...ins, ...outs].join("<br>")}</div>` : ""}`;
@@ -20184,7 +20303,7 @@ function mountTopButton() {
   }, (v) => {
     const camp = E.campaign();
     if (camp) camp.uiPreferences.spoilers = v;
-  }, async (act, id) => {
+  }, async (act, id, ids) => {
     try {
       if (act === "force") await E.forceComplete(id);
       else if (act === "focus") await E.toggleFocus(id);
@@ -20192,12 +20311,21 @@ function mountTopButton() {
         const r = await E.digestEvents();
         toast("info", t("digestDone").replace("{n}", String(r.events)).replace("{g}", String(r.groups)));
       } else if (act === "undigest") await E.clearDigest();
-      else if (act === "reanalyze") {
+      else if (act === "link-occurred" || act === "link-diverged") {
+        await E.linkEvent(id, ids || [], act === "link-occurred" ? "occurred" : "diverged");
+        toast("info", t("linkDone"));
+      } else if (act === "reanalyze") {
         const st = await E.reanalyzeEvent(id);
         toast("info", t("reanalyzeDone").replace("{s}", t("reanalyzeStatus_" + st)));
       } else await E.undoForce(id);
     } catch (e) {
       toast("error", e.message);
+    }
+  }, (id) => {
+    try {
+      return E.linkCandidates(id);
+    } catch {
+      return [];
     }
   });
   const holder = document.getElementById("top-settings-holder");

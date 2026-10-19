@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.60 — 2026-10-19
+
+- **关联本局事件 (link story events to a canon event).** When a canon event happened in the story but the reviewer did not recognise it (live: 上官鹭 beat 马场 herself, filed as ordinary beats, while 婚后光子遇袭与马场芳郎落败 stayed unsettled), open it in the timeline, tick the story events it consists of (the ones from a day before to a day after its window), and choose "结果与原作相同（已发生）" — recorded as occurred, the original outcome applied — or "结果不同（已改变）" — what the story established stands. The canon box is linked to those story events (causal links), the record is manual like 强制完成 (it overrides an earlier offscreen result) and "撤销关联" undoes it. No model call.
+- Test LK1; e2e LK01.
+
 ## 1.3.59 — 2026-10-19
 
 - **Events whose window closes during a reply are always settled.** A turn settles the canon events its time advance passes, then reviews the reply again with those results; when that second review placed the reply's end later, the events whose windows closed in the extra time were skipped (live finding: the first review ended before 14:00, the second at 14:30, and 婚后光子遇袭与马场芳郎落败, due 14:00, showed 时间已过但未判定). The extra interval is now settled too, and reviewed again (up to 3 rounds).

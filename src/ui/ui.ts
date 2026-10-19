@@ -53,16 +53,17 @@ function mountTopButton() {
     if (cur) { const f = E.focusEvents(); for (const n of cur.nodes) if (f.has(n.id) && (n.status === 'future' || n.status === 'pending')) { n.focused = true; n.title = '★ ' + n.title; } }
     if (cur) for (const n of cur.nodes) if ((n.status === 'occurred' || n.status === 'diverged') && E.reanalyzableSource(n.id)) n.reanalyzable = true;
     return { pack: pg, current: cur, spoilers, digested: !!camp?.eventDigest };
-  }, (v) => { const camp = E.campaign(); if (camp) camp.uiPreferences.spoilers = v; }, async (act, id) => {
+  }, (v) => { const camp = E.campaign(); if (camp) camp.uiPreferences.spoilers = v; }, async (act, id, ids) => {
     try {
       if (act === 'force') await E.forceComplete(id);
       else if (act === 'focus') await E.toggleFocus(id);
       else if (act === 'digest') { const r = await E.digestEvents(); toast('info', t('digestDone').replace('{n}', String(r.events)).replace('{g}', String(r.groups))); }
       else if (act === 'undigest') await E.clearDigest();
+      else if (act === 'link-occurred' || act === 'link-diverged') { await E.linkEvent(id, ids || [], act === 'link-occurred' ? 'occurred' : 'diverged'); toast('info', t('linkDone')); }
       else if (act === 'reanalyze') { const st = await E.reanalyzeEvent(id); toast('info', t('reanalyzeDone').replace('{s}', t('reanalyzeStatus_' + st))); }
       else await E.undoForce(id);
     } catch (e) { toast('error', (e as Error).message); }
-  });
+  }, (id) => { try { return E.linkCandidates(id); } catch { return []; } });
   const holder = document.getElementById('top-settings-holder');
   const btn = document.createElement('div');
   btn.id = 'canon-engine-top-button';

@@ -3,7 +3,7 @@
 import type { Id, LedgerRecord, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { valuesEqual } from '../domain/pack';
-import { buildBootstrap, pendingHard, forcedCompletion, focusedLive } from '../domain/schedule';
+import { buildBootstrap, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
 import { WorldIndex } from '../domain/world-query';
 import { formatTick, formatStoryTime, fromTick, parseDateLabel, toTick } from '../domain/time';
 import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
@@ -1559,6 +1559,40 @@ export class CanonEngine {
       c.planRevisions.forEach((p) => { if (p.status === 'active') p.status = 'stale'; });
     });
     await this.reconcile('undo_force', { allowModel: false });
+    await this.host.save();
+  }
+
+  /** Story events that may be this canonical event (关联本局事件): beats not tied to a canonical event, from a day
+   *  before its window to a day after it (or the last two days for an event without a time), newest first. */
+  linkCandidates(eventId: Id): { id: string; title: string; when: string }[] {
+    const st = this.current?.replay.state;
+    const pack = this.current?.index.pack;
+    if (!st || !pack || !pack.events.has(eventId)) return [];
+    const t = pack.timeIndex.find((x) => x.id === eventId);
+    const lo = t ? t.lo - 1440 : st.clock.lo - 2 * 1440, hi = t ? t.hi + 1440 : st.clock.hi;
+    const origin = this.campaign()?.binding.originDate || null;
+    return [...st.occurrences.values()]
+      .filter((o) => !o.packEventId && o.time.hi >= lo && o.time.lo <= hi)
+      .sort((a, b) => b.time.lo - a.time.lo || b.seq - a.seq)
+      .slice(0, 30)
+      .map((o) => ({ id: o.occurrenceId, title: o.title, when: formatTick(o.time.lo, origin) }));
+  }
+
+  /** "关联本局事件": record that these story events ARE the canonical event (anchored after the latest message,
+   *  undone with undoForce). */
+  async linkEvent(eventId: Id, occurrenceIds: string[], disposition: 'occurred' | 'diverged'): Promise<void> {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError('incompatible_adapter', 'engine state unavailable');
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; wait or cancel it first.');
+    if (!occurrenceIds.length) throw new EngineError('incompatible_adapter', 'Choose at least one story event to link.');
+    await this.exclusive(async () => {
+      const rec = linkedCompletion(this.pack(), this.current!.replay.state, eventId, occurrenceIds, disposition);
+      const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
+      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: `linked ${eventId} (${disposition}) to ${occurrenceIds.length} story event(s)` });
+      c.planRevisions.forEach((p) => { if (p.status === 'active') p.status = 'stale'; });
+    });
+    await this.reconcile('link_event', { allowModel: false });
     await this.host.save();
   }
 

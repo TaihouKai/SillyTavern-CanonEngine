@@ -119,6 +119,8 @@ export interface Occurrence {
   packEventId?: Id;
   /** A canonical event this beat shows under way whose result is not settled yet (it keeps no disposition). */
   inProgressOf?: Id;
+  /** A canonical event the player linked by hand to these story beats (关联本局事件). */
+  linkedFrom?: string[];
   /** Scene grouping: the earlier occurrence (same ongoing scene) this one continues; shown and summarized as one box. */
   continues?: string;
   origin: 'player' | 'gm' | 'canon' | 'offscreen' | 'bootstrap' | 'intervention';

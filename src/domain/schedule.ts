@@ -190,6 +190,45 @@ export function forcedCompletion(pack: LoadedPack, state: WorldState, eventId: I
   };
 }
 
+/** "关联本局事件": the player says these story beats ARE this canonical event. "occurred" keeps the original
+ *  result (its effects and outcomes apply); "diverged" keeps what play established. Recorded like 强制完成. */
+export function linkedCompletion(pack: LoadedPack, state: WorldState, eventId: Id, beatIds: string[], disposition: 'occurred' | 'diverged'): Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'> {
+  const ev = pack.events.get(eventId);
+  if (!ev) throw new Error(`unknown event ${eventId}`);
+  const beats = beatIds.map((id) => state.occurrences.get(id)).filter(Boolean) as Occurrence[];
+  if (!beats.length) throw new Error('no story events to link');
+  const when: StoryTime = { lo: Math.min(...beats.map((b) => b.time.lo)), hi: Math.max(...beats.map((b) => b.time.hi)), precision: 'range' };
+  const deltas = disposition === 'occurred' ? effectsToDeltas(ev.canonical_effects) : [];
+  if (disposition === 'occurred') for (const o of ev.outcomes) if (!deltas.some((d) => d.entity_id === o.entity_id && d.predicate === o.predicate)) deltas.push({ op: 'set', entity_id: o.entity_id, predicate: o.predicate, value: o.value });
+  const zh = /^zh/i.test(pack.pack.language);
+  const uniqIds = (xs: string[]) => [...new Set(xs)];
+  const occId = newId('occ');
+  const prior = state.dispositions.get(eventId);
+  const story = beats.map((b) => b.account || b.title).join(zh ? '；' : '; ');
+  return {
+    recordId: newId('rec'),
+    kind: 'canon_occurrence',
+    storyTime: when,
+    sourceRefs: [],
+    factsSetOrUnset: deltas,
+    eventOccurrenceIds: [occId],
+    occurrences: [{
+      occurrenceId: occId, title: ev.title,
+      account: zh ? `${story}（玩家关联：${disposition === 'occurred' ? '原作结果成立' : '结果与原作不同'}。）` : `${story} (Linked by the player: ${disposition === 'occurred' ? 'the original result holds' : 'the result differs from the original'}.)`,
+      actors: uniqIds(beats.flatMap((b) => b.actors)), affected: uniqIds(beats.flatMap((b) => b.affected)), locations: uniqIds(beats.flatMap((b) => b.locations)),
+      time: when, outcome: deltas, causes: beats.map((b) => b.occurrenceId),
+      refPhrases: [ev.title], packEventId: ev.id, origin: 'intervention', visibility: ev.visibility, linkedFrom: beats.map((b) => b.occurrenceId),
+    }],
+    visibility: ev.visibility,
+    summary: `${ev.title}: ${disposition} (linked by the player to ${beats.length} story event(s))`,
+    evidenceKind: 'adjudication',
+    packEventId: ev.id,
+    disposition,
+    dispositionReason: `linked by the player to: ${beats.map((b) => b.title).join('; ')}` + (prior ? ` (was ${prior.disposition})` : ''),
+    override: true,
+  };
+}
+
 /** Text of an event summary that describes its starting situation ("起因：…" / "Cause: …"), i.e. what the
  *  characters know and intend before it happens; falls back to the first sentence. */
 export function situationOf(summary: string): string {

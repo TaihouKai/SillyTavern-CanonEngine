@@ -30,6 +30,8 @@ export interface GNode {
   forced?: boolean;
   /** Shown under way in play; the result is not settled yet. */
   inProgress?: boolean;
+  /** Linked by hand to story events (关联本局事件); undone like 强制完成. */
+  linked?: boolean;
   /** Its 已发生/已改变 was recorded from a chat message and can be re-examined. */
   reanalyzable?: boolean;
   /** The player marked this event 关注. */
@@ -78,6 +80,7 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
       const occ = d.occurrenceId ? s.occurrences.get(d.occurrenceId) : undefined;
       const actual = occ?.outcome.length ? [`本局结果：${occ.outcome.map((x) => (x.op === 'set' ? `${name(L, x.entity_id, s)}.${x.predicate}=${JSON.stringify(x.value)}` : `${x.entity_id}.${x.predicate} 未知`)).join('；')}`] : [];
       if (occ?.origin === 'intervention') n.forced = true;
+      if (occ?.linkedFrom?.length) n.linked = true;
       n.detail = [`本局状态：${statusLabel(n.status)}`, ...(occ ? [`实际经过：${occ.account}`, `来源：${ORIGIN_LABEL[occ.origin] || occ.origin}`] : []), ...actual, ...(n.detail || [])];
     } else {
       // shown under way in play, result not settled yet: judged when it ends
@@ -339,13 +342,15 @@ export class GraphPanel {
   private selected: string | null = null;
   private getData: (spoilers: boolean) => { pack: GraphData | null; current: GraphData | null; spoilers: boolean; digested?: boolean };
   private setSpoilers: (v: boolean) => void;
-  private onEventAction: (act: 'force' | 'unforce' | 'focus' | 'digest' | 'undigest' | 'reanalyze', id: string) => Promise<void>;
+  private onEventAction: (act: 'force' | 'unforce' | 'focus' | 'digest' | 'undigest' | 'reanalyze' | 'link-occurred' | 'link-diverged', id: string, ids?: string[]) => Promise<void>;
+  private linkCandidates: (id: string) => { id: string; title: string; when: string }[];
   private armed: string | null = null;
 
-  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined) {
+  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined, linkCandidates: GraphPanel['linkCandidates'] = () => []) {
     this.getData = getData;
     this.setSpoilers = setSpoilers;
     this.onEventAction = onEventAction;
+    this.linkCandidates = linkCandidates;
     this.el = document.createElement('div');
     this.el.id = 'canon-graph-panel';
     this.el.className = 'canon-graph-panel';
@@ -477,6 +482,26 @@ export class GraphPanel {
       void this.onEventAction(b.dataset.act, '').finally(() => { this.keepView = true; this.refresh(); });
       return;
     }
+    if (b?.dataset.act === 'linkopen') {
+      const id = b.dataset.id!;
+      const box = this.el.querySelector('.cg-linkpick') as HTMLElement | null;
+      if (!box) return;
+      if (box.innerHTML) { box.innerHTML = ''; return; }
+      const cands = this.linkCandidates(id);
+      box.innerHTML = cands.length
+        ? `<div class="cg-linkhint">${esc(t('linkPick'))}</div>` + cands.map((c) => `<label class="cg-linkrow"><input type="checkbox" value="${esc(c.id)}"> <span class="cg-linkwhen">${esc(c.when)}</span> ${esc(c.title)}</label>`).join('') +
+          `<div class="cg-linkbtns"><button class="menu_button" data-act="link-occurred" data-id="${esc(id)}" title="${esc(t('linkOccurredTip'))}">${t('linkOccurred')}</button><button class="menu_button" data-act="link-diverged" data-id="${esc(id)}" title="${esc(t('linkDivergedTip'))}">${t('linkDiverged')}</button></div>`
+        : `<div class="cg-linkhint">${esc(t('linkNone'))}</div>`;
+      return;
+    }
+    if (b && (b.dataset.act === 'link-occurred' || b.dataset.act === 'link-diverged')) {
+      const ids = [...this.el.querySelectorAll('.cg-linkpick input:checked')].map((x) => (x as HTMLInputElement).value);
+      if (!ids.length) { const h = this.el.querySelector('.cg-linkhint') as HTMLElement | null; if (h) h.textContent = t('linkPickFirst'); return; }
+      (b as HTMLButtonElement).disabled = true;
+      b.textContent = '…';
+      void this.onEventAction(b.dataset.act as 'link-occurred' | 'link-diverged', b.dataset.id!, ids).finally(() => { this.keepView = true; this.refresh(); });
+      return;
+    }
     if (b?.dataset.act === 'focus') {
       (b as HTMLButtonElement).disabled = true;
       void this.onEventAction('focus', b.dataset.id!).finally(() => { this.keepView = true; this.refresh(); });
@@ -517,7 +542,8 @@ export class GraphPanel {
       <p style="white-space:pre-line">${esc(n.summary)}</p>
       ${this.mode === 'current' && (n.lane === 'SOFT' || n.lane === 'FREE') && (n.status === 'future' || n.status === 'pending') ? `<button class="menu_button cg-focus${n.focused ? ' active' : ''}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t('focusTip'))}">${n.focused ? t('unfocus') : t('focus')}</button>` : ''}
       ${this.mode === 'current' && n.lane !== 'RUNTIME' && n.status !== 'occurred' && n.status !== 'diverged' ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t('force')}</button>` : ''}
-      ${this.mode === 'current' && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${t('unforce')}</button>` : ''}
+      ${this.mode === 'current' && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.linked ? t('unlink') : t('unforce')}</button>` : ''}
+      ${this.mode === 'current' && n.lane !== 'RUNTIME' && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t('linkTip'))}">${t('link')}</button><div class="cg-linkpick"></div>` : ''}
       ${this.mode === 'current' && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t('reanalyzeTip'))}">${t('reanalyze')}</button>` : ''}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join('')}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>关系</b><br>${[...ins, ...outs].join('<br>')}</div>` : ''}`;

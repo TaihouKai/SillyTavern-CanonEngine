@@ -177,3 +177,9 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .canon-graph-panel .cg-unforce { margin: 6px 0; }
 .canon-graph-panel .cg-focus { margin: 6px 6px 6px 0; }
 .canon-graph-panel .cg-focus.active { background: #d4a017; color: #000; border-color: #b8860b; }
+.cg-linkpick { margin-top:6px; }
+.cg-linkhint { opacity:.85; margin:4px 0; }
+.cg-linkrow { display:flex; gap:6px; align-items:baseline; padding:2px 0; cursor:pointer; }
+.cg-linkwhen { opacity:.7; white-space:nowrap; font-size:.9em; }
+.cg-linkbtns { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.cg-linkbtns .menu_button { width:auto; margin:0; }
