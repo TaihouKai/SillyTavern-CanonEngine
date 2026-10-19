@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.55 — 2026-10-19
+
+- **The GM is reminded of canon events under way.** Every reply while an event is under way gets a required "CANON EVENTS UNDER WAY" section — the event, its beats so far and the original route as reference only — whether or not the latest messages name it (before, it reached the GM only when the text mentioned it, or in the optional in-window list that called it "not happened yet"). It is left out of the in-window list, and disappears when the event ends (or a day past its window, when offscreen catch-up settles it).
+- Test OG4. GM integration rules: the new context section.
+
 ## 1.3.54 — 2026-10-19
 
 - **Canon events under way are not judged yet.** The reviewer had to file a canonical event as "occurred" or "diverged" the moment a reply showed it, so an event that had only started was recorded as 已改变 (live finding: 婚后光子遇袭与马场芳郎落败 marked changed when 上官鹭 had just charged the mechanical dog and 马场 was not yet beaten). It now has a third choice, "ongoing": the beat is recorded and linked to the event, the event keeps no result, the timeline shows it as 进行中 with the beats so far, the GM context says it is under way, and the next review sees those beats and judges the event in the reply where it ends. Offscreen catch-up leaves an event under way alone unless the story leaves it hanging for a day past its window.

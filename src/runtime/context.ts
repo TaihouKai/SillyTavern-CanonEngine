@@ -208,6 +208,21 @@ function stateLine(s: EntityStateView, compact: boolean, listed: Set<string>): s
   return lines.join('\n');
 }
 
+/** Canonical events shown under way in play whose result is not settled (as long as offscreen catch-up leaves
+ *  them to the story: up to a day past their window). */
+function underWayEvents(index: WorldIndex, tick: number): { id: Id; title: string; summary: string; lo: number; hi: number; beats: string[] }[] {
+  const ids = new Set([...index.state.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean) as Id[]);
+  const out: ReturnType<typeof underWayEvents> = [];
+  for (const id of ids) {
+    const ev = index.pack.events.get(id);
+    const t = index.pack.timeIndex.find((x) => x.id === id);
+    const beats = index.inProgressBeats(id);
+    if (!ev || !t || !beats.length || tick > t.hi + 1440) continue;
+    out.push({ id, title: ev.title, summary: ev.summary, lo: t.lo, hi: t.hi, beats: beats.map((o) => clip(o.account)) });
+  }
+  return out.slice(0, 4);
+}
+
 function canonLine(c: CanonStatusView): string {
   return `- ${c.title} [${c.packEventId}] (${c.classification}): ${c.status.toUpperCase()} — ${c.note}`;
 }
@@ -243,6 +258,9 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   // Explicit canon statuses for referenced canonical events (non-occurrence distinctions)
   const canon = [...retrieval.canonEvents].map((id) => index.canonStatus(id, checkpointTick)).filter(Boolean) as CanonStatusView[];
   if (canon.length) required.push('REFERENCED CANON EVENTS — status in THIS branch (pending/future/omitted are NOT accomplished):\n' + canon.map(canonLine).join('\n'));
+  // Canon events the story has started but not finished: always shown, whether or not the latest messages name them.
+  const underWay = underWayEvents(index, checkpointTick);
+  if (underWay.length) required.push('CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand: their course and result follow from actual play and the player\'s choices; the original route is reference only):\n' + underWay.map((u) => `- ${u.title} [${u.id}] (window ${formatTick(u.lo, inp.origin)} – ${formatTick(u.hi, inp.origin)}): so far — ${u.beats.join(' → ')}. Original route (reference): ${u.summary.length > 160 ? u.summary.slice(0, 157) + '…' : u.summary}`).join('\n'));
   // Deviations
   const devs = [...index.state.dispositions].filter(([, d]) => d.disposition !== 'occurred').map(([id, d]) => `- ${pack.events.get(id)?.title} [${id}] (${pack.events.get(id)?.classification}): ${d.disposition} — ${d.reason || ''}`);
   if (devs.length) required.push('DEVIATIONS (original outcomes superseded by actual play; do not restore them):\n' + devs.join('\n'));
@@ -272,7 +290,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   const canonRef = dueSoon.slice(0, 3).map((h) => `- ${h.event.title}: original route — ${h.event.summary}`);
   if (canonRef.length) optional.push('CANON REFERENCE (original routes; reference only, NOT facts):\n' + canonRef.join('\n'));
   const open = pack.timeIndex
-    .filter((t) => t.lo <= checkpointTick && t.hi > checkpointTick && !index.state.dispositions.has(t.id) && pack.events.get(t.id)?.classification !== 'HARD'
+    .filter((t) => t.lo <= checkpointTick && t.hi > checkpointTick && !index.state.dispositions.has(t.id) && pack.events.get(t.id)?.classification !== 'HARD' && !underWay.some((u) => u.id === t.id)
       // an event whose original preconditions already failed will not happen; do not suggest it
       && triLabel(evalCondition(pack.events.get(t.id)!.canonical_preconditions, index.state, pack, { tick: checkpointTick })) !== 'FALSE')
     .slice(0, 4).map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}`; });

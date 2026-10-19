@@ -53,6 +53,19 @@ describe('canonical events under way', () => {
     expect(st(x).dispositions.has('medic-ambush')).toBe(true);
   });
 
+  it('OG4 the GM is told about an event under way in every reply until it ends, even when no message names it', async () => {
+    const x = await setup();
+    expect(await turn(x, 'I follow Mira onto the road.', 'Bolts start flying at Mira. [OG4a]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
+    expect(await turn(x, 'I duck.', 'You duck behind a cart. [OG4b]', { scene_end: at(1, 10, 0) })).toBe(true);
+    const ctx = x.model.tasks('draft').map((d: any) => String(d.input.engineContext)).slice(-1)[0];
+    expect(ctx).toMatch(/CANON EVENTS UNDER WAY in this branch[^\n]*\n- .*\[medic-ambush\][^\n]*so far — Ambush on the road/);
+    // once it ends the section goes away
+    expect(await turn(x, 'I pull Mira away.', 'The attackers flee. [OG4c]', ambush('diverged', 'The attackers flee', 'Ambush repelled'))).toBe(true);
+    expect(await turn(x, 'I catch my breath.', 'Quiet returns. [OG4d]', { scene_end: at(1, 10, 5) })).toBe(true);
+    const last = x.model.tasks('draft').map((d: any) => String(d.input.engineContext)).slice(-1)[0];
+    expect(last).not.toMatch(/CANON EVENTS UNDER WAY/);
+  });
+
   it('OG2 the reviewer is told not to call an event changed only because its result is not shown yet', () => {
     const PROMPTS = PROMPTS_;
     expect(PROMPTS.evaluate).toMatch(/Never use "diverged" only because the result is not shown yet/);

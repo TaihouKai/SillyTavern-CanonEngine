@@ -15615,6 +15615,18 @@ function stateLine(s, compact, listed) {
   for (const p of s.parents) lines.push(`  inside ${p.parentName} [${p.parentId}] via ${p.predicate}: ${p.parentFacts.join("; ") || "no facts"}`);
   return lines.join("\n");
 }
+function underWayEvents(index, tick) {
+  const ids = new Set([...index.state.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean));
+  const out = [];
+  for (const id of ids) {
+    const ev = index.pack.events.get(id);
+    const t2 = index.pack.timeIndex.find((x) => x.id === id);
+    const beats = index.inProgressBeats(id);
+    if (!ev || !t2 || !beats.length || tick > t2.hi + 1440) continue;
+    out.push({ id, title: ev.title, summary: ev.summary, lo: t2.lo, hi: t2.hi, beats: beats.map((o) => clip(o.account)) });
+  }
+  return out.slice(0, 4);
+}
 function canonLine(c) {
   return `- ${c.title} [${c.packEventId}] (${c.classification}): ${c.status.toUpperCase()} \u2014 ${c.note}`;
 }
@@ -15645,6 +15657,8 @@ function buildPacket(inp, compact = false) {
 ` + (states.length ? states.join("\n") : "- (no referenced entities)"));
   const canon = [...retrieval.canonEvents].map((id) => index.canonStatus(id, checkpointTick)).filter(Boolean);
   if (canon.length) required.push("REFERENCED CANON EVENTS \u2014 status in THIS branch (pending/future/omitted are NOT accomplished):\n" + canon.map(canonLine).join("\n"));
+  const underWay = underWayEvents(index, checkpointTick);
+  if (underWay.length) required.push("CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand: their course and result follow from actual play and the player's choices; the original route is reference only):\n" + underWay.map((u) => `- ${u.title} [${u.id}] (window ${formatTick(u.lo, inp.origin)} \u2013 ${formatTick(u.hi, inp.origin)}): so far \u2014 ${u.beats.join(" \u2192 ")}. Original route (reference): ${u.summary.length > 160 ? u.summary.slice(0, 157) + "\u2026" : u.summary}`).join("\n"));
   const devs = [...index.state.dispositions].filter(([, d]) => d.disposition !== "occurred").map(([id, d]) => `- ${pack2.events.get(id)?.title} [${id}] (${pack2.events.get(id)?.classification}): ${d.disposition} \u2014 ${d.reason || ""}`);
   if (devs.length) required.push("DEVIATIONS (original outcomes superseded by actual play; do not restore them):\n" + devs.join("\n"));
   const hard = pendingHard(pack2, index.state);
@@ -15668,7 +15682,7 @@ function buildPacket(inp, compact = false) {
   if (inp.opportunities.length) optional.push("PARTICIPATION OPPORTUNITIES (offer in-world only if plausible; never force; a decline is respected):\n" + inp.opportunities.map((s) => "- " + s).join("\n"));
   const canonRef = dueSoon.slice(0, 3).map((h) => `- ${h.event.title}: original route \u2014 ${h.event.summary}`);
   if (canonRef.length) optional.push("CANON REFERENCE (original routes; reference only, NOT facts):\n" + canonRef.join("\n"));
-  const open = pack2.timeIndex.filter((t2) => t2.lo <= checkpointTick && t2.hi > checkpointTick && !index.state.dispositions.has(t2.id) && pack2.events.get(t2.id)?.classification !== "HARD" && triLabel(evalCondition(pack2.events.get(t2.id).canonical_preconditions, index.state, pack2, { tick: checkpointTick })) !== "FALSE").slice(0, 4).map((t2) => {
+  const open = pack2.timeIndex.filter((t2) => t2.lo <= checkpointTick && t2.hi > checkpointTick && !index.state.dispositions.has(t2.id) && pack2.events.get(t2.id)?.classification !== "HARD" && !underWay.some((u) => u.id === t2.id) && triLabel(evalCondition(pack2.events.get(t2.id).canonical_preconditions, index.state, pack2, { tick: checkpointTick })) !== "FALSE").slice(0, 4).map((t2) => {
     const e = pack2.events.get(t2.id);
     return `- ${e.title} (${formatTick(t2.lo, inp.origin)} \u2013 ${formatTick(t2.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + "\u2026" : e.summary}`;
   });
@@ -16542,7 +16556,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.54";
+var ENGINE_RELEASE = "1.3.55";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
