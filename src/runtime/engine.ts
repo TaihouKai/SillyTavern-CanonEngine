@@ -58,6 +58,8 @@ const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player m
 /** Length and provider stats of the published reply, shown after the turn timings. */
 export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
 /** Characters as a reader counts them: everything except whitespace. */
+/** $0.0352 / $1.24: four decimals below 10 cents, so a cheap turn does not read as $0.00. */
+export const formatUsd = (v: number) => `$${v < 0.1 ? v.toFixed(4) : v < 10 ? v.toFixed(3) : v.toFixed(2)}`;
 export const replyChars = (text: string) => String(text || '').replace(/\s+/g, '').length;
 
 export const DEFAULT_SETTINGS: EngineSettings = {
@@ -829,6 +831,7 @@ export class CanonEngine {
     if (tm.rejects?.length) { lines.push('', 'Model output problems (resent, or an unusable item dropped):'); for (const r of tm.rejects) lines.push(`  - ${r}`); }
     if (tm.fixes?.length) { lines.push('', 'Small automatic fixes (no resend, result kept):'); for (const r of tm.fixes) lines.push(`  - ${r}`); }
     if (tm.tokens?.calls) lines.push('', `Tokens (provider-reported): ${tm.tokens.input + tm.tokens.output} = ${tm.tokens.input} in + ${tm.tokens.output} out over ${tm.tokens.calls} calls${tm.tokens.storyInput !== undefined ? `; story model ${(tm.tokens.storyInput || 0) + (tm.tokens.storyOutput || 0)}, analysis ${tm.tokens.input + tm.tokens.output - (tm.tokens.storyInput || 0) - (tm.tokens.storyOutput || 0)}` : ''}${tm.tokens.unreported ? ` (${tm.tokens.unreported} without usage)` : ''}`);
+    if (tm.tokens?.calls && (tm.tokens.costUsd || tm.tokens.diem)) lines.push(`Cost (provider-reported): ${formatUsd(tm.tokens.costUsd || 0)}${tm.tokens.storyCostUsd !== undefined ? `; story model ${formatUsd(tm.tokens.storyCostUsd || 0)}, analysis ${formatUsd((tm.tokens.costUsd || 0) - (tm.tokens.storyCostUsd || 0))}` : ''}${tm.tokens.diem ? `; ${tm.tokens.diem} DIEM` : ''}${tm.tokens.costUnreported ? ` (${tm.tokens.costUnreported} call(s) reported no cost)` : ''}`);
     lines.push('', 'Steps: ' + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? ` (resent ${s.retries})` : ''}`).join(' · '));
     return lines.join('\n').slice(0, 12000);
   }

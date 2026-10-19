@@ -1,7 +1,7 @@
 // Small persistent UI: status pill near the composer, settings drawer, binding wizard,
 // on-demand inspector (spoilers behind a toggle), per-variant banners and conflict markers.
 import type { CanonEngine, EngineSettings } from '../runtime/engine';
-import { labelForError } from '../runtime/engine';
+import { labelForError, formatUsd } from '../runtime/engine';
 import type { StHost } from '../adapters/st';
 import { ctx, NS, gen } from '../adapters/st';
 import { HoraeAdapter } from '../adapters/horae';
@@ -101,6 +101,19 @@ function mountStatus() {
   });
 }
 
+/** " · $0.0352" when the provider reported what the turn cost ("+" when some calls reported nothing). */
+function costPart(tk: import('../runtime/model').TokenUsage): string {
+  if (!tk.costUsd && !tk.diem) return '';
+  return ` · ${formatUsd(tk.costUsd || 0)}${tk.costUnreported ? '+' : ''}${tk.diem ? ` · ${tk.diem} DIEM` : ''}`;
+}
+function costLines(tk: import('../runtime/model').TokenUsage): string[] {
+  if (!tk.costUsd && !tk.diem) return tk.calls ? [t('costNone')] : [];
+  return [
+    `${t('costLabel')} ${formatUsd(tk.costUsd || 0)}${tk.storyCostUsd !== undefined ? ` — ${t('tokStory')} ${formatUsd(tk.storyCostUsd || 0)} · ${t('tokAnalysis')} ${formatUsd((tk.costUsd || 0) - (tk.storyCostUsd || 0))}` : ''}${tk.diem ? ` · ${tk.diem} DIEM` : ''}`,
+    ...(tk.costUnreported ? [t('costUnreported').replace('{n}', String(tk.costUnreported))] : []),
+  ];
+}
+
 function renderStatus() {
   const el = document.getElementById('canon-engine-status');
   if (!el) return;
@@ -129,7 +142,7 @@ function renderStatus() {
   ].filter(Boolean).join('\n') : '';
   const replyPart = rp ? ` · <span class="canon-reply${rp.finish === 'length' ? ' cut' : ''}" title="${esc(replyBits)}">${t('replyLen')} ${rp.chars}${t('charsUnit')}${rp.finish === 'length' ? ` ${t('cutOff')}` : ''}</span>` : '';
   const tk = tm?.tokens;
-  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` · <span class="canon-tokens" title="${esc([`${t('tokIn')} ${tk.input.toLocaleString()} · ${t('tokOut')} ${tk.output.toLocaleString()} · ${tk.calls} ${t('tokCalls')}`, ...(tk.storyInput !== undefined ? [`${t('tokStory')} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} · ${t('tokAnalysis')} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : []), ...(tk.unreported ? [t('tokUnreported').replace('{n}', String(tk.unreported))] : []), t('tokNote')].join('\n'))}">${t('tokUsed')} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? '+' : ''}</span>` : '';
+  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` · <span class="canon-tokens" title="${esc([`${t('tokIn')} ${tk.input.toLocaleString()} · ${t('tokOut')} ${tk.output.toLocaleString()} · ${tk.calls} ${t('tokCalls')}`, ...(tk.storyInput !== undefined ? [`${t('tokStory')} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} · ${t('tokAnalysis')} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : []), ...(tk.unreported ? [t('tokUnreported').replace('{n}', String(tk.unreported))] : []), ...costLines(tk), t('tokNote')].join('\n'))}">${t('tokUsed')} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? '+' : ''}${costPart(tk)}</span>` : '';
   const timing = !busy && !conflict && tm && tm.steps.length
     ? `<span class="canon-timing" title="${esc([...tm.steps.map((s) => `${t('step_' + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` ×${s.count}` : ''}${s.retries ? ` (${t('resent')} ${s.retries})` : ''}`), ...(tm.rejects?.length ? ['', `${t('resentWhy')}:`, ...tm.rejects] : []), ...(tm.fixes?.length ? ['', `${t('fixedWhy')}:`, ...tm.fixes] : [])].join('\n'))}">${t('lastTurn')} ${dur(tm.totalMs)}：${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc(t('step_' + s.step))} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? `（${esc(t('resent'))}${s.retries}）` : ''}`).join(' · ')}${replyPart}${tokenPart}</span>`
     : '';

@@ -1,7 +1,7 @@
 // SR01–SR04: Canon's own requests to a custom endpoint are streamed to the provider (so a slow
 // reasoning model does not hit a gateway timeout) and folded back into one ordinary completion.
 import { describe, expect, it } from 'vitest';
-import { sseToCompletion, streamedBody, StModel } from '../../src/adapters/st';
+import { sseToCompletion, streamedBody, StModel, costOf } from '../../src/adapters/st';
 
 const sse = (...chunks: unknown[]) => chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join('') + 'data: [DONE]\n\n';
 const delta = (d: object, finish: string | null = null) => ({ id: 'x', model: 'm', choices: [{ index: 0, delta: d, finish_reason: finish }] });
@@ -15,6 +15,17 @@ describe('streamed requests', () => {
     expect(c.usage).toEqual({ prompt_tokens: 10, completion_tokens: 5 });
     expect(sseToCompletion(sse({ error: { message: 'boom' } }))).toEqual({ error: { message: 'boom' } });
     expect(sseToCompletion('{"choices":[]}')).toBeNull(); // not a stream
+  });
+
+  it('CO1 the provider-reported cost is read from Venice, unlid and OpenRouter style responses, and kept when a stream is folded', () => {
+    expect(costOf({ cost: { usd: 0.000235424, diem: 0 } })).toEqual({ usd: 0.000235424, diem: 0 }); // Venice
+    expect(costOf({ unlid: { cost_usd: 0.023881 } })).toEqual({ usd: 0.023881, diem: 0 }); // unlid
+    expect(costOf({ usage: { cost: 0.0042 } })).toEqual({ usd: 0.0042, diem: 0 }); // OpenRouter
+    expect(costOf({ cost: { usd: 0, diem: 0.5 } })).toEqual({ usd: 0, diem: 0.5 }); // paid in DIEM
+    expect(costOf({ usage: { prompt_tokens: 3 } })).toEqual({ usd: null, diem: 0 }); // not reported
+    const c = sseToCompletion(sse(delta({ content: 'x' }, 'stop'), { choices: [], usage: { prompt_tokens: 1, completion_tokens: 1 }, cost: { usd: 0.01, diem: 0 }, unlid: { cost_usd: 0.02 } }));
+    expect(c.cost).toEqual({ usd: 0.01, diem: 0 });
+    expect(c.unlid).toEqual({ cost_usd: 0.02 });
   });
 
   it('SR02 only non-streamed custom-endpoint requests are switched, and usage is asked for once', () => {
@@ -45,7 +56,23 @@ describe('streamed requests', () => {
       expect(sent[0].stream).toBe(true);
       expect(d.choices[0].message.content).toBe('{"decision":"accept"}');
       await new Promise((r) => setTimeout(r, 0));
-      expect(model.takeUsage()).toMatchObject({ input: 1200, output: 30, calls: 1, unreported: 0 });
+      expect(model.takeUsage()).toMatchObject({ input: 1200, output: 30, calls: 1, unreported: 0, costUnreported: 1 });
+    });
+
+    it('CO2 the cost of every call in the turn is summed, the story model share kept apart; calls without a cost are counted', async () => {
+      model.takeUsage();
+      handler = (b) => new Response(sse(delta({ content: 'ok' }, 'stop'), { choices: [], usage: { prompt_tokens: 100, completion_tokens: 10 }, unlid: { cost_usd: b.messages[0].content.includes('[CANON ENGINE CONTEXT') ? 0.02 : 0.003 } }), { status: 200 });
+      await (await req('[CANON ENGINE CONTEXT x]')).json(); // story draft
+      await (await req()).json(); // analysis
+      await (await req()).json();
+      handler = () => new Response(sse(delta({ content: 'ok' }, 'stop'), { choices: [], usage: { prompt_tokens: 100, completion_tokens: 10 } }), { status: 200 });
+      await (await req()).json(); // a call without a cost
+      await new Promise((r) => setTimeout(r, 0));
+      const u = model.takeUsage();
+      expect(u.costUsd).toBeCloseTo(0.026, 10);
+      expect(u.storyCostUsd).toBeCloseTo(0.02, 10);
+      expect(u.costUnreported).toBe(1);
+      expect(model.takeUsage().costUsd).toBe(0); // reset per turn
     });
 
     it('SR05 a stream that goes silent without closing is given up after the stall time, with a clear reason; steady slow streams are not', async () => {

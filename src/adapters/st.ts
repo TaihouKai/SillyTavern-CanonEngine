@@ -342,11 +342,11 @@ export class StHost implements HostPort {
 
 /** Provider-reported token use of Canon Engine's own requests (story drafts carry the engine context,
  *  analysis calls carry a task tag); other extensions' requests are not counted. */
-const usage: import('../runtime/model').TokenUsage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0 };
+const usage: import('../runtime/model').TokenUsage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0, costUsd: 0, storyCostUsd: 0, costUnreported: 0, diem: 0 };
 let usageTapped = false;
 /** Folds an OpenAI-style event stream back into one chat.completion object (null if the text is not a stream). */
 export function sseToCompletion(text: string): any {
-  let content = '', reasoning = '', finish: string | null = null, usage: any, id: any, model: any, seen = false;
+  let content = '', reasoning = '', finish: string | null = null, usage: any, id: any, model: any, seen = false, cost: any, unlid: any;
   for (const line of text.split(/\r?\n/)) {
     if (!line.startsWith('data:')) continue;
     const data = line.slice(5).trim();
@@ -357,6 +357,8 @@ export function sseToCompletion(text: string): any {
     if (o.error) return { error: o.error };
     id ??= o.id; model ??= o.model;
     if (o.usage) usage = o.usage;
+    if (o.cost !== undefined) cost = o.cost; // Venice
+    if (o.unlid !== undefined) unlid = o.unlid; // unlid
     const ch = o.choices?.[0];
     if (!ch) continue;
     const d = ch.delta || ch.message || {};
@@ -368,7 +370,15 @@ export function sseToCompletion(text: string): any {
   if (!seen) return null;
   const message: any = { role: 'assistant', content };
   if (reasoning) message.reasoning_content = reasoning;
-  return { id, object: 'chat.completion', model, choices: [{ index: 0, message, finish_reason: finish }], ...(usage ? { usage } : {}) };
+  return { id, object: 'chat.completion', model, choices: [{ index: 0, message, finish_reason: finish }], ...(usage ? { usage } : {}), ...(cost !== undefined ? { cost } : {}), ...(unlid !== undefined ? { unlid } : {}) };
+}
+
+/** The request's cost as the provider reports it in the response, in USD (null when it reports none). */
+export function costOf(d: any): { usd: number | null; diem: number } {
+  const num = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : typeof x === 'string' && x.trim() !== '' && Number.isFinite(Number(x)) ? Number(x) : null);
+  const diem = num(d?.cost?.diem) || 0;
+  const usd = num(d?.cost?.usd) ?? num(d?.cost) ?? num(d?.unlid?.cost_usd) ?? num(d?.usage?.cost) ?? num(d?.usage?.cost_usd) ?? num(d?.usage?.total_cost);
+  return { usd, diem };
 }
 
 /** Request body for streaming a non-streamed Canon request to a custom (OpenAI-compatible) endpoint, or null. */
@@ -461,7 +471,10 @@ function tapUsage() {
           const story = !body.includes('[CANON_ENGINE_TASK:');
           const i = Number.isFinite(inp) ? inp : 0, o = Number.isFinite(out) ? out : 0;
           if (Number.isFinite(inp) || Number.isFinite(out)) { usage.input += i; usage.output += o; if (story) { usage.storyInput! += i; usage.storyOutput! += o; } } else usage.unreported++;
-        }).catch(() => { usage.unreported++; });
+          const c = costOf(d);
+          if (c.usd !== null) { usage.costUsd! += c.usd; if (story) usage.storyCostUsd! += c.usd; } else usage.costUnreported!++;
+          usage.diem! += c.diem;
+        }).catch(() => { usage.unreported++; usage.costUnreported!++; });
       }
     } catch { /* counting is optional */ }
     return res;
@@ -471,7 +484,7 @@ function tapUsage() {
 export class StModel implements ModelPort {
   constructor() { tapUsage(); }
   lastDraftInfo() { return gen.lastDraftInfo; }
-  takeUsage() { const u = { ...usage }; usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = 0; return u; }
+  takeUsage() { const u = { ...usage }; usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0; return u; }
   private queue: Promise<unknown> = Promise.resolve();
   horaePresent = false;
   /** Read at call time so the drawer setting applies immediately. */

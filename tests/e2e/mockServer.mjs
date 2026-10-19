@@ -79,7 +79,8 @@ function streamCompletion(res, content, model, { reasoning = null, finish = null
   for (const c of content.match(/[\s\S]{1,40}/g) || ['']) chunk({ content: c });
   chunk({}, finish || 'stop');
   // like OpenAI/Venice: the usage chunk (empty choices) only when stream_options.include_usage is set
-  if (includeUsage) res.write(`data: ${JSON.stringify({ id: 'mock', object: 'chat.completion.chunk', model, choices: [], usage: usage || { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })}\n\n`);
+  // like Venice: the usage chunk also carries what the request cost
+  if (includeUsage) res.write(`data: ${JSON.stringify({ id: 'mock', object: 'chat.completion.chunk', model, choices: [], usage: usage || { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }, cost: { usd: 0.0005, diem: 0 } })}\n\n`);
   res.write('data: [DONE]\n\n');
   res.end();
 }

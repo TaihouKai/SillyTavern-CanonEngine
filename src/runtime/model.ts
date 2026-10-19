@@ -39,7 +39,15 @@ export interface DraftInfo { finish?: string; outputTokens?: number; reasoningTo
 
 /** Tokens the provider reported for the engine's own requests (drafts and analysis calls) since the last reset.
  *  unreported = calls whose response carried no usage. */
-export interface TokenUsage { input: number; output: number; calls: number; unreported: number; /** the story-model share (drafts and repairs); the rest is analysis calls */ storyInput?: number; storyOutput?: number }
+export interface TokenUsage {
+  input: number; output: number; calls: number; unreported: number;
+  /** the story-model share (drafts and repairs); the rest is analysis calls */
+  storyInput?: number; storyOutput?: number;
+  /** provider-reported cost in USD (Venice `cost.usd`, unlid `unlid.cost_usd`, OpenRouter `usage.cost`), story share, and calls that reported none */
+  costUsd?: number; storyCostUsd?: number; costUnreported?: number;
+  /** Venice DIEM spent (when paying with DIEM the USD cost is 0) */
+  diem?: number;
+}
 
 export interface ModelPort {
   /** Optional: which connection/model internal tasks use (shown in timeout errors). */

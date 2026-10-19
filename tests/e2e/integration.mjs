@@ -715,6 +715,9 @@ try {
     const used = Number(((t1.text.match(/消耗 ([\d,]+) Token|used ([\d,]+) Token/) || [])[1] || '0').replace(/,/g, ''));
     check(results, 'L05 the status line shows the provider-reported tokens of the whole turn (draft + analysis calls)', used > 1000, t1.text);
     const tokTip = await page.$eval('#canon-engine-status .canon-tokens', (e) => e.title).catch(() => '');
+    // every mock call reports $0.0005, like Venice's usage chunk
+    const costTxt = (t1.text.match(/Token\+? · (\$[\d.]+)/) || [])[1] || '';
+    check(results, 'L07 the status line shows what the turn cost as the provider reported it, with the story/analysis split on hover', /^\$0\.00\d\d$/.test(costTxt) && /费用（服务商返回）： \$0\.00\d\d — 故事模型（生成与修改） \$0\.0005 · 分析模型 \$0\.00\d\d/.test(tokTip), `${costTxt} | ${tokTip}`);
     check(results, 'L06 the hover splits the tokens into story model and analysis model', /故事模型（生成与修改） [1-9][\d,]* · 分析模型 [1-9][\d,]*|story model \(drafts, repairs\) [1-9][\d,]* · analysis model [1-9][\d,]*/.test(tokTip), tokTip);
     // reply-ready alert: the tab is in the background when the turn ends
     await page.evaluate(() => {

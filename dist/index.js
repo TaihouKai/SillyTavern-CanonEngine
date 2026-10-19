@@ -16615,11 +16615,12 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.62";
+var ENGINE_RELEASE = "1.3.63";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
 var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check" };
+var formatUsd = (v) => `$${v < 0.1 ? v.toFixed(4) : v < 10 ? v.toFixed(3) : v.toFixed(2)}`;
 var replyChars = (text) => String(text || "").replace(/\s+/g, "").length;
 var DEFAULT_SETTINGS = {
   maxOrdinaryPlanner: 2,
@@ -17451,6 +17452,7 @@ var CanonEngine = class {
       for (const r of tm.fixes) lines.push(`  - ${r}`);
     }
     if (tm.tokens?.calls) lines.push("", `Tokens (provider-reported): ${tm.tokens.input + tm.tokens.output} = ${tm.tokens.input} in + ${tm.tokens.output} out over ${tm.tokens.calls} calls${tm.tokens.storyInput !== void 0 ? `; story model ${(tm.tokens.storyInput || 0) + (tm.tokens.storyOutput || 0)}, analysis ${tm.tokens.input + tm.tokens.output - (tm.tokens.storyInput || 0) - (tm.tokens.storyOutput || 0)}` : ""}${tm.tokens.unreported ? ` (${tm.tokens.unreported} without usage)` : ""}`);
+    if (tm.tokens?.calls && (tm.tokens.costUsd || tm.tokens.diem)) lines.push(`Cost (provider-reported): ${formatUsd(tm.tokens.costUsd || 0)}${tm.tokens.storyCostUsd !== void 0 ? `; story model ${formatUsd(tm.tokens.storyCostUsd || 0)}, analysis ${formatUsd((tm.tokens.costUsd || 0) - (tm.tokens.storyCostUsd || 0))}` : ""}${tm.tokens.diem ? `; ${tm.tokens.diem} DIEM` : ""}${tm.tokens.costUnreported ? ` (${tm.tokens.costUnreported} call(s) reported no cost)` : ""}`);
     lines.push("", "Steps: " + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? ` (resent ${s.retries})` : ""}`).join(" \xB7 "));
     return lines.join("\n").slice(0, 12e3);
   }
@@ -18869,10 +18871,10 @@ var StHost = class {
     f(`[CanonEngine] ${msg}`, data === void 0 ? "" : data);
   }
 };
-var usage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0 };
+var usage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0, costUsd: 0, storyCostUsd: 0, costUnreported: 0, diem: 0 };
 var usageTapped = false;
 function sseToCompletion(text) {
-  let content = "", reasoning = "", finish = null, usage2, id, model, seen = false;
+  let content = "", reasoning = "", finish = null, usage2, id, model, seen = false, cost, unlid;
   for (const line of text.split(/\r?\n/)) {
     if (!line.startsWith("data:")) continue;
     const data = line.slice(5).trim();
@@ -18888,6 +18890,8 @@ function sseToCompletion(text) {
     id ??= o.id;
     model ??= o.model;
     if (o.usage) usage2 = o.usage;
+    if (o.cost !== void 0) cost = o.cost;
+    if (o.unlid !== void 0) unlid = o.unlid;
     const ch = o.choices?.[0];
     if (!ch) continue;
     const d = ch.delta || ch.message || {};
@@ -18899,7 +18903,13 @@ function sseToCompletion(text) {
   if (!seen) return null;
   const message = { role: "assistant", content };
   if (reasoning) message.reasoning_content = reasoning;
-  return { id, object: "chat.completion", model, choices: [{ index: 0, message, finish_reason: finish }], ...usage2 ? { usage: usage2 } : {} };
+  return { id, object: "chat.completion", model, choices: [{ index: 0, message, finish_reason: finish }], ...usage2 ? { usage: usage2 } : {}, ...cost !== void 0 ? { cost } : {}, ...unlid !== void 0 ? { unlid } : {} };
+}
+function costOf(d) {
+  const num2 = (x) => typeof x === "number" && Number.isFinite(x) ? x : typeof x === "string" && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null;
+  const diem = num2(d?.cost?.diem) || 0;
+  const usd = num2(d?.cost?.usd) ?? num2(d?.cost) ?? num2(d?.unlid?.cost_usd) ?? num2(d?.usage?.cost) ?? num2(d?.usage?.cost_usd) ?? num2(d?.usage?.total_cost);
+  return { usd, diem };
 }
 function streamedBody(body) {
   let b;
@@ -18996,8 +19006,15 @@ function tapUsage() {
               usage.storyOutput += o;
             }
           } else usage.unreported++;
+          const c = costOf(d);
+          if (c.usd !== null) {
+            usage.costUsd += c.usd;
+            if (story) usage.storyCostUsd += c.usd;
+          } else usage.costUnreported++;
+          usage.diem += c.diem;
         }).catch(() => {
           usage.unreported++;
+          usage.costUnreported++;
         });
       }
     } catch {
@@ -19014,7 +19031,7 @@ var StModel = class {
   }
   takeUsage() {
     const u = { ...usage };
-    usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = 0;
+    usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0;
     return u;
   }
   queue = Promise.resolve();
@@ -19458,6 +19475,9 @@ var D = {
   fixedWhy: { zh: "\u5C0F\u7684\u81EA\u52A8\u4FEE\u6B63\uFF08\u672A\u91CD\u53D1\uFF0C\u7ED3\u679C\u7167\u5E38\u4FDD\u7559\uFF0C\u53EF\u5FFD\u7565\uFF09", en: "Small automatic fixes (no resend, result kept; safe to ignore)" },
   replyLen: { zh: "\u56DE\u590D", en: "reply" },
   tokUsed: { zh: "\u6D88\u8017", en: "used" },
+  costLabel: { zh: "\u8D39\u7528\uFF08\u670D\u52A1\u5546\u8FD4\u56DE\uFF09\uFF1A", en: "Cost (reported by the provider):" },
+  costNone: { zh: "\u670D\u52A1\u5546\u6CA1\u6709\u8FD4\u56DE\u8D39\u7528\uFF08\u53EA\u6709\u90E8\u5206\u670D\u52A1\u5546\u4F1A\u8FD4\u56DE\uFF0C\u4F8B\u5982 Venice\u3001unlid\uFF09\u3002", en: "The provider reported no cost (only some do, e.g. Venice and unlid)." },
+  costUnreported: { zh: "\u53E6\u6709 {n} \u6B21\u8C03\u7528\u6CA1\u6709\u8FD4\u56DE\u8D39\u7528\uFF0C\u672A\u8BA1\u5165\uFF0C\u5B9E\u9645\u8D39\u7528\u66F4\u9AD8\u3002", en: "{n} more call(s) reported no cost and are not counted; the real cost is higher." },
   tokIn: { zh: "\u8F93\u5165", en: "input" },
   tokOut: { zh: "\u8F93\u51FA", en: "output" },
   tokStory: { zh: "\u6545\u4E8B\u6A21\u578B\uFF08\u751F\u6210\u4E0E\u4FEE\u6539\uFF09", en: "story model (drafts, repairs)" },
@@ -20366,6 +20386,17 @@ function mountStatus() {
     if (act === "branch") void branchFromConflict();
   });
 }
+function costPart(tk) {
+  if (!tk.costUsd && !tk.diem) return "";
+  return ` \xB7 ${formatUsd(tk.costUsd || 0)}${tk.costUnreported ? "+" : ""}${tk.diem ? ` \xB7 ${tk.diem} DIEM` : ""}`;
+}
+function costLines(tk) {
+  if (!tk.costUsd && !tk.diem) return tk.calls ? [t("costNone")] : [];
+  return [
+    `${t("costLabel")} ${formatUsd(tk.costUsd || 0)}${tk.storyCostUsd !== void 0 ? ` \u2014 ${t("tokStory")} ${formatUsd(tk.storyCostUsd || 0)} \xB7 ${t("tokAnalysis")} ${formatUsd((tk.costUsd || 0) - (tk.storyCostUsd || 0))}` : ""}${tk.diem ? ` \xB7 ${tk.diem} DIEM` : ""}`,
+    ...tk.costUnreported ? [t("costUnreported").replace("{n}", String(tk.costUnreported))] : []
+  ];
+}
 function renderStatus() {
   const el = document.getElementById("canon-engine-status");
   if (!el) return;
@@ -20395,7 +20426,7 @@ function renderStatus() {
   ].filter(Boolean).join("\n") : "";
   const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc2(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
   const tk = tm?.tokens;
-  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc2([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.storyInput !== void 0 ? [`${t("tokStory")} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} \xB7 ${t("tokAnalysis")} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : [], ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}</span>` : "";
+  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc2([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.storyInput !== void 0 ? [`${t("tokStory")} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} \xB7 ${t("tokAnalysis")} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : [], ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], ...costLines(tk), t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}${costPart(tk)}</span>` : "";
   const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc2(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}</span>` : "";
   el.dataset.phase = conflict ? "conflict" : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc2(t("phase_" + (conflict ? "conflict" : phase)))}</span>

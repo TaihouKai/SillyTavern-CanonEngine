@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.63 — 2026-10-20
+
+- **What the turn cost, as the provider reports it.** After the token count the status line shows the turn's cost (`消耗 97,269 Token · $0.0352`), read from the responses Canon Engine already receives — Venice's `cost.usd` (and `cost.diem` when paying with DIEM, shown separately), unlid's `unlid.cost_usd`, OpenRouter's `usage.cost` — so it is the real charge including cache discounts, with no price table. The hover splits it into story model and analysis model; calls that reported no cost are counted and marked with "+". Also in the failed-turn report. Providers that report no cost show none (said so in the hover).
+- Tests CO1–CO2; e2e L07 (the mock provider now reports a cost like Venice).
+
 ## 1.3.62 — 2026-10-19
 
 - **The planner may plan the steps leading up to a HARD event.** A plan step that served a HARD event was rejected whenever it set a value different from that event's final outcome, even before the event: the steps toward 御坂10032号被秘密带走 had 10032 "在气球猎手比赛场地" and were refused as "contradicting HARD misaka-10032-abduction's required outcome 被秘密带离并藏匿" (live finding; the pack is consistent — those were the planner's own intermediate steps). The HARD event sets its outcome when it happens, so a step now conflicts only when it spans the event's deadline, whether or not it serves it.
