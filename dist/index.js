@@ -15583,6 +15583,8 @@ function retrieve(index, spec) {
   return { entries, occurrences, entities, canonEvents, claims: spec.claims, ambiguous };
 }
 var clip = (s) => s.length > 160 ? s.slice(0, 157) + "\u2026" : s;
+var START_SOON_MINUTES = 120;
+var minutesAway = (m) => m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
 function histLine(h, triggers, compact) {
   const acc = compact && h.account.length > 220 ? h.account.slice(0, 217) + "\u2026" : h.account;
   const parts = [`- [${h.occurrenceId}] ${h.time} \u2014 ${h.title}: ${acc}`];
@@ -15657,6 +15659,9 @@ function buildPacket(inp, compact = false) {
 ` + (states.length ? states.join("\n") : "- (no referenced entities)"));
   const canon = [...retrieval.canonEvents].map((id) => index.canonStatus(id, checkpointTick)).filter(Boolean);
   if (canon.length) required.push("REFERENCED CANON EVENTS \u2014 status in THIS branch (pending/future/omitted are NOT accomplished):\n" + canon.map(canonLine).join("\n"));
+  const starting = upcomingRoute(pack2, index.state, checkpointTick, START_SOON_MINUTES);
+  if (starting.length && !inp.review) required.push(`CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then \u2014 the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; its course and result follow from actual play:
+` + starting.map((u) => `- ${u.event.title} [${u.event.id}] starts ${formatTick(u.lo, inp.origin)} (in ${minutesAway(u.lo - checkpointTick)}): ${situationOf(u.event.summary)}`).join("\n"));
   const underWay = underWayEvents(index, checkpointTick);
   if (underWay.length) required.push("CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand: their course and result follow from actual play and the player's choices; the original route is reference only):\n" + underWay.map((u) => `- ${u.title} [${u.id}] (window ${formatTick(u.lo, inp.origin)} \u2013 ${formatTick(u.hi, inp.origin)}): so far \u2014 ${u.beats.join(" \u2192 ")}. Original route (reference): ${u.summary.length > 160 ? u.summary.slice(0, 157) + "\u2026" : u.summary}`).join("\n"));
   const devs = [...index.state.dispositions].filter(([, d]) => d.disposition !== "occurred").map(([id, d]) => `- ${pack2.events.get(id)?.title} [${id}] (${pack2.events.get(id)?.classification}): ${d.disposition} \u2014 ${d.reason || ""}`);
@@ -15686,7 +15691,7 @@ function buildPacket(inp, compact = false) {
     const e = pack2.events.get(t2.id);
     return `- ${e.title} (${formatTick(t2.lo, inp.origin)} \u2013 ${formatTick(t2.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + "\u2026" : e.summary}`;
   });
-  const soon = upcomingRoute(pack2, index.state, checkpointTick, 24 * 60).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${situationOf(u.event.summary)}`);
+  const soon = upcomingRoute(pack2, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${situationOf(u.event.summary)}`);
   if (soon.length) optional.push("WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing \u2014 NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them; the player may change them, and actual play wins over this:\n" + soon.join("\n"));
   if (open.length) optional.push("CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n" + open.join("\n"));
   if (inp.review) optional.length = 0;
@@ -16556,7 +16561,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.55";
+var ENGINE_RELEASE = "1.3.56";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));

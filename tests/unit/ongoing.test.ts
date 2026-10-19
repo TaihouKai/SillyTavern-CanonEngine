@@ -66,6 +66,20 @@ describe('canonical events under way', () => {
     expect(last).not.toMatch(/CANON EVENTS UNDER WAY/);
   });
 
+  it('OG5 before writing, the GM is told which canon events start within two hours if its story time gets there', async () => {
+    const x = await setup(); // 09:30; the ambush starts 10:00, the broadcast 12:00
+    expect(await turn(x, 'I walk to the harbor.', 'Gulls circle. [OG5a]', { scene_end: at(1, 9, 40) })).toBe(true);
+    const ctx = String(x.model.tasks('draft')[0].input.engineContext);
+    const sec = ctx.split('\n\n').find((s) => s.startsWith('CANON EVENTS ABOUT TO START')) || '';
+    expect(sec).toMatch(/\[medic-ambush\] starts .*\(in 30 min\)/);
+    expect(sec).toMatch(/the world does not wait/);
+    expect(sec).toMatch(/Do not speed up or slow down time/);
+    expect(sec).not.toMatch(/council-broadcast/); // 2.5 hours away
+    // not repeated in the 24-hour background list
+    const bg = ctx.split('\n\n').find((s) => s.startsWith('WHERE OTHER CHARACTERS STAND')) || '';
+    expect(bg).not.toMatch(/Ambush/i);
+  });
+
   it('OG2 the reviewer is told not to call an event changed only because its result is not shown yet', () => {
     const PROMPTS = PROMPTS_;
     expect(PROMPTS.evaluate).toMatch(/Never use "diverged" only because the result is not shown yet/);

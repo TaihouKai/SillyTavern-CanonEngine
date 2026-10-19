@@ -169,6 +169,9 @@ export interface PacketInput {
 export interface Packet { text: string; facts: string; hash: string; required: number; optional: number; truncatedOptional: boolean }
 
 const clip = (s: string) => (s.length > 160 ? s.slice(0, 157) + '…' : s);
+/** Canon events starting within this much story time are announced to the GM ("about to start"). */
+export const START_SOON_MINUTES = 120;
+const minutesAway = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`);
 
 function histLine(h: HistoryRecordView, triggers: Set<string> | undefined, compact: boolean): string {
   const acc = compact && h.account.length > 220 ? h.account.slice(0, 217) + '…' : h.account;
@@ -258,6 +261,10 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   // Explicit canon statuses for referenced canonical events (non-occurrence distinctions)
   const canon = [...retrieval.canonEvents].map((id) => index.canonStatus(id, checkpointTick)).filter(Boolean) as CanonStatusView[];
   if (canon.length) required.push('REFERENCED CANON EVENTS — status in THIS branch (pending/future/omitted are NOT accomplished):\n' + canon.map(canonLine).join('\n'));
+  // Canon events starting shortly: the reply's own end time is only decided after it is written, so the GM
+  // is told what begins if its story time gets there (not a reason to steer toward them).
+  const starting = upcomingRoute(pack, index.state, checkpointTick, START_SOON_MINUTES);
+  if (starting.length && !inp.review) required.push(`CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then — the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; its course and result follow from actual play:\n` + starting.map((u) => `- ${u.event.title} [${u.event.id}] starts ${formatTick(u.lo, inp.origin)} (in ${minutesAway(u.lo - checkpointTick)}): ${situationOf(u.event.summary)}`).join('\n'));
   // Canon events the story has started but not finished: always shown, whether or not the latest messages name them.
   const underWay = underWayEvents(index, checkpointTick);
   if (underWay.length) required.push('CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand: their course and result follow from actual play and the player\'s choices; the original route is reference only):\n' + underWay.map((u) => `- ${u.title} [${u.id}] (window ${formatTick(u.lo, inp.origin)} – ${formatTick(u.hi, inp.origin)}): so far — ${u.beats.join(' → ')}. Original route (reference): ${u.summary.length > 160 ? u.summary.slice(0, 157) + '…' : u.summary}`).join('\n'));
@@ -294,7 +301,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
       // an event whose original preconditions already failed will not happen; do not suggest it
       && triLabel(evalCondition(pack.events.get(t.id)!.canonical_preconditions, index.state, pack, { tick: checkpointTick })) !== 'FALSE')
     .slice(0, 4).map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}`; });
-  const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${situationOf(u.event.summary)}`);
+  const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${situationOf(u.event.summary)}`);
   if (soon.length) optional.push('WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing — NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them; the player may change them, and actual play wins over this:\n' + soon.join('\n'));
   if (open.length) optional.push('CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n' + open.join('\n'));
 

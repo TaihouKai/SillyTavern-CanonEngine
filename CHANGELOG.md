@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.56 — 2026-10-19
+
+- **The GM is told which canon events are about to start.** A reply's end time is only decided after it is written (by the review, with Horae's time as the floor), so a reply could carry the story from 07:59 to 08:01 past the start of an event the GM never heard of — it only appeared in the optional 24-hour background ("do not steer toward these"). Each reply now gets a required "CANON EVENTS ABOUT TO START" section: non-HARD events starting within 2 hours of story time, with their start time ("in 30 min") and starting situation, and the rule that if the reply's time reaches a start the event begins then (shown where the player character is or would notice, otherwise out of sight), and that time is never hurried or delayed to reach or avoid it. HARD events were already listed as obligations. Not repeated in the background list.
+- Test OG5.
+
 ## 1.3.55 — 2026-10-19
 
 - **The GM is reminded of canon events under way.** Every reply while an event is under way gets a required "CANON EVENTS UNDER WAY" section — the event, its beats so far and the original route as reference only — whether or not the latest messages name it (before, it reached the GM only when the text mentioned it, or in the optional in-window list that called it "not happened yet"). It is left out of the in-window list, and disappears when the event ends (or a day past its window, when offscreen catch-up settles it).
