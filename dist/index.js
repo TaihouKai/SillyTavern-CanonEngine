@@ -12939,7 +12939,7 @@ var WorldIndex = class _WorldIndex {
       note = beats.length ? `UNDER WAY in this branch (${beats.map((o) => o.title).join("; ")}); its result is not settled yet` : "window open; not yet occurred in this branch";
     } else {
       status = "unresolved";
-      note = "window passed without a recorded disposition";
+      note = "window passed without a recorded disposition; it is settled from actual play at the next story-time advance";
     }
     return { packEventId: eventId, title: ev.title, classification: ev.classification, status, note };
   }
@@ -16152,7 +16152,8 @@ async function adjudicateInterval(args) {
       continue;
     }
     if (!args.port) throw new EngineError("provider_failure", `Event "${c.event.title}" needs model adjudication but no model is available`);
-    const rec = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false);
+    const playU = c.event.classification !== "HARD" ? recentPlay(pack2, scratch, c) : [];
+    const rec = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, playU);
     let result = rec;
     if (!result && c.event.classification === "HARD" && args.forcedAllowed) {
       forcedUsed = true;
@@ -16565,7 +16566,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.58";
+var ENGINE_RELEASE = "1.3.59";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -17647,11 +17648,13 @@ var CanonEngine = class {
           let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt });
           this.checkFences(fences, excludeLast);
           let adj = null;
-          const end = review.gate.sceneEnd;
-          if (end && !review.gate.flashback && end.lo > clock) {
-            adj = await adjudicateInterval({
+          let adjTo = clock;
+          for (let round = 0; round < 3; round++) {
+            const end = review.gate.sceneEnd;
+            if (!end || review.gate.flashback || end.lo <= adjTo) break;
+            const more = await adjudicateInterval({
               pack: pack2,
-              state: this.overlay(index.state, review.gate.records),
+              state: this.overlay(index.state, [...review.gate.records, ...adj?.records || []]),
               fromExclusive: clock,
               toInclusive: end.lo,
               exclude: new Set(review.gate.records.map((r) => r.packEventId).filter(Boolean)),
@@ -17663,27 +17666,29 @@ var CanonEngine = class {
               facts: review.facts,
               log: (l) => this.debugLog("task", l)
             });
+            adjTo = end.lo;
             this.checkFences(fences, excludeLast);
-            if (adj.records.length) {
-              const stagedIndex = new WorldIndex(pack2, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
-              review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt });
-              review.gate = runGate({
-                pack: pack2,
-                index: stagedIndex,
-                text: candidate,
-                userText: userEntry?.text || "",
-                userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
-                evaluation: review.evaluation,
-                retrieval: review.retrieval,
-                claims: review.claims,
-                plan: plan2,
-                clockTick: clock,
-                stagedHard: adj.stagedHard,
-                mode: "draft",
-                forced: planInfo.forced
-              });
-              this.checkFences(fences, excludeLast);
-            }
+            const prev = adj;
+            adj = prev ? { ...prev, records: [...prev.records, ...more.records], basis: [...prev.basis, ...more.basis], notes: [...prev.notes, ...more.notes], stagedHard: new Map([...prev.stagedHard, ...more.stagedHard]), forcedUsed: prev.forcedUsed || more.forcedUsed } : more;
+            if (!more.records.length) break;
+            const stagedIndex = new WorldIndex(pack2, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
+            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt });
+            review.gate = runGate({
+              pack: pack2,
+              index: stagedIndex,
+              text: candidate,
+              userText: userEntry?.text || "",
+              userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
+              evaluation: review.evaluation,
+              retrieval: review.retrieval,
+              claims: review.claims,
+              plan: plan2,
+              clockTick: clock,
+              stagedHard: adj.stagedHard,
+              mode: "draft",
+              forced: planInfo.forced
+            });
+            this.checkFences(fences, excludeLast);
           }
           const violations = [...review.gate.violations, ...review.gate.coverageGaps.map((g) => `Coverage gap: ${g}`)];
           trace.attempts.push({ candidateHash: sha256(candidate), violations, coverageGaps: review.gate.coverageGaps, manifestId: review.manifest?.manifestId || "" });
@@ -19677,7 +19682,7 @@ function name(L, id, s) {
   return L.entities.get(id)?.name || s?.runtimeEntities.get(id)?.name || id;
 }
 function statusLabel(st) {
-  const m = { occurred: "\u5DF2\u53D1\u751F", diverged: "\u5DF2\u6539\u53D8", omitted: "\u672A\u53D1\u751F", pending: "\u8FDB\u884C\u4E2D/\u4E34\u8FD1", future: "\u672A\u6765", unresolved: "\u65F6\u95F4\u5DF2\u8FC7\u4F46\u672A\u5224\u5B9A", unscheduled: "\u65F6\u95F4\u4E0D\u660E\uFF08\u80CC\u666F\uFF09", runtime: "\u672C\u5C40\u4E8B\u4EF6" };
+  const m = { occurred: "\u5DF2\u53D1\u751F", diverged: "\u5DF2\u6539\u53D8", omitted: "\u672A\u53D1\u751F", pending: "\u8FDB\u884C\u4E2D/\u4E34\u8FD1", future: "\u672A\u6765", unresolved: "\u65F6\u95F4\u5DF2\u8FC7\uFF0C\u4E0B\u6B21\u65F6\u95F4\u63A8\u8FDB\u65F6\u7ED3\u7B97", unscheduled: "\u65F6\u95F4\u4E0D\u660E\uFF08\u80CC\u666F\uFF09", runtime: "\u672C\u5C40\u4E8B\u4EF6" };
   return st ? m[st] || st : "";
 }
 var NODE_H = 46;

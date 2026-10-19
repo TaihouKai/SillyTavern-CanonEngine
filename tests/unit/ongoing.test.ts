@@ -104,6 +104,20 @@ describe('canonical events under way', () => {
     }
   });
 
+  it('AJ1 when the second review places the reply later, the events whose windows close in the extra time are settled too', async () => {
+    const x = await setup(); // 09:30; ambush 10:00, broadcast 12:00
+    x.host.addUser('I wander the docks for a while.');
+    x.model.draft('Hours pass on the docks. [AJ1]');
+    const isDraft = (i: any) => String(i.candidate).includes('[AJ1]');
+    x.model.on('evaluate', isDraft, { scene_end: at(1, 12, 30) }); // the review that sees the staged ambush
+    x.model.on('evaluate', isDraft, { scene_end: at(1, 11, 0) }, true); // first review
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    const s = st(x);
+    expect(s.clock.lo).toBe(tick(1, 12, 30));
+    expect(s.dispositions.has('medic-ambush')).toBe(true);
+    expect(s.dispositions.has('council-broadcast')).toBe(true); // window closed at 12:00, inside the later end
+  });
+
   it('OG2 the reviewer is told not to call an event changed only because its result is not shown yet', () => {
     const PROMPTS = PROMPTS_;
     expect(PROMPTS.evaluate).toMatch(/Never use "diverged" only because the result is not shown yet/);

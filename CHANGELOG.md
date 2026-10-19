@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.59 — 2026-10-19
+
+- **Events whose window closes during a reply are always settled.** A turn settles the canon events its time advance passes, then reviews the reply again with those results; when that second review placed the reply's end later, the events whose windows closed in the extra time were skipped (live finding: the first review ended before 14:00, the second at 14:30, and 婚后光子遇袭与马场芳郎落败, due 14:00, showed 时间已过但未判定). The extra interval is now settled too, and reviewed again (up to 3 rounds).
+- When an event's original preconditions are unknown (e.g. an upstream event happened differently), the offscreen judgement now also sees what actual play did with its characters, as it already did when they were satisfied — so a fight the player already won is not judged as if it never happened.
+- An event past its window without a result reads "时间已过，下次时间推进时结算" (it is settled from actual play at the next story-time advance).
+- Test AJ1.
+
 ## 1.3.58 — 2026-10-19
 
 - **A stream that goes silent is given up after 5 minutes instead of waiting for the reply timeout.** Since 1.3.48 Canon streams its own requests to custom endpoints. A stream that stops sending without closing was waited on until the reply timeout (live: 33 minutes with no reply and no error at a 2000 s timeout). Any bytes — tokens, thinking, keep-alive comments — reset the timer, so a model that is thinking is never cut off; 5 minutes of total silence (before the reply starts or in the middle of it) ends the request with "the provider sent nothing for 300s …; the connection stalled". The stalled request is not re-sent unstreamed. Retry works as usual.

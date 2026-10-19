@@ -291,7 +291,7 @@ export class WorldIndex {
       note = beats.length ? `UNDER WAY in this branch (${beats.map((o) => o.title).join('; ')}); its result is not settled yet` : 'window open; not yet occurred in this branch';
     } else {
       status = 'unresolved';
-      note = 'window passed without a recorded disposition';
+      note = 'window passed without a recorded disposition; it is settled from actual play at the next story-time advance';
     }
     return { packEventId: eventId, title: ev.title, classification: ev.classification, status, note };
   }

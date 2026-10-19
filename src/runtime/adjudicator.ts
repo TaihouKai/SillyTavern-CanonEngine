@@ -81,7 +81,9 @@ export async function adjudicateInterval(args: {
       continue;
     }
     if (!args.port) throw new EngineError('provider_failure', `Event "${c.event.title}" needs model adjudication but no model is available`);
-    const rec = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false);
+    // what actual play did with this event's characters matters as much when its preconditions are unknown
+    const playU = c.event.classification !== 'HARD' ? recentPlay(pack, scratch, c) : [];
+    const rec = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, playU);
     let result = rec;
     if (!result && c.event.classification === 'HARD' && args.forcedAllowed) {
       forcedUsed = true;

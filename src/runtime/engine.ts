@@ -1061,28 +1061,34 @@ export class CanonEngine {
           this.setStatus('validating', attempt > this.settings.maxRepairs ? 'Re-checking final HARD repair…' : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})…` : 'Validating…');
           let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt });
           this.checkFences(fences, excludeLast);
-          // Interval adjudication for the proposed advance (repeat if the draft goes farther than expected)
+          // Interval adjudication for the proposed advance. The review that sees the staged results may place the
+          // reply's end later: then the events whose windows close in the extra time are settled too (live finding:
+          // the first review ended before 14:00, the second at 14:30, and an event due at 14:00 was never settled).
           let adj: Awaited<ReturnType<typeof adjudicateInterval>> | null = null;
-          const end = review.gate.sceneEnd;
-          if (end && !review.gate.flashback && end.lo > clock) {
-            adj = await adjudicateInterval({
-              pack, state: this.overlay(index.state, review.gate.records), fromExclusive: clock, toInclusive: end.lo,
+          let adjTo = clock;
+          for (let round = 0; round < 3; round++) {
+            const end = review.gate.sceneEnd;
+            if (!end || review.gate.flashback || end.lo <= adjTo) break;
+            const more = await adjudicateInterval({
+              pack, state: this.overlay(index.state, [...review.gate.records, ...(adj?.records || [])]), fromExclusive: clock, toInclusive: end.lo,
               exclude: new Set(review.gate.records.map((r) => r.packEventId).filter(Boolean) as string[]),
               port: this.host.model, plan, forcedAllowed: planInfo.forced || this.settings.forcedPlannerAttempt, signal: abort.signal, operationId, facts: review.facts,
               log: (l) => this.debugLog('task', l),
             });
+            adjTo = end.lo;
             this.checkFences(fences, excludeLast);
-            if (adj.records.length) {
-              // The evaluator must see staged offscreen history: review again with it (not a repair).
-              const stagedIndex = new WorldIndex(pack, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
-              review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt });
-              // Gate HARD crossing with staged offscreen occurrences against the committed clock
-              review.gate = runGate({
-                pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
-                evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard: adj.stagedHard, mode: 'draft', forced: planInfo.forced,
-              });
-              this.checkFences(fences, excludeLast);
-            }
+            const prev = adj as Awaited<ReturnType<typeof adjudicateInterval>> | null;
+            adj = prev ? { ...prev, records: [...prev.records, ...more.records], basis: [...prev.basis, ...more.basis], notes: [...prev.notes, ...more.notes], stagedHard: new Map([...prev.stagedHard, ...more.stagedHard]), forcedUsed: prev.forcedUsed || more.forcedUsed } : more;
+            if (!more.records.length) break;
+            // The evaluator must see staged offscreen history: review again with it (not a repair).
+            const stagedIndex = new WorldIndex(pack, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
+            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt });
+            // Gate HARD crossing with staged offscreen occurrences against the committed clock
+            review.gate = runGate({
+              pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
+              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard: adj.stagedHard, mode: 'draft', forced: planInfo.forced,
+            });
+            this.checkFences(fences, excludeLast);
           }
           const violations = [...review.gate.violations, ...review.gate.coverageGaps.map((g) => `Coverage gap: ${g}`)];
           trace.attempts.push({ candidateHash: sha256(candidate), violations, coverageGaps: review.gate.coverageGaps, manifestId: review.manifest?.manifestId || '' });

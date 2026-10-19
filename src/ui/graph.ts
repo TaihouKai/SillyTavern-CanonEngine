@@ -159,7 +159,7 @@ function name(L: LoadedPack, id: string, s?: WorldState): string {
 }
 
 export function statusLabel(st?: GStatus): string {
-  const m: Record<string, string> = { occurred: '已发生', diverged: '已改变', omitted: '未发生', pending: '进行中/临近', future: '未来', unresolved: '时间已过但未判定', unscheduled: '时间不明（背景）', runtime: '本局事件' };
+  const m: Record<string, string> = { occurred: '已发生', diverged: '已改变', omitted: '未发生', pending: '进行中/临近', future: '未来', unresolved: '时间已过，下次时间推进时结算', unscheduled: '时间不明（背景）', runtime: '本局事件' };
   return st ? m[st] || st : '';
 }
 
