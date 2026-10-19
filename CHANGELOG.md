@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.61 — 2026-10-19
+
+- **A card greeting that is a setup instruction no longer leaves a conflict at binding.** The opening message of some cards tells the GM how to start ("当前世界设定…已载入。用户可以直接行动…") instead of being a scene; binding examined it like a story reply, the reviewer complained that it is "a meta-instruction prompt, not a story reply", and the complaint became an unresolved conflict on message #0 (live finding). A message already in the chat cannot be repaired, so for retained messages the reviewer's decision is what counts: complaints about a message it keeps (retain) are notes; a real contradiction is still a "conflict". The reviewer is also told that non-story text (OOC instructions, setup notes, rules, menus) establishes nothing and draws no complaints.
+- Test GR1.
+
 ## 1.3.60 — 2026-10-19
 
 - **关联本局事件 (link story events to a canon event).** When a canon event happened in the story but the reviewer did not recognise it (live: 上官鹭 beat 马场 herself, filed as ordinary beats, while 婚后光子遇袭与马场芳郎落败 stayed unsettled), open it in the timeline, tick the story events it consists of (the ones from a day before to a day after its window), and choose "结果与原作相同（已发生）" — recorded as occurred, the original outcome applied — or "结果不同（已改变）" — what the story established stands. The canon box is linked to those story events (causal links), the record is manual like 强制完成 (it overrides an earlier offscreen result) and "撤销关联" undoes it. No model call.

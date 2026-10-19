@@ -398,6 +398,10 @@ export function runGate(g: GateInput): GateResult {
   for (const v of ev.violations) {
     // the reviewer itself marked it non-blocking (minor/acceptable); a missing flag counts as blocking
     if (v.blocking === false) { warnings.push(`non-blocking reviewer note: ${v.detail.slice(0, 160)}`); continue; }
+    // A message already in the chat cannot be repaired: whether it can stay is the reviewer's decision
+    // (retain / conflict). A complaint about a message it keeps — e.g. a card greeting that is a setup
+    // instruction rather than a story scene (live finding) — is a note, not an editorial conflict.
+    if (g.mode === 'retained' && ev.decision === 'retain') { warnings.push(`reviewer note on a retained message: ${v.detail.slice(0, 160)}`); continue; }
     if (v.quote && !quoteInText(v.quote, text)) { warnings.push(`reviewer violation without valid evidence ignored: ${v.detail}`); continue; }
     // HARD conformance is decided by the structured HARD checks and deadlines above. A free-text
     // complaint that only restates a HARD event (live finding: the reviewer treated the canonical ROUTE

@@ -126,6 +126,20 @@ describe('canonical events under way', () => {
   });
 });
 
+describe('greetings that are instructions', () => {
+  it('GR1 binding a chat whose greeting is a setup instruction does not leave an unresolved conflict', async () => {
+    const x = makeEngine();
+    x.host.chat[0].text = '当前世界设定、玩家人设与可用资料已载入。用户可以直接行动，也可以只给一句简短开局要求，例如：“开始”。';
+    // the reviewer keeps it but complains that it is not a story reply (blocking)
+    x.model.on('evaluate', (i) => String(i.candidate).includes('已载入'), { decision: 'retain', violations: [{ code: 'not_story', quote: '用户可以直接行动', detail: 'The candidate is a meta-instruction prompt, not a story reply.', blocking: true }] });
+    await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
+    await x.engine.reconcile('test');
+    expect(x.engine.campaign()!.recoveryState.status).toBe('ok');
+    const PROMPT = PROMPTS_.evaluate;
+    expect(PROMPT).toMatch(/not story text at all \(out-of-character instructions, a setup or system note/);
+  });
+});
+
 describe('关联本局事件', () => {
   it('LK1 story events the reviewer did not recognise can be linked to the canon event by hand, as changed or occurred, and undone', async () => {
     const x = await setup(); // 09:30; ambush 10:00 (original result: Mira killed)
