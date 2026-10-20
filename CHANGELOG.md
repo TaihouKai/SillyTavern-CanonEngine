@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.65 — 2026-10-20
+
+- **A change the reply shows is no longer rejected as a contradiction.** The reviewer sometimes files a change that happens in the reply (a robot dog is hit, collapses and smokes) as a presupposition ("the text assumes it was already damaged"); the check then found it contradicting the earlier "完好", sent the correct reply back for repair, and the turn failed after 3 attempts (live finding). When a claim conflicts with the earlier state and an event of the same reply involves that entity, it is now taken as that event's result (noted in the turn report); coming back to life (alive false → true) is still a contradiction. The reviewer is also told that a change the reply shows is a transition, not a state claim.
+- **A boolean or number written as text is compared as such.** "马场芳郎.alive = \"true\", but the actual state is true" was reported as a contradiction; claimed values are now read in the predicate's type (also when revalidating after edits).
+- Tests CL1–CL3.
+
 ## 1.3.64 — 2026-10-20
 
 - **The timeline's "现在" and the GM's current time follow Horae when the reviewer misjudged the last reply.** A reply that jumped from 22:10 to "12:10" the next day was recorded as 00:10 (a 12-hour mix-up); Horae read it as 12:10. Canon only took Horae's time as the floor of the *next* reply's end, so until then the timeline's now line — and the GM's context for the next reply — sat 12 hours behind (live finding). Both now use Horae's time for the latest reply when Horae is fresh and ahead of the engine clock by at most 3 days (the same rule as the floor). The reviewer is also told explicitly that times are minutes after midnight on a 24-hour clock (noon / 中午12点 = 720).

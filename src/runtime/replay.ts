@@ -1,7 +1,7 @@
 // Deterministic replay of the selected transcript over the pinned pack + binding seed.
 // Unchanged, still-valid prefixes replay without model calls.
 import type { LoadedPack } from '../domain/pack';
-import { claimComparable, valuesEqual } from '../domain/pack';
+import { claimComparable, valuesEqual, coerceClaimValue } from '../domain/pack';
 import type { LedgerRecord } from '../domain/types';
 import type { WorldState } from '../domain/reducer';
 import { applyRecord, emptyState, evalCondition, factAt, triLabel } from '../domain/reducer';
@@ -130,7 +130,8 @@ export function validateAgainstPrefix(interp: Interpretation, state: WorldState,
   const now = state.clock.lo;
   for (const c of interp.stateClaims) {
     const f = factAt(state, c.entity_id, c.predicate, { tick: Number.MAX_SAFE_INTEGER });
-    if (f.known && !valuesEqual(f.value!, c.value) && claimComparable(pack, c.predicate, c.value)) reasons.push(`presupposes ${c.entity_id}.${c.predicate}=${JSON.stringify(c.value)} but actual state is ${JSON.stringify(f.value)} ("${c.quote}")`);
+    const cv = coerceClaimValue(pack, c.predicate, c.value);
+    if (f.known && !valuesEqual(f.value!, cv) && claimComparable(pack, c.predicate, cv)) reasons.push(`presupposes ${c.entity_id}.${c.predicate}=${JSON.stringify(c.value)} but actual state is ${JSON.stringify(f.value)} ("${c.quote}")`);
   }
   for (const r of interp.records) {
     if (r.packEventId && r.disposition && state.dispositions.has(r.packEventId)) reasons.push(`canonical event ${r.packEventId} already has a disposition in the new prefix`);

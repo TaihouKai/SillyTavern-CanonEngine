@@ -126,6 +126,32 @@ describe('canonical events under way', () => {
   });
 });
 
+describe('state claims', () => {
+  it('CL1 a claimed boolean written as text ("true") is not a contradiction of true', async () => {
+    const x = await setup();
+    expect(await turn(x, 'I greet Mira.', 'Mira smiles back. [CL1]', { scene_end: at(1, 9, 35), state_claims: [{ entity_id: 'mira', predicate: 'alive', value: 'true', quote: 'Mira smiles back' }] })).toBe(true);
+    expect(x.engine.lastTrace!.attempts[0].violations).toEqual([]);
+  });
+
+  it('CL2 a change the reply shows, filed by the reviewer as a presupposition, is taken as that event\'s result (not three repairs)', async () => {
+    const x = await setup();
+    const ev = { scene_end: at(1, 9, 40), occurrences: [occ('o1', 'The doomsday device fires', 'the world cracks apart', { affected: ['planet'] })], state_claims: [{ entity_id: 'planet', predicate: 'exists', value: false, quote: 'the world cracks apart' }] };
+    expect(await turn(x, 'I press the button.', 'The device fires and the world cracks apart. [CL2]', ev)).toBe(true);
+    expect(x.model.tasks('draft').length).toBe(1); // no repair
+    expect(factAt(st(x), 'planet', 'exists').value).toBe(false);
+  });
+
+  it('CL3 bringing the dead back is still a contradiction, even inside an event of the reply', async () => {
+    const x = await setup();
+    // the ambush at 10:00 kills Mira along the original route
+    expect(await turn(x, 'I wait until noon.', 'Noon comes. [CL3a]', { scene_end: at(1, 11, 0) })).toBe(true);
+    expect(factAt(st(x), 'mira', 'alive').value).toBe(false);
+    const ev = { scene_end: at(1, 11, 5), occurrences: [occ('o1', 'Mira walks in', 'Mira walks in', { actors: ['mira'] })], state_claims: [{ entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira walks in' }] };
+    await turn(x, 'I look at the door.', 'Mira walks in. [CL3b]', ev);
+    expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/presupposes .*alive=true/);
+  });
+});
+
 describe('greetings that are instructions', () => {
   it('GR1 binding a chat whose greeting is a setup instruction does not leave an unresolved conflict', async () => {
     const x = makeEngine();

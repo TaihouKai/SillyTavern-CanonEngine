@@ -430,6 +430,17 @@ export function loadPinnedPack(pack: CanonPack): LoadedPack {
  * closed vocabulary that contains the claimed value. Free-text values ("正常运转" vs "active") are
  * paraphrases, not contradictions, and are left to the semantic reviewer.
  */
+/** A claimed value in the predicate's own type: models sometimes write a boolean or number as text
+ *  (live finding: "true" compared with true was reported as a contradiction). */
+export function coerceClaimValue(pack: LoadedPack, predicate: Id, value: FactValue): FactValue {
+  const p = pack.predicates.get(predicate);
+  if (!p || typeof value !== 'string') return value;
+  const t = value.trim().toLowerCase();
+  if (p.value_type === 'boolean' && (t === 'true' || t === 'false')) return t === 'true';
+  if (p.value_type === 'number' && t !== '' && Number.isFinite(Number(t))) return Number(t);
+  return value;
+}
+
 export function claimComparable(pack: LoadedPack, predicate: Id, value: unknown): boolean {
   const p = pack.predicates.get(predicate);
   if (!p) return false;

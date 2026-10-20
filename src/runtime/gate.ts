@@ -3,7 +3,7 @@
 // The evaluator's own verdicts never bypass these checks.
 import type { FactDelta, FactValue, Id, Occurrence, RuntimeEntity, StoryTime } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
-import { claimComparable, normalizeValue, valuesEqual } from '../domain/pack';
+import { claimComparable, normalizeValue, valuesEqual, coerceClaimValue } from '../domain/pack';
 import { factAt } from '../domain/reducer';
 import type { WorldIndex } from '../domain/world-query';
 import { toTick, formatTick } from '../domain/time';
@@ -326,12 +326,25 @@ export function runGate(g: GateInput): GateResult {
   const cp = { tick: Math.max(sceneEnd.lo, g.clockTick) };
   const setInReply = (eid: Id, pred: Id, v: FactValue) =>
     occRecords.some((r) => r.factsSetOrUnset.some((d) => d.op === 'set' && d.entity_id === eid && d.predicate === pred && valuesEqual(d.value, v)));
-  const checkClaim = (eid: Id, pred: Id, value: FactValue, quote: string, label: string, atTick?: number) => {
+  const checkClaim = (eid: Id, pred: Id, value0: FactValue, quote: string, label: string, atTick?: number) => {
+    const value = coerceClaimValue(pack, pred, value0);
     // Each claim is checked at its own story checkpoint (flashbacks use then-valid facts).
     const claimCp = atTick !== undefined ? { tick: atTick } : cp;
     const f = factAt(index.state, eid, pred, claimCp);
     if (f.known && !valuesEqual(f.value!, value) && claimComparable(pack, pred, value)) {
       if (atTick === undefined && setInReply(eid, pred, value)) return; // a genuine staged change with its own occurrence
+      // The reply shows the change happening (the dog is hit and collapses) but the reviewer filed the new
+      // state as a presupposition (live finding: three repairs of a correct reply). When an event of this
+      // reply involves the entity, take the claim as that event's result. Never for coming back to life.
+      const revival = typeof f.value === 'boolean' && f.value === false && value === true && /alive|living|存活|生存/i.test(pred);
+      const host = atTick === undefined && !revival ? occRecords.find((r) => (r.occurrences || []).some((o) => o.affected.includes(eid) || o.actors.includes(eid))) : undefined;
+      if (host) {
+        const d: FactDelta = { op: 'set', entity_id: eid, predicate: pred, value };
+        host.factsSetOrUnset.push(d);
+        host.occurrences?.[0]?.outcome.push(d);
+        warnings.push(`state claim "${quote.slice(0, 60)}" taken as a change this reply depicts: ${eid}.${pred}=${JSON.stringify(value)}`);
+        return;
+      }
       const rec = f.supportRecordId ? index.state.recordById.get(f.supportRecordId) : undefined;
       violations.push(`${label} "${quote}" presupposes ${index.entityName(eid)}.${pred}=${JSON.stringify(value)}, but the actual state is ${JSON.stringify(f.value)} (established by: ${rec?.summary || 'record'}). No supported change is recorded through this scene.`);
       return;
