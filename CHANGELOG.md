@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.66 — 2026-10-21
+
+- **结束事件 (conclude event).** A canon event that is under way, open, or past its window without a result can be concluded on request: the same model judgement as when its window closes — from what actually happened in the story, with the beats already shown under way and recent play with its characters as evidence, and the note that the player says it has ended — records it as occurred, changed or did not happen. Unlike 强制完成 it does not apply the original route. If the model finds the event still going on, nothing is recorded and the toast says so. Recorded like 强制完成 (anchored after the latest message) and undone with 撤销结束.
+- Tests CE1–CE2; e2e CE01.
+
 ## 1.3.65 — 2026-10-20
 
 - **A change the reply shows is no longer rejected as a contradiction.** The reviewer sometimes files a change that happens in the reply (a robot dog is hit, collapses and smokes) as a presupposition ("the text assumes it was already damaged"); the check then found it contradicting the earlier "完好", sent the correct reply back for repair, and the turn failed after 3 attempts (live finding). When a claim conflicts with the earlier state and an event of the same reply involves that entity, it is now taken as that event's result (noted in the turn report); coming back to life (alive false → true) is still a contradiction. The reviewer is also told that a change the reply shows is a transition, not a state claim.

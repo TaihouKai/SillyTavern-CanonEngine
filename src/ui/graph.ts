@@ -32,6 +32,8 @@ export interface GNode {
   inProgress?: boolean;
   /** Linked by hand to story events (关联本局事件); undone like 强制完成. */
   linked?: boolean;
+  /** Concluded by the player from the story (结束事件); undone like 强制完成. */
+  concluded?: boolean;
   /** Its 已发生/已改变 was recorded from a chat message and can be re-examined. */
   reanalyzable?: boolean;
   /** The player marked this event 关注. */
@@ -81,6 +83,7 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
       const actual = occ?.outcome.length ? [`本局结果：${occ.outcome.map((x) => (x.op === 'set' ? `${name(L, x.entity_id, s)}.${x.predicate}=${JSON.stringify(x.value)}` : `${x.entity_id}.${x.predicate} 未知`)).join('；')}`] : [];
       if (occ?.origin === 'intervention') n.forced = true;
       if (occ?.linkedFrom?.length) n.linked = true;
+      if (/^concluded by the player/.test(d.reason || '')) { n.concluded = true; n.forced = true; }
       n.detail = [`本局状态：${statusLabel(n.status)}`, ...(occ ? [`实际经过：${occ.account}`, `来源：${ORIGIN_LABEL[occ.origin] || occ.origin}`] : []), ...actual, ...(n.detail || [])];
     } else {
       // shown under way in play, result not settled yet: judged when it ends
@@ -342,7 +345,7 @@ export class GraphPanel {
   private selected: string | null = null;
   private getData: (spoilers: boolean) => { pack: GraphData | null; current: GraphData | null; spoilers: boolean; digested?: boolean };
   private setSpoilers: (v: boolean) => void;
-  private onEventAction: (act: 'force' | 'unforce' | 'focus' | 'digest' | 'undigest' | 'reanalyze' | 'link-occurred' | 'link-diverged', id: string, ids?: string[]) => Promise<void>;
+  private onEventAction: (act: 'force' | 'unforce' | 'focus' | 'digest' | 'undigest' | 'reanalyze' | 'conclude' | 'link-occurred' | 'link-diverged', id: string, ids?: string[]) => Promise<void>;
   private linkCandidates: (id: string) => { id: string; title: string; when: string }[];
   private armed: string | null = null;
 
@@ -507,14 +510,14 @@ export class GraphPanel {
       void this.onEventAction('focus', b.dataset.id!).finally(() => { this.keepView = true; this.refresh(); });
       return;
     }
-    if (b && (b.dataset.act === 'force' || b.dataset.act === 'unforce' || b.dataset.act === 'reanalyze')) {
+    if (b && (b.dataset.act === 'force' || b.dataset.act === 'unforce' || b.dataset.act === 'reanalyze' || b.dataset.act === 'conclude')) {
       const id = b.dataset.id!, act = b.dataset.act;
       // two clicks: the first arms the button (no browser dialog), the second acts
-      if (this.armed !== act + ':' + id) { this.armed = act + ':' + id; b.textContent = act === 'force' ? t('forceConfirm') : act === 'reanalyze' ? t('reanalyzeConfirm') : t('unforceConfirm'); return; }
+      if (this.armed !== act + ':' + id) { this.armed = act + ':' + id; b.textContent = act === 'force' ? t('forceConfirm') : act === 'reanalyze' ? t('reanalyzeConfirm') : act === 'conclude' ? t('concludeConfirm') : t('unforceConfirm'); return; }
       this.armed = null;
       (b as HTMLButtonElement).disabled = true;
       b.textContent = '…';
-      void this.onEventAction(act as 'force' | 'unforce' | 'reanalyze', id).finally(() => { this.keepView = true; this.refresh(); });
+      void this.onEventAction(act as 'force' | 'unforce' | 'reanalyze' | 'conclude', id).finally(() => { this.keepView = true; this.refresh(); });
       return;
     }
     const node = tg.closest('.cg-node') as SVGGElement | null;
@@ -542,7 +545,8 @@ export class GraphPanel {
       <p style="white-space:pre-line">${esc(n.summary)}</p>
       ${this.mode === 'current' && (n.lane === 'SOFT' || n.lane === 'FREE') && (n.status === 'future' || n.status === 'pending') ? `<button class="menu_button cg-focus${n.focused ? ' active' : ''}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t('focusTip'))}">${n.focused ? t('unfocus') : t('focus')}</button>` : ''}
       ${this.mode === 'current' && n.lane !== 'RUNTIME' && n.status !== 'occurred' && n.status !== 'diverged' ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t('force')}</button>` : ''}
-      ${this.mode === 'current' && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.linked ? t('unlink') : t('unforce')}</button>` : ''}
+      ${this.mode === 'current' && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.concluded ? t('unconclude') : n.linked ? t('unlink') : t('unforce')}</button>` : ''}
+      ${this.mode === 'current' && n.lane !== 'RUNTIME' && !n.forced && (n.inProgress || n.status === 'pending' || n.status === 'unresolved') ? `<button class="menu_button cg-conclude" data-act="conclude" data-id="${esc(n.id)}" title="${esc(t('concludeTip'))}">${t('conclude')}</button>` : ''}
       ${this.mode === 'current' && n.lane !== 'RUNTIME' && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t('linkTip'))}">${t('link')}</button><div class="cg-linkpick"></div>` : ''}
       ${this.mode === 'current' && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t('reanalyzeTip'))}">${t('reanalyze')}</button>` : ''}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join('')}

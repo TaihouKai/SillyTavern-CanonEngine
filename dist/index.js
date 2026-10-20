@@ -16273,6 +16273,29 @@ function recentPlay(pack2, s, c) {
   }
   return out.slice(-12);
 }
+async function concludeFromPlay(args, eventId, when) {
+  const { pack: pack2 } = args;
+  const ev = pack2.events.get(eventId);
+  const t2 = pack2.timeIndex.find((x) => x.id === eventId);
+  if (!ev || !t2) return null;
+  const scratch = cloneState(pack2, args.state);
+  const c = { event: ev, lo: t2.lo, hi: t2.hi };
+  const p = adjudicateDefault(pack2, scratch, c, when);
+  const beats = [...scratch.occurrences.values()].filter((o) => o.inProgressOf === eventId).sort((a, b) => a.time.lo - b.time.lo);
+  const play = [.../* @__PURE__ */ new Set([...beats.map((o) => `${formatTick(o.time.lo)} ${o.title}: ${o.account}`), ...recentPlay(pack2, scratch, c)])].slice(-16);
+  const note = "The player marked this event as FINISHED in the story: decide from recent_actual_play how it actually ended \u2014 occurred (original result), diverged (different result) or omitted (it did not happen) \u2014 and give the actual account; do not postpone unless the story clearly shows it is still going on.";
+  const r = await modelAdjudicate({ ...args, toInclusive: when.hi }, scratch, c, when, p.precondition, [note, ...p.explanation], false, play);
+  if (!r) return null;
+  if (r.postponed) return { stillUnderWay: true };
+  r.record.override = true;
+  r.record.dispositionReason = `concluded by the player from the story: ${r.record.dispositionReason || ""}`.slice(0, 500);
+  const occ = r.record.occurrences?.[0];
+  if (occ) {
+    occ.causes = [.../* @__PURE__ */ new Set([...occ.causes, ...beats.map((b) => b.occurrenceId)])];
+    if (beats.length) occ.linkedFrom = beats.map((b) => b.occurrenceId);
+  }
+  return { record: r.record };
+}
 function occurredIds(c) {
   if ("all" in c) return c.all.flatMap(occurredIds);
   if ("any" in c) return c.any.flatMap(occurredIds);
@@ -16634,7 +16657,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.65";
+var ENGINE_RELEASE = "1.3.66";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -18288,6 +18311,48 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     await this.reconcile("undo_force", { allowModel: false });
     await this.host.save();
   }
+  /** "结束事件": conclude a canonical event that is under way (or whose window passed unsettled) from what
+   *  actually happened in the story, using the offscreen judgement on demand; recorded like 强制完成 and undone
+   *  with undoForce. Returns the result, or 'ongoing' when the model finds it still going on. */
+  async concludeEvent(eventId) {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError("incompatible_adapter", "engine state unavailable");
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; wait or cancel it first.");
+    const pack2 = this.pack();
+    const t2 = pack2.timeIndex.find((x) => x.id === eventId);
+    if (!t2) throw new EngineError("incompatible_adapter", "This event has no story time; use \u5F3A\u5236\u5B8C\u6210 or \u5173\u8054\u672C\u5C40\u4E8B\u4EF6 instead.");
+    if (this.current.replay.state.dispositions.has(eventId)) throw new EngineError("incompatible_adapter", "This event already has a result.");
+    const state = this.current.replay.state;
+    const now = this.storyNow() ?? state.clock.lo;
+    if (now < t2.lo) throw new EngineError("incompatible_adapter", "This event has not started yet in story time.");
+    const when = { lo: t2.lo, hi: Math.max(t2.lo, Math.min(t2.hi, now)), precision: "range" };
+    const index = this.current.index;
+    const facts = pack2.events.get(eventId).entity_ids.map((id) => {
+      const v = index.entityState(id);
+      return `${v.name} [${id}]: ${v.facts.map((f) => `${f.predicate}=${f.display}`).join("; ") || "no established facts"}`;
+    }).join("\n");
+    this.setStatus("validating", "Concluding the event from the story\u2026");
+    let res;
+    try {
+      res = await concludeFromPlay({ pack: pack2, state, fromExclusive: state.clock.lo, toInclusive: when.hi, exclude: /* @__PURE__ */ new Set(), port: this.host.model, plan: this.activePlan(), forcedAllowed: false, operationId: "conclude", facts, log: (l) => this.debugLog("task", l) }, eventId, when);
+    } finally {
+      if (!this.opActive) this.setStatus("idle");
+    }
+    if (!res) throw new EngineError("provider_failure", "The analysis model could not conclude this event; try again, or use \u5173\u8054\u672C\u5C40\u4E8B\u4EF6 / \u5F3A\u5236\u5B8C\u6210.");
+    if ("stillUnderWay" in res) return "ongoing";
+    const rec = res.record;
+    await this.exclusive(async () => {
+      const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: `concluded ${eventId} from the story: ${rec.disposition}` });
+      c.planRevisions.forEach((p) => {
+        if (p.status === "active") p.status = "stale";
+      });
+    });
+    await this.reconcile("conclude_event", { allowModel: false });
+    await this.host.save();
+    return rec.disposition || "omitted";
+  }
   /** Story events that may be this canonical event (关联本局事件): beats not tied to a canonical event, from a day
    *  before its window to a day after it (or the last two days for an event without a time), newest first. */
   linkCandidates(eventId) {
@@ -19480,6 +19545,13 @@ var D = {
   linkDivergedTip: { zh: "\u7ED3\u679C\u4E0E\u539F\u4F5C\u4E0D\u540C\uFF1A\u8BB0\u4E3A\u5DF2\u6539\u53D8\uFF0C\u4EE5\u672C\u5C40\u5B9E\u9645\u53D1\u751F\u7684\u4E3A\u51C6\uFF0C\u4E0D\u5199\u5165\u539F\u4F5C\u7ED3\u679C\u3002", en: "The result differs: recorded as changed; what happened in the story stands and the original outcome is not applied." },
   linkDone: { zh: "\u5DF2\u5173\u8054\u3002", en: "Linked." },
   unlink: { zh: "\u64A4\u9500\u5173\u8054", en: "Undo link" },
+  conclude: { zh: "\u7ED3\u675F\u4E8B\u4EF6", en: "Conclude event" },
+  concludeConfirm: { zh: "\u786E\u8BA4\u7ED3\u675F\u8FD9\u4E2A\u4E8B\u4EF6\uFF1F", en: "Conclude this event now?" },
+  concludeTip: { zh: "\u8FD9\u4E2A\u4E8B\u4EF6\u5728\u6545\u4E8B\u91CC\u5DF2\u7ECF\u7ED3\u675F\u4E86\uFF1A\u6309\u6545\u4E8B\u91CC\u5B9E\u9645\u53D1\u751F\u7684\u60C5\u51B5\u6765\u5224\u5B9A\u5B83\u7684\u7ED3\u679C\uFF08\u5DF2\u53D1\u751F\u3001\u5DF2\u6539\u53D8\u6216\u672A\u53D1\u751F\uFF09\uFF0C\u548C\u65F6\u95F4\u7A97\u53E3\u7ED3\u675F\u65F6\u7684\u7ED3\u7B97\u4E00\u6837\uFF0C\u53EA\u662F\u73B0\u5728\u5C31\u505A\u3002\u4E0E\u300C\u5F3A\u5236\u5B8C\u6210\u300D\u4E0D\u540C\uFF0C\u4E0D\u4F1A\u5957\u7528\u539F\u4F5C\u8DEF\u7EBF\u3002\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\uFF1B\u53EF\u4EE5\u64A4\u9500\u3002", en: "This event has ended in the story: judge its result from what actually happened (occurred, changed or did not happen), as at the end of its window, but now. Unlike \u5F3A\u5236\u5B8C\u6210 it does not apply the original route. Uses the analysis model; can be undone." },
+  concludeDone: { zh: "\u4E8B\u4EF6\u5DF2\u7ED3\u675F\uFF1A{s}", en: "Event concluded: {s}" },
+  concludeOmitted: { zh: "\u672A\u53D1\u751F", en: "did not happen" },
+  concludeOngoing: { zh: "\u5206\u6790\u6A21\u578B\u8BA4\u4E3A\u6545\u4E8B\u91CC\u8FD9\u4E2A\u4E8B\u4EF6\u8FD8\u5728\u8FDB\u884C\uFF0C\u6CA1\u6709\u7ED3\u675F\u5B83\u3002\u53EF\u4EE5\u7EE7\u7EED\u63A8\u8FDB\u6545\u4E8B\uFF0C\u6216\u7528\u300C\u5F3A\u5236\u5B8C\u6210\u300D/\u300C\u5173\u8054\u672C\u5C40\u4E8B\u4EF6\u300D\u3002", en: "The analysis model finds the event still going on in the story and did not conclude it. Continue the story, or use \u5F3A\u5236\u5B8C\u6210 / \u5173\u8054\u672C\u5C40\u4E8B\u4EF6." },
+  unconclude: { zh: "\u64A4\u9500\u7ED3\u675F", en: "Undo conclusion" },
   reanalyze: { zh: "\u91CD\u65B0\u5206\u6790", en: "Re-analyse" },
   reanalyzeConfirm: { zh: "\u786E\u8BA4\u91CD\u65B0\u5206\u6790\uFF1F", en: "Re-analyse now?" },
   reanalyzeTip: { zh: "\u91CD\u65B0\u68C0\u67E5\u8BB0\u4E0B\u8FD9\u4E2A\u7ED3\u679C\u7684\u90A3\u6761\u56DE\u590D\uFF0C\u6309\u73B0\u5728\u7684\u89C4\u5219\u5224\u65AD\u5B83\u662F\u5DF2\u53D1\u751F\u3001\u5DF2\u6539\u53D8\uFF0C\u8FD8\u662F\u4ECD\u5728\u8FDB\u884C\u4E2D\u3002\u4E4B\u540E\u7684\u56DE\u590D\u4F1A\u50CF\u4FEE\u6539\u8FC7\u6D88\u606F\u4E00\u6837\u91CD\u65B0\u6838\u5BF9\u3002\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\u3002", en: "Examine again the reply that recorded this result, with the current rules: occurred, changed, or still under way. Later replies are re-checked as after an edit. Uses the analysis model." },
@@ -19748,6 +19820,10 @@ function currentGraph(L, s, origin, spoilers, digest2 = []) {
       const actual = occ?.outcome.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${occ.outcome.map((x) => x.op === "set" ? `${name(L, x.entity_id, s)}.${x.predicate}=${JSON.stringify(x.value)}` : `${x.entity_id}.${x.predicate} \u672A\u77E5`).join("\uFF1B")}`] : [];
       if (occ?.origin === "intervention") n.forced = true;
       if (occ?.linkedFrom?.length) n.linked = true;
+      if (/^concluded by the player/.test(d.reason || "")) {
+        n.concluded = true;
+        n.forced = true;
+      }
       n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`, ...occ ? [`\u5B9E\u9645\u7ECF\u8FC7\uFF1A${occ.account}`, `\u6765\u6E90\uFF1A${ORIGIN_LABEL[occ.origin] || occ.origin}`] : [], ...actual, ...n.detail || []];
     } else {
       const beats = [...s.occurrences.values()].filter((o) => o.inProgressOf === n.id).sort((a, b) => a.time.lo - b.time.lo);
@@ -20221,11 +20297,11 @@ var GraphPanel = class {
       });
       return;
     }
-    if (b && (b.dataset.act === "force" || b.dataset.act === "unforce" || b.dataset.act === "reanalyze")) {
+    if (b && (b.dataset.act === "force" || b.dataset.act === "unforce" || b.dataset.act === "reanalyze" || b.dataset.act === "conclude")) {
       const id = b.dataset.id, act = b.dataset.act;
       if (this.armed !== act + ":" + id) {
         this.armed = act + ":" + id;
-        b.textContent = act === "force" ? t("forceConfirm") : act === "reanalyze" ? t("reanalyzeConfirm") : t("unforceConfirm");
+        b.textContent = act === "force" ? t("forceConfirm") : act === "reanalyze" ? t("reanalyzeConfirm") : act === "conclude" ? t("concludeConfirm") : t("unforceConfirm");
         return;
       }
       this.armed = null;
@@ -20261,7 +20337,8 @@ var GraphPanel = class {
       <p style="white-space:pre-line">${esc(n.summary)}</p>
       ${this.mode === "current" && (n.lane === "SOFT" || n.lane === "FREE") && (n.status === "future" || n.status === "pending") ? `<button class="menu_button cg-focus${n.focused ? " active" : ""}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t("focusTip"))}">${n.focused ? t("unfocus") : t("focus")}</button>` : ""}
       ${this.mode === "current" && n.lane !== "RUNTIME" && n.status !== "occurred" && n.status !== "diverged" ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t("force")}</button>` : ""}
-      ${this.mode === "current" && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.linked ? t("unlink") : t("unforce")}</button>` : ""}
+      ${this.mode === "current" && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.concluded ? t("unconclude") : n.linked ? t("unlink") : t("unforce")}</button>` : ""}
+      ${this.mode === "current" && n.lane !== "RUNTIME" && !n.forced && (n.inProgress || n.status === "pending" || n.status === "unresolved") ? `<button class="menu_button cg-conclude" data-act="conclude" data-id="${esc(n.id)}" title="${esc(t("concludeTip"))}">${t("conclude")}</button>` : ""}
       ${this.mode === "current" && n.lane !== "RUNTIME" && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t("linkTip"))}">${t("link")}</button><div class="cg-linkpick"></div>` : ""}
       ${this.mode === "current" && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t("reanalyzeTip"))}">${t("reanalyze")}</button>` : ""}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join("")}
@@ -20378,6 +20455,9 @@ function mountTopButton() {
       else if (act === "link-occurred" || act === "link-diverged") {
         await E.linkEvent(id, ids || [], act === "link-occurred" ? "occurred" : "diverged");
         toast("info", t("linkDone"));
+      } else if (act === "conclude") {
+        const r = await E.concludeEvent(id);
+        toast("info", r === "ongoing" ? t("concludeOngoing") : t("concludeDone").replace("{s}", t(r === "omitted" ? "concludeOmitted" : "reanalyzeStatus_" + r)));
       } else if (act === "reanalyze") {
         const st = await E.reanalyzeEvent(id);
         toast("info", t("reanalyzeDone").replace("{s}", t("reanalyzeStatus_" + st)));

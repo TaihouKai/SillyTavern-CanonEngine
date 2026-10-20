@@ -869,6 +869,21 @@ try {
     check(results, 'RA01 an event recorded from a reply offers 重新分析 (two clicks)', st0.dispositions['medic-ambush'] === 'diverged' && btn === '重新分析' && armed === '确认重新分析？', `${JSON.stringify(st0.dispositions['medic-ambush'])} btn=${btn} armed=${armed}`);
     check(results, 'RA02 重新分析 re-examines that reply: the fight is now under way, with no result yet', !st1.dispositions['medic-ambush'] && evals >= 1 && /重新分析完成：进行中/.test(toasts), JSON.stringify({ d: st1.dispositions['medic-ambush'], evals, toasts: toasts.replace(/\s+/g, ' ').slice(0, 120) }));
     await page.evaluate(() => document.querySelector('[data-act="close"]')?.click());
+    // 结束事件: an event under way is concluded from the story on request
+    await freshChat();
+    await mock('/control', { mainQueue: ['弩箭突然飞向 Mira。CE_A'], taskRules: [rule('evaluate', 'CE_A', amb('ongoing', '弩箭突然飞向')), rule('adjudicate', 'medic-ambush', { adjudications: [{ event_id: 'medic-ambush', decision: 'diverged', time: null, account: '你击退了袭击者，Mira 活了下来。', actors: ['mira'], causes: [], effects: [], plan_step_ids: [], reason: '玩家介入', extraordinary: false }] })], clearLogs: true });
+    await send(page, '我跟着 Mira 走上大路。');
+    await page.evaluate(() => { window.CanonEngine.engine.campaign().uiPreferences.spoilers = true; document.querySelector('#canon-engine-top-button .canon-top-toggle')?.click(); });
+    await page.waitForSelector('.cg-node[data-id="medic-ambush"]', { timeout: 10000 });
+    await page.evaluate(() => document.querySelector('.cg-node[data-id="medic-ambush"]').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    const ceLabel = await page.$eval('.cg-conclude', (b) => b.textContent).catch(() => '');
+    await page.click('.cg-conclude');
+    await page.click('.cg-conclude');
+    await page.waitForFunction(() => [...document.querySelectorAll('#toast-container .toast')].some((x) => x.innerText.includes('事件已结束')), null, { timeout: 60000 }).catch(() => {});
+    const ceToast = await page.$$eval('#toast-container .toast', (els) => els.map((e) => e.innerText).join(' | ')).catch(() => '');
+    const stC = await engineState(page);
+    check(results, 'CE01 结束事件 concludes an event under way from the story (judged as changed here)', ceLabel === '结束事件' && stC.dispositions['medic-ambush'] === 'diverged' && /事件已结束：已改变/.test(ceToast), JSON.stringify({ ceLabel, d: stC.dispositions['medic-ambush'], ceToast: ceToast.replace(/\s+/g, ' ').slice(0, 120) }));
+    await page.evaluate(() => document.querySelector('[data-act="close"]')?.click());
     // 关联本局事件: a story event the reviewer did not recognise is linked to the canon event by hand
     await freshChat();
     const plain = { scene_end: { lo: D(1, 9, 50), hi: D(1, 9, 50), precision: 'minute' }, occurrences: [{ ref: 'o1', title: '路上有人偷袭 Mira', account: '几个人从路边扑向 Mira，被你赶跑了。', actors: ['mira'], affected: ['mira'], locations: ['harbor'], time: null, causes: [], quote: '扑向 Mira', pack_event_id: null, disposition: null, ref_phrases: [], visibility: 'public', knowers: [], origin: 'gm' }] };

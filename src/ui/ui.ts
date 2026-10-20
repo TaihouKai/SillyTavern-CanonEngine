@@ -62,6 +62,7 @@ function mountTopButton() {
       else if (act === 'digest') { const r = await E.digestEvents(); toast('info', t('digestDone').replace('{n}', String(r.events)).replace('{g}', String(r.groups))); }
       else if (act === 'undigest') await E.clearDigest();
       else if (act === 'link-occurred' || act === 'link-diverged') { await E.linkEvent(id, ids || [], act === 'link-occurred' ? 'occurred' : 'diverged'); toast('info', t('linkDone')); }
+      else if (act === 'conclude') { const r = await E.concludeEvent(id); toast('info', r === 'ongoing' ? t('concludeOngoing') : t('concludeDone').replace('{s}', t(r === 'omitted' ? 'concludeOmitted' : 'reanalyzeStatus_' + r))); }
       else if (act === 'reanalyze') { const st = await E.reanalyzeEvent(id); toast('info', t('reanalyzeDone').replace('{s}', t('reanalyzeStatus_' + st))); }
       else await E.undoForce(id);
     } catch (e) { toast('error', (e as Error).message); }

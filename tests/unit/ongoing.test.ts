@@ -166,6 +166,35 @@ describe('greetings that are instructions', () => {
   });
 });
 
+describe('结束事件', () => {
+  it('CE1 an event under way is concluded from what happened in the story (the beats are the evidence), and can be undone', async () => {
+    const x = await setup();
+    expect(await turn(x, 'I follow Mira onto the road.', 'Bolts start flying at Mira. [CE1]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
+    expect(st(x).dispositions.has('medic-ambush')).toBe(false);
+    x.model.on('adjudicate', (i) => i.candidate?.id === 'medic-ambush', { adjudications: [{ event_id: 'medic-ambush', decision: 'diverged', time: null, account: 'The player drove the attackers off; Mira survived.', actors: ['mira'], causes: [], effects: [], plan_step_ids: [], reason: 'the player intervened', extraordinary: false }] });
+    expect(await x.engine.concludeEvent('medic-ambush')).toBe('diverged');
+    const call = x.model.tasks('adjudicate').slice(-1)[0].input;
+    expect(call.recent_actual_play_with_these_characters.join(' ')).toMatch(/Ambush on the road/); // the beats so far
+    expect(call.unmet_conditions[0]).toMatch(/marked this event as FINISHED/);
+    const d = st(x).dispositions.get('medic-ambush')!;
+    expect(d.disposition).toBe('diverged');
+    expect(factAt(st(x), 'mira', 'alive').value).not.toBe(false); // not the original route
+    const beat = [...st(x).occurrences.values()].find((o) => o.inProgressOf === 'medic-ambush')!;
+    expect(st(x).occurrences.get(d.occurrenceId!)!.causes).toContain(beat.occurrenceId);
+    await x.engine.undoForce('medic-ambush');
+    expect(st(x).dispositions.has('medic-ambush')).toBe(false);
+  });
+
+  it('CE2 without a valid judgement nothing is recorded; an event not started yet cannot be concluded', async () => {
+    const x = await setup(); // 09:30: the ambush (10:00) has not started
+    await expect(x.engine.concludeEvent('medic-ambush')).rejects.toThrow(/not started yet/);
+    expect(await turn(x, 'I follow Mira onto the road.', 'Bolts start flying at Mira. [CE2]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
+    x.model.on('adjudicate', (i) => i.candidate?.id === 'medic-ambush', { adjudications: [] });
+    await expect(x.engine.concludeEvent('medic-ambush')).rejects.toThrow(/could not conclude this event/);
+    expect(st(x).dispositions.has('medic-ambush')).toBe(false);
+  });
+});
+
 describe('关联本局事件', () => {
   it('LK1 story events the reviewer did not recognise can be linked to the canon event by hand, as changed or occurred, and undone', async () => {
     const x = await setup(); // 09:30; ambush 10:00 (original result: Mira killed)

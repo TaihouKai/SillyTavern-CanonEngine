@@ -15,7 +15,7 @@ import { CONTINUE_INSTRUCTION, GM_INTEGRATION_RULES, HARD_LAST_RESORT_INSTRUCTIO
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, type ClaimInput, type RefInput, type Retrieval } from './context';
 import { runGate, type EvalOutput, type GateResult } from './gate';
-import { adjudicateInterval } from './adjudicator';
+import { adjudicateInterval, concludeFromPlay } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, Interpretation, OpType, PlanRevision, RecordDraft, SourceEntry } from './types';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
@@ -1584,6 +1584,42 @@ export class CanonEngine {
     });
     await this.reconcile('undo_force', { allowModel: false });
     await this.host.save();
+  }
+
+  /** "结束事件": conclude a canonical event that is under way (or whose window passed unsettled) from what
+   *  actually happened in the story, using the offscreen judgement on demand; recorded like 强制完成 and undone
+   *  with undoForce. Returns the result, or 'ongoing' when the model finds it still going on. */
+  async concludeEvent(eventId: Id): Promise<'occurred' | 'diverged' | 'omitted' | 'ongoing'> {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError('incompatible_adapter', 'engine state unavailable');
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; wait or cancel it first.');
+    const pack = this.pack();
+    const t = pack.timeIndex.find((x) => x.id === eventId);
+    if (!t) throw new EngineError('incompatible_adapter', 'This event has no story time; use 强制完成 or 关联本局事件 instead.');
+    if (this.current.replay.state.dispositions.has(eventId)) throw new EngineError('incompatible_adapter', 'This event already has a result.');
+    const state = this.current.replay.state;
+    const now = this.storyNow() ?? state.clock.lo;
+    if (now < t.lo) throw new EngineError('incompatible_adapter', 'This event has not started yet in story time.');
+    const when: StoryTime = { lo: t.lo, hi: Math.max(t.lo, Math.min(t.hi, now)), precision: 'range' };
+    const index = this.current.index;
+    const facts = pack.events.get(eventId)!.entity_ids.map((id) => { const v = index.entityState(id); return `${v.name} [${id}]: ${v.facts.map((f) => `${f.predicate}=${f.display}`).join('; ') || 'no established facts'}`; }).join('\n');
+    this.setStatus('validating', 'Concluding the event from the story…');
+    let res: Awaited<ReturnType<typeof concludeFromPlay>>;
+    try {
+      res = await concludeFromPlay({ pack, state, fromExclusive: state.clock.lo, toInclusive: when.hi, exclude: new Set(), port: this.host.model, plan: this.activePlan(), forcedAllowed: false, operationId: 'conclude', facts, log: (l) => this.debugLog('task', l) }, eventId, when);
+    } finally { if (!this.opActive) this.setStatus('idle'); }
+    if (!res) throw new EngineError('provider_failure', 'The analysis model could not conclude this event; try again, or use 关联本局事件 / 强制完成.');
+    if ('stillUnderWay' in res) return 'ongoing';
+    const rec = res.record;
+    await this.exclusive(async () => {
+      const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
+      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: `concluded ${eventId} from the story: ${rec.disposition}` });
+      c.planRevisions.forEach((p) => { if (p.status === 'active') p.status = 'stale'; });
+    });
+    await this.reconcile('conclude_event', { allowModel: false });
+    await this.host.save();
+    return (rec.disposition || 'omitted') as 'occurred' | 'diverged' | 'omitted';
   }
 
   /** Story events that may be this canonical event (关联本局事件): beats not tied to a canonical event, from a day

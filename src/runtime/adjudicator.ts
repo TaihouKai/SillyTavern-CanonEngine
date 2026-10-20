@@ -125,6 +125,31 @@ function recentPlay(pack: LoadedPack, s: WorldState, c: Candidate): string[] {
   return out.slice(-12);
 }
 
+/** "结束事件": the player says this canonical event has ended in the story. The offscreen judgement decides
+ *  from actual play how it ended (occurred / diverged / omitted); the beats shown as under way and recent play
+ *  with its characters are its evidence. Returns the record, "still under way" when the model says it has not
+ *  ended yet (only possible inside its window), or null when no valid judgement came back. */
+export async function concludeFromPlay(args: Parameters<typeof adjudicateInterval>[0], eventId: Id, when: StoryTime): Promise<{ record: RecordDraft } | { stillUnderWay: true } | null> {
+  const { pack } = args;
+  const ev = pack.events.get(eventId);
+  const t = pack.timeIndex.find((x) => x.id === eventId);
+  if (!ev || !t) return null;
+  const scratch = cloneState(pack, args.state);
+  const c: Candidate = { event: ev, lo: t.lo, hi: t.hi };
+  const p = adjudicateDefault(pack, scratch, c, when);
+  const beats = [...scratch.occurrences.values()].filter((o) => o.inProgressOf === eventId).sort((a, b) => a.time.lo - b.time.lo);
+  const play = [...new Set([...beats.map((o) => `${formatTick(o.time.lo)} ${o.title}: ${o.account}`), ...recentPlay(pack, scratch, c)])].slice(-16);
+  const note = 'The player marked this event as FINISHED in the story: decide from recent_actual_play how it actually ended — occurred (original result), diverged (different result) or omitted (it did not happen) — and give the actual account; do not postpone unless the story clearly shows it is still going on.';
+  const r = await modelAdjudicate({ ...args, toInclusive: when.hi }, scratch, c, when, p.precondition, [note, ...p.explanation], false, play);
+  if (!r) return null;
+  if (r.postponed) return { stillUnderWay: true };
+  r.record.override = true;
+  r.record.dispositionReason = `concluded by the player from the story: ${r.record.dispositionReason || ''}`.slice(0, 500);
+  const occ = r.record.occurrences?.[0];
+  if (occ) { occ.causes = [...new Set([...occ.causes, ...beats.map((b) => b.occurrenceId)])]; if (beats.length) occ.linkedFrom = beats.map((b) => b.occurrenceId); }
+  return { record: r.record };
+}
+
 function occurredIds(c: import('../domain/types').Condition): string[] {
   if ('all' in c) return c.all.flatMap(occurredIds);
   if ('any' in c) return c.any.flatMap(occurredIds);
