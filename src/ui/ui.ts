@@ -48,8 +48,10 @@ function mountTopButton() {
     const camp = E.campaign();
     const spoilers = !!camp?.uiPreferences.spoilers;
     if (!src) return { pack: null, current: null, spoilers };
-    const pg = packGraph(src.pack, src.origin); pg.nowTick = src.state ? src.state.clock.lo : null;
+    const now = src.state ? (E.storyNow() ?? src.state.clock.lo) : null;
+    const pg = packGraph(src.pack, src.origin); pg.nowTick = now;
     const cur = src.state ? currentGraph(src.pack, src.state, src.origin, spoilers, E.digestGroups()) : null;
+    if (cur && now !== null) cur.nowTick = now;
     if (cur) { const f = E.focusEvents(); for (const n of cur.nodes) if (f.has(n.id) && (n.status === 'future' || n.status === 'pending')) { n.focused = true; n.title = '★ ' + n.title; } }
     if (cur) for (const n of cur.nodes) if ((n.status === 'occurred' || n.status === 'diverged') && E.reanalyzableSource(n.id)) n.reanalyzable = true;
     return { pack: pg, current: cur, spoilers, digested: !!camp?.eventDigest };

@@ -15258,7 +15258,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
 1. For EVERY claim id in "claims" return a claim_check verdict: consistent (agrees with retrieved records/state), contradiction (conflicts: e.g. a destroyed place shown operating, a dead person greeting, wrong actor/outcome of a past event, using a missing object), unsupported (asserts that something HAPPENED in the past, or a cause, with no supporting record), belief_ok (a character's belief/rumor/lie presented as such), new_detail (compatible new detail), not_applicable. Cite record_ids you relied on.
    Ordinary present-scene details with no record (weather, crowds, shops, decorations, minor NPCs) are new_detail, never contradiction. Preparations, schedules, anticipation or rumors of a FUTURE event ("flags for tomorrow's festival") do not assert that the event has started. A different wording of a free-text state ("\u6B63\u5E38\u8FD0\u8F6C" vs "operating normally") is consistent.
 2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it), state_claims (facts the narration presupposes; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null), player_actions (player-character actions depicted; authorized_by_quote = a span COPIED VERBATIM from the player's message that covers it, or null). An action is authorized when it carries out what the player wrote, including its natural steps and immediate details (for "I take her back to the cell and lock her up": stopping her, taking her belongings, escorting her, locking the door). Use null only for a NEW decision, goal or line of dialogue the player did not express, step_enactments, new_entities (genuinely new people/places/objects introduced).
-3. scene_end: story time when the reply ends. Story time passes in every scene: estimate how long what the reply depicts realistically takes (a short exchange a few minutes, a longer conversation 10-30 minutes, a meal 30-60 minutes, walking/travel by distance, waiting, sleeping) and add it to the time the scene starts. lo = the earliest realistic end, hi = the latest; precision "approx" for an estimate, "minute" only when the text states the time. Do not keep lo at current_time unless the reply really covers only a moment. An explicit time or skip in the text ("two hours later", "\u508D\u665A") wins over estimates. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback.
+3. scene_end: story time when the reply ends ({day, minute} with minute = minutes after midnight on a 24-hour clock: noon / \u4E2D\u534812\u70B9 is 720, 12:10 is 730, midnight is 0; \u665A\u4E0A/\u4E0B\u5348 hours are after 12:00). Story time passes in every scene: estimate how long what the reply depicts realistically takes (a short exchange a few minutes, a longer conversation 10-30 minutes, a meal 30-60 minutes, walking/travel by distance, waiting, sleeping) and add it to the time the scene starts. lo = the earliest realistic end, hi = the latest; precision "approx" for an estimate, "minute" only when the text states the time. Do not keep lo at current_time unless the reply really covers only a moment. An explicit time or skip in the text ("two hours later", "\u508D\u665A") wins over estimates. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback.
    canon_events_now lists the canonical (non-HARD) events whose time window is open around this scene. If the reply depicts one of them happening \u2014 even with other participants (e.g. the player tagging along) or a different course \u2014 record that occurrence with its pack_event_id and a disposition. Decide the result only when the event has CONCLUDED in this reply (its outcome happened, or it can no longer happen as written): "occurred" if its original result holds, "diverged" if the result is different. While it is still under way \u2014 the fight has started, the attack is in progress, nobody has won yet \u2014 use "ongoing": the result is not settled, and the event is judged in the reply where it ends. Never use "diverged" only because the result is not shown yet. An entry with in_progress lists the beats already shown; continue it ("ongoing" again, or "occurred"/"diverged" when it ends). Never file such an event as an ordinary scene beat.
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
    HARD conformance belongs ONLY in hard_checks, never in violations or claim checks. A HARD description fixes the RESULT; the route it mentions (how or where it happened in the original) is not actual history, and the player's actions may change it. The player's actions from the current input are actual events of this turn: never call them unsupported, and never report them or their consequences as contradicting a HARD event.
@@ -16615,7 +16615,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.63";
+var ENGINE_RELEASE = "1.3.64";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -17259,6 +17259,26 @@ var CanonEngine = class {
     const t2 = parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin);
     return t2 !== null && t2 > clock && t2 <= clock + 3 * 1440 ? t2 : null;
   }
+  /** Story time as the player sees it: the engine clock, or Horae's time for the latest reply when Horae is fresh
+   *  and up to 3 days ahead (the reviewer can misjudge a reply's end — live: "12:10" recorded as 00:10 — and the
+   *  engine only catches up at the next turn). Used for the timeline's "now" and the GM's current time. */
+  storyNow() {
+    const st = this.current?.replay.state;
+    if (!st) return null;
+    const clock = st.clock.lo;
+    if (!this.settings.followHoraeTime) return clock;
+    try {
+      const h = this.host.horae?.status();
+      const origin = this.campaign()?.binding.originDate || null;
+      if (!h?.available || h.busy || h.staleIndexes.length || !h.scene?.time || !origin) return clock;
+      const m = [h.scene.date, h.scene.time].filter(Boolean).join(" ").match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
+      if (!m) return clock;
+      const t2 = parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin);
+      return t2 !== null && t2 > clock && t2 <= clock + 3 * 1440 ? t2 : clock;
+    } catch {
+      return clock;
+    }
+  }
   /** Horae's story time at the end of the previous reply (supporting evidence for the reviewer's scene_end). */
   horaeTimeHint() {
     try {
@@ -17626,6 +17646,7 @@ var CanonEngine = class {
           this.notice("warn", `Pack coverage ended at ${formatTick(pack2.coverage.end, c.binding.originDate)}. No further canon is scheduled; bind an updated pack to continue with authored history.`);
         }
         const horaeNote = await this.timeStep("horae", this.horaeBarrier(abort.signal));
+        const ctxClock = this.horaeTick(clock) ?? clock;
         let userEntry = null;
         for (let k = entries.length - 1; k >= 0; k--) if (entries[k].role === "user") {
           userEntry = entries[k];
@@ -17661,7 +17682,7 @@ var CanonEngine = class {
           sceneEntityIds: uniq([...prevGmInterp?.sceneEntities || [], ...horaeSceneIds]),
           causalSeedEntityIds: userInterp?.sceneEntities || [],
           freeText: [userEntry?.text || "", prevGm ? prevGm.text.slice(-600) : ""],
-          checkpointTick: clock
+          checkpointTick: ctxClock
         });
         const opps = this.opportunities(index, clock);
         const sceneLabel = [horaeScene?.location ? `Location (Horae, supporting): ${horaeScene.location}.` : "", horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(", ")}.` : "", horaeNote].filter(Boolean).join(" ");
@@ -17669,7 +17690,7 @@ var CanonEngine = class {
           pack: pack2,
           index,
           retrieval,
-          checkpointTick: clock,
+          checkpointTick: ctxClock,
           origin: c.binding.originDate,
           sceneLabel,
           playerScope: userEntry && (lastIsUser || op === "regenerate" || op === "swipe") ? [userEntry.text, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
@@ -20308,9 +20329,11 @@ function mountTopButton() {
     const camp = E.campaign();
     const spoilers = !!camp?.uiPreferences.spoilers;
     if (!src) return { pack: null, current: null, spoilers };
+    const now = src.state ? E.storyNow() ?? src.state.clock.lo : null;
     const pg = packGraph(src.pack, src.origin);
-    pg.nowTick = src.state ? src.state.clock.lo : null;
+    pg.nowTick = now;
     const cur = src.state ? currentGraph(src.pack, src.state, src.origin, spoilers, E.digestGroups()) : null;
+    if (cur && now !== null) cur.nowTick = now;
     if (cur) {
       const f = E.focusEvents();
       for (const n of cur.nodes) if (f.has(n.id) && (n.status === "future" || n.status === "pending")) {

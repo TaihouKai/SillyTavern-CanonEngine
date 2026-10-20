@@ -49,4 +49,17 @@ describe('story time follows Horae', () => {
     await x.engine.runOperation('normal');
     expect(clock(x)).toBe(tick(1, 9, 30));
   });
+
+  it('H05 when the reviewer misjudged the last reply (12:10 read as 00:10), the timeline and the next GM context use Horae\'s time', async () => {
+    const x = await setup({ date: '2020/01/02', time: '12:10' }); // the engine clock is 09:30
+    expect(x.engine.storyNow()).toBe(tick(1, 12, 10)); // the timeline's "now"
+    x.host.addUser('I keep walking.');
+    x.model.draft('The sun is high. [H5]');
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    const ctx = String(x.model.tasks('draft')[0].input.engineContext);
+    expect(ctx).toMatch(/at checkpoint 2020-01-02 12:10/);
+    // Horae not ahead (or absent): the engine clock
+    const y = await setup({ date: '2020/01/02', time: '08:00' });
+    expect(y.engine.storyNow()).toBe(tick(1, 9, 30));
+  });
 });

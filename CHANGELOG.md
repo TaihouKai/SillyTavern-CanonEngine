@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.64 — 2026-10-20
+
+- **The timeline's "现在" and the GM's current time follow Horae when the reviewer misjudged the last reply.** A reply that jumped from 22:10 to "12:10" the next day was recorded as 00:10 (a 12-hour mix-up); Horae read it as 12:10. Canon only took Horae's time as the floor of the *next* reply's end, so until then the timeline's now line — and the GM's context for the next reply — sat 12 hours behind (live finding). Both now use Horae's time for the latest reply when Horae is fresh and ahead of the engine clock by at most 3 days (the same rule as the floor). The reviewer is also told explicitly that times are minutes after midnight on a 24-hour clock (noon / 中午12点 = 720).
+- Test H05.
+
 ## 1.3.63 — 2026-10-20
 
 - **What the turn cost, as the provider reports it.** After the token count the status line shows the turn's cost (`消耗 97,269 Token · $0.0352`), read from the responses Canon Engine already receives — Venice's `cost.usd` (and `cost.diem` when paying with DIEM, shown separately), unlid's `unlid.cost_usd`, OpenRouter's `usage.cost` — so it is the real charge including cache discounts, with no price table. The hover splits it into story model and analysis model; calls that reported no cost are counted and marked with "+". Also in the failed-turn report. Providers that report no cost show none (said so in the hover).

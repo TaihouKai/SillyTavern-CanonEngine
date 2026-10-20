@@ -677,6 +677,25 @@ export class CanonEngine {
     return t !== null && t > clock && t <= clock + 3 * 1440 ? t : null;
   }
 
+  /** Story time as the player sees it: the engine clock, or Horae's time for the latest reply when Horae is fresh
+   *  and up to 3 days ahead (the reviewer can misjudge a reply's end — live: "12:10" recorded as 00:10 — and the
+   *  engine only catches up at the next turn). Used for the timeline's "now" and the GM's current time. */
+  storyNow(): number | null {
+    const st = this.current?.replay.state;
+    if (!st) return null;
+    const clock = st.clock.lo;
+    if (!this.settings.followHoraeTime) return clock;
+    try {
+      const h = this.host.horae?.status();
+      const origin = this.campaign()?.binding.originDate || null;
+      if (!h?.available || h.busy || h.staleIndexes.length || !h.scene?.time || !origin) return clock;
+      const m = [h.scene.date, h.scene.time].filter(Boolean).join(' ').match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
+      if (!m) return clock;
+      const t = parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin);
+      return t !== null && t > clock && t <= clock + 3 * 1440 ? t : clock;
+    } catch { return clock; }
+  }
+
   /** Horae's story time at the end of the previous reply (supporting evidence for the reviewer's scene_end). */
   private horaeTimeHint(): { horae_time?: string } {
     try {
@@ -997,6 +1016,8 @@ export class CanonEngine {
         }
         // Horae freshness barrier / stale-memory handling
         const horaeNote = await this.timeStep('horae', this.horaeBarrier(abort.signal));
+        // The GM's current time: Horae's time for the last reply when it is ahead of the committed clock.
+        const ctxClock = this.horaeTick(clock) ?? clock;
 
         // The operation's user source (last user message in the prefix).
         let userEntry: SourceEntry | null = null;
@@ -1034,12 +1055,12 @@ export class CanonEngine {
           sceneEntityIds: uniq([...(prevGmInterp?.sceneEntities || []), ...horaeSceneIds]),
           causalSeedEntityIds: userInterp?.sceneEntities || [],
           freeText: [userEntry?.text || '', prevGm ? prevGm.text.slice(-600) : ''],
-          checkpointTick: clock,
+          checkpointTick: ctxClock,
         });
         const opps = this.opportunities(index, clock);
         const sceneLabel = [horaeScene?.location ? `Location (Horae, supporting): ${horaeScene.location}.` : '', horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(', ')}.` : '', horaeNote].filter(Boolean).join(' ');
         const packetArgs = {
-          pack, index, retrieval, checkpointTick: clock, origin: c.binding.originDate, sceneLabel,
+          pack, index, retrieval, checkpointTick: ctxClock, origin: c.binding.originDate, sceneLabel,
           playerScope: userEntry && (lastIsUser || op === 'regenerate' || op === 'swipe') ? [userEntry.text, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
           plan, forced: planInfo.forced, stagedNotes: [] as string[], opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`), focus: this.focusLines(index, clock), budgetChars: this.settings.budgetChars, horizon: this.settings.horizonMinutes,
           timeJumpTo: userEntry && (lastIsUser || op === 'regenerate' || op === 'swipe') && userInterp?.timeJumpTo && userInterp.timeJumpTo > clock ? userInterp.timeJumpTo : null,
