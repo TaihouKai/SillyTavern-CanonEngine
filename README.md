@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.webp" width="256" alt="Canon Engine logo"></p>
+
 # Canon Engine — SillyTavern extension
 
 Canon Engine keeps the **actual history** of an interactive story and steers its future toward immutable, author-selected **HARD anchors**. The player changes the route; the defined anchors stay mandatory. Everything else in the original story (SOFT and FREE events) is default history that the player may change. It is a standalone browser extension: no database server, daemon or companion service.
