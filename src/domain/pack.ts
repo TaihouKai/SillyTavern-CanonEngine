@@ -316,6 +316,25 @@ export function lintPack(pack: CanonPack): { errors: LintIssue[]; warnings: Lint
     }
   });
 
+  // Events that depend on each other (a precondition "occurred", or an enables/precedes link) must not overlap:
+  // the dependent one starts when its prerequisite is over (live finding: 美琴追查10032号 07:00–12:00 and the
+  // attack on 婚后, which needs 美琴's request, 10:00–14:00; the attack showed as under way before the request).
+  // Simultaneous events without a dependency may overlap freely. Review flag, one per pair.
+  {
+    const occurredIn = (c: Condition): Id[] => ('all' in c ? c.all.flatMap(occurredIn) : 'any' in c ? c.any.flatMap(occurredIn) : 'not' in c ? [] : 'occurred' in c ? [c.occurred] : []);
+    const deps = new Map<string, { a: Id; b: Id; how: Set<string> }>();
+    const add = (a: Id, b: Id, how: string) => { const k = `${a}>${b}`; const d = deps.get(k) || { a, b, how: new Set<string>() }; d.how.add(how); deps.set(k, d); };
+    pack.events.forEach((ev) => occurredIn(ev.canonical_preconditions).forEach((a) => add(a, ev.id, 'requires')));
+    pack.edges.forEach((e) => { if (e.relation === 'enables' || e.relation === 'precedes') add(e.from, e.to, e.relation); });
+    for (const { a, b, how } of deps.values()) {
+      const ea = events.get(a), eb = events.get(b);
+      const ta = ea ? whenToStoryTime(ea.when) : null, tb = eb ? whenToStoryTime(eb.when) : null;
+      if (!ta || !tb || tb.lo >= ta.hi) continue;
+      const i = pack.events.indexOf(eb!);
+      warn(`/events/${i}/when`, `"${b}" depends on "${a}" (${[...how].join('/')}) but its window ${tb.lo < ta.lo || tb.hi < ta.hi ? 'can begin or end before' : 'overlaps'} that event's window; a dependent event should start when its prerequisite is over (narrow one of the windows, or use a "related" link for events that run in parallel)`);
+    }
+  }
+
   // Temporary conditions nothing ends (review flag): an event sets a transient predicate (an injury, being
   // held, a whereabouts) and the entity takes part in later events while no event changes it again, so the
   // GM sees e.g. "hospitalized" for the rest of the timeline (live finding: 白井黑子 still 住院 when canon

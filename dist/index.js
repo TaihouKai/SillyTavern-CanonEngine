@@ -12224,6 +12224,27 @@ function lintPack(pack2) {
       if (me && dt && dt.lo > me.hi) warn(`/events/${i}/canonical_preconditions`, `requires occurrence of later event "${d}" (forward dependency; review)`);
     }
   });
+  {
+    const occurredIn = (c) => "all" in c ? c.all.flatMap(occurredIn) : "any" in c ? c.any.flatMap(occurredIn) : "not" in c ? [] : "occurred" in c ? [c.occurred] : [];
+    const deps = /* @__PURE__ */ new Map();
+    const add2 = (a, b, how) => {
+      const k = `${a}>${b}`;
+      const d = deps.get(k) || { a, b, how: /* @__PURE__ */ new Set() };
+      d.how.add(how);
+      deps.set(k, d);
+    };
+    pack2.events.forEach((ev) => occurredIn(ev.canonical_preconditions).forEach((a) => add2(a, ev.id, "requires")));
+    pack2.edges.forEach((e) => {
+      if (e.relation === "enables" || e.relation === "precedes") add2(e.from, e.to, e.relation);
+    });
+    for (const { a, b, how } of deps.values()) {
+      const ea = events.get(a), eb = events.get(b);
+      const ta = ea ? whenToStoryTime(ea.when) : null, tb = eb ? whenToStoryTime(eb.when) : null;
+      if (!ta || !tb || tb.lo >= ta.hi) continue;
+      const i = pack2.events.indexOf(eb);
+      warn(`/events/${i}/when`, `"${b}" depends on "${a}" (${[...how].join("/")}) but its window ${tb.lo < ta.lo || tb.hi < ta.hi ? "can begin or end before" : "overlaps"} that event's window; a dependent event should start when its prerequisite is over (narrow one of the windows, or use a "related" link for events that run in parallel)`);
+    }
+  }
   const timed = pack2.events.map((ev, i) => ({ ev, i, t: whenToStoryTime(ev.when) })).filter((x) => x.t).sort((a, b) => a.t.lo - b.t.lo);
   const touches = (ef, ent, pred) => ef.op === "set" ? ef.fact.entity_id === ent && ef.fact.predicate === pred : ef.entity_id === ent && ef.predicate === pred;
   for (const a of timed) {
@@ -16692,7 +16713,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.67";
+var ENGINE_RELEASE = "1.3.68";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));

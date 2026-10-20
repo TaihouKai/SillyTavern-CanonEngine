@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.68 — 2026-10-21
+
+- **canon-lint flags dependent events whose windows overlap.** An event that depends on another — a precondition "occurred", or an enables/precedes link — should start when its prerequisite is over; otherwise it can show as under way (or be settled) before its premise exists (live finding: 美琴追查10032号 07:00–12:00 and 婚后光子遇袭, which needs 美琴's request, 10:00–14:00). Review warning, one per pair, saying whether the dependent can even begin or end before its prerequisite. Events without a dependency may overlap freely; events that run in parallel should be linked as "related". On the Toaru pack 1.1.4 it found 44 pairs (1.1.5 fixes them).
+- Test DP1. Authoring guide §10 lists the new review warning.
+
 ## 1.3.67 — 2026-10-21
 
 - **One bad effect no longer voids an offscreen judgement.** 结束事件 failed with "The analysis model could not conclude this event": reproduced on the live campaign with the real analysis model (DeepSeek V4 Flash), the judgement itself was right (changed) but one of its effects named "nana" — a character created in play, whose id is rt.entity.… — and the whole judgement was thrown away. Effects now resolve an entity given by name (pack entities and characters created in play); an effect that still does not fit (unknown entity, wrong value type that cannot be converted, a value outside the allowed list) is dropped on its own. Text booleans/numbers are converted ("true" → true). This applies to every offscreen judgement, including when a window closes.

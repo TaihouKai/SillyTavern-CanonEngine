@@ -126,6 +126,21 @@ describe('pack validation', () => {
     expect(errs(withInjury({ transient: true, settled_values: [3] }))).toMatch(/settled_values\/0/);
   });
 
+  it('DP1 an event that depends on another may not overlap it; events without a dependency may', () => {
+    const warns = (raw: any) => { const r = validatePack(raw); expect(r.errors).toEqual([]); return r.warnings.map((w) => `${w.path} ${w.message}`).join('\n'); };
+    const at = (lo: number, hi: number) => ({ earliest: { day: 1, minute: lo }, latest: { day: 1, minute: hi }, precision: 'range' });
+    const pair = (relation: string | null, when: object) => {
+      const a = demoRaw(); // medic-ambush day 1 10:00; harbor-festival has no dependency on it
+      a.events[3].when = { ...a.events[3].when, ...when };
+      if (relation) a.edges.push({ id: 'e-dp1', from: 'medic-ambush', to: 'harbor-festival', relation, basis: 'editorial', source_refs: a.edges[0].source_refs, note: 'x' });
+      return a;
+    };
+    expect(warns(pair('enables', at(540, 720)))).toMatch(/"harbor-festival" depends on "medic-ambush" \(enables\) but its window can begin or end before that event's window/);
+    expect(warns(pair('precedes', at(600, 720)))).not.toMatch(/depends on/); // starts when it is over
+    expect(warns(pair('related', at(540, 720)))).not.toMatch(/depends on/); // parallel events may overlap
+    expect(warns(pair(null, at(540, 720)))).not.toMatch(/depends on/);
+  });
+
   it('two HARD events with incompatible outcomes at the same checkpoint are a data error', () => {
     const a = demoRaw();
     const extra = JSON.parse(JSON.stringify(a.events[4]));
