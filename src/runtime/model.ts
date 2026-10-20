@@ -290,6 +290,22 @@ function repairEnums(root: unknown, errors: { keyword: string; instancePath: str
   return changed;
 }
 
+/** A task whose output is one list ({"adjudications":[...]}) answered with a bare item or a bare array:
+ *  wrap it (live finding: DeepSeek returned the single adjudication object; three resends, then no result). */
+function wrapBareItem(data: unknown, schema: Record<string, any>, notes: string[]): unknown {
+  const req: string[] = schema?.required || [];
+  const lists = req.filter((k) => schema?.properties?.[k]?.type === 'array');
+  if (lists.length !== 1 || req.length !== 1) return data;
+  const key = lists[0];
+  const itemReq: string[] = schema.properties[key]?.items?.required || [];
+  if (Array.isArray(data)) { notes.push(`wrapped a bare list in "${key}"`); return { [key]: data }; }
+  if (data && typeof data === 'object' && !(key in (data as object)) && itemReq.some((k) => k in (data as object))) {
+    notes.push(`wrapped a bare item in "${key}"`);
+    return { [key]: [data] };
+  }
+  return data;
+}
+
 /** Defaults applied to every structured call (set by the controller from its settings). */
 export const taskDefaults: { callTimeoutMs: number; observer: ((task: TaskName, attempt: number) => void) | null; onDone: ((task: TaskName, ms: number, attempt: number) => void) | null; onReject: ((task: TaskName, error: string) => void) | null } = { callTimeoutMs: 0, observer: null, onDone: null, onReject: null };
 
@@ -379,6 +395,7 @@ export async function callStructured<T>(
       // Schema-driven normalization first (see normalize.ts); only what decides a check is sent back.
       repairItems(data, 'all');
       const normNotes: string[] = [];
+      data = wrapBareItem(data, TASK_SCHEMAS[task], normNotes);
       data = normalizeToSchema(data, TASK_SCHEMAS[task], normNotes);
       const drops = normNotes.filter((n) => n.startsWith('dropped'));
       for (const n of drops) try { taskDefaults.onReject?.(task, `kept after a fix: ${n}`); } catch { /* UI only */ }

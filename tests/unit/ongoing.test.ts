@@ -185,6 +185,16 @@ describe('结束事件', () => {
     expect(st(x).dispositions.has('medic-ambush')).toBe(false);
   });
 
+  it('CE3 a judgement is not thrown away for one bad effect: names are resolved, unknown entities dropped, text booleans coerced; a bare item is wrapped', async () => {
+    const x = await setup();
+    expect(await turn(x, 'I follow Mira onto the road.', 'Bolts start flying at Mira. [CE3]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
+    // a bare adjudication object (no "adjudications" list) with an effect naming Mira by name, a text boolean, and an unknown entity
+    (x.model as any).rules.unshift({ task: 'adjudicate', raw: JSON.stringify({ event_id: 'medic-ambush', decision: 'diverged', time: null, account: 'The player drove the attackers off.', actors: [], causes: [], effects: [{ op: 'set', entity_id: 'Mira', predicate: 'alive', value: 'true' }, { op: 'set', entity_id: 'nana', predicate: 'alive', value: true }], plan_step_ids: [], reason: 'the player intervened', extraordinary: false }), once: true });
+    expect(await x.engine.concludeEvent('medic-ambush')).toBe('diverged');
+    const d = st(x).dispositions.get('medic-ambush')!;
+    expect(st(x).occurrences.get(d.occurrenceId!)!.outcome).toEqual([{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true }]);
+  });
+
   it('CE2 without a valid judgement nothing is recorded; an event not started yet cannot be concluded', async () => {
     const x = await setup(); // 09:30: the ambush (10:00) has not started
     await expect(x.engine.concludeEvent('medic-ambush')).rejects.toThrow(/not started yet/);

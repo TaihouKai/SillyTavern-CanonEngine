@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.67 — 2026-10-21
+
+- **One bad effect no longer voids an offscreen judgement.** 结束事件 failed with "The analysis model could not conclude this event": reproduced on the live campaign with the real analysis model (DeepSeek V4 Flash), the judgement itself was right (changed) but one of its effects named "nana" — a character created in play, whose id is rt.entity.… — and the whole judgement was thrown away. Effects now resolve an entity given by name (pack entities and characters created in play); an effect that still does not fit (unknown entity, wrong value type that cannot be converted, a value outside the allowed list) is dropped on its own. Text booleans/numbers are converted ("true" → true). This applies to every offscreen judgement, including when a window closes.
+- A list-shaped task answered with the bare item or a bare array (the model returned one adjudication object instead of {"adjudications":[…]}, three resends) is wrapped instead of resent.
+- Test CE3; the live reproduction concluded the failing event 3 times out of 3 afterwards.
+
 ## 1.3.66 — 2026-10-21
 
 - **结束事件 (conclude event).** A canon event that is under way, open, or past its window without a result can be concluded on request: the same model judgement as when its window closes — from what actually happened in the story, with the beats already shown under way and recent play with its characters as evidence, and the note that the player says it has ended — records it as occurred, changed or did not happen. Unlike 强制完成 it does not apply the original route. If the model finds the event still going on, nothing is recorded and the toast says so. Recorded like 强制完成 (anchored after the latest message) and undone with 撤销结束.

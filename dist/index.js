@@ -15058,6 +15058,22 @@ function repairEnums(root, errors) {
   }
   return changed;
 }
+function wrapBareItem(data, schema, notes) {
+  const req = schema?.required || [];
+  const lists = req.filter((k) => schema?.properties?.[k]?.type === "array");
+  if (lists.length !== 1 || req.length !== 1) return data;
+  const key = lists[0];
+  const itemReq = schema.properties[key]?.items?.required || [];
+  if (Array.isArray(data)) {
+    notes.push(`wrapped a bare list in "${key}"`);
+    return { [key]: data };
+  }
+  if (data && typeof data === "object" && !(key in data) && itemReq.some((k) => k in data)) {
+    notes.push(`wrapped a bare item in "${key}"`);
+    return { [key]: [data] };
+  }
+  return data;
+}
 var taskDefaults = { callTimeoutMs: 0, observer: null, onDone: null, onReject: null };
 function looksTruncated(text) {
   const start = text.indexOf("{");
@@ -15149,6 +15165,7 @@ ${system}` },
       let data = extractJson(raw);
       repairItems(data, "all");
       const normNotes = [];
+      data = wrapBareItem(data, TASK_SCHEMAS[task], normNotes);
       data = normalizeToSchema(data, TASK_SCHEMAS[task], normNotes);
       const drops = normNotes.filter((n) => n.startsWith("dropped"));
       for (const n of drops) try {
@@ -16327,10 +16344,28 @@ async function modelAdjudicate(args, scratch, c, when, pre, explanation, forced,
   const a = out.adjudications.find((x) => x.event_id === ev.id);
   if (!a || !a.account?.trim()) return null;
   const effects = [];
+  const idx = new WorldIndex(pack2, scratch);
+  const known = (id) => pack2.entities.has(id) || scratch.runtimeEntities.has(id);
+  const resolve = (id) => {
+    if (typeof id !== "string" || !id) return null;
+    if (known(id)) return id;
+    const r = idx.resolveEntity(id);
+    return r.ids.length === 1 ? r.ids[0] : null;
+  };
   for (const e of a.effects) {
     const p = pack2.predicates.get(e.predicate);
-    if (!p || !(pack2.entities.has(e.entity_id) || scratch.runtimeEntities.has(e.entity_id))) return null;
-    effects.push(e.op === "set" ? { op: "set", entity_id: e.entity_id, predicate: e.predicate, value: e.value } : { op: "unset", entity_id: e.entity_id, predicate: e.predicate });
+    const eid = resolve(e.entity_id);
+    if (!p || !eid) continue;
+    if (e.op !== "set") {
+      effects.push({ op: "unset", entity_id: eid, predicate: e.predicate });
+      continue;
+    }
+    let v = coerceClaimValue(pack2, e.predicate, e.value);
+    if (p.value_type === "entity_ref") v = resolve(v);
+    else if (p.value_type === "entity_set") v = Array.isArray(v) && v.every((x) => resolve(x)) ? v.map((x) => resolve(x)) : null;
+    const typeOk = v !== null && v !== void 0 && (p.value_type === "boolean" ? typeof v === "boolean" : p.value_type === "number" ? typeof v === "number" : p.value_type === "string" ? typeof v === "string" : true);
+    if (!typeOk || p.allowed_values && !p.allowed_values.some((x) => valuesEqual(x, v))) continue;
+    effects.push({ op: "set", entity_id: eid, predicate: e.predicate, value: v });
   }
   let time = toStoryTime(a.time) || when;
   if (time.lo < c.lo || time.hi > c.hi) time = when;
@@ -16657,7 +16692,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.66";
+var ENGINE_RELEASE = "1.3.67";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));

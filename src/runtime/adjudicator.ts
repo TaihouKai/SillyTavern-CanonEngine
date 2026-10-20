@@ -3,7 +3,8 @@
 // actual state requires it). Results stay staged until the triggering reply is accepted.
 import type { FactDelta, Id, Occurrence, StoryTime } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
-import { valuesEqual } from '../domain/pack';
+import { coerceClaimValue, valuesEqual } from '../domain/pack';
+import { WorldIndex } from '../domain/world-query';
 import type { WorldState } from '../domain/reducer';
 import { applyRecord, reduce } from '../domain/reducer';
 import { adjudicateDefault, crossedCandidates, occurrenceWindow, type Candidate } from '../domain/schedule';
@@ -185,10 +186,27 @@ async function modelAdjudicate(
   const a = out.adjudications.find((x) => x.event_id === ev.id);
   if (!a || !a.account?.trim()) return null;
   const effects: FactDelta[] = [];
+  // One bad effect no longer voids the whole judgement (live finding: "nana" for a character created in play,
+  // whose id is rt.entity.…): an entity given by name is resolved; an effect that still does not fit is dropped.
+  const idx = new WorldIndex(pack, scratch);
+  const known = (id: string) => pack.entities.has(id) || scratch.runtimeEntities.has(id);
+  const resolve = (id: unknown): string | null => {
+    if (typeof id !== 'string' || !id) return null;
+    if (known(id)) return id;
+    const r = idx.resolveEntity(id);
+    return r.ids.length === 1 ? r.ids[0] : null;
+  };
   for (const e of a.effects) {
     const p = pack.predicates.get(e.predicate);
-    if (!p || !(pack.entities.has(e.entity_id) || scratch.runtimeEntities.has(e.entity_id))) return null;
-    effects.push(e.op === 'set' ? { op: 'set', entity_id: e.entity_id, predicate: e.predicate, value: e.value as never } : { op: 'unset', entity_id: e.entity_id, predicate: e.predicate });
+    const eid = resolve(e.entity_id);
+    if (!p || !eid) continue;
+    if (e.op !== 'set') { effects.push({ op: 'unset', entity_id: eid, predicate: e.predicate }); continue; }
+    let v: unknown = coerceClaimValue(pack, e.predicate, e.value as never);
+    if (p.value_type === 'entity_ref') v = resolve(v);
+    else if (p.value_type === 'entity_set') v = Array.isArray(v) && v.every((x) => resolve(x)) ? v.map((x) => resolve(x)) : null;
+    const typeOk = v !== null && v !== undefined && (p.value_type === 'boolean' ? typeof v === 'boolean' : p.value_type === 'number' ? typeof v === 'number' : p.value_type === 'string' ? typeof v === 'string' : true);
+    if (!typeOk || (p.allowed_values && !p.allowed_values.some((x) => valuesEqual(x, v as never)))) continue;
+    effects.push({ op: 'set', entity_id: eid, predicate: e.predicate, value: v as never });
   }
   let time = toStoryTime(a.time) || when;
   if (time.lo < c.lo || time.hi > c.hi) time = when;
