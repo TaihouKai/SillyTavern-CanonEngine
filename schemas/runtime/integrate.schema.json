@@ -1,0 +1,196 @@
+{
+ "type": "object",
+ "properties": {
+  "assessments": {
+   "type": "array",
+   "maxItems": 30,
+   "items": {
+    "type": "object",
+    "properties": {
+     "target": {
+      "type": "string",
+      "maxLength": 300
+     },
+     "classification": {
+      "enum": [
+       "direct_impact",
+       "opportunity",
+       "no_connection"
+      ]
+     },
+     "reason": {
+      "type": "string",
+      "maxLength": 800
+     }
+    },
+    "required": [
+     "target",
+     "classification",
+     "reason"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "opportunities": {
+   "type": "array",
+   "maxItems": 8,
+   "items": {
+    "type": "object",
+    "properties": {
+     "ref": {
+      "type": "string",
+      "maxLength": 60
+     },
+     "target_event_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "maxLength": 200
+     },
+     "scope_kind": {
+      "enum": [
+       "event",
+       "arc",
+       "faction",
+       "contact",
+       "storyline"
+      ]
+     },
+     "scope_ref": {
+      "type": "string",
+      "maxLength": 200
+     },
+     "scope_label": {
+      "type": "string",
+      "maxLength": 300
+     },
+     "kind": {
+      "enum": [
+       "invitation",
+       "request",
+       "information",
+       "probe",
+       "hostile",
+       "consequence",
+       "encounter"
+      ]
+     },
+     "direct_impact": {
+      "type": "boolean"
+     },
+     "actors": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "maxLength": 200
+      },
+      "maxItems": 40
+     },
+     "motivation": {
+      "type": "string",
+      "maxLength": 800
+     },
+     "knowledge": {
+      "type": "string",
+      "maxLength": 800
+     },
+     "contact": {
+      "type": "string",
+      "maxLength": 800
+     },
+     "establishes": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "maxLength": 400
+      },
+      "maxItems": 8
+     },
+     "earliest": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "day": {
+          "type": "integer"
+         },
+         "minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+         }
+        },
+        "required": [
+         "day",
+         "minute"
+        ],
+        "additionalProperties": false
+       }
+      ]
+     },
+     "latest": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "day": {
+          "type": "integer"
+         },
+         "minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+         }
+        },
+        "required": [
+         "day",
+         "minute"
+        ],
+        "additionalProperties": false
+       }
+      ]
+     },
+     "priority": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+     },
+     "basis_refs": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "maxLength": 200
+      },
+      "maxItems": 40
+     }
+    },
+    "required": [
+     "ref",
+     "scope_kind",
+     "scope_ref",
+     "kind",
+     "actors",
+     "motivation",
+     "knowledge",
+     "contact"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "assessments",
+  "opportunities"
+ ],
+ "additionalProperties": false,
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:canon-engine:task:integrate",
+ "title": "Canon Engine task output: integrate"
+}

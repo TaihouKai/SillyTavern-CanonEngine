@@ -163,6 +163,11 @@ export interface PacketInput {
   timeJumpTo?: number | null;
   budgetChars: number;
   horizon: number;
+  /** Narrative integration (required context, also for the reviewer): the player's presence in the world and their
+   *  binding decisions; and the one optional WORLD REACTION chosen for this reply (GM only). */
+  presence?: string;
+  decisions?: string;
+  reaction?: string;
   /** The reviewer's copy: it gets the player's input, due HARD events and canon events now as separate inputs,
    *  so those sections and the GM-only background (canon routes, where others stand) are left out. */
   review?: boolean;
@@ -271,6 +276,9 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   const states = views.filter((v) => !bare.includes(v)).map((v) => stateLine(v, compact, listed));
   if (bare.length) states.push(`- no established facts: ${bare.map((v) => `${v.name} [${v.entityId}]`).join(', ')}`);
   required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops; no other supported change through ${cpLabel}; a property not listed for an entity is UNKNOWN — not established, do not assume normality):\n` + (states.length ? states.join('\n') : '- (no referenced entities)'));
+  // The player in the world and their decisions: required, never dropped for budget, also for the reviewer.
+  if (inp.presence) required.push(inp.presence);
+  if (inp.decisions) required.push(inp.decisions);
   // Explicit canon statuses for referenced canonical events (non-occurrence distinctions)
   const canon = [...retrieval.canonEvents].map((id) => index.canonStatus(id, checkpointTick)).filter(Boolean) as CanonStatusView[];
   if (canon.length) required.push('REFERENCED CANON EVENTS — status in THIS branch (pending/future/omitted are NOT accomplished):\n' + canon.map(canonLine).join('\n'));
@@ -310,6 +318,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   // Each record above already carries its visibility and knowers: state the rule once.
   if (restricted.length) required.push(`KNOWLEDGE BOUNDARIES (world truth vs who knows it): ${restricted.length} record(s) above are not public and are known only to the knowers listed with them (none listed: no established knowledge holder). Physical consequences remain visible; do not disclose the hidden cause to the player or other NPCs.`);
   if (retrieval.ambiguous.length) required.push('AMBIGUOUS REFERENCES (do not guess; keep ambiguity in narration):\n' + retrieval.ambiguous.map((a) => '- ' + a).join('\n'));
+  if (inp.reaction && !inp.review) required.push(inp.reaction);
   if (!inp.review) required.push('PLAYER SCOPE (exact current player input; do not add actions/consent/dialogue beyond it):\n' + (inp.playerScope.length ? inp.playerScope.map((s) => '- ' + s).join('\n') : '- (no new player input in this operation)'));
   // Optional
   if (inp.focus?.length) optional.push('PLAYER WANTS TO EXPERIENCE (关注; for these events only this overrides "do not steer"): give the player character natural in-world chances to be present or involved when each one starts — an invitation, a rumor or news that reaches them, an errand or a chance meeting that brings them there, characters who would plausibly involve them. Lead up to it plausibly; do not force its course or result, do not act or decide for the player, and accept a decline:\n' + inp.focus.join('\n'));
@@ -323,7 +332,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
     .slice(0, 4);
   const open = openEvents.map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}${castLine(e, index, checkpointTick, inp.origin)}`; });
   const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${situationOf(u.event.summary)}`);
-  if (soon.length) optional.push('WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing — NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them; the player may change them, and actual play wins over this:\n' + soon.join('\n'));
+  if (soon.length) optional.push('WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing — NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them (a WORLD REACTION given above is the one way the world may reach the player); the player may change them, and actual play wins over this:\n' + soon.join('\n'));
   // An event in its window with a cast says who is there right now: never dropped for budget.
   const openCast = openEvents.some((t) => pack.events.get(t.id)!.cast?.length);
   if (open.length) (openCast && !inp.review ? required : optional).push('CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n' + open.join('\n'));

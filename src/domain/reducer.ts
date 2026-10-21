@@ -1,6 +1,6 @@
 // Pure history replay: baseline + ordered validated ledger records -> world state.
 // Occurrences are kept separate from fluent state; a later reversal never erases an occurrence.
-import type { Condition, FactDelta, FactValue, Id, LedgerRecord, Occurrence, RuntimeEntity, StoryTime, Tri } from './types';
+import type { Condition, ContactInfo, EngagementInfo, FactDelta, FactValue, Id, LedgerRecord, Occurrence, RuntimeEntity, StoryTime, Tri } from './types';
 import { UNKNOWN } from './types';
 import type { LoadedPack } from './pack';
 import { normalizeValue, valuesEqual } from './pack';
@@ -32,12 +32,19 @@ export interface Disposition {
   seq: number;
 }
 
+/** A player decision or a contact as replayed (record order = sequence). */
+export interface EngagementEntry extends EngagementInfo { recordId: string; seq: number; tick: number }
+export interface ContactEntry extends ContactInfo { recordId: string; seq: number; tick: number }
+
 export interface WorldState {
   packHash: string;
   facts: Map<string, Transition[]>;
   occurrences: Map<string, OccurrenceEntry>;
   dispositions: Map<Id, Disposition>;
   declines: Map<Id, string>;
+  /** Narrative integration: the player's decisions and the contacts that reached them, in record order. */
+  engagements: EngagementEntry[];
+  contacts: ContactEntry[];
   runtimeEntities: Map<Id, RuntimeEntity & { recordId: string }>;
   enactedSteps: Map<string, string>;
   clock: StoryTime;
@@ -56,6 +63,8 @@ export function emptyState(pack: LoadedPack): WorldState {
     occurrences: new Map(),
     dispositions: new Map(),
     declines: new Map(),
+    engagements: [],
+    contacts: [],
     runtimeEntities: new Map(),
     enactedSteps: new Map(),
     clock: { lo: pack.coverage.start, hi: pack.coverage.start, precision: 'minute' },
@@ -95,6 +104,8 @@ export function applyRecord(state: WorldState, rec: LedgerRecord): void {
     });
   }
   if (rec.kind === 'participation_decline' && rec.declinedEventId) state.declines.set(rec.declinedEventId, rec.recordId);
+  if (rec.engagement) state.engagements.push({ ...rec.engagement, recordId: rec.recordId, seq: rec.sequence, tick });
+  if (rec.contact) state.contacts.push({ ...rec.contact, recordId: rec.recordId, seq: rec.sequence, tick });
   for (const re of rec.runtimeEntities || []) if (!state.runtimeEntities.has(re.id)) state.runtimeEntities.set(re.id, { ...re, recordId: rec.recordId });
   for (const s of rec.enactedStepIds || []) if (!state.enactedSteps.has(s)) state.enactedSteps.set(s, rec.recordId);
   // The committed clock moves only through time-advance/bootstrap records and never backwards;

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { makeEngine, tick, at, occ, deferred } from './fake';
+import { makeEngine, tick, at, occ, deferred, legacyCampaign } from './fake';
 import { factAt } from '../../src/domain/reducer';
 import { ROOT } from './helpers';
 
@@ -295,6 +295,7 @@ describe('races, persistence and recovery', () => {
   it('R12 crash at the commit boundary recovers one coherent revision', async () => {
     // (a) crash after the reply landed durably with the journal, before the engine delta was saved
     const x = await setup();
+    legacyCampaign(x); // counts the saves of one turn (the first turn of a new chat also saves the Persona profile)
     x.host.addUser('I look.');
     x.model.draft('Gulls. [K1]');
     let n = 0;

@@ -78,7 +78,7 @@ describe('a conflict stored by an older version', () => {
     await expect(x.engine.forceComplete('medic-ambush')).rejects.toThrow(/stopped at message \d+ \(conflict\)/);
     await expect(x.engine.concludeEvent('medic-ambush')).rejects.toThrow(/stopped at message/);
     await expect(x.engine.linkEvent('medic-ambush', ['x'], 'occurred')).rejects.toThrow(/stopped at message/);
-    expect(x.engine.campaign()!.manualRecords || []).toHaveLength(0);
+    expect((x.engine.campaign()!.manualRecords || []).filter((m) => m.record.kind !== 'persona_seed')).toHaveLength(0);
   });
 
   it('RC2 重试 re-checks a stored conflict with the current code instead of replaying it', async () => {

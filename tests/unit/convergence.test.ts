@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { makeEngine, tick, at, D, occ } from './fake';
+import { makeEngine, tick, at, D, occ, legacyCampaign } from './fake';
 import { factAt } from '../../src/domain/reducer';
 import { validatePlan, normalizePlanEffects, planScope, type PlanOutput } from '../../src/runtime/planner';
 import { refersToHard } from '../../src/runtime/gate';
@@ -134,6 +134,7 @@ describe('convergence', () => {
 
   it('C10 participation opportunity is offered in time; C11 a decline stops nagging and the event still proceeds; E15 removing the decline restores it', async () => {
     const x = await setup(tick(1, 9));
+    legacyCampaign(x); // pack hooks as GM lines: campaigns bound before narrative integration
     await turn(x, 'I stroll near the harbor.', 'Rumors of an ambush on the medic spread. [O1]', {});
     const ctx1 = x.model.tasks('draft').slice(-1)[0].input.engineContext as string;
     expect(ctx1).toMatch(/PARTICIPATION OPPORTUNITIES[\s\S]*Ambush of Mira/);

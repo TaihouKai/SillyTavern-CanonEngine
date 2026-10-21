@@ -17,7 +17,8 @@ import { buildPacket, retrieve, type ClaimInput, type RefInput, type Retrieval }
 import { runGate, type EvalOutput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
-import type { Banner, Binding, CampaignData, CoverageManifest, Fences, Interpretation, OpType, PlanRevision, RecordDraft, SourceEntry } from './types';
+import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
+import { buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, integrationKey, personaHash, playerContext, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 
 export interface EngineSettings {
@@ -53,7 +54,7 @@ export interface EngineSettings {
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
 const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + String(text || '').length * 4));
 
-const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check' };
+const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player' };
 
 /** Length and provider stats of the published reply, shown after the turn timings. */
 export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
@@ -136,7 +137,10 @@ export const mentionsTime = (text: string) => { const t = statedTime(text); retu
 const MAX_TIME_JUMP_MINUTES = 7 * 1440;
 
 export interface ExtractUserOut {
-  statements: { kind: string; quote: string; summary: string; entities?: string[]; facts?: { entity_id: string; predicate: string; value: never }[]; event_id?: string | null; time?: { day: number; minute: number } | null; ambiguous?: boolean }[];
+  statements: {
+    kind: string; quote: string; summary: string; entities?: string[]; facts?: { entity_id: string; predicate: string; value: never }[]; event_id?: string | null; time?: { day: number; minute: number } | null; ambiguous?: boolean;
+    stance?: string | null; scope_kind?: string | null; scope_ref?: string | null; scope_label?: string | null; until?: { day: number; minute: number } | null;
+  }[];
   references: { phrase: string; quote: string; kind: 'entity' | 'event'; mode?: string; candidates?: string[] }[];
   scene_entities?: string[];
 }
@@ -340,6 +344,8 @@ export class CanonEngine {
       recoveryState: { status: 'ok' },
       uiPreferences: prev?.uiPreferences || { inspectorOpen: false, spoilers: false },
       configRevisions: [{ at: this.host.now(), summary: `bound ${L.pack.pack_id}@${L.pack.pack_version} at ${formatTick(opts.startTick)}` }],
+      // the world reacts to the player: part of every chat bound from 1.4.0 (the Persona is read at the first turn)
+      integration: { since: ENGINE_RELEASE },
     };
     this.host.setCampaign(data);
     this.packCache = { hash: L.hash, loaded: L };
@@ -597,13 +603,17 @@ export class CanonEngine {
     const pack = index.pack;
     const tick = index.state.clock.lo;
     const opportunities = this.opportunities(index, tick).map((o) => ({ event_id: o.id, title: o.title, hook: o.hook }));
+    // The identity this message was written with (an older message is never read with a newer Persona).
+    const prof = this.profileFor(entry);
+    const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.host.persona();
     const out = await this.withTimeout(callStructured<ExtractUserOut>(this.host.model, 'extract_user', PROMPTS.extract_user, {
       message: entry.text,
-      persona: this.host.persona(),
+      persona,
       current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
-      registry: this.registry(index, entry.text),
+      registry: this.registry(index, entry.text, prof ? [prof.profile.playerId] : []),
       occurrences: this.occurrenceCatalogue(index, entry.text),
       opportunities,
+      ...(prof ? { engagement_context: this.engagementContext(index, prof.profile, tick) } : {}),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(entry.text) }), this.settings.taskTimeoutMs * 4, signal);
     const records: RecordDraft[] = [];
     const intents: Interpretation['intents'] = [];
@@ -634,6 +644,11 @@ export class CanonEngine {
       } else if (s.kind === 'participation_decline' && s.event_id && pack.events.has(s.event_id)) {
         declines.push(s.event_id);
         records.push({ recordId: newId('rec'), kind: 'participation_decline', storyTime: st, sourceRefs: src, factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] }, summary: `Player declined to take part in ${pack.events.get(s.event_id)!.title}`, evidenceKind: 'direct', declinedEventId: s.event_id });
+      } else if (s.kind === 'engagement') {
+        const rec = engagementRecord(s, index, tick, src);
+        if (rec) records.push(rec);
+        else warnings.push(`engagement statement ignored (unknown scope ${s.scope_kind}:${s.scope_ref}): ${s.summary}`);
+        intents.push({ quote: s.quote, summary: `[${s.stance || 'engagement'}] ${s.summary}` });
       } else if (s.kind === 'time_proposal') {
         intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
         // the target time, so the GM can be told which canon events begin during the jump
@@ -788,10 +803,15 @@ export class CanonEngine {
     text: string; index: WorldIndex; userEntry: SourceEntry | null; operationId: string; signal?: AbortSignal; mode: 'draft' | 'retained';
     plan: PlanRevision | null; forced: boolean; sceneSeeds: Id[]; reevalReasons: string[] | null; stagedNotes: string[]; stagedHard?: Map<Id, import('../domain/types').Occurrence>;
     fences?: Fences; attempt?: number; expectedEnd?: number;
+    /** The world reaction offered to the GM this turn (narrative integration). */
+    offered?: Opportunity | null;
   }): Promise<ReviewResult> {
     const { index } = a;
     const pack = index.pack;
     const tick = index.state.clock.lo;
+    const prof = this.campaign()?.integration ? this.profileFor(a.userEntry) : null;
+    const eng = engagementView(index.state, pack);
+    const decisions = eng.lines(tick);
     const discKey = `${a.operationId}|${sha256(a.text + '\n' + (a.userEntry?.text || ''))}`;
     // Discovery helps the review find what to look up. If its output is unusable, fall back to the
     // deterministic name matching below instead of failing the turn; the review itself stays strict.
@@ -833,6 +853,9 @@ export class CanonEngine {
       pack, index, retrieval, checkpointTick: Math.max(tick, a.expectedEnd ?? tick), origin: this.campaign()?.binding.originDate || null, sceneLabel: '',
       playerScope: a.userEntry ? [a.userEntry.text] : [], plan: a.plan, forced: a.forced, stagedNotes: a.stagedNotes, opportunities: [], budgetChars: this.settings.budgetChars * 2, review: true,
       horizon: this.settings.horizonMinutes,
+      // the reviewer needs the player's presence and decisions as required context (review mode drops optional parts)
+      presence: prof ? presenceSection(index, prof.profile, tick) : undefined,
+      decisions: decisionsSection(decisions) || undefined,
     });
     const due = pendingHard(pack, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
     const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', PROMPTS.evaluate, {
@@ -847,8 +870,12 @@ export class CanonEngine {
       staged_offscreen: a.stagedNotes,
       due_hard: due.map((h) => ({ event_id: h.event.id, required_description: h.event.required_description, outcomes: h.event.outcomes, earliest: h.event.when.earliest, latest: h.event.when.latest })),
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== 'invalidated').map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
-      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.entities.keys(), ...a.sceneSeeds]),
+      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.entities.keys(), ...a.sceneSeeds, ...(prof ? [prof.profile.playerId] : []), ...(a.offered?.actors || [])]),
       reeval_reasons: a.reevalReasons || [],
+      player_entity: prof ? { id: prof.profile.playerId, name: prof.profile.personaName } : null,
+      engagement: decisions,
+      offered_contact: a.offered ? { opportunity_id: a.offered.id, scope_kind: a.offered.scopeKind, scope_ref: a.offered.scopeRef, about: a.offered.scopeLabel, actors: a.offered.actors, kind: a.offered.kind, contact: a.offered.contact } : null,
+      recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote })),
       canon_events_now: this.canonNow(index, tick),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
@@ -879,6 +906,7 @@ export class CanonEngine {
     const gate = runGate({
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced,
+      playerId: prof?.profile.playerId || null, offered: a.offered || null,
     });
     const c = this.campaign();
     const manifest: CoverageManifest | null = c ? {
@@ -1047,6 +1075,8 @@ export class CanonEngine {
     try {
       this.setStatus('reconciling', 'Reconciling the selected transcript…');
       await this.host.settle?.();
+      // New chats: the player's profile is read from the Persona before the first turn (its seed enters history).
+      await this.ensureProfile(abort.signal, operationId);
       await this.reconcile('operation', { signal: abort.signal, excludeLastAssistant: excludeLast });
       const c = this.campaign()!;
       if (c.recoveryState.status === 'conflict') throw new EngineError('conflicting_transcript', `Retained message #${c.recoveryState.messageIndex} is incompatible with the edited history. Edit that message or regenerate from it in a new branch.`);
@@ -1086,11 +1116,27 @@ export class CanonEngine {
           index = new WorldIndex(pack, rr.state);
         }
 
-        // Planning (rolling, bounded)
+        // Planning (rolling, bounded) and, in parallel, how the world reacts to the player (separate goals).
         this.setStatus('planning', 'Planning…');
+        const fresh = !!userEntry && (lastIsUser || op === 'regenerate' || op === 'swipe');
+        const jumpTo = fresh && userInterp?.timeJumpTo && userInterp.timeJumpTo > clock ? userInterp.timeJumpTo : null;
+        const prof = c.integration ? this.profileFor(null) : null;
+        let integrationFailed = false;
+        const integP = prof
+          ? this.integrate(index, prof.profile, fresh ? userEntry : null, jumpTo, abort.signal, operationId).catch((e) => {
+            if (e instanceof EngineError && e.kind === 'cancelled') throw e;
+            integrationFailed = true;
+            this.rejects.push(`integrate: no world reaction this turn (${(e as Error).message.slice(0, 160)})`);
+            return null;
+          })
+          : Promise.resolve(null);
         let planInfo = await this.ensurePlan(index, abort.signal, operationId);
         let plan = planInfo.plan;
+        const integ = await integP;
         this.checkFences(fences, excludeLast);
+        const eng = engagementView(index.state, pack);
+        const busy = [...index.state.occurrences.values()].some((o) => o.inProgressOf && !index.state.dispositions.has(o.inProgressOf));
+        const offered: Opportunity | null = prof ? selectOpportunity(integ, index, clock, busy) : null;
 
         // Pre-generation retrieval: user references + scene + causal seeds + semantic expansion
         const prevGm = (() => { for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === 'gm') return entries[k]; return null; })();
@@ -1107,17 +1153,23 @@ export class CanonEngine {
           freeText: [userEntry?.text || '', prevGm ? prevGm.text.slice(-600) : ''],
           checkpointTick: ctxClock,
         });
-        const opps = this.opportunities(index, clock);
+        // Legacy ways in (pack hooks, 关注) — with narrative integration they are inputs of the integrate task; when
+        // that analysis failed, or without integration, they are shown as before but never for a declined event.
+        const legacy = !prof || integrationFailed;
+        const opps = legacy ? this.opportunities(index, clock).filter((o) => !eng.blockedBy({ eventId: o.id }, clock)) : [];
         const sceneLabel = [horaeScene?.location ? `Location (Horae, supporting): ${horaeScene.location}.` : '', horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(', ')}.` : '', horaeNote].filter(Boolean).join(' ');
         const packetArgs = {
           pack, index, retrieval, checkpointTick: ctxClock, origin: c.binding.originDate, sceneLabel,
-          playerScope: userEntry && (lastIsUser || op === 'regenerate' || op === 'swipe') ? [userEntry.text, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
-          plan, forced: planInfo.forced, stagedNotes: [] as string[], opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`), focus: this.focusLines(index, clock), budgetChars: this.settings.budgetChars, horizon: this.settings.horizonMinutes,
-          timeJumpTo: userEntry && (lastIsUser || op === 'regenerate' || op === 'swipe') && userInterp?.timeJumpTo && userInterp.timeJumpTo > clock ? userInterp.timeJumpTo : null,
+          playerScope: fresh ? [userEntry!.text, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
+          plan, forced: planInfo.forced, stagedNotes: [] as string[], opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`), focus: legacy ? this.focusLines(index, clock) : [], budgetChars: this.settings.budgetChars, horizon: this.settings.horizonMinutes,
+          timeJumpTo: jumpTo,
+          presence: prof ? presenceSection(index, prof.profile, ctxClock) : undefined,
+          decisions: decisionsSection(eng.lines(clock)) || undefined,
+          reaction: offered ? worldReactionSection(index, offered, c.binding.originDate) : undefined,
         };
         let packet = buildPacket(packetArgs);
         const engineContext = this.gmRules() + '\n\n' + packet.text;
-        const loreNames = this.loreNames(index, retrieval, plan);
+        const loreNames = uniq([...(offered?.actors || []).map((a) => index.entityName(a)), ...this.loreNames(index, retrieval, plan)]).slice(0, 16);
 
         // Draft (private)
         this.setStatus('generating', 'Generating (private draft)…');
@@ -1133,7 +1185,7 @@ export class CanonEngine {
         let lastResort = false; // one extra, harsher repair when HARD problems survive the normal repairs
         for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
           this.setStatus('validating', attempt > this.settings.maxRepairs ? 'Re-checking final HARD repair…' : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})…` : 'Validating…');
-          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt });
+          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt, offered });
           this.checkFences(fences, excludeLast);
           // Interval adjudication for the proposed advance. The review that sees the staged results may place the
           // reply's end later: then the events whose windows close in the extra time are settled too (live finding:
@@ -1156,11 +1208,11 @@ export class CanonEngine {
             if (!more.records.length) break;
             // The evaluator must see staged offscreen history: review again with it (not a repair).
             const stagedIndex = new WorldIndex(pack, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
-            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt });
+            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt, offered });
             // Gate HARD crossing with staged offscreen occurrences against the committed clock
             review.gate = runGate({
               pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
-              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard: adj.stagedHard, mode: 'draft', forced: planInfo.forced,
+              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard: adj.stagedHard, mode: 'draft', forced: planInfo.forced, playerId: prof?.profile.playerId || null, offered,
             });
             this.checkFences(fences, excludeLast);
           }
@@ -1404,6 +1456,152 @@ export class CanonEngine {
   }
 
   // ---------------------------------------------------------------------------------------------
+  // Narrative integration: the player's profile (from the Persona) and how the world reacts to them
+
+  /** Read the Persona into a checked profile (one model call). */
+  private async readProfile(persona: { name: string; description: string }, prev: PlayerProfile | null, signal: AbortSignal | undefined, operationId: string): Promise<{ profile: PlayerProfile; runtimeEntities: import('../domain/types').RuntimeEntity[] }> {
+    const pack = this.pack();
+    const index = this.current?.index || new WorldIndex(pack, reduceRecords(pack, []));
+    const ent = (e: { id: string; name: string; aliases?: string[]; kind: string }) => `${e.id} | ${e.name} | ${(e.aliases || []).join(', ')} | ${e.kind}`;
+    const out = await this.withTimeout(callStructured<ProfileOut>(this.host.model, 'profile', PROMPTS.profile, {
+      persona: { name: persona.name, description: persona.description },
+      world: { title: pack.pack.title, description: pack.pack.description, language: pack.pack.language },
+      registry: { entities_format: 'id | name | aliases | kind', entities: [...pack.entities.values()].filter((e) => ['person', 'organization', 'place', 'other'].includes(e.kind)).map(ent) },
+      ...(prev ? { previous_profile: { summary: prev.summary, affiliations: prev.affiliations.map((a) => a.name), places: prev.places.map((p) => p.name) } } : {}),
+    }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 6000 }), this.settings.taskTimeoutMs * 4, signal);
+    return buildProfile(out, pack, index, persona, prev);
+  }
+
+  /** The profile in effect for new turns (the latest revision), or null. */
+  playerProfile(): ProfileRevision | null {
+    const revs = this.campaign()?.playerProfiles;
+    return revs?.length ? revs.reduce((a, b) => (b.rev > a.rev ? b : a)) : null;
+  }
+
+  /** New chats: read the Persona before the first turn and seed the player into the world. Afterwards, a changed
+   *  Persona is reported once (the player chooses to update this game's identity or keep it). */
+  private async ensureProfile(signal: AbortSignal | undefined, operationId: string): Promise<void> {
+    const c = this.campaign();
+    if (!c?.integration) return;
+    const persona = this.host.persona();
+    const latest = this.playerProfile();
+    if (!latest) {
+      if (!persona.name && !persona.description) return;
+      this.setStatus('planning', 'Reading the Persona…');
+      const { profile, runtimeEntities } = await this.readProfile(persona, null, signal, operationId);
+      const rev: ProfileRevision = { rev: 1, afterMessageId: null, profile, createdAt: this.host.now() };
+      c.playerProfiles = [rev];
+      c.manualRecords = [...(c.manualRecords || []), { afterMessageId: null, record: seedRecord(profile, runtimeEntities, c.binding.startTick, 1), at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: `player profile read from the Persona "${persona.name}" (${persona.description.length} characters)` });
+      await this.host.save();
+      return;
+    }
+    const h = personaHash(persona);
+    if (h !== latest.profile.personaHash && h !== c.personaKeptHash && this.personaNoticeHash !== h) {
+      this.personaNoticeHash = h;
+      this.notice('warn', `The active Persona ("${persona.name}") differs from this game's player ("${latest.profile.personaName}"). This game keeps its identity until you choose 更新本局身份 in the Canon Engine panel (or 保留本局身份 to stop this notice).`);
+    }
+  }
+  private personaNoticeHash = '';
+
+  /** Whether the active Persona differs from this game's player profile (for the panel). */
+  personaChanged(): boolean {
+    const c = this.campaign();
+    const latest = this.playerProfile();
+    if (!c?.integration || !latest) return false;
+    const h = personaHash(this.host.persona());
+    return h !== latest.profile.personaHash && h !== c.personaKeptHash;
+  }
+
+  /** 更新本局身份: read the active Persona as a new profile revision, in effect from after the current last message
+   *  (earlier messages keep the identity they were written with). */
+  async updateIdentity(): Promise<void> {
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
+    const c = this.campaign();
+    if (!c) return;
+    c.integration ||= { since: ENGINE_RELEASE };
+    const prev = this.playerProfile();
+    const persona = this.host.persona();
+    const { profile, runtimeEntities } = await this.readProfile(persona, prev && prev.profile.personaName === persona.name ? prev.profile : null, undefined, 'identity');
+    const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
+    const rev = (prev?.rev || 0) + 1;
+    c.playerProfiles = [...(c.playerProfiles || []), { rev, afterMessageId: last ? last.messageId : null, profile, createdAt: this.host.now() }];
+    const tick = this.current?.replay.state.clock.lo ?? c.binding.startTick;
+    c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: seedRecord(profile, runtimeEntities, tick, rev), at: this.host.now() }];
+    delete c.personaKeptHash;
+    delete c.integrationCache;
+    c.configRevisions.push({ at: this.host.now(), summary: `player identity updated from the Persona "${persona.name}" (revision ${rev})` });
+    await this.host.save();
+    await this.reconcile('identity_updated');
+  }
+
+  /** 保留本局身份: keep this game's identity although the active Persona differs. */
+  async keepIdentity(): Promise<void> {
+    const c = this.campaign();
+    if (!c) return;
+    c.personaKeptHash = personaHash(this.host.persona());
+    await this.host.save();
+    this.emit();
+  }
+
+  /** What the player's message may decide about: their decisions so far, recent contacts, and the events and
+   *  storylines near now (ids for the scope of an engagement statement). */
+  private engagementContext(index: WorldIndex, profile: PlayerProfile, tick: number) {
+    const pack = index.pack;
+    const near = integrationCandidates(index, profile, tick, { focus: this.campaign()?.focusEvents || [] });
+    const contactEvents = index.state.contacts.slice(-8).filter((k) => k.scopeKind === 'event').map((k) => k.scopeRef);
+    const evIds = uniq([...near.map((x) => x.event.id), ...contactEvents]).filter((id) => pack.events.has(id));
+    const arcIds = uniq(evIds.map((id) => pack.events.get(id)!.arc_id).filter(Boolean) as Id[]);
+    return {
+      player_entity: { id: profile.playerId, name: profile.personaName },
+      decisions: engagementView(index.state, pack).lines(tick),
+      recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote })),
+      events: evIds.map((id) => { const e = pack.events.get(id)!; return { id, title: e.title, arc_id: e.arc_id }; }),
+      arcs: arcIds.map((id) => { const a = pack.pack.arcs.find((x) => x.id === id); return { id, title: a?.title || id }; }),
+      organizations: profile.affiliations.map((a) => ({ id: a.entityId, name: a.name })),
+    };
+  }
+
+  /** The profile that applies to a message of the transcript (older messages keep their own identity). */
+  private profileFor(entry: SourceEntry | null): ProfileRevision | null {
+    const c = this.campaign();
+    if (!c?.playerProfiles?.length) return null;
+    const entries = this.host.readTranscript();
+    const pos = entry ? entries.findIndex((e) => e.messageId === entry.messageId) : entries.length;
+    return profileAt(c.playerProfiles, entries, pos < 0 ? entries.length : pos);
+  }
+
+  /** How the world may react to the player now: candidates -> integrate task (cached by what it depends on) ->
+   *  checked suggestions. Failures leave this turn without a suggestion; the player's decisions still apply. */
+  private async integrate(index: WorldIndex, profile: PlayerProfile, userEntry: SourceEntry | null, jumpTo: number | null, signal: AbortSignal, operationId: string): Promise<IntegrationCache | null> {
+    const c = this.campaign()!;
+    const tick = index.state.clock.lo;
+    const focus = c.focusEvents || [];
+    const candidates = integrationCandidates(index, profile, tick, { jumpTo, focus });
+    const key = integrationKey(index, profile, candidates, focus, jumpTo);
+    if (c.integrationCache?.key === key) return c.integrationCache;
+    const eng = engagementView(index.state, index.pack);
+    const withIds = uniq(candidates.flatMap((x) => x.event.entity_ids));
+    const out = await this.withTimeout(callStructured<IntegrateOut>(this.host.model, 'integrate', PROMPTS.integrate, {
+      now: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
+      ...(jumpTo ? { time_jump_to: formatTick(jumpTo) } : {}),
+      player_input: userEntry?.text || '',
+      recent_scene: this.recentSituation(index),
+      player: playerContext(index, profile, tick, { historyWith: withIds }),
+      candidate_events: candidates.map((x) => candidateInput(index, x, tick, eng.blockedBy({ eventId: x.event.id }, tick))),
+      engagement: eng.lines(tick),
+      recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote })),
+      focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f)!.title })),
+      registry: this.registry(index, `${userEntry?.text || ''} ${candidates.map((x) => x.event.title).join(' ')}`, [...withIds, ...profile.relationships.map((r) => r.entityId).filter(Boolean) as Id[]]),
+    }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 8000 }), this.settings.taskTimeoutMs * 4, signal);
+    const { valid, dropped } = checkOpportunities(out, index, profile, candidates, tick);
+    const cache: IntegrationCache = { key, at: this.host.now(), tick, opportunities: valid, assessments: (out.assessments || []).slice(0, 30), dropped };
+    c.integrationCache = cache;
+    this.debugLog('integration', { candidates: candidates.map((x) => `${x.event.id}:${x.status}`), valid: valid.map((o) => `${o.id} ${o.kind} ${o.scopeLabel}`), dropped });
+    return cache;
+  }
+
+  // ---------------------------------------------------------------------------------------------
   // Planning helpers
 
   private async ensurePlan(index: WorldIndex, signal: AbortSignal, operationId: string, opts: { force?: boolean; situation?: string } = {}): Promise<{ plan: PlanRevision | null; forced: boolean }> {
@@ -1437,6 +1635,13 @@ export class CanonEngine {
       if (plan.preconditionSignature && sig !== plan.preconditionSignature) needs = true;
       if (plan.mode !== 'FORCED_CONVERGENCE' && diagnoseForced(pack, state, planScope(pack, state), clock)) needs = true;
     }
+    // P0: the planner knows the player as the player is now (profile, decisions, lasting state), not just a name.
+    // A plan made for an older player context is replanned, even when the HARD situation did not change.
+    const prof = c.integration ? this.profileFor(null) : null;
+    const persona = this.host.persona();
+    const player = prof ? playerContext(index, prof.profile, clock, { historyLimit: 12 }) : { name: persona.name, persona: persona.description };
+    const pHash = playerContextHash(index, prof?.profile || null, persona);
+    if (plan && !needs && plan.playerContextHash !== pHash) needs = true;
     if (opts.force) needs = true;
     if (!needs) return { plan, forced: plan!.mode === 'FORCED_CONVERGENCE' };
     const facts = this.stateFacts(index, [...pack.entities.keys(), ...state.runtimeEntities.keys()], clock);
@@ -1445,9 +1650,11 @@ export class CanonEngine {
       res = await runPlanning({
       port: this.host.model, pack, index, state, clockTick: clock, worldRevision: c.revision, prefixHash: this.current?.replay.fingerprint || '',
       affected: (c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors || [], maxOrdinary: this.settings.maxOrdinaryPlanner, allowForcedAttempt: this.settings.forcedPlannerAttempt,
-      signal, operationId, readyWindow: this.settings.readyWindowMinutes, facts, persona: this.host.persona().name, log: (l) => this.debugLog('task', l),
+      signal, operationId, readyWindow: this.settings.readyWindowMinutes, facts, player, log: (l) => this.debugLog('task', l),
       situation: opts.situation ?? this.recentSituation(index),
-      interests: focusedLive(pack, state, c.focusEvents || [], clock).map((f) => ({ id: f.event.id, title: f.event.title, window: `${formatTick(f.lo)} – ${formatTick(f.hi)}`, original_route: f.event.summary })),
+      // With narrative integration, 关注 contacts come from the integrate task (one policy for every way in); the
+      // HARD planner only plans world obligations.
+      interests: c.integration ? [] : focusedLive(pack, state, c.focusEvents || [], clock).filter((f) => !engagementView(state, pack).blockedBy({ eventId: f.event.id }, clock)).map((f) => ({ id: f.event.id, title: f.event.title, window: `${formatTick(f.lo)} – ${formatTick(f.hi)}`, original_route: f.event.summary })),
       impactForced: !!(c as CampaignData & { _impactForced?: boolean })._impactForced,
       });
     } catch (e) {
@@ -1465,6 +1672,7 @@ export class CanonEngine {
     }
     for (const p of c.planRevisions) if (p.status === 'active' || p.status === 'stale') p.status = 'superseded';
     res.plan.preconditionSignature = preconditionSignature(pack, state, res.plan.protectedAnchorIds, clock);
+    res.plan.playerContextHash = pHash;
     c.planRevisions.push(res.plan);
     c.planRevisions = c.planRevisions.slice(-10);
     c.activePlanId = res.plan.planId;
@@ -1771,6 +1979,10 @@ export class CanonEngine {
     c.focusEvents = [...cur];
     // the planner may now add (or drop) steps that bring the player to it
     c.planRevisions.forEach((p) => { if (p.status === 'active') p.status = 'stale'; });
+    // ☆ on something the player declined is an explicit "allow contact again" for that event (the panel says so)
+    const st = this.current?.replay.state;
+    const blocked = on && st ? engagementView(st, this.pack()).blockedBy({ eventId }, st.clock.lo) : null;
+    if (blocked) { await this.reopenScope('event', eventId, this.pack().events.get(eventId)?.title || eventId); return on; }
     await this.host.save();
     return on;
   }
@@ -1838,7 +2050,9 @@ export class CanonEngine {
     const c = this.campaign();
     if (!c?.focusEvents?.length) return [];
     const origin = c.binding.originDate || null;
-    return focusedLive(index.pack, index.state, c.focusEvents, clock).map((f) => `- ${f.event.title} (${formatTick(f.lo, origin)} – ${formatTick(f.hi, origin)}${f.lo <= clock ? ', under way now' : ''}): ${f.event.summary.length > 260 ? f.event.summary.slice(0, 257) + '…' : f.event.summary}`);
+    // a later refusal outweighs an older 关注 (the player's latest decision wins)
+    const eng = engagementView(index.state, index.pack);
+    return focusedLive(index.pack, index.state, c.focusEvents, clock).filter((f) => !eng.blockedBy({ eventId: f.event.id }, clock)).map((f) => `- ${f.event.title} (${formatTick(f.lo, origin)} – ${formatTick(f.hi, origin)}${f.lo <= clock ? ', under way now' : ''}): ${f.event.summary.length > 260 ? f.event.summary.slice(0, 257) + '…' : f.event.summary}`);
   }
 
   /** Events the player forced to complete. */
@@ -1889,7 +2103,63 @@ export class CanonEngine {
       lastTrace: this.settings.debug ? this.lastTrace : null,
       manifests: this.settings.debug ? Object.values(c.manifests).slice(-5) : [],
       notices: this.notices.slice(-10),
+      integration: this.integrationView(spoilers),
     };
+  }
+
+  /** The Inspector's 叙事融入 view: the player's profile and what was read, their decisions (with the scope they
+   *  apply to), the contacts that reached them, and — only with spoilers or debug — the pending suggestions. */
+  integrationView(spoilers: boolean) {
+    const c = this.campaign();
+    if (!c?.integration || !this.current) return null;
+    const s = this.current.replay.state;
+    const idx = this.current.index;
+    const origin = c.binding.originDate;
+    const prof = this.playerProfile();
+    const eng = engagementView(s, idx.pack);
+    const active = new Set([...eng.scopes.values()].map((x) => x.current?.recordId).filter(Boolean));
+    // a pack event/arc title can be a spoiler of canon still to come: masked unless spoilers are on (the quote of
+    // the player's own words or of the reply is shown instead)
+    const lab = (kind: string, label: string) => (spoilers || !['event', 'arc'].includes(kind) ? label : '•••');
+    return {
+      profile: prof ? {
+        rev: prof.rev, name: prof.profile.personaName, chars: prof.profile.personaText.length, source: prof.profile.source,
+        summary: prof.profile.summary, publicIdentity: prof.profile.publicIdentity,
+        affiliations: prof.profile.affiliations.map((a) => `${a.name} — ${a.role} (${a.secrecy})`),
+        places: prof.profile.places.map((p) => `${p.name} — ${p.use}`),
+        relationships: prof.profile.relationships.map((r) => `${r.name}: ${r.relation} (${r.basis === 'persona_stated' ? 'Persona' : 'implied'})`),
+        knowers: prof.profile.knowers.map((k) => `${k.who} — ${k.level}: ${k.about}`),
+        notes: prof.profile.notes,
+      } : null,
+      personaChanged: this.personaChanged(),
+      decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId) })),
+      contacts: s.contacts.map((k) => ({ recordId: k.recordId, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
+      unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
+      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
+      dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null,
+    };
+  }
+
+  /** 允许再次接触: an explicit UI decision that reopens a scope the player declined (kept as their decision, after
+   *  the current last message; replayed like a decision in a message). */
+  async reopenScope(scopeKind: import('../domain/types').ScopeKind, scopeRef: string, label: string): Promise<void> {
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
+    const c = this.campaign();
+    if (!c) return;
+    // the panel may show a masked label (spoilers off): the record keeps the real one
+    if (scopeKind === 'event') label = this.pack().events.get(scopeRef)?.title || label;
+    else if (scopeKind === 'arc') label = this.pack().pack.arcs.find((a) => a.id === scopeRef)?.title || label;
+    const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
+    const tick = this.current?.replay.state.clock.lo ?? c.binding.startTick;
+    const rec: RecordDraft = {
+      recordId: newId('rec'), kind: 'engagement', storyTime: { lo: tick, hi: tick, precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+      visibility: { mode: 'public', knower_ids: [] }, summary: `Player allowed contact again: ${label} (Canon Engine panel)`, evidenceKind: 'direct',
+      engagement: { scopeKind, scopeRef, scopeLabel: label, stance: 'reopened', quote: '', until: null, source: 'ui' },
+    };
+    c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+    c.configRevisions.push({ at: this.host.now(), summary: `allowed contact again: ${label}` });
+    await this.host.save();
+    await this.reconcile('engagement_reopened');
   }
 }
 

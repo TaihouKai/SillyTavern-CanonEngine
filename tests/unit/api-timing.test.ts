@@ -97,9 +97,10 @@ describe('token usage of a turn', () => {
     await x.engine.reconcile('t'); // calls before the turn are not part of it
     x.host.addUser('I look around.');
     x.model.draft('Gulls circle. [TK]');
+    const before = x.model.calls.length;
     expect(await x.engine.runOperation('normal')).toBe(true);
     const tk = x.engine.lastTimings!.tokens!;
-    const tasks = x.model.calls.filter((c) => c.task !== 'draft').length - x.model.calls.filter((c, i) => c.task !== 'draft' && i < x.model.calls.findIndex((d) => d.task === 'extract_user' && /look around/.test(JSON.stringify(d.input)))).length;
+    const tasks = x.model.calls.slice(before).filter((c) => c.task !== 'draft').length;
     expect(tk.calls).toBe(1 + tasks);
     expect(tk.input).toBe(5000 + 100 * tasks);
     expect(tk.output).toBe(800 + 10 * tasks);

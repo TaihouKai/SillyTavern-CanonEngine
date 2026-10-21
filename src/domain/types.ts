@@ -101,7 +101,42 @@ export type RecordKind =
   | 'time_advance'
   | 'participation_decline'
   | 'runtime_entity'
-  | 'configuration_revision';
+  | 'configuration_revision'
+  | 'persona_seed'
+  | 'engagement'
+  | 'world_contact';
+
+/** What a player decision or a contact is about. event/arc: pack ids; faction: an organization entity id;
+ *  contact: a world_contact record id; storyline: a free label (out-of-character "stop this line"). */
+export type ScopeKind = 'event' | 'arc' | 'faction' | 'contact' | 'storyline';
+
+/** The player's stance on being drawn into something (narrative integration). Recorded from the player's own
+ *  words or clear voluntary actions, or from an explicit UI action. */
+export interface EngagementInfo {
+  scopeKind: ScopeKind;
+  scopeRef: string;
+  scopeLabel: string;
+  /** declined: stop pulling me in; deferred: not now (until, when the player named a time); accepted: agreed;
+   *  joined: clearly took part in the thing itself by their own action; limited: one act within it (rescued one
+   *  person and left) — no acceptance of the rest; ooc_suppress: out of character, stop building this line;
+   *  reopened: explicitly allows contact again (player's words or UI). */
+  stance: 'declined' | 'deferred' | 'accepted' | 'joined' | 'limited' | 'ooc_suppress' | 'reopened';
+  quote: string;
+  until?: number | null;
+  source: 'player_message' | 'ui';
+}
+
+/** A contact from the world that actually reached the player in an accepted reply. */
+export interface ContactInfo {
+  scopeKind: ScopeKind;
+  scopeRef: string;
+  scopeLabel: string;
+  /** The suggestion this carried out, when it came from one (cache id; may no longer exist). */
+  opportunityId: string | null;
+  contactKind: 'invitation' | 'request' | 'information' | 'probe' | 'hostile' | 'consequence' | 'encounter';
+  actors: Id[];
+  quote: string;
+}
 
 /** An actual occurrence (something that happened in this branch). */
 export interface Occurrence {
@@ -158,6 +193,10 @@ export interface LedgerRecord {
   runtimeEntities?: RuntimeEntity[];
   /** Plan step ids enacted by this record. */
   enactedStepIds?: string[];
+  /** kind engagement: the player's decision. */
+  engagement?: EngagementInfo;
+  /** kind world_contact: a contact that reached the player. */
+  contact?: ContactInfo;
 }
 
 export interface RuntimeEntity {

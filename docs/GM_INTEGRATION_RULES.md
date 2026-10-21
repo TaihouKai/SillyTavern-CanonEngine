@@ -52,7 +52,10 @@ Implement a typed packet with these conceptual sections, omitting empty optional
 | Canon events within their window | Non-HARD canon events whose window is open, whose preconditions are not false and which are not already under way (settled offscreen if the story does not reach them) | Events whose preconditions already failed |
 | Where other characters stand | Starting situation (`起因`) of non-HARD original events of the next 24 hours: what characters know, want and are doing; background only, with an explicit instruction not to steer toward them | Obligations, foreshadowing instructions |
 | Player wants to experience | The player's *关注* events from 24 h before their window until it ends: give natural in-world chances to be present; never force course or result | Forced participation |
-| Participation opportunities | Events with a participation hook within the opportunity window, minus declined ones | Nagging after a decline |
+| Participation opportunities | Events with a participation hook within the opportunity window, minus declined ones (campaigns without narrative integration, or when its analysis failed this turn) | Nagging after a decline |
+| Player in this world | Narrative integration: the player character's entity, summary, public identity, organizations, places, abilities/resources, connections (Persona-stated or implied by the role) and who knows what about them at which level (exists / identity / secrets); "anyone else knows just the public identity". Required, also for the reviewer | Secret background turned into common knowledge; a known character made the player's superior on a guess |
+| Player's decisions | The player's binding decisions (declined, not now with its time, OOC stop, took part, one act only) with their own words, and contacts offered but not answered. Required, also for the reviewer and in repairs | Pressure through other people, channels or contrived threats |
+| World reaction | At most one checked, optional suggestion of how the world may reach the player in this reply (who, why, what they know, how, when). Not history; never executed by a time skip; not using it is fine | A forced outcome, presumed acceptance, rewards or relationships handed to the player |
 
 Provide a final assembled-prompt inspector in debug mode so integration tests can confirm that stale Horae/lore material has actually been removed or corrected. Do not expose the inspector to the GM as fictional dialogue.
 
@@ -61,6 +64,10 @@ The controller performs pre-generation retrieval, then expands it from the full 
 ## 4. Internal structured task contracts
 
 The implementation must write JSON Schemas and fixtures for these responses. Field names may be refined in code, but the semantics and ownership boundaries are mandatory. These runtime schemas are separate from the authored pack schema.
+
+### Persona reader (`profile`) and world reaction (`integrate`)
+
+The Persona reader turns the standard Persona description into the player's presence in the world; the controller keeps implied relationships and knowers to groups and roles (a known character is connected to the player only when the Persona says so or it happens in play) and keeps the knower levels apart. The world-reaction task proposes contacts from the player context, candidate events and the player's decisions; the controller checks actors and scopes, never revives settled or impossible events, applies the player's decisions (only harm with an actual recorded cause passes a refusal), suppresses repeats of unanswered contacts, and offers at most one per reply (only direct impacts during an event under way).
 
 ### Transcript/user extractor
 

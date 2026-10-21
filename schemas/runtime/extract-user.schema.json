@@ -15,7 +15,8 @@
        "hypothetical",
        "ooc_config_request",
        "time_proposal",
-       "participation_decline"
+       "participation_decline",
+       "engagement"
       ]
      },
      "quote": {
@@ -108,6 +109,79 @@
      },
      "ambiguous": {
       "type": "boolean"
+     },
+     "stance": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "enum": [
+         "declined",
+         "deferred",
+         "accepted",
+         "joined",
+         "limited",
+         "ooc_suppress",
+         "reopened"
+        ]
+       }
+      ]
+     },
+     "scope_kind": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "enum": [
+         "event",
+         "arc",
+         "faction",
+         "contact",
+         "storyline"
+        ]
+       }
+      ]
+     },
+     "scope_ref": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "maxLength": 200
+     },
+     "scope_label": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "maxLength": 300
+     },
+     "until": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "day": {
+          "type": "integer"
+         },
+         "minute": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1439
+         }
+        },
+        "required": [
+         "day",
+         "minute"
+        ],
+        "additionalProperties": false
+       }
+      ]
      }
     },
     "required": [

@@ -182,7 +182,10 @@ export interface PlanningResult { plan: PlanRevision | null; forced: boolean; at
 export async function runPlanning(args: {
   port: ModelPort; pack: LoadedPack; index: WorldIndex; state: WorldState; clockTick: number; worldRevision: number; prefixHash: string;
   affected: Id[]; maxOrdinary: number; allowForcedAttempt: boolean; signal?: AbortSignal; operationId: string; readyWindow: number;
-  facts: string; persona: string; log?: (l: unknown) => void; impactForced?: boolean;
+  facts: string; log?: (l: unknown) => void; impactForced?: boolean;
+  /** The player character as the world knows them now (P0): identity, organizations, places, who knows what, lasting
+   *  state, recent history and their decisions — or, without narrative integration, the Persona's name and text. */
+  player: unknown;
   /** Recent actual events and the current situation (untyped history the facts do not show, e.g. someone detained). */
   situation?: string;
   /** Player-focused (关注) events: the planner may add steps that give the player a chance to be there when they start. */
@@ -219,7 +222,7 @@ export async function runPlanning(args: {
       entities: [...pack.entities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind })).concat([...state.runtimeEntities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind }))),
       predicates: [...pack.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values })),
       previous_errors: errors.slice(-6),
-      player: args.persona,
+      player: args.player,
     };
     const out = await callStructured<PlanOutput>(args.port, 'plan', PROMPTS.plan, input, { signal: args.signal, operationId: args.operationId, log: args.log });
     const fixed = normalizePlanEffects(out, pack, scope);

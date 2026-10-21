@@ -61,7 +61,7 @@ function walk(v: unknown, s: Schema, path: string, list: string, notes: string[]
     if (v === null || v === undefined) return nullable(s) ? null : v;
     const objBranch = s.oneOf.find((o: Schema) => typesOf(o).includes('object'));
     if (isObj(v) && objBranch) return walk(v, objBranch, path, list, notes);
-    const scalarFits = s.oneOf.some((o: Schema) => typesOf(o).some((t) => (t === 'array' ? Array.isArray(v) : t === 'integer' ? Number.isInteger(v) : typeof v === t)));
+    const scalarFits = s.oneOf.some((o: Schema) => (Array.isArray(o.enum) && o.enum.includes(v)) || typesOf(o).some((t) => (t === 'array' ? Array.isArray(v) : t === 'integer' ? Number.isInteger(v) : typeof v === t)));
     if (!scalarFits && nullable(s)) { notes.push(`${path}: ${JSON.stringify(v).slice(0, 40)} → null`); return null; }
     return v;
   }

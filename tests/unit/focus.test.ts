@@ -1,8 +1,10 @@
 // FO1-FO3: 关注 (focus) — the player marks a SOFT/FREE event; the GM and planner are asked to give the player a chance to be there.
+// These are campaigns bound before narrative integration (1.3.x); with integration, 关注 is an input of the
+// integrate task (integration.test.ts).
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { makeEngine, tick } from './fake';
+import { makeEngine, tick, legacyCampaign } from './fake';
 import { ROOT } from './helpers';
 import { focusedLive } from '../../src/domain/schedule';
 
@@ -11,6 +13,7 @@ const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 async function setup() {
   const x = makeEngine();
   await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
+  legacyCampaign(x);
   await x.engine.reconcile('test');
   return x;
 }

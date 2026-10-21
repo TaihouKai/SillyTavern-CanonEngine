@@ -1,7 +1,7 @@
 // Deterministic gate over evaluator output: evidence, references, time, Hard invariants,
 // player agency, plan transitions, state contradictions, containment and coverage.
 // The evaluator's own verdicts never bypass these checks.
-import type { FactDelta, FactValue, Id, Occurrence, RuntimeEntity, StoryTime } from '../domain/types';
+import type { ContactInfo, FactDelta, FactValue, Id, Occurrence, RuntimeEntity, ScopeKind, StoryTime } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { claimComparable, claimMatches, normalizeValue, valuesEqual, coerceClaimValue } from '../domain/pack';
 import { factAt } from '../domain/reducer';
@@ -10,7 +10,7 @@ import { toTick, formatTick } from '../domain/time';
 import { pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
 import type { ClaimInput, Retrieval } from './context';
-import type { CoverageEntry, PlanRevision, PlayerAction, RecordDraft, StateClaim } from './types';
+import type { CoverageEntry, Opportunity, PlanRevision, PlayerAction, RecordDraft, StateClaim } from './types';
 
 export interface EvalOutput {
   decision: 'retain' | 'repair' | 'conflict';
@@ -31,6 +31,8 @@ export interface EvalOutput {
   hard_checks: { event_id: string; status: 'fulfilled' | 'not_due' | 'missing' | 'contradicted'; occurrence_ref?: string | null; quote?: string | null }[];
   scene_entities?: string[];
   summary?: string;
+  /** Narrative integration: contacts from the world that reached the player in this reply. */
+  contacts?: { quote: string; actors?: string[]; kind: ContactInfo['contactKind']; scope_kind: ScopeKind; scope_ref: string; scope_label?: string; opportunity_id?: string | null }[];
 }
 
 export interface GateInput {
@@ -48,6 +50,9 @@ export interface GateInput {
   stagedHard: Map<Id, Occurrence>;
   mode: 'draft' | 'retained';
   forced: boolean;
+  /** Narrative integration: the player character's entity and the suggestion offered to the GM this turn. */
+  playerId?: Id | null;
+  offered?: Opportunity | null;
 }
 
 export interface GateResult {
@@ -425,6 +430,9 @@ export function runGate(g: GateInput): GateResult {
     // instruction rather than a story scene (live finding) — is a note, not an editorial conflict.
     if (g.mode === 'retained' && ev.decision === 'retain') { warnings.push(`reviewer note on a retained message: ${v.detail.slice(0, 160)}`); continue; }
     if (v.quote && !quoteInText(v.quote, text)) { warnings.push(`reviewer violation without valid evidence ignored: ${v.detail}`); continue; }
+    // Pulling the player toward something they declined is its own problem, never "restating a HARD event"
+    // (it may name one): it bypasses the HARD-noise filter below.
+    if (/engagement[_ ]pressure/i.test(v.code)) { violations.push(`The reply pulls the player toward something they declined or deferred: ${v.detail}${v.quote ? ` ("${v.quote}")` : ''}. Do not press it again through anyone or anything; let the world go on without it.`); continue; }
     // HARD conformance is decided by the structured HARD checks and deadlines above. A free-text
     // complaint that only restates a HARD event (live finding: the reviewer treated the canonical ROUTE
     // in the description as actual history and called the player's own actions a contradiction) is
@@ -460,6 +468,24 @@ export function runGate(g: GateInput): GateResult {
     records.push({
       recordId: newId('rec'), kind: 'world_event', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: looseDeltas.map((x) => x.d), eventOccurrenceIds: [],
       visibility: { mode: 'public', knower_ids: [] }, summary: `Facts established in reply: ${looseDeltas.map((x) => `${x.d.entity_id}.${x.d.predicate}`).join(', ')}`, evidenceKind: 'direct',
+    });
+  }
+  // ---- contacts that reached the player (narrative integration) ---------------------------------------
+  for (const k of ev.contacts || []) {
+    if (!hasQuote(k.quote)) { warnings.push(`contact "${(k.quote || '').slice(0, 40)}" ignored: evidence not found in text`); continue; }
+    const actors = uniq((k.actors || []).map(resolveId).filter(Boolean) as Id[]).filter((a) => a !== g.playerId);
+    let scopeKind = k.scope_kind, scopeRef = String(k.scope_ref || '').trim(), label = (k.scope_label || '').trim();
+    if (scopeKind === 'event') { if (!pack.events.has(scopeRef)) { warnings.push(`contact "${k.quote.slice(0, 40)}": unknown event ${scopeRef}, kept as a storyline`); scopeKind = 'storyline'; label ||= scopeRef; } else label ||= pack.events.get(scopeRef)!.title; }
+    else if (scopeKind === 'arc') { const a = pack.pack.arcs.find((x) => x.id === scopeRef); if (!a) { scopeKind = 'storyline'; label ||= scopeRef; } else label ||= a.title; }
+    else if (scopeKind === 'faction') { const id = resolveId(scopeRef); if (!id) { scopeKind = 'storyline'; label ||= scopeRef; } else { scopeRef = id; label ||= index.entityName(id); } }
+    else if (scopeKind === 'contact') { const c = index.state.contacts.find((x) => x.recordId === scopeRef); if (c) { scopeKind = c.scopeKind; scopeRef = c.scopeRef; label ||= c.scopeLabel; } else { scopeKind = 'storyline'; label ||= scopeRef; } }
+    if (scopeKind === 'storyline') { label ||= scopeRef || k.quote.slice(0, 40); scopeRef = String(label).normalize('NFKC').toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'storyline'; }
+    // the offered suggestion is credited only when the contact is about the same thing
+    const opp = g.offered && k.opportunity_id === g.offered.id && g.offered.scopeKind === scopeKind && g.offered.scopeRef === scopeRef ? g.offered.id : null;
+    records.push({
+      recordId: newId('rec'), kind: 'world_contact', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+      visibility: { mode: 'public', knower_ids: [] }, summary: `Contact (${k.kind}) about ${label}: ${k.quote.slice(0, 120)}`, evidenceKind: 'direct',
+      contact: { scopeKind, scopeRef, scopeLabel: label.slice(0, 300), opportunityId: opp, contactKind: k.kind, actors, quote: k.quote.slice(0, 300) },
     });
   }
   const sceneEntities = uniq((ev.scene_entities || []).map(resolveId).filter(Boolean) as Id[]);

@@ -54,6 +54,9 @@ export function stateHash(s: WorldState): string {
     o: [...s.occurrences.keys()].length,
     c: s.clock,
     x: [...s.declines.keys()].sort(),
+    // narrative integration: decisions and contacts change what later replies may do
+    ...(s.engagements.length ? { e: s.engagements.map((g) => `${g.scopeKind}:${g.scopeRef}:${g.stance}`) } : {}),
+    ...(s.contacts.length ? { k: s.contacts.length } : {}),
   });
 }
 

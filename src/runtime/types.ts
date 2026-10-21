@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.3.74';
+export const ENGINE_RELEASE = '1.4.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -94,6 +94,9 @@ export interface PlanRevision {
   status: 'active' | 'stale' | 'superseded';
   /** Truth values of protected anchors' original prerequisites when the plan was made. */
   preconditionSignature?: string;
+  /** Hash of the player context the plan was made with (profile revision, the player's decisions, their lasting
+   *  state): a plan made for an older player is replanned (P0 of narrative integration). */
+  playerContextHash?: string;
 }
 
 export interface CoverageEntry {
@@ -199,6 +202,71 @@ export interface CampaignData {
   focusEvents?: string[];
   /** 整理本局事件: display-only episodes of the player's events for the timeline (never used as history). */
   eventDigest?: EventDigest;
+  /** Narrative integration (the world reacts to the player) is part of this campaign: set for chats bound with
+   *  1.4.0 or later. Older campaigns keep working without it. */
+  integration?: { since: string };
+  /** The player's profile read from their Persona, one revision per identity change; each takes effect after
+   *  its anchor message (null: from the start). Its runtime entities enter history as a persona_seed record. */
+  playerProfiles?: ProfileRevision[];
+  /** A Persona the player chose to keep out of this game (hash): no "identity changed" prompt for it. */
+  personaKeptHash?: string;
+  /** Derived, rebuildable cache of the narrative-integration analysis (never history). */
+  integrationCache?: IntegrationCache;
+}
+
+export interface PlayerProfile {
+  personaName: string;
+  /** The Persona text the profile was read from (standard Persona description). */
+  personaText: string;
+  personaHash: string;
+  source: 'standard_persona';
+  playerId: Id;
+  summary: string;
+  publicIdentity: string;
+  affiliations: { entityId: Id; name: string; role: string; secrecy: 'public' | 'restricted' | 'secret' }[];
+  places: { entityId: Id; name: string; use: string }[];
+  capabilities: string[];
+  resources: string[];
+  goals: string[];
+  relationships: { entityId: Id | null; name: string; relation: string; basis: 'persona_stated' | 'implied' }[];
+  /** Who plausibly knows about the player, at which level: that an organization exists, the player's identity or
+   *  role, or specific secrets. */
+  knowers: { who: string; entityId: Id | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: 'persona_stated' | 'implied' }[];
+  uncertain: string[];
+  /** What the controller dropped or changed, and why. */
+  notes: string[];
+}
+
+export interface ProfileRevision { rev: number; afterMessageId: string | null; profile: PlayerProfile; createdAt: number }
+
+export interface Opportunity {
+  id: string;
+  scopeKind: import('../domain/types').ScopeKind;
+  scopeRef: string;
+  scopeLabel: string;
+  targetEventId: Id | null;
+  kind: import('../domain/types').ContactInfo['contactKind'];
+  directImpact: boolean;
+  actors: Id[];
+  motivation: string;
+  knowledge: string;
+  contact: string;
+  establishes: string[];
+  earliest: number | null;
+  latest: number | null;
+  priority: number;
+  focus: boolean;
+  basisRefs: string[];
+}
+
+export interface IntegrationCache {
+  key: string;
+  at: number;
+  /** Story time the analysis was made at. */
+  tick: number;
+  opportunities: Opportunity[];
+  assessments: { target: string; classification: 'direct_impact' | 'opportunity' | 'no_connection'; reason: string }[];
+  dropped: { id: string; reason: string }[];
 }
 
 export interface EventDigest { at: number; groups: DigestGroup[] }

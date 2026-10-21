@@ -140,6 +140,8 @@ export function defaultTask(task: TaskName, input: any): any {
       return { adjudications: c.id ? [{ event_id: c.id, decision: 'occurred', time: null, account: `Offscreen: ${c.title}. ${c.required_description || c.original_summary}`, actors: c.entities || [], causes: [], effects: (c.original_outcomes || []).map((o: any) => ({ op: 'set', entity_id: o.entity_id, predicate: o.predicate, value: o.value })), plan_step_ids: [], reason: 'scripted', extraordinary: !!input.authorized_forced }] : [] };
     }
     case 'digest': return { groups: [] };
+    case 'profile': return { player: { name: input.persona?.name || 'player', aliases: [], summary: `profile of ${input.persona?.name || 'player'}`, public_identity: '' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
+    case 'integrate': return { assessments: [], opportunities: [] };
     case 'impact': return { changed: [], affected_anchors: [], affected_steps: [], scope: 'local', severity: 'none', replan: false, explanation: 'scripted' };
     case 'plan': {
       const now = input.now?.tick ?? 0;
@@ -167,6 +169,11 @@ export function makeEngine(settings: Partial<EngineSettings> = {}) {
   const host = new FakeHost(model);
   const engine = new CanonEngine(host, { taskTimeoutMs: 5000, draftTimeoutMs: 5000, ...settings });
   return { model, host, engine };
+}
+
+/** A campaign bound before narrative integration (1.3.x): no Persona profile, legacy hooks and 关注 lines. */
+export function legacyCampaign(x: { engine: { campaign(): any } }) {
+  delete x.engine.campaign()!.integration;
 }
 
 /** Deferred promise for race tests. */

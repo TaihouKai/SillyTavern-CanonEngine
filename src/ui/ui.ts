@@ -528,6 +528,14 @@ function renderInspector() {
       if (!b) return;
       if (b.dataset.tab) { inspectorTab = b.dataset.tab; renderInspector(); }
       if (b.dataset.act === 'close') toggleInspector(false);
+      // 叙事融入: identity and "allow contact again" are explicit player decisions
+      const act = b.dataset.act;
+      if (act === 'ni-update' || act === 'ni-keep' || act === 'ni-reopen') {
+        (b as HTMLButtonElement).disabled = true;
+        if (act === 'ni-update') b.textContent = t('niBusy');
+        const run = act === 'ni-update' ? E.updateIdentity() : act === 'ni-keep' ? E.keepIdentity() : E.reopenScope(b.dataset.kind as any, b.dataset.ref || '', b.dataset.label || '');
+        run.then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
+      }
     });
     inspectorEl.addEventListener('change', (ev) => {
       const tg = ev.target as HTMLInputElement;
@@ -536,14 +544,16 @@ function renderInspector() {
   }
   const spoilers = !!camp?.uiPreferences.spoilers;
   const d = E.inspector(spoilers);
-  const tabs = ['overview', 'facts', 'history', 'deviations', 'anchors', 'plan', ...(E.settings.debug ? ['debug'] : [])];
-  const tabName: Record<string, string> = { overview: t('tabOverview'), facts: t('tabFacts'), history: t('tabHistory'), deviations: t('tabDeviations'), anchors: t('tabAnchors'), plan: t('tabPlan'), debug: t('tabDebug') };
+  const tabs = ['overview', 'player', 'facts', 'history', 'deviations', 'anchors', 'plan', ...(E.settings.debug ? ['debug'] : [])];
+  const tabName: Record<string, string> = { overview: t('tabOverview'), player: t('tabPlayer'), facts: t('tabFacts'), history: t('tabHistory'), deviations: t('tabDeviations'), anchors: t('tabAnchors'), plan: t('tabPlan'), debug: t('tabDebug') };
   let body = '';
   if (!d) body = `<div>${esc(E.status.message || t('phase_reconciling'))}</div>`;
   else if (inspectorTab === 'overview') {
     body = `<div><b>${esc(d.title)}</b> · hash ${esc(d.packHash)}</div><div>⏱ ${esc(d.time)}</div><div>rev ${d.revision} · branch ${esc(d.branchId.slice(0, 12))}</div>
       <div>${esc(d.recovery.status)} ${esc(d.recovery.reason || '')}</div>
       <ul class="canon-list">${d.notices.map((n) => `<li class="${n.level}">${esc(n.text)}</li>`).join('')}</ul>`;
+  } else if (inspectorTab === 'player') {
+    body = playerTab(d.integration);
   } else if (inspectorTab === 'facts') {
     body = `<table class="canon-table"><tr><th>entity</th><th>predicate</th><th>value</th><th>since</th><th>source</th></tr>${d.facts.map((f: any) => `<tr><td>${esc(f.entity)}</td><td>${esc(f.predicate)}</td><td>${esc(f.value)}</td><td>${esc(f.since)}</td><td>${esc(f.source)}</td></tr>`).join('')}</table>`;
   } else if (inspectorTab === 'history') {
@@ -565,6 +575,28 @@ function renderInspector() {
       <button class="menu_button" data-act="close">✕</button></div>
     <div class="canon-tabs">${tabs.map((x) => `<button class="menu_button ${x === inspectorTab ? 'active' : ''}" data-tab="${x}">${tabName[x]}</button>`).join('')}</div>
     <div class="canon-insp-body">${body}</div>`;
+}
+
+/** Inspector tab 叙事融入: what was read from the Persona, the player's decisions (with "allow contact again"),
+ *  the contacts that reached them; pending suggestions only with spoilers (they are not history). */
+function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
+  if (!v) return `<div>${esc(t('niOff'))}</div>`;
+  const list = (title: string, items: string[]) => (items.length ? `<h4>${esc(title)}</h4><ul class="canon-list">${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
+  let html = `<div><small>${esc(t('niIntro'))}</small></div>`;
+  if (v.personaChanged) html += `<div class="canon-ni-changed"><b>${esc(t('niChanged'))}</b><br><button class="menu_button" data-act="ni-update">${esc(t('niUpdate'))}</button> <button class="menu_button" data-act="ni-keep">${esc(t('niKeep'))}</button></div>`;
+  const p = v.profile;
+  if (!p) html += `<div>${esc(t('niNoProfile'))}</div>`;
+  else {
+    html += `<h4>${esc(p.name)}</h4><div>${esc(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc(p.publicIdentity)}</small></div>` : ''}<div><small>${esc(t('niSource').replace('{n}', String(p.chars)).replace('{rev}', String(p.rev)))}</small></div>`;
+    html += list(t('niOrgs'), p.affiliations) + list(t('niPlaces'), p.places) + list(t('niConnections'), p.relationships) + list(t('niWho'), p.knowers) + list(t('niNotes'), p.notes);
+  }
+  const stance = (s: string) => t(`niStance_${s}`);
+  const negative = new Set(['declined', 'deferred', 'ooc_suppress']);
+  html += `<h4>${esc(t('niDecisions'))}</h4><ul class="canon-list">${v.decisions.slice().reverse().map((d) => `<li><b>${esc(stance(d.stance))}</b> ${esc(d.label)} <small>${esc(d.time)}${d.active ? ` · ${esc(t('niActive'))}` : ''}</small>${d.quote ? `<br><small>“${esc(d.quote)}”</small>` : ''}${d.active && negative.has(d.stance) ? ` <button class="menu_button" data-act="ni-reopen" data-kind="${esc(d.scopeKind)}" data-ref="${esc(d.scopeRef)}" data-label="${esc(d.label)}">${esc(t('niReopen'))}</button>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
+  html += `<h4>${esc(t('niContacts'))}</h4><ul class="canon-list">${v.contacts.slice().reverse().map((k) => `<li><b>${esc(k.label)}</b> <small>${esc(k.time)} · ${esc(k.kind)}${k.by.length ? ` · ${esc(k.by.join(', '))}` : ''}${v.unanswered.includes(k.recordId) ? ` · ${esc(t('niUnanswered'))}` : ''}</small><br><small>“${esc(k.quote)}”</small></li>`).join('') || '<li>—</li>'}</ul>`;
+  if (v.suggestions) html += `<h4>${esc(t('niSuggestions'))}</h4><ul class="canon-list">${v.suggestions.map((s) => `<li>${esc(s.about)} — ${esc(s.by.join(', '))}: ${esc(s.contact)} <small>(${esc(s.kind)}${s.direct ? ', direct' : ''})</small></li>`).join('') || '<li>—</li>'}</ul>`;
+  if (v.dropped?.length) html += `<h4>${esc(t('niDropped'))}</h4><ul class="canon-list">${v.dropped.map((x) => `<li>${esc(x.id)}: ${esc(x.reason)}</li>`).join('')}</ul>`;
+  return html;
 }
 
 // ---------------------------------------------------------------------------------------------
