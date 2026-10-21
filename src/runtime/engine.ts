@@ -94,6 +94,12 @@ export interface StatusInfo {
   canCancel: boolean;
 }
 
+/** Most a reply may advance the clock when neither it nor the player's message mentions time. */
+const UNTIMED_ADVANCE_MAX = 20;
+/** Clock times, durations, parts of the day, day changes (Chinese and English). "一点" alone is "a little", not 1 o'clock. */
+const TIME_WORDS = /\d{1,2}\s*[:：]\s*\d{2}|\d+\s*(?:点|時|时|分钟|分|秒|小时|个小时|钟头|天|日|周|个星期|星期|个月|月|年)|(?:[两三四五六七八九十]|十[一二])\s*点|[一二两三四五六七八九十半几数]+\s*(?:分钟|小时|个小时|钟头|天|周|个星期|个月|年)|半小时|半天|第二天|次日|翌日|隔天|当晚|明天|昨天|今晚|早上|清晨|早晨|上午|中午|正午|午后|下午|傍晚|黄昏|晚上|夜里|夜晚|深夜|半夜|午夜|凌晨|黎明|天亮|天黑|入夜|日落|日出|很久之后|过了很久|\b(?:later|next (?:day|morning)|tomorrow|tonight|morning|afternoon|evening|midnight|noon|dawn|dusk|hours?|minutes?|days?)\b/i;
+export const mentionsTime = (text: string) => TIME_WORDS.test(text);
+
 /** A time jump longer than this is not used to announce canon events (a typo or a misread date). */
 const MAX_TIME_JUMP_MINUTES = 7 * 1440;
 
@@ -817,6 +823,16 @@ export class CanonEngine {
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
     // Horae tracks story time every turn; its time at the end of the previous reply is where this reply
     // starts at the earliest. The engine's own estimate only fills in the time this reply itself takes.
+    // An overestimate is permanent (the clock never goes back) while an underestimate is corrected by the Horae
+    // floor next turn: a reply whose text and player message say nothing about time advances at most
+    // UNTIMED_ADVANCE_MAX (live finding: 12:10 -> 14:43 over 11 short continuous replies, +20–40 min each).
+    if (evaluation.scene_end && !evaluation.flashback && !mentionsTime(`${a.text}\n${a.userEntry?.text || ''}`)) {
+      const lo = toTick(evaluation.scene_end.lo), cap = tick + UNTIMED_ADVANCE_MAX;
+      if (lo > cap) {
+        evaluation.scene_end = { lo: fromTick(cap), hi: fromTick(Math.max(cap, Math.min(toTick(evaluation.scene_end.hi), cap + UNTIMED_ADVANCE_MAX))), precision: 'approx' } as EvalOutput['scene_end'];
+        this.debugLog('task', { kind: 'scene_end_capped', from: formatTick(lo), to: formatTick(cap) });
+      }
+    }
     const floor = a.mode !== 'retained' ? this.horaeTick(tick) : null;
     if (floor !== null && !evaluation.flashback) {
       const lo = evaluation.scene_end ? toTick(evaluation.scene_end.lo) : tick;

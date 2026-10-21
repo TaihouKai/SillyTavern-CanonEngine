@@ -132,7 +132,7 @@ describe('pack validation', () => {
     const pair = (relation: string | null, when: object) => {
       const a = demoRaw(); // medic-ambush day 1 10:00; harbor-festival has no dependency on it
       a.events[3].when = { ...a.events[3].when, ...when };
-      if (relation) a.edges.push({ id: 'e-dp1', from: 'medic-ambush', to: 'harbor-festival', relation, basis: 'editorial', source_refs: a.edges[0].source_refs, note: 'x' });
+      if (relation) a.edges.push({ id: 'e-dp1', from: 'medic-ambush', to: 'harbor-festival', relation: relation as any, basis: 'editorial', source_refs: a.edges[0].source_refs, note: 'x' });
       return a;
     };
     expect(warns(pair('enables', at(540, 720)))).toMatch(/"harbor-festival" depends on "medic-ambush" \(enables\) but its window can begin or end before that event's window/);

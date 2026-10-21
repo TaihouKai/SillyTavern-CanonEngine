@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.69 — 2026-10-21
+
+- **The story clock no longer runs ahead during continuous scenes.** The reviewer's time rule pushed every reply forward ("a longer conversation 10-30 minutes", "do not keep lo at current_time"), and its earliest end is what the clock commits, so short replies got 20–40 minutes each (live: 12:10 → 14:43 over 11 replies of about an hour of story; a player message stating "13点51分…大概2分钟" still ended at 14:13). An overestimate is permanent while an underestimate is corrected by the Horae floor next turn, so:
+  - lo is now the MINIMUM the shown events need, adding up everything in order: dialogue as long as saying it (a dozen lines of small talk 1–2 min), an action beat under a minute, a fight a few minutes, movement by distance, waiting as long as what fills it, activity "until dark" ends at that part of the day. Unstated filler goes into hi. An explicit time or duration in the player's message (not only the reply) anchors the end.
+  - A reply where neither it nor the player's message mentions time advances the clock at most 20 minutes.
+  - Checked against the real analysis model (DeepSeek V4 Flash) on 12 everyday situations (nod, small talk, talk+fight+chase, walk, bus wait, lunch, train, study until dark, sleep, explicit skip, player-stated time): 24/24 within common-sense ranges (old rule: small talk +5–10, now +3–5; a nod +1).
+- Tests CK1–CK5; unit and e2e scenarios that jumped the clock without any time words now state their time.
+
 ## 1.3.68 — 2026-10-21
 
 - **canon-lint flags dependent events whose windows overlap.** An event that depends on another — a precondition "occurred", or an enables/precedes link — should start when its prerequisite is over; otherwise it can show as under way (or be settled) before its premise exists (live finding: 美琴追查10032号 07:00–12:00 and 婚后光子遇袭, which needs 美琴's request, 10:00–14:00). Review warning, one per pair, saying whether the dependent can even begin or end before its prerequisite. Events without a dependency may overlap freely; events that run in parallel should be linked as "related". On the Toaru pack 1.1.4 it found 44 pairs (1.1.5 fixes them).

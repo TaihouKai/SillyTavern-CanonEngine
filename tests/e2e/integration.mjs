@@ -871,7 +871,7 @@ try {
     await page.evaluate(() => document.querySelector('[data-act="close"]')?.click());
     // 结束事件: an event under way is concluded from the story on request
     await freshChat();
-    await mock('/control', { mainQueue: ['弩箭突然飞向 Mira。CE_A'], taskRules: [rule('evaluate', 'CE_A', amb('ongoing', '弩箭突然飞向')), rule('adjudicate', 'medic-ambush', { adjudications: [{ event_id: 'medic-ambush', decision: 'diverged', time: null, account: '你击退了袭击者，Mira 活了下来。', actors: ['mira'], causes: [], effects: [], plan_step_ids: [], reason: '玩家介入', extraordinary: false }] })], clearLogs: true });
+    await mock('/control', { mainQueue: ['第二天十点整，弩箭突然飞向 Mira。CE_A'], taskRules: [rule('evaluate', 'CE_A', amb('ongoing', '弩箭突然飞向')), rule('adjudicate', 'medic-ambush', { adjudications: [{ event_id: 'medic-ambush', decision: 'diverged', time: null, account: '你击退了袭击者，Mira 活了下来。', actors: ['mira'], causes: [], effects: [], plan_step_ids: [], reason: '玩家介入', extraordinary: false }] })], clearLogs: true });
     await send(page, '我跟着 Mira 走上大路。');
     await page.evaluate(() => { window.CanonEngine.engine.campaign().uiPreferences.spoilers = true; document.querySelector('#canon-engine-top-button .canon-top-toggle')?.click(); });
     await page.waitForSelector('.cg-node[data-id="medic-ambush"]', { timeout: 10000 });
@@ -887,14 +887,13 @@ try {
     // 关联本局事件: a story event the reviewer did not recognise is linked to the canon event by hand
     await freshChat();
     const plain = { scene_end: { lo: D(1, 9, 50), hi: D(1, 9, 50), precision: 'minute' }, occurrences: [{ ref: 'o1', title: '路上有人偷袭 Mira', account: '几个人从路边扑向 Mira，被你赶跑了。', actors: ['mira'], affected: ['mira'], locations: ['harbor'], time: null, causes: [], quote: '扑向 Mira', pack_event_id: null, disposition: null, ref_phrases: [], visibility: 'public', knowers: [], origin: 'gm' }] };
-    await mock('/control', { mainQueue: ['几个人突然扑向 Mira，你把他们赶跑了。LK_A'], taskRules: [rule('evaluate', 'LK_A', plain)], clearLogs: true });
+    await mock('/control', { mainQueue: ['第二天九点五十分，几个人突然扑向 Mira，你把他们赶跑了。LK_A'], taskRules: [rule('evaluate', 'LK_A', plain)], clearLogs: true });
     await send(page, '我陪 Mira 走一段路。');
     await page.evaluate(() => { const c = window.CanonEngine.engine.campaign(); c.uiPreferences.spoilers = true; document.querySelector('#canon-engine-top-button .canon-top-toggle')?.click(); });
     await page.waitForSelector('.cg-node[data-id="medic-ambush"]', { timeout: 10000 });
     await page.evaluate(() => document.querySelector('.cg-node[data-id="medic-ambush"]').dispatchEvent(new MouseEvent('click', { bubbles: true })));
     await page.click('.cg-linkopen');
-    const rows = await page.$$eval('.cg-linkrow', (els) => els.map((e) => e.innerText));
-    await page.evaluate(() => { const row = [...document.querySelectorAll('.cg-linkrow')].find((r) => r.innerText.includes('路上有人偷袭 Mira')); row?.querySelector('input')?.click(); });
+    const rows = await page.$$eval('.cg-linkrow', (els) => els.map((e) => e.innerText));    await page.evaluate(() => { const row = [...document.querySelectorAll('.cg-linkrow')].find((r) => r.innerText.includes('路上有人偷袭 Mira')); row?.querySelector('input')?.click(); });
     await page.click('[data-act="link-diverged"]');
     await page.waitForFunction(() => window.CanonEngine.engine.current.replay.state.dispositions.get('medic-ambush'), null, { timeout: 30000 }).catch(() => {});
     const stL = await engineState(page);
