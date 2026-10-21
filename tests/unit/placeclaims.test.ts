@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { claimMatches } from '../../src/domain/pack';
 import { factAt } from '../../src/domain/reducer';
+import { baseKey, interpretationsFor } from '../../src/runtime/replay';
 import { ROOT } from './helpers';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
@@ -55,6 +56,43 @@ describe('state claims about places', () => {
   });
 
   it('PC4 claimMatches: the same value with a detail added agrees; a different base value does not', () => {
+    expect(claimMatches('受损（公园被火雨砸出坑）', '受损')).toBe(true);
+  });
+});
+
+describe('a conflict stored by an older version', () => {
+  const stale = async () => {
+    const x = await setup();
+    expect(await turn(x, 'I look around.', 'You look around the quiet street. [RC0]', {})).toBe(true);
+    // what an older engine stored for this reply (live: message 62 rejected before 1.3.70)
+    const c = x.engine.campaign()!;
+    const key = baseKey(x.host.readTranscript().slice(-1)[0]);
+    for (const i of interpretationsFor(c.interpretations, key) as any[]) { i.conflict = { reason: 'old gate: presupposes 第七学区.condition' }; i.records = []; }
+    await x.engine.reconcile('t');
+    expect(x.engine.current!.replay.issue?.status).toBe('conflict');
+    return x;
+  };
+
+  it('RC1 结束事件 / 强制完成 / 关联 refuse while the replay is stopped, naming the message (they used to report success and do nothing)', async () => {
+    const x = await stale();
+    await expect(x.engine.forceComplete('medic-ambush')).rejects.toThrow(/stopped at message \d+ \(conflict\)/);
+    await expect(x.engine.concludeEvent('medic-ambush')).rejects.toThrow(/stopped at message/);
+    await expect(x.engine.linkEvent('medic-ambush', ['x'], 'occurred')).rejects.toThrow(/stopped at message/);
+    expect(x.engine.campaign()!.manualRecords || []).toHaveLength(0);
+  });
+
+  it('RC2 重试 re-checks a stored conflict with the current code instead of replaying it', async () => {
+    const x = await stale();
+    x.model.calls.length = 0;
+    await x.engine.retry();
+    expect(x.model.tasks('evaluate').length).toBeGreaterThan(0);
+    expect(x.engine.current!.replay.issue).toBeNull();
+    expect(x.engine.campaign()!.recoveryState.status).toBe('ok');
+  });
+});
+
+describe('claimMatches', () => {
+  it('PC5 more cases', () => {
     expect(claimMatches('受损（公园被火雨砸出坑）', '受损')).toBe(true);
     expect(claimMatches('受损，大门被炸开', '受损')).toBe(true);
     expect(claimMatches('毁坏（公园被火雨砸出坑）', '受损')).toBe(false);

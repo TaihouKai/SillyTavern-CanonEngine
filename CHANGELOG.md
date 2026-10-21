@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.71 — 2026-10-21
+
+- **结束事件 / 强制完成 / 关联本局事件 no longer report success when nothing changes.** Their result is anchored after the last message, but replay stops at the first message it cannot accept, so while an earlier message was a stored conflict the result was saved and never applied (live finding: "事件已结束：已改变" four times, timeline unchanged — message 62 was still the door/district conflict fixed in 1.3.70). They now refuse and name the message the engine is stopped at.
+- **重试 on a conflict re-checks the message.** A stored conflict used to be replayed as-is, so a conflict made by an older version stayed after the fix; Retry now drops it and the message is reviewed again by the current code.
+- Tests RC1–RC2.
+
 ## 1.3.70 — 2026-10-21
 
 - **A building's damage is no longer checked against its district.** Live finding: "整扇铁门从外面被炸开了" (the door of 食蜂's mansion, which is not in the registry) was filed by the reviewer as 第七学区.condition="受损" and rejected as contradicting the district's "受损（公园被火雨砸出坑）". Two fixes:

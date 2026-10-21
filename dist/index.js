@@ -16724,7 +16724,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.70";
+var ENGINE_RELEASE = "1.3.71";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -18127,6 +18127,15 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
       return;
     }
     c.recoveryState = { status: "ok" };
+    const issue = this.current?.replay.issue;
+    if (issue?.status === "conflict" && issue.entry) {
+      const key = baseKey(issue.entry);
+      const keep = interpretationsFor(c.interpretations, key).filter((i) => !i.conflict);
+      if (keep.length) c.interpretations[key] = keep;
+      else delete c.interpretations[key];
+      await this.reconcile("retry");
+      return;
+    }
     const op = this.lastFailedOp?.op;
     if (op && op !== "rebuild") {
       const last = this.host.readTranscript().slice(-1)[0];
@@ -18359,6 +18368,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     const c = this.campaign();
     if (!c || !this.current) throw new EngineError("incompatible_adapter", "engine state unavailable");
     if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; wait or cancel it first.");
+    this.assertReplayComplete();
     await this.exclusive(async () => {
       const pack2 = this.pack();
       const state = this.current.replay.state;
@@ -18373,6 +18383,13 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     });
     await this.reconcile("force_complete", { allowModel: false });
     await this.host.save();
+  }
+  /** A manual result is anchored after the last message; while the replay is stopped at an earlier message it would
+   *  be saved but never applied (live finding: 结束事件 reported "已结束" while message 62 was a stored conflict). */
+  assertReplayComplete() {
+    const issue = this.current?.replay.issue;
+    if (!issue) return;
+    throw new EngineError("incompatible_adapter", `Canon Engine is stopped at message ${issue.index} (${issue.status}): ${(issue.reasons[0] || "").slice(0, 160)} \u2014 resolve that first (\u91CD\u8BD5 re-checks it), then try again.`);
   }
   /** Undo a "强制完成". */
   async undoForce(eventId) {
@@ -18396,6 +18413,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     const c = this.campaign();
     if (!c || !this.current) throw new EngineError("incompatible_adapter", "engine state unavailable");
     if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; wait or cancel it first.");
+    this.assertReplayComplete();
     const pack2 = this.pack();
     const t2 = pack2.timeIndex.find((x) => x.id === eventId);
     if (!t2) throw new EngineError("incompatible_adapter", "This event has no story time; use \u5F3A\u5236\u5B8C\u6210 or \u5173\u8054\u672C\u5C40\u4E8B\u4EF6 instead.");
@@ -18448,6 +18466,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     const c = this.campaign();
     if (!c || !this.current) throw new EngineError("incompatible_adapter", "engine state unavailable");
     if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; wait or cancel it first.");
+    this.assertReplayComplete();
     if (!occurrenceIds.length) throw new EngineError("incompatible_adapter", "Choose at least one story event to link.");
     await this.exclusive(async () => {
       const rec = linkedCompletion(this.pack(), this.current.replay.state, eventId, occurrenceIds, disposition);
