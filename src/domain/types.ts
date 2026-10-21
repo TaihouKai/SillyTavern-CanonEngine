@@ -35,7 +35,10 @@ export interface PackEvent {
   visibility: Visibility;
   participation: { offer: 'when_relevant' | 'never'; hook: string };
   source_refs: Id[]; author_note: string;
+  /** Who is at the event and from when (fixed story times inside its window): the GM brings each one in at that time. */
+  cast?: CastMember[];
 }
+export interface CastMember { entity_id: Id; at: PackTime; role: string }
 export interface PackEntity {
   id: Id; name: string; aliases: string[];
   kind: 'person' | 'organization' | 'place' | 'object' | 'world' | 'other';

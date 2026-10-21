@@ -651,6 +651,30 @@
         },
         "author_note": {
           "type": "string"
+        },
+        "cast": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "entity_id": {
+                "$ref": "#/$defs/id"
+              },
+              "at": {
+                "$ref": "#/$defs/time"
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "entity_id",
+              "at",
+              "role"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [

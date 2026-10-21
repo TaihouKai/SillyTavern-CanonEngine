@@ -187,6 +187,9 @@ Rules:
 | `visibility` | Initial information availability, not blanket NPC omniscience |
 | `participation` | Whether to offer a relevant in-world player opportunity |
 | `source_refs`, `author_note` | Evidence and editorial explanation |
+| `cast` (optional) | Who is at the event and from when: `{ "entity_id", "at": {day, minute}, "role" }` per person |
+
+**Cast.** List the people of an event that involves several of them, each with a fixed story time inside the event window. Use the time they are there in the original, both for those present from the start and for those who arrive later. Don't tie the time to another beat ("after X falls"): play rarely follows the original course, and the GM can only act on a clock time. `role` says in a few words why they are there ("婚后的朋友，来找她"), not what they do. Each member must be in `entity_ids`, listed once, and timed inside the window. The GM is told who is already there and who arrives when, and brings each one in at that time whatever the player has done meanwhile. Only actual history that makes it impossible, such as death or captivity, keeps someone away.
 
 For HARD, **required_description + outcomes + when** are immutable runtime requirements. The title, summary, and original-route details must not sneak in additional undeclared requirements. The description and structured outcomes must agree. Do not write “a war happens” if the intended fixed event is specifically a war between two named factions ending with a named winner.
 

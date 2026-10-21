@@ -225,6 +225,14 @@ export function lintPack(pack: CanonPack): { errors: LintIssue[]; warnings: Lint
       else if (!arcs.get(ev.arc_id)!.event_ids.includes(ev.id)) err(`${P}/arc_id`, `arc "${ev.arc_id}" does not list event "${ev.id}"`);
     }
     checkSources(ev.source_refs, `${P}/source_refs`);
+    const castIds = new Set<string>();
+    (ev.cast || []).forEach((c, j) => {
+      checkEntity(c.entity_id, `${P}/cast/${j}/entity_id`);
+      if (castIds.has(c.entity_id)) err(`${P}/cast/${j}`, `"${c.entity_id}" is listed in the cast more than once`);
+      castIds.add(c.entity_id);
+      if (!ev.entity_ids.includes(c.entity_id)) err(`${P}/cast/${j}/entity_id`, `cast member "${c.entity_id}" is not in the event's entity_ids`);
+      if (ev.when.earliest && ev.when.latest && (toTick(c.at) < toTick(ev.when.earliest) || toTick(c.at) > toTick(ev.when.latest))) err(`${P}/cast/${j}/at`, 'cast time lies outside the event window');
+    });
     ev.visibility.knower_ids.forEach((x, j) => checkEntity(x, `${P}/visibility/knower_ids/${j}`));
     checkCondition(ev.canonical_preconditions, `${P}/canonical_preconditions`, ev.id);
     ev.outcomes.forEach((f, j) => checkFact(f, `${P}/outcomes/${j}`));

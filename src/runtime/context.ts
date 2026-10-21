@@ -1,9 +1,9 @@
 // Controller-owned retrieval (causal OR mentioned, plus scene/entity constraints) and the
 // bounded GM context packet. The model receives record CONTENT, never bare ids.
-import type { Id } from '../domain/types';
+import type { Id, PackEvent } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { WorldIndex, type HistoryRecordView, type EntityStateView, type CanonStatusView } from '../domain/world-query';
-import { formatStoryTime, formatTick } from '../domain/time';
+import { formatStoryTime, formatTick, toTick } from '../domain/time';
 import { pendingHard, situationOf, upcomingRoute } from '../domain/schedule';
 import { evalCondition, triLabel } from '../domain/reducer';
 import { EngineError, sceneRoot, sha256 } from '../domain/util';
@@ -228,6 +228,17 @@ function underWayEvents(index: WorldIndex, tick: number): { id: Id; title: strin
   return out.slice(0, 4);
 }
 
+/** An event's cast at fixed times: who is already there at `tick` and who arrives later. */
+function castLine(ev: PackEvent | undefined, index: WorldIndex, tick: number, origin: PacketInput['origin']): string {
+  if (!ev?.cast?.length) return '';
+  const parts = [...ev.cast].sort((a, b) => toTick(a.at) - toTick(b.at)).map((c) => {
+    const at = toTick(c.at);
+    return `${index.entityName(c.entity_id)} ${at <= tick ? 'there since' : 'arrives'} ${formatTick(at, origin)} (${c.role})`;
+  });
+  return `\n  cast: ${parts.join('; ')}`;
+}
+const CAST_RULE = 'CAST of an event (fixed times, like the event\'s own): each listed person is at the event from that time. Whoever\'s time has come is there — show them when the player character is there or arrives, even if the scene so far is about someone else. Whoever\'s time is later turns up at that time, whatever the player has done meanwhile (fighting or talking with someone else does not keep them away); only actual history that makes it impossible (dead, held captive) does. If your reply ends before someone\'s time, they have not arrived yet; do not move the clock to reach or avoid an arrival. What they do once there follows from actual play; the role says why they are there.';
+
 function canonLine(c: CanonStatusView): string {
   return `- ${c.title} [${c.packEventId}] (${c.classification}): ${c.status.toUpperCase()} — ${c.note}`;
 }
@@ -272,11 +283,11 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
     const head = jump > START_SOON_MINUTES
       ? `CANON EVENTS ABOUT TO START — the player's message jumps story time to ${formatTick(inp.timeJumpTo!, inp.origin)}; these start before then (NOT happened yet). Each begins at its time during the jump — the world does not wait: reflect the ones the player character would witness, be woken or interrupted by, or plausibly hear about; the others happen out of sight and you do not mention them. Keep the jump the player asked for: do not cut it short or stretch it to reach or avoid an event; their course and result follow from actual play`
       : `CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then — the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; its course and result follow from actual play`;
-    required.push(`${head}:\n` + starting.map((u) => `- ${u.event.title} [${u.event.id}] starts ${formatTick(u.lo, inp.origin)} (in ${minutesAway(u.lo - checkpointTick)}): ${situationOf(u.event.summary)}`).join('\n'));
+    required.push(`${head}:\n` + starting.map((u) => `- ${u.event.title} [${u.event.id}] starts ${formatTick(u.lo, inp.origin)} (in ${minutesAway(u.lo - checkpointTick)}): ${situationOf(u.event.summary)}${castLine(u.event, index, checkpointTick, inp.origin)}`).join('\n'));
   }
   // Canon events the story has started but not finished: always shown, whether or not the latest messages name them.
   const underWay = underWayEvents(index, checkpointTick);
-  if (underWay.length) required.push('CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand: their course and result follow from actual play and the player\'s choices; the original route is reference only):\n' + underWay.map((u) => `- ${u.title} [${u.id}] (window ${formatTick(u.lo, inp.origin)} – ${formatTick(u.hi, inp.origin)}): so far — ${u.beats.join(' → ')}. Original route (reference): ${u.summary.length > 160 ? u.summary.slice(0, 157) + '…' : u.summary}`).join('\n'));
+  if (underWay.length) required.push('CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand: their course and result follow from actual play and the player\'s choices; the original route is reference only):\n' + underWay.map((u) => `- ${u.title} [${u.id}] (window ${formatTick(u.lo, inp.origin)} – ${formatTick(u.hi, inp.origin)}): so far — ${u.beats.join(' → ')}. Original route (reference): ${u.summary}${castLine(index.pack.events.get(u.id), index, checkpointTick, inp.origin)}`).join('\n'));
   // Deviations
   const devs = [...index.state.dispositions].filter(([, d]) => d.disposition !== 'occurred').map(([id, d]) => `- ${pack.events.get(id)?.title} [${id}] (${pack.events.get(id)?.classification}): ${d.disposition} — ${d.reason || ''}`);
   if (devs.length) required.push('DEVIATIONS (original outcomes superseded by actual play; do not restore them):\n' + devs.join('\n'));
@@ -285,7 +296,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   const horizonEnd = checkpointTick + inp.horizon;
   const dueSoon = hard.filter((h) => h.lo <= horizonEnd);
   const later = hard.filter((h) => h.lo > horizonEnd);
-  const hardLines = dueSoon.map((h) => `- [${h.event.id}] ${formatTick(h.lo, inp.origin)}${h.hi !== h.lo ? ' – ' + formatTick(h.hi, inp.origin) : ''}: ${h.event.required_description} REQUIRED OUTCOMES: ${h.event.outcomes.map((o) => `${o.entity_id}.${o.predicate}=${JSON.stringify(o.value)}`).join(', ')}${h.hi <= checkpointTick ? ' **DUE NOW**' : ''}`);
+  const hardLines = dueSoon.map((h) => `- [${h.event.id}] ${formatTick(h.lo, inp.origin)}${h.hi !== h.lo ? ' – ' + formatTick(h.hi, inp.origin) : ''}: ${h.event.required_description} REQUIRED OUTCOMES: ${h.event.outcomes.map((o) => `${o.entity_id}.${o.predicate}=${JSON.stringify(o.value)}`).join(', ')}${h.hi <= checkpointTick ? ' **DUE NOW**' : ''}${castLine(h.event, index, checkpointTick, inp.origin)}`);
   if (!inp.review) required.push('FUTURE OBLIGATIONS (HARD; fixed content/outcome/time; route may change):\n' + (hardLines.length ? hardLines.join('\n') : '- none within the current horizon') + (later.length ? `\n- later HARD obligations exist (${later.length}); do not contradict them.` : ''));
   if (inp.forced) required.push('MODE: FORCED CONVERGENCE authorized by the controller — extraordinary world intervention may be depicted as a new event. It cannot erase history or choose the player\'s actions.');
   // Plan
@@ -305,14 +316,29 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   if (inp.opportunities.length) optional.push('PARTICIPATION OPPORTUNITIES (offer in-world only if plausible; never force; a decline is respected):\n' + inp.opportunities.map((s) => '- ' + s).join('\n'));
   const canonRef = dueSoon.slice(0, 3).map((h) => `- ${h.event.title}: original route — ${h.event.summary}`);
   if (canonRef.length) optional.push('CANON REFERENCE (original routes; reference only, NOT facts):\n' + canonRef.join('\n'));
-  const open = pack.timeIndex
+  const openEvents = pack.timeIndex
     .filter((t) => t.lo <= checkpointTick && t.hi > checkpointTick && !index.state.dispositions.has(t.id) && pack.events.get(t.id)?.classification !== 'HARD' && !underWay.some((u) => u.id === t.id)
       // an event whose original preconditions already failed will not happen; do not suggest it
       && triLabel(evalCondition(pack.events.get(t.id)!.canonical_preconditions, index.state, pack, { tick: checkpointTick })) !== 'FALSE')
-    .slice(0, 4).map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}`; });
+    .slice(0, 4);
+  const open = openEvents.map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}${castLine(e, index, checkpointTick, inp.origin)}`; });
   const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${situationOf(u.event.summary)}`);
   if (soon.length) optional.push('WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing — NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them; the player may change them, and actual play wins over this:\n' + soon.join('\n'));
-  if (open.length) optional.push('CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n' + open.join('\n'));
+  // An event in its window with a cast says who is there right now: never dropped for budget.
+  const openCast = openEvents.some((t) => pack.events.get(t.id)!.cast?.length);
+  if (open.length) (openCast && !inp.review ? required : optional).push('CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n' + open.join('\n'));
+  // The cast rule is stated once, whenever an event shown above (starting, under way, HARD, in its window) has a cast.
+  const castShown = openCast || starting.some((u) => u.event.cast?.length) || underWay.some((u) => pack.events.get(u.id)?.cast?.length) || dueSoon.some((h) => h.event.cast?.length);
+  if (castShown && !inp.review) {
+    // For events under way the player is in: who must be in the scene now and who comes next, named outright.
+    const due = underWay.flatMap((u) => {
+      const cast = pack.events.get(u.id)?.cast || [];
+      const here = cast.filter((c) => toTick(c.at) <= checkpointTick).map((c) => index.entityName(c.entity_id));
+      const next = cast.filter((c) => toTick(c.at) > checkpointTick).sort((a, b) => toTick(a.at) - toTick(b.at)).map((c) => `${index.entityName(c.entity_id)} at ${formatTick(toTick(c.at), inp.origin)}`);
+      return here.length || next.length ? [`- ${u.title}: present now — ${here.join(', ') || 'nobody listed'}${next.length ? `; still to come — ${next.join(', ')}` : ''}. Everyone present now takes part in this reply's scene (someone not shown yet enters it now).`] : [];
+    });
+    required.push(CAST_RULE + (due.length ? '\nAT THE EVENT UNDER WAY:\n' + due.join('\n') : ''));
+  }
 
   if (inp.review) optional.length = 0;
   const reqText = required.join('\n\n');

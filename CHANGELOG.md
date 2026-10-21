@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.74 — 2026-10-22
+
+- **Events can list their cast: who is there from which time.** Live finding: people who arrive later in an event (湾内/泡浮 in 婚后光子遇袭, 上条/削板 at 才人工房) never turned up, and people already there were often left out. Before an event started, the GM only saw its opening; while it was under way, the original route was cut at 160 characters, before the late arrivals.
+  - New optional pack field `cast` on an event: `{entity_id, at, role}` per person, at fixed story times inside the window. The linter checks the entity, that it is in `entity_ids`, that the time is inside the window, and that nobody is listed twice.
+  - The GM sees the cast, as "there since" or "arrives" at each time, for events about to start, in their window, under way, and for HARD obligations. A rule says everyone whose time has come is there, and later ones turn up at their time whatever the player has done meanwhile. Only death or captivity in actual history keeps them away.
+  - For an event under way, a closing line names who is present now (they take part in the scene) and who is still to come.
+  - An event in its window that has a cast is now required context (no longer dropped for budget). The route of an event under way is shown in full.
+  - Real-model check (local; 婚后 down at 11:05 and the player fights 马场): without a cast, 湾内/泡浮 appeared in 0 of 4 replies; with the cast, in 4 of 4.
+- Tests CA1–CA5.
+
 ## 1.3.73 — 2026-10-21
 
 - **The 20-minute cap no longer switches off for any time word.** Any "明天", "今晚", "上午", "午后" or "半天" in the dialogue counted as "the text mentions time", so the cap never applied and two walking scenes took +45 and +65 minutes (live: 14:50 → 16:40; one of them even said "十分钟"). Now:
