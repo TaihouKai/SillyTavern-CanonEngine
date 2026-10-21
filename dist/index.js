@@ -16724,7 +16724,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.72";
+var ENGINE_RELEASE = "1.3.73";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -16753,8 +16753,40 @@ var DEFAULT_SETTINGS = {
   sceneGrouping: false
 };
 var UNTIMED_ADVANCE_MAX = 20;
-var TIME_WORDS = /\d{1,2}\s*[:：]\s*\d{2}|\d+\s*(?:点|時|时|分钟|分|秒|小时|个小时|钟头|天|日|周|个星期|星期|个月|月|年)|(?:[两三四五六七八九十]|十[一二])\s*点|[一二两三四五六七八九十半几数]+\s*(?:分钟|小时|个小时|钟头|天|周|个星期|个月|年)|半小时|半天|第二天|次日|翌日|隔天|当晚|明天|昨天|今晚|早上|清晨|早晨|上午|中午|正午|午后|下午|傍晚|黄昏|晚上|夜里|夜晚|深夜|半夜|午夜|凌晨|黎明|天亮|天黑|入夜|日落|日出|很久之后|过了很久|\b(?:later|next (?:day|morning)|tomorrow|tonight|morning|afternoon|evening|midnight|noon|dawn|dusk|hours?|minutes?|days?)\b/i;
-var mentionsTime = (text) => TIME_WORDS.test(text);
+var TIME_ANCHOR = new RegExp([
+  String.raw`\d{1,2}\s*[:：]\s*\d{2}`,
+  String.raw`(?:\d{1,2}|[两三四五六七八九十]|十[一二])\s*点(?:\s*(?:\d{1,2}|[一二三四五六七八九十]+)\s*分|钟|整|半)?(?![点头多])`,
+  String.raw`第二天|次日|翌日|隔天|一觉|睡了一[觉夜]|过了很久|很久之后|一夜过去|转眼`,
+  String.raw`(?:到了|直到|一直到|已是|已经是|到)\s*(?:早上|清晨|上午|中午|正午|午后|下午|傍晚|黄昏|晚上|夜里|深夜|半夜|午夜|凌晨|黎明|天亮|天黑)`,
+  String.raw`(?:早上|清晨|上午|中午|午后|下午|傍晚|黄昏|晚上|深夜|凌晨|黎明)(?:时分|的时候)`,
+  String.raw`天(?:已经|就|已|也)?(?:黑|亮)了|入夜|夕阳西下|日落时|时间(?:流逝|过去)|(?:几|数)(?:个小时|小时|天)(?:过去|后)|过了(?:几|数|一)(?:个小时|小时|天)`,
+  String.raw`睡觉|睡着|入睡|睡下|睡到|\b(?:sleep|sleeps|slept|nap|naps|napped)\b`,
+  String.raw`\b(?:until|till|by) (?:the next |next )?(?:morning|noon|afternoon|evening|night|nightfall|dawn|dusk|midnight)\b|\bovernight\b|\b(?:time|hours|days|weeks|the (?:hours|days)) (?:pass|passes|passed|go by|went by)\b|\b(?:noon|night|morning|evening|dawn|dusk) (?:comes|came|falls|fell|breaks|broke|arrives|arrived)\b`,
+  String.raw`\b(?:(?:an?|one|two|three|four|five|six|several|a few|\d+) (?:hours?|minutes?|days?) later|later that|next (?:day|morning)|the following (?:day|morning)|that (?:evening|night|afternoon)|at (?:dawn|dusk|noon|midnight)|\d{1,2} ?(?:am|pm|o'clock))\b`
+].join("|"), "i");
+var CN_NUM = { \u4E00: 1, \u4E8C: 2, \u4E24: 2, \u4E09: 3, \u56DB: 4, \u4E94: 5, \u516D: 6, \u4E03: 7, \u516B: 8, \u4E5D: 9, \u5341: 10, \u534A: 0.5, \u51E0: 3 };
+var cnNumber = (t2) => {
+  if (/^\d+$/.test(t2)) return Number(t2);
+  if (t2.includes("\u5341")) {
+    const [a, b] = t2.split("\u5341");
+    return (a ? CN_NUM[a] ?? 1 : 1) * 10 + (b ? CN_NUM[b] ?? 0 : 0);
+  }
+  return CN_NUM[t2] ?? 0;
+};
+var DURATION = /(\d+|[一二两三四五六七八九十半几]+)\s*(?:个)?(半)?(分钟|小时|钟头|天|周|星期|月)(半)?(?!前|以前|之前)|半(小时)(?!前)|\b(\d+|an?|one|two|three|four|five|ten|twenty|thirty|several|a few) (minutes?|hours?|days?)\b(?! ago)|\b(half an hour)\b/gi;
+var EN_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, ten: 10, twenty: 20, thirty: 30, several: 3, "a few": 3 };
+var UNIT_MIN = { \u5206\u949F: 1, \u5C0F\u65F6: 60, \u949F\u5934: 60, \u5929: 1440, \u5468: 10080, \u661F\u671F: 10080, \u6708: 43200, minute: 1, hour: 60, day: 1440 };
+function statedTime(text) {
+  if (TIME_ANCHOR.test(text)) return { anchored: true, minutes: 0 };
+  let minutes = 0;
+  for (const m of text.matchAll(DURATION)) {
+    if (m[3]) {
+      if (m[1] !== "\u534A" || m[3] !== "\u5929") minutes += (cnNumber(m[1]) + (m[2] || m[4] ? 0.5 : 0)) * UNIT_MIN[m[3]];
+    } else if (m[5] || m[8]) minutes += 30;
+    else if (m[7]) minutes += (/^\d+$/.test(m[6]) ? Number(m[6]) : EN_NUM[m[6].toLowerCase()] ?? 1) * UNIT_MIN[m[7].toLowerCase().replace(/s$/, "")];
+  }
+  return { anchored: false, minutes: Math.round(minutes) };
+}
 var MAX_TIME_JUMP_MINUTES = 7 * 1440;
 var MAX_MANIFESTS = 40;
 function splitRejects(all) {
@@ -17523,9 +17555,10 @@ var CanonEngine = class {
       ...this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
-    if (evaluation.scene_end && !evaluation.flashback && !mentionsTime(`${a.text}
-${a.userEntry?.text || ""}`)) {
-      const lo = toTick(evaluation.scene_end.lo), cap = tick + UNTIMED_ADVANCE_MAX;
+    const stated = statedTime(`${a.text}
+${a.userEntry?.text || ""}`);
+    if (evaluation.scene_end && !evaluation.flashback && !stated.anchored) {
+      const lo = toTick(evaluation.scene_end.lo), cap = tick + stated.minutes + UNTIMED_ADVANCE_MAX;
       if (lo > cap) {
         evaluation.scene_end = { lo: fromTick(cap), hi: fromTick(Math.max(cap, Math.min(toTick(evaluation.scene_end.hi), cap + UNTIMED_ADVANCE_MAX))), precision: "approx" };
         this.debugLog("task", { kind: "scene_end_capped", from: formatTick(lo), to: formatTick(cap) });

@@ -94,11 +94,43 @@ export interface StatusInfo {
   canCancel: boolean;
 }
 
-/** Most a reply may advance the clock when neither it nor the player's message mentions time. */
+/** Most a reply may advance the clock beyond the durations its text states. */
 const UNTIMED_ADVANCE_MAX = 20;
-/** Clock times, durations, parts of the day, day changes (Chinese and English). "一点" alone is "a little", not 1 o'clock. */
-const TIME_WORDS = /\d{1,2}\s*[:：]\s*\d{2}|\d+\s*(?:点|時|时|分钟|分|秒|小时|个小时|钟头|天|日|周|个星期|星期|个月|月|年)|(?:[两三四五六七八九十]|十[一二])\s*点|[一二两三四五六七八九十半几数]+\s*(?:分钟|小时|个小时|钟头|天|周|个星期|个月|年)|半小时|半天|第二天|次日|翌日|隔天|当晚|明天|昨天|今晚|早上|清晨|早晨|上午|中午|正午|午后|下午|傍晚|黄昏|晚上|夜里|夜晚|深夜|半夜|午夜|凌晨|黎明|天亮|天黑|入夜|日落|日出|很久之后|过了很久|\b(?:later|next (?:day|morning)|tomorrow|tonight|morning|afternoon|evening|midnight|noon|dawn|dusk|hours?|minutes?|days?)\b/i;
-export const mentionsTime = (text: string) => TIME_WORDS.test(text);
+/** A clock time or a jump in time: the reviewer's estimate is used as it is. Words that only mention another time
+ *  ("明天见", "今晚有空吗", "上午的事") are not here (live finding: dialogue full of them lifted the cap, and two
+ *  walking scenes took +45 and +65 minutes). "一点" alone is "a little", not 1 o'clock. */
+const TIME_ANCHOR = new RegExp([
+  String.raw`\d{1,2}\s*[:：]\s*\d{2}`,
+  String.raw`(?:\d{1,2}|[两三四五六七八九十]|十[一二])\s*点(?:\s*(?:\d{1,2}|[一二三四五六七八九十]+)\s*分|钟|整|半)?(?![点头多])`,
+  String.raw`第二天|次日|翌日|隔天|一觉|睡了一[觉夜]|过了很久|很久之后|一夜过去|转眼`,
+  String.raw`(?:到了|直到|一直到|已是|已经是|到)\s*(?:早上|清晨|上午|中午|正午|午后|下午|傍晚|黄昏|晚上|夜里|深夜|半夜|午夜|凌晨|黎明|天亮|天黑)`,
+  String.raw`(?:早上|清晨|上午|中午|午后|下午|傍晚|黄昏|晚上|深夜|凌晨|黎明)(?:时分|的时候)`,
+  String.raw`天(?:已经|就|已|也)?(?:黑|亮)了|入夜|夕阳西下|日落时|时间(?:流逝|过去)|(?:几|数)(?:个小时|小时|天)(?:过去|后)|过了(?:几|数|一)(?:个小时|小时|天)`,
+  String.raw`睡觉|睡着|入睡|睡下|睡到|\b(?:sleep|sleeps|slept|nap|naps|napped)\b`,
+  String.raw`\b(?:until|till|by) (?:the next |next )?(?:morning|noon|afternoon|evening|night|nightfall|dawn|dusk|midnight)\b|\bovernight\b|\b(?:time|hours|days|weeks|the (?:hours|days)) (?:pass|passes|passed|go by|went by)\b|\b(?:noon|night|morning|evening|dawn|dusk) (?:comes|came|falls|fell|breaks|broke|arrives|arrived)\b`,
+  String.raw`\b(?:(?:an?|one|two|three|four|five|six|several|a few|\d+) (?:hours?|minutes?|days?) later|later that|next (?:day|morning)|the following (?:day|morning)|that (?:evening|night|afternoon)|at (?:dawn|dusk|noon|midnight)|\d{1,2} ?(?:am|pm|o'clock))\b`,
+].join('|'), 'i');
+const CN_NUM: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10, 半: 0.5, 几: 3 };
+const cnNumber = (t: string): number => {
+  if (/^\d+$/.test(t)) return Number(t);
+  if (t.includes('十')) { const [a, b] = t.split('十'); return (a ? CN_NUM[a] ?? 1 : 1) * 10 + (b ? CN_NUM[b] ?? 0 : 0); }
+  return CN_NUM[t] ?? 0;
+};
+const DURATION = /(\d+|[一二两三四五六七八九十半几]+)\s*(?:个)?(半)?(分钟|小时|钟头|天|周|星期|月)(半)?(?!前|以前|之前)|半(小时)(?!前)|\b(\d+|an?|one|two|three|four|five|ten|twenty|thirty|several|a few) (minutes?|hours?|days?)\b(?! ago)|\b(half an hour)\b/gi;
+const EN_NUM: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, ten: 10, twenty: 20, thirty: 30, several: 3, 'a few': 3 };
+const UNIT_MIN: Record<string, number> = { 分钟: 1, 小时: 60, 钟头: 60, 天: 1440, 周: 10080, 星期: 10080, 月: 43200, minute: 1, hour: 60, day: 1440 };
+/** What the text says about elapsed time: a clock time / jump (anchored), else the minutes its durations add up to. */
+export function statedTime(text: string): { anchored: boolean; minutes: number } {
+  if (TIME_ANCHOR.test(text)) return { anchored: true, minutes: 0 };
+  let minutes = 0;
+  for (const m of text.matchAll(DURATION)) {
+    if (m[3]) { if (m[1] !== '半' || m[3] !== '天') minutes += (cnNumber(m[1]) + (m[2] || m[4] ? 0.5 : 0)) * UNIT_MIN[m[3]]; } // "这半天" is "all this while"
+    else if (m[5] || m[8]) minutes += 30;
+    else if (m[7]) minutes += (/^\d+$/.test(m[6]) ? Number(m[6]) : EN_NUM[m[6].toLowerCase()] ?? 1) * UNIT_MIN[m[7].toLowerCase().replace(/s$/, '')];
+  }
+  return { anchored: false, minutes: Math.round(minutes) };
+}
+export const mentionsTime = (text: string) => { const t = statedTime(text); return t.anchored || t.minutes > 0; };
 
 /** A time jump longer than this is not used to announce canon events (a typo or a misread date). */
 const MAX_TIME_JUMP_MINUTES = 7 * 1440;
@@ -825,9 +857,11 @@ export class CanonEngine {
     // starts at the earliest. The engine's own estimate only fills in the time this reply itself takes.
     // An overestimate is permanent (the clock never goes back) while an underestimate is corrected by the Horae
     // floor next turn: a reply whose text and player message say nothing about time advances at most
-    // UNTIMED_ADVANCE_MAX (live finding: 12:10 -> 14:43 over 11 short continuous replies, +20–40 min each).
-    if (evaluation.scene_end && !evaluation.flashback && !mentionsTime(`${a.text}\n${a.userEntry?.text || ''}`)) {
-      const lo = toTick(evaluation.scene_end.lo), cap = tick + UNTIMED_ADVANCE_MAX;
+    // UNTIMED_ADVANCE_MAX (live finding: 12:10 -> 14:43 over 11 short continuous replies, +20–40 min each);
+    // a reply stating durations ("走了十分钟") may add those on top. A clock time or a time jump lifts the cap.
+    const stated = statedTime(`${a.text}\n${a.userEntry?.text || ''}`);
+    if (evaluation.scene_end && !evaluation.flashback && !stated.anchored) {
+      const lo = toTick(evaluation.scene_end.lo), cap = tick + stated.minutes + UNTIMED_ADVANCE_MAX;
       if (lo > cap) {
         evaluation.scene_end = { lo: fromTick(cap), hi: fromTick(Math.max(cap, Math.min(toTick(evaluation.scene_end.hi), cap + UNTIMED_ADVANCE_MAX))), precision: 'approx' } as EvalOutput['scene_end'];
         this.debugLog('task', { kind: 'scene_end_capped', from: formatTick(lo), to: formatTick(cap) });

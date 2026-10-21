@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.73 — 2026-10-21
+
+- **The 20-minute cap no longer switches off for any time word.** Any "明天", "今晚", "上午", "午后" or "半天" in the dialogue counted as "the text mentions time", so the cap never applied and two walking scenes took +45 and +65 minutes (live: 14:50 → 16:40; one of them even said "十分钟"). Now:
+  - a clock time ("13:51", "下午三点") or a time jump ("第二天", "到了傍晚", "天黑了", "两小时后" with 几/数, sleeping, "until morning", "hours pass") lifts the cap as before;
+  - stated durations ("走了十分钟", "一个半小时", "twenty minutes") raise the cap by that much: +20 plus what the text states (not "两天前", not the colloquial "这半天");
+  - words that only mention another time keep the cap at +20.
+  - Replayed on the live replies: 14:50 → 15:10 → 15:40 instead of 15:35 → 16:40.
+- Tests CK6–CK7.
+
 ## 1.3.72 — 2026-10-21
 
 - **Cost for DeepSeek's official API.** DeepSeek returns token counts but no cost, so its calls showed $0.0000. A request to ST's DeepSeek source, or to a custom endpoint at api.deepseek.com, is now priced from DeepSeek's published rates (checked 2026-10-21): cache-hit input, cache-miss input and output per 1M tokens, deepseek-flash $0.006 / $0.30 / $1.20 and deepseek-v4-pro $0.044 / $1.32 / $3.96 at peak (01–04 and 06–10 UTC on weekdays), half off-peak. Chinese public holidays (off-peak) are not known, so they are priced at peak. Other providers are unchanged.

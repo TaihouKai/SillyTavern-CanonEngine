@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { mentionsTime } from '../../src/runtime/engine';
+import { mentionsTime, statedTime } from '../../src/runtime/engine';
 import { PROMPTS } from '../../src/runtime/prompts';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
@@ -95,6 +95,20 @@ describe('the clock does not run ahead of the story', () => {
   it('CK4 time words: clock times, durations, parts of the day count; "一点点" (a little) does not', () => {
     for (const t of ['13:51', '13点51分', '三点钟', '两小时后', '傍晚时分', '第二天早上', '大概2分钟', 'two hours later', 'that evening']) expect(mentionsTime(t)).toBe(true);
     for (const t of ['她一点点靠近', '他抓住她的手大喊', 'She freezes and shouts.']) expect(mentionsTime(t)).toBe(false);
+  });
+
+  it('CK6 words that only mention another time do not lift the cap; durations add to it; clock times and jumps lift it (live: dialogue with 明天/今晚/午后 let walks take +45 and +65)', () => {
+    for (const t of ['「明天再说吧。」', '「今晚有空吗？」', '上午那件事', '今天午后的阳光', '「这半天你去哪了？」', '两天前的事']) expect(statedTime(t)).toEqual({ anchored: false, minutes: 0 });
+    expect(statedTime('三人又走了十分钟')).toEqual({ anchored: false, minutes: 10 });
+    expect(statedTime('大概2分钟后门被炸开')).toEqual({ anchored: false, minutes: 2 });
+    expect(statedTime('等了一个半小时')).toEqual({ anchored: false, minutes: 90 });
+    expect(statedTime('half an hour, then twenty minutes more').minutes).toBe(50);
+    for (const t of ['13:51', '13点51分', '下午三点整', '第二天早上', '到了傍晚', '傍晚时分', '天已经黑了', 'two hours later', 'that evening']) expect(statedTime(t).anchored).toBe(true);
+  });
+
+  it('CK7 the cap allows the stated durations on top of 20 minutes, and nothing for dialogue time words', async () => {
+    expect(await run('我们走吧。', '「明天再说，今晚先盯住他。」三人走了十分钟，到了仓库。 [CK7]', at(1, 11, 0))).toBe(tick(1, 10, 0));
+    expect(await run('走。', '「上午那事你还记得吗？」两人沿着街道走去。 [CK8]', at(1, 10, 30))).toBe(tick(1, 9, 50));
   });
 
   it('CK5 the reviewer is told lo is the minimum and the player message can state the time', () => {
