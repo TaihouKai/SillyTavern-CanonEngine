@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.70 — 2026-10-21
+
+- **A building's damage is no longer checked against its district.** Live finding: "整扇铁门从外面被炸开了" (the door of 食蜂's mansion, which is not in the registry) was filed by the reviewer as 第七学区.condition="受损" and rejected as contradicting the district's "受损（公园被火雨砸出坑）". Two fixes:
+  - A free-text value with a detail added agrees with its base value ("受损" vs "受损（公园被火雨砸出坑）", "受损，大门被炸开"); a different base ("毁坏") still contradicts.
+  - A claim about a place's state is only checked when the reply mentions that place (its name, an alias, or a word of its name such as "the market"); otherwise it is ignored with a warning. The reviewer is also told not to file a building, room, door or object that is not in the registry on its district or city.
+- Tests PC1–PC4.
+
 ## 1.3.69 — 2026-10-21
 
 - **The story clock no longer runs ahead during continuous scenes.** The reviewer's time rule pushed every reply forward ("a longer conversation 10-30 minutes", "do not keep lo at current_time"), and its earliest end is what the clock commits, so short replies got 20–40 minutes each (live: 12:10 → 14:43 over 11 replies of about an hour of story; a player message stating "13点51分…大概2分钟" still ended at 14:13). An overestimate is permanent while an underestimate is corrected by the Horae floor next turn, so:

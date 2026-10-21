@@ -12352,6 +12352,12 @@ function coerceClaimValue(pack2, predicate, value) {
   if (p.value_type === "number" && t2 !== "" && Number.isFinite(Number(t2))) return Number(t2);
   return value;
 }
+function claimMatches(actual, claimed) {
+  if (valuesEqual(actual, claimed)) return true;
+  if (typeof actual !== "string" || typeof claimed !== "string") return false;
+  const base = (s) => s.replace(/[（(][^）)]*[）)]/g, "").split(/[，,；;：:]/)[0].trim();
+  return base(actual) !== "" && base(actual) === base(claimed);
+}
 function claimComparable(pack2, predicate, value) {
   const p = pack2.predicates.get(predicate);
   if (!p) return false;
@@ -15303,7 +15309,7 @@ Enum fields take EXACTLY one of the listed values ("a|b|c" lists the choices). A
 TASK: Final review of a candidate GM reply (or of a retained transcript message when mode="retained"). You receive the COMPLETE candidate, the player's exact action scope, retrieved ACTUAL HISTORY and ENTITY STATE for every discovered reference (fetched freshly by the controller), staged offscreen events, due HARD contracts, plan steps, and the discovered claims list.
 1. For EVERY claim id in "claims" return a claim_check verdict: consistent (agrees with retrieved records/state), contradiction (conflicts: e.g. a destroyed place shown operating, a dead person greeting, wrong actor/outcome of a past event, using a missing object), unsupported (asserts that something HAPPENED in the past, or a cause, with no supporting record), belief_ok (a character's belief/rumor/lie presented as such), new_detail (compatible new detail), not_applicable. Cite record_ids you relied on.
    Ordinary present-scene details with no record (weather, crowds, shops, decorations, minor NPCs) are new_detail, never contradiction. Preparations, schedules, anticipation or rumors of a FUTURE event ("flags for tomorrow's festival") do not assert that the event has started. A different wording of a free-text state ("\u6B63\u5E38\u8FD0\u8F6C" vs "operating normally") is consistent.
-2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it), state_claims (facts the narration presupposes \u2014 what it takes as already true before or apart from this scene; a change the reply itself shows happening (someone is hit and falls, a machine is wrecked, an object is taken) is a TRANSITION with the new value, not a state_claim; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null), player_actions (player-character actions depicted; authorized_by_quote = a span COPIED VERBATIM from the player's message that covers it, or null). An action is authorized when it carries out what the player wrote, including its natural steps and immediate details (for "I take her back to the cell and lock her up": stopping her, taking her belongings, escorting her, locking the door). Use null only for a NEW decision, goal or line of dialogue the player did not express, step_enactments, new_entities (genuinely new people/places/objects introduced).
+2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it), state_claims (facts the narration presupposes \u2014 what it takes as already true before or apart from this scene; a change the reply itself shows happening (someone is hit and falls, a machine is wrecked, an object is taken) is a TRANSITION with the new value, not a state_claim; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null; put each claim on the entity the quote is actually about \u2014 a building, room, door or object that is not in the registry is NOT its district or city: leave such a claim out rather than file it on a containing place), player_actions (player-character actions depicted; authorized_by_quote = a span COPIED VERBATIM from the player's message that covers it, or null). An action is authorized when it carries out what the player wrote, including its natural steps and immediate details (for "I take her back to the cell and lock her up": stopping her, taking her belongings, escorting her, locking the door). Use null only for a NEW decision, goal or line of dialogue the player did not express, step_enactments, new_entities (genuinely new people/places/objects introduced).
 3. scene_end: story time when the reply ends ({day, minute} with minute = minutes after midnight on a 24-hour clock: noon / \u4E2D\u534812\u70B9 is 720, 12:10 is 730, midnight is 0; \u665A\u4E0A/\u4E0B\u5348 hours are after 12:00). lo is the MINIMUM time the depicted events actually need, added to the time the scene starts: add up everything the reply shows in order \u2014 dialogue, actions, fighting, movement. Spoken dialogue takes about as long as saying it: a short line a few seconds, a dozen lines of small talk about 1-2 minutes; a single action beat or fight moment under a minute, a whole fight a few minutes; moving by distance (across a room seconds, down the street a few minutes, a train ride to another district 15-30); only a long conversation with many long speeches 10-20 minutes; a meal 30-60; walking/travel by distance; waiting lasts as long as what the text says fills it (reading two articles while waiting is several minutes); sleeping until the stated waking. Activity that runs "until" a part of the day ("\u4E00\u76F4\u5199\u5230\u5929\u9ED1", "until evening") ends at that part of the day's usual clock time for the date (dark in September about 18:00-18:30), not a guessed duration. Time the text does not state (lingering, unstated filler) goes into hi, never into lo; when unsure, keep lo low \u2014 an overestimate can never be taken back. An explicit time, duration or skip in the PLAYER'S MESSAGE (player_action_scope) or in the reply ("13\u70B951\u5206", "\u5927\u69822\u5206\u949F", "two hours later", "\u508D\u665A") anchors scene_end and wins over estimates. precision "approx" for an estimate, "minute" only when a time is stated. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback.
    canon_events_now lists the canonical (non-HARD) events whose time window is open around this scene. If the reply depicts one of them happening \u2014 even with other participants (e.g. the player tagging along) or a different course \u2014 record that occurrence with its pack_event_id and a disposition. Decide the result only when the event has CONCLUDED in this reply (its outcome happened, or it can no longer happen as written): "occurred" if its original result holds, "diverged" if the result is different. While it is still under way \u2014 the fight has started, the attack is in progress, nobody has won yet \u2014 use "ongoing": the result is not settled, and the event is judged in the reply where it ends. Never use "diverged" only because the result is not shown yet. An entry with in_progress lists the beats already shown; continue it ("ongoing" again, or "occurred"/"diverged" when it ends). Never file such an event as an ordinary scene beat.
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
@@ -15476,7 +15482,7 @@ function validateAgainstPrefix(interp, state, pack2, entries, uptoIndex) {
   for (const c of interp.stateClaims) {
     const f = factAt(state, c.entity_id, c.predicate, { tick: Number.MAX_SAFE_INTEGER });
     const cv = coerceClaimValue(pack2, c.predicate, c.value);
-    if (f.known && !valuesEqual(f.value, cv) && claimComparable(pack2, c.predicate, cv)) reasons.push(`presupposes ${c.entity_id}.${c.predicate}=${JSON.stringify(c.value)} but actual state is ${JSON.stringify(f.value)} ("${c.quote}")`);
+    if (f.known && !claimMatches(f.value, cv) && claimComparable(pack2, c.predicate, cv)) reasons.push(`presupposes ${c.entity_id}.${c.predicate}=${JSON.stringify(c.value)} but actual state is ${JSON.stringify(f.value)} ("${c.quote}")`);
   }
   for (const r of interp.records) {
     if (r.packEventId && r.disposition && state.dispositions.has(r.packEventId)) reasons.push(`canonical event ${r.packEventId} already has a disposition in the new prefix`);
@@ -16080,12 +16086,17 @@ function runGate(g) {
   const stateClaims = [];
   const cp = { tick: Math.max(sceneEnd.lo, g.clockTick) };
   const setInReply = (eid, pred, v) => occRecords.some((r) => r.factsSetOrUnset.some((d) => d.op === "set" && d.entity_id === eid && d.predicate === pred && valuesEqual(d.value, v)));
+  const mentionsPlace = (eid) => index.allNames(eid).some((n) => !!n && (text.includes(n) || n.split(/\s+/).some((w) => w.length >= 4 && new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(text))));
   const checkClaim = (eid, pred, value0, quote, label, atTick) => {
     const value = coerceClaimValue(pack2, pred, value0);
     const claimCp = atTick !== void 0 ? { tick: atTick } : cp;
     const f = factAt(index.state, eid, pred, claimCp);
-    if (f.known && !valuesEqual(f.value, value) && claimComparable(pack2, pred, value)) {
+    if (f.known && !claimMatches(f.value, value) && claimComparable(pack2, pred, value)) {
       if (atTick === void 0 && setInReply(eid, pred, value)) return;
+      if (index.entityKind(eid) === "place" && !mentionsPlace(eid)) {
+        warnings.push(`state claim "${quote.slice(0, 60)}" filed on ${index.entityName(eid)}.${pred} ignored: the reply does not mention that place`);
+        return;
+      }
       const revival = typeof f.value === "boolean" && f.value === false && value === true && /alive|living|存活|生存/i.test(pred);
       const host2 = atTick === void 0 && !revival ? occRecords.find((r) => (r.occurrences || []).some((o) => o.affected.includes(eid) || o.actors.includes(eid))) : void 0;
       if (host2) {
@@ -16713,7 +16724,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.3.69";
+var ENGINE_RELEASE = "1.3.70";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));

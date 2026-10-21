@@ -460,6 +460,15 @@ export function coerceClaimValue(pack: LoadedPack, predicate: Id, value: FactVal
   return value;
 }
 
+/** A claimed value agrees with the actual one: equal, or the same free-text value with a detail added
+ *  (claim "受损", actual "受损（公园被火雨砸出坑）"). */
+export function claimMatches(actual: FactValue, claimed: FactValue): boolean {
+  if (valuesEqual(actual, claimed)) return true;
+  if (typeof actual !== 'string' || typeof claimed !== 'string') return false;
+  const base = (s: string) => s.replace(/[（(][^）)]*[）)]/g, '').split(/[，,；;：:]/)[0].trim();
+  return base(actual) !== '' && base(actual) === base(claimed);
+}
+
 export function claimComparable(pack: LoadedPack, predicate: Id, value: unknown): boolean {
   const p = pack.predicates.get(predicate);
   if (!p) return false;
