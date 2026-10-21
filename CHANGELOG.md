@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.72 — 2026-10-21
+
+- **Cost for DeepSeek's official API.** DeepSeek returns token counts but no cost, so its calls showed $0.0000. A request to ST's DeepSeek source, or to a custom endpoint at api.deepseek.com, is now priced from DeepSeek's published rates (checked 2026-10-21): cache-hit input, cache-miss input and output per 1M tokens, deepseek-flash $0.006 / $0.30 / $1.20 and deepseek-v4-pro $0.044 / $1.32 / $3.96 at peak (01–04 and 06–10 UTC on weekdays), half off-peak. Chinese public holidays (off-peak) are not known, so they are priced at peak. Other providers are unchanged.
+- Tests DS1–DS2.
+
 ## 1.3.71 — 2026-10-21
 
 - **结束事件 / 强制完成 / 关联本局事件 no longer report success when nothing changes.** Their result is anchored after the last message, but replay stops at the first message it cannot accept, so while an earlier message was a stored conflict the result was saved and never applied (live finding: "事件已结束：已改变" four times, timeline unchanged — message 62 was still the door/district conflict fixed in 1.3.70). They now refuse and name the message the engine is stopped at.

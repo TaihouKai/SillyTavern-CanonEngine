@@ -381,6 +381,38 @@ export function costOf(d: any): { usd: number | null; diem: number } {
   return { usd, diem };
 }
 
+/** DeepSeek's official API reports tokens but no cost, so the cost is computed from its published prices (USD per
+ *  1M tokens at peak; off-peak is half). Checked 2026-10-21 at api-docs.deepseek.com/quick_start/pricing.
+ *  Update here when DeepSeek changes them. */
+const DEEPSEEK_PRICES: { match: RegExp; hit: number; miss: number; out: number }[] = [
+  { match: /pro/i, hit: 0.044, miss: 1.32, out: 3.96 },
+  { match: /./, hit: 0.006, miss: 0.3, out: 1.2 }, // deepseek-flash; legacy names are billed at the Flash price
+];
+
+/** The request goes to DeepSeek's official API: ST's DeepSeek source, or a custom endpoint at api.deepseek.com. */
+export function isDeepSeekOfficial(b: any): boolean {
+  return b?.chat_completion_source === 'deepseek' || (b?.chat_completion_source === 'custom' && /^(https?:\/\/)?api\.deepseek\.com(\/|$)/i.test(String(b?.custom_url || '').trim()));
+}
+
+/** DeepSeek's peak hours: 01:00-04:00 and 06:00-10:00 UTC, Monday to Friday (Chinese public holidays, which are
+ *  off-peak, are not known here, so a holiday is priced at the peak rate). */
+export function deepseekPeak(at: Date): boolean {
+  const d = at.getUTCDay(), h = at.getUTCHours();
+  return d >= 1 && d <= 5 && ((h >= 1 && h < 4) || (h >= 6 && h < 10));
+}
+
+/** USD cost of one DeepSeek call from its usage (cache hit / miss input, output incl. reasoning), or null. */
+export function deepseekCost(model: string, u: any, at: Date): number | null {
+  const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+  const out = n(u?.completion_tokens), prompt = n(u?.prompt_tokens);
+  if (out === null && prompt === null) return null;
+  const hit = n(u?.prompt_cache_hit_tokens) ?? 0;
+  const miss = n(u?.prompt_cache_miss_tokens) ?? Math.max(0, (prompt ?? 0) - hit);
+  const p = DEEPSEEK_PRICES.find((x) => x.match.test(model))!;
+  const k = deepseekPeak(at) ? 1 : 0.5;
+  return ((hit * p.hit + miss * p.miss + (out ?? 0) * p.out) * k) / 1e6;
+}
+
 /** Request body for streaming a non-streamed Canon request to a custom (OpenAI-compatible) endpoint, or null. */
 export function streamedBody(body: string): string | null {
   let b: any;
@@ -460,6 +492,7 @@ function tapUsage() {
         if ((e as Error)?.name === 'AbortError' || init?.signal?.aborted) throw e;
       }
     }
+    const startedAt = new Date();
     if (!res) res = await orig(input, init);
     try {
       const body = body0;
@@ -472,6 +505,11 @@ function tapUsage() {
           const i = Number.isFinite(inp) ? inp : 0, o = Number.isFinite(out) ? out : 0;
           if (Number.isFinite(inp) || Number.isFinite(out)) { usage.input += i; usage.output += o; if (story) { usage.storyInput! += i; usage.storyOutput! += o; } } else usage.unreported++;
           const c = costOf(d);
+          if (c.usd === null) {
+            let b: any = null;
+            try { b = JSON.parse(body); } catch { /* not JSON */ }
+            if (isDeepSeekOfficial(b)) c.usd = deepseekCost(String(d?.model || b?.model || ''), u, startedAt);
+          }
           if (c.usd !== null) { usage.costUsd! += c.usd; if (story) usage.storyCostUsd! += c.usd; } else usage.costUnreported!++;
           usage.diem! += c.diem;
         }).catch(() => { usage.unreported++; usage.costUnreported!++; });

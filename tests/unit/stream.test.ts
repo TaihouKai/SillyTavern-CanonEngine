@@ -1,7 +1,7 @@
 // SR01–SR04: Canon's own requests to a custom endpoint are streamed to the provider (so a slow
 // reasoning model does not hit a gateway timeout) and folded back into one ordinary completion.
 import { describe, expect, it } from 'vitest';
-import { sseToCompletion, streamedBody, StModel, costOf } from '../../src/adapters/st';
+import { sseToCompletion, streamedBody, StModel, costOf, deepseekCost, deepseekPeak, isDeepSeekOfficial } from '../../src/adapters/st';
 
 const sse = (...chunks: unknown[]) => chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join('') + 'data: [DONE]\n\n';
 const delta = (d: object, finish: string | null = null) => ({ id: 'x', model: 'm', choices: [{ index: 0, delta: d, finish_reason: finish }] });
@@ -73,6 +73,37 @@ describe('streamed requests', () => {
       expect(u.storyCostUsd).toBeCloseTo(0.02, 10);
       expect(u.costUnreported).toBe(1);
       expect(model.takeUsage().costUsd).toBe(0); // reset per turn
+    });
+
+    it("DS1 DeepSeek's official API (no cost in the response) is priced from its published rates: custom endpoint api.deepseek.com or ST's DeepSeek source", async () => {
+      const ds = (src: object, model: string) => (globalThis as any).window.fetch(url, { method: 'POST', body: JSON.stringify({ stream: false, custom_include_body: '', model, messages: [{ role: 'user', content: '[CANON_ENGINE_TASK:evaluate]' }], ...src }) });
+      const usage = { prompt_tokens: 50000, prompt_cache_hit_tokens: 40000, prompt_cache_miss_tokens: 10000, completion_tokens: 2000 };
+      handler = (b) => new Response(b.stream ? sse(delta({ content: 'ok' }, 'stop'), { choices: [], usage }) : JSON.stringify({ model: b.model, choices: [{ message: { content: 'ok' } }], usage }), { status: 200 });
+      const k = deepseekPeak(new Date()) ? 1 : 0.5;
+      model.takeUsage();
+      await (await ds({ chat_completion_source: 'custom', custom_url: 'https://api.deepseek.com' }, 'deepseek-flash')).json();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(model.takeUsage().costUsd).toBeCloseTo(k * (40000 * 0.006 + 10000 * 0.3 + 2000 * 1.2) / 1e6, 12);
+      await (await ds({ chat_completion_source: 'deepseek' }, 'deepseek-v4-pro')).json();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(model.takeUsage().costUsd).toBeCloseTo(k * (40000 * 0.044 + 10000 * 1.32 + 2000 * 3.96) / 1e6, 12);
+      // another provider without a cost is still "no cost reported", not priced as DeepSeek
+      await (await ds({ chat_completion_source: 'custom', custom_url: 'https://api.example.com/v1' }, 'deepseek-flash')).json();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(model.takeUsage()).toMatchObject({ costUsd: 0, costUnreported: 1 });
+    });
+
+    it('DS2 peak hours are 01-04 and 06-10 UTC on weekdays; off-peak is half', () => {
+      expect(deepseekPeak(new Date('2026-10-21T02:30:00Z'))).toBe(true); // Wednesday
+      expect(deepseekPeak(new Date('2026-10-21T04:30:00Z'))).toBe(false);
+      expect(deepseekPeak(new Date('2026-10-21T09:59:00Z'))).toBe(true);
+      expect(deepseekPeak(new Date('2026-10-24T02:30:00Z'))).toBe(false); // Saturday
+      const u = { prompt_tokens: 1e6, prompt_cache_miss_tokens: 1e6, completion_tokens: 0 };
+      expect(deepseekCost('deepseek-flash', u, new Date('2026-10-21T02:30:00Z'))).toBeCloseTo(0.3, 10);
+      expect(deepseekCost('deepseek-flash', u, new Date('2026-10-21T12:00:00Z'))).toBeCloseTo(0.15, 10);
+      expect(deepseekCost('deepseek-flash', {}, new Date())).toBeNull();
+      expect(isDeepSeekOfficial({ chat_completion_source: 'custom', custom_url: 'api.deepseek.com/v1' })).toBe(true);
+      expect(isDeepSeekOfficial({ chat_completion_source: 'custom', custom_url: 'https://api.deepseek.com.evil.io' })).toBe(false);
     });
 
     it('SR05 a stream that goes silent without closing is given up after the stall time, with a clear reason; steady slow streams are not', async () => {
