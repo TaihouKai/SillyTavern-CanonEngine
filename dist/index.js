@@ -20634,7 +20634,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.4.5";
+var ENGINE_RELEASE = "1.4.6";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -21766,7 +21766,7 @@ ${a.userEntry?.text || ""}`);
         this.checkFences(fences, excludeLast);
         const eng = engagementView(index.state, pack2);
         const busy = [...index.state.occurrences.values()].some((o) => o.inProgressOf && !index.state.dispositions.has(o.inProgressOf));
-        const offered = prof ? selectOpportunity(integ, index, clock, busy) : null;
+        const offered = prof ? selectOpportunity(integ, index, jumpTo ?? clock, busy) : null;
         const prevGm = (() => {
           for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === "gm") return entries[k];
           return null;

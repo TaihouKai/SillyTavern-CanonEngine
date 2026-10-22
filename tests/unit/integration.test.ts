@@ -202,6 +202,13 @@ describe('the world reaches the player', () => {
     expect(st(x).engagements).toHaveLength(0);
   });
 
+  it('NI-14b after a time jump, a reaction possible where the jump lands is offered (live: sleeping until 08:00)', async () => {
+    const x = await setup({ integrate: { assessments: [], opportunities: [OPP({ target_event_id: null, scope_kind: 'storyline', scope_ref: 'debts', kind: 'information', contact: 'a debtor knocks at dawn', earliest: { day: 2, minute: 480 }, latest: { day: 2, minute: 720 } })] } });
+    const sleep = { statements: [{ kind: 'time_proposal', quote: 'I sleep until 8 tomorrow morning', summary: 'sleep', entities: [], facts: [], event_id: null, time: { day: 2, minute: 480 }, ambiguous: false, stance: null, scope_kind: null, scope_ref: null, scope_label: null, until: null }], references: [], scene_entities: [] };
+    await turn(x, 'I sleep until 8 tomorrow morning.', 'Morning comes. [J1]', { scene_end: at(2, 8, 10) }, sleep);
+    expect(lastCtx(x)).toMatch(/WORLD REACTION [(]optional[\s\S]*a debtor knocks at dawn/);
+  });
+
   it('NI-11 a settled event or one whose original conditions failed is not revived; its consequences may still reach the player', async () => {
     const x = await setup({ integrate: { assessments: [], opportunities: [OPP({ ref: 'a' }), OPP({ ref: 'b', kind: 'consequence', direct_impact: true, contact: 'the wounded are brought to the tea house' }), OPP({ ref: 'c', kind: 'information', contact: 'a runner tells Vera that Mira died' })] } });
     await x.engine.forceComplete('medic-ambush'); // settled (Mira dies in the original)

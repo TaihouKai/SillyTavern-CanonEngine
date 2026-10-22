@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.6 — 2026-10-22
+
+- **Fix: after a time jump, world reactions were judged from the time before it.** Which reaction can happen "soon" was measured from the clock before the player's jump. Live: the player slept from 23:15 until 08:00, and the news that became possible at 08:00 (绢旗 asking about 芙兰达) was not offered on that turn. It is now measured from where the jump lands.
+- Tests: NI-14b.
+
 ## 1.4.5 — 2026-10-22
 
 - **News of a settled event may reach the player.** Live: 芙兰达之死 was settled offscreen, and the suggestion that the player, her close friend, hears of it was dropped because a settled event accepted only the kind "consequence". News of what happened ("information") is now allowed too. Invitations or requests to take part in a settled event are still dropped.

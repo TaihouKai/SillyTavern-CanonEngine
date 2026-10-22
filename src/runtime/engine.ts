@@ -1136,7 +1136,9 @@ export class CanonEngine {
         this.checkFences(fences, excludeLast);
         const eng = engagementView(index.state, pack);
         const busy = [...index.state.occurrences.values()].some((o) => o.inProgressOf && !index.state.dispositions.has(o.inProgressOf));
-        const offered: Opportunity | null = prof ? selectOpportunity(integ, index, clock, busy) : null;
+        // after a time jump the scene happens where the jump lands (live: news possible from 08:00 was never offered
+        // on the turn that slept until 08:00, measured from 23:15)
+        const offered: Opportunity | null = prof ? selectOpportunity(integ, index, jumpTo ?? clock, busy) : null;
 
         // Pre-generation retrieval: user references + scene + causal seeds + semantic expansion
         const prevGm = (() => { for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === 'gm') return entries[k]; return null; })();
