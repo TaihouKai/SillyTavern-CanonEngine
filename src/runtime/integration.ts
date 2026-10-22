@@ -21,6 +21,9 @@ export const UNANSWERED_HOLD_MINUTES = 24 * 60;
 export const OFFER_SOON_MINUTES = 3 * 60;
 
 export const personaHash = (p: { name: string; description: string }) => sha256(`${p.name}\n${p.description}`);
+/** Whether a stored Persona hash is this Persona, read either way (with or without Persona Library's sections). */
+export const samePersona = (hash: string | undefined, p: { name: string; description: string; alt?: string }) =>
+  !!hash && (hash === personaHash(p) || (p.alt !== undefined && hash === personaHash({ name: p.name, description: p.alt })));
 
 // ---------------------------------------------------------------------------------------------
 // Player presence (profile)
@@ -41,7 +44,7 @@ const slug = (s: string) => (String(s).normalize('NFKC').toLowerCase().replace(/
  *  known character, and nobody knows secrets the Persona does not give them (user decision: allow the knowers an
  *  identity implies, keep the three levels apart, never make a canon character the player's superior on a guess).
  *  Ids of the player and their original organizations/places are kept from the previous revision by name. */
-export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldIndex, persona: { name: string; description: string }, prev: PlayerProfile | null): { profile: PlayerProfile; runtimeEntities: RuntimeEntity[] } {
+export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldIndex, persona: { name: string; description: string; source?: PlayerProfile['source'] }, prev: PlayerProfile | null): { profile: PlayerProfile; runtimeEntities: RuntimeEntity[] } {
   const notes: string[] = [];
   const runtimeEntities: RuntimeEntity[] = [];
   const known = (id: string | null | undefined) => (id && pack.entities.has(id) ? id : null);
@@ -94,7 +97,7 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
   const list = (x?: string[]) => (x || []).map((s) => String(s).trim()).filter(Boolean).slice(0, 20);
   return {
     profile: {
-      personaName: persona.name, personaText: persona.description, personaHash: personaHash(persona), source: 'standard_persona', playerId,
+      personaName: persona.name, personaText: persona.description, personaHash: personaHash(persona), source: persona.source || 'standard_persona', playerId,
       summary: (out.player?.summary || '').slice(0, 1500), publicIdentity: (out.player?.public_identity || '').slice(0, 800),
       affiliations, places, capabilities: list(out.capabilities), resources: list(out.resources), goals: list(out.goals), relationships, knowers, uncertain: list(out.uncertain), notes,
     },

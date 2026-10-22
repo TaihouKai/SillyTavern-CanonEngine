@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.2 — 2026-10-22
+
+- **New setting: "Canon ignores Persona Library sections"** (off by default). Persona Library writes its core text plus the enabled Additional Sections into the Persona description. With this setting, Canon reads only the core text; the GM still gets everything. This is for things Canon does not need, such as incantations or style notes.
+  - The core text is used only when the description still starts with it. If the Persona was edited in SillyTavern's own panel since, or a variant wraps the text, Canon reads the whole description. Variants that are appended are fine.
+  - Switching the setting does not count as a changed Persona: a game read one way is recognised read the other way, so no "Persona differs" notice appears. Use 更新本局身份 to re-read a started game with the new setting.
+  - The 叙事融入 tab says which text was read. Its old note, "Persona Library categories are not read", was wrong: enabled sections were always part of the description.
+- Tests: PS1–PS3.
+
 ## 1.5.1 — 2026-10-22
 
 - **Debug mode shows why drafts were sent back.** With 调试模式 on:

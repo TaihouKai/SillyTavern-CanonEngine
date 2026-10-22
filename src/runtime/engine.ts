@@ -1,5 +1,6 @@
 // Canon Engine controller: binding, reconciliation, one foreground operation (stage -> validate ->
 // commit), journal recovery, backup. Host-independent (see host.ts).
+import type { Persona } from './host';
 import type { Id, LedgerRecord, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { valuesEqual } from '../domain/pack';
@@ -18,7 +19,7 @@ import { runGate, type EvalOutput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, integrationKey, personaHash, playerContext, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, integrationKey, personaHash, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 
@@ -50,6 +51,8 @@ export interface EngineSettings {
   replyLength: string;
   /** Scene grouping: beats of the same ongoing scene continue one 本局事件 box instead of each making a new one. */
   sceneGrouping: boolean;
+  /** Canon reads Persona Library's core text without its Additional Sections (the GM still gets everything). */
+  ignorePersonaSections: boolean;
   /** What the GM may write for the player character (dialogue, reactions, small actions...; see voice.ts). */
   playerVoice: PlayerVoice;
 }
@@ -86,6 +89,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   taskExtraBody: '',
   replyLength: '',
   sceneGrouping: false,
+  ignorePersonaSections: false,
   playerVoice: { ...DEFAULT_PLAYER_VOICE },
 };
 
@@ -612,7 +616,7 @@ export class CanonEngine {
     const opportunities = this.opportunities(index, tick).map((o) => ({ event_id: o.id, title: o.title, hook: o.hook }));
     // The identity this message was written with (an older message is never read with a newer Persona).
     const prof = this.profileFor(entry);
-    const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.host.persona();
+    const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.persona();
     const out = await this.withTimeout(callStructured<ExtractUserOut>(this.host.model, 'extract_user', PROMPTS.extract_user, {
       message: entry.text,
       persona,
@@ -1508,7 +1512,7 @@ export class CanonEngine {
   // Narrative integration: the player's profile (from the Persona) and how the world reacts to them
 
   /** Read the Persona into a checked profile (one model call). */
-  private async readProfile(persona: { name: string; description: string }, prev: PlayerProfile | null, signal: AbortSignal | undefined, operationId: string): Promise<{ profile: PlayerProfile; runtimeEntities: import('../domain/types').RuntimeEntity[] }> {
+  private async readProfile(persona: Persona, prev: PlayerProfile | null, signal: AbortSignal | undefined, operationId: string): Promise<{ profile: PlayerProfile; runtimeEntities: import('../domain/types').RuntimeEntity[] }> {
     const pack = this.pack();
     const index = this.current?.index || new WorldIndex(pack, reduceRecords(pack, []));
     const ent = (e: { id: string; name: string; aliases?: string[]; kind: string }) => `${e.id} | ${e.name} | ${(e.aliases || []).join(', ')} | ${e.kind}`;
@@ -1532,7 +1536,7 @@ export class CanonEngine {
   private async ensureProfile(signal: AbortSignal | undefined, operationId: string): Promise<void> {
     const c = this.campaign();
     if (!c?.integration) return;
-    const persona = this.host.persona();
+    const persona = this.persona();
     const latest = this.playerProfile();
     if (!latest) {
       if (!persona.name && !persona.description) return;
@@ -1546,20 +1550,21 @@ export class CanonEngine {
       return;
     }
     const h = personaHash(persona);
-    if (h !== latest.profile.personaHash && h !== c.personaKeptHash && this.personaNoticeHash !== h) {
+    if (!samePersona(latest.profile.personaHash, persona) && !samePersona(c.personaKeptHash, persona) && this.personaNoticeHash !== h) {
       this.personaNoticeHash = h;
       this.notice('warn', `The active Persona ("${persona.name}") differs from this game's player ("${latest.profile.personaName}"). This game keeps its identity until you choose 更新本局身份 in the Canon Engine panel (or 保留本局身份 to stop this notice).`);
     }
   }
   private personaNoticeHash = '';
+  private persona() { return this.host.persona({ ignoreSections: this.settings.ignorePersonaSections }); }
 
   /** Whether the active Persona differs from this game's player profile (for the panel). */
   personaChanged(): boolean {
     const c = this.campaign();
     const latest = this.playerProfile();
     if (!c?.integration || !latest) return false;
-    const h = personaHash(this.host.persona());
-    return h !== latest.profile.personaHash && h !== c.personaKeptHash;
+    const p = this.persona();
+    return !samePersona(latest.profile.personaHash, p) && !samePersona(c.personaKeptHash, p);
   }
 
   /** 更新本局身份: read the active Persona as a new profile revision, in effect from after the current last message
@@ -1570,7 +1575,7 @@ export class CanonEngine {
     if (!c) return;
     c.integration ||= { since: ENGINE_RELEASE };
     const prev = this.playerProfile();
-    const persona = this.host.persona();
+    const persona = this.persona();
     const { profile, runtimeEntities } = await this.readProfile(persona, prev && prev.profile.personaName === persona.name ? prev.profile : null, undefined, 'identity');
     const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
     const rev = (prev?.rev || 0) + 1;
@@ -1588,7 +1593,7 @@ export class CanonEngine {
   async keepIdentity(): Promise<void> {
     const c = this.campaign();
     if (!c) return;
-    c.personaKeptHash = personaHash(this.host.persona());
+    c.personaKeptHash = personaHash(this.persona());
     await this.host.save();
     this.emit();
   }
@@ -1691,7 +1696,7 @@ export class CanonEngine {
     // P0: the planner knows the player as the player is now (profile, decisions, lasting state), not just a name.
     // A plan made for an older player context is replanned, even when the HARD situation did not change.
     const prof = c.integration ? this.profileFor(null) : null;
-    const persona = this.host.persona();
+    const persona = this.persona();
     const player = prof ? playerContext(index, prof.profile, clock, { historyLimit: 12 }) : { name: persona.name, persona: persona.description };
     const pHash = playerContextHash(index, prof?.profile || null, persona);
     if (plan && !needs && plan.playerContextHash !== pHash) needs = true;

@@ -5,7 +5,7 @@
 //   through ST's own saveReply.
 // - isolation: internal structured tasks use generateRaw; prompt hooks of other extensions are
 //   neutralized by restoring the exact task messages at CHAT_COMPLETION_PROMPT_READY.
-import type { HostPort, PublishRequest } from '../runtime/host';
+import type { HostPort, Persona, PublishRequest } from '../runtime/host';
 import type { CampaignData, Interpretation, OpType, SourceEntry } from '../runtime/types';
 import type { ChatMsg, DraftRequest, ModelPort, TaskName } from '../runtime/model';
 import { TASK_TAG } from '../runtime/model';
@@ -49,6 +49,16 @@ async function loadReasoningModule(): Promise<any> {
   const url = '/scripts/reasoning.js';
   try { reasoningModule = await import(/* @vite-ignore */ url); } catch { reasoningModule = {}; }
   return reasoningModule;
+}
+
+/** Persona Library keeps a Persona as a core text plus toggleable Additional Sections and writes core + enabled
+ *  sections ("[Title: content]") into the Persona description. The core, when this Persona has enabled sections and
+ *  the description still starts with it (edited in ST's own panel since, or replaced by a variant: null). */
+export function personaLibraryCore(entry: any, description: string): string | null {
+  const core = typeof entry?.core === 'string' ? entry.core.trim() : '';
+  const sections = Array.isArray(entry?.sections) ? entry.sections.filter((s: any) => s?.enabled && String(s.content ?? '').trim()) : [];
+  if (!core || !sections.length) return null;
+  return description.trim().startsWith(core) ? core : null;
 }
 
 export function ctx(): any {
@@ -324,9 +334,13 @@ export class StHost implements HostPort {
 
   async settle(): Promise<void> { await this.settleSwipe(); }
 
-  persona(): { name: string; description: string } {
+  persona(opts?: { ignoreSections?: boolean }): Persona {
     const c = ctx();
-    return { name: String(c.name1 || ''), description: String(c.powerUserSettings?.persona_description || '') };
+    const name = String(c.name1 || '');
+    const description = String(c.powerUserSettings?.persona_description || '');
+    const core = personaLibraryCore(c.extensionSettings?.personaLibrarySections?.[(stModule as any)?.user_avatar], description);
+    if (core === null) return { name, description };
+    return opts?.ignoreSections ? { name, description: core, alt: description, source: 'persona_core' } : { name, description, alt: core };
   }
 
   now(): number { return Date.now(); }

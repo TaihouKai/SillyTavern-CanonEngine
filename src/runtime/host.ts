@@ -28,6 +28,8 @@ export interface PublishRequest {
   contentHash: string;
 }
 
+export interface Persona { name: string; description: string; alt?: string; source?: 'standard_persona' | 'persona_core' }
+
 export interface HostPort {
   chatId(): string | null;
   isGroup(): boolean;
@@ -48,7 +50,10 @@ export interface HostPort {
   isWriter?(): boolean;
   /** Wait until native UI transitions (e.g. swipe animation/revert) have settled. */
   settle?(): Promise<void>;
-  persona(): { name: string; description: string };
+  /** The active Persona. ignoreSections: Persona Library's core text without its Additional Sections, when that
+   *  core still matches the description (otherwise the whole description). alt: the other reading, so a game
+   *  read one way is not taken for a changed Persona after the setting is switched. */
+  persona(opts?: { ignoreSections?: boolean }): Persona;
   horae: HoraePort | null;
   model: ModelPort;
   /** Wall clock for diagnostics only. Never story time. */

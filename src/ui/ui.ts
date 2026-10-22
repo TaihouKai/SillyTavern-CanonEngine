@@ -232,6 +232,9 @@ function renderSettings() {
     check('notifyDone', s.notifyDone !== false, t('notifyDone'), 'notifyDoneTip') +
     (s.notifyDone !== false ? check('notifySound', s.notifySound !== false, t('notifySound'), 'notifySoundTip') + notifyNote() : '')));
 
+  // ---- the Persona as Canon reads it
+  out.push(card(t('secPersona'), '', check('ignorePersonaSections', !!s.ignorePersonaSections, t('ignorePersonaSections'), 'ignorePersonaSectionsTip')));
+
   // ---- what the GM may write for the player character
   const pv = playerVoice((s as any).playerVoice);
   out.push(`<details class="canon-card canon-voice"${(s as any).voiceOpen ? ' open' : ''}><summary class="canon-card-title">${t('secVoice')} ${tip('secVoiceTip')} <span class="canon-sub">${esc(VOICE_KINDS.filter((k) => pv[k]).map((k) => t('voice_' + k)).join('、') || t('voiceNone'))}</span></summary>`
@@ -602,7 +605,7 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   const p = v.profile;
   if (!p) html += `<div>${esc(t('niNoProfile'))}</div>`;
   else {
-    html += `<h4>${esc(p.name)}</h4><div>${esc(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc(p.publicIdentity)}</small></div>` : ''}<div><small>${esc(t('niSource').replace('{n}', String(p.chars)).replace('{rev}', String(p.rev)))}</small></div>`;
+    html += `<h4>${esc(p.name)}</h4><div>${esc(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc(p.publicIdentity)}</small></div>` : ''}<div><small>${esc(t(p.source === 'persona_core' ? 'niSourceCore' : 'niSource').replace('{n}', String(p.chars)).replace('{rev}', String(p.rev)))}</small></div>`;
     html += list(t('niOrgs'), p.affiliations) + list(t('niPlaces'), p.places) + list(t('niConnections'), p.relationships) + list(t('niWho'), p.knowers) + list(t('niNotes'), p.notes);
   }
   const stance = (s: string) => t(`niStance_${s}`);

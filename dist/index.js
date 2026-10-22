@@ -20202,6 +20202,7 @@ var UNANSWERED_HOLD_MINUTES = 24 * 60;
 var OFFER_SOON_MINUTES = 3 * 60;
 var personaHash = (p) => sha256(`${p.name}
 ${p.description}`);
+var samePersona = (hash, p) => !!hash && (hash === personaHash(p) || p.alt !== void 0 && hash === personaHash({ name: p.name, description: p.alt }));
 var slug2 = (s) => (String(s).normalize("NFKC").toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, "-").replace(/^-|-$/g, "") || "x").slice(0, 20);
 function buildProfile(out, pack2, index, persona, prev) {
   const notes = [];
@@ -20269,7 +20270,7 @@ function buildProfile(out, pack2, index, persona, prev) {
       personaName: persona.name,
       personaText: persona.description,
       personaHash: personaHash(persona),
-      source: "standard_persona",
+      source: persona.source || "standard_persona",
       playerId,
       summary: (out.player?.summary || "").slice(0, 1500),
       publicIdentity: (out.player?.public_identity || "").slice(0, 800),
@@ -20739,7 +20740,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.5.1";
+var ENGINE_RELEASE = "1.5.2";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -20766,6 +20767,7 @@ var DEFAULT_SETTINGS = {
   taskExtraBody: "",
   replyLength: "",
   sceneGrouping: false,
+  ignorePersonaSections: false,
   playerVoice: { ...DEFAULT_PLAYER_VOICE }
 };
 var UNTIMED_ADVANCE_MAX = 20;
@@ -21271,7 +21273,7 @@ var CanonEngine = class {
     const tick = index.state.clock.lo;
     const opportunities = this.opportunities(index, tick).map((o) => ({ event_id: o.id, title: o.title, hook: o.hook }));
     const prof = this.profileFor(entry);
-    const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.host.persona();
+    const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.persona();
     const out = await this.withTimeout(callStructured(this.host.model, "extract_user", PROMPTS.extract_user, {
       message: entry.text,
       persona,
@@ -22309,7 +22311,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
   async ensureProfile(signal, operationId) {
     const c = this.campaign();
     if (!c?.integration) return;
-    const persona = this.host.persona();
+    const persona = this.persona();
     const latest = this.playerProfile();
     if (!latest) {
       if (!persona.name && !persona.description) return;
@@ -22323,19 +22325,22 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
       return;
     }
     const h = personaHash(persona);
-    if (h !== latest.profile.personaHash && h !== c.personaKeptHash && this.personaNoticeHash !== h) {
+    if (!samePersona(latest.profile.personaHash, persona) && !samePersona(c.personaKeptHash, persona) && this.personaNoticeHash !== h) {
       this.personaNoticeHash = h;
       this.notice("warn", `The active Persona ("${persona.name}") differs from this game's player ("${latest.profile.personaName}"). This game keeps its identity until you choose \u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD in the Canon Engine panel (or \u4FDD\u7559\u672C\u5C40\u8EAB\u4EFD to stop this notice).`);
     }
   }
   personaNoticeHash = "";
+  persona() {
+    return this.host.persona({ ignoreSections: this.settings.ignorePersonaSections });
+  }
   /** Whether the active Persona differs from this game's player profile (for the panel). */
   personaChanged() {
     const c = this.campaign();
     const latest = this.playerProfile();
     if (!c?.integration || !latest) return false;
-    const h = personaHash(this.host.persona());
-    return h !== latest.profile.personaHash && h !== c.personaKeptHash;
+    const p = this.persona();
+    return !samePersona(latest.profile.personaHash, p) && !samePersona(c.personaKeptHash, p);
   }
   /** 更新本局身份: read the active Persona as a new profile revision, in effect from after the current last message
    *  (earlier messages keep the identity they were written with). */
@@ -22345,7 +22350,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     if (!c) return;
     c.integration ||= { since: ENGINE_RELEASE };
     const prev = this.playerProfile();
-    const persona = this.host.persona();
+    const persona = this.persona();
     const { profile: profile2, runtimeEntities } = await this.readProfile(persona, prev && prev.profile.personaName === persona.name ? prev.profile : null, void 0, "identity");
     const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
     const rev = (prev?.rev || 0) + 1;
@@ -22362,7 +22367,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
   async keepIdentity() {
     const c = this.campaign();
     if (!c) return;
-    c.personaKeptHash = personaHash(this.host.persona());
+    c.personaKeptHash = personaHash(this.persona());
     await this.host.save();
     this.emit();
   }
@@ -22465,7 +22470,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
       if (plan2.mode !== "FORCED_CONVERGENCE" && diagnoseForced(pack2, state, planScope(pack2, state), clock)) needs = true;
     }
     const prof = c.integration ? this.profileFor(null) : null;
-    const persona = this.host.persona();
+    const persona = this.persona();
     const player = prof ? playerContext(index, prof.profile, clock, { historyLimit: 12 }) : { name: persona.name, persona: persona.description };
     const pHash = playerContextHash(index, prof?.profile || null, persona);
     if (plan2 && !needs && plan2.playerContextHash !== pHash) needs = true;
@@ -23164,6 +23169,12 @@ async function loadReasoningModule() {
   }
   return reasoningModule;
 }
+function personaLibraryCore(entry, description) {
+  const core = typeof entry?.core === "string" ? entry.core.trim() : "";
+  const sections = Array.isArray(entry?.sections) ? entry.sections.filter((s) => s?.enabled && String(s.content ?? "").trim()) : [];
+  if (!core || !sections.length) return null;
+  return description.trim().startsWith(core) ? core : null;
+}
 function ctx() {
   return SillyTavern.getContext();
 }
@@ -23441,9 +23452,13 @@ var StHost = class {
   async settle() {
     await this.settleSwipe();
   }
-  persona() {
+  persona(opts) {
     const c = ctx();
-    return { name: String(c.name1 || ""), description: String(c.powerUserSettings?.persona_description || "") };
+    const name2 = String(c.name1 || "");
+    const description = String(c.powerUserSettings?.persona_description || "");
+    const core = personaLibraryCore(c.extensionSettings?.personaLibrarySections?.[stModule?.user_avatar], description);
+    if (core === null) return { name: name2, description };
+    return opts?.ignoreSections ? { name: name2, description: core, alt: description, source: "persona_core" } : { name: name2, description, alt: core };
   }
   now() {
     return Date.now();
@@ -24147,7 +24162,13 @@ var D = {
   niIntro: { zh: "\u4E16\u754C\u4F1A\u6839\u636E\u4F60\u7684\u8EAB\u4EFD\u3001\u7ECF\u5386\u548C\u5173\u7CFB\u4E3B\u52A8\u63D0\u4F9B\u5408\u7406\u7684\u63A5\u89E6\uFF1B\u4F60\u62D2\u7EDD\u540E\u4E0D\u4F1A\u518D\u88AB\u62C9\u5165\u3002", en: "The world reaches out to you from your identity, history and connections; once you decline something, it stops pulling you in." },
   niNoProfile: { zh: "\u65B0\u5BF9\u8BDD\u7684\u7B2C\u4E00\u56DE\u5408\u4F1A\u8BFB\u53D6\u4F60\u7684 Persona\u3002", en: "Your Persona is read at the first turn of a new chat." },
   niOff: { zh: "\u6B64\u5BF9\u8BDD\u5728 1.4.0 \u4E4B\u524D\u7ED1\u5B9A\uFF0C\u672A\u542F\u7528\u53D9\u4E8B\u878D\u5165\uFF08\u4E16\u754C\u4E3B\u52A8\u53CD\u5E94\uFF09\u3002", en: "This chat was bound before 1.4.0; narrative integration is not part of it." },
-  niSource: { zh: "\u8BFB\u53D6\u81EA\u6807\u51C6 Persona \u63CF\u8FF0\uFF08{n} \u5B57\uFF0C\u7B2C {rev} \u7248\uFF09\u3002Persona Library \u7684\u989D\u5916\u5206\u7C7B\u6CA1\u6709\u8BFB\u53D6\uFF1A\u9700\u8981\u7684\u5185\u5BB9\u8BF7\u5E76\u5165 Persona \u63CF\u8FF0\uFF0C\u7136\u540E\u300C\u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD\u300D\u3002", en: `Read from the standard Persona description ({n} characters, revision {rev}). Extra Persona Library categories are not read: merge what matters into the description, then "Update this game's identity".` },
+  niSource: { zh: "\u8BFB\u53D6\u81EA Persona \u63CF\u8FF0\uFF08{n} \u5B57\uFF0C\u7B2C {rev} \u7248\uFF09\uFF0C\u5305\u62EC Persona Library \u5DF2\u542F\u7528\u7684\u989D\u5916\u5206\u7C7B\u3002", en: "Read from the Persona description ({n} characters, revision {rev}), including enabled Persona Library sections." },
+  niSourceCore: { zh: "\u8BFB\u53D6\u81EA Persona Library \u7684\u4E3B\u63CF\u8FF0\uFF08{n} \u5B57\uFF0C\u7B2C {rev} \u7248\uFF09\uFF0C\u989D\u5916\u5206\u7C7B\u5DF2\u5FFD\u7565\u3002", en: "Read from the Persona Library core text ({n} characters, revision {rev}); Additional Sections ignored." },
+  secPersona: { zh: "Persona", en: "Persona" },
+  ignorePersonaSections: { zh: "Canon \u5FFD\u7565 Persona Library \u7684\u989D\u5916\u5206\u7C7B", en: "Canon ignores Persona Library sections" },
+  ignorePersonaSectionsTip: { zh: "\u52FE\u9009\u540E\uFF0CCanon \u53EA\u8BFB Persona Library \u7684\u4E3B\u63CF\u8FF0\uFF08core\uFF09\uFF0C\u4E0D\u8BFB\u989D\u5916\u5206\u7C7B\uFF08Additional Sections\uFF09\u3002GM \u7167\u5E38\u6536\u5230\u5168\u90E8\u5185\u5BB9\u3002\n\u9002\u5408\u653E Canon \u7528\u4E0D\u5230\u7684\u4E1C\u897F\uFF08\u548F\u5531\u8BCD\u3001\u6587\u98CE\u8BF4\u660E\u7B49\uFF09\u3002\u80FD\u529B\u3001\u7269\u54C1\u3001\u8EAB\u4EFD\u653E\u5728\u989D\u5916\u5206\u7C7B\u91CC\u7684\u8BDD\uFF0CCanon \u5C31\u4E0D\u77E5\u9053\u4E86\u2014\u2014\u53D1\u73B0\u7F3A\u4E86\u4EC0\u4E48\uFF0C\u53D6\u6D88\u52FE\u9009\u5373\u53EF\u3002\n\u53EA\u5F71\u54CD\u4E4B\u540E\u7684\u8BFB\u53D6\uFF1A\u5DF2\u5F00\u59CB\u7684\u5BF9\u8BDD\u8981\u7528\u53D9\u4E8B\u878D\u5165\u9875\u7684\u300C\u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD\u300D\u91CD\u8BFB\u3002\u82E5\u5728 SillyTavern \u81EA\u5E26\u9762\u677F\u6539\u8FC7 Persona\uFF0C\u4E3B\u63CF\u8FF0\u5BF9\u4E0D\u4E0A\uFF0CCanon \u4F1A\u6539\u8BFB\u5B8C\u6574\u63CF\u8FF0\u3002", en: `When ticked, Canon reads only the Persona Library core text, not its Additional Sections. The GM still gets everything.
+Good for things Canon does not need (incantations, style notes). Abilities, items or identity kept in sections are then unknown to Canon \u2014 untick if something goes missing.
+Affects later reads only: in a started chat, use "Update this game's identity" on the narrative-integration tab. If the Persona was edited in SillyTavern's own panel, the core no longer matches and Canon reads the whole description.` },
   niChanged: { zh: "\u5F53\u524D Persona \u4E0E\u672C\u5C40\u8EAB\u4EFD\u4E0D\u540C\u3002\u672C\u5C40\u4FDD\u6301\u539F\u8EAB\u4EFD\uFF0C\u76F4\u5230\u4F60\u9009\u62E9\uFF1A", en: "The active Persona differs from this game's player. This game keeps its identity until you choose:" },
   niUpdate: { zh: "\u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD\uFF08\u4ECE\u5F53\u524D\u4F4D\u7F6E\u8D77\u751F\u6548\uFF09", en: "Update this game's identity (from here on)" },
   niKeep: { zh: "\u4FDD\u7559\u672C\u5C40\u8EAB\u4EFD", en: "Keep this game's identity" },
@@ -25185,6 +25206,7 @@ function renderSettings() {
   }
   out.push(card(t("secChat"), "secChatTip", chat.join("")));
   out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc2(String(s.replyLength || ""))}" placeholder="${esc2(t("replyLengthPlaceholder"))}">`, t("replyLengthShort")) + check("notifyDone", s.notifyDone !== false, t("notifyDone"), "notifyDoneTip") + (s.notifyDone !== false ? check("notifySound", s.notifySound !== false, t("notifySound"), "notifySoundTip") + notifyNote() : "")));
+  out.push(card(t("secPersona"), "", check("ignorePersonaSections", !!s.ignorePersonaSections, t("ignorePersonaSections"), "ignorePersonaSectionsTip")));
   const pv = playerVoice(s.playerVoice);
   out.push(`<details class="canon-card canon-voice"${s.voiceOpen ? " open" : ""}><summary class="canon-card-title">${t("secVoice")} ${tip("secVoiceTip")} <span class="canon-sub">${esc2(VOICE_KINDS.filter((k) => pv[k]).map((k) => t("voice_" + k)).join("\u3001") || t("voiceNone"))}</span></summary>` + VOICE_KINDS.map((k) => check("voice:" + k, pv[k], t("voice_" + k), "voice_" + k + "Tip")).join("") + `<div class="canon-hint">${t("voiceHint")}</div></details>`);
   out.push(card(t("secEvents"), "", check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip") + check("followHoraeTime", s.followHoraeTime !== false, t("followHoraeTime"), "followHoraeTimeTip")));
@@ -25602,7 +25624,7 @@ function playerTab(v) {
   const p = v.profile;
   if (!p) html += `<div>${esc2(t("niNoProfile"))}</div>`;
   else {
-    html += `<h4>${esc2(p.name)}</h4><div>${esc2(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc2(p.publicIdentity)}</small></div>` : ""}<div><small>${esc2(t("niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev)))}</small></div>`;
+    html += `<h4>${esc2(p.name)}</h4><div>${esc2(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc2(p.publicIdentity)}</small></div>` : ""}<div><small>${esc2(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev)))}</small></div>`;
     html += list(t("niOrgs"), p.affiliations) + list(t("niPlaces"), p.places) + list(t("niConnections"), p.relationships) + list(t("niWho"), p.knowers) + list(t("niNotes"), p.notes);
   }
   const stance = (s) => t(`niStance_${s}`);
