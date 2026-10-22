@@ -560,10 +560,12 @@ function renderInspector() {
       if (b.dataset.act === 'close') toggleInspector(false);
       // 叙事融入: identity and "allow contact again" are explicit player decisions
       const act = b.dataset.act;
-      if (act === 'ni-update' || act === 'ni-keep' || act === 'ni-reopen') {
+      if (act === 'ni-update' || act === 'ni-keep' || act === 'ni-reopen' || act === 'ni-strong' || act === 'ni-weak') {
         (b as HTMLButtonElement).disabled = true;
         if (act === 'ni-update') b.textContent = t('niBusy');
-        const run = act === 'ni-update' ? E.updateIdentity() : act === 'ni-keep' ? E.keepIdentity() : E.reopenScope(b.dataset.kind as any, b.dataset.ref || '', b.dataset.label || '');
+        const run = act === 'ni-update' ? E.updateIdentity() : act === 'ni-keep' ? E.keepIdentity()
+          : act === 'ni-strong' || act === 'ni-weak' ? E.setDecisionStrong(b.dataset.kind as any, b.dataset.ref || '', act === 'ni-strong')
+          : E.reopenScope(b.dataset.kind as any, b.dataset.ref || '', b.dataset.label || '');
         run.then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
       }
     });
@@ -623,7 +625,9 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   }
   const stance = (s: string) => t(`niStance_${s}`);
   const negative = new Set(['declined', 'deferred', 'ooc_suppress']);
-  html += `<h4>${esc(t('niDecisions'))}</h4><ul class="canon-list">${v.decisions.slice().reverse().map((d) => `<li><b>${esc(stance(d.stance))}</b> ${esc(d.label)} <small>${esc(d.time)}${d.active ? ` · ${esc(t('niActive'))}` : ''}</small>${d.quote ? `<br><small>“${esc(d.quote)}”</small>` : ''}${d.active && negative.has(d.stance) ? ` <button class="menu_button" data-act="ni-reopen" data-kind="${esc(d.scopeKind)}" data-ref="${esc(d.scopeRef)}" data-label="${esc(d.label)}">${esc(t('niReopen'))}</button>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
+  const strongBtn = (d: (typeof v.decisions)[number]) => d.stance === 'ooc_suppress' ? ''
+    : ` <button class="menu_button" data-act="${d.strong ? 'ni-weak' : 'ni-strong'}" data-kind="${esc(d.scopeKind)}" data-ref="${esc(d.scopeRef)}" title="${esc(t(d.strong ? 'niWeakTip' : 'niStrongTip'))}">${esc(t(d.strong ? 'niWeak' : 'niStrong'))}</button>`;
+  html += `<h4>${esc(t('niDecisions'))} ${tip('niDecisionsTip')}</h4><ul class="canon-list">${v.decisions.slice().reverse().map((d) => `<li><b>${esc(stance(d.stance))}</b> ${esc(d.label)} <small>${esc(d.time)}${d.active ? ` · ${esc(t('niActive'))}${negative.has(d.stance) ? ` · ${esc(t(d.binding ? (d.stance === 'ooc_suppress' ? 'niBindingOoc' : 'niBinding') : 'niWish'))}` : ''}` : ''}</small>${d.quote ? `<br><small>“${esc(d.quote)}”</small>` : ''}${d.active && negative.has(d.stance) ? `${strongBtn(d)} <button class="menu_button" data-act="ni-reopen" data-kind="${esc(d.scopeKind)}" data-ref="${esc(d.scopeRef)}" data-label="${esc(d.label)}">${esc(t('niReopen'))}</button>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
   html += `<h4>${esc(t('niContacts'))}</h4><ul class="canon-list">${v.contacts.slice().reverse().map((k) => `<li><b>${esc(k.label)}</b> <small>${esc(k.time)} · ${esc(k.kind)}${k.by.length ? ` · ${esc(k.by.join(', '))}` : ''}${v.unanswered.includes(k.recordId) ? ` · ${esc(t('niUnanswered'))}` : ''}</small><br><small>“${esc(k.quote)}”</small></li>`).join('') || '<li>—</li>'}</ul>`;
   if (v.suggestions) html += `<h4>${esc(t('niSuggestions'))}</h4><ul class="canon-list">${v.suggestions.map((s) => `<li>${esc(s.about)} — ${esc(s.by.join(', '))}: ${esc(s.contact)} <small>(${esc(s.kind)}${s.direct ? ', direct' : ''})</small></li>`).join('') || '<li>—</li>'}</ul>`;
   if (v.dropped?.length) html += `<h4>${esc(t('niDropped'))}</h4><ul class="canon-list">${v.dropped.map((x) => `<li>${esc(x.id)}: ${esc(x.reason)}</li>`).join('')}</ul>`;

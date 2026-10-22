@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ, legacyCampaign } from './fake';
 import { ROOT } from './helpers';
-import { engagementView } from '../../src/runtime/integration';
+import { engagementView, isBinding } from '../../src/runtime/integration';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 type X = ReturnType<typeof makeEngine>;
@@ -278,7 +278,7 @@ describe('declines, deferrals and re-engagement', () => {
     for (let i = 0; i < 3; i++) {
       await turn(x, `I tidy the shelves ${i}.`, `Quiet day ${i}. [D2${i}]`);
       expect(lastCtx(x)).not.toMatch(/WORLD REACTION [(]optional/);
-      expect(lastCtx(x)).toMatch(/PLAYER'S DECISIONS[\s\S]*declined: Ambush of Mira \("I stay out of the Council business"\) — do not pull the player into it again/);
+      expect(lastCtx(x)).toMatch(/PLAYER'S DECISIONS[\s\S]*wish — declined: Ambush of Mira \("I stay out of the Council business"\) — respect it: do not arrange for anyone to pull the player into it/);
     }
     expect(x.engine.campaign()!.integrationCache!.dropped.every((d) => /the player declined Ambush of Mira/.test(d.reason))).toBe(true);
     // the reviewer gets the decisions too (required context, also in review mode)
@@ -383,9 +383,10 @@ describe('declines, deferrals and re-engagement', () => {
     expect(eng.blockedBy({ eventId: 'council-broadcast' }, st(x).clock.lo)?.stance).toBe('ooc_suppress');
   });
 
-  it('NI-24 pressure on a declined thing is a blocking problem even when the reviewer mentions a pending HARD event', async () => {
+  it('NI-24 pressure on a refusal made binding (强烈拒绝) is a blocking problem even when the reviewer mentions a pending HARD event', async () => {
     const x = await setup();
     await turn(x, 'I stay out of the Council business.', 'The note stays sealed. [G1]', {}, decline('I stay out of the Council business'));
+    await x.engine.setDecisionStrong('event', 'medic-ambush', true);
     x.host.addUser('I sip tea.');
     x.model.draft('Your best friend begs you to join the harbor conflict. [G2]');
     x.model.on('evaluate', (i) => String(i.candidate).includes('[G2]'), { violations: [{ code: 'engagement_pressure', quote: 'Your best friend begs you', detail: 'pushes the declined ambush toward The harbor conflict begins', blocking: true }] }, true);
@@ -393,6 +394,47 @@ describe('declines, deferrals and re-engagement', () => {
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/pulls the player toward something they declined/);
     expect(x.model.tasks('draft')).toHaveLength(3); // first turn + draft + repair
+  });
+
+  it('NI-24b a plain refusal is a wish: the GM is told to respect it, but a reviewer complaint about it is only a note (user decision)', async () => {
+    const x = await setup();
+    await turn(x, 'I stay out of the Council business.', 'The note stays sealed. [W1]', {}, decline('I stay out of the Council business'));
+    x.host.addUser('I sip tea.');
+    x.model.draft('Mira calls: "don’t forget tonight." [W2]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[W2]'), { violations: [{ code: 'engagement_pressure', quote: 'don’t forget tonight', detail: 'reminds the player of the declined ambush', blocking: true }] }, true);
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.model.tasks('draft')).toHaveLength(2); // no repair
+    expect(x.engine.lastTrace!.attempts[0].violations).toEqual([]);
+    expect(x.engine.integrationView(true)!.decisions[0]).toMatchObject({ stance: 'declined', active: true, strong: false, binding: false });
+  });
+
+  it('NI-24c 强烈拒绝 and 取消强烈 are kept as the player’s decisions (replayed after a reload); an out-of-character stop is always binding', async () => {
+    const x = await setup();
+    await turn(x, 'I stay out of the Council business.', 'The note stays sealed. [S1]', {}, decline('I stay out of the Council business'));
+    const eng = () => engagementView(st(x), x.engine.pack());
+    expect(eng().binding(st(x).clock.lo)).toEqual([]);
+    await x.engine.setDecisionStrong('event', 'medic-ambush', true);
+    expect(eng().binding(st(x).clock.lo).map((e) => [e.stance, e.quote, e.source])).toEqual([['declined', 'I stay out of the Council business', 'ui']]);
+    await turn(x, 'I sip tea.', 'Quiet. [S2]');
+    expect(lastCtx(x)).toMatch(/BINDING — declined: Ambush of Mira/);
+    x.host.reload();
+    await x.engine.reconcile('reload');
+    expect(eng().binding(st(x).clock.lo)).toHaveLength(1);
+    await x.engine.setDecisionStrong('event', 'medic-ambush', false);
+    expect(eng().binding(st(x).clock.lo)).toEqual([]);
+    expect(eng().blockedBy({ eventId: 'medic-ambush' }, st(x).clock.lo)?.stance).toBe('declined'); // still kept out of world reactions
+    expect(isBinding({ stance: 'ooc_suppress' })).toBe(true);
+    expect(isBinding({ stance: 'declined' })).toBe(false);
+    expect(isBinding({ stance: 'accepted', strong: true })).toBe(false);
+  });
+
+  it('NI-24d a free-text reviewer complaint about the player character’s line is dropped when the settings let the GM write dialogue (live finding)', async () => {
+    const x = await setup();
+    x.host.addUser('I get up and dress.');
+    x.model.draft('The phone rings. “刚起。” you answer. [F1]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[F1]'), { violations: [{ code: 'other', quote: '“刚起。”', detail: '回复替玩家角色写了台词，属于player_only之外的代写', blocking: true }] }, true);
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.model.tasks('draft')).toHaveLength(1);
   });
 });
 

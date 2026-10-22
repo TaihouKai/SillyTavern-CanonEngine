@@ -18742,7 +18742,7 @@ HARD obligations retain the exact required event content, outcome and authored t
 The accepted current state overrides stale temporal descriptions in ordinary lore. Keep static setting rules and character identity. Do not assume an unrecorded event already happened or a plan succeeded. Do not silently jump past a due obligation.
 TIME SKIPS: when the user's message moves story time past the window of a PROPOSED ACTION, that action happened off-screen during the skip, unless the player's own actions prevented it: narrate it as having happened (briefly, through its consequences, traces or what characters report), at its planned time. A HARD obligation whose window the skip reaches must be shown realized in this reply, through the proposed route. The supplied CANON REFERENCE and PROPOSED ACTIONS are the route: do not reconstruct the original story's timeline from memory, and keep your planning short.
 Use the supplied actual-history records whenever an earlier event is causally relevant or mentioned, including indirectly. Preserve its actual actors, actions, outcomes and relevant later changes. This includes player actions and unrelated events, not just canonical milestones. Current facts do not erase earlier occurrences whose effects were reversed. Respect the current state of every depicted entity, including incidental route stops, people and objects. A missing record is not permission to invent a recollection, restoration or normal condition. Keep a character's belief or rumor distinct from established truth.
-THE PLAYER IN THE WORLD: the player character is part of this world with the identity, organizations and connections given in PLAYER IN THIS WORLD; people treat them as far as they plausibly know about them (the levels given there), not more. A WORLD REACTION entry is an optional way the world may reach the player in this reply: use it only if it fits the scene and its time, keep everyone in character, and leave the player's answer to the player; it is not history and does not happen offscreen during a time skip. PLAYER'S DECISIONS are binding: never pull the player back into something they declined, deferred or suppressed \u2014 by no character, channel, rumor, friend's plea or contrived threat. The world itself goes on, and harm that already has an actual cause may still reach them.
+THE PLAYER IN THE WORLD: the player character is part of this world with the identity, organizations and connections given in PLAYER IN THIS WORLD; people treat them as far as they plausibly know about them (the levels given there), not more. A WORLD REACTION entry is an optional way the world may reach the player in this reply: use it only if it fits the scene and its time, keep everyone in character, and leave the player's answer to the player; it is not history and does not happen offscreen during a time skip. PLAYER'S DECISIONS: a BINDING one must never be pressed \u2014 do not pull the player back into it by any character, channel, rumor, friend's plea or contrived threat. A wish should be respected: do not arrange for anyone to pull them into it, but ordinary remarks, small talk and favours from the people around them are fine. The world itself goes on, and harm that already has an actual cause may still reach them.
 Write only the requested narrative in the user's language. Keep the reply length, pacing and level of detail that the GM instructions ask for: this context adds constraints, not a reason to write less. Do not print internal JSON, engine labels, debug information, banner markup or planner reasoning. Develop the scene fully, then leave the next decision to the player instead of taking it for them.`;
 var COMMON = `You are an internal structured-analysis component of Canon Engine (a story-continuity engine). You output exactly ONE JSON object and nothing else.
 Format: strict JSON (double quotes, no comments, no trailing commas). In SHAPE, "a|b|c" means exactly one of those strings. A field shown as null is either null or the object shape used elsewhere in SHAPE (times are {"day":int,"minute":int}); never put free text in it.
@@ -18780,7 +18780,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    Credible cause: if the actual history/state rules out the event's usual route (a required participant is detained, guarded, far away, incapacitated...), it is fulfilled only when the text shows or clearly implies a concrete cause for how it still comes about (who or what, by what means). Otherwise give status "missing" and a violation whose detail begins with "HARD realized without a credible cause:". An unexplained vanishing, a glitch or "some invisible force" is not a cause unless it is the established ability of a specific character.
    Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place changes (leaving a building or shop, getting into or out of a vehicle, arriving somewhere else) or the activity changes, when more than about 30 minutes pass between beats, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
 5. contacts: every place where the world reaches out to the PLAYER CHARACTER (player_entity) in this reply: an invitation, a request or commission, information brought to them on purpose, a probe or test, a hostile act aimed at them, a consequence of an event reaching them, an encounter with a purpose. Give a verbatim quote, actors (ids), kind, scope (scope_kind "event"/"arc" + an id from offered_contact or canon_events_now, "faction" + the organization's id, otherwise "storyline" + a short scope_label) and opportunity_id when it carries out offered_contact. Ordinary conversation with people already in the scene is not a contact, and neither is an everyday favor or worry between friends (asking to stay over, telling them to lock the window) unless it asks the player to take part in a story thing; nor is someone answering what the player character just asked or started (they called and are told where to come); no contact, empty list.
-   engagement lists the player's decisions; each covers what its quoted words cover (a refusal of jobs covers being asked to do such jobs, by anyone \u2014 not someone's worry, grief or news, and not a thing the player took up themselves: "taken up by the player in play"). If the reply pulls the player toward something they declined, deferred or suppressed \u2014 through any person or channel (the same NPC again, another one, news, rumors, a friend's plea, a threat made up to force them) \u2014 add a violation with code "engagement_pressure" (blocking) quoting it. Not a violation: the world going on around them, an everyday favour or remark that does not ask the player to go to, do or join the declined thing (passing on a message, "if you happen to see her"), even when it concerns people involved in it, a consequence with an actual cause in history (news that a friend died, a place they know destroyed \u2014 told to them even by people from the declined side), one natural in-character reaction of the person they just turned down, or the player choosing it themselves. offered_contact has already been checked against these decisions (cleared_by_engine): delivering it as given is not pressure; flag only what goes beyond it \u2014 asking the player to do or join the declined thing. Not using offered_contact is never a violation.
+   engagement lists the player's decisions; each covers what its quoted words cover (a refusal of jobs covers being asked to do such jobs, by anyone \u2014 not someone's worry, grief or news, and not a thing the player took up themselves: "taken up by the player in play"). Only decisions marked BINDING are enforced: if the reply pulls the player toward something a BINDING decision covers \u2014 through any person or channel (the same NPC again, another one, news, rumors, a friend's plea, a threat made up to force them) \u2014 add a violation with code "engagement_pressure" (blocking) quoting it. A "wish" decision is the player's preference, not a rule for you: never report a violation for it (at most a non-blocking note). Not a violation: the world going on around them, an everyday favour or remark that does not ask the player to go to, do or join the declined thing (passing on a message, "if you happen to see her"), even when it concerns people involved in it, a consequence with an actual cause in history (news that a friend died, a place they know destroyed \u2014 told to them even by people from the declined side), one natural in-character reaction of the person they just turned down, or the player choosing it themselves. offered_contact has already been checked against these decisions (cleared_by_engine): delivering it as given is not pressure; flag only what goes beyond it \u2014 asking the player to do or join the declined thing. Not using offered_contact is never a violation.
 6. violations: ONLY problems that require rewriting the reply \u2014 player-character acts the player did not write whose category is in player_voice.player_only (the controller checks player_actions; what player_voice.gm_may_write allows is wanted, never a violation), contradictions, unsupported recollections, leaking secret knowledge to characters who cannot know it, engine labels/JSON in prose, skipping a due obligation, time moving backwards. Not violations: story time moving forward within the scene, NPCs present or acting on their own, plausible new scene details, the natural completion of an action the player authorized, a plan step whose window the player's time skip passed narrated as having happened off-screen (record it as an occurrence at its own time, with a step_enactment). Set blocking=true for a problem that must be fixed; if you consider something minor or acceptable, leave it out (or set blocking=false).
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it). mode=retained and the message is not story text at all (out-of-character instructions, a setup or system note, rules or a menu \u2014 often the card's opening message telling the GM how to start): decision retain with no occurrences, transitions, state_claims or violations; it establishes nothing.
 SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null,"category":"dialogue"}],"step_enactments":[{"step_id":"s1","occurrence_ref":"o1","quote":""}],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":"","blocking":true}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":"","contacts":[{"quote":"","actors":[],"kind":"invitation","scope_kind":"event","scope_ref":"","scope_label":"","opportunity_id":null}]}`,
@@ -19702,6 +19702,19 @@ function runGate(g) {
       warnings.push(`reviewer violation without valid evidence ignored: ${v.detail}`);
       continue;
     }
+    if (/engagement[_ ]pressure/i.test(v.code) && !g.bindingDecisions) {
+      warnings.push(`touches a decision the player left as a wish (not enforced): ${v.detail.slice(0, 200)}${v.quote ? ` ("${v.quote}")` : ""}`);
+      continue;
+    }
+    const agency = /agency|player[_ ]?(act|voice|dialogue|speech|line)|godmod|puppet/i.test(v.code) || /玩家|player/i.test(v.detail) && /代写|替玩家|台词|player_only|on (the )?player'?s? behalf|for the player/i.test(v.detail);
+    if (agency) {
+      const act = v.quote ? playerActions.find((a) => quoteInText(v.quote, a.quote) || quoteInText(a.quote, v.quote)) : void 0;
+      const kind = act?.category ?? (v.quote && spokenLine(v.quote) ? "dialogue" : null);
+      if (voiceAllows(g.voice, kind)) {
+        warnings.push(`reviewer complaint about a player-character act the settings let the GM write (${kind}) ignored: ${v.detail.slice(0, 160)}`);
+        continue;
+      }
+    }
     if (/engagement[_ ]pressure/i.test(v.code)) {
       violations.push(`The reply pulls the player toward something they declined or deferred: ${v.detail}${v.quote ? ` ("${v.quote}")` : ""}. Do not press it again through anyone or anything; let the world go on without it.`);
       continue;
@@ -20525,6 +20538,7 @@ function playerContextHash(index, profile2, persona) {
 var scopeKey = (kind, ref) => `${kind}:${ref}`;
 var NEGATIVE = /* @__PURE__ */ new Set(["declined", "deferred", "ooc_suppress"]);
 var POSITIVE = /* @__PURE__ */ new Set(["accepted", "joined", "reopened"]);
+var isBinding = (e) => e.stance === "ooc_suppress" || NEGATIVE.has(e.stance) && !!e.strong;
 function engagementView(state, pack2) {
   const scopes = /* @__PURE__ */ new Map();
   const all = [...state.engagements];
@@ -20585,7 +20599,11 @@ function engagementView(state, pack2) {
       }
       return null;
     },
-    /** Lines for the GM, the reviewer and the analysis tasks (binding decisions and unanswered contacts). */
+    /** Refusals in force now that the reviewer enforces (强烈拒绝 or out of character). */
+    binding(tick) {
+      return [...scopes.keys()].map((k) => negativeAt(k, tick)).filter((e) => !!e && isBinding(e));
+    },
+    /** Lines for the GM, the reviewer and the analysis tasks (decisions and unanswered contacts). */
     lines(tick) {
       const out = [];
       for (const s of scopes.values()) {
@@ -20593,9 +20611,10 @@ function engagementView(state, pack2) {
         if (!c) continue;
         const q = c.quote ? ` ("${c.quote.slice(0, 120)}")` : "";
         const label = c.scopeLabel || c.scopeRef;
-        if (c.stance === "declined") out.push(`declined: ${label}${q} \u2014 do not pull the player into it again in any way (no other person, channel, news, friend's plea or contrived threat). The world goes on; harm with an actual cause may still reach them.`);
-        else if (c.stance === "deferred" && !(c.until != null && c.until <= tick)) out.push(`not now: ${label}${q}${c.until != null ? ` \u2014 until ${formatTick(c.until)}` : ""} \u2014 do not bring it up again${c.until != null ? " before then" : " unless the player does"}.`);
-        else if (c.stance === "ooc_suppress") out.push(`out of character, stop: ${label}${q} \u2014 keep it out of the player's story: no contacts, reminders or NPC arguments about it.`);
+        if (c.stance === "declined" && c.strong) out.push(`BINDING \u2014 declined: ${label}${q} \u2014 do not pull the player into it again in any way (no other person, channel, news, friend's plea or contrived threat). The world goes on; harm with an actual cause may still reach them.`);
+        else if (c.stance === "declined") out.push(`wish \u2014 declined: ${label}${q} \u2014 respect it: do not arrange for anyone to pull the player into it. Ordinary remarks, small talk and favours from the people around them are fine.`);
+        else if (c.stance === "deferred" && !(c.until != null && c.until <= tick)) out.push(`${c.strong ? "BINDING" : "wish"} \u2014 not now: ${label}${q}${c.until != null ? ` \u2014 until ${formatTick(c.until)}` : ""} \u2014 do not bring it up again${c.until != null ? " before then" : " unless the player does"}.`);
+        else if (c.stance === "ooc_suppress") out.push(`BINDING \u2014 out of character, stop: ${label}${q} \u2014 keep it out of the player's story: no contacts, reminders or NPC arguments about it.`);
         else if (c.stance === "joined" || c.stance === "accepted" || c.stance === "reopened") out.push(`${c.stance === "joined" ? "took part by their own action" : c.stance === "accepted" ? "accepted" : "open to it again"}: ${label}${q} \u2014 continue it naturally.`);
         const lim = s.history.filter((h) => h.stance === "limited" && h.seq > (c?.seq ?? -1)).slice(-1)[0];
         if (lim) out.push(`one act only: ${lim.scopeLabel || lim.scopeRef} ("${lim.quote.slice(0, 120)}") \u2014 that act; nothing more of it is accepted.`);
@@ -20896,7 +20915,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.7.1";
+var ENGINE_RELEASE = "1.8.0";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -21787,6 +21806,7 @@ ${a.userEntry?.text || ""}`);
       mode: a.mode,
       forced: a.forced,
       voice: playerVoice(this.settings.playerVoice),
+      bindingDecisions: eng.binding(tick).length,
       playerId: prof?.profile.playerId || null,
       offered: a.offered || null
     });
@@ -22172,6 +22192,7 @@ ${a.userEntry?.text || ""}`);
               mode: "draft",
               forced: planInfo.forced,
               voice: playerVoice(this.settings.playerVoice),
+              bindingDecisions: engagementView(stagedIndex.state, pack2).binding(stagedIndex.state.clock.lo).length,
               playerId: prof?.profile.playerId || null,
               offered
             });
@@ -23217,12 +23238,41 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
         notes: prof.profile.notes
       } : null,
       personaChanged: this.personaChanged(),
-      decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId) })),
+      decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId), strong: !!e.strong, binding: isBinding(e) })),
       contacts: s.contacts.map((k) => ({ recordId: k.recordId, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
       suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null
     };
+  }
+  /** 强烈拒绝 / 取消强烈: makes the player's current refusal of a scope binding for the reviewer, or a wish again. Kept
+   *  as a UI decision after the current last message (the same stance, quote and time limit, with the flag), so it
+   *  is replayed like the others and follows edits, swipes and branches. */
+  async setDecisionStrong(scopeKind, scopeRef, strong) {
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; try again when it is done.");
+    const c = this.campaign();
+    const st = this.current?.replay.state;
+    if (!c || !st) return;
+    const cur = engagementView(st, this.pack()).scopes.get(scopeKey(scopeKind, scopeRef))?.current;
+    if (!cur || !["declined", "deferred"].includes(cur.stance) || !!cur.strong === strong) return;
+    const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+    const tick = st.clock.lo;
+    const rec = {
+      recordId: newId("rec"),
+      kind: "engagement",
+      storyTime: { lo: tick, hi: tick, precision: "minute" },
+      sourceRefs: [],
+      factsSetOrUnset: [],
+      eventOccurrenceIds: [],
+      visibility: { mode: "public", knower_ids: [] },
+      summary: `Player ${strong ? "made binding" : "made a wish again"}: ${cur.scopeLabel} (Canon Engine panel)`,
+      evidenceKind: "direct",
+      engagement: { scopeKind, scopeRef, scopeLabel: cur.scopeLabel, stance: cur.stance, quote: cur.quote, until: cur.until ?? null, source: "ui", strong }
+    };
+    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+    c.configRevisions.push({ at: this.host.now(), summary: `${strong ? "\u5F3A\u70C8\u62D2\u7EDD" : "\u53D6\u6D88\u5F3A\u70C8"}: ${cur.scopeLabel}` });
+    await this.host.save();
+    await this.reconcile("engagement_strong");
   }
   /** 允许再次接触: an explicit UI decision that reopens a scope the player declined (kept as their decision, after
    *  the current last message; replayed like a decision in a message). */
@@ -24523,6 +24573,14 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niReopen: { zh: "\u5141\u8BB8\u518D\u6B21\u63A5\u89E6", en: "Allow contact again" },
   niUnanswered: { zh: "\u672A\u56DE\u5E94", en: "not answered" },
   niActive: { zh: "\u751F\u6548\u4E2D", en: "in effect" },
+  niWish: { zh: "\u5EFA\u8BAE", en: "a wish" },
+  niBinding: { zh: "\u5F3A\u70C8\u62D2\u7EDD", en: "binding" },
+  niBindingOoc: { zh: "\u5F3A\u5236\uFF08OOC\uFF09", en: "binding (OOC)" },
+  niStrong: { zh: "\u5F3A\u70C8\u62D2\u7EDD", en: "Make binding" },
+  niStrongTip: { zh: "\u628A\u8FD9\u6761\u62D2\u7EDD\u8BBE\u4E3A\u5F3A\u5236\uFF1AGM \u7684\u56DE\u590D\u5982\u679C\u628A\u4F60\u5F80\u8FD9\u4EF6\u4E8B\u4E0A\u62C9\uFF08\u4EFB\u4F55\u4EBA\u3001\u4EFB\u4F55\u6E20\u9053\uFF09\uFF0C\u4F1A\u88AB\u9000\u56DE\u91CD\u5199\u3002", en: "Make this refusal binding: a reply that pulls you toward it (through anyone or anything) is sent back and rewritten." },
+  niWeak: { zh: "\u53D6\u6D88\u5F3A\u70C8", en: "Make it a wish" },
+  niWeakTip: { zh: "\u6539\u56DE\u5EFA\u8BAE\uFF1AGM \u4ECD\u4F1A\u5C0A\u91CD\u5B83\uFF0C\u4F46\u4E0D\u4F1A\u56E0\u6B64\u9000\u56DE\u56DE\u590D\u3002", en: "Back to a wish: the GM still respects it, but replies are not sent back over it." },
+  niDecisionsTip: { zh: "\u4F60\u5728\u5267\u60C5\u91CC\u8868\u8FBE\u7684\u53C2\u4E0E\u610F\u613F\uFF08\u7531\u5F15\u64CE\u4ECE\u4F60\u7684\u6D88\u606F\u91CC\u8BFB\u51FA\uFF09\u3002\n\u62D2\u7EDD\u3001\u6682\u7F13\u9ED8\u8BA4\u53EA\u662F\u300C\u5EFA\u8BAE\u300D\uFF1AGM \u4F1A\u5C3D\u91CF\u4E0D\u628A\u4F60\u5377\u8FDB\u53BB\uFF0C\u4E0D\u4F1A\u5B89\u6392\u4EBA\u6765\u62C9\u4F60\uFF0C\u4F46\u8EAB\u8FB9\u4EBA\u7684\u5BFB\u5E38\u95F2\u804A\u3001\u6258\u4F60\u5E26\u53E5\u8BDD\u4E4B\u7C7B\u4E0D\u7B97\u8FDD\u89C4\uFF0C\u56DE\u590D\u4E0D\u4F1A\u56E0\u6B64\u88AB\u9000\u56DE\u3002\n\u70B9\u300C\u5F3A\u70C8\u62D2\u7EDD\u300D\u624D\u53D8\u6210\u5F3A\u5236\uFF1A\u56DE\u590D\u53EA\u8981\u628A\u4F60\u5F80\u8FD9\u4EF6\u4E8B\u4E0A\u62C9\uFF0C\u5C31\u4F1A\u88AB\u9000\u56DE\u91CD\u5199\u3002\u518D\u70B9\u300C\u53D6\u6D88\u5F3A\u70C8\u300D\u6539\u56DE\u5EFA\u8BAE\u3002\n\nOOC\uFF08\u620F\u5916\uFF09\u6307\u4EE4\uFF1A\u5728\u6D88\u606F\u91CC\u8DF3\u51FA\u89D2\u8272\u3001\u76F4\u63A5\u5BF9 GM/\u5F15\u64CE\u8BF4\u8BDD\uFF0C\u4F8B\u5982\uFF1A\n\uFF08OOC\uFF1A\u522B\u518D\u628A\u6697\u90E8\u7684\u5267\u60C5\u5F80\u6211\u8EAB\u4E0A\u5F15\u4E86\uFF09\n\u5F15\u64CE\u4F1A\u628A\u5B83\u8BB0\u4E3A\u300COOC \u505C\u6B62\u8FD9\u6761\u7EBF\u300D\uFF0C\u81EA\u52A8\u5F3A\u5236\uFF0C\u4E0D\u9700\u8981\u518D\u70B9\u6309\u94AE\u3002\u8FD9\u4E0D\u662F\u56FA\u5B9A\u5173\u952E\u8BCD\uFF0C\u800C\u662F\u7531\u5206\u6790\u6A21\u578B\u5224\u65AD\u8FD9\u53E5\u8BDD\u662F\u5426\u5728\u620F\u5916\uFF1B\u5199\u660E\u201COOC\u201D\u6700\u4E0D\u5BB9\u6613\u88AB\u8BEF\u8BFB\u3002\n\n\u300C\u5141\u8BB8\u518D\u6B21\u63A5\u89E6\u300D\u64A4\u9500\u4E00\u6761\u62D2\u7EDD\u3002", en: 'Your stance on being drawn into things, read from your messages.\nDeclining or deferring is a wish by default: the GM avoids drawing you in and arranges no one to pull you back, but everyday remarks and small favours from people around you are fine, and replies are not sent back over it.\n"Make binding" enforces it: a reply that pulls you toward it is sent back and rewritten. "Make it a wish" undoes that.\n\nOut-of-character (OOC) instructions: step outside your character and speak to the GM/engine directly, e.g. "(OOC: stop steering the dark-side storyline onto me)". The engine records it as "OOC: stop this line", which is always binding. It is not a fixed keyword: the analysis model judges whether the sentence is out of character, and writing "OOC" makes it unmistakable.\n\n"Allow contact again" lifts a refusal.' },
   niStance_declined: { zh: "\u62D2\u7EDD", en: "declined" },
   niStance_deferred: { zh: "\u6682\u7F13", en: "not now" },
   niStance_accepted: { zh: "\u63A5\u53D7", en: "accepted" },
@@ -25944,10 +26002,10 @@ function renderInspector() {
       }
       if (b.dataset.act === "close") toggleInspector(false);
       const act = b.dataset.act;
-      if (act === "ni-update" || act === "ni-keep" || act === "ni-reopen") {
+      if (act === "ni-update" || act === "ni-keep" || act === "ni-reopen" || act === "ni-strong" || act === "ni-weak") {
         b.disabled = true;
         if (act === "ni-update") b.textContent = t("niBusy");
-        const run = act === "ni-update" ? E.updateIdentity() : act === "ni-keep" ? E.keepIdentity() : E.reopenScope(b.dataset.kind, b.dataset.ref || "", b.dataset.label || "");
+        const run = act === "ni-update" ? E.updateIdentity() : act === "ni-keep" ? E.keepIdentity() : act === "ni-strong" || act === "ni-weak" ? E.setDecisionStrong(b.dataset.kind, b.dataset.ref || "", act === "ni-strong") : E.reopenScope(b.dataset.kind, b.dataset.ref || "", b.dataset.label || "");
         run.then(() => renderInspector()).catch((e) => {
           toast("error", e.message);
           renderInspector();
@@ -26010,7 +26068,8 @@ function playerTab(v) {
   }
   const stance = (s) => t(`niStance_${s}`);
   const negative = /* @__PURE__ */ new Set(["declined", "deferred", "ooc_suppress"]);
-  html += `<h4>${esc2(t("niDecisions"))}</h4><ul class="canon-list">${v.decisions.slice().reverse().map((d) => `<li><b>${esc2(stance(d.stance))}</b> ${esc2(d.label)} <small>${esc2(d.time)}${d.active ? ` \xB7 ${esc2(t("niActive"))}` : ""}</small>${d.quote ? `<br><small>\u201C${esc2(d.quote)}\u201D</small>` : ""}${d.active && negative.has(d.stance) ? ` <button class="menu_button" data-act="ni-reopen" data-kind="${esc2(d.scopeKind)}" data-ref="${esc2(d.scopeRef)}" data-label="${esc2(d.label)}">${esc2(t("niReopen"))}</button>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
+  const strongBtn = (d) => d.stance === "ooc_suppress" ? "" : ` <button class="menu_button" data-act="${d.strong ? "ni-weak" : "ni-strong"}" data-kind="${esc2(d.scopeKind)}" data-ref="${esc2(d.scopeRef)}" title="${esc2(t(d.strong ? "niWeakTip" : "niStrongTip"))}">${esc2(t(d.strong ? "niWeak" : "niStrong"))}</button>`;
+  html += `<h4>${esc2(t("niDecisions"))} ${tip("niDecisionsTip")}</h4><ul class="canon-list">${v.decisions.slice().reverse().map((d) => `<li><b>${esc2(stance(d.stance))}</b> ${esc2(d.label)} <small>${esc2(d.time)}${d.active ? ` \xB7 ${esc2(t("niActive"))}${negative.has(d.stance) ? ` \xB7 ${esc2(t(d.binding ? d.stance === "ooc_suppress" ? "niBindingOoc" : "niBinding" : "niWish"))}` : ""}` : ""}</small>${d.quote ? `<br><small>\u201C${esc2(d.quote)}\u201D</small>` : ""}${d.active && negative.has(d.stance) ? `${strongBtn(d)} <button class="menu_button" data-act="ni-reopen" data-kind="${esc2(d.scopeKind)}" data-ref="${esc2(d.scopeRef)}" data-label="${esc2(d.label)}">${esc2(t("niReopen"))}</button>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
   html += `<h4>${esc2(t("niContacts"))}</h4><ul class="canon-list">${v.contacts.slice().reverse().map((k) => `<li><b>${esc2(k.label)}</b> <small>${esc2(k.time)} \xB7 ${esc2(k.kind)}${k.by.length ? ` \xB7 ${esc2(k.by.join(", "))}` : ""}${v.unanswered.includes(k.recordId) ? ` \xB7 ${esc2(t("niUnanswered"))}` : ""}</small><br><small>\u201C${esc2(k.quote)}\u201D</small></li>`).join("") || "<li>\u2014</li>"}</ul>`;
   if (v.suggestions) html += `<h4>${esc2(t("niSuggestions"))}</h4><ul class="canon-list">${v.suggestions.map((s) => `<li>${esc2(s.about)} \u2014 ${esc2(s.by.join(", "))}: ${esc2(s.contact)} <small>(${esc2(s.kind)}${s.direct ? ", direct" : ""})</small></li>`).join("") || "<li>\u2014</li>"}</ul>`;
   if (v.dropped?.length) html += `<h4>${esc2(t("niDropped"))}</h4><ul class="canon-list">${v.dropped.map((x) => `<li>${esc2(x.id)}: ${esc2(x.reason)}</li>`).join("")}</ul>`;

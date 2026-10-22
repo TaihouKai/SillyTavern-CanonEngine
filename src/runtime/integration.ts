@@ -245,6 +245,8 @@ export function playerContextHash(index: WorldIndex, profile: PlayerProfile | nu
 export const scopeKey = (kind: ScopeKind, ref: string) => `${kind}:${ref}`;
 const NEGATIVE = new Set(['declined', 'deferred', 'ooc_suppress']);
 const POSITIVE = new Set(['accepted', 'joined', 'reopened']);
+/** A refusal the reviewer enforces: marked 强烈拒绝 in the panel, or an out-of-character stop. */
+export const isBinding = (e: { stance: string; strong?: boolean }) => e.stance === 'ooc_suppress' || (NEGATIVE.has(e.stance) && !!e.strong);
 
 export interface ScopeStatus { current: EngagementEntry | null; history: EngagementEntry[] }
 
@@ -304,7 +306,11 @@ export function engagementView(state: WorldState, pack: LoadedPack) {
       }
       return null;
     },
-    /** Lines for the GM, the reviewer and the analysis tasks (binding decisions and unanswered contacts). */
+    /** Refusals in force now that the reviewer enforces (强烈拒绝 or out of character). */
+    binding(tick: number): EngagementEntry[] {
+      return [...scopes.keys()].map((k) => negativeAt(k, tick)).filter((e): e is EngagementEntry => !!e && isBinding(e));
+    },
+    /** Lines for the GM, the reviewer and the analysis tasks (decisions and unanswered contacts). */
     lines(tick: number): string[] {
       const out: string[] = [];
       for (const s of scopes.values()) {
@@ -312,9 +318,10 @@ export function engagementView(state: WorldState, pack: LoadedPack) {
         if (!c) continue;
         const q = c.quote ? ` ("${c.quote.slice(0, 120)}")` : '';
         const label = c.scopeLabel || c.scopeRef;
-        if (c.stance === 'declined') out.push(`declined: ${label}${q} — do not pull the player into it again in any way (no other person, channel, news, friend's plea or contrived threat). The world goes on; harm with an actual cause may still reach them.`);
-        else if (c.stance === 'deferred' && !(c.until != null && c.until <= tick)) out.push(`not now: ${label}${q}${c.until != null ? ` — until ${formatTick(c.until)}` : ''} — do not bring it up again${c.until != null ? ' before then' : ' unless the player does'}.`);
-        else if (c.stance === 'ooc_suppress') out.push(`out of character, stop: ${label}${q} — keep it out of the player's story: no contacts, reminders or NPC arguments about it.`);
+        if (c.stance === 'declined' && c.strong) out.push(`BINDING — declined: ${label}${q} — do not pull the player into it again in any way (no other person, channel, news, friend's plea or contrived threat). The world goes on; harm with an actual cause may still reach them.`);
+        else if (c.stance === 'declined') out.push(`wish — declined: ${label}${q} — respect it: do not arrange for anyone to pull the player into it. Ordinary remarks, small talk and favours from the people around them are fine.`);
+        else if (c.stance === 'deferred' && !(c.until != null && c.until <= tick)) out.push(`${c.strong ? 'BINDING' : 'wish'} — not now: ${label}${q}${c.until != null ? ` — until ${formatTick(c.until)}` : ''} — do not bring it up again${c.until != null ? ' before then' : ' unless the player does'}.`);
+        else if (c.stance === 'ooc_suppress') out.push(`BINDING — out of character, stop: ${label}${q} — keep it out of the player's story: no contacts, reminders or NPC arguments about it.`);
         else if (c.stance === 'joined' || c.stance === 'accepted' || c.stance === 'reopened') out.push(`${c.stance === 'joined' ? 'took part by their own action' : c.stance === 'accepted' ? 'accepted' : 'open to it again'}: ${label}${q} — continue it naturally.`);
         const lim = s.history.filter((h) => h.stance === 'limited' && h.seq > (c?.seq ?? -1)).slice(-1)[0];
         if (lim) out.push(`one act only: ${lim.scopeLabel || lim.scopeRef} ("${lim.quote.slice(0, 120)}") — that act; nothing more of it is accepted.`);

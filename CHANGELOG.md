@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.8.0 — 2026-10-23
+
+- **Declines are wishes; 强烈拒绝 makes one binding.** A refusal or deferral read from the player's messages is now a wish:
+  - The GM is told to respect it and not to arrange for anyone to pull the player in; ordinary remarks, small talk and favours are fine.
+  - World reactions still leave it out.
+  - The reviewer no longer sends replies back over it. In debug mode its complaint shows as a note.
+
+  The new 强烈拒绝 button next to an active refusal in 你的参与意愿 makes it binding, enforced as before. 取消强烈 makes it a wish again. Both are kept as the player's decisions, replayed with the chat like the others. An out-of-character stop (OOC) is always binding.
+- **Help in the panel:** an ⓘ next to 你的参与意愿 explains wishes, 强烈拒绝 and out-of-character (OOC) instructions. The analysis model recognises those from how they are written, not from a fixed keyword; writing "OOC" makes them unmistakable. Each refusal is labelled 建议, 强烈拒绝 or 强制（OOC）.
+- **Fix:** a free-text reviewer complaint that the reply writes the player character's lines or acts is dropped when the 「GM 可以替玩家角色……」 setting allows that kind. Live: the player character's dialogue was sent back this way. Acts the settings leave to the player are still sent back.
+- Tests: NI-24 (now with 强烈拒绝), NI-24b, NI-24c, NI-24d; NI-16 updated.
+
 ## 1.7.1 — 2026-10-23
 
 - **Fix: the player character's dialogue was sent back when a reply crossed offscreen events.** After judging events that happen offscreen during the reply, the reply is reviewed again, and that second review was run without the 「GM 可以替玩家角色……」 setting. Every line the GM wrote for the player was then rejected as "leaves to themselves (dialogue)". The setting is now passed there too, and the check can no longer run without it.

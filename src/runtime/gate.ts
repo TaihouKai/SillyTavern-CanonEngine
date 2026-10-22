@@ -58,6 +58,8 @@ export interface GateInput {
   stagedHard: Map<Id, Occurrence>;
   /** What the GM may write for the player character without the player writing it (settings). */
   voice: PlayerVoice;
+  /** How many refusals in force are binding (强烈拒绝 or out of character); with none, pressure is only a note. */
+  bindingDecisions?: number;
   mode: 'draft' | 'retained';
   forced: boolean;
   /** Narrative integration: the player character's entity and the suggestion offered to the GM this turn. */
@@ -446,6 +448,15 @@ export function runGate(g: GateInput): GateResult {
     if (v.quote && !quoteInText(v.quote, text)) { warnings.push(`reviewer violation without valid evidence ignored: ${v.detail}`); continue; }
     // Pulling the player toward something they declined is its own problem, never "restating a HARD event"
     // (it may name one): it bypasses the HARD-noise filter below.
+    if (/engagement[_ ]pressure/i.test(v.code) && !g.bindingDecisions) { warnings.push(`touches a decision the player left as a wish (not enforced): ${v.detail.slice(0, 200)}${v.quote ? ` ("${v.quote}")` : ''}`); continue; }
+    // live: the reviewer also sent back the player character's lines as a free-text violation ("the reply writes
+    // dialogue for the player character") although the player lets the GM write dialogue
+    const agency = /agency|player[_ ]?(act|voice|dialogue|speech|line)|godmod|puppet/i.test(v.code) || (/玩家|player/i.test(v.detail) && /代写|替玩家|台词|player_only|on (the )?player'?s? behalf|for the player/i.test(v.detail));
+    if (agency) {
+      const act = v.quote ? playerActions.find((a) => quoteInText(v.quote!, a.quote) || quoteInText(a.quote, v.quote!)) : undefined;
+      const kind = act?.category ?? (v.quote && spokenLine(v.quote) ? 'dialogue' : null);
+      if (voiceAllows(g.voice, kind)) { warnings.push(`reviewer complaint about a player-character act the settings let the GM write (${kind}) ignored: ${v.detail.slice(0, 160)}`); continue; }
+    }
     if (/engagement[_ ]pressure/i.test(v.code)) { violations.push(`The reply pulls the player toward something they declined or deferred: ${v.detail}${v.quote ? ` ("${v.quote}")` : ''}. Do not press it again through anyone or anything; let the world go on without it.`); continue; }
     // HARD conformance is decided by the structured HARD checks and deadlines above. A free-text
     // complaint that only restates a HARD event (live finding: the reviewer treated the canonical ROUTE

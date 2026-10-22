@@ -124,6 +124,9 @@ export interface EngagementInfo {
   quote: string;
   until?: number | null;
   source: 'player_message' | 'ui';
+  /** 强烈拒绝: the player made this refusal binding (UI). Without it a declined/deferred stance is a wish the GM
+   *  should respect, not something the reviewer sends replies back for; an out-of-character stop is always binding. */
+  strong?: boolean;
 }
 
 /** A contact from the world that actually reached the player in an accepted reply. */
