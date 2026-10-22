@@ -22467,9 +22467,11 @@ ${persona.description}`, pack2);
     if (lore.length) built.profile.lore = this.lastProfileLore;
     return built;
   }
-  /** The lorebook entries a Persona read would take as background now (titles; no model call). */
-  async previewProfileLore() {
-    const pack2 = this.pack();
+  /** The lorebook entries a Persona read would take as background now (titles; no model call). Without a bound
+   *  pack, with the given pack's world. */
+  async previewProfileLore(packText) {
+    const pack2 = this.campaign() || !packText ? this.pack() : validatePackText(packText).loaded;
+    if (!pack2) throw new EngineError("invalid_pack", "the pack is not valid");
     const persona = this.persona();
     return loreFor(await this.host.loreEntries?.() || [], `${persona.name}
 ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " (related)" : ""}`);
@@ -26183,7 +26185,10 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), previewLore: () => engine.previewProfileLore(), version: ENGINE_RELEASE, api: { getClock: () => publicClock(engine) } };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), previewLore: async () => {
+    const lib = engine.campaign() ? [] : listLibrary();
+    return engine.previewProfileLore(lib.length ? await loadFromLibrary(lib[0]) : void 0);
+  }, version: ENGINE_RELEASE, api: { getClock: () => publicClock(engine) } };
   installClockEvents(engine);
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;

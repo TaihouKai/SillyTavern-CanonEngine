@@ -9,6 +9,7 @@ import type { OpType } from './runtime/types';
 import { ENGINE_RELEASE } from './runtime/types';
 import { deepClone } from './domain/util';
 import { notifyDone, primeNotifications } from './ui/notify';
+import { listLibrary, loadFromLibrary } from './ui/library';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -162,7 +163,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock!.isOwner();
   (globalThis as any).canonEngineGenerateInterceptor = interceptor;
-  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), previewLore: () => engine!.previewProfileLore(), version: ENGINE_RELEASE, api: { getClock: () => publicClock(engine!) } };
+  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), previewLore: async () => { const lib = engine!.campaign() ? [] : listLibrary(); return engine!.previewProfileLore(lib.length ? await loadFromLibrary(lib[0]) : undefined); }, version: ENGINE_RELEASE, api: { getClock: () => publicClock(engine!) } };
   installClockEvents(engine);
 
   const es = c.eventSource;

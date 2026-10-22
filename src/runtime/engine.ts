@@ -1542,9 +1542,11 @@ export class CanonEngine {
     return built;
   }
 
-  /** The lorebook entries a Persona read would take as background now (titles; no model call). */
-  async previewProfileLore(): Promise<string[]> {
-    const pack = this.pack();
+  /** The lorebook entries a Persona read would take as background now (titles; no model call). Without a bound
+   *  pack, with the given pack's world. */
+  async previewProfileLore(packText?: string): Promise<string[]> {
+    const pack = this.campaign() || !packText ? this.pack() : validatePackText(packText).loaded;
+    if (!pack) throw new EngineError('invalid_pack', 'the pack is not valid');
     const persona = this.persona();
     return loreFor((await this.host.loreEntries?.()) || [], `${persona.name}\n${persona.description}`, pack).map((l) => `${l.title}${l.via === 'related' ? ' (related)' : ''}`);
   }
