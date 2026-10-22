@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.5.0 — 2026-10-22
+
+- **New setting: "GM 可以替玩家角色……" (what the GM may write for the player character).** It is a list of checkboxes:
+  - dialogue;
+  - reactions and inner thoughts;
+  - small actions;
+  - movement and leaving the scene;
+  - items;
+  - abilities, skills and magic;
+  - combat;
+  - decisions;
+  - revealing secrets.
+
+  By default dialogue, reactions and small actions are ticked. Until now the engine had a built-in rule, "do not supply new voluntary player actions, decisions, dialogue…". It made GMs refuse to speak for the player, and the reviewer sent drafts back for "塞拉菲娜接过果汁，拧开盖子喝了一口" or any line of the player character's dialogue, each costing a repair (30–100 s). Players who want the GM to voice their character got one-line player turns followed by walls of NPC dialogue.
+  - The GM is told which kinds to write naturally, in character with the Persona, and which to leave to the player.
+  - The reviewer gives each player-character act a kind. Only kinds that are not ticked, and that the player did not write, are sent back.
+  - Acts the player wrote are always carried out.
+  - A decision the GM voices is never recorded as the player's (decisions are read only from the player's own messages).
+  - With nothing ticked, the old strict rule applies.
+- Tests: PV1–PV3.
+
 ## 1.4.10 — 2026-10-22
 
 From a failed live turn: a five-day skip (10/10 → 10/15) right after the player had joined the ITEM survivors' search for 芙兰达.

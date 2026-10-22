@@ -11,7 +11,7 @@ import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
 import type { HostPort } from './host';
 import { callStructured, taskDefaults } from './model';
-import { CONTINUE_INSTRUCTION, GM_INTEGRATION_RULES, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
+import { CONTINUE_INSTRUCTION, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, type ClaimInput, type RefInput, type Retrieval } from './context';
 import { runGate, type EvalOutput, type GateResult } from './gate';
@@ -19,6 +19,7 @@ import { adjudicateInterval, concludeFromPlay } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
 import { buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, integrationKey, personaHash, playerContext, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 
 export interface EngineSettings {
@@ -49,6 +50,8 @@ export interface EngineSettings {
   replyLength: string;
   /** Scene grouping: beats of the same ongoing scene continue one 本局事件 box instead of each making a new one. */
   sceneGrouping: boolean;
+  /** What the GM may write for the player character (dialogue, reactions, small actions...; see voice.ts). */
+  playerVoice: PlayerVoice;
 }
 
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
@@ -83,6 +86,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   taskExtraBody: '',
   replyLength: '',
   sceneGrouping: false,
+  playerVoice: { ...DEFAULT_PLAYER_VOICE },
 };
 
 export type OpPhase = 'idle' | 'reconciling' | 'planning' | 'generating' | 'validating' | 'committing' | 'error' | 'conflict' | 'disabled';
@@ -184,7 +188,7 @@ export class CanonEngine {
   private packCache: { hash: string; loaded: LoadedPack } | null = null;
   /** Discovery result per (operation, text): re-reviewing the same draft against staged history reuses it. */
   private discCache = new Map<string, DiscoverOut>();
-  private gmRules(): string { return GM_INTEGRATION_RULES; }
+  private gmRules(): string { return gmRulesFor(playerVoice(this.settings.playerVoice)); }
   private lengthNote(): string {
     const len = String(this.settings.replyLength || '').trim();
     return len ? replyLengthNote(len) : '';
@@ -693,7 +697,7 @@ export class CanonEngine {
     // Deterministic agency check after a source edit: narrated player actions must still be
     // authorized by the (edited) user message; otherwise the retained reply is an editorial conflict.
     const sourceChanged = (reevalReasons || []).some((x) => /authorized|content changed|no longer in the selected transcript/.test(x));
-    const unauthorized = sourceChanged ? gate.playerActions.find((a) => !a.authorizedBy) : undefined;
+    const unauthorized = sourceChanged ? gate.playerActions.find((a) => !a.authorizedBy && !voiceAllows(playerVoice(this.settings.playerVoice), a.category)) : undefined;
     if (unauthorized) gate.violations.unshift(`Narrated player action "${unauthorized.quote}" is not authorized by the edited user message, and no separate cause is described.`);
     const conflict = review.evaluation.decision === 'conflict' || gate.violations.length > 0;
     const interp = this.interpretationFromGate(entry.messageId, entry.variantId, entry.contentHash, gate, review, index, userEntry, r.state.clock.lo, 'retained_reeval', newId('cmt'));
@@ -879,6 +883,7 @@ export class CanonEngine {
       offered_contact: a.offered ? { opportunity_id: a.offered.id, scope_kind: a.offered.scopeKind, scope_ref: a.offered.scopeRef, about: a.offered.scopeLabel, actors: a.offered.actors, kind: a.offered.kind, contact: a.offered.contact, direct_impact: a.offered.directImpact, cleared_by_engine: true } : null,
       recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote })),
       canon_events_now: this.canonNow(index, tick, a.jumpTo ?? this.jumpOf(a.userEntry, tick)),
+      player_voice: voiceInput(playerVoice(this.settings.playerVoice)),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
@@ -907,7 +912,7 @@ export class CanonEngine {
     }
     const gate = runGate({
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
-      evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced,
+      evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced, voice: playerVoice(this.settings.playerVoice),
       playerId: prof?.profile.playerId || null, offered: a.offered || null,
     });
     const c = this.campaign();

@@ -10,6 +10,7 @@ import { toTick, formatTick } from '../domain/time';
 import { pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
 import type { ClaimInput, Retrieval } from './context';
+import { voiceAllows, type PlayerVoice } from './voice';
 import type { CoverageEntry, Opportunity, PlanRevision, PlayerAction, RecordDraft, StateClaim } from './types';
 
 export interface EvalOutput {
@@ -24,7 +25,7 @@ export interface EvalOutput {
     ref_phrases?: string[]; continues?: string | null; visibility?: 'public' | 'restricted' | 'secret'; knowers?: string[]; origin?: 'player' | 'gm' | 'intervention';
   }[];
   state_claims: { entity_id: string; predicate: string; value: FactValue; quote: string; at?: { day: number; minute: number } | null }[];
-  player_actions: { quote: string; authorized_by_quote: string | null }[];
+  player_actions: { quote: string; authorized_by_quote: string | null; category?: string | null }[];
   step_enactments?: { step_id: string; occurrence_ref: string; quote: string }[];
   new_entities?: { ref: string; name: string; kind: RuntimeEntity['kind']; description: string; quote: string }[];
   violations: { code: string; quote?: string; detail: string; blocking?: boolean }[];
@@ -34,6 +35,8 @@ export interface EvalOutput {
   /** Narrative integration: contacts from the world that reached the player in this reply. */
   contacts?: { quote: string; actors?: string[]; kind: ContactInfo['contactKind']; scope_kind: ScopeKind; scope_ref: string; scope_label?: string; opportunity_id?: string | null }[];
 }
+
+const NO_VOICE: PlayerVoice = { dialogue: false, reactions: false, actions: false, movement: false, items: false, skills: false, combat: false, decisions: false, secrets: false };
 
 export interface GateInput {
   pack: LoadedPack;
@@ -48,6 +51,8 @@ export interface GateInput {
   clockTick: number;
   /** Staged offscreen occurrences for HARD events crossed in this operation (eventId -> occurrence). */
   stagedHard: Map<Id, Occurrence>;
+  /** What the GM may write for the player character without the player writing it (settings). */
+  voice?: PlayerVoice;
   mode: 'draft' | 'retained';
   forced: boolean;
   /** Narrative integration: the player character's entity and the suggestion offered to the GM this turn. */
@@ -322,8 +327,9 @@ export function runGate(g: GateInput): GateResult {
   for (const a of ev.player_actions) {
     if (!hasQuote(a.quote)) continue;
     const auth = a.authorized_by_quote && g.userSource && quoteInText(a.authorized_by_quote, g.userText) ? { messageId: g.userSource.messageId, quote: a.authorized_by_quote } : null;
-    if (!auth && g.mode === 'draft') violations.push(`The reply narrates a player action/decision/dialogue the user did not authorize: "${a.quote}". Do not supply voluntary player actions.`);
-    playerActions.push({ quote: a.quote, authorizedBy: auth });
+    const allowed = voiceAllows(g.voice || NO_VOICE, a.category);
+    if (!auth && !allowed && g.mode === 'draft') violations.push(`The reply has the player character do something the player did not write and leaves to themselves${a.category ? ` (${a.category})` : ''}: "${a.quote}". Leave it to the player.`);
+    playerActions.push({ quote: a.quote, authorizedBy: auth, category: a.category ?? null });
   }
 
   // ---- state claims vs actual state (+ staged overlay, containment) -----------------------------

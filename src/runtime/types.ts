@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.4.10';
+export const ENGINE_RELEASE = '1.5.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -20,7 +20,7 @@ export interface SourceEntry {
 
 export interface Intent { quote: string; summary: string }
 export interface StateClaim { entity_id: Id; predicate: Id; value: FactValue; quote: string }
-export interface PlayerAction { quote: string; authorizedBy: { messageId: string; quote: string } | null }
+export interface PlayerAction { quote: string; authorizedBy: { messageId: string; quote: string } | null; /** Kind of act (settings: what the GM may write for the player). */ category?: string | null }
 
 export interface Banner { severity: 'major'; text: string; commitId: string; reason: string }
 

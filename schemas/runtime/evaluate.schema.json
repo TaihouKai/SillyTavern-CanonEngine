@@ -427,6 +427,24 @@
        "string",
        "null"
       ]
+     },
+     "category": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "enum": [
+       "dialogue",
+       "reactions",
+       "actions",
+       "movement",
+       "items",
+       "skills",
+       "combat",
+       "decisions",
+       "secrets",
+       null
+      ]
      }
     },
     "required": [

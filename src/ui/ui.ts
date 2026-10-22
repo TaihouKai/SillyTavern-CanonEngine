@@ -1,5 +1,6 @@
 // Small persistent UI: status pill near the composer, settings drawer, binding wizard,
 // on-demand inspector (spoilers behind a toggle), per-variant banners and conflict markers.
+import { VOICE_KINDS, playerVoice } from '../runtime/voice';
 import type { CanonEngine, EngineSettings } from '../runtime/engine';
 import { labelForError, formatUsd } from '../runtime/engine';
 import type { StHost } from '../adapters/st';
@@ -231,6 +232,11 @@ function renderSettings() {
     check('notifyDone', s.notifyDone !== false, t('notifyDone'), 'notifyDoneTip') +
     (s.notifyDone !== false ? check('notifySound', s.notifySound !== false, t('notifySound'), 'notifySoundTip') + notifyNote() : '')));
 
+  // ---- what the GM may write for the player character
+  const pv = playerVoice((s as any).playerVoice);
+  out.push(`<details class="canon-card canon-voice"${(s as any).voiceOpen ? ' open' : ''}><summary class="canon-card-title">${t('secVoice')} ${tip('secVoiceTip')} <span class="canon-sub">${esc(VOICE_KINDS.filter((k) => pv[k]).map((k) => t('voice_' + k)).join('、') || t('voiceNone'))}</span></summary>`
+    + VOICE_KINDS.map((k) => check('voice:' + k, pv[k], t('voice_' + k), 'voice_' + k + 'Tip')).join('') + `<div class="canon-hint">${t('voiceHint')}</div></details>`);
+
   // ---- event log
   out.push(card(t('secEvents'), '', check('sceneGrouping', !!s.sceneGrouping, t('sceneGrouping'), 'sceneGroupingTip') + check('followHoraeTime', s.followHoraeTime !== false, t('followHoraeTime'), 'followHoraeTimeTip')));
 
@@ -375,6 +381,14 @@ async function onSettingsChange(ev: Event) {
   const key = tgt.dataset.set;
   if (!key) return;
   const s = getSettings() as any;
+  if (key.startsWith('voice:')) {
+    s.playerVoice = { ...playerVoice(s.playerVoice), [key.slice(6)]: tgt.checked };
+    s.voiceOpen = true;
+    Object.assign(E.settings, s);
+    ctx().saveSettingsDebounced?.();
+    refreshUi();
+    return;
+  }
   s[key] = tgt.type === 'checkbox' ? tgt.checked : tgt.tagName === 'SELECT' || tgt.tagName === 'TEXTAREA' || tgt.type === 'text' ? tgt.value : Number(tgt.value);
   if (key === 'uiLang') setLang(tgt.value === 'en' ? 'en' : 'zh');
   if (key === 'notifyDone' && tgt.checked) primeNotifications(); // the click is the user gesture permission prompts want
