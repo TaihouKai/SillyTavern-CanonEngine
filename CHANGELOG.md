@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.3 — 2026-10-22
+
+- **组织成员 in the timeline window.** A new button switches the timeline to a members view with two tables:
+  - every organization's leader, members and status as they stand now in this game, so it follows what actually happened in play;
+  - the pack's membership changes in time order, each with its state in this game (occurred, changed, overdue or upcoming).
+
+  Upcoming changes are canon spoilers. Without 显示剧透 the view only says how many there are.
+- **叙事融入 tab:** organization connections and affiliations show their current leader and members, as the GM sees them, e.g. "暗部SCHOOL: 敌对组织 (Persona) [首领 垣根帝督；成员 …]".
+- Tests: LM7.
+
 ## 1.6.2 — 2026-10-22
 
 - **Fix: the handler named in the Persona was dropped from "who knows you".** The Persona said "隶属: EMBER -> 云川芹亚 -> 贝积继敏" and "联络人: 云川芹亚". The model listed 云川芹亚 as a knower but labelled her "implied". Canon drops implied knowers who are known characters, so that the model cannot invent "a canon character knows your secret".

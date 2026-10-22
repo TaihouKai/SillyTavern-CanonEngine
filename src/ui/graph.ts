@@ -334,6 +334,12 @@ export function renderGraphSvg(g: GraphData, mode: 'pack' | 'current'): string {
 }
 
 /** Interactive panel controller (pan/zoom, selection, filters). */
+export interface MembersView {
+  now: { id: string; name: string; leader: string | null; members: string[]; status: string | null }[];
+  changes: { when: string; event: string; org: string; leader?: string | null; members?: string[]; state: 'occurred' | 'diverged' | 'pending' | 'future' }[];
+  hidden: number;
+}
+
 export class GraphPanel {
   el: HTMLElement;
   private data: { pack: GraphData | null; current: GraphData | null } = { pack: null, current: null };
@@ -348,9 +354,12 @@ export class GraphPanel {
   private onEventAction: (act: 'force' | 'unforce' | 'focus' | 'digest' | 'undigest' | 'reanalyze' | 'conclude' | 'link-occurred' | 'link-diverged', id: string, ids?: string[]) => Promise<void>;
   private linkCandidates: (id: string) => { id: string; title: string; when: string }[];
   private armed: string | null = null;
+  private showMembers = false;
+  private getMembers: (spoilers: boolean) => MembersView | null;
 
-  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined, linkCandidates: GraphPanel['linkCandidates'] = () => []) {
+  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined, linkCandidates: GraphPanel['linkCandidates'] = () => [], getMembers: GraphPanel['getMembers'] = () => null) {
     this.getData = getData;
+    this.getMembers = getMembers;
     this.setSpoilers = setSpoilers;
     this.onEventAction = onEventAction;
     this.linkCandidates = linkCandidates;
@@ -391,13 +400,14 @@ export class GraphPanel {
         ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? 'checked' : ''}>${LANE_LABEL[l]}</label>`).join('')}
         <label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? 'checked' : ''}>${t('spoilers')}</label>
         ${this.mode === 'current' && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t('digestTip'))}">${t('digest')}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t('undigestTip'))}">${t('undigest')}</button>` : ''}` : ''}
+        <button class="menu_button ${this.showMembers ? 'active' : ''}" data-act="members" title="${esc(t('membersTip'))}">${t('members')}</button>
         <button class="menu_button" data-act="fit">${t('graphFit')}</button>
         <button class="menu_button" data-act="close">✕</button>
       </div>
       <div class="cg-legend">${this.legend()}<span class="cg-hint">${this.mode === 'pack' ? t('graphPackNote') : t('graphCurrentNote')}</span></div>
       <div class="cg-body">
-        <div class="cg-canvas">${!g ? `<div class="cg-empty">${t('graphNoData')}</div>` : renderGraphSvg(g, this.mode)}</div>
-        <div class="cg-detail"><div class="cg-empty">${t('graphPick')}</div></div>
+        <div class="cg-canvas">${this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t('graphNoData')}</div>` : renderGraphSvg(g, this.mode)}</div>
+        <div class="cg-detail"${this.showMembers ? ' style="display:none"' : ''}><div class="cg-empty">${t('graphPick')}</div></div>
       </div>`;
     this.bindCanvas();
     if (this.selected) this.select(this.selected);
@@ -410,6 +420,19 @@ export class GraphPanel {
     if (!this.isOpen()) return;
     this.keepView = true;
     this.refresh();
+  }
+
+  /** 组织成员: organizations now in this game, and the pack's membership changes (upcoming ones only with spoilers). */
+  private membersHtml(spoilers: boolean): string {
+    const m = this.getMembers(spoilers);
+    if (!m) return `<div class="cg-empty">${t('graphNoData')}</div>`;
+    const now = m.now.length
+      ? `<table class="canon-table cg-members"><tr><th>${t('membersOrg')}</th><th>${t('membersLeader')}</th><th>${t('membersList')}</th><th>${t('membersStatus')}</th></tr>${m.now.map((o) => `<tr><td>${esc(o.name)}</td><td>${esc(o.leader || '—')}</td><td>${esc(o.members.join('、') || '—')}</td><td>${esc(o.status || '')}</td></tr>`).join('')}</table>`
+      : `<div class="cg-empty">${t('membersNone')}</div>`;
+    const ch = m.changes.length
+      ? `<table class="canon-table cg-members"><tr><th>${t('membersWhen')}</th><th>${t('membersEvent')}</th><th>${t('membersOrg')}</th><th>${t('membersChange')}</th><th></th></tr>${m.changes.map((c) => `<tr class="cg-mstate-${c.state}"><td>${esc(c.when)}</td><td>${esc(c.event)}</td><td>${esc(c.org)}</td><td>${esc(c.members !== undefined ? (c.members.length ? c.members.join('、') : t('membersEmptied')) : `${t('membersLeader')} → ${c.leader || t('membersNoLeader')}`)}</td><td><span class="cg-key cg-s-${c.state}">${statusLabel(c.state as GStatus)}</span></td></tr>`).join('')}</table>`
+      : '';
+    return `<div class="cg-memberswrap"><h4>${t('membersNowTitle')}</h4>${now}<h4>${t('membersChangesTitle')}</h4>${ch || `<div class="cg-empty">${t('membersNoChanges')}</div>`}${m.hidden ? `<div class="cg-hint">${t('membersHidden').replace('{n}', String(m.hidden))}</div>` : ''}</div>`;
   }
 
   private legend(): string {
@@ -478,6 +501,7 @@ export class GraphPanel {
     const b = tg.closest('[data-mode],[data-act]') as HTMLElement | null;
     if (b?.dataset.mode) { this.mode = b.dataset.mode as 'pack' | 'current'; this.selected = null; this.refresh(); return; }
     if (b?.dataset.act === 'close') { this.toggle(false); return; }
+    if (b?.dataset.act === 'members') { this.showMembers = !this.showMembers; this.keepView = true; this.refresh(); return; }
     if (b?.dataset.act === 'fit') { (this as unknown as { fit?: () => void }).fit?.(); return; }
     if (b?.dataset.act === 'digest' || b?.dataset.act === 'undigest') {
       (b as HTMLButtonElement).disabled = true;

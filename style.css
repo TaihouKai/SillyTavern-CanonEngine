@@ -184,3 +184,8 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .cg-linkwhen { opacity:.7; white-space:nowrap; font-size:.9em; }
 .cg-linkbtns { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
 .cg-linkbtns .menu_button { width:auto; margin:0; }
+
+.canon-graph-panel .cg-memberswrap { height: 100%; overflow: auto; padding: 6px 10px; }
+.canon-graph-panel .cg-members { width: 100%; margin-bottom: 10px; }
+.canon-graph-panel .cg-members td { vertical-align: top; }
+.canon-graph-panel .cg-mstate-future td, .canon-graph-panel .cg-mstate-diverged td { opacity: 0.75; }

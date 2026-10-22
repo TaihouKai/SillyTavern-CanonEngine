@@ -67,7 +67,7 @@ function mountTopButton() {
       else if (act === 'reanalyze') { const st = await E.reanalyzeEvent(id); toast('info', t('reanalyzeDone').replace('{s}', t('reanalyzeStatus_' + st))); }
       else await E.undoForce(id);
     } catch (e) { toast('error', (e as Error).message); }
-  }, (id) => { try { return E.linkCandidates(id); } catch { return []; } });
+  }, (id) => { try { return E.linkCandidates(id); } catch { return []; } }, () => { try { return E.membershipView(!!E.campaign()?.uiPreferences.spoilers); } catch { return null; } });
   const holder = document.getElementById('top-settings-holder');
   const btn = document.createElement('div');
   btn.id = 'canon-engine-top-button';

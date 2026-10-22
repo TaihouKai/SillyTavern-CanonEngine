@@ -20897,7 +20897,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.6.2";
+var ENGINE_RELEASE = "1.6.3";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -23095,6 +23095,52 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     if (!c) return null;
     return { pack: this.pack(), state: this.current?.replay.state || null, origin: c.binding.originDate || null };
   }
+  /** Organizations as they stand now in this game (leader, members, status from the game's state) and the pack's
+   *  membership changes in time order with how they stand in this game. Changes still to come are canon spoilers:
+   *  without spoilers only their number is given. */
+  membershipView(spoilers) {
+    if (!this.campaign() || !this.current) return null;
+    const s = this.current.replay.state;
+    const idx = this.current.index;
+    const pack2 = idx.pack;
+    const tick = s.clock.lo;
+    const origin = this.campaign().binding.originDate;
+    const members = memberships(idx, tick);
+    const str = (id, p) => {
+      const f = factAt(s, id, p, { tick });
+      return f.known && typeof f.value === "string" ? f.value : null;
+    };
+    const orgs = [...new Set([...pack2.entities.values()].filter((e) => e.kind === "organization").map((e) => e.id).concat([...s.runtimeEntities.values()].filter((e) => e.kind === "organization").map((e) => e.id)))];
+    const now = orgs.map((id) => {
+      const leader = str(id, "leader");
+      return { id, name: idx.entityName(id), leader: leader ? idx.entityName(leader) : null, members: (members.get(id) || []).map((m) => idx.entityName(m)), status: str(id, "status") };
+    }).filter((o) => o.leader || o.members.length || o.status);
+    const changes = [];
+    let hidden = 0;
+    for (const t2 of pack2.timeIndex) {
+      const ev = pack2.events.get(t2.id);
+      const fx = ev.canonical_effects.filter((x) => {
+        const p = x.op === "set" ? x.fact.predicate : x.predicate;
+        return p === "members" || p === "leader";
+      });
+      if (!fx.length) continue;
+      const d = s.dispositions.get(t2.id)?.disposition;
+      const state = d === "occurred" ? "occurred" : d === "diverged" ? "diverged" : t2.hi < tick ? "pending" : "future";
+      if (state === "future" && !spoilers) {
+        hidden += fx.length;
+        continue;
+      }
+      for (const x of fx) {
+        const org = x.op === "set" ? x.fact.entity_id : x.entity_id;
+        const pred = x.op === "set" ? x.fact.predicate : x.predicate;
+        const row = { when: formatTick(t2.lo, origin), event: ev.title, org: idx.entityName(org), state };
+        if (pred === "members") row.members = x.op === "set" && Array.isArray(x.fact.value) ? x.fact.value.map((m) => idx.entityName(m)) : [];
+        else row.leader = x.op === "set" && typeof x.fact.value === "string" ? idx.entityName(x.fact.value) : null;
+        changes.push(row);
+      }
+    }
+    return { now, changes, hidden };
+  }
   inspector(spoilers) {
     const c = this.campaign();
     if (!c || !this.current) return null;
@@ -23143,6 +23189,15 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const eng = engagementView(s, idx.pack);
     const active = new Set([...eng.scopes.values()].map((x) => x.current?.recordId).filter(Boolean));
     const lab = (kind, label) => spoilers || !["event", "arc"].includes(kind) ? label : "\u2022\u2022\u2022";
+    const members = memberships(idx, s.clock.lo);
+    const zh = this.settings.uiLang !== "en";
+    const orgNow = (id) => {
+      if (!id || idx.entityKind(id) !== "organization") return "";
+      const leader = factAt(s, id, "leader", { tick: s.clock.lo });
+      const ms = members.get(id) || [];
+      const bits = [leader.known && typeof leader.value === "string" ? `${zh ? "\u9996\u9886" : "leader"} ${idx.entityName(leader.value)}` : "", ms.length ? `${zh ? "\u6210\u5458" : "members"} ${ms.map((m) => idx.entityName(m)).join(zh ? "\u3001" : ", ")}` : ""].filter(Boolean);
+      return bits.length ? ` [${bits.join(zh ? "\uFF1B" : "; ")}]` : "";
+    };
     return {
       profile: prof ? {
         rev: prof.rev,
@@ -23152,9 +23207,9 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
         lore: prof.profile.lore || [],
         summary: prof.profile.summary,
         publicIdentity: prof.profile.publicIdentity,
-        affiliations: prof.profile.affiliations.map((a) => `${a.name} \u2014 ${a.role} (${a.secrecy})`),
+        affiliations: prof.profile.affiliations.map((a) => `${a.name} \u2014 ${a.role} (${a.secrecy})${orgNow(a.entityId)}`),
         places: prof.profile.places.map((p) => `${p.name} \u2014 ${p.use}`),
-        relationships: prof.profile.relationships.map((r) => `${r.name}: ${r.relation} (${r.basis === "persona_stated" ? "Persona" : "implied"})`),
+        relationships: prof.profile.relationships.map((r) => `${r.name}: ${r.relation} (${r.basis === "persona_stated" ? "Persona" : "implied"})${orgNow(r.entityId)}`),
         knowers: prof.profile.knowers.map((k) => `${k.who} \u2014 ${k.level}: ${k.about}`),
         notes: prof.profile.notes
       } : null,
@@ -24278,6 +24333,22 @@ var D = {
   graphSearch: { zh: "\u641C\u7D22\u4E8B\u4EF6\u2026", en: "Search events\u2026" },
   graphAllArcs: { zh: "\u5168\u90E8\u7BC7\u7AE0", en: "All arcs" },
   graphFit: { zh: "\u5168\u89C8", en: "Fit" },
+  members: { zh: "\u7EC4\u7EC7\u6210\u5458", en: "Members" },
+  membersTip: { zh: "\u67E5\u770B\u5404\u7EC4\u7EC7\u7684\u9996\u9886\u4E0E\u6210\u5458\uFF1A\u672C\u5C40\u5F53\u524D\u7684\u60C5\u51B5\uFF0C\u4EE5\u53CA\u5386\u53F2\u5267\u672C\u91CC\u6210\u5458\u53D8\u5316\u7684\u4E8B\u4EF6\uFF08\u5C1A\u672A\u53D1\u751F\u7684\u5C5E\u4E8E\u5267\u900F\uFF0C\u52FE\u9009\u201C\u5267\u900F\u201D\u624D\u663E\u793A\uFF09\u3002\u518D\u70B9\u4E00\u6B21\u56DE\u5230\u65F6\u95F4\u7EBF\u3002", en: "Leaders and members of the organizations: as they stand now in this game, and the pack events that change membership (upcoming ones are spoilers, shown only with spoilers on). Click again to return to the timeline." },
+  membersNowTitle: { zh: "\u672C\u5C40\u5F53\u524D", en: "Now in this game" },
+  membersChangesTitle: { zh: "\u5386\u53F2\u5267\u672C\u4E2D\u7684\u6210\u5458\u53D8\u5316", en: "Membership changes in the pack" },
+  membersOrg: { zh: "\u7EC4\u7EC7", en: "Organization" },
+  membersLeader: { zh: "\u9996\u9886", en: "Leader" },
+  membersList: { zh: "\u6210\u5458", en: "Members" },
+  membersStatus: { zh: "\u72B6\u6001", en: "Status" },
+  membersWhen: { zh: "\u65F6\u95F4", en: "When" },
+  membersEvent: { zh: "\u4E8B\u4EF6", en: "Event" },
+  membersChange: { zh: "\u53D8\u5316\u540E", en: "After it" },
+  membersEmptied: { zh: "\uFF08\u65E0\u6210\u5458\uFF09", en: "(no members)" },
+  membersNoLeader: { zh: "\uFF08\u7A7A\u7F3A\uFF09", en: "(none)" },
+  membersNone: { zh: "\u8FD9\u4E2A\u5267\u672C\u6CA1\u6709\u5199\u7EC4\u7EC7\u6210\u5458\uFF08\u9700\u8981\u5267\u672C members/leader \u4E8B\u5B9E\uFF0C\u4F8B\u5982\u9B54\u7981\u5267\u672C 1.1.9 \u8D77\uFF09\u3002", en: "This pack records no organization members (it needs members/leader facts)." },
+  membersNoChanges: { zh: "\u6CA1\u6709\u53EF\u663E\u793A\u7684\u6210\u5458\u53D8\u5316\u3002", en: "No membership changes to show." },
+  membersHidden: { zh: "\u53E6\u6709 {n} \u9879\u5C1A\u672A\u53D1\u751F\u7684\u6210\u5458\u53D8\u5316\uFF08\u5267\u900F\uFF0C\u52FE\u9009\u201C\u5267\u900F\u201D\u663E\u793A\uFF09\u3002", en: "{n} upcoming membership changes hidden (spoilers; tick Spoilers to show)." },
   graphNoData: { zh: "\u6B64\u5BF9\u8BDD\u672A\u542F\u7528 Canon Engine\uFF08\u5148\u5728\u6269\u5C55\u8BBE\u7F6E\u4E2D\u5BFC\u5165 .canon.json\uFF09\u3002", en: "Canon Engine is not enabled for this chat." },
   graphPick: { zh: "\u70B9\u51FB\u4E8B\u4EF6\u67E5\u770B\u8BE6\u60C5\u3002\u62D6\u52A8\u5E73\u79FB\uFF0C\u6EDA\u8F6E\u7F29\u653E\uFF0CShift+\u6EDA\u8F6E\u6A2A\u5411\u79FB\u52A8\u3002", en: "Click an event for details. Drag to pan, wheel to zoom, Shift+wheel to scroll." },
   graphPackNote: { zh: "\u539F\u4F5C\u53C2\u8003\uFF1A\u5305\u542B\u5168\u90E8\u672A\u6765\u4E8B\u4EF6\uFF08\u5267\u900F\uFF09", en: "Canon reference: includes all future events (spoilers)" },
@@ -24898,8 +24969,11 @@ var GraphPanel = class {
   onEventAction;
   linkCandidates;
   armed = null;
-  constructor(getData, setSpoilers, onEventAction = async () => void 0, linkCandidates = () => []) {
+  showMembers = false;
+  getMembers;
+  constructor(getData, setSpoilers, onEventAction = async () => void 0, linkCandidates = () => [], getMembers = () => null) {
     this.getData = getData;
+    this.getMembers = getMembers;
     this.setSpoilers = setSpoilers;
     this.onEventAction = onEventAction;
     this.linkCandidates = linkCandidates;
@@ -24940,13 +25014,14 @@ var GraphPanel = class {
         ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? "checked" : ""}>${LANE_LABEL[l]}</label>`).join("")}
         <label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? "checked" : ""}>${t("spoilers")}</label>
         ${this.mode === "current" && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t("digestTip"))}">${t("digest")}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t("undigestTip"))}">${t("undigest")}</button>` : ""}` : ""}
+        <button class="menu_button ${this.showMembers ? "active" : ""}" data-act="members" title="${esc(t("membersTip"))}">${t("members")}</button>
         <button class="menu_button" data-act="fit">${t("graphFit")}</button>
         <button class="menu_button" data-act="close">\u2715</button>
       </div>
       <div class="cg-legend">${this.legend()}<span class="cg-hint">${this.mode === "pack" ? t("graphPackNote") : t("graphCurrentNote")}</span></div>
       <div class="cg-body">
-        <div class="cg-canvas">${!g ? `<div class="cg-empty">${t("graphNoData")}</div>` : renderGraphSvg(g, this.mode)}</div>
-        <div class="cg-detail"><div class="cg-empty">${t("graphPick")}</div></div>
+        <div class="cg-canvas">${this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t("graphNoData")}</div>` : renderGraphSvg(g, this.mode)}</div>
+        <div class="cg-detail"${this.showMembers ? ' style="display:none"' : ""}><div class="cg-empty">${t("graphPick")}</div></div>
       </div>`;
     this.bindCanvas();
     if (this.selected) this.select(this.selected);
@@ -24958,6 +25033,14 @@ var GraphPanel = class {
     if (!this.isOpen()) return;
     this.keepView = true;
     this.refresh();
+  }
+  /** 组织成员: organizations now in this game, and the pack's membership changes (upcoming ones only with spoilers). */
+  membersHtml(spoilers) {
+    const m = this.getMembers(spoilers);
+    if (!m) return `<div class="cg-empty">${t("graphNoData")}</div>`;
+    const now = m.now.length ? `<table class="canon-table cg-members"><tr><th>${t("membersOrg")}</th><th>${t("membersLeader")}</th><th>${t("membersList")}</th><th>${t("membersStatus")}</th></tr>${m.now.map((o) => `<tr><td>${esc(o.name)}</td><td>${esc(o.leader || "\u2014")}</td><td>${esc(o.members.join("\u3001") || "\u2014")}</td><td>${esc(o.status || "")}</td></tr>`).join("")}</table>` : `<div class="cg-empty">${t("membersNone")}</div>`;
+    const ch = m.changes.length ? `<table class="canon-table cg-members"><tr><th>${t("membersWhen")}</th><th>${t("membersEvent")}</th><th>${t("membersOrg")}</th><th>${t("membersChange")}</th><th></th></tr>${m.changes.map((c) => `<tr class="cg-mstate-${c.state}"><td>${esc(c.when)}</td><td>${esc(c.event)}</td><td>${esc(c.org)}</td><td>${esc(c.members !== void 0 ? c.members.length ? c.members.join("\u3001") : t("membersEmptied") : `${t("membersLeader")} \u2192 ${c.leader || t("membersNoLeader")}`)}</td><td><span class="cg-key cg-s-${c.state}">${statusLabel(c.state)}</span></td></tr>`).join("")}</table>` : "";
+    return `<div class="cg-memberswrap"><h4>${t("membersNowTitle")}</h4>${now}<h4>${t("membersChangesTitle")}</h4>${ch || `<div class="cg-empty">${t("membersNoChanges")}</div>`}${m.hidden ? `<div class="cg-hint">${t("membersHidden").replace("{n}", String(m.hidden))}</div>` : ""}</div>`;
   }
   legend() {
     if (this.mode === "pack") return `<span class="cg-key cg-c-HARD">HARD</span><span class="cg-key cg-c-SOFT">SOFT</span><span class="cg-key cg-c-FREE">FREE</span><span class="cg-ek cg-edge-enables">\u4FC3\u6210</span><span class="cg-ek cg-edge-motivates">\u52A8\u673A</span><span class="cg-ek cg-edge-precedes">\u5148\u540E</span><span class="cg-ek cg-edge-related">\u76F8\u5173</span>`;
@@ -25060,6 +25143,12 @@ var GraphPanel = class {
     }
     if (b?.dataset.act === "close") {
       this.toggle(false);
+      return;
+    }
+    if (b?.dataset.act === "members") {
+      this.showMembers = !this.showMembers;
+      this.keepView = true;
+      this.refresh();
       return;
     }
     if (b?.dataset.act === "fit") {
@@ -25283,6 +25372,12 @@ function mountTopButton() {
       return E.linkCandidates(id);
     } catch {
       return [];
+    }
+  }, () => {
+    try {
+      return E.membershipView(!!E.campaign()?.uiPreferences.spoilers);
+    } catch {
+      return null;
     }
   });
   const holder = document.getElementById("top-settings-holder");

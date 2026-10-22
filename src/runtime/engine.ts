@@ -2156,6 +2156,44 @@ export class CanonEngine {
     return { pack: this.pack(), state: this.current?.replay.state || null, origin: c.binding.originDate || null };
   }
 
+  /** Organizations as they stand now in this game (leader, members, status from the game's state) and the pack's
+   *  membership changes in time order with how they stand in this game. Changes still to come are canon spoilers:
+   *  without spoilers only their number is given. */
+  membershipView(spoilers: boolean): { now: { id: Id; name: string; leader: string | null; members: string[]; status: string | null }[]; changes: { when: string; event: string; org: string; leader?: string | null; members?: string[]; state: 'occurred' | 'diverged' | 'pending' | 'future' }[]; hidden: number } | null {
+    if (!this.campaign() || !this.current) return null;
+    const s = this.current.replay.state;
+    const idx = this.current.index;
+    const pack = idx.pack;
+    const tick = s.clock.lo;
+    const origin = this.campaign()!.binding.originDate;
+    const members = memberships(idx, tick);
+    const str = (id: Id, p: string) => { const f = factAt(s, id, p, { tick }); return f.known && typeof f.value === 'string' ? f.value : null; };
+    const orgs = [...new Set([...pack.entities.values()].filter((e) => e.kind === 'organization').map((e) => e.id).concat([...s.runtimeEntities.values()].filter((e) => e.kind === 'organization').map((e) => e.id)))];
+    const now = orgs.map((id) => {
+      const leader = str(id, 'leader');
+      return { id, name: idx.entityName(id), leader: leader ? idx.entityName(leader) : null, members: (members.get(id) || []).map((m) => idx.entityName(m)), status: str(id, 'status') };
+    }).filter((o) => o.leader || o.members.length || o.status);
+    const changes: NonNullable<ReturnType<CanonEngine['membershipView']>>['changes'] = [];
+    let hidden = 0;
+    for (const t of pack.timeIndex) {
+      const ev = pack.events.get(t.id)!;
+      const fx = ev.canonical_effects.filter((x) => { const p = x.op === 'set' ? x.fact.predicate : x.predicate; return p === 'members' || p === 'leader'; });
+      if (!fx.length) continue;
+      const d = s.dispositions.get(t.id)?.disposition;
+      const state = d === 'occurred' ? 'occurred' : d === 'diverged' ? 'diverged' : t.hi < tick ? 'pending' : 'future';
+      if (state === 'future' && !spoilers) { hidden += fx.length; continue; }
+      for (const x of fx) {
+        const org = x.op === 'set' ? x.fact.entity_id : x.entity_id;
+        const pred = x.op === 'set' ? x.fact.predicate : x.predicate;
+        const row = { when: formatTick(t.lo, origin), event: ev.title, org: idx.entityName(org), state } as (typeof changes)[number];
+        if (pred === 'members') row.members = x.op === 'set' && Array.isArray(x.fact.value) ? (x.fact.value as Id[]).map((m) => idx.entityName(m)) : [];
+        else row.leader = x.op === 'set' && typeof x.fact.value === 'string' ? idx.entityName(x.fact.value) : null;
+        changes.push(row);
+      }
+    }
+    return { now, changes, hidden };
+  }
+
   inspector(spoilers: boolean) {
     const c = this.campaign();
     if (!c || !this.current) return null;
@@ -2207,13 +2245,23 @@ export class CanonEngine {
     // a pack event/arc title can be a spoiler of canon still to come: masked unless spoilers are on (the quote of
     // the player's own words or of the reply is shown instead)
     const lab = (kind: string, label: string) => (spoilers || !['event', 'arc'].includes(kind) ? label : '•••');
+    // an organization's leader and members as they stand now (pack facts), as the GM is shown them
+    const members = memberships(idx, s.clock.lo);
+    const zh = (this.settings as { uiLang?: string }).uiLang !== 'en';
+    const orgNow = (id: Id | null) => {
+      if (!id || idx.entityKind(id) !== 'organization') return '';
+      const leader = factAt(s, id, 'leader', { tick: s.clock.lo });
+      const ms = members.get(id) || [];
+      const bits = [leader.known && typeof leader.value === 'string' ? `${zh ? '首领' : 'leader'} ${idx.entityName(leader.value)}` : '', ms.length ? `${zh ? '成员' : 'members'} ${ms.map((m) => idx.entityName(m)).join(zh ? '、' : ', ')}` : ''].filter(Boolean);
+      return bits.length ? ` [${bits.join(zh ? '；' : '; ')}]` : '';
+    };
     return {
       profile: prof ? {
         rev: prof.rev, name: prof.profile.personaName, chars: prof.profile.personaText.length, source: prof.profile.source, lore: prof.profile.lore || [],
         summary: prof.profile.summary, publicIdentity: prof.profile.publicIdentity,
-        affiliations: prof.profile.affiliations.map((a) => `${a.name} — ${a.role} (${a.secrecy})`),
+        affiliations: prof.profile.affiliations.map((a) => `${a.name} — ${a.role} (${a.secrecy})${orgNow(a.entityId)}`),
         places: prof.profile.places.map((p) => `${p.name} — ${p.use}`),
-        relationships: prof.profile.relationships.map((r) => `${r.name}: ${r.relation} (${r.basis === 'persona_stated' ? 'Persona' : 'implied'})`),
+        relationships: prof.profile.relationships.map((r) => `${r.name}: ${r.relation} (${r.basis === 'persona_stated' ? 'Persona' : 'implied'})${orgNow(r.entityId)}`),
         knowers: prof.profile.knowers.map((k) => `${k.who} — ${k.level}: ${k.about}`),
         notes: prof.profile.notes,
       } : null,
