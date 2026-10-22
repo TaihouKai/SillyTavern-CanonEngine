@@ -129,7 +129,7 @@ export function playerIds(p: PlayerProfile): Id[] {
   return uniq([p.playerId, ...p.affiliations.map((a) => a.entityId), ...p.places.map((x) => x.entityId)]);
 }
 
-const LEVEL = { exists: 'knows the organization exists', identity: 'knows who the player is / their role', secrets: 'knows' } as const;
+const LEVEL = { exists: 'knows the organization exists (not that the player is in it)', identity: 'knows who the player is / their role', secrets: 'knows' } as const;
 
 function factsLine(index: WorldIndex, id: Id, tick: number): string {
   if (!index.entityExists(id)) return '';

@@ -89,7 +89,7 @@ describe('player presence (Persona -> profile)', () => {
     // the GM is told who knows what at which level
     const ctx = lastCtx(x);
     expect(ctx).toMatch(/PLAYER IN THIS WORLD[\s\S]*Vera \[rt\.player\.[^\]]+\] \(the player character\)/);
-    expect(ctx).toMatch(/who knows: the Council knows the organization exists — a smuggling ring/);
+    expect(ctx).toMatch(/who knows: the Council knows the organization exists [(]not that the player is in it[)] — a smuggling ring/);
     expect(ctx).toMatch(/anyone else knows just the public identity/);
   });
 
@@ -277,6 +277,17 @@ describe('declines, deferrals and re-engagement', () => {
     await turn(x, 'I will not work for the Council.', 'Fine. [S2]', {}, decline('I will not work for the Council', 'faction', 'council'));
     const cache = x.engine.campaign()!.integrationCache!;
     expect(cache.opportunities.map((o) => o.actors[0])).toEqual(['union']);
+  });
+
+  it('NI-20b a blanket refusal can be scoped to the sender: the extractor sees who reached the player and the organizations nearby, not only the player\'s own', async () => {
+    const x = await setup({ integrate: { assessments: [], opportunities: [OPP()] } });
+    await turn(x, 'I drink tea.', 'A clerk slips a sealed note under the door. [B1]', { contacts: [contact('A clerk slips a sealed note under the door')] });
+    await turn(x, 'No more jobs from anyone for a while.', 'The note burns. [B2]');
+    const ctx = x.model.tasks('extract_user').slice(-1)[0].input.engagement_context;
+    expect(ctx.recent_contacts[0].by).toEqual([{ id: 'council', name: expect.any(String) }]);
+    const orgs = ctx.organizations.map((o: any) => `${o.id}:${o.player_member}`);
+    expect(orgs).toContain('council:false');
+    expect(orgs.some((o: string) => /^rt\.org\..*:true$/.test(o))).toBe(true);
   });
 
   it('NI-21 "not now" holds until the time the player named, then contacts may come again', async () => {

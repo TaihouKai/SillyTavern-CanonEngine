@@ -1552,13 +1552,17 @@ export class CanonEngine {
     const contactEvents = index.state.contacts.slice(-8).filter((k) => k.scopeKind === 'event').map((k) => k.scopeRef);
     const evIds = uniq([...near.map((x) => x.event.id), ...contactEvents]).filter((id) => pack.events.has(id));
     const arcIds = uniq(evIds.map((id) => pack.events.get(id)!.arc_id).filter(Boolean) as Id[]);
+    const contacts = index.state.contacts.slice(-8);
+    // faction scopes: the player's own organizations, whoever reached them lately, the organizations in nearby events
+    const orgIds = uniq([...profile.affiliations.map((a) => a.entityId), ...contacts.flatMap((k) => k.actors), ...evIds.flatMap((id) => pack.events.get(id)!.entity_ids)])
+      .filter((id) => index.entityKind(id) === 'organization');
     return {
       player_entity: { id: profile.playerId, name: profile.personaName },
       decisions: engagementView(index.state, pack).lines(tick),
-      recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote })),
+      recent_contacts: contacts.map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => ({ id: a, name: index.entityName(a) })), quote: k.quote })),
       events: evIds.map((id) => { const e = pack.events.get(id)!; return { id, title: e.title, arc_id: e.arc_id }; }),
       arcs: arcIds.map((id) => { const a = pack.pack.arcs.find((x) => x.id === id); return { id, title: a?.title || id }; }),
-      organizations: profile.affiliations.map((a) => ({ id: a.entityId, name: a.name })),
+      organizations: orgIds.slice(0, 24).map((id) => ({ id, name: index.entityName(id), player_member: profile.affiliations.some((a) => a.entityId === id) })),
     };
   }
 

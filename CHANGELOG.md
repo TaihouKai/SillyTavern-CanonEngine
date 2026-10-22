@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.1 — 2026-10-22
+
+Fixes from the first real-model run in the live Tavern (pack 1.1.8, Persona 塞拉菲娜).
+
+- **A blanket refusal keeps its breadth.** "这段时间暗部的任何任务我都不接" was recorded as declining only the one event the latest message was about, because the extractor could choose a faction only among the player's own organizations. It now also sees who reached the player (with ids) and the organizations in nearby events, and a rule says scope follows the player's words: refusing a kind of work or everything from a sender is a faction decision (the sender, and the player's own organization when they refuse to work through it).
+- **Ordinary acquaintances are not knowers.** The profile listed "常盘台同学 — knows the organization exists" for classmates who only see the public image. They are no longer listed (anyone not listed knows just the public identity), and the "exists" level now reads "knows the organization exists (not that the player is in it)".
+- Tests: NI-20b.
+
 ## 1.4.0 — 2026-10-22
 
 Narrative integration: the world reacts to the player, not only the player to the world (requirements document, with the user's decisions). Part of every chat bound from 1.4.0; older campaigns keep working without it.
