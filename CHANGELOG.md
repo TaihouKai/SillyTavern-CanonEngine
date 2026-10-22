@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.2 — 2026-10-22
+
+- **Fix: the handler named in the Persona was dropped from "who knows you".** The Persona said "隶属: EMBER -> 云川芹亚 -> 贝积继敏" and "联络人: 云川芹亚". The model listed 云川芹亚 as a knower but labelled her "implied". Canon drops implied knowers who are known characters, so that the model cannot invent "a canon character knows your secret".
+  - Now an implied knower who is a known character is kept when the profile has a Persona-stated relationship with that person in a chain-of-command role: handler, contact, liaison, superior, boss, 联络人, 上级, 上司, 负责人 and the like.
+  - They know who the player is. Knowing the player's secrets still needs the Persona to say so.
+  - Someone the Persona names for something else (a friend, a debtor) is still not made a knower on a guess.
+  - The profile task is told that the handler or superior the Persona names counts as stated.
+- Tests: NI-03c.
+
 ## 1.6.1 — 2026-10-22
 
 - **Fix: the player character's dialogue was sent back although "说话" is ticked.** The reviewer's answer format showed `player_actions` without `category`. DeepSeek copied the format and left the kind out, and the gate treats an act without a kind as one the player keeps for themselves. In a live turn, two of the player character's lines were sent back, and the repair told the GM to leave them to the player.

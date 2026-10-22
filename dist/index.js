@@ -18803,6 +18803,7 @@ SHAPE: {"rationale":"","protected_anchor_ids":[],"assumptions":[{"text":"","fact
 TASK: Read the player's Persona (their character in this story world) and describe the player's presence in the world for a story engine: who they are, what they belong to or lead, where they operate, what they can do and have, what they want, whom they are connected to, and who plausibly knows about them. Use only what the Persona states or what its role clearly implies; never invent specific relationships.
 - existing_id: a registry id when the Persona names a person, organization or place of this world; null for an original one (the engine creates it). Match names loosely (another script or language, a short form: "SCHOOL" is \u6697\u90E8SCHOOL).
 - background_lore (when given): the user's lorebook entries for the names the Persona uses, and registry organizations list their leader and members. They are world background to recognise what the Persona means \u2014 they never make anyone related to the player or aware of them, and never put the player into an organization the Persona does not.
+- basis "persona_stated" also covers what follows directly from what the Persona says about a named person: the handler or superior it names (a contact, a superior in the chain) knows who the player is \u2014 list them as a knower with that basis and say the role in the relationship.
 - relationships: basis "persona_stated" (the Persona says it) or "implied" (follows from the role, e.g. the members of an organization the player leads). An implied relationship never names a specific known character of this world: a known person is related to the player only if the Persona says so.
 - knowers: who plausibly knows about the player, at which level \u2014 "exists" (knows an organization of the player exists), "identity" (knows who the player is or their role in it), "secrets" (knows specific secrets: only what the Persona states someone knows). Implied knowers are the groups or roles such an identity brings with it \u2014 members, a handler or superior in the organization's chain, partner organizations, rivals in the same field, close friends \u2014 written as groups or roles, not as specific known characters. Keep the levels apart: a close friend may know the player personally without knowing their affiliation; a partner organization may know their operational identity, not their private life; ordinary acquaintances (classmates, neighbors) know only the public identity \u2014 do not list them: anyone not listed knows just the public identity. "exists" is only for people who know that the organization exists without knowing the player is in it. A secret identity still has people who know it: list them, so the world can reach the player.
 - public_identity: what an ordinary person sees. uncertain: what the Persona leaves open that matters.
@@ -20351,6 +20352,7 @@ function buildProfile(out, pack2, index, persona, prev) {
     places.push({ entityId: id, name: p.name.trim(), use: (p.use || "").slice(0, 400) });
   }
   const isKnownPerson = (id) => !!id && pack2.entities.get(id)?.kind === "person";
+  const CHAIN_ROLE = /handler|contact|liaison|superior|boss|commander|supervisor|report(?:s|ing)? to|联络|上级|上司|上线|直属|负责人|指挥|隶属|主管|顶头/i;
   const relationships = [];
   for (const r of out.relationships || []) {
     if (!r.name?.trim()) continue;
@@ -20367,7 +20369,8 @@ function buildProfile(out, pack2, index, persona, prev) {
     if (!k.who?.trim()) continue;
     const id = known(k.existing_id) || null;
     const basis = k.basis === "persona_stated" ? "persona_stated" : "implied";
-    if (basis === "implied" && isKnownPerson(id)) {
+    const statedChain = !!id && relationships.some((r) => r.entityId === id && r.basis === "persona_stated" && CHAIN_ROLE.test(r.relation));
+    if (basis === "implied" && isKnownPerson(id) && !statedChain) {
       notes.push(`dropped implied knower ${k.who}: a known character knows about the player only when the Persona says so or it happens in play`);
       continue;
     }
@@ -20894,7 +20897,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.6.1";
+var ENGINE_RELEASE = "1.6.2";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));

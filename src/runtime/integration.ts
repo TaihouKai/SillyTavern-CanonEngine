@@ -77,6 +77,10 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
     places.push({ entityId: id, name: p.name.trim(), use: (p.use || '').slice(0, 400) });
   }
   const isKnownPerson = (id: Id | null) => !!id && pack.entities.get(id)?.kind === 'person';
+  // The handler or superior the Persona states knows who the player is, however the model labelled that knower
+  // (live: "联络人: 云川芹亚" was dropped as an "implied" knower). Being named for something else — a friend, a debtor —
+  // is not enough; what they know beyond the identity still needs the Persona's words (secrets stay capped below).
+  const CHAIN_ROLE = /handler|contact|liaison|superior|boss|commander|supervisor|report(?:s|ing)? to|联络|上级|上司|上线|直属|负责人|指挥|隶属|主管|顶头/i;
   const relationships: PlayerProfile['relationships'] = [];
   for (const r of out.relationships || []) {
     if (!r.name?.trim()) continue;
@@ -90,7 +94,8 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
     if (!k.who?.trim()) continue;
     const id = known(k.existing_id) || null;
     const basis = k.basis === 'persona_stated' ? 'persona_stated' : 'implied';
-    if (basis === 'implied' && isKnownPerson(id)) { notes.push(`dropped implied knower ${k.who}: a known character knows about the player only when the Persona says so or it happens in play`); continue; }
+    const statedChain = !!id && relationships.some((r) => r.entityId === id && r.basis === 'persona_stated' && CHAIN_ROLE.test(r.relation));
+    if (basis === 'implied' && isKnownPerson(id) && !statedChain) { notes.push(`dropped implied knower ${k.who}: a known character knows about the player only when the Persona says so or it happens in play`); continue; }
     if (basis === 'implied' && k.level === 'secrets') { notes.push(`"${k.who}" kept at identity level: knowing specific secrets needs the Persona to say so`); knowers.push({ who: k.who.trim(), entityId: id, level: 'identity', about: k.about.slice(0, 400), basis }); continue; }
     knowers.push({ who: k.who.trim(), entityId: id, level: k.level, about: k.about.slice(0, 400), basis });
   }

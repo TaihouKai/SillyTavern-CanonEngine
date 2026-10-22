@@ -31,12 +31,12 @@ const PROFILE = {
 };
 const OPP = (over: any = {}) => ({ ref: 'o1', target_event_id: 'medic-ambush', scope_kind: 'event', scope_ref: 'medic-ambush', kind: 'request', direct_impact: false, actors: ['council'], motivation: 'needs a discreet boat to move Mira out of the harbor', knowledge: 'knows a smuggling ring exists through its medicine purchases', contact: 'a Council clerk leaves a sealed note at the tea house', establishes: ['a clerk named Oda'], earliest: null, latest: null, priority: 1, basis_refs: [], ...over });
 
-async function setup(opts: { persona?: { name: string; description: string }; start?: number; pack?: string; integrate?: any } = {}) {
+async function setup(opts: { persona?: { name: string; description: string }; start?: number; pack?: string; integrate?: any; profile?: any } = {}) {
   const x = makeEngine();
   const persona = { ...(opts.persona || VERA) };
   (x.host as any).persona = () => persona;
   (x as any).persona = persona;
-  x.model.on('profile', null, PROFILE);
+  x.model.on('profile', null, opts.profile || PROFILE);
   if (opts.integrate !== undefined) x.model.on('integrate', null, opts.integrate);
   await x.engine.bind(opts.pack || demo, { startTick: opts.start ?? tick(1, 9, 30), mode: 'new' });
   await x.engine.reconcile('test');
@@ -74,6 +74,17 @@ describe('player presence (Persona -> profile)', () => {
     // the Persona is read once; later turns reuse the profile
     await turn(x, 'I pour tea.', 'A quiet morning. [P2]');
     expect(x.model.tasks('profile')).toHaveLength(1);
+  });
+
+  it('NI-03c the handler the Persona states knows who the player is, even when the model calls it implied; secrets need the Persona to give them', async () => {
+    const x = await setup({
+      persona: { name: 'Vera', description: 'Vera runs the Grey Lantern. Chain: Grey Lantern -> Mira. 联络人: Mira.' },
+      profile: { ...PROFILE, relationships: [{ name: 'Mira', existing_id: 'mira', relation: '联络人，隶属链上的上级', basis: 'persona_stated' }], knowers: [{ who: 'Mira', existing_id: 'mira', level: 'secrets', about: 'everything about Vera', basis: 'implied' }] },
+    });
+    await turn(x, 'I open the tea house.', 'Steam rises. [K3]');
+    const p = x.engine.playerProfile()!.profile;
+    expect(p.knowers.map((k) => `${k.who}:${k.level}`)).toEqual(['Mira:identity']);
+    expect(p.notes.join(' ')).not.toMatch(/dropped implied knower Mira/);
   });
 
   it('NI-03/user decision 1: implied knowers stay groups/roles at their level; a known character is never made a superior or knower on a guess', async () => {
