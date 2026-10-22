@@ -20373,7 +20373,7 @@ function unanswered(state, tick) {
       const x = state.contacts.find((y) => y.recordId === id);
       return !!x && scopeKey(x.scopeKind, x.scopeRef) === k;
     };
-    const answered = state.engagements.some((e) => e.scopeKind === "contact" ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k);
+    const answered = state.engagements.some((e) => e.scopeKind === "contact" ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k) || [...state.occurrences.values()].some((o) => o.seq > c.seq && o.origin === "player" && [...o.actors, ...o.affected].some((a) => c.actors.includes(a)));
     if (!answered) out.push(c);
   }
   return out;
@@ -20638,7 +20638,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.4.7";
+var ENGINE_RELEASE = "1.4.8";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));

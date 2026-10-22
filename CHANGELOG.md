@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.8 — 2026-10-22
+
+- **A contact is answered once the player acts with the people behind it.** 1.4.7 relied on the extractor recording "accepted", and live it did not ("走吧，去找滨面" while walking with 绢旗 still left "not answered: do not press it" for the GM). Now a contact is also answered once actual history has a player action, after it, that involves its actors (called them back, went to them, acts together).
+- Tests: NI-27c.
+
 ## 1.4.7 — 2026-10-22
 
 - **Acting on a contact answers it.** Live: the player called 绢旗 back and went to meet her, yet the GM was still told "芙兰达失联与ITEM崩溃 — already offered, not answered: do not repeat or press it" in the middle of that very scene. Going along with a recent contact by the player's own act (calling back and arranging to meet, going where asked, doing what was asked) is now recorded as accepting that contact. It does not accept the faction or event behind it. Accepting any contact about a thing answers the later contacts about the same thing.

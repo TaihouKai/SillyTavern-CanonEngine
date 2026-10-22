@@ -283,7 +283,9 @@ export function unanswered(state: WorldState, tick: number): ContactEntry[] {
     if (tick - c.tick > UNANSWERED_HOLD_MINUTES) continue;
     // answering any contact about the same thing answers it (live: calling back after a message, then told where to come)
     const sameThing = (id: string) => { const x = state.contacts.find((y) => y.recordId === id); return !!x && scopeKey(x.scopeKind, x.scopeRef) === k; };
-    const answered = state.engagements.some((e) => e.scopeKind === 'contact' ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k);
+    const answered = state.engagements.some((e) => e.scopeKind === 'contact' ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k)
+      // the player has since acted with the people who reached out (called them back, went to them): answered in play
+      || [...state.occurrences.values()].some((o) => o.seq > c.seq && o.origin === 'player' && [...o.actors, ...o.affected].some((a) => c.actors.includes(a)));
     if (!answered) out.push(c);
   }
   return out;

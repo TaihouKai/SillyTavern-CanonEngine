@@ -205,6 +205,14 @@ describe('the world reaches the player', () => {
     expect(lastCtx(x)).toMatch(/accepted: Ambush of Mira/);
   });
 
+  it('NI-27c acting with the people who reached out answers their contact even without a stated decision (live: walking with 绢旗)', async () => {
+    const x = await setup({ integrate: { assessments: [], opportunities: [OPP()] } });
+    await turn(x, 'I drink tea.', 'A clerk slips a sealed note under the door. [L1]', { contacts: [contact('A clerk slips a sealed note under the door')] });
+    await turn(x, 'I find the clerk and walk with him.', 'You walk with the Council clerk. [L2]', { occurrences: [occ('o1', 'Vera walks with the clerk', 'You walk with the Council clerk', { origin: 'player', actors: [x.engine.playerProfile()!.profile.playerId], affected: ['council'] })] });
+    await turn(x, 'I nod.', 'Quiet. [L3]');
+    expect(lastCtx(x)).not.toMatch(/already offered, not answered/);
+  });
+
   it('NI-14 a reply that does not use the reaction passes without repair; NI-26 a time skip past it does not make it happen', async () => {
     const x = await setup({ integrate: { assessments: [], opportunities: [OPP({ earliest: { day: 1, minute: 570 }, latest: { day: 1, minute: 600 } })] } });
     await turn(x, 'I sleep until the evening.', 'You wake at dusk. [W5]', { scene_end: at(1, 18, 0) });
