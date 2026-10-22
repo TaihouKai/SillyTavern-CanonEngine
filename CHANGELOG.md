@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.10 — 2026-10-22
+
+From a failed live turn: a five-day skip (10/10 → 10/15) right after the player had joined the ITEM survivors' search for 芙兰达.
+
+- **What the player took up in play is not pressure.** The reviewer flagged 滨面's "她会没事的吧" and even the player's own "有芙兰达的消息就告诉我" as pressure on her older "任务我照样不接". Contacts the player has answered in play now appear in the decisions as "taken up by the player in play: … continuing it with the people involved is their choice". The reviewer is told that a refusal of jobs covers being asked to do such jobs, by anyone. It does not cover someone's worry, grief or news, or a thing the player took up themselves.
+- **The reviewer knows the canon events where a time jump lands.** Its list of open canon events stopped 12 hours after the clock before the jump, so "英法海底隧道炸了" (10/15 08:00–20:00, open when the scene landed on 10/15 afternoon) was called a contradiction. After a jump the list covers up to 12 hours after the landing time, nearest first.
+- **The analysis looks ahead from where a jump lands.** Connections' events were looked for in the three days after the clock before the jump. When the 14 candidate events are trimmed, events under way, 关注 events and the player's connections' events are kept first; a long jump has many unrelated events in between.
+- **Left-out review fields are asked for by name.** The review left out state_claims/player_actions/violations/hard_checks three times and failed the turn. The resend now names the missing fields and asks for the complete object with [] for empty lists, with a larger length budget. Lists that decide a check are still never assumed empty.
+- Tests: NI-14c, F07; NI-27c extended.
+
 ## 1.4.9 — 2026-10-22
 
 - **People met in play become connections.** The analysis looked days ahead only for events of people named in the Persona. Someone the player has dealt with in actual history (live: 滨面 and 泷壶, met on 10/10) did not bring their later events (暗部脱逃篇) into view until those were within 24 hours. People and organizations who share an actual occurrence with the player now count as connections too (the 12 most recent).

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { callStructured, salvageTruncatedJson } from '../../src/runtime/model';
 import type { ModelPort } from '../../src/runtime/model';
-import { makeEngine, tick, at, occ } from './fake';
+import { makeEngine, tick, at, occ, defaultTask } from './fake';
 import { ROOT } from './helpers';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
@@ -63,6 +63,18 @@ describe('fail-soft analysis', () => {
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect([...x.engine.current!.replay.state.occurrences.values()].some((o) => o.title === 'Dock walk')).toBe(true);
     expect(x.engine.lastTimings!.rejects!.join(' ')).toMatch(/evaluate: kept after a fix: dropped occurrences item/);
+  });
+
+  it('F07 a review that leaves out required lists is asked again naming them; they are never assumed empty (live: five-day skip)', async () => {
+    const full = defaultTask('evaluate', { candidate: 'x' });
+    const part = { ...full };
+    for (const k of ['state_claims', 'player_actions', 'violations', 'hard_checks']) delete part[k];
+    const seen: any[] = [];
+    const p = { async runTask(_t: string, msgs: any[]) { seen.push(msgs.map((m) => m.content).join('\n')); return seen.length === 1 ? JSON.stringify(part) : JSON.stringify(full); }, async generateDraft() { return ''; } } as any;
+    const out = await callStructured<any>(p, 'evaluate', 'sys', {});
+    expect(seen).toHaveLength(2);
+    expect(seen[1]).toMatch(/missing these required top-level fields: state_claims, player_actions, violations, hard_checks/);
+    expect(out.violations).toEqual(full.violations);
   });
 
   it('F06 an empty draft is asked for once more; two empty drafts fail with the provider\'s reason (live: DeepSeek, no text)', async () => {

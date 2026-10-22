@@ -454,6 +454,14 @@ export async function callStructured<T>(
         messages.push({ role: 'user', content: 'Your previous reply was cut off at the length limit before the JSON was complete. Reply again with the COMPLETE JSON object: keep every quote under 15 characters, keep notes to a few words, and skip trivial scenery.' });
         continue;
       }
+      const missing = [...lastErr.matchAll(/(?:^|[:;] )\/ must have required property '([a-z_]+)'/g)].map((m) => m[1]);
+      if (missing.length) {
+        // Top-level fields left out (live: a long evaluate reply about a five-day skip, three times). Showing the
+        // long reply back did not help; name what is missing. Lists are never assumed empty here: the model says so.
+        budget = Math.min(16384, Math.round(budget * 1.5));
+        messages.push({ role: 'user', content: `Your previous JSON object was missing these required top-level fields: ${[...new Set(missing)].join(', ')}. Reply again with the COMPLETE JSON object including EVERY field of the shape — write [] for a list with nothing in it. Keep quotes short.` });
+        continue;
+      }
       messages.push({ role: 'assistant', content: text.slice(0, 4000) });
       messages.push({ role: 'user', content: `Your previous output was rejected: ${lastErr}. Reply with ONLY one JSON object matching the required shape exactly. Do not add fields.` });
     }

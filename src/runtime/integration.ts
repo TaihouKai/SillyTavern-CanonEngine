@@ -281,6 +281,12 @@ export function engagementView(state: WorldState, pack: LoadedPack) {
         if (lim) out.push(`one act only: ${lim.scopeLabel || lim.scopeRef} ("${lim.quote.slice(0, 120)}") — that act; nothing more of it is accepted.`);
       }
       for (const c of unanswered(state, tick)) out.push(`already offered, not answered: ${c.scopeLabel || c.scopeRef} (${formatTick(c.tick)}, ${c.contactKind}) — do not repeat or press it.`);
+      // what the player took up themselves in play, without a stated decision (live: an ITEM survivor's call about a
+      // missing friend, answered by going to her — the reviewer then read every line of that thread as pressure
+      // on an older "no 暗部 jobs")
+      const taken = new Map<string, ContactEntry>();
+      for (const c of state.contacts) if (tick - c.tick <= 3 * 1440 && !scopes.get(scopeKey(c.scopeKind, c.scopeRef))?.current && answeredBy(state, c) === 'play') taken.set(scopeKey(c.scopeKind, c.scopeRef), c);
+      for (const c of taken.values()) out.push(`taken up by the player in play: ${c.scopeLabel || c.scopeRef} — they went along with it themselves; continuing it with the people involved is their choice, not pressure from another decision.`);
       return out;
     },
   };
@@ -293,14 +299,20 @@ export function unanswered(state: WorldState, tick: number): ContactEntry[] {
   for (const c of state.contacts) if (!['hostile', 'consequence'].includes(c.contactKind)) latest.set(scopeKey(c.scopeKind, c.scopeRef), c);
   for (const [k, c] of latest) {
     if (tick - c.tick > UNANSWERED_HOLD_MINUTES) continue;
-    // answering any contact about the same thing answers it (live: calling back after a message, then told where to come)
-    const sameThing = (id: string) => { const x = state.contacts.find((y) => y.recordId === id); return !!x && scopeKey(x.scopeKind, x.scopeRef) === k; };
-    const answered = state.engagements.some((e) => e.scopeKind === 'contact' ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k)
-      // the player has since acted with the people who reached out (called them back, went to them): answered in play
-      || [...state.occurrences.values()].some((o) => o.seq > c.seq && o.origin === 'player' && [...o.actors, ...o.affected].some((a) => c.actors.includes(a)));
-    if (!answered) out.push(c);
+    if (!answeredBy(state, c)) out.push(c);
   }
   return out;
+}
+
+/** How the player answered a contact: by a decision (on it or the same thing), or in play — they have since acted
+ *  with the people who reached out (called them back, went to them). */
+export function answeredBy(state: WorldState, c: ContactEntry): 'decision' | 'play' | null {
+  const k = scopeKey(c.scopeKind, c.scopeRef);
+  // answering any contact about the same thing answers it (live: calling back after a message, then told where to come)
+  const sameThing = (id: string) => { const x = state.contacts.find((y) => y.recordId === id); return !!x && scopeKey(x.scopeKind, x.scopeRef) === k; };
+  if (state.engagements.some((e) => e.scopeKind === 'contact' ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k)) return 'decision';
+  if ([...state.occurrences.values()].some((o) => o.seq > c.seq && o.origin === 'player' && [...o.actors, ...o.affected].some((a) => c.actors.includes(a)))) return 'play';
+  return null;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -326,7 +338,8 @@ export function integrationCandidates(index: WorldIndex, profile: PlayerProfile,
   const underWay = new Set([...st.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean) as Id[]);
   const out: Candidate[] = [];
   for (const t of pack.timeIndex) {
-    if (t.lo > Math.max(end, tick + 3 * 1440)) break;
+    // connections' events: the next three days from where the scene is (after a time jump, from where it lands)
+    if (t.lo > Math.max(end, Math.max(tick, opts.jumpTo ?? 0) + 3 * 1440)) break;
     const ev = pack.events.get(t.id)!;
     const settled = st.dispositions.get(t.id);
     if (settled) {
@@ -339,8 +352,11 @@ export function integrationCandidates(index: WorldIndex, profile: PlayerProfile,
     if (!near && !mine) continue;
     out.push({ event: ev, lo: t.lo, hi: t.hi, status: underWay.has(t.id) ? 'under_way' : t.lo <= tick ? 'in_window' : 'upcoming', focus: focus.has(t.id) });
   }
-  // under way first, then in time order; a bounded list
-  return out.sort((a, b) => (a.status === 'under_way' ? -1 : 0) - (b.status === 'under_way' ? -1 : 0) || a.lo - b.lo).slice(0, 14);
+  // a bounded list: under way, 关注 and the player's connections' events are kept first (a long time jump has many
+  // unrelated events in between); shown under way first, then in time order
+  const rank = (c: Candidate) => c.status === 'under_way' ? 0 : c.focus ? 1 : c.event.entity_ids.some((x) => linked.has(x)) ? 2 : 3;
+  const kept = new Set([...out].sort((a, b) => rank(a) - rank(b) || a.lo - b.lo).slice(0, 14));
+  return out.filter((c) => kept.has(c)).sort((a, b) => (a.status === 'under_way' ? -1 : 0) - (b.status === 'under_way' ? -1 : 0) || a.lo - b.lo);
 }
 
 export function candidateInput(index: WorldIndex, c: Candidate, tick: number, blocked: EngagementEntry | null) {

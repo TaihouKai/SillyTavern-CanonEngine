@@ -18544,6 +18544,12 @@ ${system}` },
         messages.push({ role: "user", content: "Your previous reply was cut off at the length limit before the JSON was complete. Reply again with the COMPLETE JSON object: keep every quote under 15 characters, keep notes to a few words, and skip trivial scenery." });
         continue;
       }
+      const missing = [...lastErr.matchAll(/(?:^|[:;] )\/ must have required property '([a-z_]+)'/g)].map((m) => m[1]);
+      if (missing.length) {
+        budget = Math.min(16384, Math.round(budget * 1.5));
+        messages.push({ role: "user", content: `Your previous JSON object was missing these required top-level fields: ${[...new Set(missing)].join(", ")}. Reply again with the COMPLETE JSON object including EVERY field of the shape \u2014 write [] for a list with nothing in it. Keep quotes short.` });
+        continue;
+      }
       messages.push({ role: "assistant", content: text.slice(0, 4e3) });
       messages.push({ role: "user", content: `Your previous output was rejected: ${lastErr}. Reply with ONLY one JSON object matching the required shape exactly. Do not add fields.` });
     }
@@ -18597,7 +18603,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    Credible cause: if the actual history/state rules out the event's usual route (a required participant is detained, guarded, far away, incapacitated...), it is fulfilled only when the text shows or clearly implies a concrete cause for how it still comes about (who or what, by what means). Otherwise give status "missing" and a violation whose detail begins with "HARD realized without a credible cause:". An unexplained vanishing, a glitch or "some invisible force" is not a cause unless it is the established ability of a specific character.
    Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place changes (leaving a building or shop, getting into or out of a vehicle, arriving somewhere else) or the activity changes, when more than about 30 minutes pass between beats, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
 5. contacts: every place where the world reaches out to the PLAYER CHARACTER (player_entity) in this reply: an invitation, a request or commission, information brought to them on purpose, a probe or test, a hostile act aimed at them, a consequence of an event reaching them, an encounter with a purpose. Give a verbatim quote, actors (ids), kind, scope (scope_kind "event"/"arc" + an id from offered_contact or canon_events_now, "faction" + the organization's id, otherwise "storyline" + a short scope_label) and opportunity_id when it carries out offered_contact. Ordinary conversation with people already in the scene is not a contact, and neither is an everyday favor or worry between friends (asking to stay over, telling them to lock the window) unless it asks the player to take part in a story thing; nor is someone answering what the player character just asked or started (they called and are told where to come); no contact, empty list.
-   engagement lists the player's decisions; each covers what its quoted words cover. If the reply pulls the player toward something they declined, deferred or suppressed \u2014 through any person or channel (the same NPC again, another one, news, rumors, a friend's plea, a threat made up to force them) \u2014 add a violation with code "engagement_pressure" (blocking) quoting it. Not a violation: the world going on around them, a consequence with an actual cause in history (news that a friend died, a place they know destroyed \u2014 told to them even by people from the declined side), one natural in-character reaction of the person they just turned down, or the player choosing it themselves. offered_contact has already been checked against these decisions (cleared_by_engine): delivering it as given is not pressure; flag only what goes beyond it \u2014 asking the player to do or join the declined thing. Not using offered_contact is never a violation.
+   engagement lists the player's decisions; each covers what its quoted words cover (a refusal of jobs covers being asked to do such jobs, by anyone \u2014 not someone's worry, grief or news, and not a thing the player took up themselves: "taken up by the player in play"). If the reply pulls the player toward something they declined, deferred or suppressed \u2014 through any person or channel (the same NPC again, another one, news, rumors, a friend's plea, a threat made up to force them) \u2014 add a violation with code "engagement_pressure" (blocking) quoting it. Not a violation: the world going on around them, a consequence with an actual cause in history (news that a friend died, a place they know destroyed \u2014 told to them even by people from the declined side), one natural in-character reaction of the person they just turned down, or the player choosing it themselves. offered_contact has already been checked against these decisions (cleared_by_engine): delivering it as given is not pressure; flag only what goes beyond it \u2014 asking the player to do or join the declined thing. Not using offered_contact is never a violation.
 6. violations: ONLY problems that require rewriting the reply \u2014 unauthorized player actions/consent/dialogue, contradictions, unsupported recollections, leaking secret knowledge to characters who cannot know it, engine labels/JSON in prose, skipping a due obligation, time moving backwards. Not violations: story time moving forward within the scene, NPCs present or acting on their own, plausible new scene details, the natural completion of an action the player authorized, a plan step whose window the player's time skip passed narrated as having happened off-screen (record it as an occurrence at its own time, with a step_enactment). Set blocking=true for a problem that must be fixed; if you consider something minor or acceptable, leave it out (or set blocking=false).
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it). mode=retained and the message is not story text at all (out-of-character instructions, a setup or system note, rules or a menu \u2014 often the card's opening message telling the GM how to start): decision retain with no occurrences, transitions, state_claims or violations; it establishes nothing.
 SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null}],"step_enactments":[{"step_id":"s1","occurrence_ref":"o1","quote":""}],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":"","blocking":true}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":"","contacts":[{"quote":"","actors":[],"kind":"invitation","scope_kind":"event","scope_ref":"","scope_label":"","opportunity_id":null}]}`,
@@ -20369,6 +20375,9 @@ function engagementView(state, pack2) {
         if (lim) out.push(`one act only: ${lim.scopeLabel || lim.scopeRef} ("${lim.quote.slice(0, 120)}") \u2014 that act; nothing more of it is accepted.`);
       }
       for (const c of unanswered(state, tick)) out.push(`already offered, not answered: ${c.scopeLabel || c.scopeRef} (${formatTick(c.tick)}, ${c.contactKind}) \u2014 do not repeat or press it.`);
+      const taken = /* @__PURE__ */ new Map();
+      for (const c of state.contacts) if (tick - c.tick <= 3 * 1440 && !scopes.get(scopeKey(c.scopeKind, c.scopeRef))?.current && answeredBy(state, c) === "play") taken.set(scopeKey(c.scopeKind, c.scopeRef), c);
+      for (const c of taken.values()) out.push(`taken up by the player in play: ${c.scopeLabel || c.scopeRef} \u2014 they went along with it themselves; continuing it with the people involved is their choice, not pressure from another decision.`);
       return out;
     }
   };
@@ -20379,14 +20388,19 @@ function unanswered(state, tick) {
   for (const c of state.contacts) if (!["hostile", "consequence"].includes(c.contactKind)) latest.set(scopeKey(c.scopeKind, c.scopeRef), c);
   for (const [k, c] of latest) {
     if (tick - c.tick > UNANSWERED_HOLD_MINUTES) continue;
-    const sameThing = (id) => {
-      const x = state.contacts.find((y) => y.recordId === id);
-      return !!x && scopeKey(x.scopeKind, x.scopeRef) === k;
-    };
-    const answered = state.engagements.some((e) => e.scopeKind === "contact" ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k) || [...state.occurrences.values()].some((o) => o.seq > c.seq && o.origin === "player" && [...o.actors, ...o.affected].some((a) => c.actors.includes(a)));
-    if (!answered) out.push(c);
+    if (!answeredBy(state, c)) out.push(c);
   }
   return out;
+}
+function answeredBy(state, c) {
+  const k = scopeKey(c.scopeKind, c.scopeRef);
+  const sameThing = (id) => {
+    const x = state.contacts.find((y) => y.recordId === id);
+    return !!x && scopeKey(x.scopeKind, x.scopeRef) === k;
+  };
+  if (state.engagements.some((e) => e.scopeKind === "contact" ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k)) return "decision";
+  if ([...state.occurrences.values()].some((o) => o.seq > c.seq && o.origin === "player" && [...o.actors, ...o.affected].some((a) => c.actors.includes(a)))) return "play";
+  return null;
 }
 function integrationCandidates(index, profile2, tick, opts = {}) {
   const pack2 = index.pack;
@@ -20397,7 +20411,7 @@ function integrationCandidates(index, profile2, tick, opts = {}) {
   const underWay = new Set([...st.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean));
   const out = [];
   for (const t2 of pack2.timeIndex) {
-    if (t2.lo > Math.max(end, tick + 3 * 1440)) break;
+    if (t2.lo > Math.max(end, Math.max(tick, opts.jumpTo ?? 0) + 3 * 1440)) break;
     const ev = pack2.events.get(t2.id);
     const settled = st.dispositions.get(t2.id);
     if (settled) {
@@ -20410,7 +20424,9 @@ function integrationCandidates(index, profile2, tick, opts = {}) {
     if (!near && !mine) continue;
     out.push({ event: ev, lo: t2.lo, hi: t2.hi, status: underWay.has(t2.id) ? "under_way" : t2.lo <= tick ? "in_window" : "upcoming", focus: focus.has(t2.id) });
   }
-  return out.sort((a, b) => (a.status === "under_way" ? -1 : 0) - (b.status === "under_way" ? -1 : 0) || a.lo - b.lo).slice(0, 14);
+  const rank = (c) => c.status === "under_way" ? 0 : c.focus ? 1 : c.event.entity_ids.some((x) => linked.has(x)) ? 2 : 3;
+  const kept = new Set([...out].sort((a, b) => rank(a) - rank(b) || a.lo - b.lo).slice(0, 14));
+  return out.filter((c) => kept.has(c)).sort((a, b) => (a.status === "under_way" ? -1 : 0) - (b.status === "under_way" ? -1 : 0) || a.lo - b.lo);
 }
 function candidateInput(index, c, tick, blocked) {
   const ev = c.event;
@@ -20648,7 +20664,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.4.9";
+var ENGINE_RELEASE = "1.4.10";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -21495,7 +21511,7 @@ var CanonEngine = class {
       engagement: decisions,
       offered_contact: a.offered ? { opportunity_id: a.offered.id, scope_kind: a.offered.scopeKind, scope_ref: a.offered.scopeRef, about: a.offered.scopeLabel, actors: a.offered.actors, kind: a.offered.kind, contact: a.offered.contact, direct_impact: a.offered.directImpact, cleared_by_engine: true } : null,
       recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote })),
-      canon_events_now: this.canonNow(index, tick),
+      canon_events_now: this.canonNow(index, tick, a.jumpTo ?? this.jumpOf(a.userEntry, tick)),
       ...this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
@@ -21583,11 +21599,27 @@ ${a.userEntry?.text || ""}`);
   }
   /** Scene grouping input: the latest ordinary (non-canon) scene boxes a new beat may continue. */
   /** Non-HARD canon events whose window is open now or opens within 12 hours, not settled yet (for the reviewer). */
-  canonNow(index, tick) {
+  /** The story time the player's message jumps to, if it jumps ahead of tick. */
+  jumpOf(entry, tick) {
+    const c = this.campaign();
+    if (!entry || !c) return null;
+    const t2 = interpretationsFor(c.interpretations, baseKey(entry))[0]?.timeJumpTo;
+    return t2 && t2 > tick ? t2 : null;
+  }
+  /** Canonical events open around the scene: from now to 12 hours after it — after a time jump, after where the
+   *  jump lands (live: a five-day skip to 10/15; the reviewer called the 10/15 tunnel explosion a contradiction
+   *  because the list stopped 12 hours after 10/10). The ones open where the scene is come first. */
+  canonNow(index, tick, jumpTo = null) {
     const pack2 = index.pack;
     const out = [];
-    for (const t2 of pack2.timeIndex) {
-      if (t2.lo > tick + 720) break;
+    const at = jumpTo ?? tick;
+    const dist = (x) => x.lo <= at && x.hi >= at ? 0 : Math.min(Math.abs(x.lo - at), Math.abs(x.hi - at));
+    const order = jumpTo ? [...pack2.timeIndex].sort((x, y) => dist(x) - dist(y) || x.lo - y.lo) : pack2.timeIndex;
+    for (const t2 of order) {
+      if (t2.lo > at + 720) {
+        if (jumpTo) continue;
+        break;
+      }
       if (t2.hi < tick || index.state.dispositions.has(t2.id)) continue;
       const ev = pack2.events.get(t2.id);
       if (ev.classification === "HARD") continue;
@@ -21847,7 +21879,7 @@ ${a.userEntry?.text || ""}`);
         let lastResort = false;
         for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
           this.setStatus("validating", attempt > this.settings.maxRepairs ? "Re-checking final HARD repair\u2026" : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})\u2026` : "Validating\u2026");
-          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt, offered });
+          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt, offered, jumpTo });
           this.checkFences(fences, excludeLast);
           let adj = null;
           let adjTo = clock;
@@ -21874,7 +21906,7 @@ ${a.userEntry?.text || ""}`);
             adj = prev ? { ...prev, records: [...prev.records, ...more.records], basis: [...prev.basis, ...more.basis], notes: [...prev.notes, ...more.notes], stagedHard: new Map([...prev.stagedHard, ...more.stagedHard]), forcedUsed: prev.forcedUsed || more.forcedUsed } : more;
             if (!more.records.length) break;
             const stagedIndex = new WorldIndex(pack2, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
-            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt, offered });
+            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt, offered, jumpTo });
             review.gate = runGate({
               pack: pack2,
               index: stagedIndex,

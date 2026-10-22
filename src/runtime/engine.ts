@@ -803,6 +803,8 @@ export class CanonEngine {
     text: string; index: WorldIndex; userEntry: SourceEntry | null; operationId: string; signal?: AbortSignal; mode: 'draft' | 'retained';
     plan: PlanRevision | null; forced: boolean; sceneSeeds: Id[]; reevalReasons: string[] | null; stagedNotes: string[]; stagedHard?: Map<Id, import('../domain/types').Occurrence>;
     fences?: Fences; attempt?: number; expectedEnd?: number;
+    /** The story time the player's message jumps to (this turn), when known. */
+    jumpTo?: number | null;
     /** The world reaction offered to the GM this turn (narrative integration). */
     offered?: Opportunity | null;
   }): Promise<ReviewResult> {
@@ -876,7 +878,7 @@ export class CanonEngine {
       engagement: decisions,
       offered_contact: a.offered ? { opportunity_id: a.offered.id, scope_kind: a.offered.scopeKind, scope_ref: a.offered.scopeRef, about: a.offered.scopeLabel, actors: a.offered.actors, kind: a.offered.kind, contact: a.offered.contact, direct_impact: a.offered.directImpact, cleared_by_engine: true } : null,
       recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote })),
-      canon_events_now: this.canonNow(index, tick),
+      canon_events_now: this.canonNow(index, tick, a.jumpTo ?? this.jumpOf(a.userEntry, tick)),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
@@ -942,11 +944,25 @@ export class CanonEngine {
 
   /** Scene grouping input: the latest ordinary (non-canon) scene boxes a new beat may continue. */
 /** Non-HARD canon events whose window is open now or opens within 12 hours, not settled yet (for the reviewer). */
-  private canonNow(index: WorldIndex, tick: number): { id: string; title: string; window: string; original: string; in_progress?: string[] }[] {
+  /** The story time the player's message jumps to, if it jumps ahead of tick. */
+  private jumpOf(entry: SourceEntry | null, tick: number): number | null {
+    const c = this.campaign();
+    if (!entry || !c) return null;
+    const t = interpretationsFor(c.interpretations, baseKey(entry))[0]?.timeJumpTo;
+    return t && t > tick ? t : null;
+  }
+
+  /** Canonical events open around the scene: from now to 12 hours after it — after a time jump, after where the
+   *  jump lands (live: a five-day skip to 10/15; the reviewer called the 10/15 tunnel explosion a contradiction
+   *  because the list stopped 12 hours after 10/10). The ones open where the scene is come first. */
+  private canonNow(index: WorldIndex, tick: number, jumpTo: number | null = null): { id: string; title: string; window: string; original: string; in_progress?: string[] }[] {
     const pack = index.pack;
     const out: { id: string; title: string; window: string; original: string; in_progress?: string[] }[] = [];
-    for (const t of pack.timeIndex) {
-      if (t.lo > tick + 720) break;
+    const at = jumpTo ?? tick;
+    const dist = (x: { lo: number; hi: number }) => (x.lo <= at && x.hi >= at ? 0 : Math.min(Math.abs(x.lo - at), Math.abs(x.hi - at)));
+    const order = jumpTo ? [...pack.timeIndex].sort((x, y) => dist(x) - dist(y) || x.lo - y.lo) : pack.timeIndex;
+    for (const t of order) {
+      if (t.lo > at + 720) { if (jumpTo) continue; break; }
       if (t.hi < tick || index.state.dispositions.has(t.id)) continue;
       const ev = pack.events.get(t.id)!;
       if (ev.classification === 'HARD') continue;
@@ -1202,7 +1218,7 @@ export class CanonEngine {
         let lastResort = false; // one extra, harsher repair when HARD problems survive the normal repairs
         for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
           this.setStatus('validating', attempt > this.settings.maxRepairs ? 'Re-checking final HARD repair…' : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})…` : 'Validating…');
-          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt, offered });
+          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt, offered, jumpTo });
           this.checkFences(fences, excludeLast);
           // Interval adjudication for the proposed advance. The review that sees the staged results may place the
           // reply's end later: then the events whose windows close in the extra time are settled too (live finding:
@@ -1225,7 +1241,7 @@ export class CanonEngine {
             if (!more.records.length) break;
             // The evaluator must see staged offscreen history: review again with it (not a repair).
             const stagedIndex = new WorldIndex(pack, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
-            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt, offered });
+            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt, offered, jumpTo });
             // Gate HARD crossing with staged offscreen occurrences against the committed clock
             review.gate = runGate({
               pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,

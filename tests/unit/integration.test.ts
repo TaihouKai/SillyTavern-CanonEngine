@@ -211,6 +211,7 @@ describe('the world reaches the player', () => {
     await turn(x, 'I find the clerk and walk with him.', 'You walk with the Council clerk. [L2]', { occurrences: [occ('o1', 'Vera walks with the clerk', 'You walk with the Council clerk', { origin: 'player', actors: [x.engine.playerProfile()!.profile.playerId], affected: ['council'] })] });
     await turn(x, 'I nod.', 'Quiet. [L3]');
     expect(lastCtx(x)).not.toMatch(/already offered, not answered/);
+    expect(lastCtx(x)).toMatch(/taken up by the player in play: Ambush of Mira — they went along with it themselves/);
   });
 
   it('NI-05b someone the player dealt with in play becomes a connection: their events days ahead are considered (live: 滨面/泷壶)', async () => {
@@ -237,6 +238,14 @@ describe('the world reaches the player', () => {
     const sleep = { statements: [{ kind: 'time_proposal', quote: 'I sleep until 8 tomorrow morning', summary: 'sleep', entities: [], facts: [], event_id: null, time: { day: 2, minute: 480 }, ambiguous: false, stance: null, scope_kind: null, scope_ref: null, scope_label: null, until: null }], references: [], scene_entities: [] };
     await turn(x, 'I sleep until 8 tomorrow morning.', 'Morning comes. [J1]', { scene_end: at(2, 8, 10) }, sleep);
     expect(lastCtx(x)).toMatch(/WORLD REACTION [(]optional[\s\S]*a debtor knocks at dawn/);
+  });
+
+  it('NI-14c after a long time jump the reviewer knows the canon events open where it lands (live: 10/15 tunnel explosion)', async () => {
+    const x = await setup({ integrate: { assessments: [], opportunities: [] } });
+    const jump = { statements: [{ kind: 'time_proposal', quote: 'Two days pass; on day 3 at 15:50 I walk to the harbor', summary: 'skip', entities: [], facts: [], event_id: null, time: { day: 3, minute: 950 }, ambiguous: false, stance: null, scope_kind: null, scope_ref: null, scope_label: null, until: null }], references: [], scene_entities: [] };
+    await turn(x, 'Two days pass; on day 3 at 15:50 I walk to the harbor.', 'Lanterns everywhere. [J2]', { scene_end: at(3, 15, 55) }, jump);
+    const now = x.model.tasks('evaluate').slice(-1)[0].input.canon_events_now.map((e: any) => e.id);
+    expect(now[0]).toBe('harbor-festival');
   });
 
   it('NI-11 a settled event or one whose original conditions failed is not revived; its consequences may still reach the player', async () => {
