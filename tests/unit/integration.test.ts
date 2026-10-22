@@ -194,6 +194,17 @@ describe('the world reaches the player', () => {
     void oppId;
   });
 
+  it('NI-27b going along with a contact by the player\'s own act answers it — and later contacts about the same thing', async () => {
+    const x = await setup({ integrate: { assessments: [], opportunities: [OPP()] } });
+    await turn(x, 'I drink tea.', 'A clerk slips a sealed note under the door. [K1]', { contacts: [contact('A clerk slips a sealed note under the door', { kind: 'information' })] });
+    const first = st(x).contacts[0].recordId;
+    const accept = { statements: [{ kind: 'engagement', quote: 'I go to the Council office as the note says', summary: 'goes', entities: [], facts: [], event_id: null, time: null, ambiguous: false, stance: 'accepted', scope_kind: 'contact', scope_ref: first, scope_label: null, until: null }], references: [], scene_entities: [] };
+    await turn(x, 'I go to the Council office as the note says.', 'The clerk says: come alone tonight. [K2]', { contacts: [contact('come alone tonight')] }, accept);
+    await turn(x, 'I nod.', 'The clerk leaves. [K3]');
+    expect(lastCtx(x)).not.toMatch(/already offered, not answered: Ambush of Mira/);
+    expect(lastCtx(x)).toMatch(/accepted: Ambush of Mira/);
+  });
+
   it('NI-14 a reply that does not use the reaction passes without repair; NI-26 a time skip past it does not make it happen', async () => {
     const x = await setup({ integrate: { assessments: [], opportunities: [OPP({ earliest: { day: 1, minute: 570 }, latest: { day: 1, minute: 600 } })] } });
     await turn(x, 'I sleep until the evening.', 'You wake at dusk. [W5]', { scene_end: at(1, 18, 0) });

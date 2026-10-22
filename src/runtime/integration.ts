@@ -281,7 +281,9 @@ export function unanswered(state: WorldState, tick: number): ContactEntry[] {
   for (const c of state.contacts) if (!['hostile', 'consequence'].includes(c.contactKind)) latest.set(scopeKey(c.scopeKind, c.scopeRef), c);
   for (const [k, c] of latest) {
     if (tick - c.tick > UNANSWERED_HOLD_MINUTES) continue;
-    const answered = state.engagements.some((e) => e.seq > c.seq && (scopeKey(e.scopeKind, e.scopeRef) === k || (e.scopeKind === 'contact' && e.scopeRef === c.recordId) || (e.scopeKind === 'event' && c.scopeKind === 'event' && e.scopeRef === c.scopeRef)));
+    // answering any contact about the same thing answers it (live: calling back after a message, then told where to come)
+    const sameThing = (id: string) => { const x = state.contacts.find((y) => y.recordId === id); return !!x && scopeKey(x.scopeKind, x.scopeRef) === k; };
+    const answered = state.engagements.some((e) => e.scopeKind === 'contact' ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k);
     if (!answered) out.push(c);
   }
   return out;

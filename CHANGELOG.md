@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.7 — 2026-10-22
+
+- **Acting on a contact answers it.** Live: the player called 绢旗 back and went to meet her, yet the GM was still told "芙兰达失联与ITEM崩溃 — already offered, not answered: do not repeat or press it" in the middle of that very scene. Going along with a recent contact by the player's own act (calling back and arranging to meet, going where asked, doing what was asked) is now recorded as accepting that contact. It does not accept the faction or event behind it. Accepting any contact about a thing answers the later contacts about the same thing.
+- **Answers to the player are not contacts.** Someone answering what the player character just asked or started (they called and were told where to come) is no longer recorded as the world reaching out.
+- Tests: NI-27b.
+
 ## 1.4.6 — 2026-10-22
 
 - **Fix: after a time jump, world reactions were judged from the time before it.** Which reaction can happen "soon" was measured from the clock before the player's jump. Live: the player slept from 23:15 until 08:00, and the news that became possible at 08:00 (绢旗 asking about 芙兰达) was not offered on that turn. It is now measured from where the jump lands.
