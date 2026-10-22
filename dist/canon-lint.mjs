@@ -14889,6 +14889,24 @@ function lintPack(pack2) {
       if (later.length) warn(`/events/${a.i}/canonical_effects/${j}`, `temporary condition ${ent}.${ef.fact.predicate} = ${JSON.stringify(ef.fact.value)} is never ended by a later event, but ${ent} takes part in later events: ${later.slice(0, 5).join(", ")}${later.length > 5 ? ` (+${later.length - 5} more)` : ""}. Add an event or effect that ends it, or list the value in the predicate's settled_values if it lasts`);
     });
   }
+  if (predicates.get("members")?.value_type === "entity_set") {
+    const sets = /* @__PURE__ */ new Map();
+    for (const f of pack2.initial_state.facts) if (f.fact.predicate === "members" && Array.isArray(f.fact.value)) sets.set(f.fact.entity_id, { value: f.fact.value, tick: -Infinity });
+    const changes = timed.flatMap((a) => a.ev.canonical_effects.map((ef) => ({ a, ef }))).filter(({ ef }) => ef.op === "set" ? ef.fact.predicate === "members" : ef.predicate === "members");
+    for (const a of timed) {
+      a.ev.canonical_effects.forEach((ef, j) => {
+        if (ef.op !== "set" || ef.fact.predicate !== "alive" || ef.fact.value !== false) return;
+        const who = ef.fact.entity_id;
+        const now = new Map(sets);
+        for (const c of changes) {
+          if (c.a.t.lo > a.t.lo) break;
+          now.set(c.ef.op === "set" ? c.ef.fact.entity_id : c.ef.entity_id, { value: c.ef.op === "set" && Array.isArray(c.ef.fact.value) ? c.ef.fact.value : [], tick: c.a.t.lo });
+        }
+        const still = [...now].filter(([, s]) => s.value.includes(who)).map(([org]) => org);
+        if (still.length) warn(`/events/${a.i}/canonical_effects/${j}`, `${who} dies in this event but is still listed in members of ${still.join(", ")}; state the members set without them in this event`);
+      });
+    }
+  }
   const hard = pack2.events.filter((e) => e.classification === "HARD" && e.when.earliest && e.when.latest);
   for (let i = 0; i < hard.length; i++) {
     for (let j = i + 1; j < hard.length; j++) {

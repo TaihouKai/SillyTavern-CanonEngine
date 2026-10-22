@@ -162,7 +162,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock!.isOwner();
   (globalThis as any).canonEngineGenerateInterceptor = interceptor;
-  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: ENGINE_RELEASE, api: { getClock: () => publicClock(engine!) } };
+  (globalThis as any).CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), previewLore: () => engine!.previewProfileLore(), version: ENGINE_RELEASE, api: { getClock: () => publicClock(engine!) } };
   installClockEvents(engine);
 
   const es = c.eventSource;

@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.5.2';
+export const ENGINE_RELEASE = '1.6.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -219,6 +219,8 @@ export interface PlayerProfile {
   /** The Persona text the profile was read from (standard Persona description). */
   personaText: string;
   personaHash: string;
+  /** Lorebook entries read as background with the Persona (titles; "(related)" for one hop further). */
+  lore?: string[];
   /** persona_core: Persona Library's core text, its Additional Sections ignored (setting). */
   source: 'standard_persona' | 'persona_core';
   playerId: Id;

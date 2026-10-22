@@ -364,6 +364,30 @@ export function lintPack(pack: CanonPack): { errors: LintIssue[]; warnings: Lint
     });
   }
 
+  // Organization members who die (review flag): an event records a death, but a `members` set still lists that
+  // person after it. An entity_set is replaced as a whole, so the death event (or a later one) should state the set
+  // without them.
+  if (predicates.get('members')?.value_type === 'entity_set') {
+    const sets = new Map<Id, { value: Id[]; tick: number }>();
+    for (const f of pack.initial_state.facts) if (f.fact.predicate === 'members' && Array.isArray(f.fact.value)) sets.set(f.fact.entity_id, { value: f.fact.value as Id[], tick: -Infinity });
+    const changes = timed.flatMap((a) => a.ev.canonical_effects.map((ef) => ({ a, ef })))
+      .filter(({ ef }) => (ef.op === 'set' ? ef.fact.predicate === 'members' : ef.predicate === 'members'));
+    for (const a of timed) {
+      a.ev.canonical_effects.forEach((ef, j) => {
+        if (ef.op !== 'set' || ef.fact.predicate !== 'alive' || ef.fact.value !== false) return;
+        const who = ef.fact.entity_id;
+        // the sets as they stand once this event is over (later events of the same start time included)
+        const now = new Map(sets);
+        for (const c of changes) {
+          if (c.a.t!.lo > a.t!.lo) break;
+          now.set(c.ef.op === 'set' ? c.ef.fact.entity_id : c.ef.entity_id, { value: c.ef.op === 'set' && Array.isArray(c.ef.fact.value) ? (c.ef.fact.value as Id[]) : [], tick: c.a.t!.lo });
+        }
+        const still = [...now].filter(([, s]) => s.value.includes(who)).map(([org]) => org);
+        if (still.length) warn(`/events/${a.i}/canonical_effects/${j}`, `${who} dies in this event but is still listed in members of ${still.join(', ')}; state the members set without them in this event`);
+      });
+    }
+  }
+
   // Exact-checkpoint HARD contradictions
   const hard = pack.events.filter((e) => e.classification === 'HARD' && e.when.earliest && e.when.latest);
   for (let i = 0; i < hard.length; i++) {

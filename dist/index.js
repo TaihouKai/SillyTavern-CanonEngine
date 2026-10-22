@@ -80,6 +80,95 @@ var require_equal = __commonJS({
   }
 });
 
+// src/runtime/lore.ts
+var norm = (s) => s.normalize("NFKC").trim().toLowerCase();
+function keyMatch(key, text, e) {
+  const k = key.trim();
+  if (!k) return null;
+  const re = /^\/(.+)\/([a-z]*)$/s.exec(k);
+  if (re) {
+    try {
+      return new RegExp(re[1], re[2].replace(/[gy]/g, "")).exec(text)?.[0] ?? null;
+    } catch {
+      return null;
+    }
+  }
+  const cs = e.caseSensitive === true;
+  if (e.wholeWords && /^[\p{Script=Latin}\d\s'’-]+$/u.test(k)) {
+    return new RegExp(`(?<![\\p{L}\\d])${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\d])`, cs ? "u" : "iu").exec(text)?.[0] ?? null;
+  }
+  const i = (cs ? text : text.toLowerCase()).indexOf(cs ? k : k.toLowerCase());
+  return i < 0 ? null : text.slice(i, i + k.length);
+}
+var keyMatches = (key, text, e) => keyMatch(key, text, e) !== null;
+function entryMatches(e, text, generic = /* @__PURE__ */ new Set()) {
+  if (!e.keys.some((k) => {
+    const m = keyMatch(k, text, e);
+    return m !== null && !generic.has(norm(m));
+  })) return false;
+  const sec = e.secondary.filter((k) => k.trim());
+  if (!e.selective || !sec.length) return true;
+  const hits = sec.filter((k) => keyMatches(k, text, e)).length;
+  switch (e.logic) {
+    case 1:
+      return hits < sec.length;
+    // NOT ALL
+    case 2:
+      return hits === 0;
+    // NOT ANY
+    case 3:
+      return hits === sec.length;
+    // AND ALL
+    default:
+      return hits > 0;
+  }
+}
+function loreFor(entries, text, pack2, opts = {}) {
+  const budget = opts.budgetChars ?? 6e3;
+  const cap = opts.entryChars ?? 800;
+  const byName = /* @__PURE__ */ new Map();
+  for (const ent of pack2.entities.values()) for (const n of [ent.name, ...ent.aliases || []]) if (n && norm(n).length >= 2) byName.set(norm(n), ent.id);
+  const usable = entries.filter((e) => !e.disabled && !e.constant && e.content.trim());
+  const titled = (e) => {
+    const t2 = norm(e.comment || ""), head = norm((e.comment || "").split(/[（(]/)[0]);
+    return byName.get(t2) || byName.get(head) || (head.length >= 3 ? [...byName].find(([n]) => n.endsWith(head))?.[1] : void 0) || null;
+  };
+  const about = new Map(usable.map((e) => [e, titled(e)]));
+  const tied = new Map(usable.map((e) => [e, about.get(e) || byName.get(norm(e.keys[0] || "")) || null]));
+  const worldBooks = new Set(usable.filter((e) => tied.get(e)).map((e) => e.book));
+  const pool = usable.filter((e) => worldBooks.has(e.book));
+  const out = [];
+  const taken = /* @__PURE__ */ new Set();
+  let used = 0;
+  const add2 = (e, via) => {
+    if (taken.has(e)) return;
+    const t2 = e.content.trim();
+    const piece = t2.length > cap ? t2.slice(0, cap - 1) + "\u2026" : t2;
+    if (used + piece.length > budget) return;
+    taken.add(e);
+    used += piece.length;
+    out.push({ title: e.comment || e.keys[0] || String(e.uid), entity_id: tied.get(e) || null, via, text: piece });
+  };
+  const uses = /* @__PURE__ */ new Map();
+  for (const e of pool) for (const k of new Set(e.keys.map(norm))) uses.set(k, (uses.get(k) || 0) + 1);
+  const generic = new Set([...uses].filter(([, n]) => n > 3).map(([k]) => k));
+  const direct = pool.filter((e) => entryMatches(e, text, generic));
+  for (const e of direct.filter((x) => tied.get(x))) add2(e, "persona");
+  for (const e of direct.filter((x) => !tied.get(x))) add2(e, "persona");
+  const mentioned = out.map((b) => b.text).join("\n");
+  const names = (x) => [x.name, ...x.aliases || []].filter((n) => n && n.length >= 2);
+  const everywhere = (x) => pool.filter((e) => names(x).some((n) => e.content.includes(n))).length > Math.max(20, pool.length * 0.05);
+  const named = [...pack2.entities.values()].filter((x) => ["person", "organization"].includes(x.kind) && !out.some((b) => b.entity_id === x.id)).map((x) => ({ x, at: Math.min(...names(x).map((n) => {
+    const i = mentioned.indexOf(n);
+    return i < 0 ? Infinity : i;
+  })) })).filter((n) => n.at < Infinity).sort((a, b) => a.at - b.at).filter((n) => !everywhere(n.x)).slice(0, opts.related ?? 4);
+  for (const n of named) {
+    const e = pool.find((x) => about.get(x) === n.x.id && !taken.has(x));
+    if (e) add2(e, "related");
+  }
+  return out;
+}
+
 // src/generated/validators.js
 var pack = validate20;
 var schema31 = { "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:pack:1.0.0", "title": "Canon Engine v1 History Pack", "description": "Structural validation only. Semantic validation is specified in HISTORY_PACK_AUTHORING_GUIDE.md.", "type": "object", "properties": { "$schema": { "type": "string" }, "schema_version": { "const": "1.0.0" }, "pack_id": { "$ref": "#/$defs/id" }, "pack_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }, "title": { "type": "string", "minLength": 1 }, "language": { "type": "string", "minLength": 1 }, "description": { "type": "string", "minLength": 1 }, "calendar": { "type": "object", "properties": { "system": { "const": "relative_day" }, "origin_label": { "type": "string", "minLength": 1 }, "day_length_minutes": { "const": 1440 }, "time_zone_label": { "type": "string", "minLength": 1 }, "notes": { "type": "string" } }, "required": ["system", "origin_label", "day_length_minutes", "time_zone_label", "notes"], "additionalProperties": false }, "coverage": { "type": "object", "properties": { "start": { "$ref": "#/$defs/time" }, "end": { "$ref": "#/$defs/time" }, "notes": { "type": "string" } }, "required": ["start", "end", "notes"], "additionalProperties": false }, "sources": { "type": "array", "items": { "$ref": "#/$defs/source" }, "minItems": 1 }, "predicates": { "type": "array", "items": { "$ref": "#/$defs/predicate" }, "minItems": 1 }, "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" }, "minItems": 1 }, "initial_state": { "type": "object", "properties": { "at": { "$ref": "#/$defs/time" }, "facts": { "type": "array", "items": { "$ref": "#/$defs/initial_fact" } } }, "required": ["at", "facts"], "additionalProperties": false }, "arcs": { "type": "array", "items": { "$ref": "#/$defs/arc" } }, "events": { "type": "array", "items": { "$ref": "#/$defs/event" }, "minItems": 1 }, "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } } }, "required": ["schema_version", "pack_id", "pack_version", "title", "language", "description", "calendar", "coverage", "sources", "predicates", "entities", "initial_state", "arcs", "events", "edges"], "additionalProperties": false, "$defs": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]*$" }, "time": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }] }, "fact": { "type": "object", "properties": { "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" }, "value": { "$ref": "#/$defs/value" } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "effect": { "oneOf": [{ "type": "object", "properties": { "op": { "const": "set" }, "fact": { "$ref": "#/$defs/fact" } }, "required": ["op", "fact"], "additionalProperties": false }, { "type": "object", "properties": { "op": { "const": "unset" }, "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }] }, "condition": { "oneOf": [{ "type": "object", "properties": { "all": { "type": "array", "items": { "$ref": "#/$defs/condition" } } }, "required": ["all"], "additionalProperties": false }, { "type": "object", "properties": { "any": { "type": "array", "items": { "$ref": "#/$defs/condition" }, "minItems": 1 } }, "required": ["any"], "additionalProperties": false }, { "type": "object", "properties": { "not": { "$ref": "#/$defs/condition" } }, "required": ["not"], "additionalProperties": false }, { "type": "object", "properties": { "fact": { "$ref": "#/$defs/fact" } }, "required": ["fact"], "additionalProperties": false }, { "type": "object", "properties": { "occurred": { "$ref": "#/$defs/id" } }, "required": ["occurred"], "additionalProperties": false }] }, "source": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1 }, "locator": { "type": "string", "minLength": 1 }, "kind": { "enum": ["primary", "secondary", "editorial", "example"] }, "notes": { "type": "string" } }, "required": ["id", "title", "locator", "kind", "notes"], "additionalProperties": false }, "predicate": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "description": { "type": "string", "minLength": 1 }, "value_type": { "enum": ["boolean", "number", "string", "entity_ref", "entity_set"] }, "allowed_values": { "type": "array", "items": { "$ref": "#/$defs/value" }, "minItems": 1, "uniqueItems": true }, "transient": { "type": "boolean" }, "settled_values": { "type": "array", "items": { "$ref": "#/$defs/value" }, "minItems": 1, "uniqueItems": true } }, "required": ["id", "description", "value_type"], "additionalProperties": false }, "entity": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "name": { "type": "string", "minLength": 1 }, "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "static_description": { "type": "string", "minLength": 1 }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true } }, "required": ["id", "name", "aliases", "kind", "static_description", "source_refs"], "additionalProperties": false }, "when": { "type": "object", "properties": { "earliest": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }, "latest": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }, "precision": { "enum": ["minute", "day", "range", "unknown"] }, "label": { "type": "string", "minLength": 1 }, "basis": { "enum": ["documented", "editorial", "unknown"] }, "notes": { "type": "string" } }, "required": ["earliest", "latest", "precision", "label", "basis", "notes"], "additionalProperties": false }, "visibility": { "type": "object", "properties": { "mode": { "enum": ["public", "restricted", "secret"] }, "knower_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true } }, "required": ["mode", "knower_ids"], "additionalProperties": false }, "participation": { "type": "object", "properties": { "offer": { "enum": ["when_relevant", "never"] }, "hook": { "type": "string" } }, "required": ["offer", "hook"], "additionalProperties": false }, "event": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1 }, "summary": { "type": "string", "minLength": 1 }, "classification": { "enum": ["HARD", "SOFT", "FREE"] }, "required_description": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }, "when": { "$ref": "#/$defs/when" }, "entity_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "location_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "arc_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "canonical_preconditions": { "$ref": "#/$defs/condition" }, "outcomes": { "type": "array", "items": { "$ref": "#/$defs/fact" } }, "canonical_effects": { "type": "array", "items": { "$ref": "#/$defs/effect" } }, "visibility": { "$ref": "#/$defs/visibility" }, "participation": { "$ref": "#/$defs/participation" }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "author_note": { "type": "string" }, "cast": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "$ref": "#/$defs/id" }, "at": { "$ref": "#/$defs/time" }, "role": { "type": "string", "minLength": 1 } }, "required": ["entity_id", "at", "role"], "additionalProperties": false } } }, "required": ["id", "title", "summary", "classification", "required_description", "when", "entity_ids", "location_ids", "arc_id", "canonical_preconditions", "outcomes", "canonical_effects", "visibility", "participation", "source_refs", "author_note"], "additionalProperties": false, "allOf": [{ "if": { "properties": { "classification": { "const": "HARD" } }, "required": ["classification"] }, "then": { "properties": { "required_description": { "type": "string", "minLength": 1 }, "outcomes": { "minItems": 1 }, "when": { "properties": { "earliest": { "$ref": "#/$defs/time" }, "latest": { "$ref": "#/$defs/time" }, "precision": { "enum": ["minute", "day", "range"] }, "basis": { "enum": ["documented", "editorial"] } } } } }, "else": { "properties": { "required_description": { "type": "null" } } } }] }, "edge": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "from": { "$ref": "#/$defs/id" }, "to": { "$ref": "#/$defs/id" }, "relation": { "enum": ["enables", "motivates", "precedes", "related"] }, "basis": { "enum": ["documented", "inferred", "editorial"] }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "note": { "type": "string", "minLength": 1 } }, "required": ["id", "from", "to", "relation", "basis", "source_refs", "note"], "additionalProperties": false }, "arc": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1 }, "summary": { "type": "string", "minLength": 1 }, "event_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true } }, "required": ["id", "title", "summary", "event_ids"], "additionalProperties": false }, "initial_fact": { "type": "object", "properties": { "fact": { "$ref": "#/$defs/fact" }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "note": { "type": "string" } }, "required": ["fact", "source_refs", "note"], "additionalProperties": false } } };
@@ -14979,6 +15068,24 @@ function lintPack(pack2) {
       if (later.length) warn(`/events/${a.i}/canonical_effects/${j}`, `temporary condition ${ent}.${ef.fact.predicate} = ${JSON.stringify(ef.fact.value)} is never ended by a later event, but ${ent} takes part in later events: ${later.slice(0, 5).join(", ")}${later.length > 5 ? ` (+${later.length - 5} more)` : ""}. Add an event or effect that ends it, or list the value in the predicate's settled_values if it lasts`);
     });
   }
+  if (predicates.get("members")?.value_type === "entity_set") {
+    const sets = /* @__PURE__ */ new Map();
+    for (const f of pack2.initial_state.facts) if (f.fact.predicate === "members" && Array.isArray(f.fact.value)) sets.set(f.fact.entity_id, { value: f.fact.value, tick: -Infinity });
+    const changes = timed.flatMap((a) => a.ev.canonical_effects.map((ef) => ({ a, ef }))).filter(({ ef }) => ef.op === "set" ? ef.fact.predicate === "members" : ef.predicate === "members");
+    for (const a of timed) {
+      a.ev.canonical_effects.forEach((ef, j) => {
+        if (ef.op !== "set" || ef.fact.predicate !== "alive" || ef.fact.value !== false) return;
+        const who = ef.fact.entity_id;
+        const now = new Map(sets);
+        for (const c of changes) {
+          if (c.a.t.lo > a.t.lo) break;
+          now.set(c.ef.op === "set" ? c.ef.fact.entity_id : c.ef.entity_id, { value: c.ef.op === "set" && Array.isArray(c.ef.fact.value) ? c.ef.fact.value : [], tick: c.a.t.lo });
+        }
+        const still = [...now].filter(([, s]) => s.value.includes(who)).map(([org]) => org);
+        if (still.length) warn(`/events/${a.i}/canonical_effects/${j}`, `${who} dies in this event but is still listed in members of ${still.join(", ")}; state the members set without them in this event`);
+      });
+    }
+  }
   const hard = pack2.events.filter((e) => e.classification === "HARD" && e.when.earliest && e.when.latest);
   for (let i = 0; i < hard.length; i++) {
     for (let j = i + 1; j < hard.length; j++) {
@@ -15614,12 +15721,12 @@ var WorldIndex = class _WorldIndex {
   }
   /** Find entity mentions inside free text (deterministic name/alias scan). */
   scanEntities(text) {
-    const norm = normalizeName(text);
+    const norm2 = normalizeName(text);
     const found = /* @__PURE__ */ new Map();
     const consider = (id, names) => {
       for (const n of names) {
         const nn = normalizeName(n);
-        if (nn.length >= 2 && norm.includes(nn)) {
+        if (nn.length >= 2 && norm2.includes(nn)) {
           found.set(id, n);
           return;
         }
@@ -18384,15 +18491,15 @@ function repairEnums(root, errors) {
     const parent = valueAt(root, parts.length ? "/" + parts.join("/") : "");
     const cur = parent?.[key];
     if (typeof cur !== "string") continue;
-    const norm = cur.trim().toLowerCase().replace(/[\s-]+/g, "_");
-    if (key === "kind" && /\/claims\/\d+$/.test("/" + parts.join("/")) && PLAN_KINDS.has(norm) && allowed.includes("state")) {
+    const norm2 = cur.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    if (key === "kind" && /\/claims\/\d+$/.test("/" + parts.join("/")) && PLAN_KINDS.has(norm2) && allowed.includes("state")) {
       parent.kind = "state";
       parent.assertion = "plan";
       changed = true;
       continue;
     }
-    const syn = [].concat(ENUM_SYNONYMS[norm] ?? []);
-    const pick = allowed.find((a) => a === norm) ?? syn.find((x) => allowed.includes(x));
+    const syn = [].concat(ENUM_SYNONYMS[norm2] ?? []);
+    const pick = allowed.find((a) => a === norm2) ?? syn.find((x) => allowed.includes(x));
     if (pick !== void 0) {
       parent[key] = pick;
       changed = true;
@@ -18694,7 +18801,8 @@ Each intended_effects value must have its predicate's declared type and be one o
 SHAPE: {"rationale":"","protected_anchor_ids":[],"assumptions":[{"text":"","fact":null}],"risks":[],"mode":"NORMAL","steps":[{"step_id":"s1","actors":[],"targets":[],"earliest":{"day":0,"minute":0},"latest":{"day":0,"minute":0},"prerequisites":[],"action":"","intended_effects":[{"entity_id":"","predicate":"","value":true}],"visibility":"secret","knowers":[],"depends_on":[],"means":"ordinary","serves_anchor":null,"requires_player_consent":false}],"inadequacy_note":""}`,
   profile: `${COMMON}
 TASK: Read the player's Persona (their character in this story world) and describe the player's presence in the world for a story engine: who they are, what they belong to or lead, where they operate, what they can do and have, what they want, whom they are connected to, and who plausibly knows about them. Use only what the Persona states or what its role clearly implies; never invent specific relationships.
-- existing_id: a registry id when the Persona names a person, organization or place of this world; null for an original one (the engine creates it).
+- existing_id: a registry id when the Persona names a person, organization or place of this world; null for an original one (the engine creates it). Match names loosely (another script or language, a short form: "SCHOOL" is \u6697\u90E8SCHOOL).
+- background_lore (when given): the user's lorebook entries for the names the Persona uses, and registry organizations list their leader and members. They are world background to recognise what the Persona means \u2014 they never make anyone related to the player or aware of them, and never put the player into an organization the Persona does not.
 - relationships: basis "persona_stated" (the Persona says it) or "implied" (follows from the role, e.g. the members of an organization the player leads). An implied relationship never names a specific known character of this world: a known person is related to the player only if the Persona says so.
 - knowers: who plausibly knows about the player, at which level \u2014 "exists" (knows an organization of the player exists), "identity" (knows who the player is or their role in it), "secrets" (knows specific secrets: only what the Persona states someone knows). Implied knowers are the groups or roles such an identity brings with it \u2014 members, a handler or superior in the organization's chain, partner organizations, rivals in the same field, close friends \u2014 written as groups or roles, not as specific known characters. Keep the levels apart: a close friend may know the player personally without knowing their affiliation; a partner organization may know their operational identity, not their private life; ordinary acquaintances (classmates, neighbors) know only the public identity \u2014 do not list them: anyone not listed knows just the public identity. "exists" is only for people who know that the organization exists without knowing the player is in it. A secret identity still has people who know it: list them, so the world can reach the player.
 - public_identity: what an ordinary person sees. uncertain: what the Persona leaves open that matters.
@@ -20315,6 +20423,40 @@ function profileAt(revs, entries, position) {
 function playerIds(p) {
   return uniq([p.playerId, ...p.affiliations.map((a) => a.entityId), ...p.places.map((x) => x.entityId)]);
 }
+var membershipMemo = null;
+function memberships(index, tick) {
+  if (membershipMemo && membershipMemo.index === index && membershipMemo.tick === tick && membershipMemo.facts === index.state.facts.size) return membershipMemo.value;
+  const sets = /* @__PURE__ */ new Map();
+  const listed = /* @__PURE__ */ new Set();
+  const add2 = (org, who) => {
+    if (!sets.has(org)) sets.set(org, /* @__PURE__ */ new Set());
+    sets.get(org).add(who);
+  };
+  const byAffiliation = [];
+  for (const k of index.state.facts.keys()) {
+    const i = k.lastIndexOf("|");
+    const id = k.slice(0, i), pred = k.slice(i + 1);
+    if (pred !== "members" && pred !== "affiliation") continue;
+    const f = factAt(index.state, id, pred, { tick });
+    if (!f.known) continue;
+    if (pred === "members" && Array.isArray(f.value)) {
+      listed.add(id);
+      for (const m of f.value) add2(id, String(m));
+    }
+    if (pred === "affiliation" && typeof f.value === "string" && index.entityKind(f.value) === "organization") byAffiliation.push([f.value, id]);
+  }
+  for (const [org, who] of byAffiliation) if (!listed.has(org)) add2(org, who);
+  const alive = (id) => {
+    const f = factAt(index.state, id, "alive", { tick });
+    return !(f.known && f.value === false);
+  };
+  const value = new Map([...sets].map(([org, s]) => [org, [...s].filter(alive)]).filter(([, s]) => s.length));
+  membershipMemo = { index, tick, facts: index.state.facts.size, value };
+  return value;
+}
+function orgsOf(index, who, tick) {
+  return [...memberships(index, tick)].filter(([, s]) => s.includes(who)).map(([org]) => org);
+}
 var LEVEL = { exists: "knows the organization exists (not that the player is in it)", identity: "knows who the player is / their role", secrets: "knows" };
 function factsLine(index, id, tick) {
   if (!index.entityExists(id)) return "";
@@ -20352,7 +20494,7 @@ function playerContext(index, profile2, tick, opts = {}) {
     capabilities: profile2.capabilities,
     resources: profile2.resources,
     goals: profile2.goals,
-    relationships: profile2.relationships.map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis })),
+    relationships: profile2.relationships.map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis, ...r.entityId && index.entityKind(r.entityId) === "organization" ? { now: factsLine(index, r.entityId, tick).trim() } : {} })),
     knowers: profile2.knowers.map((k) => ({ who: k.who, id: k.entityId, level: k.level, about: k.about, basis: k.basis })),
     now: factsLine(index, profile2.playerId, tick).trim(),
     actual_history: playerHistory(index, profile2, opts.historyWith || [], opts.historyLimit ?? 30),
@@ -20484,6 +20626,8 @@ function integrationCandidates(index, profile2, tick, opts = {}) {
   const end = Math.max(tick + (opts.lead ?? INTEGRATION_LEAD_MINUTES), opts.jumpTo ?? 0);
   const focus = new Set(opts.focus || []);
   const linked = new Set([...profile2.relationships.map((r) => r.entityId), ...profile2.affiliations.map((a) => a.entityId), ...playLinks(index, profile2)].filter(Boolean));
+  const members = memberships(index, tick);
+  for (const id of [...linked]) for (const m of members.get(id) || []) if (m !== profile2.playerId) linked.add(m);
   const underWay = new Set([...st.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean));
   const out = [];
   for (const t2 of pack2.timeIndex) {
@@ -20506,7 +20650,11 @@ function integrationCandidates(index, profile2, tick, opts = {}) {
 }
 function candidateInput(index, c, tick, blocked) {
   const ev = c.event;
-  const people = ev.cast?.length ? ev.cast.map((m) => `${index.entityName(m.entity_id)} [${m.entity_id}] from ${formatTick(toTick(m.at))} (${m.role})`) : ev.entity_ids.filter((x) => ["person", "organization"].includes(index.entityKind(x))).map((x) => `${index.entityName(x)} [${x}]`);
+  const orgs = (id) => {
+    const o = index.entityKind(id) === "person" ? orgsOf(index, id, Math.max(tick, c.lo)) : [];
+    return o.length ? `, of ${o.map((x) => index.entityName(x)).join(", ")}` : "";
+  };
+  const people = ev.cast?.length ? ev.cast.map((m) => `${index.entityName(m.entity_id)} [${m.entity_id}${orgs(m.entity_id)}] from ${formatTick(toTick(m.at))} (${m.role})`) : ev.entity_ids.filter((x) => ["person", "organization"].includes(index.entityKind(x))).map((x) => `${index.entityName(x)} [${x}${orgs(x)}]`);
   const arc = ev.arc_id ? index.pack.pack.arcs.find((a) => a.id === ev.arc_id) : void 0;
   return {
     id: ev.id,
@@ -20688,7 +20836,7 @@ function presenceSection(index, profile2, tick) {
   for (const a of profile2.affiliations) lines.push(`- organization: ${a.name} [${a.entityId}] \u2014 ${a.role || "member"} (${a.secrecy})${factsLine(index, a.entityId, tick)}`);
   for (const p of profile2.places) lines.push(`- place: ${p.name} [${p.entityId}] \u2014 ${p.use}${factsLine(index, p.entityId, tick)}`);
   if (profile2.capabilities.length || profile2.resources.length) lines.push(`- can/has: ${[...profile2.capabilities, ...profile2.resources].slice(0, 10).join("; ")}`);
-  for (const r of profile2.relationships.slice(0, 12)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ""} \u2014 ${r.relation} (${r.basis === "persona_stated" ? "Persona" : "implied by the role"})`);
+  for (const r of profile2.relationships.slice(0, 12)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ""} \u2014 ${r.relation} (${r.basis === "persona_stated" ? "Persona" : "implied by the role"})${r.entityId && index.entityKind(r.entityId) === "organization" ? factsLine(index, r.entityId, tick) : ""}`);
   for (const k of profile2.knowers.slice(0, 12)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === "secrets" ? ":" : " \u2014"} ${k.about}`);
   return lines.join("\n");
 }
@@ -20740,7 +20888,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.5.2";
+var ENGINE_RELEASE = "1.6.0";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -22292,14 +22440,39 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
   async readProfile(persona, prev, signal, operationId) {
     const pack2 = this.pack();
     const index = this.current?.index || new WorldIndex(pack2, reduce(pack2, []));
-    const ent = (e) => `${e.id} | ${e.name} | ${(e.aliases || []).join(", ")} | ${e.kind}`;
+    const tick = index.state.clock.lo;
+    const members = memberships(index, tick);
+    const orgLine = (id) => {
+      const leader = factAt(index.state, id, "leader", { tick });
+      const ms = members.get(id) || [];
+      return [leader.known && typeof leader.value === "string" ? `leader: ${index.entityName(leader.value)}` : "", ms.length ? `members: ${ms.map((m) => index.entityName(m)).join(", ")}` : ""].filter(Boolean).join("; ");
+    };
+    const ent = (e) => `${e.id} | ${e.name} | ${(e.aliases || []).join(", ")} | ${e.kind}${e.kind === "organization" && orgLine(e.id) ? ` | ${orgLine(e.id)}` : ""}`;
+    let lore = [];
+    try {
+      lore = loreFor(await this.host.loreEntries?.() || [], `${persona.name}
+${persona.description}`, pack2);
+    } catch (e) {
+      this.host.log("warn", "lorebook read failed: " + e.message);
+    }
+    this.lastProfileLore = lore.map((l) => `${l.title}${l.via === "related" ? " (related)" : ""}`);
     const out = await this.withTimeout(callStructured(this.host.model, "profile", PROMPTS.profile, {
       persona: { name: persona.name, description: persona.description },
       world: { title: pack2.pack.title, description: pack2.pack.description, language: pack2.pack.language },
-      registry: { entities_format: "id | name | aliases | kind", entities: [...pack2.entities.values()].filter((e) => ["person", "organization", "place", "other"].includes(e.kind)).map(ent) },
+      registry: { entities_format: "id | name | aliases | kind | (organizations) leader; members", entities: [...pack2.entities.values()].filter((e) => ["person", "organization", "place", "other"].includes(e.kind)).map(ent) },
+      ...lore.length ? { background_lore: lore.map((l) => ({ title: l.title, entity_id: l.entity_id, via: l.via, text: l.text })) } : {},
       ...prev ? { previous_profile: { summary: prev.summary, affiliations: prev.affiliations.map((a) => a.name), places: prev.places.map((p) => p.name) } } : {}
     }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 6e3 }), this.settings.taskTimeoutMs * 4, signal);
-    return buildProfile(out, pack2, index, persona, prev);
+    const built = buildProfile(out, pack2, index, persona, prev);
+    if (lore.length) built.profile.lore = this.lastProfileLore;
+    return built;
+  }
+  /** The lorebook entries a Persona read would take as background now (titles; no model call). */
+  async previewProfileLore() {
+    const pack2 = this.pack();
+    const persona = this.persona();
+    return loreFor(await this.host.loreEntries?.() || [], `${persona.name}
+${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " (related)" : ""}`);
   }
   /** The profile in effect for new turns (the latest revision), or null. */
   playerProfile() {
@@ -22331,6 +22504,8 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     }
   }
   personaNoticeHash = "";
+  /** The lorebook entries given with the last Persona read (titles; for the panel and tests). */
+  lastProfileLore = [];
   persona() {
     return this.host.persona({ ignoreSections: this.settings.ignorePersonaSections });
   }
@@ -22963,6 +23138,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         name: prof.profile.personaName,
         chars: prof.profile.personaText.length,
         source: prof.profile.source,
+        lore: prof.profile.lore || [],
         summary: prof.profile.summary,
         publicIdentity: prof.profile.publicIdentity,
         affiliations: prof.profile.affiliations.map((a) => `${a.name} \u2014 ${a.role} (${a.secrecy})`),
@@ -23451,6 +23627,49 @@ var StHost = class {
   }
   async settle() {
     await this.settleSwipe();
+  }
+  async loreEntries() {
+    const c = ctx();
+    let wi = {};
+    const url = "/scripts/world-info.js";
+    try {
+      wi = await import(
+        /* @vite-ignore */
+        url
+      );
+    } catch {
+    }
+    const ch = c.characters?.[c.characterId];
+    const extra = (wi.world_info?.charLore || []).find((x) => x?.name === String(ch?.avatar || "").replace(/\.[^.]+$/, "") || x?.name === ch?.avatar)?.extraBooks || [];
+    const names = [...new Set([...wi.selected_world_info || [], ch?.data?.extensions?.world, ...extra, c.chatMetadata?.world_info, c.powerUserSettings?.persona_description_lorebook].filter(Boolean))];
+    const load = c.loadWorldInfo || wi.loadWorldInfo;
+    if (!load) return [];
+    const out = [];
+    for (const book of names) {
+      let d = null;
+      try {
+        d = await load(book);
+      } catch {
+        continue;
+      }
+      for (const e of Object.values(d?.entries || {})) {
+        out.push({
+          book,
+          uid: e.uid,
+          comment: String(e.comment || ""),
+          keys: (e.key || []).map(String),
+          secondary: (e.keysecondary || []).map(String),
+          selective: !!e.selective,
+          logic: Number(e.selectiveLogic) || 0,
+          constant: !!e.constant,
+          disabled: !!e.disable,
+          caseSensitive: e.caseSensitive ?? null,
+          wholeWords: e.matchWholeWords ?? null,
+          content: String(e.content || "")
+        });
+      }
+    }
+    return out;
   }
   persona(opts) {
     const c = ctx();
@@ -24177,6 +24396,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niOrgs: { zh: "\u7EC4\u7EC7", en: "Organizations" },
   niPlaces: { zh: "\u5730\u70B9", en: "Places" },
   niNotes: { zh: "\u5F15\u64CE\u8C03\u6574", en: "Engine adjustments" },
+  niLore: { zh: "\u4E00\u5E76\u53C2\u8003\u7684\u4E16\u754C\u4E66\u6761\u76EE\uFF08Persona \u63D0\u5230\u7684\u540D\u5B57\uFF09", en: "Lorebook entries read as background (names the Persona mentions)" },
   niDecisions: { zh: "\u4F60\u7684\u53C2\u4E0E\u610F\u613F", en: "Your decisions" },
   niContacts: { zh: "\u4E16\u754C\u5DF2\u7ECF\u63A5\u89E6\u4F60\u7684", en: "Contacts that reached you" },
   niSuggestions: { zh: "\u5C1A\u672A\u53D1\u751F\u7684\u53EF\u80FD\u63A5\u89E6\uFF08\u5267\u900F\uFF09", en: "Possible contacts not yet made (spoilers)" },
@@ -25625,7 +25845,7 @@ function playerTab(v) {
   if (!p) html += `<div>${esc2(t("niNoProfile"))}</div>`;
   else {
     html += `<h4>${esc2(p.name)}</h4><div>${esc2(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc2(p.publicIdentity)}</small></div>` : ""}<div><small>${esc2(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev)))}</small></div>`;
-    html += list(t("niOrgs"), p.affiliations) + list(t("niPlaces"), p.places) + list(t("niConnections"), p.relationships) + list(t("niWho"), p.knowers) + list(t("niNotes"), p.notes);
+    html += list(t("niLore"), p.lore || []) + list(t("niOrgs"), p.affiliations) + list(t("niPlaces"), p.places) + list(t("niConnections"), p.relationships) + list(t("niWho"), p.knowers) + list(t("niNotes"), p.notes);
   }
   const stance = (s) => t(`niStance_${s}`);
   const negative = /* @__PURE__ */ new Set(["declined", "deferred", "ooc_suppress"]);
@@ -25963,7 +26183,7 @@ async function init() {
   lock = new WriterLock(engine.instanceId);
   host.writerCheck = () => lock.isOwner();
   globalThis.canonEngineGenerateInterceptor = interceptor;
-  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), version: ENGINE_RELEASE, api: { getClock: () => publicClock(engine) } };
+  globalThis.CanonEngine = { engine, host, gen, lock, diagnoseHorae: () => HoraeAdapter.diagnose(), previewLore: () => engine.previewProfileLore(), version: ENGINE_RELEASE, api: { getClock: () => publicClock(engine) } };
   installClockEvents(engine);
   const es = c.eventSource;
   const et = c.eventTypes || c.event_types;

@@ -132,6 +132,37 @@ export function playerIds(p: PlayerProfile): Id[] {
   return uniq([p.playerId, ...p.affiliations.map((a) => a.entityId), ...p.places.map((x) => x.entityId)]);
 }
 
+/** Who belongs to which organization at a time, without the dead: the organization's `members` set when it has one
+ *  (the whole list, also after it is emptied), otherwise the people whose `affiliation` names it (both pack
+ *  conventions; live check: 一方通行's affiliation with GROUP outlived GROUP's dissolution). Cached for the last
+ *  index and time. */
+let membershipMemo: { index: WorldIndex; tick: number; facts: number; value: Map<Id, Id[]> } | null = null;
+export function memberships(index: WorldIndex, tick: number): Map<Id, Id[]> {
+  if (membershipMemo && membershipMemo.index === index && membershipMemo.tick === tick && membershipMemo.facts === index.state.facts.size) return membershipMemo.value;
+  const sets = new Map<Id, Set<Id>>();
+  const listed = new Set<Id>();
+  const add = (org: Id, who: Id) => { if (!sets.has(org)) sets.set(org, new Set()); sets.get(org)!.add(who); };
+  const byAffiliation: [Id, Id][] = [];
+  for (const k of index.state.facts.keys()) {
+    const i = k.lastIndexOf('|');
+    const id = k.slice(0, i), pred = k.slice(i + 1);
+    if (pred !== 'members' && pred !== 'affiliation') continue;
+    const f = factAt(index.state, id, pred, { tick });
+    if (!f.known) continue;
+    if (pred === 'members' && Array.isArray(f.value)) { listed.add(id); for (const m of f.value) add(id, String(m)); }
+    if (pred === 'affiliation' && typeof f.value === 'string' && index.entityKind(f.value) === 'organization') byAffiliation.push([f.value, id]);
+  }
+  for (const [org, who] of byAffiliation) if (!listed.has(org)) add(org, who);
+  const alive = (id: Id) => { const f = factAt(index.state, id, 'alive', { tick }); return !(f.known && f.value === false); };
+  const value = new Map([...sets].map(([org, s]) => [org, [...s].filter(alive)] as [Id, Id[]]).filter(([, s]) => s.length));
+  membershipMemo = { index, tick, facts: index.state.facts.size, value };
+  return value;
+}
+/** The organizations a person belongs to at a time. */
+export function orgsOf(index: WorldIndex, who: Id, tick: number): Id[] {
+  return [...memberships(index, tick)].filter(([, s]) => s.includes(who)).map(([org]) => org);
+}
+
 const LEVEL = { exists: 'knows the organization exists (not that the player is in it)', identity: 'knows who the player is / their role', secrets: 'knows' } as const;
 
 function factsLine(index: WorldIndex, id: Id, tick: number): string {
@@ -179,7 +210,7 @@ export function playerContext(index: WorldIndex, profile: PlayerProfile, tick: n
     capabilities: profile.capabilities,
     resources: profile.resources,
     goals: profile.goals,
-    relationships: profile.relationships.map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis })),
+    relationships: profile.relationships.map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis, ...(r.entityId && index.entityKind(r.entityId) === 'organization' ? { now: factsLine(index, r.entityId, tick).trim() } : {}) })),
     knowers: profile.knowers.map((k) => ({ who: k.who, id: k.entityId, level: k.level, about: k.about, basis: k.basis })),
     now: factsLine(index, profile.playerId, tick).trim(),
     actual_history: playerHistory(index, profile, opts.historyWith || [], opts.historyLimit ?? 30),
@@ -338,6 +369,10 @@ export function integrationCandidates(index: WorldIndex, profile: PlayerProfile,
   // connections: the Persona's, and the people the player has actually dealt with in play (live: 滨面/泷壶, met
   // on 10/10, were nobody's connection because they are not in the Persona)
   const linked = new Set([...profile.relationships.map((r) => r.entityId), ...profile.affiliations.map((a) => a.entityId), ...playLinks(index, profile)].filter(Boolean) as Id[]);
+  // ...and the members of the organizations among them (a bad relation with SCHOOL makes 垣根's moves the player's
+  // concern; membership comes from the pack's facts at the scene's time)
+  const members = memberships(index, tick);
+  for (const id of [...linked]) for (const m of members.get(id) || []) if (m !== profile.playerId) linked.add(m);
   const underWay = new Set([...st.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean) as Id[]);
   const out: Candidate[] = [];
   for (const t of pack.timeIndex) {
@@ -364,7 +399,8 @@ export function integrationCandidates(index: WorldIndex, profile: PlayerProfile,
 
 export function candidateInput(index: WorldIndex, c: Candidate, tick: number, blocked: EngagementEntry | null) {
   const ev = c.event;
-  const people = (ev.cast?.length ? ev.cast.map((m) => `${index.entityName(m.entity_id)} [${m.entity_id}] from ${formatTick(toTick(m.at))} (${m.role})`) : ev.entity_ids.filter((x) => ['person', 'organization'].includes(index.entityKind(x))).map((x) => `${index.entityName(x)} [${x}]`));
+  const orgs = (id: Id) => { const o = index.entityKind(id) === 'person' ? orgsOf(index, id, Math.max(tick, c.lo)) : []; return o.length ? `, of ${o.map((x) => index.entityName(x)).join(', ')}` : ''; };
+  const people = (ev.cast?.length ? ev.cast.map((m) => `${index.entityName(m.entity_id)} [${m.entity_id}${orgs(m.entity_id)}] from ${formatTick(toTick(m.at))} (${m.role})`) : ev.entity_ids.filter((x) => ['person', 'organization'].includes(index.entityKind(x))).map((x) => `${index.entityName(x)} [${x}${orgs(x)}]`));
   const arc = ev.arc_id ? index.pack.pack.arcs.find((a) => a.id === ev.arc_id) : undefined;
   return {
     id: ev.id, title: ev.title, classification: ev.classification, window: `${formatTick(c.lo)} – ${formatTick(c.hi)}`, status: c.status,
@@ -495,7 +531,7 @@ export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick:
   for (const a of profile.affiliations) lines.push(`- organization: ${a.name} [${a.entityId}] — ${a.role || 'member'} (${a.secrecy})${factsLine(index, a.entityId, tick)}`);
   for (const p of profile.places) lines.push(`- place: ${p.name} [${p.entityId}] — ${p.use}${factsLine(index, p.entityId, tick)}`);
   if (profile.capabilities.length || profile.resources.length) lines.push(`- can/has: ${[...profile.capabilities, ...profile.resources].slice(0, 10).join('; ')}`);
-  for (const r of profile.relationships.slice(0, 12)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ''} — ${r.relation} (${r.basis === 'persona_stated' ? 'Persona' : 'implied by the role'})`);
+  for (const r of profile.relationships.slice(0, 12)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ''} — ${r.relation} (${r.basis === 'persona_stated' ? 'Persona' : 'implied by the role'})${r.entityId && index.entityKind(r.entityId) === 'organization' ? factsLine(index, r.entityId, tick) : ''}`);
   for (const k of profile.knowers.slice(0, 12)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === 'secrets' ? ':' : ' —'} ${k.about}`);
   return lines.join('\n');
 }

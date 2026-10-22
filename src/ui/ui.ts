@@ -606,7 +606,7 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   if (!p) html += `<div>${esc(t('niNoProfile'))}</div>`;
   else {
     html += `<h4>${esc(p.name)}</h4><div>${esc(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc(p.publicIdentity)}</small></div>` : ''}<div><small>${esc(t(p.source === 'persona_core' ? 'niSourceCore' : 'niSource').replace('{n}', String(p.chars)).replace('{rev}', String(p.rev)))}</small></div>`;
-    html += list(t('niOrgs'), p.affiliations) + list(t('niPlaces'), p.places) + list(t('niConnections'), p.relationships) + list(t('niWho'), p.knowers) + list(t('niNotes'), p.notes);
+    html += list(t('niLore'), p.lore || []) + list(t('niOrgs'), p.affiliations) + list(t('niPlaces'), p.places) + list(t('niConnections'), p.relationships) + list(t('niWho'), p.knowers) + list(t('niNotes'), p.notes);
   }
   const stance = (s: string) => t(`niStance_${s}`);
   const negative = new Set(['declined', 'deferred', 'ooc_suppress']);

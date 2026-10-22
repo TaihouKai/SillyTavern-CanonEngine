@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.6.0 — 2026-10-22
+
+- **Reading the Persona uses your lorebooks.** When Canon reads the Persona, it also reads the entries of your active lorebooks for the names the Persona uses, as SillyTavern's own scan would find them. That covers global, character, chat and Persona lorebooks. It then takes up to 4 entries about the people and organizations those entries name. A Persona saying "Relation to SCHOOL: bad" is read together with the SCHOOL entry and its leader's entry.
+  - Only this world counts: entries whose title or first key is a pack entity, and the other entries of the same lorebooks. Unrelated lorebooks, always-on entries and keys many entries share (暗部, also inside regex keys) are left out. The budget is 6,000 characters.
+  - The model is told this is background for recognising names. It never makes anyone related to the player or aware of them.
+  - The 叙事融入 tab lists the entries that were read. `CanonEngine.previewLore()` in the browser console shows what would be read now.
+- **Organization membership as facts.** A pack can give organizations a `members` set (`entity_set`) and a `leader`. Events change them; see the authoring guide. The engine uses them:
+  - Reading the Persona: organizations come with their leader and members.
+  - The world's reaction: members of the organizations you belong to or are connected with count as your connections, so their events become your concern.
+  - Event candidates: people are shown with their organizations, e.g. "垣根帝督 [kakine-teitoku, of 暗部SCHOOL]".
+  - Organization connections show their current facts.
+  - A `members` set is the whole list once it exists, also when emptied. A person's `affiliation` counts only for organizations without one. The dead are left out.
+- **Lint:** warns when an event records a death but an organization's `members` set still lists that person.
+- Tests: LM1–LM6.
+
 ## 1.5.2 — 2026-10-22
 
 - **New setting: "Canon ignores Persona Library sections"** (off by default). Persona Library writes its core text plus the enabled Additional Sections into the Persona description. With this setting, Canon reads only the core text; the GM still gets everything. This is for things Canon does not need, such as incantations or style notes.

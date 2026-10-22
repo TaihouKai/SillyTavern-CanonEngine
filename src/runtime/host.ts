@@ -54,6 +54,8 @@ export interface HostPort {
    *  core still matches the description (otherwise the whole description). alt: the other reading, so a game
    *  read one way is not taken for a changed Persona after the setting is switched. */
   persona(opts?: { ignoreSections?: boolean }): Persona;
+  /** The entries of the lorebooks active in this chat (global, character, chat and Persona lorebooks). */
+  loreEntries?(): Promise<import('./lore').LoreEntry[]>;
   horae: HoraePort | null;
   model: ModelPort;
   /** Wall clock for diagnostics only. Never story time. */

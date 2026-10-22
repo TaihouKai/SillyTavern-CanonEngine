@@ -191,6 +191,7 @@ const D: Record<string, { zh: string; en: string }> = {
   niOrgs: { zh: '组织', en: 'Organizations' },
   niPlaces: { zh: '地点', en: 'Places' },
   niNotes: { zh: '引擎调整', en: 'Engine adjustments' },
+  niLore: { zh: '一并参考的世界书条目（Persona 提到的名字）', en: 'Lorebook entries read as background (names the Persona mentions)' },
   niDecisions: { zh: '你的参与意愿', en: 'Your decisions' },
   niContacts: { zh: '世界已经接触你的', en: 'Contacts that reached you' },
   niSuggestions: { zh: '尚未发生的可能接触（剧透）', en: 'Possible contacts not yet made (spoilers)' },

@@ -6,6 +6,7 @@
 // - isolation: internal structured tasks use generateRaw; prompt hooks of other extensions are
 //   neutralized by restoring the exact task messages at CHAT_COMPLETION_PROMPT_READY.
 import type { HostPort, Persona, PublishRequest } from '../runtime/host';
+import type { LoreEntry } from '../runtime/lore';
 import type { CampaignData, Interpretation, OpType, SourceEntry } from '../runtime/types';
 import type { ChatMsg, DraftRequest, ModelPort, TaskName } from '../runtime/model';
 import { TASK_TAG } from '../runtime/model';
@@ -333,6 +334,31 @@ export class StHost implements HostPort {
   }
 
   async settle(): Promise<void> { await this.settleSwipe(); }
+
+  async loreEntries(): Promise<LoreEntry[]> {
+    const c = ctx();
+    let wi: any = {};
+    const url = '/scripts/world-info.js';
+    try { wi = await import(/* @vite-ignore */ url); } catch { /* older ST: global books unknown */ }
+    const ch = c.characters?.[c.characterId];
+    const extra = (wi.world_info?.charLore || []).find((x: any) => x?.name === String(ch?.avatar || '').replace(/\.[^.]+$/, '') || x?.name === ch?.avatar)?.extraBooks || [];
+    const names = [...new Set<string>([...(wi.selected_world_info || []), ch?.data?.extensions?.world, ...extra, c.chatMetadata?.world_info, c.powerUserSettings?.persona_description_lorebook].filter(Boolean))];
+    const load = c.loadWorldInfo || wi.loadWorldInfo;
+    if (!load) return [];
+    const out: LoreEntry[] = [];
+    for (const book of names) {
+      let d: any = null;
+      try { d = await load(book); } catch { continue; }
+      for (const e of Object.values<any>(d?.entries || {})) {
+        out.push({
+          book, uid: e.uid, comment: String(e.comment || ''), keys: (e.key || []).map(String), secondary: (e.keysecondary || []).map(String),
+          selective: !!e.selective, logic: Number(e.selectiveLogic) || 0, constant: !!e.constant, disabled: !!e.disable,
+          caseSensitive: e.caseSensitive ?? null, wholeWords: e.matchWholeWords ?? null, content: String(e.content || ''),
+        });
+      }
+    }
+    return out;
+  }
 
   persona(opts?: { ignoreSections?: boolean }): Persona {
     const c = ctx();

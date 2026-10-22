@@ -1,5 +1,6 @@
 // Canon Engine controller: binding, reconciliation, one foreground operation (stage -> validate ->
 // commit), journal recovery, backup. Host-independent (see host.ts).
+import { loreFor, type LoreBackground } from './lore';
 import type { Persona } from './host';
 import type { Id, LedgerRecord, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
@@ -19,7 +20,7 @@ import { runGate, type EvalOutput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, integrationKey, personaHash, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 
@@ -1515,14 +1516,37 @@ export class CanonEngine {
   private async readProfile(persona: Persona, prev: PlayerProfile | null, signal: AbortSignal | undefined, operationId: string): Promise<{ profile: PlayerProfile; runtimeEntities: import('../domain/types').RuntimeEntity[] }> {
     const pack = this.pack();
     const index = this.current?.index || new WorldIndex(pack, reduceRecords(pack, []));
-    const ent = (e: { id: string; name: string; aliases?: string[]; kind: string }) => `${e.id} | ${e.name} | ${(e.aliases || []).join(', ')} | ${e.kind}`;
+    // organizations with their leader and members at the game's time (pack facts), so the Persona's "SCHOOL" is
+    // read together with who is in it
+    const tick = index.state.clock.lo;
+    const members = memberships(index, tick);
+    const orgLine = (id: string) => {
+      const leader = factAt(index.state, id, 'leader', { tick });
+      const ms = members.get(id) || [];
+      return [leader.known && typeof leader.value === 'string' ? `leader: ${index.entityName(leader.value)}` : '', ms.length ? `members: ${ms.map((m) => index.entityName(m)).join(', ')}` : ''].filter(Boolean).join('; ');
+    };
+    const ent = (e: { id: string; name: string; aliases?: string[]; kind: string }) => `${e.id} | ${e.name} | ${(e.aliases || []).join(', ')} | ${e.kind}${e.kind === 'organization' && orgLine(e.id) ? ` | ${orgLine(e.id)}` : ''}`;
+    // the user's lorebook entries for what the Persona names (background, read once with the Persona)
+    let lore: LoreBackground[] = [];
+    try { lore = loreFor((await this.host.loreEntries?.()) || [], `${persona.name}\n${persona.description}`, pack); } catch (e) { this.host.log('warn', 'lorebook read failed: ' + (e as Error).message); }
+    this.lastProfileLore = lore.map((l) => `${l.title}${l.via === 'related' ? ' (related)' : ''}`);
     const out = await this.withTimeout(callStructured<ProfileOut>(this.host.model, 'profile', PROMPTS.profile, {
       persona: { name: persona.name, description: persona.description },
       world: { title: pack.pack.title, description: pack.pack.description, language: pack.pack.language },
-      registry: { entities_format: 'id | name | aliases | kind', entities: [...pack.entities.values()].filter((e) => ['person', 'organization', 'place', 'other'].includes(e.kind)).map(ent) },
+      registry: { entities_format: 'id | name | aliases | kind | (organizations) leader; members', entities: [...pack.entities.values()].filter((e) => ['person', 'organization', 'place', 'other'].includes(e.kind)).map(ent) },
+      ...(lore.length ? { background_lore: lore.map((l) => ({ title: l.title, entity_id: l.entity_id, via: l.via, text: l.text })) } : {}),
       ...(prev ? { previous_profile: { summary: prev.summary, affiliations: prev.affiliations.map((a) => a.name), places: prev.places.map((p) => p.name) } } : {}),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 6000 }), this.settings.taskTimeoutMs * 4, signal);
-    return buildProfile(out, pack, index, persona, prev);
+    const built = buildProfile(out, pack, index, persona, prev);
+    if (lore.length) built.profile.lore = this.lastProfileLore;
+    return built;
+  }
+
+  /** The lorebook entries a Persona read would take as background now (titles; no model call). */
+  async previewProfileLore(): Promise<string[]> {
+    const pack = this.pack();
+    const persona = this.persona();
+    return loreFor((await this.host.loreEntries?.()) || [], `${persona.name}\n${persona.description}`, pack).map((l) => `${l.title}${l.via === 'related' ? ' (related)' : ''}`);
   }
 
   /** The profile in effect for new turns (the latest revision), or null. */
@@ -1556,6 +1580,8 @@ export class CanonEngine {
     }
   }
   private personaNoticeHash = '';
+  /** The lorebook entries given with the last Persona read (titles; for the panel and tests). */
+  lastProfileLore: string[] = [];
   private persona() { return this.host.persona({ ignoreSections: this.settings.ignorePersonaSections }); }
 
   /** Whether the active Persona differs from this game's player profile (for the panel). */
@@ -2181,7 +2207,7 @@ export class CanonEngine {
     const lab = (kind: string, label: string) => (spoilers || !['event', 'arc'].includes(kind) ? label : '•••');
     return {
       profile: prof ? {
-        rev: prof.rev, name: prof.profile.personaName, chars: prof.profile.personaText.length, source: prof.profile.source,
+        rev: prof.rev, name: prof.profile.personaName, chars: prof.profile.personaText.length, source: prof.profile.source, lore: prof.profile.lore || [],
         summary: prof.profile.summary, publicIdentity: prof.profile.publicIdentity,
         affiliations: prof.profile.affiliations.map((a) => `${a.name} — ${a.role} (${a.secrecy})`),
         places: prof.profile.places.map((p) => `${p.name} — ${p.use}`),

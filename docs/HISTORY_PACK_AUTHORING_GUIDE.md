@@ -127,6 +127,23 @@ Declare every predicate once. A predicate has `id`, `description`, `value_type`,
 
 Prefer a recovered value over `unset`: an absent fact is UNKNOWN to the engine ("do not assume normality"), not "healthy".
 
+**Who belongs to an organization.** Record membership as facts, so that every part of the engine knows it at any point of the timeline. A lorebook can describe an organization, but the engine's analysis steps do not read it, and it cannot change when someone joins, leaves or dies. Use a predicate `members` (`entity_set`) on the organization, and `leader` (`entity_ref`) for whoever runs it:
+
+```json
+{"id": "members", "description": "The organization's current main members (not the player).", "value_type": "entity_set"}
+```
+
+- Put the set in the baseline when the organization exists for the covered story. When it forms during the story, set it in the event that forms it.
+- Change it in the events where membership changes. An `entity_set` is **replaced as a whole**, so each change states the full set after the event, and events that change the same set must follow one another in time.
+- When a member dies, state the set without them in the same event. `canon-lint` warns when an event records a death but a `members` set still lists that person.
+- When the organization falls apart, set `members: []` (along with any status fact). An empty set is the whole list, so the engine stops counting anyone as a member, including people whose own `affiliation` still names it.
+- A person may be in several organizations; a `members` set allows that. A single `affiliation` (`entity_ref`) on a person still works for organizations without a `members` set.
+
+The engine uses membership in three places:
+- Reading the player's Persona: organizations appear with their leader and members.
+- The world's reaction: when the player belongs to, or is connected with, an organization, its members' events become the player's concern.
+- Everywhere an organization's current facts are shown: the people at an event are listed with their organizations.
+
 | `value_type` | JSON value | Example |
 | --- | --- | --- |
 | `boolean` | Boolean | `alive: true` |
@@ -298,7 +315,7 @@ Release-blocking checks:
 8. A meaningful baseline for dependency-critical state; missing optional facts remain unknown. A referenced source object exists even if its external locator cannot be fetched.
 9. Demonstrated Hard contradictions reported precisely. Do not claim a general proof of narrative satisfiability from a few graph checks.
 
-Warnings requiring author review: generic aliases, missing evidence detail, many unknown-time events, large unexplained time gaps, mixed time zones, circular motivational chains, temporal claims in static descriptions, duplicate events, incidental details overconstrained as Hard, promising coverage without relevant events, temporary conditions (`transient` predicates) that no later event ends, and dependent events whose window overlaps their prerequisite's (a precondition `occurred`, or an `enables`/`precedes` link: the dependent event should start when its prerequisite is over; simultaneous events without a dependency may overlap, and events that run in parallel should be linked as `related`). These are review prompts, not excuses for the runtime to rewrite the source.
+Warnings requiring author review: generic aliases, missing evidence detail, many unknown-time events, large unexplained time gaps, mixed time zones, circular motivational chains, temporal claims in static descriptions, duplicate events, incidental details overconstrained as Hard, promising coverage without relevant events, temporary conditions (`transient` predicates) that no later event ends, people who die while an organization's `members` set still lists them, and dependent events whose window overlaps their prerequisite's (a precondition `occurred`, or an `enables`/`precedes` link: the dependent event should start when its prerequisite is over; simultaneous events without a dependency may overlap, and events that run in parallel should be linked as `related`). These are review prompts, not excuses for the runtime to rewrite the source.
 
 For the author's existing franchise references, validate internal consistency against the corrected source supplied for this task. Research new facts only under a separate request. Keep ambiguity explicit instead of inventing dates or asserting certainty.
 
