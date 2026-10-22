@@ -36,6 +36,12 @@ export interface EvalOutput {
   contacts?: { quote: string; actors?: string[]; kind: ContactInfo['contactKind']; scope_kind: ScopeKind; scope_ref: string; scope_label?: string; opportunity_id?: string | null }[];
 }
 
+/** A quote that is a line of speech: a quoted span (“…” 「…」 『…』 "…" ‘…’) with at most a short attribution around it. */
+export function spokenLine(q: string): boolean {
+  const s = q.trim();
+  const m = /^(.{0,12}?)(“[^”]*”|「[^」]*」|『[^』]*』|"[^"]*"|‘[^’]*’)(.{0,12})$/su.exec(s);
+  return !!m && m[2].length > 2;
+}
 const NO_VOICE: PlayerVoice = { dialogue: false, reactions: false, actions: false, movement: false, items: false, skills: false, combat: false, decisions: false, secrets: false };
 
 export interface GateInput {
@@ -327,6 +333,9 @@ export function runGate(g: GateInput): GateResult {
   for (const a of ev.player_actions) {
     if (!hasQuote(a.quote)) continue;
     const auth = a.authorized_by_quote && g.userSource && quoteInText(a.authorized_by_quote, g.userText) ? { messageId: g.userSource.messageId, quote: a.authorized_by_quote } : null;
+    // live: the reviewer left category out (its answer format lacked it) and the player character's own lines were
+    // sent back as unlabelled acts; a quote that is plainly a spoken line is dialogue
+    if (!a.category && spokenLine(a.quote)) a.category = 'dialogue';
     const allowed = voiceAllows(g.voice || NO_VOICE, a.category);
     if (!auth && !allowed && g.mode === 'draft') violations.push(`The reply has the player character do something the player did not write and leaves to themselves${a.category ? ` (${a.category})` : ''}: "${a.quote}". Leave it to the player.`);
     playerActions.push({ quote: a.quote, authorizedBy: auth, category: a.category ?? null });

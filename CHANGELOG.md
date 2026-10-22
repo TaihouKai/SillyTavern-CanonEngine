@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.1 — 2026-10-22
+
+- **Fix: the player character's dialogue was sent back although "说话" is ticked.** The reviewer's answer format showed `player_actions` without `category`. DeepSeek copied the format and left the kind out, and the gate treats an act without a kind as one the player keeps for themselves. In a live turn, two of the player character's lines were sent back, and the repair told the GM to leave them to the player.
+  - The answer format now includes `category`.
+  - When the kind is still missing and the quote is plainly a spoken line (“…”, 「…」, 『…』, "…" with at most a short attribution), it counts as dialogue.
+  - Other acts without a kind are still left to the player.
+- Tests: PV4–PV5.
+
 ## 1.6.0 — 2026-10-22
 
 - **Reading the Persona uses your lorebooks.** When Canon reads the Persona, it also reads the entries of your active lorebooks for the names the Persona uses, as SillyTavern's own scan would find them. That covers global, character, chat and Persona lorebooks. It then takes up to 4 entries about the people and organizations those entries name. A Persona saying "Relation to SCHOOL: bad" is read together with the SCHOOL entry and its leader's entry.

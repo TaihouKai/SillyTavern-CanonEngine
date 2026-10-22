@@ -6,7 +6,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { gmRulesFor } from '../../src/runtime/prompts';
+import { gmRulesFor, PROMPTS } from '../../src/runtime/prompts';
+import { spokenLine } from '../../src/runtime/gate';
 import { DEFAULT_PLAYER_VOICE, playerVoice, VOICE_KINDS } from '../../src/runtime/voice';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
@@ -51,6 +52,28 @@ describe('what the GM may write for the player character', () => {
     x.model.on('evaluate', (i) => String(i.candidate).includes('[V4]'), { player_actions: [act('You agree to help', null)] });
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/did not write and leaves to themselves: "You agree to help"/);
+  });
+
+  it('PV4 the reviewer is shown category in its answer format; a line of speech it leaves unlabelled is dialogue (live: both lines sent back)', async () => {
+    expect(String(PROMPTS.evaluate)).toMatch(/"player_actions":\[\{"quote":"","authorized_by_quote":null,"category":"dialogue"\}\]/);
+    expect(spokenLine('“你吃我冰淇淋的时候怎么没想着慢一点。”')).toBe(true);
+    expect(spokenLine('「少说两句，专心点。」她说')).toBe(true);
+    expect(spokenLine('she draws her knife and stabs him')).toBe(false);
+    const x = await setup();
+    x.host.addUser('I sit with Mira.');
+    x.model.draft('“你吃我冰淇淋的时候怎么没想着慢一点。” [V8]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[V8]'), { player_actions: [{ quote: '“你吃我冰淇淋的时候怎么没想着慢一点。”', authorized_by_quote: null }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.model.tasks('draft')).toHaveLength(1); // no repair
+  });
+
+  it('PV5 an unlabelled act that is not speech is still left to the player', async () => {
+    const x = await setup();
+    x.host.addUser('I wait.');
+    x.model.draft('You stab the guard. [V9]', 'You wait. [V10]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[V9]'), { player_actions: [{ quote: 'You stab the guard', authorized_by_quote: null }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/leaves to themselves: "You stab the guard"/);
   });
 
   it('PV3 unticking dialogue makes the GM leave the player character\'s lines to the player again', async () => {
