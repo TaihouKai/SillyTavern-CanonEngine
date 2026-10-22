@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.1 — 2026-10-23
+
+- **Fix: the player character's dialogue was sent back when a reply crossed offscreen events.** After judging events that happen offscreen during the reply, the reply is reviewed again, and that second review was run without the 「GM 可以替玩家角色……」 setting. Every line the GM wrote for the player was then rejected as "leaves to themselves (dialogue)". The setting is now passed there too, and the check can no longer run without it.
+- **Reviewer, unsupported past events:** a character's everyday account of where someone else was or what they were doing recently ("she didn't come home last night", "she isn't answering her phone") counts as a new detail when no record or due event says otherwise. "Unsupported" is kept for a shared past with the player character and for notable events (fights, injuries, deaths, meetings, incidents) asserted without a record.
+- **Reviewer, declined events:** an everyday favour or remark that does not ask the player to go to, do or join the declined thing (passing on a message, "if you happen to see her") is not pressure, even when it concerns people involved in it.
+- Tests: PV7, PV8.
+
 ## 1.7.0 — 2026-10-23
 
 - **Backup analysis connection.** A second connection profile, set under 分析用连接, takes over a single analysis task when the main connection:

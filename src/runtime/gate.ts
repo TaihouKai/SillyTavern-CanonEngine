@@ -42,7 +42,6 @@ export function spokenLine(q: string): boolean {
   const m = /^(.{0,12}?)(“[^”]*”|「[^」]*」|『[^』]*』|"[^"]*"|‘[^’]*’)(.{0,12})$/su.exec(s);
   return !!m && m[2].length > 2;
 }
-const NO_VOICE: PlayerVoice = { dialogue: false, reactions: false, actions: false, movement: false, items: false, skills: false, combat: false, decisions: false, secrets: false };
 
 export interface GateInput {
   pack: LoadedPack;
@@ -58,7 +57,7 @@ export interface GateInput {
   /** Staged offscreen occurrences for HARD events crossed in this operation (eventId -> occurrence). */
   stagedHard: Map<Id, Occurrence>;
   /** What the GM may write for the player character without the player writing it (settings). */
-  voice?: PlayerVoice;
+  voice: PlayerVoice;
   mode: 'draft' | 'retained';
   forced: boolean;
   /** Narrative integration: the player character's entity and the suggestion offered to the GM this turn. */
@@ -336,7 +335,7 @@ export function runGate(g: GateInput): GateResult {
     // live: the reviewer left category out (its answer format lacked it) and the player character's own lines were
     // sent back as unlabelled acts; a quote that is plainly a spoken line is dialogue
     if (!a.category && spokenLine(a.quote)) a.category = 'dialogue';
-    const allowed = voiceAllows(g.voice || NO_VOICE, a.category);
+    const allowed = voiceAllows(g.voice, a.category);
     if (!auth && !allowed && g.mode === 'draft') violations.push(`The reply has the player character do something the player did not write and leaves to themselves${a.category ? ` (${a.category})` : ''}: "${a.quote}". Leave it to the player.`);
     playerActions.push({ quote: a.quote, authorizedBy: auth, category: a.category ?? null });
   }

@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { makeEngine, tick } from './fake';
+import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
 import { gmRulesFor, PROMPTS } from '../../src/runtime/prompts';
 import { spokenLine } from '../../src/runtime/gate';
@@ -84,5 +84,28 @@ describe('what the GM may write for the player character', () => {
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/leaves to themselves \(dialogue\)/);
     expect(String(x.model.tasks('draft')[0].input.engineContext)).toMatch(/Leave these to the player[^]*dialogue — what the player character says/);
+  });
+  it('PV7 the player character lines also pass when the reply crosses offscreen events (live finding: the re-review after offscreen judgement forgot the setting and sent every line back)', async () => {
+    const x = await setup();
+    x.host.addUser('I shield Mira.');
+    x.model.draft('The bolts miss. Mira survives. [V7a]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[V7a]'), { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush of Mira', 'Mira survives', { pack_event_id: 'medic-ambush', disposition: 'diverged', origin: 'player', actors: ['mira'] })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira survives', occurrence_ref: 'o1' }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    x.model.on('adjudicate', (i) => JSON.stringify(i).includes('conflict-begins'), { adjudications: [{ event_id: 'conflict-begins', decision: 'occurred', time: at(2, 9), account: 'Council militias attack Union docks.', actors: ['council', 'union'], causes: [], effects: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true }], plan_step_ids: [], reason: 'alternate cause', extraordinary: false }] });
+    x.host.addUser('I sleep until the next afternoon.');
+    x.model.draft('Cannon fire wakes you. "Not again," you mutter. [V7b]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[V7b]'), { scene_end: at(2, 14), player_actions: [act('"Not again," you mutter', 'dialogue')] });
+    const drafts = x.model.tasks('draft').length;
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.model.tasks('adjudicate').length).toBeGreaterThan(0); // the offscreen path ran
+    expect(x.model.tasks('draft').length - drafts).toBe(1); // no repair
+    expect(x.engine.lastTrace!.attempts.flatMap((a) => a.violations).join(' ')).not.toMatch(/leaves to themselves/);
+  });
+
+  it('PV8 the reviewer is told that a character\'s everyday account of someone\'s whereabouts is new detail, and an everyday favour touching a declined event is not pressure (live finding)', () => {
+    const p = PROMPTS.evaluate;
+    expect(p).toMatch(/new_detail \(compatible new detail; also a character's everyday account of another person's recent whereabouts/);
+    expect(p).toMatch(/unsupported \(asserts that something HAPPENED[^)]*notable event/);
+    expect(p).toMatch(/Not a violation: the world going on around them, an everyday favour or remark that does not ask the player to go to, do or join the declined thing/);
   });
 });
