@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.1 — 2026-10-23
+
+- **One entry per matter in 世界已经接触你的.** Contacts about the same thing are grouped: the newest is shown, and the earlier ones fold underneath (更早 n 次). Each contact is still its own record, tied to the message it happened in, so swipes, edits and branches stay correct.
+- **The same matter is filed under one scope.** Live: "追击欧莉安娜" was filed as a free storyline beside the event "使徒十字篇：追击欧莉安娜". A contact label that names exactly one pack event or arc (also without its storyline prefix), or an earlier contact's matter, is filed there. Contacts recorded before this release are grouped the same way in the panel.
+- **Requests with no pack event:** the reviewer is told to file a follow-up, reminder or consequence of a recent contact with that contact (by its id), not under a new label. A free storyline ref an earlier contact already uses keeps that contact's matter and label, so differently worded follow-ups still land in one entry.
+- Tests: NI-40.
+
 ## 1.8.0 — 2026-10-23
 
 - **Declines are wishes; 强烈拒绝 makes one binding.** A refusal or deferral read from the player's messages is now a wish:

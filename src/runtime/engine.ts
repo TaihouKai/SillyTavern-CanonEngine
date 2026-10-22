@@ -16,7 +16,7 @@ import { callStructured, taskDefaults } from './model';
 import { CONTINUE_INSTRUCTION, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, type ClaimInput, type RefInput, type Retrieval } from './context';
-import { runGate, type EvalOutput, type GateResult } from './gate';
+import { matchScope, runGate, type EvalOutput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
@@ -2273,7 +2273,8 @@ export class CanonEngine {
       } : null,
       personaChanged: this.personaChanged(),
       decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId), strong: !!e.strong, binding: isBinding(e) })),
-      contacts: s.contacts.map((k) => ({ recordId: k.recordId, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
+      // contacts filed as a free storyline before 1.8.1 are grouped with the event or matter they name
+      contacts: s.contacts.map((k) => ({ ...k, ...(k.scopeKind === 'storyline' ? (() => { const m = matchScope(idx.pack, s.contacts, k.scopeLabel); return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {}; })() : {}) })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
       suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null,

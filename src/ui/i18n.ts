@@ -210,6 +210,7 @@ const D: Record<string, { zh: string; en: string }> = {
   niLore: { zh: '一并参考的世界书条目（Persona 提到的名字）', en: 'Lorebook entries read as background (names the Persona mentions)' },
   niDecisions: { zh: '你的参与意愿', en: 'Your decisions' },
   niContacts: { zh: '世界已经接触你的', en: 'Contacts that reached you' },
+  niOlderContacts: { zh: '更早 {n} 次', en: '{n} earlier' },
   niSuggestions: { zh: '尚未发生的可能接触（剧透）', en: 'Possible contacts not yet made (spoilers)' },
   niDropped: { zh: '被过滤的建议（调试）', en: 'Filtered suggestions (debug)' },
   niReopen: { zh: '允许再次接触', en: 'Allow contact again' },

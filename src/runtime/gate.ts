@@ -43,6 +43,25 @@ export function spokenLine(q: string): boolean {
   return !!m && m[2].length > 2;
 }
 
+/** The pack event or arc (or an earlier contact's matter) a free contact label names, when exactly one fits: the
+ *  same title, or the title without its storyline prefix ("使徒十字篇：追击欧莉安娜" for "追击欧莉安娜"). */
+export function matchScope(pack: LoadedPack, contacts: { scopeKind: ScopeKind; scopeRef: string; scopeLabel: string }[], label: string): { scopeKind: ScopeKind; scopeRef: string; label: string } | null {
+  const norm = (x: string) => x.normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '');
+  const want = norm(label);
+  if (want.length < 2) return null;
+  const tail = (title: string) => title.split(/[：:]/).slice(-1)[0];
+  const fits = (title: string) => norm(title) === want || norm(tail(title)) === want;
+  const hits: { scopeKind: ScopeKind; scopeRef: string; label: string }[] = [];
+  for (const e of pack.events.values()) if (fits(e.title)) hits.push({ scopeKind: 'event', scopeRef: e.id, label: e.title });
+  for (const a of pack.pack.arcs) if (fits(a.title)) hits.push({ scopeKind: 'arc', scopeRef: a.id, label: a.title });
+  if (hits.length === 1) return hits[0];
+  if (hits.length) return null;
+  const earlier = uniq(contacts.filter((c) => c.scopeKind !== 'storyline' && fits(c.scopeLabel)).map((c) => `${c.scopeKind}\u0000${c.scopeRef}\u0000${c.scopeLabel}`));
+  if (earlier.length !== 1) return null;
+  const [scopeKind, scopeRef, l] = earlier[0].split('\u0000');
+  return { scopeKind: scopeKind as ScopeKind, scopeRef, label: l };
+}
+
 export interface GateInput {
   pack: LoadedPack;
   index: WorldIndex; // committed prefix + staged overlay
@@ -504,7 +523,13 @@ export function runGate(g: GateInput): GateResult {
     else if (scopeKind === 'arc') { const a = pack.pack.arcs.find((x) => x.id === scopeRef); if (!a) { scopeKind = 'storyline'; label ||= scopeRef; } else label ||= a.title; }
     else if (scopeKind === 'faction') { const id = resolveId(scopeRef); if (!id) { scopeKind = 'storyline'; label ||= scopeRef; } else { scopeRef = id; label ||= index.entityName(id); } }
     else if (scopeKind === 'contact') { const c = index.state.contacts.find((x) => x.recordId === scopeRef); if (c) { scopeKind = c.scopeKind; scopeRef = c.scopeRef; label ||= c.scopeLabel; } else { scopeKind = 'storyline'; label ||= scopeRef; } }
-    if (scopeKind === 'storyline') { label ||= scopeRef || k.quote.slice(0, 40); scopeRef = String(label).normalize('NFKC').toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'storyline'; }
+    // live: the same matter filed once under its event and once as a free storyline ("追击欧莉安娜" for the event
+    // "使徒十字篇：追击欧莉安娜"): a label naming one pack event or arc, or an earlier contact's matter, is filed there
+    // a storyline ref an earlier contact already uses (the reviewer repeating its scope) stays that matter
+    const same = scopeKind === 'storyline' ? index.state.contacts.find((c) => c.scopeKind === 'storyline' && c.scopeRef === scopeRef) : undefined;
+    if (same) label = same.scopeLabel;
+    else if (scopeKind === 'storyline') { const m = matchScope(pack, index.state.contacts, label || scopeRef); if (m) ({ scopeKind, scopeRef, label } = m); }
+    if (scopeKind === 'storyline' && !same) { label ||= scopeRef || k.quote.slice(0, 40); scopeRef = String(label).normalize('NFKC').toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'storyline'; }
     // the offered suggestion is credited only when the contact is about the same thing
     const opp = g.offered && k.opportunity_id === g.offered.id && g.offered.scopeKind === scopeKind && g.offered.scopeRef === scopeRef ? g.offered.id : null;
     records.push({

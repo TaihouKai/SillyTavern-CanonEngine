@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { makeEngine, tick, at, occ, legacyCampaign } from './fake';
 import { ROOT } from './helpers';
 import { engagementView, isBinding } from '../../src/runtime/integration';
+import { PROMPTS } from '../../src/runtime/prompts';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 type X = ReturnType<typeof makeEngine>;
@@ -435,6 +436,32 @@ describe('declines, deferrals and re-engagement', () => {
     x.model.on('evaluate', (i) => String(i.candidate).includes('[F1]'), { violations: [{ code: 'other', quote: '“刚起。”', detail: '回复替玩家角色写了台词，属于player_only之外的代写', blocking: true }] }, true);
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect(x.model.tasks('draft')).toHaveLength(1);
+  });
+});
+
+describe('contacts about the same matter', () => {
+  it('NI-40 a contact filed as a free storyline that names a pack event (also without its storyline prefix) or an earlier contact’s matter is filed there; the panel groups them', async () => {
+    const p = JSON.parse(demo);
+    p.events.find((e: any) => e.id === 'medic-ambush').title = 'Harbor feud：Ambush of Mira';
+    const x = await setup({ pack: JSON.stringify(p) });
+    await turn(x, 'I drink tea.', 'A clerk slips a sealed note under the door. [M1]', { contacts: [contact('A clerk slips a sealed note under the door')] });
+    await turn(x, 'I wait.', 'A runner shouts that Mira is in danger. [M2]', { contacts: [contact('A runner shouts that Mira is in danger', { kind: 'consequence', scope_kind: 'storyline', scope_ref: '', scope_label: 'Ambush of Mira' })] });
+    await turn(x, 'I wait more.', 'The clerk knocks again. [M3]', { contacts: [contact('The clerk knocks again', { scope_kind: 'event', scope_ref: 'no-such-event', scope_label: 'harbor feud: ambush of mira' })] });
+    await turn(x, 'I read.', 'A poet asks you for a rhyme. [M4]', { contacts: [contact('A poet asks you for a rhyme', { scope_kind: 'storyline', scope_ref: '', scope_label: 'Ambush' })] });
+    await turn(x, 'I read on.', 'A Council courier offers you work. [M5]', { contacts: [contact('A Council courier offers you work', { scope_kind: 'faction', scope_ref: 'council', scope_label: '' })] });
+    await turn(x, 'I read even more.', 'The courier comes back. [M6]', { contacts: [contact('The courier comes back', { scope_kind: 'storyline', scope_ref: '', scope_label: 'the council' })] });
+    expect(st(x).contacts.map((k) => `${k.scopeKind}:${k.scopeRef}`)).toEqual(['event:medic-ambush', 'event:medic-ambush', 'event:medic-ambush', 'storyline:ambush', 'faction:council', 'faction:council']);
+    const v = x.engine.integrationView(true)!;
+    expect(new Set(v.contacts.map((k) => k.scope)).size).toBe(3);
+    // a contact recorded before this change as a free storyline is shown with the event it names
+    st(x).contacts.push({ ...st(x).contacts[0], recordId: 'old', scopeKind: 'storyline', scopeRef: 'ambush-of-mira', scopeLabel: 'Ambush of Mira' });
+    expect(x.engine.integrationView(true)!.contacts.find((k) => k.recordId === 'old')).toMatchObject({ scope: 'event:medic-ambush', label: 'Harbor feud：Ambush of Mira' });
+    expect(PROMPTS.evaluate).toMatch(/A contact about the same matter as one in recent_contacts \(a follow-up, a reminder, a consequence of it\) is filed with it: scope_kind "contact" \+ that contact's id/);
+    // a request with no pack event: a follow-up filed with the earlier contact, or under its storyline ref with other words, is the same matter
+    const poet = st(x).contacts.find((k) => k.scopeRef === 'ambush')!;
+    await turn(x, 'I ignore the poet.', 'The poet asks again. [M7]', { contacts: [contact('The poet asks again', { scope_kind: 'contact', scope_ref: poet.recordId, scope_label: 'a rhyme for the poet' })] });
+    await turn(x, 'I still ignore him.', 'The poet sighs. [M8]', { contacts: [contact('The poet sighs', { scope_kind: 'storyline', scope_ref: 'ambush', scope_label: 'the poet wants a rhyme' })] });
+    expect(st(x).contacts.slice(-2).map((k) => [k.scopeKind, k.scopeRef, k.scopeLabel])).toEqual([['storyline', 'ambush', 'Ambush'], ['storyline', 'ambush', 'Ambush']]);
   });
 });
 

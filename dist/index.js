@@ -18779,7 +18779,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    A HARD event that is not yet due is never a violation: ending the scene before it, or leaving it to happen offscreen without the player, is valid (the controller enforces deadlines and adjudicates offscreen events). Confinement, distance or obstacles do not contradict it \u2014 the world can still bring it about. Use "contradicted" only when the text says it will not happen or establishes a fact that rules out its required outcome itself.
    Credible cause: if the actual history/state rules out the event's usual route (a required participant is detained, guarded, far away, incapacitated...), it is fulfilled only when the text shows or clearly implies a concrete cause for how it still comes about (who or what, by what means). Otherwise give status "missing" and a violation whose detail begins with "HARD realized without a credible cause:". An unexplained vanishing, a glitch or "some invisible force" is not a cause unless it is the established ability of a specific character.
    Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place changes (leaving a building or shop, getting into or out of a vehicle, arriving somewhere else) or the activity changes, when more than about 30 minutes pass between beats, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
-5. contacts: every place where the world reaches out to the PLAYER CHARACTER (player_entity) in this reply: an invitation, a request or commission, information brought to them on purpose, a probe or test, a hostile act aimed at them, a consequence of an event reaching them, an encounter with a purpose. Give a verbatim quote, actors (ids), kind, scope (scope_kind "event"/"arc" + an id from offered_contact or canon_events_now, "faction" + the organization's id, otherwise "storyline" + a short scope_label) and opportunity_id when it carries out offered_contact. Ordinary conversation with people already in the scene is not a contact, and neither is an everyday favor or worry between friends (asking to stay over, telling them to lock the window) unless it asks the player to take part in a story thing; nor is someone answering what the player character just asked or started (they called and are told where to come); no contact, empty list.
+5. contacts: every place where the world reaches out to the PLAYER CHARACTER (player_entity) in this reply: an invitation, a request or commission, information brought to them on purpose, a probe or test, a hostile act aimed at them, a consequence of an event reaching them, an encounter with a purpose. Give a verbatim quote, actors (ids), kind, scope (scope_kind "event"/"arc" + an id from offered_contact or canon_events_now, "faction" + the organization's id, otherwise "storyline" + a short scope_label) and opportunity_id when it carries out offered_contact. A contact about the same matter as one in recent_contacts (a follow-up, a reminder, a consequence of it) is filed with it: scope_kind "contact" + that contact's id. Ordinary conversation with people already in the scene is not a contact, and neither is an everyday favor or worry between friends (asking to stay over, telling them to lock the window) unless it asks the player to take part in a story thing; nor is someone answering what the player character just asked or started (they called and are told where to come); no contact, empty list.
    engagement lists the player's decisions; each covers what its quoted words cover (a refusal of jobs covers being asked to do such jobs, by anyone \u2014 not someone's worry, grief or news, and not a thing the player took up themselves: "taken up by the player in play"). Only decisions marked BINDING are enforced: if the reply pulls the player toward something a BINDING decision covers \u2014 through any person or channel (the same NPC again, another one, news, rumors, a friend's plea, a threat made up to force them) \u2014 add a violation with code "engagement_pressure" (blocking) quoting it. A "wish" decision is the player's preference, not a rule for you: never report a violation for it (at most a non-blocking note). Not a violation: the world going on around them, an everyday favour or remark that does not ask the player to go to, do or join the declined thing (passing on a message, "if you happen to see her"), even when it concerns people involved in it, a consequence with an actual cause in history (news that a friend died, a place they know destroyed \u2014 told to them even by people from the declined side), one natural in-character reaction of the person they just turned down, or the player choosing it themselves. offered_contact has already been checked against these decisions (cleared_by_engine): delivering it as given is not pressure; flag only what goes beyond it \u2014 asking the player to do or join the declined thing. Not using offered_contact is never a violation.
 6. violations: ONLY problems that require rewriting the reply \u2014 player-character acts the player did not write whose category is in player_voice.player_only (the controller checks player_actions; what player_voice.gm_may_write allows is wanted, never a violation), contradictions, unsupported recollections, leaking secret knowledge to characters who cannot know it, engine labels/JSON in prose, skipping a due obligation, time moving backwards. Not violations: story time moving forward within the scene, NPCs present or acting on their own, plausible new scene details, the natural completion of an action the player authorized, a plan step whose window the player's time skip passed narrated as having happened off-screen (record it as an occurrence at its own time, with a step_enactment). Set blocking=true for a problem that must be fixed; if you consider something minor or acceptable, leave it out (or set blocking=false).
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it). mode=retained and the message is not story text at all (out-of-character instructions, a setup or system note, rules or a menu \u2014 often the card's opening message telling the GM how to start): decision retain with no occurrences, transitions, state_claims or violations; it establishes nothing.
@@ -19342,6 +19342,22 @@ function spokenLine(q) {
   const m = /^(.{0,12}?)(“[^”]*”|「[^」]*」|『[^』]*』|"[^"]*"|‘[^’]*’)(.{0,12})$/su.exec(s);
   return !!m && m[2].length > 2;
 }
+function matchScope(pack2, contacts, label) {
+  const norm2 = (x) => x.normalize("NFKC").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
+  const want = norm2(label);
+  if (want.length < 2) return null;
+  const tail = (title) => title.split(/[：:]/).slice(-1)[0];
+  const fits = (title) => norm2(title) === want || norm2(tail(title)) === want;
+  const hits = [];
+  for (const e of pack2.events.values()) if (fits(e.title)) hits.push({ scopeKind: "event", scopeRef: e.id, label: e.title });
+  for (const a of pack2.pack.arcs) if (fits(a.title)) hits.push({ scopeKind: "arc", scopeRef: a.id, label: a.title });
+  if (hits.length === 1) return hits[0];
+  if (hits.length) return null;
+  const earlier = uniq(contacts.filter((c) => c.scopeKind !== "storyline" && fits(c.scopeLabel)).map((c) => `${c.scopeKind}\0${c.scopeRef}\0${c.scopeLabel}`));
+  if (earlier.length !== 1) return null;
+  const [scopeKind, scopeRef, l] = earlier[0].split("\0");
+  return { scopeKind, scopeRef, label: l };
+}
 var DESTRUCTIVE = /(destroy|ruin|demolish|collaps|dead|dissolv|gone|burn|毁|废|塌|灭|亡|解散)/i;
 function refersToHard(text, id, title, required) {
   if (text.includes(id) || title && text.includes(title)) return true;
@@ -19807,7 +19823,13 @@ function runGate(g) {
         label ||= scopeRef;
       }
     }
-    if (scopeKind === "storyline") {
+    const same = scopeKind === "storyline" ? index.state.contacts.find((c) => c.scopeKind === "storyline" && c.scopeRef === scopeRef) : void 0;
+    if (same) label = same.scopeLabel;
+    else if (scopeKind === "storyline") {
+      const m = matchScope(pack2, index.state.contacts, label || scopeRef);
+      if (m) ({ scopeKind, scopeRef, label } = m);
+    }
+    if (scopeKind === "storyline" && !same) {
       label ||= scopeRef || k.quote.slice(0, 40);
       scopeRef = String(label).normalize("NFKC").toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "storyline";
     }
@@ -20915,7 +20937,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.8.0";
+var ENGINE_RELEASE = "1.8.1";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -23239,7 +23261,11 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       } : null,
       personaChanged: this.personaChanged(),
       decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId), strong: !!e.strong, binding: isBinding(e) })),
-      contacts: s.contacts.map((k) => ({ recordId: k.recordId, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
+      // contacts filed as a free storyline before 1.8.1 are grouped with the event or matter they name
+      contacts: s.contacts.map((k) => ({ ...k, ...k.scopeKind === "storyline" ? (() => {
+        const m = matchScope(idx.pack, s.contacts, k.scopeLabel);
+        return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {};
+      })() : {} })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
       suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null
@@ -24568,6 +24594,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niLore: { zh: "\u4E00\u5E76\u53C2\u8003\u7684\u4E16\u754C\u4E66\u6761\u76EE\uFF08Persona \u63D0\u5230\u7684\u540D\u5B57\uFF09", en: "Lorebook entries read as background (names the Persona mentions)" },
   niDecisions: { zh: "\u4F60\u7684\u53C2\u4E0E\u610F\u613F", en: "Your decisions" },
   niContacts: { zh: "\u4E16\u754C\u5DF2\u7ECF\u63A5\u89E6\u4F60\u7684", en: "Contacts that reached you" },
+  niOlderContacts: { zh: "\u66F4\u65E9 {n} \u6B21", en: "{n} earlier" },
   niSuggestions: { zh: "\u5C1A\u672A\u53D1\u751F\u7684\u53EF\u80FD\u63A5\u89E6\uFF08\u5267\u900F\uFF09", en: "Possible contacts not yet made (spoilers)" },
   niDropped: { zh: "\u88AB\u8FC7\u6EE4\u7684\u5EFA\u8BAE\uFF08\u8C03\u8BD5\uFF09", en: "Filtered suggestions (debug)" },
   niReopen: { zh: "\u5141\u8BB8\u518D\u6B21\u63A5\u89E6", en: "Allow contact again" },
@@ -26070,7 +26097,10 @@ function playerTab(v) {
   const negative = /* @__PURE__ */ new Set(["declined", "deferred", "ooc_suppress"]);
   const strongBtn = (d) => d.stance === "ooc_suppress" ? "" : ` <button class="menu_button" data-act="${d.strong ? "ni-weak" : "ni-strong"}" data-kind="${esc2(d.scopeKind)}" data-ref="${esc2(d.scopeRef)}" title="${esc2(t(d.strong ? "niWeakTip" : "niStrongTip"))}">${esc2(t(d.strong ? "niWeak" : "niStrong"))}</button>`;
   html += `<h4>${esc2(t("niDecisions"))} ${tip("niDecisionsTip")}</h4><ul class="canon-list">${v.decisions.slice().reverse().map((d) => `<li><b>${esc2(stance(d.stance))}</b> ${esc2(d.label)} <small>${esc2(d.time)}${d.active ? ` \xB7 ${esc2(t("niActive"))}${negative.has(d.stance) ? ` \xB7 ${esc2(t(d.binding ? d.stance === "ooc_suppress" ? "niBindingOoc" : "niBinding" : "niWish"))}` : ""}` : ""}</small>${d.quote ? `<br><small>\u201C${esc2(d.quote)}\u201D</small>` : ""}${d.active && negative.has(d.stance) ? `${strongBtn(d)} <button class="menu_button" data-act="ni-reopen" data-kind="${esc2(d.scopeKind)}" data-ref="${esc2(d.scopeRef)}" data-label="${esc2(d.label)}">${esc2(t("niReopen"))}</button>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
-  html += `<h4>${esc2(t("niContacts"))}</h4><ul class="canon-list">${v.contacts.slice().reverse().map((k) => `<li><b>${esc2(k.label)}</b> <small>${esc2(k.time)} \xB7 ${esc2(k.kind)}${k.by.length ? ` \xB7 ${esc2(k.by.join(", "))}` : ""}${v.unanswered.includes(k.recordId) ? ` \xB7 ${esc2(t("niUnanswered"))}` : ""}</small><br><small>\u201C${esc2(k.quote)}\u201D</small></li>`).join("") || "<li>\u2014</li>"}</ul>`;
+  const groups = /* @__PURE__ */ new Map();
+  for (const k of v.contacts.slice().reverse()) groups.set(k.scope, [...groups.get(k.scope) || [], k]);
+  const contactLine = (k) => `<small>${esc2(k.time)} \xB7 ${esc2(k.kind)}${k.by.length ? ` \xB7 ${esc2(k.by.join(", "))}` : ""}${v.unanswered.includes(k.recordId) ? ` \xB7 ${esc2(t("niUnanswered"))}` : ""}</small><br><small>\u201C${esc2(k.quote)}\u201D</small>`;
+  html += `<h4>${esc2(t("niContacts"))}</h4><ul class="canon-list">${[...groups.values()].map(([k, ...older]) => `<li><b>${esc2(k.label)}</b> ${contactLine(k)}${older.length ? `<details class="canon-older"><summary><small>${esc2(t("niOlderContacts").replace("{n}", String(older.length)))}</small></summary>${older.map((o) => `<div>${contactLine(o)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
   if (v.suggestions) html += `<h4>${esc2(t("niSuggestions"))}</h4><ul class="canon-list">${v.suggestions.map((s) => `<li>${esc2(s.about)} \u2014 ${esc2(s.by.join(", "))}: ${esc2(s.contact)} <small>(${esc2(s.kind)}${s.direct ? ", direct" : ""})</small></li>`).join("") || "<li>\u2014</li>"}</ul>`;
   if (v.dropped?.length) html += `<h4>${esc2(t("niDropped"))}</h4><ul class="canon-list">${v.dropped.map((x) => `<li>${esc2(x.id)}: ${esc2(x.reason)}</li>`).join("")}</ul>`;
   return html;
