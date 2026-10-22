@@ -20248,6 +20248,16 @@ function playerHistory(index, profile2, withIds = [], limit = 30) {
   const rest = occs.filter((o) => !keyed.includes(o)).slice(-Math.max(0, limit - keyed.length));
   return [...keyed, ...rest].sort((a, b) => a.time.lo - b.time.lo).map((o) => ({ id: o.occurrenceId, time: formatTick(o.time.lo), title: o.title, account: o.account.length > 240 ? o.account.slice(0, 237) + "\u2026" : o.account, actors: o.actors.map((a) => index.entityName(a)) }));
 }
+function playLinks(index, profile2, limit = 12) {
+  const mine = new Set(playerIds(profile2));
+  const seen = /* @__PURE__ */ new Map();
+  for (const e of mine) for (const oid of index.occurrencesForEntity(e)) {
+    const o = index.state.occurrences.get(oid);
+    if (!o) continue;
+    for (const x of [...o.actors, ...o.affected]) if (!mine.has(x) && ["person", "organization"].includes(index.entityKind(x))) seen.set(x, Math.max(seen.get(x) ?? -1, o.seq));
+  }
+  return [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => id);
+}
 function playerContext(index, profile2, tick, opts = {}) {
   const eng = engagementView(index.state, index.pack);
   return {
@@ -20383,7 +20393,7 @@ function integrationCandidates(index, profile2, tick, opts = {}) {
   const st = index.state;
   const end = Math.max(tick + (opts.lead ?? INTEGRATION_LEAD_MINUTES), opts.jumpTo ?? 0);
   const focus = new Set(opts.focus || []);
-  const linked = new Set(profile2.relationships.map((r) => r.entityId).concat(profile2.affiliations.map((a) => a.entityId)).filter(Boolean));
+  const linked = new Set([...profile2.relationships.map((r) => r.entityId), ...profile2.affiliations.map((a) => a.entityId), ...playLinks(index, profile2)].filter(Boolean));
   const underWay = new Set([...st.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean));
   const out = [];
   for (const t2 of pack2.timeIndex) {
@@ -20638,7 +20648,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.4.8";
+var ENGINE_RELEASE = "1.4.9";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));

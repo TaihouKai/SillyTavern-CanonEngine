@@ -150,6 +150,18 @@ export function playerHistory(index: WorldIndex, profile: PlayerProfile, withIds
   return [...keyed, ...rest].sort((a, b) => a.time.lo - b.time.lo).map((o) => ({ id: o.occurrenceId, time: formatTick(o.time.lo), title: o.title, account: o.account.length > 240 ? o.account.slice(0, 237) + '…' : o.account, actors: o.actors.map((a) => index.entityName(a)) }));
 }
 
+/** People (and organizations) who share an actual occurrence with the player, most recent first. */
+export function playLinks(index: WorldIndex, profile: PlayerProfile, limit = 12): Id[] {
+  const mine = new Set(playerIds(profile));
+  const seen = new Map<Id, number>();
+  for (const e of mine) for (const oid of index.occurrencesForEntity(e)) {
+    const o = index.state.occurrences.get(oid);
+    if (!o) continue;
+    for (const x of [...o.actors, ...o.affected]) if (!mine.has(x) && ['person', 'organization'].includes(index.entityKind(x))) seen.set(x, Math.max(seen.get(x) ?? -1, o.seq));
+  }
+  return [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => id);
+}
+
 /** The player context shared by the HARD planner, the integrate task and (as text) the GM: the same projection,
  *  so no task treats the player as a bare name. */
 export function playerContext(index: WorldIndex, profile: PlayerProfile, tick: number, opts: { historyWith?: Id[]; historyLimit?: number } = {}) {
@@ -308,7 +320,9 @@ export function integrationCandidates(index: WorldIndex, profile: PlayerProfile,
   const st = index.state;
   const end = Math.max(tick + (opts.lead ?? INTEGRATION_LEAD_MINUTES), opts.jumpTo ?? 0);
   const focus = new Set(opts.focus || []);
-  const linked = new Set(profile.relationships.map((r) => r.entityId).concat(profile.affiliations.map((a) => a.entityId)).filter(Boolean) as Id[]);
+  // connections: the Persona's, and the people the player has actually dealt with in play (live: 滨面/泷壶, met
+  // on 10/10, were nobody's connection because they are not in the Persona)
+  const linked = new Set([...profile.relationships.map((r) => r.entityId), ...profile.affiliations.map((a) => a.entityId), ...playLinks(index, profile)].filter(Boolean) as Id[]);
   const underWay = new Set([...st.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean) as Id[]);
   const out: Candidate[] = [];
   for (const t of pack.timeIndex) {

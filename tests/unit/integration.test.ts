@@ -213,6 +213,17 @@ describe('the world reaches the player', () => {
     expect(lastCtx(x)).not.toMatch(/already offered, not answered/);
   });
 
+  it('NI-05b someone the player dealt with in play becomes a connection: their events days ahead are considered (live: 滨面/泷壶)', async () => {
+    const x = await setup({ start: tick(2, 10, 0), integrate: { assessments: [], opportunities: [] } });
+    const ids = () => x.model.tasks('integrate').slice(-1)[0].input.candidate_events.map((c: any) => c.id);
+    await turn(x, 'I drink tea.', 'Rain. [N1]');
+    expect(ids()).not.toContain('conflict-ends'); // two days ahead, nobody of hers in it
+    const vera = x.engine.playerProfile()!.profile.playerId;
+    await turn(x, 'I share a drink with the Union dockers.', 'The Union dockers drink with you. [N2]', { occurrences: [occ('o1', 'Drinks with the Union', 'The Union dockers drink with you', { origin: 'player', actors: [vera], affected: ['union'] })] });
+    await turn(x, 'I go home.', 'Home. [N3]');
+    expect(ids()).toContain('conflict-ends');
+  });
+
   it('NI-14 a reply that does not use the reaction passes without repair; NI-26 a time skip past it does not make it happen', async () => {
     const x = await setup({ integrate: { assessments: [], opportunities: [OPP({ earliest: { day: 1, minute: 570 }, latest: { day: 1, minute: 600 } })] } });
     await turn(x, 'I sleep until the evening.', 'You wake at dusk. [W5]', { scene_end: at(1, 18, 0) });

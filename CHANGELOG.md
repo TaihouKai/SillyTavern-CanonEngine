@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.9 — 2026-10-22
+
+- **People met in play become connections.** The analysis looked days ahead only for events of people named in the Persona. Someone the player has dealt with in actual history (live: 滨面 and 泷壶, met on 10/10) did not bring their later events (暗部脱逃篇) into view until those were within 24 hours. People and organizations who share an actual occurrence with the player now count as connections too (the 12 most recent).
+- Tests: NI-05b.
+
 ## 1.4.8 — 2026-10-22
 
 - **A contact is answered once the player acts with the people behind it.** 1.4.7 relied on the extractor recording "accepted", and live it did not ("走吧，去找滨面" while walking with 绢旗 still left "not answered: do not press it" for the GM). Now a contact is also answered once actual history has a player action, after it, that involves its actors (called them back, went to them, acts together).
