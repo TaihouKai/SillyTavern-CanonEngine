@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.3 — 2026-10-22
+
+- **An empty reply is asked for once more.** Live: the story model (DeepSeek official) returned about 3.9k output tokens and no text, and the turn failed with "the model returned an empty reply". A fresh reply that comes back empty is now requested once more (shown in the turn report). If it is empty again, the error gives the provider's finish reason, output and reasoning tokens and the limit, and says what to change (reasoning effort or max length; content filter; a preset or regex removing the reply).
+- Tests: F06.
+
 ## 1.4.2 — 2026-10-22
 
 - **Fix: Horae's date and clock time from different replies were joined.** Horae's latest state carries the date and the time forward separately. When a reply recorded only a date ("2020/10/9 (五) 上午"), the engine joined it with the previous evening's "21:30" and used "10/9 21:30" as the earliest end of the next reply. Live: a reply that ended at 18:00 was recorded as ending at 21:30. Date and time now come from the same reply. A time without a date keeps the last date; a date without a time gives no Horae time.

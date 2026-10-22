@@ -20634,7 +20634,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.4.2";
+var ENGINE_RELEASE = "1.4.3";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -21812,10 +21812,22 @@ ${a.userEntry?.text || ""}`);
         const loreNames = uniq([...(offered?.actors || []).map((a) => index.entityName(a)), ...this.loreNames(index, retrieval, plan2)]).slice(0, 16);
         this.setStatus("generating", "Generating (private draft)\u2026");
         trace.prompts.push({ kind: "engine_context", text: engineContext });
-        let draft = await this.timeStep("draft", this.withTimeout(this.host.model.generateDraft({ engineContext, loreNames, lengthNote: continuing ? "" : this.lengthNote(), instruction: continuing ? CONTINUE_INSTRUCTION : "", excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal, this.draftTimeoutMessage()));
+        const firstDraft = () => this.timeStep("draft", this.withTimeout(this.host.model.generateDraft({ engineContext, loreNames, lengthNote: continuing ? "" : this.lengthNote(), instruction: continuing ? CONTINUE_INSTRUCTION : "", excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal, this.draftTimeoutMessage()));
+        let draft = await firstDraft();
         this.checkFences(fences, excludeLast);
+        if (!continuing && !draft.trim()) {
+          const info2 = this.host.model.lastDraftInfo?.() || null;
+          this.rejects.push(`draft: empty reply resent once${info2 ? ` (finish ${info2.finish ?? "?"}, ${info2.outputTokens ?? "?"} output tokens, ${info2.reasoningTokens ?? 0} reasoning)` : ""}`);
+          draft = await firstDraft();
+          this.checkFences(fences, excludeLast);
+        }
         let candidate = continuing ? joinContinuation(continuedEntry.text, draft) : draft;
-        if (!candidate.trim()) throw new EngineError("provider_failure", "the model returned an empty reply");
+        if (!continuing && !draft.trim()) {
+          const info2 = this.host.model.lastDraftInfo?.() || null;
+          const why = info2 ? ` twice (last: finish reason ${info2.finish ?? "unknown"}, ${info2.outputTokens ?? "?"} output tokens of which ${info2.reasoningTokens ?? 0} reasoning${info2.maxTokens ? `, limit ${info2.maxTokens}` : ""})` : " twice";
+          const hint = info2?.finish === "length" || info2?.reasoningTokens && info2.outputTokens && info2.reasoningTokens >= info2.outputTokens * 0.9 ? " The model spent its output on reasoning: lower its reasoning effort or raise the max response length." : info2?.finish === "content_filter" ? " The provider's content filter blocked the reply." : " If it repeats, check the story connection (a preset or regex that removes the whole reply, a content filter, or a reasoning setting).";
+          throw new EngineError("provider_failure", `the model returned an empty reply${why}.${hint}`);
+        }
         let accepted = null;
         let lastViolations = [];
         let lastResort = false;

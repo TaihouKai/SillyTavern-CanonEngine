@@ -64,4 +64,20 @@ describe('fail-soft analysis', () => {
     expect([...x.engine.current!.replay.state.occurrences.values()].some((o) => o.title === 'Dock walk')).toBe(true);
     expect(x.engine.lastTimings!.rejects!.join(' ')).toMatch(/evaluate: kept after a fix: dropped occurrences item/);
   });
+
+  it('F06 an empty draft is asked for once more; two empty drafts fail with the provider\'s reason (live: DeepSeek, no text)', async () => {
+    const x = makeEngine();
+    await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
+    await x.engine.reconcile('t');
+    x.host.addUser('I look at the harbor.');
+    x.model.draft('', 'Mira waves from the harbor. [G1]');
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.model.tasks('draft')).toHaveLength(2);
+    expect(x.engine.lastTimings!.rejects!.join(' ')).toMatch(/draft: empty reply resent once/);
+    x.host.addUser('I wait.');
+    (x.model as any).lastDraftInfo = () => ({ finish: 'length', outputTokens: 4000, reasoningTokens: 3990, maxTokens: 4000 });
+    x.model.draft('', '   ');
+    expect(await x.engine.runOperation('normal')).toBe(false);
+    expect(x.engine.campaign()!.recoveryState.reason).toMatch(/empty reply twice \(last: finish reason length, 4000 output tokens of which 3990 reasoning, limit 4000\)\. The model spent its output on reasoning/);
+  });
 });

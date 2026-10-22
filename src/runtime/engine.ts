@@ -1174,10 +1174,25 @@ export class CanonEngine {
         // Draft (private)
         this.setStatus('generating', 'Generating (private draft)…');
         trace.prompts.push({ kind: 'engine_context', text: engineContext });
-        let draft = await this.timeStep('draft', this.withTimeout(this.host.model.generateDraft({ engineContext, loreNames, lengthNote: continuing ? '' : this.lengthNote(), instruction: continuing ? CONTINUE_INSTRUCTION : '', excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal, this.draftTimeoutMessage()));
+        const firstDraft = () => this.timeStep('draft', this.withTimeout(this.host.model.generateDraft({ engineContext, loreNames, lengthNote: continuing ? '' : this.lengthNote(), instruction: continuing ? CONTINUE_INSTRUCTION : '', excludeLastAssistant: excludeLast, signal: abort.signal }), this.settings.draftTimeoutMs, abort.signal, this.draftTimeoutMessage()));
+        let draft = await firstDraft();
         this.checkFences(fences, excludeLast);
+        // An empty draft is usually a one-off (live: DeepSeek returned ~3.9k output tokens and no text): ask once more.
+        if (!continuing && !draft.trim()) {
+          const info = this.host.model.lastDraftInfo?.() || null;
+          this.rejects.push(`draft: empty reply resent once${info ? ` (finish ${info.finish ?? '?'}, ${info.outputTokens ?? '?'} output tokens, ${info.reasoningTokens ?? 0} reasoning)` : ''}`);
+          draft = await firstDraft();
+          this.checkFences(fences, excludeLast);
+        }
         let candidate = continuing ? joinContinuation(continuedEntry!.text, draft) : draft;
-        if (!candidate.trim()) throw new EngineError('provider_failure', 'the model returned an empty reply');
+        if (!continuing && !draft.trim()) {
+          const info = this.host.model.lastDraftInfo?.() || null;
+          const why = info ? ` twice (last: finish reason ${info.finish ?? 'unknown'}, ${info.outputTokens ?? '?'} output tokens of which ${info.reasoningTokens ?? 0} reasoning${info.maxTokens ? `, limit ${info.maxTokens}` : ''})` : ' twice';
+          const hint = info?.finish === 'length' || (info?.reasoningTokens && info.outputTokens && info.reasoningTokens >= info.outputTokens * 0.9)
+            ? ' The model spent its output on reasoning: lower its reasoning effort or raise the max response length.'
+            : info?.finish === 'content_filter' ? ' The provider\'s content filter blocked the reply.' : ' If it repeats, check the story connection (a preset or regex that removes the whole reply, a content filter, or a reasoning setting).';
+          throw new EngineError('provider_failure', `the model returned an empty reply${why}.${hint}`);
+        }
 
         // Validate / repair loop (finite)
         let accepted: { review: ReviewResult; adj: Awaited<ReturnType<typeof adjudicateInterval>> | null } | null = null;
