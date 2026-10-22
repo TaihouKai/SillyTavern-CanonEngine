@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.4 — 2026-10-22
+
+- **叙事融入 tab:** the 允许再次接触 button under 你的参与意愿 no longer squeezes into a one-character column; buttons in the tab's lists keep their normal width.
+
 ## 1.6.3 — 2026-10-22
 
 - **组织成员 in the timeline window.** A new button switches the timeline to a members view with two tables:
