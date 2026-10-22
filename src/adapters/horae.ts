@@ -48,8 +48,28 @@ export class HoraeAdapter implements HoraePort {
     try {
       const s = api.getLatestState?.();
       if (s) scene = { date: s.timestamp?.story_date, time: s.timestamp?.story_time, location: s.scene?.location, characters: s.scene?.characters_present || [] };
+      if (scene) Object.assign(scene, HoraeAdapter.latestTime(api.getChat?.() || SillyTavern.getContext().chat || []));
     } catch { /* ignore */ }
     return { available: d.ok, version: d.version, mode: d.mode, staleIndexes, busy, scene };
+  }
+
+  /** Story date and time from the latest message that records either — both from that one message.
+   *  getLatestState() carries each field forward on its own, so a reply with a date but no clock time
+   *  ("2020/10/9 上午") was joined with the previous evening's time ("21:30") into a wrong "10/9 21:30".
+   *  A time without a date keeps the last recorded date (same day); a date without a time gives no time. */
+  static latestTime(chat: any[]): { date?: string; time?: string } {
+    for (let i = chat.length - 1; i >= 0; i--) {
+      const ts = chat[i]?.horae_meta && !chat[i].horae_meta._skipHorae ? chat[i].horae_meta.timestamp : null;
+      const date = ts?.story_date || '', time = ts?.story_time || '';
+      if (!date && !time) continue;
+      if (date) return { date, time: time || undefined };
+      for (let j = i - 1; j >= 0; j--) {
+        const d = chat[j]?.horae_meta && !chat[j].horae_meta._skipHorae ? chat[j].horae_meta.timestamp?.story_date : '';
+        if (d) return { date: d, time };
+      }
+      return { date: undefined, time };
+    }
+    return { date: undefined, time: undefined };
   }
 
   async waitForIdle(timeoutMs: number): Promise<boolean> {

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.2 — 2026-10-22
+
+- **Fix: Horae's date and clock time from different replies were joined.** Horae's latest state carries the date and the time forward separately. When a reply recorded only a date ("2020/10/9 (五) 上午"), the engine joined it with the previous evening's "21:30" and used "10/9 21:30" as the earliest end of the next reply. Live: a reply that ended at 18:00 was recorded as ending at 21:30. Date and time now come from the same reply. A time without a date keeps the last date; a date without a time gives no Horae time.
+- Tests: HT1–HT3.
+
 ## 1.4.1 — 2026-10-22
 
 Fixes from the first real-model run in the live Tavern (pack 1.1.8, Persona 塞拉菲娜).
