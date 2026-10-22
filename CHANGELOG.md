@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.4 — 2026-10-22
+
+- **News of a consequence is not pressure.** Live: after the player refused all 暗部 work, the analysis offered a direct consequence: 绢旗 calls to say that 芙兰达, the player's close friend, was killed in the 暗部大战. The reviewer called it pulling the player back into the 暗部 line, and the repair dropped it. The reviewer now learns that the offered contact was already checked against the player's decisions. Delivering it as given is not pressure, including news brought by people from the declined side. Only asking the player to do or join the declined thing is.
+- **Everyday favors between friends are not contacts.** Misaka asking to stay over during the fighting was recorded as a request about the 暗部大战 event (and would then be listed as "offered, not answered"). Contacts are now only reaching out about a story thing.
+
 ## 1.4.3 — 2026-10-22
 
 - **An empty reply is asked for once more.** Live: the story model (DeepSeek official) returned about 3.9k output tokens and no text, and the turn failed with "the model returned an empty reply". A fresh reply that comes back empty is now requested once more (shown in the turn report). If it is empty again, the error gives the provider's finish reason, output and reasoning tokens and the limit, and says what to change (reasoning effort or max length; content filter; a preset or regex removing the reply).

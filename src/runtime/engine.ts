@@ -874,7 +874,7 @@ export class CanonEngine {
       reeval_reasons: a.reevalReasons || [],
       player_entity: prof ? { id: prof.profile.playerId, name: prof.profile.personaName } : null,
       engagement: decisions,
-      offered_contact: a.offered ? { opportunity_id: a.offered.id, scope_kind: a.offered.scopeKind, scope_ref: a.offered.scopeRef, about: a.offered.scopeLabel, actors: a.offered.actors, kind: a.offered.kind, contact: a.offered.contact } : null,
+      offered_contact: a.offered ? { opportunity_id: a.offered.id, scope_kind: a.offered.scopeKind, scope_ref: a.offered.scopeRef, about: a.offered.scopeLabel, actors: a.offered.actors, kind: a.offered.kind, contact: a.offered.contact, direct_impact: a.offered.directImpact, cleared_by_engine: true } : null,
       recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote })),
       canon_events_now: this.canonNow(index, tick),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
