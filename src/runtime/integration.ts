@@ -383,7 +383,8 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
     const direct = !!o.direct_impact;
     const c = targetEventId ? cand.get(targetEventId)! : null;
     const consequence = kind === 'consequence';
-    if (c?.status === 'settled' && !consequence) { dropped.push({ id: ref, reason: `${c.event.title} is already settled (only its consequences can reach the player)` }); continue; }
+    // what a settled event left behind reaches the player as a consequence or as news of what happened
+    if (c?.status === 'settled' && !consequence && kind !== 'information') { dropped.push({ id: ref, reason: `${c.event.title} is already settled (only its consequences or news of it can reach the player)` }); continue; }
     if (c && c.status !== 'settled' && !consequence && triLabel(evalCondition(c.event.canonical_preconditions, st, pack, { tick: Math.max(tick, c.lo) })) === 'FALSE' && !direct) { dropped.push({ id: ref, reason: `${c.event.title}: its original conditions failed; not revived` }); continue; }
     if (c?.event.participation.offer === 'never' && !c.focus && !direct) { dropped.push({ id: ref, reason: `${c.event.title}: the pack never offers it` }); continue; }
     const earliest = o.earliest ? toTick(o.earliest) : null;

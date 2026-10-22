@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.5 — 2026-10-22
+
+- **News of a settled event may reach the player.** Live: 芙兰达之死 was settled offscreen, and the suggestion that the player, her close friend, hears of it was dropped because a settled event accepted only the kind "consequence". News of what happened ("information") is now allowed too. Invitations or requests to take part in a settled event are still dropped.
+- **A decision covers what its words cover.** The analysis and the reviewer are told that a refusal applies by its quoted words, whatever scope it was filed under. Live: after "这段时间暗部的任何任务我都不接", the analysis still proposed an ITEM member asking her for help for a night, because ITEM is neither of the declined factions (学园都市, CINDER).
+
 ## 1.4.4 — 2026-10-22
 
 - **News of a consequence is not pressure.** Live: after the player refused all 暗部 work, the analysis offered a direct consequence: 绢旗 calls to say that 芙兰达, the player's close friend, was killed in the 暗部大战. The reviewer called it pulling the player back into the 暗部 line, and the repair dropped it. The reviewer now learns that the offered contact was already checked against the player's decisions. Delivering it as given is not pressure, including news brought by people from the declined side. Only asking the player to do or join the declined thing is.

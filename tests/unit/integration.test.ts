@@ -203,12 +203,13 @@ describe('the world reaches the player', () => {
   });
 
   it('NI-11 a settled event or one whose original conditions failed is not revived; its consequences may still reach the player', async () => {
-    const x = await setup({ integrate: { assessments: [], opportunities: [OPP({ ref: 'a' }), OPP({ ref: 'b', kind: 'consequence', direct_impact: true, contact: 'news of the ambush reaches the tea house' })] } });
+    const x = await setup({ integrate: { assessments: [], opportunities: [OPP({ ref: 'a' }), OPP({ ref: 'b', kind: 'consequence', direct_impact: true, contact: 'the wounded are brought to the tea house' }), OPP({ ref: 'c', kind: 'information', contact: 'a runner tells Vera that Mira died' })] } });
     await x.engine.forceComplete('medic-ambush'); // settled (Mira dies in the original)
     await turn(x, 'I drink tea.', 'Rain. [W6]');
     const cache = x.engine.campaign()!.integrationCache!;
     expect(cache.dropped.map((d) => d.reason).join(' ')).toMatch(/already settled/);
-    expect(cache.opportunities.map((o) => o.kind)).toEqual(['consequence']);
+    // live: news that the player's friend died (a settled event) was dropped; news of what happened may reach them
+    expect(cache.opportunities.map((o) => o.kind)).toEqual(['consequence', 'information']);
   });
 });
 
