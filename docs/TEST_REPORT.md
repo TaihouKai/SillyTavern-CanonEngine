@@ -1,6 +1,6 @@
 # Canon Engine — test report
 
-Latest full run: 2026-10-22, engine 1.6.4, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
+Latest full run: 2026-10-22, engine 1.7.0, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
 
 ## Environment
 
@@ -18,7 +18,7 @@ All automated suites use deterministic scripted model outputs. They prove the co
 
 | Suite | Where it runs | Result |
 | --- | --- | --- |
-| `tests/unit/*` (305 tests in 31 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **305 / 305 pass** |
+| `tests/unit/*` (308 tests in 32 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **308 / 308 pass** |
 | `tests/e2e/integration.mjs` (113 checks, sections S1–S21) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **113 / 113 pass** |
 | `tests/e2e/story-session.mjs` (12 checks) | real ST, UI-only: wizard via real file dialog, pack library, composer, banner, swipe arrow, ST edit/delete buttons, reload | **12 / 12 pass** |
 | `dist/canon-lint.mjs` | both sample packs valid; World Info file rejected with the specific error | pass |
@@ -153,6 +153,7 @@ Legend: **U** = unit/in-process (`tests/unit/<file>`), **E** = real ST/Horae int
 | `convergence` (additions) | C17b–C17g | final HARD repair along a planned route; reviewer slips re-filed; only an exact, near HARD value counts as pre-emption; intermediate plan states allowed |
 | `pack` (C02 updated) | C02 | a diverged prerequisite makes dependent events a model judgement instead of an automatic omission |
 | `edits` (additions) | R16b | a pack update keeps the manifest (no needless re-examination) |
+| `backup` | BK1–BK3 | a backup analysis connection answers a task the main one blocks (content-filter error), refuses (no JSON) or leaves empty, with its own extra parameters; temporary errors stay on the main connection; usage lists each takeover |
 
 ## Live-model session (Venice, 2026-10-15)
 

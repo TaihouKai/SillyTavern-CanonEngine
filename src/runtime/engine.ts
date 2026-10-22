@@ -48,6 +48,9 @@ export interface EngineSettings {
   taskProfileId: string;
   /** Extra request-body parameters (YAML, as in ST's "Include Body Parameters") for analysis-profile requests. */
   taskExtraBody: string;
+  /** Backup connection profile for analysis tasks the main one blocks or refuses ('' = none), and its extra body. */
+  taskBackupProfileId: string;
+  taskBackupExtraBody: string;
   /** Optional reply-length target for story drafts and repairs, e.g. "正文约800~1200字"; '' = none. */
   replyLength: string;
   /** Scene grouping: beats of the same ongoing scene continue one 本局事件 box instead of each making a new one. */
@@ -88,6 +91,8 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   taskTemperature: 0.2,
   taskProfileId: '',
   taskExtraBody: '',
+  taskBackupProfileId: '',
+  taskBackupExtraBody: '',
   replyLength: '',
   sceneGrouping: false,
   ignorePersonaSections: false,
@@ -949,6 +954,7 @@ export class CanonEngine {
     if (tm.rejects?.length) { lines.push('', 'Model output problems (resent, or an unusable item dropped):'); for (const r of tm.rejects) lines.push(`  - ${r}`); }
     if (tm.fixes?.length) { lines.push('', 'Small automatic fixes (no resend, result kept):'); for (const r of tm.fixes) lines.push(`  - ${r}`); }
     if (tm.tokens?.calls) lines.push('', `Tokens (provider-reported): ${tm.tokens.input + tm.tokens.output} = ${tm.tokens.input} in + ${tm.tokens.output} out over ${tm.tokens.calls} calls${tm.tokens.storyInput !== undefined ? `; story model ${(tm.tokens.storyInput || 0) + (tm.tokens.storyOutput || 0)}, analysis ${tm.tokens.input + tm.tokens.output - (tm.tokens.storyInput || 0) - (tm.tokens.storyOutput || 0)}` : ''}${tm.tokens.unreported ? ` (${tm.tokens.unreported} without usage)` : ''}`);
+    if (tm.tokens?.backup?.length) lines.push(`Backup analysis connection answered ${tm.tokens.backup.length} task(s):`, ...tm.tokens.backup.map((b) => `  - ${b}`));
     if (tm.tokens?.calls && (tm.tokens.costUsd || tm.tokens.diem)) lines.push(`Cost (provider-reported; DeepSeek official computed from published prices): ${formatUsd(tm.tokens.costUsd || 0)}${tm.tokens.storyCostUsd !== undefined ? `; story model ${formatUsd(tm.tokens.storyCostUsd || 0)}, analysis ${formatUsd((tm.tokens.costUsd || 0) - (tm.tokens.storyCostUsd || 0))}` : ''}${tm.tokens.diem ? `; ${tm.tokens.diem} DIEM` : ''}${tm.tokens.costUnreported ? ` (${tm.tokens.costUnreported} call(s) reported no cost)` : ''}`);
     lines.push('', 'Steps: ' + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? ` (resent ${s.retries})` : ''}`).join(' · '));
     return drafts ? lines.join('\n').slice(0, 60000) : lines.join('\n').slice(0, 12000);

@@ -20897,7 +20897,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.6.4";
+var ENGINE_RELEASE = "1.7.0";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -20922,6 +20922,8 @@ var DEFAULT_SETTINGS = {
   taskTemperature: 0.2,
   taskProfileId: "",
   taskExtraBody: "",
+  taskBackupProfileId: "",
+  taskBackupExtraBody: "",
   replyLength: "",
   sceneGrouping: false,
   ignorePersonaSections: false,
@@ -21835,6 +21837,7 @@ ${a.userEntry?.text || ""}`);
       for (const r of tm.fixes) lines.push(`  - ${r}`);
     }
     if (tm.tokens?.calls) lines.push("", `Tokens (provider-reported): ${tm.tokens.input + tm.tokens.output} = ${tm.tokens.input} in + ${tm.tokens.output} out over ${tm.tokens.calls} calls${tm.tokens.storyInput !== void 0 ? `; story model ${(tm.tokens.storyInput || 0) + (tm.tokens.storyOutput || 0)}, analysis ${tm.tokens.input + tm.tokens.output - (tm.tokens.storyInput || 0) - (tm.tokens.storyOutput || 0)}` : ""}${tm.tokens.unreported ? ` (${tm.tokens.unreported} without usage)` : ""}`);
+    if (tm.tokens?.backup?.length) lines.push(`Backup analysis connection answered ${tm.tokens.backup.length} task(s):`, ...tm.tokens.backup.map((b) => `  - ${b}`));
     if (tm.tokens?.calls && (tm.tokens.costUsd || tm.tokens.diem)) lines.push(`Cost (provider-reported; DeepSeek official computed from published prices): ${formatUsd(tm.tokens.costUsd || 0)}${tm.tokens.storyCostUsd !== void 0 ? `; story model ${formatUsd(tm.tokens.storyCostUsd || 0)}, analysis ${formatUsd((tm.tokens.costUsd || 0) - (tm.tokens.storyCostUsd || 0))}` : ""}${tm.tokens.diem ? `; ${tm.tokens.diem} DIEM` : ""}${tm.tokens.costUnreported ? ` (${tm.tokens.costUnreported} call(s) reported no cost)` : ""}`);
     lines.push("", "Steps: " + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? ` (resent ${s.retries})` : ""}`).join(" \xB7 "));
     return drafts ? lines.join("\n").slice(0, 6e4) : lines.join("\n").slice(0, 12e3);
@@ -23935,6 +23938,7 @@ function tapUsage() {
     return res;
   });
 }
+var looksRefused = (out) => !/[{[]/.test(out);
 var StModel = class {
   constructor() {
     tapUsage();
@@ -23943,7 +23947,7 @@ var StModel = class {
     return gen.lastDraftInfo;
   }
   takeUsage() {
-    const u = { ...usage };
+    const u = { ...usage, ...this.backupUses.length ? { backup: this.backupUses.splice(0) } : {} };
     usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0;
     return u;
   }
@@ -23955,24 +23959,33 @@ var StModel = class {
   taskProfileId = () => "";
   /** Extra body parameters (YAML) for profile requests; overrides what the active chat settings would add. */
   taskExtraBody = () => "";
+  /** Backup connection profile ('' = none): takes over one analysis task when the main connection blocks it,
+   *  refuses it (an answer with no JSON at all) or returns nothing. Its own extra body parameters. */
+  taskBackupProfileId = () => "";
+  taskBackupExtraBody = () => "";
+  /** Tasks the backup answered since the last takeUsage(), with why. */
+  backupUses = [];
   /** Human-readable name of the connection internal tasks use (for error messages). */
   describeTaskConnection() {
     const id = this.taskProfileId();
+    const backup = this.taskBackupProfileId() ? ` (backup: ${this.profileLabel(this.taskBackupProfileId(), "backup profile")})` : "";
     if (!id) {
       const cs = ctx().chatCompletionSettings || {};
-      return `the chat's own connection (${cs.custom_model || cs.openai_model || "current model"})`;
+      return `the chat's own connection (${cs.custom_model || cs.openai_model || "current model"})${backup}`;
     }
+    return this.profileLabel(id, "analysis profile") + backup;
+  }
+  profileLabel(id, what) {
     try {
       const p = ctx().ConnectionManagerRequestService.getProfile(id);
-      return `analysis profile "${p.name}" (${p.model || "model not set"})`;
+      return `${what} "${p.name}" (${p.model || "model not set"})`;
     } catch {
-      return "a missing analysis profile";
+      return `a missing ${what}`;
     }
   }
   /** One internal-task completion, through the task profile when one is configured. */
-  async complete(msgs, budget, signal) {
+  async complete(msgs, budget, signal, profileId = this.taskProfileId(), extraBody = this.taskExtraBody()) {
     const c = ctx();
-    const profileId = this.taskProfileId();
     if (profileId) {
       const svc = c.ConnectionManagerRequestService;
       if (!svc) throw new Error("the analysis connection profile needs the SillyTavern Connection Manager (Connection Profiles), which is not available");
@@ -23983,7 +23996,7 @@ var StModel = class {
         throw new Error("the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings");
       }
       try {
-        const extra = this.taskExtraBody().trim();
+        const extra = extraBody.trim();
         const res = await svc.sendRequest(profileId, msgs, budget, { stream: false, signal: signal || null, extractData: true, includePreset: true }, { temperature: this.taskTemperature(), ...extra ? { custom_include_body: extra } : {} });
         const out = String(res?.content ?? "").trim();
         if (!out) throw new Error("No message generated");
@@ -24027,15 +24040,39 @@ var StModel = class {
       opts.signal?.addEventListener("abort", stopRaw, { once: true });
       try {
         let budget = opts.maxTokens || 4096;
+        const backupId = this.taskBackupProfileId();
+        const hasBackup = !!backupId && backupId !== this.taskProfileId();
+        let why;
         for (let attempt = 1; ; attempt++) {
           try {
-            return await this.complete(msgs, budget, opts.signal);
+            const out = await this.complete(msgs, budget, opts.signal);
+            if (!hasBackup || !looksRefused(out)) return out;
+            why = `refused: "${out.replace(/\s+/g, " ").slice(0, 120)}"`;
+            break;
           } catch (e) {
-            const empty = /No message generated/i.test(e.message);
-            if (!empty || opts.signal?.aborted) throw e;
+            const msg = e.message;
+            if (opts.signal?.aborted) throw e;
+            const empty = /No message generated/i.test(msg);
+            if (hasBackup && !empty && !isTransient(msg)) {
+              why = `error: ${msg.slice(0, 200)}`;
+              break;
+            }
+            if (!empty) throw e;
+            if (hasBackup && attempt >= 2) {
+              why = `empty reply ${attempt} times`;
+              break;
+            }
             if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort, or choose a fast non-reasoning model as the analysis connection in the Canon Engine settings), a provider content filter blocking the request, or a very small max response length.`);
             budget = Math.min(budget * 2, 16384);
           }
+        }
+        if (opts.signal?.aborted) throw new Error("aborted");
+        try {
+          const out = await this.complete(msgs, opts.maxTokens || 4096, opts.signal, backupId, this.taskBackupExtraBody());
+          this.backupUses.push(`${task}: ${why}`);
+          return out;
+        } catch (e) {
+          throw new Error(`main analysis connection failed (${why}); the backup failed too: ${e.message}`);
         }
       } finally {
         opts.signal?.removeEventListener("abort", stopRaw);
@@ -24540,6 +24577,16 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   taskProfileSameWarn: { zh: "\u5185\u90E8\u68C0\u67E5\u4E5F\u4F1A\u7528\u6545\u4E8B\u6A21\u578B\u3002\u5982\u679C\u5B83\u662F\u5927\u6A21\u578B\uFF0C\u4F1A\u5F88\u8D39\u94B1\u3002", en: "Internal checks will also use the story model. Costly if it is a big model." },
   taskProfileTip: { zh: "\u6545\u4E8B\u56DE\u590D\u6C38\u8FDC\u7528\u5F53\u524D\u5BF9\u8BDD\u7684\u8FDE\u63A5\uFF0C\u8FD9\u91CC\u4E0D\u5F71\u54CD\u5B83\u3002\n\u5F15\u64CE\u6BCF\u56DE\u5408\u8FD8\u8981\u505A\u51E0\u6B21\u5185\u90E8\u68C0\u67E5\uFF08\u8BFB\u61C2\u5267\u60C5\u3001\u6838\u5BF9\u539F\u4F5C\u3001\u5B89\u6392\u540E\u7EED\uFF09\uFF0C\u8FD9\u4E9B\u8BF7\u6C42\u8D70\u8FD9\u91CC\u9009\u7684\u8FDE\u63A5\u3002\u63A8\u8350\u53C8\u5FEB\u53C8\u4FBF\u5B9C\u3001\u4E0D\u5E26\u601D\u8003\u7684\u6A21\u578B\u3002\n\u5728\u9876\u90E8\u63D2\u5934\u56FE\u6807 \u2192 \u8FDE\u63A5\u914D\u7F6E \u91CC\u4FDD\u5B58\u4E00\u4E2A\u914D\u7F6E\uFF0C\u5C31\u80FD\u5728\u8FD9\u91CC\u9009\u5230\u3002", en: "Story replies always use the chat's own connection; this does not change them.\nEach turn the engine also runs a few internal checks (understanding the story, comparing with canon, planning ahead). Those go to the connection chosen here. A fast, cheap model without thinking is best.\nSave a profile under the plug icon \u2192 Connection Profiles to see it here." },
   taskExtraBody: { zh: "\u5206\u6790\u8BF7\u6C42\u7684\u989D\u5916\u53C2\u6570", en: "Extra request parameters" },
+  taskBackup: { zh: "\u5907\u7528\u5206\u6790\u8FDE\u63A5", en: "Backup analysis connection" },
+  taskBackupNone: { zh: "\u4E0D\u7528\u5907\u7528", en: "None" },
+  taskBackupShort: { zh: "\u53EF\u9009\u3002\u4E3B\u8FDE\u63A5\u62D2\u7EDD\u65F6\u63A5\u624B\u3002", en: "Optional. Takes over when the main one refuses." },
+  taskBackupTip: { zh: "\u4E3B\u5206\u6790\u8FDE\u63A5\u62D2\u7EDD\u67D0\u4E00\u9879\u68C0\u67E5\u65F6\uFF08\u5185\u5BB9\u5BA1\u67E5\u62A5\u9519\u3001\u56DE\u4E00\u6BB5\u62D2\u7EDD\u800C\u4E0D\u662F JSON\u3001\u6216\u8FDE\u7EED\u7A7A\u56DE\u590D\uFF09\uFF0C\u8FD9\u4E00\u9879\u6539\u7528\u5907\u7528\u8FDE\u63A5\u91CD\u505A\uFF0C\u56DE\u5408\u4E0D\u4F1A\u56E0\u6B64\u5931\u8D25\u3002\n\u7528\u6CD5\u4E3E\u4F8B\uFF1A\u4E3B\u8FDE\u63A5\u7528\u4FBF\u5B9C\u7684\u5B98\u65B9 DeepSeek\uFF0C\u5907\u7528\u9009 Venice \u8FD9\u7C7B\u4E0D\u5BA1\u67E5\u7684\u8FDE\u63A5\uFF0C\u53EA\u6709\u88AB\u62D2\u7684\u90A3\u51E0\u9879\u6309\u5907\u7528\u4EF7\u683C\u8BA1\u8D39\u3002\n\u6682\u65F6\u6027\u6545\u969C\uFF08\u7E41\u5FD9\u3001\u9650\u6D41\u3001\u7F51\u5173\u9519\u8BEF\uFF09\u4ECD\u5728\u4E3B\u8FDE\u63A5\u4E0A\u7B49\u5F85\u91CD\u8BD5\uFF0C\u4E0D\u4F1A\u5207\u5230\u5907\u7528\u3002\n\u7528\u5230\u5907\u7528\u65F6\uFF0C\u72B6\u6001\u680F\u4F1A\u663E\u793A\u201C\u5907\u7528\xD7n\u201D\uFF0C\u60AC\u505C\u53EF\u770B\u662F\u54EA\u4E00\u9879\u3001\u4E3A\u4EC0\u4E48\u3002", en: `When the main analysis connection refuses a check (a content-filter error, a refusal instead of JSON, or empty replies), that one check is redone on the backup and the turn does not fail.
+Example: official DeepSeek as the main connection for its price, an uncensored connection such as Venice as the backup; only the refused checks are billed at the backup's price.
+Temporary trouble (busy, rate limits, gateway errors) is still retried on the main connection.
+When the backup is used, the status bar shows "backup\xD7n"; hover it to see which checks and why.` },
+  taskBackupExtraBody: { zh: "\u5907\u7528\u8FDE\u63A5\u7684\u989D\u5916\u53C2\u6570", en: "Backup extra parameters" },
+  backupUsed: { zh: "\u5907\u7528\u5206\u6790\u8FDE\u63A5\u63A5\u624B\u4E86 {n} \u9879\uFF1A", en: "The backup analysis connection answered {n} check(s):" },
+  backupShort: { zh: "\u5907\u7528\xD7{n}", en: "backup\xD7{n}" },
   taskExtraBodyShort: { zh: "\u53EF\u9009\uFF0C\u4E00\u822C\u7559\u7A7A\u3002", en: "Optional, usually empty." },
   taskExtraBodyTip: { zh: "\u4F1A\u52A0\u8FDB\u6BCF\u4E2A\u5185\u90E8\u68C0\u67E5\u8BF7\u6C42\uFF08\u53EA\u5BF9\u201C\u81EA\u5B9A\u4E49\uFF08\u517C\u5BB9OpenAI\uFF09\u201D\u8FDE\u63A5\u6709\u6548\uFF09\u3002\n\u7528 Venice \u7684\u601D\u8003\u6A21\u578B\u65F6\u586B\uFF1Avenice_parameters: {disable_thinking: true}\uFF0C\u5173\u6389\u601D\u8003\uFF0C\u66F4\u5FEB\u66F4\u7701\u94B1\u3002", en: "Added to every internal check request (Custom OpenAI-compatible connections only).\nFor Venice thinking models: venice_parameters: {disable_thinking: true} turns thinking off, which is faster and cheaper." },
   replyLength: { zh: "\u56DE\u590D\u957F\u5EA6", en: "Reply length" },
@@ -25456,7 +25503,7 @@ function renderStatus() {
   ].filter(Boolean).join("\n") : "";
   const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc2(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
   const tk = tm?.tokens;
-  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc2([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.storyInput !== void 0 ? [`${t("tokStory")} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} \xB7 ${t("tokAnalysis")} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : [], ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], ...costLines(tk), t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}${costPart(tk)}</span>` : "";
+  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc2([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.storyInput !== void 0 ? [`${t("tokStory")} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} \xB7 ${t("tokAnalysis")} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : [], ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], ...costLines(tk), ...tk.backup?.length ? [t("backupUsed").replace("{n}", String(tk.backup.length)), ...tk.backup] : [], t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}${costPart(tk)}${tk.backup?.length ? ` \xB7 ${t("backupShort").replace("{n}", String(tk.backup.length))}` : ""}</span>` : "";
   const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...E.settings.debug && tm.repairs?.length ? tm.repairs.flatMap((v, i) => ["", `${t("repairWhy").replace("{n}", String(i + 1))}:`, ...v.map((x) => `- ${x}`)]) : [], ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc2(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}</span>` : "";
   el.dataset.phase = conflict ? "conflict" : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc2(t("phase_" + (conflict ? "conflict" : phase)))}</span>
@@ -25589,7 +25636,15 @@ function profileField(current) {
   const profileUsed = current && current !== CHAT_PROFILE;
   return `<div class="canon-field canon-profile${current ? "" : " canon-required"}"><div class="canon-lbl">${t("taskProfile")} ${tip("taskProfileTip")}</div>
     <select class="text_pole" data-set="taskProfileId">${opts.join("")}</select>${hint}</div>
-    ${profileUsed ? field(t("taskExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc2(extra)}</textarea>`, t("taskExtraBodyShort")) : ""}`;
+    ${profileUsed ? field(t("taskExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc2(extra)}</textarea>`, t("taskExtraBodyShort")) : ""}
+    ${current ? backupField(profiles, current) : ""}`;
+}
+function backupField(profiles, main) {
+  const s = getSettings();
+  const cur = String(s.taskBackupProfileId || "");
+  const missing = cur && !profiles.some((p) => p.id === cur);
+  const opts = [`<option value="" ${cur ? "" : "selected"}>${t("taskBackupNone")}</option>`].concat(profiles.filter((p) => p.id !== main).map((p) => `<option value="${esc2(p.id)}" ${p.id === cur ? "selected" : ""}>${esc2(p.name)}${p.model ? ` \xB7 ${esc2(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc2(cur)}" selected>\u26A0 ${esc2(cur)}</option>`] : []);
+  return field(t("taskBackup"), "taskBackupTip", `<select class="text_pole" data-set="taskBackupProfileId">${opts.join("")}</select>`, t("taskBackupShort")) + (cur ? field(t("taskBackupExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskBackupExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc2(String(s.taskBackupExtraBody || ""))}</textarea>`, t("taskExtraBodyShort")) : "");
 }
 var tipEl = null;
 var tipFor = null;
@@ -26281,6 +26336,8 @@ async function init() {
     return id === CHAT_PROFILE ? "" : id;
   };
   model.taskExtraBody = () => String(globalSettings().taskExtraBody || "");
+  model.taskBackupProfileId = () => String(globalSettings().taskBackupProfileId || "");
+  model.taskBackupExtraBody = () => String(globalSettings().taskBackupExtraBody || "");
   model.taskTemperature = () => {
     const t2 = Number(globalSettings().taskTemperature);
     return Number.isFinite(t2) ? t2 : 0.2;

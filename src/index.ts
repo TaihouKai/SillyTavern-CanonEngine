@@ -158,6 +158,8 @@ async function init() {
   model.horaePresent = !!HoraeAdapter.detect();
   model.taskProfileId = () => { const id = String(globalSettings().taskProfileId || ''); return id === CHAT_PROFILE ? '' : id; };
   model.taskExtraBody = () => String(globalSettings().taskExtraBody || '');
+  model.taskBackupProfileId = () => String(globalSettings().taskBackupProfileId || '');
+  model.taskBackupExtraBody = () => String(globalSettings().taskBackupExtraBody || '');
   model.taskTemperature = () => { const t = Number(globalSettings().taskTemperature); return Number.isFinite(t) ? t : 0.2; };
   engine = new CanonEngine(host, globalSettings());
   lock = new WriterLock(engine.instanceId);

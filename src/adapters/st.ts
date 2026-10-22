@@ -9,7 +9,7 @@ import type { HostPort, Persona, PublishRequest } from '../runtime/host';
 import type { LoreEntry } from '../runtime/lore';
 import type { CampaignData, Interpretation, OpType, SourceEntry } from '../runtime/types';
 import type { ChatMsg, DraftRequest, ModelPort, TaskName } from '../runtime/model';
-import { TASK_TAG } from '../runtime/model';
+import { TASK_TAG, isTransient } from '../runtime/model';
 import { newId, sha256, deepClone, EngineError } from '../domain/util';
 import { HoraeAdapter } from './horae';
 import { excludeHoraeForOperation } from '../runtime/engine';
@@ -559,10 +559,13 @@ function tapUsage() {
   }) as typeof fetch;
 }
 
+/** An analysis answer that is a refusal rather than the JSON every task asks for: no JSON object or list at all. */
+export const looksRefused = (out: string) => !/[{[]/.test(out);
+
 export class StModel implements ModelPort {
   constructor() { tapUsage(); }
   lastDraftInfo() { return gen.lastDraftInfo; }
-  takeUsage() { const u = { ...usage }; usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0; return u; }
+  takeUsage() { const u: import('../runtime/model').TokenUsage = { ...usage, ...(this.backupUses.length ? { backup: this.backupUses.splice(0) } : {}) }; usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0; return u; }
   private queue: Promise<unknown> = Promise.resolve();
   horaePresent = false;
   /** Read at call time so the drawer setting applies immediately. */
@@ -571,21 +574,31 @@ export class StModel implements ModelPort {
   taskProfileId: () => string = () => '';
   /** Extra body parameters (YAML) for profile requests; overrides what the active chat settings would add. */
   taskExtraBody: () => string = () => '';
+  /** Backup connection profile ('' = none): takes over one analysis task when the main connection blocks it,
+   *  refuses it (an answer with no JSON at all) or returns nothing. Its own extra body parameters. */
+  taskBackupProfileId: () => string = () => '';
+  taskBackupExtraBody: () => string = () => '';
+  /** Tasks the backup answered since the last takeUsage(), with why. */
+  private backupUses: string[] = [];
 
   /** Human-readable name of the connection internal tasks use (for error messages). */
   describeTaskConnection(): string {
     const id = this.taskProfileId();
+    const backup = this.taskBackupProfileId() ? ` (backup: ${this.profileLabel(this.taskBackupProfileId(), 'backup profile')})` : '';
     if (!id) {
       const cs = (ctx().chatCompletionSettings || {}) as Record<string, unknown>;
-      return `the chat's own connection (${cs.custom_model || cs.openai_model || 'current model'})`;
+      return `the chat's own connection (${cs.custom_model || cs.openai_model || 'current model'})${backup}`;
     }
-    try { const p = (ctx() as any).ConnectionManagerRequestService.getProfile(id); return `analysis profile "${p.name}" (${p.model || 'model not set'})`; } catch { return 'a missing analysis profile'; }
+    return this.profileLabel(id, 'analysis profile') + backup;
+  }
+
+  private profileLabel(id: string, what: string): string {
+    try { const p = (ctx() as any).ConnectionManagerRequestService.getProfile(id); return `${what} "${p.name}" (${p.model || 'model not set'})`; } catch { return `a missing ${what}`; }
   }
 
   /** One internal-task completion, through the task profile when one is configured. */
-  private async complete(msgs: ChatMsg[], budget: number, signal?: AbortSignal): Promise<string> {
+  private async complete(msgs: ChatMsg[], budget: number, signal?: AbortSignal, profileId = this.taskProfileId(), extraBody = this.taskExtraBody()): Promise<string> {
     const c = ctx();
-    const profileId = this.taskProfileId();
     if (profileId) {
       const svc = (c as any).ConnectionManagerRequestService;
       if (!svc) throw new Error('the analysis connection profile needs the SillyTavern Connection Manager (Connection Profiles), which is not available');
@@ -595,7 +608,7 @@ export class StModel implements ModelPort {
         // SillyTavern builds profile requests from the ACTIVE chat settings overlaid with the profile's
         // preset, so "Include Body Parameters" (e.g. Venice's disable_thinking) would otherwise come
         // from the story connection. taskExtraBody pins them for analysis requests.
-        const extra = this.taskExtraBody().trim();
+        const extra = extraBody.trim();
         const res = await svc.sendRequest(profileId, msgs, budget, { stream: false, signal: signal || null, extractData: true, includePreset: true }, { temperature: this.taskTemperature(), ...(extra ? { custom_include_body: extra } : {}) });
         const out = String((res as { content?: string })?.content ?? '').trim();
         if (!out) throw new Error('No message generated');
@@ -639,17 +652,37 @@ export class StModel implements ModelPort {
         // Empty replies are common with reasoning models (thinking uses up the budget) and with
         // provider content filters. Retry with a larger budget before giving up.
         let budget = opts.maxTokens || 4096;
+        const backupId = this.taskBackupProfileId();
+        const hasBackup = !!backupId && backupId !== this.taskProfileId();
         // Internal analysis runs near-deterministically (taskTemperature): at a story temperature
         // such as 1.0, models drift and emit broken or truncated JSON.
+        let why: string;
         for (let attempt = 1; ; attempt++) {
           try {
-            return await this.complete(msgs, budget, opts.signal);
+            const out = await this.complete(msgs, budget, opts.signal);
+            if (!hasBackup || !looksRefused(out)) return out;
+            why = `refused: "${out.replace(/\s+/g, ' ').slice(0, 120)}"`;
+            break;
           } catch (e) {
-            const empty = /No message generated/i.test((e as Error).message);
-            if (!empty || opts.signal?.aborted) throw e;
+            const msg = (e as Error).message;
+            if (opts.signal?.aborted) throw e;
+            const empty = /No message generated/i.test(msg);
+            // Temporary trouble (busy, rate limit, gateway) is retried on the same connection by the caller.
+            if (hasBackup && !empty && !isTransient(msg)) { why = `error: ${msg.slice(0, 200)}`; break; }
+            if (!empty) throw e;
+            // A content filter often answers with nothing: with a backup, one larger try is enough.
+            if (hasBackup && attempt >= 2) { why = `empty reply ${attempt} times`; break; }
             if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort, or choose a fast non-reasoning model as the analysis connection in the Canon Engine settings), a provider content filter blocking the request, or a very small max response length.`);
             budget = Math.min(budget * 2, 16384);
           }
+        }
+        if (opts.signal?.aborted) throw new Error('aborted');
+        try {
+          const out = await this.complete(msgs, opts.maxTokens || 4096, opts.signal, backupId, this.taskBackupExtraBody());
+          this.backupUses.push(`${task}: ${why}`);
+          return out;
+        } catch (e) {
+          throw new Error(`main analysis connection failed (${why}); the backup failed too: ${(e as Error).message}`);
         }
       } finally {
         opts.signal?.removeEventListener('abort', stopRaw);

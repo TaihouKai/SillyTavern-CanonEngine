@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.7.0 — 2026-10-23
+
+- **Backup analysis connection.** A second connection profile, set under 分析用连接, takes over a single analysis task when the main connection:
+  - blocks it with an error, such as a content filter;
+  - refuses it, answering with no JSON at all;
+  - or answers with nothing twice.
+
+  The turn completes, and only the checks that were taken over are billed at the backup's price. Use case: official DeepSeek for analysis at its off-peak price, Venice as the backup for NSFW scenes, since analysis requests do not carry the preset's jailbreak.
+- The backup has its own extra request parameters.
+- Temporary trouble (busy, rate limits, gateway errors) is still retried on the main connection.
+- The status bar shows "备用×n" when the backup was used; its tooltip and the debug report list which checks and why.
+- Tests: BK1–BK3.
+
 ## 1.6.4 — 2026-10-22
 
 - **叙事融入 tab:** the 允许再次接触 button under 你的参与意愿 no longer squeezes into a one-character column; buttons in the tab's lists keep their normal width.

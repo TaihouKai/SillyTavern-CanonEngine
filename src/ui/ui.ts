@@ -146,7 +146,7 @@ function renderStatus() {
   ].filter(Boolean).join('\n') : '';
   const replyPart = rp ? ` · <span class="canon-reply${rp.finish === 'length' ? ' cut' : ''}" title="${esc(replyBits)}">${t('replyLen')} ${rp.chars}${t('charsUnit')}${rp.finish === 'length' ? ` ${t('cutOff')}` : ''}</span>` : '';
   const tk = tm?.tokens;
-  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` · <span class="canon-tokens" title="${esc([`${t('tokIn')} ${tk.input.toLocaleString()} · ${t('tokOut')} ${tk.output.toLocaleString()} · ${tk.calls} ${t('tokCalls')}`, ...(tk.storyInput !== undefined ? [`${t('tokStory')} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} · ${t('tokAnalysis')} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : []), ...(tk.unreported ? [t('tokUnreported').replace('{n}', String(tk.unreported))] : []), ...costLines(tk), t('tokNote')].join('\n'))}">${t('tokUsed')} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? '+' : ''}${costPart(tk)}</span>` : '';
+  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` · <span class="canon-tokens" title="${esc([`${t('tokIn')} ${tk.input.toLocaleString()} · ${t('tokOut')} ${tk.output.toLocaleString()} · ${tk.calls} ${t('tokCalls')}`, ...(tk.storyInput !== undefined ? [`${t('tokStory')} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} · ${t('tokAnalysis')} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : []), ...(tk.unreported ? [t('tokUnreported').replace('{n}', String(tk.unreported))] : []), ...costLines(tk), ...(tk.backup?.length ? [t('backupUsed').replace('{n}', String(tk.backup.length)), ...tk.backup] : []), t('tokNote')].join('\n'))}">${t('tokUsed')} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? '+' : ''}${costPart(tk)}${tk.backup?.length ? ` · ${t('backupShort').replace('{n}', String(tk.backup.length))}` : ''}</span>` : '';
   const timing = !busy && !conflict && tm && tm.steps.length
     ? `<span class="canon-timing" title="${esc([...tm.steps.map((s) => `${t('step_' + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` ×${s.count}` : ''}${s.retries ? ` (${t('resent')} ${s.retries})` : ''}`), ...(E.settings.debug && tm.repairs?.length ? tm.repairs.flatMap((v, i) => ['', `${t('repairWhy').replace('{n}', String(i + 1))}:`, ...v.map((x) => `- ${x}`)]) : []), ...(tm.rejects?.length ? ['', `${t('resentWhy')}:`, ...tm.rejects] : []), ...(tm.fixes?.length ? ['', `${t('fixedWhy')}:`, ...tm.fixes] : [])].join('\n'))}">${t('lastTurn')} ${dur(tm.totalMs)}：${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc(t('step_' + s.step))} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? `（${esc(t('resent'))}${s.retries}）` : ''}`).join(' · ')}${replyPart}${tokenPart}</span>`
     : '';
@@ -300,7 +300,20 @@ function profileField(current: string): string {
   const profileUsed = current && current !== CHAT_PROFILE;
   return `<div class="canon-field canon-profile${current ? '' : ' canon-required'}"><div class="canon-lbl">${t('taskProfile')} ${tip('taskProfileTip')}</div>
     <select class="text_pole" data-set="taskProfileId">${opts.join('')}</select>${hint}</div>
-    ${profileUsed ? field(t('taskExtraBody'), 'taskExtraBodyTip', `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc(extra)}</textarea>`, t('taskExtraBodyShort')) : ''}`;
+    ${profileUsed ? field(t('taskExtraBody'), 'taskExtraBodyTip', `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc(extra)}</textarea>`, t('taskExtraBodyShort')) : ''}
+    ${current ? backupField(profiles, current) : ''}`;
+}
+
+/** Backup analysis connection: answers a task the main connection blocks, refuses or leaves empty. */
+function backupField(profiles: { id: string; name: string; model?: string }[], main: string): string {
+  const s = getSettings() as any;
+  const cur = String(s.taskBackupProfileId || '');
+  const missing = cur && !profiles.some((p) => p.id === cur);
+  const opts = [`<option value="" ${cur ? '' : 'selected'}>${t('taskBackupNone')}</option>`]
+    .concat(profiles.filter((p) => p.id !== main).map((p) => `<option value="${esc(p.id)}" ${p.id === cur ? 'selected' : ''}>${esc(p.name)}${p.model ? ` · ${esc(p.model)}` : ''}</option>`))
+    .concat(missing ? [`<option value="${esc(cur)}" selected>⚠ ${esc(cur)}</option>`] : []);
+  return field(t('taskBackup'), 'taskBackupTip', `<select class="text_pole" data-set="taskBackupProfileId">${opts.join('')}</select>`, t('taskBackupShort')) +
+    (cur ? field(t('taskBackupExtraBody'), 'taskExtraBodyTip', `<textarea class="text_pole canon-extra" rows="1" data-set="taskBackupExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc(String(s.taskBackupExtraBody || ''))}</textarea>`, t('taskExtraBodyShort')) : '');
 }
 
 let tipEl: HTMLElement | null = null;

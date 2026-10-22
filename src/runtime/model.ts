@@ -49,6 +49,8 @@ export interface TokenUsage {
   costUsd?: number; storyCostUsd?: number; costUnreported?: number;
   /** Venice DIEM spent (when paying with DIEM the USD cost is 0) */
   diem?: number;
+  /** analysis tasks the backup connection answered ("task: why") */
+  backup?: string[];
 }
 
 export interface ModelPort {
