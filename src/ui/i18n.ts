@@ -134,6 +134,7 @@ const D: Record<string, { zh: string; en: string }> = {
   tabDone: { zh: '回复完成', en: 'reply ready' },
   tabFailed: { zh: '回复失败', en: 'turn failed' },
   resent: { zh: '重发', en: 'resent' },
+  repairWhy: { zh: '第 {n} 稿被退回重写，原因', en: 'Draft {n} sent back for rewriting because' },
   resentWhy: { zh: '模型输出问题（已重发，或丢弃了无法使用的条目）', en: 'Model output problems (resent, or an unusable item dropped)' },
   fixedWhy: { zh: '小的自动修正（未重发，结果照常保留，可忽略）', en: 'Small automatic fixes (no resend, result kept; safe to ignore)' },
   replyLen: { zh: '回复', en: 'reply' },
@@ -282,7 +283,7 @@ const D: Record<string, { zh: string; en: string }> = {
   adv_draftTimeoutMsTip: { zh: '写一条回复超过这么久就放弃。300000 = 5 分钟。', en: 'Writing a reply gives up after this long. 300000 = 5 minutes.' },
   adv_taskTemperature: { zh: '内部检查温度', en: 'Check temperature' },
   adv_taskTemperatureTip: { zh: '内部检查的随机程度。低一点更稳定，一般不用改。', en: 'How random internal checks are. Lower is steadier; usually leave it.' },
-  debugTip: { zh: '在检查面板里多显示提示词等技术信息，排查问题时用。', en: 'Shows prompts and other technical details in the Inspector, for troubleshooting.' },
+  debugTip: { zh: '在检查面板里多显示提示词等技术信息，排查问题时用。\n状态栏的耗时提示里会列出每一稿被退回重写的原因；点「详情」可看上一回合的完整报告，包括每一稿的原文。', en: 'Shows prompts and other technical details in the Inspector, for troubleshooting.\nThe timing tooltip in the status bar lists why each draft was sent back; 详情 shows the full report of the last turn, including the text of each draft.' },
   uiLang: { zh: '界面语言', en: 'Language' },
   gmConflictShort: { zh: 'GM 角色卡里有旧的“历史看世界书”规则。', en: 'The GM card has an old "history comes from lore" rule.' },
 };

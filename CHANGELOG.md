@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.1 — 2026-10-22
+
+- **Debug mode shows why drafts were sent back.** With 调试模式 on:
+  - the timing tooltip in the status bar lists, for each rejected draft, the reviewer's reasons;
+  - a 详情 button appears after every turn, not only failed ones. It opens the turn report: each attempt with its problems ("sent back" or "accepted"), the reviewer's non-blocking notes, the full text of every draft, resent calls, tokens, cost and step timings;
+  - the Inspector's 调试 tab shows the same report at the top.
+
+  Draft texts are kept in memory only, and only in debug mode; they are never saved with the chat. The saved report of a failed turn is unchanged.
+- Tests: DR1–DR2.
+
 ## 1.5.0 — 2026-10-22
 
 - **New setting: "GM 可以替玩家角色……" (what the GM may write for the player character).** It is a list of checkboxes:

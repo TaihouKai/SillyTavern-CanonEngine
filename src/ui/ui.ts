@@ -99,7 +99,7 @@ function mountStatus() {
     if (act === 'inspect') toggleInspector(true);
     if (act === 'cancel') E.cancel();
     if (act === 'retry') void E.retry().finally(refreshUi);
-    if (act === 'details') showFailureReport();
+    if (act === 'details') showFailureReport(E.settings.debug && E.lastReport ? E.lastReport : E.campaign()?.recoveryState.details);
     if (act === 'goto') gotoConflict();
     if (act === 'branch') void branchFromConflict();
   });
@@ -148,7 +148,7 @@ function renderStatus() {
   const tk = tm?.tokens;
   const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` · <span class="canon-tokens" title="${esc([`${t('tokIn')} ${tk.input.toLocaleString()} · ${t('tokOut')} ${tk.output.toLocaleString()} · ${tk.calls} ${t('tokCalls')}`, ...(tk.storyInput !== undefined ? [`${t('tokStory')} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} · ${t('tokAnalysis')} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : []), ...(tk.unreported ? [t('tokUnreported').replace('{n}', String(tk.unreported))] : []), ...costLines(tk), t('tokNote')].join('\n'))}">${t('tokUsed')} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? '+' : ''}${costPart(tk)}</span>` : '';
   const timing = !busy && !conflict && tm && tm.steps.length
-    ? `<span class="canon-timing" title="${esc([...tm.steps.map((s) => `${t('step_' + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` ×${s.count}` : ''}${s.retries ? ` (${t('resent')} ${s.retries})` : ''}`), ...(tm.rejects?.length ? ['', `${t('resentWhy')}:`, ...tm.rejects] : []), ...(tm.fixes?.length ? ['', `${t('fixedWhy')}:`, ...tm.fixes] : [])].join('\n'))}">${t('lastTurn')} ${dur(tm.totalMs)}：${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc(t('step_' + s.step))} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? `（${esc(t('resent'))}${s.retries}）` : ''}`).join(' · ')}${replyPart}${tokenPart}</span>`
+    ? `<span class="canon-timing" title="${esc([...tm.steps.map((s) => `${t('step_' + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` ×${s.count}` : ''}${s.retries ? ` (${t('resent')} ${s.retries})` : ''}`), ...(E.settings.debug && tm.repairs?.length ? tm.repairs.flatMap((v, i) => ['', `${t('repairWhy').replace('{n}', String(i + 1))}:`, ...v.map((x) => `- ${x}`)]) : []), ...(tm.rejects?.length ? ['', `${t('resentWhy')}:`, ...tm.rejects] : []), ...(tm.fixes?.length ? ['', `${t('fixedWhy')}:`, ...tm.fixes] : [])].join('\n'))}">${t('lastTurn')} ${dur(tm.totalMs)}：${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc(t('step_' + s.step))} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? `（${esc(t('resent'))}${s.retries}）` : ''}`).join(' · ')}${replyPart}${tokenPart}</span>`
     : '';
   el.dataset.phase = conflict ? 'conflict' : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc(t('phase_' + (conflict ? 'conflict' : phase)))}</span>
@@ -156,7 +156,7 @@ function renderStatus() {
     <span class="canon-actions">
       ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t('cancel')}</button>` : ''}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t('retry')}</button>` : ''}
-      ${!busy && err && camp.recoveryState.details ? `<button class="menu_button canon-btn" data-act="details">${t('details')}</button>` : ''}
+      ${!busy && ((err && camp.recoveryState.details) || (E.settings.debug && E.lastReport)) ? `<button class="menu_button canon-btn" data-act="details">${t('details')}</button>` : ''}
       ${conflict ? `<button class="menu_button canon-btn" data-act="goto">${t('editIt')}</button><button class="menu_button canon-btn" data-act="branch">${t('branchRegen')}</button>` : ''}
       <button class="menu_button canon-btn" data-act="inspect">${t('inspect')}</button>
     </span>`;
@@ -579,7 +579,8 @@ function renderInspector() {
   } else if (inspectorTab === 'plan') {
     body = `<pre class="canon-pre">${esc(JSON.stringify(d.plan, null, 1))}</pre>`;
   } else if (inspectorTab === 'debug') {
-    body = `<h4>Last operation</h4><pre class="canon-pre">${esc(JSON.stringify(d.lastTrace, null, 1))}</pre>
+    body = `<h4>Last turn</h4><pre class="canon-pre">${esc(E.lastReport || '—')}</pre>
+      <h4>Last operation</h4><pre class="canon-pre">${esc(JSON.stringify(d.lastTrace, null, 1))}</pre>
       <h4>Final draft prompt (as sent)</h4><pre class="canon-pre">${esc(JSON.stringify(gen.lastDraftPrompt, null, 1))}</pre>
       <h4>Coverage manifests</h4><pre class="canon-pre">${esc(JSON.stringify(d.manifests, null, 1))}</pre>
       <h4>Raw campaign JSON</h4><pre class="canon-pre">${esc(JSON.stringify({ ...camp, packSnapshot: '[omitted]' }, null, 1)).slice(0, 200000)}</pre>`;
@@ -722,9 +723,9 @@ function copyText(text: string): boolean {
   return ok;
 }
 
-/** Full report of the last failed turn, readable and copyable at any time (it is saved with the chat). */
-function showFailureReport() {
-  const text = E.campaign()?.recoveryState.details;
+/** Full report of the last failed turn, readable and copyable at any time (it is saved with the chat); in debug
+ *  mode the last turn's report with its drafts (in memory only). */
+function showFailureReport(text: string | undefined) {
   if (!text) return;
   document.getElementById('canon-report')?.remove();
   const box = document.createElement('div');

@@ -157,7 +157,8 @@ interface DiscoverOut {
 export interface OperationTrace {
   operationId: string;
   op: OpType;
-  attempts: { candidateHash: string; violations: string[]; coverageGaps: string[]; manifestId: string }[];
+  /** draft/warnings: only in debug mode (in memory, never saved with the chat). */
+  attempts: { candidateHash: string; violations: string[]; coverageGaps: string[]; manifestId: string; draft?: string; warnings?: string[] }[];
   prompts: { kind: string; text: string }[];
   outcome: 'committed' | 'failed' | 'cancelled' | 'stale';
   error?: string;
@@ -213,7 +214,7 @@ export class CanonEngine {
   /** Per-step durations of the running operation, and the summary of the last finished one. */
   private stepTimes: { step: string; ms: number; retry?: boolean }[] = [];
   private rejects: string[] = [];
-  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number; retries: number }[]; ok: boolean; reply?: ReplyStats | null; rejects?: string[]; fixes?: string[]; tokens?: import('./model').TokenUsage | null } | null = null;
+  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number; retries: number }[]; ok: boolean; reply?: ReplyStats | null; repairs?: string[][]; rejects?: string[]; fixes?: string[]; tokens?: import('./model').TokenUsage | null } | null = null;
   private lastReply: ReplyStats | null = null;
   private timeStep<T>(step: string, p: Promise<T>): Promise<T> {
     const t0 = Date.now();
@@ -227,6 +228,8 @@ export class CanonEngine {
   private listeners = new Set<() => void>();
   lastTrace: OperationTrace | null = null;
   traces: OperationTrace[] = [];
+  /** Debug mode: readable report of the last turn, committed or not — why each draft was sent back, with the drafts. */
+  lastReport: string | null = null;
   lastFailedOp: { op: OpType; prior?: unknown } | null = null;
   notices: { level: 'info' | 'warn' | 'error'; text: string; at: number }[] = [];
   readonly instanceId = newId('inst');
@@ -924,20 +927,26 @@ export class CanonEngine {
     return { gate, evaluation, retrieval, manifest, facts: packet.facts, packetText: packet.text, claims, refs };
   }
 
-  /** Plain-text report of a failed turn: error, every attempt's problems, resent calls, step timings. */
-  private failureReport(trace: OperationTrace, tm: NonNullable<CanonEngine['lastTimings']>): string {
+  /** Plain-text report of a turn: error, every attempt's problems, resent calls, step timings. With drafts (debug
+   *  mode) also each draft's text and the reviewer's notes that did not block it. */
+  private failureReport(trace: OperationTrace, tm: NonNullable<CanonEngine['lastTimings']>, drafts = false): string {
     const dur = (ms: number) => (ms >= 60000 ? `${Math.floor(ms / 60000)}m${Math.round((ms % 60000) / 1000)}s` : `${Math.round(ms / 1000)}s`);
-    const lines = [`Canon Engine ${ENGINE_RELEASE} — failed turn (${trace.op}) at ${new Date(this.host.now()).toLocaleString()}, took ${dur(tm.totalMs)}`, '', `Error: ${trace.error || '(unknown)'}`];
+    const lines = [`Canon Engine ${ENGINE_RELEASE} — ${trace.outcome === 'committed' ? 'turn' : `${trace.outcome} turn`} (${trace.op}) at ${new Date(this.host.now()).toLocaleString()}, took ${dur(tm.totalMs)}`];
+    if (trace.outcome !== 'committed') lines.push('', `Error: ${trace.error || '(unknown)'}`);
+    if (!trace.attempts.length) lines.push('', 'No draft was reviewed.');
     trace.attempts.forEach((a, i) => {
-      lines.push('', `Attempt ${i + 1}${i === 0 ? ' (first draft)' : i > this.settings.maxRepairs ? ' (final HARD repair)' : ` (repair ${i})`}: ${a.violations.length ? `${a.violations.length} problem(s)` : 'no problems'}`);
+      const accepted = trace.outcome === 'committed' && i === trace.attempts.length - 1;
+      lines.push('', `Attempt ${i + 1}${i === 0 ? ' (first draft)' : i > this.settings.maxRepairs ? ' (final HARD repair)' : ` (repair ${i})`}: ${a.violations.length ? `${a.violations.length} problem(s) — sent back` : accepted ? 'no problems — accepted' : 'no problems'}`);
       for (const v of a.violations) lines.push(`  - ${v}`);
+      if (drafts && a.warnings?.length) { lines.push('  Notes (not blocking):'); for (const w of a.warnings) lines.push(`    · ${w}`); }
+      if (drafts && a.draft !== undefined) lines.push('  Draft:', ...a.draft.split('\n').map((l) => `    | ${l}`));
     });
     if (tm.rejects?.length) { lines.push('', 'Model output problems (resent, or an unusable item dropped):'); for (const r of tm.rejects) lines.push(`  - ${r}`); }
     if (tm.fixes?.length) { lines.push('', 'Small automatic fixes (no resend, result kept):'); for (const r of tm.fixes) lines.push(`  - ${r}`); }
     if (tm.tokens?.calls) lines.push('', `Tokens (provider-reported): ${tm.tokens.input + tm.tokens.output} = ${tm.tokens.input} in + ${tm.tokens.output} out over ${tm.tokens.calls} calls${tm.tokens.storyInput !== undefined ? `; story model ${(tm.tokens.storyInput || 0) + (tm.tokens.storyOutput || 0)}, analysis ${tm.tokens.input + tm.tokens.output - (tm.tokens.storyInput || 0) - (tm.tokens.storyOutput || 0)}` : ''}${tm.tokens.unreported ? ` (${tm.tokens.unreported} without usage)` : ''}`);
     if (tm.tokens?.calls && (tm.tokens.costUsd || tm.tokens.diem)) lines.push(`Cost (provider-reported; DeepSeek official computed from published prices): ${formatUsd(tm.tokens.costUsd || 0)}${tm.tokens.storyCostUsd !== undefined ? `; story model ${formatUsd(tm.tokens.storyCostUsd || 0)}, analysis ${formatUsd((tm.tokens.costUsd || 0) - (tm.tokens.storyCostUsd || 0))}` : ''}${tm.tokens.diem ? `; ${tm.tokens.diem} DIEM` : ''}${tm.tokens.costUnreported ? ` (${tm.tokens.costUnreported} call(s) reported no cost)` : ''}`);
     lines.push('', 'Steps: ' + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `×${s.count}` : ''}${s.retries ? ` (resent ${s.retries})` : ''}`).join(' · '));
-    return lines.join('\n').slice(0, 12000);
+    return drafts ? lines.join('\n').slice(0, 60000) : lines.join('\n').slice(0, 12000);
   }
 
   /** Recent actual events for the planner: untyped history (e.g. someone detained) that the fact list does not show. */
@@ -1255,7 +1264,8 @@ export class CanonEngine {
             this.checkFences(fences, excludeLast);
           }
           const violations = [...review.gate.violations, ...review.gate.coverageGaps.map((g) => `Coverage gap: ${g}`)];
-          trace.attempts.push({ candidateHash: sha256(candidate), violations, coverageGaps: review.gate.coverageGaps, manifestId: review.manifest?.manifestId || '' });
+          trace.attempts.push({ candidateHash: sha256(candidate), violations, coverageGaps: review.gate.coverageGaps, manifestId: review.manifest?.manifestId || '',
+            ...(this.settings.debug ? { draft: candidate, warnings: review.gate.warnings.slice(0, 20) } : {}) });
           if (!violations.length && review.manifest?.complete) { accepted = { review, adj }; break; }
           lastViolations = violations;
           const hardStuck = !lastResort && attempt === this.settings.maxRepairs && violations.some((v) => /\bHARD\b/.test(v));
@@ -1365,12 +1375,13 @@ export class CanonEngine {
     } finally {
       const agg = new Map<string, { ms: number; count: number; retries: number }>();
       for (const s of this.stepTimes) { const a = agg.get(s.step) || { ms: 0, count: 0, retries: 0 }; a.ms += s.ms; a.count++; if (s.retry) a.retries++; agg.set(s.step, a); }
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null };
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, repairs: trace.attempts.filter((a) => a.violations.length).map((a) => a.violations), ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null };
       if (!committed && trace.outcome === 'failed') {
         // Keep the whole story of a failed turn where the user can read it later (saved with the chat).
         const c = this.campaign();
         if (c && c.recoveryState.status === 'error') { c.recoveryState.details = this.failureReport(trace, this.lastTimings); void this.host.save().catch(() => {}); }
       }
+      this.lastReport = this.settings.debug && trace.outcome !== 'cancelled' && trace.outcome !== 'stale' ? this.failureReport(trace, this.lastTimings, true) : null;
       if (this.settings.debug) this.debugLog('timing', this.lastTimings);
       this.opActive = null;
       this.emit();

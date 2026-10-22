@@ -20739,7 +20739,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.5.0";
+var ENGINE_RELEASE = "1.5.1";
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -20868,6 +20868,8 @@ var CanonEngine = class {
   listeners = /* @__PURE__ */ new Set();
   lastTrace = null;
   traces = [];
+  /** Debug mode: readable report of the last turn, committed or not — why each draft was sent back, with the drafts. */
+  lastReport = null;
   lastFailedOp = null;
   notices = [];
   instanceId = newId("inst");
@@ -21648,13 +21650,22 @@ ${a.userEntry?.text || ""}`);
     } : null;
     return { gate, evaluation, retrieval, manifest, facts: packet.facts, packetText: packet.text, claims, refs };
   }
-  /** Plain-text report of a failed turn: error, every attempt's problems, resent calls, step timings. */
-  failureReport(trace, tm) {
+  /** Plain-text report of a turn: error, every attempt's problems, resent calls, step timings. With drafts (debug
+   *  mode) also each draft's text and the reviewer's notes that did not block it. */
+  failureReport(trace, tm, drafts = false) {
     const dur = (ms) => ms >= 6e4 ? `${Math.floor(ms / 6e4)}m${Math.round(ms % 6e4 / 1e3)}s` : `${Math.round(ms / 1e3)}s`;
-    const lines = [`Canon Engine ${ENGINE_RELEASE} \u2014 failed turn (${trace.op}) at ${new Date(this.host.now()).toLocaleString()}, took ${dur(tm.totalMs)}`, "", `Error: ${trace.error || "(unknown)"}`];
+    const lines = [`Canon Engine ${ENGINE_RELEASE} \u2014 ${trace.outcome === "committed" ? "turn" : `${trace.outcome} turn`} (${trace.op}) at ${new Date(this.host.now()).toLocaleString()}, took ${dur(tm.totalMs)}`];
+    if (trace.outcome !== "committed") lines.push("", `Error: ${trace.error || "(unknown)"}`);
+    if (!trace.attempts.length) lines.push("", "No draft was reviewed.");
     trace.attempts.forEach((a, i) => {
-      lines.push("", `Attempt ${i + 1}${i === 0 ? " (first draft)" : i > this.settings.maxRepairs ? " (final HARD repair)" : ` (repair ${i})`}: ${a.violations.length ? `${a.violations.length} problem(s)` : "no problems"}`);
+      const accepted = trace.outcome === "committed" && i === trace.attempts.length - 1;
+      lines.push("", `Attempt ${i + 1}${i === 0 ? " (first draft)" : i > this.settings.maxRepairs ? " (final HARD repair)" : ` (repair ${i})`}: ${a.violations.length ? `${a.violations.length} problem(s) \u2014 sent back` : accepted ? "no problems \u2014 accepted" : "no problems"}`);
       for (const v of a.violations) lines.push(`  - ${v}`);
+      if (drafts && a.warnings?.length) {
+        lines.push("  Notes (not blocking):");
+        for (const w of a.warnings) lines.push(`    \xB7 ${w}`);
+      }
+      if (drafts && a.draft !== void 0) lines.push("  Draft:", ...a.draft.split("\n").map((l) => `    | ${l}`));
     });
     if (tm.rejects?.length) {
       lines.push("", "Model output problems (resent, or an unusable item dropped):");
@@ -21667,7 +21678,7 @@ ${a.userEntry?.text || ""}`);
     if (tm.tokens?.calls) lines.push("", `Tokens (provider-reported): ${tm.tokens.input + tm.tokens.output} = ${tm.tokens.input} in + ${tm.tokens.output} out over ${tm.tokens.calls} calls${tm.tokens.storyInput !== void 0 ? `; story model ${(tm.tokens.storyInput || 0) + (tm.tokens.storyOutput || 0)}, analysis ${tm.tokens.input + tm.tokens.output - (tm.tokens.storyInput || 0) - (tm.tokens.storyOutput || 0)}` : ""}${tm.tokens.unreported ? ` (${tm.tokens.unreported} without usage)` : ""}`);
     if (tm.tokens?.calls && (tm.tokens.costUsd || tm.tokens.diem)) lines.push(`Cost (provider-reported; DeepSeek official computed from published prices): ${formatUsd(tm.tokens.costUsd || 0)}${tm.tokens.storyCostUsd !== void 0 ? `; story model ${formatUsd(tm.tokens.storyCostUsd || 0)}, analysis ${formatUsd((tm.tokens.costUsd || 0) - (tm.tokens.storyCostUsd || 0))}` : ""}${tm.tokens.diem ? `; ${tm.tokens.diem} DIEM` : ""}${tm.tokens.costUnreported ? ` (${tm.tokens.costUnreported} call(s) reported no cost)` : ""}`);
     lines.push("", "Steps: " + tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${s.step} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? ` (resent ${s.retries})` : ""}`).join(" \xB7 "));
-    return lines.join("\n").slice(0, 12e3);
+    return drafts ? lines.join("\n").slice(0, 6e4) : lines.join("\n").slice(0, 12e3);
   }
   /** Recent actual events for the planner: untyped history (e.g. someone detained) that the fact list does not show. */
   recentSituation(index) {
@@ -22005,7 +22016,13 @@ ${a.userEntry?.text || ""}`);
             this.checkFences(fences, excludeLast);
           }
           const violations = [...review.gate.violations, ...review.gate.coverageGaps.map((g) => `Coverage gap: ${g}`)];
-          trace.attempts.push({ candidateHash: sha256(candidate), violations, coverageGaps: review.gate.coverageGaps, manifestId: review.manifest?.manifestId || "" });
+          trace.attempts.push({
+            candidateHash: sha256(candidate),
+            violations,
+            coverageGaps: review.gate.coverageGaps,
+            manifestId: review.manifest?.manifestId || "",
+            ...this.settings.debug ? { draft: candidate, warnings: review.gate.warnings.slice(0, 20) } : {}
+          });
           if (!violations.length && review.manifest?.complete) {
             accepted = { review, adj };
             break;
@@ -22137,7 +22154,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         if (s.retry) a.retries++;
         agg.set(s.step, a);
       }
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null };
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, repairs: trace.attempts.filter((a) => a.violations.length).map((a) => a.violations), ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null };
       if (!committed && trace.outcome === "failed") {
         const c = this.campaign();
         if (c && c.recoveryState.status === "error") {
@@ -22146,6 +22163,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
           });
         }
       }
+      this.lastReport = this.settings.debug && trace.outcome !== "cancelled" && trace.outcome !== "stale" ? this.failureReport(trace, this.lastTimings, true) : null;
       if (this.settings.debug) this.debugLog("timing", this.lastTimings);
       this.opActive = null;
       this.emit();
@@ -24085,6 +24103,7 @@ var D = {
   tabDone: { zh: "\u56DE\u590D\u5B8C\u6210", en: "reply ready" },
   tabFailed: { zh: "\u56DE\u590D\u5931\u8D25", en: "turn failed" },
   resent: { zh: "\u91CD\u53D1", en: "resent" },
+  repairWhy: { zh: "\u7B2C {n} \u7A3F\u88AB\u9000\u56DE\u91CD\u5199\uFF0C\u539F\u56E0", en: "Draft {n} sent back for rewriting because" },
   resentWhy: { zh: "\u6A21\u578B\u8F93\u51FA\u95EE\u9898\uFF08\u5DF2\u91CD\u53D1\uFF0C\u6216\u4E22\u5F03\u4E86\u65E0\u6CD5\u4F7F\u7528\u7684\u6761\u76EE\uFF09", en: "Model output problems (resent, or an unusable item dropped)" },
   fixedWhy: { zh: "\u5C0F\u7684\u81EA\u52A8\u4FEE\u6B63\uFF08\u672A\u91CD\u53D1\uFF0C\u7ED3\u679C\u7167\u5E38\u4FDD\u7559\uFF0C\u53EF\u5FFD\u7565\uFF09", en: "Small automatic fixes (no resend, result kept; safe to ignore)" },
   replyLen: { zh: "\u56DE\u590D", en: "reply" },
@@ -24233,7 +24252,7 @@ var D = {
   adv_draftTimeoutMsTip: { zh: "\u5199\u4E00\u6761\u56DE\u590D\u8D85\u8FC7\u8FD9\u4E48\u4E45\u5C31\u653E\u5F03\u3002300000 = 5 \u5206\u949F\u3002", en: "Writing a reply gives up after this long. 300000 = 5 minutes." },
   adv_taskTemperature: { zh: "\u5185\u90E8\u68C0\u67E5\u6E29\u5EA6", en: "Check temperature" },
   adv_taskTemperatureTip: { zh: "\u5185\u90E8\u68C0\u67E5\u7684\u968F\u673A\u7A0B\u5EA6\u3002\u4F4E\u4E00\u70B9\u66F4\u7A33\u5B9A\uFF0C\u4E00\u822C\u4E0D\u7528\u6539\u3002", en: "How random internal checks are. Lower is steadier; usually leave it." },
-  debugTip: { zh: "\u5728\u68C0\u67E5\u9762\u677F\u91CC\u591A\u663E\u793A\u63D0\u793A\u8BCD\u7B49\u6280\u672F\u4FE1\u606F\uFF0C\u6392\u67E5\u95EE\u9898\u65F6\u7528\u3002", en: "Shows prompts and other technical details in the Inspector, for troubleshooting." },
+  debugTip: { zh: "\u5728\u68C0\u67E5\u9762\u677F\u91CC\u591A\u663E\u793A\u63D0\u793A\u8BCD\u7B49\u6280\u672F\u4FE1\u606F\uFF0C\u6392\u67E5\u95EE\u9898\u65F6\u7528\u3002\n\u72B6\u6001\u680F\u7684\u8017\u65F6\u63D0\u793A\u91CC\u4F1A\u5217\u51FA\u6BCF\u4E00\u7A3F\u88AB\u9000\u56DE\u91CD\u5199\u7684\u539F\u56E0\uFF1B\u70B9\u300C\u8BE6\u60C5\u300D\u53EF\u770B\u4E0A\u4E00\u56DE\u5408\u7684\u5B8C\u6574\u62A5\u544A\uFF0C\u5305\u62EC\u6BCF\u4E00\u7A3F\u7684\u539F\u6587\u3002", en: "Shows prompts and other technical details in the Inspector, for troubleshooting.\nThe timing tooltip in the status bar lists why each draft was sent back; \u8BE6\u60C5 shows the full report of the last turn, including the text of each draft." },
   uiLang: { zh: "\u754C\u9762\u8BED\u8A00", en: "Language" },
   gmConflictShort: { zh: "GM \u89D2\u8272\u5361\u91CC\u6709\u65E7\u7684\u201C\u5386\u53F2\u770B\u4E16\u754C\u4E66\u201D\u89C4\u5219\u3002", en: 'The GM card has an old "history comes from lore" rule.' }
 };
@@ -25045,7 +25064,7 @@ function mountStatus() {
     if (act === "inspect") toggleInspector(true);
     if (act === "cancel") E.cancel();
     if (act === "retry") void E.retry().finally(refreshUi);
-    if (act === "details") showFailureReport();
+    if (act === "details") showFailureReport(E.settings.debug && E.lastReport ? E.lastReport : E.campaign()?.recoveryState.details);
     if (act === "goto") gotoConflict();
     if (act === "branch") void branchFromConflict();
   });
@@ -25091,14 +25110,14 @@ function renderStatus() {
   const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc2(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
   const tk = tm?.tokens;
   const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc2([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.storyInput !== void 0 ? [`${t("tokStory")} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} \xB7 ${t("tokAnalysis")} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : [], ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], ...costLines(tk), t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}${costPart(tk)}</span>` : "";
-  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc2(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}</span>` : "";
+  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...E.settings.debug && tm.repairs?.length ? tm.repairs.flatMap((v, i) => ["", `${t("repairWhy").replace("{n}", String(i + 1))}:`, ...v.map((x) => `- ${x}`)]) : [], ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc2(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}</span>` : "";
   el.dataset.phase = conflict ? "conflict" : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc2(t("phase_" + (conflict ? "conflict" : phase)))}</span>
     <span class="canon-msg" title="${esc2(msg)}">${esc2(msg)}</span>${timing}
     <span class="canon-actions">
       ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t("cancel")}</button>` : ""}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t("retry")}</button>` : ""}
-      ${!busy && err && camp.recoveryState.details ? `<button class="menu_button canon-btn" data-act="details">${t("details")}</button>` : ""}
+      ${!busy && (err && camp.recoveryState.details || E.settings.debug && E.lastReport) ? `<button class="menu_button canon-btn" data-act="details">${t("details")}</button>` : ""}
       ${conflict ? `<button class="menu_button canon-btn" data-act="goto">${t("editIt")}</button><button class="menu_button canon-btn" data-act="branch">${t("branchRegen")}</button>` : ""}
       <button class="menu_button canon-btn" data-act="inspect">${t("inspect")}</button>
     </span>`;
@@ -25563,7 +25582,8 @@ function renderInspector() {
   } else if (inspectorTab === "plan") {
     body = `<pre class="canon-pre">${esc2(JSON.stringify(d.plan, null, 1))}</pre>`;
   } else if (inspectorTab === "debug") {
-    body = `<h4>Last operation</h4><pre class="canon-pre">${esc2(JSON.stringify(d.lastTrace, null, 1))}</pre>
+    body = `<h4>Last turn</h4><pre class="canon-pre">${esc2(E.lastReport || "\u2014")}</pre>
+      <h4>Last operation</h4><pre class="canon-pre">${esc2(JSON.stringify(d.lastTrace, null, 1))}</pre>
       <h4>Final draft prompt (as sent)</h4><pre class="canon-pre">${esc2(JSON.stringify(gen.lastDraftPrompt, null, 1))}</pre>
       <h4>Coverage manifests</h4><pre class="canon-pre">${esc2(JSON.stringify(d.manifests, null, 1))}</pre>
       <h4>Raw campaign JSON</h4><pre class="canon-pre">${esc2(JSON.stringify({ ...camp, packSnapshot: "[omitted]" }, null, 1)).slice(0, 2e5)}</pre>`;
@@ -25709,8 +25729,7 @@ function copyText(text) {
   }
   return ok;
 }
-function showFailureReport() {
-  const text = E.campaign()?.recoveryState.details;
+function showFailureReport(text) {
   if (!text) return;
   document.getElementById("canon-report")?.remove();
   const box = document.createElement("div");
