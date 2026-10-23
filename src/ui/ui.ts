@@ -634,7 +634,13 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   for (const k of v.contacts.slice().reverse()) groups.set(k.scope, [...(groups.get(k.scope) || []), k]);
   const contactLine = (k: (typeof v.contacts)[number]) => `<small>${esc(k.time)} · ${esc(k.kind)}${k.by.length ? ` · ${esc(k.by.join(', '))}` : ''}${v.unanswered.includes(k.recordId) ? ` · ${esc(t('niUnanswered'))}` : ''}</small><br><small>“${esc(k.quote)}”</small>`;
   html += `<h4>${esc(t('niContacts'))}</h4><ul class="canon-list">${[...groups.values()].map(([k, ...older]) => `<li><b>${esc(k.label)}</b> ${contactLine(k)}${older.length ? `<details class="canon-older"><summary><small>${esc(t('niOlderContacts').replace('{n}', String(older.length)))}</small></summary>${older.map((o) => `<div>${contactLine(o)}</div>`).join('')}</details>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
-  if (v.suggestions) html += `<h4>${esc(t('niSuggestions'))}</h4><ul class="canon-list">${v.suggestions.map((s) => `<li>${esc(s.about)} — ${esc(s.by.join(', '))}: ${esc(s.contact)} <small>(${esc(s.kind)}${s.direct ? ', direct' : ''})</small></li>`).join('') || '<li>—</li>'}</ul>`;
+  if (v.suggestions) {
+    // one entry per matter, like the contacts above; its other possibilities fold underneath
+    const sg = new Map<string, NonNullable<typeof v.suggestions>>();
+    for (const s of v.suggestions) sg.set(s.scope, [...(sg.get(s.scope) || []), s]);
+    const sLine = (s: NonNullable<typeof v.suggestions>[number]) => `<small>${esc(s.by.join(', '))}: ${esc(s.contact)} (${esc(s.kind)}${s.direct ? ', direct' : ''})</small>`;
+    html += `<h4>${esc(t('niSuggestions'))}</h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc(s.about)}</b><br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc(t('niMoreSuggestions').replace('{n}', String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join('')}</details>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
+  }
   if (v.dropped?.length) html += `<h4>${esc(t('niDropped'))}</h4><ul class="canon-list">${v.dropped.map((x) => `<li>${esc(x.id)}: ${esc(x.reason)}</li>`).join('')}</ul>`;
   return html;
 }

@@ -18814,7 +18814,7 @@ SHAPE: {"player":{"name":"","aliases":[],"summary":"","public_identity":""},"aff
   integrate: `${COMMON}
 TASK: The story world reacts to the player character. Given who the player is (player: identity, organizations, who knows what about them), what actually happened with them (player.actual_history), what is happening or about to happen (candidate_events, each with its people and status), and the player's own decisions (engagement), work out how the world could reach the player now, so that they become part of the story without having to look for a way in.
 1. assessments: for each candidate event (and any situation from actual history worth it): direct_impact (something already in motion reaches or affects the player: someone who knows of them has their own reason to act toward them, or the event's effects reach where they are), opportunity (a plausible, interesting contact could be made), or no_connection; with a short reason.
-2. opportunities: up to 4, best first. Each: actors (registry ids of people/organizations who exist and are free to act), motivation (their own interest), knowledge (what they know about the player and how, within player.knowers' levels: someone who only knows an organization exists cannot address the player by name; nobody knows a secret not given to them; without a plausible knower use a public channel \u2014 news, a chance encounter \u2014 or nothing), contact (how they reach the player: an invitation, a request, news through a channel the player has, a probe, a hostile act, a consequence reaching them, an encounter), kind, earliest/latest (when it can happen, within the event's time; null when any time soon), establishes (new details it would introduce, e.g. a messenger), scope (what being drawn in is about: "event" + event id, "arc" + arc id for a whole storyline, "faction" + organization id when it is about working for them; "storyline" + a label for a situation from history), target_event_id, direct_impact, basis_refs (occurrence ids from actual history and/or event ids it rests on), priority 1 (strong) to 3.
+2. opportunities: up to 5, best first, and varied: at most 2 about the same thing (the same event, arc, organization or situation). When another candidate event allows a plausible contact, include it too \u2014 also while the player is busy with an event under way \u2014 so the player always has more than one way to go and is never locked into one storyline. Each: actors (registry ids of people/organizations who exist and are free to act), motivation (their own interest), knowledge (what they know about the player and how, within player.knowers' levels: someone who only knows an organization exists cannot address the player by name; nobody knows a secret not given to them; without a plausible knower use a public channel \u2014 news, a chance encounter \u2014 or nothing), contact (how they reach the player: an invitation, a request, news through a channel the player has, a probe, a hostile act, a consequence reaching them, an encounter), kind, earliest/latest (when it can happen, within the event's time; null when any time soon), establishes (new details it would introduce, e.g. a messenger), scope (what being drawn in is about: "event" + event id, "arc" + arc id for a whole storyline, "faction" + organization id when it is about working for them; "storyline" + a label for a situation from history), target_event_id, direct_impact, basis_refs (occurrence ids from actual history and/or event ids it rests on), priority 1 (strong) to 3.
 Favor involvement: prefer the development that gives the player a part to play; plausible coincidences and a touch of protagonist luck are fine. But:
 - characters stay in character and act on their own motives; nobody reaches out only to drag the player in;
 - never guarantee an event's start, course or result; never bring back an event that is settled or whose original conditions failed (a settled event may still have consequences: kind "consequence", or news of what happened: kind "information" \u2014 never an invitation or request to take part in it);
@@ -20830,6 +20830,10 @@ function checkOpportunities(out, index, profile2, candidates, tick) {
       dropped.push({ id: ref, reason: "an earlier contact about the same thing is unanswered" });
       continue;
     }
+    if (valid.filter((v) => v.scopeKind === scopeKind && v.scopeRef === scopeRef).length >= MAX_PER_SCOPE) {
+      dropped.push({ id: ref, reason: `more than ${MAX_PER_SCOPE} about ${label}` });
+      continue;
+    }
     valid.push({
       id,
       scopeKind,
@@ -20852,6 +20856,7 @@ function checkOpportunities(out, index, profile2, candidates, tick) {
   }
   return { valid, dropped };
 }
+var MAX_PER_SCOPE = 2;
 function selectOpportunity(cache, index, tick, busy) {
   if (!cache) return null;
   const eng = engagementView(index.state, index.pack);
@@ -20947,7 +20952,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.9.1";
+var ENGINE_RELEASE = "1.9.2";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -23342,7 +23347,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
         return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {};
       })() : {} })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
-      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
+      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null
     };
   }
@@ -24670,6 +24675,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niDecisions: { zh: "\u4F60\u7684\u53C2\u4E0E\u610F\u613F", en: "Your decisions" },
   niContacts: { zh: "\u4E16\u754C\u5DF2\u7ECF\u63A5\u89E6\u4F60\u7684", en: "Contacts that reached you" },
   niOlderContacts: { zh: "\u66F4\u65E9 {n} \u6B21", en: "{n} earlier" },
+  niMoreSuggestions: { zh: "\u53E6\u5916 {n} \u79CD\u53EF\u80FD", en: "{n} more" },
   niSuggestions: { zh: "\u5C1A\u672A\u53D1\u751F\u7684\u53EF\u80FD\u63A5\u89E6\uFF08\u5267\u900F\uFF09", en: "Possible contacts not yet made (spoilers)" },
   niDropped: { zh: "\u88AB\u8FC7\u6EE4\u7684\u5EFA\u8BAE\uFF08\u8C03\u8BD5\uFF09", en: "Filtered suggestions (debug)" },
   niReopen: { zh: "\u5141\u8BB8\u518D\u6B21\u63A5\u89E6", en: "Allow contact again" },
@@ -26187,7 +26193,12 @@ function playerTab(v) {
   for (const k of v.contacts.slice().reverse()) groups.set(k.scope, [...groups.get(k.scope) || [], k]);
   const contactLine = (k) => `<small>${esc2(k.time)} \xB7 ${esc2(k.kind)}${k.by.length ? ` \xB7 ${esc2(k.by.join(", "))}` : ""}${v.unanswered.includes(k.recordId) ? ` \xB7 ${esc2(t("niUnanswered"))}` : ""}</small><br><small>\u201C${esc2(k.quote)}\u201D</small>`;
   html += `<h4>${esc2(t("niContacts"))}</h4><ul class="canon-list">${[...groups.values()].map(([k, ...older]) => `<li><b>${esc2(k.label)}</b> ${contactLine(k)}${older.length ? `<details class="canon-older"><summary><small>${esc2(t("niOlderContacts").replace("{n}", String(older.length)))}</small></summary>${older.map((o) => `<div>${contactLine(o)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
-  if (v.suggestions) html += `<h4>${esc2(t("niSuggestions"))}</h4><ul class="canon-list">${v.suggestions.map((s) => `<li>${esc2(s.about)} \u2014 ${esc2(s.by.join(", "))}: ${esc2(s.contact)} <small>(${esc2(s.kind)}${s.direct ? ", direct" : ""})</small></li>`).join("") || "<li>\u2014</li>"}</ul>`;
+  if (v.suggestions) {
+    const sg = /* @__PURE__ */ new Map();
+    for (const s of v.suggestions) sg.set(s.scope, [...sg.get(s.scope) || [], s]);
+    const sLine = (s) => `<small>${esc2(s.by.join(", "))}: ${esc2(s.contact)} (${esc2(s.kind)}${s.direct ? ", direct" : ""})</small>`;
+    html += `<h4>${esc2(t("niSuggestions"))}</h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc2(s.about)}</b><br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc2(t("niMoreSuggestions").replace("{n}", String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
+  }
   if (v.dropped?.length) html += `<h4>${esc2(t("niDropped"))}</h4><ul class="canon-list">${v.dropped.map((x) => `<li>${esc2(x.id)}: ${esc2(x.reason)}</li>`).join("")}</ul>`;
   return html;
 }

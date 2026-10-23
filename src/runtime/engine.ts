@@ -2293,7 +2293,7 @@ export class CanonEngine {
       // contacts filed as a free storyline before 1.8.1 are grouped with the event or matter they name
       contacts: s.contacts.map((k) => ({ ...k, ...(k.scopeKind === 'storyline' ? (() => { const m = matchScope(idx.pack, s.contacts, k.scopeLabel); return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {}; })() : {}) })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
-      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
+      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null,
     };
   }

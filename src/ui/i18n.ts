@@ -211,6 +211,7 @@ const D: Record<string, { zh: string; en: string }> = {
   niDecisions: { zh: '你的参与意愿', en: 'Your decisions' },
   niContacts: { zh: '世界已经接触你的', en: 'Contacts that reached you' },
   niOlderContacts: { zh: '更早 {n} 次', en: '{n} earlier' },
+  niMoreSuggestions: { zh: '另外 {n} 种可能', en: '{n} more' },
   niSuggestions: { zh: '尚未发生的可能接触（剧透）', en: 'Possible contacts not yet made (spoilers)' },
   niDropped: { zh: '被过滤的建议（调试）', en: 'Filtered suggestions (debug)' },
   niReopen: { zh: '允许再次接触', en: 'Allow contact again' },

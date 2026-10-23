@@ -18,7 +18,7 @@ All automated suites use deterministic scripted model outputs. They prove the co
 
 | Suite | Where it runs | Result |
 | --- | --- | --- |
-| `tests/unit/*` (320 tests in 33 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **320 / 320 pass** |
+| `tests/unit/*` (321 tests in 33 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **321 / 321 pass** |
 | `tests/e2e/integration.mjs` (115 checks, sections S1–S21) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **115 / 115 pass** |
 | `tests/e2e/story-session.mjs` (12 checks) | real ST, UI-only: wizard via real file dialog, pack library, composer, banner, swipe arrow, ST edit/delete buttons, reload | **12 / 12 pass** |
 | `dist/canon-lint.mjs` | both sample packs valid; World Info file rejected with the specific error | pass |

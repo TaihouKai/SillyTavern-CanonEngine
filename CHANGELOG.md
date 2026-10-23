@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.2 — 2026-10-23
+
+- **Varied world reactions.** Live: all four suggested contacts were about the event under way (使徒十字篇：追击欧莉安娜), as if the player were locked into it until it ends. The world-reaction step now proposes up to 5, at most 2 about the same event, arc, organization or situation, and includes other candidate events when a plausible contact exists — also while an event is under way. The controller keeps at most 2 per matter.
+- **尚未发生的可能接触 is grouped by matter** like 世界已经接触你的: one entry per event or storyline, its other possibilities folded underneath (另外 n 种可能).
+- Tests: NI-41.
+
 ## 1.9.1 — 2026-10-23
 
 - **How an action the player wrote is carried out belongs to that action.** Live: the player wrote "走一路烧一路魔法陷阱" with skills and combat left to the player; the reviewer authorized the burning, then sent the reply back because the incantation and the fire were "player-only skills the player had not specified". The reviewer is told that the means of an authorized act (the spell, its incantation, what it looks like; the exact words of a line whose gist the player gave) are authorized and never need spelling out, and the controller drops a free-text complaint about an act the reviewer itself marked as authorized.

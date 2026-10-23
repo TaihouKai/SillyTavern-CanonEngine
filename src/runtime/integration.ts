@@ -485,6 +485,8 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
     const id = 'opp_' + sha256(`${scopeKind}|${scopeRef}|${kind}|${[...actors].sort().join(',')}`).slice(0, 10);
     if (st.contacts.some((x) => x.opportunityId === id)) { dropped.push({ id: ref, reason: 'already made' }); continue; }
     if (!['hostile', 'consequence'].includes(kind) && pending.some((p) => p.scopeKind === scopeKind && p.scopeRef === scopeRef)) { dropped.push({ id: ref, reason: 'an earlier contact about the same thing is unanswered' }); continue; }
+    // live: all four suggestions were about the event under way, as if the player were locked into it until it ends
+    if (valid.filter((v) => v.scopeKind === scopeKind && v.scopeRef === scopeRef).length >= MAX_PER_SCOPE) { dropped.push({ id: ref, reason: `more than ${MAX_PER_SCOPE} about ${label}` }); continue; }
     valid.push({
       id, scopeKind, scopeRef, scopeLabel: label, targetEventId, kind, directImpact: direct, actors,
       motivation: (o.motivation || '').slice(0, 800), knowledge: (o.knowledge || '').slice(0, 800), contact: (o.contact || '').slice(0, 800), establishes: (o.establishes || []).slice(0, 8),
@@ -497,6 +499,9 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
 /** At most one new contact for this reply: one that can happen now, not in a busy scene (an event under way
  *  admits only direct impacts); 关注 first, then direct impacts, priority and time. The policy is checked again
  *  against the current decisions (a cached suggestion may predate a refusal). */
+/** Suggestions kept about one matter: the rest of the list goes to other ways into the story. */
+export const MAX_PER_SCOPE = 2;
+
 export function selectOpportunity(cache: IntegrationCache | null, index: WorldIndex, tick: number, busy: boolean): Opportunity | null {
   if (!cache) return null;
   const eng = engagementView(index.state, index.pack);

@@ -525,3 +525,21 @@ describe('robustness', () => {
     expect(x.model.tasks('integrate')).toHaveLength(2); // a decision changes the basis
   });
 });
+
+describe('varied suggestions', () => {
+  it('NI-41 at most two suggestions about one matter are kept, so others fit (live: all four were about the event under way); the panel groups them', async () => {
+    expect(PROMPTS.integrate).toMatch(/up to 5, best first, and varied: at most 2 about the same thing[^]*never locked into one storyline/);
+    const x = await setup({ integrate: { assessments: [], opportunities: [
+      OPP({ ref: 'a', kind: 'request', contact: 'a clerk asks for a boat' }),
+      OPP({ ref: 'b', kind: 'information', contact: 'a clerk passes on news of the ambush' }),
+      OPP({ ref: 'c', kind: 'encounter', contact: 'a guard runs into Vera' }),
+      OPP({ ref: 'd', kind: 'invitation', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the Union invites Vera to a meeting' }),
+    ] } });
+    await turn(x, 'I watch the street.', 'Rain on the harbor. [V1]');
+    const cache = x.engine.campaign()!.integrationCache!;
+    expect(cache.opportunities.map((o) => o.contact)).toEqual(['a clerk asks for a boat', 'a clerk passes on news of the ambush', 'the Union invites Vera to a meeting']);
+    expect(cache.dropped.map((d) => d.reason)).toEqual(['more than 2 about Ambush of Mira']);
+    const v = x.engine.integrationView(true)!;
+    expect(v.suggestions!.map((s) => s.scope)).toEqual(['event:medic-ambush', 'event:medic-ambush', 'faction:union']);
+  });
+});
