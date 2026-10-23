@@ -561,6 +561,11 @@ function renderInspector() {
       if (b.dataset.act === 'close') toggleInspector(false);
       // 叙事融入: identity and "allow contact again" are explicit player decisions
       const act = b.dataset.act;
+      if (act === 'ni-refresh') {
+        (b as HTMLButtonElement).disabled = true;
+        b.textContent = t('niBusy');
+        E.refreshIntegration().then((n) => { toast('info', t('niRefreshDone').replace('{n}', String(n))); renderInspector(); }).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
+      }
       if (act === 'ni-update' || act === 'ni-keep' || act === 'ni-reopen' || act === 'ni-strong' || act === 'ni-weak') {
         (b as HTMLButtonElement).disabled = true;
         if (act === 'ni-update') b.textContent = t('niBusy');
@@ -639,7 +644,7 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
     const sg = new Map<string, NonNullable<typeof v.suggestions>>();
     for (const s of v.suggestions) sg.set(s.scope, [...(sg.get(s.scope) || []), s]);
     const sLine = (s: NonNullable<typeof v.suggestions>[number]) => `<small>${esc(s.by.join(', '))}: ${esc(s.contact)} (${esc(s.kind)}${s.direct ? ', direct' : ''})</small>`;
-    html += `<h4>${esc(t('niSuggestions'))}</h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc(s.about)}</b><br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc(t('niMoreSuggestions').replace('{n}', String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join('')}</details>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
+    html += `<h4>${esc(t('niSuggestions'))} <button class="menu_button canon-h4-btn" data-act="ni-refresh" title="${esc(t('niRefreshTip'))}">${esc(t('niRefresh'))}</button></h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc(s.about)}</b><br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc(t('niMoreSuggestions').replace('{n}', String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join('')}</details>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
   }
   if (v.dropped?.length) html += `<h4>${esc(t('niDropped'))}</h4><ul class="canon-list">${v.dropped.map((x) => `<li>${esc(x.id)}: ${esc(x.reason)}</li>`).join('')}</ul>`;
   return html;

@@ -1640,6 +1640,25 @@ export class CanonEngine {
     await this.reconcile('identity_updated');
   }
 
+  /** 重新评估 (尚未发生的可能接触): ask the world-reaction step again now, ignoring the cached result. Suggestions
+   *  only — nothing is recorded; the next turn offers the GM one of the new ones. */
+  async refreshIntegration(): Promise<number> {
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
+    const prof = this.playerProfile();
+    if (!this.campaign() || !this.current || !prof) throw new EngineError('incompatible_adapter', 'Narrative integration is not active in this chat.');
+    const abort = new AbortController();
+    this.opActive = { operationId: 'refresh_integration', abort, fences: null, op: 'normal' }; // the status bar's cancel and the send guard apply
+    try {
+      this.setStatus('planning', 'Re-evaluating how the world may reach the player…');
+      const cache = await this.integrate(this.current.index, prof.profile, null, null, abort.signal, 'refresh_integration', true);
+      await this.host.save();
+      return cache?.opportunities.length ?? 0;
+    } finally {
+      this.opActive = null;
+      this.setStatus('idle', '');
+    }
+  }
+
   /** 保留本局身份: keep this game's identity although the active Persona differs. */
   async keepIdentity(): Promise<void> {
     const c = this.campaign();
@@ -1682,13 +1701,13 @@ export class CanonEngine {
 
   /** How the world may react to the player now: candidates -> integrate task (cached by what it depends on) ->
    *  checked suggestions. Failures leave this turn without a suggestion; the player's decisions still apply. */
-  private async integrate(index: WorldIndex, profile: PlayerProfile, userEntry: SourceEntry | null, jumpTo: number | null, signal: AbortSignal, operationId: string): Promise<IntegrationCache | null> {
+  private async integrate(index: WorldIndex, profile: PlayerProfile, userEntry: SourceEntry | null, jumpTo: number | null, signal: AbortSignal, operationId: string, force = false): Promise<IntegrationCache | null> {
     const c = this.campaign()!;
     const tick = index.state.clock.lo;
     const focus = c.focusEvents || [];
     const candidates = integrationCandidates(index, profile, tick, { jumpTo, focus });
     const key = integrationKey(index, profile, candidates, focus, jumpTo);
-    if (c.integrationCache?.key === key) return c.integrationCache;
+    if (!force && c.integrationCache?.key === key) return c.integrationCache;
     const eng = engagementView(index.state, index.pack);
     const withIds = uniq(candidates.flatMap((x) => x.event.entity_ids));
     const out = await this.withTimeout(callStructured<IntegrateOut>(this.host.model, 'integrate', PROMPTS.integrate, {

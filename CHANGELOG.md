@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.3 — 2026-10-23
+
+- **重新评估 button** beside 尚未发生的可能接触: asks the world-reaction step again now, although nothing it depends on changed (one analysis call). Suggestions only: nothing is recorded; the next turn offers the GM one of the new ones. The status bar shows it while it runs, and a reply cannot start meanwhile.
+- Tests: NI-42.
+
 ## 1.9.2 — 2026-10-23
 
 - **Varied world reactions.** Live: all four suggested contacts were about the event under way (使徒十字篇：追击欧莉安娜), as if the player were locked into it until it ends. The world-reaction step now proposes up to 5, at most 2 about the same event, arc, organization or situation, and includes other candidate events when a plausible contact exists — also while an event is under way. The controller keeps at most 2 per matter.

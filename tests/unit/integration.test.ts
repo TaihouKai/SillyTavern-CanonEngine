@@ -543,3 +543,18 @@ describe('varied suggestions', () => {
     expect(v.suggestions!.map((s) => s.scope)).toEqual(['event:medic-ambush', 'event:medic-ambush', 'faction:union']);
   });
 });
+
+describe('re-evaluate possible contacts', () => {
+  it('NI-42 重新评估 asks the world-reaction step again although nothing changed, and records nothing', async () => {
+    const x = await setup({ integrate: { assessments: [], opportunities: [OPP({ contact: 'a clerk asks for a boat' })] } });
+    await turn(x, 'I watch the street.', 'Rain on the harbor. [R1]');
+    const calls = x.model.tasks('integrate').length;
+    const records = x.engine.campaign()!.ledgerRecords.length;
+    x.model.on('integrate', null, { assessments: [], opportunities: [OPP({ ref: 'n', kind: 'invitation', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the Union invites Vera to a meeting' })] });
+    expect(await x.engine.refreshIntegration()).toBe(1);
+    expect(x.model.tasks('integrate')).toHaveLength(calls + 1);
+    expect(x.engine.campaign()!.integrationCache!.opportunities.map((o) => o.contact)).toEqual(['the Union invites Vera to a meeting']);
+    expect(x.engine.campaign()!.ledgerRecords.length).toBe(records);
+    expect(x.engine.isBusy()).toBe(false);
+  });
+});

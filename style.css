@@ -18,6 +18,7 @@
 .canon-modal label { display:flex; flex-direction:column; gap:2px; }
 .canon-list { margin:4px 0; padding-left:18px; max-height:40vh; overflow:auto; }
 .canon-list li.error { color:#f88; } .canon-list li.warn { color:#fc6; }
+.canon-h4-btn { display:inline-flex; width:auto !important; padding:1px 8px; margin:0 0 0 6px; font-size:0.85em; font-weight:normal; vertical-align:middle; white-space:nowrap; }
 .canon-list .canon-older { margin:2px 0 0; } .canon-list .canon-older > div { margin:3px 0 0 10px; padding-left:6px; border-left:2px solid var(--SmartThemeBorderColor, #555); }
 .canon-list li .menu_button { display:inline-flex; width:auto !important; flex:0 0 auto; white-space:nowrap; margin:3px 0 0; padding:2px 10px; vertical-align:middle; }
 .canon-ni-changed { margin:6px 0; padding:6px 8px; border:1px solid var(--SmartThemeQuoteColor, #c90); border-radius:6px; }

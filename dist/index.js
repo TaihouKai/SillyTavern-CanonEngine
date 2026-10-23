@@ -20952,7 +20952,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.9.2";
+var ENGINE_RELEASE = "1.9.3";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -22675,6 +22675,24 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     await this.host.save();
     await this.reconcile("identity_updated");
   }
+  /** 重新评估 (尚未发生的可能接触): ask the world-reaction step again now, ignoring the cached result. Suggestions
+   *  only — nothing is recorded; the next turn offers the GM one of the new ones. */
+  async refreshIntegration() {
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; try again when it is done.");
+    const prof = this.playerProfile();
+    if (!this.campaign() || !this.current || !prof) throw new EngineError("incompatible_adapter", "Narrative integration is not active in this chat.");
+    const abort = new AbortController();
+    this.opActive = { operationId: "refresh_integration", abort, fences: null, op: "normal" };
+    try {
+      this.setStatus("planning", "Re-evaluating how the world may reach the player\u2026");
+      const cache = await this.integrate(this.current.index, prof.profile, null, null, abort.signal, "refresh_integration", true);
+      await this.host.save();
+      return cache?.opportunities.length ?? 0;
+    } finally {
+      this.opActive = null;
+      this.setStatus("idle", "");
+    }
+  }
   /** 保留本局身份: keep this game's identity although the active Persona differs. */
   async keepIdentity() {
     const c = this.campaign();
@@ -22718,13 +22736,13 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
   }
   /** How the world may react to the player now: candidates -> integrate task (cached by what it depends on) ->
    *  checked suggestions. Failures leave this turn without a suggestion; the player's decisions still apply. */
-  async integrate(index, profile2, userEntry, jumpTo, signal, operationId) {
+  async integrate(index, profile2, userEntry, jumpTo, signal, operationId, force = false) {
     const c = this.campaign();
     const tick = index.state.clock.lo;
     const focus = c.focusEvents || [];
     const candidates = integrationCandidates(index, profile2, tick, { jumpTo, focus });
     const key = integrationKey(index, profile2, candidates, focus, jumpTo);
-    if (c.integrationCache?.key === key) return c.integrationCache;
+    if (!force && c.integrationCache?.key === key) return c.integrationCache;
     const eng = engagementView(index.state, index.pack);
     const withIds = uniq(candidates.flatMap((x) => x.event.entity_ids));
     const out = await this.withTimeout(callStructured(this.host.model, "integrate", PROMPTS.integrate, {
@@ -24676,6 +24694,9 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niContacts: { zh: "\u4E16\u754C\u5DF2\u7ECF\u63A5\u89E6\u4F60\u7684", en: "Contacts that reached you" },
   niOlderContacts: { zh: "\u66F4\u65E9 {n} \u6B21", en: "{n} earlier" },
   niMoreSuggestions: { zh: "\u53E6\u5916 {n} \u79CD\u53EF\u80FD", en: "{n} more" },
+  niRefresh: { zh: "\u91CD\u65B0\u8BC4\u4F30", en: "Re-evaluate" },
+  niRefreshTip: { zh: "\u73B0\u5728\u8BA9\u5206\u6790\u6A21\u578B\u91CD\u65B0\u60F3\u4E00\u904D\uFF1A\u4E16\u754C\u63A5\u4E0B\u6765\u53EF\u80FD\u600E\u6837\u63A5\u89E6\u4F60\u3002\u53EA\u662F\u5EFA\u8BAE\uFF0C\u4E0D\u4F1A\u5199\u8FDB\u5386\u53F2\uFF1B\u4E0B\u4E00\u56DE\u5408 GM \u4F1A\u4ECE\u65B0\u7684\u7ED3\u679C\u91CC\u6311\u4E00\u4E2A\u3002\u4F1A\u8C03\u7528\u4E00\u6B21\u5206\u6790\u6A21\u578B\u3002", en: "Ask the analysis model again now how the world may reach you next. Suggestions only, nothing is recorded; the next turn offers the GM one of the new ones. One analysis call." },
+  niRefreshDone: { zh: "\u91CD\u65B0\u8BC4\u4F30\u5B8C\u6210\uFF1A{n} \u4E2A\u53EF\u80FD\u63A5\u89E6", en: "Re-evaluated: {n} possible contact(s)" },
   niSuggestions: { zh: "\u5C1A\u672A\u53D1\u751F\u7684\u53EF\u80FD\u63A5\u89E6\uFF08\u5267\u900F\uFF09", en: "Possible contacts not yet made (spoilers)" },
   niDropped: { zh: "\u88AB\u8FC7\u6EE4\u7684\u5EFA\u8BAE\uFF08\u8C03\u8BD5\uFF09", en: "Filtered suggestions (debug)" },
   niReopen: { zh: "\u5141\u8BB8\u518D\u6B21\u63A5\u89E6", en: "Allow contact again" },
@@ -26121,6 +26142,17 @@ function renderInspector() {
       }
       if (b.dataset.act === "close") toggleInspector(false);
       const act = b.dataset.act;
+      if (act === "ni-refresh") {
+        b.disabled = true;
+        b.textContent = t("niBusy");
+        E.refreshIntegration().then((n) => {
+          toast("info", t("niRefreshDone").replace("{n}", String(n)));
+          renderInspector();
+        }).catch((e) => {
+          toast("error", e.message);
+          renderInspector();
+        });
+      }
       if (act === "ni-update" || act === "ni-keep" || act === "ni-reopen" || act === "ni-strong" || act === "ni-weak") {
         b.disabled = true;
         if (act === "ni-update") b.textContent = t("niBusy");
@@ -26197,7 +26229,7 @@ function playerTab(v) {
     const sg = /* @__PURE__ */ new Map();
     for (const s of v.suggestions) sg.set(s.scope, [...sg.get(s.scope) || [], s]);
     const sLine = (s) => `<small>${esc2(s.by.join(", "))}: ${esc2(s.contact)} (${esc2(s.kind)}${s.direct ? ", direct" : ""})</small>`;
-    html += `<h4>${esc2(t("niSuggestions"))}</h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc2(s.about)}</b><br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc2(t("niMoreSuggestions").replace("{n}", String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
+    html += `<h4>${esc2(t("niSuggestions"))} <button class="menu_button canon-h4-btn" data-act="ni-refresh" title="${esc2(t("niRefreshTip"))}">${esc2(t("niRefresh"))}</button></h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc2(s.about)}</b><br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc2(t("niMoreSuggestions").replace("{n}", String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
   }
   if (v.dropped?.length) html += `<h4>${esc2(t("niDropped"))}</h4><ul class="canon-list">${v.dropped.map((x) => `<li>${esc2(x.id)}: ${esc2(x.reason)}</li>`).join("")}</ul>`;
   return html;
