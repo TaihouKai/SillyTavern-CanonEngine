@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.5 — 2026-10-23
+
+- **你的参与意愿 is grouped by matter** like the contact lists: one entry per event or storyline showing the decision in force (else the newest), with its buttons; earlier decisions about the same matter fold underneath (更早 n 条).
+
 ## 1.9.4 — 2026-10-23
 
 - **优先 for other matters.** While an event is under way only contacts that already reach the player (direct) are offered to the GM, so nobody drags the player into something else mid-fight. In 尚未发生的可能接触 the event under way is tagged 进行中, and every other matter gets a 优先 button: a preferred matter may be offered to the GM even then, and is offered first otherwise. Allowed, never required (the GM's world reaction stays optional). The world-reaction step is told to keep a contact for each preferred matter. Preferred events are cleared when settled or past their window; 取消优先 undoes it.

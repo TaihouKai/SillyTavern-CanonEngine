@@ -20963,7 +20963,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.9.4";
+var ENGINE_RELEASE = "1.9.5";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -24735,6 +24735,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niDecisions: { zh: "\u4F60\u7684\u53C2\u4E0E\u610F\u613F", en: "Your decisions" },
   niContacts: { zh: "\u4E16\u754C\u5DF2\u7ECF\u63A5\u89E6\u4F60\u7684", en: "Contacts that reached you" },
   niOlderContacts: { zh: "\u66F4\u65E9 {n} \u6B21", en: "{n} earlier" },
+  niOlderDecisions: { zh: "\u66F4\u65E9 {n} \u6761", en: "{n} earlier" },
   niMoreSuggestions: { zh: "\u53E6\u5916 {n} \u79CD\u53EF\u80FD", en: "{n} more" },
   niRefresh: { zh: "\u91CD\u65B0\u8BC4\u4F30", en: "Re-evaluate" },
   niCurrent: { zh: "\u8FDB\u884C\u4E2D", en: "under way" },
@@ -26275,7 +26276,14 @@ function playerTab(v) {
   const stance = (s) => t(`niStance_${s}`);
   const negative = /* @__PURE__ */ new Set(["declined", "deferred", "ooc_suppress"]);
   const strongBtn = (d) => d.stance === "ooc_suppress" ? "" : ` <button class="menu_button" data-act="${d.strong ? "ni-weak" : "ni-strong"}" data-kind="${esc2(d.scopeKind)}" data-ref="${esc2(d.scopeRef)}" title="${esc2(t(d.strong ? "niWeakTip" : "niStrongTip"))}">${esc2(t(d.strong ? "niWeak" : "niStrong"))}</button>`;
-  html += `<h4>${esc2(t("niDecisions"))} ${tip("niDecisionsTip")}</h4><ul class="canon-list">${v.decisions.slice().reverse().map((d) => `<li><b>${esc2(stance(d.stance))}</b> ${esc2(d.label)} <small>${esc2(d.time)}${d.active ? ` \xB7 ${esc2(t("niActive"))}${negative.has(d.stance) ? ` \xB7 ${esc2(t(d.binding ? d.stance === "ooc_suppress" ? "niBindingOoc" : "niBinding" : "niWish"))}` : ""}` : ""}</small>${d.quote ? `<br><small>\u201C${esc2(d.quote)}\u201D</small>` : ""}${d.active && negative.has(d.stance) ? `${strongBtn(d)} <button class="menu_button" data-act="ni-reopen" data-kind="${esc2(d.scopeKind)}" data-ref="${esc2(d.scopeRef)}" data-label="${esc2(d.label)}">${esc2(t("niReopen"))}</button>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
+  const dg = /* @__PURE__ */ new Map();
+  for (const d of v.decisions.slice().reverse()) dg.set(d.scope, [...dg.get(d.scope) || [], d]);
+  const dLine = (d) => `<b>${esc2(stance(d.stance))}</b> <small>${esc2(d.time)}${d.active ? ` \xB7 ${esc2(t("niActive"))}${negative.has(d.stance) ? ` \xB7 ${esc2(t(d.binding ? d.stance === "ooc_suppress" ? "niBindingOoc" : "niBinding" : "niWish"))}` : ""}` : ""}</small>${d.quote ? `<br><small>\u201C${esc2(d.quote)}\u201D</small>` : ""}`;
+  html += `<h4>${esc2(t("niDecisions"))} ${tip("niDecisionsTip")}</h4><ul class="canon-list">${[...dg.values()].map((ds) => {
+    const d = ds.find((x) => x.active) || ds[0];
+    const older = ds.filter((x) => x !== d);
+    return `<li><b>${esc2(d.label)}</b><br>${dLine(d)}${d.active && negative.has(d.stance) ? `${strongBtn(d)} <button class="menu_button" data-act="ni-reopen" data-kind="${esc2(d.scopeKind)}" data-ref="${esc2(d.scopeRef)}" data-label="${esc2(d.label)}">${esc2(t("niReopen"))}</button>` : ""}${older.length ? `<details class="canon-older"><summary><small>${esc2(t("niOlderDecisions").replace("{n}", String(older.length)))}</small></summary>${older.map((o) => `<div>${dLine(o)}</div>`).join("")}</details>` : ""}</li>`;
+  }).join("") || "<li>\u2014</li>"}</ul>`;
   const groups = /* @__PURE__ */ new Map();
   for (const k of v.contacts.slice().reverse()) groups.set(k.scope, [...groups.get(k.scope) || [], k]);
   const contactLine = (k) => `<small>${esc2(k.time)} \xB7 ${esc2(k.kind)}${k.by.length ? ` \xB7 ${esc2(k.by.join(", "))}` : ""}${v.unanswered.includes(k.recordId) ? ` \xB7 ${esc2(t("niUnanswered"))}` : ""}</small><br><small>\u201C${esc2(k.quote)}\u201D</small>`;

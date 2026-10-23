@@ -211,6 +211,7 @@ const D: Record<string, { zh: string; en: string }> = {
   niDecisions: { zh: '你的参与意愿', en: 'Your decisions' },
   niContacts: { zh: '世界已经接触你的', en: 'Contacts that reached you' },
   niOlderContacts: { zh: '更早 {n} 次', en: '{n} earlier' },
+  niOlderDecisions: { zh: '更早 {n} 条', en: '{n} earlier' },
   niMoreSuggestions: { zh: '另外 {n} 种可能', en: '{n} more' },
   niRefresh: { zh: '重新评估', en: 'Re-evaluate' },
   niCurrent: { zh: '进行中', en: 'under way' },

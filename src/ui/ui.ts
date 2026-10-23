@@ -637,7 +637,15 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   const negative = new Set(['declined', 'deferred', 'ooc_suppress']);
   const strongBtn = (d: (typeof v.decisions)[number]) => d.stance === 'ooc_suppress' ? ''
     : ` <button class="menu_button" data-act="${d.strong ? 'ni-weak' : 'ni-strong'}" data-kind="${esc(d.scopeKind)}" data-ref="${esc(d.scopeRef)}" title="${esc(t(d.strong ? 'niWeakTip' : 'niStrongTip'))}">${esc(t(d.strong ? 'niWeak' : 'niStrong'))}</button>`;
-  html += `<h4>${esc(t('niDecisions'))} ${tip('niDecisionsTip')}</h4><ul class="canon-list">${v.decisions.slice().reverse().map((d) => `<li><b>${esc(stance(d.stance))}</b> ${esc(d.label)} <small>${esc(d.time)}${d.active ? ` · ${esc(t('niActive'))}${negative.has(d.stance) ? ` · ${esc(t(d.binding ? (d.stance === 'ooc_suppress' ? 'niBindingOoc' : 'niBinding') : 'niWish'))}` : ''}` : ''}</small>${d.quote ? `<br><small>“${esc(d.quote)}”</small>` : ''}${d.active && negative.has(d.stance) ? `${strongBtn(d)} <button class="menu_button" data-act="ni-reopen" data-kind="${esc(d.scopeKind)}" data-ref="${esc(d.scopeRef)}" data-label="${esc(d.label)}">${esc(t('niReopen'))}</button>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
+  // one entry per matter: the decision in force (else the newest) on top, earlier ones fold underneath
+  const dg = new Map<string, (typeof v.decisions)[number][]>();
+  for (const d of v.decisions.slice().reverse()) dg.set(d.scope, [...(dg.get(d.scope) || []), d]);
+  const dLine = (d: (typeof v.decisions)[number]) => `<b>${esc(stance(d.stance))}</b> <small>${esc(d.time)}${d.active ? ` · ${esc(t('niActive'))}${negative.has(d.stance) ? ` · ${esc(t(d.binding ? (d.stance === 'ooc_suppress' ? 'niBindingOoc' : 'niBinding') : 'niWish'))}` : ''}` : ''}</small>${d.quote ? `<br><small>“${esc(d.quote)}”</small>` : ''}`;
+  html += `<h4>${esc(t('niDecisions'))} ${tip('niDecisionsTip')}</h4><ul class="canon-list">${[...dg.values()].map((ds) => {
+    const d = ds.find((x) => x.active) || ds[0];
+    const older = ds.filter((x) => x !== d);
+    return `<li><b>${esc(d.label)}</b><br>${dLine(d)}${d.active && negative.has(d.stance) ? `${strongBtn(d)} <button class="menu_button" data-act="ni-reopen" data-kind="${esc(d.scopeKind)}" data-ref="${esc(d.scopeRef)}" data-label="${esc(d.label)}">${esc(t('niReopen'))}</button>` : ''}${older.length ? `<details class="canon-older"><summary><small>${esc(t('niOlderDecisions').replace('{n}', String(older.length)))}</small></summary>${older.map((o) => `<div>${dLine(o)}</div>`).join('')}</details>` : ''}</li>`;
+  }).join('') || '<li>—</li>'}</ul>`;
   // one entry per matter (newest first); its earlier contacts fold underneath
   const groups = new Map<string, (typeof v.contacts)[number][]>();
   for (const k of v.contacts.slice().reverse()) groups.set(k.scope, [...(groups.get(k.scope) || []), k]);
