@@ -502,21 +502,36 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
 /** Suggestions kept about one matter: the rest of the list goes to other ways into the story. */
 export const MAX_PER_SCOPE = 2;
 
-export function selectOpportunity(cache: IntegrationCache | null, index: WorldIndex, tick: number, busy: boolean): Opportunity | null {
+/** Events under way right now (begun in play, not yet settled). */
+export function underWayEvents(st: WorldState): Set<Id> {
+  return new Set([...st.occurrences.values()].map((o) => o.inProgressOf).filter((x): x is Id => !!x && !st.dispositions.has(x)));
+}
+
+/** A suggestion about an event under way (or its storyline): the player is already in it. */
+export function aboutUnderWay(o: Pick<Opportunity, 'targetEventId' | 'scopeKind' | 'scopeRef'>, index: WorldIndex, underWay: Set<Id>): boolean {
+  if (o.targetEventId && underWay.has(o.targetEventId)) return true;
+  if (o.scopeKind === 'event') return underWay.has(o.scopeRef);
+  if (o.scopeKind === 'arc') return [...underWay].some((id) => index.pack.events.get(id)?.arc_id === o.scopeRef);
+  return false;
+}
+
+export function selectOpportunity(cache: IntegrationCache | null, index: WorldIndex, tick: number, busy: boolean, preferred: Set<string> = new Set()): Opportunity | null {
   if (!cache) return null;
   const eng = engagementView(index.state, index.pack);
   const pending = unanswered(index.state, tick);
   const ok = cache.opportunities.filter((o) => {
     if (o.latest !== null && o.latest < tick) return false;
     if (o.earliest !== null && o.earliest > tick + OFFER_SOON_MINUTES) return false;
-    if (busy && !o.directImpact) return false;
+    // in the middle of an event only what already reaches the player — or a matter the player marked 优先
+    if (busy && !o.directImpact && !preferred.has(`${o.scopeKind}:${o.scopeRef}`)) return false;
     if (index.state.contacts.some((x) => x.opportunityId === o.id)) return false;
     if (!['hostile', 'consequence'].includes(o.kind) && pending.some((p) => p.scopeKind === o.scopeKind && p.scopeRef === o.scopeRef)) return false;
     const blocked = eng.blockedBy({ eventId: o.targetEventId, scopeKind: o.scopeKind, scopeRef: o.scopeRef, actors: o.actors }, tick);
     if (blocked && !(o.directImpact && (o.kind === 'hostile' || o.kind === 'consequence') && o.basisRefs.some((b) => index.state.occurrences.has(b)))) return false;
     return true;
   });
-  ok.sort((a, b) => Number(b.focus) - Number(a.focus) || Number(b.directImpact) - Number(a.directImpact) || a.priority - b.priority || (a.earliest ?? tick) - (b.earliest ?? tick));
+  const pref = (o: Opportunity) => Number(preferred.has(`${o.scopeKind}:${o.scopeRef}`));
+  ok.sort((a, b) => pref(b) - pref(a) || Number(b.focus) - Number(a.focus) || Number(b.directImpact) - Number(a.directImpact) || a.priority - b.priority || (a.earliest ?? tick) - (b.earliest ?? tick));
   return ok[0] || null;
 }
 

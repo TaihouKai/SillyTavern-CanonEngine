@@ -561,6 +561,10 @@ function renderInspector() {
       if (b.dataset.act === 'close') toggleInspector(false);
       // 叙事融入: identity and "allow contact again" are explicit player decisions
       const act = b.dataset.act;
+      if (act === 'ni-prefer') {
+        (b as HTMLButtonElement).disabled = true;
+        E.togglePreferred(b.dataset.scope || '').then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
+      }
       if (act === 'ni-refresh') {
         (b as HTMLButtonElement).disabled = true;
         b.textContent = t('niBusy');
@@ -644,7 +648,9 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
     const sg = new Map<string, NonNullable<typeof v.suggestions>>();
     for (const s of v.suggestions) sg.set(s.scope, [...(sg.get(s.scope) || []), s]);
     const sLine = (s: NonNullable<typeof v.suggestions>[number]) => `<small>${esc(s.by.join(', '))}: ${esc(s.contact)} (${esc(s.kind)}${s.direct ? ', direct' : ''})</small>`;
-    html += `<h4>${esc(t('niSuggestions'))} <button class="menu_button canon-h4-btn" data-act="ni-refresh" title="${esc(t('niRefreshTip'))}">${esc(t('niRefresh'))}</button></h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc(s.about)}</b><br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc(t('niMoreSuggestions').replace('{n}', String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join('')}</details>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
+    const prefBtn = (s: NonNullable<typeof v.suggestions>[number]) => s.current ? ` <span class="canon-tag">${esc(t('niCurrent'))}</span>`
+      : ` <button class="menu_button" data-act="ni-prefer" data-scope="${esc(s.scope)}" title="${esc(t(s.preferred ? 'niUnpreferTip' : 'niPreferTip'))}">${esc(t(s.preferred ? 'niUnprefer' : 'niPrefer'))}</button>${s.preferred ? ` <span class="canon-tag">${esc(t('niPreferred'))}</span>` : ''}`;
+    html += `<h4>${esc(t('niSuggestions'))} <button class="menu_button canon-h4-btn" data-act="ni-refresh" title="${esc(t('niRefreshTip'))}">${esc(t('niRefresh'))}</button></h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc(s.about)}</b>${prefBtn(s)}<br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc(t('niMoreSuggestions').replace('{n}', String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join('')}</details>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
   }
   if (v.dropped?.length) html += `<h4>${esc(t('niDropped'))}</h4><ul class="canon-list">${v.dropped.map((x) => `<li>${esc(x.id)}: ${esc(x.reason)}</li>`).join('')}</ul>`;
   return html;

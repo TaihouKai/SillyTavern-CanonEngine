@@ -18822,6 +18822,7 @@ Favor involvement: prefer the development that gives the player a part to play; 
 - engagement lists the player's decisions; each covers what its quoted words cover, whatever scope it was filed under (refusing "any \u6697\u90E8 job" also refuses a request of that kind from another \u6697\u90E8 group). Anything declined, deferred or suppressed is off limits for pulling them in \u2014 no other person, channel, news item, friend's plea or invented threat aimed at the same thing. The world itself goes on: harm that already has an actual cause in history (an enemy already hunting them) may still reach them (direct_impact, with basis_refs naming that history). "joined" means the player took part in that thing by their own action; "limited" was a single act and accepts nothing more;
 - recent_contacts were already made: do not repeat one the player has not answered; a follow-up must move it forward;
 - focus events are ones the player wants to experience: give them a plausible way in first;
+- preferred lists matters ("event:id", "arc:id", "faction:id"...) the player lets the world bring to them even while busy with another event: keep a plausible contact for each in the list when one exists;
 - HARD events happen regardless; the player may or may not be part of them.
 Proposing nothing is right when the scene should stay quiet (a date, a fight in progress, daily life with nothing reaching them).
 SHAPE: {"assessments":[{"target":"","classification":"opportunity","reason":""}],"opportunities":[{"ref":"o1","target_event_id":null,"scope_kind":"event","scope_ref":"","scope_label":"","kind":"invitation","direct_impact":false,"actors":[],"motivation":"","knowledge":"","contact":"","establishes":[],"earliest":null,"latest":null,"priority":2,"basis_refs":[]}]}`,
@@ -20857,21 +20858,31 @@ function checkOpportunities(out, index, profile2, candidates, tick) {
   return { valid, dropped };
 }
 var MAX_PER_SCOPE = 2;
-function selectOpportunity(cache, index, tick, busy) {
+function underWayEvents2(st) {
+  return new Set([...st.occurrences.values()].map((o) => o.inProgressOf).filter((x) => !!x && !st.dispositions.has(x)));
+}
+function aboutUnderWay(o, index, underWay) {
+  if (o.targetEventId && underWay.has(o.targetEventId)) return true;
+  if (o.scopeKind === "event") return underWay.has(o.scopeRef);
+  if (o.scopeKind === "arc") return [...underWay].some((id) => index.pack.events.get(id)?.arc_id === o.scopeRef);
+  return false;
+}
+function selectOpportunity(cache, index, tick, busy, preferred = /* @__PURE__ */ new Set()) {
   if (!cache) return null;
   const eng = engagementView(index.state, index.pack);
   const pending = unanswered(index.state, tick);
   const ok = cache.opportunities.filter((o) => {
     if (o.latest !== null && o.latest < tick) return false;
     if (o.earliest !== null && o.earliest > tick + OFFER_SOON_MINUTES) return false;
-    if (busy && !o.directImpact) return false;
+    if (busy && !o.directImpact && !preferred.has(`${o.scopeKind}:${o.scopeRef}`)) return false;
     if (index.state.contacts.some((x) => x.opportunityId === o.id)) return false;
     if (!["hostile", "consequence"].includes(o.kind) && pending.some((p) => p.scopeKind === o.scopeKind && p.scopeRef === o.scopeRef)) return false;
     const blocked = eng.blockedBy({ eventId: o.targetEventId, scopeKind: o.scopeKind, scopeRef: o.scopeRef, actors: o.actors }, tick);
     if (blocked && !(o.directImpact && (o.kind === "hostile" || o.kind === "consequence") && o.basisRefs.some((b) => index.state.occurrences.has(b)))) return false;
     return true;
   });
-  ok.sort((a, b) => Number(b.focus) - Number(a.focus) || Number(b.directImpact) - Number(a.directImpact) || a.priority - b.priority || (a.earliest ?? tick) - (b.earliest ?? tick));
+  const pref = (o) => Number(preferred.has(`${o.scopeKind}:${o.scopeRef}`));
+  ok.sort((a, b) => pref(b) - pref(a) || Number(b.focus) - Number(a.focus) || Number(b.directImpact) - Number(a.directImpact) || a.priority - b.priority || (a.earliest ?? tick) - (b.earliest ?? tick));
   return ok[0] || null;
 }
 function integrationKey(index, profile2, candidates, focus, jumpTo) {
@@ -20952,7 +20963,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.9.3";
+var ENGINE_RELEASE = "1.9.4";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -21433,7 +21444,10 @@ var CanonEngine = class {
     const issue = r.issue;
     const result = r;
     this.current = { replay: result, index: new WorldIndex(pack2, result.state) };
-    if (!issue) this.pruneFocus(c, pack2, result.state);
+    if (!issue) {
+      this.pruneFocus(c, pack2, result.state);
+      this.prunePreferred(c, pack2, result.state);
+    }
     const fingerprintChanged = result.fingerprint !== c.transcriptFingerprint;
     c.ledgerRecords = result.ledger;
     c.manifest = entries.slice(0, issue ? issue.index : entries.length).map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
@@ -22184,7 +22198,7 @@ ${this.ooc(a.userEntry?.text).story}`);
         this.checkFences(fences, excludeLast);
         const eng = engagementView(index.state, pack2);
         const busy = [...index.state.occurrences.values()].some((o) => o.inProgressOf && !index.state.dispositions.has(o.inProgressOf));
-        const offered = prof ? selectOpportunity(integ, index, jumpTo ?? clock, busy) : null;
+        const offered = prof ? selectOpportunity(integ, index, jumpTo ?? clock, busy, new Set(c.preferredScopes || [])) : null;
         const prevGm = (() => {
           for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === "gm") return entries[k];
           return null;
@@ -22501,7 +22515,10 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     const r = replay({ pack: pack2, branchId: c2.branchId, bootstrap: c2.bootstrapRecords, manual: c2.manualRecords, entries, store: c2.interpretations });
     if (r.issue) this.host.log("warn", "post-commit replay issue: " + r.issue.reasons.join("; "));
     this.current = { replay: r, index: new WorldIndex(pack2, r.state) };
-    if (!r.issue) this.pruneFocus(c2, pack2, r.state);
+    if (!r.issue) {
+      this.pruneFocus(c2, pack2, r.state);
+      this.prunePreferred(c2, pack2, r.state);
+    }
     c2.ledgerRecords = r.ledger;
     c2.manifest = entries.map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
     c2.transcriptFingerprint = r.fingerprint;
@@ -22755,6 +22772,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       engagement: eng.lines(tick),
       recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote })),
       focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f).title })),
+      ...c.preferredScopes?.length ? { preferred: c.preferredScopes } : {},
       registry: this.registry(index, `${userEntry?.text || ""} ${candidates.map((x) => x.event.title).join(" ")}`, [...withIds, ...profile2.relationships.map((r) => r.entityId).filter(Boolean)])
     }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 8e3 }), this.settings.taskTimeoutMs * 4, signal);
     const { valid, dropped } = checkOpportunities(out, index, profile2, candidates, tick);
@@ -23171,8 +23189,31 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     });
     if (keep.length !== c.focusEvents.length) c.focusEvents = keep;
   }
+  /** A preferred event that has been settled or whose window has passed is no longer preferred. */
+  prunePreferred(c, pack2, state) {
+    if (!c.preferredScopes?.length) return;
+    const keep = c.preferredScopes.filter((k) => {
+      if (!k.startsWith("event:")) return true;
+      const id = k.slice(6);
+      const t2 = pack2.timeIndex.find((x) => x.id === id);
+      return !state.dispositions.has(id) && (!t2 || t2.hi >= state.clock.lo);
+    });
+    if (keep.length !== c.preferredScopes.length) c.preferredScopes = keep;
+  }
   focusEvents() {
     return new Set(this.campaign()?.focusEvents || []);
+  }
+  /** 优先: let the world bring this matter to the player even while another event is under way (allowed, not required). */
+  async togglePreferred(scope) {
+    const c = this.campaign();
+    if (!c) return false;
+    const cur = new Set(c.preferredScopes || []);
+    const on = !cur.has(scope);
+    if (on) cur.add(scope);
+    else cur.delete(scope);
+    c.preferredScopes = [...cur];
+    await this.host.save();
+    return on;
   }
   /** 整理本局事件: the analysis model groups the player's events (not canon events) into episodes for the
    *  timeline. Display only — history, causes and the GM context are unchanged. Groups are checked here:
@@ -23342,6 +23383,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       const bits = [leader.known && typeof leader.value === "string" ? `${zh ? "\u9996\u9886" : "leader"} ${idx.entityName(leader.value)}` : "", ms.length ? `${zh ? "\u6210\u5458" : "members"} ${ms.map((m) => idx.entityName(m)).join(zh ? "\u3001" : ", ")}` : ""].filter(Boolean);
       return bits.length ? ` [${bits.join(zh ? "\uFF1B" : "; ")}]` : "";
     };
+    const underWay = underWayEvents2(s);
     return {
       profile: prof ? {
         rev: prof.rev,
@@ -23365,7 +23407,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
         return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {};
       })() : {} })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
-      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
+      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: aboutUnderWay(o, idx, underWay), preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null
     };
   }
@@ -24695,6 +24737,12 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niOlderContacts: { zh: "\u66F4\u65E9 {n} \u6B21", en: "{n} earlier" },
   niMoreSuggestions: { zh: "\u53E6\u5916 {n} \u79CD\u53EF\u80FD", en: "{n} more" },
   niRefresh: { zh: "\u91CD\u65B0\u8BC4\u4F30", en: "Re-evaluate" },
+  niCurrent: { zh: "\u8FDB\u884C\u4E2D", en: "under way" },
+  niPrefer: { zh: "\u4F18\u5148", en: "Prefer" },
+  niUnprefer: { zh: "\u53D6\u6D88\u4F18\u5148", en: "Unprefer" },
+  niPreferred: { zh: "\u5DF2\u4F18\u5148", en: "preferred" },
+  niPreferTip: { zh: "\u5141\u8BB8\u4E16\u754C\u628A\u8FD9\u4EF6\u4E8B\u5E26\u5230\u4F60\u9762\u524D\uFF0C\u5373\u4F7F\u4F60\u6B63\u8EAB\u5904\u53E6\u4E00\u4EF6\u8FDB\u884C\u4E2D\u7684\u4E8B\u4EF6\uFF08\u6BD4\u5982\u6253\u6597\u4E2D\u9014\uFF09\u3002\n\u53EA\u662F\u5141\u8BB8\uFF0C\u4E0D\u662F\u8981\u6C42\uFF1AGM \u53EF\u4EE5\u5B89\u6392\uFF0C\u4E5F\u53EF\u4EE5\u4E0D\u5B89\u6392\u3002\n\u8FD9\u4EF6\u4E8B\u7ED3\u675F\u6216\u65F6\u95F4\u8FC7\u53BB\u540E\u81EA\u52A8\u53D6\u6D88\u3002", en: "Let the world bring this to you even while another event is under way (e.g. mid-fight).\nAllowed, not required: the GM may bring it in or leave it.\nCleared automatically when it is over or its time has passed." },
+  niUnpreferTip: { zh: "\u53D6\u6D88\uFF1A\u8FDB\u884C\u4E2D\u7684\u4E8B\u4EF6\u7ED3\u675F\u524D\uFF0CGM \u4E0D\u518D\u7528\u8FD9\u4EF6\u4E8B\u6765\u63A5\u89E6\u4F60\u3002", en: "Undo: while an event is under way, the GM no longer brings this to you." },
   niRefreshTip: { zh: "\u73B0\u5728\u8BA9\u5206\u6790\u6A21\u578B\u91CD\u65B0\u60F3\u4E00\u904D\uFF1A\u4E16\u754C\u63A5\u4E0B\u6765\u53EF\u80FD\u600E\u6837\u63A5\u89E6\u4F60\u3002\u53EA\u662F\u5EFA\u8BAE\uFF0C\u4E0D\u4F1A\u5199\u8FDB\u5386\u53F2\uFF1B\u4E0B\u4E00\u56DE\u5408 GM \u4F1A\u4ECE\u65B0\u7684\u7ED3\u679C\u91CC\u6311\u4E00\u4E2A\u3002\u4F1A\u8C03\u7528\u4E00\u6B21\u5206\u6790\u6A21\u578B\u3002", en: "Ask the analysis model again now how the world may reach you next. Suggestions only, nothing is recorded; the next turn offers the GM one of the new ones. One analysis call." },
   niRefreshDone: { zh: "\u91CD\u65B0\u8BC4\u4F30\u5B8C\u6210\uFF1A{n} \u4E2A\u53EF\u80FD\u63A5\u89E6", en: "Re-evaluated: {n} possible contact(s)" },
   niSuggestions: { zh: "\u5C1A\u672A\u53D1\u751F\u7684\u53EF\u80FD\u63A5\u89E6\uFF08\u5267\u900F\uFF09", en: "Possible contacts not yet made (spoilers)" },
@@ -26142,6 +26190,13 @@ function renderInspector() {
       }
       if (b.dataset.act === "close") toggleInspector(false);
       const act = b.dataset.act;
+      if (act === "ni-prefer") {
+        b.disabled = true;
+        E.togglePreferred(b.dataset.scope || "").then(() => renderInspector()).catch((e) => {
+          toast("error", e.message);
+          renderInspector();
+        });
+      }
       if (act === "ni-refresh") {
         b.disabled = true;
         b.textContent = t("niBusy");
@@ -26229,7 +26284,8 @@ function playerTab(v) {
     const sg = /* @__PURE__ */ new Map();
     for (const s of v.suggestions) sg.set(s.scope, [...sg.get(s.scope) || [], s]);
     const sLine = (s) => `<small>${esc2(s.by.join(", "))}: ${esc2(s.contact)} (${esc2(s.kind)}${s.direct ? ", direct" : ""})</small>`;
-    html += `<h4>${esc2(t("niSuggestions"))} <button class="menu_button canon-h4-btn" data-act="ni-refresh" title="${esc2(t("niRefreshTip"))}">${esc2(t("niRefresh"))}</button></h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc2(s.about)}</b><br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc2(t("niMoreSuggestions").replace("{n}", String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
+    const prefBtn = (s) => s.current ? ` <span class="canon-tag">${esc2(t("niCurrent"))}</span>` : ` <button class="menu_button" data-act="ni-prefer" data-scope="${esc2(s.scope)}" title="${esc2(t(s.preferred ? "niUnpreferTip" : "niPreferTip"))}">${esc2(t(s.preferred ? "niUnprefer" : "niPrefer"))}</button>${s.preferred ? ` <span class="canon-tag">${esc2(t("niPreferred"))}</span>` : ""}`;
+    html += `<h4>${esc2(t("niSuggestions"))} <button class="menu_button canon-h4-btn" data-act="ni-refresh" title="${esc2(t("niRefreshTip"))}">${esc2(t("niRefresh"))}</button></h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc2(s.about)}</b>${prefBtn(s)}<br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc2(t("niMoreSuggestions").replace("{n}", String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
   }
   if (v.dropped?.length) html += `<h4>${esc2(t("niDropped"))}</h4><ul class="canon-list">${v.dropped.map((x) => `<li>${esc2(x.id)}: ${esc2(x.reason)}</li>`).join("")}</ul>`;
   return html;

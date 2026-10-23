@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.4 — 2026-10-23
+
+- **优先 for other matters.** While an event is under way only contacts that already reach the player (direct) are offered to the GM, so nobody drags the player into something else mid-fight. In 尚未发生的可能接触 the event under way is tagged 进行中, and every other matter gets a 优先 button: a preferred matter may be offered to the GM even then, and is offered first otherwise. Allowed, never required (the GM's world reaction stays optional). The world-reaction step is told to keep a contact for each preferred matter. Preferred events are cleared when settled or past their window; 取消优先 undoes it.
+- Tests: NI-43.
+
 ## 1.9.3 — 2026-10-23
 
 - **重新评估 button** beside 尚未发生的可能接触: asks the world-reaction step again now, although nothing it depends on changed (one analysis call). Suggestions only: nothing is recorded; the next turn offers the GM one of the new ones. The status bar shows it while it runs, and a reply cannot start meanwhile.

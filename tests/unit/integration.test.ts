@@ -558,3 +558,28 @@ describe('re-evaluate possible contacts', () => {
     expect(x.engine.isBusy()).toBe(false);
   });
 });
+
+describe('preferred matters', () => {
+  it('NI-43 while an event is under way only direct contacts reach the GM, unless the player marked another matter 优先 (allowed, not required)', async () => {
+    expect(PROMPTS.integrate).toMatch(/preferred lists matters[^]*even while busy with another event/);
+    const x = await setup({ integrate: { assessments: [], opportunities: [
+      OPP({ ref: 'a', kind: 'encounter', direct_impact: true, contact: 'a Council guard blocks the road' }),
+      OPP({ ref: 'u', kind: 'invitation', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the Union invites Vera to a meeting' }),
+    ] } });
+    const ambush = { scene_end: at(1, 10, 0), occurrences: [occ('o1', 'Ambush on the road', 'Bolts start flying', { pack_event_id: 'medic-ambush', disposition: 'ongoing', actors: ['mira'] })] };
+    await turn(x, 'I follow Mira onto the road.', 'At 10:00 Bolts start flying. [P1]', ambush);
+    await turn(x, 'I duck behind the cart.', 'Bolts hit the cart. [P2]');
+    expect(lastCtx(x)).toMatch(/WORLD REACTION \(optional[^]*a Council guard blocks the road/);
+    const v = x.engine.integrationView(true)!;
+    expect(v.suggestions!.map((s) => [s.scope, s.current, s.preferred])).toEqual([['event:medic-ambush', true, false], ['faction:union', false, false]]);
+    expect(await x.engine.togglePreferred('faction:union')).toBe(true);
+    await turn(x, 'I keep my head down.', 'More bolts. [P3]');
+    expect(lastCtx(x)).toMatch(/WORLD REACTION \(optional[^]*not using it is fine[^]*the Union invites Vera to a meeting/);
+    expect(x.engine.integrationView(true)!.suggestions!.find((s) => s.scope === 'faction:union')!.preferred).toBe(true);
+    await x.engine.refreshIntegration();
+    expect(x.model.tasks('integrate').slice(-1)[0].input.preferred).toEqual(['faction:union']);
+    expect(await x.engine.togglePreferred('faction:union')).toBe(false);
+    await turn(x, 'I wait.', 'Silence. [P4]');
+    expect(lastCtx(x)).not.toMatch(/the Union invites Vera/);
+  });
+});

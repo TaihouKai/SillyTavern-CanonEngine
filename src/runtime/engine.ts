@@ -20,7 +20,7 @@ import { matchScope, runGate, type EvalOutput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { aboutUnderWay, underWayEvents, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
@@ -511,7 +511,7 @@ export class CanonEngine {
     const issue = r!.issue;
     const result = r!;
     this.current = { replay: result, index: new WorldIndex(pack, result.state) };
-    if (!issue) this.pruneFocus(c, pack, result.state);
+    if (!issue) { this.pruneFocus(c, pack, result.state); this.prunePreferred(c, pack, result.state); }
     const fingerprintChanged = result.fingerprint !== c.transcriptFingerprint;
     c.ledgerRecords = result.ledger;
     c.manifest = entries.slice(0, issue ? issue.index : entries.length).map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
@@ -1196,7 +1196,7 @@ export class CanonEngine {
         const busy = [...index.state.occurrences.values()].some((o) => o.inProgressOf && !index.state.dispositions.has(o.inProgressOf));
         // after a time jump the scene happens where the jump lands (live: news possible from 08:00 was never offered
         // on the turn that slept until 08:00, measured from 23:15)
-        const offered: Opportunity | null = prof ? selectOpportunity(integ, index, jumpTo ?? clock, busy) : null;
+        const offered: Opportunity | null = prof ? selectOpportunity(integ, index, jumpTo ?? clock, busy, new Set(c.preferredScopes || [])) : null;
 
         // Pre-generation retrieval: user references + scene + causal seeds + semantic expansion
         const prevGm = (() => { for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === 'gm') return entries[k]; return null; })();
@@ -1462,7 +1462,7 @@ export class CanonEngine {
     const r = replay({ pack, branchId: c2.branchId, bootstrap: c2.bootstrapRecords, manual: c2.manualRecords, entries, store: c2.interpretations });
     if (r.issue) this.host.log('warn', 'post-commit replay issue: ' + r.issue.reasons.join('; '));
     this.current = { replay: r, index: new WorldIndex(pack, r.state) };
-    if (!r.issue) this.pruneFocus(c2, pack, r.state);
+    if (!r.issue) { this.pruneFocus(c2, pack, r.state); this.prunePreferred(c2, pack, r.state); }
     c2.ledgerRecords = r.ledger;
     c2.manifest = entries.map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
     c2.transcriptFingerprint = r.fingerprint;
@@ -1720,6 +1720,7 @@ export class CanonEngine {
       engagement: eng.lines(tick),
       recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote })),
       focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f)!.title })),
+      ...(c.preferredScopes?.length ? { preferred: c.preferredScopes } : {}),
       registry: this.registry(index, `${userEntry?.text || ''} ${candidates.map((x) => x.event.title).join(' ')}`, [...withIds, ...profile.relationships.map((r) => r.entityId).filter(Boolean) as Id[]]),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 8000 }), this.settings.taskTimeoutMs * 4, signal);
     const { valid, dropped } = checkOpportunities(out, index, profile, candidates, tick);
@@ -2122,7 +2123,26 @@ export class CanonEngine {
     if (keep.length !== c.focusEvents.length) c.focusEvents = keep;
   }
 
+  /** A preferred event that has been settled or whose window has passed is no longer preferred. */
+  private prunePreferred(c: CampaignData, pack: LoadedPack, state: WorldState) {
+    if (!c.preferredScopes?.length) return;
+    const keep = c.preferredScopes.filter((k) => { if (!k.startsWith('event:')) return true; const id = k.slice(6); const t = pack.timeIndex.find((x) => x.id === id); return !state.dispositions.has(id) && (!t || t.hi >= state.clock.lo); });
+    if (keep.length !== c.preferredScopes.length) c.preferredScopes = keep;
+  }
+
   focusEvents(): Set<Id> { return new Set(this.campaign()?.focusEvents || []); }
+
+  /** 优先: let the world bring this matter to the player even while another event is under way (allowed, not required). */
+  async togglePreferred(scope: string): Promise<boolean> {
+    const c = this.campaign();
+    if (!c) return false;
+    const cur = new Set(c.preferredScopes || []);
+    const on = !cur.has(scope);
+    if (on) cur.add(scope); else cur.delete(scope);
+    c.preferredScopes = [...cur];
+    await this.host.save();
+    return on;
+  }
 
   /** 整理本局事件: the analysis model groups the player's events (not canon events) into episodes for the
    *  timeline. Display only — history, causes and the GM context are unchanged. Groups are checked here:
@@ -2297,6 +2317,7 @@ export class CanonEngine {
       const bits = [leader.known && typeof leader.value === 'string' ? `${zh ? '首领' : 'leader'} ${idx.entityName(leader.value)}` : '', ms.length ? `${zh ? '成员' : 'members'} ${ms.map((m) => idx.entityName(m)).join(zh ? '、' : ', ')}` : ''].filter(Boolean);
       return bits.length ? ` [${bits.join(zh ? '；' : '; ')}]` : '';
     };
+    const underWay = underWayEvents(s);
     return {
       profile: prof ? {
         rev: prof.rev, name: prof.profile.personaName, chars: prof.profile.personaText.length, source: prof.profile.source, lore: prof.profile.lore || [],
@@ -2312,7 +2333,7 @@ export class CanonEngine {
       // contacts filed as a free storyline before 1.8.1 are grouped with the event or matter they name
       contacts: s.contacts.map((k) => ({ ...k, ...(k.scopeKind === 'storyline' ? (() => { const m = matchScope(idx.pack, s.contacts, k.scopeLabel); return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {}; })() : {}) })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
-      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
+      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: aboutUnderWay(o, idx, underWay), preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null,
     };
   }
