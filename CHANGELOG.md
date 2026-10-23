@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.1 — 2026-10-23
+
+- **How an action the player wrote is carried out belongs to that action.** Live: the player wrote "走一路烧一路魔法陷阱" with skills and combat left to the player; the reviewer authorized the burning, then sent the reply back because the incantation and the fire were "player-only skills the player had not specified". The reviewer is told that the means of an authorized act (the spell, its incantation, what it looks like; the exact words of a line whose gist the player gave) are authorized and never need spelling out, and the controller drops a free-text complaint about an act the reviewer itself marked as authorized.
+- Tests: PV9.
+
 ## 1.9.0 — 2026-10-23
 
 - **OOC keyword (setting, default `OOC`).** Parts of the player's message marked with it — `(OOC: …)`, `（OOC：…）`, `[OOC …]`, `【OOC：…】`, or a line starting with `OOC:` — are out-of-character directions for the next reply, e.g. "(OOC: if C happens, I do D)". Requested: the GM should simply have the player character do D when C happens, never narrate "the player is considering: if C, then D".

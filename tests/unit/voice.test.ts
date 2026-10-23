@@ -108,4 +108,20 @@ describe('what the GM may write for the player character', () => {
     expect(p).toMatch(/unsupported \(asserts that something HAPPENED[^)]*notable event/);
     expect(p).toMatch(/Not a violation: the world going on around them, an everyday favour or remark that does not ask the player to go to, do or join the declined thing/);
   });
+
+  it('PV9 how an authorized act is done (the spell, its incantation) is the player\'s act even when skills are player-only (live: "走一路烧一路魔法陷阱")', async () => {
+    expect(PROMPTS.evaluate).toMatch(/and HOW it is done[^]*the spell, its incantation[^]*Never require the player to have specified such details/);
+    expect(PROMPTS.evaluate).toMatch(/an act carrying out what the player wrote — with its means, incantation or exact words — is never a violation/);
+    const x = await setup(); // default: skills and combat are left to the player
+    x.engine.settings.debug = true; // keeps the non-blocking notes in the trace
+    x.host.addUser('我往北走，走一路烧一路魔法陷阱。');
+    x.model.draft('她抬起右手。“吾主在火中降临！”银白色的火焰烧过陷阱。 [V20]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[V20]'), {
+      player_actions: [{ quote: '“吾主在火中降临！”银白色的火焰烧过陷阱', authorized_by_quote: '走一路烧一路魔法陷阱', category: 'skills' }],
+      violations: [{ code: 'player_voice', quote: '“吾主在火中降临！”', detail: '玩家只写了“走一路烧一路魔法陷阱”，未指定咏唱词；具体咏唱与施术描写属玩家专属的技能类，此处由 GM 代写。', blocking: true }],
+    });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.model.tasks('draft')).toHaveLength(1); // no repair
+    expect(x.engine.lastTrace!.attempts[0].warnings!.join(' ')).toMatch(/the player's message authorizes \("走一路烧一路魔法陷阱"\) ignored/);
+  });
 });
