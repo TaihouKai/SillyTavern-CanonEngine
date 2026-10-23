@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.0 — 2026-10-23
+
+- **OOC keyword (setting, default `OOC`).** Parts of the player's message marked with it — `(OOC: …)`, `（OOC：…）`, `[OOC …]`, `【OOC：…】`, or a line starting with `OOC:` — are out-of-character directions for the next reply, e.g. "(OOC: if C happens, I do D)". Requested: the GM should simply have the player character do D when C happens, never narrate "the player is considering: if C, then D".
+  - The story model never sees the OOC text in its chat history (this turn's or earlier ones; the saved message is unchanged). For the reply it was written for, it gets a hidden note: apply silently, a conditional takes effect only when its condition happens, do not arrange the scene to make it happen.
+  - The reviewer gets the directions separately from the player's action scope: an act carrying one out is the player's own (not limited by the player-voice setting) only when its condition happened in the reply; narration that reveals or paraphrases them, or shows the character weighing them, is sent back (`ooc_leak`).
+  - The message reader is told which parts are OOC: they are never read as the player character's actions, lines or intents (new statement kind `ooc_direction`); OOC suppression, time skips and config requests in them work as before. Time stated only in an OOC part does not move the clock.
+  - Empty keyword = off. Directions last for one reply (including regenerations and swipes).
+- Tests: OOC1–OOC5, e2e I15.
+
 ## 1.8.1 — 2026-10-23
 
 - **One entry per matter in 世界已经接触你的.** Contacts about the same thing are grouped: the newest is shown, and the earlier ones fold underneath (更早 n 次). Each contact is still its own record, tied to the message it happened in, so swipes, edits and branches stay correct.

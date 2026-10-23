@@ -23,6 +23,7 @@ import type { Banner, Binding, CampaignData, CoverageManifest, Fences, Integrati
 import { buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
+import { oocNote, splitOoc } from './ooc';
 
 export interface EngineSettings {
   maxOrdinaryPlanner: number;
@@ -59,6 +60,8 @@ export interface EngineSettings {
   ignorePersonaSections: boolean;
   /** What the GM may write for the player character (dialogue, reactions, small actions...; see voice.ts). */
   playerVoice: PlayerVoice;
+  /** Marks out-of-character parts of the player's message ("(OOC: if A, then B)"); '' = no OOC parsing. */
+  oocKeyword: string;
 }
 
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
@@ -97,6 +100,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   sceneGrouping: false,
   ignorePersonaSections: false,
   playerVoice: { ...DEFAULT_PLAYER_VOICE },
+  oocKeyword: 'OOC',
 };
 
 export type OpPhase = 'idle' | 'reconciling' | 'planning' | 'generating' | 'validating' | 'committing' | 'error' | 'conflict' | 'disabled';
@@ -200,6 +204,13 @@ export class CanonEngine {
   /** Discovery result per (operation, text): re-reviewing the same draft against staged history reuses it. */
   private discCache = new Map<string, DiscoverOut>();
   private gmRules(): string { return gmRulesFor(playerVoice(this.settings.playerVoice)); }
+  /** The player's message split into what the player character says and does, and its OOC directions. */
+  private ooc(text: string | undefined) { return splitOoc(text || '', this.settings.oocKeyword); }
+  /** GM context: the rules, the packet, and this turn's OOC directions as a hidden note. */
+  private gmContext(packetText: string, userText: string | undefined): string {
+    const note = oocNote(this.ooc(userText).ooc);
+    return this.gmRules() + '\n\n' + packetText + (note ? '\n\n' + note : '');
+  }
   private lengthNote(): string {
     const len = String(this.settings.replyLength || '').trim();
     return len ? replyLengthNote(len) : '';
@@ -623,8 +634,10 @@ export class CanonEngine {
     // The identity this message was written with (an older message is never read with a newer Persona).
     const prof = this.profileFor(entry);
     const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.persona();
+    const oocParts = this.ooc(entry.text).ooc;
     const out = await this.withTimeout(callStructured<ExtractUserOut>(this.host.model, 'extract_user', PROMPTS.extract_user, {
       message: entry.text,
+      ...(oocParts.length ? { ooc_parts: oocParts } : {}),
       persona,
       current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
       registry: this.registry(index, entry.text, prof ? [prof.profile.playerId] : []),
@@ -642,6 +655,9 @@ export class CanonEngine {
     const due = pendingHard(pack, index.state).filter((h) => h.hi <= tick);
     for (const s of out.statements) {
       if (!quoteInText(s.quote, entry.text)) { warnings.push(`statement ignored (quote not found): ${s.summary}`); continue; }
+      // an OOC direction ("if C, then D") is not something the player character does or says, and never an intent
+      // shown to the GM as story (the GM gets it as a hidden note)
+      if (s.kind === 'ooc_direction' || (['attempted_action', 'spoken_dialogue', 'hypothetical', 'belief'].includes(s.kind) && oocParts.some((o) => quoteInText(s.quote, o)))) continue;
       const src = [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [{ quote: s.quote }] }];
       if (s.kind === 'asserted_fact' && !s.ambiguous) {
         const deltas = [];
@@ -836,7 +852,7 @@ export class CanonEngine {
     // deterministic name matching below instead of failing the turn; the review itself stays strict.
     const disc = this.discCache.get(discKey) || this.rememberDiscovery(discKey, await this.withTimeout(callStructured<DiscoverOut>(this.host.model, 'discover', PROMPTS.discover, {
       text: a.text,
-      scene_framing: a.userEntry ? `Player input: ${a.userEntry.text}` : '',
+      scene_framing: a.userEntry ? `Player input: ${this.ooc(a.userEntry.text).story}` : '',
       registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), a.sceneSeeds),
       occurrences: this.occurrenceCatalogue(index, a.text + ' ' + (a.userEntry?.text || '')),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal).catch((e) => {
@@ -870,7 +886,7 @@ export class CanonEngine {
     });
     const packet = buildPacket({
       pack, index, retrieval, checkpointTick: Math.max(tick, a.expectedEnd ?? tick), origin: this.campaign()?.binding.originDate || null, sceneLabel: '',
-      playerScope: a.userEntry ? [a.userEntry.text] : [], plan: a.plan, forced: a.forced, stagedNotes: a.stagedNotes, opportunities: [], budgetChars: this.settings.budgetChars * 2, review: true,
+      playerScope: a.userEntry ? [this.ooc(a.userEntry.text).story] : [], plan: a.plan, forced: a.forced, stagedNotes: a.stagedNotes, opportunities: [], budgetChars: this.settings.budgetChars * 2, review: true,
       horizon: this.settings.horizonMinutes,
       // the reviewer needs the player's presence and decisions as required context (review mode drops optional parts)
       presence: prof ? presenceSection(index, prof.profile, tick) : undefined,
@@ -880,7 +896,8 @@ export class CanonEngine {
     const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', PROMPTS.evaluate, {
       mode: a.mode,
       candidate: a.text,
-      player_action_scope: a.userEntry ? a.userEntry.text : '',
+      player_action_scope: a.userEntry ? this.ooc(a.userEntry.text).story : '',
+      ...(a.userEntry && this.ooc(a.userEntry.text).ooc.length ? { player_ooc_instructions: this.ooc(a.userEntry.text).ooc } : {}),
       current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...(a.mode !== 'retained' ? this.horaeTimeHint() : {}),
       retrieved_context: packet.text,
@@ -906,7 +923,7 @@ export class CanonEngine {
     // floor next turn: a reply whose text and player message say nothing about time advances at most
     // UNTIMED_ADVANCE_MAX (live finding: 12:10 -> 14:43 over 11 short continuous replies, +20–40 min each);
     // a reply stating durations ("走了十分钟") may add those on top. A clock time or a time jump lifts the cap.
-    const stated = statedTime(`${a.text}\n${a.userEntry?.text || ''}`);
+    const stated = statedTime(`${a.text}\n${this.ooc(a.userEntry?.text).story}`);
     if (evaluation.scene_end && !evaluation.flashback && !stated.anchored) {
       const lo = toTick(evaluation.scene_end.lo), cap = tick + stated.minutes + UNTIMED_ADVANCE_MAX;
       if (lo > cap) {
@@ -1203,7 +1220,7 @@ export class CanonEngine {
         const sceneLabel = [horaeScene?.location ? `Location (Horae, supporting): ${horaeScene.location}.` : '', horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(', ')}.` : '', horaeNote].filter(Boolean).join(' ');
         const packetArgs = {
           pack, index, retrieval, checkpointTick: ctxClock, origin: c.binding.originDate, sceneLabel,
-          playerScope: fresh ? [userEntry!.text, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
+          playerScope: fresh ? [this.ooc(userEntry!.text).story, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
           plan, forced: planInfo.forced, stagedNotes: [] as string[], opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`), focus: legacy ? this.focusLines(index, clock) : [], budgetChars: this.settings.budgetChars, horizon: this.settings.horizonMinutes,
           timeJumpTo: jumpTo,
           presence: prof ? presenceSection(index, prof.profile, ctxClock) : undefined,
@@ -1211,7 +1228,7 @@ export class CanonEngine {
           reaction: offered ? worldReactionSection(index, offered, c.binding.originDate) : undefined,
         };
         let packet = buildPacket(packetArgs);
-        const engineContext = this.gmRules() + '\n\n' + packet.text;
+        const engineContext = this.gmContext(packet.text, userEntry?.text);
         const loreNames = uniq([...(offered?.actors || []).map((a) => index.entityName(a)), ...this.loreNames(index, retrieval, plan)]).slice(0, 16);
 
         // Draft (private)
@@ -1297,7 +1314,7 @@ export class CanonEngine {
             packet = buildPacket(packetArgs);
             this.rejects.push(`repair: kept after a fix: the records the rejected draft added did not fit the context budget; repaired with the draft's context`);
           }
-          const repairCtx = this.gmRules() + '\n\n' + packet.text;
+          const repairCtx = this.gmContext(packet.text, userEntry?.text);
           trace.prompts.push({ kind: hardStuck ? 'repair_hard_last_resort' : `repair_${attempt + 1}`, text: repairCtx });
           const replyEnd = Math.max(review.gate.sceneEnd?.hi ?? clock, clock);
           const hardReqs = hardStuck ? pendingHard(pack, index.state)
@@ -1310,7 +1327,7 @@ export class CanonEngine {
             const c = this.campaign()!;
             (c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors = uniq([...((c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors || []), ...anchors]);
             this.setStatus('planning', 'Planning a route for the HARD event…');
-            const situation = `${this.recentSituation(index)}\nCurrent turn — player input: ${userEntry?.text || '(none)'}\nWhy the drafts were rejected: ${violations.slice(0, 4).join(' | ')}`;
+            const situation = `${this.recentSituation(index)}\nCurrent turn — player input: ${this.ooc(userEntry?.text).story || '(none)'}\nWhy the drafts were rejected: ${violations.slice(0, 4).join(' | ')}`;
             planInfo = await this.ensurePlan(index, abort.signal, operationId, { force: true, situation }).catch((e) => { if (e instanceof EngineError && e.kind === 'cancelled') throw e; return planInfo; });
             plan = planInfo.plan;
             packetArgs.plan = plan; packetArgs.forced = planInfo.forced;
@@ -1677,7 +1694,7 @@ export class CanonEngine {
     const out = await this.withTimeout(callStructured<IntegrateOut>(this.host.model, 'integrate', PROMPTS.integrate, {
       now: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...(jumpTo ? { time_jump_to: formatTick(jumpTo) } : {}),
-      player_input: userEntry?.text || '',
+      player_input: this.ooc(userEntry?.text).story,
       recent_scene: this.recentSituation(index),
       player: playerContext(index, profile, tick, { historyWith: withIds }),
       candidate_events: candidates.map((x) => candidateInput(index, x, tick, eng.blockedBy({ eventId: x.event.id }, tick))),

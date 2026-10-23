@@ -8,6 +8,7 @@ import { CHAT_PROFILE, mountUi, refreshUi, renderMessageDecorations, t } from '.
 import type { OpType } from './runtime/types';
 import { ENGINE_RELEASE } from './runtime/types';
 import { deepClone } from './domain/util';
+import { storyOnly } from './runtime/ooc';
 import { notifyDone, primeNotifications } from './ui/notify';
 import { listLibrary, loadFromLibrary } from './ui/library';
 
@@ -53,6 +54,10 @@ async function interceptor(chat: any[], _contextSize: number, abort: (immediate:
     if (gen.draft) {
       // Our private draft: operation-scoped projection (the replaced swipe is not established history).
       if (gen.draft.excludeLastAssistant && chat.length && !chat[chat.length - 1].is_user) chat.pop();
+      // OOC parts of the player's messages are not story text: the story model gets this turn's as a hidden note
+      // (engine context) and never sees them in the history (the chat items here are copies; the saved chat is unchanged)
+      const kw = engine?.settings.oocKeyword || '';
+      if (kw) for (const m of chat) if (m?.is_user && typeof m.mes === 'string') m.mes = storyOnly(m.mes, kw);
       return;
     }
     if (!engine || !engine.isActive()) return;

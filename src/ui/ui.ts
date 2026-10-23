@@ -229,6 +229,7 @@ function renderSettings() {
   // ---- model and replies
   out.push(card(t('secModel'), '', profileField(s.taskProfileId || '') +
     field(t('replyLength'), 'replyLengthTip', `<input type="text" class="text_pole" data-set="replyLength" value="${esc(String(s.replyLength || ''))}" placeholder="${esc(t('replyLengthPlaceholder'))}">`, t('replyLengthShort')) +
+    field(t('oocKeyword'), 'oocKeywordTip', `<input type="text" class="text_pole" data-set="oocKeyword" value="${esc(String(s.oocKeyword ?? 'OOC'))}" placeholder="OOC">`, t('oocKeywordShort')) +
     check('notifyDone', s.notifyDone !== false, t('notifyDone'), 'notifyDoneTip') +
     (s.notifyDone !== false ? check('notifySound', s.notifySound !== false, t('notifySound'), 'notifySoundTip') + notifyNote() : '')));
 

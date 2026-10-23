@@ -13,6 +13,7 @@
        "spoken_dialogue",
        "belief",
        "hypothetical",
+       "ooc_direction",
        "ooc_config_request",
        "time_proposal",
        "participation_decline",

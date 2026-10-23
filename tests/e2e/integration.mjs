@@ -78,6 +78,19 @@ try {
     const al = await auxLogs();
     check(results, 'I03 Horae analyzes only the accepted text', al.length >= 1 && al.every((a) => a.story.includes('端来热茶')), al.map((a) => a.story.slice(0, 30)).join('|'));
     await page.evaluate(async () => { await SillyTavern.getContext().executeSlashCommandsWithOptions('/note'); });
+
+    // OOC parts of the player's message: not in the story model's chat history (this turn's nor earlier ones), only
+    // in the hidden note of the turn they were written for; the saved message keeps them
+    await mock('/control', { mainQueue: ['她点点头，把茶杯推到你面前。', '雨停了。'], clearLogs: true });
+    await send(page, '我接过茶。（OOC：如果她提到 OOC_MARK_91，我就笑一下）');
+    const om = (await mainLogs())[0];
+    const userText = (m) => (m.messages || []).filter((x) => x.role === 'user').map((x) => typeof x.content === 'string' ? x.content : JSON.stringify(x.content)).join('\n');
+    const sysText = (m) => (m.messages || []).filter((x) => x.role === 'system').map((x) => typeof x.content === 'string' ? x.content : JSON.stringify(x.content)).join('\n');
+    check(results, 'I15 OOC: the story model gets the direction only as a hidden note; the player message it sees has no OOC part; the saved message is unchanged', !!om && userText(om).includes('我接过茶。') && !userText(om).includes('OOC_MARK_91') && /OUT-OF-CHARACTER INSTRUCTIONS[^]*OOC_MARK_91/.test(sysText(om)) && (await chat(page)).some((m) => m.is_user && m.mes.includes('OOC_MARK_91')));
+    await mock('/control', { clearLogs: true });
+    await send(page, '我看向窗外。');
+    const om2 = (await mainLogs())[0];
+    check(results, 'I15 OOC: the next turn carries no OOC text at all (history stripped, no note)', !!om2 && !promptText(om2).includes('OOC_MARK_91') && !promptText(om2).includes('OUT-OF-CHARACTER'));
   }
 
   // ---------------------------------------------------------------------------------------------

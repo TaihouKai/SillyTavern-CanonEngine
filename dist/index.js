@@ -9777,7 +9777,7 @@ function validate55(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate55.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 var extract_user = validate56;
-var schema83 = { "type": "object", "properties": { "statements": { "type": "array", "items": { "type": "object", "properties": { "kind": { "enum": ["asserted_fact", "attempted_action", "spoken_dialogue", "belief", "hypothetical", "ooc_config_request", "time_proposal", "participation_decline", "engagement"] }, "quote": { "type": "string" }, "summary": { "type": "string" }, "entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "facts": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "event_id": { "type": ["string", "null"] }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "ambiguous": { "type": "boolean" }, "stance": { "oneOf": [{ "type": "null" }, { "enum": ["declined", "deferred", "accepted", "joined", "limited", "ooc_suppress", "reopened"] }] }, "scope_kind": { "oneOf": [{ "type": "null" }, { "enum": ["event", "arc", "faction", "contact", "storyline"] }] }, "scope_ref": { "type": ["string", "null"], "maxLength": 200 }, "scope_label": { "type": ["string", "null"], "maxLength": 300 }, "until": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["kind", "quote", "summary"], "additionalProperties": false }, "maxItems": 200 }, "references": { "type": "array", "items": { "type": "object", "properties": { "phrase": { "type": "string" }, "quote": { "type": "string" }, "kind": { "enum": ["entity", "event"] }, "mode": { "enum": ["direct", "indirect", "alias", "pronoun"] }, "candidates": { "type": "array", "items": { "type": "string" }, "maxItems": 200 } }, "required": ["phrase", "quote", "kind"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 } }, "required": ["statements", "references"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:extract-user", "title": "Canon Engine task output: extract-user" };
+var schema83 = { "type": "object", "properties": { "statements": { "type": "array", "items": { "type": "object", "properties": { "kind": { "enum": ["asserted_fact", "attempted_action", "spoken_dialogue", "belief", "hypothetical", "ooc_direction", "ooc_config_request", "time_proposal", "participation_decline", "engagement"] }, "quote": { "type": "string" }, "summary": { "type": "string" }, "entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "facts": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "event_id": { "type": ["string", "null"] }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "ambiguous": { "type": "boolean" }, "stance": { "oneOf": [{ "type": "null" }, { "enum": ["declined", "deferred", "accepted", "joined", "limited", "ooc_suppress", "reopened"] }] }, "scope_kind": { "oneOf": [{ "type": "null" }, { "enum": ["event", "arc", "faction", "contact", "storyline"] }] }, "scope_ref": { "type": ["string", "null"], "maxLength": 200 }, "scope_label": { "type": ["string", "null"], "maxLength": 300 }, "until": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["kind", "quote", "summary"], "additionalProperties": false }, "maxItems": 200 }, "references": { "type": "array", "items": { "type": "object", "properties": { "phrase": { "type": "string" }, "quote": { "type": "string" }, "kind": { "enum": ["entity", "event"] }, "mode": { "enum": ["direct", "indirect", "alias", "pronoun"] }, "candidates": { "type": "array", "items": { "type": "string" }, "maxItems": 200 } }, "required": ["phrase", "quote", "kind"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 } }, "required": ["statements", "references"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:extract-user", "title": "Canon Engine task output: extract-user" };
 function validate56(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -9875,7 +9875,7 @@ function validate56(data, { instancePath = "", parentData, parentDataProperty, r
             }
             if (data1.kind !== void 0) {
               let data2 = data1.kind;
-              if (!(data2 === "asserted_fact" || data2 === "attempted_action" || data2 === "spoken_dialogue" || data2 === "belief" || data2 === "hypothetical" || data2 === "ooc_config_request" || data2 === "time_proposal" || data2 === "participation_decline" || data2 === "engagement")) {
+              if (!(data2 === "asserted_fact" || data2 === "attempted_action" || data2 === "spoken_dialogue" || data2 === "belief" || data2 === "hypothetical" || data2 === "ooc_direction" || data2 === "ooc_config_request" || data2 === "time_proposal" || data2 === "participation_decline" || data2 === "engagement")) {
                 const err8 = { instancePath: instancePath + "/statements/" + i0 + "/kind", schemaPath: "#/properties/statements/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema83.properties.statements.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err8];
@@ -16077,6 +16077,7 @@ var extract_user_schema_default = {
               "spoken_dialogue",
               "belief",
               "hypothetical",
+              "ooc_direction",
               "ooc_config_request",
               "time_proposal",
               "participation_decline",
@@ -18753,10 +18754,11 @@ TASK: Classify the user's latest message (the player's input to a text adventure
 For each meaningful statement give kind:
 - asserted_fact: the user explicitly establishes an environmental/world fact (authoritative under the GM's input convention). Put typed facts in "facts" using registry entity ids and predicates when they map exactly; otherwise leave facts empty.
 - attempted_action: the player tries to do something (outcome NOT established: "I attack her" does not mean she died).
-- spoken_dialogue, belief, hypothetical ("if she died..."), ooc_config_request (out-of-character requests to change engine/pack/rules), time_proposal (explicit time skip/sleep "until morning", "three hours later", "skip to the evening"; give "time" = the absolute story time {day, minute} the skip ends at, computed from current_time; when only a part of day is given use a typical hour: morning 07:00, noon 12:00, afternoon 15:00, evening 18:00, night 22:00, the next such time after current_time), participation_decline (explicitly declining to join an offered event; give event_id from opportunities), engagement (see below).
+- spoken_dialogue, belief, hypothetical ("if she died..."), ooc_direction (an out-of-character direction to the GM for this reply, e.g. a conditional plan "if C happens, I do D" or "skip the small talk": nothing the player character says or does yet), ooc_config_request (out-of-character requests to change engine/pack/rules), time_proposal (explicit time skip/sleep "until morning", "three hours later", "skip to the evening"; give "time" = the absolute story time {day, minute} the skip ends at, computed from current_time; when only a part of day is given use a typical hour: morning 07:00, noon 12:00, afternoon 15:00, evening 18:00, night 22:00, the next such time after current_time), participation_decline (explicitly declining to join an offered event; give event_id from opportunities), engagement (see below).
 engagement: the player's stance on being drawn into something the world offers \u2014 an event, a storyline, a request \u2014 given in their own words or by a clear voluntary act. stance: declined ("I won't take part in X", turning down an invitation), deferred ("not now", "let's talk tomorrow": until = that story time when stated, else null), accepted (agrees to an offer), joined (by their own action clearly takes part in the thing itself \u2014 e.g. goes to the battle and intervenes \u2014 even after declining it earlier), limited (a single act inside it, e.g. rescuing one person and leaving: it accepts nothing more), ooc_suppress (out of character: stop building this storyline or pulling me into it), reopened (explicitly wants to be involved again: "I changed my mind, I'll go"). scope_kind/scope_ref: "event" + an event id or "arc" + an arc id from engagement_context; "contact" + a contact id from engagement_context.recent_contacts when it answers that specific request only ("I won't do this job for X"); "faction" + an organization id ("I won't work for X"); "storyline" + a short scope_label for an out-of-character suppression of a whole line (give the arc id instead when one fits). Give scope_label as a short human name. Scope is what the player's words cover, not what the latest request happened to be about: refusing a whole kind of work or everything from someone ("no more jobs from them", "I won't take any of these missions for a while") is "faction" \u2014 the organization the requests come from (recent_contacts[].by, organizations), plus the player's own organization when they refuse to work through it (player_member) \u2014 one statement per scope with the same quote; "not this one" is the event or contact. When the player sets a period ("for now", "this week"), the decision still holds until they change it. Going along with a recent contact by the player's own act \u2014 calling back and arranging to meet, going where they asked, doing what they asked \u2014 is "accepted" with scope "contact" + that contact's id from recent_contacts (it accepts that contact, not the faction or event behind it). Passing by, asking for news, watching from afar, small talk or not answering is NOT an engagement statement; prefer engagement over participation_decline.
+ooc_parts, when given, are the parts of the message the player marked as out of character: never asserted_fact, attempted_action, spoken_dialogue, belief or hypothetical \u2014 classify them as ooc_direction, ooc_config_request, time_proposal or engagement (e.g. ooc_suppress, or an out-of-character "I won't join X").
 Also list references to entities or past events (direct, indirect like "the man I rescued", aliases, pronouns) with candidate ids, and scene_entities the user's action involves.
-SHAPE: {"statements":[{"kind":"asserted_fact|attempted_action|spoken_dialogue|belief|hypothetical|ooc_config_request|time_proposal|participation_decline|engagement","quote":"...","summary":"...","entities":["id"],"facts":[{"entity_id":"","predicate":"","value":true}],"event_id":null,"time":null,"ambiguous":false,"stance":null,"scope_kind":null,"scope_ref":null,"scope_label":null,"until":null}],"references":[{"phrase":"","quote":"","kind":"entity|event","mode":"direct|indirect|alias|pronoun","candidates":["id"]}],"scene_entities":["id"]}`,
+SHAPE: {"statements":[{"kind":"asserted_fact|attempted_action|spoken_dialogue|belief|hypothetical|ooc_direction|ooc_config_request|time_proposal|participation_decline|engagement","quote":"...","summary":"...","entities":["id"],"facts":[{"entity_id":"","predicate":"","value":true}],"event_id":null,"time":null,"ambiguous":false,"stance":null,"scope_kind":null,"scope_ref":null,"scope_label":null,"until":null}],"references":[{"phrase":"","quote":"","kind":"entity|event","mode":"direct|indirect|alias|pronoun","candidates":["id"]}],"scene_entities":["id"]}`,
   discover: `${COMMON}
 TASK: Reference and claim discovery over the COMPLETE candidate text. Find the references and claims worth checking (at most 40 references and 40 claims; when there are more, keep the ones a record could contradict: past events, known people/places/objects/organizations, possession, presence, causes):
 - reference to a person, place, object, organization or past event \u2014 direct names, aliases, indirect phrases ("that explosion", "our agreement"), pronouns with clear antecedents, new route stops, incidental NPCs, recollections in dialogue;
@@ -18770,7 +18772,7 @@ Enum fields take EXACTLY one of the listed values ("a|b|c" lists the choices). A
 TASK: Final review of a candidate GM reply (or of a retained transcript message when mode="retained"). You receive the COMPLETE candidate, the player's exact action scope, retrieved ACTUAL HISTORY and ENTITY STATE for every discovered reference (fetched freshly by the controller), staged offscreen events, due HARD contracts, plan steps, and the discovered claims list.
 1. For EVERY claim id in "claims" return a claim_check verdict: consistent (agrees with retrieved records/state), contradiction (conflicts: e.g. a destroyed place shown operating, a dead person greeting, wrong actor/outcome of a past event, using a missing object), unsupported (asserts that something HAPPENED in the past, or a cause, with no supporting record \u2014 a shared past with the player character, or a notable event such as a fight, injury, death, meeting or incident), belief_ok (a character's belief/rumor/lie presented as such), new_detail (compatible new detail; also a character's everyday account of another person's recent whereabouts or doings \u2014 out all night, busy, not answering the phone \u2014 when no record or due event says otherwise), not_applicable. Cite record_ids you relied on.
    Ordinary present-scene details with no record (weather, crowds, shops, decorations, minor NPCs) are new_detail, never contradiction. Preparations, schedules, anticipation or rumors of a FUTURE event ("flags for tomorrow's festival") do not assert that the event has started. A different wording of a free-text state ("\u6B63\u5E38\u8FD0\u8F6C" vs "operating normally") is consistent.
-2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it), state_claims (facts the narration presupposes \u2014 what it takes as already true before or apart from this scene; a change the reply itself shows happening (someone is hit and falls, a machine is wrecked, an object is taken) is a TRANSITION with the new value, not a state_claim; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null; put each claim on the entity the quote is actually about \u2014 a building, room, door or object that is not in the registry is NOT its district or city: leave such a claim out rather than file it on a containing place), player_actions (player-character acts depicted \u2014 dialogue, reactions and actions; authorized_by_quote = a span COPIED VERBATIM from the player's message that covers it, or null; category = the kind of act: dialogue|reactions|actions|movement|items|skills|combat|decisions|secrets \u2014 the most committing kind that fits: agreeing to a job in a line of dialogue is decisions, burning someone is combat). An action is authorized when it carries out what the player wrote, including its natural steps and immediate details (for "I take her back to the cell and lock her up": stopping her, taking her belongings, escorting her, locking the door). Use null only for a NEW decision, goal or line of dialogue the player did not express, step_enactments, new_entities (genuinely new people/places/objects introduced).
+2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it), state_claims (facts the narration presupposes \u2014 what it takes as already true before or apart from this scene; a change the reply itself shows happening (someone is hit and falls, a machine is wrecked, an object is taken) is a TRANSITION with the new value, not a state_claim; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null; put each claim on the entity the quote is actually about \u2014 a building, room, door or object that is not in the registry is NOT its district or city: leave such a claim out rather than file it on a containing place), player_actions (player-character acts depicted \u2014 dialogue, reactions and actions; authorized_by_quote = a span COPIED VERBATIM from the player's message that covers it, or null; category = the kind of act: dialogue|reactions|actions|movement|items|skills|combat|decisions|secrets \u2014 the most committing kind that fits: agreeing to a job in a line of dialogue is decisions, burning someone is combat). An action is authorized when it carries out what the player wrote, including its natural steps and immediate details (for "I take her back to the cell and lock her up": stopping her, taking her belongings, escorting her, locking the door). player_ooc_instructions, when given, are the player's out-of-character directions for this reply (not part of player_action_scope): an act that carries one out is authorized (authorized_by_quote = a span copied from that instruction) only when its condition actually happens in the candidate; if the condition does not happen, null. Use null only for a NEW decision, goal or line of dialogue the player did not express, step_enactments, new_entities (genuinely new people/places/objects introduced).
 3. scene_end: story time when the reply ends ({day, minute} with minute = minutes after midnight on a 24-hour clock: noon / \u4E2D\u534812\u70B9 is 720, 12:10 is 730, midnight is 0; \u665A\u4E0A/\u4E0B\u5348 hours are after 12:00). lo is the MINIMUM time the depicted events actually need, added to the time the scene starts: add up everything the reply shows in order \u2014 dialogue, actions, fighting, movement. Spoken dialogue takes about as long as saying it: a short line a few seconds, a dozen lines of small talk about 1-2 minutes; a single action beat or fight moment under a minute, a whole fight a few minutes; moving by distance (across a room seconds, down the street a few minutes, a train ride to another district 15-30); only a long conversation with many long speeches 10-20 minutes; a meal 30-60; walking/travel by distance; waiting lasts as long as what the text says fills it (reading two articles while waiting is several minutes); sleeping until the stated waking. Activity that runs "until" a part of the day ("\u4E00\u76F4\u5199\u5230\u5929\u9ED1", "until evening") ends at that part of the day's usual clock time for the date (dark in September about 18:00-18:30), not a guessed duration. Time the text does not state (lingering, unstated filler) goes into hi, never into lo; when unsure, keep lo low \u2014 an overestimate can never be taken back. An explicit time, duration or skip in the PLAYER'S MESSAGE (player_action_scope) or in the reply ("13\u70B951\u5206", "\u5927\u69822\u5206\u949F", "two hours later", "\u508D\u665A") anchors scene_end and wins over estimates. precision "approx" for an estimate, "minute" only when a time is stated. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback.
    canon_events_now lists the canonical (non-HARD) events whose time window is open around this scene. If the reply depicts one of them happening \u2014 even with other participants (e.g. the player tagging along) or a different course \u2014 record that occurrence with its pack_event_id and a disposition. Decide the result only when the event has CONCLUDED in this reply (its outcome happened, or it can no longer happen as written): "occurred" if its original result holds, "diverged" if the result is different. While it is still under way \u2014 the fight has started, the attack is in progress, nobody has won yet \u2014 use "ongoing": the result is not settled, and the event is judged in the reply where it ends. Never use "diverged" only because the result is not shown yet. An entry with in_progress lists the beats already shown; continue it ("ongoing" again, or "occurred"/"diverged" when it ends). Never file such an event as an ordinary scene beat.
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
@@ -18781,7 +18783,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place changes (leaving a building or shop, getting into or out of a vehicle, arriving somewhere else) or the activity changes, when more than about 30 minutes pass between beats, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
 5. contacts: every place where the world reaches out to the PLAYER CHARACTER (player_entity) in this reply: an invitation, a request or commission, information brought to them on purpose, a probe or test, a hostile act aimed at them, a consequence of an event reaching them, an encounter with a purpose. Give a verbatim quote, actors (ids), kind, scope (scope_kind "event"/"arc" + an id from offered_contact or canon_events_now, "faction" + the organization's id, otherwise "storyline" + a short scope_label) and opportunity_id when it carries out offered_contact. A contact about the same matter as one in recent_contacts (a follow-up, a reminder, a consequence of it) is filed with it: scope_kind "contact" + that contact's id. Ordinary conversation with people already in the scene is not a contact, and neither is an everyday favor or worry between friends (asking to stay over, telling them to lock the window) unless it asks the player to take part in a story thing; nor is someone answering what the player character just asked or started (they called and are told where to come); no contact, empty list.
    engagement lists the player's decisions; each covers what its quoted words cover (a refusal of jobs covers being asked to do such jobs, by anyone \u2014 not someone's worry, grief or news, and not a thing the player took up themselves: "taken up by the player in play"). Only decisions marked BINDING are enforced: if the reply pulls the player toward something a BINDING decision covers \u2014 through any person or channel (the same NPC again, another one, news, rumors, a friend's plea, a threat made up to force them) \u2014 add a violation with code "engagement_pressure" (blocking) quoting it. A "wish" decision is the player's preference, not a rule for you: never report a violation for it (at most a non-blocking note). Not a violation: the world going on around them, an everyday favour or remark that does not ask the player to go to, do or join the declined thing (passing on a message, "if you happen to see her"), even when it concerns people involved in it, a consequence with an actual cause in history (news that a friend died, a place they know destroyed \u2014 told to them even by people from the declined side), one natural in-character reaction of the person they just turned down, or the player choosing it themselves. offered_contact has already been checked against these decisions (cleared_by_engine): delivering it as given is not pressure; flag only what goes beyond it \u2014 asking the player to do or join the declined thing. Not using offered_contact is never a violation.
-6. violations: ONLY problems that require rewriting the reply \u2014 player-character acts the player did not write whose category is in player_voice.player_only (the controller checks player_actions; what player_voice.gm_may_write allows is wanted, never a violation), contradictions, unsupported recollections, leaking secret knowledge to characters who cannot know it, engine labels/JSON in prose, skipping a due obligation, time moving backwards. Not violations: story time moving forward within the scene, NPCs present or acting on their own, plausible new scene details, the natural completion of an action the player authorized, a plan step whose window the player's time skip passed narrated as having happened off-screen (record it as an occurrence at its own time, with a step_enactment). Set blocking=true for a problem that must be fixed; if you consider something minor or acceptable, leave it out (or set blocking=false).
+6. violations: ONLY problems that require rewriting the reply \u2014 player-character acts the player did not write whose category is in player_voice.player_only (the controller checks player_actions; what player_voice.gm_may_write allows is wanted, never a violation), contradictions, unsupported recollections, leaking secret knowledge to characters who cannot know it, narration that reveals, quotes or paraphrases player_ooc_instructions or shows the player character weighing or planning them ("she thought: if he comes, I will...") \u2014 code "ooc_leak", engine labels/JSON in prose, skipping a due obligation, time moving backwards. Not violations: story time moving forward within the scene, NPCs present or acting on their own, plausible new scene details, the natural completion of an action the player authorized, a plan step whose window the player's time skip passed narrated as having happened off-screen (record it as an occurrence at its own time, with a step_enactment). Set blocking=true for a problem that must be fixed; if you consider something minor or acceptable, leave it out (or set blocking=false).
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it). mode=retained and the message is not story text at all (out-of-character instructions, a setup or system note, rules or a menu \u2014 often the card's opening message telling the GM how to start): decision retain with no occurrences, transitions, state_claims or violations; it establishes nothing.
 SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null,"category":"dialogue"}],"step_enactments":[{"step_id":"s1","occurrence_ref":"o1","quote":""}],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":"","blocking":true}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":"","contacts":[{"quote":"","actors":[],"kind":"invitation","scope_kind":"event","scope_ref":"","scope_label":"","opportunity_id":null}]}`,
   adjudicate: `${COMMON}
@@ -19720,6 +19722,10 @@ function runGate(g) {
     }
     if (/engagement[_ ]pressure/i.test(v.code) && !g.bindingDecisions) {
       warnings.push(`touches a decision the player left as a wish (not enforced): ${v.detail.slice(0, 200)}${v.quote ? ` ("${v.quote}")` : ""}`);
+      continue;
+    }
+    if (/ooc[_ ]?leak/i.test(v.code)) {
+      violations.push(`The reply gives away the player's out-of-character instructions: ${v.detail}${v.quote ? ` ("${v.quote}")` : ""}. Apply them silently \u2014 no thoughts, plans or narration about them.`);
       continue;
     }
     const agency = /agency|player[_ ]?(act|voice|dialogue|speech|line)|godmod|puppet/i.test(v.code) || /玩家|player/i.test(v.detail) && /代写|替玩家|台词|player_only|on (the )?player'?s? behalf|for the player/i.test(v.detail);
@@ -20937,7 +20943,58 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.8.1";
+var ENGINE_RELEASE = "1.9.0";
+
+// src/runtime/ooc.ts
+var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
+var CLOSERS = new Set(Object.values(OPEN));
+var escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function splitOoc(text, keyword) {
+  const kw = String(keyword || "").trim();
+  const src = String(text || "");
+  if (!kw || !src) return { story: src, ooc: [] };
+  const head = new RegExp(`^\\s*${escape(kw)}(?![\\p{L}\\p{N}_])\\s*[:\uFF1A\\-\u2014]?\\s*`, "iu");
+  const ooc = [];
+  let story = "";
+  let i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    const close = OPEN[ch];
+    const m = close ? head.exec(src.slice(i + 1)) : null;
+    if (close && m) {
+      let depth = 1, j = i + 1;
+      for (; j < src.length; j++) {
+        if (OPEN[src[j]]) depth++;
+        else if (CLOSERS.has(src[j]) && --depth === 0) break;
+      }
+      const body = src.slice(i + 1 + m[0].length, j).trim();
+      if (body) ooc.push(body);
+      i = j + 1;
+      continue;
+    }
+    story += ch;
+    i++;
+  }
+  const line = new RegExp(`^[ \\t]*${escape(kw)}(?![\\p{L}\\p{N}_])[ \\t]*[:\uFF1A][ \\t]*(.*)$`, "gimu");
+  story = story.replace(line, (_all, body) => {
+    if (body.trim()) ooc.push(body.trim());
+    return "";
+  });
+  if (!ooc.length) return { story: src, ooc: [] };
+  return { story: story.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(), ooc };
+}
+function storyOnly(text, keyword) {
+  const s = splitOoc(text, keyword);
+  return s.ooc.length ? s.story || "\u2026\u2026" : text;
+}
+function oocNote(ooc) {
+  if (!ooc.length) return "";
+  return [
+    "PLAYER'S OUT-OF-CHARACTER INSTRUCTIONS for this reply (written outside the story: not something the player character says, thinks or knows):",
+    ...ooc.map((o) => `- ${o}`),
+    'Apply them silently. Never narrate, quote, paraphrase or hint at them, and never show the player character weighing, planning or "considering" them. A conditional instruction ("if C, then D") takes effect only when C actually happens in this reply: then the player character simply does D, as their own natural reaction. If C does not happen, it does nothing \u2014 do not arrange the scene to make C happen. Other instructions (how to play the scene, what to skip) are followed as directions for this reply.'
+  ].join("\n");
+}
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -20967,7 +21024,8 @@ var DEFAULT_SETTINGS = {
   replyLength: "",
   sceneGrouping: false,
   ignorePersonaSections: false,
-  playerVoice: { ...DEFAULT_PLAYER_VOICE }
+  playerVoice: { ...DEFAULT_PLAYER_VOICE },
+  oocKeyword: "OOC"
 };
 var UNTIMED_ADVANCE_MAX = 20;
 var TIME_ANCHOR = new RegExp([
@@ -21030,6 +21088,15 @@ var CanonEngine = class {
   discCache = /* @__PURE__ */ new Map();
   gmRules() {
     return gmRulesFor(playerVoice(this.settings.playerVoice));
+  }
+  /** The player's message split into what the player character says and does, and its OOC directions. */
+  ooc(text) {
+    return splitOoc(text || "", this.settings.oocKeyword);
+  }
+  /** GM context: the rules, the packet, and this turn's OOC directions as a hidden note. */
+  gmContext(packetText, userText) {
+    const note = oocNote(this.ooc(userText).ooc);
+    return this.gmRules() + "\n\n" + packetText + (note ? "\n\n" + note : "");
   }
   lengthNote() {
     const len = String(this.settings.replyLength || "").trim();
@@ -21473,8 +21540,10 @@ var CanonEngine = class {
     const opportunities = this.opportunities(index, tick).map((o) => ({ event_id: o.id, title: o.title, hook: o.hook }));
     const prof = this.profileFor(entry);
     const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.persona();
+    const oocParts = this.ooc(entry.text).ooc;
     const out = await this.withTimeout(callStructured(this.host.model, "extract_user", PROMPTS.extract_user, {
       message: entry.text,
+      ...oocParts.length ? { ooc_parts: oocParts } : {},
       persona,
       current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
       registry: this.registry(index, entry.text, prof ? [prof.profile.playerId] : []),
@@ -21495,6 +21564,7 @@ var CanonEngine = class {
         warnings.push(`statement ignored (quote not found): ${s.summary}`);
         continue;
       }
+      if (s.kind === "ooc_direction" || ["attempted_action", "spoken_dialogue", "hypothetical", "belief"].includes(s.kind) && oocParts.some((o) => quoteInText(s.quote, o))) continue;
       const src = [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [{ quote: s.quote }] }];
       if (s.kind === "asserted_fact" && !s.ambiguous) {
         const deltas = [];
@@ -21718,7 +21788,7 @@ var CanonEngine = class {
     const discKey = `${a.operationId}|${sha256(a.text + "\n" + (a.userEntry?.text || ""))}`;
     const disc = this.discCache.get(discKey) || this.rememberDiscovery(discKey, await this.withTimeout(callStructured(this.host.model, "discover", PROMPTS.discover, {
       text: a.text,
-      scene_framing: a.userEntry ? `Player input: ${a.userEntry.text}` : "",
+      scene_framing: a.userEntry ? `Player input: ${this.ooc(a.userEntry.text).story}` : "",
       registry: this.registry(index, a.text + " " + (a.userEntry?.text || ""), a.sceneSeeds),
       occurrences: this.occurrenceCatalogue(index, a.text + " " + (a.userEntry?.text || ""))
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal).catch((e) => {
@@ -21759,7 +21829,7 @@ var CanonEngine = class {
       checkpointTick: Math.max(tick, a.expectedEnd ?? tick),
       origin: this.campaign()?.binding.originDate || null,
       sceneLabel: "",
-      playerScope: a.userEntry ? [a.userEntry.text] : [],
+      playerScope: a.userEntry ? [this.ooc(a.userEntry.text).story] : [],
       plan: a.plan,
       forced: a.forced,
       stagedNotes: a.stagedNotes,
@@ -21775,7 +21845,8 @@ var CanonEngine = class {
     const evaluation = await this.withTimeout(callStructured(this.host.model, "evaluate", PROMPTS.evaluate, {
       mode: a.mode,
       candidate: a.text,
-      player_action_scope: a.userEntry ? a.userEntry.text : "",
+      player_action_scope: a.userEntry ? this.ooc(a.userEntry.text).story : "",
+      ...a.userEntry && this.ooc(a.userEntry.text).ooc.length ? { player_ooc_instructions: this.ooc(a.userEntry.text).ooc } : {},
       current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...a.mode !== "retained" ? this.horaeTimeHint() : {},
       retrieved_context: packet.text,
@@ -21796,7 +21867,7 @@ var CanonEngine = class {
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
     const stated = statedTime(`${a.text}
-${a.userEntry?.text || ""}`);
+${this.ooc(a.userEntry?.text).story}`);
     if (evaluation.scene_end && !evaluation.flashback && !stated.anchored) {
       const lo = toTick(evaluation.scene_end.lo), cap = tick + stated.minutes + UNTIMED_ADVANCE_MAX;
       if (lo > cap) {
@@ -22132,7 +22203,7 @@ ${a.userEntry?.text || ""}`);
           checkpointTick: ctxClock,
           origin: c.binding.originDate,
           sceneLabel,
-          playerScope: fresh ? [userEntry.text, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
+          playerScope: fresh ? [this.ooc(userEntry.text).story, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
           plan: plan2,
           forced: planInfo.forced,
           stagedNotes: [],
@@ -22146,7 +22217,7 @@ ${a.userEntry?.text || ""}`);
           reaction: offered ? worldReactionSection(index, offered, c.binding.originDate) : void 0
         };
         let packet = buildPacket(packetArgs);
-        const engineContext = this.gmRules() + "\n\n" + packet.text;
+        const engineContext = this.gmContext(packet.text, userEntry?.text);
         const loreNames = uniq([...(offered?.actors || []).map((a) => index.entityName(a)), ...this.loreNames(index, retrieval, plan2)]).slice(0, 16);
         this.setStatus("generating", "Generating (private draft)\u2026");
         trace.prompts.push({ kind: "engine_context", text: engineContext });
@@ -22249,7 +22320,7 @@ ${a.userEntry?.text || ""}`);
             packet = buildPacket(packetArgs);
             this.rejects.push(`repair: kept after a fix: the records the rejected draft added did not fit the context budget; repaired with the draft's context`);
           }
-          const repairCtx = this.gmRules() + "\n\n" + packet.text;
+          const repairCtx = this.gmContext(packet.text, userEntry?.text);
           trace.prompts.push({ kind: hardStuck ? "repair_hard_last_resort" : `repair_${attempt + 1}`, text: repairCtx });
           const replyEnd = Math.max(review.gate.sceneEnd?.hi ?? clock, clock);
           const hardReqs = hardStuck ? pendingHard(pack2, index.state).filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title))).map((h) => `${h.event.title} (${formatTick(h.lo)}${h.hi !== h.lo ? `\u2013${formatTick(h.hi)}` : ""}): ${h.event.required_description}`) : [];
@@ -22260,7 +22331,7 @@ ${a.userEntry?.text || ""}`);
             c2._affectedAnchors = uniq([...c2._affectedAnchors || [], ...anchors]);
             this.setStatus("planning", "Planning a route for the HARD event\u2026");
             const situation = `${this.recentSituation(index)}
-Current turn \u2014 player input: ${userEntry?.text || "(none)"}
+Current turn \u2014 player input: ${this.ooc(userEntry?.text).story || "(none)"}
 Why the drafts were rejected: ${violations.slice(0, 4).join(" | ")}`;
             planInfo = await this.ensurePlan(index, abort.signal, operationId, { force: true, situation }).catch((e) => {
               if (e instanceof EngineError && e.kind === "cancelled") throw e;
@@ -22650,7 +22721,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const out = await this.withTimeout(callStructured(this.host.model, "integrate", PROMPTS.integrate, {
       now: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...jumpTo ? { time_jump_to: formatTick(jumpTo) } : {},
-      player_input: userEntry?.text || "",
+      player_input: this.ooc(userEntry?.text).story,
       recent_scene: this.recentSituation(index),
       player: playerContext(index, profile2, tick, { historyWith: withIds }),
       candidate_events: candidates.map((x) => candidateInput(index, x, tick, eng.blockedBy({ eventId: x.event.id }, tick))),
@@ -24607,7 +24678,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niStrongTip: { zh: "\u628A\u8FD9\u6761\u62D2\u7EDD\u8BBE\u4E3A\u5F3A\u5236\uFF1AGM \u7684\u56DE\u590D\u5982\u679C\u628A\u4F60\u5F80\u8FD9\u4EF6\u4E8B\u4E0A\u62C9\uFF08\u4EFB\u4F55\u4EBA\u3001\u4EFB\u4F55\u6E20\u9053\uFF09\uFF0C\u4F1A\u88AB\u9000\u56DE\u91CD\u5199\u3002", en: "Make this refusal binding: a reply that pulls you toward it (through anyone or anything) is sent back and rewritten." },
   niWeak: { zh: "\u53D6\u6D88\u5F3A\u70C8", en: "Make it a wish" },
   niWeakTip: { zh: "\u6539\u56DE\u5EFA\u8BAE\uFF1AGM \u4ECD\u4F1A\u5C0A\u91CD\u5B83\uFF0C\u4F46\u4E0D\u4F1A\u56E0\u6B64\u9000\u56DE\u56DE\u590D\u3002", en: "Back to a wish: the GM still respects it, but replies are not sent back over it." },
-  niDecisionsTip: { zh: "\u4F60\u5728\u5267\u60C5\u91CC\u8868\u8FBE\u7684\u53C2\u4E0E\u610F\u613F\uFF08\u7531\u5F15\u64CE\u4ECE\u4F60\u7684\u6D88\u606F\u91CC\u8BFB\u51FA\uFF09\u3002\n\u62D2\u7EDD\u3001\u6682\u7F13\u9ED8\u8BA4\u53EA\u662F\u300C\u5EFA\u8BAE\u300D\uFF1AGM \u4F1A\u5C3D\u91CF\u4E0D\u628A\u4F60\u5377\u8FDB\u53BB\uFF0C\u4E0D\u4F1A\u5B89\u6392\u4EBA\u6765\u62C9\u4F60\uFF0C\u4F46\u8EAB\u8FB9\u4EBA\u7684\u5BFB\u5E38\u95F2\u804A\u3001\u6258\u4F60\u5E26\u53E5\u8BDD\u4E4B\u7C7B\u4E0D\u7B97\u8FDD\u89C4\uFF0C\u56DE\u590D\u4E0D\u4F1A\u56E0\u6B64\u88AB\u9000\u56DE\u3002\n\u70B9\u300C\u5F3A\u70C8\u62D2\u7EDD\u300D\u624D\u53D8\u6210\u5F3A\u5236\uFF1A\u56DE\u590D\u53EA\u8981\u628A\u4F60\u5F80\u8FD9\u4EF6\u4E8B\u4E0A\u62C9\uFF0C\u5C31\u4F1A\u88AB\u9000\u56DE\u91CD\u5199\u3002\u518D\u70B9\u300C\u53D6\u6D88\u5F3A\u70C8\u300D\u6539\u56DE\u5EFA\u8BAE\u3002\n\nOOC\uFF08\u620F\u5916\uFF09\u6307\u4EE4\uFF1A\u5728\u6D88\u606F\u91CC\u8DF3\u51FA\u89D2\u8272\u3001\u76F4\u63A5\u5BF9 GM/\u5F15\u64CE\u8BF4\u8BDD\uFF0C\u4F8B\u5982\uFF1A\n\uFF08OOC\uFF1A\u522B\u518D\u628A\u6697\u90E8\u7684\u5267\u60C5\u5F80\u6211\u8EAB\u4E0A\u5F15\u4E86\uFF09\n\u5F15\u64CE\u4F1A\u628A\u5B83\u8BB0\u4E3A\u300COOC \u505C\u6B62\u8FD9\u6761\u7EBF\u300D\uFF0C\u81EA\u52A8\u5F3A\u5236\uFF0C\u4E0D\u9700\u8981\u518D\u70B9\u6309\u94AE\u3002\u8FD9\u4E0D\u662F\u56FA\u5B9A\u5173\u952E\u8BCD\uFF0C\u800C\u662F\u7531\u5206\u6790\u6A21\u578B\u5224\u65AD\u8FD9\u53E5\u8BDD\u662F\u5426\u5728\u620F\u5916\uFF1B\u5199\u660E\u201COOC\u201D\u6700\u4E0D\u5BB9\u6613\u88AB\u8BEF\u8BFB\u3002\n\n\u300C\u5141\u8BB8\u518D\u6B21\u63A5\u89E6\u300D\u64A4\u9500\u4E00\u6761\u62D2\u7EDD\u3002", en: 'Your stance on being drawn into things, read from your messages.\nDeclining or deferring is a wish by default: the GM avoids drawing you in and arranges no one to pull you back, but everyday remarks and small favours from people around you are fine, and replies are not sent back over it.\n"Make binding" enforces it: a reply that pulls you toward it is sent back and rewritten. "Make it a wish" undoes that.\n\nOut-of-character (OOC) instructions: step outside your character and speak to the GM/engine directly, e.g. "(OOC: stop steering the dark-side storyline onto me)". The engine records it as "OOC: stop this line", which is always binding. It is not a fixed keyword: the analysis model judges whether the sentence is out of character, and writing "OOC" makes it unmistakable.\n\n"Allow contact again" lifts a refusal.' },
+  niDecisionsTip: { zh: "\u4F60\u5728\u5267\u60C5\u91CC\u8868\u8FBE\u7684\u53C2\u4E0E\u610F\u613F\uFF08\u7531\u5F15\u64CE\u4ECE\u4F60\u7684\u6D88\u606F\u91CC\u8BFB\u51FA\uFF09\u3002\n\u62D2\u7EDD\u3001\u6682\u7F13\u9ED8\u8BA4\u53EA\u662F\u300C\u5EFA\u8BAE\u300D\uFF1AGM \u4F1A\u5C3D\u91CF\u4E0D\u628A\u4F60\u5377\u8FDB\u53BB\uFF0C\u4E0D\u4F1A\u5B89\u6392\u4EBA\u6765\u62C9\u4F60\uFF0C\u4F46\u8EAB\u8FB9\u4EBA\u7684\u5BFB\u5E38\u95F2\u804A\u3001\u6258\u4F60\u5E26\u53E5\u8BDD\u4E4B\u7C7B\u4E0D\u7B97\u8FDD\u89C4\uFF0C\u56DE\u590D\u4E0D\u4F1A\u56E0\u6B64\u88AB\u9000\u56DE\u3002\n\u70B9\u300C\u5F3A\u70C8\u62D2\u7EDD\u300D\u624D\u53D8\u6210\u5F3A\u5236\uFF1A\u56DE\u590D\u53EA\u8981\u628A\u4F60\u5F80\u8FD9\u4EF6\u4E8B\u4E0A\u62C9\uFF0C\u5C31\u4F1A\u88AB\u9000\u56DE\u91CD\u5199\u3002\u518D\u70B9\u300C\u53D6\u6D88\u5F3A\u70C8\u300D\u6539\u56DE\u5EFA\u8BAE\u3002\n\nOOC\uFF08\u620F\u5916\uFF09\u6307\u4EE4\uFF1A\u5728\u6D88\u606F\u91CC\u8DF3\u51FA\u89D2\u8272\u3001\u76F4\u63A5\u5BF9 GM/\u5F15\u64CE\u8BF4\u8BDD\uFF0C\u4F8B\u5982\uFF1A\n\uFF08OOC\uFF1A\u522B\u518D\u628A\u6697\u90E8\u7684\u5267\u60C5\u5F80\u6211\u8EAB\u4E0A\u5F15\u4E86\uFF09\n\u5F15\u64CE\u4F1A\u628A\u5B83\u8BB0\u4E3A\u300COOC \u505C\u6B62\u8FD9\u6761\u7EBF\u300D\uFF0C\u81EA\u52A8\u5F3A\u5236\uFF0C\u4E0D\u9700\u8981\u518D\u70B9\u6309\u94AE\u3002\u7528\u8BBE\u7F6E\u91CC\u7684\u300COOC \u5173\u952E\u8BCD\u300D\uFF08\u9ED8\u8BA4 OOC\uFF09\u6807\u51FA\u7684\u90E8\u5206\uFF0C\u5F15\u64CE\u4E00\u5B9A\u5F53\u4F5C\u620F\u5916\uFF1B\u6CA1\u5199\u5173\u952E\u8BCD\u65F6\uFF0C\u7531\u5206\u6790\u6A21\u578B\u5224\u65AD\u8FD9\u53E5\u8BDD\u662F\u5426\u5728\u620F\u5916\u3002\n\n\u300C\u5141\u8BB8\u518D\u6B21\u63A5\u89E6\u300D\u64A4\u9500\u4E00\u6761\u62D2\u7EDD\u3002", en: 'Your stance on being drawn into things, read from your messages.\nDeclining or deferring is a wish by default: the GM avoids drawing you in and arranges no one to pull you back, but everyday remarks and small favours from people around you are fine, and replies are not sent back over it.\n"Make binding" enforces it: a reply that pulls you toward it is sent back and rewritten. "Make it a wish" undoes that.\n\nOut-of-character (OOC) instructions: step outside your character and speak to the GM/engine directly, e.g. "(OOC: stop steering the dark-side storyline onto me)". The engine records it as "OOC: stop this line", which is always binding. Parts marked with the OOC keyword from settings (default OOC) are always treated as out of character; without the keyword, the analysis model judges whether a sentence is.\n\n"Allow contact again" lifts a refusal.' },
   niStance_declined: { zh: "\u62D2\u7EDD", en: "declined" },
   niStance_deferred: { zh: "\u6682\u7F13", en: "not now" },
   niStance_accepted: { zh: "\u63A5\u53D7", en: "accepted" },
@@ -24674,6 +24745,17 @@ When the backup is used, the status bar shows "backup\xD7n"; hover it to see whi
   backupShort: { zh: "\u5907\u7528\xD7{n}", en: "backup\xD7{n}" },
   taskExtraBodyShort: { zh: "\u53EF\u9009\uFF0C\u4E00\u822C\u7559\u7A7A\u3002", en: "Optional, usually empty." },
   taskExtraBodyTip: { zh: "\u4F1A\u52A0\u8FDB\u6BCF\u4E2A\u5185\u90E8\u68C0\u67E5\u8BF7\u6C42\uFF08\u53EA\u5BF9\u201C\u81EA\u5B9A\u4E49\uFF08\u517C\u5BB9OpenAI\uFF09\u201D\u8FDE\u63A5\u6709\u6548\uFF09\u3002\n\u7528 Venice \u7684\u601D\u8003\u6A21\u578B\u65F6\u586B\uFF1Avenice_parameters: {disable_thinking: true}\uFF0C\u5173\u6389\u601D\u8003\uFF0C\u66F4\u5FEB\u66F4\u7701\u94B1\u3002", en: "Added to every internal check request (Custom OpenAI-compatible connections only).\nFor Venice thinking models: venice_parameters: {disable_thinking: true} turns thinking off, which is faster and cheaper." },
+  oocKeyword: { zh: "OOC \u5173\u952E\u8BCD", en: "OOC keyword" },
+  oocKeywordShort: { zh: "\u7559\u7A7A\u5219\u4E0D\u8BC6\u522B\u3002", en: "Empty = off." },
+  oocKeywordTip: { zh: "\u6D88\u606F\u91CC\u7528\u8FD9\u4E2A\u8BCD\u6807\u51FA\u7684\u90E8\u5206\u662F\u620F\u5916\u6307\u4EE4\uFF0C\u4F8B\u5982\uFF1A\n\uFF08OOC\uFF1A\u5982\u679C\u9ED1\u5B50\u6765\u4E86\uFF0C\u6211\u5C31\u8EB2\u8FDB\u8863\u67DC\uFF1B\u5982\u679C\u662F\u7F8E\u7434\uFF0C\u5C31\u5F00\u95E8\uFF09\n\u4E5F\u53EF\u4EE5\u7528 [OOC \u2026]\u3001\u3010OOC\uFF1A\u2026\u3011\uFF0C\u6216\u5355\u72EC\u4E00\u884C\u4EE5\u300COOC\uFF1A\u300D\u5F00\u5934\u3002\n\n\xB7 GM \u770B\u4E0D\u5230\u8FD9\u6BB5\u6587\u5B57\u672C\u8EAB\uFF0C\u5386\u53F2\u6D88\u606F\u91CC\u7684\u4E5F\u4F1A\u53BB\u6389\uFF0C\u6240\u4EE5\u4E0D\u4F1A\u88AB\u5199\u8FDB\u5267\u60C5\u3001\u4E5F\u4E0D\u4F1A\u88AB\u590D\u8FF0\u3002\n\xB7 \u672C\u6761\u56DE\u590D\u91CC\uFF0CGM \u4F1A\u6536\u5230\u4E00\u6761\u9690\u85CF\u8BF4\u660E\uFF1A\u6761\u4EF6\u771F\u7684\u53D1\u751F\u65F6\uFF0C\u76F4\u63A5\u5199\u4F60\u6309\u6307\u4EE4\u884C\u52A8\uFF1B\u6761\u4EF6\u6CA1\u53D1\u751F\u5C31\u4EC0\u4E48\u90FD\u4E0D\u505A\u3002\u4E0D\u4F1A\u5199\u6210\u201C\u5979\u5FC3\u60F3\uFF0C\u5982\u679C\u2026\u2026\u5C31\u2026\u2026\u201D\u3002\n\xB7 \u68C0\u67E5\u5668\uFF1A\u6761\u4EF6\u53D1\u751F\u540E\u7167\u6307\u4EE4\u884C\u52A8\uFF0C\u7B97\u4F60\u81EA\u5DF1\u5199\u7684\u884C\u52A8\uFF08\u4E0D\u53D7\u300CGM \u53EF\u4EE5\u66FF\u73A9\u5BB6\u89D2\u8272\u2026\u2026\u300D\u9650\u5236\uFF09\uFF1B\u6761\u4EF6\u6CA1\u53D1\u751F\u5374\u7167\u505A\u4E86\u3001\u6216\u8005\u628A\u6307\u4EE4\u5199\u8FDB\u53D9\u8FF0\uFF0C\u56DE\u590D\u4F1A\u88AB\u9000\u56DE\u91CD\u5199\u3002\n\xB7 \u53EA\u5BF9\u7D27\u63A5\u7740\u7684\u8FD9\u6761\u56DE\u590D\u6709\u6548\uFF08\u5305\u62EC\u91CD\u65B0\u751F\u6210\u548C\u6ED1\u52A8\uFF09\uFF0C\u4E4B\u540E\u7684\u56DE\u590D\u4E0D\u518D\u751F\u6548\uFF1B\u60F3\u957F\u671F\u751F\u6548\u7684\u5199\u4F5C\u8981\u6C42\u8BF7\u653E\u5728 Author's Note \u6216\u9884\u8BBE\u91CC\u3002\n\xB7 \u300C\u522B\u518D\u628A\u67D0\u6761\u7EBF\u5F80\u6211\u8EAB\u4E0A\u5F15\u300D\u8FD9\u7C7B OOC \u4ECD\u4F1A\u8BB0\u4E3A\u300COOC \u505C\u6B62\u8FD9\u6761\u7EBF\u300D\u3002", en: `Parts of your message marked with this word are out-of-character instructions, e.g.
+(OOC: if Kuroko comes, I hide in the wardrobe; if it is Mikoto, I open the door)
+Also [OOC \u2026], \u3010OOC\uFF1A\u2026\u3011, or a line starting with "OOC:".
+
+\xB7 The GM never sees the text itself, also not in older messages, so it is never written into the story or repeated.
+\xB7 For this reply the GM gets a hidden note: when the condition actually happens, it writes you acting on it; if not, nothing happens. Never "she thought: if\u2026, then\u2026".
+\xB7 Checker: acting on it after the condition happens counts as your own action (not limited by "the GM may write for the player character"); acting on it when the condition did not happen, or narrating the instruction, sends the reply back.
+\xB7 It applies to the next reply only (including regenerations and swipes). Put standing writing instructions in the Author's Note or your preset.
+\xB7 "Stop pulling me into this line" OOC requests are still recorded as "OOC: stop this line".` },
   replyLength: { zh: "\u56DE\u590D\u957F\u5EA6", en: "Reply length" },
   replyLengthShort: { zh: "\u53EF\u9009\uFF0C\u7559\u7A7A\u5C31\u4E0D\u9650\u5236\u3002", en: "Optional; leave empty for no limit." },
   replyLengthTip: { zh: "\u5F15\u64CE\u6BCF\u6B21\u8BA9\u6A21\u578B\u5199\u56DE\u590D\u6216\u6539\u56DE\u590D\u65F6\uFF0C\u90FD\u4F1A\u9644\u4E0A\u8FD9\u53E5\u8981\u6C42\u3002", en: "Added to the instructions every time the engine asks the model to write or revise a reply." },
@@ -25663,7 +25745,7 @@ function renderSettings() {
     if (lib.length) chat.push(`<details class="canon-lib"><summary>${t("library")} (${lib.length}) ${tip("libraryTip")}</summary>${libRows("update")}</details>`);
   }
   out.push(card(t("secChat"), "secChatTip", chat.join("")));
-  out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc2(String(s.replyLength || ""))}" placeholder="${esc2(t("replyLengthPlaceholder"))}">`, t("replyLengthShort")) + check("notifyDone", s.notifyDone !== false, t("notifyDone"), "notifyDoneTip") + (s.notifyDone !== false ? check("notifySound", s.notifySound !== false, t("notifySound"), "notifySoundTip") + notifyNote() : "")));
+  out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc2(String(s.replyLength || ""))}" placeholder="${esc2(t("replyLengthPlaceholder"))}">`, t("replyLengthShort")) + field(t("oocKeyword"), "oocKeywordTip", `<input type="text" class="text_pole" data-set="oocKeyword" value="${esc2(String(s.oocKeyword ?? "OOC"))}" placeholder="OOC">`, t("oocKeywordShort")) + check("notifyDone", s.notifyDone !== false, t("notifyDone"), "notifyDoneTip") + (s.notifyDone !== false ? check("notifySound", s.notifySound !== false, t("notifySound"), "notifySoundTip") + notifyNote() : "")));
   out.push(card(t("secPersona"), "", check("ignorePersonaSections", !!s.ignorePersonaSections, t("ignorePersonaSections"), "ignorePersonaSectionsTip")));
   const pv = playerVoice(s.playerVoice);
   out.push(`<details class="canon-card canon-voice"${s.voiceOpen ? " open" : ""}><summary class="canon-card-title">${t("secVoice")} ${tip("secVoiceTip")} <span class="canon-sub">${esc2(VOICE_KINDS.filter((k) => pv[k]).map((k) => t("voice_" + k)).join("\u3001") || t("voiceNone"))}</span></summary>` + VOICE_KINDS.map((k) => check("voice:" + k, pv[k], t("voice_" + k), "voice_" + k + "Tip")).join("") + `<div class="canon-hint">${t("voiceHint")}</div></details>`);
@@ -26322,6 +26404,10 @@ async function interceptor(chat, _contextSize, abort, type) {
   try {
     if (gen.draft) {
       if (gen.draft.excludeLastAssistant && chat.length && !chat[chat.length - 1].is_user) chat.pop();
+      const kw = engine?.settings.oocKeyword || "";
+      if (kw) {
+        for (const m of chat) if (m?.is_user && typeof m.mes === "string") m.mes = storyOnly(m.mes, kw);
+      }
       return;
     }
     if (!engine || !engine.isActive()) return;
