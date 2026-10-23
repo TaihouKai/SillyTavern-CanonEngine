@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.7 — 2026-10-23
+
+- **Small invented backstory is allowed.** Live: 固法 recalling that the player character once caught a bag-snatcher and scorched half a street of billboards was sent back as an "unsupported recollection". The GM may now invent small past that fits everything established (an anecdote, a habit, a minor earlier incident, how people who already know each other got along), also shared with the player character. Still sent back: a past that contradicts records, state, canonical events or the player profile, and a notable past without a record — a death, serious injury, major fight or crime, a canonical event, or a relationship, rank, membership or secret knowledge the player profile does not give (who is the player's superior, who knows their secret identity).
+- Allowed backstory is recorded (occurrence with `backstory`, at its past time or within the past year) so later replies can rely on it. It never settles a canonical event, joins a scene box or changes current facts.
+- Tests: PV10; PV8 updated.
+
 ## 1.9.6 — 2026-10-23
 
 - **HARD outcome bookkeeping.** Live: the reviewer confirmed the HARD 御坂10032号失踪事件 depicted (reported by text message / phone call) but never filed the outcome fact in the pack's exact wording ("被秘密带离并藏匿"), so three rewrites were sent back over "missing misaka-10032.whereabouts". When the reviewer's HARD check says fulfilled and nothing conflicts, the missing required facts are now taken from the pack (noted in the trace). A different value is still a violation.

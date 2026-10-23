@@ -102,7 +102,7 @@ describe('convergence', () => {
     expect(x.model.tasks('draft')).toHaveLength(1);
     expect(st(x).dispositions.get('conflict-ends')?.disposition).toBe('occurred');
     expect(factAt(st(x), 'conflict', 'victor').value).toBe('union');
-    expect(x.engine.lastTrace!.attempts[0].warnings.join(' ')).toMatch(/required outcome conflict\.victor taken from the pack/);
+    expect(x.engine.lastTrace!.attempts[0].warnings!.join(' ')).toMatch(/required outcome conflict\.victor taken from the pack/);
   });
 
   it('C06/C09 planner escapes are rejected (drop_anchor field, new date, renamed winner, parallel world, player consent)', async () => {

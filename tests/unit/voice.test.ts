@@ -104,9 +104,27 @@ describe('what the GM may write for the player character', () => {
 
   it('PV8 the reviewer is told that a character\'s everyday account of someone\'s whereabouts is new detail, and an everyday favour touching a declined event is not pressure (live finding)', () => {
     const p = PROMPTS.evaluate;
-    expect(p).toMatch(/new_detail \(compatible new detail; also a character's everyday account of another person's recent whereabouts/);
-    expect(p).toMatch(/unsupported \(asserts that something HAPPENED[^)]*notable event/);
+    expect(p).toMatch(/new_detail \(compatible new detail;[^]*also a character's everyday account of another person's recent whereabouts/);
+    expect(p).toMatch(/unsupported \(asserts a NOTABLE past[^)]*death, serious injury/);
     expect(p).toMatch(/Not a violation: the world going on around them, an everyday favour or remark that does not ask the player to go to, do or join the declined thing/);
+  });
+
+  it('PV10 small invented backstory is allowed and recorded at its past time; a notable past is still unsupported (live: 固法 recalls a bag-snatcher chase)', async () => {
+    expect(gmRulesFor(DEFAULT_PLAYER_VOICE)).toMatch(/Small backstory that fits everything established[^]*may be invented/);
+    expect(PROMPTS.evaluate).toMatch(/also small invented backstory that contradicts no record[^]*backstory=true/);
+    expect(PROMPTS.evaluate).toMatch(/recollections whose claim check is unsupported \(a notable past; small compatible backstory is never a violation\)/);
+    const x = await setup();
+    x.host.addUser('I nap on the bench.');
+    x.model.draft('Mira sighs: last time you chased a bag-snatcher, half a street of billboards burned. [B1]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[B1]'), { scene_end: at(1, 9, 40), occurrences: [occ('o1', 'Bag-snatcher chase', 'half a street of billboards burned', { actors: ['mira'], pack_event_id: 'medic-ambush', disposition: 'occurred', backstory: true } as any)].map((o) => ({ ...o, backstory: true })), transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: false, quote: 'billboards burned', occurrence_ref: 'o1' }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.model.tasks('draft')).toHaveLength(1);
+    const st = x.engine.current!.replay.state;
+    const o = [...st.occurrences.values()].find((v) => v.title === 'Bag-snatcher chase')!;
+    expect(o.time.hi).toBeLessThan(tick(1, 9, 30));
+    expect(o.packEventId).toBeUndefined();
+    expect(st.dispositions.has('medic-ambush')).toBe(false); // a backstory never settles a canonical event
+    expect(o.outcome).toEqual([]); // nor changes facts
   });
 
   it('PV9 how an authorized act is done (the spell, its incantation) is the player\'s act even when skills are player-only (live: "走一路烧一路魔法陷阱")', async () => {

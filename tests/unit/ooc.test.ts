@@ -88,7 +88,7 @@ describe('OOC keyword', () => {
     x.model.on('evaluate', (i) => String(i.candidate).includes('[O6]'), { violations: [{ code: 'ooc_leak', quote: '好的，这是你需求的最终输出：', detail: 'meta wording addressed to the player', blocking: true }] });
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect(x.model.tasks('draft')).toHaveLength(1);
-    expect(x.engine.lastTrace!.attempts[0].warnings.join(' ')).toMatch(/ooc_leak" ignored: the player gave no out-of-character directions/);
+    expect(x.engine.lastTrace!.attempts[0].warnings!.join(' ')).toMatch(/ooc_leak" ignored: the player gave no out-of-character directions/);
   });
 
   it('OOC5 the analysis prompts know the OOC inputs; the note exists only with directions', () => {

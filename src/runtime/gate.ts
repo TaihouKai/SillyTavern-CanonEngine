@@ -22,7 +22,7 @@ export interface EvalOutput {
   occurrences: {
     ref: string; title: string; account: string; actors: string[]; affected?: string[]; locations?: string[];
     time?: EvalOutput['scene_end']; causes?: string[]; quote: string; pack_event_id?: string | null; disposition?: 'occurred' | 'diverged' | 'ongoing' | null;
-    ref_phrases?: string[]; continues?: string | null; visibility?: 'public' | 'restricted' | 'secret'; knowers?: string[]; origin?: 'player' | 'gm' | 'intervention';
+    ref_phrases?: string[]; continues?: string | null; backstory?: boolean; visibility?: 'public' | 'restricted' | 'secret'; knowers?: string[]; origin?: 'player' | 'gm' | 'intervention';
   }[];
   state_claims: { entity_id: string; predicate: string; value: FactValue; quote: string; at?: { day: number; minute: number } | null }[];
   player_actions: { quote: string; authorized_by_quote: string | null; category?: string | null }[];
@@ -247,8 +247,18 @@ export function runGate(g: GateInput): GateResult {
     const affected = uniq((o.affected || []).map(resolveId).filter(Boolean) as Id[]);
     const locations = uniq((o.locations || []).map(resolveId).filter(Boolean) as Id[]);
     const causes = (o.causes || []).filter((c) => index.state.occurrences.has(c) || occByRef.has(c));
+    // Backstory: a small past the reply invents (an anecdote, a minor earlier incident) that nothing contradicts. It is
+    // recorded at its past time so later replies can rely on it; it never links a canonical event, joins a scene box
+    // or changes current facts.
+    if (o.backstory) {
+      if (o.pack_event_id || transitionsByRef.has(o.ref)) warnings.push(`backstory "${o.title}": canonical link / fact changes ignored`);
+      o.pack_event_id = null; o.disposition = null; o.continues = null;
+      transitionsByRef.delete(o.ref);
+    }
     const deltas = transitionsByRef.get(o.ref) || [];
-    let time = toStoryTime(o.time) || { ...sceneEnd };
+    const given = toStoryTime(o.time);
+    let time = o.backstory ? (given && given.hi < g.clockTick ? given : { lo: Math.max(0, g.clockTick - 365 * 1440), hi: Math.max(0, g.clockTick - 1), precision: 'range' as const })
+      : given || { ...sceneEnd };
     const occ: Occurrence = {
       occurrenceId: newId('occ'), title: o.title, account: o.account, actors, affected, locations, time, outcome: deltas,
       causes: causes.map((c) => occByRef.get(c)?.occurrenceId || c), refPhrases: uniq([o.title, ...(o.ref_phrases || [])]),
@@ -317,7 +327,7 @@ export function runGate(g: GateInput): GateResult {
     occByRef.set(o.ref, occ);
     occRecords.push({
       recordId: newId('rec'), kind, storyTime: occ.time, sourceRefs: [], factsSetOrUnset: deltas, eventOccurrenceIds: [occ.occurrenceId],
-      occurrences: [occ], visibility: occ.visibility, summary: `${occ.title}${packEventId ? ` (${disposition} ${packEventId})` : ''}`,
+      occurrences: [occ], visibility: occ.visibility, summary: `${o.backstory ? 'backstory: ' : ''}${occ.title}${packEventId ? ` (${disposition} ${packEventId})` : ''}`,
       evidenceKind: 'direct', packEventId, disposition, dispositionReason: packEventId ? `depicted in accepted reply: "${o.quote.slice(0, 120)}"` : undefined,
     });
   }
