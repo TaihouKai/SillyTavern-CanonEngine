@@ -92,6 +92,19 @@ describe('convergence', () => {
     expect(y.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/exact required outcome/);
   });
 
+  it('C05b the reviewer confirms a HARD event but leaves out one required outcome fact -> taken from the pack, not sent back (live: 10032 abduction)', async () => {
+    const x = await setup(tick(4, 17));
+    x.engine.settings.debug = true; // keep warnings in the trace
+    x.host.addUser('I watch the final battle.');
+    x.model.draft('The Council banners fall; the war is over. [H1]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[H1]'), { scene_end: at(4, 18, 10), occurrences: [occ('o1', 'Union victory', 'the Council banners fall', { pack_event_id: 'conflict-ends', disposition: 'occurred', time: at(4, 18) })], transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: false, quote: 'the war is over', occurrence_ref: 'o1' }], hard_checks: [{ event_id: 'conflict-ends', status: 'fulfilled', occurrence_ref: 'o1', quote: 'the Council banners fall' }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.model.tasks('draft')).toHaveLength(1);
+    expect(st(x).dispositions.get('conflict-ends')?.disposition).toBe('occurred');
+    expect(factAt(st(x), 'conflict', 'victor').value).toBe('union');
+    expect(x.engine.lastTrace!.attempts[0].warnings.join(' ')).toMatch(/required outcome conflict\.victor taken from the pack/);
+  });
+
   it('C06/C09 planner escapes are rejected (drop_anchor field, new date, renamed winner, parallel world, player consent)', async () => {
     const x = await setup();
     const L = x.engine.pack();

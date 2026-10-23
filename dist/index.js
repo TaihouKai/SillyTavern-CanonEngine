@@ -19551,8 +19551,14 @@ function runGate(g) {
           occ.time = { lo: Math.max(time.lo, st.lo), hi: Math.min(time.hi, st.hi), precision: time.precision };
         }
         if (pe.classification === "HARD") {
-          const missing = pe.outcomes.filter((req) => !deltas.some((d) => d.op === "set" && d.entity_id === req.entity_id && d.predicate === req.predicate && valuesEqual(d.value, req.value)));
+          let missing = pe.outcomes.filter((req) => !deltas.some((d) => d.op === "set" && d.entity_id === req.entity_id && d.predicate === req.predicate && valuesEqual(d.value, req.value)));
           const wrong = deltas.filter((d) => pe.outcomes.some((req) => req.entity_id === d.entity_id && req.predicate === d.predicate && (d.op === "unset" || !valuesEqual(d.value, req.value))));
+          const hc0 = ev.hard_checks.find((h) => h.event_id === pe.id);
+          if (missing.length && !wrong.length && disposition === "occurred" && hc0?.status === "fulfilled") {
+            for (const m of missing) deltas.push({ op: "set", entity_id: m.entity_id, predicate: m.predicate, value: m.value });
+            warnings.push(`HARD "${pe.title}": required outcome ${missing.map((m) => `${m.entity_id}.${m.predicate}`).join(", ")} taken from the pack (the reviewer confirmed it depicted)`);
+            missing = [];
+          }
           if (disposition !== "occurred" || missing.length || wrong.length) {
             violations.push(`HARD "${pe.title}" must occur with its exact required outcome (${pe.required_description}). Depicted result differs: missing ${missing.map((m) => `${m.entity_id}.${m.predicate}=${JSON.stringify(m.value)}`).join(", ") || "none"}${wrong.length ? `; conflicting ${wrong.map((w) => `${w.entity_id}.${w.predicate}=${JSON.stringify(w.op === "set" ? w.value : null)}`).join(", ")}` : ""}.`);
           } else {
@@ -19723,6 +19729,10 @@ function runGate(g) {
     }
     if (/engagement[_ ]pressure/i.test(v.code) && !g.bindingDecisions) {
       warnings.push(`touches a decision the player left as a wish (not enforced): ${v.detail.slice(0, 200)}${v.quote ? ` ("${v.quote}")` : ""}`);
+      continue;
+    }
+    if (/ooc[_ ]?leak/i.test(v.code) && !g.hasOoc) {
+      warnings.push(`reviewer "ooc_leak" ignored: the player gave no out-of-character directions this turn: ${v.detail.slice(0, 160)}`);
       continue;
     }
     if (/ooc[_ ]?leak/i.test(v.code)) {
@@ -20963,7 +20973,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.9.5";
+var ENGINE_RELEASE = "1.9.6";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -21923,6 +21933,7 @@ ${this.ooc(a.userEntry?.text).story}`);
       forced: a.forced,
       voice: playerVoice(this.settings.playerVoice),
       bindingDecisions: eng.binding(tick).length,
+      hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
       playerId: prof?.profile.playerId || null,
       offered: a.offered || null
     });
@@ -22309,6 +22320,7 @@ ${this.ooc(a.userEntry?.text).story}`);
               forced: planInfo.forced,
               voice: playerVoice(this.settings.playerVoice),
               bindingDecisions: engagementView(stagedIndex.state, pack2).binding(stagedIndex.state.clock.lo).length,
+              hasOoc: this.ooc(userEntry?.text).ooc.length > 0,
               playerId: prof?.profile.playerId || null,
               offered
             });

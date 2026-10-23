@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.6 — 2026-10-23
+
+- **HARD outcome bookkeeping.** Live: the reviewer confirmed the HARD 御坂10032号失踪事件 depicted (reported by text message / phone call) but never filed the outcome fact in the pack's exact wording ("被秘密带离并藏匿"), so three rewrites were sent back over "missing misaka-10032.whereabouts". When the reviewer's HARD check says fulfilled and nothing conflicts, the missing required facts are now taken from the pack (noted in the trace). A different value is still a violation.
+- **No false "OOC leak".** Live: with no OOC directions in the player's message, the reviewer called the preset's preamble ("好的，这是你需求的最终输出：", hidden by the user's own regex) an OOC leak. ooc_leak is now only enforced when the player's message has OOC directions this turn; otherwise it is a note.
+- Tests: C05b, OOC6.
+
 ## 1.9.5 — 2026-10-23
 
 - **你的参与意愿 is grouped by matter** like the contact lists: one entry per event or storyline showing the decision in force (else the newest), with its buttons; earlier decisions about the same matter fold underneath (更早 n 条).

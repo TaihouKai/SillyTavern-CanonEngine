@@ -80,6 +80,17 @@ describe('OOC keyword', () => {
     expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/gives away the player's out-of-character instructions[^]*Apply them silently/);
   });
 
+  it('OOC6 with no OOC directions this turn, an "ooc_leak" complaint (a preset preamble) is a note, not a rewrite', async () => {
+    const x = await setup();
+    x.engine.settings.debug = true; // keep warnings in the trace
+    x.host.addUser('I wait at the dock.');
+    x.model.draft('好的，这是你需求的最终输出：\n\nYou wait at the dock. [O6]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[O6]'), { violations: [{ code: 'ooc_leak', quote: '好的，这是你需求的最终输出：', detail: 'meta wording addressed to the player', blocking: true }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.model.tasks('draft')).toHaveLength(1);
+    expect(x.engine.lastTrace!.attempts[0].warnings.join(' ')).toMatch(/ooc_leak" ignored: the player gave no out-of-character directions/);
+  });
+
   it('OOC5 the analysis prompts know the OOC inputs; the note exists only with directions', () => {
     expect(PROMPTS.extract_user).toMatch(/ooc_parts, when given[^]*never asserted_fact, attempted_action, spoken_dialogue/);
     expect(PROMPTS.extract_user).toMatch(/"kind":"[^"]*ooc_direction/);

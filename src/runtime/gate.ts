@@ -79,6 +79,8 @@ export interface GateInput {
   voice: PlayerVoice;
   /** How many refusals in force are binding (强烈拒绝 or out of character); with none, pressure is only a note. */
   bindingDecisions?: number;
+  /** The player's message carries out-of-character directions (OOC keyword) this turn. */
+  hasOoc?: boolean;
   mode: 'draft' | 'retained';
   forced: boolean;
   /** Narrative integration: the player character's entity and the suggestion offered to the GM this turn. */
@@ -279,8 +281,18 @@ export function runGate(g: GateInput): GateResult {
           occ.time = { lo: Math.max(time.lo, st.lo), hi: Math.min(time.hi, st.hi), precision: time.precision };
         }
         if (pe.classification === 'HARD') {
-          const missing = pe.outcomes.filter((req) => !deltas.some((d) => d.op === 'set' && d.entity_id === req.entity_id && d.predicate === req.predicate && valuesEqual(d.value, req.value)));
+          let missing = pe.outcomes.filter((req) => !deltas.some((d) => d.op === 'set' && d.entity_id === req.entity_id && d.predicate === req.predicate && valuesEqual(d.value, req.value)));
           const wrong = deltas.filter((d) => pe.outcomes.some((req) => req.entity_id === d.entity_id && req.predicate === d.predicate && (d.op === 'unset' || !valuesEqual(d.value!, req.value))));
+          // live: the reviewer confirmed the HARD content depicted (an off-screen abduction reported by text message)
+          // but left out the outcome fact, whose exact pack wording it never reproduces ("被秘密带离并藏匿"); three
+          // rewrites were sent back over it. Its own confirmation stands for the required facts; a different value is
+          // still a violation.
+          const hc0 = ev.hard_checks.find((h) => h.event_id === pe.id);
+          if (missing.length && !wrong.length && disposition === 'occurred' && hc0?.status === 'fulfilled') {
+            for (const m of missing) deltas.push({ op: 'set', entity_id: m.entity_id, predicate: m.predicate, value: m.value });
+            warnings.push(`HARD "${pe.title}": required outcome ${missing.map((m) => `${m.entity_id}.${m.predicate}`).join(', ')} taken from the pack (the reviewer confirmed it depicted)`);
+            missing = [];
+          }
           if (disposition !== 'occurred' || missing.length || wrong.length) {
             violations.push(`HARD "${pe.title}" must occur with its exact required outcome (${pe.required_description}). Depicted result differs: missing ${missing.map((m) => `${m.entity_id}.${m.predicate}=${JSON.stringify(m.value)}`).join(', ') || 'none'}${wrong.length ? `; conflicting ${wrong.map((w) => `${w.entity_id}.${w.predicate}=${JSON.stringify(w.op === 'set' ? w.value : null)}`).join(', ')}` : ''}.`);
           } else {
@@ -470,6 +482,9 @@ export function runGate(g: GateInput): GateResult {
     if (/engagement[_ ]pressure/i.test(v.code) && !g.bindingDecisions) { warnings.push(`touches a decision the player left as a wish (not enforced): ${v.detail.slice(0, 200)}${v.quote ? ` ("${v.quote}")` : ''}`); continue; }
     // live: the reviewer also sent back the player character's lines as a free-text violation ("the reply writes
     // dialogue for the player character") although the player lets the GM write dialogue
+    // live: with no OOC directions this turn, the reviewer called the user's preset preamble ("好的，这是你需求的最终输出：",
+    // hidden by the user's own regex) an OOC leak
+    if (/ooc[_ ]?leak/i.test(v.code) && !g.hasOoc) { warnings.push(`reviewer "ooc_leak" ignored: the player gave no out-of-character directions this turn: ${v.detail.slice(0, 160)}`); continue; }
     if (/ooc[_ ]?leak/i.test(v.code)) { violations.push(`The reply gives away the player's out-of-character instructions: ${v.detail}${v.quote ? ` ("${v.quote}")` : ''}. Apply them silently — no thoughts, plans or narration about them.`); continue; }
     const agency = /agency|player[_ ]?(act|voice|dialogue|speech|line)|godmod|puppet/i.test(v.code) || (/玩家|player/i.test(v.detail) && /代写|替玩家|台词|player_only|on (the )?player'?s? behalf|for the player/i.test(v.detail));
     if (agency) {
