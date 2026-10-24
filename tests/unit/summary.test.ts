@@ -26,6 +26,13 @@ describe('labelled summaries', () => {
     expect(w).toMatch(/SOFT summary lacks 经过, 结果/);
   });
 
+  it('SU4 an entity the event changes but does not list is flagged', () => {
+    const p = structuredClone(demo);
+    const e = p.events.find((x: any) => x.id === 'medic-ambush');
+    e.entity_ids = e.entity_ids.filter((x: string) => x !== 'mira');
+    expect(lintPack(p).warnings.map((x) => x.message).join('\n')).toMatch(/the event changes mira but does not list it in entity_ids/);
+  });
+
   it('SU3 an unlabelled (older) summary is not flagged', () => {
     expect(lintPack(demo).warnings.some((x) => /summary/.test(x.path))).toBe(false);
   });

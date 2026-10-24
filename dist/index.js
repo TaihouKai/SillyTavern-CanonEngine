@@ -14964,6 +14964,8 @@ function lintPack(pack2) {
       const missing = need.filter((l) => !labels.includes(l));
       if (missing.length) warn(`${P}/summary`, `${ev.classification} summary lacks ${missing.join(", ")}`);
     }
+    const changed = [.../* @__PURE__ */ new Set([...ev.outcomes.map((o) => o.entity_id), ...ev.canonical_effects.map((x) => "fact" in x ? x.fact.entity_id : x.entity_id)])].filter((x) => x && !ev.entity_ids.includes(x));
+    if (changed.length) warn(`${P}/entity_ids`, `the event changes ${changed.join(", ")} but does not list ${changed.length > 1 ? "them" : "it"} in entity_ids`);
     ev.entity_ids.forEach((x, j) => checkEntity(x, `${P}/entity_ids/${j}`));
     ev.location_ids.forEach((x, j) => {
       checkEntity(x, `${P}/location_ids/${j}`);
@@ -21121,7 +21123,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.11.5";
+var ENGINE_RELEASE = "1.11.6";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.6 — 2026-10-25
+
+- **Lint: an entity the event changes is one of its entities.** An outcome or canonical effect on an entity the event does not list in `entity_ids` is a warning (retrieval finds an event through its entities). Found in the toaru pack: 34 such links, and 3 events split from combined lorebook entries that kept the other half's characters and effects.
+- Tests: SU4.
+
 ## 1.11.5 — 2026-10-24
 
 - **Labelled event summaries.** History-pack summaries are written in labelled sections, in order: 背景 (standing situation, optional) · 起因 · 动机 (each key character's goal, reason and knowledge) · 经过 · 结果 · 后续 (optional) · 影响 · 备注 (GM note on the route, optional). The short cause the GM sees for upcoming events and in "why (original story)" now stops at the next label (it used to run on into 动机). The linter warns about labels out of order and about SOFT/HARD summaries without 起因, 经过 and 结果; older unlabelled summaries are not flagged. Authoring guide updated.

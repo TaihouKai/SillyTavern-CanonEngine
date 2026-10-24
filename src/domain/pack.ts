@@ -224,6 +224,9 @@ export function lintPack(pack: CanonPack): { errors: LintIssue[]; warnings: Lint
       const missing = need.filter((l) => !labels.includes(l));
       if (missing.length) warn(`${P}/summary`, `${ev.classification} summary lacks ${missing.join(', ')}`);
     }
+    // an entity the event changes is one of its entities (retrieval finds the event through it)
+    const changed = [...new Set([...ev.outcomes.map((o) => o.entity_id), ...ev.canonical_effects.map((x) => ('fact' in x ? x.fact.entity_id : x.entity_id))])].filter((x) => x && !ev.entity_ids.includes(x));
+    if (changed.length) warn(`${P}/entity_ids`, `the event changes ${changed.join(', ')} but does not list ${changed.length > 1 ? 'them' : 'it'} in entity_ids`);
     ev.entity_ids.forEach((x, j) => checkEntity(x, `${P}/entity_ids/${j}`));
     ev.location_ids.forEach((x, j) => {
       checkEntity(x, `${P}/location_ids/${j}`);
