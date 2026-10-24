@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.13.7 — 2026-10-25
+
+- **A question gets the player's answer once.** Live: a character pressed the player three times — “tonight is fine, tomorrow we'll see”, then “I already answered”, then “I don't have to report to you”. The first answer had been filed as accepting the matter (“continue it naturally”), the others not at all, and a question asked face to face never counted as unanswered either, so nothing told the GM it was settled.
+  - Reading the player message records two more reactions to a question or demand from a character, tied to that question: **answered** (any answer — vague, partial, joking, evasive, agreeing, or “I already answered”) and **refused to answer**. A vague “we'll see” is an answer, not postponing some event.
+  - The GM is told, for a day: “answered: X: “question” — the player answered (“…”). That is their answer… do not ask for it again” / “refused to answer: … one in-character reaction at most, then drop the question”. Any decision on one question or request (also accepted / declined, whichever the model called it) adds “That request has its answer: do not ask it again.” Decisions on one request are now named by who asked what.
+  - The reviewer flags asking for the same answer again (reworded, pressed harder, or through someone else) as blocking engagement_pressure; reacting to the answer is fine.
+  - A general GM rule (PLAYER'S ANSWERS) covers questions that were not recorded: whatever the player says is their answer; refusing is an answer too.
+  - Answers do not make the HARD plan stale. The panel shows them as 已回答 / 拒绝回答.
+  - Checked live with the three real replies on the real analysis model: “I already answered” → answered, “I don't have to report to you” → refused, both on the right question; “tonight is fine” is still sometimes called accepted, which now answers the question all the same.
+- Tests: NI-49; NI-27b updated.
+
 ## 1.13.6 — 2026-10-25
 
 - The 更新本局身份 / 保留本局身份 buttons (shown when the Persona differs from the chat's identity) were one or two characters wide per line: SillyTavern's button style shrinks to the narrowest width. They now sit in a wrapping row at their natural width (measured in a 360px panel: 42×168 px → 262×28 px); buttons anywhere in the inspector body no longer shrink that way.

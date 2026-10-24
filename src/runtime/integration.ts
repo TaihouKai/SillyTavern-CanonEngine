@@ -17,6 +17,8 @@ import type { IntegrationCache, Opportunity, PlayerProfile, ProfileRevision, Rec
 export const INTEGRATION_LEAD_MINUTES = 24 * 60;
 /** A contact the player has not answered blocks new contacts about the same thing for this long. */
 export const UNANSWERED_HOLD_MINUTES = 24 * 60;
+/** How long an answered / refused question stays in the GM's decisions. */
+export const ANSWER_SHOWN_MINUTES = 24 * 60;
 /** A suggestion is offered to the GM when it can happen within this much story time. */
 export const OFFER_SOON_MINUTES = 3 * 60;
 
@@ -248,7 +250,7 @@ export function playerContextHash(index: WorldIndex, profile: PlayerProfile | nu
     const last = list[list.length - 1];
     facts.push([k, last?.op === 'set' ? last.value : null]);
   }
-  return hashObject({ p: profile.personaHash, ids: playerIds(profile), facts: facts.sort(), e: index.state.engagements.map((e) => `${e.scopeKind}:${e.scopeRef}:${e.stance}`) });
+  return hashObject({ p: profile.personaHash, ids: playerIds(profile), facts: facts.sort(), e: index.state.engagements.filter((e) => e.stance !== 'answered' && e.stance !== 'refused').map((e) => `${e.scopeKind}:${e.scopeRef}:${e.stance}`) });
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -332,11 +334,17 @@ export function engagementView(state: WorldState, pack: LoadedPack) {
         if (!c) continue;
         const q = c.quote ? ` ("${c.quote.slice(0, 120)}")` : '';
         const label = c.scopeLabel || c.scopeRef;
+        // a decision on one question or request answers it, whatever the stance was called (agreeing to "will you
+        // behave tonight?" was read as accepting): nobody asks it again
+        const once = c.scopeKind === 'contact' ? ' That request has its answer: do not ask it again.' : '';
         if (c.stance === 'declined' && c.strong) out.push(`BINDING — declined: ${label}${q} — do not pull the player into it again in any way (no other person, channel, news, friend's plea or contrived threat). The world goes on; harm with an actual cause may still reach them.`);
-        else if (c.stance === 'declined') out.push(`wish — declined: ${label}${q} — respect it: do not arrange for anyone to pull the player into it. Ordinary remarks, small talk and favours from the people around them are fine.`);
+        else if (c.stance === 'declined') out.push(`wish — declined: ${label}${q} — respect it: do not arrange for anyone to pull the player into it. Ordinary remarks, small talk and favours from the people around them are fine.${once}`);
         else if (c.stance === 'deferred' && !(c.until != null && c.until <= tick)) out.push(`${c.strong ? 'BINDING' : 'wish'} — not now: ${label}${q}${c.until != null ? ` — until ${formatTick(c.until)}` : ''} — do not bring it up again${c.until != null ? ' before then' : ' unless the player does'}.`);
         else if (c.stance === 'ooc_suppress') out.push(`BINDING — out of character, stop: ${label}${q} — keep it out of the player's story: no contacts, reminders or NPC arguments about it.`);
-        else if (c.stance === 'joined' || c.stance === 'accepted' || c.stance === 'reopened') out.push(`${c.stance === 'joined' ? 'took part by their own action' : c.stance === 'accepted' ? 'accepted' : 'open to it again'}: ${label}${q} — continue it naturally.`);
+        // answers to questions: recent ones only (a day), so a long game does not pile them up
+        else if (c.stance === 'answered' && tick - c.tick <= ANSWER_SHOWN_MINUTES) out.push(`answered: ${label} — the player answered${q}. That is their answer, vague or partial as it may be: react to it if you like, but do not ask for it again.`);
+        else if (c.stance === 'refused' && tick - c.tick <= ANSWER_SHOWN_MINUTES) out.push(`refused to answer: ${label} — the player will not answer${q}. Respect it: one in-character reaction at most, then drop the question; do not ask it again or press for it another way.`);
+        else if (c.stance === 'joined' || c.stance === 'accepted' || c.stance === 'reopened') out.push(`${c.stance === 'joined' ? 'took part by their own action' : c.stance === 'accepted' ? 'accepted' : 'open to it again'}: ${label}${q} — continue it naturally.${once}`);
         const lim = s.history.filter((h) => h.stance === 'limited' && h.seq > (c?.seq ?? -1)).slice(-1)[0];
         if (lim) out.push(`one act only: ${lim.scopeLabel || lim.scopeRef} ("${lim.quote.slice(0, 120)}") — that act; nothing more of it is accepted.`);
       }
@@ -640,10 +648,17 @@ export function worldReactionSection(index: WorldIndex, o: Opportunity, origin: 
 }
 
 /** Records for the player's decisions from an extract_user statement (scope checked against the pack/state). */
-export function engagementRecord(s: { stance?: string | null; scope_kind?: string | null; scope_ref?: string | null; scope_label?: string | null; until?: { day: number; minute: number } | null; quote: string; summary: string }, index: WorldIndex, tick: number, src: RecordDraft['sourceRefs']): RecordDraft | null {
+export function engagementRecord(s0: { stance?: string | null; scope_kind?: string | null; scope_ref?: string | null; scope_label?: string | null; until?: { day: number; minute: number } | null; quote: string; summary: string }, index: WorldIndex, tick: number, src: RecordDraft['sourceRefs']): RecordDraft | null {
+  let s = s0;
   const stance = s.stance as EngagementInfo['stance'];
-  if (!stance || !['declined', 'deferred', 'accepted', 'joined', 'limited', 'ooc_suppress', 'reopened'].includes(stance)) return null;
+  if (!stance || !['declined', 'deferred', 'accepted', 'joined', 'limited', 'ooc_suppress', 'reopened', 'answered', 'refused'].includes(stance)) return null;
+  // an answer belongs to the question asked (a contact); a decision on one contact is named by who asked what
+  const answer = stance === 'answered' || stance === 'refused';
+  const asked = s.scope_kind === 'contact' ? index.state.contacts.find((x) => x.recordId === String(s.scope_ref || '').trim()) : undefined;
+  if (answer && !asked) return null;
+  if (asked) s = { ...s, scope_label: `${asked.actors.map((a) => index.entityName(a)).join(', ') || asked.scopeLabel}: “${asked.quote.slice(0, 120)}”` };
   let kind = (s.scope_kind || '') as ScopeKind;
+  if (answer && kind !== 'contact') return null;
   let ref = String(s.scope_ref || '').trim();
   let label = String(s.scope_label || '').trim();
   const pack = index.pack;

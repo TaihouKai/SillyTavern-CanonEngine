@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ, legacyCampaign } from './fake';
 import { ROOT } from './helpers';
-import { engagementView, isBinding } from '../../src/runtime/integration';
-import { PROMPTS, gmRulesFor } from '../../src/runtime/prompts';
+import { engagementView, isBinding, engagementRecord } from '../../src/runtime/integration';
+import { PROMPTS, gmRulesFor, GM_INTEGRATION_RULES } from '../../src/runtime/prompts';
 import { DEFAULT_PLAYER_VOICE } from '../../src/runtime/voice';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
@@ -217,7 +217,7 @@ describe('the world reaches the player', () => {
     await turn(x, 'I go to the Council office as the note says.', 'The clerk says: come alone tonight. [K2]', { contacts: [contact('come alone tonight')] }, accept);
     await turn(x, 'I nod.', 'The clerk leaves. [K3]');
     expect(lastCtx(x)).not.toMatch(/already offered, not answered: Ambush of Mira/);
-    expect(lastCtx(x)).toMatch(/accepted: Ambush of Mira/);
+    expect(lastCtx(x)).toMatch(/accepted: The Council: “A clerk slips a sealed note under the door” \("I go to the Council office as the note says"\) — continue it naturally\. That request has its answer/);
   });
 
   it('NI-27c acting with the people who reached out answers their contact even without a stated decision (live: walking with 绢旗)', async () => {
@@ -743,6 +743,39 @@ describe('preferred matters', () => {
     expect(cache.dropped).toContainEqual({ id: 'b3', reason: 'no known actor' });
     const v = x.engine.integrationView(true)!;
     expect(v.suggestions!.find((o: any) => o.id === b.id)!.by).toEqual(['an old woman in a red coat']);
+  });
+
+  it('NI-49 a question the player answered (however vaguely) or refused to answer is recorded with that question; the GM and the reviewer are told not to ask for it again (live: 白井 pressed three times after "今晚肯定没问题"; the answer had been filed as accepting the matter)', async () => {
+    expect(GM_INTEGRATION_RULES).toMatch(/PLAYER'S ANSWERS: whatever the player says to a question or demand is their answer, however vague, partial, joking or evasive; refusing to answer is an answer too[^]*do not ask for the same answer again/);
+    expect(PROMPTS.extract_user).toMatch(/answered \(answers a question or demand a character put to them[^]*refused \(refuses to answer such a question or demand[^]*a reply to it is "answered" even when it agrees[^]*"accepted" is only for taking up an offer to do or join something; a vague or conditional reply[^]*is "answered" too, never "deferred" or "declined" of some event/);
+    expect(PROMPTS.evaluate).toMatch(/A question or request the player has answered[^]*asking them for that answer again[^]*is "engagement_pressure" \(blocking\); reacting to the answer or the refusal is not/);
+    const x = await setup();
+    await turn(x, 'I drink tea.', 'The clerk leans in: will you stay out of trouble tonight? [A1]', { contacts: [contact('will you stay out of trouble tonight?', { kind: 'probe' })] });
+    const q1 = st(x).contacts.slice(-1)[0];
+    await turn(x, 'Tonight is fine, I guess.', 'The clerk nods slowly. And tomorrow? [A2]', { contacts: [contact('And tomorrow?', { kind: 'probe' })] }, decline('Tonight is fine, I guess', 'contact', q1.recordId, 'answered'));
+    const q2 = st(x).contacts.slice(-1)[0];
+    let v = x.engine.integrationView(true)!;
+    const d1 = v.decisions.find((d: any) => d.scopeRef === q1.recordId)!;
+    expect(d1).toMatchObject({ stance: 'answered', label: 'The Council: “will you stay out of trouble tonight?”' });
+    expect(v.decisions.some((d: any) => d.stance === 'accepted')).toBe(false);
+    // agreeing, read as "accepted" on that one request, answers it all the same
+    await turn(x, 'I drink more tea.', 'The clerk: so will you sign the ledger tonight? [A2b]', { contacts: [contact('so will you sign the ledger tonight?')] });
+    const q3 = st(x).contacts.slice(-1)[0];
+    await turn(x, 'Sure, no problem.', 'The clerk smiles. [A2c]', {}, decline('Sure, no problem', 'contact', q3.recordId, 'accepted'));
+    await turn(x, 'I look out of the window.', 'Rain. [A2d]', {});
+    expect(lastCtx(x)).toMatch(/accepted: The Council: “so will you sign the ledger tonight\?” \("Sure, no problem"\) — continue it naturally\. That request has its answer: do not ask it again\./);
+    await turn(x, 'None of your business.', 'The clerk shrugs and lets it go. [A3]', {}, decline('None of your business', 'contact', q2.recordId, 'refused'));
+    const ctx = lastCtx(x);
+    expect(ctx).toMatch(/answered: The Council: “will you stay out of trouble tonight\?” — the player answered \("Tonight is fine, I guess"\)\. That is their answer[^\n]*do not ask for it again/);
+    // the next turn's reply is told about the refusal too
+    await turn(x, 'I finish the tea.', 'Quiet. [A4]', { scene_end: at(1, 9, 50) });
+    expect(lastCtx(x)).toMatch(/refused to answer: The Council: “And tomorrow\?” — the player will not answer \("None of your business"\)\. Respect it[^\n]*do not ask it again/);
+    // an answer must belong to a question: without a known contact nothing is recorded
+    expect(engagementRecord({ stance: 'answered', scope_kind: 'event', scope_ref: 'medic-ambush', quote: 'fine', summary: '' }, x.engine.current!.index, 0, [])).toBeNull();
+    // after a day it leaves the GM's decisions
+    await turn(x, 'I sleep until the morning after next.', 'Two days pass. [A5]', { scene_end: at(3, 8, 0) });
+    await turn(x, 'I stretch.', 'You stretch. [A6]', { scene_end: at(3, 8, 5) });
+    expect(lastCtx(x)).not.toMatch(/answered: The Council|refused to answer: The Council/);
   });
 
 });

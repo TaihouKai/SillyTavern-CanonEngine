@@ -124,7 +124,9 @@
          "joined",
          "limited",
          "ooc_suppress",
-         "reopened"
+         "reopened",
+         "answered",
+         "refused"
         ]
        }
       ]

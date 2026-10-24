@@ -248,6 +248,8 @@ const D: Record<string, { zh: string; en: string }> = {
   niStance_limited: { zh: '仅一次行动', en: 'one act only' },
   niStance_ooc_suppress: { zh: 'OOC 停止这条线', en: 'OOC: stop this line' },
   niStance_reopened: { zh: '重新允许', en: 'allowed again' },
+  niStance_answered: { zh: '已回答', en: 'answered' },
+  niStance_refused: { zh: '拒绝回答', en: 'refused to answer' },
   niBusy: { zh: '正在读取 Persona…', en: 'Reading the Persona…' },
   backupWarning: { zh: '备份包含完整的历史包与本战役的隐藏信息（剧透），请勿随意分享。', en: 'The backup contains the full pack and hidden campaign data (spoilers).' },
   conflictMarker: { zh: '与修改后的前文冲突：请修改此消息，或从此处分支后重新生成。', en: 'Conflicts with the edited history: edit this message or branch and regenerate from here.' },
