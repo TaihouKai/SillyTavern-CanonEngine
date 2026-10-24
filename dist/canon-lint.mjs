@@ -14469,6 +14469,10 @@ function formatTick(tick, origin) {
   return `D${t.day} ${hhmm}`;
 }
 
+// src/domain/summary.ts
+var SUMMARY_LABELS = ["\u80CC\u666F", "\u8D77\u56E0", "\u52A8\u673A", "\u7ECF\u8FC7", "\u7ED3\u679C", "\u540E\u7EED", "\u5F71\u54CD", "\u5907\u6CE8"];
+var LABEL_RE = new RegExp(`(${SUMMARY_LABELS.join("|")})\uFF1A`, "g");
+
 // src/domain/util.ts
 function stableStringify(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -14773,6 +14777,14 @@ function lintPack(pack2) {
   const titles = /* @__PURE__ */ new Map();
   pack2.events.forEach((ev, i) => {
     const P = `/events/${i}`;
+    const labels = [...ev.summary.matchAll(new RegExp(`(${SUMMARY_LABELS.join("|")})\uFF1A`, "g"))].map((m) => m[1]);
+    if (labels.length) {
+      const order = labels.map((l) => SUMMARY_LABELS.indexOf(l));
+      if (order.some((o, j) => j > 0 && o <= order[j - 1])) warn(`${P}/summary`, `summary sections out of order or repeated (${labels.join("/")}); order: ${SUMMARY_LABELS.join("/")}`);
+      const need = ev.classification === "FREE" ? [] : ["\u8D77\u56E0", "\u7ECF\u8FC7", "\u7ED3\u679C"];
+      const missing = need.filter((l) => !labels.includes(l));
+      if (missing.length) warn(`${P}/summary`, `${ev.classification} summary lacks ${missing.join(", ")}`);
+    }
     ev.entity_ids.forEach((x, j) => checkEntity(x, `${P}/entity_ids/${j}`));
     ev.location_ids.forEach((x, j) => {
       checkEntity(x, `${P}/location_ids/${j}`);

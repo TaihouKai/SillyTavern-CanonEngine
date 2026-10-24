@@ -14593,6 +14593,10 @@ function parseDateLabel(s, origin) {
   return day * DAY + hh * 60 + mm;
 }
 
+// src/domain/summary.ts
+var SUMMARY_LABELS = ["\u80CC\u666F", "\u8D77\u56E0", "\u52A8\u673A", "\u7ECF\u8FC7", "\u7ED3\u679C", "\u540E\u7EED", "\u5F71\u54CD", "\u5907\u6CE8"];
+var LABEL_RE = new RegExp(`(${SUMMARY_LABELS.join("|")})\uFF1A`, "g");
+
 // src/domain/util.ts
 function stableStringify(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -14952,6 +14956,14 @@ function lintPack(pack2) {
   const titles = /* @__PURE__ */ new Map();
   pack2.events.forEach((ev, i) => {
     const P = `/events/${i}`;
+    const labels = [...ev.summary.matchAll(new RegExp(`(${SUMMARY_LABELS.join("|")})\uFF1A`, "g"))].map((m) => m[1]);
+    if (labels.length) {
+      const order = labels.map((l) => SUMMARY_LABELS.indexOf(l));
+      if (order.some((o, j) => j > 0 && o <= order[j - 1])) warn(`${P}/summary`, `summary sections out of order or repeated (${labels.join("/")}); order: ${SUMMARY_LABELS.join("/")}`);
+      const need = ev.classification === "FREE" ? [] : ["\u8D77\u56E0", "\u7ECF\u8FC7", "\u7ED3\u679C"];
+      const missing = need.filter((l) => !labels.includes(l));
+      if (missing.length) warn(`${P}/summary`, `${ev.classification} summary lacks ${missing.join(", ")}`);
+    }
     ev.entity_ids.forEach((x, j) => checkEntity(x, `${P}/entity_ids/${j}`));
     ev.location_ids.forEach((x, j) => {
       checkEntity(x, `${P}/location_ids/${j}`);
@@ -15554,7 +15566,7 @@ function linkedCompletion(pack2, state, eventId, beatIds, disposition) {
   };
 }
 function situationOf(summary) {
-  const m = summary.match(/(?:起因|Cause|Background)[：:]\s*([\s\S]*?)(?=(?:经过|结果|Course|Result|What happened)[：:]|$)/i);
+  const m = summary.match(/(?:起因|Cause|Background)[：:]\s*([\s\S]*?)(?=(?:动机|背景|经过|结果|后续|影响|备注|Course|Result|What happened)[：:]|$)/i);
   let s = (m ? m[1] : summary.split(/(?<=[。！？.!?])\s*/)[0] || summary).trim();
   if (s.length > 180) s = s.slice(0, 177) + "\u2026";
   return s;
@@ -21109,7 +21121,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.11.4";
+var ENGINE_RELEASE = "1.11.5";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };

@@ -2,6 +2,7 @@
 import * as V from '../generated/validators.js';
 import type { CanonPack, Condition, Effect, Fact, FactValue, Id, PackEvent, PackPredicate } from './types';
 import { toTick, whenToStoryTime } from './time';
+import { SUMMARY_LABELS } from './summary';
 import { deepClone, hashObject, stableStringify } from './util';
 
 export interface LintIssue { level: 'error' | 'warning'; path: string; message: string }
@@ -214,6 +215,15 @@ export function lintPack(pack: CanonPack): { errors: LintIssue[]; warnings: Lint
   const titles = new Map<string, string>();
   pack.events.forEach((ev, i) => {
     const P = `/events/${i}`;
+    // a summary written in labelled sections: the known labels, in order; SOFT/HARD need 起因, 经过, 结果
+    const labels = [...ev.summary.matchAll(new RegExp(`(${SUMMARY_LABELS.join('|')})：`, 'g'))].map((m) => m[1] as string);
+    if (labels.length) {
+      const order = labels.map((l) => SUMMARY_LABELS.indexOf(l as (typeof SUMMARY_LABELS)[number]));
+      if (order.some((o, j) => j > 0 && o <= order[j - 1])) warn(`${P}/summary`, `summary sections out of order or repeated (${labels.join('/')}); order: ${SUMMARY_LABELS.join('/')}`);
+      const need = ev.classification === 'FREE' ? [] : ['起因', '经过', '结果'];
+      const missing = need.filter((l) => !labels.includes(l));
+      if (missing.length) warn(`${P}/summary`, `${ev.classification} summary lacks ${missing.join(', ')}`);
+    }
     ev.entity_ids.forEach((x, j) => checkEntity(x, `${P}/entity_ids/${j}`));
     ev.location_ids.forEach((x, j) => {
       checkEntity(x, `${P}/location_ids/${j}`);

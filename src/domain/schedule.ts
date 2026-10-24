@@ -1,4 +1,6 @@
 // Due-event ordering, crossed-interval collection and deterministic default adjudication.
+import { SUMMARY_LABELS, summarySection } from './summary';
+export { SUMMARY_LABELS, summarySection };
 import type { Effect, FactDelta, Id, LedgerRecord, Occurrence, PackEvent, StoryTime } from './types';
 import type { LoadedPack } from './pack';
 import type { WorldState } from './reducer';
@@ -232,7 +234,7 @@ export function linkedCompletion(pack: LoadedPack, state: WorldState, eventId: I
 /** Text of an event summary that describes its starting situation ("起因：…" / "Cause: …"), i.e. what the
  *  characters know and intend before it happens; falls back to the first sentence. */
 export function situationOf(summary: string): string {
-  const m = summary.match(/(?:起因|Cause|Background)[：:]\s*([\s\S]*?)(?=(?:经过|结果|Course|Result|What happened)[：:]|$)/i);
+  const m = summary.match(/(?:起因|Cause|Background)[：:]\s*([\s\S]*?)(?=(?:动机|背景|经过|结果|后续|影响|备注|Course|Result|What happened)[：:]|$)/i);
   let s = (m ? m[1] : summary.split(/(?<=[。！？.!?])\s*/)[0] || summary).trim();
   if (s.length > 180) s = s.slice(0, 177) + '…';
   return s;

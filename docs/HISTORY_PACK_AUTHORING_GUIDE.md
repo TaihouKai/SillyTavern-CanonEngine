@@ -192,7 +192,7 @@ Rules:
 | Event field | Authoring rule |
 | --- | --- |
 | `id`, `title` | Stable event identity and short human title |
-| `summary` | Original event in context, clearly distinguished from current game history |
+| `summary` | Original event in context, clearly distinguished from current game history; written in labelled sections (below) |
 | `classification` | Exactly HARD, SOFT or FREE |
 | `required_description` | Nonempty precise contract for HARD; null for SOFT/FREE |
 | `when` | Occurrence bounds and timing provenance |
@@ -205,6 +205,21 @@ Rules:
 | `participation` | Whether to offer a relevant in-world player opportunity |
 | `source_refs`, `author_note` | Evidence and editorial explanation |
 | `cast` (optional) | Who is at the event and from when: `{ "entity_id", "at": {day, minute}, "role" }` per person |
+
+**Labelled summaries.** Write `summary` in labelled sections, always in this order. Each label is the word followed by a full-width colon (`起因：`). The engine reads sections by label: the short cause it shows for upcoming events and for “why (original story)” is `起因`; the linter warns about labels out of order and about SOFT/HARD summaries without `起因`, `经过` and `结果`.
+
+| Label | Content |
+| --- | --- |
+| 背景 | the standing situation and setting going in, which is not itself the trigger (optional) |
+| 起因 | what sets it off, naming the earlier events it comes from |
+| 动机 | one line per key character: what they want, why, and what they know or do not know (`食蜂——……；凯兹——……`) |
+| 经过 | the default course in beats: who does what, and how |
+| 结果 | the state afterwards: who is where, what changed, who now knows what |
+| 后续 | later happenings of the same storyline that are not consequences (optional) |
+| 影响 | which later events build on it, and how |
+| 备注 | a note for the GM on how to treat the route (what may change), optional; authoring rationale goes in `author_note` |
+
+SOFT and HARD use 起因, 动机, 经过, 结果 and 影响 (a pure state change such as “recovered” may leave out 动机 and 影响). FREE uses at least 起因, 经过 and 结果, and 动机 where it matters. For a SOFT event the route is the default course the GM keeps unless actual play gives a concrete cause, so 动机 matters most: a character's goal and reason are what the GM keeps when the route changes. Do not drop a fact to fit the labels; if something fits none of them, propose a new label.
 
 **Cast.** List the people of an event that involves several of them, each with a fixed story time inside the event window. Use the time they are there in the original, both for those present from the start and for those who arrive later. Don't tie the time to another beat ("after X falls"): play rarely follows the original course, and the GM can only act on a clock time. `role` says in a few words why they are there ("婚后的朋友，来找她"), not what they do. Each member must be in `entity_ids`, listed once, and timed inside the window. The GM is told who is already there and who arrives when, and brings each one in at that time whatever the player has done meanwhile. Only actual history that makes it impossible, such as death or captivity, keeps someone away.
 

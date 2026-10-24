@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.5 — 2026-10-24
+
+- **Labelled event summaries.** History-pack summaries are written in labelled sections, in order: 背景 (standing situation, optional) · 起因 · 动机 (each key character's goal, reason and knowledge) · 经过 · 结果 · 后续 (optional) · 影响 · 备注 (GM note on the route, optional). The short cause the GM sees for upcoming events and in "why (original story)" now stops at the next label (it used to run on into 动机). The linter warns about labels out of order and about SOFT/HARD summaries without 起因, 经过 and 结果; older unlabelled summaries are not flagged. Authoring guide updated.
+- Tests: SU1–SU3.
+
 ## 1.11.4 — 2026-10-24
 
 - **Why an event happens.** Live: the GM saw 食蜂突袭177支部 on its own and read 食蜂's goal as "make 初春 forget the photos"; the reason — she is hiding 10032 from 木原幻生 — was in the 10032 event, which (already happened) showed only as a status. For an event under way or in its window, the GM now also gets "why (original story)": the events leading to it (the pack's enables/motivates links and its preconditions, up to 3), each with the link's note and that event's own cause (起因). From the pack; no extra call.
