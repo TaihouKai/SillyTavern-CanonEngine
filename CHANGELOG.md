@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.11.2 — 2026-10-24
+
+- **A cast member the story already brought in is "already here".** Live: in 食蜂突袭177支部 (window 16:00–18:00) the player had 食蜂 walk in at 16:03; the pack's cast says she comes at 17:00, and the GM, shown that time, held her back as "still probing until 17:00". For an event under way, a cast member who appears in its beats is now shown as "already here since 16:10 (actual play; the pack's time no longer applies)", and counted as present now. Computed from the beats; no extra call.
+- **Interventions are always the player's.** Live: as 食蜂 began on 初春, the GM wrote Serafina cutting her off (「扇子别乱扇」) — a line of dialogue the settings allow, which turned the course of a canon event the player never touched; the checker let it pass. Whatever the 「GM 可以替玩家角色……」 settings say, the player character interrupting, stopping, preventing, exposing or redirecting a canonical event or another character's significant action is left to the player: the GM lets such things go on (it may show what the player character notices or suspects), and the checker files such an act — even one line — as category "intervention", which is never the GM's to write.
+- Tests: CA1, PV11.
+
 ## 1.11.1 — 2026-10-24
 
 - **Not marked secret = public.** The Persona reading made the public identity "what an ordinary person sees" (one short line), and everything else counted as unknown to strangers — so the player's Level 5 ability, never marked secret, was treated as unknown. Now the public identity covers everything the Persona does not mark as secret or as known only to certain people (ability and level, school, looks, temperament, reputation). Secret even when not marked: what is secret by nature in the world (membership in a hidden organization such as a 暗部 group, covert work) and anything only certain people know. The GM and the checker are told the public identity is what anyone may know — famous things even strangers, personal details only people who would plausibly know them. Started chats keep their reading until 更新本局身份.

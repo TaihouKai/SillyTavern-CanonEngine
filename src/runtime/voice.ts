@@ -19,6 +19,12 @@ export const VOICE_TEXT: Record<VoiceKind, string> = {
   secrets: 'secrets — revealing the player character\'s secrets or hidden identity',
 };
 
+/** Always the player's, whatever the settings (not a setting): the player character stepping into what others are
+ *  doing. Live: the GM had Serafina cut 食蜂 off (「扇子别乱扇」) as she began on 初春 — a line of dialogue, allowed by the
+ *  settings, that turned the course of a canon event the player never touched. */
+export const INTERVENTION = 'intervention';
+export const INTERVENTION_TEXT = 'intervention — the player character interrupting, stopping, preventing, exposing or redirecting a canonical event or another character\'s significant action, even by a single line of dialogue or a reaction aimed at it';
+
 /** The player's choice by default: the GM voices the character in the scene; anything that commits them is theirs. */
 export const DEFAULT_PLAYER_VOICE: PlayerVoice = { dialogue: true, reactions: true, actions: true, movement: false, items: false, skills: false, combat: false, decisions: false, secrets: false };
 
@@ -35,13 +41,14 @@ export function voiceRule(v: PlayerVoice): string {
   const may = VOICE_KINDS.filter((k) => v[k]);
   const not = VOICE_KINDS.filter((k) => !v[k]);
   const own = 'Actions the player wrote are theirs: carry them out with their natural steps and immediate details.';
-  if (!may.length) return `${own} Do not supply new voluntary player actions, decisions, dialogue, consent, or equipment/skill use.`;
+  const always = ` Always leave to the player, whatever else you may write for them: ${INTERVENTION_TEXT}. When a canonical event or another character's significant act happens in front of the player character, let it go on as it would; you may show what the player character notices or suspects, but any interference is the player's to write (they can still act in their next message).`;
+  if (!may.length) return `${own} Do not supply new voluntary player actions, decisions, dialogue, consent, or equipment/skill use.${always}`;
   return `THE PLAYER CHARACTER: the player wants you to write these for their character, in character with their Persona and the scene — do it naturally, as part of the scene: ${may.map((k) => VOICE_TEXT[k]).join('; ')}. `
     + (not.length ? `Leave these to the player (do not write them unless the player's message does): ${not.map((k) => VOICE_TEXT[k]).join('; ')}. ` : '')
-    + own;
+    + own + always;
 }
 
 /** For the reviewer: what it may let stand without the player having written it. */
 export function voiceInput(v: PlayerVoice) {
-  return { gm_may_write: VOICE_KINDS.filter((k) => v[k]), player_only: VOICE_KINDS.filter((k) => !v[k]) };
+  return { gm_may_write: VOICE_KINDS.filter((k) => v[k]), player_only: [...VOICE_KINDS.filter((k) => !v[k]), INTERVENTION] };
 }

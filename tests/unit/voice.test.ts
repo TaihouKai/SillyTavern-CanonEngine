@@ -127,6 +127,19 @@ describe('what the GM may write for the player character', () => {
     expect(o.outcome).toEqual([]); // nor changes facts
   });
 
+  it('PV11 the player character stepping into what others are doing is always the player\'s, whatever the settings (live: 「扇子别乱扇」)', async () => {
+    const all = playerVoice(Object.fromEntries(VOICE_KINDS.map((k) => [k, true])));
+    expect(gmRulesFor(all)).toMatch(/Always leave to the player, whatever else you may write for them: intervention — the player character interrupting, stopping, preventing, exposing or redirecting a canonical event[^]*let it go on as it would; you may show what the player character notices or suspects/);
+    expect(PROMPTS.evaluate).toMatch(/\|intervention — the most committing kind that fits[^]*cutting off or stopping what another character is doing[^]*is intervention; noticing or suspecting it is only a reaction/);
+    const x = await setup(Object.fromEntries(VOICE_KINDS.map((k) => [k, true])));
+    x.host.addUser('I watch the medic.');
+    x.model.draft('"Stop that," you snap, slapping the guard\'s hand away. [PV11a]', 'You watch the medic work. [PV11b]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[PV11a]'), { player_actions: [act('"Stop that," you snap', 'intervention')] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/leaves to themselves \(intervention\)/);
+    expect(x.model.tasks('evaluate').slice(-1)[0].input.player_voice.player_only).toContain('intervention');
+  });
+
   it('PV9 how an authorized act is done (the spell, its incantation) is the player\'s act even when skills are player-only (live: "走一路烧一路魔法陷阱")', async () => {
     expect(PROMPTS.evaluate).toMatch(/and HOW it is done[^]*the spell, its incantation[^]*Never require the player to have specified such details/);
     expect(PROMPTS.evaluate).toMatch(/an act carrying out what the player wrote — with its means, incantation or exact words — is never a violation/);

@@ -233,11 +233,20 @@ function underWayEvents(index: WorldIndex, tick: number): { id: Id; title: strin
   return out.slice(0, 4);
 }
 
-/** An event's cast at fixed times: who is already there at `tick` and who arrives later. */
+/** When a cast member first appears in the beats of an event under way (actual play), if they have. Live: 食蜂 walked
+ *  into 177 at 16:10 in the story, the pack's cast said 17:00, and the GM held her back "until 17:00". */
+function arrivedInPlay(index: WorldIndex, eventId: Id, entityId: Id): number | null {
+  const beats = index.inProgressBeats(eventId).filter((o) => o.actors.includes(entityId) || o.affected.includes(entityId));
+  return beats.length ? Math.min(...beats.map((o) => o.time.lo)) : null;
+}
+/** An event's cast at fixed times: who is already there at `tick` and who arrives later; someone the story already
+ *  brought in is there since then, whatever the pack's time. */
 function castLine(ev: PackEvent | undefined, index: WorldIndex, tick: number, origin: PacketInput['origin']): string {
   if (!ev?.cast?.length) return '';
   const parts = [...ev.cast].sort((a, b) => toTick(a.at) - toTick(b.at)).map((c) => {
     const at = toTick(c.at);
+    const inPlay = arrivedInPlay(index, ev.id, c.entity_id);
+    if (inPlay !== null && inPlay <= tick && inPlay < at) return `${index.entityName(c.entity_id)} already here since ${formatTick(inPlay, origin)} (actual play; the pack's time no longer applies) (${c.role})`;
     return `${index.entityName(c.entity_id)} ${at <= tick ? 'there since' : 'arrives'} ${formatTick(at, origin)} (${c.role})`;
   });
   return `\n  cast: ${parts.join('; ')}`;
@@ -342,8 +351,9 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
     // For events under way the player is in: who must be in the scene now and who comes next, named outright.
     const due = underWay.flatMap((u) => {
       const cast = pack.events.get(u.id)?.cast || [];
-      const here = cast.filter((c) => toTick(c.at) <= checkpointTick).map((c) => index.entityName(c.entity_id));
-      const next = cast.filter((c) => toTick(c.at) > checkpointTick).sort((a, b) => toTick(a.at) - toTick(b.at)).map((c) => `${index.entityName(c.entity_id)} at ${formatTick(toTick(c.at), inp.origin)}`);
+      const isHere = (c: (typeof cast)[number]) => toTick(c.at) <= checkpointTick || (arrivedInPlay(index, u.id, c.entity_id) ?? Infinity) <= checkpointTick;
+      const here = cast.filter(isHere).map((c) => index.entityName(c.entity_id));
+      const next = cast.filter((c) => !isHere(c)).sort((a, b) => toTick(a.at) - toTick(b.at)).map((c) => `${index.entityName(c.entity_id)} at ${formatTick(toTick(c.at), inp.origin)}`);
       return here.length || next.length ? [`- ${u.title}: present now — ${here.join(', ') || 'nobody listed'}${next.length ? `; still to come — ${next.join(', ')}` : ''}. Everyone present now takes part in this reply's scene (someone not shown yet enters it now).`] : [];
     });
     required.push(CAST_RULE + (due.length ? '\nAT THE EVENT UNDER WAY:\n' + due.join('\n') : ''));

@@ -78,6 +78,20 @@ describe('event cast', () => {
     expect(sec).toMatch(new RegExp(`${name(x, 'council')} there since [^;]*10:30`));
   });
 
+  it('CA6 a cast member the story already brought in is shown as already here, not with the pack time (live: 食蜂 at 177)', async () => {
+    const x = await setup();
+    // the council's patrol (pack: 10:30) is already in the opening beat at 10:00
+    const fight = { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush on the road', 'Bolts start flying', { pack_event_id: 'medic-ambush', disposition: 'ongoing', actors: ['mira', 'council'] })] };
+    expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 the patrol is already there and bolts start flying at Mira. [CA6a]', fight)).toBe(true);
+    expect(await turn(x, 'I draw my sword.', 'Steel rings. [CA6b]', { scene_end: at(1, 10, 10) })).toBe(true);
+    const ctx = lastCtx(x);
+    const sec = section(ctx, 'CANON EVENTS UNDER WAY');
+    expect(sec).toMatch(new RegExp(`${name(x, 'council')} already here since [^;]*10:05 \\(actual play; the pack's time no longer applies\\)`));
+    expect(sec).not.toMatch(new RegExp(`${name(x, 'council')} arrives`));
+    expect(ctx).toMatch(new RegExp(`AT THE EVENT UNDER WAY:\\n- [^\\n]*: present now — [^;\\n]*${name(x, 'council')}[^;\\n]*\\. Everyone present now`));
+    expect(ctx).not.toMatch(/still to come/);
+  });
+
   it('CA4 an event without a cast adds neither a cast line nor the rule', async () => {
     const x = await setup(null);
     expect(await turn(x, 'I walk to the road.', 'Dust on the road. [CA4a]', { scene_end: at(1, 9, 40) })).toBe(true);

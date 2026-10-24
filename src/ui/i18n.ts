@@ -91,7 +91,7 @@ const D: Record<string, { zh: string; en: string }> = {
   sceneGrouping: { zh: '合并同一场景的本局事件', en: 'Group events of the same scene' },
   secVoice: { zh: 'GM 可以替玩家角色……', en: 'The GM may, for the player character…' },
   voiceNone: { zh: '都不行（只写你自己写的）', en: 'nothing (only what you write)' },
-  voiceHint: { zh: '没勾的，GM 会留给你自己写；你自己写了的行动，GM 总会照着演完。GM 替你说出的决定不会被记成你的决定。只影响之后的回合。', en: 'Unticked kinds are left to you; actions you write are always carried out. A decision the GM voices for you is never recorded as yours. Affects later turns only.' },
+  voiceHint: { zh: '没勾的，GM 会留给你自己写；你自己写了的行动，GM 总会照着演完。GM 替你说出的决定不会被记成你的决定。无论怎么勾选，插手别人正在做的事（打断、阻止、揭穿或扭转原作事件或别的角色的重要举动，哪怕只是一句话）始终留给你自己写。只影响之后的回合。', en: 'Unticked kinds are left to you; actions you write are always carried out. A decision the GM voices for you is never recorded as yours. Whatever is ticked, stepping into what others are doing (interrupting, stopping, exposing or redirecting a canon event or another character\'s significant act, even with one line) is always left to you. Affects later turns only.' },
   voice_dialogue: { zh: '说话（台词、回应、闲聊）', en: 'Dialogue (lines, replies, small talk)' },
   voice_reactions: { zh: '表情、反应和内心想法', en: 'Reactions, expressions, inner thoughts' },
   voice_actions: { zh: '日常小动作（喝水、收起手机、跟着走）', en: 'Small actions (drinking, pocketing the phone, walking along)' },
