@@ -220,7 +220,7 @@ const D: Record<string, { zh: string; en: string }> = {
   niPreferred: { zh: '已优先', en: 'preferred' },
   niPreferTip: { zh: '允许世界把这件事带到你面前，即使你正身处另一件进行中的事件（比如打斗中途）。\n只是允许，不是要求：GM 可以安排，也可以不安排。\n这件事结束或时间过去后自动取消。', en: 'Let the world bring this to you even while another event is under way (e.g. mid-fight).\nAllowed, not required: the GM may bring it in or leave it.\nCleared automatically when it is over or its time has passed.' },
   niUnpreferTip: { zh: '取消：进行中的事件结束前，GM 不再用这件事来接触你。', en: 'Undo: while an event is under way, the GM no longer brings this to you.' },
-  niRefreshTip: { zh: '现在让分析模型重新想一遍：世界接下来可能怎样接触你。只是建议，不会写进历史；下一回合 GM 会从新的结果里挑一个。会调用一次分析模型。', en: 'Ask the analysis model again now how the world may reach you next. Suggestions only, nothing is recorded; the next turn offers the GM one of the new ones. One analysis call.' },
+  niRefreshTip: { zh: '现在让分析模型重新想一遍：世界接下来可能怎样接触你。「进行中」和「已优先」的条目原样保留，只重新评估其余的。只是建议，不会写进历史；下一回合 GM 会从新的结果里挑一个。会调用一次分析模型。', en: 'Ask the analysis model again now how the world may reach you next. Entries about the event under way and preferred matters are kept as they are; only the rest is re-evaluated. Suggestions only, nothing is recorded; the next turn offers the GM one of the new ones. One analysis call.' },
   niRefreshDone: { zh: '重新评估完成：{n} 个可能接触', en: 'Re-evaluated: {n} possible contact(s)' },
   niSuggestions: { zh: '尚未发生的可能接触（剧透）', en: 'Possible contacts not yet made (spoilers)' },
   niDropped: { zh: '被过滤的建议（调试）', en: 'Filtered suggestions (debug)' },

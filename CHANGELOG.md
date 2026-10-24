@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.10.3 — 2026-10-24
+
+- **重新评估 keeps the in-progress and preferred entries.** Contacts about the event under way and about 优先 matters are kept exactly as they are (when still possible: not made, not past, their event not settled, not refused since); the model is told they are covered and asked only for the other matters, and anything it still proposes about them is dropped. The other entries are re-evaluated as before.
+- Tests: NI-44.
+
 ## 1.10.2 — 2026-10-24
 
 - **No repair over an end-time range touching a HARD checkpoint.** Live: a quiet waiting scene got scene end 15:35–16:00 with the HARD 御坂10032号失踪事件 due at 16:00, and was sent back twice ("the reply's end time is ambiguous… stop the scene clearly before it, or depict it"). The lower bound (the least time the depicted events need) is where the clock moves; the rest is unstated slack. When the range reaches a HARD checkpoint the reply does not depict, the engine now takes the scene as ending just before it (noted in the trace); the event stays due and is staged offscreen once story time passes it. A reply whose least time passes the checkpoint is handled as before.

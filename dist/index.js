@@ -18845,6 +18845,7 @@ Favor involvement: prefer the development that gives the player a part to play; 
 - engagement lists the player's decisions; each covers what its quoted words cover, whatever scope it was filed under (refusing "any \u6697\u90E8 job" also refuses a request of that kind from another \u6697\u90E8 group). Anything declined, deferred or suppressed is off limits for pulling them in \u2014 no other person, channel, news item, friend's plea or invented threat aimed at the same thing. The world itself goes on: harm that already has an actual cause in history (an enemy already hunting them) may still reach them (direct_impact, with basis_refs naming that history). "joined" means the player took part in that thing by their own action; "limited" was a single act and accepts nothing more;
 - recent_contacts were already made: do not repeat one the player has not answered; a follow-up must move it forward;
 - focus events are ones the player wants to experience: give them a plausible way in first;
+- already_kept, when given, lists contacts kept exactly as they are (about the event under way and matters the player prefers): propose nothing about those matters; propose only for other matters;
 - preferred lists matters ("event:id", "arc:id", "faction:id"...) the player lets the world bring to them even while busy with another event: keep a plausible contact for each in the list when one exists;
 - HARD events happen regardless; the player may or may not be part of them.
 Proposing nothing is right when the scene should stay quiet (a date, a fight in progress, daily life with nothing reaching them).
@@ -21049,7 +21050,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.10.2";
+var ENGINE_RELEASE = "1.10.3";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -22868,6 +22869,10 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     if (!force && c.integrationCache?.key === key) return c.integrationCache;
     const eng = engagementView(index.state, index.pack);
     const withIds = uniq(candidates.flatMap((x) => x.event.entity_ids));
+    const underWay = underWayEvents2(index.state);
+    const pref = new Set(c.preferredScopes || []);
+    const kept = force ? (c.integrationCache?.opportunities || []).filter((o) => (aboutUnderWay(o, index, underWay) || pref.has(`${o.scopeKind}:${o.scopeRef}`)) && !index.state.contacts.some((x) => x.opportunityId === o.id) && !(o.latest !== null && o.latest < tick) && !(o.targetEventId && index.state.dispositions.has(o.targetEventId)) && !eng.blockedBy({ eventId: o.targetEventId, scopeKind: o.scopeKind, scopeRef: o.scopeRef, actors: o.actors }, tick)) : [];
+    const keptScopes = new Set(kept.map((o) => `${o.scopeKind}:${o.scopeRef}`));
     const out = await this.withTimeout(callStructured(this.host.model, "integrate", PROMPTS.integrate, {
       now: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...jumpTo ? { time_jump_to: formatTick(jumpTo) } : {},
@@ -22879,9 +22884,12 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote })),
       focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f).title })),
       ...c.preferredScopes?.length ? { preferred: c.preferredScopes } : {},
+      ...kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {},
       registry: this.registry(index, `${userEntry?.text || ""} ${candidates.map((x) => x.event.title).join(" ")}`, [...withIds, ...profile2.relationships.map((r) => r.entityId).filter(Boolean)])
     }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 8e3 }), this.settings.taskTimeoutMs * 4, signal);
-    const { valid, dropped } = checkOpportunities(out, index, profile2, candidates, tick);
+    const checked = checkOpportunities(out, index, profile2, candidates, tick);
+    const dropped = [...checked.dropped, ...checked.valid.filter((o) => keptScopes.has(`${o.scopeKind}:${o.scopeRef}`)).map((o) => ({ id: o.id, reason: `${o.scopeLabel} is kept as it was` }))];
+    const valid = [...kept, ...checked.valid.filter((o) => !keptScopes.has(`${o.scopeKind}:${o.scopeRef}`))];
     const cache = { key, at: this.host.now(), tick, opportunities: valid, assessments: (out.assessments || []).slice(0, 30), dropped };
     c.integrationCache = cache;
     this.debugLog("integration", { candidates: candidates.map((x) => `${x.event.id}:${x.status}`), valid: valid.map((o) => `${o.id} ${o.kind} ${o.scopeLabel}`), dropped });
@@ -24884,7 +24892,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niPreferred: { zh: "\u5DF2\u4F18\u5148", en: "preferred" },
   niPreferTip: { zh: "\u5141\u8BB8\u4E16\u754C\u628A\u8FD9\u4EF6\u4E8B\u5E26\u5230\u4F60\u9762\u524D\uFF0C\u5373\u4F7F\u4F60\u6B63\u8EAB\u5904\u53E6\u4E00\u4EF6\u8FDB\u884C\u4E2D\u7684\u4E8B\u4EF6\uFF08\u6BD4\u5982\u6253\u6597\u4E2D\u9014\uFF09\u3002\n\u53EA\u662F\u5141\u8BB8\uFF0C\u4E0D\u662F\u8981\u6C42\uFF1AGM \u53EF\u4EE5\u5B89\u6392\uFF0C\u4E5F\u53EF\u4EE5\u4E0D\u5B89\u6392\u3002\n\u8FD9\u4EF6\u4E8B\u7ED3\u675F\u6216\u65F6\u95F4\u8FC7\u53BB\u540E\u81EA\u52A8\u53D6\u6D88\u3002", en: "Let the world bring this to you even while another event is under way (e.g. mid-fight).\nAllowed, not required: the GM may bring it in or leave it.\nCleared automatically when it is over or its time has passed." },
   niUnpreferTip: { zh: "\u53D6\u6D88\uFF1A\u8FDB\u884C\u4E2D\u7684\u4E8B\u4EF6\u7ED3\u675F\u524D\uFF0CGM \u4E0D\u518D\u7528\u8FD9\u4EF6\u4E8B\u6765\u63A5\u89E6\u4F60\u3002", en: "Undo: while an event is under way, the GM no longer brings this to you." },
-  niRefreshTip: { zh: "\u73B0\u5728\u8BA9\u5206\u6790\u6A21\u578B\u91CD\u65B0\u60F3\u4E00\u904D\uFF1A\u4E16\u754C\u63A5\u4E0B\u6765\u53EF\u80FD\u600E\u6837\u63A5\u89E6\u4F60\u3002\u53EA\u662F\u5EFA\u8BAE\uFF0C\u4E0D\u4F1A\u5199\u8FDB\u5386\u53F2\uFF1B\u4E0B\u4E00\u56DE\u5408 GM \u4F1A\u4ECE\u65B0\u7684\u7ED3\u679C\u91CC\u6311\u4E00\u4E2A\u3002\u4F1A\u8C03\u7528\u4E00\u6B21\u5206\u6790\u6A21\u578B\u3002", en: "Ask the analysis model again now how the world may reach you next. Suggestions only, nothing is recorded; the next turn offers the GM one of the new ones. One analysis call." },
+  niRefreshTip: { zh: "\u73B0\u5728\u8BA9\u5206\u6790\u6A21\u578B\u91CD\u65B0\u60F3\u4E00\u904D\uFF1A\u4E16\u754C\u63A5\u4E0B\u6765\u53EF\u80FD\u600E\u6837\u63A5\u89E6\u4F60\u3002\u300C\u8FDB\u884C\u4E2D\u300D\u548C\u300C\u5DF2\u4F18\u5148\u300D\u7684\u6761\u76EE\u539F\u6837\u4FDD\u7559\uFF0C\u53EA\u91CD\u65B0\u8BC4\u4F30\u5176\u4F59\u7684\u3002\u53EA\u662F\u5EFA\u8BAE\uFF0C\u4E0D\u4F1A\u5199\u8FDB\u5386\u53F2\uFF1B\u4E0B\u4E00\u56DE\u5408 GM \u4F1A\u4ECE\u65B0\u7684\u7ED3\u679C\u91CC\u6311\u4E00\u4E2A\u3002\u4F1A\u8C03\u7528\u4E00\u6B21\u5206\u6790\u6A21\u578B\u3002", en: "Ask the analysis model again now how the world may reach you next. Entries about the event under way and preferred matters are kept as they are; only the rest is re-evaluated. Suggestions only, nothing is recorded; the next turn offers the GM one of the new ones. One analysis call." },
   niRefreshDone: { zh: "\u91CD\u65B0\u8BC4\u4F30\u5B8C\u6210\uFF1A{n} \u4E2A\u53EF\u80FD\u63A5\u89E6", en: "Re-evaluated: {n} possible contact(s)" },
   niSuggestions: { zh: "\u5C1A\u672A\u53D1\u751F\u7684\u53EF\u80FD\u63A5\u89E6\uFF08\u5267\u900F\uFF09", en: "Possible contacts not yet made (spoilers)" },
   niDropped: { zh: "\u88AB\u8FC7\u6EE4\u7684\u5EFA\u8BAE\uFF08\u8C03\u8BD5\uFF09", en: "Filtered suggestions (debug)" },

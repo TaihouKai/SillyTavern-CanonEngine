@@ -584,4 +584,27 @@ describe('preferred matters', () => {
     await turn(x, 'I wait.', 'Silence. [P4]');
     expect(lastCtx(x)).not.toMatch(/the Union invites Vera/);
   });
+  it('NI-44 重新评估 keeps the entries about the event under way and preferred matters as they are; only the rest is re-evaluated', async () => {
+    expect(PROMPTS.integrate).toMatch(/already_kept, when given[^]*propose nothing about those matters/);
+    const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'medic-ambush').when, { latest: { day: 1, minute: 720 }, precision: 'range' });
+    const x = await setup({ pack: JSON.stringify(wide), integrate: { assessments: [], opportunities: [
+      OPP({ ref: 'a', kind: 'encounter', direct_impact: true, contact: 'a Council guard blocks the road' }),
+      OPP({ ref: 'u', kind: 'invitation', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the Union invites Vera to a meeting' }),
+    ] } });
+    const ambush = { scene_end: at(1, 10, 0), occurrences: [occ('o1', 'Ambush on the road', 'Bolts start flying', { pack_event_id: 'medic-ambush', disposition: 'ongoing', actors: ['mira'] })] };
+    await turn(x, 'I follow Mira onto the road.', 'At 10:00 Bolts start flying. [K1]', ambush);
+    expect(await x.engine.togglePreferred('faction:union')).toBe(true);
+    // the model now proposes other contacts for the same two matters, and one about another matter
+    x.model.on('integrate', null, { assessments: [], opportunities: [
+      OPP({ ref: 'a2', kind: 'hostile', direct_impact: true, contact: 'a crossbowman takes aim from a roof' }),
+      OPP({ ref: 'u2', kind: 'request', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'a Union runner asks for help' }),
+      OPP({ ref: 'c', kind: 'information', target_event_id: null, scope_kind: 'faction', scope_ref: 'council', actors: ['council'], contact: 'a Council herald posts a notice' }),
+    ] });
+    await x.engine.refreshIntegration();
+    const input = x.model.tasks('integrate').slice(-1)[0].input;
+    expect(input.already_kept.map((k: any) => k.contact).sort()).toEqual(['a Council guard blocks the road', 'the Union invites Vera to a meeting']);
+    const v = x.engine.integrationView(true)!;
+    expect(v.suggestions!.map((s) => s.contact).sort()).toEqual(['a Council guard blocks the road', 'a Council herald posts a notice', 'the Union invites Vera to a meeting']);
+    expect(x.engine.campaign()!.integrationCache!.dropped.filter((d) => /kept as it was/.test(d.reason))).toHaveLength(2);
+  });
 });

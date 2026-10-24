@@ -1728,6 +1728,14 @@ export class CanonEngine {
     if (!force && c.integrationCache?.key === key) return c.integrationCache;
     const eng = engagementView(index.state, index.pack);
     const withIds = uniq(candidates.flatMap((x) => x.event.entity_ids));
+    // 重新评估 keeps the contacts about the event under way and about 优先 matters exactly as they are (still possible:
+    // not made, not past, its event not settled, not refused since) and asks only for the other matters.
+    const underWay = underWayEvents(index.state);
+    const pref = new Set(c.preferredScopes || []);
+    const kept = force ? (c.integrationCache?.opportunities || []).filter((o) => (aboutUnderWay(o, index, underWay) || pref.has(`${o.scopeKind}:${o.scopeRef}`))
+      && !index.state.contacts.some((x) => x.opportunityId === o.id) && !(o.latest !== null && o.latest < tick)
+      && !(o.targetEventId && index.state.dispositions.has(o.targetEventId)) && !eng.blockedBy({ eventId: o.targetEventId, scopeKind: o.scopeKind, scopeRef: o.scopeRef, actors: o.actors }, tick)) : [];
+    const keptScopes = new Set(kept.map((o) => `${o.scopeKind}:${o.scopeRef}`));
     const out = await this.withTimeout(callStructured<IntegrateOut>(this.host.model, 'integrate', PROMPTS.integrate, {
       now: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...(jumpTo ? { time_jump_to: formatTick(jumpTo) } : {}),
@@ -1739,9 +1747,12 @@ export class CanonEngine {
       recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote })),
       focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f)!.title })),
       ...(c.preferredScopes?.length ? { preferred: c.preferredScopes } : {}),
+      ...(kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {}),
       registry: this.registry(index, `${userEntry?.text || ''} ${candidates.map((x) => x.event.title).join(' ')}`, [...withIds, ...profile.relationships.map((r) => r.entityId).filter(Boolean) as Id[]]),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 8000 }), this.settings.taskTimeoutMs * 4, signal);
-    const { valid, dropped } = checkOpportunities(out, index, profile, candidates, tick);
+    const checked = checkOpportunities(out, index, profile, candidates, tick);
+    const dropped = [...checked.dropped, ...checked.valid.filter((o) => keptScopes.has(`${o.scopeKind}:${o.scopeRef}`)).map((o) => ({ id: o.id, reason: `${o.scopeLabel} is kept as it was` }))];
+    const valid = [...kept, ...checked.valid.filter((o) => !keptScopes.has(`${o.scopeKind}:${o.scopeRef}`))];
     const cache: IntegrationCache = { key, at: this.host.now(), tick, opportunities: valid, assessments: (out.assessments || []).slice(0, 30), dropped };
     c.integrationCache = cache;
     this.debugLog('integration', { candidates: candidates.map((x) => `${x.event.id}:${x.status}`), valid: valid.map((o) => `${o.id} ${o.kind} ${o.scopeLabel}`), dropped });
