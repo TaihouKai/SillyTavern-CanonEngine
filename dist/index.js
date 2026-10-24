@@ -19268,7 +19268,7 @@ function underWayEvents(index, tick) {
     const t2 = index.pack.timeIndex.find((x) => x.id === id);
     const beats = index.inProgressBeats(id);
     if (!ev || !t2 || !beats.length || tick > t2.hi + 1440) continue;
-    out.push({ id, title: ev.title, summary: ev.summary, lo: t2.lo, hi: t2.hi, beats: beats.map((o) => clip(o.account)) });
+    out.push({ id, title: ev.title, summary: ev.summary, lo: t2.lo, hi: t2.hi, beats: beats.map((o) => clip(o.account)), cls: ev.classification });
   }
   return out.slice(0, 4);
 }
@@ -19287,6 +19287,8 @@ function castLine(ev, index, tick, origin) {
   return `
   cast: ${parts.join("; ")}`;
 }
+var CLASS_RULE = "HOW FAR THE ORIGINAL ROUTE OF A CANON EVENT BINDS, by its class: FREE \u2014 reference only; play decides its course. SOFT \u2014 the original route is the default course: its characters keep the goals they have in it (what they came to do) and pursue them the way it describes. Change how they pursue them, or what results, only where a concrete cause in actual play requires it \u2014 something the player character did or said in the story, or a recorded fact or event (someone dead, held captive, already gone) \u2014 and then they adapt in character toward the same goal; they do not drop it. Your own guess at what a character might think, fear or prefer is not such a cause. HARD \u2014 the required outcome must happen (HARD OBLIGATIONS).";
+var routeLabel = (cls) => cls === "SOFT" ? "Original route (SOFT: the default course)" : "Original route (FREE: reference)";
 var CAST_RULE = "CAST of an event (fixed times, like the event's own): each listed person is at the event from that time. Whoever's time has come is there \u2014 show them when the player character is there or arrives, even if the scene so far is about someone else. Whoever's time is later turns up at that time, whatever the player has done meanwhile (fighting or talking with someone else does not keep them away); only actual history that makes it impossible (dead, held captive) does. If your reply ends before someone's time, they have not arrived yet; do not move the clock to reach or avoid an arrival. What they do once there follows from actual play; the role says why they are there.";
 function canonLine(c) {
   return `- ${c.title} [${c.packEventId}] (${c.classification}): ${c.status.toUpperCase()} \u2014 ${c.note}`;
@@ -19323,12 +19325,12 @@ function buildPacket(inp, compact = false) {
   const jump = inp.timeJumpTo && inp.timeJumpTo > checkpointTick ? inp.timeJumpTo - checkpointTick : 0;
   const starting = upcomingRoute(pack2, index.state, checkpointTick, Math.max(START_SOON_MINUTES, jump), jump > START_SOON_MINUTES ? 10 : 6);
   if (starting.length && !inp.review) {
-    const head = jump > START_SOON_MINUTES ? `CANON EVENTS ABOUT TO START \u2014 the player's message jumps story time to ${formatTick(inp.timeJumpTo, inp.origin)}; these start before then (NOT happened yet). Each begins at its time during the jump \u2014 the world does not wait: reflect the ones the player character would witness, be woken or interrupted by, or plausibly hear about; the others happen out of sight and you do not mention them. Keep the jump the player asked for: do not cut it short or stretch it to reach or avoid an event; their course and result follow from actual play` : `CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then \u2014 the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; its course and result follow from actual play`;
+    const head = jump > START_SOON_MINUTES ? `CANON EVENTS ABOUT TO START \u2014 the player's message jumps story time to ${formatTick(inp.timeJumpTo, inp.origin)}; these start before then (NOT happened yet). Each begins at its time during the jump \u2014 the world does not wait: reflect the ones the player character would witness, be woken or interrupted by, or plausibly hear about; the others happen out of sight and you do not mention them. Keep the jump the player asked for: do not cut it short or stretch it to reach or avoid an event; how far their original routes bind depends on their class (rule below)` : `CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then \u2014 the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; how far its original route binds depends on its class (rule below)`;
     required.push(`${head}:
-` + starting.map((u) => `- ${u.event.title} [${u.event.id}] starts ${formatTick(u.lo, inp.origin)} (in ${minutesAway(u.lo - checkpointTick)}): ${situationOf(u.event.summary)}${castLine(u.event, index, checkpointTick, inp.origin)}`).join("\n"));
+` + starting.map((u) => `- ${u.event.title} [${u.event.id}] (${u.event.classification}) starts ${formatTick(u.lo, inp.origin)} (in ${minutesAway(u.lo - checkpointTick)}): ${situationOf(u.event.summary)}${castLine(u.event, index, checkpointTick, inp.origin)}`).join("\n"));
   }
   const underWay = underWayEvents(index, checkpointTick);
-  if (underWay.length) required.push("CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand: their course and result follow from actual play and the player's choices; the original route is reference only):\n" + underWay.map((u) => `- ${u.title} [${u.id}] (window ${formatTick(u.lo, inp.origin)} \u2013 ${formatTick(u.hi, inp.origin)}): so far \u2014 ${u.beats.join(" \u2192 ")}. Original route (reference): ${u.summary}${castLine(index.pack.events.get(u.id), index, checkpointTick, inp.origin)}`).join("\n"));
+  if (underWay.length) required.push("CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand; how far the original route binds depends on the class \u2014 rule below):\n" + underWay.map((u) => `- ${u.title} [${u.id}] (${u.cls}; window ${formatTick(u.lo, inp.origin)} \u2013 ${formatTick(u.hi, inp.origin)}): so far \u2014 ${u.beats.join(" \u2192 ")}. ${routeLabel(u.cls)}: ${u.summary}${castLine(index.pack.events.get(u.id), index, checkpointTick, inp.origin)}`).join("\n"));
   const devs = [...index.state.dispositions].filter(([, d]) => d.disposition !== "occurred").map(([id, d]) => `- ${pack2.events.get(id)?.title} [${id}] (${pack2.events.get(id)?.classification}): ${d.disposition} \u2014 ${d.reason || ""}`);
   if (devs.length) required.push("DEVIATIONS (original outcomes superseded by actual play; do not restore them):\n" + devs.join("\n"));
   const hard = pendingHard(pack2, index.state);
@@ -19356,12 +19358,13 @@ function buildPacket(inp, compact = false) {
   const openEvents = pack2.timeIndex.filter((t2) => t2.lo <= checkpointTick && t2.hi > checkpointTick && !index.state.dispositions.has(t2.id) && pack2.events.get(t2.id)?.classification !== "HARD" && !underWay.some((u) => u.id === t2.id) && triLabel(evalCondition(pack2.events.get(t2.id).canonical_preconditions, index.state, pack2, { tick: checkpointTick })) !== "FALSE").slice(0, 4);
   const open = openEvents.map((t2) => {
     const e = pack2.events.get(t2.id);
-    return `- ${e.title} (${formatTick(t2.lo, inp.origin)} \u2013 ${formatTick(t2.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + "\u2026" : e.summary}${castLine(e, index, checkpointTick, inp.origin)}`;
+    return `- ${e.title} (${e.classification}; ${formatTick(t2.lo, inp.origin)} \u2013 ${formatTick(t2.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + "\u2026" : e.summary}${castLine(e, index, checkpointTick, inp.origin)}`;
   });
   const soon = upcomingRoute(pack2, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${situationOf(u.event.summary)}`);
   if (soon.length) optional.push("WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing \u2014 NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them (a WORLD REACTION given above is the one way the world may reach the player); the player may change them, and actual play wins over this:\n" + soon.join("\n"));
   const openCast = openEvents.some((t2) => pack2.events.get(t2.id).cast?.length);
-  if (open.length) (openCast && !inp.review ? required : optional).push("CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts):\n" + open.join("\n"));
+  if (open.length) (openCast && !inp.review ? required : optional).push("CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts; how far the original route binds depends on the class \u2014 rule below):\n" + open.join("\n"));
+  if (!inp.review && (underWay.length || starting.some((u) => u.event.classification !== "HARD") || open.length)) required.push(CLASS_RULE);
   const castShown = openCast || starting.some((u) => u.event.cast?.length) || underWay.some((u) => pack2.events.get(u.id)?.cast?.length) || dueSoon.some((h) => h.event.cast?.length);
   if (castShown && !inp.review) {
     const due = underWay.flatMap((u) => {
@@ -21091,7 +21094,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.11.2";
+var ENGINE_RELEASE = "1.11.3";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };

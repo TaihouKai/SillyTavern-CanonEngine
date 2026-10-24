@@ -93,6 +93,20 @@ describe('canonical events under way', () => {
     expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('diverged');
   });
 
+  it('CR1 how far the original route binds follows the class: SOFT is the default course (goals kept, changed only by a concrete cause in play), FREE is reference (live: 食蜂 at 177)', async () => {
+    const j = JSON.parse(demo); const e = j.events.find((x: any) => x.id === 'medic-ambush');
+    Object.assign(e, { classification: 'SOFT' }); Object.assign(e.when, { latest: { day: 1, minute: 720 }, precision: 'range' });
+    const x = makeEngine();
+    await x.engine.bind(JSON.stringify(j), { startTick: tick(1, 9, 30), mode: 'new' });
+    await x.engine.reconcile('test');
+    expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [CR1a]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
+    expect(await turn(x, 'I stand there.', 'At 10:05 nothing changes. [CR1b]', { scene_end: at(1, 10, 5) })).toBe(true);
+    const ctx = String(x.model.tasks('draft').slice(-1)[0].input.engineContext);
+    expect(ctx).toMatch(/\[medic-ambush\] \(SOFT; window [^)]*\): so far — [^\n]*Original route \(SOFT: the default course\): /);
+    expect(ctx).toMatch(/HOW FAR THE ORIGINAL ROUTE OF A CANON EVENT BINDS, by its class: FREE — reference only[^]*SOFT — the original route is the default course: its characters keep the goals they have in it[^]*only where a concrete cause in actual play requires it[^]*they do not drop it\. Your own guess at what a character might think, fear or prefer is not such a cause/);
+    expect(ctx).not.toMatch(/the original route is reference only\)/);
+  });
+
   it('OG4 the GM is told about an event under way in every reply until it ends, even when no message names it', async () => {
     const x = await setup(true);
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [OG4a]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
@@ -111,7 +125,7 @@ describe('canonical events under way', () => {
     expect(await turn(x, 'I walk to the harbor.', 'Gulls circle. [OG5a]', { scene_end: at(1, 9, 40) })).toBe(true);
     const ctx = String(x.model.tasks('draft')[0].input.engineContext);
     const sec = ctx.split('\n\n').find((s) => s.startsWith('CANON EVENTS ABOUT TO START')) || '';
-    expect(sec).toMatch(/\[medic-ambush\] starts .*\(in 30 min\)/);
+    expect(sec).toMatch(/\[medic-ambush\] \(FREE\) starts .*\(in 30 min\)/);
     expect(sec).toMatch(/the world does not wait/);
     expect(sec).toMatch(/Do not speed up or slow down time/);
     expect(sec).not.toMatch(/council-broadcast/); // 2.5 hours away
@@ -128,8 +142,8 @@ describe('canonical events under way', () => {
     const sec = ctx.split('\n\n').find((s) => s.startsWith('CANON EVENTS ABOUT TO START')) || '';
     expect(sec).toMatch(/the player's message jumps story time to .*; these start before then/);
     expect(sec).toMatch(/Keep the jump the player asked for/);
-    expect(sec).toMatch(/\[medic-ambush\] starts .*\(in 30 min\)/);
-    expect(sec).toMatch(/\[council-broadcast\] starts .*\(in 2 h 30 min\)/); // beyond the usual 2 hours, inside the jump
+    expect(sec).toMatch(/\[medic-ambush\] \(FREE\) starts .*\(in 30 min\)/);
+    expect(sec).toMatch(/\[council-broadcast\] \(SOFT\) starts .*\(in 2 h 30 min\)/); // beyond the usual 2 hours, inside the jump
     expect(sec).not.toMatch(/harbor-festival/); // day 3: after the jump
   });
 

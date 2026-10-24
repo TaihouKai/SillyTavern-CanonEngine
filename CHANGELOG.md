@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.3 — 2026-10-24
+
+- **How far the original route binds follows the event's class.** Live: in 食蜂突袭177支部 (SOFT), the GM was told "the original route is reference only" and had 食蜂 drop what she came to do (erase 初春's data and memory) and leave with a warning, on its own guess about her motives. Now every SOFT/FREE event shown to the GM (starting, under way, in its window) carries its class, and one rule says: FREE — reference only; SOFT — the original route is the default course: its characters keep their goals and pursue them as described; how, or what results, changes only where a concrete cause in actual play requires it (something the player character did or said, a recorded fact or event), and then they adapt toward the same goal instead of dropping it; the GM's own guess at what a character might think is not such a cause; HARD — the required outcome must happen. No extra call.
+- Tests: CR1.
+
 ## 1.11.2 — 2026-10-24
 
 - **A cast member the story already brought in is "already here".** Live: in 食蜂突袭177支部 (window 16:00–18:00) the player had 食蜂 walk in at 16:03; the pack's cast says she comes at 17:00, and the GM, shown that time, held her back as "still probing until 17:00". For an event under way, a cast member who appears in its beats is now shown as "already here since 16:10 (actual play; the pack's time no longer applies)", and counted as present now. Computed from the beats; no extra call.

@@ -67,7 +67,7 @@ describe('event cast', () => {
     expect(await turn(x, 'I draw my sword.', 'Steel rings. [CA3b]', { scene_end: at(1, 10, 20) })).toBe(true);
     let sec = section(lastCtx(x), 'CANON EVENTS UNDER WAY');
     const summary = base.events.find((e: any) => e.id === 'medic-ambush').summary;
-    expect(sec).toContain(`Original route (reference): ${summary}`);
+    expect(sec).toContain(`Original route (FREE: reference): ${summary}`);
     expect(sec).toMatch(new RegExp(`${name(x, 'council')} arrives [^;]*10:30`));
     // named outright at the end: who must be in the scene now, who comes next
     expect(lastCtx(x)).toMatch(new RegExp(`AT THE EVENT UNDER WAY:\\n- [^\\n]*: present now — ${name(x, 'mira')}; still to come — ${name(x, 'council')} at [^\\n]*10:30\\. Everyone present now takes part`));
@@ -96,7 +96,7 @@ describe('event cast', () => {
     const x = await setup(null);
     expect(await turn(x, 'I walk to the road.', 'Dust on the road. [CA4a]', { scene_end: at(1, 9, 40) })).toBe(true);
     const ctx = lastCtx(x);
-    expect(ctx).toMatch(/\[medic-ambush\] starts/);
+    expect(ctx).toMatch(/\[medic-ambush\] \(FREE\) starts/);
     expect(ctx).not.toMatch(/\n {2}cast: |CAST of an event/);
   });
 
