@@ -941,6 +941,27 @@ try {
     await page.waitForFunction(() => SillyTavern.getContext().chat.slice(-1)[0]?.mes?.includes('ST_OK'), null, { timeout: 60000 }).catch(() => {});
     check(results, 'ST02 retrying afterwards works', (await chat(page)).slice(-1)[0]?.mes?.includes('ST_OK'), (await chat(page)).slice(-1)[0]?.mes);
   }
+  if (want('S22')) {
+    console.log('\n== S22 skipping the first message (greeting) ==');
+    const setSkip = (on) => page.evaluate((on) => { const c = SillyTavern.getContext(); c.extensionSettings.canonEngine.ignoreFirstMessage = on; window.CanonEngine.engine.settings.ignoreFirstMessage = on; }, on);
+    await setSkip(true);
+    await mock('/control', { clearLogs: true });
+    await newChat(page);
+    const greeting = (await chat(page))[0]?.mes || '';
+    await bind(page, packText('demo.canon.json'), tick(0, 8));
+    await waitIdle(page);
+    const read = async () => (await taskLogs('evaluate')).concat(await taskLogs('discover')).filter((l) => JSON.stringify(l.input).includes(greeting.slice(0, 30))).length;
+    const role0 = await page.evaluate(() => window.CanonEngine.host.readTranscript()[0]?.role);
+    const n1 = await read();
+    check(results, 'GS01 with the setting on, binding does not read the greeting (first message from the character)', !!greeting && role0 === 'system' && n1 === 0, `role=${role0} reads=${n1}`);
+    // switching it off in the bound chat reads the chat again, greeting included
+    await mock('/control', { clearLogs: true });
+    await setSkip(false);
+    await page.evaluate(async () => { const E = window.CanonEngine.engine; E.sourceChanged('settings'); await E.reconcile('ignore_first_message'); });
+    await waitIdle(page);
+    const role1 = await page.evaluate(() => window.CanonEngine.host.readTranscript()[0]?.role);
+    check(results, 'GS02 switched off, the greeting is story again and is read', role1 === 'gm' && (await read()) > 0, `role=${role1} reads=${await read()}`);
+  }
 } catch (e) {
   console.error('FATAL', e);
   try { await page.screenshot({ path: join(ROOT, 'tests', 'e2e', 'out', 'fatal.png') }); } catch { /* ignore */ }

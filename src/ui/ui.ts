@@ -242,7 +242,7 @@ function renderSettings() {
     + VOICE_KINDS.map((k) => check('voice:' + k, pv[k], t('voice_' + k), 'voice_' + k + 'Tip')).join('') + `<div class="canon-hint">${t('voiceHint')}</div></details>`);
 
   // ---- event log
-  out.push(card(t('secEvents'), '', check('sceneGrouping', !!s.sceneGrouping, t('sceneGrouping'), 'sceneGroupingTip') + check('followHoraeTime', s.followHoraeTime !== false, t('followHoraeTime'), 'followHoraeTimeTip')));
+  out.push(card(t('secEvents'), '', check('ignoreFirstMessage', !!s.ignoreFirstMessage, t('ignoreFirstMessage'), 'ignoreFirstMessageTip') + check('sceneGrouping', !!s.sceneGrouping, t('sceneGrouping'), 'sceneGroupingTip') + check('followHoraeTime', s.followHoraeTime !== false, t('followHoraeTime'), 'followHoraeTimeTip')));
 
   // ---- advanced
   const adv = [num('maxRepairs', s.maxRepairs), num('maxOrdinaryPlanner', s.maxOrdinaryPlanner), check('forcedPlannerAttempt', !!s.forcedPlannerAttempt, t('adv_forcedPlannerAttempt'), 'adv_forcedPlannerAttemptTip'),
@@ -411,6 +411,8 @@ async function onSettingsChange(ev: Event) {
   if (key === 'notifyDone' && tgt.checked) primeNotifications(); // the click is the user gesture permission prompts want
   Object.assign(E.settings, s);
   ctx().saveSettingsDebounced?.();
+  // the first message counts as story again, or no longer: the bound chat is read again
+  if (key === 'ignoreFirstMessage' && E.campaign()) { E.sourceChanged('settings'); void E.reconcile('ignore_first_message').catch(() => {}).finally(() => refreshUi()); }
   refreshUi();
 }
 

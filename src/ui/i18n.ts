@@ -308,6 +308,8 @@ const D: Record<string, { zh: string; en: string }> = {
   replyLengthShort: { zh: '可选，留空就不限制。', en: 'Optional; leave empty for no limit.' },
   replyLengthTip: { zh: '引擎每次让模型写回复或改回复时，都会附上这句要求。', en: 'Added to the instructions every time the engine asks the model to write or revise a reply.' },
   secEvents: { zh: '事件记录', en: 'Event log' },
+  ignoreFirstMessage: { zh: 'Canon 不读第一条消息（开场白）', en: 'Canon skips the first message (greeting)' },
+  ignoreFirstMessageTip: { zh: '勾选后，对话的第一条消息如果是角色发的（通常是 GM 的开场白），Canon 就当它不是剧情：启用历史包时不读它，之后也不读，不会从里面记下任何事实、事件或时间。\n故事模型照常能看到它。\n只影响角色发的第一条；第一条是你自己发的就照常读。在已启用的对话里切换，Canon 会把对话重新读一遍。', en: 'When ticked, the chat\'s first message, if the character sent it (usually the GM\'s greeting), is not story for Canon: it is not read when the pack is bound or later, and no facts, events or time come from it.\nThe story model still sees it.\nOnly a first message from the character; if you sent the first message, it is read as usual. Switching it in a bound chat makes Canon read the chat again.' },
   secVoiceTip: { zh: '勾选 GM 可以替你的角色写的内容。默认：说话、反应、日常小动作——GM 会自然地替你演，你不必每句都自己写。没勾的（比如战斗、做决定）GM 会留给你。\n审核也照这个来：勾了的不会再被当成“替玩家行动”退回重写。', en: 'Tick what the GM may write for your character. Default: dialogue, reactions, small actions — the GM plays your character naturally, so you need not write every line. Unticked kinds (e.g. combat, decisions) are left to you.\nThe review follows the same list: ticked kinds are no longer sent back as "acting for the player".' },
   voice_dialogueTip: { zh: '你的角色说的话：回应、斗嘴、提问、闲聊。', en: 'What your character says: replies, banter, questions, small talk.' },
   voice_reactionsTip: { zh: '表情、动作神态、情绪和内心想法。', en: 'Expressions, gestures, feelings and inner thoughts.' },

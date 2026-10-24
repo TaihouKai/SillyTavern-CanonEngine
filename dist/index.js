@@ -21577,7 +21577,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.12.0";
+var ENGINE_RELEASE = "1.12.1";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -21658,6 +21658,7 @@ var DEFAULT_SETTINGS = {
   replyLength: "",
   sceneGrouping: false,
   ignorePersonaSections: false,
+  ignoreFirstMessage: false,
   quietDayJobs: true,
   playerVoice: { ...DEFAULT_PLAYER_VOICE },
   oocKeyword: "OOC"
@@ -24376,18 +24377,20 @@ var StHost = class {
     const chat = c.chat || [];
     const out = [];
     const seen = /* @__PURE__ */ new Set();
+    const skipGreeting = !!c.extensionSettings?.[NS]?.ignoreFirstMessage;
     chat.forEach((m, index) => {
       if (!m) return;
-      const role = isGenuineSystem(m) ? "system" : m.is_user ? "user" : "gm";
+      const kind = isGenuineSystem(m) ? "system" : m.is_user ? "user" : "gm";
+      const role = skipGreeting && index === 0 && kind === "gm" ? "system" : kind;
       if (!m.extra || typeof m.extra !== "object") m.extra = {};
       let id = m.extra[NS];
       if (!id || typeof id !== "object" || !id.mid) {
-        id = { mid: newId("msg"), vid: role === "gm" ? newId("var") : "v0" };
+        id = { mid: newId("msg"), vid: kind === "gm" ? newId("var") : "v0" };
         m.extra[NS] = id;
         this.syncSwipeExtra(m);
       }
       if (seen.has(id.mid)) {
-        id = { mid: newId("msg"), vid: role === "gm" ? newId("var") : "v0" };
+        id = { mid: newId("msg"), vid: kind === "gm" ? newId("var") : "v0" };
         m.extra[NS] = id;
         this.syncSwipeExtra(m);
       }
@@ -25521,6 +25524,8 @@ Also [OOC \u2026], \u3010OOC\uFF1A\u2026\u3011, or a line starting with "OOC:".
   replyLengthShort: { zh: "\u53EF\u9009\uFF0C\u7559\u7A7A\u5C31\u4E0D\u9650\u5236\u3002", en: "Optional; leave empty for no limit." },
   replyLengthTip: { zh: "\u5F15\u64CE\u6BCF\u6B21\u8BA9\u6A21\u578B\u5199\u56DE\u590D\u6216\u6539\u56DE\u590D\u65F6\uFF0C\u90FD\u4F1A\u9644\u4E0A\u8FD9\u53E5\u8981\u6C42\u3002", en: "Added to the instructions every time the engine asks the model to write or revise a reply." },
   secEvents: { zh: "\u4E8B\u4EF6\u8BB0\u5F55", en: "Event log" },
+  ignoreFirstMessage: { zh: "Canon \u4E0D\u8BFB\u7B2C\u4E00\u6761\u6D88\u606F\uFF08\u5F00\u573A\u767D\uFF09", en: "Canon skips the first message (greeting)" },
+  ignoreFirstMessageTip: { zh: "\u52FE\u9009\u540E\uFF0C\u5BF9\u8BDD\u7684\u7B2C\u4E00\u6761\u6D88\u606F\u5982\u679C\u662F\u89D2\u8272\u53D1\u7684\uFF08\u901A\u5E38\u662F GM \u7684\u5F00\u573A\u767D\uFF09\uFF0CCanon \u5C31\u5F53\u5B83\u4E0D\u662F\u5267\u60C5\uFF1A\u542F\u7528\u5386\u53F2\u5305\u65F6\u4E0D\u8BFB\u5B83\uFF0C\u4E4B\u540E\u4E5F\u4E0D\u8BFB\uFF0C\u4E0D\u4F1A\u4ECE\u91CC\u9762\u8BB0\u4E0B\u4EFB\u4F55\u4E8B\u5B9E\u3001\u4E8B\u4EF6\u6216\u65F6\u95F4\u3002\n\u6545\u4E8B\u6A21\u578B\u7167\u5E38\u80FD\u770B\u5230\u5B83\u3002\n\u53EA\u5F71\u54CD\u89D2\u8272\u53D1\u7684\u7B2C\u4E00\u6761\uFF1B\u7B2C\u4E00\u6761\u662F\u4F60\u81EA\u5DF1\u53D1\u7684\u5C31\u7167\u5E38\u8BFB\u3002\u5728\u5DF2\u542F\u7528\u7684\u5BF9\u8BDD\u91CC\u5207\u6362\uFF0CCanon \u4F1A\u628A\u5BF9\u8BDD\u91CD\u65B0\u8BFB\u4E00\u904D\u3002", en: "When ticked, the chat's first message, if the character sent it (usually the GM's greeting), is not story for Canon: it is not read when the pack is bound or later, and no facts, events or time come from it.\nThe story model still sees it.\nOnly a first message from the character; if you sent the first message, it is read as usual. Switching it in a bound chat makes Canon read the chat again." },
   secVoiceTip: { zh: "\u52FE\u9009 GM \u53EF\u4EE5\u66FF\u4F60\u7684\u89D2\u8272\u5199\u7684\u5185\u5BB9\u3002\u9ED8\u8BA4\uFF1A\u8BF4\u8BDD\u3001\u53CD\u5E94\u3001\u65E5\u5E38\u5C0F\u52A8\u4F5C\u2014\u2014GM \u4F1A\u81EA\u7136\u5730\u66FF\u4F60\u6F14\uFF0C\u4F60\u4E0D\u5FC5\u6BCF\u53E5\u90FD\u81EA\u5DF1\u5199\u3002\u6CA1\u52FE\u7684\uFF08\u6BD4\u5982\u6218\u6597\u3001\u505A\u51B3\u5B9A\uFF09GM \u4F1A\u7559\u7ED9\u4F60\u3002\n\u5BA1\u6838\u4E5F\u7167\u8FD9\u4E2A\u6765\uFF1A\u52FE\u4E86\u7684\u4E0D\u4F1A\u518D\u88AB\u5F53\u6210\u201C\u66FF\u73A9\u5BB6\u884C\u52A8\u201D\u9000\u56DE\u91CD\u5199\u3002", en: 'Tick what the GM may write for your character. Default: dialogue, reactions, small actions \u2014 the GM plays your character naturally, so you need not write every line. Unticked kinds (e.g. combat, decisions) are left to you.\nThe review follows the same list: ticked kinds are no longer sent back as "acting for the player".' },
   voice_dialogueTip: { zh: "\u4F60\u7684\u89D2\u8272\u8BF4\u7684\u8BDD\uFF1A\u56DE\u5E94\u3001\u6597\u5634\u3001\u63D0\u95EE\u3001\u95F2\u804A\u3002", en: "What your character says: replies, banter, questions, small talk." },
   voice_reactionsTip: { zh: "\u8868\u60C5\u3001\u52A8\u4F5C\u795E\u6001\u3001\u60C5\u7EEA\u548C\u5185\u5FC3\u60F3\u6CD5\u3002", en: "Expressions, gestures, feelings and inner thoughts." },
@@ -26514,7 +26519,7 @@ function renderSettings() {
   out.push(card(t("secPersona"), "", check("ignorePersonaSections", !!s.ignorePersonaSections, t("ignorePersonaSections"), "ignorePersonaSectionsTip") + check("quietDayJobs", s.quietDayJobs !== false, t("quietDayJobs"), "quietDayJobsTip")));
   const pv = playerVoice(s.playerVoice);
   out.push(`<details class="canon-card canon-voice"${s.voiceOpen ? " open" : ""}><summary class="canon-card-title">${t("secVoice")} ${tip("secVoiceTip")} <span class="canon-sub">${esc2(VOICE_KINDS.filter((k) => pv[k]).map((k) => t("voice_" + k)).join("\u3001") || t("voiceNone"))}</span></summary>` + VOICE_KINDS.map((k) => check("voice:" + k, pv[k], t("voice_" + k), "voice_" + k + "Tip")).join("") + `<div class="canon-hint">${t("voiceHint")}</div></details>`);
-  out.push(card(t("secEvents"), "", check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip") + check("followHoraeTime", s.followHoraeTime !== false, t("followHoraeTime"), "followHoraeTimeTip")));
+  out.push(card(t("secEvents"), "", check("ignoreFirstMessage", !!s.ignoreFirstMessage, t("ignoreFirstMessage"), "ignoreFirstMessageTip") + check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip") + check("followHoraeTime", s.followHoraeTime !== false, t("followHoraeTime"), "followHoraeTimeTip")));
   const adv = [
     num("maxRepairs", s.maxRepairs),
     num("maxOrdinaryPlanner", s.maxOrdinaryPlanner),
@@ -26708,6 +26713,11 @@ async function onSettingsChange(ev) {
   if (key === "notifyDone" && tgt.checked) primeNotifications();
   Object.assign(E.settings, s);
   ctx().saveSettingsDebounced?.();
+  if (key === "ignoreFirstMessage" && E.campaign()) {
+    E.sourceChanged("settings");
+    void E.reconcile("ignore_first_message").catch(() => {
+    }).finally(() => refreshUi());
+  }
   refreshUi();
 }
 async function onFileChosen(fi) {

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.12.1 — 2026-10-25
+
+- **Setting: Canon skips the first message (greeting)** (off by default). When the chat's first message is the character's, Canon treats it as not story: it is not read when the pack is bound or later (no facts, events or time from it). The story model still sees it. Switching it in a bound chat makes Canon read the chat again.
+- Tests: e2e S22 (GS01, GS02).
+
 ## 1.12.0 — 2026-10-25
 
 - **Structured event summaries.** A pack event's `summary` is an object with one field per section — `background`, `trigger`, `motives`, `course`, `result`, `aftermath`, `impact`, `note` — and `motives` is one entry per character or group: `{who, entity_ids, motive}`. Canon keeps the fields (`sections`) and renders them into the text every reader of `summary` uses. The GM sees an event under way one section per line, motives one per line with the characters present first (marked); the timeline details show the same layout; the short cause for upcoming events and “why (original story)” is the `trigger`. Plain-text summaries from older packs are still read; the linter asks for the structured form.

@@ -58,6 +58,9 @@ export interface EngineSettings {
   sceneGrouping: boolean;
   /** Canon reads Persona Library's core text without its Additional Sections (the GM still gets everything). */
   ignorePersonaSections: boolean;
+  /** Canon never reads the chat's first message when it is the character's (a greeting): not when the pack is bound,
+   *  not later. The story model still sees it. */
+  ignoreFirstMessage: boolean;
   /** On a day with no canon event left, the world offers a small job that fits the player's background. */
   quietDayJobs: boolean;
   /** What the GM may write for the player character (dialogue, reactions, small actions...; see voice.ts). */
@@ -101,6 +104,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   replyLength: '',
   sceneGrouping: false,
   ignorePersonaSections: false,
+  ignoreFirstMessage: false,
   quietDayJobs: true,
   playerVoice: { ...DEFAULT_PLAYER_VOICE },
   oocKeyword: 'OOC',

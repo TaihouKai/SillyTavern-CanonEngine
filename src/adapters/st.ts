@@ -130,19 +130,22 @@ export class StHost implements HostPort {
     const chat: any[] = c.chat || [];
     const out: SourceEntry[] = [];
     const seen = new Set<string>();
+    // setting: the first message, when it is the character's (a greeting), is not story for Canon
+    const skipGreeting = !!c.extensionSettings?.[NS]?.ignoreFirstMessage;
     chat.forEach((m, index) => {
       if (!m) return;
-      const role: SourceEntry['role'] = isGenuineSystem(m) ? 'system' : m.is_user ? 'user' : 'gm';
+      const kind: SourceEntry['role'] = isGenuineSystem(m) ? 'system' : m.is_user ? 'user' : 'gm';
+      const role: SourceEntry['role'] = skipGreeting && index === 0 && kind === 'gm' ? 'system' : kind;
       if (!m.extra || typeof m.extra !== 'object') m.extra = {};
       let id = m.extra[NS];
       if (!id || typeof id !== 'object' || !id.mid) {
-        id = { mid: newId('msg'), vid: role === 'gm' ? newId('var') : 'v0' };
+        id = { mid: newId('msg'), vid: kind === 'gm' ? newId('var') : 'v0' };
         m.extra[NS] = id;
         this.syncSwipeExtra(m);
       }
       if (seen.has(id.mid)) {
         // a native copy duplicated our identity: the later message gets a fresh identity
-        id = { mid: newId('msg'), vid: role === 'gm' ? newId('var') : 'v0' };
+        id = { mid: newId('msg'), vid: kind === 'gm' ? newId('var') : 'v0' };
         m.extra[NS] = id;
         this.syncSwipeExtra(m);
       }
