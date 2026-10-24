@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.11.0 — 2026-10-24
+
+- **Where new developments come from (GM rules).** Live: wanting something new each turn, the GM invented a silver-haired Tokiwadai figure "who looks exactly like" the player in a photo — contradicting nothing, but a mystery with no basis that reads as clones or a secret twin in Toaru. The GM is now told to draw new developments from what exists: the canon events coming up and the threads leading into them, the world reaction, the player's own organizations, places and relationships, threads already in the story, everyday life; clues lead somewhere that exists; no mysteries implying hidden facts with no basis (an unexplained double, the player seen where they never were, a conspiracy nobody set up). Banter, small incidents and quirks stay free. No extra call.
+- **Small jobs on quiet days.** When no canon event (of at most a day) is under way or due for the rest of the story day, the world-reaction step is asked for at least one small job fitting the player's background (from a handler, superior or client the profile gives, or the organization's usual channel): small, self-contained, changing no history — minor or new targets and places, never a canonical event or the status of a named canon character. It is marked 小任务, offered to the GM first, and the GM is asked to bring it in when the scene allows; the player decides. Same analysis call (no extra one). Setting: 没有原作事件的日子，世界主动给你派小任务 (on by default).
+- Contacts whose actors are dead (by the facts) are dropped, for every suggestion.
+- Tests: NI-45.
+
 ## 1.10.3 — 2026-10-24
 
 - **重新评估 keeps the in-progress and preferred entries.** Contacts about the event under way and about 优先 matters are kept exactly as they are (when still possible: not made, not past, their event not settled, not refused since); the model is told they are covered and asked only for the other matters, and anything it still proposes about them is dropped. The other entries are re-evaluated as before.

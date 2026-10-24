@@ -11124,7 +11124,7 @@ function validate57(data, { instancePath = "", parentData, parentDataProperty, r
   return errors === 0;
 }
 validate57.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema85 = { "type": "object", "properties": { "assessments": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "target": { "type": "string", "maxLength": 300 }, "classification": { "enum": ["direct_impact", "opportunity", "no_connection"] }, "reason": { "type": "string", "maxLength": 800 } }, "required": ["target", "classification", "reason"], "additionalProperties": false } }, "opportunities": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 60 }, "target_event_id": { "type": ["string", "null"], "maxLength": 200 }, "scope_kind": { "enum": ["event", "arc", "faction", "contact", "storyline"] }, "scope_ref": { "type": "string", "maxLength": 200 }, "scope_label": { "type": "string", "maxLength": 300 }, "kind": { "enum": ["invitation", "request", "information", "probe", "hostile", "consequence", "encounter"] }, "direct_impact": { "type": "boolean" }, "actors": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 }, "motivation": { "type": "string", "maxLength": 800 }, "knowledge": { "type": "string", "maxLength": 800 }, "contact": { "type": "string", "maxLength": 800 }, "establishes": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 8 }, "earliest": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "latest": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "priority": { "type": "integer", "minimum": 1, "maximum": 3 }, "basis_refs": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 } }, "required": ["ref", "scope_kind", "scope_ref", "kind", "actors", "motivation", "knowledge", "contact"], "additionalProperties": false } } }, "required": ["assessments", "opportunities"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:integrate", "title": "Canon Engine task output: integrate" };
+var schema85 = { "type": "object", "properties": { "assessments": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "target": { "type": "string", "maxLength": 300 }, "classification": { "enum": ["direct_impact", "opportunity", "no_connection"] }, "reason": { "type": "string", "maxLength": 800 } }, "required": ["target", "classification", "reason"], "additionalProperties": false } }, "opportunities": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 60 }, "target_event_id": { "type": ["string", "null"], "maxLength": 200 }, "scope_kind": { "enum": ["event", "arc", "faction", "contact", "storyline"] }, "scope_ref": { "type": "string", "maxLength": 200 }, "scope_label": { "type": "string", "maxLength": 300 }, "kind": { "enum": ["invitation", "request", "information", "probe", "hostile", "consequence", "encounter"] }, "direct_impact": { "type": "boolean" }, "actors": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 }, "motivation": { "type": "string", "maxLength": 800 }, "knowledge": { "type": "string", "maxLength": 800 }, "contact": { "type": "string", "maxLength": 800 }, "establishes": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 8 }, "earliest": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "latest": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "priority": { "type": "integer", "minimum": 1, "maximum": 3 }, "side_job": { "type": "boolean" }, "basis_refs": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 } }, "required": ["ref", "scope_kind", "scope_ref", "kind", "actors", "motivation", "knowledge", "contact"], "additionalProperties": false } } }, "required": ["assessments", "opportunities"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:integrate", "title": "Canon Engine task output: integrate" };
 function validate58(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -11973,77 +11973,88 @@ function validate58(data, { instancePath = "", parentData, parentDataProperty, r
                 }
               }
             }
+            if (data6.side_job !== void 0) {
+              if (typeof data6.side_job !== "boolean") {
+                const err73 = { instancePath: instancePath + "/opportunities/" + i1 + "/side_job", schemaPath: "#/properties/opportunities/items/properties/side_job/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err73];
+                } else {
+                  vErrors.push(err73);
+                }
+                errors++;
+              }
+            }
             if (data6.basis_refs !== void 0) {
-              let data28 = data6.basis_refs;
-              if (Array.isArray(data28)) {
-                if (data28.length > 40) {
-                  const err73 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs", schemaPath: "#/properties/opportunities/items/properties/basis_refs/maxItems", keyword: "maxItems", params: { limit: 40 }, message: "must NOT have more than 40 items" };
+              let data29 = data6.basis_refs;
+              if (Array.isArray(data29)) {
+                if (data29.length > 40) {
+                  const err74 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs", schemaPath: "#/properties/opportunities/items/properties/basis_refs/maxItems", keyword: "maxItems", params: { limit: 40 }, message: "must NOT have more than 40 items" };
                   if (vErrors === null) {
-                    vErrors = [err73];
+                    vErrors = [err74];
                   } else {
-                    vErrors.push(err73);
+                    vErrors.push(err74);
                   }
                   errors++;
                 }
-                const len4 = data28.length;
+                const len4 = data29.length;
                 for (let i4 = 0; i4 < len4; i4++) {
-                  let data29 = data28[i4];
-                  if (typeof data29 === "string") {
-                    if (func2(data29) > 200) {
-                      const err74 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs/" + i4, schemaPath: "#/properties/opportunities/items/properties/basis_refs/items/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
+                  let data30 = data29[i4];
+                  if (typeof data30 === "string") {
+                    if (func2(data30) > 200) {
+                      const err75 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs/" + i4, schemaPath: "#/properties/opportunities/items/properties/basis_refs/items/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
                       if (vErrors === null) {
-                        vErrors = [err74];
+                        vErrors = [err75];
                       } else {
-                        vErrors.push(err74);
+                        vErrors.push(err75);
                       }
                       errors++;
                     }
                   } else {
-                    const err75 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs/" + i4, schemaPath: "#/properties/opportunities/items/properties/basis_refs/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    const err76 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs/" + i4, schemaPath: "#/properties/opportunities/items/properties/basis_refs/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                     if (vErrors === null) {
-                      vErrors = [err75];
+                      vErrors = [err76];
                     } else {
-                      vErrors.push(err75);
+                      vErrors.push(err76);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err76 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs", schemaPath: "#/properties/opportunities/items/properties/basis_refs/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                const err77 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs", schemaPath: "#/properties/opportunities/items/properties/basis_refs/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
-                  vErrors = [err76];
+                  vErrors = [err77];
                 } else {
-                  vErrors.push(err76);
+                  vErrors.push(err77);
                 }
                 errors++;
               }
             }
           } else {
-            const err77 = { instancePath: instancePath + "/opportunities/" + i1, schemaPath: "#/properties/opportunities/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            const err78 = { instancePath: instancePath + "/opportunities/" + i1, schemaPath: "#/properties/opportunities/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err77];
+              vErrors = [err78];
             } else {
-              vErrors.push(err77);
+              vErrors.push(err78);
             }
             errors++;
           }
         }
       } else {
-        const err78 = { instancePath: instancePath + "/opportunities", schemaPath: "#/properties/opportunities/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err79 = { instancePath: instancePath + "/opportunities", schemaPath: "#/properties/opportunities/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err78];
+          vErrors = [err79];
         } else {
-          vErrors.push(err78);
+          vErrors.push(err79);
         }
         errors++;
       }
     }
   } else {
-    const err79 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err80 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err79];
+      vErrors = [err80];
     } else {
-      vErrors.push(err79);
+      vErrors.push(err80);
     }
     errors++;
   }

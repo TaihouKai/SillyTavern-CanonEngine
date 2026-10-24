@@ -436,14 +436,23 @@ export interface IntegrateOut {
   opportunities: {
     ref: string; target_event_id?: string | null; scope_kind: ScopeKind; scope_ref: string; scope_label?: string; kind: ContactInfo['contactKind'];
     direct_impact?: boolean; actors: string[]; motivation: string; knowledge: string; contact: string; establishes?: string[];
-    earliest?: { day: number; minute: number } | null; latest?: { day: number; minute: number } | null; priority?: number; basis_refs?: string[];
+    earliest?: { day: number; minute: number } | null; latest?: { day: number; minute: number } | null; priority?: number; basis_refs?: string[]; side_job?: boolean;
   }[];
+}
+
+/** A quiet day: no canon event (of at most a day) is under way or due for the rest of the story day. Background
+ *  events spanning several days do not count. */
+export function quietDay(index: WorldIndex, tick: number): boolean {
+  const st = index.state;
+  if (underWayEvents(st).size) return false;
+  const dayEnd = Math.floor(tick / 1440) * 1440 + 1439;
+  return !index.pack.timeIndex.some((t) => !st.dispositions.has(t.id) && t.hi - t.lo <= 1440 && t.lo <= dayEnd && t.hi >= tick);
 }
 
 /** Check the suggestions: real actors and scopes, nothing settled or impossible revived, the player's decisions
  *  (no way around a refusal — only harm with an actual recorded cause gets through), no repeat of an unanswered
  *  contact or of one already made. Returns the valid ones and why the others were dropped. */
-export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile: PlayerProfile, candidates: Candidate[], tick: number): { valid: Opportunity[]; dropped: { id: string; reason: string }[] } {
+export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile: PlayerProfile, candidates: Candidate[], tick: number, quiet = false): { valid: Opportunity[]; dropped: { id: string; reason: string }[] } {
   const pack = index.pack;
   const st = index.state;
   const eng = engagementView(st, pack);
@@ -453,8 +462,10 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
   const pending = unanswered(st, tick);
   for (const o of out.opportunities || []) {
     const ref = o.ref || '?';
-    const actors = uniq((o.actors || []).map((a) => (index.entityExists(a) ? a : index.resolveEntity(a).ids.length === 1 ? index.resolveEntity(a).ids[0] : null)).filter(Boolean) as Id[]).filter((a) => a !== profile.playerId);
-    if (!actors.length) { dropped.push({ id: ref, reason: 'no known actor' }); continue; }
+    const named = uniq((o.actors || []).map((a) => (index.entityExists(a) ? a : index.resolveEntity(a).ids.length === 1 ? index.resolveEntity(a).ids[0] : null)).filter(Boolean) as Id[]).filter((a) => a !== profile.playerId);
+    // nobody dead acts (checked against the facts, not left to the model)
+    const actors = named.filter((a) => { const f = factAt(st, a, 'alive', { tick }); return !(f.known && f.value === false); });
+    if (!actors.length) { dropped.push({ id: ref, reason: named.length ? 'its actors are dead' : 'no known actor' }); continue; }
     let scopeKind = o.scope_kind, scopeRef = String(o.scope_ref || '').trim();
     let label = (o.scope_label || '').trim();
     if (scopeKind === 'event') { if (!pack.events.has(scopeRef)) { dropped.push({ id: ref, reason: `unknown event ${scopeRef}` }); continue; } label ||= pack.events.get(scopeRef)!.title; }
@@ -491,6 +502,8 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
       id, scopeKind, scopeRef, scopeLabel: label, targetEventId, kind, directImpact: direct, actors,
       motivation: (o.motivation || '').slice(0, 800), knowledge: (o.knowledge || '').slice(0, 800), contact: (o.contact || '').slice(0, 800), establishes: (o.establishes || []).slice(0, 8),
       earliest, latest, priority: Math.min(3, Math.max(1, Math.round(o.priority || 2))), focus: !!c?.focus, basisRefs,
+      // a side job is only for a quiet day and never about a canonical event
+      ...(quiet && o.side_job && !targetEventId ? { sideJob: true } : {}),
     });
   }
   return { valid, dropped };
@@ -531,14 +544,14 @@ export function selectOpportunity(cache: IntegrationCache | null, index: WorldIn
     return true;
   });
   const pref = (o: Opportunity) => Number(preferred.has(`${o.scopeKind}:${o.scopeRef}`));
-  ok.sort((a, b) => pref(b) - pref(a) || Number(b.focus) - Number(a.focus) || Number(b.directImpact) - Number(a.directImpact) || a.priority - b.priority || (a.earliest ?? tick) - (b.earliest ?? tick));
+  ok.sort((a, b) => pref(b) - pref(a) || Number(b.focus) - Number(a.focus) || Number(!!b.sideJob) - Number(!!a.sideJob) || Number(b.directImpact) - Number(a.directImpact) || a.priority - b.priority || (a.earliest ?? tick) - (b.earliest ?? tick));
   return ok[0] || null;
 }
 
 /** What the analysis depends on: the profile, the player's decisions and contacts, the candidate events and their
  *  state, the 关注 list, a time jump, the player's lasting state, and actual history linking the player to the
  *  candidates' people. Ordinary turns with none of these changing reuse the cached result. */
-export function integrationKey(index: WorldIndex, profile: PlayerProfile, candidates: Candidate[], focus: Id[], jumpTo: number | null): string {
+export function integrationKey(index: WorldIndex, profile: PlayerProfile, candidates: Candidate[], focus: Id[], jumpTo: number | null, quiet = false): string {
   const people = new Set(candidates.flatMap((c) => c.event.entity_ids));
   const mine = new Set(playerIds(profile));
   const linkOccs = [...index.state.occurrences.values()].filter((o) => {
@@ -549,7 +562,7 @@ export function integrationKey(index: WorldIndex, profile: PlayerProfile, candid
     v: 1, p: profile.personaHash, ids: [...mine],
     c: candidates.map((c) => `${c.event.id}:${c.status}:${index.inProgressBeats(c.event.id).length}`),
     e: index.state.engagements.map((e) => e.recordId), k: index.state.contacts.map((c) => c.recordId),
-    f: [...focus].sort(), j: jumpTo ?? null, o: linkOccs,
+    f: [...focus].sort(), j: jumpTo ?? null, o: linkOccs, ...(quiet ? { q: Math.floor(index.state.clock.lo / 1440) } : {}),
     s: playerIds(profile).map((id) => factAt(index.state, id, 'exists', { tick: Number.MAX_SAFE_INTEGER }).value ?? null),
   });
 }
@@ -575,7 +588,10 @@ export function decisionsSection(lines: string[]): string {
 export function worldReactionSection(index: WorldIndex, o: Opportunity, origin: { y: number; m: number; d: number } | null): string {
   const who = o.actors.map((a) => index.entityName(a)).join(', ');
   const when = o.earliest !== null ? ` It can happen from ${formatTick(o.earliest, origin)}${o.latest !== null ? ` until ${formatTick(o.latest, origin)}` : ''}; if this reply ends before then, it has not happened yet.` : '';
-  return `WORLD REACTION (optional for this reply — NOT history; use it only if it fits the scene and its time; keep everyone in character and leave the player's answer to the player; not using it is fine):\n- ${who}: ${o.contact} Why: ${o.motivation} What they know about the player: ${o.knowledge}${o.establishes.length ? ` May establish: ${o.establishes.join('; ')}.` : ''}${when}`;
+  const head = o.sideJob
+    ? 'WORLD REACTION (a small job for a quiet day — no canon event happens for the rest of today, so bring it in during this reply if the scene allows at all; NOT history; keep everyone in character; the player decides whether to take it)'
+    : 'WORLD REACTION (optional for this reply — NOT history; use it only if it fits the scene and its time; keep everyone in character and leave the player\'s answer to the player; not using it is fine)';
+  return `${head}:\n- ${who}: ${o.contact} Why: ${o.motivation} What they know about the player: ${o.knowledge}${o.establishes.length ? ` May establish: ${o.establishes.join('; ')}.` : ''}${when}`;
 }
 
 /** Records for the player's decisions from an extract_user statement (scope checked against the pack/state). */

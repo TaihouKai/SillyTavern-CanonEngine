@@ -7,7 +7,8 @@ import { join } from 'node:path';
 import { makeEngine, tick, at, occ, legacyCampaign } from './fake';
 import { ROOT } from './helpers';
 import { engagementView, isBinding } from '../../src/runtime/integration';
-import { PROMPTS } from '../../src/runtime/prompts';
+import { PROMPTS, gmRulesFor } from '../../src/runtime/prompts';
+import { DEFAULT_PLAYER_VOICE } from '../../src/runtime/voice';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 type X = ReturnType<typeof makeEngine>;
@@ -606,5 +607,34 @@ describe('preferred matters', () => {
     const v = x.engine.integrationView(true)!;
     expect(v.suggestions!.map((s) => s.contact).sort()).toEqual(['a Council guard blocks the road', 'a Council herald posts a notice', 'the Union invites Vera to a meeting']);
     expect(x.engine.campaign()!.integrationCache!.dropped.filter((d) => /kept as it was/.test(d.reason))).toHaveLength(2);
+  });
+  it('NI-45 on a quiet day (no canon event left today) a small job fitting the player is asked for, offered first and marked; not on a busy day; dead actors never act', async () => {
+    expect(PROMPTS.integrate).toMatch(/quiet_day, when true[^]*side_job=true[^]*changes no history[^]*never involves a canonical event/);
+    expect(gmRulesFor(DEFAULT_PLAYER_VOICE)).toMatch(/NEW DEVELOPMENTS[^]*Do not invent mysteries that imply hidden facts[^]*the player seen where they never were/);
+    const job = OPP({ ref: 'j', kind: 'request', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the Union dockmaster asks Vera to scare off a petty smuggling crew', side_job: true });
+    const other = OPP({ ref: 'n', kind: 'information', target_event_id: null, scope_kind: 'faction', scope_ref: 'council', actors: ['council'], contact: 'a Council notice about curfew', priority: 1 });
+    // day 2, 10:00: the conflict began at 09:00, nothing else today
+    const x = await setup({ start: tick(2, 10, 0), integrate: { assessments: [], opportunities: [other, job] } });
+    await turn(x, 'I walk along the quay.', 'Gulls over the quay. [Q1]', { scene_end: at(2, 10, 10) });
+    expect(x.model.tasks('integrate').slice(-1)[0].input.quiet_day).toBe(true);
+    const v = x.engine.integrationView(true)!;
+    expect(v.suggestions!.find((s: any) => s.contact.includes('smuggling'))!.sideJob).toBe(true);
+    await turn(x, 'I keep walking.', 'More gulls. [Q2]', { scene_end: at(2, 10, 20) });
+    expect(lastCtx(x)).toMatch(/a small job for a quiet day[^]*bring it in during this reply if the scene allows at all[^]*scare off a petty smuggling crew/);
+    // day 1, 09:30: the ambush and the broadcast are still due today — not quiet, the flag is ignored
+    const y = await setup({ integrate: { assessments: [], opportunities: [job] } });
+    await turn(y, 'I look around.', 'The harbor at morning. [Q3]', { scene_end: at(1, 9, 35) });
+    expect(y.model.tasks('integrate').slice(-1)[0].input.quiet_day).toBeUndefined();
+    expect(y.engine.integrationView(true)!.suggestions!.every((s: any) => !s.sideJob)).toBe(true);
+    // the setting turns it off
+    const z = await setup({ start: tick(2, 10, 0), integrate: { assessments: [], opportunities: [job] } });
+    z.engine.settings.quietDayJobs = false;
+    await turn(z, 'I walk along the quay.', 'Gulls over the quay. [Q4]', { scene_end: at(2, 10, 10) });
+    expect(z.model.tasks('integrate').slice(-1)[0].input.quiet_day).toBeUndefined();
+    // a dead actor never makes a contact (checked against the facts)
+    const w = await setup({ integrate: { assessments: [], opportunities: [OPP({ ref: 'm', kind: 'request', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['mira'], contact: 'Mira asks for help' })] } });
+    await turn(w, 'I watch.', 'Mira falls and does not get up. [Q5]', { scene_end: at(1, 9, 40), occurrences: [occ('o1', 'Mira dies', 'Mira falls and does not get up', { actors: ['mira'] })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: false, quote: 'Mira falls and does not get up', occurrence_ref: 'o1' }] });
+    await w.engine.refreshIntegration();
+    expect(w.engine.campaign()!.integrationCache!.dropped.some((d: any) => /its actors are dead/.test(d.reason))).toBe(true);
   });
 });

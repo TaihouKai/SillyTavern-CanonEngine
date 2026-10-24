@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.10.3';
+export const ENGINE_RELEASE = '1.11.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -263,6 +263,8 @@ export interface Opportunity {
   priority: number;
   focus: boolean;
   basisRefs: string[];
+  /** A small job for a quiet day (no canon event for the rest of the day): offered first, changes no history. */
+  sideJob?: boolean;
 }
 
 export interface IntegrationCache {

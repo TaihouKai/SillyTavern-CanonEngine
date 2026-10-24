@@ -11217,7 +11217,7 @@ function validate57(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate57.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 var integrate = validate58;
-var schema85 = { "type": "object", "properties": { "assessments": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "target": { "type": "string", "maxLength": 300 }, "classification": { "enum": ["direct_impact", "opportunity", "no_connection"] }, "reason": { "type": "string", "maxLength": 800 } }, "required": ["target", "classification", "reason"], "additionalProperties": false } }, "opportunities": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 60 }, "target_event_id": { "type": ["string", "null"], "maxLength": 200 }, "scope_kind": { "enum": ["event", "arc", "faction", "contact", "storyline"] }, "scope_ref": { "type": "string", "maxLength": 200 }, "scope_label": { "type": "string", "maxLength": 300 }, "kind": { "enum": ["invitation", "request", "information", "probe", "hostile", "consequence", "encounter"] }, "direct_impact": { "type": "boolean" }, "actors": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 }, "motivation": { "type": "string", "maxLength": 800 }, "knowledge": { "type": "string", "maxLength": 800 }, "contact": { "type": "string", "maxLength": 800 }, "establishes": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 8 }, "earliest": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "latest": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "priority": { "type": "integer", "minimum": 1, "maximum": 3 }, "basis_refs": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 } }, "required": ["ref", "scope_kind", "scope_ref", "kind", "actors", "motivation", "knowledge", "contact"], "additionalProperties": false } } }, "required": ["assessments", "opportunities"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:integrate", "title": "Canon Engine task output: integrate" };
+var schema85 = { "type": "object", "properties": { "assessments": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "target": { "type": "string", "maxLength": 300 }, "classification": { "enum": ["direct_impact", "opportunity", "no_connection"] }, "reason": { "type": "string", "maxLength": 800 } }, "required": ["target", "classification", "reason"], "additionalProperties": false } }, "opportunities": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 60 }, "target_event_id": { "type": ["string", "null"], "maxLength": 200 }, "scope_kind": { "enum": ["event", "arc", "faction", "contact", "storyline"] }, "scope_ref": { "type": "string", "maxLength": 200 }, "scope_label": { "type": "string", "maxLength": 300 }, "kind": { "enum": ["invitation", "request", "information", "probe", "hostile", "consequence", "encounter"] }, "direct_impact": { "type": "boolean" }, "actors": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 }, "motivation": { "type": "string", "maxLength": 800 }, "knowledge": { "type": "string", "maxLength": 800 }, "contact": { "type": "string", "maxLength": 800 }, "establishes": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 8 }, "earliest": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "latest": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "priority": { "type": "integer", "minimum": 1, "maximum": 3 }, "side_job": { "type": "boolean" }, "basis_refs": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 } }, "required": ["ref", "scope_kind", "scope_ref", "kind", "actors", "motivation", "knowledge", "contact"], "additionalProperties": false } } }, "required": ["assessments", "opportunities"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:integrate", "title": "Canon Engine task output: integrate" };
 function validate58(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -12066,77 +12066,88 @@ function validate58(data, { instancePath = "", parentData, parentDataProperty, r
                 }
               }
             }
+            if (data6.side_job !== void 0) {
+              if (typeof data6.side_job !== "boolean") {
+                const err73 = { instancePath: instancePath + "/opportunities/" + i1 + "/side_job", schemaPath: "#/properties/opportunities/items/properties/side_job/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err73];
+                } else {
+                  vErrors.push(err73);
+                }
+                errors++;
+              }
+            }
             if (data6.basis_refs !== void 0) {
-              let data28 = data6.basis_refs;
-              if (Array.isArray(data28)) {
-                if (data28.length > 40) {
-                  const err73 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs", schemaPath: "#/properties/opportunities/items/properties/basis_refs/maxItems", keyword: "maxItems", params: { limit: 40 }, message: "must NOT have more than 40 items" };
+              let data29 = data6.basis_refs;
+              if (Array.isArray(data29)) {
+                if (data29.length > 40) {
+                  const err74 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs", schemaPath: "#/properties/opportunities/items/properties/basis_refs/maxItems", keyword: "maxItems", params: { limit: 40 }, message: "must NOT have more than 40 items" };
                   if (vErrors === null) {
-                    vErrors = [err73];
+                    vErrors = [err74];
                   } else {
-                    vErrors.push(err73);
+                    vErrors.push(err74);
                   }
                   errors++;
                 }
-                const len4 = data28.length;
+                const len4 = data29.length;
                 for (let i4 = 0; i4 < len4; i4++) {
-                  let data29 = data28[i4];
-                  if (typeof data29 === "string") {
-                    if (func2(data29) > 200) {
-                      const err74 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs/" + i4, schemaPath: "#/properties/opportunities/items/properties/basis_refs/items/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
+                  let data30 = data29[i4];
+                  if (typeof data30 === "string") {
+                    if (func2(data30) > 200) {
+                      const err75 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs/" + i4, schemaPath: "#/properties/opportunities/items/properties/basis_refs/items/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
                       if (vErrors === null) {
-                        vErrors = [err74];
+                        vErrors = [err75];
                       } else {
-                        vErrors.push(err74);
+                        vErrors.push(err75);
                       }
                       errors++;
                     }
                   } else {
-                    const err75 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs/" + i4, schemaPath: "#/properties/opportunities/items/properties/basis_refs/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    const err76 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs/" + i4, schemaPath: "#/properties/opportunities/items/properties/basis_refs/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                     if (vErrors === null) {
-                      vErrors = [err75];
+                      vErrors = [err76];
                     } else {
-                      vErrors.push(err75);
+                      vErrors.push(err76);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err76 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs", schemaPath: "#/properties/opportunities/items/properties/basis_refs/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                const err77 = { instancePath: instancePath + "/opportunities/" + i1 + "/basis_refs", schemaPath: "#/properties/opportunities/items/properties/basis_refs/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
-                  vErrors = [err76];
+                  vErrors = [err77];
                 } else {
-                  vErrors.push(err76);
+                  vErrors.push(err77);
                 }
                 errors++;
               }
             }
           } else {
-            const err77 = { instancePath: instancePath + "/opportunities/" + i1, schemaPath: "#/properties/opportunities/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            const err78 = { instancePath: instancePath + "/opportunities/" + i1, schemaPath: "#/properties/opportunities/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err77];
+              vErrors = [err78];
             } else {
-              vErrors.push(err77);
+              vErrors.push(err78);
             }
             errors++;
           }
         }
       } else {
-        const err78 = { instancePath: instancePath + "/opportunities", schemaPath: "#/properties/opportunities/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err79 = { instancePath: instancePath + "/opportunities", schemaPath: "#/properties/opportunities/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err78];
+          vErrors = [err79];
         } else {
-          vErrors.push(err78);
+          vErrors.push(err79);
         }
         errors++;
       }
     }
   } else {
-    const err79 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err80 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err79];
+      vErrors = [err80];
     } else {
-      vErrors.push(err79);
+      vErrors.push(err80);
     }
     errors++;
   }
@@ -18194,6 +18205,9 @@ var integrate_schema_default = {
             minimum: 1,
             maximum: 3
           },
+          side_job: {
+            type: "boolean"
+          },
           basis_refs: {
             type: "array",
             items: {
@@ -18766,6 +18780,7 @@ HARD obligations retain the exact required event content, outcome and authored t
 The accepted current state overrides stale temporal descriptions in ordinary lore. Keep static setting rules and character identity. Do not assume an unrecorded event already happened or a plan succeeded. Do not silently jump past a due obligation.
 TIME SKIPS: when the user's message moves story time past the window of a PROPOSED ACTION, that action happened off-screen during the skip, unless the player's own actions prevented it: narrate it as having happened (briefly, through its consequences, traces or what characters report), at its planned time. A HARD obligation whose window the skip reaches must be shown realized in this reply, through the proposed route. The supplied CANON REFERENCE and PROPOSED ACTIONS are the route: do not reconstruct the original story's timeline from memory, and keep your planning short.
 Use the supplied actual-history records whenever an earlier event is causally relevant or mentioned, including indirectly. Preserve its actual actors, actions, outcomes and relevant later changes. This includes player actions and unrelated events, not just canonical milestones. Current facts do not erase earlier occurrences whose effects were reversed. Respect the current state of every depicted entity, including incidental route stops, people and objects. A missing record is not permission to invent a restoration or normal condition, or a notable past: a death, serious injury, major fight or crime, a canonical event, or a relationship, rank or secret knowledge the player profile does not give. Small backstory that fits everything established \u2014 an anecdote, a habit, a minor earlier incident, how two people who already know each other got along \u2014 may be invented to make the scene live. Keep a character's belief or rumor distinct from established truth.
+NEW DEVELOPMENTS: when the scene wants something new, draw it from what exists: the canon events coming up and what leads into them (a thread already in the story that brings one about), the WORLD REACTION entry, the player's own organizations, places and relationships (PLAYER IN THIS WORLD), threads already in the story, and the everyday life of the setting. Clues and discoveries lead somewhere that exists there. Do not invent mysteries that imply hidden facts with no basis \u2014 an unexplained double of someone, the player seen where they never were, a conspiracy nobody set up. Banter, small incidents and characters' quirks stay free.
 THE PLAYER IN THE WORLD: the player character is part of this world with the identity, organizations and connections given in PLAYER IN THIS WORLD; people treat them as far as they plausibly know about them (the levels given there), not more. A WORLD REACTION entry is an optional way the world may reach the player in this reply: use it only if it fits the scene and its time, keep everyone in character, and leave the player's answer to the player; it is not history and does not happen offscreen during a time skip. PLAYER'S DECISIONS: a BINDING one must never be pressed \u2014 do not pull the player back into it by any character, channel, rumor, friend's plea or contrived threat. A wish should be respected: do not arrange for anyone to pull them into it, but ordinary remarks, small talk and favours from the people around them are fine. The world itself goes on, and harm that already has an actual cause may still reach them.
 Write only the requested narrative in the user's language. Keep the reply length, pacing and level of detail that the GM instructions ask for: this context adds constraints, not a reason to write less. Do not print internal JSON, engine labels, debug information, banner markup or planner reasoning. Develop the scene fully, then leave the next decision to the player instead of taking it for them.`;
 var COMMON = `You are an internal structured-analysis component of Canon Engine (a story-continuity engine). You output exactly ONE JSON object and nothing else.
@@ -18848,8 +18863,9 @@ Favor involvement: prefer the development that gives the player a part to play; 
 - already_kept, when given, lists contacts kept exactly as they are (about the event under way and matters the player prefers): propose nothing about those matters; propose only for other matters;
 - preferred lists matters ("event:id", "arc:id", "faction:id"...) the player lets the world bring to them even while busy with another event: keep a plausible contact for each in the list when one exists;
 - HARD events happen regardless; the player may or may not be part of them.
+- quiet_day, when true: no canon event happens for the rest of today. Then include at least one small job that fits the player's background, with side_job=true: work from someone who plausibly gives them such work \u2014 a person player.relationships or player.knowers name as their handler, superior or client, or their organization reaching them through its usual channel without naming a superior the profile does not give \u2014 e.g. dealing with a minor gang, retrieving or delivering something, an escort, a scouting or clean-up job. It is small and self-contained and changes no history: its targets and places are minor or newly introduced (put them in establishes); it never involves a canonical event (target_event_id null), never harms, kills or changes the status of a named canon character or place, and touches nothing the canon events depend on. Existing characters take part only as fits their current state and whereabouts. The player decides whether to take it.
 Proposing nothing is right when the scene should stay quiet (a date, a fight in progress, daily life with nothing reaching them).
-SHAPE: {"assessments":[{"target":"","classification":"opportunity","reason":""}],"opportunities":[{"ref":"o1","target_event_id":null,"scope_kind":"event","scope_ref":"","scope_label":"","kind":"invitation","direct_impact":false,"actors":[],"motivation":"","knowledge":"","contact":"","establishes":[],"earliest":null,"latest":null,"priority":2,"basis_refs":[]}]}`,
+SHAPE: {"assessments":[{"target":"","classification":"opportunity","reason":""}],"opportunities":[{"ref":"o1","target_event_id":null,"scope_kind":"event","scope_ref":"","scope_label":"","kind":"invitation","direct_impact":false,"actors":[],"motivation":"","knowledge":"","contact":"","establishes":[],"earliest":null,"latest":null,"priority":2,"basis_refs":[],"side_job":false}]}`,
   digest: `${COMMON}
 TASK: Group the player's actual story events (in time order) into episodes for a timeline view. An episode is a run of CONSECUTIVE events that belong to one storyline or outing (e.g. going somewhere, what happens there, coming back), typically 3\u201315 events; a clear change of storyline, goal or day starts a new one. Every event id goes into exactly one group, in the given order; never reorder, skip or invent ids. A lone event may be its own group.
 For each group write a short title (at most 20 characters, in the language of the events) and a one- or two-sentence summary of what actually happened. Neutral and factual; no new facts.
@@ -20821,7 +20837,13 @@ function candidateInput(index, c, tick, blocked) {
     player_decision: blocked ? `${blocked.stance}: ${blocked.scopeLabel}` : null
   };
 }
-function checkOpportunities(out, index, profile2, candidates, tick) {
+function quietDay(index, tick) {
+  const st = index.state;
+  if (underWayEvents2(st).size) return false;
+  const dayEnd = Math.floor(tick / 1440) * 1440 + 1439;
+  return !index.pack.timeIndex.some((t2) => !st.dispositions.has(t2.id) && t2.hi - t2.lo <= 1440 && t2.lo <= dayEnd && t2.hi >= tick);
+}
+function checkOpportunities(out, index, profile2, candidates, tick, quiet = false) {
   const pack2 = index.pack;
   const st = index.state;
   const eng = engagementView(st, pack2);
@@ -20831,9 +20853,13 @@ function checkOpportunities(out, index, profile2, candidates, tick) {
   const pending = unanswered(st, tick);
   for (const o of out.opportunities || []) {
     const ref = o.ref || "?";
-    const actors = uniq((o.actors || []).map((a) => index.entityExists(a) ? a : index.resolveEntity(a).ids.length === 1 ? index.resolveEntity(a).ids[0] : null).filter(Boolean)).filter((a) => a !== profile2.playerId);
+    const named = uniq((o.actors || []).map((a) => index.entityExists(a) ? a : index.resolveEntity(a).ids.length === 1 ? index.resolveEntity(a).ids[0] : null).filter(Boolean)).filter((a) => a !== profile2.playerId);
+    const actors = named.filter((a) => {
+      const f = factAt(st, a, "alive", { tick });
+      return !(f.known && f.value === false);
+    });
     if (!actors.length) {
-      dropped.push({ id: ref, reason: "no known actor" });
+      dropped.push({ id: ref, reason: named.length ? "its actors are dead" : "no known actor" });
       continue;
     }
     let scopeKind = o.scope_kind, scopeRef = String(o.scope_ref || "").trim();
@@ -20939,7 +20965,9 @@ function checkOpportunities(out, index, profile2, candidates, tick) {
       latest,
       priority: Math.min(3, Math.max(1, Math.round(o.priority || 2))),
       focus: !!c?.focus,
-      basisRefs
+      basisRefs,
+      // a side job is only for a quiet day and never about a canonical event
+      ...quiet && o.side_job && !targetEventId ? { sideJob: true } : {}
     });
   }
   return { valid, dropped };
@@ -20969,10 +20997,10 @@ function selectOpportunity(cache, index, tick, busy, preferred = /* @__PURE__ */
     return true;
   });
   const pref = (o) => Number(preferred.has(`${o.scopeKind}:${o.scopeRef}`));
-  ok.sort((a, b) => pref(b) - pref(a) || Number(b.focus) - Number(a.focus) || Number(b.directImpact) - Number(a.directImpact) || a.priority - b.priority || (a.earliest ?? tick) - (b.earliest ?? tick));
+  ok.sort((a, b) => pref(b) - pref(a) || Number(b.focus) - Number(a.focus) || Number(!!b.sideJob) - Number(!!a.sideJob) || Number(b.directImpact) - Number(a.directImpact) || a.priority - b.priority || (a.earliest ?? tick) - (b.earliest ?? tick));
   return ok[0] || null;
 }
-function integrationKey(index, profile2, candidates, focus, jumpTo) {
+function integrationKey(index, profile2, candidates, focus, jumpTo, quiet = false) {
   const people = new Set(candidates.flatMap((c) => c.event.entity_ids));
   const mine = new Set(playerIds(profile2));
   const linkOccs = [...index.state.occurrences.values()].filter((o) => {
@@ -20989,6 +21017,7 @@ function integrationKey(index, profile2, candidates, focus, jumpTo) {
     f: [...focus].sort(),
     j: jumpTo ?? null,
     o: linkOccs,
+    ...quiet ? { q: Math.floor(index.state.clock.lo / 1440) } : {},
     s: playerIds(profile2).map((id) => factAt(index.state, id, "exists", { tick: Number.MAX_SAFE_INTEGER }).value ?? null)
   });
 }
@@ -21009,7 +21038,8 @@ ${lines.map((l) => "- " + l).join("\n")}` : "";
 function worldReactionSection(index, o, origin) {
   const who = o.actors.map((a) => index.entityName(a)).join(", ");
   const when = o.earliest !== null ? ` It can happen from ${formatTick(o.earliest, origin)}${o.latest !== null ? ` until ${formatTick(o.latest, origin)}` : ""}; if this reply ends before then, it has not happened yet.` : "";
-  return `WORLD REACTION (optional for this reply \u2014 NOT history; use it only if it fits the scene and its time; keep everyone in character and leave the player's answer to the player; not using it is fine):
+  const head = o.sideJob ? "WORLD REACTION (a small job for a quiet day \u2014 no canon event happens for the rest of today, so bring it in during this reply if the scene allows at all; NOT history; keep everyone in character; the player decides whether to take it)" : "WORLD REACTION (optional for this reply \u2014 NOT history; use it only if it fits the scene and its time; keep everyone in character and leave the player's answer to the player; not using it is fine)";
+  return `${head}:
 - ${who}: ${o.contact} Why: ${o.motivation} What they know about the player: ${o.knowledge}${o.establishes.length ? ` May establish: ${o.establishes.join("; ")}.` : ""}${when}`;
 }
 function engagementRecord(s, index, tick, src) {
@@ -21050,7 +21080,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.10.3";
+var ENGINE_RELEASE = "1.11.0";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -21131,6 +21161,7 @@ var DEFAULT_SETTINGS = {
   replyLength: "",
   sceneGrouping: false,
   ignorePersonaSections: false,
+  quietDayJobs: true,
   playerVoice: { ...DEFAULT_PLAYER_VOICE },
   oocKeyword: "OOC"
 };
@@ -22865,7 +22896,8 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const tick = index.state.clock.lo;
     const focus = c.focusEvents || [];
     const candidates = integrationCandidates(index, profile2, tick, { jumpTo, focus });
-    const key = integrationKey(index, profile2, candidates, focus, jumpTo);
+    const quiet = this.settings.quietDayJobs && !jumpTo && quietDay(index, tick);
+    const key = integrationKey(index, profile2, candidates, focus, jumpTo, quiet);
     if (!force && c.integrationCache?.key === key) return c.integrationCache;
     const eng = engagementView(index.state, index.pack);
     const withIds = uniq(candidates.flatMap((x) => x.event.entity_ids));
@@ -22884,10 +22916,11 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote })),
       focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f).title })),
       ...c.preferredScopes?.length ? { preferred: c.preferredScopes } : {},
+      ...quiet ? { quiet_day: true } : {},
       ...kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {},
       registry: this.registry(index, `${userEntry?.text || ""} ${candidates.map((x) => x.event.title).join(" ")}`, [...withIds, ...profile2.relationships.map((r) => r.entityId).filter(Boolean)])
     }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 8e3 }), this.settings.taskTimeoutMs * 4, signal);
-    const checked = checkOpportunities(out, index, profile2, candidates, tick);
+    const checked = checkOpportunities(out, index, profile2, candidates, tick, quiet);
     const dropped = [...checked.dropped, ...checked.valid.filter((o) => keptScopes.has(`${o.scopeKind}:${o.scopeRef}`)).map((o) => ({ id: o.id, reason: `${o.scopeLabel} is kept as it was` }))];
     const valid = [...kept, ...checked.valid.filter((o) => !keptScopes.has(`${o.scopeKind}:${o.scopeRef}`))];
     const cache = { key, at: this.host.now(), tick, opportunities: valid, assessments: (out.assessments || []).slice(0, 30), dropped };
@@ -23555,7 +23588,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
         return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {};
       })() : {} })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
-      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: aboutUnderWay(o, idx, underWay), preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact })) : null,
+      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: aboutUnderWay(o, idx, underWay), preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null
     };
   }
@@ -24868,6 +24901,8 @@ var D = {
   niSourceCore: { zh: "\u8BFB\u53D6\u81EA Persona Library \u7684\u4E3B\u63CF\u8FF0\uFF08{n} \u5B57\uFF0C\u7B2C {rev} \u7248\uFF09\uFF0C\u989D\u5916\u5206\u7C7B\u5DF2\u5FFD\u7565\u3002", en: "Read from the Persona Library core text ({n} characters, revision {rev}); Additional Sections ignored." },
   secPersona: { zh: "Persona", en: "Persona" },
   ignorePersonaSections: { zh: "Canon \u5FFD\u7565 Persona Library \u7684\u989D\u5916\u5206\u7C7B", en: "Canon ignores Persona Library sections" },
+  quietDayJobs: { zh: "\u6CA1\u6709\u539F\u4F5C\u4E8B\u4EF6\u7684\u65E5\u5B50\uFF0C\u4E16\u754C\u4E3B\u52A8\u7ED9\u4F60\u6D3E\u5C0F\u4EFB\u52A1", en: "On days without canon events, the world offers you small jobs" },
+  quietDayJobsTip: { zh: "\u5F53\u5929\u5269\u4E0B\u7684\u65F6\u95F4\u91CC\u6CA1\u6709\u539F\u4F5C\u4E8B\u4EF6\uFF08\u4E5F\u6CA1\u6709\u8FDB\u884C\u4E2D\u7684\uFF09\u65F6\uFF0C\u300C\u4E16\u754C\u5982\u4F55\u63A5\u89E6\u4F60\u300D\u4F1A\u6309\u4F60\u7684\u80CC\u666F\u51C6\u5907\u4E00\u4EF6\u5C0F\u4EFB\u52A1\u2014\u2014\u6BD4\u5982\u4F60\u6240\u5C5E\u7EC4\u7EC7\u7684\u8054\u7EDC\u4EBA\u6D3E\u6765\u7684\u6D3B\uFF1A\u6536\u62FE\u4E00\u4E2A\u5C0F\u5E2E\u6D3E\u3001\u53D6\u9001\u4E1C\u897F\u3001\u62A4\u9001\u3001\u4FA6\u67E5\u3002\n\u5C0F\u4EFB\u52A1\u4E0D\u6539\u52A8\u5386\u53F2\uFF1A\u76EE\u6807\u548C\u5730\u70B9\u662F\u5C0F\u89D2\u8272\u6216\u65B0\u51FA\u73B0\u7684\uFF0C\u4E0D\u78B0\u539F\u4F5C\u4E8B\u4EF6\u548C\u6709\u540D\u6709\u59D3\u7684\u539F\u4F5C\u89D2\u8272\u7684\u72B6\u6001\uFF1B\u767B\u573A\u7684\u5DF2\u6709\u89D2\u8272\u8981\u7B26\u5408\u4ED6\u4EEC\u5F53\u65F6\u7684\u72B6\u6001\u548C\u884C\u8E2A\u3002\u63A5\u4E0D\u63A5\u7531\u4F60\u51B3\u5B9A\u3002\n\u8FD9\u7C7B\u4EFB\u52A1\u4F1A\u4F18\u5148\u4EA4\u7ED9 GM\uFF0C\u5E76\u8BF7\u5B83\u5728\u60C5\u8282\u5141\u8BB8\u65F6\u5C31\u5B89\u6392\u8FDB\u8FD9\u6B21\u56DE\u590D\u3002\u4E0D\u4F1A\u989D\u5916\u8C03\u7528\u6A21\u578B\uFF08\u5728\u540C\u4E00\u6B21\u5206\u6790\u91CC\u5B8C\u6210\uFF09\u3002", en: "When no canon event is under way or due for the rest of the day, the world-reaction step prepares a small job that fits your background \u2014 e.g. work from your organization's contact: dealing with a minor gang, a delivery, an escort, scouting.\nSmall jobs change no history: targets and places are minor or new, never canon events or the status of named canon characters; existing characters appear only as fits their current state and whereabouts. Taking it is your choice.\nSuch a job is offered to the GM first, asking it to bring it in during the reply if the scene allows. No extra model call (same analysis)." },
   ignorePersonaSectionsTip: { zh: "\u52FE\u9009\u540E\uFF0CCanon \u53EA\u8BFB Persona Library \u7684\u4E3B\u63CF\u8FF0\uFF08core\uFF09\uFF0C\u4E0D\u8BFB\u989D\u5916\u5206\u7C7B\uFF08Additional Sections\uFF09\u3002GM \u7167\u5E38\u6536\u5230\u5168\u90E8\u5185\u5BB9\u3002\n\u9002\u5408\u653E Canon \u7528\u4E0D\u5230\u7684\u4E1C\u897F\uFF08\u548F\u5531\u8BCD\u3001\u6587\u98CE\u8BF4\u660E\u7B49\uFF09\u3002\u80FD\u529B\u3001\u7269\u54C1\u3001\u8EAB\u4EFD\u653E\u5728\u989D\u5916\u5206\u7C7B\u91CC\u7684\u8BDD\uFF0CCanon \u5C31\u4E0D\u77E5\u9053\u4E86\u2014\u2014\u53D1\u73B0\u7F3A\u4E86\u4EC0\u4E48\uFF0C\u53D6\u6D88\u52FE\u9009\u5373\u53EF\u3002\n\u53EA\u5F71\u54CD\u4E4B\u540E\u7684\u8BFB\u53D6\uFF1A\u5DF2\u5F00\u59CB\u7684\u5BF9\u8BDD\u8981\u7528\u53D9\u4E8B\u878D\u5165\u9875\u7684\u300C\u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD\u300D\u91CD\u8BFB\u3002\u82E5\u5728 SillyTavern \u81EA\u5E26\u9762\u677F\u6539\u8FC7 Persona\uFF0C\u4E3B\u63CF\u8FF0\u5BF9\u4E0D\u4E0A\uFF0CCanon \u4F1A\u6539\u8BFB\u5B8C\u6574\u63CF\u8FF0\u3002", en: `When ticked, Canon reads only the Persona Library core text, not its Additional Sections. The GM still gets everything.
 Good for things Canon does not need (incantations, style notes). Abilities, items or identity kept in sections are then unknown to Canon \u2014 untick if something goes missing.
 Affects later reads only: in a started chat, use "Update this game's identity" on the narrative-integration tab. If the Persona was edited in SillyTavern's own panel, the core no longer matches and Canon reads the whole description.` },
@@ -24887,6 +24922,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niMoreSuggestions: { zh: "\u53E6\u5916 {n} \u79CD\u53EF\u80FD", en: "{n} more" },
   niRefresh: { zh: "\u91CD\u65B0\u8BC4\u4F30", en: "Re-evaluate" },
   niCurrent: { zh: "\u8FDB\u884C\u4E2D", en: "under way" },
+  niSideJob: { zh: "\u5C0F\u4EFB\u52A1", en: "small job" },
   niPrefer: { zh: "\u4F18\u5148", en: "Prefer" },
   niUnprefer: { zh: "\u53D6\u6D88\u4F18\u5148", en: "Unprefer" },
   niPreferred: { zh: "\u5DF2\u4F18\u5148", en: "preferred" },
@@ -25977,7 +26013,7 @@ function renderSettings() {
   }
   out.push(card(t("secChat"), "secChatTip", chat.join("")));
   out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc2(String(s.replyLength || ""))}" placeholder="${esc2(t("replyLengthPlaceholder"))}">`, t("replyLengthShort")) + field(t("oocKeyword"), "oocKeywordTip", `<input type="text" class="text_pole" data-set="oocKeyword" value="${esc2(String(s.oocKeyword ?? "OOC"))}" placeholder="OOC">`, t("oocKeywordShort")) + check("notifyDone", s.notifyDone !== false, t("notifyDone"), "notifyDoneTip") + (s.notifyDone !== false ? check("notifySound", s.notifySound !== false, t("notifySound"), "notifySoundTip") + notifyNote() : "")));
-  out.push(card(t("secPersona"), "", check("ignorePersonaSections", !!s.ignorePersonaSections, t("ignorePersonaSections"), "ignorePersonaSectionsTip")));
+  out.push(card(t("secPersona"), "", check("ignorePersonaSections", !!s.ignorePersonaSections, t("ignorePersonaSections"), "ignorePersonaSectionsTip") + check("quietDayJobs", s.quietDayJobs !== false, t("quietDayJobs"), "quietDayJobsTip")));
   const pv = playerVoice(s.playerVoice);
   out.push(`<details class="canon-card canon-voice"${s.voiceOpen ? " open" : ""}><summary class="canon-card-title">${t("secVoice")} ${tip("secVoiceTip")} <span class="canon-sub">${esc2(VOICE_KINDS.filter((k) => pv[k]).map((k) => t("voice_" + k)).join("\u3001") || t("voiceNone"))}</span></summary>` + VOICE_KINDS.map((k) => check("voice:" + k, pv[k], t("voice_" + k), "voice_" + k + "Tip")).join("") + `<div class="canon-hint">${t("voiceHint")}</div></details>`);
   out.push(card(t("secEvents"), "", check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip") + check("followHoraeTime", s.followHoraeTime !== false, t("followHoraeTime"), "followHoraeTimeTip")));
@@ -26442,7 +26478,7 @@ function playerTab(v) {
   if (v.suggestions) {
     const sg = /* @__PURE__ */ new Map();
     for (const s of v.suggestions) sg.set(s.scope, [...sg.get(s.scope) || [], s]);
-    const sLine = (s) => `<small>${esc2(s.by.join(", "))}: ${esc2(s.contact)} (${esc2(s.kind)}${s.direct ? ", direct" : ""})</small>`;
+    const sLine = (s) => `<small>${s.sideJob ? `<span class="canon-tag">${esc2(t("niSideJob"))}</span> ` : ""}${esc2(s.by.join(", "))}: ${esc2(s.contact)} (${esc2(s.kind)}${s.direct ? ", direct" : ""})</small>`;
     const prefBtn = (s) => s.current ? ` <span class="canon-tag">${esc2(t("niCurrent"))}</span>` : ` <button class="menu_button" data-act="ni-prefer" data-scope="${esc2(s.scope)}" title="${esc2(t(s.preferred ? "niUnpreferTip" : "niPreferTip"))}">${esc2(t(s.preferred ? "niUnprefer" : "niPrefer"))}</button>${s.preferred ? ` <span class="canon-tag">${esc2(t("niPreferred"))}</span>` : ""}`;
     html += `<h4>${esc2(t("niSuggestions"))} <button class="menu_button canon-h4-btn" data-act="ni-refresh" title="${esc2(t("niRefreshTip"))}">${esc2(t("niRefresh"))}</button></h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc2(s.about)}</b>${prefBtn(s)}<br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc2(t("niMoreSuggestions").replace("{n}", String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
   }

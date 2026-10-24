@@ -162,6 +162,9 @@
       "minimum": 1,
       "maximum": 3
      },
+     "side_job": {
+      "type": "boolean"
+     },
      "basis_refs": {
       "type": "array",
       "items": {
