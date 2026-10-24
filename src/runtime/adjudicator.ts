@@ -36,6 +36,8 @@ function cloneState(pack: LoadedPack, s: WorldState): WorldState {
 export async function adjudicateInterval(args: {
   pack: LoadedPack; state: WorldState; fromExclusive: number; toInclusive: number; exclude: Set<Id>;
   port: ModelPort | null; plan: PlanRevision | null; forcedAllowed: boolean; signal?: AbortSignal; operationId: string; facts: string; log?: (l: unknown) => void;
+  /** Events the reply being judged shows still under way (a new beat of them). */
+  continuing?: Set<Id>;
 }): Promise<AdjudicationResult> {
   const { pack } = args;
   const scratch = cloneState(pack, args.state);
@@ -45,10 +47,13 @@ export async function adjudicateInterval(args: {
   const stagedHard = new Map<Id, Occurrence>();
   const notes: string[] = [];
   let forcedUsed = false;
-  // An event the story shows under way (result not settled) is judged in play when it ends, not offscreen,
-  // unless the story leaves it hanging for a day past its window.
+  // An event the story shows under way (result not settled) is judged in play when it ends. While the reply keeps
+  // it going it waits (up to a day past its window); once its window has closed and a reply moves on without it,
+  // it is judged from its beats below (live: the lunch encounter's two beats, then the player left for a nap at the
+  // 风纪委员 branch, and the event stayed "time passed, settled at the next advance" for a whole day).
   const underWay = new Set([...scratch.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean) as Id[]);
-  const cands = crossedCandidates(pack, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id) && !(underWay.has(c.event.id) && args.toInclusive <= c.hi + 1440));
+  const continuing = args.continuing || new Set<Id>();
+  const cands = crossedCandidates(pack, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id) && !(underWay.has(c.event.id) && continuing.has(c.event.id) && args.toInclusive <= c.hi + 1440));
   // Only events whose window has closed by the end. An event whose window is still open stays pending
   // (it may still happen later inside its bounds, offscreen or in the story): a whole-day event is
   // not settled as done the moment the day begins.
@@ -57,6 +62,18 @@ export async function adjudicateInterval(args: {
     const when = occurrenceWindow(c, -Infinity, args.toInclusive);
     const windowStillOpen = c.hi > args.toInclusive;
     if (windowStillOpen) continue;
+    if (underWay.has(c.event.id) && !continuing.has(c.event.id) && args.port) {
+      const r = await judgeUnderWay(args, scratch, c, UNDER_WAY_LEFT);
+      if (r && 'record' in r) {
+        records.push(r.record);
+        basis.push({ eventId: c.event.id, precondition: 'unknown', mode: 'model' });
+        applyRecord(scratch, { ...r.record, sequence: ++seq, branchId: 'stage', commitId: 'stage' });
+        notes.push(`${formatTick(r.record.storyTime.lo)} ${c.event.title}: ${r.record.disposition} — ${r.record.occurrences?.[0]?.account?.slice(0, 160) || r.record.dispositionReason}`);
+        continue;
+      }
+      if (r && 'stillUnderWay' in r) { notes.push(`${c.event.title}: still under way in the story`); continue; }
+      // no valid judgement: fall through to the ordinary handling of a closed window
+    }
     const p = adjudicateDefault(pack, scratch, c, when);
     // The original route assumes the original situation. When actual play has recently involved this
     // event's characters, what they know or do may no longer fit it: let the model judge from actual play
@@ -130,25 +147,32 @@ function recentPlay(pack: LoadedPack, s: WorldState, c: Candidate): string[] {
  *  from actual play how it ended (occurred / diverged / omitted); the beats shown as under way and recent play
  *  with its characters are its evidence. Returns the record, "still under way" when the model says it has not
  *  ended yet (only possible inside its window), or null when no valid judgement came back. */
-export async function concludeFromPlay(args: Parameters<typeof adjudicateInterval>[0], eventId: Id, when: StoryTime): Promise<{ record: RecordDraft } | { stillUnderWay: true } | null> {
-  const { pack } = args;
-  const ev = pack.events.get(eventId);
-  const t = pack.timeIndex.find((x) => x.id === eventId);
-  if (!ev || !t) return null;
-  const scratch = cloneState(pack, args.state);
-  const c: Candidate = { event: ev, lo: t.lo, hi: t.hi };
-  const p = adjudicateDefault(pack, scratch, c, when);
-  const beats = [...scratch.occurrences.values()].filter((o) => o.inProgressOf === eventId).sort((a, b) => a.time.lo - b.time.lo);
-  const play = [...new Set([...beats.map((o) => `${formatTick(o.time.lo)} ${o.title}: ${o.account}`), ...recentPlay(pack, scratch, c)])].slice(-16);
-  const note = 'The player marked this event as FINISHED in the story: decide from recent_actual_play how it actually ended — occurred (original result), diverged (different result) or omitted (it did not happen) — and give the actual account; do not postpone unless the story clearly shows it is still going on.';
-  const r = await modelAdjudicate({ ...args, toInclusive: when.hi }, scratch, c, when, p.precondition, [note, ...p.explanation], false, play);
+const UNDER_WAY_FINISHED = 'The player marked this event as FINISHED in the story: decide from recent_actual_play how it actually ended — occurred (original result), diverged (different result) or omitted (it did not happen) — and give the actual account; do not postpone unless the story clearly shows it is still going on.';
+const UNDER_WAY_LEFT = 'The story showed this event under way, its time window has closed, and the story has moved on without it: decide from recent_actual_play how it actually ended — occurred (original result), diverged (different result) or omitted (it did not happen) — and give the actual account; do not postpone unless the story clearly shows it is still going on.';
+
+/** Judge an event the story showed under way from its beats and recent play. */
+async function judgeUnderWay(args: Parameters<typeof adjudicateInterval>[0], scratch: WorldState, c: Candidate, note: string, when?: StoryTime): Promise<{ record: RecordDraft } | { stillUnderWay: true } | null> {
+  const beats = [...scratch.occurrences.values()].filter((o) => o.inProgressOf === c.event.id).sort((a, b) => a.time.lo - b.time.lo);
+  const w: StoryTime = when || { lo: Math.min(beats[0]?.time.lo ?? c.lo, c.hi), hi: Math.max(c.hi, ...beats.map((b) => b.time.hi)), precision: 'range' };
+  const p = adjudicateDefault(args.pack, scratch, c, w);
+  const play = [...new Set([...beats.map((o) => `${formatTick(o.time.lo)} ${o.title}: ${o.account}`), ...recentPlay(args.pack, scratch, c)])].slice(-16);
+  const r = await modelAdjudicate({ ...args, toInclusive: w.hi }, scratch, c, w, p.precondition, [note, ...p.explanation], false, play);
   if (!r) return null;
   if (r.postponed) return { stillUnderWay: true };
-  r.record.override = true;
-  r.record.dispositionReason = `concluded by the player from the story: ${r.record.dispositionReason || ''}`.slice(0, 500);
   const occ = r.record.occurrences?.[0];
   if (occ) { occ.causes = [...new Set([...occ.causes, ...beats.map((b) => b.occurrenceId)])]; if (beats.length) occ.linkedFrom = beats.map((b) => b.occurrenceId); }
   return { record: r.record };
+}
+
+export async function concludeFromPlay(args: Parameters<typeof adjudicateInterval>[0], eventId: Id, when: StoryTime): Promise<{ record: RecordDraft } | { stillUnderWay: true } | null> {
+  const ev = args.pack.events.get(eventId);
+  const t = args.pack.timeIndex.find((x) => x.id === eventId);
+  if (!ev || !t) return null;
+  const r = await judgeUnderWay(args, cloneState(args.pack, args.state), { event: ev, lo: t.lo, hi: t.hi }, UNDER_WAY_FINISHED, when);
+  if (!r || 'stillUnderWay' in r) return r;
+  r.record.override = true;
+  r.record.dispositionReason = `concluded by the player from the story: ${r.record.dispositionReason || ''}`.slice(0, 500);
+  return r;
 }
 
 function occurredIds(c: import('../domain/types').Condition): string[] {

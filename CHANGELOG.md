@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.8 — 2026-10-24
+
+- **An event under way is judged when the story moves on.** Live: 大霸星祭第一天午休 had two beats (the hotpot restaurant), its window closed at 14:00, the player left for a nap at the 风纪委员 branch, and at 15:03 it still showed 时间已过，下次时间推进时结算: events under way were held for a whole day past their window. Now a reply that advances time without continuing such an event (no new beat of it) has it judged right away from its beats and recent play (occurred / diverged / omitted; postponed only if the story clearly shows it still going on). A reply that continues it still keeps it waiting, up to a day past its window as before.
+- Tests: OG3 rewritten.
+
 ## 1.9.7 — 2026-10-23
 
 - **Small invented backstory is allowed.** Live: 固法 recalling that the player character once caught a bag-snatcher and scorched half a street of billboards was sent back as an "unsupported recollection". The GM may now invent small past that fits everything established (an anecdote, a habit, a minor earlier incident, how people who already know each other got along), also shared with the player character. Still sent back: a past that contradicts records, state, canonical events or the player profile, and a notable past without a record — a death, serious injury, major fight or crime, a canonical event, or a relationship, rank, membership or secret knowledge the player profile does not give (who is the player's superior, who knows their secret identity).

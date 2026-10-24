@@ -45,13 +45,22 @@ describe('canonical events under way', () => {
     expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('diverged');
   });
 
-  it('OG3 an event left under way for more than a day past its window is settled offscreen as usual', async () => {
+  it('OG3 an event under way waits while replies continue it past its window; when a reply moves on without it, it is judged from its beats (live: lunch encounter)', async () => {
     const x = await setup();
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [OG3a]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
-    expect(await turn(x, 'I wander off to the market.', 'Hours pass at the stalls. [OG3b]', { scene_end: at(1, 20, 0) })).toBe(true);
-    expect(st(x).dispositions.has('medic-ambush')).toBe(false); // same day: still waiting for the story
-    expect(await turn(x, 'I sleep for two days.', 'You wake two days later. [OG3c]', { scene_end: at(3, 9, 0) })).toBe(true);
-    expect(st(x).dispositions.has('medic-ambush')).toBe(true);
+    // still fighting after the window (10:00): the story keeps it going
+    expect(await turn(x, 'I duck behind a cart.', 'Bolts keep thudding into the cart. [OG3b]', { ...ambush('ongoing', 'Bolts keep thudding', 'Pinned behind the cart'), scene_end: at(1, 10, 5) })).toBe(true);
+    expect(st(x).dispositions.has('medic-ambush')).toBe(false);
+    // the story moves on without it: judged now, not a day later
+    x.model.on('adjudicate', (i) => i.candidate?.id === 'medic-ambush', { adjudications: [{ event_id: 'medic-ambush', decision: 'diverged', time: null, account: 'The attackers gave up; Mira survived.', actors: ['mira'], causes: [], effects: [], plan_step_ids: [], reason: 'the player shielded her', extraordinary: false }] });
+    expect(await turn(x, 'I wander off to the market.', 'Hours pass at the stalls. [OG3c]', { scene_end: at(1, 20, 0) })).toBe(true);
+    const call = x.model.tasks('adjudicate').filter((c: any) => c.input.candidate?.id === 'medic-ambush').slice(-1)[0].input;
+    expect(call.unmet_conditions[0]).toMatch(/moved on without it/);
+    expect(call.recent_actual_play_with_these_characters.join(' ')).toMatch(/Ambush on the road[^]*Pinned behind the cart/);
+    const d = st(x).dispositions.get('medic-ambush')!;
+    expect(d.disposition).toBe('diverged');
+    const beats = [...st(x).occurrences.values()].filter((o) => o.inProgressOf === 'medic-ambush').map((o) => o.occurrenceId);
+    expect(st(x).occurrences.get(d.occurrenceId!)!.causes).toEqual(expect.arrayContaining(beats));
   });
 
   it('OG4 the GM is told about an event under way in every reply until it ends, even when no message names it', async () => {

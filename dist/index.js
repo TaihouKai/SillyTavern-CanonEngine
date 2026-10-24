@@ -19908,11 +19908,26 @@ async function adjudicateInterval(args) {
   const notes = [];
   let forcedUsed = false;
   const underWay = new Set([...scratch.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean));
-  const cands = crossedCandidates(pack2, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id) && !(underWay.has(c.event.id) && args.toInclusive <= c.hi + 1440));
+  const continuing = args.continuing || /* @__PURE__ */ new Set();
+  const cands = crossedCandidates(pack2, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id) && !(underWay.has(c.event.id) && continuing.has(c.event.id) && args.toInclusive <= c.hi + 1440));
   for (const c of cands) {
     const when = occurrenceWindow(c, -Infinity, args.toInclusive);
     const windowStillOpen = c.hi > args.toInclusive;
     if (windowStillOpen) continue;
+    if (underWay.has(c.event.id) && !continuing.has(c.event.id) && args.port) {
+      const r = await judgeUnderWay(args, scratch, c, UNDER_WAY_LEFT);
+      if (r && "record" in r) {
+        records.push(r.record);
+        basis.push({ eventId: c.event.id, precondition: "unknown", mode: "model" });
+        applyRecord(scratch, { ...r.record, sequence: ++seq, branchId: "stage", commitId: "stage" });
+        notes.push(`${formatTick(r.record.storyTime.lo)} ${c.event.title}: ${r.record.disposition} \u2014 ${r.record.occurrences?.[0]?.account?.slice(0, 160) || r.record.dispositionReason}`);
+        continue;
+      }
+      if (r && "stillUnderWay" in r) {
+        notes.push(`${c.event.title}: still under way in the story`);
+        continue;
+      }
+    }
     const p = adjudicateDefault(pack2, scratch, c, when);
     const play = p.mode === "deterministic" && p.record?.disposition === "occurred" && c.event.classification !== "HARD" && args.port ? recentPlay(pack2, scratch, c) : [];
     if (play.length) {
@@ -19989,28 +20004,32 @@ function recentPlay(pack2, s, c) {
   }
   return out.slice(-12);
 }
-async function concludeFromPlay(args, eventId, when) {
-  const { pack: pack2 } = args;
-  const ev = pack2.events.get(eventId);
-  const t2 = pack2.timeIndex.find((x) => x.id === eventId);
-  if (!ev || !t2) return null;
-  const scratch = cloneState(pack2, args.state);
-  const c = { event: ev, lo: t2.lo, hi: t2.hi };
-  const p = adjudicateDefault(pack2, scratch, c, when);
-  const beats = [...scratch.occurrences.values()].filter((o) => o.inProgressOf === eventId).sort((a, b) => a.time.lo - b.time.lo);
-  const play = [.../* @__PURE__ */ new Set([...beats.map((o) => `${formatTick(o.time.lo)} ${o.title}: ${o.account}`), ...recentPlay(pack2, scratch, c)])].slice(-16);
-  const note = "The player marked this event as FINISHED in the story: decide from recent_actual_play how it actually ended \u2014 occurred (original result), diverged (different result) or omitted (it did not happen) \u2014 and give the actual account; do not postpone unless the story clearly shows it is still going on.";
-  const r = await modelAdjudicate({ ...args, toInclusive: when.hi }, scratch, c, when, p.precondition, [note, ...p.explanation], false, play);
+var UNDER_WAY_FINISHED = "The player marked this event as FINISHED in the story: decide from recent_actual_play how it actually ended \u2014 occurred (original result), diverged (different result) or omitted (it did not happen) \u2014 and give the actual account; do not postpone unless the story clearly shows it is still going on.";
+var UNDER_WAY_LEFT = "The story showed this event under way, its time window has closed, and the story has moved on without it: decide from recent_actual_play how it actually ended \u2014 occurred (original result), diverged (different result) or omitted (it did not happen) \u2014 and give the actual account; do not postpone unless the story clearly shows it is still going on.";
+async function judgeUnderWay(args, scratch, c, note, when) {
+  const beats = [...scratch.occurrences.values()].filter((o) => o.inProgressOf === c.event.id).sort((a, b) => a.time.lo - b.time.lo);
+  const w = when || { lo: Math.min(beats[0]?.time.lo ?? c.lo, c.hi), hi: Math.max(c.hi, ...beats.map((b) => b.time.hi)), precision: "range" };
+  const p = adjudicateDefault(args.pack, scratch, c, w);
+  const play = [.../* @__PURE__ */ new Set([...beats.map((o) => `${formatTick(o.time.lo)} ${o.title}: ${o.account}`), ...recentPlay(args.pack, scratch, c)])].slice(-16);
+  const r = await modelAdjudicate({ ...args, toInclusive: w.hi }, scratch, c, w, p.precondition, [note, ...p.explanation], false, play);
   if (!r) return null;
   if (r.postponed) return { stillUnderWay: true };
-  r.record.override = true;
-  r.record.dispositionReason = `concluded by the player from the story: ${r.record.dispositionReason || ""}`.slice(0, 500);
   const occ = r.record.occurrences?.[0];
   if (occ) {
     occ.causes = [.../* @__PURE__ */ new Set([...occ.causes, ...beats.map((b) => b.occurrenceId)])];
     if (beats.length) occ.linkedFrom = beats.map((b) => b.occurrenceId);
   }
   return { record: r.record };
+}
+async function concludeFromPlay(args, eventId, when) {
+  const ev = args.pack.events.get(eventId);
+  const t2 = args.pack.timeIndex.find((x) => x.id === eventId);
+  if (!ev || !t2) return null;
+  const r = await judgeUnderWay(args, cloneState(args.pack, args.state), { event: ev, lo: t2.lo, hi: t2.hi }, UNDER_WAY_FINISHED, when);
+  if (!r || "stillUnderWay" in r) return r;
+  r.record.override = true;
+  r.record.dispositionReason = `concluded by the player from the story: ${r.record.dispositionReason || ""}`.slice(0, 500);
+  return r;
 }
 function occurredIds(c) {
   if ("all" in c) return c.all.flatMap(occurredIds);
@@ -20995,7 +21014,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.9.7";
+var ENGINE_RELEASE = "1.9.8";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -21129,6 +21148,9 @@ function splitRejects(all) {
     fixes.set(k, (fixes.get(k) || 0) + 1);
   }
   return { rejects: rejects.slice(-6), fixes: [...fixes].map(([k, n]) => n > 1 ? `${k} \xD7${n}` : k).slice(0, 6) };
+}
+function continuingOf(records) {
+  return new Set(records.flatMap((r) => r.occurrences || []).map((o) => o.inProgressOf).filter((x) => !!x));
 }
 var CanonEngine = class {
   host;
@@ -21736,7 +21758,8 @@ var CanonEngine = class {
         signal,
         operationId: "reconcile",
         facts: review.facts,
-        log: (l) => this.debugLog("task", l)
+        log: (l) => this.debugLog("task", l),
+        continuing: continuingOf(interp.records)
       });
       for (const ar of adj.records) ar.triggerCommitId = interp.commitId;
       interp.records.push(...adj.records);
@@ -22317,7 +22340,8 @@ ${this.ooc(a.userEntry?.text).story}`);
               signal: abort.signal,
               operationId,
               facts: review.facts,
-              log: (l) => this.debugLog("task", l)
+              log: (l) => this.debugLog("task", l),
+              continuing: continuingOf(review.gate.records)
             });
             adjTo = end.lo;
             this.checkFences(fences, excludeLast);

@@ -195,6 +195,11 @@ export function splitRejects(all: string[]): { rejects: string[]; fixes: string[
   return { rejects: rejects.slice(-6), fixes: [...fixes].map(([k, n]) => (n > 1 ? `${k} ×${n}` : k)).slice(0, 6) };
 }
 
+/** Canonical events a reply shows still under way (it adds a beat to them). */
+function continuingOf(records: RecordDraft[]): Set<Id> {
+  return new Set(records.flatMap((r) => r.occurrences || []).map((o) => o.inProgressOf).filter((x): x is Id => !!x));
+}
+
 export class CanonEngine {
   host: HostPort;
   settings: EngineSettings;
@@ -740,7 +745,7 @@ export class CanonEngine {
       const adj = await adjudicateInterval({
         pack, state: this.overlay(r.state, interp.records), fromExclusive: r.state.clock.lo, toInclusive: interp.sceneEnd.lo,
         exclude: new Set(interp.records.map((x) => x.packEventId).filter(Boolean) as string[]), port: this.host.model, plan: this.activePlan(), forcedAllowed: true,
-        signal, operationId: 'reconcile', facts: review.facts, log: (l) => this.debugLog('task', l),
+        signal, operationId: 'reconcile', facts: review.facts, log: (l) => this.debugLog('task', l), continuing: continuingOf(interp.records),
       });
       for (const ar of adj.records) ar.triggerCommitId = interp.commitId;
       interp.records.push(...adj.records);
@@ -1274,7 +1279,7 @@ export class CanonEngine {
               pack, state: this.overlay(index.state, [...review.gate.records, ...(adj?.records || [])]), fromExclusive: clock, toInclusive: end.lo,
               exclude: new Set(review.gate.records.map((r) => r.packEventId).filter(Boolean) as string[]),
               port: this.host.model, plan, forcedAllowed: planInfo.forced || this.settings.forcedPlannerAttempt, signal: abort.signal, operationId, facts: review.facts,
-              log: (l) => this.debugLog('task', l),
+              log: (l) => this.debugLog('task', l), continuing: continuingOf(review.gate.records),
             });
             adjTo = end.lo;
             this.checkFences(fences, excludeLast);
