@@ -640,7 +640,7 @@ describe('preferred matters', () => {
     expect(w.engine.campaign()!.integrationCache!.dropped.some((d: any) => /its actors are dead/.test(d.reason))).toBe(true);
   });
   it('NI-46 a several-day event ending today makes the day busy (live: 恩底弥翁 on 9/18); a delivered small job lapses at the next day unless taken; the next job must be different work', async () => {
-    expect(PROMPTS.integrate).toMatch(/one marked lapsed is a small job the player did not take in time — it is over/);
+    expect(PROMPTS.integrate).toMatch(/one marked lapsed is a small job the player did not take in time — that job is over[^]*a new, different small job on a later quiet day is still expected/);
     expect(PROMPTS.integrate).toMatch(/Make it specific, not generic: who exactly[^]*one detail or complication that makes it worth playing[^]*Never just "a minor gang somewhere needs clearing out"/);
     expect(PROMPTS.integrate).toMatch(/recent_jobs lists small jobs already offered: a new one is a different kind of work \(if a gang to clear out is listed, not another gang\)/);
     // the festival runs from day 1 20:00 to day 3 16:00

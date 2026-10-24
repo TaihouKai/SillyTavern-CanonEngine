@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.3 — 2026-10-25
+
+- Live: on the quiet day after a small job lapsed, the model proposed no new one (it read "a lapsed job is over" as "no more jobs", and the scene was a quiet breakfast). The world-reaction step is now told a small job on a quiet day is required whatever the scene (the GM decides when it fits in), and that after a lapse a new, different job is still expected.
+
 ## 1.12.2 — 2026-10-25
 
 - **Quiet days: an event that starts or ends today counts, whatever its length.** Live: a game started on 9/18 17:00 got a small job, although 恩底弥翁 (9/15–18) ends with its climax that evening; events longer than a day were all ignored. Now only an event that runs through the whole day without starting or ending in it is left out.
