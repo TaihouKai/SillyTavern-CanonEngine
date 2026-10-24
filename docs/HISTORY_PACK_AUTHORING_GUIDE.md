@@ -111,7 +111,7 @@ An entity has `id`, `name`, `aliases`, `kind`, `static_description`, and `source
 
 Keep permanent identity and stable setting descriptions separate from mutable history. A character description can name a skill or characteristic; “is dead,” “currently imprisoned,” “has become leader,” “has already learned the secret,” and “possesses the stolen key” belong in temporal facts/events. Even seemingly stable affiliations may be mutable.
 
-Aliases are exact identity aids, not keyword triggers. Preserve useful original-language names and add translated names. Do not use “magic,” “city,” or another extremely broad noun as a character alias. Warn on alias collisions and disambiguate with source/context; do not silently merge identities.
+Aliases are exact identity aids, not keyword triggers. Preserve useful original-language names and add translated names. Add the short forms people actually use: for a Chinese name, the given name and the surname where each identifies the person (御坂美琴 → 美琴; 佐天泪子 → 佐天, 泪子), and spelling variants (麦野沈利 / 麦野沉利). Leave out a short form shared by several entities (上条 for both 当麻 and 刀夜, 木原 for the whole family) and one that is an everyday word (黑夜, 最爱, 光子). Do not use “magic,” “city,” or another extremely broad noun as a character alias. Warn on alias collisions and disambiguate with source/context; do not silently merge identities.
 
 Runtime-created NPCs and interventions are stored under separate runtime IDs with provenance. They do not modify `entities` in the pinned pack, and they must not be mislabeled as original canon. A facts/plan record can reference a validated runtime entity through the runtime registry.
 
@@ -196,7 +196,7 @@ Rules:
 | `classification` | Exactly HARD, SOFT or FREE |
 | `required_description` | Nonempty precise contract for HARD; null for SOFT/FREE |
 | `when` | Occurrence bounds and timing provenance |
-| `entity_ids`, `location_ids` | Participating/affected entities and places |
+| `entity_ids`, `location_ids` | Participating/affected entities and places: everyone the summary's motives name and every entity the outcomes and effects change (the linter warns otherwise); a character named in an event is an entity in the registry |
 | `arc_id` | Defined arc ID or null |
 | `canonical_preconditions` | Conditions of the original route; replaceable through alternate planning |
 | `outcomes` | Fact values defining the original result; mandatory for HARD, preferences/defaults otherwise |
@@ -377,7 +377,7 @@ The plugin implementation must update this guide and schema together if a field 
 
 The runtime retrieval rule is **causally relevant OR directly/indirectly mentioned**. It applies to all actual history, including player/GM additions absent from your pack. Authors supply enough structured and narrative information to distinguish an event's occurrence, its actual outcome and the current state resulting from later events. Do not omit an event solely because it is FREE, offscreen, disconnected from an anchor, or has no lasting effect.
 
-For each meaningful canonical occurrence, write a concise `summary` identifying what happened, the actors and affected entities, time/place where supported, and the result. Declare entities and useful aliases so references such as an event name, former venue name or a character's nickname can resolve. Include supported causal relations; do not invent them to improve retrieval. Historical dialogue, beliefs and source uncertainty must not be presented as confirmed world facts.
+For each meaningful canonical occurrence, write a structured `summary` (see “Structured summaries”) identifying what sets it off, who acts and why, what happens, time/place where supported, and the result. Declare entities and useful aliases so references such as an event name, former venue name or a character's nickname can resolve. Include supported causal relations; do not invent them to improve retrieval. Historical dialogue, beliefs and source uncertainty must not be presented as confirmed world facts.
 
 For a place destroyed before the player arrives, use existing fields:
 
