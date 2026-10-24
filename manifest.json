@@ -6,7 +6,7 @@
     "js": "dist/index.js",
     "css": "style.css",
     "author": "Canon Engine contributors",
-    "version": "1.13.5",
+    "version": "1.13.6",
     "homePage": "",
     "auto_update": false,
     "generate_interceptor": "canonEngineGenerateInterceptor"

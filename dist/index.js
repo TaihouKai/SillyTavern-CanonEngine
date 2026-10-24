@@ -21897,7 +21897,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.13.5";
+var ENGINE_RELEASE = "1.13.6";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -27287,7 +27287,7 @@ function playerTab(v) {
   if (!v) return `<div>${esc2(t("niOff"))}</div>`;
   const list = (title, items) => items.length ? `<h4>${esc2(title)}</h4><ul class="canon-list">${items.map((i) => `<li>${esc2(i)}</li>`).join("")}</ul>` : "";
   let html = `<div><small>${esc2(t("niIntro"))}</small></div>`;
-  if (v.personaChanged) html += `<div class="canon-ni-changed"><b>${esc2(t("niChanged"))}</b><br><button class="menu_button" data-act="ni-update">${esc2(t("niUpdate"))}</button> <button class="menu_button" data-act="ni-keep">${esc2(t("niKeep"))}</button></div>`;
+  if (v.personaChanged) html += `<div class="canon-ni-changed"><b>${esc2(t("niChanged"))}</b><div class="canon-ni-btns"><button class="menu_button" data-act="ni-update">${esc2(t("niUpdate"))}</button><button class="menu_button" data-act="ni-keep">${esc2(t("niKeep"))}</button></div></div>`;
   const p = v.profile;
   if (!p) html += `<div>${esc2(t("niNoProfile"))}</div>`;
   else {

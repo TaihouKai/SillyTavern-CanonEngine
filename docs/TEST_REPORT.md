@@ -1,6 +1,6 @@
 # Canon Engine — test report
 
-Latest full run: 2026-10-23, engine 1.13.5, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
+Latest full run: 2026-10-23, engine 1.13.6, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
 
 ## Environment
 

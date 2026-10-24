@@ -628,7 +628,7 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   if (!v) return `<div>${esc(t('niOff'))}</div>`;
   const list = (title: string, items: string[]) => (items.length ? `<h4>${esc(title)}</h4><ul class="canon-list">${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
   let html = `<div><small>${esc(t('niIntro'))}</small></div>`;
-  if (v.personaChanged) html += `<div class="canon-ni-changed"><b>${esc(t('niChanged'))}</b><br><button class="menu_button" data-act="ni-update">${esc(t('niUpdate'))}</button> <button class="menu_button" data-act="ni-keep">${esc(t('niKeep'))}</button></div>`;
+  if (v.personaChanged) html += `<div class="canon-ni-changed"><b>${esc(t('niChanged'))}</b><div class="canon-ni-btns"><button class="menu_button" data-act="ni-update">${esc(t('niUpdate'))}</button><button class="menu_button" data-act="ni-keep">${esc(t('niKeep'))}</button></div></div>`;
   const p = v.profile;
   if (!p) html += `<div>${esc(t('niNoProfile'))}</div>`;
   else {

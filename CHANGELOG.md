@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.6 — 2026-10-25
+
+- The 更新本局身份 / 保留本局身份 buttons (shown when the Persona differs from the chat's identity) were one or two characters wide per line: SillyTavern's button style shrinks to the narrowest width. They now sit in a wrapping row at their natural width (measured in a 360px panel: 42×168 px → 262×28 px); buttons anywhere in the inspector body no longer shrink that way.
+
 ## 1.13.5 — 2026-10-25
 
 - **No “limits” list.** The conditions, costs and weaknesses of the player's abilities (added in 1.13.4) are not needed to choose a small matter, and the notion assumes a world with powers; the list is gone from the Persona reading, the world-reaction step, the GM context and the panel. 不接的事 (kinds of tasks the player does not take on) stays, and holds only whole kinds of tasks.
