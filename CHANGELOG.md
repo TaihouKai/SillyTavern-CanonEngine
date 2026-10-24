@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.13.0 — 2026-10-25
+
+- **Roles in life.** The Persona reading now keeps the parts of the player's life the Persona gives, of whatever kind the character and the world have — an occupation, an organization they work for, school, a club, family, a part-time job — each with the kinds of matters it brings and who brings them, plus what the player cannot or will not do. An ordinary person has ordinary roles. They go to the world-reaction step, are shown to the GM in PLAYER IN THIS WORLD, and in the panel (生活中的身份 / 做不到 / 不会做).
+- **Small matters come out of the player's own life.** Live: for a Persona whose organization does assault work and is bad at stealth and intelligence, the jobs were “take back a record, don't hurt anyone” and “deliver a sealed box, no fire”. A quiet-day matter now comes from one of the player's roles, of a kind that role brings, from the kind of person who brings it, and never asks for what they cannot do: an ordinary student gets a matter from classmates, family, a shop or a neighbour; someone with dangerous work gets that work. It may be brought by a new minor person from their everyday surroundings, not only by an organization or a handler. Variety comes from another role or, within a role, another person, place, stake and complication — never from a kind of matter the player would not get.
+- **No setting-specific examples in the analysis prompts.** Examples that named one world (暗部, gangs, an ability level) are replaced with neutral ones; the prompts are written for any world and any character.
+- Started chats get roles after 更新本局身份 (one analysis call); new chats read them automatically.
+- Tests: NI-47 (an operative and an ordinary student); NI-03, NI-46 updated.
+
 ## 1.12.4 — 2026-10-25
 
 - **Turning down a small job turns down that job only.** Live: ignoring one EMBER job was recorded as declining that contact, and the “not this request” rule extended it to the whole matter (the EMBER organization), so later requests from 云川 were dropped. A refusal of a small-job contact no longer reaches beyond it (the job itself is not offered again: lapsed / already made).

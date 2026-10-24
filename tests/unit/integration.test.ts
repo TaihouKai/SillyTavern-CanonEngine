@@ -105,7 +105,7 @@ describe('player presence (Persona -> profile)', () => {
     expect(ctx).toMatch(/who knows: the Council knows the organization exists [(]not that the player is in it[)] — a smuggling ring/);
     expect(ctx).toMatch(/the public identity is what anyone may know — famous things \(an esper's level and ability, a reputation\) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed/);
     // not marked secret = public; secret by nature (a hidden organization) stays secret
-    expect(PROMPTS.profile).toMatch(/public_identity: everything about the player that is public\. Public by default is whatever the Persona does not mark as secret[^]*their ability and its level[^]*Secret even when not marked is what is secret by nature in this world: membership in a hidden organization/);
+    expect(PROMPTS.profile).toMatch(/public_identity: everything about the player that is public\. Public by default is whatever the Persona does not mark as secret[^]*their skills or powers if they have any[^]*Secret even when not marked is what is secret by nature in this world: membership in a hidden organization/);
   });
 
   it('NI-08 what the engine read is visible: the standard Persona only, with its size', async () => {
@@ -640,9 +640,9 @@ describe('preferred matters', () => {
     expect(w.engine.campaign()!.integrationCache!.dropped.some((d: any) => /its actors are dead/.test(d.reason))).toBe(true);
   });
   it('NI-46 a several-day event ending today makes the day busy (live: 恩底弥翁 on 9/18); a delivered small job lapses at the next day unless taken; the next job must be different work', async () => {
-    expect(PROMPTS.integrate).toMatch(/one marked lapsed is a small job the player did not take in time — that job is over[^]*a new, different small job on a later quiet day is still expected/);
-    expect(PROMPTS.integrate).toMatch(/Make it specific, not generic: who exactly[^]*one detail or complication that makes it worth playing[^]*Never just "a minor gang somewhere needs clearing out"/);
-    expect(PROMPTS.integrate).toMatch(/recent_jobs lists small jobs already offered: a new one is a different kind of work \(if a gang to clear out is listed, not another gang\)/);
+    expect(PROMPTS.integrate).toMatch(/one marked lapsed is a small matter the player did not take up in time — it is over[^]*a new, different one on a later quiet day is still expected/);
+    expect(PROMPTS.integrate).toMatch(/Make it specific, not generic: who exactly[^]*one detail or complication that makes it worth playing[^]*Never generic \("someone needs a hand with something"\)/);
+    expect(PROMPTS.integrate).toMatch(/recent_jobs lists small matters already offered: a new one differs from them — another of the player's roles when they have several[^]*never a kind of matter the player would not get, just to be different/);
     // the festival runs from day 1 20:00 to day 3 16:00
     const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'harbor-festival').when, { earliest: { day: 1, minute: 1200 }, latest: { day: 3, minute: 960 }, precision: 'range' });
     const job = OPP({ ref: 'j', kind: 'request', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the Union dockmaster asks Vera to scare off a petty smuggling crew', side_job: true });
@@ -683,6 +683,33 @@ describe('preferred matters', () => {
     z.model.on('integrate', null, { assessments: [], opportunities: [OPP({ ref: 'u2', kind: 'request', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the dockmaster asks Vera to guard a night shipment' })] });
     await z.engine.refreshIntegration();
     expect(z.engine.campaign()!.integrationCache!.opportunities.map((o) => o.contact)).toContain('the dockmaster asks Vera to guard a night shipment');
+  });
+
+  it('NI-47 small matters come out of the player\'s own life, whatever it is: the Persona reading keeps roles and what they cannot do (an operative, and an ordinary student with no powers and no organization)', async () => {
+    expect(PROMPTS.profile).toMatch(/- roles: the parts of the player's life the Persona gives, of whatever kind[^]*an ordinary person has ordinary roles/);
+    expect(PROMPTS.profile).toMatch(/- not_suited: what the player cannot or will not do[^]*an ordinary person cannot fight trained opponents or use powers/);
+    expect(PROMPTS.integrate).toMatch(/It comes out of the player's own life as player\.roles gives it[^]*never asks for what is in player\.not_suited or beyond their capabilities — an ordinary person gets an ordinary matter[^]*a new minor person from their everyday surroundings/);
+    // no setting-specific examples in the analysis prompts
+    for (const k of ['profile', 'integrate', 'extract_user', 'evaluate'] as const) expect(PROMPTS[k]).not.toMatch(/暗部|gang|esper/i);
+    const cases = [
+      { roles: [{ role: 'EMBER 的唯一成员', brings: ['火力压制', '据点破坏'], from: ['云川芹亚'], style: '直接以火力终结' }], not_suited: ['隐蔽', '情报工作'],
+        line: /- roles: EMBER 的唯一成员 \(火力压制, 据点破坏; from 云川芹亚\)\n- cannot \/ will not: 隐蔽; 情报工作/ },
+      { roles: [{ role: 'high-school student', brings: ['homework help', 'class duties'], from: ['classmates', 'teachers'] }, { role: 'part-time job at a bakery', brings: ['extra shifts', 'deliveries'], from: ['the owner'] }], not_suited: ['fighting', 'anything needing powers'],
+        line: /- roles: high-school student \(homework help, class duties; from classmates, teachers\) \| part-time job at a bakery \(extra shifts, deliveries; from the owner\)\n- cannot \/ will not: fighting; anything needing powers/ },
+    ];
+    for (const c of cases) {
+      const x = await setup({ profile: { ...PROFILE, roles: c.roles, not_suited: c.not_suited } });
+      await turn(x, 'I look around.', 'The harbor at morning. [W47]', { scene_end: at(1, 9, 35) });
+      const want = c.roles.map((r: any) => ({ role: r.role, brings: r.brings, from: r.from, style: r.style || '' }));
+      expect(x.engine.playerProfile()!.profile.roles).toEqual(want);
+      expect(x.model.tasks('integrate').slice(-1)[0].input.player).toMatchObject({ roles: want, not_suited: c.not_suited });
+      expect(lastCtx(x)).toMatch(c.line);
+    }
+    // a Persona that gives neither: nothing extra in the inputs or the GM context
+    const y = await setup({});
+    await turn(y, 'I look around.', 'The harbor at morning. [W48]', { scene_end: at(1, 9, 35) });
+    expect(y.model.tasks('integrate').slice(-1)[0].input.player.roles).toBeUndefined();
+    expect(lastCtx(y)).not.toMatch(/- roles:|- cannot \/ will not:/);
   });
 
 });

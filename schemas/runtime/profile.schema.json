@@ -217,6 +217,51 @@
     "maxLength": 400
    },
    "maxItems": 20
+  },
+  "roles": {
+   "type": "array",
+   "maxItems": 8,
+   "items": {
+    "type": "object",
+    "required": [
+     "role"
+    ],
+    "additionalProperties": false,
+    "properties": {
+     "role": {
+      "type": "string",
+      "maxLength": 200
+     },
+     "brings": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "maxItems": 10
+     },
+     "from": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "maxItems": 8
+     },
+     "style": {
+      "type": "string",
+      "maxLength": 300
+     }
+    }
+   }
+  },
+  "not_suited": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "maxLength": 300
+   },
+   "maxItems": 10
   }
  },
  "required": [
