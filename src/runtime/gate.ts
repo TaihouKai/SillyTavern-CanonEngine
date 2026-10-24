@@ -356,8 +356,12 @@ export function runGate(g: GateInput): GateResult {
     if (c.hi <= sceneEnd.lo || c.hi <= g.clockTick) {
       violations.push(`HARD "${c.event.title}" is due by ${formatTick(c.hi)} and this reply reaches ${formatTick(Math.max(sceneEnd.lo, g.clockTick))}, but the event is not realized: ${c.event.required_description}`);
     } else if (!flashback && c.hi <= sceneEnd.hi) {
-      // Ambiguous end time straddles a HARD checkpoint: never pick a convenient endpoint.
-      violations.push(`The reply's end time is ambiguous (${formatTick(sceneEnd.lo)}–${formatTick(sceneEnd.hi)}) around the HARD checkpoint "${c.event.title}" at ${formatTick(c.hi)}. Either stop the scene clearly before it, or depict it: ${c.event.required_description}`);
+      // The end time's range reaches a HARD checkpoint the reply does not depict. lo is the least time the depicted events
+      // need and the clock moves to lo; the rest of the range is unstated slack. So the scene ends before the checkpoint,
+      // and the event stays due (staged offscreen once time passes it). Decided here, not by rewriting the reply (live:
+      // two repairs of a quiet waiting scene, 15:35–16:00 around the 16:00 checkpoint).
+      warnings.push(`scene end ${formatTick(sceneEnd.lo)}–${formatTick(sceneEnd.hi)} reaches the HARD checkpoint "${c.event.title}" at ${formatTick(c.hi)} without depicting it: taken as ending before it`);
+      sceneEnd = { ...sceneEnd, hi: Math.max(sceneEnd.lo, c.hi - 1) };
     }
   }
   // Reviewer-reported contradictions of HARD contracts

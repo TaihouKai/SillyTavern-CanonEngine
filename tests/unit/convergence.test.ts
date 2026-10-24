@@ -284,6 +284,17 @@ describe('convergence', () => {
     expect(st(y).dispositions.get('conflict-begins')?.disposition).toBe('occurred');
   });
 
+  it('C17e an end-time range reaching a HARD checkpoint the reply does not depict ends before it, without a repair (live: 15:35–16:00 around 16:00)', async () => {
+    const x = await setup(tick(2, 8, 30));
+    x.engine.settings.debug = true;
+    expect(await turn(x, 'I wait in the office.', 'You wait; nothing much happens. [N9]', { scene_end: { lo: { day: 2, minute: 520 }, hi: { day: 2, minute: 540 }, precision: 'range' } })).toBe(true);
+    expect(x.model.tasks('draft')).toHaveLength(1);
+    expect(st(x).clock.lo).toBe(tick(2, 8, 40));
+    expect(st(x).clock.hi).toBeLessThan(tick(2, 9));
+    expect(st(x).dispositions.has('conflict-begins')).toBe(false); // still due
+    expect(x.engine.lastTrace!.attempts[0].warnings!.join(' ')).toMatch(/reaches the HARD checkpoint[^]*taken as ending before it/);
+  });
+
   it('C17d a HARD event that is not yet due is never a violation; it may still happen offscreen (real-model finding)', async () => {
     const x = await setup(tick(1, 13));
     // the reply ends well before the HARD checkpoint (D2 09:00); the reviewer complains anyway

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.10.2 — 2026-10-24
+
+- **No repair over an end-time range touching a HARD checkpoint.** Live: a quiet waiting scene got scene end 15:35–16:00 with the HARD 御坂10032号失踪事件 due at 16:00, and was sent back twice ("the reply's end time is ambiguous… stop the scene clearly before it, or depict it"). The lower bound (the least time the depicted events need) is where the clock moves; the rest is unstated slack. When the range reaches a HARD checkpoint the reply does not depict, the engine now takes the scene as ending just before it (noted in the trace); the event stays due and is staged offscreen once story time passes it. A reply whose least time passes the checkpoint is handled as before.
+- Tests: C17e.
+
 ## 1.10.1 — 2026-10-24
 
 - An event under way closes once story time is **past** its window: a reply ending exactly at the end of a 10:00 window (the fight just started) leaves it open, so it is not judged from its first second. Found by the browser suite (CE01) right after 1.10.0.

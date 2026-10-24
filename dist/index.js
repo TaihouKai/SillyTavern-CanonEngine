@@ -19645,7 +19645,8 @@ function runGate(g) {
     if (c.hi <= sceneEnd.lo || c.hi <= g.clockTick) {
       violations.push(`HARD "${c.event.title}" is due by ${formatTick(c.hi)} and this reply reaches ${formatTick(Math.max(sceneEnd.lo, g.clockTick))}, but the event is not realized: ${c.event.required_description}`);
     } else if (!flashback && c.hi <= sceneEnd.hi) {
-      violations.push(`The reply's end time is ambiguous (${formatTick(sceneEnd.lo)}\u2013${formatTick(sceneEnd.hi)}) around the HARD checkpoint "${c.event.title}" at ${formatTick(c.hi)}. Either stop the scene clearly before it, or depict it: ${c.event.required_description}`);
+      warnings.push(`scene end ${formatTick(sceneEnd.lo)}\u2013${formatTick(sceneEnd.hi)} reaches the HARD checkpoint "${c.event.title}" at ${formatTick(c.hi)} without depicting it: taken as ending before it`);
+      sceneEnd = { ...sceneEnd, hi: Math.max(sceneEnd.lo, c.hi - 1) };
     }
   }
   const depicted = new Set(ev.occurrences.map((o) => o.pack_event_id).filter(Boolean));
@@ -21048,7 +21049,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.10.1";
+var ENGINE_RELEASE = "1.10.2";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
