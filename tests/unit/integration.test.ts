@@ -690,18 +690,19 @@ describe('preferred matters', () => {
 
   it('NI-47 small matters come out of the player\'s own life, whatever it is: the Persona reading keeps roles and what they cannot do (an operative, and an ordinary student with no powers and no organization)', async () => {
     expect(PROMPTS.profile).toMatch(/- roles: the parts of the player's life the Persona gives, of whatever kind[^]*an ordinary person has ordinary roles/);
-    expect(PROMPTS.profile).toMatch(/- not_suited: kinds of tasks or matters the player cannot or will not take on at all[^]*Not the conditions, costs or weaknesses of what they can do — those are limits\.\n- limits: the conditions, costs and weaknesses of what the player can do/);
-    expect(PROMPTS.integrate).toMatch(/It comes out of the player's own life as player\.roles gives it[^]*never asks for a kind of task in player\.not_suited or beyond their capabilities, and stays doable within player\.limits[^]*an ordinary person gets an ordinary matter[^]*a new minor person from their everyday surroundings/);
+    expect(PROMPTS.profile).toMatch(/- not_suited: kinds of tasks or matters the player cannot or will not take on at all[^]*Only whole kinds of tasks — not the conditions, costs or weaknesses of their skills/);
+    expect(PROMPTS.profile + PROMPTS.integrate).not.toMatch(/"limits"|player\.limits|- limits:/);
+    expect(PROMPTS.integrate).toMatch(/It comes out of the player's own life as player\.roles gives it[^]*never asks for a kind of task in player\.not_suited or beyond their capabilities — an ordinary person gets an ordinary matter[^]*a new minor person from their everyday surroundings/);
     // no setting-specific examples in the analysis prompts
     for (const k of ['profile', 'integrate', 'extract_user', 'evaluate'] as const) expect(PROMPTS[k]).not.toMatch(/暗部|gang|esper/i);
     const cases = [
-      { roles: [{ role: 'EMBER 的唯一成员', brings: ['火力压制', '据点破坏'], from: ['云川芹亚'], style: '直接以火力终结' }], not_suited: ['隐蔽', '情报工作'], limits: ['必须目视目标', '过度使用会伤身'],
-        line: /- roles: EMBER 的唯一成员 \(火力压制, 据点破坏; from 云川芹亚\)\n- does not take on: 隐蔽; 情报工作\n- limits: 必须目视目标; 过度使用会伤身/ },
+      { roles: [{ role: 'EMBER 的唯一成员', brings: ['火力压制', '据点破坏'], from: ['云川芹亚'], style: '直接以火力终结' }], not_suited: ['隐蔽', '情报工作'],
+        line: /- roles: EMBER 的唯一成员 \(火力压制, 据点破坏; from 云川芹亚\)\n- does not take on: 隐蔽; 情报工作/ },
       { roles: [{ role: 'high-school student', brings: ['homework help', 'class duties'], from: ['classmates', 'teachers'] }, { role: 'part-time job at a bakery', brings: ['extra shifts', 'deliveries'], from: ['the owner'] }], not_suited: ['fighting', 'anything needing powers'],
         line: /- roles: high-school student \(homework help, class duties; from classmates, teachers\) \| part-time job at a bakery \(extra shifts, deliveries; from the owner\)\n- does not take on: fighting; anything needing powers/ },
     ];
     for (const c of cases) {
-      const x = await setup({ profile: { ...PROFILE, roles: c.roles, not_suited: c.not_suited, limits: (c as any).limits } });
+      const x = await setup({ profile: { ...PROFILE, roles: c.roles, not_suited: c.not_suited } });
       await turn(x, 'I look around.', 'The harbor at morning. [W47]', { scene_end: at(1, 9, 35) });
       const want = c.roles.map((r: any) => ({ role: r.role, brings: r.brings, from: r.from, style: r.style || '' }));
       expect(x.engine.playerProfile()!.profile.roles).toEqual(want);
@@ -712,7 +713,7 @@ describe('preferred matters', () => {
     const y = await setup({});
     await turn(y, 'I look around.', 'The harbor at morning. [W48]', { scene_end: at(1, 9, 35) });
     expect(y.model.tasks('integrate').slice(-1)[0].input.player.roles).toBeUndefined();
-    expect(lastCtx(y)).not.toMatch(/- roles:|- does not take on:|- limits:/);
+    expect(lastCtx(y)).not.toMatch(/- roles:|- does not take on:/);
   });
 
   it('NI-48 an ordinary student: people the Persona names who are not in the pack become people of the chat, and a small matter may come from them or from a minor person it introduces (live: every matter for such a Persona was dropped as "no known actor")', async () => {

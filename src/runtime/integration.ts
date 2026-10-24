@@ -35,7 +35,6 @@ export interface ProfileOut {
   capabilities?: string[]; resources?: string[]; goals?: string[];
   roles?: { role: string; brings?: string[]; from?: string[]; style?: string }[];
   not_suited?: string[];
-  limits?: string[];
   relationships: { name: string; existing_id?: string | null; relation?: string; basis?: 'persona_stated' | 'implied' }[];
   knowers: { who: string; existing_id?: string | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: 'persona_stated' | 'implied' }[];
   uncertain?: string[];
@@ -116,7 +115,6 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
       affiliations, places, capabilities: list(out.capabilities), resources: list(out.resources), goals: list(out.goals), relationships, knowers, uncertain: list(out.uncertain), notes,
       roles: (out.roles || []).filter((r) => r?.role?.trim()).slice(0, 8).map((r) => ({ role: r.role.trim().slice(0, 200), brings: list(r.brings), from: list(r.from), style: String(r.style || '').trim().slice(0, 300) })),
       notSuited: list(out.not_suited),
-      limits: list(out.limits),
     },
     runtimeEntities,
   };
@@ -229,7 +227,6 @@ export function playerContext(index: WorldIndex, profile: PlayerProfile, tick: n
     goals: profile.goals,
     ...(profile.roles?.length ? { roles: profile.roles } : {}),
     ...(profile.notSuited?.length ? { not_suited: profile.notSuited } : {}),
-    ...(profile.limits?.length ? { limits: profile.limits } : {}),
     relationships: profile.relationships.map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis, ...(r.entityId && index.entityKind(r.entityId) === 'organization' ? { now: factsLine(index, r.entityId, tick).trim() } : {}) })),
     knowers: profile.knowers.map((k) => ({ who: k.who, id: k.entityId, level: k.level, about: k.about, basis: k.basis })),
     now: factsLine(index, profile.playerId, tick).trim(),
@@ -619,7 +616,6 @@ export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick:
   if (profile.capabilities.length || profile.resources.length) lines.push(`- can/has: ${[...profile.capabilities, ...profile.resources].slice(0, 10).join('; ')}`);
   if (profile.roles?.length) lines.push(`- roles: ${profile.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(', '), r.from.length ? `from ${r.from.join(', ')}` : ''].filter(Boolean).join('; ')})` : ''}`).join(' | ')}`);
   if (profile.notSuited?.length) lines.push(`- does not take on: ${profile.notSuited.join('; ')}`);
-  if (profile.limits?.length) lines.push(`- limits: ${profile.limits.join('; ')}`);
   for (const r of profile.relationships.slice(0, 12)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ''} — ${r.relation} (${r.basis === 'persona_stated' ? 'Persona' : 'implied by the role'})${r.entityId && index.entityKind(r.entityId) === 'organization' ? factsLine(index, r.entityId, tick) : ''}`);
   for (const k of profile.knowers.slice(0, 12)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === 'secrets' ? ':' : ' —'} ${k.about}`);
   return lines.join('\n');
