@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.10.1 — 2026-10-24
+
+- An event under way closes once story time is **past** its window: a reply ending exactly at the end of a 10:00 window (the fight just started) leaves it open, so it is not judged from its first second. Found by the browser suite (CE01) right after 1.10.0.
+- Tests: OG3b.
+
 ## 1.10.0 — 2026-10-24
 
 Replaces 1.9.8, following the player's design: no model judgement of whether an event is "done" (it costs tokens and attention, and a misreading could keep an event open forever).

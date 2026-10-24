@@ -19923,6 +19923,7 @@ async function adjudicateInterval(args) {
     const when = occurrenceWindow(c, -Infinity, args.toInclusive);
     const windowStillOpen = c.hi > args.toInclusive;
     if (windowStillOpen) continue;
+    if (underWay.has(c.event.id) && args.toInclusive <= c.hi) continue;
     if (underWay.has(c.event.id) && args.port) {
       const r = await judgeUnderWay(args, scratch, c, UNDER_WAY_CLOSED);
       if (r && "record" in r) {
@@ -21047,7 +21048,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.10.0";
+var ENGINE_RELEASE = "1.10.1";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };

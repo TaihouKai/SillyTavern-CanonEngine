@@ -59,6 +59,8 @@ export async function adjudicateInterval(args: {
     const when = occurrenceWindow(c, -Infinity, args.toInclusive);
     const windowStillOpen = c.hi > args.toInclusive;
     if (windowStillOpen) continue;
+    // under way: closed once story time is PAST its window (a reply ending at 10:00 is still inside a 10:00 window)
+    if (underWay.has(c.event.id) && args.toInclusive <= c.hi) continue;
     if (underWay.has(c.event.id) && args.port) {
       const r = await judgeUnderWay(args, scratch, c, UNDER_WAY_CLOSED);
       if (r && 'record' in r) {

@@ -84,6 +84,15 @@ describe('canonical events under way', () => {
     expect(x.engine.current!.index.afterStory('medic-ambush').map((o) => o.title)).toEqual(['Attackers flee']);
   });
 
+  it('OG3b a reply ending exactly at the end of the window leaves an event under way open; the next one past it closes it', async () => {
+    const x = await setup(); // point window 10:00
+    expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [OG3d]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
+    expect(st(x).dispositions.has('medic-ambush')).toBe(false);
+    x.model.on('adjudicate', (i) => i.candidate?.id === 'medic-ambush', { adjudications: [{ event_id: 'medic-ambush', decision: 'diverged', time: null, account: 'Mira held out.', actors: ['mira'], causes: [], effects: [], plan_step_ids: [], reason: 'x', extraordinary: false }] });
+    expect(await turn(x, 'I duck.', 'At 10:05 you duck behind a cart. [OG3e]', { scene_end: at(1, 10, 5) })).toBe(true);
+    expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('diverged');
+  });
+
   it('OG4 the GM is told about an event under way in every reply until it ends, even when no message names it', async () => {
     const x = await setup(true);
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [OG4a]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
