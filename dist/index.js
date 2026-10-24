@@ -19608,7 +19608,7 @@ Favor involvement: prefer the development that gives the player a part to play; 
 - already_kept, when given, lists contacts kept exactly as they are (about the event under way and matters the player prefers): propose nothing about those matters; propose only for other matters;
 - preferred lists matters ("event:id", "arc:id", "faction:id"...) the player lets the world bring to them even while busy with another event: keep a plausible contact for each in the list when one exists;
 - HARD events happen regardless; the player may or may not be part of them.
-- quiet_day, when true: no canon event happens for the rest of today. Then your opportunities MUST include one small matter for the player, with side_job=true, whatever the current scene (the GM decides when it fits in; this is the one exception to proposing nothing). It comes out of the player's own life as player.roles gives it: one of their roles, a kind of matter that role brings them, from the kind of person who brings it, suited to how they handle things; it never asks for what is in player.not_suited or beyond their capabilities \u2014 an ordinary person gets an ordinary matter (a classmate, a neighbour, a shop, a family member), someone with dangerous work gets that work. Without player.roles, judge from the player summary, affiliations and places. It is brought by someone who plausibly would: a person in player.relationships or player.knowers, someone from a group they belong to through its usual channel (naming no superior the profile does not give), or a new minor person from their everyday surroundings. It is small and self-contained and changes no history: its targets and places are minor or newly introduced (put them in establishes); it never involves a canonical event (target_event_id null), never harms, kills or changes the status of a named canon character or place, and touches nothing the canon events depend on. Existing characters take part only as fits their current state and whereabouts. The player decides whether to take it. recent_jobs lists small matters already offered: a new one differs from them \u2014 another of the player's roles when they have several, or within the same role another person, place, stake and complication (if the last was a lost item to find, not another lost item) \u2014 never a kind of matter the player would not get, just to be different. Make it specific, not generic: who exactly (a named or clearly described minor person or group with something that sets them apart), where exactly, why it needs doing now and why this player, what exactly is asked, and one detail or complication that makes it worth playing (the target is not what it seems, a rival wants the same thing, it touches someone the player knows); put the new people and places in establishes. Never generic ("someone needs a hand with something").
+- quiet_day, when true: no canon event happens for the rest of today. Then your opportunities MUST include one small matter for the player, with side_job=true, whatever the current scene (the GM decides when it fits in; this is the one exception to proposing nothing). It comes out of the player's own life as player.roles gives it: one of their roles, a kind of matter that role brings them, from the kind of person who brings it, suited to how they handle things; it never asks for what is in player.not_suited or beyond their capabilities \u2014 an ordinary person gets an ordinary matter (a classmate, a neighbour, a shop, a family member), someone with dangerous work gets that work. Without player.roles, judge from the player summary, affiliations and places. It is brought by someone who plausibly would: a person in player.relationships or player.knowers, someone from a group they belong to through its usual channel (naming no superior the profile does not give), or a new minor person from their everyday surroundings (give their name or a short description in actors and put them in establishes). It is small and self-contained and changes no history: its targets and places are minor or newly introduced (put them in establishes); it never involves a canonical event (target_event_id null), never harms, kills or changes the status of a named canon character or place, and touches nothing the canon events depend on. Existing characters take part only as fits their current state and whereabouts. The player decides whether to take it. recent_jobs lists small matters already offered: a new one differs from them \u2014 another of the player's roles when they have several, or within the same role another person, place, stake and complication (if the last was a lost item to find, not another lost item) \u2014 never a kind of matter the player would not get, just to be different. Make it specific, not generic: who exactly (a named or clearly described minor person or group with something that sets them apart), where exactly, why it needs doing now and why this player, what exactly is asked, and one detail or complication that makes it worth playing (the target is not what it seems, a rival wants the same thing, it touches someone the player knows); put the new people and places in establishes. Never generic ("someone needs a hand with something").
 Proposing nothing is right when the scene should stay quiet (a date, a fight in progress, daily life with nothing reaching them).
 SHAPE: {"assessments":[{"target":"","classification":"opportunity","reason":""}],"opportunities":[{"ref":"o1","target_event_id":null,"scope_kind":"event","scope_ref":"","scope_label":"","kind":"invitation","direct_impact":false,"actors":[],"motivation":"","knowledge":"","contact":"","establishes":[],"earliest":null,"latest":null,"priority":2,"basis_refs":[],"side_job":false}]}`,
   digest: `${COMMON}
@@ -21284,11 +21284,15 @@ function buildProfile(out, pack2, index, persona, prev) {
   const relationships = [];
   for (const r of out.relationships || []) {
     if (!r.name?.trim()) continue;
-    const id = known(r.existing_id) || index.resolveEntity(r.name).ids.find((x) => pack2.entities.has(x)) || null;
+    let id = known(r.existing_id) || index.resolveEntity(r.name).ids.find((x) => pack2.entities.has(x)) || null;
     const basis = r.basis === "persona_stated" ? "persona_stated" : "implied";
     if (basis === "implied" && isKnownPerson(id)) {
       notes.push(`dropped implied relationship with ${r.name} (${r.relation || ""}): a known character is connected to the player only when the Persona says so or it happens in play`);
       continue;
+    }
+    if (!id && basis === "persona_stated") {
+      id = prev?.relationships.find((x) => x.name === r.name.trim())?.entityId || `rt.person.${slug2(r.name)}.${newId("e").slice(2, 8)}`;
+      runtimeEntities.push({ id, name: r.name.trim(), aliases: [], kind: "person", description: `${r.relation || ""} (from the Persona of ${name2})`.slice(0, 600) });
     }
     relationships.push({ entityId: id, name: r.name.trim(), relation: (r.relation || "").slice(0, 400), basis });
   }
@@ -21652,7 +21656,8 @@ function checkOpportunities(out, index, profile2, candidates, tick, quiet = fals
       const f = factAt(st, a, "alive", { tick });
       return !(f.known && f.value === false);
     });
-    if (!actors.length) {
+    const newcomers = quiet && o.side_job && !o.target_event_id && !named.length ? uniq((o.actors || []).map((a) => String(a).trim()).filter((a) => a && !/^[a-z0-9._-]+$/.test(a) && !index.resolveEntity(a).ids.length)).slice(0, 3) : [];
+    if (!actors.length && !newcomers.length) {
       dropped.push({ id: ref, reason: named.length ? "its actors are dead" : "no known actor" });
       continue;
     }
@@ -21730,6 +21735,10 @@ function checkOpportunities(out, index, profile2, candidates, tick, quiet = fals
       }
     }
     const isJob = quiet && !!o.side_job && !targetEventId;
+    if (!actors.length && !isJob) {
+      dropped.push({ id: ref, reason: "no known actor" });
+      continue;
+    }
     const id = "opp_" + sha256(`${scopeKind}|${scopeRef}|${kind}|${[...actors].sort().join(",")}${isJob ? `|${o.contact || ""}` : ""}`).slice(0, 10);
     if (st.contacts.some((x) => x.opportunityId === id)) {
       dropped.push({ id: ref, reason: "already made" });
@@ -21762,7 +21771,7 @@ function checkOpportunities(out, index, profile2, candidates, tick, quiet = fals
       focus: !!c?.focus,
       basisRefs,
       // a side job is only for a quiet day and never about a canonical event
-      ...isJob ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + 1439) } : {}
+      ...isJob ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + 1439), ...newcomers.length ? { newcomers } : {} } : {}
     });
   }
   return { valid, dropped };
@@ -21832,10 +21841,13 @@ function decisionsSection(lines) {
   return lines.length ? `PLAYER'S DECISIONS (binding; from the player's own words or actions \u2014 they decide what they get drawn into):
 ${lines.map((l) => "- " + l).join("\n")}` : "";
 }
+function opportunityBy(index, o) {
+  return [...o.actors.map((a) => index.entityName(a)), ...o.newcomers || []];
+}
 function worldReactionSection(index, o, origin) {
-  const who = o.actors.map((a) => index.entityName(a)).join(", ");
+  const who = opportunityBy(index, o).join(", ");
   const when = o.earliest !== null ? ` It can happen from ${formatTick(o.earliest, origin)}${o.latest !== null ? ` until ${formatTick(o.latest, origin)}` : ""}; if this reply ends before then, it has not happened yet.` : "";
-  const head = o.sideJob ? "WORLD REACTION (a small job for a quiet day \u2014 no canon event happens for the rest of today, so bring it in during this reply if the scene allows at all; NOT history; keep everyone in character; the player decides whether to take it)" : "WORLD REACTION (optional for this reply \u2014 NOT history; use it only if it fits the scene and its time; keep everyone in character and leave the player's answer to the player; not using it is fine)";
+  const head = o.sideJob ? "WORLD REACTION (a small matter for a quiet day \u2014 no canon event happens for the rest of today, so bring it in during this reply if the scene allows at all; NOT history; keep everyone in character; the player decides whether to take it)" : "WORLD REACTION (optional for this reply \u2014 NOT history; use it only if it fits the scene and its time; keep everyone in character and leave the player's answer to the player; not using it is fine)";
   return `${head}:
 - ${who}: ${o.contact} Why: ${o.motivation} What they know about the player: ${o.knowledge}${o.establishes.length ? ` May establish: ${o.establishes.join("; ")}.` : ""}${when}`;
 }
@@ -21877,7 +21889,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.13.0";
+var ENGINE_RELEASE = "1.13.1";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -23723,7 +23735,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const valid = [...kept, ...checked.valid.filter((o) => !keptScopes.has(`${o.scopeKind}:${o.scopeRef}`))];
     const cache = { key, at: this.host.now(), tick, opportunities: valid, assessments: (out.assessments || []).slice(0, 30), dropped };
     for (const o of checked.valid.filter((x) => x.sideJob)) {
-      const line = `${index.entityName(o.actors[0])}: ${o.contact}`.slice(0, 200);
+      const line = `${opportunityBy(index, o)[0] || o.scopeLabel}: ${o.contact}`.slice(0, 200);
       c.recentJobs = [...(c.recentJobs || []).filter((x) => x !== line), line].slice(-8);
     }
     c.integrationCache = cache;
@@ -24392,7 +24404,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
         return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {};
       })() : {} })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin), ...k.sideJob ? { sideJob: true, lapsed: jobLapsed(s, k, s.clock.lo) } : {} })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
-      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: aboutUnderWay(o, idx, underWay), preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
+      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: aboutUnderWay(o, idx, underWay), preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: opportunityBy(idx, o), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null
     };
   }

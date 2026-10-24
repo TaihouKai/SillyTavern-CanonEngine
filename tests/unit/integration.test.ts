@@ -622,7 +622,7 @@ describe('preferred matters', () => {
     const v = x.engine.integrationView(true)!;
     expect(v.suggestions!.find((s: any) => s.contact.includes('smuggling'))!.sideJob).toBe(true);
     await turn(x, 'I keep walking.', 'More gulls. [Q2]', { scene_end: at(2, 10, 20) });
-    expect(lastCtx(x)).toMatch(/a small job for a quiet day[^]*bring it in during this reply if the scene allows at all[^]*scare off a petty smuggling crew/);
+    expect(lastCtx(x)).toMatch(/a small matter for a quiet day[^]*bring it in during this reply if the scene allows at all[^]*scare off a petty smuggling crew/);
     // day 1, 09:30: the ambush and the broadcast are still due today — not quiet, the flag is ignored
     const y = await setup({ integrate: { assessments: [], opportunities: [job] } });
     await turn(y, 'I look around.', 'The harbor at morning. [Q3]', { scene_end: at(1, 9, 35) });
@@ -710,6 +710,35 @@ describe('preferred matters', () => {
     await turn(y, 'I look around.', 'The harbor at morning. [W48]', { scene_end: at(1, 9, 35) });
     expect(y.model.tasks('integrate').slice(-1)[0].input.player.roles).toBeUndefined();
     expect(lastCtx(y)).not.toMatch(/- roles:|- cannot \/ will not:/);
+  });
+
+  it('NI-48 an ordinary student: people the Persona names who are not in the pack become people of the chat, and a small matter may come from them or from a minor person it introduces (live: every matter for such a Persona was dropped as "no known actor")', async () => {
+    expect(PROMPTS.integrate).toMatch(/a new minor person from their everyday surroundings \(give their name or a short description in actors and put them in establishes\)/);
+    const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'harbor-festival').when, { earliest: { day: 1, minute: 1200 }, latest: { day: 3, minute: 960 }, precision: 'range' });
+    const student = {
+      player: { name: 'Hana', aliases: [], summary: 'An ordinary high-school student with no powers who works at a bakery after school.', public_identity: 'student at the harbor school' },
+      affiliations: [], places: [{ name: 'Wheat Bakery', existing_id: null, use: 'part-time job' }], capabilities: ['baking'], resources: [], goals: [],
+      roles: [{ role: 'part-time job at the Wheat Bakery', brings: ['extra shifts', 'deliveries'], from: ['Mr. Tanabe'] }], not_suited: ['fighting'],
+      relationships: [{ name: 'Mr. Tanabe', existing_id: null, relation: 'owner of the bakery where she works', basis: 'persona_stated' }, { name: 'classmates', existing_id: null, relation: 'classmates', basis: 'implied' }],
+      knowers: [], uncertain: [],
+    };
+    const fromOwner = OPP({ ref: 'b1', target_event_id: null, scope_kind: 'storyline', scope_ref: 'bakery order', scope_label: 'a big bakery order', actors: ['Mr. Tanabe'], contact: 'Mr. Tanabe asks Hana to deliver forty buns to the lighthouse keeper before noon', side_job: true });
+    const fromNewcomer = OPP({ ref: 'b2', target_event_id: null, scope_kind: 'storyline', scope_ref: 'lost umbrella', scope_label: 'a lost umbrella', actors: ['an old woman in a red coat'], contact: 'an old woman in a red coat asks Hana to help find the umbrella she left on the quay', side_job: true, establishes: ['an old woman in a red coat who lives above the fish market'] });
+    const notAJob = OPP({ ref: 'b3', target_event_id: null, scope_kind: 'storyline', scope_ref: 'stranger', scope_label: 'a stranger', actors: ['a stranger'], contact: 'a stranger waves' });
+    const x = await setup({ persona: { name: 'Hana', description: 'Hana, an ordinary student.' }, pack: JSON.stringify(wide), start: tick(2, 10, 0), profile: student, integrate: { assessments: [], opportunities: [fromOwner, fromNewcomer, notAJob] } });
+    await turn(x, 'I walk to the bakery.', 'The bakery smells of bread. [H1]', { scene_end: at(2, 10, 10) });
+    const prof = x.engine.playerProfile()!.profile;
+    const owner = prof.relationships.find((r) => r.name === 'Mr. Tanabe')!;
+    expect(owner.entityId).toMatch(/^rt\.person\./);
+    expect(prof.relationships.find((r) => r.name === 'classmates')!.entityId).toBeNull(); // an implied group stays a group
+    const cache = x.engine.campaign()!.integrationCache!;
+    const a = cache.opportunities.find((o) => o.contact.startsWith('Mr. Tanabe'))!;
+    expect(a.actors).toEqual([owner.entityId]);
+    const b = cache.opportunities.find((o) => o.contact.startsWith('an old woman'))!;
+    expect(b).toMatchObject({ sideJob: true, actors: [], newcomers: ['an old woman in a red coat'] });
+    expect(cache.dropped).toContainEqual({ id: 'b3', reason: 'no known actor' });
+    const v = x.engine.integrationView(true)!;
+    expect(v.suggestions!.find((o: any) => o.id === b.id)!.by).toEqual(['an old woman in a red coat']);
   });
 
 });

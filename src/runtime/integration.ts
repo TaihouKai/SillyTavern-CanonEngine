@@ -86,9 +86,15 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
   const relationships: PlayerProfile['relationships'] = [];
   for (const r of out.relationships || []) {
     if (!r.name?.trim()) continue;
-    const id = known(r.existing_id) || index.resolveEntity(r.name).ids.find((x) => pack.entities.has(x)) || null;
+    let id = known(r.existing_id) || index.resolveEntity(r.name).ids.find((x) => pack.entities.has(x)) || null;
     const basis = r.basis === 'persona_stated' ? 'persona_stated' : 'implied';
     if (basis === 'implied' && isKnownPerson(id)) { notes.push(`dropped implied relationship with ${r.name} (${r.relation || ''}): a known character is connected to the player only when the Persona says so or it happens in play`); continue; }
+    // someone the Persona names who is not in this world's pack (a friend, a shop owner, a parent) becomes a person of
+    // the chat, like the Persona's own organizations and places, so the world can bring them in
+    if (!id && basis === 'persona_stated') {
+      id = prev?.relationships.find((x) => x.name === r.name.trim())?.entityId || `rt.person.${slug(r.name)}.${newId('e').slice(2, 8)}`;
+      runtimeEntities.push({ id, name: r.name.trim(), aliases: [], kind: 'person', description: `${r.relation || ''} (from the Persona of ${name})`.slice(0, 600) });
+    }
     relationships.push({ entityId: id, name: r.name.trim(), relation: (r.relation || '').slice(0, 400), basis });
   }
   const knowers: PlayerProfile['knowers'] = [];
@@ -484,7 +490,10 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
     const named = uniq((o.actors || []).map((a) => (index.entityExists(a) ? a : index.resolveEntity(a).ids.length === 1 ? index.resolveEntity(a).ids[0] : null)).filter(Boolean) as Id[]).filter((a) => a !== profile.playerId);
     // nobody dead acts (checked against the facts, not left to the model)
     const actors = named.filter((a) => { const f = factAt(st, a, 'alive', { tick }); return !(f.known && f.value === false); });
-    if (!actors.length) { dropped.push({ id: ref, reason: named.length ? 'its actors are dead' : 'no known actor' }); continue; }
+    // a small matter may come from a minor person it introduces (a customer, a neighbour), not yet anyone in the world
+    const newcomers = quiet && o.side_job && !o.target_event_id && !named.length
+      ? uniq((o.actors || []).map((a) => String(a).trim()).filter((a) => a && !/^[a-z0-9._-]+$/.test(a) && !index.resolveEntity(a).ids.length)).slice(0, 3) : [];
+    if (!actors.length && !newcomers.length) { dropped.push({ id: ref, reason: named.length ? 'its actors are dead' : 'no known actor' }); continue; }
     let scopeKind = o.scope_kind, scopeRef = String(o.scope_ref || '').trim();
     let label = (o.scope_label || '').trim();
     if (scopeKind === 'event') { if (!pack.events.has(scopeRef)) { dropped.push({ id: ref, reason: `unknown event ${scopeRef}` }); continue; } label ||= pack.events.get(scopeRef)!.title; }
@@ -515,6 +524,7 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
     // a small job is its own piece of work: what is asked is part of its identity (otherwise every later request from
     // the same people would count as already made)
     const isJob = quiet && !!o.side_job && !targetEventId;
+    if (!actors.length && !isJob) { dropped.push({ id: ref, reason: 'no known actor' }); continue; }
     const id = 'opp_' + sha256(`${scopeKind}|${scopeRef}|${kind}|${[...actors].sort().join(',')}${isJob ? `|${o.contact || ''}` : ''}`).slice(0, 10);
     if (st.contacts.some((x) => x.opportunityId === id)) { dropped.push({ id: ref, reason: 'already made' }); continue; }
     if (!['hostile', 'consequence'].includes(kind) && pending.some((p) => p.scopeKind === scopeKind && p.scopeRef === scopeRef)) { dropped.push({ id: ref, reason: 'an earlier contact about the same thing is unanswered' }); continue; }
@@ -525,7 +535,7 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
       motivation: (o.motivation || '').slice(0, 800), knowledge: (o.knowledge || '').slice(0, 800), contact: (o.contact || '').slice(0, 800), establishes: (o.establishes || []).slice(0, 8),
       earliest, latest, priority: Math.min(3, Math.max(1, Math.round(o.priority || 2))), focus: !!c?.focus, basisRefs,
       // a side job is only for a quiet day and never about a canonical event
-      ...(isJob ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + 1439) } : {}),
+      ...(isJob ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + 1439), ...(newcomers.length ? { newcomers } : {}) } : {}),
     });
   }
   return { valid, dropped };
@@ -609,11 +619,16 @@ export function decisionsSection(lines: string[]): string {
   return lines.length ? `PLAYER'S DECISIONS (binding; from the player's own words or actions — they decide what they get drawn into):\n${lines.map((l) => '- ' + l).join('\n')}` : '';
 }
 
+/** Who brings a suggestion: its actors, and for a small matter the minor people it introduces. */
+export function opportunityBy(index: WorldIndex, o: Opportunity): string[] {
+  return [...o.actors.map((a) => index.entityName(a)), ...(o.newcomers || [])];
+}
+
 export function worldReactionSection(index: WorldIndex, o: Opportunity, origin: { y: number; m: number; d: number } | null): string {
-  const who = o.actors.map((a) => index.entityName(a)).join(', ');
+  const who = opportunityBy(index, o).join(', ');
   const when = o.earliest !== null ? ` It can happen from ${formatTick(o.earliest, origin)}${o.latest !== null ? ` until ${formatTick(o.latest, origin)}` : ''}; if this reply ends before then, it has not happened yet.` : '';
   const head = o.sideJob
-    ? 'WORLD REACTION (a small job for a quiet day — no canon event happens for the rest of today, so bring it in during this reply if the scene allows at all; NOT history; keep everyone in character; the player decides whether to take it)'
+    ? 'WORLD REACTION (a small matter for a quiet day — no canon event happens for the rest of today, so bring it in during this reply if the scene allows at all; NOT history; keep everyone in character; the player decides whether to take it)'
     : 'WORLD REACTION (optional for this reply — NOT history; use it only if it fits the scene and its time; keep everyone in character and leave the player\'s answer to the player; not using it is fine)';
   return `${head}:\n- ${who}: ${o.contact} Why: ${o.motivation} What they know about the player: ${o.knowledge}${o.establishes.length ? ` May establish: ${o.establishes.join('; ')}.` : ''}${when}`;
 }

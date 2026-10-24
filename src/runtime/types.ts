@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.13.0';
+export const ENGINE_RELEASE = '1.13.1';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -261,6 +261,8 @@ export interface Opportunity {
   kind: import('../domain/types').ContactInfo['contactKind'];
   directImpact: boolean;
   actors: Id[];
+  /** A small matter's minor people it introduces, not yet in the world (names; they go into establishes). */
+  newcomers?: string[];
   motivation: string;
   knowledge: string;
   contact: string;

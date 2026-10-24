@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.13.1 — 2026-10-25
+
+- **Ordinary characters get small matters too.** Live check with an ordinary-student Persona (no powers, a bakery job, a cooking club): its roles were read correctly, but every small matter was dropped as “no known actor”, because the people bringing them (the shop owner, a classmate, a new customer) were not in the pack. Now people the Persona names who are not in this world's pack become people of the chat (like the Persona's own organizations and places; implied groups such as “classmates” stay groups), and a small matter may be brought by a minor person it introduces (named or described; shown as who brings it, and put in establishes). Other suggestions still need a known actor.
+- Tests: NI-48; NI-45 updated.
+
 ## 1.13.0 — 2026-10-25
 
 - **Roles in life.** The Persona reading now keeps the parts of the player's life the Persona gives, of whatever kind the character and the world have — an occupation, an organization they work for, school, a club, family, a part-time job — each with the kinds of matters it brings and who brings them, plus what the player cannot or will not do. An ordinary person has ordinary roles. They go to the world-reaction step, are shown to the GM in PLAYER IN THIS WORLD, and in the panel (生活中的身份 / 做不到 / 不会做).
