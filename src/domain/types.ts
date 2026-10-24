@@ -141,6 +141,9 @@ export interface ContactInfo {
   contactKind: 'invitation' | 'request' | 'information' | 'probe' | 'hostile' | 'consequence' | 'encounter';
   actors: Id[];
   quote: string;
+  /** A small job for a quiet day: it lapses at `expires` (the start of the next day) unless the player took it. */
+  sideJob?: boolean;
+  expires?: number | null;
 }
 
 /** An actual occurrence (something that happened in this branch). */

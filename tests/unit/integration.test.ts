@@ -639,4 +639,39 @@ describe('preferred matters', () => {
     await w.engine.refreshIntegration();
     expect(w.engine.campaign()!.integrationCache!.dropped.some((d: any) => /its actors are dead/.test(d.reason))).toBe(true);
   });
+  it('NI-46 a several-day event ending today makes the day busy (live: 恩底弥翁 on 9/18); a delivered small job lapses at the next day unless taken; the next job must be different work', async () => {
+    expect(PROMPTS.integrate).toMatch(/one marked lapsed is a small job the player did not take in time — it is over/);
+    expect(PROMPTS.integrate).toMatch(/Make it specific, not generic: who exactly[^]*one detail or complication that makes it worth playing[^]*Never just "a minor gang somewhere needs clearing out"/);
+    expect(PROMPTS.integrate).toMatch(/recent_jobs lists small jobs already offered: a new one is a different kind of work \(if a gang to clear out is listed, not another gang\)/);
+    // the festival runs from day 1 20:00 to day 3 16:00
+    const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'harbor-festival').when, { earliest: { day: 1, minute: 1200 }, latest: { day: 3, minute: 960 }, precision: 'range' });
+    const job = OPP({ ref: 'j', kind: 'request', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the Union dockmaster asks Vera to scare off a petty smuggling crew', side_job: true });
+    // day 3, 10:00: the festival (two days long) ends today — not quiet
+    const y = await setup({ pack: JSON.stringify(wide), start: tick(3, 10, 0), integrate: { assessments: [], opportunities: [job] } });
+    await turn(y, 'I look around.', 'The festival stalls go up. [J0]', { scene_end: at(3, 10, 10) });
+    expect(y.model.tasks('integrate').slice(-1)[0].input.quiet_day).toBeUndefined();
+    // day 2, 10:00: the festival runs through the whole day without starting or ending — quiet
+    const x = await setup({ pack: JSON.stringify(wide), start: tick(2, 10, 0), integrate: { assessments: [], opportunities: [job] } });
+    await turn(x, 'I walk along the quay.', 'Gulls over the quay. [J1]', { scene_end: at(2, 10, 10) });
+    expect(x.model.tasks('integrate').slice(-1)[0].input.quiet_day).toBe(true);
+    const opp = x.engine.campaign()!.integrationCache!.opportunities.find((o) => o.sideJob)!;
+    expect(opp.latest).toBe(tick(2, 23, 59)); // an unmade job suggestion lasts the day
+    expect(x.engine.campaign()!.recentJobs).toEqual(['The Union: the Union dockmaster asks Vera to scare off a petty smuggling crew']);
+    // the GM delivers it
+    await turn(x, 'I keep walking.', 'A Union runner hands you a note from the dockmaster. [J2]', { scene_end: at(2, 10, 20), contacts: [contact('A Union runner hands you a note', { scope_kind: 'faction', scope_ref: 'union', actors: ['union'], opportunity_id: opp.id })] });
+    let v = x.engine.integrationView(true)!;
+    const k = v.contacts.find((c: any) => c.sideJob)!;
+    expect(k.lapsed).toBe(false);
+    expect(v.unanswered).toContain(k.recordId);
+    // the next day comes without an answer: it lapses
+    await turn(x, 'I sleep until 08:00 the next morning.', 'Day 3, 08:00: you wake. [J3]', { scene_end: at(3, 8, 0) });
+    v = x.engine.integrationView(true)!;
+    expect(v.contacts.find((c: any) => c.recordId === k.recordId)!.lapsed).toBe(true);
+    expect(v.unanswered).not.toContain(k.recordId);
+    // the world-reaction step of the next turn is told it is over
+    await turn(x, 'I stretch.', 'You stretch. [J4]', { scene_end: at(3, 8, 5) });
+    const rc = x.model.tasks('integrate').slice(-1)[0].input.recent_contacts.find((c: any) => c.id === k.recordId);
+    expect(rc.lapsed).toBe(true);
+  });
+
 });

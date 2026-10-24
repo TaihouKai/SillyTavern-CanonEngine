@@ -344,7 +344,7 @@ export function unanswered(state: WorldState, tick: number): ContactEntry[] {
   const latest = new Map<string, ContactEntry>();
   for (const c of state.contacts) if (!['hostile', 'consequence'].includes(c.contactKind)) latest.set(scopeKey(c.scopeKind, c.scopeRef), c);
   for (const [k, c] of latest) {
-    if (tick - c.tick > UNANSWERED_HOLD_MINUTES) continue;
+    if (tick - c.tick > UNANSWERED_HOLD_MINUTES || jobLapsed(state, c, tick)) continue;
     if (!answeredBy(state, c)) out.push(c);
   }
   return out;
@@ -440,13 +440,24 @@ export interface IntegrateOut {
   }[];
 }
 
-/** A quiet day: no canon event (of at most a day) is under way or due for the rest of the story day. Background
- *  events spanning several days do not count. */
+/** A quiet day: no canon event is under way or due for the rest of the story day. An event counts when it happens
+ *  within a day, or starts or ends today (live: 恩底弥翁, 9/15–18, ends with its climax on the evening of 9/18, which was
+ *  taken as quiet); only an event that runs through the whole day without starting or ending in it does not. */
 export function quietDay(index: WorldIndex, tick: number): boolean {
   const st = index.state;
   if (underWayEvents(st).size) return false;
-  const dayEnd = Math.floor(tick / 1440) * 1440 + 1439;
-  return !index.pack.timeIndex.some((t) => !st.dispositions.has(t.id) && t.hi - t.lo <= 1440 && t.lo <= dayEnd && t.hi >= tick);
+  const dayStart = Math.floor(tick / 1440) * 1440, dayEnd = dayStart + 1439;
+  return !index.pack.timeIndex.some((t) => !st.dispositions.has(t.id) && t.lo <= dayEnd && t.hi >= tick && (t.hi - t.lo <= 1440 || t.lo >= dayStart || t.hi <= dayEnd));
+}
+
+/** A small job the player let lapse: offered on a quiet day, not taken by the start of the next day (pending or
+ *  declined). It is over: not unanswered, not followed up, not offered again. */
+export function jobLapsed(state: WorldState, c: ContactEntry, tick: number): boolean {
+  if (!c.sideJob || c.expires == null || tick < c.expires) return false;
+  const k = scopeKey(c.scopeKind, c.scopeRef);
+  const sameThing = (id: string) => { const x = state.contacts.find((y) => y.recordId === id); return !!x && scopeKey(x.scopeKind, x.scopeRef) === k; };
+  const took = state.engagements.some((e) => ['accepted', 'joined', 'limited'].includes(e.stance) && e.tick < c.expires! && (e.scopeKind === 'contact' ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k));
+  return !took;
 }
 
 /** Check the suggestions: real actors and scopes, nothing settled or impossible revived, the player's decisions
@@ -503,7 +514,7 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
       motivation: (o.motivation || '').slice(0, 800), knowledge: (o.knowledge || '').slice(0, 800), contact: (o.contact || '').slice(0, 800), establishes: (o.establishes || []).slice(0, 8),
       earliest, latest, priority: Math.min(3, Math.max(1, Math.round(o.priority || 2))), focus: !!c?.focus, basisRefs,
       // a side job is only for a quiet day and never about a canonical event
-      ...(quiet && o.side_job && !targetEventId ? { sideJob: true } : {}),
+      ...(quiet && o.side_job && !targetEventId ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + 1439) } : {}),
     });
   }
   return { valid, dropped };

@@ -19321,12 +19321,12 @@ Favor involvement: prefer the development that gives the player a part to play; 
 - never guarantee an event's start, course or result; never bring back an event that is settled or whose original conditions failed (a settled event may still have consequences: kind "consequence", or news of what happened: kind "information" \u2014 never an invitation or request to take part in it);
 - the player decides: a contact never presumes acceptance, assigns them a side, or hands them a lover, a follower, a reward or a power;
 - engagement lists the player's decisions; each covers what its quoted words cover, whatever scope it was filed under (refusing "any \u6697\u90E8 job" also refuses a request of that kind from another \u6697\u90E8 group). Anything declined, deferred or suppressed is off limits for pulling them in \u2014 no other person, channel, news item, friend's plea or invented threat aimed at the same thing. The world itself goes on: harm that already has an actual cause in history (an enemy already hunting them) may still reach them (direct_impact, with basis_refs naming that history). "joined" means the player took part in that thing by their own action; "limited" was a single act and accepts nothing more;
-- recent_contacts were already made: do not repeat one the player has not answered; a follow-up must move it forward;
+- recent_contacts were already made: do not repeat one the player has not answered; a follow-up must move it forward; one marked lapsed is a small job the player did not take in time \u2014 it is over: nobody follows it up or offers it again;
 - focus events are ones the player wants to experience: give them a plausible way in first;
 - already_kept, when given, lists contacts kept exactly as they are (about the event under way and matters the player prefers): propose nothing about those matters; propose only for other matters;
 - preferred lists matters ("event:id", "arc:id", "faction:id"...) the player lets the world bring to them even while busy with another event: keep a plausible contact for each in the list when one exists;
 - HARD events happen regardless; the player may or may not be part of them.
-- quiet_day, when true: no canon event happens for the rest of today. Then include at least one small job that fits the player's background, with side_job=true: work from someone who plausibly gives them such work \u2014 a person player.relationships or player.knowers name as their handler, superior or client, or their organization reaching them through its usual channel without naming a superior the profile does not give \u2014 e.g. dealing with a minor gang, retrieving or delivering something, an escort, a scouting or clean-up job. It is small and self-contained and changes no history: its targets and places are minor or newly introduced (put them in establishes); it never involves a canonical event (target_event_id null), never harms, kills or changes the status of a named canon character or place, and touches nothing the canon events depend on. Existing characters take part only as fits their current state and whereabouts. The player decides whether to take it.
+- quiet_day, when true: no canon event happens for the rest of today. Then include at least one small job that fits the player's background, with side_job=true: work from someone who plausibly gives them such work \u2014 a person player.relationships or player.knowers name as their handler, superior or client, or their organization reaching them through its usual channel without naming a superior the profile does not give \u2014 e.g. dealing with a minor gang, retrieving or delivering something, an escort, a scouting or clean-up job. It is small and self-contained and changes no history: its targets and places are minor or newly introduced (put them in establishes); it never involves a canonical event (target_event_id null), never harms, kills or changes the status of a named canon character or place, and touches nothing the canon events depend on. Existing characters take part only as fits their current state and whereabouts. The player decides whether to take it. recent_jobs lists small jobs already offered: a new one is a different kind of work (if a gang to clear out is listed, not another gang), with other people, places and stakes \u2014 e.g. a delivery, an escort, finding someone, guarding something, a negotiation, scouting, a favour among their own people \u2014 whatever fits the player's background. Make it specific, not generic: who exactly (a named or clearly described minor person or group with something that sets them apart), where exactly, why it needs doing now and why this player, what exactly is asked, and one detail or complication that makes it worth playing (the target is not what it seems, a rival wants the same thing, it touches someone the player knows); put the new people and places in establishes. Never just "a minor gang somewhere needs clearing out".
 Proposing nothing is right when the scene should stay quiet (a date, a fight in progress, daily life with nothing reaching them).
 SHAPE: {"assessments":[{"target":"","classification":"opportunity","reason":""}],"opportunities":[{"ref":"o1","target_event_id":null,"scope_kind":"event","scope_ref":"","scope_label":"","kind":"invitation","direct_impact":false,"actors":[],"motivation":"","knowledge":"","contact":"","establishes":[],"earliest":null,"latest":null,"priority":2,"basis_refs":[],"side_job":false}]}`,
   digest: `${COMMON}
@@ -20402,6 +20402,7 @@ function runGate(g) {
       scopeRef = String(label).normalize("NFKC").toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "storyline";
     }
     const opp = g.offered && k.opportunity_id === g.offered.id && g.offered.scopeKind === scopeKind && g.offered.scopeRef === scopeRef ? g.offered.id : null;
+    const job = !!g.offered?.sideJob && g.offered.scopeKind === scopeKind && g.offered.scopeRef === scopeRef;
     records.push({
       recordId: newId("rec"),
       kind: "world_contact",
@@ -20412,7 +20413,7 @@ function runGate(g) {
       visibility: { mode: "public", knower_ids: [] },
       summary: `Contact (${k.kind}) about ${label}: ${k.quote.slice(0, 120)}`,
       evidenceKind: "direct",
-      contact: { scopeKind, scopeRef, scopeLabel: label.slice(0, 300), opportunityId: opp, contactKind: k.kind, actors, quote: k.quote.slice(0, 300) }
+      contact: { scopeKind, scopeRef, scopeLabel: label.slice(0, 300), opportunityId: opp ?? (job ? g.offered.id : null), contactKind: k.kind, actors, quote: k.quote.slice(0, 300), ...job ? { sideJob: true, expires: Math.floor(sceneEnd.lo / 1440) * 1440 + 1440 } : {} }
     });
   }
   const sceneEntities = uniq((ev.scene_entities || []).map(resolveId).filter(Boolean));
@@ -21265,7 +21266,7 @@ function unanswered(state, tick) {
   const latest = /* @__PURE__ */ new Map();
   for (const c of state.contacts) if (!["hostile", "consequence"].includes(c.contactKind)) latest.set(scopeKey(c.scopeKind, c.scopeRef), c);
   for (const [k, c] of latest) {
-    if (tick - c.tick > UNANSWERED_HOLD_MINUTES) continue;
+    if (tick - c.tick > UNANSWERED_HOLD_MINUTES || jobLapsed(state, c, tick)) continue;
     if (!answeredBy(state, c)) out.push(c);
   }
   return out;
@@ -21337,8 +21338,18 @@ function candidateInput(index, c, tick, blocked) {
 function quietDay(index, tick) {
   const st = index.state;
   if (underWayEvents2(st).size) return false;
-  const dayEnd = Math.floor(tick / 1440) * 1440 + 1439;
-  return !index.pack.timeIndex.some((t2) => !st.dispositions.has(t2.id) && t2.hi - t2.lo <= 1440 && t2.lo <= dayEnd && t2.hi >= tick);
+  const dayStart = Math.floor(tick / 1440) * 1440, dayEnd = dayStart + 1439;
+  return !index.pack.timeIndex.some((t2) => !st.dispositions.has(t2.id) && t2.lo <= dayEnd && t2.hi >= tick && (t2.hi - t2.lo <= 1440 || t2.lo >= dayStart || t2.hi <= dayEnd));
+}
+function jobLapsed(state, c, tick) {
+  if (!c.sideJob || c.expires == null || tick < c.expires) return false;
+  const k = scopeKey(c.scopeKind, c.scopeRef);
+  const sameThing = (id) => {
+    const x = state.contacts.find((y) => y.recordId === id);
+    return !!x && scopeKey(x.scopeKind, x.scopeRef) === k;
+  };
+  const took = state.engagements.some((e) => ["accepted", "joined", "limited"].includes(e.stance) && e.tick < c.expires && (e.scopeKind === "contact" ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k));
+  return !took;
 }
 function checkOpportunities(out, index, profile2, candidates, tick, quiet = false) {
   const pack2 = index.pack;
@@ -21464,7 +21475,7 @@ function checkOpportunities(out, index, profile2, candidates, tick, quiet = fals
       focus: !!c?.focus,
       basisRefs,
       // a side job is only for a quiet day and never about a canonical event
-      ...quiet && o.side_job && !targetEventId ? { sideJob: true } : {}
+      ...quiet && o.side_job && !targetEventId ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + 1439) } : {}
     });
   }
   return { valid, dropped };
@@ -21577,7 +21588,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.12.1";
+var ENGINE_RELEASE = "1.12.2";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -22516,7 +22527,7 @@ var CanonEngine = class {
       player_entity: prof ? { id: prof.profile.playerId, name: prof.profile.personaName } : null,
       engagement: decisions,
       offered_contact: a.offered ? { opportunity_id: a.offered.id, scope_kind: a.offered.scopeKind, scope_ref: a.offered.scopeRef, about: a.offered.scopeLabel, actors: a.offered.actors, kind: a.offered.kind, contact: a.offered.contact, direct_impact: a.offered.directImpact, cleared_by_engine: true } : null,
-      recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote })),
+      recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote, ...jobLapsed(index.state, k, tick) ? { lapsed: true } : {} })),
       canon_events_now: this.canonNow(index, tick, a.jumpTo ?? this.jumpOf(a.userEntry, tick)),
       player_voice: voiceInput(playerVoice(this.settings.playerVoice)),
       ...this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}
@@ -23411,10 +23422,10 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       player: playerContext(index, profile2, tick, { historyWith: withIds }),
       candidate_events: candidates.map((x) => candidateInput(index, x, tick, eng.blockedBy({ eventId: x.event.id }, tick))),
       engagement: eng.lines(tick),
-      recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote })),
+      recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote, ...jobLapsed(index.state, k, tick) ? { lapsed: true } : {} })),
       focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f).title })),
       ...c.preferredScopes?.length ? { preferred: c.preferredScopes } : {},
-      ...quiet ? { quiet_day: true } : {},
+      ...quiet ? { quiet_day: true, ...c.recentJobs?.length ? { recent_jobs: c.recentJobs } : {} } : {},
       ...kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {},
       registry: this.registry(index, `${userEntry?.text || ""} ${candidates.map((x) => x.event.title).join(" ")}`, [...withIds, ...profile2.relationships.map((r) => r.entityId).filter(Boolean)])
     }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 8e3 }), this.settings.taskTimeoutMs * 4, signal);
@@ -23422,6 +23433,10 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const dropped = [...checked.dropped, ...checked.valid.filter((o) => keptScopes.has(`${o.scopeKind}:${o.scopeRef}`)).map((o) => ({ id: o.id, reason: `${o.scopeLabel} is kept as it was` }))];
     const valid = [...kept, ...checked.valid.filter((o) => !keptScopes.has(`${o.scopeKind}:${o.scopeRef}`))];
     const cache = { key, at: this.host.now(), tick, opportunities: valid, assessments: (out.assessments || []).slice(0, 30), dropped };
+    for (const o of checked.valid.filter((x) => x.sideJob)) {
+      const line = `${index.entityName(o.actors[0])}: ${o.contact}`.slice(0, 200);
+      c.recentJobs = [...(c.recentJobs || []).filter((x) => x !== line), line].slice(-8);
+    }
     c.integrationCache = cache;
     this.debugLog("integration", { candidates: candidates.map((x) => `${x.event.id}:${x.status}`), valid: valid.map((o) => `${o.id} ${o.kind} ${o.scopeLabel}`), dropped });
     return cache;
@@ -24084,7 +24099,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       contacts: s.contacts.map((k) => ({ ...k, ...k.scopeKind === "storyline" ? (() => {
         const m = matchScope(idx.pack, s.contacts, k.scopeLabel);
         return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {};
-      })() : {} })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
+      })() : {} })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin), ...k.sideJob ? { sideJob: true, lapsed: jobLapsed(s, k, s.clock.lo) } : {} })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
       suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: aboutUnderWay(o, idx, underWay), preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null
@@ -25423,6 +25438,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niRefresh: { zh: "\u91CD\u65B0\u8BC4\u4F30", en: "Re-evaluate" },
   niCurrent: { zh: "\u8FDB\u884C\u4E2D", en: "under way" },
   niSideJob: { zh: "\u5C0F\u4EFB\u52A1", en: "small job" },
+  niJobLapsed: { zh: "\u5C0F\u4EFB\u52A1\xB7\u5DF2\u8FC7\u671F", en: "small job \xB7 lapsed" },
   niPrefer: { zh: "\u4F18\u5148", en: "Prefer" },
   niUnprefer: { zh: "\u53D6\u6D88\u4F18\u5148", en: "Unprefer" },
   niPreferred: { zh: "\u5DF2\u4F18\u5148", en: "preferred" },
@@ -26981,7 +26997,7 @@ function playerTab(v) {
   }).join("") || "<li>\u2014</li>"}</ul>`;
   const groups = /* @__PURE__ */ new Map();
   for (const k of v.contacts.slice().reverse()) groups.set(k.scope, [...groups.get(k.scope) || [], k]);
-  const contactLine = (k) => `<small>${esc2(k.time)} \xB7 ${esc2(k.kind)}${k.by.length ? ` \xB7 ${esc2(k.by.join(", "))}` : ""}${v.unanswered.includes(k.recordId) ? ` \xB7 ${esc2(t("niUnanswered"))}` : ""}</small><br><small>\u201C${esc2(k.quote)}\u201D</small>`;
+  const contactLine = (k) => `<small>${k.sideJob ? `<span class="canon-tag">${esc2(t(k.lapsed ? "niJobLapsed" : "niSideJob"))}</span> ` : ""}${esc2(k.time)} \xB7 ${esc2(k.kind)}${k.by.length ? ` \xB7 ${esc2(k.by.join(", "))}` : ""}${v.unanswered.includes(k.recordId) ? ` \xB7 ${esc2(t("niUnanswered"))}` : ""}</small><br><small>\u201C${esc2(k.quote)}\u201D</small>`;
   html += `<h4>${esc2(t("niContacts"))}</h4><ul class="canon-list">${[...groups.values()].map(([k, ...older]) => `<li><b>${esc2(k.label)}</b> ${contactLine(k)}${older.length ? `<details class="canon-older"><summary><small>${esc2(t("niOlderContacts").replace("{n}", String(older.length)))}</small></summary>${older.map((o) => `<div>${contactLine(o)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
   if (v.suggestions) {
     const sg = /* @__PURE__ */ new Map();

@@ -568,10 +568,12 @@ export function runGate(g: GateInput): GateResult {
     if (scopeKind === 'storyline' && !same) { label ||= scopeRef || k.quote.slice(0, 40); scopeRef = String(label).normalize('NFKC').toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'storyline'; }
     // the offered suggestion is credited only when the contact is about the same thing
     const opp = g.offered && k.opportunity_id === g.offered.id && g.offered.scopeKind === scopeKind && g.offered.scopeRef === scopeRef ? g.offered.id : null;
+    // the offered small job, delivered (about the same matter): it lapses at the start of the next day unless taken
+    const job = !!g.offered?.sideJob && g.offered.scopeKind === scopeKind && g.offered.scopeRef === scopeRef;
     records.push({
       recordId: newId('rec'), kind: 'world_contact', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
       visibility: { mode: 'public', knower_ids: [] }, summary: `Contact (${k.kind}) about ${label}: ${k.quote.slice(0, 120)}`, evidenceKind: 'direct',
-      contact: { scopeKind, scopeRef, scopeLabel: label.slice(0, 300), opportunityId: opp, contactKind: k.kind, actors, quote: k.quote.slice(0, 300) },
+      contact: { scopeKind, scopeRef, scopeLabel: label.slice(0, 300), opportunityId: opp ?? (job ? g.offered!.id : null), contactKind: k.kind, actors, quote: k.quote.slice(0, 300), ...(job ? { sideJob: true, expires: Math.floor(sceneEnd.lo / 1440) * 1440 + 1440 } : {}) },
     });
   }
   const sceneEntities = uniq((ev.scene_entities || []).map(resolveId).filter(Boolean) as Id[]);

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.12.2 — 2026-10-25
+
+- **Quiet days: an event that starts or ends today counts, whatever its length.** Live: a game started on 9/18 17:00 got a small job, although 恩底弥翁 (9/15–18) ends with its climax that evening; events longer than a day were all ignored. Now only an event that runs through the whole day without starting or ending in it is left out.
+- **Small jobs lapse.** A delivered small job lapses at the start of the next day unless the player took it (accepted / joined / did it); pending or declined, it is over: no longer unanswered, the world-reaction step is told it lapsed and nobody follows it up or offers it again. An unmade job suggestion lasts until the end of its day. The panel tags such contacts 小任务 / 小任务·已过期.
+- **Small jobs vary and are specific.** The jobs already proposed are remembered (last 8) and the next one must be a different kind of work with other people, places and stakes (not another gang to clear out). A job names who exactly, where, why now and why this player, what exactly is asked, and one detail or complication worth playing; new people and places go into establishes.
+- Tests: NI-46.
+
 ## 1.12.1 — 2026-10-25
 
 - **Setting: Canon skips the first message (greeting)** (off by default). When the chat's first message is the character's, Canon treats it as not story: it is not read when the pack is bound or later (no facts, events or time from it). The story model still sees it. Switching it in a bound chat makes Canon read the chat again.

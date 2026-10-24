@@ -651,7 +651,7 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   // one entry per matter (newest first); its earlier contacts fold underneath
   const groups = new Map<string, (typeof v.contacts)[number][]>();
   for (const k of v.contacts.slice().reverse()) groups.set(k.scope, [...(groups.get(k.scope) || []), k]);
-  const contactLine = (k: (typeof v.contacts)[number]) => `<small>${esc(k.time)} · ${esc(k.kind)}${k.by.length ? ` · ${esc(k.by.join(', '))}` : ''}${v.unanswered.includes(k.recordId) ? ` · ${esc(t('niUnanswered'))}` : ''}</small><br><small>“${esc(k.quote)}”</small>`;
+  const contactLine = (k: (typeof v.contacts)[number]) => `<small>${k.sideJob ? `<span class="canon-tag">${esc(t(k.lapsed ? 'niJobLapsed' : 'niSideJob'))}</span> ` : ''}${esc(k.time)} · ${esc(k.kind)}${k.by.length ? ` · ${esc(k.by.join(', '))}` : ''}${v.unanswered.includes(k.recordId) ? ` · ${esc(t('niUnanswered'))}` : ''}</small><br><small>“${esc(k.quote)}”</small>`;
   html += `<h4>${esc(t('niContacts'))}</h4><ul class="canon-list">${[...groups.values()].map(([k, ...older]) => `<li><b>${esc(k.label)}</b> ${contactLine(k)}${older.length ? `<details class="canon-older"><summary><small>${esc(t('niOlderContacts').replace('{n}', String(older.length)))}</small></summary>${older.map((o) => `<div>${contactLine(o)}</div>`).join('')}</details>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
   if (v.suggestions) {
     // one entry per matter, like the contacts above; its other possibilities fold underneath

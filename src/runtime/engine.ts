@@ -20,7 +20,7 @@ import { matchScope, runGate, type EvalOutput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { aboutUnderWay, underWayEvents, quietDay, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { aboutUnderWay, underWayEvents, quietDay, jobLapsed, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
@@ -935,7 +935,7 @@ export class CanonEngine {
       player_entity: prof ? { id: prof.profile.playerId, name: prof.profile.personaName } : null,
       engagement: decisions,
       offered_contact: a.offered ? { opportunity_id: a.offered.id, scope_kind: a.offered.scopeKind, scope_ref: a.offered.scopeRef, about: a.offered.scopeLabel, actors: a.offered.actors, kind: a.offered.kind, contact: a.offered.contact, direct_impact: a.offered.directImpact, cleared_by_engine: true } : null,
-      recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote })),
+      recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote, ...(jobLapsed(index.state, k, tick) ? { lapsed: true } : {}) })),
       canon_events_now: this.canonNow(index, tick, a.jumpTo ?? this.jumpOf(a.userEntry, tick)),
       player_voice: voiceInput(playerVoice(this.settings.playerVoice)),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
@@ -1752,10 +1752,10 @@ export class CanonEngine {
       player: playerContext(index, profile, tick, { historyWith: withIds }),
       candidate_events: candidates.map((x) => candidateInput(index, x, tick, eng.blockedBy({ eventId: x.event.id }, tick))),
       engagement: eng.lines(tick),
-      recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote })),
+      recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote, ...(jobLapsed(index.state, k, tick) ? { lapsed: true } : {}) })),
       focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f)!.title })),
       ...(c.preferredScopes?.length ? { preferred: c.preferredScopes } : {}),
-      ...(quiet ? { quiet_day: true } : {}),
+      ...(quiet ? { quiet_day: true, ...(c.recentJobs?.length ? { recent_jobs: c.recentJobs } : {}) } : {}),
       ...(kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {}),
       registry: this.registry(index, `${userEntry?.text || ''} ${candidates.map((x) => x.event.title).join(' ')}`, [...withIds, ...profile.relationships.map((r) => r.entityId).filter(Boolean) as Id[]]),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 8000 }), this.settings.taskTimeoutMs * 4, signal);
@@ -1763,6 +1763,11 @@ export class CanonEngine {
     const dropped = [...checked.dropped, ...checked.valid.filter((o) => keptScopes.has(`${o.scopeKind}:${o.scopeRef}`)).map((o) => ({ id: o.id, reason: `${o.scopeLabel} is kept as it was` }))];
     const valid = [...kept, ...checked.valid.filter((o) => !keptScopes.has(`${o.scopeKind}:${o.scopeRef}`))];
     const cache: IntegrationCache = { key, at: this.host.now(), tick, opportunities: valid, assessments: (out.assessments || []).slice(0, 30), dropped };
+    // remember the small jobs proposed, so the next quiet day asks for a different kind of work
+    for (const o of checked.valid.filter((x) => x.sideJob)) {
+      const line = `${index.entityName(o.actors[0])}: ${o.contact}`.slice(0, 200);
+      c.recentJobs = [...(c.recentJobs || []).filter((x) => x !== line), line].slice(-8);
+    }
     c.integrationCache = cache;
     this.debugLog('integration', { candidates: candidates.map((x) => `${x.event.id}:${x.status}`), valid: valid.map((o) => `${o.id} ${o.kind} ${o.scopeLabel}`), dropped });
     return cache;
@@ -2398,7 +2403,7 @@ export class CanonEngine {
       personaChanged: this.personaChanged(),
       decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId), strong: !!e.strong, binding: isBinding(e) })),
       // contacts filed as a free storyline before 1.8.1 are grouped with the event or matter they name
-      contacts: s.contacts.map((k) => ({ ...k, ...(k.scopeKind === 'storyline' ? (() => { const m = matchScope(idx.pack, s.contacts, k.scopeLabel); return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {}; })() : {}) })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin) })),
+      contacts: s.contacts.map((k) => ({ ...k, ...(k.scopeKind === 'storyline' ? (() => { const m = matchScope(idx.pack, s.contacts, k.scopeLabel); return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {}; })() : {}) })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin), ...(k.sideJob ? { sideJob: true, lapsed: jobLapsed(s, k, s.clock.lo) } : {}) })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
       suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: aboutUnderWay(o, idx, underWay), preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: o.actors.map((a) => idx.entityName(a)), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null,

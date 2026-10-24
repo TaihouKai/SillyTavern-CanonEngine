@@ -218,6 +218,7 @@ const D: Record<string, { zh: string; en: string }> = {
   niRefresh: { zh: '重新评估', en: 'Re-evaluate' },
   niCurrent: { zh: '进行中', en: 'under way' },
   niSideJob: { zh: '小任务', en: 'small job' },
+  niJobLapsed: { zh: '小任务·已过期', en: 'small job · lapsed' },
   niPrefer: { zh: '优先', en: 'Prefer' },
   niUnprefer: { zh: '取消优先', en: 'Unprefer' },
   niPreferred: { zh: '已优先', en: 'preferred' },
