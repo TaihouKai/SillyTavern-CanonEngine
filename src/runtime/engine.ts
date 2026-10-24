@@ -1744,6 +1744,8 @@ export class CanonEngine {
       && !index.state.contacts.some((x) => x.opportunityId === o.id) && !(o.latest !== null && o.latest < tick)
       && !(o.targetEventId && index.state.dispositions.has(o.targetEventId)) && !eng.blockedBy({ eventId: o.targetEventId, scopeKind: o.scopeKind, scopeRef: o.scopeRef, actors: o.actors }, tick)) : [];
     const keptScopes = new Set(kept.map((o) => `${o.scopeKind}:${o.scopeRef}`));
+    // the small matters the player was actually brought (records: they follow edits, swipes and deletes), so the next one differs
+    const recentJobs = index.state.contacts.filter((k) => k.sideJob).slice(-8).map((k) => `${k.actors.map((a) => index.entityName(a)).join(', ') || k.scopeLabel}: ${k.job || k.quote}`.slice(0, 300));
     const out = await this.withTimeout(callStructured<IntegrateOut>(this.host.model, 'integrate', PROMPTS.integrate, {
       now: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...(jumpTo ? { time_jump_to: formatTick(jumpTo) } : {}),
@@ -1755,7 +1757,7 @@ export class CanonEngine {
       recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote, ...(jobLapsed(index.state, k, tick) ? { lapsed: true } : {}) })),
       focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f)!.title })),
       ...(c.preferredScopes?.length ? { preferred: c.preferredScopes } : {}),
-      ...(quiet ? { quiet_day: true, ...(c.recentJobs?.length ? { recent_jobs: c.recentJobs } : {}) } : {}),
+      ...(quiet ? { quiet_day: true, ...(recentJobs.length ? { recent_jobs: recentJobs } : {}) } : {}),
       ...(kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {}),
       registry: this.registry(index, `${userEntry?.text || ''} ${candidates.map((x) => x.event.title).join(' ')}`, [...withIds, ...profile.relationships.map((r) => r.entityId).filter(Boolean) as Id[]]),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 8000 }), this.settings.taskTimeoutMs * 4, signal);
@@ -1763,11 +1765,6 @@ export class CanonEngine {
     const dropped = [...checked.dropped, ...checked.valid.filter((o) => keptScopes.has(`${o.scopeKind}:${o.scopeRef}`)).map((o) => ({ id: o.id, reason: `${o.scopeLabel} is kept as it was` }))];
     const valid = [...kept, ...checked.valid.filter((o) => !keptScopes.has(`${o.scopeKind}:${o.scopeRef}`))];
     const cache: IntegrationCache = { key, at: this.host.now(), tick, opportunities: valid, assessments: (out.assessments || []).slice(0, 30), dropped };
-    // remember the small jobs proposed, so the next quiet day asks for a different kind of work
-    for (const o of checked.valid.filter((x) => x.sideJob)) {
-      const line = `${opportunityBy(index, o)[0] || o.scopeLabel}: ${o.contact}`.slice(0, 200);
-      c.recentJobs = [...(c.recentJobs || []).filter((x) => x !== line), line].slice(-8);
-    }
     c.integrationCache = cache;
     this.debugLog('integration', { candidates: candidates.map((x) => `${x.event.id}:${x.status}`), valid: valid.map((o) => `${o.id} ${o.kind} ${o.scopeLabel}`), dropped });
     return cache;

@@ -573,7 +573,7 @@ export function runGate(g: GateInput): GateResult {
     records.push({
       recordId: newId('rec'), kind: 'world_contact', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
       visibility: { mode: 'public', knower_ids: [] }, summary: `Contact (${k.kind}) about ${label}: ${k.quote.slice(0, 120)}`, evidenceKind: 'direct',
-      contact: { scopeKind, scopeRef, scopeLabel: label.slice(0, 300), opportunityId: opp ?? (job ? g.offered!.id : null), contactKind: k.kind, actors, quote: k.quote.slice(0, 300), ...(job ? { sideJob: true, expires: Math.floor(sceneEnd.lo / 1440) * 1440 + 1440 } : {}) },
+      contact: { scopeKind, scopeRef, scopeLabel: label.slice(0, 300), opportunityId: opp ?? (job ? g.offered!.id : null), contactKind: k.kind, actors, quote: k.quote.slice(0, 300), ...(job ? { sideJob: true, expires: Math.floor(sceneEnd.lo / 1440) * 1440 + 1440, job: g.offered!.contact.slice(0, 300) } : {}) },
     });
   }
   const sceneEntities = uniq((ev.scene_entities || []).map(resolveId).filter(Boolean) as Id[]);

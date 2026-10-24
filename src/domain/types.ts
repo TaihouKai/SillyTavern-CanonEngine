@@ -144,6 +144,8 @@ export interface ContactInfo {
   /** A small job for a quiet day: it lapses at `expires` (the start of the next day) unless the player took it. */
   sideJob?: boolean;
   expires?: number | null;
+  /** What the small matter asked (from the suggestion the GM carried out). */
+  job?: string;
 }
 
 /** An actual occurrence (something that happened in this branch). */

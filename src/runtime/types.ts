@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.13.2';
+export const ENGINE_RELEASE = '1.13.3';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -203,8 +203,6 @@ export interface CampaignData {
   /** 优先: matters ("event:id", "faction:id"...) the player lets the world bring to them even while another event is
    *  under way. Allowed, never required: the GM may offer such a contact and may also leave it. */
   preferredScopes?: string[];
-  /** Small jobs already proposed on quiet days (newest last, at most 8): the next one must be a different kind of work. */
-  recentJobs?: string[];
   /** 整理本局事件: display-only episodes of the player's events for the timeline (never used as history). */
   eventDigest?: EventDigest;
   /** Narrative integration (the world reacts to the player) is part of this campaign: set for chats bound with

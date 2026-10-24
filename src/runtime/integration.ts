@@ -496,6 +496,12 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
     if (!actors.length && !newcomers.length) { dropped.push({ id: ref, reason: named.length ? 'its actors are dead' : 'no known actor' }); continue; }
     let scopeKind = o.scope_kind, scopeRef = String(o.scope_ref || '').trim();
     let label = (o.scope_label || '').trim();
+    // a small matter is never about a canon event, and its matter need not exist yet (live: one pointed at a contact
+    // id that does not exist and was dropped): unknown scopes become its own storyline
+    if (quiet && o.side_job && !o.target_event_id) {
+      const exists = scopeKind === 'event' ? pack.events.has(scopeRef) : scopeKind === 'arc' ? pack.pack.arcs.some((x) => x.id === scopeRef) : scopeKind === 'faction' ? index.entityExists(scopeRef) : scopeKind === 'contact' ? st.contacts.some((x) => x.recordId === scopeRef) : true;
+      if (!exists || scopeKind === 'event' || scopeKind === 'arc') { scopeKind = 'storyline'; label ||= (o.contact || '').slice(0, 40); scopeRef = label; }
+    }
     if (scopeKind === 'event') { if (!pack.events.has(scopeRef)) { dropped.push({ id: ref, reason: `unknown event ${scopeRef}` }); continue; } label ||= pack.events.get(scopeRef)!.title; }
     else if (scopeKind === 'arc') { const a = pack.pack.arcs.find((x) => x.id === scopeRef); if (!a) { dropped.push({ id: ref, reason: `unknown arc ${scopeRef}` }); continue; } label ||= a.title; }
     else if (scopeKind === 'faction') { if (!index.entityExists(scopeRef)) { dropped.push({ id: ref, reason: `unknown organization ${scopeRef}` }); continue; } label ||= index.entityName(scopeRef); }

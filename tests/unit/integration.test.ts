@@ -642,7 +642,7 @@ describe('preferred matters', () => {
   it('NI-46 a several-day event ending today makes the day busy (live: 恩底弥翁 on 9/18); a delivered small job lapses at the next day unless taken; the next job must be different work', async () => {
     expect(PROMPTS.integrate).toMatch(/one marked lapsed is a small matter the player did not take up in time — it is over[^]*a new, different one on a later quiet day is still expected/);
     expect(PROMPTS.integrate).toMatch(/Make it specific, not generic: who exactly[^]*one detail or complication that makes it worth playing[^]*The contact text itself states these specifics in one or two sentences — no alternatives[^]*Never generic \("someone needs a hand with something"\)/);
-    expect(PROMPTS.integrate).toMatch(/recent_jobs lists small matters already offered: a new one differs from them — another of the player's roles when they have several[^]*never a kind of matter the player would not get, just to be different/);
+    expect(PROMPTS.integrate).toMatch(/recent_jobs lists small matters already brought to the player: a new one differs from them — another of the player's roles when they have several[^]*never a kind of matter the player would not get, just to be different/);
     // the festival runs from day 1 20:00 to day 3 16:00
     const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'harbor-festival').when, { earliest: { day: 1, minute: 1200 }, latest: { day: 3, minute: 960 }, precision: 'range' });
     const job = OPP({ ref: 'j', kind: 'request', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the Union dockmaster asks Vera to scare off a petty smuggling crew', side_job: true });
@@ -656,13 +656,16 @@ describe('preferred matters', () => {
     expect(x.model.tasks('integrate').slice(-1)[0].input.quiet_day).toBe(true);
     const opp = x.engine.campaign()!.integrationCache!.opportunities.find((o) => o.sideJob)!;
     expect(opp.latest).toBe(tick(2, 23, 59)); // an unmade job suggestion lasts the day
-    expect(x.engine.campaign()!.recentJobs).toEqual(['The Union: the Union dockmaster asks Vera to scare off a petty smuggling crew']);
+    expect(x.model.tasks('integrate').slice(-1)[0].input.recent_jobs).toBeUndefined(); // a suggestion is not yet a matter brought to the player
     // the GM delivers it
     await turn(x, 'I keep walking.', 'A Union runner hands you a note from the dockmaster. [J2]', { scene_end: at(2, 10, 20), contacts: [contact('A Union runner hands you a note', { scope_kind: 'faction', scope_ref: 'union', actors: ['union'], opportunity_id: opp.id })] });
     let v = x.engine.integrationView(true)!;
     const k = v.contacts.find((c: any) => c.sideJob)!;
     expect(k.lapsed).toBe(false);
     expect(v.unanswered).toContain(k.recordId);
+    // the next small matter is asked to differ from the one actually brought (from the records, with what was asked)
+    await turn(x, 'I look at the sea.', 'Waves. [J2b]', { scene_end: at(2, 10, 30) });
+    expect(x.model.tasks('integrate').slice(-1)[0].input.recent_jobs).toEqual(['The Union: the Union dockmaster asks Vera to scare off a petty smuggling crew']);
     // the next day comes without an answer: it lapses
     await turn(x, 'I sleep until 08:00 the next morning.', 'Day 3, 08:00: you wake. [J3]', { scene_end: at(3, 8, 0) });
     v = x.engine.integrationView(true)!;
@@ -723,7 +726,7 @@ describe('preferred matters', () => {
       knowers: [], uncertain: [],
     };
     const fromOwner = OPP({ ref: 'b1', target_event_id: null, scope_kind: 'storyline', scope_ref: 'bakery order', scope_label: 'a big bakery order', actors: ['Mr. Tanabe'], contact: 'Mr. Tanabe asks Hana to deliver forty buns to the lighthouse keeper before noon', side_job: true });
-    const fromNewcomer = OPP({ ref: 'b2', target_event_id: null, scope_kind: 'storyline', scope_ref: 'lost umbrella', scope_label: 'a lost umbrella', actors: ['an old woman in a red coat'], contact: 'an old woman in a red coat asks Hana to help find the umbrella she left on the quay', side_job: true, establishes: ['an old woman in a red coat who lives above the fish market'] });
+    const fromNewcomer = OPP({ ref: 'b2', target_event_id: null, scope_kind: 'contact', scope_ref: 'rec_does_not_exist', scope_label: 'a lost umbrella', actors: ['an old woman in a red coat'], contact: 'an old woman in a red coat asks Hana to help find the umbrella she left on the quay', side_job: true, establishes: ['an old woman in a red coat who lives above the fish market'] });
     const notAJob = OPP({ ref: 'b3', target_event_id: null, scope_kind: 'storyline', scope_ref: 'stranger', scope_label: 'a stranger', actors: ['a stranger'], contact: 'a stranger waves' });
     const x = await setup({ persona: { name: 'Hana', description: 'Hana, an ordinary student.' }, pack: JSON.stringify(wide), start: tick(2, 10, 0), profile: student, integrate: { assessments: [], opportunities: [fromOwner, fromNewcomer, notAJob] } });
     await turn(x, 'I walk to the bakery.', 'The bakery smells of bread. [H1]', { scene_end: at(2, 10, 10) });
@@ -735,7 +738,7 @@ describe('preferred matters', () => {
     const a = cache.opportunities.find((o) => o.contact.startsWith('Mr. Tanabe'))!;
     expect(a.actors).toEqual([owner.entityId]);
     const b = cache.opportunities.find((o) => o.contact.startsWith('an old woman'))!;
-    expect(b).toMatchObject({ sideJob: true, actors: [], newcomers: ['an old woman in a red coat'] });
+    expect(b).toMatchObject({ sideJob: true, actors: [], newcomers: ['an old woman in a red coat'], scopeKind: 'storyline', scopeLabel: 'a lost umbrella' }); // an unknown scope becomes its own storyline
     expect(cache.dropped).toContainEqual({ id: 'b3', reason: 'no known actor' });
     const v = x.engine.integrationView(true)!;
     expect(v.suggestions!.find((o: any) => o.id === b.id)!.by).toEqual(['an old woman in a red coat']);

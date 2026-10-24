@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.3 — 2026-10-25
+
+- **“Already offered” means brought to the player.** The small matters the next one must differ from were every suggestion ever made, kept in the chat's settings; live, the model then copied an earlier unused suggestion word for word. They are now the small matters the GM actually brought to the player, taken from the records (so they follow edits, swipes and deletes), with what each asked; an unused suggestion may simply come back after a refresh.
+- **A small matter with a scope that does not exist is kept.** Live: one pointed at a contact id that does not exist and was dropped, leaving the quiet day without a matter. A small matter is never about a canon event and its matter need not exist yet, so an unknown or canon scope becomes its own storyline.
+- Tests: NI-46, NI-48 extended.
+
 ## 1.13.2 — 2026-10-25
 
 - Live: a small matter for the student Persona read “田边在店里或通过电话请遥帮忙，说明情况” — the specifics were only in establishes. The contact text itself must now state who, where, what exactly and the complication, without alternatives (“in person or by phone”) or placeholders (“explains the situation”).
