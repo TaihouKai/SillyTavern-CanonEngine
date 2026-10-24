@@ -641,7 +641,7 @@ describe('preferred matters', () => {
   });
   it('NI-46 a several-day event ending today makes the day busy (live: 恩底弥翁 on 9/18); a delivered small job lapses at the next day unless taken; the next job must be different work', async () => {
     expect(PROMPTS.integrate).toMatch(/one marked lapsed is a small matter the player did not take up in time — it is over[^]*a new, different one on a later quiet day is still expected/);
-    expect(PROMPTS.integrate).toMatch(/Make it specific, not generic: who exactly[^]*one detail or complication that makes it worth playing[^]*Never generic \("someone needs a hand with something"\)/);
+    expect(PROMPTS.integrate).toMatch(/Make it specific, not generic: who exactly[^]*one detail or complication that makes it worth playing[^]*The contact text itself states these specifics in one or two sentences — no alternatives[^]*Never generic \("someone needs a hand with something"\)/);
     expect(PROMPTS.integrate).toMatch(/recent_jobs lists small matters already offered: a new one differs from them — another of the player's roles when they have several[^]*never a kind of matter the player would not get, just to be different/);
     // the festival runs from day 1 20:00 to day 3 16:00
     const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'harbor-festival').when, { earliest: { day: 1, minute: 1200 }, latest: { day: 3, minute: 960 }, precision: 'range' });

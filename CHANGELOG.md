@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.2 — 2026-10-25
+
+- Live: a small matter for the student Persona read “田边在店里或通过电话请遥帮忙，说明情况” — the specifics were only in establishes. The contact text itself must now state who, where, what exactly and the complication, without alternatives (“in person or by phone”) or placeholders (“explains the situation”).
+
 ## 1.13.1 — 2026-10-25
 
 - **Ordinary characters get small matters too.** Live check with an ordinary-student Persona (no powers, a bakery job, a cooking club): its roles were read correctly, but every small matter was dropped as “no known actor”, because the people bringing them (the shop owner, a classmate, a new customer) were not in the pack. Now people the Persona names who are not in this world's pack become people of the chat (like the Persona's own organizations and places; implied groups such as “classmates” stay groups), and a small matter may be brought by a minor person it introduces (named or described; shown as who brings it, and put in establishes). Other suggestions still need a known actor.
