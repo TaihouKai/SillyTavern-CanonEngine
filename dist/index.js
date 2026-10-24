@@ -13872,7 +13872,7 @@ function validate59(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate59.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 var profile = validate60;
-var schema88 = { "type": "object", "properties": { "player": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "aliases": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 10 }, "summary": { "type": "string", "maxLength": 1500 }, "public_identity": { "type": "string", "maxLength": 800 } }, "required": ["name", "summary"], "additionalProperties": false }, "affiliations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "kind": { "enum": ["organization", "other"] }, "role": { "type": "string", "maxLength": 400 }, "secrecy": { "enum": ["public", "restricted", "secret"] }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "places": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "use": { "type": "string", "maxLength": 400 }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "capabilities": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "resources": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "goals": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 12 }, "relationships": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] } }, "required": ["name"], "additionalProperties": false } }, "knowers": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] } }, "required": ["who", "level", "about", "basis"], "additionalProperties": false } }, "uncertain": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "roles": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["role"], "additionalProperties": false, "properties": { "role": { "type": "string", "maxLength": 200 }, "brings": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "from": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 8 }, "style": { "type": "string", "maxLength": 300 } } } }, "not_suited": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 } }, "required": ["player", "affiliations", "relationships", "knowers"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:profile", "title": "Canon Engine task output: profile" };
+var schema88 = { "type": "object", "properties": { "player": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "aliases": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 10 }, "summary": { "type": "string", "maxLength": 1500 }, "public_identity": { "type": "string", "maxLength": 800 } }, "required": ["name", "summary"], "additionalProperties": false }, "affiliations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "kind": { "enum": ["organization", "other"] }, "role": { "type": "string", "maxLength": 400 }, "secrecy": { "enum": ["public", "restricted", "secret"] }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "places": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "use": { "type": "string", "maxLength": 400 }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "capabilities": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "resources": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "goals": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 12 }, "relationships": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] } }, "required": ["name"], "additionalProperties": false } }, "knowers": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] } }, "required": ["who", "level", "about", "basis"], "additionalProperties": false } }, "uncertain": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "roles": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["role"], "additionalProperties": false, "properties": { "role": { "type": "string", "maxLength": 200 }, "brings": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "from": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 8 }, "style": { "type": "string", "maxLength": 300 } } } }, "not_suited": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "limits": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 } }, "required": ["player", "affiliations", "relationships", "knowers"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:profile", "title": "Canon Engine task output: profile" };
 function validate60(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -15123,12 +15123,57 @@ function validate60(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
+    if (data.limits !== void 0) {
+      let data51 = data.limits;
+      if (Array.isArray(data51)) {
+        if (data51.length > 10) {
+          const err112 = { instancePath: instancePath + "/limits", schemaPath: "#/properties/limits/maxItems", keyword: "maxItems", params: { limit: 10 }, message: "must NOT have more than 10 items" };
+          if (vErrors === null) {
+            vErrors = [err112];
+          } else {
+            vErrors.push(err112);
+          }
+          errors++;
+        }
+        const len13 = data51.length;
+        for (let i13 = 0; i13 < len13; i13++) {
+          let data52 = data51[i13];
+          if (typeof data52 === "string") {
+            if (func2(data52) > 300) {
+              const err113 = { instancePath: instancePath + "/limits/" + i13, schemaPath: "#/properties/limits/items/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
+              if (vErrors === null) {
+                vErrors = [err113];
+              } else {
+                vErrors.push(err113);
+              }
+              errors++;
+            }
+          } else {
+            const err114 = { instancePath: instancePath + "/limits/" + i13, schemaPath: "#/properties/limits/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err114];
+            } else {
+              vErrors.push(err114);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err115 = { instancePath: instancePath + "/limits", schemaPath: "#/properties/limits/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err115];
+        } else {
+          vErrors.push(err115);
+        }
+        errors++;
+      }
+    }
   } else {
-    const err112 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err116 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err112];
+      vErrors = [err116];
     } else {
-      vErrors.push(err112);
+      vErrors.push(err116);
     }
     errors++;
   }
@@ -18766,6 +18811,14 @@ var profile_schema_default = {
         maxLength: 300
       },
       maxItems: 10
+    },
+    limits: {
+      type: "array",
+      items: {
+        type: "string",
+        maxLength: 300
+      },
+      maxItems: 10
     }
   },
   required: [
@@ -19590,10 +19643,11 @@ TASK: Read the player's Persona (their character in this story world) and descri
 - relationships: basis "persona_stated" (the Persona says it) or "implied" (follows from the role, e.g. the members of an organization the player leads). An implied relationship never names a specific known character of this world: a known person is related to the player only if the Persona says so.
 - knowers: who plausibly knows about the player, at which level \u2014 "exists" (knows an organization of the player exists), "identity" (knows who the player is or their role in it), "secrets" (knows specific secrets: only what the Persona states someone knows). Implied knowers are the groups or roles such an identity brings with it \u2014 members, a handler or superior in the organization's chain, partner organizations, rivals in the same field, close friends \u2014 written as groups or roles, not as specific known characters. Keep the levels apart: a close friend may know the player personally without knowing their affiliation; a partner organization may know their operational identity, not their private life; ordinary acquaintances (classmates, neighbors) know only what is public \u2014 do not list them: anyone not listed knows just what is public. "exists" is only for people who know that the organization exists without knowing the player is in it. A secret identity still has people who know it: list them, so the world can reach the player.
 - roles: the parts of the player's life the Persona gives, of whatever kind the character and the world have \u2014 an occupation or trade, an organization they work for, school or university, a club, family duties, a part-time job, a household, a craft. For each: role (what they are there), brings (the kinds of matters that part of life brings them), from (who brings them), style (how they handle such matters, when the Persona says). Only what the Persona states or clearly implies (a student has school and classmates); an ordinary person has ordinary roles.
-- not_suited: what the player cannot or will not do, as the Persona states or as follows from who they are (an ordinary person cannot fight trained opponents or use powers; "bad at stealth and intelligence work").
+- not_suited: kinds of tasks or matters the player cannot or will not take on at all, as the Persona states or as follows from who they are (an ordinary person: fighting trained opponents, anything needing powers; "bad at stealth and intelligence work"). Not the conditions, costs or weaknesses of what they can do \u2014 those are limits.
+- limits: the conditions, costs and weaknesses of what the player can do (must see the target, needs a chant or a tool, overuse hurts them, certain opponents counter it), as the Persona states.
 - public_identity: everything about the player that is public. Public by default is whatever the Persona does not mark as secret or as known only to certain people: their skills or powers if they have any, school or workplace, looks, temperament, reputation, what they are known for. Secret even when not marked is what is secret by nature in this world: membership in a hidden organization or secret society, covert work, and anything the Persona says only certain people know. uncertain: what the Persona leaves open that matters.
 Write in the Persona's language. Keep each text short.
-SHAPE: {"player":{"name":"","aliases":[],"summary":"","public_identity":""},"affiliations":[{"name":"","existing_id":null,"kind":"organization","role":"","secrecy":"secret","description":""}],"places":[{"name":"","existing_id":null,"use":"","description":""}],"capabilities":[],"resources":[],"goals":[],"roles":[{"role":"","brings":[],"from":[],"style":""}],"not_suited":[],"relationships":[{"name":"","existing_id":null,"relation":"","basis":"persona_stated"}],"knowers":[{"who":"","existing_id":null,"level":"exists","about":"","basis":"implied"}],"uncertain":[]}`,
+SHAPE: {"player":{"name":"","aliases":[],"summary":"","public_identity":""},"affiliations":[{"name":"","existing_id":null,"kind":"organization","role":"","secrecy":"secret","description":""}],"places":[{"name":"","existing_id":null,"use":"","description":""}],"capabilities":[],"resources":[],"goals":[],"roles":[{"role":"","brings":[],"from":[],"style":""}],"not_suited":[],"limits":[],"relationships":[{"name":"","existing_id":null,"relation":"","basis":"persona_stated"}],"knowers":[{"who":"","existing_id":null,"level":"exists","about":"","basis":"implied"}],"uncertain":[]}`,
   integrate: `${COMMON}
 TASK: The story world reacts to the player character. Given who the player is (player: identity, organizations, who knows what about them), what actually happened with them (player.actual_history), what is happening or about to happen (candidate_events, each with its people and status), and the player's own decisions (engagement), work out how the world could reach the player now, so that they become part of the story without having to look for a way in.
 1. assessments: for each candidate event (and any situation from actual history worth it): direct_impact (something already in motion reaches or affects the player: someone who knows of them has their own reason to act toward them, or the event's effects reach where they are), opportunity (a plausible, interesting contact could be made), or no_connection; with a short reason.
@@ -19608,7 +19662,7 @@ Favor involvement: prefer the development that gives the player a part to play; 
 - already_kept, when given, lists contacts kept exactly as they are (about the event under way and matters the player prefers): propose nothing about those matters; propose only for other matters;
 - preferred lists matters ("event:id", "arc:id", "faction:id"...) the player lets the world bring to them even while busy with another event: keep a plausible contact for each in the list when one exists;
 - HARD events happen regardless; the player may or may not be part of them.
-- quiet_day, when true: no canon event happens for the rest of today. Then your opportunities MUST include one small matter for the player, with side_job=true, whatever the current scene (the GM decides when it fits in; this is the one exception to proposing nothing). It comes out of the player's own life as player.roles gives it: one of their roles, a kind of matter that role brings them, from the kind of person who brings it, suited to how they handle things; it never asks for what is in player.not_suited or beyond their capabilities \u2014 an ordinary person gets an ordinary matter (a classmate, a neighbour, a shop, a family member), someone with dangerous work gets that work. Without player.roles, judge from the player summary, affiliations and places. It is brought by someone who plausibly would: a person in player.relationships or player.knowers, someone from a group they belong to through its usual channel (naming no superior the profile does not give), or a new minor person from their everyday surroundings (give their name or a short description in actors and put them in establishes). It is small and self-contained and changes no history: its targets and places are minor or newly introduced (put them in establishes); it never involves a canonical event (target_event_id null), never harms, kills or changes the status of a named canon character or place, and touches nothing the canon events depend on. Existing characters take part only as fits their current state and whereabouts. The player decides whether to take it. recent_jobs lists small matters already brought to the player: a new one differs from them \u2014 another of the player's roles when they have several, or within the same role another person, place, stake and complication (if the last was a lost item to find, not another lost item) \u2014 never a kind of matter the player would not get, just to be different. Make it specific, not generic: who exactly (a named or clearly described minor person or group with something that sets them apart), where exactly, why it needs doing now and why this player, what exactly is asked, and one detail or complication that makes it worth playing (the target is not what it seems, a rival wants the same thing, it touches someone the player knows); put the new people and places in establishes. The contact text itself states these specifics in one or two sentences \u2014 no alternatives ("in person or by phone"), no placeholders ("explains the situation"). Never generic ("someone needs a hand with something").
+- quiet_day, when true: no canon event happens for the rest of today. Then your opportunities MUST include one small matter for the player, with side_job=true, whatever the current scene (the GM decides when it fits in; this is the one exception to proposing nothing). It comes out of the player's own life as player.roles gives it: one of their roles, a kind of matter that role brings them, from the kind of person who brings it, suited to how they handle things; it never asks for a kind of task in player.not_suited or beyond their capabilities, and stays doable within player.limits (they may make it harder, never impossible) \u2014 an ordinary person gets an ordinary matter (a classmate, a neighbour, a shop, a family member), someone with dangerous work gets that work. Without player.roles, judge from the player summary, affiliations and places. It is brought by someone who plausibly would: a person in player.relationships or player.knowers, someone from a group they belong to through its usual channel (naming no superior the profile does not give), or a new minor person from their everyday surroundings (give their name or a short description in actors and put them in establishes). It is small and self-contained and changes no history: its targets and places are minor or newly introduced (put them in establishes); it never involves a canonical event (target_event_id null), never harms, kills or changes the status of a named canon character or place, and touches nothing the canon events depend on. Existing characters take part only as fits their current state and whereabouts. The player decides whether to take it. recent_jobs lists small matters already brought to the player: a new one differs from them \u2014 another of the player's roles when they have several, or within the same role another person, place, stake and complication (if the last was a lost item to find, not another lost item) \u2014 never a kind of matter the player would not get, just to be different. Make it specific, not generic: who exactly (a named or clearly described minor person or group with something that sets them apart), where exactly, why it needs doing now and why this player, what exactly is asked, and one detail or complication that makes it worth playing (the target is not what it seems, a rival wants the same thing, it touches someone the player knows); put the new people and places in establishes. The contact text itself states these specifics in one or two sentences \u2014 no alternatives ("in person or by phone"), no placeholders ("explains the situation"). Never generic ("someone needs a hand with something").
 Proposing nothing is right when the scene should stay quiet (a date, a fight in progress, daily life with nothing reaching them).
 SHAPE: {"assessments":[{"target":"","classification":"opportunity","reason":""}],"opportunities":[{"ref":"o1","target_event_id":null,"scope_kind":"event","scope_ref":"","scope_label":"","kind":"invitation","direct_impact":false,"actors":[],"motivation":"","knowledge":"","contact":"","establishes":[],"earliest":null,"latest":null,"priority":2,"basis_refs":[],"side_job":false}]}`,
   digest: `${COMMON}
@@ -21333,7 +21387,8 @@ function buildProfile(out, pack2, index, persona, prev) {
       uncertain: list(out.uncertain),
       notes,
       roles: (out.roles || []).filter((r) => r?.role?.trim()).slice(0, 8).map((r) => ({ role: r.role.trim().slice(0, 200), brings: list(r.brings), from: list(r.from), style: String(r.style || "").trim().slice(0, 300) })),
-      notSuited: list(out.not_suited)
+      notSuited: list(out.not_suited),
+      limits: list(out.limits)
     },
     runtimeEntities
   };
@@ -21439,6 +21494,7 @@ function playerContext(index, profile2, tick, opts = {}) {
     goals: profile2.goals,
     ...profile2.roles?.length ? { roles: profile2.roles } : {},
     ...profile2.notSuited?.length ? { not_suited: profile2.notSuited } : {},
+    ...profile2.limits?.length ? { limits: profile2.limits } : {},
     relationships: profile2.relationships.map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis, ...r.entityId && index.entityKind(r.entityId) === "organization" ? { now: factsLine(index, r.entityId, tick).trim() } : {} })),
     knowers: profile2.knowers.map((k) => ({ who: k.who, id: k.entityId, level: k.level, about: k.about, basis: k.basis })),
     now: factsLine(index, profile2.playerId, tick).trim(),
@@ -21840,7 +21896,8 @@ function presenceSection(index, profile2, tick) {
   for (const p of profile2.places) lines.push(`- place: ${p.name} [${p.entityId}] \u2014 ${p.use}${factsLine(index, p.entityId, tick)}`);
   if (profile2.capabilities.length || profile2.resources.length) lines.push(`- can/has: ${[...profile2.capabilities, ...profile2.resources].slice(0, 10).join("; ")}`);
   if (profile2.roles?.length) lines.push(`- roles: ${profile2.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(", "), r.from.length ? `from ${r.from.join(", ")}` : ""].filter(Boolean).join("; ")})` : ""}`).join(" | ")}`);
-  if (profile2.notSuited?.length) lines.push(`- cannot / will not: ${profile2.notSuited.join("; ")}`);
+  if (profile2.notSuited?.length) lines.push(`- does not take on: ${profile2.notSuited.join("; ")}`);
+  if (profile2.limits?.length) lines.push(`- limits: ${profile2.limits.join("; ")}`);
   for (const r of profile2.relationships.slice(0, 12)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ""} \u2014 ${r.relation} (${r.basis === "persona_stated" ? "Persona" : "implied by the role"})${r.entityId && index.entityKind(r.entityId) === "organization" ? factsLine(index, r.entityId, tick) : ""}`);
   for (const k of profile2.knowers.slice(0, 12)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === "secrets" ? ":" : " \u2014"} ${k.about}`);
   return lines.join("\n");
@@ -21897,7 +21954,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.13.3";
+var ENGINE_RELEASE = "1.13.4";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -24397,6 +24454,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
         places: prof.profile.places.map((p) => `${p.name} \u2014 ${p.use}`),
         roles: (prof.profile.roles || []).map((r) => `${r.role}${r.brings.length ? ` \u2014 ${r.brings.join(", ")}` : ""}${r.from.length ? ` (${r.from.join(", ")})` : ""}`),
         notSuited: prof.profile.notSuited || [],
+        limits: prof.profile.limits || [],
         relationships: prof.profile.relationships.map((r) => `${r.name}: ${r.relation} (${r.basis === "persona_stated" ? "Persona" : "implied"})${orgNow(r.entityId)}`),
         knowers: prof.profile.knowers.map((k) => `${k.who} \u2014 ${k.level}: ${k.about}`),
         notes: prof.profile.notes
@@ -25747,7 +25805,8 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niCurrent: { zh: "\u8FDB\u884C\u4E2D", en: "under way" },
   niSideJob: { zh: "\u5C0F\u4EFB\u52A1", en: "small job" },
   niRoles: { zh: "\u751F\u6D3B\u4E2D\u7684\u8EAB\u4EFD\uFF08\u5C0F\u4EFB\u52A1\u4ECE\u8FD9\u91CC\u6765\uFF09", en: "Roles in life (small matters come from these)" },
-  niNotSuited: { zh: "\u505A\u4E0D\u5230 / \u4E0D\u4F1A\u505A", en: "Cannot / will not" },
+  niNotSuited: { zh: "\u4E0D\u63A5\u7684\u4E8B\uFF08\u505A\u4E0D\u5230 / \u4E0D\u4F1A\u505A\uFF09", en: "Does not take on (cannot / will not)" },
+  niLimits: { zh: "\u80FD\u529B\u9650\u5236", en: "Limits" },
   niJobLapsed: { zh: "\u5C0F\u4EFB\u52A1\xB7\u5DF2\u8FC7\u671F", en: "small job \xB7 lapsed" },
   niPrefer: { zh: "\u4F18\u5148", en: "Prefer" },
   niUnprefer: { zh: "\u53D6\u6D88\u4F18\u5148", en: "Unprefer" },
@@ -27292,7 +27351,7 @@ function playerTab(v) {
   if (!p) html += `<div>${esc2(t("niNoProfile"))}</div>`;
   else {
     html += `<h4>${esc2(p.name)}</h4><div>${esc2(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc2(p.publicIdentity)}</small></div>` : ""}<div><small>${esc2(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev)))}</small></div>`;
-    html += list(t("niLore"), p.lore || []) + list(t("niOrgs"), p.affiliations) + list(t("niPlaces"), p.places) + list(t("niRoles"), p.roles || []) + list(t("niNotSuited"), p.notSuited || []) + list(t("niConnections"), p.relationships) + list(t("niWho"), p.knowers) + list(t("niNotes"), p.notes);
+    html += list(t("niLore"), p.lore || []) + list(t("niOrgs"), p.affiliations) + list(t("niPlaces"), p.places) + list(t("niRoles"), p.roles || []) + list(t("niNotSuited"), p.notSuited || []) + list(t("niLimits"), p.limits || []) + list(t("niConnections"), p.relationships) + list(t("niWho"), p.knowers) + list(t("niNotes"), p.notes);
   }
   const stance = (s) => t(`niStance_${s}`);
   const negative = /* @__PURE__ */ new Set(["declined", "deferred", "ooc_suppress"]);

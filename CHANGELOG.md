@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.4 — 2026-10-25
+
+- **What the player does not take on, and the limits of what they can do, are separate.** Live: 做不到 / 不会做 listed “bad at stealth and intelligence work” next to the conditions of an ability (must see the target, needs a chant, overuse hurts, some opponents counter it). Now not_suited holds only kinds of tasks the player does not take on, and limits holds the conditions, costs and weaknesses of their abilities. A small matter never asks for a kind of task in not_suited and stays doable within the limits (they may make it harder, never impossible). The panel shows 不接的事 and 能力限制; the GM sees “does not take on” and “limits”.
+- Started chats get the split after 更新本局身份.
+- Tests: NI-47 updated.
+
 ## 1.13.3 — 2026-10-25
 
 - **“Already offered” means brought to the player.** The small matters the next one must differ from were every suggestion ever made, kept in the chat's settings; live, the model then copied an earlier unused suggestion word for word. They are now the small matters the GM actually brought to the player, taken from the records (so they follow edits, swipes and deletes), with what each asked; an unused suggestion may simply come back after a refresh.

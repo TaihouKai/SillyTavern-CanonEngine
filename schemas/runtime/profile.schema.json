@@ -262,6 +262,14 @@
     "maxLength": 300
    },
    "maxItems": 10
+  },
+  "limits": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "maxLength": 300
+   },
+   "maxItems": 10
   }
  },
  "required": [
