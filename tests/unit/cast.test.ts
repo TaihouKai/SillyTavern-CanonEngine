@@ -66,8 +66,8 @@ describe('event cast', () => {
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [CA3a]', fight)).toBe(true);
     expect(await turn(x, 'I draw my sword.', 'Steel rings. [CA3b]', { scene_end: at(1, 10, 20) })).toBe(true);
     let sec = section(lastCtx(x), 'CANON EVENTS UNDER WAY');
-    const summary = base.events.find((e: any) => e.id === 'medic-ambush').summary;
-    expect(sec).toContain(`Original route (FREE: reference): ${summary}`);
+    // the structured summary, one section per line, motives one per line
+    expect(sec).toMatch(/Original route \(FREE: reference\):\n    Cause: Mira, a travelling medic[^\n]*\n    Motives:\n      · The Council — silence the medic[^\n]*\n    Course: In the unmodified example history, Mira dies in an ambush\./);
     expect(sec).toMatch(new RegExp(`${name(x, 'council')} arrives [^;]*10:30`));
     // named outright at the end: who must be in the scene now, who comes next
     expect(lastCtx(x)).toMatch(new RegExp(`AT THE EVENT UNDER WAY:\\n- [^\\n]*: present now — ${name(x, 'mira')}; still to come — ${name(x, 'council')} at [^\\n]*10:30\\. Everyone present now takes part`));

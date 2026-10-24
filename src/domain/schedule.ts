@@ -233,6 +233,13 @@ export function linkedCompletion(pack: LoadedPack, state: WorldState, eventId: I
 
 /** Text of an event summary that describes its starting situation ("起因：…" / "Cause: …"), i.e. what the
  *  characters know and intend before it happens; falls back to the first sentence. */
+/** The cause (起因) of an event, short: the structured trigger, else read from the text. */
+export function causeOf(ev: PackEvent): string {
+  const t = ev.sections?.trigger;
+  if (!t) return situationOf(ev.summary);
+  return t.length > 180 ? t.slice(0, 177) + '…' : t;
+}
+
 export function situationOf(summary: string): string {
   const m = summary.match(/(?:起因|Cause|Background)[：:]\s*([\s\S]*?)(?=(?:动机|背景|经过|结果|后续|影响|备注|Course|Result|What happened)[：:]|$)/i);
   let s = (m ? m[1] : summary.split(/(?<=[。！？.!?])\s*/)[0] || summary).trim();

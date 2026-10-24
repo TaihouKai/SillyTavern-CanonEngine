@@ -1,6 +1,6 @@
 # Canon Engine — test report
 
-Latest full run: 2026-10-23, engine 1.11.6, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
+Latest full run: 2026-10-23, engine 1.12.0, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
 
 ## Environment
 
@@ -9,6 +9,7 @@ Latest full run: 2026-10-23, engine 1.11.6, pack schema 1.0.0. The acceptance ma
 | SillyTavern | 1.19.0, `06bde939fb1e9c4c8d8641d810f0a916b5bce127`, unmodified (`C:\Users\agent\st-test`) |
 | Horae | fork `TaihouKai/SillyTavern-Horae-Metadata` 1.15.1, metadata mode, vector memory enabled |
 | Model adapter family | ST Chat Completion, source `custom` (OpenAI-compatible) → `tests/e2e/mockServer.mjs` |
+| ST context size | 8192 tokens (Chat Completion “Context Size”; ST's 4095 default no longer fits the GM rules plus Canon context with the test card, Persona, lore and Horae) |
 | Browser automation | Playwright 1.64 / Chromium (headless) |
 | Unit runner | vitest 5, Node 24.20 |
 
@@ -18,7 +19,7 @@ All automated suites use deterministic scripted model outputs. They prove the co
 
 | Suite | Where it runs | Result |
 | --- | --- | --- |
-| `tests/unit/*` (338 tests in 34 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **338 / 338 pass** |
+| `tests/unit/*` (341 tests in 34 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **341 / 341 pass** |
 | `tests/e2e/integration.mjs` (115 checks, sections S1–S21) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **115 / 115 pass** |
 | `tests/e2e/story-session.mjs` (12 checks) | real ST, UI-only: wizard via real file dialog, pack library, composer, banner, swipe arrow, ST edit/delete buttons, reload | **12 / 12 pass** |
 | `dist/canon-lint.mjs` | both sample packs valid; World Info file rejected with the specific error | pass |

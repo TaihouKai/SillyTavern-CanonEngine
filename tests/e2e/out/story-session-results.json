@@ -1,10 +1,10 @@
 {
- "at": "2026-10-24T15:16:19.278Z",
+ "at": "2026-10-24T15:57:20.676Z",
  "results": [
   {
    "name": "Wizard preview shows title/version, validation, coverage and Hard count",
    "pass": true,
-   "detail": "绑定历史包\nHarbor Convergence — Synthetic Example v1.0.0 (demo-harbor, 8abaf8d9baf1)\n校验结果: 通过 · 覆盖时间: D0 08:00 – D5 23:59 · HARD 锚点数: 2\n开局时间（D天数 时:分，或填写第0天日期后用 年-月-日 时:分）\n或：从某事件之前开始\n—\nAmbush of Mira (D1 10"
+   "detail": "绑定历史包\nHarbor Convergence — Synthetic Example v1.0.0 (demo-harbor, 07bb05204ffe)\n校验结果: 通过 · 覆盖时间: D0 08:00 – D5 23:59 · HARD 锚点数: 2\n开局时间（D天数 时:分，或填写第0天日期后用 年-月-日 时:分）\n或：从某事件之前开始\n—\nAmbush of Mira (D1 10"
   },
   {
    "name": "Binding summary shows start time, pack, examined messages and issues",
@@ -54,7 +54,7 @@
   {
    "name": "Imported pack was saved to the library (ST user files) and is listed in a new chat",
    "pass": true,
-   "detail": "/user/files/canon-pack-demo-harbor-1_0_0-8abaf8d9ba.json | 历史包库 Harbor Convergence — Synthetic Example v1.0.0 · 15 KB\n      \n      用此包启用\n      ✕"
+   "detail": "/user/files/canon-pack-demo-harbor-1_0_0-07bb05204f.json | 历史包库 Harbor Convergence — Synthetic Example v1.0.0 · 17 KB\n      \n      用此包启用\n      ✕"
   },
   {
    "name": "Choosing the saved pack opens the binding wizard",

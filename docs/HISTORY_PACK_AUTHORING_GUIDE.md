@@ -192,7 +192,7 @@ Rules:
 | Event field | Authoring rule |
 | --- | --- |
 | `id`, `title` | Stable event identity and short human title |
-| `summary` | Original event in context, clearly distinguished from current game history; written in labelled sections (below) |
+| `summary` | Original event in context, clearly distinguished from current game history; structured, one field per section (below) |
 | `classification` | Exactly HARD, SOFT or FREE |
 | `required_description` | Nonempty precise contract for HARD; null for SOFT/FREE |
 | `when` | Occurrence bounds and timing provenance |
@@ -206,20 +206,37 @@ Rules:
 | `source_refs`, `author_note` | Evidence and editorial explanation |
 | `cast` (optional) | Who is at the event and from when: `{ "entity_id", "at": {day, minute}, "role" }` per person |
 
-**Labelled summaries.** Write `summary` in labelled sections, always in this order. Each label is the word followed by a full-width colon (`起因：`). The engine reads sections by label: the short cause it shows for upcoming events and for “why (original story)” is `起因`; the linter warns about labels out of order and about SOFT/HARD summaries without `起因`, `经过` and `结果`.
+**Structured summaries.** Write `summary` as an object with one field per section. Canon keeps the fields and renders them into text where it needs text (in the order below, with the labels 背景/起因/动机/经过/结果/后续/影响/备注 for a Chinese pack, Background/Cause/Motives/… otherwise). It shows an event under way to the GM one section per line, motives one per line with the characters present first; the short cause it shows for upcoming events and in “why (original story)” is the `trigger`.
 
-| Label | Content |
+| Field | Content |
 | --- | --- |
-| 背景 | the standing situation and setting going in, which is not itself the trigger (optional) |
-| 起因 | what sets it off, naming the earlier events it comes from |
-| 动机 | one line per key character: what they want, why, and what they know or do not know (`食蜂——……；凯兹——……`) |
-| 经过 | the default course in beats: who does what, and how |
-| 结果 | the state afterwards: who is where, what changed, who now knows what |
-| 后续 | later happenings of the same storyline that are not consequences (optional) |
-| 影响 | which later events build on it, and how |
-| 备注 | a note for the GM on how to treat the route (what may change), optional; authoring rationale goes in `author_note` |
+| `background` | the standing situation and setting going in, which is not itself the trigger (optional) |
+| `trigger` | what sets it off, naming the earlier events it comes from |
+| `motives` | one entry per key character or group: `{ "who": as written, "entity_ids": the registry entities it names (empty for a group the registry does not hold), "motive": what they want, why, and what they know or do not know }` |
+| `course` | the default course in beats: who does what, and how (required) |
+| `result` | the state afterwards: who is where, what changed, who now knows what |
+| `aftermath` | later happenings of the same storyline that are not consequences (optional) |
+| `impact` | which later events build on it, and how |
+| `note` | a note for the GM on how to treat the route (what may change), optional; authoring rationale goes in `author_note` |
 
-SOFT and HARD use 起因, 动机, 经过, 结果 and 影响 (a pure state change such as “recovered” may leave out 动机 and 影响). FREE uses at least 起因, 经过 and 结果, and 动机 where it matters. For a SOFT event the route is the default course the GM keeps unless actual play gives a concrete cause, so 动机 matters most: a character's goal and reason are what the GM keeps when the route changes. Do not drop a fact to fit the labels; if something fits none of them, propose a new label.
+Example:
+
+```json
+"summary": {
+  "trigger": "食蜂回收10032号时被拍下位置，照片被发到都市传说网站……",
+  "motives": [
+    { "who": "食蜂", "entity_ids": ["shokuhou-misaki"], "motive": "必须抹掉这条线索：藏匿10032号的地点若被木原幻生一方循线查到，10032号就保不住" },
+    { "who": "初春", "entity_ids": ["uiharu-kazari"], "motive": "只是追查散布假情报的来源，不知道背后是谁" }
+  ],
+  "course": "凯兹反查到入侵来自177支部，食蜂亲自突袭支部，用心理掌握让初春删除全部资料……",
+  "result": "初春对此毫无记忆……",
+  "impact": "这是她第二天消除白井、初春、佐天关于美琴的记忆的前提（见“食蜂消除白井、初春、佐天关于美琴的记忆”）。"
+}
+```
+
+The linter requires `trigger`, `course` and `result` for SOFT and HARD and `course` and `result` for FREE (errors), checks that motive entities exist (error) and are in the event's `entity_ids` (warning), and that a reference by title (`见“…”`, `see “…”`) matches an event title (warning). Write 动机 for every SOFT/HARD event that a character's decision drives: for a SOFT event the route is the default course the GM keeps unless actual play gives a concrete cause, and a character's goal is what the GM keeps when the route changes. A pure state change such as “recovered” needs no motives. Do not drop a fact to fit the fields; if something fits none of them, propose a new one.
+
+An older pack may still give `summary` as plain text (optionally with the labels inline); Canon reads it as it is and the linter asks for the structured form.
 
 **Cast.** List the people of an event that involves several of them, each with a fixed story time inside the event window. Use the time they are there in the original, both for those present from the start and for those who arrive later. Don't tie the time to another beat ("after X falls"): play rarely follows the original course, and the GM can only act on a clock time. `role` says in a few words why they are there ("婚后的朋友，来找她"), not what they do. Each member must be in `entity_ids`, listed once, and timed inside the window. The GM is told who is already there and who arrives when, and brings each one in at that time whatever the player has done meanwhile. Only actual history that makes it impossible, such as death or captivity, keeps someone away.
 

@@ -102,7 +102,7 @@ describe('canonical events under way', () => {
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [CR1a]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
     expect(await turn(x, 'I stand there.', 'At 10:05 nothing changes. [CR1b]', { scene_end: at(1, 10, 5) })).toBe(true);
     const ctx = String(x.model.tasks('draft').slice(-1)[0].input.engineContext);
-    expect(ctx).toMatch(/\[medic-ambush\] \(SOFT; window [^)]*\): so far — [^\n]*Original route \(SOFT: the default course\): /);
+    expect(ctx).toMatch(/\[medic-ambush\] \(SOFT; window [^)]*\): so far — [^\n]*Original route \(SOFT: the default course\):\n    Cause: /);
     expect(ctx).toMatch(/HOW FAR THE ORIGINAL ROUTE OF A CANON EVENT BINDS, by its class: FREE — reference only[^]*SOFT — the original route is the default course: its characters keep the goals they have in it[^]*only where a concrete cause in actual play requires it[^]*they do not drop it\. Your own guess at what a character might think, fear or prefer is not such a cause/);
     expect(ctx).not.toMatch(/the original route is reference only\)/);
   });
@@ -117,7 +117,7 @@ describe('canonical events under way', () => {
     expect(await turn(x, 'I listen to the radio.', 'At 12:00 the Council broadcast begins. [WY1a]', start)).toBe(true);
     expect(await turn(x, 'I keep listening.', 'At 12:10 it goes on. [WY1b]', { scene_end: at(1, 12, 10) })).toBe(true);
     const ctx = String(x.model.tasks('draft').slice(-1)[0].input.engineContext);
-    expect(ctx).toMatch(/\[council-broadcast\][^\n]*\n  why \(original story\): Ambush of Mira — Original motivation only; an alternate route may avoid this death\. \(its cause: In the unmodified example history, Mira dies in an ambush\.\)/);
+    expect(ctx).toMatch(/\[council-broadcast\][^]*?\n  why \(original story\): Ambush of Mira — Original motivation only; an alternate route may avoid this death\. \(its cause: Mira, a travelling medic, takes the road out of the harbor\.\)/);
   });
 
   it('OG4 the GM is told about an event under way in every reply until it ends, even when no message names it', async () => {

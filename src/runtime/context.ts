@@ -4,7 +4,8 @@ import type { Id, PackEvent } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { WorldIndex, type HistoryRecordView, type EntityStateView, type CanonStatusView } from '../domain/world-query';
 import { formatStoryTime, formatTick, toTick } from '../domain/time';
-import { pendingHard, situationOf, upcomingRoute } from '../domain/schedule';
+import { causeOf, pendingHard, upcomingRoute } from '../domain/schedule';
+import { summaryLines } from '../domain/summary';
 import { evalCondition, triLabel } from '../domain/reducer';
 import { EngineError, sceneRoot, sha256 } from '../domain/util';
 import type { CoverageEntry, PlanRevision } from './types';
@@ -265,7 +266,7 @@ function whyLine(ev: PackEvent | undefined, index: WorldIndex): string {
   const parts = ids.map((id) => {
     const up = pack.events.get(id)!;
     const note = links.find((e) => e.from === id)?.note;
-    return `${up.title}${note ? ` — ${note}` : ''} (its cause: ${situationOf(up.summary)})`;
+    return `${up.title}${note ? ` — ${note}` : ''} (its cause: ${causeOf(up)})`;
   });
   return `\n  why (original story): ${parts.join('; ')}`;
 }
@@ -274,6 +275,17 @@ function whyLine(ev: PackEvent | undefined, index: WorldIndex): string {
 // only", the GM had 食蜂 drop what she came to do — erase 初春's data and memory — and leave with a warning, on its own
 // guess about her; the player had done nothing to stop it).
 const CLASS_RULE = 'HOW FAR THE ORIGINAL ROUTE OF A CANON EVENT BINDS, by its class: FREE — reference only; play decides its course. SOFT — the original route is the default course: its characters keep the goals they have in it (what they came to do) and pursue them the way it describes. Change how they pursue them, or what results, only where a concrete cause in actual play requires it — something the player character did or said in the story, or a recorded fact or event (someone dead, held captive, already gone) — and then they adapt in character toward the same goal; they do not drop it. Your own guess at what a character might think, fear or prefer is not such a cause. HARD — the required outcome must happen (HARD OBLIGATIONS).';
+/** The original route: a structured summary one section per line (motives of those present first), else the text. */
+function routeText(ev: PackEvent | undefined, text: string, present: Set<Id>, zh: boolean): string {
+  if (!ev?.sections) return ` ${text}`;
+  return '\n' + summaryLines(ev.sections, zh, present).map((l) => `    ${l}`).join('\n');
+}
+/** Who is at an event under way now: its cast whose time has come or who appear in its beats, and the beats' actors. */
+function presentAt(index: WorldIndex, eventId: Id, tick: number): Set<Id> {
+  const ev = index.pack.events.get(eventId);
+  const beats = index.inProgressBeats(eventId);
+  return new Set([...(ev?.cast || []).filter((c) => toTick(c.at) <= tick).map((c) => c.entity_id), ...beats.flatMap((o) => o.actors)]);
+}
 const routeLabel = (cls: string | undefined) => (cls === 'SOFT' ? 'Original route (SOFT: the default course)' : 'Original route (FREE: reference)');
 const CAST_RULE = 'CAST of an event (fixed times, like the event\'s own): each listed person is at the event from that time. Whoever\'s time has come is there — show them when the player character is there or arrives, even if the scene so far is about someone else. Whoever\'s time is later turns up at that time, whatever the player has done meanwhile (fighting or talking with someone else does not keep them away); only actual history that makes it impossible (dead, held captive) does. If your reply ends before someone\'s time, they have not arrived yet; do not move the clock to reach or avoid an arrival. What they do once there follows from actual play; the role says why they are there.';
 
@@ -324,11 +336,11 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
     const head = jump > START_SOON_MINUTES
       ? `CANON EVENTS ABOUT TO START — the player's message jumps story time to ${formatTick(inp.timeJumpTo!, inp.origin)}; these start before then (NOT happened yet). Each begins at its time during the jump — the world does not wait: reflect the ones the player character would witness, be woken or interrupted by, or plausibly hear about; the others happen out of sight and you do not mention them. Keep the jump the player asked for: do not cut it short or stretch it to reach or avoid an event; how far their original routes bind depends on their class (rule below)`
       : `CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then — the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; how far its original route binds depends on its class (rule below)`;
-    required.push(`${head}:\n` + starting.map((u) => `- ${u.event.title} [${u.event.id}] (${u.event.classification}) starts ${formatTick(u.lo, inp.origin)} (in ${minutesAway(u.lo - checkpointTick)}): ${situationOf(u.event.summary)}${castLine(u.event, index, checkpointTick, inp.origin)}`).join('\n'));
+    required.push(`${head}:\n` + starting.map((u) => `- ${u.event.title} [${u.event.id}] (${u.event.classification}) starts ${formatTick(u.lo, inp.origin)} (in ${minutesAway(u.lo - checkpointTick)}): ${causeOf(u.event)}${castLine(u.event, index, checkpointTick, inp.origin)}`).join('\n'));
   }
   // Canon events the story has started but not finished: always shown, whether or not the latest messages name them.
   const underWay = underWayEvents(index, checkpointTick);
-  if (underWay.length) required.push('CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand; how far the original route binds depends on the class — rule below):\n' + underWay.map((u) => `- ${u.title} [${u.id}] (${u.cls}; window ${formatTick(u.lo, inp.origin)} – ${formatTick(u.hi, inp.origin)}): so far — ${u.beats.join(' → ')}. ${routeLabel(u.cls)}: ${u.summary}${whyLine(index.pack.events.get(u.id), index)}${castLine(index.pack.events.get(u.id), index, checkpointTick, inp.origin)}`).join('\n'));
+  if (underWay.length) required.push('CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand; how far the original route binds depends on the class — rule below):\n' + underWay.map((u) => `- ${u.title} [${u.id}] (${u.cls}; window ${formatTick(u.lo, inp.origin)} – ${formatTick(u.hi, inp.origin)}): so far — ${u.beats.join(' → ')}. ${routeLabel(u.cls)}:${routeText(index.pack.events.get(u.id), u.summary, presentAt(index, u.id, checkpointTick), /^zh/i.test(index.pack.pack.language))}${whyLine(index.pack.events.get(u.id), index)}${castLine(index.pack.events.get(u.id), index, checkpointTick, inp.origin)}`).join('\n'));
   // Deviations
   const devs = [...index.state.dispositions].filter(([, d]) => d.disposition !== 'occurred').map(([id, d]) => `- ${pack.events.get(id)?.title} [${id}] (${pack.events.get(id)?.classification}): ${d.disposition} — ${d.reason || ''}`);
   if (devs.length) required.push('DEVIATIONS (original outcomes superseded by actual play; do not restore them):\n' + devs.join('\n'));
@@ -364,7 +376,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
       && triLabel(evalCondition(pack.events.get(t.id)!.canonical_preconditions, index.state, pack, { tick: checkpointTick })) !== 'FALSE')
     .slice(0, 4);
   const open = openEvents.map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${e.classification}; ${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}${whyLine(e, index)}${castLine(e, index, checkpointTick, inp.origin)}`; });
-  const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${situationOf(u.event.summary)}`);
+  const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${causeOf(u.event)}`);
   if (soon.length) optional.push('WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing — NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them (a WORLD REACTION given above is the one way the world may reach the player); the player may change them, and actual play wins over this:\n' + soon.join('\n'));
   // An event in its window with a cast says who is there right now: never dropped for budget.
   const openCast = openEvents.some((t) => pack.events.get(t.id)!.cast?.length);

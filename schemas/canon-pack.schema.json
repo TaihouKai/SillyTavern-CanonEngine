@@ -573,8 +573,77 @@
           "minLength": 1
         },
         "summary": {
-          "type": "string",
-          "minLength": 1
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "object",
+              "properties": {
+                "background": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "trigger": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "motives": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "who": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "entity_ids": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/id"
+                        }
+                      },
+                      "motive": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "who",
+                      "entity_ids",
+                      "motive"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "course": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "result": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "aftermath": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "impact": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "note": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "course"
+              ],
+              "additionalProperties": false
+            }
+          ]
         },
         "classification": {
           "enum": [

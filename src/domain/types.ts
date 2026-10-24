@@ -24,7 +24,9 @@ export interface PackWhen {
 }
 export interface Visibility { mode: 'public' | 'restricted' | 'secret'; knower_ids: Id[] }
 export interface PackEvent {
-  id: Id; title: string; summary: string;
+  /** summary: the event as text (a structured summary is rendered into it at import); sections: the structured
+   *  summary itself (null for an older pack that gives plain text). */
+  id: Id; title: string; summary: string; sections?: import('./summary').EventSummary | null;
   classification: 'HARD' | 'SOFT' | 'FREE';
   required_description: string | null;
   when: PackWhen;

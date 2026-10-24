@@ -210,7 +210,21 @@
     {
       "id": "medic-ambush",
       "title": "Ambush of Mira",
-      "summary": "In the unmodified example history, Mira dies in an ambush.",
+      "summary": {
+        "trigger": "Mira, a travelling medic, takes the road out of the harbor.",
+        "motives": [
+          {
+            "who": "The Council",
+            "entity_ids": [
+              "council"
+            ],
+            "motive": "silence the medic who treats Union wounded"
+          }
+        ],
+        "course": "In the unmodified example history, Mira dies in an ambush.",
+        "result": "Mira is dead.",
+        "impact": "Her death gives the Council a grievance to broadcast (see “Council broadcast”)."
+      },
       "classification": "FREE",
       "required_description": null,
       "when": {
@@ -286,7 +300,21 @@
     {
       "id": "council-broadcast",
       "title": "Council broadcast",
-      "summary": "The council broadcasts a grievance that contributes to the conflict.",
+      "summary": {
+        "trigger": "After Mira's death the Council needs someone to blame.",
+        "motives": [
+          {
+            "who": "The Council",
+            "entity_ids": [
+              "council"
+            ],
+            "motive": "turn the harbor against the Union"
+          }
+        ],
+        "course": "The council broadcasts a grievance that contributes to the conflict.",
+        "result": "The grievance is public; tension rises.",
+        "impact": "The broadcast is the original escalation toward the armed conflict."
+      },
       "classification": "SOFT",
       "required_description": null,
       "when": {
@@ -358,7 +386,22 @@
     {
       "id": "conflict-begins",
       "title": "The harbor conflict begins",
-      "summary": "The armed conflict between the Union and the Council begins at the specified time.",
+      "summary": {
+        "trigger": "The broadcast has set the harbor against the Union.",
+        "motives": [
+          {
+            "who": "The Union and the Council",
+            "entity_ids": [
+              "union",
+              "council"
+            ],
+            "motive": "each means to take the harbor by force"
+          }
+        ],
+        "course": "The armed conflict between the Union and the Council begins at the specified time.",
+        "result": "The conflict is active.",
+        "impact": "It runs until its end on day 4."
+      },
       "classification": "HARD",
       "required_description": "The armed conflict between the Union and the Council begins at the specified time.",
       "when": {
@@ -435,7 +478,18 @@
     {
       "id": "harbor-festival",
       "title": "Harbor festival",
-      "summary": "Residents hold a harbor festival despite the wider conflict.",
+      "summary": {
+        "trigger": "The festival day comes round.",
+        "motives": [
+          {
+            "who": "The residents",
+            "entity_ids": [],
+            "motive": "keep their tradition alive whatever happens"
+          }
+        ],
+        "course": "Residents hold a harbor festival despite the wider conflict.",
+        "result": "The festival is held."
+      },
       "classification": "SOFT",
       "required_description": null,
       "when": {
@@ -503,7 +557,11 @@
     {
       "id": "conflict-ends",
       "title": "Union victory",
-      "summary": "The armed conflict ends at the specified time with the Union victorious over the Council.",
+      "summary": {
+        "trigger": "The armed conflict has run for days.",
+        "course": "The armed conflict ends at the specified time with the Union victorious over the Council.",
+        "result": "The conflict is over; the Union is the victor."
+      },
       "classification": "HARD",
       "required_description": "The armed conflict ends at the specified time with the Union victorious over the Council.",
       "when": {

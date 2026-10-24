@@ -4,6 +4,7 @@
 import type { LoadedPack } from '../domain/pack';
 import type { WorldState } from '../domain/reducer';
 import { formatTick, formatStoryTime } from '../domain/time';
+import { summaryLines } from '../domain/summary';
 import { sceneRoot, segmentSceneChain, uniq } from '../domain/util';
 import { t } from './i18n';
 
@@ -55,7 +56,8 @@ export function packGraph(L: LoadedPack, origin: { y: number; m: number; d: numb
       id: ev.id, title: ev.title, lane: ev.classification, tick: ti ? ti.lo : Number.NEGATIVE_INFINITY, tickHi: ti ? ti.hi : undefined,
       when: ti ? (ti.lo === ti.hi ? formatTick(ti.lo, origin) : `${formatTick(ti.lo, origin)} – ${formatTick(ti.hi, origin)}`) + ` · ${ev.when.label}` : ev.when.label,
       short: ti ? shortRange(ti.lo, ti.hi, origin) : ev.when.label,
-      summary: ev.summary, required: ev.required_description, arc: ev.arc_id,
+      // a structured summary one section per line (the details panel keeps line breaks)
+      summary: ev.sections ? summaryLines(ev.sections, /^zh/i.test(L.pack.language)).join('\n') : ev.summary, required: ev.required_description, arc: ev.arc_id,
       detail: [
         ...(ev.outcomes.length ? [`原作结果：${ev.outcomes.map((o) => `${name(L, o.entity_id)}.${o.predicate}=${JSON.stringify(o.value)}`).join('；')}`] : []),
         ...(ev.author_note ? [`注：${ev.author_note}`] : []),

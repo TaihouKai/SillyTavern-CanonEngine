@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.12.0 — 2026-10-25
+
+- **Structured event summaries.** A pack event's `summary` is an object with one field per section — `background`, `trigger`, `motives`, `course`, `result`, `aftermath`, `impact`, `note` — and `motives` is one entry per character or group: `{who, entity_ids, motive}`. Canon keeps the fields (`sections`) and renders them into the text every reader of `summary` uses. The GM sees an event under way one section per line, motives one per line with the characters present first (marked); the timeline details show the same layout; the short cause for upcoming events and “why (original story)” is the `trigger`. Plain-text summaries from older packs are still read; the linter asks for the structured form.
+- **Lint:** SOFT/HARD need `trigger`, `course`, `result`, FREE `course`, `result` (errors); motive entities must exist (error) and be listed in the event (warning); a reference by title (见“…” / see “…”) must match an event title (warning). The schema rejects unknown sections and motives without `entity_ids`.
+- The demo pack uses the structured form.
+- Tests: SU1–SU7 (summary tests rewritten); CA3, CR1, WY1 updated for the new layout.
+
 ## 1.11.6 — 2026-10-25
 
 - **Lint: an entity the event changes is one of its entities.** An outcome or canonical effect on an entity the event does not list in `entity_ids` is a warning (retrieval finds an event through its entities). Found in the toaru pack: 34 such links, and 3 events split from combined lorebook entries that kept the other half's characters and effects.

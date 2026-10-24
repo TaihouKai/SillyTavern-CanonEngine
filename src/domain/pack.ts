@@ -2,7 +2,7 @@
 import * as V from '../generated/validators.js';
 import type { CanonPack, Condition, Effect, Fact, FactValue, Id, PackEvent, PackPredicate } from './types';
 import { toTick, whenToStoryTime } from './time';
-import { SUMMARY_LABELS } from './summary';
+import { SUMMARY_LABELS, renderSummary, type EventSummary } from './summary';
 import { deepClone, hashObject, stableStringify } from './util';
 
 export interface LintIssue { level: 'error' | 'warning'; path: string; message: string }
@@ -75,12 +75,20 @@ export function validatePack(raw: unknown): PackValidationResult {
   if (looksLikeWorldInfo(raw)) {
     return { ok: false, errors: [{ level: 'error', path: '', message: WORLD_INFO_ERROR }], warnings: [] };
   }
+  // a pack Canon already loaded (a pinned snapshot) carries its structured summary as `sections`: back to the authored form
+  if (raw && typeof raw === 'object' && Array.isArray((raw as { events?: unknown[] }).events)) {
+    const evs = (raw as { events: Record<string, unknown>[] }).events;
+    if (evs.some((e) => e && 'sections' in e)) {
+      raw = { ...(raw as object), events: evs.map((e) => { const { sections, ...rest } = e; return sections ? { ...rest, summary: sections } : rest; }) };
+    }
+  }
   const validate = V.pack;
   if (!validate(raw)) {
     const errors = (validate.errors || []).map((e) => ({ level: 'error' as const, path: e.instancePath || '/', message: `schema: ${e.message ?? e.keyword}` }));
     return { ok: false, errors: dedupeIssues(errors), warnings: [] };
   }
   const pack = deepClone(raw as CanonPack);
+  normalizeSummaries(pack);
   const { errors, warnings } = lintPack(pack);
   if (errors.length) return { ok: false, errors, warnings };
   return { ok: true, errors: [], warnings, loaded: buildLoaded(pack, warnings) };
@@ -99,7 +107,19 @@ function dedupeIssues(list: LintIssue[]): LintIssue[] {
 const GENERIC_ALIASES = new Set(['magic', 'city', 'school', 'man', 'woman', 'girl', 'boy', 'he', 'she', 'it', '他', '她', '它', '城市', '魔法', '学校', '人']);
 const TEMPORAL_CLAIM_RE = /\b(is dead|died|was killed|currently|has become|now leads|imprisoned)\b|已死|死亡|已经|现在是|目前|成为了|被杀/i;
 
-export function lintPack(pack: CanonPack): { errors: LintIssue[]; warnings: LintIssue[] } {
+/** A structured summary is kept as `sections` and rendered into `summary`, the text every reader uses (idempotent). */
+export function normalizeSummaries(pack: CanonPack) {
+  const zh = /^zh/i.test(pack.language);
+  for (const ev of pack.events) {
+    const s = ev.summary as unknown;
+    if (s && typeof s === 'object') { ev.sections = s as EventSummary; ev.summary = renderSummary(ev.sections, zh); } else if (ev.sections === undefined) ev.sections = null;
+  }
+}
+
+/** Lints a schema-valid pack (the caller's object is left as it is). */
+export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: LintIssue[] } {
+  const pack = deepClone(input);
+  normalizeSummaries(pack);
   const errors: LintIssue[] = [];
   const warnings: LintIssue[] = [];
   const err = (path: string, message: string) => errors.push({ level: 'error', path, message });
@@ -215,8 +235,25 @@ export function lintPack(pack: CanonPack): { errors: LintIssue[]; warnings: Lint
   const titles = new Map<string, string>();
   pack.events.forEach((ev, i) => {
     const P = `/events/${i}`;
-    // a summary written in labelled sections: the known labels, in order; SOFT/HARD need 起因, 经过, 结果
-    const labels = [...ev.summary.matchAll(new RegExp(`(${SUMMARY_LABELS.join('|')})：`, 'g'))].map((m) => m[1] as string);
+    if (ev.sections) {
+      // structured summary: SOFT/HARD need trigger, course and result; FREE course and result; motives name known entities
+      const sec = ev.sections;
+      const need: (keyof EventSummary)[] = ev.classification === 'FREE' ? ['course', 'result'] : ['trigger', 'course', 'result'];
+      const missing = need.filter((k) => !sec[k]);
+      if (missing.length) err(`${P}/summary`, `${ev.classification} summary lacks ${missing.join(', ')}`);
+      (sec.motives || []).forEach((m, j) => {
+        m.entity_ids.forEach((x, k) => checkEntity(x, `${P}/summary/motives/${j}/entity_ids/${k}`));
+        const outside = m.entity_ids.filter((x) => entities.has(x) && !ev.entity_ids.includes(x));
+        if (outside.length) warn(`${P}/summary/motives/${j}`, `motive of ${outside.join(', ')}, who ${outside.length > 1 ? 'are' : 'is'} not in the event's entity_ids`);
+      });
+      // a reference to another event by title (见“…”) names an event that exists
+      for (const [, ref] of renderSummary(sec, true).matchAll(/(?:见|see )“([^”]+)”/g)) {
+        if (!pack.events.some((x) => x.title.includes(ref))) warn(`${P}/summary`, `reference “${ref}” matches no event title`);
+      }
+    }
+    // an older plain-text summary in labelled sections: the known labels, in order; SOFT/HARD need 起因, 经过, 结果
+    const labels = ev.sections ? [] : [...ev.summary.matchAll(new RegExp(`(${SUMMARY_LABELS.join('|')})：`, 'g'))].map((m) => m[1] as string);
+    if (!ev.sections) warn(`${P}/summary`, 'plain-text summary; give a structured summary (sections and motives) instead');
     if (labels.length) {
       const order = labels.map((l) => SUMMARY_LABELS.indexOf(l as (typeof SUMMARY_LABELS)[number]));
       if (order.some((o, j) => j > 0 && o <= order[j - 1])) warn(`${P}/summary`, `summary sections out of order or repeated (${labels.join('/')}); order: ${SUMMARY_LABELS.join('/')}`);
