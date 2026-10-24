@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.4 — 2026-10-24
+
+- **Why an event happens.** Live: the GM saw 食蜂突袭177支部 on its own and read 食蜂's goal as "make 初春 forget the photos"; the reason — she is hiding 10032 from 木原幻生 — was in the 10032 event, which (already happened) showed only as a status. For an event under way or in its window, the GM now also gets "why (original story)": the events leading to it (the pack's enables/motivates links and its preconditions, up to 3), each with the link's note and that event's own cause (起因). From the pack; no extra call.
+- Tests: WY1.
+
 ## 1.11.3 — 2026-10-24
 
 - **How far the original route binds follows the event's class.** Live: in 食蜂突袭177支部 (SOFT), the GM was told "the original route is reference only" and had 食蜂 drop what she came to do (erase 初春's data and memory) and leave with a warning, on its own guess about her motives. Now every SOFT/FREE event shown to the GM (starting, under way, in its window) carries its class, and one rule says: FREE — reference only; SOFT — the original route is the default course: its characters keep their goals and pursue them as described; how, or what results, changes only where a concrete cause in actual play requires it (something the player character did or said, a recorded fact or event), and then they adapt toward the same goal instead of dropping it; the GM's own guess at what a character might think is not such a cause; HARD — the required outcome must happen. No extra call.

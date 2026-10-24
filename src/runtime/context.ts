@@ -251,6 +251,25 @@ function castLine(ev: PackEvent | undefined, index: WorldIndex, tick: number, or
   });
   return `\n  cast: ${parts.join('; ')}`;
 }
+/** Why an event happens, from the original story: the events leading to it (the pack's enables/motivates links and its
+ *  preconditions), each with the link's note and that event's own cause. Live: the GM saw 食蜂突袭177支部 alone and read
+ *  her goal as "make 初春 forget the photos"; the reason — she is hiding 10032 from 木原幻生 — sat in the 10032 event,
+ *  which (already happened) showed only as a status. */
+function whyLine(ev: PackEvent | undefined, index: WorldIndex): string {
+  if (!ev) return '';
+  const pack = index.pack;
+  const preconds = (c: any): string[] => !c ? [] : 'all' in c ? c.all.flatMap(preconds) : 'any' in c ? c.any.flatMap(preconds) : 'occurred' in c ? [c.occurred] : [];
+  const links = pack.pack.edges.filter((e) => e.to === ev.id && (e.relation === 'enables' || e.relation === 'motivates'));
+  const ids = [...new Set([...links.map((e) => e.from), ...preconds(ev.canonical_preconditions)])].filter((id) => pack.events.has(id)).slice(0, 3);
+  if (!ids.length) return '';
+  const parts = ids.map((id) => {
+    const up = pack.events.get(id)!;
+    const note = links.find((e) => e.from === id)?.note;
+    return `${up.title}${note ? ` — ${note}` : ''} (its cause: ${situationOf(up.summary)})`;
+  });
+  return `\n  why (original story): ${parts.join('; ')}`;
+}
+
 // How far an event's original route binds, by class (live: in 食蜂突袭177支部, SOFT, told "the original route is reference
 // only", the GM had 食蜂 drop what she came to do — erase 初春's data and memory — and leave with a warning, on its own
 // guess about her; the player had done nothing to stop it).
@@ -309,7 +328,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   }
   // Canon events the story has started but not finished: always shown, whether or not the latest messages name them.
   const underWay = underWayEvents(index, checkpointTick);
-  if (underWay.length) required.push('CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand; how far the original route binds depends on the class — rule below):\n' + underWay.map((u) => `- ${u.title} [${u.id}] (${u.cls}; window ${formatTick(u.lo, inp.origin)} – ${formatTick(u.hi, inp.origin)}): so far — ${u.beats.join(' → ')}. ${routeLabel(u.cls)}: ${u.summary}${castLine(index.pack.events.get(u.id), index, checkpointTick, inp.origin)}`).join('\n'));
+  if (underWay.length) required.push('CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand; how far the original route binds depends on the class — rule below):\n' + underWay.map((u) => `- ${u.title} [${u.id}] (${u.cls}; window ${formatTick(u.lo, inp.origin)} – ${formatTick(u.hi, inp.origin)}): so far — ${u.beats.join(' → ')}. ${routeLabel(u.cls)}: ${u.summary}${whyLine(index.pack.events.get(u.id), index)}${castLine(index.pack.events.get(u.id), index, checkpointTick, inp.origin)}`).join('\n'));
   // Deviations
   const devs = [...index.state.dispositions].filter(([, d]) => d.disposition !== 'occurred').map(([id, d]) => `- ${pack.events.get(id)?.title} [${id}] (${pack.events.get(id)?.classification}): ${d.disposition} — ${d.reason || ''}`);
   if (devs.length) required.push('DEVIATIONS (original outcomes superseded by actual play; do not restore them):\n' + devs.join('\n'));
@@ -344,7 +363,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
       // an event whose original preconditions already failed will not happen; do not suggest it
       && triLabel(evalCondition(pack.events.get(t.id)!.canonical_preconditions, index.state, pack, { tick: checkpointTick })) !== 'FALSE')
     .slice(0, 4);
-  const open = openEvents.map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${e.classification}; ${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}${castLine(e, index, checkpointTick, inp.origin)}`; });
+  const open = openEvents.map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${e.classification}; ${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}${whyLine(e, index)}${castLine(e, index, checkpointTick, inp.origin)}`; });
   const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${situationOf(u.event.summary)}`);
   if (soon.length) optional.push('WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing — NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them (a WORLD REACTION given above is the one way the world may reach the player); the player may change them, and actual play wins over this:\n' + soon.join('\n'));
   // An event in its window with a cast says who is there right now: never dropped for budget.

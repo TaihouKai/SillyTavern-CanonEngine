@@ -107,6 +107,19 @@ describe('canonical events under way', () => {
     expect(ctx).not.toMatch(/the original route is reference only\)/);
   });
 
+  it('WY1 an event under way comes with why it happens in the original story: the events leading to it, the link note and their cause (live: 食蜂 hiding 10032 from 幻生)', async () => {
+    const j = JSON.parse(demo); const e = j.events.find((x: any) => x.id === 'council-broadcast');
+    Object.assign(e.when, { latest: { day: 1, minute: 780 }, precision: 'range' });
+    const x = makeEngine();
+    await x.engine.bind(JSON.stringify(j), { startTick: tick(1, 11, 50), mode: 'new' });
+    await x.engine.reconcile('test');
+    const start = { scene_end: at(1, 12, 5), occurrences: [occ('o1', 'Broadcast begins', 'The Council broadcast begins', { pack_event_id: 'council-broadcast', disposition: 'ongoing', actors: ['council'] })] };
+    expect(await turn(x, 'I listen to the radio.', 'At 12:00 the Council broadcast begins. [WY1a]', start)).toBe(true);
+    expect(await turn(x, 'I keep listening.', 'At 12:10 it goes on. [WY1b]', { scene_end: at(1, 12, 10) })).toBe(true);
+    const ctx = String(x.model.tasks('draft').slice(-1)[0].input.engineContext);
+    expect(ctx).toMatch(/\[council-broadcast\][^\n]*\n  why \(original story\): Ambush of Mira — Original motivation only; an alternate route may avoid this death\. \(its cause: In the unmodified example history, Mira dies in an ambush\.\)/);
+  });
+
   it('OG4 the GM is told about an event under way in every reply until it ends, even when no message names it', async () => {
     const x = await setup(true);
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [OG4a]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
