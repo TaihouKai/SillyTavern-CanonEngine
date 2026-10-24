@@ -36,8 +36,6 @@ function cloneState(pack: LoadedPack, s: WorldState): WorldState {
 export async function adjudicateInterval(args: {
   pack: LoadedPack; state: WorldState; fromExclusive: number; toInclusive: number; exclude: Set<Id>;
   port: ModelPort | null; plan: PlanRevision | null; forcedAllowed: boolean; signal?: AbortSignal; operationId: string; facts: string; log?: (l: unknown) => void;
-  /** Events the reply being judged shows still under way (a new beat of them). */
-  continuing?: Set<Id>;
 }): Promise<AdjudicationResult> {
   const { pack } = args;
   const scratch = cloneState(pack, args.state);
@@ -47,13 +45,12 @@ export async function adjudicateInterval(args: {
   const stagedHard = new Map<Id, Occurrence>();
   const notes: string[] = [];
   let forcedUsed = false;
-  // An event the story shows under way (result not settled) is judged in play when it ends. While the reply keeps
-  // it going it waits (up to a day past its window); once its window has closed and a reply moves on without it,
-  // it is judged from its beats below (live: the lunch encounter's two beats, then the player left for a nap at the
-  // 风纪委员 branch, and the event stayed "time passed, settled at the next advance" for a whole day).
+  // An event the story shows under way is closed when its window passes, like any other: its result is judged once
+  // from its beats so far, never "still going on" (the player's design: no open-ended "is it done yet?" judgement
+  // that could keep an event forever). What the story shows of it afterwards is its after story (gate), merged by
+  // 重新分析.
   const underWay = new Set([...scratch.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean) as Id[]);
-  const continuing = args.continuing || new Set<Id>();
-  const cands = crossedCandidates(pack, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id) && !(underWay.has(c.event.id) && continuing.has(c.event.id) && args.toInclusive <= c.hi + 1440));
+  const cands = crossedCandidates(pack, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id));
   // Only events whose window has closed by the end. An event whose window is still open stays pending
   // (it may still happen later inside its bounds, offscreen or in the story): a whole-day event is
   // not settled as done the moment the day begins.
@@ -62,8 +59,8 @@ export async function adjudicateInterval(args: {
     const when = occurrenceWindow(c, -Infinity, args.toInclusive);
     const windowStillOpen = c.hi > args.toInclusive;
     if (windowStillOpen) continue;
-    if (underWay.has(c.event.id) && !continuing.has(c.event.id) && args.port) {
-      const r = await judgeUnderWay(args, scratch, c, UNDER_WAY_LEFT);
+    if (underWay.has(c.event.id) && args.port) {
+      const r = await judgeUnderWay(args, scratch, c, UNDER_WAY_CLOSED);
       if (r && 'record' in r) {
         records.push(r.record);
         basis.push({ eventId: c.event.id, precondition: 'unknown', mode: 'model' });
@@ -71,8 +68,7 @@ export async function adjudicateInterval(args: {
         notes.push(`${formatTick(r.record.storyTime.lo)} ${c.event.title}: ${r.record.disposition} — ${r.record.occurrences?.[0]?.account?.slice(0, 160) || r.record.dispositionReason}`);
         continue;
       }
-      if (r && 'stillUnderWay' in r) { notes.push(`${c.event.title}: still under way in the story`); continue; }
-      // no valid judgement: fall through to the ordinary handling of a closed window
+      // no valid judgement: the ordinary handling of a closed window below
     }
     const p = adjudicateDefault(pack, scratch, c, when);
     // The original route assumes the original situation. When actual play has recently involved this
@@ -148,7 +144,8 @@ function recentPlay(pack: LoadedPack, s: WorldState, c: Candidate): string[] {
  *  with its characters are its evidence. Returns the record, "still under way" when the model says it has not
  *  ended yet (only possible inside its window), or null when no valid judgement came back. */
 const UNDER_WAY_FINISHED = 'The player marked this event as FINISHED in the story: decide from recent_actual_play how it actually ended — occurred (original result), diverged (different result) or omitted (it did not happen) — and give the actual account; do not postpone unless the story clearly shows it is still going on.';
-const UNDER_WAY_LEFT = 'The story showed this event under way, its time window has closed, and the story has moved on without it: decide from recent_actual_play how it actually ended — occurred (original result), diverged (different result) or omitted (it did not happen) — and give the actual account; do not postpone unless the story clearly shows it is still going on.';
+const UNDER_WAY_CLOSED = 'The story showed this event under way and its time window has now closed, so it is closed now: decide from recent_actual_play what its result is — occurred (original result), diverged (different result) or omitted (it did not happen) — and give the actual account of what the story has shown. Never postpone. If the story is still in the middle of it, judge from what has been shown so far and give only effects the story has already shown; what follows is recorded as its after story.';
+const AFTER_STORY = 'Re-judge this event\'s result from everything the story has shown of it, including its after story (later developments, the last entries of recent_actual_play): occurred (original result), diverged (different result) or omitted (it did not happen), with the actual account. Never postpone.';
 
 /** Judge an event the story showed under way from its beats and recent play. */
 async function judgeUnderWay(args: Parameters<typeof adjudicateInterval>[0], scratch: WorldState, c: Candidate, note: string, when?: StoryTime): Promise<{ record: RecordDraft } | { stillUnderWay: true } | null> {
@@ -161,6 +158,31 @@ async function judgeUnderWay(args: Parameters<typeof adjudicateInterval>[0], scr
   if (r.postponed) return { stillUnderWay: true };
   const occ = r.record.occurrences?.[0];
   if (occ) { occ.causes = [...new Set([...occ.causes, ...beats.map((b) => b.occurrenceId)])]; if (beats.length) occ.linkedFrom = beats.map((b) => b.occurrenceId); }
+  return { record: r.record };
+}
+
+/** 重新分析 with an after story: re-judge a closed event from its beats and its after story; the new result
+ *  includes (links) them all. */
+export async function rejudgeWithAfterStory(args: Parameters<typeof adjudicateInterval>[0], eventId: Id): Promise<{ record: RecordDraft } | null> {
+  const ev = args.pack.events.get(eventId);
+  const t = args.pack.timeIndex.find((x) => x.id === eventId);
+  const d = args.state.dispositions.get(eventId);
+  if (!ev || !t || !d) return null;
+  const scratch = cloneState(args.pack, args.state);
+  const prev = d.occurrenceId ? scratch.occurrences.get(d.occurrenceId) : undefined;
+  const parts = [...new Set([...(prev?.linkedFrom || []), ...[...scratch.occurrences.values()].filter((o) => o.inProgressOf === eventId || o.afterOf === eventId).map((o) => o.occurrenceId)])]
+    .flatMap((id) => { const o = scratch.occurrences.get(id); return o ? [o] : []; }).sort((a, b) => a.time.lo - b.time.lo);
+  const c: Candidate = { event: ev, lo: t.lo, hi: t.hi };
+  const w: StoryTime = { lo: Math.min(parts[0]?.time.lo ?? t.lo, t.hi), hi: Math.max(t.hi, ...parts.map((o) => o.time.hi)), precision: 'range' };
+  const p = adjudicateDefault(args.pack, scratch, c, w);
+  const play = [...new Set([...(prev ? [`${formatTick(prev.time.lo)} result so far (${d.disposition}): ${prev.account}`] : []), ...parts.map((o) => `${formatTick(o.time.lo)}${o.afterOf ? ' [after story]' : ''} ${o.title}: ${o.account}`)])].slice(-20);
+  const r = await modelAdjudicate({ ...args, toInclusive: w.hi }, scratch, c, w, p.precondition, [AFTER_STORY, ...p.explanation], false, play);
+  if (!r || r.postponed) return null;
+  r.record.override = true;
+  r.record.dispositionReason = `re-analysed with its after story: ${r.record.dispositionReason || ''}`.slice(0, 500);
+  const occ = r.record.occurrences?.[0];
+  const ids = parts.map((o) => o.occurrenceId);
+  if (occ) { occ.causes = [...new Set([...occ.causes, ...ids])]; occ.linkedFrom = ids; }
   return { record: r.record };
 }
 

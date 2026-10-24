@@ -268,14 +268,17 @@ export function runGate(g: GateInput): GateResult {
     let kind: RecordDraft['kind'] = occ.origin === 'player' ? 'enacted_action' : occ.origin === 'intervention' ? 'authored_intervention' : 'world_event';
     let packEventId: Id | undefined;
     let disposition: 'occurred' | 'diverged' | undefined;
-    if (o.pack_event_id && o.disposition === 'ongoing') {
-      // Under way, result not settled: an ordinary beat linked to the event; the event is judged when it ends.
-      const pe = pack.events.get(o.pack_event_id);
-      if (pe && !index.state.dispositions.has(pe.id)) occ.inProgressOf = pe.id;
+    if (o.pack_event_id && index.state.dispositions.has(o.pack_event_id) && pack.events.has(o.pack_event_id)) {
+      // The event is closed (its window passed or it was settled): what the story shows of it now is its after story,
+      // an ordinary beat kept with the event; 重新分析 merges it into the result.
+      occ.afterOf = o.pack_event_id;
+      warnings.push(`occurrence "${o.title}": after story of "${pack.events.get(o.pack_event_id)!.title}" (the event already has its result)`);
+    } else if (o.pack_event_id && o.disposition === 'ongoing') {
+      // Under way, result not settled: an ordinary beat linked to the event; the event is closed when its window passes.
+      if (pack.events.has(o.pack_event_id)) occ.inProgressOf = o.pack_event_id;
     } else if (o.pack_event_id) {
       const pe = pack.events.get(o.pack_event_id);
       if (!pe) violations.push(`Occurrence cites unknown canonical event "${o.pack_event_id}".`);
-      else if (index.state.dispositions.has(pe.id)) violations.push(`"${pe.title}" already has a disposition in this branch; it cannot occur again as the same canonical event.`);
       else {
         packEventId = pe.id;
         occ.packEventId = pe.id;

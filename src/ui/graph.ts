@@ -36,6 +36,8 @@ export interface GNode {
   concluded?: boolean;
   /** Its 已发生/已改变 was recorded from a chat message and can be re-examined. */
   reanalyzable?: boolean;
+  /** After story entries (later developments of a closed event, merged by 重新分析). */
+  afterStory?: number;
   /** The player marked this event 关注. */
   focused?: boolean;
 }
@@ -84,12 +86,16 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
       if (occ?.origin === 'intervention') n.forced = true;
       if (occ?.linkedFrom?.length) n.linked = true;
       if (/^concluded by the player/.test(d.reason || '')) { n.concluded = true; n.forced = true; }
-      n.detail = [`本局状态：${statusLabel(n.status)}`, ...(occ ? [`实际经过：${occ.account}`, `来源：${ORIGIN_LABEL[occ.origin] || occ.origin}`] : []), ...actual, ...(n.detail || [])];
+      // after story: what the story showed of it after it closed, not yet merged into the result (重新分析 merges it)
+      const merged = new Set(occ?.linkedFrom || []);
+      const after = [...s.occurrences.values()].filter((o) => o.afterOf === n.id && !merged.has(o.occurrenceId)).sort((a, b) => a.time.lo - b.time.lo);
+      if (after.length) n.afterStory = after.length;
+      n.detail = [`本局状态：${statusLabel(n.status)}`, ...(occ ? [`实际经过：${occ.account}`, `来源：${ORIGIN_LABEL[occ.origin] || occ.origin}`] : []), ...actual, ...after.map((o) => `后续（${formatTick(o.time.lo, origin)}）：${o.account}`), ...(n.detail || [])];
     } else {
       // shown under way in play, result not settled yet: judged when it ends
       const beats = [...s.occurrences.values()].filter((o) => o.inProgressOf === n.id).sort((a, b) => a.time.lo - b.time.lo);
       if (beats.length) n.inProgress = true;
-      n.detail = [`本局状态：${beats.length ? '进行中（结果未定，结束时再判定）' : statusLabel(n.status)}`, ...beats.map((o) => `已发生的部分：${o.account}`), ...(n.detail || [])];
+      n.detail = [`本局状态：${beats.length ? '进行中（时间窗口结束时定结果）' : statusLabel(n.status)}`, ...beats.map((o) => `已发生的部分：${o.account}`), ...(n.detail || [])];
     }
     if (!spoilers && (n.status === 'future' || n.status === 'pending')) {
       n.masked = true;

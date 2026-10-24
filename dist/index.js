@@ -15841,6 +15841,13 @@ var WorldIndex = class _WorldIndex {
     if (this.state.dispositions.has(eventId)) return [];
     return [...this.state.occurrences.values()].filter((o) => o.inProgressOf === eventId).sort((a, b) => a.time.lo - b.time.lo);
   }
+  /** After story: later developments of a settled event that its result does not include yet (重新分析 merges them). */
+  afterStory(eventId) {
+    const d = this.state.dispositions.get(eventId);
+    if (!d) return [];
+    const merged = new Set(d.occurrenceId && this.state.occurrences.get(d.occurrenceId)?.linkedFrom || []);
+    return [...this.state.occurrences.values()].filter((o) => o.afterOf === eventId && !merged.has(o.occurrenceId)).sort((a, b) => a.time.lo - b.time.lo);
+  }
   canonStatus(eventId, nowTick) {
     const ev = this.pack.events.get(eventId);
     if (!ev) return null;
@@ -15851,6 +15858,8 @@ var WorldIndex = class _WorldIndex {
     if (d) {
       status = d.disposition;
       note = d.reason || "";
+      const after = this.afterStory(eventId);
+      if (after.length) note = `${note}${note ? "; " : ""}after story (later developments): ${after.map((o) => o.title).join("; ")}`.slice(0, 600);
     } else if (!t2) {
       status = "unscheduled";
       note = "unknown-time background reference; never automatically scheduled or treated as accomplished";
@@ -15863,7 +15872,7 @@ var WorldIndex = class _WorldIndex {
       note = beats.length ? `UNDER WAY in this branch (${beats.map((o) => o.title).join("; ")}); its result is not settled yet` : "window open; not yet occurred in this branch";
     } else {
       status = "unresolved";
-      note = "window passed without a recorded disposition; it is settled from actual play at the next story-time advance";
+      note = "window passed without a recorded disposition; it is closed from actual play at the next story-time advance";
     }
     return { packEventId: eventId, title: ev.title, classification: ev.classification, status, note };
   }
@@ -18788,7 +18797,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    Ordinary present-scene details with no record (weather, crowds, shops, decorations, minor NPCs) are new_detail, never contradiction. Preparations, schedules, anticipation or rumors of a FUTURE event ("flags for tomorrow's festival") do not assert that the event has started. A different wording of a free-text state ("\u6B63\u5E38\u8FD0\u8F6C" vs "operating normally") is consistent.
 2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it; backstory=true for small invented past the reply establishes (see new_detail), with time = its approximate past time or null), state_claims (facts the narration presupposes \u2014 what it takes as already true before or apart from this scene; a change the reply itself shows happening (someone is hit and falls, a machine is wrecked, an object is taken) is a TRANSITION with the new value, not a state_claim; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null; put each claim on the entity the quote is actually about \u2014 a building, room, door or object that is not in the registry is NOT its district or city: leave such a claim out rather than file it on a containing place), player_actions (player-character acts depicted \u2014 dialogue, reactions and actions; authorized_by_quote = a span COPIED VERBATIM from the player's message that covers it, or null; category = the kind of act: dialogue|reactions|actions|movement|items|skills|combat|decisions|secrets \u2014 the most committing kind that fits: agreeing to a job in a line of dialogue is decisions, burning someone is combat). An action is authorized when it carries out what the player wrote, including its natural steps and immediate details (for "I take her back to the cell and lock her up": stopping her, taking her belongings, escorting her, locking the door) and HOW it is done: for "I burn the traps along the way", each trap burned, the spell, its incantation and what the fire looks like are all authorized; for a line whose gist the player gave, its exact words. Never require the player to have specified such details. An authorized act is fine whatever its category. player_ooc_instructions, when given, are the player's out-of-character directions for this reply (not part of player_action_scope): an act that carries one out is authorized (authorized_by_quote = a span copied from that instruction) only when its condition actually happens in the candidate; if the condition does not happen, null. Use null only for a NEW decision, goal or line of dialogue the player did not express, step_enactments, new_entities (genuinely new people/places/objects introduced).
 3. scene_end: story time when the reply ends ({day, minute} with minute = minutes after midnight on a 24-hour clock: noon / \u4E2D\u534812\u70B9 is 720, 12:10 is 730, midnight is 0; \u665A\u4E0A/\u4E0B\u5348 hours are after 12:00). lo is the MINIMUM time the depicted events actually need, added to the time the scene starts: add up everything the reply shows in order \u2014 dialogue, actions, fighting, movement. Spoken dialogue takes about as long as saying it: a short line a few seconds, a dozen lines of small talk about 1-2 minutes; a single action beat or fight moment under a minute, a whole fight a few minutes; moving by distance (across a room seconds, down the street a few minutes, a train ride to another district 15-30); only a long conversation with many long speeches 10-20 minutes; a meal 30-60; walking/travel by distance; waiting lasts as long as what the text says fills it (reading two articles while waiting is several minutes); sleeping until the stated waking. Activity that runs "until" a part of the day ("\u4E00\u76F4\u5199\u5230\u5929\u9ED1", "until evening") ends at that part of the day's usual clock time for the date (dark in September about 18:00-18:30), not a guessed duration. Time the text does not state (lingering, unstated filler) goes into hi, never into lo; when unsure, keep lo low \u2014 an overestimate can never be taken back. An explicit time, duration or skip in the PLAYER'S MESSAGE (player_action_scope) or in the reply ("13\u70B951\u5206", "\u5927\u69822\u5206\u949F", "two hours later", "\u508D\u665A") anchors scene_end and wins over estimates. precision "approx" for an estimate, "minute" only when a time is stated. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback.
-   canon_events_now lists the canonical (non-HARD) events whose time window is open around this scene. If the reply depicts one of them happening \u2014 even with other participants (e.g. the player tagging along) or a different course \u2014 record that occurrence with its pack_event_id and a disposition. Decide the result only when the event has CONCLUDED in this reply (its outcome happened, or it can no longer happen as written): "occurred" if its original result holds, "diverged" if the result is different. While it is still under way \u2014 the fight has started, the attack is in progress, nobody has won yet \u2014 use "ongoing": the result is not settled, and the event is judged in the reply where it ends. Never use "diverged" only because the result is not shown yet. An entry with in_progress lists the beats already shown; continue it ("ongoing" again, or "occurred"/"diverged" when it ends). Never file such an event as an ordinary scene beat.
+   canon_events_now lists the canonical (non-HARD) events whose time window is open around this scene. If the reply depicts one of them happening \u2014 even with other participants (e.g. the player tagging along) or a different course \u2014 record that occurrence with its pack_event_id and a disposition. Decide the result only when the event has CONCLUDED in this reply (its outcome happened, or it can no longer happen as written): "occurred" if its original result holds, "diverged" if the result is different. While it is still under way \u2014 the fight has started, the attack is in progress, nobody has won yet \u2014 use "ongoing": the result is not settled, and the event is judged in the reply where it ends. Never use "diverged" only because the result is not shown yet. An entry with in_progress lists the beats already shown; continue it ("ongoing" again, or "occurred"/"diverged" when it ends). Never file such an event as an ordinary scene beat. A canonical event that already has its result (its window passed) cannot happen again: what the reply shows of it later \u2014 the fight still going, its aftermath \u2014 is its after story: record it with that pack_event_id and disposition "ongoing".
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
    HARD conformance belongs ONLY in hard_checks, never in violations or claim checks. A HARD description fixes the RESULT; the route it mentions (how or where it happened in the original) is not actual history, and the player's actions may change it. The player's actions from the current input are actual events of this turn: never call them unsupported, and never report them or their consequences as contradicting a HARD event.
    HARD outcome values describe an objective state of the world, independent of who knows about it (e.g. a person secretly hidden by one side is "hidden" even to those who hid her). When the reply depicts that state, record the transition with the exact required value.
@@ -19552,13 +19561,14 @@ function runGate(g) {
     let kind = occ.origin === "player" ? "enacted_action" : occ.origin === "intervention" ? "authored_intervention" : "world_event";
     let packEventId;
     let disposition;
-    if (o.pack_event_id && o.disposition === "ongoing") {
-      const pe = pack2.events.get(o.pack_event_id);
-      if (pe && !index.state.dispositions.has(pe.id)) occ.inProgressOf = pe.id;
+    if (o.pack_event_id && index.state.dispositions.has(o.pack_event_id) && pack2.events.has(o.pack_event_id)) {
+      occ.afterOf = o.pack_event_id;
+      warnings.push(`occurrence "${o.title}": after story of "${pack2.events.get(o.pack_event_id).title}" (the event already has its result)`);
+    } else if (o.pack_event_id && o.disposition === "ongoing") {
+      if (pack2.events.has(o.pack_event_id)) occ.inProgressOf = o.pack_event_id;
     } else if (o.pack_event_id) {
       const pe = pack2.events.get(o.pack_event_id);
       if (!pe) violations.push(`Occurrence cites unknown canonical event "${o.pack_event_id}".`);
-      else if (index.state.dispositions.has(pe.id)) violations.push(`"${pe.title}" already has a disposition in this branch; it cannot occur again as the same canonical event.`);
       else {
         packEventId = pe.id;
         occ.packEventId = pe.id;
@@ -19908,23 +19918,18 @@ async function adjudicateInterval(args) {
   const notes = [];
   let forcedUsed = false;
   const underWay = new Set([...scratch.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean));
-  const continuing = args.continuing || /* @__PURE__ */ new Set();
-  const cands = crossedCandidates(pack2, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id) && !(underWay.has(c.event.id) && continuing.has(c.event.id) && args.toInclusive <= c.hi + 1440));
+  const cands = crossedCandidates(pack2, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id));
   for (const c of cands) {
     const when = occurrenceWindow(c, -Infinity, args.toInclusive);
     const windowStillOpen = c.hi > args.toInclusive;
     if (windowStillOpen) continue;
-    if (underWay.has(c.event.id) && !continuing.has(c.event.id) && args.port) {
-      const r = await judgeUnderWay(args, scratch, c, UNDER_WAY_LEFT);
+    if (underWay.has(c.event.id) && args.port) {
+      const r = await judgeUnderWay(args, scratch, c, UNDER_WAY_CLOSED);
       if (r && "record" in r) {
         records.push(r.record);
         basis.push({ eventId: c.event.id, precondition: "unknown", mode: "model" });
         applyRecord(scratch, { ...r.record, sequence: ++seq, branchId: "stage", commitId: "stage" });
         notes.push(`${formatTick(r.record.storyTime.lo)} ${c.event.title}: ${r.record.disposition} \u2014 ${r.record.occurrences?.[0]?.account?.slice(0, 160) || r.record.dispositionReason}`);
-        continue;
-      }
-      if (r && "stillUnderWay" in r) {
-        notes.push(`${c.event.title}: still under way in the story`);
         continue;
       }
     }
@@ -20005,7 +20010,8 @@ function recentPlay(pack2, s, c) {
   return out.slice(-12);
 }
 var UNDER_WAY_FINISHED = "The player marked this event as FINISHED in the story: decide from recent_actual_play how it actually ended \u2014 occurred (original result), diverged (different result) or omitted (it did not happen) \u2014 and give the actual account; do not postpone unless the story clearly shows it is still going on.";
-var UNDER_WAY_LEFT = "The story showed this event under way, its time window has closed, and the story has moved on without it: decide from recent_actual_play how it actually ended \u2014 occurred (original result), diverged (different result) or omitted (it did not happen) \u2014 and give the actual account; do not postpone unless the story clearly shows it is still going on.";
+var UNDER_WAY_CLOSED = "The story showed this event under way and its time window has now closed, so it is closed now: decide from recent_actual_play what its result is \u2014 occurred (original result), diverged (different result) or omitted (it did not happen) \u2014 and give the actual account of what the story has shown. Never postpone. If the story is still in the middle of it, judge from what has been shown so far and give only effects the story has already shown; what follows is recorded as its after story.";
+var AFTER_STORY = "Re-judge this event's result from everything the story has shown of it, including its after story (later developments, the last entries of recent_actual_play): occurred (original result), diverged (different result) or omitted (it did not happen), with the actual account. Never postpone.";
 async function judgeUnderWay(args, scratch, c, note, when) {
   const beats = [...scratch.occurrences.values()].filter((o) => o.inProgressOf === c.event.id).sort((a, b) => a.time.lo - b.time.lo);
   const w = when || { lo: Math.min(beats[0]?.time.lo ?? c.lo, c.hi), hi: Math.max(c.hi, ...beats.map((b) => b.time.hi)), precision: "range" };
@@ -20018,6 +20024,33 @@ async function judgeUnderWay(args, scratch, c, note, when) {
   if (occ) {
     occ.causes = [.../* @__PURE__ */ new Set([...occ.causes, ...beats.map((b) => b.occurrenceId)])];
     if (beats.length) occ.linkedFrom = beats.map((b) => b.occurrenceId);
+  }
+  return { record: r.record };
+}
+async function rejudgeWithAfterStory(args, eventId) {
+  const ev = args.pack.events.get(eventId);
+  const t2 = args.pack.timeIndex.find((x) => x.id === eventId);
+  const d = args.state.dispositions.get(eventId);
+  if (!ev || !t2 || !d) return null;
+  const scratch = cloneState(args.pack, args.state);
+  const prev = d.occurrenceId ? scratch.occurrences.get(d.occurrenceId) : void 0;
+  const parts = [.../* @__PURE__ */ new Set([...prev?.linkedFrom || [], ...[...scratch.occurrences.values()].filter((o) => o.inProgressOf === eventId || o.afterOf === eventId).map((o) => o.occurrenceId)])].flatMap((id) => {
+    const o = scratch.occurrences.get(id);
+    return o ? [o] : [];
+  }).sort((a, b) => a.time.lo - b.time.lo);
+  const c = { event: ev, lo: t2.lo, hi: t2.hi };
+  const w = { lo: Math.min(parts[0]?.time.lo ?? t2.lo, t2.hi), hi: Math.max(t2.hi, ...parts.map((o) => o.time.hi)), precision: "range" };
+  const p = adjudicateDefault(args.pack, scratch, c, w);
+  const play = [.../* @__PURE__ */ new Set([...prev ? [`${formatTick(prev.time.lo)} result so far (${d.disposition}): ${prev.account}`] : [], ...parts.map((o) => `${formatTick(o.time.lo)}${o.afterOf ? " [after story]" : ""} ${o.title}: ${o.account}`)])].slice(-20);
+  const r = await modelAdjudicate({ ...args, toInclusive: w.hi }, scratch, c, w, p.precondition, [AFTER_STORY, ...p.explanation], false, play);
+  if (!r || r.postponed) return null;
+  r.record.override = true;
+  r.record.dispositionReason = `re-analysed with its after story: ${r.record.dispositionReason || ""}`.slice(0, 500);
+  const occ = r.record.occurrences?.[0];
+  const ids = parts.map((o) => o.occurrenceId);
+  if (occ) {
+    occ.causes = [.../* @__PURE__ */ new Set([...occ.causes, ...ids])];
+    occ.linkedFrom = ids;
   }
   return { record: r.record };
 }
@@ -21014,7 +21047,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.9.8";
+var ENGINE_RELEASE = "1.10.0";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -21149,8 +21182,21 @@ function splitRejects(all) {
   }
   return { rejects: rejects.slice(-6), fixes: [...fixes].map(([k, n]) => n > 1 ? `${k} \xD7${n}` : k).slice(0, 6) };
 }
-function continuingOf(records) {
-  return new Set(records.flatMap((r) => r.occurrences || []).map((o) => o.inProgressOf).filter((x) => !!x));
+function mergeClosingBeats(reply, closing, committed) {
+  for (const r of closing) {
+    const e = r.packEventId, occ = r.occurrences?.[0];
+    if (!e || !occ) continue;
+    const beats = reply.flatMap((x) => x.occurrences || []).filter((o) => o.inProgressOf === e || o.afterOf === e);
+    if (!beats.length) continue;
+    for (const b of beats) {
+      b.inProgressOf = e;
+      delete b.afterOf;
+    }
+    const ids = beats.map((b) => b.occurrenceId);
+    const known = (id) => committed.occurrences.has(id) || ids.includes(id);
+    occ.causes = [.../* @__PURE__ */ new Set([...occ.causes.filter(known), ...ids])];
+    occ.linkedFrom = [.../* @__PURE__ */ new Set([...(occ.linkedFrom || []).filter(known), ...ids])];
+  }
 }
 var CanonEngine = class {
   host;
@@ -21758,9 +21804,9 @@ var CanonEngine = class {
         signal,
         operationId: "reconcile",
         facts: review.facts,
-        log: (l) => this.debugLog("task", l),
-        continuing: continuingOf(interp.records)
+        log: (l) => this.debugLog("task", l)
       });
+      mergeClosingBeats(interp.records, adj.records, r.state);
       for (const ar of adj.records) ar.triggerCommitId = interp.commitId;
       interp.records.push(...adj.records);
       interp.offscreenBasis = adj.basis;
@@ -22340,8 +22386,7 @@ ${this.ooc(a.userEntry?.text).story}`);
               signal: abort.signal,
               operationId,
               facts: review.facts,
-              log: (l) => this.debugLog("task", l),
-              continuing: continuingOf(review.gate.records)
+              log: (l) => this.debugLog("task", l)
             });
             adjTo = end.lo;
             this.checkFences(fences, excludeLast);
@@ -22443,6 +22488,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         const contentHash = this.host.hashAssistant(candidate);
         const interp = this.interpretationFromGate(messageId, variantId, contentHash, accepted.review.gate, accepted.review, index, userEntry, clock, "engine_commit", commitId);
         if (accepted.adj) {
+          mergeClosingBeats(interp.records, accepted.adj.records, index.state);
           for (const r of accepted.adj.records) r.triggerCommitId = commitId;
           interp.records.push(...accepted.adj.records);
           interp.offscreenBasis = accepted.adj.basis;
@@ -23202,6 +23248,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const c = this.campaign();
     if (!c || !this.current) throw new EngineError("incompatible_adapter", "engine state unavailable");
     if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; wait or cancel it first.");
+    if (this.current.index.afterStory(eventId).length) return this.mergeAfterStory(eventId);
     const src = this.reanalyzableSource(eventId);
     if (!src) throw new EngineError("incompatible_adapter", "This result was not recorded from a chat message (starting history or \u5F3A\u5236\u5B8C\u6210); there is nothing to re-analyse.");
     await this.exclusive(async () => {
@@ -23216,6 +23263,39 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const d = this.current?.replay.state.dispositions.get(eventId);
     if (d) return d.disposition;
     return this.current?.index.inProgressBeats(eventId).length ? "ongoing" : "pending";
+  }
+  /** 重新分析 of an event with an after story: one judgement from its beats and after story, recorded like 结束事件
+   *  (undone with undoForce); the after story is then part of the result. */
+  async mergeAfterStory(eventId) {
+    const c = this.campaign();
+    this.assertReplayComplete();
+    const pack2 = this.pack();
+    const state = this.current.replay.state;
+    const index = this.current.index;
+    const facts = pack2.events.get(eventId).entity_ids.map((id) => {
+      const v = index.entityState(id);
+      return `${v.name} [${id}]: ${v.facts.map((f) => `${f.predicate}=${f.display}`).join("; ") || "no established facts"}`;
+    }).join("\n");
+    this.setStatus("validating", "Re-analysing the event with its after story\u2026");
+    let res;
+    try {
+      res = await rejudgeWithAfterStory({ pack: pack2, state, fromExclusive: state.clock.lo, toInclusive: state.clock.lo, exclude: /* @__PURE__ */ new Set(), port: this.host.model, plan: this.activePlan(), forcedAllowed: false, operationId: "reanalyze_after_story", facts, log: (l) => this.debugLog("task", l) }, eventId);
+    } finally {
+      if (!this.opActive) this.setStatus("idle");
+    }
+    if (!res) throw new EngineError("provider_failure", "The analysis model could not re-judge this event; try again.");
+    const rec = res.record;
+    await this.exclusive(async () => {
+      const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: `re-analysed ${eventId} with its after story: ${rec.disposition}` });
+      c.planRevisions.forEach((p) => {
+        if (p.status === "active") p.status = "stale";
+      });
+    });
+    await this.reconcile("reanalyze_after_story", { allowModel: false });
+    await this.host.save();
+    return this.current?.replay.state.dispositions.get(eventId)?.disposition || "pending";
   }
   /** 关注: mark/unmark an event the player wants to experience. */
   async toggleFocus(eventId) {
@@ -24701,7 +24781,7 @@ var D = {
   unconclude: { zh: "\u64A4\u9500\u7ED3\u675F", en: "Undo conclusion" },
   reanalyze: { zh: "\u91CD\u65B0\u5206\u6790", en: "Re-analyse" },
   reanalyzeConfirm: { zh: "\u786E\u8BA4\u91CD\u65B0\u5206\u6790\uFF1F", en: "Re-analyse now?" },
-  reanalyzeTip: { zh: "\u91CD\u65B0\u68C0\u67E5\u8BB0\u4E0B\u8FD9\u4E2A\u7ED3\u679C\u7684\u90A3\u6761\u56DE\u590D\uFF0C\u6309\u73B0\u5728\u7684\u89C4\u5219\u5224\u65AD\u5B83\u662F\u5DF2\u53D1\u751F\u3001\u5DF2\u6539\u53D8\uFF0C\u8FD8\u662F\u4ECD\u5728\u8FDB\u884C\u4E2D\u3002\u4E4B\u540E\u7684\u56DE\u590D\u4F1A\u50CF\u4FEE\u6539\u8FC7\u6D88\u606F\u4E00\u6837\u91CD\u65B0\u6838\u5BF9\u3002\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\u3002", en: "Examine again the reply that recorded this result, with the current rules: occurred, changed, or still under way. Later replies are re-checked as after an edit. Uses the analysis model." },
+  reanalyzeTip: { zh: "\u6709\u300C\u540E\u7EED\u300D\u65F6\uFF1A\u6309\u4E8B\u4EF6\u7684\u5168\u90E8\u7ECF\u8FC7\uFF08\u542B\u540E\u7EED\uFF09\u91CD\u65B0\u5224\u5B9A\u7ED3\u679C\uFF0C\u540E\u7EED\u5E76\u5165\u6B63\u6587\u3002\n\u6CA1\u6709\u540E\u7EED\u65F6\uFF1A\u91CD\u65B0\u68C0\u67E5\u8BB0\u4E0B\u8FD9\u4E2A\u7ED3\u679C\u7684\u90A3\u6761\u56DE\u590D\uFF0C\u6309\u73B0\u5728\u7684\u89C4\u5219\u5224\u65AD\u5B83\u662F\u5DF2\u53D1\u751F\u8FD8\u662F\u5DF2\u6539\u53D8\uFF1B\u4E4B\u540E\u7684\u56DE\u590D\u4F1A\u50CF\u4FEE\u6539\u8FC7\u6D88\u606F\u4E00\u6837\u91CD\u65B0\u6838\u5BF9\u3002\n\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\u3002", en: "With an after story: re-judge the result from everything shown of the event, after story included; the after story merges into it.\nWithout one: examine again the reply that recorded this result with the current rules; later replies are re-checked as after an edit.\nUses the analysis model." },
   reanalyzeDone: { zh: "\u91CD\u65B0\u5206\u6790\u5B8C\u6210\uFF1A{s}", en: "Re-analysed: {s}" },
   reanalyzeStatus_occurred: { zh: "\u5DF2\u53D1\u751F", en: "occurred" },
   reanalyzeStatus_diverged: { zh: "\u5DF2\u6539\u53D8", en: "changed" },
@@ -25060,11 +25140,14 @@ function currentGraph(L, s, origin, spoilers, digest2 = []) {
         n.concluded = true;
         n.forced = true;
       }
-      n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`, ...occ ? [`\u5B9E\u9645\u7ECF\u8FC7\uFF1A${occ.account}`, `\u6765\u6E90\uFF1A${ORIGIN_LABEL[occ.origin] || occ.origin}`] : [], ...actual, ...n.detail || []];
+      const merged = new Set(occ?.linkedFrom || []);
+      const after = [...s.occurrences.values()].filter((o) => o.afterOf === n.id && !merged.has(o.occurrenceId)).sort((a, b) => a.time.lo - b.time.lo);
+      if (after.length) n.afterStory = after.length;
+      n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`, ...occ ? [`\u5B9E\u9645\u7ECF\u8FC7\uFF1A${occ.account}`, `\u6765\u6E90\uFF1A${ORIGIN_LABEL[occ.origin] || occ.origin}`] : [], ...actual, ...after.map((o) => `\u540E\u7EED\uFF08${formatTick(o.time.lo, origin)}\uFF09\uFF1A${o.account}`), ...n.detail || []];
     } else {
       const beats = [...s.occurrences.values()].filter((o) => o.inProgressOf === n.id).sort((a, b) => a.time.lo - b.time.lo);
       if (beats.length) n.inProgress = true;
-      n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${beats.length ? "\u8FDB\u884C\u4E2D\uFF08\u7ED3\u679C\u672A\u5B9A\uFF0C\u7ED3\u675F\u65F6\u518D\u5224\u5B9A\uFF09" : statusLabel(n.status)}`, ...beats.map((o) => `\u5DF2\u53D1\u751F\u7684\u90E8\u5206\uFF1A${o.account}`), ...n.detail || []];
+      n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${beats.length ? "\u8FDB\u884C\u4E2D\uFF08\u65F6\u95F4\u7A97\u53E3\u7ED3\u675F\u65F6\u5B9A\u7ED3\u679C\uFF09" : statusLabel(n.status)}`, ...beats.map((o) => `\u5DF2\u53D1\u751F\u7684\u90E8\u5206\uFF1A${o.account}`), ...n.detail || []];
     }
     if (!spoilers && (n.status === "future" || n.status === "pending")) {
       n.masked = true;
@@ -25692,7 +25775,7 @@ function mountTopButton() {
       }
     }
     if (cur) {
-      for (const n of cur.nodes) if ((n.status === "occurred" || n.status === "diverged") && E.reanalyzableSource(n.id)) n.reanalyzable = true;
+      for (const n of cur.nodes) if ((n.status === "occurred" || n.status === "diverged") && (n.afterStory || E.reanalyzableSource(n.id))) n.reanalyzable = true;
     }
     return { pack: pg, current: cur, spoilers, digested: !!camp?.eventDigest };
   }, (v) => {

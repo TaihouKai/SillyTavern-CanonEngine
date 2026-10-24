@@ -17,7 +17,7 @@ import { CONTINUE_INSTRUCTION, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, type ClaimInput, type RefInput, type Retrieval } from './context';
 import { matchScope, runGate, type EvalOutput, type GateResult } from './gate';
-import { adjudicateInterval, concludeFromPlay } from './adjudicator';
+import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
 import { aboutUnderWay, underWayEvents, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
@@ -195,9 +195,20 @@ export function splitRejects(all: string[]): { rejects: string[]; fixes: string[
   return { rejects: rejects.slice(-6), fixes: [...fixes].map(([k, n]) => (n > 1 ? `${k} ×${n}` : k)).slice(0, 6) };
 }
 
-/** Canonical events a reply shows still under way (it adds a beat to them). */
-function continuingOf(records: RecordDraft[]): Set<Id> {
-  return new Set(records.flatMap((r) => r.occurrences || []).map((o) => o.inProgressOf).filter((x): x is Id => !!x));
+/** An event closed by the reply that shows beats of it: those beats are part of its result (main story, not after
+ *  story), and the result links them by their final ids (the closing was judged from a first review's beats). */
+function mergeClosingBeats(reply: RecordDraft[], closing: RecordDraft[], committed: WorldState) {
+  for (const r of closing) {
+    const e = r.packEventId, occ = r.occurrences?.[0];
+    if (!e || !occ) continue;
+    const beats = reply.flatMap((x) => x.occurrences || []).filter((o) => o.inProgressOf === e || o.afterOf === e);
+    if (!beats.length) continue;
+    for (const b of beats) { b.inProgressOf = e; delete b.afterOf; }
+    const ids = beats.map((b) => b.occurrenceId);
+    const known = (id: string) => committed.occurrences.has(id) || ids.includes(id);
+    occ.causes = [...new Set([...occ.causes.filter(known), ...ids])];
+    occ.linkedFrom = [...new Set([...(occ.linkedFrom || []).filter(known), ...ids])];
+  }
 }
 
 export class CanonEngine {
@@ -745,8 +756,9 @@ export class CanonEngine {
       const adj = await adjudicateInterval({
         pack, state: this.overlay(r.state, interp.records), fromExclusive: r.state.clock.lo, toInclusive: interp.sceneEnd.lo,
         exclude: new Set(interp.records.map((x) => x.packEventId).filter(Boolean) as string[]), port: this.host.model, plan: this.activePlan(), forcedAllowed: true,
-        signal, operationId: 'reconcile', facts: review.facts, log: (l) => this.debugLog('task', l), continuing: continuingOf(interp.records),
+        signal, operationId: 'reconcile', facts: review.facts, log: (l) => this.debugLog('task', l),
       });
+      mergeClosingBeats(interp.records, adj.records, r.state);
       for (const ar of adj.records) ar.triggerCommitId = interp.commitId;
       interp.records.push(...adj.records);
       interp.offscreenBasis = adj.basis;
@@ -1279,7 +1291,7 @@ export class CanonEngine {
               pack, state: this.overlay(index.state, [...review.gate.records, ...(adj?.records || [])]), fromExclusive: clock, toInclusive: end.lo,
               exclude: new Set(review.gate.records.map((r) => r.packEventId).filter(Boolean) as string[]),
               port: this.host.model, plan, forcedAllowed: planInfo.forced || this.settings.forcedPlannerAttempt, signal: abort.signal, operationId, facts: review.facts,
-              log: (l) => this.debugLog('task', l), continuing: continuingOf(review.gate.records),
+              log: (l) => this.debugLog('task', l),
             });
             adjTo = end.lo;
             this.checkFences(fences, excludeLast);
@@ -1359,6 +1371,7 @@ export class CanonEngine {
         const contentHash = this.host.hashAssistant(candidate);
         const interp = this.interpretationFromGate(messageId, variantId, contentHash, accepted.review.gate, accepted.review, index, userEntry, clock, 'engine_commit', commitId);
         if (accepted.adj) {
+          mergeClosingBeats(interp.records, accepted.adj.records, index.state);
           for (const r of accepted.adj.records) r.triggerCommitId = commitId;
           interp.records.push(...accepted.adj.records);
           interp.offscreenBasis = accepted.adj.basis;
@@ -2089,6 +2102,8 @@ export class CanonEngine {
     const c = this.campaign();
     if (!c || !this.current) throw new EngineError('incompatible_adapter', 'engine state unavailable');
     if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; wait or cancel it first.');
+    // With an after story: re-judge from everything the story showed of it; the after story merges into the result.
+    if (this.current.index.afterStory(eventId).length) return this.mergeAfterStory(eventId);
     const src = this.reanalyzableSource(eventId);
     if (!src) throw new EngineError('incompatible_adapter', 'This result was not recorded from a chat message (starting history or 强制完成); there is nothing to re-analyse.');
     await this.exclusive(async () => {
@@ -2101,6 +2116,33 @@ export class CanonEngine {
     const d = this.current?.replay.state.dispositions.get(eventId);
     if (d) return d.disposition;
     return this.current?.index.inProgressBeats(eventId).length ? 'ongoing' : 'pending';
+  }
+
+  /** 重新分析 of an event with an after story: one judgement from its beats and after story, recorded like 结束事件
+   *  (undone with undoForce); the after story is then part of the result. */
+  private async mergeAfterStory(eventId: Id): Promise<string> {
+    const c = this.campaign()!;
+    this.assertReplayComplete();
+    const pack = this.pack();
+    const state = this.current!.replay.state;
+    const index = this.current!.index;
+    const facts = pack.events.get(eventId)!.entity_ids.map((id) => { const v = index.entityState(id); return `${v.name} [${id}]: ${v.facts.map((f) => `${f.predicate}=${f.display}`).join('; ') || 'no established facts'}`; }).join('\n');
+    this.setStatus('validating', 'Re-analysing the event with its after story…');
+    let res: Awaited<ReturnType<typeof rejudgeWithAfterStory>>;
+    try {
+      res = await rejudgeWithAfterStory({ pack, state, fromExclusive: state.clock.lo, toInclusive: state.clock.lo, exclude: new Set(), port: this.host.model, plan: this.activePlan(), forcedAllowed: false, operationId: 'reanalyze_after_story', facts, log: (l) => this.debugLog('task', l) }, eventId);
+    } finally { if (!this.opActive) this.setStatus('idle'); }
+    if (!res) throw new EngineError('provider_failure', 'The analysis model could not re-judge this event; try again.');
+    const rec = res.record;
+    await this.exclusive(async () => {
+      const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
+      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: `re-analysed ${eventId} with its after story: ${rec.disposition}` });
+      c.planRevisions.forEach((p) => { if (p.status === 'active') p.status = 'stale'; });
+    });
+    await this.reconcile('reanalyze_after_story', { allowModel: false });
+    await this.host.save();
+    return this.current?.replay.state.dispositions.get(eventId)?.disposition || 'pending';
   }
 
   /** 关注: mark/unmark an event the player wants to experience. */

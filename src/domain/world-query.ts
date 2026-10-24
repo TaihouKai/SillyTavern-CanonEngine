@@ -269,6 +269,14 @@ export class WorldIndex {
     return [...this.state.occurrences.values()].filter((o) => o.inProgressOf === eventId).sort((a, b) => a.time.lo - b.time.lo);
   }
 
+  /** After story: later developments of a settled event that its result does not include yet (重新分析 merges them). */
+  afterStory(eventId: Id): Occurrence[] {
+    const d = this.state.dispositions.get(eventId);
+    if (!d) return [];
+    const merged = new Set((d.occurrenceId && this.state.occurrences.get(d.occurrenceId)?.linkedFrom) || []);
+    return [...this.state.occurrences.values()].filter((o) => o.afterOf === eventId && !merged.has(o.occurrenceId)).sort((a, b) => a.time.lo - b.time.lo);
+  }
+
   canonStatus(eventId: Id, nowTick: number): CanonStatusView | null {
     const ev = this.pack.events.get(eventId);
     if (!ev) return null;
@@ -279,6 +287,8 @@ export class WorldIndex {
     if (d) {
       status = d.disposition;
       note = d.reason || '';
+      const after = this.afterStory(eventId);
+      if (after.length) note = `${note}${note ? '; ' : ''}after story (later developments): ${after.map((o) => o.title).join('; ')}`.slice(0, 600);
     } else if (!t) {
       status = 'unscheduled';
       note = 'unknown-time background reference; never automatically scheduled or treated as accomplished';
@@ -291,7 +301,7 @@ export class WorldIndex {
       note = beats.length ? `UNDER WAY in this branch (${beats.map((o) => o.title).join('; ')}); its result is not settled yet` : 'window open; not yet occurred in this branch';
     } else {
       status = 'unresolved';
-      note = 'window passed without a recorded disposition; it is settled from actual play at the next story-time advance';
+      note = 'window passed without a recorded disposition; it is closed from actual play at the next story-time advance';
     }
     return { packEventId: eventId, title: ev.title, classification: ev.classification, status, note };
   }

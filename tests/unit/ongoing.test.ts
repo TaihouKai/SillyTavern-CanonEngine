@@ -9,10 +9,12 @@ import { factAt } from '../../src/domain/reducer';
 import { PROMPTS as PROMPTS_ } from '../../src/runtime/prompts';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
+// the ambush window widened to 10:00–12:00 so it can stay under way across replies (the demo has point windows)
+const demoWide = (() => { const j = JSON.parse(readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8')); j.events.find((e: any) => e.id === 'medic-ambush').when.latest = { day: 1, minute: 720 }; j.events.find((e: any) => e.id === 'medic-ambush').when.precision = 'range'; return JSON.stringify(j); })();
 
-async function setup() {
+async function setup(wide = false) {
   const x = makeEngine();
-  await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
+  await x.engine.bind(wide ? demoWide : demo, { startTick: tick(1, 9, 30), mode: 'new' });
   await x.engine.reconcile('test');
   return x;
 }
@@ -31,7 +33,7 @@ const ambush = (disposition: string, quote: string, title = 'Ambush on the road'
 
 describe('canonical events under way', () => {
   it('OG1 an event shown under way keeps no result; the reviewer sees it as in progress and judges it when it ends', async () => {
-    const x = await setup();
+    const x = await setup(true);
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [OG1a]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
     expect(st(x).dispositions.has('medic-ambush')).toBe(false);
     const beat = [...st(x).occurrences.values()].find((o) => o.inProgressOf === 'medic-ambush');
@@ -45,26 +47,45 @@ describe('canonical events under way', () => {
     expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('diverged');
   });
 
-  it('OG3 an event under way waits while replies continue it past its window; when a reply moves on without it, it is judged from its beats (live: lunch encounter)', async () => {
-    const x = await setup();
+  it('OG3 an event under way is closed when its window passes, even mid-fight; later beats are its after story; 重新分析 merges them (the player\'s design)', async () => {
+    const x = await setup(true); // window 10:00–12:00
+    x.engine.settings.debug = true;
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [OG3a]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
-    // still fighting after the window (10:00): the story keeps it going
-    expect(await turn(x, 'I duck behind a cart.', 'Bolts keep thudding into the cart. [OG3b]', { ...ambush('ongoing', 'Bolts keep thudding', 'Pinned behind the cart'), scene_end: at(1, 10, 5) })).toBe(true);
-    expect(st(x).dispositions.has('medic-ambush')).toBe(false);
-    // the story moves on without it: judged now, not a day later
-    x.model.on('adjudicate', (i) => i.candidate?.id === 'medic-ambush', { adjudications: [{ event_id: 'medic-ambush', decision: 'diverged', time: null, account: 'The attackers gave up; Mira survived.', actors: ['mira'], causes: [], effects: [], plan_step_ids: [], reason: 'the player shielded her', extraordinary: false }] });
-    expect(await turn(x, 'I wander off to the market.', 'Hours pass at the stalls. [OG3c]', { scene_end: at(1, 20, 0) })).toBe(true);
-    const call = x.model.tasks('adjudicate').filter((c: any) => c.input.candidate?.id === 'medic-ambush').slice(-1)[0].input;
-    expect(call.unmet_conditions[0]).toMatch(/moved on without it/);
-    expect(call.recent_actual_play_with_these_characters.join(' ')).toMatch(/Ambush on the road[^]*Pinned behind the cart/);
-    const d = st(x).dispositions.get('medic-ambush')!;
+    x.model.on('adjudicate', (i) => i.candidate?.id === 'medic-ambush', { adjudications: [{ event_id: 'medic-ambush', decision: 'diverged', time: null, account: 'Mira held out behind the cart.', actors: ['mira'], causes: [], effects: [], plan_step_ids: [], reason: 'the player shielded her', extraordinary: false }] });
+    // still fighting when the window closes at 12:00: closed in this reply, judged once from the beats so far
+    expect(await turn(x, 'I keep shooting back.', 'At 12:10 the bolts still thud into the cart. [OG3b]', { ...ambush('ongoing', 'the bolts still thud', 'Pinned behind the cart'), scene_end: at(1, 12, 10) })).toBe(true);
+    const close = x.model.tasks('adjudicate').filter((c: any) => c.input.candidate?.id === 'medic-ambush').slice(-1)[0].input;
+    expect(close.unmet_conditions[0]).toMatch(/window has now closed, so it is closed now[^]*Never postpone/);
+    expect(close.recent_actual_play_with_these_characters.join(' ')).toMatch(/Ambush on the road[^]*Pinned behind the cart/);
+    let d = st(x).dispositions.get('medic-ambush')!;
     expect(d.disposition).toBe('diverged');
     const beats = [...st(x).occurrences.values()].filter((o) => o.inProgressOf === 'medic-ambush').map((o) => o.occurrenceId);
-    expect(st(x).occurrences.get(d.occurrenceId!)!.causes).toEqual(expect.arrayContaining(beats));
+    expect(beats).toHaveLength(2); // the closing reply's beat is main story, linked by its final id
+    expect(st(x).occurrences.get(d.occurrenceId!)!.linkedFrom).toEqual(expect.arrayContaining(beats));
+    expect(x.engine.current!.index.afterStory('medic-ambush')).toEqual([]);
+    // the story goes on with it: after story, not a violation and not a second result
+    expect(await turn(x, 'I chase the attackers off.', 'At 12:20 the attackers finally flee into the alleys. [OG3c]', { ...ambush('diverged', 'The attackers finally flee', 'Attackers flee'), scene_end: at(1, 12, 20) })).toBe(true);
+    const after = x.engine.current!.index.afterStory('medic-ambush');
+    expect(after.map((o) => o.title)).toEqual(['Attackers flee']);
+    expect(x.engine.current!.index.canonStatus('medic-ambush', st(x).clock.lo)!.note).toMatch(/after story \(later developments\): Attackers flee/);
+    expect(st(x).dispositions.get('medic-ambush')!.recordId).toBe(d.recordId);
+    // 重新分析: one judgement from everything; the after story becomes part of the result
+    x.model.on('adjudicate', (i) => i.candidate?.id === 'medic-ambush' && /after story/.test(JSON.stringify(i.unmet_conditions)), { adjudications: [{ event_id: 'medic-ambush', decision: 'diverged', time: null, account: 'The player drove the attackers off; Mira survived.', actors: ['mira'], causes: [], effects: [], plan_step_ids: [], reason: 'repelled', extraordinary: false }] });
+    expect(await x.engine.reanalyzeEvent('medic-ambush')).toBe('diverged');
+    const call = x.model.tasks('adjudicate').slice(-1)[0].input;
+    expect(call.unmet_conditions[0]).toMatch(/including its after story/);
+    expect(call.recent_actual_play_with_these_characters.join(' ')).toMatch(/\[after story\] Attackers flee/);
+    d = st(x).dispositions.get('medic-ambush')!;
+    expect(st(x).occurrences.get(d.occurrenceId!)!.account).toMatch(/drove the attackers off/);
+    expect(x.engine.current!.index.afterStory('medic-ambush')).toEqual([]);
+    expect(st(x).occurrences.get(d.occurrenceId!)!.linkedFrom).toEqual(expect.arrayContaining([...beats, after[0].occurrenceId]));
+    // undo brings the after story back
+    await x.engine.undoForce('medic-ambush');
+    expect(x.engine.current!.index.afterStory('medic-ambush').map((o) => o.title)).toEqual(['Attackers flee']);
   });
 
   it('OG4 the GM is told about an event under way in every reply until it ends, even when no message names it', async () => {
-    const x = await setup();
+    const x = await setup(true);
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [OG4a]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
     expect(await turn(x, 'I duck.', 'You duck behind a cart. [OG4b]', { scene_end: at(1, 10, 0) })).toBe(true);
     const ctx = x.model.tasks('draft').map((d: any) => String(d.input.engineContext)).slice(-1)[0];
@@ -177,7 +198,7 @@ describe('greetings that are instructions', () => {
 
 describe('结束事件', () => {
   it('CE1 an event under way is concluded from what happened in the story (the beats are the evidence), and can be undone', async () => {
-    const x = await setup();
+    const x = await setup(true);
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [CE1]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
     expect(st(x).dispositions.has('medic-ambush')).toBe(false);
     x.model.on('adjudicate', (i) => i.candidate?.id === 'medic-ambush', { adjudications: [{ event_id: 'medic-ambush', decision: 'diverged', time: null, account: 'The player drove the attackers off; Mira survived.', actors: ['mira'], causes: [], effects: [], plan_step_ids: [], reason: 'the player intervened', extraordinary: false }] });
@@ -195,7 +216,7 @@ describe('结束事件', () => {
   });
 
   it('CE3 a judgement is not thrown away for one bad effect: names are resolved, unknown entities dropped, text booleans coerced; a bare item is wrapped', async () => {
-    const x = await setup();
+    const x = await setup(true);
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [CE3]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
     // a bare adjudication object (no "adjudications" list) with an effect naming Mira by name, a text boolean, and an unknown entity
     (x.model as any).rules.unshift({ task: 'adjudicate', raw: JSON.stringify({ event_id: 'medic-ambush', decision: 'diverged', time: null, account: 'The player drove the attackers off.', actors: [], causes: [], effects: [{ op: 'set', entity_id: 'Mira', predicate: 'alive', value: 'true' }, { op: 'set', entity_id: 'nana', predicate: 'alive', value: true }], plan_step_ids: [], reason: 'the player intervened', extraordinary: false }), once: true });
@@ -205,7 +226,7 @@ describe('结束事件', () => {
   });
 
   it('CE2 without a valid judgement nothing is recorded; an event not started yet cannot be concluded', async () => {
-    const x = await setup(); // 09:30: the ambush (10:00) has not started
+    const x = await setup(true); // 09:30: the ambush (10:00) has not started
     await expect(x.engine.concludeEvent('medic-ambush')).rejects.toThrow(/not started yet/);
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [CE2]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
     x.model.on('adjudicate', (i) => i.candidate?.id === 'medic-ambush', { adjudications: [] });
@@ -244,7 +265,7 @@ describe('关联本局事件', () => {
 
 describe('重新分析', () => {
   it('RA1 re-examines the message that recorded the result with the current rules; later replies stay', async () => {
-    const x = await setup();
+    const x = await setup(true);
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [RA1a]', ambush('diverged', 'Bolts start flying'))).toBe(true);
     expect(await turn(x, 'I look for cover.', 'You crouch behind a cart. [RA1b]', { scene_end: at(1, 10, 0) })).toBe(true);
     expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('diverged');

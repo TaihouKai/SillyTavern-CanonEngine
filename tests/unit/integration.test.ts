@@ -562,7 +562,9 @@ describe('re-evaluate possible contacts', () => {
 describe('preferred matters', () => {
   it('NI-43 while an event is under way only direct contacts reach the GM, unless the player marked another matter 优先 (allowed, not required)', async () => {
     expect(PROMPTS.integrate).toMatch(/preferred lists matters[^]*even while busy with another event/);
-    const x = await setup({ integrate: { assessments: [], opportunities: [
+    // the ambush window widened to 10:00–12:00 so it stays under way across these replies (the demo has point windows)
+    const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'medic-ambush').when, { latest: { day: 1, minute: 720 }, precision: 'range' });
+    const x = await setup({ pack: JSON.stringify(wide), integrate: { assessments: [], opportunities: [
       OPP({ ref: 'a', kind: 'encounter', direct_impact: true, contact: 'a Council guard blocks the road' }),
       OPP({ ref: 'u', kind: 'invitation', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the Union invites Vera to a meeting' }),
     ] } });

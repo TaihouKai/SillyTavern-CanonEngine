@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.10.0 — 2026-10-24
+
+Replaces 1.9.8, following the player's design: no model judgement of whether an event is "done" (it costs tokens and attention, and a misreading could keep an event open forever).
+
+- **An event closes when its window passes.** Also one shown under way: its result is judged once, from the beats the story showed up to then (one analysis call, never postponed). The day-long wait for under-way events is gone. A beat in the reply that closes it is part of the main story.
+- **After story.** What the story shows of an event after it closed (the fight still going, the aftermath) is recorded as its after story: no violation, no second result. It is listed as 后续 in the event's details in 本局历史, and the GM and reviewer see it in the event's status.
+- **重新分析 with an after story** re-judges the result from everything (beats and after story) and merges the after story into it (it links all of them, with their times); 后续 is then empty. Without an after story, 重新分析 works as before.
+- Tests: OG3 rewritten; the under-way tests use a demo pack with a 10:00–12:00 ambush window.
+
 ## 1.9.8 — 2026-10-24
 
 - **An event under way is judged when the story moves on.** Live: 大霸星祭第一天午休 had two beats (the hotpot restaurant), its window closed at 14:00, the player left for a nap at the 风纪委员 branch, and at 15:03 it still showed 时间已过，下次时间推进时结算: events under way were held for a whole day past their window. Now a reply that advances time without continuing such an event (no new beat of it) has it judged right away from its beats and recent play (occurred / diverged / omitted; postponed only if the story clearly shows it still going on). A reply that continues it still keeps it waiting, up to a day past its window as before.

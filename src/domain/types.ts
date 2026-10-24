@@ -160,6 +160,8 @@ export interface Occurrence {
   packEventId?: Id;
   /** A canonical event this beat shows under way whose result is not settled yet (it keeps no disposition). */
   inProgressOf?: Id;
+  /** After story: a later development of a canonical event that already has its result (merged by 重新分析). */
+  afterOf?: Id;
   /** A canonical event the player linked by hand to these story beats (关联本局事件). */
   linkedFrom?: string[];
   /** Scene grouping: the earlier occurrence (same ongoing scene) this one continues; shown and summarized as one box. */
