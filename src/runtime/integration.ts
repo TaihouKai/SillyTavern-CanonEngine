@@ -571,7 +571,7 @@ export function integrationKey(index: WorldIndex, profile: PlayerProfile, candid
 // GM context sections
 
 export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick: number): string {
-  const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play; people know about the player only as listed — anyone else knows just the public identity):`];
+  const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play; the public identity is what anyone may know — famous things (an esper's level and ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
   lines.push(`- ${profile.personaName} [${profile.playerId}] (the player character): ${profile.summary || '(no summary)'}${profile.publicIdentity ? ` Public identity: ${profile.publicIdentity}` : ''}${factsLine(index, profile.playerId, tick)}`);
   for (const a of profile.affiliations) lines.push(`- organization: ${a.name} [${a.entityId}] — ${a.role || 'member'} (${a.secrecy})${factsLine(index, a.entityId, tick)}`);
   for (const p of profile.places) lines.push(`- place: ${p.name} [${p.entityId}] — ${p.use}${factsLine(index, p.entityId, tick)}`);

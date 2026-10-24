@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.1 — 2026-10-24
+
+- **Not marked secret = public.** The Persona reading made the public identity "what an ordinary person sees" (one short line), and everything else counted as unknown to strangers — so the player's Level 5 ability, never marked secret, was treated as unknown. Now the public identity covers everything the Persona does not mark as secret or as known only to certain people (ability and level, school, looks, temperament, reputation). Secret even when not marked: what is secret by nature in the world (membership in a hidden organization such as a 暗部 group, covert work) and anything only certain people know. The GM and the checker are told the public identity is what anyone may know — famous things even strangers, personal details only people who would plausibly know them. Started chats keep their reading until 更新本局身份.
+- Tests: NI-07 extended.
+
 ## 1.11.0 — 2026-10-24
 
 - **Where new developments come from (GM rules).** Live: wanting something new each turn, the GM invented a silver-haired Tokiwadai figure "who looks exactly like" the player in a photo — contradicting nothing, but a mystery with no basis that reads as clones or a secret twin in Toaru. The GM is now told to draw new developments from what exists: the canon events coming up and the threads leading into them, the world reaction, the player's own organizations, places and relationships, threads already in the story, everyday life; clues lead somewhere that exists; no mysteries implying hidden facts with no basis (an unexplained double, the player seen where they never were, a conspiracy nobody set up). Banter, small incidents and quirks stay free. No extra call.
