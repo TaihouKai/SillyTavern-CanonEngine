@@ -672,6 +672,17 @@ describe('preferred matters', () => {
     await turn(x, 'I stretch.', 'You stretch. [J4]', { scene_end: at(3, 8, 5) });
     const rc = x.model.tasks('integrate').slice(-1)[0].input.recent_contacts.find((c: any) => c.id === k.recordId);
     expect(rc.lapsed).toBe(true);
+    // turning the job down is not turning down the organization: a later request from the same people is not blocked
+    const z = await setup({ pack: JSON.stringify(wide), start: tick(2, 10, 0), integrate: { assessments: [], opportunities: [job] } });
+    await turn(z, 'I walk along the quay.', 'Gulls over the quay. [J5]', { scene_end: at(2, 10, 10) });
+    const zo = z.engine.campaign()!.integrationCache!.opportunities.find((o) => o.sideJob)!;
+    await turn(z, 'I keep walking.', 'A Union runner hands you a note from the dockmaster. [J6]', { scene_end: at(2, 10, 20), contacts: [contact('A Union runner hands you a note', { scope_kind: 'faction', scope_ref: 'union', actors: ['union'], opportunity_id: zo.id })] });
+    const zk = z.engine.integrationView(true)!.contacts.find((c: any) => c.sideJob)!;
+    await turn(z, 'I ignore the note.', 'You leave the note unread. [J7]', { scene_end: at(2, 10, 25) }, decline('I ignore the note', 'contact', zk.recordId));
+    expect(z.engine.integrationView(true)!.decisions.some((d: any) => d.stance === 'declined' && d.scopeRef === zk.recordId)).toBe(true);
+    z.model.on('integrate', null, { assessments: [], opportunities: [OPP({ ref: 'u2', kind: 'request', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the dockmaster asks Vera to guard a night shipment' })] });
+    await z.engine.refreshIntegration();
+    expect(z.engine.campaign()!.integrationCache!.opportunities.map((o) => o.contact)).toContain('the dockmaster asks Vera to guard a night shipment');
   });
 
 });

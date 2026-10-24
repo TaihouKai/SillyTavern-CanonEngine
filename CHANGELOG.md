@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.4 — 2026-10-25
+
+- **Turning down a small job turns down that job only.** Live: ignoring one EMBER job was recorded as declining that contact, and the “not this request” rule extended it to the whole matter (the EMBER organization), so later requests from 云川 were dropped. A refusal of a small-job contact no longer reaches beyond it (the job itself is not offered again: lapsed / already made).
+- **A small job's identity includes what is asked.** Suggestions are identified by matter, kind and people; for a small job that made every later request from the same people count as “already made”.
+- Tests: NI-46 extended.
+
 ## 1.12.3 — 2026-10-25
 
 - Live: on the quiet day after a small job lapsed, the model proposed no new one (it read "a lapsed job is over" as "no more jobs", and the scene was a quiet breakfast). The world-reaction step is now told a small job on a quiet day is required whatever the scene (the GM decides when it fits in), and that after a lapse a new, different job is still expected.

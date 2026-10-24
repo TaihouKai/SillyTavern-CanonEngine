@@ -21226,7 +21226,7 @@ function engagementView(state, pack2) {
         const n = negativeAt(k, tick);
         if (!n) continue;
         const c = contacts.find((x) => x.recordId === n.scopeRef);
-        if (!c) continue;
+        if (!c || c.sideJob) continue;
         const sameThing = target.scopeKind === c.scopeKind && target.scopeRef === c.scopeRef || !!target.eventId && c.scopeKind === "event" && c.scopeRef === target.eventId;
         if (sameThing && (target.actors || []).some((a) => c.actors.includes(a))) return n;
         void s;
@@ -21443,7 +21443,8 @@ function checkOpportunities(out, index, profile2, candidates, tick, quiet = fals
         continue;
       }
     }
-    const id = "opp_" + sha256(`${scopeKind}|${scopeRef}|${kind}|${[...actors].sort().join(",")}`).slice(0, 10);
+    const isJob = quiet && !!o.side_job && !targetEventId;
+    const id = "opp_" + sha256(`${scopeKind}|${scopeRef}|${kind}|${[...actors].sort().join(",")}${isJob ? `|${o.contact || ""}` : ""}`).slice(0, 10);
     if (st.contacts.some((x) => x.opportunityId === id)) {
       dropped.push({ id: ref, reason: "already made" });
       continue;
@@ -21475,7 +21476,7 @@ function checkOpportunities(out, index, profile2, candidates, tick, quiet = fals
       focus: !!c?.focus,
       basisRefs,
       // a side job is only for a quiet day and never about a canonical event
-      ...quiet && o.side_job && !targetEventId ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + 1439) } : {}
+      ...isJob ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + 1439) } : {}
     });
   }
   return { valid, dropped };
@@ -21588,7 +21589,7 @@ function engagementRecord(s, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.12.3";
+var ENGINE_RELEASE = "1.12.4";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };

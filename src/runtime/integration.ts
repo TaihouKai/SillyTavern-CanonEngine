@@ -299,7 +299,9 @@ export function engagementView(state: WorldState, pack: LoadedPack) {
         const n = negativeAt(k, tick);
         if (!n) continue;
         const c = contacts.find((x) => x.recordId === n.scopeRef);
-        if (!c) continue;
+        // turning down a small job turns down that job only, not the organization it came through (live: ignoring one
+        // EMBER job blocked every later request from 云川); the job itself is not offered again (lapsed / already made)
+        if (!c || c.sideJob) continue;
         const sameThing = (target.scopeKind === c.scopeKind && target.scopeRef === c.scopeRef) || (!!target.eventId && c.scopeKind === 'event' && c.scopeRef === target.eventId);
         if (sameThing && (target.actors || []).some((a) => c.actors.includes(a))) return n;
         void s;
@@ -504,7 +506,10 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
       const actualCause = basisRefs.some((b) => { const oc = st.occurrences.get(b); return !!oc && [...oc.actors, ...oc.affected].some((x) => actors.includes(x)); });
       if (!(direct && (kind === 'hostile' || consequence) && actualCause)) { dropped.push({ id: ref, reason: `the player ${blocked.stance === 'ooc_suppress' ? 'suppressed' : blocked.stance} ${blocked.scopeLabel}` }); continue; }
     }
-    const id = 'opp_' + sha256(`${scopeKind}|${scopeRef}|${kind}|${[...actors].sort().join(',')}`).slice(0, 10);
+    // a small job is its own piece of work: what is asked is part of its identity (otherwise every later request from
+    // the same people would count as already made)
+    const isJob = quiet && !!o.side_job && !targetEventId;
+    const id = 'opp_' + sha256(`${scopeKind}|${scopeRef}|${kind}|${[...actors].sort().join(',')}${isJob ? `|${o.contact || ''}` : ''}`).slice(0, 10);
     if (st.contacts.some((x) => x.opportunityId === id)) { dropped.push({ id: ref, reason: 'already made' }); continue; }
     if (!['hostile', 'consequence'].includes(kind) && pending.some((p) => p.scopeKind === scopeKind && p.scopeRef === scopeRef)) { dropped.push({ id: ref, reason: 'an earlier contact about the same thing is unanswered' }); continue; }
     // live: all four suggestions were about the event under way, as if the player were locked into it until it ends
@@ -514,7 +519,7 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
       motivation: (o.motivation || '').slice(0, 800), knowledge: (o.knowledge || '').slice(0, 800), contact: (o.contact || '').slice(0, 800), establishes: (o.establishes || []).slice(0, 8),
       earliest, latest, priority: Math.min(3, Math.max(1, Math.round(o.priority || 2))), focus: !!c?.focus, basisRefs,
       // a side job is only for a quiet day and never about a canonical event
-      ...(quiet && o.side_job && !targetEventId ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + 1439) } : {}),
+      ...(isJob ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + 1439) } : {}),
     });
   }
   return { valid, dropped };
