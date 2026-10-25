@@ -2395,6 +2395,7 @@ export class CanonEngine {
         places: prof.profile.places.map((p) => `${p.name} — ${p.use}`),
         roles: (prof.profile.roles || []).map((r) => `${r.role}${r.brings.length ? ` — ${r.brings.join(', ')}` : ''}${r.from.length ? ` (${r.from.join(', ')})` : ''}`),
         notSuited: prof.profile.notSuited || [],
+        voice: prof.profile.voice || '',
         relationships: prof.profile.relationships.map((r) => `${r.name}: ${r.relation} (${r.basis === 'persona_stated' ? 'Persona' : 'implied'})${orgNow(r.entityId)}`),
         knowers: prof.profile.knowers.map((k) => `${k.who} — ${k.level}: ${k.about}`),
         notes: prof.profile.notes,

@@ -37,6 +37,7 @@ export interface ProfileOut {
   capabilities?: string[]; resources?: string[]; goals?: string[];
   roles?: { role: string; brings?: string[]; from?: string[]; style?: string }[];
   not_suited?: string[];
+  voice?: string;
   relationships: { name: string; existing_id?: string | null; relation?: string; basis?: 'persona_stated' | 'implied' }[];
   knowers: { who: string; existing_id?: string | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: 'persona_stated' | 'implied' }[];
   uncertain?: string[];
@@ -117,6 +118,7 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
       affiliations, places, capabilities: list(out.capabilities), resources: list(out.resources), goals: list(out.goals), relationships, knowers, uncertain: list(out.uncertain), notes,
       roles: (out.roles || []).filter((r) => r?.role?.trim()).slice(0, 8).map((r) => ({ role: r.role.trim().slice(0, 200), brings: list(r.brings), from: list(r.from), style: String(r.style || '').trim().slice(0, 300) })),
       notSuited: list(out.not_suited),
+      voice: String(out.voice || '').trim().slice(0, 600),
     },
     runtimeEntities,
   };
@@ -624,6 +626,7 @@ export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick:
   if (profile.capabilities.length || profile.resources.length) lines.push(`- can/has: ${[...profile.capabilities, ...profile.resources].slice(0, 10).join('; ')}`);
   if (profile.roles?.length) lines.push(`- roles: ${profile.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(', '), r.from.length ? `from ${r.from.join(', ')}` : ''].filter(Boolean).join('; ')})` : ''}`).join(' | ')}`);
   if (profile.notSuited?.length) lines.push(`- does not take on: ${profile.notSuited.join('; ')}`);
+  if (profile.voice) lines.push(`- how they come across and talk (write the player character's lines and reactions this way): ${profile.voice}`);
   for (const r of profile.relationships.slice(0, 12)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ''} — ${r.relation} (${r.basis === 'persona_stated' ? 'Persona' : 'implied by the role'})${r.entityId && index.entityKind(r.entityId) === 'organization' ? factsLine(index, r.entityId, tick) : ''}`);
   for (const k of profile.knowers.slice(0, 12)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === 'secrets' ? ':' : ' —'} ${k.about}`);
   return lines.join('\n');

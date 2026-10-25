@@ -8,7 +8,7 @@ import { makeEngine, tick, at, occ, legacyCampaign } from './fake';
 import { ROOT } from './helpers';
 import { engagementView, isBinding, engagementRecord } from '../../src/runtime/integration';
 import { PROMPTS, gmRulesFor, GM_INTEGRATION_RULES } from '../../src/runtime/prompts';
-import { DEFAULT_PLAYER_VOICE } from '../../src/runtime/voice';
+import { DEFAULT_PLAYER_VOICE, voiceRule, LIVELY, REACT_NOT_DECIDE } from '../../src/runtime/voice';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 type X = ReturnType<typeof makeEngine>;
@@ -776,6 +776,37 @@ describe('preferred matters', () => {
     await turn(x, 'I sleep until the morning after next.', 'Two days pass. [A5]', { scene_end: at(3, 8, 0) });
     await turn(x, 'I stretch.', 'You stretch. [A6]', { scene_end: at(3, 8, 5) });
     expect(lastCtx(x)).not.toMatch(/answered: The Council|refused to answer: The Council/);
+  });
+
+  it('NI-50 the player character talks like a person: the GM writes their lines with their personality, reacts to invitations without deciding, and sees how they come across and talk (live: “补货。” “看情况。” “再说吧。” next to a vivid NPC)', async () => {
+    // the GM rule: lively whenever it may write dialogue or reactions; reacting is not deciding when decisions are the player's
+    const def = voiceRule(DEFAULT_PLAYER_VOICE);
+    expect(def).toContain(LIVELY);
+    expect(def).toContain(REACT_NOT_DECIDE);
+    expect(LIVELY).toMatch(/Never reduce them to short, flat, noncommittal replies/);
+    expect(REACT_NOT_DECIDE).toMatch(/still write their honest reaction[^]*neither accepts nor refuses[^]*one open question at the end is enough/);
+    const decide = voiceRule({ ...DEFAULT_PLAYER_VOICE, decisions: true });
+    expect(decide).toContain(LIVELY);
+    expect(decide).not.toContain(REACT_NOT_DECIDE);
+    const none = voiceRule({ ...DEFAULT_PLAYER_VOICE, dialogue: false, reactions: false, actions: false });
+    expect(none).not.toContain(LIVELY);
+    expect(none).not.toContain(REACT_NOT_DECIDE);
+    expect(gmRulesFor(DEFAULT_PLAYER_VOICE)).toContain(REACT_NOT_DECIDE);
+    // the reviewer: a reaction to an offer is dialogue
+    expect(PROMPTS.evaluate).toMatch(/reacting to an offer or question without saying yes or no[^]*is dialogue, not decisions/);
+    // the Persona reading: how they come across and talk, front and real self
+    expect(PROMPTS.profile).toMatch(/- voice: how the player character comes across and talks[^]*a front they put on and how they really are, say both and how well the front holds/);
+    expect(PROMPTS.profile).toMatch(/"not_suited":\[\],"voice":""/);
+    const voice = 'Plays the quiet, elegant transfer student, badly: impatient and blunt underneath, sincere, a little dense; snaps back when teased.';
+    const x = await setup({ profile: { ...PROFILE, voice } });
+    await turn(x, 'I look around.', 'The harbor at morning. [W50]', { scene_end: at(1, 9, 35) });
+    expect(x.engine.playerProfile()!.profile.voice).toBe(voice);
+    expect(lastCtx(x)).toContain(`- how they come across and talk (write the player character's lines and reactions this way): ${voice}`);
+    expect(x.engine.integrationView(true)!.profile!.voice).toBe(voice);
+    // a Persona that says nothing about it: no line
+    const y = await setup({});
+    await turn(y, 'I look around.', 'The harbor at morning. [W51]', { scene_end: at(1, 9, 35) });
+    expect(lastCtx(y)).not.toMatch(/- how they come across and talk/);
   });
 
 });

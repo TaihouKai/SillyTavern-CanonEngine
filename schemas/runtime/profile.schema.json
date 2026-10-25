@@ -262,6 +262,10 @@
     "maxLength": 300
    },
    "maxItems": 10
+  },
+  "voice": {
+   "type": "string",
+   "maxLength": 600
   }
  },
  "required": [

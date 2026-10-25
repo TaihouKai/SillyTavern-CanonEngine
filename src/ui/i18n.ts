@@ -220,6 +220,7 @@ const D: Record<string, { zh: string; en: string }> = {
   niSideJob: { zh: '小任务', en: 'small job' },
   niRoles: { zh: '生活中的身份（小任务从这里来）', en: 'Roles in life (small matters come from these)' },
   niNotSuited: { zh: '不接的事（做不到 / 不会做）', en: 'Does not take on (cannot / will not)' },
+  niVoice: { zh: '性格与说话方式（GM 照这个写你的台词）', en: 'How you come across and talk (the GM writes your lines this way)' },
   niJobLapsed: { zh: '小任务·已过期', en: 'small job · lapsed' },
   niPrefer: { zh: '优先', en: 'Prefer' },
   niUnprefer: { zh: '取消优先', en: 'Unprefer' },

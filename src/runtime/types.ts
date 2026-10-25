@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.13.7';
+export const ENGINE_RELEASE = '1.14.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -239,6 +239,8 @@ export interface PlayerProfile {
   roles?: { role: string; brings: string[]; from: string[]; style: string }[];
   /** Kinds of tasks or matters the player cannot or will not take on. */
   notSuited?: string[];
+  /** How the player character comes across and talks (from the Persona). Missing on profiles read before 1.14.0. */
+  voice?: string;
   relationships: { entityId: Id | null; name: string; relation: string; basis: 'persona_stated' | 'implied' }[];
   /** Who plausibly knows about the player, at which level: that an organization exists, the player's identity or
    *  role, or specific secrets. */

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.14.0 — 2026-10-26
+
+- **The player character talks like a person.** Live: in a convenience-store scene the NPC was vivid while the player character answered everything with two or three flat words (“补货。”, “看情况。”, “再说吧。”, “下午再说。”). Two causes: with decisions left to the player, every invitation could only be dodged, and nothing near the GM said how the character comes across.
+  - The GM is told to write the player character as vividly as anyone else in the scene, with their whole personality — never short, flat, noncommittal replies (when it may write their dialogue or reactions).
+  - When decisions are the player's, the GM still writes the character's honest reaction to an invitation or request (an opinion, a complaint, a joke, a question back, their front slipping) as long as it neither accepts nor refuses; characters do not pile up several questions waiting on the player — one open question at the end is enough.
+  - The reviewer counts such a reaction as dialogue, not a decision.
+  - The Persona reading adds **how the player character comes across and talks** (temperament, manner of speaking, reactions; a front and the real self when the Persona gives both). It is shown to the GM in PLAYER IN THIS WORLD and in the panel (性格与说话方式). Started chats get it after 更新本局身份 (shown when the Persona changes).
+- Tests: NI-50.
+
 ## 1.13.7 — 2026-10-25
 
 - **A question gets the player's answer once.** Live: a character pressed the player three times — “tonight is fine, tomorrow we'll see”, then “I already answered”, then “I don't have to report to you”. The first answer had been filed as accepting the matter (“continue it naturally”), the others not at all, and a question asked face to face never counted as unanswered either, so nothing told the GM it was settled.

@@ -36,6 +36,11 @@ export function playerVoice(v: Partial<PlayerVoice> | null | undefined): PlayerV
 
 export const voiceAllows = (v: PlayerVoice, kind: string | null | undefined) => !!kind && (VOICE_KINDS as readonly string[]).includes(kind) && v[kind as VoiceKind];
 
+/** Live: the player character answered every remark with two or three flat words while the NPCs were vivid. */
+export const LIVELY = 'Write the player character as vividly as anyone else in the scene: their lines and reactions carry their whole personality as the Persona gives it (how they come across and talk, in PLAYER IN THIS WORLD) — opinions, feelings, humour, their own questions, the way they put things. Never reduce them to short, flat, noncommittal replies.';
+/** Live: with decisions left to the player, 佐天's six invitations got six dodges ("看情况", "再说吧", "下午再说"). */
+export const REACT_NOT_DECIDE = 'When someone asks them to decide (an invitation, a request, a "will you…?"), still write their honest reaction — what they think of it, a complaint, a joke, a question back, their front slipping — as long as it neither accepts nor refuses; leave the yes or no itself to the player. Do not have them dodge every question with an empty non-answer, and do not have characters pile up several questions waiting on the player in one reply: one open question at the end is enough.';
+
 /** The GM instruction line for the player character. */
 export function voiceRule(v: PlayerVoice): string {
   const may = VOICE_KINDS.filter((k) => v[k]);
@@ -44,7 +49,9 @@ export function voiceRule(v: PlayerVoice): string {
   const always = ` Always leave to the player, whatever else you may write for them: ${INTERVENTION_TEXT}. When a canonical event or another character's significant act happens in front of the player character, let it go on as it would; you may show what the player character notices or suspects, but any interference is the player's to write (they can still act in their next message).`;
   if (!may.length) return `${own} Do not supply new voluntary player actions, decisions, dialogue, consent, or equipment/skill use.${always}`;
   return `THE PLAYER CHARACTER: the player wants you to write these for their character, in character with their Persona and the scene — do it naturally, as part of the scene: ${may.map((k) => VOICE_TEXT[k]).join('; ')}. `
+    + (v.dialogue || v.reactions ? `${LIVELY} ` : '')
     + (not.length ? `Leave these to the player (do not write them unless the player's message does): ${not.map((k) => VOICE_TEXT[k]).join('; ')}. ` : '')
+    + (v.dialogue && !v.decisions ? `${REACT_NOT_DECIDE} ` : '')
     + own + always;
 }
 
