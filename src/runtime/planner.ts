@@ -203,10 +203,11 @@ export async function runPlanning(args: {
       original_upstream: (pack.edgesTo.get(id) || []).map((x) => ({ from: x.from, relation: x.relation, status: index.canonStatus(x.from, clockTick)?.status })),
     };
   });
-  // The entities of the events it plans around carry their short description; the rest are listed by name.
+  // The entities of the events it plans around (the HARD events in detail and the next day's events) carry their
+  // short description; the rest are listed by name (live: with every later HARD event, 134 of 227 had one).
   const route = upcomingRoute(pack, state, clockTick, 24 * 60);
   const noted = new Set<Id>();
-  for (const id of [...scope.detailed, ...scope.register, ...route.map((u) => u.event.id)]) {
+  for (const id of [...scope.detailed, ...route.map((u) => u.event.id)]) {
     const e = pack.events.get(id);
     if (!e) continue;
     [...e.entity_ids, ...e.location_ids, ...e.outcomes.map((o) => o.entity_id), ...(e.cast || []).map((c) => c.entity_id)].forEach((x) => noted.add(x));

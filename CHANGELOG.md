@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.14.2 — 2026-10-26
+
+- The planner gets descriptions only for the entities of the HARD events it plans in detail and of the next day's events, not of every later HARD event (live: 134 of 227 entities carried one).
+
 ## 1.14.1 — 2026-10-26
 
 - **The analysis steps that judge plausibility see who people and places are.** The pack's one-line description of each person, place and organization (school or affiliation, level, ability, a trait) was given to no model before. Now the world-reaction step and the reviewer get it for the entities they are already handling, and the planner gets it for the people, places and organizations of the events it plans around (the rest stay listed by name). Descriptions are capped at 160 characters. Other steps, the GM and the lorebook are unchanged.

@@ -21183,7 +21183,7 @@ async function runPlanning(args) {
   });
   const route = upcomingRoute(pack2, state, clockTick, 24 * 60);
   const noted = /* @__PURE__ */ new Set();
-  for (const id of [...scope.detailed, ...scope.register, ...route.map((u) => u.event.id)]) {
+  for (const id of [...scope.detailed, ...route.map((u) => u.event.id)]) {
     const e = pack2.events.get(id);
     if (!e) continue;
     [...e.entity_ids, ...e.location_ids, ...e.outcomes.map((o) => o.entity_id), ...(e.cast || []).map((c) => c.entity_id)].forEach((x) => noted.add(x));
@@ -21957,7 +21957,7 @@ function engagementRecord(s0, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.14.1";
+var ENGINE_RELEASE = "1.14.2";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
