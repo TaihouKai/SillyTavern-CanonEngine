@@ -71,6 +71,9 @@ function tokens(text: string): string[] {
 }
 const STOP = new Set(['the', 'a', 'an', 'of', 'to', 'and', 'or', 'in', 'on', 'at', 'by', 'for', 'with', 'is', 'was', 'were', 'be', 'it', 'that', 'this', 'as', 'from', 'his', 'her', 'their', 'you', 'your', 'i', 'my', 'me', 'we', 'our']);
 
+/** Longest entity description given to an analysis step (pack descriptions are one sentence). */
+export const ENTITY_NOTE_CHARS = 160;
+
 export class WorldIndex {
   /** Display origin (calendar date of day 0) of the active binding; affects labels only. */
   static displayOrigin: { y: number; m: number; d: number } | null = null;
@@ -120,6 +123,14 @@ export class WorldIndex {
 
   entityName(id: Id): string {
     return this.pack.entities.get(id)?.name || this.state.runtimeEntities.get(id)?.name || id;
+  }
+
+  /** The short description of an entity (the pack's static description, or a runtime entity's), for analysis
+   *  inputs; '' when there is none. */
+  entityNote(id: Id): string {
+    const d = this.pack.entities.get(id)?.static_description ?? this.state.runtimeEntities.get(id)?.description ?? '';
+    const t = String(d).replace(/\s+/g, ' ').trim();
+    return t.length > ENTITY_NOTE_CHARS ? `${t.slice(0, ENTITY_NOTE_CHARS - 1)}…` : t;
   }
 
   allNames(id: Id): string[] {

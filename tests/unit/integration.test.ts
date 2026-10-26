@@ -809,4 +809,36 @@ describe('preferred matters', () => {
     expect(lastCtx(y)).not.toMatch(/- how they come across and talk/);
   });
 
+  it('NI-51 the steps that judge plausibility see who people and places are: the world reaction and the reviewer get the pack descriptions of the entities they handle, the planner those of the events it plans around', async () => {
+    const pack = JSON.parse(demo);
+    const desc = new Map<string, string>(pack.entities.map((e: any) => [e.id, e.static_description]));
+    const x = await setup();
+    await turn(x, 'I ask Mira about the council.', 'Mira shrugs. The council meets at noon. [W52]', { scene_end: at(1, 9, 35) });
+    const line = (reg: any, id: string) => reg.entities.find((l: string) => l.startsWith(`${id} | `));
+    // the reviewer and the world reaction: one line per entity, ending in its description
+    for (const task of ['evaluate', 'integrate'] as const) {
+      const reg = x.model.tasks(task).slice(-1)[0].input.registry;
+      expect(reg.entities_format).toBe('id | name | aliases | kind | description');
+      expect(line(reg, 'mira')).toMatch(new RegExp(`\\| person \\| ${desc.get('mira')!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+      // the player (a runtime entity) carries its own description
+      if (task === 'evaluate') expect(reg.entities.some((l: string) => l.startsWith('rt.player.') && / \| The player character\./.test(l))).toBe(true);
+    }
+    // the other steps keep the short registry
+    const ex = x.model.tasks('extract_user').slice(-1)[0].input.registry;
+    expect(ex.entities_format).toBe('id | name | aliases | kind');
+    expect(line(ex, 'mira')).toBe('mira | Mira | ' + (pack.entities.find((e: any) => e.id === 'mira').aliases || []).join(', ') + ' | person');
+    // the planner: descriptions for the entities of the events it plans around, names only for the rest
+    const plan = x.model.tasks('plan').slice(-1)[0]?.input;
+    expect(plan).toBeTruthy();
+    const ids = new Set<string>();
+    for (const h of plan.protected_hard_detailed) { const e = pack.events.find((v: any) => v.id === h.id); [...e.entity_ids, ...e.location_ids, ...e.outcomes.map((o: any) => o.entity_id)].forEach((v: string) => ids.add(v)); }
+    expect(ids.size).toBeGreaterThan(0);
+    for (const id of ids) if (desc.get(id)) expect(plan.entities.find((e: any) => e.id === id)).toMatchObject({ about: desc.get(id) });
+    const involved = new Set<string>(pack.events.flatMap((e: any) => [...e.entity_ids, ...e.location_ids, ...e.outcomes.map((o: any) => o.entity_id), ...(e.cast || []).map((c: any) => c.entity_id)]));
+    const outside = plan.entities.filter((e: any) => !involved.has(e.id));
+    for (const e of outside) expect(e.about).toBeUndefined();
+    // long descriptions are cut
+    expect(x.engine.current!.index.entityNote('nobody-at-all')).toBe('');
+  });
+
 });

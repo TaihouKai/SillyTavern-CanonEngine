@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.14.1 — 2026-10-26
+
+- **The analysis steps that judge plausibility see who people and places are.** The pack's one-line description of each person, place and organization (school or affiliation, level, ability, a trait) was given to no model before. Now the world-reaction step and the reviewer get it for the entities they are already handling, and the planner gets it for the people, places and organizations of the events it plans around (the rest stay listed by name). Descriptions are capped at 160 characters. Other steps, the GM and the lorebook are unchanged.
+- Tests: NI-51.
+
 ## 1.14.0 — 2026-10-26
 
 - **The player character talks like a person.** Live: in a convenience-store scene the NPC was vivid while the player character answered everything with two or three flat words (“补货。”, “看情况。”, “再说吧。”, “下午再说。”). Two causes: with decisions left to the player, every invitation could only be dodged, and nothing near the GM said how the character comes across.

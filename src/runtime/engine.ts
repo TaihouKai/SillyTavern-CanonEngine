@@ -621,7 +621,9 @@ export class CanonEngine {
    *  scene, recent events, the active plan and near HARD outcomes — not the whole cast (211 entities in a large
    *  pack, in several calls per turn). Any other known entity can still be given by its exact name: the gate
    *  resolves names to ids, and a "new" entity with a known name maps to the existing one. */
-  private registry(index: WorldIndex, text: string, extra: Iterable<Id> = []) {
+  /** The entities relevant to a text, for an analysis step. With notes (the steps that judge plausibility: the
+   *  world's reaction and the review), each line also carries the entity's short description from the pack. */
+  private registry(index: WorldIndex, text: string, extra: Iterable<Id> = [], opts: { notes?: boolean } = {}) {
     const pack = index.pack;
     const ids = new Set<Id>(extra);
     for (const m of index.scanEntities(text)) ids.add(m.id);
@@ -630,10 +632,10 @@ export class CanonEngine {
     const tick = index.state.clock.lo;
     for (const h of pendingHard(pack, index.state)) if (h.lo <= tick + this.settings.horizonMinutes) h.event.outcomes.forEach((o) => ids.add(o.entity_id));
     // One line per entry ("id | name | aliases | kind"): half the size of objects.
-    const ent = (e: { id: string; name: string; aliases?: string[]; kind: string }) => `${e.id} | ${e.name} | ${(e.aliases || []).join(', ')} | ${e.kind}`;
+    const ent = (e: { id: string; name: string; aliases?: string[]; kind: string }) => `${e.id} | ${e.name} | ${(e.aliases || []).join(', ')} | ${e.kind}${opts.notes ? ` | ${index.entityNote(e.id)}` : ''}`;
     const all = [...pack.entities.values(), ...index.state.runtimeEntities.values()];
     return {
-      entities_format: 'id | name | aliases | kind',
+      entities_format: opts.notes ? 'id | name | aliases | kind | description' : 'id | name | aliases | kind',
       entities_note: `Entities relevant to this text (${ids.size} of ${all.length} known). For any other known person, place or thing use its exact name; the engine resolves it.`,
       entities: all.filter((e) => ids.has(e.id)).map(ent),
       predicates: [...pack.predicates.values()].map((p) => `${p.id} (${p.value_type}${p.allowed_values?.length ? `: ${p.allowed_values.join('/')}` : ''}): ${p.description}`),
@@ -930,7 +932,7 @@ export class CanonEngine {
       staged_offscreen: a.stagedNotes,
       due_hard: due.map((h) => ({ event_id: h.event.id, required_description: h.event.required_description, outcomes: h.event.outcomes, earliest: h.event.when.earliest, latest: h.event.when.latest })),
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== 'invalidated').map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
-      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.entities.keys(), ...a.sceneSeeds, ...(prof ? [prof.profile.playerId] : []), ...(a.offered?.actors || [])]),
+      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.entities.keys(), ...a.sceneSeeds, ...(prof ? [prof.profile.playerId] : []), ...(a.offered?.actors || [])], { notes: true }),
       reeval_reasons: a.reevalReasons || [],
       player_entity: prof ? { id: prof.profile.playerId, name: prof.profile.personaName } : null,
       engagement: decisions,
@@ -1759,7 +1761,7 @@ export class CanonEngine {
       ...(c.preferredScopes?.length ? { preferred: c.preferredScopes } : {}),
       ...(quiet ? { quiet_day: true, ...(recentJobs.length ? { recent_jobs: recentJobs } : {}) } : {}),
       ...(kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {}),
-      registry: this.registry(index, `${userEntry?.text || ''} ${candidates.map((x) => x.event.title).join(' ')}`, [...withIds, ...profile.relationships.map((r) => r.entityId).filter(Boolean) as Id[]]),
+      registry: this.registry(index, `${userEntry?.text || ''} ${candidates.map((x) => x.event.title).join(' ')}`, [...withIds, ...profile.relationships.map((r) => r.entityId).filter(Boolean) as Id[]], { notes: true }),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 8000 }), this.settings.taskTimeoutMs * 4, signal);
     const checked = checkOpportunities(out, index, profile, candidates, tick, quiet);
     const dropped = [...checked.dropped, ...checked.valid.filter((o) => keptScopes.has(`${o.scopeKind}:${o.scopeRef}`)).map((o) => ({ id: o.id, reason: `${o.scopeLabel} is kept as it was` }))];

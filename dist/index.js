@@ -16383,6 +16383,7 @@ function tokens(text) {
   return out;
 }
 var STOP = /* @__PURE__ */ new Set(["the", "a", "an", "of", "to", "and", "or", "in", "on", "at", "by", "for", "with", "is", "was", "were", "be", "it", "that", "this", "as", "from", "his", "her", "their", "you", "your", "i", "my", "me", "we", "our"]);
+var ENTITY_NOTE_CHARS = 160;
 var WorldIndex = class _WorldIndex {
   /** Display origin (calendar date of day 0) of the active binding; affects labels only. */
   static displayOrigin = null;
@@ -16429,6 +16430,13 @@ var WorldIndex = class _WorldIndex {
   }
   entityName(id) {
     return this.pack.entities.get(id)?.name || this.state.runtimeEntities.get(id)?.name || id;
+  }
+  /** The short description of an entity (the pack's static description, or a runtime entity's), for analysis
+   *  inputs; '' when there is none. */
+  entityNote(id) {
+    const d = this.pack.entities.get(id)?.static_description ?? this.state.runtimeEntities.get(id)?.description ?? "";
+    const t2 = String(d).replace(/\s+/g, " ").trim();
+    return t2.length > ENTITY_NOTE_CHARS ? `${t2.slice(0, ENTITY_NOTE_CHARS - 1)}\u2026` : t2;
   }
   allNames(id) {
     const e = this.pack.entities.get(id);
@@ -21173,6 +21181,14 @@ async function runPlanning(args) {
       original_upstream: (pack2.edgesTo.get(id) || []).map((x) => ({ from: x.from, relation: x.relation, status: index.canonStatus(x.from, clockTick)?.status }))
     };
   });
+  const route = upcomingRoute(pack2, state, clockTick, 24 * 60);
+  const noted = /* @__PURE__ */ new Set();
+  for (const id of [...scope.detailed, ...scope.register, ...route.map((u) => u.event.id)]) {
+    const e = pack2.events.get(id);
+    if (!e) continue;
+    [...e.entity_ids, ...e.location_ids, ...e.outcomes.map((o) => o.entity_id), ...(e.cast || []).map((c) => c.entity_id)].forEach((x) => noted.add(x));
+  }
+  const entityLine = (e) => ({ id: e.id, name: e.name, kind: e.kind, ...noted.has(e.id) && index.entityNote(e.id) ? { about: index.entityNote(e.id) } : {} });
   const errors = [];
   const diagnosis = diagnoseForced(pack2, state, scope, clockTick);
   let attempts = 0;
@@ -21187,9 +21203,9 @@ async function runPlanning(args) {
       actual_world: args.facts,
       recent_situation: args.situation || "",
       player_interests: args.interests || [],
-      others_original_situation: upcomingRoute(pack2, state, clockTick, 24 * 60).map((u) => ({ id: u.event.id, at: formatTick(u.lo), situation: causeOf(u.event) })),
+      others_original_situation: route.map((u) => ({ id: u.event.id, at: formatTick(u.lo), situation: causeOf(u.event) })),
       deviations: [...state.dispositions].filter(([, d]) => d.disposition !== "occurred").map(([id, d]) => ({ id, disposition: d.disposition, reason: d.reason })),
-      entities: [...pack2.entities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind })).concat([...state.runtimeEntities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind }))),
+      entities: [...pack2.entities.values(), ...state.runtimeEntities.values()].map(entityLine),
       predicates: [...pack2.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values })),
       previous_errors: errors.slice(-6),
       player: args.player
@@ -21941,7 +21957,7 @@ function engagementRecord(s0, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.14.0";
+var ENGINE_RELEASE = "1.14.1";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -22525,7 +22541,9 @@ var CanonEngine = class {
    *  scene, recent events, the active plan and near HARD outcomes — not the whole cast (211 entities in a large
    *  pack, in several calls per turn). Any other known entity can still be given by its exact name: the gate
    *  resolves names to ids, and a "new" entity with a known name maps to the existing one. */
-  registry(index, text, extra = []) {
+  /** The entities relevant to a text, for an analysis step. With notes (the steps that judge plausibility: the
+   *  world's reaction and the review), each line also carries the entity's short description from the pack. */
+  registry(index, text, extra = [], opts = {}) {
     const pack2 = index.pack;
     const ids = new Set(extra);
     for (const m of index.scanEntities(text)) ids.add(m.id);
@@ -22533,10 +22551,10 @@ var CanonEngine = class {
     for (const s of this.activePlan()?.steps || []) if (s.status !== "invalidated") [...s.actors, ...s.targets || []].forEach((x) => ids.add(x));
     const tick = index.state.clock.lo;
     for (const h of pendingHard(pack2, index.state)) if (h.lo <= tick + this.settings.horizonMinutes) h.event.outcomes.forEach((o) => ids.add(o.entity_id));
-    const ent = (e) => `${e.id} | ${e.name} | ${(e.aliases || []).join(", ")} | ${e.kind}`;
+    const ent = (e) => `${e.id} | ${e.name} | ${(e.aliases || []).join(", ")} | ${e.kind}${opts.notes ? ` | ${index.entityNote(e.id)}` : ""}`;
     const all = [...pack2.entities.values(), ...index.state.runtimeEntities.values()];
     return {
-      entities_format: "id | name | aliases | kind",
+      entities_format: opts.notes ? "id | name | aliases | kind | description" : "id | name | aliases | kind",
       entities_note: `Entities relevant to this text (${ids.size} of ${all.length} known). For any other known person, place or thing use its exact name; the engine resolves it.`,
       entities: all.filter((e) => ids.has(e.id)).map(ent),
       predicates: [...pack2.predicates.values()].map((p) => `${p.id} (${p.value_type}${p.allowed_values?.length ? `: ${p.allowed_values.join("/")}` : ""}): ${p.description}`)
@@ -22875,7 +22893,7 @@ var CanonEngine = class {
       staged_offscreen: a.stagedNotes,
       due_hard: due.map((h) => ({ event_id: h.event.id, required_description: h.event.required_description, outcomes: h.event.outcomes, earliest: h.event.when.earliest, latest: h.event.when.latest })),
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== "invalidated").map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
-      registry: this.registry(index, a.text + " " + (a.userEntry?.text || ""), [...retrieval.entities.keys(), ...a.sceneSeeds, ...prof ? [prof.profile.playerId] : [], ...a.offered?.actors || []]),
+      registry: this.registry(index, a.text + " " + (a.userEntry?.text || ""), [...retrieval.entities.keys(), ...a.sceneSeeds, ...prof ? [prof.profile.playerId] : [], ...a.offered?.actors || []], { notes: true }),
       reeval_reasons: a.reevalReasons || [],
       player_entity: prof ? { id: prof.profile.playerId, name: prof.profile.personaName } : null,
       engagement: decisions,
@@ -23781,7 +23799,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       ...c.preferredScopes?.length ? { preferred: c.preferredScopes } : {},
       ...quiet ? { quiet_day: true, ...recentJobs.length ? { recent_jobs: recentJobs } : {} } : {},
       ...kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {},
-      registry: this.registry(index, `${userEntry?.text || ""} ${candidates.map((x) => x.event.title).join(" ")}`, [...withIds, ...profile2.relationships.map((r) => r.entityId).filter(Boolean)])
+      registry: this.registry(index, `${userEntry?.text || ""} ${candidates.map((x) => x.event.title).join(" ")}`, [...withIds, ...profile2.relationships.map((r) => r.entityId).filter(Boolean)], { notes: true })
     }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 8e3 }), this.settings.taskTimeoutMs * 4, signal);
     const checked = checkOpportunities(out, index, profile2, candidates, tick, quiet);
     const dropped = [...checked.dropped, ...checked.valid.filter((o) => keptScopes.has(`${o.scopeKind}:${o.scopeRef}`)).map((o) => ({ id: o.id, reason: `${o.scopeLabel} is kept as it was` }))];

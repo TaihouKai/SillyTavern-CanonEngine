@@ -203,6 +203,15 @@ export async function runPlanning(args: {
       original_upstream: (pack.edgesTo.get(id) || []).map((x) => ({ from: x.from, relation: x.relation, status: index.canonStatus(x.from, clockTick)?.status })),
     };
   });
+  // The entities of the events it plans around carry their short description; the rest are listed by name.
+  const route = upcomingRoute(pack, state, clockTick, 24 * 60);
+  const noted = new Set<Id>();
+  for (const id of [...scope.detailed, ...scope.register, ...route.map((u) => u.event.id)]) {
+    const e = pack.events.get(id);
+    if (!e) continue;
+    [...e.entity_ids, ...e.location_ids, ...e.outcomes.map((o) => o.entity_id), ...(e.cast || []).map((c) => c.entity_id)].forEach((x) => noted.add(x));
+  }
+  const entityLine = (e: { id: Id; name: string; kind: string }) => ({ id: e.id, name: e.name, kind: e.kind, ...(noted.has(e.id) && index.entityNote(e.id) ? { about: index.entityNote(e.id) } : {}) });
   const errors: string[] = [];
   const diagnosis = diagnoseForced(pack, state, scope, clockTick);
   let attempts = 0;
@@ -217,9 +226,9 @@ export async function runPlanning(args: {
       actual_world: args.facts,
       recent_situation: args.situation || '',
       player_interests: args.interests || [],
-      others_original_situation: upcomingRoute(pack, state, clockTick, 24 * 60).map((u) => ({ id: u.event.id, at: formatTick(u.lo), situation: causeOf(u.event) })),
+      others_original_situation: route.map((u) => ({ id: u.event.id, at: formatTick(u.lo), situation: causeOf(u.event) })),
       deviations: [...state.dispositions].filter(([, d]) => d.disposition !== 'occurred').map(([id, d]) => ({ id, disposition: d.disposition, reason: d.reason })),
-      entities: [...pack.entities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind })).concat([...state.runtimeEntities.values()].map((e) => ({ id: e.id, name: e.name, kind: e.kind }))),
+      entities: [...pack.entities.values(), ...state.runtimeEntities.values()].map(entityLine),
       predicates: [...pack.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values })),
       previous_errors: errors.slice(-6),
       player: args.player,
