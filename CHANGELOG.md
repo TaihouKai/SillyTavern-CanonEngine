@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.16.1 — 2026-10-28
+
+- **A pack in the pack library can be viewed without enabling it.** Each row of 历史包库 has a 查看 button: it opens the history graph on that pack's canon reference view (all events, spoilers) with 正在查看：<pack> in the header, in any chat, bound or not, and without changing the chat. 退出查看 (or closing the panel) returns to the chat's own graph.
+- Tests: e2e `tests/e2e/libview.mjs` (LV01–LV08).
+
 ## 1.16.0 — 2026-10-28
 
 - **A chat keeps only a reference to its history pack.** Until now every bound chat carried a full copy of its pack in its metadata. With the FGO main-story pack (15 MB) every chat file was 15.7 MB, saved on every turn, and SillyTavern's automatic chat backups piled up 15 MB each (ten in a few minutes in the test SillyTavern). Now the pack is kept once in the pack library (历史包库, the user's files folder) and the chat records its id, version, title, file and hash. The FGO chat file is 34 KB.

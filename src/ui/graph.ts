@@ -416,7 +416,10 @@ export class GraphPanel {
   private keepView = false;
   private sig = '';
   private selected: string | null = null;
-  private getData: (spoilers: boolean) => { pack: GraphData | null; current: GraphData | null; spoilers: boolean; digested?: boolean };
+  /** `preview` names a library pack shown without a chat binding (only its canon reference view). */
+  private getData: (spoilers: boolean) => { pack: GraphData | null; current: GraphData | null; spoilers: boolean; digested?: boolean; preview?: string };
+  /** Called when the panel closes or the user leaves a library pack preview. */
+  onPreviewEnd: (() => void) | null = null;
   private setSpoilers: (v: boolean) => void;
   private onEventAction: (act: 'force' | 'unforce' | 'focus' | 'digest' | 'undigest' | 'reanalyze' | 'conclude' | 'link-occurred' | 'link-diverged' | 'set-frame', id: string, ids?: string[]) => Promise<void>;
   private linkCandidates: (id: string) => { id: string; title: string; when: string }[];
@@ -449,13 +452,14 @@ export class GraphPanel {
   toggle(open?: boolean) {
     const o = open ?? !this.isOpen();
     this.el.style.display = o ? '' : 'none';
-    if (o) this.refresh();
+    if (o) this.refresh(); else this.onPreviewEnd?.();
   }
 
   refresh() {
     if (!this.isOpen()) return;
     const d = this.getData(false);
     this.data = { pack: d.pack, current: d.current };
+    if (d.preview) { this.mode = 'pack'; this.showMembers = false; }
     if (!d.current && this.mode === 'current') this.mode = 'pack';
     const g0 = this.mode === 'pack' ? d.pack : d.current;
     const g = g0 ? this.applyFilter(g0) : null;
@@ -464,7 +468,7 @@ export class GraphPanel {
     const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc(a.id)}" ${a.id === this.filter.arc ? 'selected' : ''}>${esc(a.title)}</option>`).join('');
     this.el.innerHTML = `
       <div class="cg-head">
-        <b>${t('graphTitle')}</b>
+        <b>${t('graphTitle')}</b>${d.preview ? `<span class="cg-preview">${t('libViewing')}：${esc(d.preview)}</span><button class="menu_button" data-act="preview-exit">${t('libViewExit')}</button>` : ''}
         <div class="cg-tabs">
           <button class="menu_button ${this.mode === 'current' ? 'active' : ''}" data-mode="current" ${d.current ? '' : 'disabled'}>${t('graphCurrent')}</button>
           <button class="menu_button ${this.mode === 'pack' ? 'active' : ''}" data-mode="pack" ${d.pack ? '' : 'disabled'}>${t('graphPack')}</button>
@@ -472,10 +476,10 @@ export class GraphPanel {
         <input class="text_pole cg-q" placeholder="${t('graphSearch')}" value="${esc(this.filter.q)}">
         <select class="text_pole cg-arc"><option value="">${t('graphAllArcs')}</option>${arcs}</select>
         ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? 'checked' : ''}>${LANE_LABEL[l]}</label>`).join('')}
-        <label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? 'checked' : ''}>${t('spoilers')}</label>
+        ${d.preview ? '' : `<label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? 'checked' : ''}>${t('spoilers')}</label>`}
         ${this.mode === 'current' && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t('digestTip'))}">${t('digest')}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t('undigestTip'))}">${t('undigest')}</button>` : ''}` : ''}
         ${this.mode === 'current' && d.current?.frames?.now ? this.frameSelect(d.current) : ''}
-        <button class="menu_button ${this.showMembers ? 'active' : ''}" data-act="members" title="${esc(t('membersTip'))}">${t('members')}</button>
+        ${d.preview ? '' : `<button class="menu_button ${this.showMembers ? 'active' : ''}" data-act="members" title="${esc(t('membersTip'))}">${t('members')}</button>`}
         <button class="menu_button" data-act="fit">${t('graphFit')}</button>
         <button class="menu_button" data-act="close">✕</button>
       </div>
@@ -629,6 +633,7 @@ export class GraphPanel {
     const b = tg.closest('[data-mode],[data-act]') as HTMLElement | null;
     if (b?.dataset.mode) { this.mode = b.dataset.mode as 'pack' | 'current'; this.selected = null; this.refresh(); return; }
     if (b?.dataset.act === 'close') { this.toggle(false); return; }
+    if (b?.dataset.act === 'preview-exit') { this.onPreviewEnd?.(); this.selected = null; this.keepView = false; this.refresh(); return; }
     if (b?.dataset.act === 'members') { this.showMembers = !this.showMembers; this.keepView = true; this.refresh(); return; }
     if (b?.dataset.act === 'fit') { (this as unknown as { fit?: () => void }).fit?.(); return; }
     if (b?.dataset.act === 'digest' || b?.dataset.act === 'undigest') {

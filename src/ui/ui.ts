@@ -12,6 +12,7 @@ import { parseTickLabel, parseDateLabel, parseOriginLabel, formatTick } from '..
 import { t, setLang } from './i18n';
 import { primeNotifications, systemNotificationsAvailable } from './notify';
 import { GraphPanel, packGraph, currentGraph } from './graph';
+import { validatePackText, type LoadedPack } from '../domain/pack';
 import { listLibrary, saveToLibrary, loadFromLibrary, removeFromLibrary, type LibraryEntry } from './library';
 
 export { t };
@@ -26,6 +27,8 @@ let getLock: () => WriterLock | null;
 let inspectorEl: HTMLElement | null = null;
 let inspectorTab = 'overview';
 let graphPanel: GraphPanel | null = null;
+/** A library pack opened for viewing (历史包库 → 查看): shown in the graph without binding it to a chat. */
+let packPreview: { label: string; pack: LoadedPack; origin: { y: number; m: number; d: number } | null } | null = null;
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
@@ -45,6 +48,7 @@ function mountTopButton() {
   if (document.getElementById('canon-engine-top-button')) return;
   graphPanel = new GraphPanel((sp) => {
     void sp;
+    if (packPreview) { const pg = packGraph(packPreview.pack, packPreview.origin); return { pack: pg, current: null, spoilers: true, preview: packPreview.label }; }
     const src = (() => { try { return E.graphSource(); } catch { return null; } })();
     const camp = E.campaign();
     const spoilers = !!camp?.uiPreferences.spoilers;
@@ -71,6 +75,7 @@ function mountTopButton() {
       else await E.undoForce(id);
     } catch (e) { toast('error', (e as Error).message); }
   }, (id) => { try { return E.linkCandidates(id); } catch { return []; } }, () => { try { return E.membershipView(!!E.campaign()?.uiPreferences.spoilers); } catch { return null; } });
+  graphPanel.onPreviewEnd = () => { packPreview = null; };
   const holder = document.getElementById('top-settings-holder');
   const btn = document.createElement('div');
   btn.id = 'canon-engine-top-button';
@@ -205,6 +210,7 @@ function renderSettings() {
   // ---- this chat
   const lib = listLibrary();
   const libRows = (mode: 'enable' | 'update' | 'none') => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc(e.file)}"><b>${esc(e.title)}</b> v${esc(e.version)} · ${Math.round(e.size / 1024)} KB</span>
+      <button class="menu_button canon-btn" data-act="lib-view" data-i="${i}" title="${t('libViewTip')}">${t('libView')}</button>
       ${mode === 'update' ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t('libUpdate')}</button>` : ''}
       ${mode === 'enable' ? `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}" ${profileOk ? '' : 'disabled'}>${t('libEnable')}</button>` : ''}
       <button class="menu_button canon-btn" data-act="lib-del" data-i="${i}" title="${t('libDelete')}">✕</button></div>`).join('');
@@ -375,6 +381,12 @@ async function onSettingsClick(ev: Event) {
       if (H.isGroup()) { toast('error', t('groupUnsupported')); return; }
       const text = await loadFromLibrary(e);
       if (act === 'lib-enable') openBindWizard(text); else await updateOrRelink(text);
+    } else if (act === 'lib-view') {
+      const e = libEntry(); if (!e) return;
+      const r = validatePackText(await loadFromLibrary(e));
+      if (!r.ok || !r.loaded) { toast('error', `${t('validation')}: ${t('failed')} — ${r.errors.slice(0, 3).map((x) => `${x.path} ${x.message}`).join('; ')}`); return; }
+      packPreview = { label: `${e.title} v${e.version}`, pack: r.loaded, origin: parseOriginLabel(r.loaded.pack.calendar.origin_label) };
+      openGraph();
     } else if (act === 'lib-del') {
       const e = libEntry(); if (!e) return;
       if (!confirm(`${t('libDelete')}: ${e.title} v${e.version}?${E.campaign()?.packHash === e.hash ? '\n\n' + t('libDeleteInUse') : '\n\n' + t('libDeleteOther')}`)) return;

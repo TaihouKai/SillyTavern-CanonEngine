@@ -50,6 +50,7 @@
 .canon-graph-panel .cg-head > b { font-size: 15px; margin-right: 6px; }
 .canon-graph-panel .cg-tabs { display: flex; gap: 4px; }
 .canon-graph-panel .cg-tabs .menu_button.active { outline: 2px solid var(--SmartThemeQuoteColor, #e18a24); }
+.canon-graph-panel .cg-preview { padding: 2px 8px; border-radius: 4px; background: var(--SmartThemeQuoteColor, #e18a24); color: #fff; font-size: 0.9em; }
 .canon-graph-panel .cg-q { width: 160px; margin: 0; }
 .canon-graph-panel .cg-arc { width: 180px; margin: 0; }
 .canon-graph-panel .cg-lanechk { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }

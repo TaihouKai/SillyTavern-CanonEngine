@@ -26543,6 +26543,10 @@ var D = {
   graphCurrentNote: { zh: "\u672C\u5C40\u5B9E\u9645\u5386\u53F2\uFF1A\u542B\u4F60\u7684\u884C\u52A8\u9020\u6210\u7684\u6539\u53D8\u4E0E\u672C\u5C40\u65B0\u4E8B\u4EF6", en: "Actual history of this playthrough, including your changes" },
   libEnable: { zh: "\u7528\u6B64\u5305\u542F\u7528", en: "Enable with this pack" },
   libUpdate: { zh: "\u66F4\u65B0", en: "Update" },
+  libView: { zh: "\u67E5\u770B", en: "View" },
+  libViewTip: { zh: "\u5728\u5386\u53F2\u56FE\u91CC\u67E5\u770B\u8FD9\u4E2A\u5386\u53F2\u5305\u7684\u5168\u90E8\u4E8B\u4EF6\uFF08\u539F\u4F5C\u53C2\u8003\uFF0C\u542B\u5267\u900F\uFF09\uFF0C\u4E0D\u9700\u8981\u5148\u7ED9\u5BF9\u8BDD\u542F\u7528\u3002", en: "Show all events of this pack in the history graph (canon reference, spoilers) without enabling it for a chat." },
+  libViewing: { zh: "\u6B63\u5728\u67E5\u770B", en: "Viewing" },
+  libViewExit: { zh: "\u9000\u51FA\u67E5\u770B", en: "Exit view" },
   libDelete: { zh: "\u4ECE\u5386\u53F2\u5305\u5E93\u5220\u9664", en: "Remove from library" },
   packOrigin: { zh: "\u5386\u53F2\u5305\u8BF4\u660E\u7684\u7B2C0\u5929", en: "Pack day 0" },
   sceneGrouping: { zh: "\u5408\u5E76\u540C\u4E00\u573A\u666F\u7684\u672C\u5C40\u4E8B\u4EF6", en: "Group events of the same scene" },
@@ -27241,7 +27245,10 @@ var GraphPanel = class {
   keepView = false;
   sig = "";
   selected = null;
+  /** `preview` names a library pack shown without a chat binding (only its canon reference view). */
   getData;
+  /** Called when the panel closes or the user leaves a library pack preview. */
+  onPreviewEnd = null;
   setSpoilers;
   onEventAction;
   linkCandidates;
@@ -27275,11 +27282,16 @@ var GraphPanel = class {
     const o = open ?? !this.isOpen();
     this.el.style.display = o ? "" : "none";
     if (o) this.refresh();
+    else this.onPreviewEnd?.();
   }
   refresh() {
     if (!this.isOpen()) return;
     const d = this.getData(false);
     this.data = { pack: d.pack, current: d.current };
+    if (d.preview) {
+      this.mode = "pack";
+      this.showMembers = false;
+    }
     if (!d.current && this.mode === "current") this.mode = "pack";
     const g0 = this.mode === "pack" ? d.pack : d.current;
     const g = g0 ? this.applyFilter(g0) : null;
@@ -27287,7 +27299,7 @@ var GraphPanel = class {
     const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc(a.id)}" ${a.id === this.filter.arc ? "selected" : ""}>${esc(a.title)}</option>`).join("");
     this.el.innerHTML = `
       <div class="cg-head">
-        <b>${t("graphTitle")}</b>
+        <b>${t("graphTitle")}</b>${d.preview ? `<span class="cg-preview">${t("libViewing")}\uFF1A${esc(d.preview)}</span><button class="menu_button" data-act="preview-exit">${t("libViewExit")}</button>` : ""}
         <div class="cg-tabs">
           <button class="menu_button ${this.mode === "current" ? "active" : ""}" data-mode="current" ${d.current ? "" : "disabled"}>${t("graphCurrent")}</button>
           <button class="menu_button ${this.mode === "pack" ? "active" : ""}" data-mode="pack" ${d.pack ? "" : "disabled"}>${t("graphPack")}</button>
@@ -27295,10 +27307,10 @@ var GraphPanel = class {
         <input class="text_pole cg-q" placeholder="${t("graphSearch")}" value="${esc(this.filter.q)}">
         <select class="text_pole cg-arc"><option value="">${t("graphAllArcs")}</option>${arcs}</select>
         ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? "checked" : ""}>${LANE_LABEL[l]}</label>`).join("")}
-        <label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? "checked" : ""}>${t("spoilers")}</label>
+        ${d.preview ? "" : `<label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? "checked" : ""}>${t("spoilers")}</label>`}
         ${this.mode === "current" && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t("digestTip"))}">${t("digest")}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t("undigestTip"))}">${t("undigest")}</button>` : ""}` : ""}
         ${this.mode === "current" && d.current?.frames?.now ? this.frameSelect(d.current) : ""}
-        <button class="menu_button ${this.showMembers ? "active" : ""}" data-act="members" title="${esc(t("membersTip"))}">${t("members")}</button>
+        ${d.preview ? "" : `<button class="menu_button ${this.showMembers ? "active" : ""}" data-act="members" title="${esc(t("membersTip"))}">${t("members")}</button>`}
         <button class="menu_button" data-act="fit">${t("graphFit")}</button>
         <button class="menu_button" data-act="close">\u2715</button>
       </div>
@@ -27486,6 +27498,13 @@ var GraphPanel = class {
     }
     if (b?.dataset.act === "close") {
       this.toggle(false);
+      return;
+    }
+    if (b?.dataset.act === "preview-exit") {
+      this.onPreviewEnd?.();
+      this.selected = null;
+      this.keepView = false;
+      this.refresh();
       return;
     }
     if (b?.dataset.act === "members") {
@@ -27681,6 +27700,7 @@ var getLock;
 var inspectorEl = null;
 var inspectorTab = "overview";
 var graphPanel = null;
+var packPreview = null;
 var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 function mountUi(engine2, host2, settings, lock2) {
   E = engine2;
@@ -27698,6 +27718,10 @@ function mountTopButton() {
   if (document.getElementById("canon-engine-top-button")) return;
   graphPanel = new GraphPanel((sp) => {
     void sp;
+    if (packPreview) {
+      const pg2 = packGraph(packPreview.pack, packPreview.origin);
+      return { pack: pg2, current: null, spoilers: true, preview: packPreview.label };
+    }
     const src = (() => {
       try {
         return E.graphSource();
@@ -27772,6 +27796,9 @@ function mountTopButton() {
       return null;
     }
   });
+  graphPanel.onPreviewEnd = () => {
+    packPreview = null;
+  };
   const holder = document.getElementById("top-settings-holder");
   const btn = document.createElement("div");
   btn.id = "canon-engine-top-button";
@@ -27787,6 +27814,9 @@ function mountTopButton() {
   if (holder && before?.parentElement === holder) holder.insertBefore(btn, before);
   else if (holder) holder.appendChild(btn);
   else document.body.appendChild(btn);
+}
+function openGraph() {
+  graphPanel?.toggle(true);
 }
 function mountStatus() {
   if (document.getElementById("canon-engine-status")) return;
@@ -27900,6 +27930,7 @@ function renderSettings() {
   if (hd.version && !hd.ok) out.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc2(hd.missing.join(", "))}</div>`);
   const lib = listLibrary();
   const libRows = (mode) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc2(e.file)}"><b>${esc2(e.title)}</b> v${esc2(e.version)} \xB7 ${Math.round(e.size / 1024)} KB</span>
+      <button class="menu_button canon-btn" data-act="lib-view" data-i="${i}" title="${t("libViewTip")}">${t("libView")}</button>
       ${mode === "update" ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t("libUpdate")}</button>` : ""}
       ${mode === "enable" ? `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}" ${profileOk ? "" : "disabled"}>${t("libEnable")}</button>` : ""}
       <button class="menu_button canon-btn" data-act="lib-del" data-i="${i}" title="${t("libDelete")}">\u2715</button></div>`).join("");
@@ -28078,6 +28109,16 @@ async function onSettingsClick(ev) {
       const text = await loadFromLibrary(e);
       if (act === "lib-enable") openBindWizard(text);
       else await updateOrRelink(text);
+    } else if (act === "lib-view") {
+      const e = libEntry();
+      if (!e) return;
+      const r = validatePackText(await loadFromLibrary(e));
+      if (!r.ok || !r.loaded) {
+        toast("error", `${t("validation")}: ${t("failed")} \u2014 ${r.errors.slice(0, 3).map((x) => `${x.path} ${x.message}`).join("; ")}`);
+        return;
+      }
+      packPreview = { label: `${e.title} v${e.version}`, pack: r.loaded, origin: parseOriginLabel(r.loaded.pack.calendar.origin_label) };
+      openGraph();
     } else if (act === "lib-del") {
       const e = libEntry();
       if (!e) return;
