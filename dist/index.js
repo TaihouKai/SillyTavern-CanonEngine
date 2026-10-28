@@ -22652,7 +22652,7 @@ function engagementRecord(s0, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.15.0";
+var ENGINE_RELEASE = "1.15.1";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };

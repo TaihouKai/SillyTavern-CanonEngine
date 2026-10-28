@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.15.1 — 2026-10-28
+
+- Time frames, found live: the reviewer did not report a move into another frame (the reply had the team arrive on the 1600 harbor's quay; the scene stayed in the main frame). The instruction sat only in the input data, not in the reply format. It is now part of the reviewer's instructions (only for a pack with frames; other packs keep the prompt byte for byte). And when the reviewer reports none, the place of the last beat the player character takes part in decides, when that place belongs to a frame or is a known place of the main frame (a beat the player only watches does not move them).
+- Tests: FR11; FR4/FR5 check the reviewer's prompt.
+
 ## 1.15.0 — 2026-10-28
 
 - **Time frames: places with their own local time.** A story that visits another era or world (time travel to a past year and back, a realm where a week passes in a day, a dream) needs one story clock that only moves forward and, for each place, how local time reads there. A pack can now declare `frames`: each with a name, a description and a clock — `linked` (at main time `at` the local time is `local`, running `rate` local minutes per main minute) or `unlinked` (a label, no conversion). Places carry `frame_id`; an event is in its own `frame_id`, else in its place's frame, else in the main frame (`calendar.main_frame_name` names it). Every time stays on the main clock.

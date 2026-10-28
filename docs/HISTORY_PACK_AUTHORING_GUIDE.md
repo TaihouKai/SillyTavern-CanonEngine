@@ -125,7 +125,7 @@ A pack without `frames` has only the main frame. Nothing below changes anything 
 
 Put every event at the main-clock time it happens for the main frame's side. Two sides that run in parallel (the team in 1600, the bureau watching) are on the same main clock; a frame with `rate` other than 1 still has its events on the main clock (a week on the faerie hill is one main day). Keep the local date in `when.label` if you like, but the engine computes local time from the frame.
 
-At play time the reviewer reports when a reply moves the scene into or out of a frame (or the player sets 当前时空 on the timeline). The GM is told that every time it sees is on the main clock, which frame the scene is in and the local time of the frames in play; events in another frame carry their local time. Horae's date is not used while the scene is in another frame (it reads the local date).
+At play time the reviewer reports when a reply moves the scene into or out of a frame; without its report, the place of the last beat the player character takes part in decides when that place has a frame (or is a known main-frame place). The player can also set 当前时空 on the timeline. The GM is told that every time it sees is on the main clock, which frame the scene is in and the local time of the frames in play; events in another frame carry their local time. Horae's date is not used while the scene is in another frame (it reads the local date).
 
 `canon-lint` checks frame ids, unknown references, unreadable local dates, a frame on a non-place (warning) and an event whose places are in different frames without its own `frame_id` (warning). See `examples/frames-demo.canon.json`.
 
