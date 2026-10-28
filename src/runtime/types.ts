@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.15.2';
+export const ENGINE_RELEASE = '1.16.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -174,7 +174,11 @@ export interface CampaignData {
   parentBranch: string | null;
   chatId: string;
   integrity: string | null;
-  packSnapshot: CanonPack;
+  /** The pinned pack inside the chat (chats bound before 1.16.0, and hosts without a pack store). */
+  packSnapshot?: CanonPack;
+  /** The pinned pack kept in the host's pack store (ST: the pack library in the user's files); the chat keeps only
+   *  this reference. A 15 MB pack (FGO) made every chat file and every chat backup 15 MB. */
+  packRef?: PackRef;
   packHash: string;
   packVersion: string;
   binding: Binding;
@@ -288,6 +292,8 @@ export interface IntegrationCache {
 
 export interface EventDigest { at: number; groups: DigestGroup[] }
 export interface DigestGroup { id: string; title: string; summary: string; members: string[] }
+
+export interface PackRef { packId: string; version: string; title: string; file: string }
 
 export interface ManualRecord { afterMessageId: string | null; record: RecordDraft; at: number }
 

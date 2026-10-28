@@ -23,7 +23,7 @@ Nothing else is written. Unrelated metadata and other extensions' fields are pre
 | `sessionId` | Campaign identity, kept across renames and branches |
 | `branchId`, `parentBranch` | Editorial branch identity. A native ST branch (new chat id **and** new integrity slug) gets a new `branchId`; a rename (same integrity) keeps it |
 | `chatId`, `integrity` | Last seen ST chat file name and integrity slug (rename/branch detection) |
-| `packSnapshot`, `packHash`, `packVersion` | Pinned, validated copy of the pack. Hash = SHA-256 of normalized canonical JSON (entity sets sorted). Editing the pack file elsewhere never changes a running campaign |
+| `packRef`, `packHash`, `packVersion` | The pinned pack: `packRef` `{ packId, version, title, file }` points at its copy in the pack library (ST user files); `packHash` (SHA-256 of normalized canonical JSON, entity sets sorted) is checked whenever it is loaded, so editing or replacing the file never changes a running campaign — a different file is refused and reported as missing. Chats bound before 1.16.0 (and hosts without a pack store) carry `packSnapshot`, the whole pack; it moves to the library the first time the chat is opened. Backups always carry `packSnapshot` |
 | `binding` | `startTick`, optional display `originDate` for day 0, `startLabel`, `examinedMessages`, `unresolved`, `mode` (`new`/`existing`) |
 | `bootstrapRecords` | Pre-transcript seed: baseline facts + canonical history adjudicated up to the start point + start clock. The first message's rebuild falls back to this, never to an old first-message snapshot |
 | `revision` | Increments on every accepted source change / commit |

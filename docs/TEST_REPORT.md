@@ -1,6 +1,6 @@
 # Canon Engine — test report
 
-Latest full run: 2026-10-28, engine 1.15.2, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
+Latest full run: 2026-10-28, engine 1.16.0, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
 
 ## Environment
 
@@ -19,9 +19,10 @@ All automated suites use deterministic scripted model outputs. They prove the co
 
 | Suite | Where it runs | Result |
 | --- | --- | --- |
-| `tests/unit/*` (372 tests in 47 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **372 / 372 pass** |
+| `tests/unit/*` (379 tests in 48 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **379 / 379 pass** |
 | `tests/e2e/integration.mjs` (117 checks, sections S1–S22) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **117 / 117 pass** |
 | `tests/e2e/story-session.mjs` (12 checks) | real ST, UI-only: wizard via real file dialog, pack library, composer, banner, swipe arrow, ST edit/delete buttons, reload | **12 / 12 pass** |
+| `tests/e2e/packref.mjs` (9 checks) | real ST, mock model: pack kept by reference in the pack library — new binding, page reload, migration of a chat carrying its pack, deleted file reported and reconnected through the file dialog, 3,747-event pack chat file 34 KB | **9 / 9 pass** |
 | `tests/e2e/frames.mjs` (11 checks) | real ST, mock model: time frames example pack — GM prompt, reviewer input, scene frame, timeline stripes / local time / 现在 / 当前时空 | **11 / 11 pass** |
 | `dist/canon-lint.mjs` | sample packs valid (output for packs without frames identical to 1.14.2, local Toaru pack versions included); World Info file rejected with the specific error | pass |
 
@@ -155,6 +156,7 @@ Legend: **U** = unit/in-process (`tests/unit/<file>`), **E** = real ST/Horae int
 | `convergence` (additions) | C17b–C17g | final HARD repair along a planned route; reviewer slips re-filed; only an exact, near HARD value counts as pre-emption; intermediate plan states allowed |
 | `pack` (C02 updated) | C02 | a diverged prerequisite makes dependent events a model judgement instead of an automatic omission |
 | `edits` (additions) | R16b | a pack update keeps the manifest (no needless re-examination) |
+| `packref` | PR1–PR7 | pack kept by reference with a pack store: binding, reopening, migration (dropped only after reading back), missing pack and reconnecting, backups carry the pack, pack update, hosts without a store unchanged |
 | `frames` | FR1–FR11 | time frames: local time (offset, rate, BC, unlinked), event frame resolution, lint, no change for packs without frames, GM TIME FRAMES section, scene_frame recorded and replayed (swipe/delete), flashback/unknown ignored, 当前时空 by hand, timeline |
 | `backup` | BK1–BK3 | a backup analysis connection answers a task the main one blocks (content-filter error), refuses (no JSON) or leaves empty, with its own extra parameters; temporary errors stay on the main connection; usage lists each takeover |
 

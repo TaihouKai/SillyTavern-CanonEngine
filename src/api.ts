@@ -43,7 +43,7 @@ export function publicClock(engine: CanonEngine): CanonClock {
     weekday = d.getUTCDay();
   }
   return {
-    active: true, packId: c.packSnapshot.pack_id, tick: lo, tickHi: st.clock.hi, precision: st.clock.precision,
+    active: true, packId: engine.packInfo()?.packId, tick: lo, tickHi: st.clock.hi, precision: st.clock.precision,
     day: t.day, minute: t.minute, date, time: `${pad(Math.floor(t.minute / 60))}:${pad(t.minute % 60)}`, weekday,
     label: formatTick(lo, origin),
     ...(() => { const f = engine.sceneFrameNow(); return f ? { frame: { id: f.id, name: f.name, main: f.main, local: f.local } } : {}; })(),

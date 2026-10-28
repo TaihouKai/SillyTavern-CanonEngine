@@ -10,7 +10,7 @@ import { ENGINE_RELEASE } from './runtime/types';
 import { deepClone } from './domain/util';
 import { storyOnly } from './runtime/ooc';
 import { notifyDone, primeNotifications } from './ui/notify';
-import { listLibrary, loadFromLibrary } from './ui/library';
+import { listLibrary, loadFromLibrary, libraryPackStore } from './ui/library';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -160,6 +160,7 @@ async function init() {
   await loadStModule();
   const model = new StModel();
   host = new StHost(model);
+  host.packStore = libraryPackStore;
   model.horaePresent = !!HoraeAdapter.detect();
   model.taskProfileId = () => { const id = String(globalSettings().taskProfileId || ''); return id === CHAT_PROFILE ? '' : id; };
   model.taskExtraBody = () => String(globalSettings().taskExtraBody || '');

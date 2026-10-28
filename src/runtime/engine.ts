@@ -20,6 +20,7 @@ import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/fram
 import { matchScope, runGate, type EvalOutput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
+import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
 import { aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
@@ -316,11 +317,78 @@ export class CanonEngine {
     const c = this.campaign();
     if (!c) throw new EngineError('invalid_pack', 'no pack bound');
     if (!this.packCache || this.packCache.hash !== c.packHash) {
+      if (!c.packSnapshot) throw new EngineError('pack_missing', this.packMissingMessage(c));
       const loaded = loadPinnedPack(c.packSnapshot);
       if (loaded.hash !== c.packHash) throw new EngineError('invalid_pack', 'pinned pack snapshot hash mismatch');
       this.packCache = { hash: loaded.hash, loaded };
     }
     return this.packCache.loaded;
+  }
+
+  private packMissingMessage(c: CampaignData): string {
+    return `The history pack of this chat (${c.packRef?.title || c.packRef?.packId || '?'} v${c.packVersion}, hash ${c.packHash.slice(0, 12)}) is not in the pack library any more${c.packRef?.file ? ` (${c.packRef.file})` : ''}. Choose that pack file again (更新历史包 / 选择历史包文件); the same pack reconnects the chat as it was.`;
+  }
+
+  /** The chat's pack, loaded from the pack store when the chat keeps only a reference; a chat that still keeps the pack
+   *  inside is moved to the store (stored, read back and checked first; the copy in the chat is dropped only then). */
+  private async ensurePack(c: CampaignData, writable: boolean): Promise<LoadedPack> {
+    if (c.packSnapshot) {
+      const L = this.pack();
+      if (writable && this.host.packStore) await this.movePackToStore(c, L).catch((e) => this.host.log('warn', `[CanonEngine] pack kept in the chat: ${(e as Error).message}`));
+      return L;
+    }
+    if (this.packCache?.hash === c.packHash) return this.packCache.loaded;
+    const text = this.host.packStore ? await this.host.packStore.load({ hash: c.packHash, file: c.packRef?.file }).catch(() => null) : null;
+    if (!text) throw new EngineError('pack_missing', this.packMissingMessage(c));
+    const r = validatePackText(text);
+    if (!r.ok || !r.loaded || r.loaded.hash !== c.packHash) throw new EngineError('pack_missing', this.packMissingMessage(c));
+    this.packCache = { hash: r.loaded.hash, loaded: r.loaded };
+    return r.loaded;
+  }
+
+  /** Store a pack and check the stored copy; returns its reference. */
+  private async storePack(L: LoadedPack, text?: string): Promise<PackRef> {
+    const store = this.host.packStore!;
+    const meta = { title: L.pack.title, packId: L.pack.pack_id, version: L.pack.pack_version, hash: L.hash };
+    const { file } = await store.save(text ?? JSON.stringify(L.pack), meta);
+    const back = await store.load({ hash: L.hash, file });
+    const r = back ? validatePackText(back) : null;
+    if (!r?.ok || r.loaded?.hash !== L.hash) throw new Error(`the stored copy (${file}) does not read back as the same pack`);
+    return { packId: meta.packId, version: meta.version, title: meta.title, file };
+  }
+
+  private async movePackToStore(c: CampaignData, L: LoadedPack): Promise<void> {
+    const ref = await this.storePack(L);
+    c.packRef = ref;
+    delete c.packSnapshot;
+    await this.host.save();
+    this.host.log('info', `[CanonEngine] pack moved to the pack library: ${ref.file}`);
+  }
+
+  /** The chat's pack is not in the store any more: the same pack (same hash) chosen again reconnects it. */
+  packMissing(): boolean {
+    const c = this.campaign();
+    return !!c && !c.packSnapshot && this.packCache?.hash !== c.packHash;
+  }
+
+  async relinkPack(text: string): Promise<void> {
+    const c = this.campaign();
+    if (!c) throw new EngineError('invalid_pack', 'no campaign');
+    const r = validatePackText(text);
+    if (!r.ok || !r.loaded) throw new EngineError('invalid_pack', r.errors.map((e) => `${e.path}: ${e.message}`).join('\n'));
+    if (r.loaded.hash !== c.packHash) throw new EngineError('invalid_pack', `This is not the pack this chat was bound to (hash ${r.loaded.hash.slice(0, 12)}, the chat's is ${c.packHash.slice(0, 12)}). Choose that pack; a different version is applied with 更新历史包 once the chat's own pack is back.`);
+    this.packCache = { hash: r.loaded.hash, loaded: r.loaded };
+    if (this.host.packStore) { c.packRef = await this.storePack(r.loaded, text); delete c.packSnapshot; }
+    else c.packSnapshot = deepClone(r.loaded.pack);
+    await this.host.save();
+    await this.reconcile('pack_relinked');
+  }
+
+  /** Title and id of the chat's pack (from the reference or the copy in the chat). */
+  packInfo(): { title: string; packId: string; version: string } | null {
+    const c = this.campaign();
+    if (!c) return null;
+    return { title: c.packRef?.title || c.packSnapshot?.title || '?', packId: c.packRef?.packId || c.packSnapshot?.pack_id || '?', version: c.packVersion };
   }
 
   /** Serialize engine work (reconcile/ops/commits). */
@@ -375,7 +443,7 @@ export class CanonEngine {
       parentBranch: null,
       chatId: this.host.chatId() || '',
       integrity: this.host.integrity(),
-      packSnapshot: deepClone(L.pack),
+      ...(this.host.packStore ? { packRef: await this.storePack(L, packText) } : { packSnapshot: deepClone(L.pack) }),
       packHash: L.hash,
       packVersion: L.pack.pack_version,
       binding: {
@@ -488,7 +556,11 @@ export class CanonEngine {
     };
     WorldIndex.displayOrigin = c.binding.originDate || null;
     const chatAtStart = this.host.chatId();
-    const pack = this.pack();
+    let pack: LoadedPack;
+    try { pack = await this.ensurePack(c, !readOnly); } catch (e) {
+      if (e instanceof EngineError && e.kind === 'pack_missing') { this.current = null; this.setStatus('error', e.message, { errorKind: 'pack_missing' } as Partial<StatusInfo>); }
+      throw e;
+    }
     await this.recoverPending(c);
     let entries = this.transcriptFor(opts);
     const changedFrom = earliestChange(c.manifest, entries);
@@ -1976,7 +2048,7 @@ export class CanonEngine {
   exportBackup(): string {
     const c = this.campaign();
     if (!c) throw new EngineError('invalid_pack', 'no campaign');
-    return JSON.stringify({ format: 'canon-engine-backup', version: STORAGE_VERSION, engineVersion: ENGINE_VERSION, exportedChatId: this.host.chatId(), campaign: c, transcriptManifest: this.host.readTranscript().map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role })) }, null, 1);
+    return JSON.stringify({ format: 'canon-engine-backup', version: STORAGE_VERSION, engineVersion: ENGINE_VERSION, exportedChatId: this.host.chatId(), campaign: { ...c, packSnapshot: c.packSnapshot || this.pack().pack }, transcriptManifest: this.host.readTranscript().map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role })) }, null, 1);
   }
 
   async importBackup(text: string): Promise<{ matchedMessages: number; total: number }> {
@@ -1985,8 +2057,10 @@ export class CanonEngine {
     if (data.format !== 'canon-engine-backup' || !data.campaign) throw new EngineError('invalid_pack', 'not a Canon Engine backup file');
     if ((data.version || 0) > STORAGE_VERSION) throw new EngineError('incompatible_adapter', 'backup was written by a newer storage version');
     const camp = data.campaign;
+    if (!camp.packSnapshot) throw new EngineError('invalid_pack', 'the backup does not contain its history pack');
     const loaded = loadPinnedPack(camp.packSnapshot);
     if (loaded.hash !== camp.packHash) throw new EngineError('invalid_pack', 'backup pack snapshot does not match its recorded hash');
+    if (this.host.packStore) { camp.packRef = await this.storePack(loaded); delete camp.packSnapshot; }
     camp.chatId = this.host.chatId() || camp.chatId;
     camp.integrity = this.host.integrity();
     camp.pendingTransaction = null;
@@ -2005,7 +2079,7 @@ export class CanonEngine {
     const c = this.campaign();
     const r = validatePackText(newText);
     if (!r.ok || !r.loaded || !c) return { ok: false, errors: r.errors, changed: [], deleted: [], added: [], hardChanged: [] };
-    const oldEv = new Map(c.packSnapshot.events.map((e) => [e.id, e]));
+    const oldEv = new Map(this.pack().pack.events.map((e) => [e.id, e]));
     const newEv = new Map(r.loaded.pack.events.map((e) => [e.id, e]));
     const changed: string[] = [], deleted: string[] = [], added: string[] = [], hardChanged: string[] = [];
     for (const [id, e] of oldEv) {
@@ -2024,7 +2098,8 @@ export class CanonEngine {
     if (!c) return;
     const r = validatePackText(newText);
     if (!r.ok || !r.loaded) throw new EngineError('invalid_pack', r.errors.map((e) => e.message).join('; '));
-    c.packSnapshot = deepClone(r.loaded.pack);
+    if (this.host.packStore) { c.packRef = await this.storePack(r.loaded, newText); delete c.packSnapshot; }
+    else c.packSnapshot = deepClone(r.loaded.pack);
     c.packHash = r.loaded.hash;
     c.packVersion = r.loaded.pack.pack_version;
     c.bootstrapRecords = buildBootstrap(r.loaded, c.binding.startTick).records;

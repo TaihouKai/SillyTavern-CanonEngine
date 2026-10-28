@@ -18,6 +18,7 @@ export class FakeHost implements HostPort {
   saveDelay: (() => Promise<void>) | null = null;
   publishHook: (() => Promise<void>) | null = null;
   horae: HoraePort | null = null;
+  packStore?: HostPort['packStore'];
   model: ScriptedModel;
   logs: string[] = [];
   /** Durable copy (what a reload would see). */

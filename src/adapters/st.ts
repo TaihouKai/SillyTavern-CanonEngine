@@ -106,6 +106,7 @@ export function contentHashOf(role: string, name: string, text: string, attach: 
 
 export class StHost implements HostPort {
   horae: HoraeAdapter | null;
+  packStore?: HostPort['packStore'];
   model: ModelPort;
   private saving: Promise<void> = Promise.resolve();
   pendingStamp: null | { messageId: string; variantId: string; commitId: string } = null;

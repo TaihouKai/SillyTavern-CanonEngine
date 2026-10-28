@@ -57,6 +57,12 @@ export interface HostPort {
   /** The entries of the lorebooks active in this chat (global, character, chat and Persona lorebooks). */
   loreEntries?(): Promise<import('./lore').LoreEntry[]>;
   horae: HoraePort | null;
+  /** Where packs are kept outside the chat (ST: the pack library in the user's files). Without it the pack is kept
+   *  in the chat. load: the pack text by file, else any stored copy with that hash; null when there is none. */
+  packStore?: {
+    save(text: string, meta: { title: string; packId: string; version: string; hash: string }): Promise<{ file: string }>;
+    load(ref: { hash: string; file?: string }): Promise<string | null>;
+  };
   model: ModelPort;
   /** Wall clock for diagnostics only. Never story time. */
   now(): number;

@@ -218,8 +218,9 @@ function renderSettings() {
     chat.push(`<div class="canon-lib"><div class="canon-lib-head">${t('library')} ${tip('libraryTip')}</div>${lib.length ? libRows('enable') : `<div class="canon-hint">${t('libEmpty')}</div>`}</div>`);
     chat.push(`<div class="canon-btns"><button class="menu_button" data-act="enable" ${profileOk ? '' : 'disabled'}>${t('enable')}</button></div>`);
   } else {
-    chat.push(`<div class="canon-pack"><b>${esc(camp.packSnapshot.title)}</b> <span>v${esc(camp.packVersion)}</span>${camp.enabled ? '' : ` <span class="canon-tag">${t('phase_disabled')}</span>`}</div>`);
+    chat.push(`<div class="canon-pack"><b>${esc(E.packInfo()?.title || '')}</b> <span>v${esc(camp.packVersion)}</span>${camp.enabled ? '' : ` <span class="canon-tag">${t('phase_disabled')}</span>`}</div>`);
     if (!profileOk) chat.push(`<div class="canon-note warn">${t('needProfileTurns')}</div>`);
+    if (E.packMissing()) chat.push(`<div class="canon-note err">${t('packMissing')}</div><div class="canon-btns"><button class="menu_button" data-act="update">${t('packRelink')}</button></div>`);
     const btn = (act: string, label: string, tipKey: string, cls = '') => `<button class="menu_button ${cls}" data-act="${act}" title="${esc(t(tipKey))}">${label}</button>`;
     chat.push(`<div class="canon-btns">
       ${btn('inspect', t('inspect'), 'inspectTip')}${btn('retry', t('retry'), 'retryTip')}${btn('rebuild', t('rebuild'), 'rebuildTip')}</div>
@@ -373,10 +374,10 @@ async function onSettingsClick(ev: Event) {
       if (!H.chatId()) { toast('error', t('noChat')); return; }
       if (H.isGroup()) { toast('error', t('groupUnsupported')); return; }
       const text = await loadFromLibrary(e);
-      if (act === 'lib-enable') openBindWizard(text); else openUpdateWizard(text);
+      if (act === 'lib-enable') openBindWizard(text); else await updateOrRelink(text);
     } else if (act === 'lib-del') {
       const e = libEntry(); if (!e) return;
-      if (!confirm(`${t('libDelete')}: ${e.title} v${e.version}?`)) return;
+      if (!confirm(`${t('libDelete')}: ${e.title} v${e.version}?${E.campaign()?.packHash === e.hash ? '\n\n' + t('libDeleteInUse') : '\n\n' + t('libDeleteOther')}`)) return;
       await removeFromLibrary(e);
     } else if (act === 'inspect') toggleInspector(true);
     else if (act === 'rebuild') { await E.reconcile('manual_rebuild'); toast('info', 'OK'); }
@@ -433,7 +434,7 @@ async function onFileChosen(fi: HTMLInputElement) {
       if (p.ok && p.summary) {
         try { await saveToLibrary(text, p.summary); } catch (e) { toast('warning', (e as Error).message); }
       }
-      if (fileMode === 'enable') openBindWizard(text); else openUpdateWizard(text);
+      if (fileMode === 'enable') openBindWizard(text); else await updateOrRelink(text);
     }
   } catch (e) {
     toast('error', (e as Error).message);
@@ -504,7 +505,7 @@ function openBindWizard(text: string) {
       const insp = E.inspector(false);
       const camp = E.campaign()!;
       el.querySelector('.canon-modal')!.innerHTML = `<h3>${t('bindingSummary')}</h3>
-        <div>${t('startTime')}: ${esc(camp.binding.startLabel)} · ${esc(camp.packSnapshot.pack_id)}@${esc(camp.packVersion)}</div>
+        <div>${t('startTime')}: ${esc(camp.binding.startLabel)} · ${esc(E.packInfo()?.packId || '')}@${esc(camp.packVersion)}</div>
         <div>${t('examined')}: ${res.examined}</div>
         <div>${t('deviations')}: ${insp?.deviations.length ? insp.deviations.map((d) => esc(`${d.title}: ${d.disposition}`)).join('; ') : '—'}</div>
         <div>${t('unresolved')}: ${[...res.unresolved, camp.recoveryState.status !== 'ok' ? camp.recoveryState.reason : ''].filter(Boolean).map(esc).join('; ') || '—'}</div>
@@ -520,6 +521,20 @@ function openBindWizard(text: string) {
 function parseCoverageStart(cov: string): number {
   const m = cov.split('–')[0].trim();
   return parseTickLabel(m) ?? 0;
+}
+
+/** 更新历史包 with the chat's own pack (same hash) while it is missing from the library reconnects it; anything else
+ *  is a pack update. */
+async function updateOrRelink(text: string) {
+  const c = E.campaign();
+  const p = E.previewPack(text);
+  if (c && p.ok && p.summary?.hash === c.packHash) {
+    if (E.packMissing()) { await E.relinkPack(text); toast('info', t('packRelinked')); }
+    else toast('info', t('packSame'));
+    return;
+  }
+  if (E.packMissing()) { toast('error', t('packMissingOther')); return; }
+  openUpdateWizard(text);
 }
 
 function openUpdateWizard(text: string) {

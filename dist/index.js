@@ -22652,7 +22652,7 @@ function engagementRecord(s0, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.15.2";
+var ENGINE_RELEASE = "1.16.0";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -22910,11 +22910,73 @@ var CanonEngine = class {
     const c = this.campaign();
     if (!c) throw new EngineError("invalid_pack", "no pack bound");
     if (!this.packCache || this.packCache.hash !== c.packHash) {
+      if (!c.packSnapshot) throw new EngineError("pack_missing", this.packMissingMessage(c));
       const loaded = loadPinnedPack(c.packSnapshot);
       if (loaded.hash !== c.packHash) throw new EngineError("invalid_pack", "pinned pack snapshot hash mismatch");
       this.packCache = { hash: loaded.hash, loaded };
     }
     return this.packCache.loaded;
+  }
+  packMissingMessage(c) {
+    return `The history pack of this chat (${c.packRef?.title || c.packRef?.packId || "?"} v${c.packVersion}, hash ${c.packHash.slice(0, 12)}) is not in the pack library any more${c.packRef?.file ? ` (${c.packRef.file})` : ""}. Choose that pack file again (\u66F4\u65B0\u5386\u53F2\u5305 / \u9009\u62E9\u5386\u53F2\u5305\u6587\u4EF6); the same pack reconnects the chat as it was.`;
+  }
+  /** The chat's pack, loaded from the pack store when the chat keeps only a reference; a chat that still keeps the pack
+   *  inside is moved to the store (stored, read back and checked first; the copy in the chat is dropped only then). */
+  async ensurePack(c, writable) {
+    if (c.packSnapshot) {
+      const L = this.pack();
+      if (writable && this.host.packStore) await this.movePackToStore(c, L).catch((e) => this.host.log("warn", `[CanonEngine] pack kept in the chat: ${e.message}`));
+      return L;
+    }
+    if (this.packCache?.hash === c.packHash) return this.packCache.loaded;
+    const text = this.host.packStore ? await this.host.packStore.load({ hash: c.packHash, file: c.packRef?.file }).catch(() => null) : null;
+    if (!text) throw new EngineError("pack_missing", this.packMissingMessage(c));
+    const r = validatePackText(text);
+    if (!r.ok || !r.loaded || r.loaded.hash !== c.packHash) throw new EngineError("pack_missing", this.packMissingMessage(c));
+    this.packCache = { hash: r.loaded.hash, loaded: r.loaded };
+    return r.loaded;
+  }
+  /** Store a pack and check the stored copy; returns its reference. */
+  async storePack(L, text) {
+    const store = this.host.packStore;
+    const meta = { title: L.pack.title, packId: L.pack.pack_id, version: L.pack.pack_version, hash: L.hash };
+    const { file } = await store.save(text ?? JSON.stringify(L.pack), meta);
+    const back = await store.load({ hash: L.hash, file });
+    const r = back ? validatePackText(back) : null;
+    if (!r?.ok || r.loaded?.hash !== L.hash) throw new Error(`the stored copy (${file}) does not read back as the same pack`);
+    return { packId: meta.packId, version: meta.version, title: meta.title, file };
+  }
+  async movePackToStore(c, L) {
+    const ref = await this.storePack(L);
+    c.packRef = ref;
+    delete c.packSnapshot;
+    await this.host.save();
+    this.host.log("info", `[CanonEngine] pack moved to the pack library: ${ref.file}`);
+  }
+  /** The chat's pack is not in the store any more: the same pack (same hash) chosen again reconnects it. */
+  packMissing() {
+    const c = this.campaign();
+    return !!c && !c.packSnapshot && this.packCache?.hash !== c.packHash;
+  }
+  async relinkPack(text) {
+    const c = this.campaign();
+    if (!c) throw new EngineError("invalid_pack", "no campaign");
+    const r = validatePackText(text);
+    if (!r.ok || !r.loaded) throw new EngineError("invalid_pack", r.errors.map((e) => `${e.path}: ${e.message}`).join("\n"));
+    if (r.loaded.hash !== c.packHash) throw new EngineError("invalid_pack", `This is not the pack this chat was bound to (hash ${r.loaded.hash.slice(0, 12)}, the chat's is ${c.packHash.slice(0, 12)}). Choose that pack; a different version is applied with \u66F4\u65B0\u5386\u53F2\u5305 once the chat's own pack is back.`);
+    this.packCache = { hash: r.loaded.hash, loaded: r.loaded };
+    if (this.host.packStore) {
+      c.packRef = await this.storePack(r.loaded, text);
+      delete c.packSnapshot;
+    } else c.packSnapshot = deepClone(r.loaded.pack);
+    await this.host.save();
+    await this.reconcile("pack_relinked");
+  }
+  /** Title and id of the chat's pack (from the reference or the copy in the chat). */
+  packInfo() {
+    const c = this.campaign();
+    if (!c) return null;
+    return { title: c.packRef?.title || c.packSnapshot?.title || "?", packId: c.packRef?.packId || c.packSnapshot?.pack_id || "?", version: c.packVersion };
   }
   /** Serialize engine work (reconcile/ops/commits). */
   async exclusive(fn) {
@@ -22980,7 +23042,7 @@ var CanonEngine = class {
       parentBranch: null,
       chatId: this.host.chatId() || "",
       integrity: this.host.integrity(),
-      packSnapshot: deepClone(L.pack),
+      ...this.host.packStore ? { packRef: await this.storePack(L, packText) } : { packSnapshot: deepClone(L.pack) },
       packHash: L.hash,
       packVersion: L.pack.pack_version,
       binding: {
@@ -23103,7 +23165,16 @@ var CanonEngine = class {
     };
     WorldIndex.displayOrigin = c.binding.originDate || null;
     const chatAtStart = this.host.chatId();
-    const pack2 = this.pack();
+    let pack2;
+    try {
+      pack2 = await this.ensurePack(c, !readOnly);
+    } catch (e) {
+      if (e instanceof EngineError && e.kind === "pack_missing") {
+        this.current = null;
+        this.setStatus("error", e.message, { errorKind: "pack_missing" });
+      }
+      throw e;
+    }
     await this.recoverPending(c);
     let entries = this.transcriptFor(opts);
     const changedFrom = earliestChange(c.manifest, entries);
@@ -24715,7 +24786,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
   exportBackup() {
     const c = this.campaign();
     if (!c) throw new EngineError("invalid_pack", "no campaign");
-    return JSON.stringify({ format: "canon-engine-backup", version: STORAGE_VERSION, engineVersion: ENGINE_VERSION, exportedChatId: this.host.chatId(), campaign: c, transcriptManifest: this.host.readTranscript().map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role })) }, null, 1);
+    return JSON.stringify({ format: "canon-engine-backup", version: STORAGE_VERSION, engineVersion: ENGINE_VERSION, exportedChatId: this.host.chatId(), campaign: { ...c, packSnapshot: c.packSnapshot || this.pack().pack }, transcriptManifest: this.host.readTranscript().map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role })) }, null, 1);
   }
   async importBackup(text) {
     let data;
@@ -24727,8 +24798,13 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     if (data.format !== "canon-engine-backup" || !data.campaign) throw new EngineError("invalid_pack", "not a Canon Engine backup file");
     if ((data.version || 0) > STORAGE_VERSION) throw new EngineError("incompatible_adapter", "backup was written by a newer storage version");
     const camp = data.campaign;
+    if (!camp.packSnapshot) throw new EngineError("invalid_pack", "the backup does not contain its history pack");
     const loaded = loadPinnedPack(camp.packSnapshot);
     if (loaded.hash !== camp.packHash) throw new EngineError("invalid_pack", "backup pack snapshot does not match its recorded hash");
+    if (this.host.packStore) {
+      camp.packRef = await this.storePack(loaded);
+      delete camp.packSnapshot;
+    }
     camp.chatId = this.host.chatId() || camp.chatId;
     camp.integrity = this.host.integrity();
     camp.pendingTransaction = null;
@@ -24745,7 +24821,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const c = this.campaign();
     const r = validatePackText(newText);
     if (!r.ok || !r.loaded || !c) return { ok: false, errors: r.errors, changed: [], deleted: [], added: [], hardChanged: [] };
-    const oldEv = new Map(c.packSnapshot.events.map((e) => [e.id, e]));
+    const oldEv = new Map(this.pack().pack.events.map((e) => [e.id, e]));
     const newEv = new Map(r.loaded.pack.events.map((e) => [e.id, e]));
     const changed = [], deleted = [], added = [], hardChanged = [];
     for (const [id, e] of oldEv) {
@@ -24767,7 +24843,10 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     if (!c) return;
     const r = validatePackText(newText);
     if (!r.ok || !r.loaded) throw new EngineError("invalid_pack", r.errors.map((e) => e.message).join("; "));
-    c.packSnapshot = deepClone(r.loaded.pack);
+    if (this.host.packStore) {
+      c.packRef = await this.storePack(r.loaded, newText);
+      delete c.packSnapshot;
+    } else c.packSnapshot = deepClone(r.loaded.pack);
     c.packHash = r.loaded.hash;
     c.packVersion = r.loaded.pack.pack_version;
     c.bootstrapRecords = buildBootstrap(r.loaded, c.binding.startTick).records;
@@ -25506,6 +25585,7 @@ function contentHashOf(role, name2, text, attach) {
 }
 var StHost = class {
   horae;
+  packStore;
   model;
   saving = Promise.resolve();
   pendingStamp = null;
@@ -26272,7 +26352,7 @@ function publicClock(engine2) {
   }
   return {
     active: true,
-    packId: c.packSnapshot.pack_id,
+    packId: engine2.packInfo()?.packId,
     tick: lo,
     tickHi: st.clock.hi,
     precision: st.clock.precision,
@@ -26431,6 +26511,13 @@ var D = {
   graphAllArcs: { zh: "\u5168\u90E8\u7BC7\u7AE0", en: "All arcs" },
   graphFit: { zh: "\u5168\u89C8", en: "Fit" },
   frameNow: { zh: "\u5F53\u524D\u65F6\u7A7A", en: "Scene frame" },
+  packMissing: { zh: "\u8FD9\u4E2A\u5BF9\u8BDD\u7528\u7684\u5386\u53F2\u5305\u5728\u5386\u53F2\u5305\u5E93\u91CC\u627E\u4E0D\u5230\u4E86\uFF08\u6587\u4EF6\u88AB\u5220\u9664\u6216\u79FB\u8D70\uFF09\u3002\u8BF7\u91CD\u65B0\u9009\u62E9\u540C\u4E00\u4E2A\u5386\u53F2\u5305\u6587\u4EF6\uFF0C\u5BF9\u8BDD\u4F1A\u539F\u6837\u63A5\u4E0A\uFF1B\u5728\u6B64\u4E4B\u524D Canon Engine \u65E0\u6CD5\u5DE5\u4F5C\u3002", en: "The history pack of this chat is no longer in the pack library (the file was deleted or moved). Choose the same pack file again and the chat reconnects as it was; until then Canon Engine cannot work." },
+  packRelink: { zh: "\u9009\u62E9\u5386\u53F2\u5305\u6587\u4EF6", en: "Choose the pack file" },
+  packRelinked: { zh: "\u5386\u53F2\u5305\u5DF2\u91CD\u65B0\u63A5\u4E0A", en: "History pack reconnected" },
+  packSame: { zh: "\u8FD9\u5C31\u662F\u672C\u5BF9\u8BDD\u6B63\u5728\u7528\u7684\u5386\u53F2\u5305\uFF0C\u65E0\u9700\u66F4\u65B0", en: "This is the pack the chat already uses; nothing to update" },
+  packMissingOther: { zh: "\u8FD9\u4E0D\u662F\u672C\u5BF9\u8BDD\u539F\u6765\u7684\u5386\u53F2\u5305\u3002\u8BF7\u5148\u9009\u62E9\u539F\u6765\u7684\u90A3\u4E2A\u5305\u628A\u5BF9\u8BDD\u63A5\u4E0A\uFF0C\u518D\u7528\u300C\u66F4\u65B0\u5386\u53F2\u5305\u300D\u6362\u7248\u672C\u3002", en: "This is not the pack the chat was bound to. Reconnect the original pack first, then use Update pack for another version." },
+  libDeleteInUse: { zh: "\u5F53\u524D\u5BF9\u8BDD\u6B63\u5728\u4F7F\u7528\u8FD9\u4E2A\u5386\u53F2\u5305\uFF1A\u5220\u9664\u540E\u9700\u8981\u91CD\u65B0\u9009\u62E9\u5B83\u7684\u6587\u4EF6\u624D\u80FD\u7EE7\u7EED\u73A9\u3002\u7528\u5B83\u7684\u5176\u4ED6\u5BF9\u8BDD\u4E5F\u4E00\u6837\u3002", en: "The current chat uses this pack: after deleting it you must choose its file again to continue. The same holds for other chats that use it." },
+  libDeleteOther: { zh: "\u7528\u8FD9\u4E2A\u5386\u53F2\u5305\u7684\u5BF9\u8BDD\uFF0C\u5220\u9664\u540E\u9700\u8981\u91CD\u65B0\u9009\u62E9\u5B83\u7684\u6587\u4EF6\u624D\u80FD\u7EE7\u7EED\u3002", en: "Chats that use this pack will need its file chosen again after deleting." },
   frameMain: { zh: "\u4E3B\u65F6\u95F4\u7EBF", en: "Main timeline" },
   frameTip: { zh: "\u573A\u666F\u73B0\u5728\u6240\u5728\u7684\u65F6\u7A7A\u6846\u67B6\uFF08\u8FC7\u53BB\u7684\u5E74\u4EE3\u3001\u53E6\u4E00\u4E2A\u4E16\u754C\u2026\u2026\uFF09\u3002GM \u56DE\u590D\u91CC\u51FA\u73B0\u7A7F\u8D8A\u6216\u8FD4\u56DE\u65F6\uFF0C\u5F15\u64CE\u4F1A\u81EA\u52A8\u5207\u6362\uFF1B\u6CA1\u8BA4\u51FA\u6765\u65F6\u53EF\u4EE5\u5728\u8FD9\u91CC\u624B\u52A8\u6539\u3002\u53EA\u5F71\u54CD\u4E4B\u540E\u7684\u56DE\u590D\uFF0C\u53EF\u4EE5\u518D\u6539\u56DE\u6765\u3002", en: "The time frame the scene is in now (a past era, another world\u2026). The engine switches it when a GM reply shows the move; if it missed one, set it here. Affects later replies only; can be changed back." },
   frameSet: { zh: "\u5DF2\u5207\u6362\u5F53\u524D\u65F6\u7A7A", en: "Scene frame changed" },
@@ -27545,10 +27632,15 @@ function toBase64(text) {
   return btoa(bin);
 }
 var safe = (s) => s.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 60) || "pack";
+async function fileExists(file) {
+  const r = await fetch("/" + file.replace(/^\/+/, ""), { method: "HEAD", cache: "no-store", headers: ctx().getRequestHeaders?.() || {} }).catch(() => null);
+  return !!r?.ok;
+}
 async function saveToLibrary(text, meta) {
-  const lib = settingsObj().library || [];
+  let lib = settingsObj().library || [];
   const existing = lib.find((e) => e.hash === meta.hash);
-  if (existing) return existing;
+  if (existing && await fileExists(existing.file)) return existing;
+  if (existing) settingsObj().library = lib = lib.filter((e) => e !== existing);
   const name2 = `canon-pack-${safe(meta.packId)}-${safe(meta.version)}-${meta.hash.slice(0, 10)}.json`;
   const r = await fetch("/api/files/upload", { method: "POST", headers: headers(), body: JSON.stringify({ name: name2, data: toBase64(text) }) });
   if (!r.ok) throw new Error(`Saving the pack to the SillyTavern files folder failed (HTTP ${r.status}): ${(await r.text()).slice(0, 200)}`);
@@ -27563,6 +27655,17 @@ async function loadFromLibrary(e) {
   if (!r.ok) throw new Error(`The saved pack file is missing (${e.file}, HTTP ${r.status}). Remove it from the list and import it again.`);
   return await r.text();
 }
+var libraryPackStore = {
+  save: async (text, meta) => ({ file: (await saveToLibrary(text, meta)).file }),
+  load: async (ref) => {
+    const files = [ref.file, ...(settingsObj().library || []).filter((e) => e.hash === ref.hash).map((e) => e.file)].filter((f, i, a) => !!f && a.indexOf(f) === i);
+    for (const f of files) {
+      const r = await fetch("/" + f.replace(/^\/+/, ""), { cache: "no-store", headers: ctx().getRequestHeaders?.() || {} }).catch(() => null);
+      if (r?.ok) return await r.text();
+    }
+    return null;
+  }
+};
 async function removeFromLibrary(e) {
   await fetch("/api/files/delete", { method: "POST", headers: headers(), body: JSON.stringify({ path: e.file }) }).catch(() => void 0);
   settingsObj().library = (settingsObj().library || []).filter((x) => x.hash !== e.hash);
@@ -27810,8 +27913,9 @@ function renderSettings() {
     chat.push(`<div class="canon-lib"><div class="canon-lib-head">${t("library")} ${tip("libraryTip")}</div>${lib.length ? libRows("enable") : `<div class="canon-hint">${t("libEmpty")}</div>`}</div>`);
     chat.push(`<div class="canon-btns"><button class="menu_button" data-act="enable" ${profileOk ? "" : "disabled"}>${t("enable")}</button></div>`);
   } else {
-    chat.push(`<div class="canon-pack"><b>${esc2(camp.packSnapshot.title)}</b> <span>v${esc2(camp.packVersion)}</span>${camp.enabled ? "" : ` <span class="canon-tag">${t("phase_disabled")}</span>`}</div>`);
+    chat.push(`<div class="canon-pack"><b>${esc2(E.packInfo()?.title || "")}</b> <span>v${esc2(camp.packVersion)}</span>${camp.enabled ? "" : ` <span class="canon-tag">${t("phase_disabled")}</span>`}</div>`);
     if (!profileOk) chat.push(`<div class="canon-note warn">${t("needProfileTurns")}</div>`);
+    if (E.packMissing()) chat.push(`<div class="canon-note err">${t("packMissing")}</div><div class="canon-btns"><button class="menu_button" data-act="update">${t("packRelink")}</button></div>`);
     const btn = (act, label, tipKey, cls = "") => `<button class="menu_button ${cls}" data-act="${act}" title="${esc2(t(tipKey))}">${label}</button>`;
     chat.push(`<div class="canon-btns">
       ${btn("inspect", t("inspect"), "inspectTip")}${btn("retry", t("retry"), "retryTip")}${btn("rebuild", t("rebuild"), "rebuildTip")}</div>
@@ -27973,11 +28077,11 @@ async function onSettingsClick(ev) {
       }
       const text = await loadFromLibrary(e);
       if (act === "lib-enable") openBindWizard(text);
-      else openUpdateWizard(text);
+      else await updateOrRelink(text);
     } else if (act === "lib-del") {
       const e = libEntry();
       if (!e) return;
-      if (!confirm(`${t("libDelete")}: ${e.title} v${e.version}?`)) return;
+      if (!confirm(`${t("libDelete")}: ${e.title} v${e.version}?${E.campaign()?.packHash === e.hash ? "\n\n" + t("libDeleteInUse") : "\n\n" + t("libDeleteOther")}`)) return;
       await removeFromLibrary(e);
     } else if (act === "inspect") toggleInspector(true);
     else if (act === "rebuild") {
@@ -28043,7 +28147,7 @@ async function onFileChosen(fi) {
         }
       }
       if (fileMode === "enable") openBindWizard(text);
-      else openUpdateWizard(text);
+      else await updateOrRelink(text);
     }
   } catch (e) {
     toast("error", e.message);
@@ -28115,7 +28219,7 @@ function openBindWizard(text) {
       const insp = E.inspector(false);
       const camp = E.campaign();
       el.querySelector(".canon-modal").innerHTML = `<h3>${t("bindingSummary")}</h3>
-        <div>${t("startTime")}: ${esc2(camp.binding.startLabel)} \xB7 ${esc2(camp.packSnapshot.pack_id)}@${esc2(camp.packVersion)}</div>
+        <div>${t("startTime")}: ${esc2(camp.binding.startLabel)} \xB7 ${esc2(E.packInfo()?.packId || "")}@${esc2(camp.packVersion)}</div>
         <div>${t("examined")}: ${res.examined}</div>
         <div>${t("deviations")}: ${insp?.deviations.length ? insp.deviations.map((d) => esc2(`${d.title}: ${d.disposition}`)).join("; ") : "\u2014"}</div>
         <div>${t("unresolved")}: ${[...res.unresolved, camp.recoveryState.status !== "ok" ? camp.recoveryState.reason : ""].filter(Boolean).map(esc2).join("; ") || "\u2014"}</div>
@@ -28135,6 +28239,22 @@ function openBindWizard(text) {
 function parseCoverageStart(cov) {
   const m = cov.split("\u2013")[0].trim();
   return parseTickLabel(m) ?? 0;
+}
+async function updateOrRelink(text) {
+  const c = E.campaign();
+  const p = E.previewPack(text);
+  if (c && p.ok && p.summary?.hash === c.packHash) {
+    if (E.packMissing()) {
+      await E.relinkPack(text);
+      toast("info", t("packRelinked"));
+    } else toast("info", t("packSame"));
+    return;
+  }
+  if (E.packMissing()) {
+    toast("error", t("packMissingOther"));
+    return;
+  }
+  openUpdateWizard(text);
 }
 function openUpdateWizard(text) {
   const d = E.diffPack(text);
@@ -28616,6 +28736,7 @@ async function init() {
   await loadStModule();
   const model = new StModel();
   host = new StHost(model);
+  host.packStore = libraryPackStore;
   model.horaePresent = !!HoraeAdapter.detect();
   model.taskProfileId = () => {
     const id = String(globalSettings().taskProfileId || "");

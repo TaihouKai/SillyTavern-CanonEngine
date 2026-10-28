@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.16.0 — 2026-10-28
+
+- **A chat keeps only a reference to its history pack.** Until now every bound chat carried a full copy of its pack in its metadata. With the FGO main-story pack (15 MB) every chat file was 15.7 MB, saved on every turn, and SillyTavern's automatic chat backups piled up 15 MB each (ten in a few minutes in the test SillyTavern). Now the pack is kept once in the pack library (历史包库, the user's files folder) and the chat records its id, version, title, file and hash. The FGO chat file is 34 KB.
+  - Chats bound before move their pack to the library the first time they are opened: the pack is stored, read back and checked against the chat's hash, and only then is the copy in the chat dropped (a failed check keeps the copy). The same pack is stored once, whatever the number of chats.
+  - When the pack is missing from the library (file deleted), the engine stops with a clear message and the settings show 选择历史包文件: choosing the same pack file (same hash) reconnects the chat as it was; another pack is refused until then. Deleting a pack from the library warns that chats using it will need its file again.
+  - A backup still carries the whole pack, so it restores a chat on its own; importing it stores the pack in the library. A pack update stores the new version in the library.
+  - Hosts without a pack library (the unit-test host, other integrations) keep the pack in the chat as before.
+- Tests: PR1–PR7; e2e `tests/e2e/packref.mjs` (PK01–PK09: reference only, page reload, migration, deleted file reported and reconnected through the file dialog, FGO chat file size).
+
 ## 1.15.2 — 2026-10-28
 
 - **The history graph stays smooth with a very large pack.** With a 3,747-event pack (FGO main story) the graph put a 2.9 MB SVG with 30,000 elements on the page; opening took 1.6 s and dragging stalled for up to a quarter second a frame. Now it lays the graph out once and draws only the window around the view (one view width to each side), drawing more after a pan or zoom stops. Zoomed far out (全览 of a long timeline) it draws boxes of one kind as one shape, without labels or links, and a click there zooms in on the box under the pointer. Measured in the test SillyTavern with that pack: opening 0.6 s, 424 elements instead of 30,294, dragging at 17 ms a frame (was up to 233 ms), 全览 0.7 s.

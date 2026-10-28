@@ -29,11 +29,17 @@ function toBase64(text: string): string {
 
 const safe = (s: string) => s.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 60) || 'pack';
 
-/** Save a validated pack. Same content (hash) is stored once. */
+async function fileExists(file: string): Promise<boolean> {
+  const r = await fetch('/' + file.replace(/^\/+/, ''), { method: 'HEAD', cache: 'no-store', headers: ctx().getRequestHeaders?.() || {} }).catch(() => null);
+  return !!r?.ok;
+}
+
+/** Save a validated pack. Same content (hash) is stored once; an entry whose file was deleted is stored again. */
 export async function saveToLibrary(text: string, meta: { title: string; packId: string; version: string; hash: string }): Promise<LibraryEntry> {
-  const lib = settingsObj().library || [];
+  let lib = settingsObj().library || [];
   const existing = lib.find((e) => e.hash === meta.hash);
-  if (existing) return existing;
+  if (existing && await fileExists(existing.file)) return existing;
+  if (existing) settingsObj().library = lib = lib.filter((e) => e !== existing);
   const name = `canon-pack-${safe(meta.packId)}-${safe(meta.version)}-${meta.hash.slice(0, 10)}.json`;
   const r = await fetch('/api/files/upload', { method: 'POST', headers: headers(), body: JSON.stringify({ name, data: toBase64(text) }) });
   if (!r.ok) throw new Error(`Saving the pack to the SillyTavern files folder failed (HTTP ${r.status}): ${(await r.text()).slice(0, 200)}`);
@@ -49,6 +55,19 @@ export async function loadFromLibrary(e: LibraryEntry): Promise<string> {
   if (!r.ok) throw new Error(`The saved pack file is missing (${e.file}, HTTP ${r.status}). Remove it from the list and import it again.`);
   return await r.text();
 }
+
+/** The engine's pack store: chats keep only a reference to their pack, the pack itself lives in the library. */
+export const libraryPackStore = {
+  save: async (text: string, meta: { title: string; packId: string; version: string; hash: string }) => ({ file: (await saveToLibrary(text, meta)).file }),
+  load: async (ref: { hash: string; file?: string }): Promise<string | null> => {
+    const files = [ref.file, ...(settingsObj().library || []).filter((e) => e.hash === ref.hash).map((e) => e.file)].filter((f, i, a): f is string => !!f && a.indexOf(f) === i);
+    for (const f of files) {
+      const r = await fetch('/' + f.replace(/^\/+/, ''), { cache: 'no-store', headers: ctx().getRequestHeaders?.() || {} }).catch(() => null);
+      if (r?.ok) return await r.text();
+    }
+    return null;
+  },
+};
 
 export async function removeFromLibrary(e: LibraryEntry): Promise<void> {
   await fetch('/api/files/delete', { method: 'POST', headers: headers(), body: JSON.stringify({ path: e.file }) }).catch(() => undefined);

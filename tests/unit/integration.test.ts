@@ -72,7 +72,7 @@ describe('player presence (Persona -> profile)', () => {
     expect(st(x).runtimeEntities.has(prof.profile.affiliations[0].entityId)).toBe(true);
     expect(st(x).records.filter((r) => r.kind === 'persona_seed')).toHaveLength(1);
     expect([...st(x).occurrences.values()].some((o) => /Grey Lantern/.test(o.title))).toBe(false);
-    expect(x.engine.campaign()!.packSnapshot.entities.some((e) => /Lantern/.test(e.name))).toBe(false);
+    expect(x.engine.pack().pack.entities.some((e) => /Lantern/.test(e.name))).toBe(false);
     // the Persona is read once; later turns reuse the profile
     await turn(x, 'I pour tea.', 'A quiet morning. [P2]');
     expect(x.model.tasks('profile')).toHaveLength(1);
