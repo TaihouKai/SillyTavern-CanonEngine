@@ -4,6 +4,7 @@
 import type { LoadedPack } from '../domain/pack';
 import type { WorldState } from '../domain/reducer';
 import { formatTick, formatStoryTime } from '../domain/time';
+import { localTime } from '../domain/frames';
 import { summaryLines } from '../domain/summary';
 import { sceneRoot, segmentSceneChain, uniq } from '../domain/util';
 import { t } from './i18n';
@@ -41,31 +42,42 @@ export interface GNode {
   afterStory?: number;
   /** The player marked this event 关注. */
   focused?: boolean;
+  /** Time frames: the frame the event happens in (not the main one), its local start time and its color index. */
+  frame?: { id: string; name: string; local: string; idx: number };
 }
 export interface GEdge { from: string; to: string; kind: string; note?: string }
-export interface GraphData { nodes: GNode[]; edges: GEdge[]; nowTick: number | null; arcs: { id: string; title: string }[]; origin?: { y: number; m: number; d: number } | null }
+export interface GraphData {
+  nodes: GNode[]; edges: GEdge[]; nowTick: number | null; arcs: { id: string; title: string }[]; origin?: { y: number; m: number; d: number } | null;
+  /** Time frames (packs that have them): the frames for the legend, and the scene's frame now (current view). */
+  frames?: { list: { id: string; name: string; idx: number }[]; now?: { id: string; name: string; local: string | null; main: boolean } | null };
+}
 
 const ORIGIN_LABEL: Record<string, string> = { player: '玩家', gm: 'GM/NPC', canon: '正史', offscreen: '场外', bootstrap: '开局前', intervention: '干预' };
 
 /** Canonical graph straight from the pack (Graph A). */
 export function packGraph(L: LoadedPack, origin: { y: number; m: number; d: number } | null): GraphData {
   const nodes: GNode[] = [];
+  const frameList = [...L.frames.frames.values()].map((f, idx) => ({ id: f.id, name: f.name, idx }));
   for (const ev of L.pack.events) {
     const ti = L.timeIndex.find((x) => x.id === ev.id);
+    const fr = L.frames.frames.get(L.frames.eventFrame.get(ev.id) || '');
+    const frame = fr ? { id: fr.id, name: fr.name, local: localTime(fr, ti ? ti.lo : 0), idx: frameList.findIndex((x) => x.id === fr.id) } : undefined;
     nodes.push({
+      frame,
       id: ev.id, title: ev.title, lane: ev.classification, tick: ti ? ti.lo : Number.NEGATIVE_INFINITY, tickHi: ti ? ti.hi : undefined,
       when: ti ? (ti.lo === ti.hi ? formatTick(ti.lo, origin) : `${formatTick(ti.lo, origin)} – ${formatTick(ti.hi, origin)}`) + ` · ${ev.when.label}` : ev.when.label,
       short: ti ? shortRange(ti.lo, ti.hi, origin) : ev.when.label,
       // a structured summary one section per line (the details panel keeps line breaks)
       summary: ev.sections ? summaryLines(ev.sections, /^zh/i.test(L.pack.language)).join('\n') : ev.summary, required: ev.required_description, arc: ev.arc_id,
       detail: [
+        ...(frame ? [`时空：${frame.name}（当地 ${frame.local}${ti && ti.hi > ti.lo ? ` 起，至 ${localTime(fr!, ti.hi)}` : ''}）`] : []),
         ...(ev.outcomes.length ? [`原作结果：${ev.outcomes.map((o) => `${name(L, o.entity_id)}.${o.predicate}=${JSON.stringify(o.value)}`).join('；')}`] : []),
         ...(ev.author_note ? [`注：${ev.author_note}`] : []),
       ],
     });
   }
   const edges: GEdge[] = L.pack.edges.map((e) => ({ from: e.from, to: e.to, kind: e.relation, note: e.note }));
-  return { nodes, edges, nowTick: null, arcs: L.pack.arcs.map((a) => ({ id: a.id, title: a.title })), origin };
+  return { nodes, edges, nowTick: null, arcs: L.pack.arcs.map((a) => ({ id: a.id, title: a.title })), origin, ...(frameList.length ? { frames: { list: frameList } } : {}) };
 }
 
 /** Current playthrough (Graph B): canon statuses + runtime occurrences with actual causal links. */
@@ -105,6 +117,7 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
       n.summary = '（未来事件；勾选“显示剧透”查看）';
       n.required = n.lane === 'HARD' ? '（剧透已隐藏）' : null;
       n.detail = [`本局状态：${statusLabel(n.status)}`];
+      n.frame = undefined;
     }
   }
   // runtime occurrences (actual play) that are not a canon event's own record; a scene chain
@@ -306,12 +319,21 @@ function axisTicks(g: GraphData, sc: { x: (t: number) => number }, bounds: numbe
   return out.sort((a, b) => a.x - b.x);
 }
 
+/** 现在, with the scene's time frame when the pack has frames (and its local time in another frame). */
+function nowLabel(g: GraphData): string {
+  const f = g.frames?.now;
+  if (!f) return '现在';
+  return f.main ? `现在 · ${f.name}` : `现在 · ${f.name} ${f.local || ''}`.trim();
+}
+
 const clip = (s: string, n: number) => ([...s].length > n ? [...s].slice(0, n - 1).join('') + '…' : s);
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
 export function renderGraphSvg(g: GraphData, mode: 'pack' | 'current'): string {
-  const g2 = { ...g, nodes: g.nodes.map((n) => ({ ...n, sub: mode === 'current' && n.status ? `${statusLabel(n.status)} · ${n.short || ''}` : n.short || n.when.split(' · ')[0] })) };
+  // an event in another time frame shows its local time in the box (the axis keeps the main clock)
+  const timeText = (n: GNode) => (n.frame ? `${n.frame.name} ${n.frame.local.split(' ')[0]}` : n.short || n.when.split(' · ')[0]);
+  const g2 = { ...g, nodes: g.nodes.map((n) => ({ ...n, sub: mode === 'current' && n.status ? `${statusLabel(n.status)} · ${timeText(n)}` : timeText(n) })) };
   const L = layout(g2);
   const pos = new Map(L.placed.map((p) => [p.id, p]));
   const lanes = LANES.filter((l) => L.laneY[l][1] > L.laneY[l][0]).map((l, i) => `<rect x="0" y="${L.laneY[l][0]}" width="${L.width}" height="${L.laneY[l][1] - L.laneY[l][0]}" class="cg-lane cg-lane-${i % 2}"/><text x="8" y="${L.laneY[l][0] + 18}" class="cg-lane-label">${LANE_LABEL[l]}</text>`).join('');
@@ -331,12 +353,13 @@ export function renderGraphSvg(g: GraphData, mode: 'pack' | 'current'): string {
     const tc = n.inside ? '' : ' cg-out';
     return `<g class="cg-node ${cls}${n.inside ? '' : ' cg-narrow'}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${NODE_H}" rx="${Math.min(7, n.w / 2)}"/>`
       + (n.inside ? '' : `<rect class="cg-hit" x="${n.w}" width="${Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12}" height="${NODE_H}"/>`)
+      + (n.frame ? `<rect class="cg-frame cg-frame-${n.frame.idx % 8}" width="${n.w}" height="5" rx="2"/>` : '')
       + `<text x="${tx}" y="18" class="cg-node-title${tc}">${esc(n.title2)}</text><text x="${tx}" y="36" class="cg-node-sub${tc}">${esc(n.sub2)}</text>`
       // a long bar repeats its title so it stays readable wherever it is in view
       + (n.inside && n.w > 1400 ? Array.from({ length: Math.floor((n.w - 400) / 1000) }, (_, k) => `<text x="${8 + (k + 1) * 1000}" y="18" class="cg-node-title">${esc(n.title2)}</text>`).join('') : '')
-      + `<title>${esc(n.title)} · ${esc(n.when)}</title></g>`;
+      + `<title>${esc(n.title)} · ${esc(n.when)}${n.frame ? ` · ${esc(n.frame.name)} 当地 ${esc(n.frame.local)}` : ''}</title></g>`;
   }).join('');
-  const now = L.nowX !== null ? `<line x1="${L.nowX}" y1="0" x2="${L.nowX}" y2="${L.height}" class="cg-now"/><text x="${L.nowX + 4}" y="12" class="cg-now-label">现在</text>` : '';
+  const now = L.nowX !== null ? `<line x1="${L.nowX}" y1="0" x2="${L.nowX}" y2="${L.height}" class="cg-now"/><text x="${L.nowX + 4}" y="12" class="cg-now-label">${esc(nowLabel(g))}</text>` : '';
   const markers = ['enables', 'motivates', 'precedes', 'related', 'cause'].map((k) => `<marker id="cg-arrow-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="cg-arrow-${k}"/></marker>`).join('');
   return `<svg class="cg-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMin meet" data-w="${L.width}" data-h="${L.height}" viewBox="0 0 ${Math.min(L.width, 1600)} ${L.height}"><defs>${markers}</defs>${lanes}${ticks}${edges}${nodes}${now}</svg>`;
 }
@@ -359,7 +382,7 @@ export class GraphPanel {
   private selected: string | null = null;
   private getData: (spoilers: boolean) => { pack: GraphData | null; current: GraphData | null; spoilers: boolean; digested?: boolean };
   private setSpoilers: (v: boolean) => void;
-  private onEventAction: (act: 'force' | 'unforce' | 'focus' | 'digest' | 'undigest' | 'reanalyze' | 'conclude' | 'link-occurred' | 'link-diverged', id: string, ids?: string[]) => Promise<void>;
+  private onEventAction: (act: 'force' | 'unforce' | 'focus' | 'digest' | 'undigest' | 'reanalyze' | 'conclude' | 'link-occurred' | 'link-diverged' | 'set-frame', id: string, ids?: string[]) => Promise<void>;
   private linkCandidates: (id: string) => { id: string; title: string; when: string }[];
   private armed: string | null = null;
   private showMembers = false;
@@ -408,11 +431,12 @@ export class GraphPanel {
         ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? 'checked' : ''}>${LANE_LABEL[l]}</label>`).join('')}
         <label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? 'checked' : ''}>${t('spoilers')}</label>
         ${this.mode === 'current' && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t('digestTip'))}">${t('digest')}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t('undigestTip'))}">${t('undigest')}</button>` : ''}` : ''}
+        ${this.mode === 'current' && d.current?.frames?.now ? this.frameSelect(d.current) : ''}
         <button class="menu_button ${this.showMembers ? 'active' : ''}" data-act="members" title="${esc(t('membersTip'))}">${t('members')}</button>
         <button class="menu_button" data-act="fit">${t('graphFit')}</button>
         <button class="menu_button" data-act="close">✕</button>
       </div>
-      <div class="cg-legend">${this.legend()}<span class="cg-hint">${this.mode === 'pack' ? t('graphPackNote') : t('graphCurrentNote')}</span></div>
+      <div class="cg-legend">${this.legend()}${this.frameLegend()}<span class="cg-hint">${this.mode === 'pack' ? t('graphPackNote') : t('graphCurrentNote')}</span></div>
       <div class="cg-body">
         <div class="cg-canvas">${this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t('graphNoData')}</div>` : renderGraphSvg(g, this.mode)}</div>
         <div class="cg-detail"${this.showMembers ? ' style="display:none"' : ''}><div class="cg-empty">${t('graphPick')}</div></div>
@@ -441,6 +465,20 @@ export class GraphPanel {
       ? `<table class="canon-table cg-members"><tr><th>${t('membersWhen')}</th><th>${t('membersEvent')}</th><th>${t('membersOrg')}</th><th>${t('membersChange')}</th><th></th></tr>${m.changes.map((c) => `<tr class="cg-mstate-${c.state}"><td>${esc(c.when)}</td><td>${esc(c.event)}</td><td>${esc(c.org)}</td><td>${esc(c.members !== undefined ? (c.members.length ? c.members.join('、') : t('membersEmptied')) : `${t('membersLeader')} → ${c.leader || t('membersNoLeader')}`)}</td><td><span class="cg-key cg-s-${c.state}">${statusLabel(c.state as GStatus)}</span></td></tr>`).join('')}</table>`
       : '';
     return `<div class="cg-memberswrap"><h4>${t('membersNowTitle')}</h4>${now}<h4>${t('membersChangesTitle')}</h4>${ch || `<div class="cg-empty">${t('membersNoChanges')}</div>`}${m.hidden ? `<div class="cg-hint">${t('membersHidden').replace('{n}', String(m.hidden))}</div>` : ''}</div>`;
+  }
+
+  /** 当前时空: the scene's time frame, changeable by hand when the reviewer missed a move between frames. */
+  private frameSelect(g: GraphData): string {
+    const now = g.frames!.now!;
+    const opts = [{ id: 'main', name: now.main ? now.name : t('frameMain') }, ...g.frames!.list.map((f) => ({ id: f.id, name: f.name }))];
+    return `<label class="cg-lanechk" title="${esc(t('frameTip'))}">${t('frameNow')} <select class="text_pole cg-frame-sel">${opts.map((o) => `<option value="${esc(o.id)}" ${o.id === now.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select></label>`;
+  }
+
+  private frameLegend(): string {
+    const g = this.mode === 'pack' ? this.data.pack : this.data.current;
+    const list = g?.frames?.list || [];
+    const used = new Set(g?.nodes.map((n) => n.frame?.id).filter(Boolean));
+    return list.filter((f) => used.has(f.id)).map((f) => `<span class="cg-key cg-fkey cg-frame-${f.idx % 8}">${esc(f.name)}</span>`).join('');
   }
 
   private legend(): string {
@@ -501,7 +539,8 @@ export class GraphPanel {
     if (tg.classList.contains('cg-q')) { this.filter.q = tg.value; if (ev.type === 'change') { this.keepView = false; this.refresh(); } return; }
     if (tg.classList.contains('cg-arc')) { this.filter.arc = tg.value; this.keepView = true; this.refresh(); return; }
     if (tg.dataset.lane) { if (tg.checked) this.filter.lanes.add(tg.dataset.lane); else this.filter.lanes.delete(tg.dataset.lane); this.keepView = true; this.refresh(); return; }
-    if (tg.classList.contains('cg-spoil')) { this.setSpoilers(tg.checked); this.keepView = true; this.refresh(); }
+    if (tg.classList.contains('cg-spoil')) { this.setSpoilers(tg.checked); this.keepView = true; this.refresh(); return; }
+    if (tg.classList.contains('cg-frame-sel') && ev.type === 'change') { tg.disabled = true; void this.onEventAction('set-frame', tg.value).finally(() => { this.keepView = true; this.refresh(); }); }
   }
 
   private onClick(ev: Event) {

@@ -600,6 +600,13 @@
    },
    "maxItems": 200
   },
+  "scene_frame": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "maxLength": 200
+  },
   "summary": {
    "type": "string"
   },

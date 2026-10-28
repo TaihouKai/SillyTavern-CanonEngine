@@ -84,6 +84,7 @@ The **diagram icon in SillyTavern's top bar** opens the history graph. Boxes sit
 - Search, arc filter, lane toggles, drag to pan, wheel to zoom, *全览* to fit; click an event for its summary, required outcome, actual account and relations.
 - **强制完成** (red, under a canon event's description in 本局历史, click twice to confirm): records the event as happened along its original route, with its effects and HARD outcomes; later events that depend on it see it as happened, and the plan is rechecked on the next turn. **撤销强制完成** undoes it.
 - **整理本局事件** (top of the timeline): the analysis model groups your 本局事件 into episodes (consecutive beats of one storyline), one box each with a title and a short summary. Display only: history, causes and what the GM sees are unchanged; later events show as usual until you press it again; **还原** removes the grouping.
+- **Time frames** (packs that declare them: another era reached by time travel, a realm where time runs differently): the axis stays the main clock; events in another frame get a colored stripe and show their local time; 现在 names the scene's frame; **当前时空** sets the scene's frame by hand when the engine missed a move. See the authoring guide §3.4.
 - **☆ 关注** (future or ongoing SOFT/FREE events): from 24 hours before the event's window until it ends, the GM gives your character natural in-world chances to be there when it starts (an invitation, news, an errand) without forcing its course or result; the planner may add up to two such steps. Focus is cancelled automatically once the event is settled or its window passes.
 
 ### Edits, deletions and conflicts
@@ -137,7 +138,7 @@ const clk = window.CanonEngine?.api?.getClock?.();
 document.addEventListener('canon-engine:clock', (e) => console.log(e.detail)); // fires when it changes
 ```
 
-`active` is false when the current chat is not bound or the engine is disabled. `date` is null when the chat has no day-0 calendar date. The Horae fork above reads this clock to catch up after canon time skips.
+`active` is false when the current chat is not bound or the engine is disabled. A pack with time frames adds `frame: { id, name, main, local }` (the scene's frame; the other fields stay the main clock). `date` is null when the chat has no day-0 calendar date. The Horae fork above reads this clock to catch up after canon time skips.
 
 ## For developers
 

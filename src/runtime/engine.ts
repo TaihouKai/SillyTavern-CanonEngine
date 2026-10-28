@@ -15,7 +15,8 @@ import type { HostPort } from './host';
 import { callStructured, taskDefaults } from './model';
 import { CONTINUE_INSTRUCTION, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
-import { buildPacket, retrieve, type ClaimInput, type RefInput, type Retrieval } from './context';
+import { buildPacket, retrieve, sceneFrameOf, type ClaimInput, type RefInput, type Retrieval } from './context';
+import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
 import { matchScope, runGate, type EvalOutput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
@@ -665,6 +666,7 @@ export class CanonEngine {
       ...(oocParts.length ? { ooc_parts: oocParts } : {}),
       persona,
       current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
+      ...this.currentFrameInput(index, tick),
       registry: this.registry(index, entry.text, prof ? [prof.profile.playerId] : []),
       occurrences: this.occurrenceCatalogue(index, entry.text),
       opportunities,
@@ -779,7 +781,7 @@ export class CanonEngine {
   /** Horae's story time at the end of the previous reply as a tick, when it is usable: a new reply (not a
    *  swipe/regenerate/continue), Horae fresh, a calendar date, later than the engine clock and at most 3 days ahead. */
   private horaeTick(clock: number): number | null {
-    if (!this.settings.followHoraeTime) return null;
+    if (!this.settings.followHoraeTime || this.inOtherFrame()) return null;
     const h = this.horaeTimeHint().horae_time;
     const origin = this.campaign()?.binding.originDate || null;
     if (!h || !origin) return null;
@@ -796,7 +798,7 @@ export class CanonEngine {
     const st = this.current?.replay.state;
     if (!st) return null;
     const clock = st.clock.lo;
-    if (!this.settings.followHoraeTime) return clock;
+    if (!this.settings.followHoraeTime || this.inOtherFrame()) return clock;
     try {
       const h = this.host.horae?.status();
       const origin = this.campaign()?.binding.originDate || null;
@@ -813,7 +815,7 @@ export class CanonEngine {
     try {
       const st = this.host.horae?.status();
       // swipe/regenerate/continue: Horae's latest state already includes the reply being replaced
-      if (this.opActive?.op !== 'normal') return {};
+      if (this.opActive?.op !== 'normal' || this.inOtherFrame()) return {};
       if (!st?.available || st.busy || st.staleIndexes.length || !st.scene?.time) return {};
       return { horae_time: [st.scene.date, st.scene.time].filter(Boolean).join(' ') };
     } catch { return {}; }
@@ -939,6 +941,7 @@ export class CanonEngine {
       offered_contact: a.offered ? { opportunity_id: a.offered.id, scope_kind: a.offered.scopeKind, scope_ref: a.offered.scopeRef, about: a.offered.scopeLabel, actors: a.offered.actors, kind: a.offered.kind, contact: a.offered.contact, direct_impact: a.offered.directImpact, cleared_by_engine: true } : null,
       recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote, ...(jobLapsed(index.state, k, tick) ? { lapsed: true } : {}) })),
       canon_events_now: this.canonNow(index, tick, a.jumpTo ?? this.jumpOf(a.userEntry, tick)),
+      ...this.framesInput(index, tick, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.canonEvents, ...this.canonNow(index, tick).map((c) => c.id)]),
       player_voice: voiceInput(playerVoice(this.settings.playerVoice)),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
@@ -1023,6 +1026,50 @@ export class CanonEngine {
   /** Canonical events open around the scene: from now to 12 hours after it — after a time jump, after where the
    *  jump lands (live: a five-day skip to 10/15; the reviewer called the 10/15 tunnel explosion a contradiction
    *  because the list stopped 12 hours after 10/10). The ones open where the scene is come first. */
+  /** Time frames for the reviewer (only for a pack that has them): the scene's frame now, the frames in play (the
+   *  scene's, those of nearby canon events and of places the text names) and how to report a change of frame. */
+  private framesInput(index: WorldIndex, tick: number, text: string, eventIds: Id[]): { time_frames?: object } {
+    const fx = index.pack.frames;
+    if (!fx.frames.size) return {};
+    const origin = this.campaign()?.binding.originDate || null;
+    const now = sceneFrameOf(index.state);
+    const named = index.scanEntities(text).map((m) => fx.placeFrame.get(m.id)).filter(Boolean) as Id[];
+    const ids = uniq([now, ...eventIds.map((e) => fx.eventFrame.get(e) || ''), ...named]).filter((f) => f && f !== MAIN_FRAME && fx.frames.has(f)).slice(0, 8);
+    return {
+      time_frames: {
+        rule: 'Some places keep their own local time (frames). The story clock (current_time, scene_end) is always the main clock. scene_frame: the id of the frame the scene is in at the END of the reply (where the player character is), when it is not scene_frame_now — the reply shows them travelling to another time or world, or back ("main" for the main frame) — else null. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame\'s conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).',
+        main: { id: MAIN_FRAME, name: frameName(fx, MAIN_FRAME, 'main frame') },
+        scene_frame_now: now,
+        frames: ids.map((id) => { const f = fx.frames.get(id)!; return { id, name: f.name, description: f.description.slice(0, 300), local_now: localTime(f, tick), conversion: conversionText(f, tick, origin) }; }),
+        other_frames: [...fx.frames.values()].filter((f) => !ids.includes(f.id)).slice(0, 30).map((f) => ({ id: f.id, name: f.name })),
+      },
+    };
+  }
+
+  /** The scene's frame for reading the player's message (only when the scene is in a frame other than the main one). */
+  private currentFrameInput(index: WorldIndex, tick: number): { current_frame?: object } {
+    const id = sceneFrameOf(index.state);
+    const f = index.pack.frames.frames.get(id);
+    if (!f) return {};
+    return { current_frame: { name: f.name, local_now: localTime(f, tick), conversion: conversionText(f, tick, this.campaign()?.binding.originDate || null), rule: 'The scene is in this frame. A time the player names in its local terms ("tomorrow morning", a local clock time) converts to the main clock (current_time, time) this way.' } };
+  }
+
+  /** Whether the scene is in a frame other than the main one (Horae then reads local dates: its time is not used). */
+  private inOtherFrame(): boolean {
+    const st = this.current?.replay.state;
+    return !!st && sceneFrameOf(st) !== MAIN_FRAME;
+  }
+
+  /** The scene's frame now, for the timeline: null for a pack without frames. */
+  sceneFrameNow(): { id: Id; name: string; local: string | null; main: boolean } | null {
+    const st = this.current?.replay.state;
+    const pack = this.current?.index.pack;
+    if (!st || !pack || !pack.frames.frames.size) return null;
+    const id = sceneFrameOf(st);
+    const f = pack.frames.frames.get(id);
+    return { id, name: frameName(pack.frames, id, '主时间线'), local: f ? localTime(f, this.storyNow() ?? st.clock.lo) : null, main: !f };
+  }
+
   private canonNow(index: WorldIndex, tick: number, jumpTo: number | null = null): { id: string; title: string; window: string; original: string; in_progress?: string[] }[] {
     const pack = index.pack;
     const out: { id: string; title: string; window: string; original: string; in_progress?: string[] }[] = [];
@@ -2018,6 +2065,31 @@ export class CanonEngine {
     const issue = this.current?.replay.issue;
     if (!issue) return;
     throw new EngineError('incompatible_adapter', `Canon Engine is stopped at message ${issue.index} (${issue.status}): ${(issue.reasons[0] || '').slice(0, 160)} — resolve that first (重试 re-checks it), then try again.`);
+  }
+
+  /** 当前时空: move the scene to a time frame by hand (the reviewer missed a move between frames). Anchored after the
+   *  last message like 强制完成; later replies are told the new frame. */
+  async setSceneFrame(frameId: Id): Promise<void> {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError('incompatible_adapter', 'engine state unavailable');
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; wait or cancel it first.');
+    const pack = this.pack();
+    if (frameId !== MAIN_FRAME && !pack.frames.frames.has(frameId)) throw new EngineError('incompatible_adapter', `unknown time frame "${frameId}"`);
+    this.assertReplayComplete();
+    await this.exclusive(async () => {
+      const state = this.current!.replay.state;
+      if (sceneFrameOf(state) === frameId) return;
+      const tick = state.clock.lo;
+      const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
+      const rec: RecordDraft = {
+        recordId: newId('rec'), kind: 'scene_frame', storyTime: { lo: tick, hi: tick, precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+        visibility: { mode: 'public', knower_ids: [] }, summary: `The player set the scene's time frame: ${frameName(pack.frames, frameId, 'main frame')}`, evidenceKind: 'direct', frameId,
+      };
+      c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: `scene frame set by hand: ${frameId}` });
+    });
+    await this.reconcile('set_frame', { allowModel: false });
+    await this.host.save();
   }
 
   /** Undo a "强制完成". */

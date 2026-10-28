@@ -4,6 +4,7 @@ import type { CanonPack, Condition, Effect, Fact, FactValue, Id, PackEvent, Pack
 import { toTick, whenToStoryTime } from './time';
 import { SUMMARY_LABELS, renderSummary, type EventSummary } from './summary';
 import { deepClone, hashObject, stableStringify } from './util';
+import { MAIN_FRAME, indexFrames, parseLocal, type FrameIndex } from './frames';
 
 export interface LintIssue { level: 'error' | 'warning'; path: string; message: string }
 
@@ -24,6 +25,8 @@ export interface LoadedPack {
   /** Event title -> event id (exact identity aid). */
   eventTitleIndex: Map<string, Id[]>;
   coverage: { start: number; end: number };
+  /** Time frames (empty for a pack without them). */
+  frames: FrameIndex;
   warnings: LintIssue[];
 }
 
@@ -454,7 +457,31 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
     }
   }
   if (!pack.events.some((e) => e.when.earliest)) warn('/coverage', 'coverage promises scheduled play but no finite-time events exist');
+  lintFrames(pack, entities, err, warn);
   return { errors: dedupeIssues(errors), warnings: dedupeIssues(warnings) };
+}
+
+/** Time frames: ids unique and not "main", linked clocks readable, references known, places' frames consistent. */
+function lintFrames(pack: CanonPack, entities: Map<string, CanonPack['entities'][number]>, err: (p: string, m: string) => void, warn: (p: string, m: string) => void) {
+  const frames = new Map<string, NonNullable<CanonPack['frames']>[number]>();
+  (pack.frames || []).forEach((f, i) => {
+    if (f.id === MAIN_FRAME) err(`/frames/${i}/id`, `"${MAIN_FRAME}" is the main frame's id; give this frame another id`);
+    else if (frames.has(f.id)) err(`/frames/${i}/id`, `duplicate frame id "${f.id}"`);
+    else frames.set(f.id, f);
+    if (f.clock.kind === 'linked' && parseLocal(f.clock.local, f.clock.at.minute) === null) err(`/frames/${i}/clock/local`, `"${f.clock.local}" is not a calendar date ("YYYY-MM-DD" or "YYYY-MM-DD HH:MM", year 0 = 1 BC, negative before that)`);
+  });
+  const known = (id: string) => id === MAIN_FRAME || frames.has(id);
+  pack.entities.forEach((e, i) => {
+    if (e.frame_id === undefined) return;
+    if (!frames.has(e.frame_id)) err(`/entities/${i}/frame_id`, `unknown frame "${e.frame_id}"`);
+    else if (e.kind !== 'place') warn(`/entities/${i}/frame_id`, `frame_id on a ${e.kind}: only places belong to a frame (people move between frames)`);
+  });
+  pack.events.forEach((ev, i) => {
+    if (ev.frame_id !== undefined && !known(ev.frame_id)) { err(`/events/${i}/frame_id`, `unknown frame "${ev.frame_id}"`); return; }
+    const placeFrames = [...new Set(ev.location_ids.map((l) => entities.get(l)?.frame_id).filter((x): x is string => !!x && frames.has(x)))];
+    if (placeFrames.length > 1 && ev.frame_id === undefined) warn(`/events/${i}/location_ids`, `places in different frames (${placeFrames.join(', ')}): set the event's frame_id`);
+    else if (ev.frame_id !== undefined && ev.frame_id !== MAIN_FRAME && placeFrames.length && !placeFrames.includes(ev.frame_id)) warn(`/events/${i}/frame_id`, `frame "${ev.frame_id}" but its places are in ${placeFrames.join(', ')}`);
+  });
 }
 
 function buildLoaded(pack: CanonPack, warnings: LintIssue[]): LoadedPack {
@@ -514,6 +541,7 @@ function buildLoaded(pack: CanonPack, warnings: LintIssue[]): LoadedPack {
     aliasIndex,
     eventTitleIndex,
     coverage: { start: toTick(pack.coverage.start), end: toTick(pack.coverage.end) },
+    frames: indexFrames(pack),
     warnings,
   };
 }

@@ -11,6 +11,8 @@ import { pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
 import type { ClaimInput, Retrieval } from './context';
 import { voiceAllows, type PlayerVoice } from './voice';
+import { MAIN_FRAME } from '../domain/frames';
+import { normalizeName } from '../domain/pack';
 import type { CoverageEntry, Opportunity, PlanRevision, PlayerAction, RecordDraft, StateClaim } from './types';
 
 export interface EvalOutput {
@@ -31,6 +33,8 @@ export interface EvalOutput {
   violations: { code: string; quote?: string; detail: string; blocking?: boolean }[];
   hard_checks: { event_id: string; status: 'fulfilled' | 'not_due' | 'missing' | 'contradicted'; occurrence_ref?: string | null; quote?: string | null }[];
   scene_entities?: string[];
+  /** Time frames (only asked when the pack has frames): the frame the scene is in at the reply's end, or null. */
+  scene_frame?: string | null;
   summary?: string;
   /** Narrative integration: contacts from the world that reached the player in this reply. */
   contacts?: { quote: string; actors?: string[]; kind: ContactInfo['contactKind']; scope_kind: ScopeKind; scope_ref: string; scope_label?: string; opportunity_id?: string | null }[];
@@ -97,6 +101,8 @@ export interface GateResult {
   sceneEnd: StoryTime | null;
   flashback: boolean;
   sceneEntities: Id[];
+  /** The frame the scene moved to in this reply (a known frame id or MAIN_FRAME), or null when it stays. */
+  sceneFrame: Id | null;
   enactedSteps: string[];
   hardFulfilled: Id[];
   coverage: CoverageEntry[];
@@ -577,5 +583,26 @@ export function runGate(g: GateInput): GateResult {
     });
   }
   const sceneEntities = uniq((ev.scene_entities || []).map(resolveId).filter(Boolean) as Id[]);
-  return { violations: uniq(violations), warnings, records, stateClaims, playerActions, sceneEnd, flashback, sceneEntities, enactedSteps, hardFulfilled, coverage, coverageGaps, runtimeEntities };
+  // Time frames: the frame the scene is in after this reply, when the reviewer names a known one (by id or name)
+  // and it is not the current one. A flashback does not move the scene.
+  const sceneFrame = flashback ? null : frameRef(g.pack, ev.scene_frame);
+  const frameNow = g.index.state.sceneFrame?.frameId || MAIN_FRAME;
+  if (sceneFrame && sceneFrame !== frameNow) {
+    records.push({
+      recordId: newId('rec'), kind: 'scene_frame', storyTime: { lo: sceneEnd.lo, hi: sceneEnd.lo, precision: sceneEnd.precision }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+      visibility: { mode: 'public', knower_ids: [] }, summary: `The scene is now in ${sceneFrame === MAIN_FRAME ? 'the main frame' : g.pack.frames.frames.get(sceneFrame)!.name}`, evidenceKind: 'direct', frameId: sceneFrame,
+    });
+  }
+  return { violations: uniq(violations), warnings, records, stateClaims, playerActions, sceneEnd, flashback, sceneEntities, sceneFrame: sceneFrame && sceneFrame !== frameNow ? sceneFrame : null, enactedSteps, hardFulfilled, coverage, coverageGaps, runtimeEntities };
+}
+
+/** A frame named by a model: its id, MAIN_FRAME, or its name (also the main frame's name); null for anything else. */
+export function frameRef(pack: LoadedPack, ref: unknown): Id | null {
+  if (typeof ref !== 'string' || !ref.trim() || !pack.frames.frames.size) return null;
+  const r = ref.trim();
+  if (r === MAIN_FRAME || pack.frames.frames.has(r)) return r;
+  const n = normalizeName(r);
+  if (pack.frames.mainName && normalizeName(pack.frames.mainName) === n) return MAIN_FRAME;
+  for (const f of pack.frames.frames.values()) if (normalizeName(f.name) === n) return f.id;
+  return null;
 }

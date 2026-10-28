@@ -48,6 +48,8 @@ export interface WorldState {
   runtimeEntities: Map<Id, RuntimeEntity & { recordId: string }>;
   enactedSteps: Map<string, string>;
   clock: StoryTime;
+  /** The time frame the scene is in (scene_frame records; null: the main frame, never changed). */
+  sceneFrame: { frameId: Id; since: number; recordId: string } | null;
   records: LedgerRecord[];
   recordById: Map<string, LedgerRecord>;
   lastSeq: number;
@@ -68,6 +70,7 @@ export function emptyState(pack: LoadedPack): WorldState {
     runtimeEntities: new Map(),
     enactedSteps: new Map(),
     clock: { lo: pack.coverage.start, hi: pack.coverage.start, precision: 'minute' },
+    sceneFrame: null,
     records: [],
     recordById: new Map(),
     lastSeq: 0,
@@ -108,6 +111,7 @@ export function applyRecord(state: WorldState, rec: LedgerRecord): void {
   if (rec.contact) state.contacts.push({ ...rec.contact, recordId: rec.recordId, seq: rec.sequence, tick });
   for (const re of rec.runtimeEntities || []) if (!state.runtimeEntities.has(re.id)) state.runtimeEntities.set(re.id, { ...re, recordId: rec.recordId });
   for (const s of rec.enactedStepIds || []) if (!state.enactedSteps.has(s)) state.enactedSteps.set(s, rec.recordId);
+  if (rec.kind === 'scene_frame' && rec.frameId) state.sceneFrame = { frameId: rec.frameId, since: tick, recordId: rec.recordId };
   // The committed clock moves only through time-advance/bootstrap records and never backwards;
   // flashbacks change scene framing, not the world clock.
   if ((rec.kind === 'time_advance' || rec.kind === 'initial_bootstrap') && rec.storyTime.lo >= state.clock.lo) {

@@ -49,6 +49,10 @@
         },
         "notes": {
           "type": "string"
+        },
+        "main_frame_name": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -59,6 +63,12 @@
         "notes"
       ],
       "additionalProperties": false
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/frame"
+      }
     },
     "coverage": {
       "type": "object",
@@ -451,6 +461,9 @@
             "$ref": "#/$defs/id"
           },
           "uniqueItems": true
+        },
+        "frame_id": {
+          "$ref": "#/$defs/id"
         }
       },
       "required": [
@@ -744,6 +757,9 @@
             ],
             "additionalProperties": false
           }
+        },
+        "frame_id": {
+          "$ref": "#/$defs/id"
         }
       },
       "required": [
@@ -922,6 +938,80 @@
         "fact",
         "source_refs",
         "note"
+      ],
+      "additionalProperties": false
+    },
+    "frame": {
+      "type": "object",
+      "description": "A time frame: a part of the world that keeps its own local time (a past era reached by time travel, another world, a realm where time flows differently). The story clock stays the main clock; a frame only says how its local time reads.",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "clock": {
+          "oneOf": [
+            {
+              "type": "object",
+              "description": "Local time follows the main clock: at main time `at` the local time is `local`; afterwards local time runs `rate` local minutes per main minute (default 1).",
+              "properties": {
+                "kind": {
+                  "const": "linked"
+                },
+                "at": {
+                  "$ref": "#/$defs/time"
+                },
+                "local": {
+                  "type": "string",
+                  "pattern": "^-?\\d{1,6}-\\d{2}-\\d{2}( \\d{2}:\\d{2})?$"
+                },
+                "rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "required": [
+                "kind",
+                "at",
+                "local"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "description": "Local time cannot be converted (no calendar, unknown era, time stands still): `label` says how local time reads.",
+              "properties": {
+                "kind": {
+                  "const": "unlinked"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "kind",
+                "label"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "clock"
       ],
       "additionalProperties": false
     }

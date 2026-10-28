@@ -57,6 +57,8 @@ export function stateHash(s: WorldState): string {
     // narrative integration: decisions and contacts change what later replies may do
     ...(s.engagements.length ? { e: s.engagements.map((g) => `${g.scopeKind}:${g.scopeRef}:${g.stance}`) } : {}),
     ...(s.contacts.length ? { k: s.contacts.length } : {}),
+    // time frames: the frame the scene is in changes what the next replies are told
+    ...(s.sceneFrame ? { f: s.sceneFrame.frameId } : {}),
   });
 }
 

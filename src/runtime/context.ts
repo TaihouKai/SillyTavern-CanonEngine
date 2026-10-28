@@ -9,6 +9,8 @@ import { summaryLines } from '../domain/summary';
 import { evalCondition, triLabel } from '../domain/reducer';
 import { EngineError, sceneRoot, sha256 } from '../domain/util';
 import type { CoverageEntry, PlanRevision } from './types';
+import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
+import type { WorldState } from '../domain/reducer';
 
 export interface RefInput {
   id: string;
@@ -293,6 +295,30 @@ function canonLine(c: CanonStatusView): string {
   return `- ${c.title} [${c.packEventId}] (${c.classification}): ${c.status.toUpperCase()} — ${c.note}`;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Time frames (packs that have them; a pack without frames gets none of this)
+
+/** The frame the scene is in (MAIN_FRAME unless a scene_frame record moved it). */
+export function sceneFrameOf(state: WorldState): Id {
+  return state.sceneFrame?.frameId || MAIN_FRAME;
+}
+/** " [in 奥尔良特异点; local 1431-05-03 10:00]" for an event in another frame, else "". */
+export function eventFrameTag(pack: LoadedPack, eventId: Id, tick: number): string {
+  const f = pack.frames.frames.get(pack.frames.eventFrame.get(eventId) || '');
+  return f ? ` [in ${f.name}; local ${localTime(f, tick)}]` : '';
+}
+const MAIN_LABEL = 'the main frame';
+/** The GM's TIME FRAMES section: what the clock is, the scene's frame and the local time of the frames in play. */
+export function framesSection(pack: LoadedPack, state: WorldState, tick: number, origin: PacketInput['origin'], eventIds: Id[]): string {
+  const fx = pack.frames;
+  if (!fx.frames.size) return '';
+  const now = sceneFrameOf(state);
+  const ids = [...new Set([now, ...eventIds.map((e) => fx.eventFrame.get(e)).filter(Boolean) as Id[]])].filter((f) => f !== MAIN_FRAME && fx.frames.has(f)).slice(0, 5);
+  const lines = ids.map((id) => { const f = fx.frames.get(id)!; return `- ${f.name} [${id}]: local time now ${localTime(f, tick)} (${conversionText(f, tick, origin)}).${f.description ? ' ' + f.description : ''}`; });
+  const here = now === MAIN_FRAME ? `in ${frameName(fx, MAIN_FRAME, MAIN_LABEL)} (the main clock's own time)` : `in ${fx.frames.get(now)!.name}: local time now ${localTime(fx.frames.get(now)!, tick)}`;
+  return `TIME FRAMES: every story time in this context is on the main clock (${frameName(fx, MAIN_FRAME, MAIN_LABEL)}), which only moves forward. Some places keep their own local time${lines.length ? ':\n' + lines.join('\n') : ' (none in play right now).'}\nThe scene is ${here}. In a frame, clocks, calendars and dates the characters see show its local time. Going to or leaving a frame (time travel, crossing to another world) takes the main-clock time the story shows; the main clock never jumps to the local date.`;
+}
+
 export function buildPacket(inp: PacketInput, compact = false): Packet {
   const { pack, index, retrieval, checkpointTick } = inp;
   const cpLabel = formatTick(checkpointTick, inp.origin);
@@ -336,11 +362,11 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
     const head = jump > START_SOON_MINUTES
       ? `CANON EVENTS ABOUT TO START — the player's message jumps story time to ${formatTick(inp.timeJumpTo!, inp.origin)}; these start before then (NOT happened yet). Each begins at its time during the jump — the world does not wait: reflect the ones the player character would witness, be woken or interrupted by, or plausibly hear about; the others happen out of sight and you do not mention them. Keep the jump the player asked for: do not cut it short or stretch it to reach or avoid an event; how far their original routes bind depends on their class (rule below)`
       : `CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then — the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; how far its original route binds depends on its class (rule below)`;
-    required.push(`${head}:\n` + starting.map((u) => `- ${u.event.title} [${u.event.id}] (${u.event.classification}) starts ${formatTick(u.lo, inp.origin)} (in ${minutesAway(u.lo - checkpointTick)}): ${causeOf(u.event)}${castLine(u.event, index, checkpointTick, inp.origin)}`).join('\n'));
+    required.push(`${head}:\n` + starting.map((u) => `- ${u.event.title} [${u.event.id}] (${u.event.classification}) starts ${formatTick(u.lo, inp.origin)}${eventFrameTag(pack, u.event.id, u.lo)} (in ${minutesAway(u.lo - checkpointTick)}): ${causeOf(u.event)}${castLine(u.event, index, checkpointTick, inp.origin)}`).join('\n'));
   }
   // Canon events the story has started but not finished: always shown, whether or not the latest messages name them.
   const underWay = underWayEvents(index, checkpointTick);
-  if (underWay.length) required.push('CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand; how far the original route binds depends on the class — rule below):\n' + underWay.map((u) => `- ${u.title} [${u.id}] (${u.cls}; window ${formatTick(u.lo, inp.origin)} – ${formatTick(u.hi, inp.origin)}): so far — ${u.beats.join(' → ')}. ${routeLabel(u.cls)}:${routeText(index.pack.events.get(u.id), u.summary, presentAt(index, u.id, checkpointTick), /^zh/i.test(index.pack.pack.language))}${whyLine(index.pack.events.get(u.id), index)}${castLine(index.pack.events.get(u.id), index, checkpointTick, inp.origin)}`).join('\n'));
+  if (underWay.length) required.push('CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand; how far the original route binds depends on the class — rule below):\n' + underWay.map((u) => `- ${u.title} [${u.id}] (${u.cls}; window ${formatTick(u.lo, inp.origin)} – ${formatTick(u.hi, inp.origin)}${eventFrameTag(pack, u.id, checkpointTick)}): so far — ${u.beats.join(' → ')}. ${routeLabel(u.cls)}:${routeText(index.pack.events.get(u.id), u.summary, presentAt(index, u.id, checkpointTick), /^zh/i.test(index.pack.pack.language))}${whyLine(index.pack.events.get(u.id), index)}${castLine(index.pack.events.get(u.id), index, checkpointTick, inp.origin)}`).join('\n'));
   // Deviations
   const devs = [...index.state.dispositions].filter(([, d]) => d.disposition !== 'occurred').map(([id, d]) => `- ${pack.events.get(id)?.title} [${id}] (${pack.events.get(id)?.classification}): ${d.disposition} — ${d.reason || ''}`);
   if (devs.length) required.push('DEVIATIONS (original outcomes superseded by actual play; do not restore them):\n' + devs.join('\n'));
@@ -349,7 +375,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   const horizonEnd = checkpointTick + inp.horizon;
   const dueSoon = hard.filter((h) => h.lo <= horizonEnd);
   const later = hard.filter((h) => h.lo > horizonEnd);
-  const hardLines = dueSoon.map((h) => `- [${h.event.id}] ${formatTick(h.lo, inp.origin)}${h.hi !== h.lo ? ' – ' + formatTick(h.hi, inp.origin) : ''}: ${h.event.required_description} REQUIRED OUTCOMES: ${h.event.outcomes.map((o) => `${o.entity_id}.${o.predicate}=${JSON.stringify(o.value)}`).join(', ')}${h.hi <= checkpointTick ? ' **DUE NOW**' : ''}${castLine(h.event, index, checkpointTick, inp.origin)}`);
+  const hardLines = dueSoon.map((h) => `- [${h.event.id}] ${formatTick(h.lo, inp.origin)}${h.hi !== h.lo ? ' – ' + formatTick(h.hi, inp.origin) : ''}${eventFrameTag(pack, h.event.id, h.lo)}: ${h.event.required_description} REQUIRED OUTCOMES: ${h.event.outcomes.map((o) => `${o.entity_id}.${o.predicate}=${JSON.stringify(o.value)}`).join(', ')}${h.hi <= checkpointTick ? ' **DUE NOW**' : ''}${castLine(h.event, index, checkpointTick, inp.origin)}`);
   if (!inp.review) required.push('FUTURE OBLIGATIONS (HARD; fixed content/outcome/time; route may change):\n' + (hardLines.length ? hardLines.join('\n') : '- none within the current horizon') + (later.length ? `\n- later HARD obligations exist (${later.length}); do not contradict them.` : ''));
   if (inp.forced) required.push('MODE: FORCED CONVERGENCE authorized by the controller — extraordinary world intervention may be depicted as a new event. It cannot erase history or choose the player\'s actions.');
   // Plan
@@ -375,8 +401,8 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
       // an event whose original preconditions already failed will not happen; do not suggest it
       && triLabel(evalCondition(pack.events.get(t.id)!.canonical_preconditions, index.state, pack, { tick: checkpointTick })) !== 'FALSE')
     .slice(0, 4);
-  const open = openEvents.map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${e.classification}; ${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}${whyLine(e, index)}${castLine(e, index, checkpointTick, inp.origin)}`; });
-  const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${formatTick(u.lo, inp.origin)} ${u.event.title}: ${causeOf(u.event)}`);
+  const open = openEvents.map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${e.classification}; ${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}${eventFrameTag(pack, e.id, checkpointTick)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}${whyLine(e, index)}${castLine(e, index, checkpointTick, inp.origin)}`; });
+  const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${formatTick(u.lo, inp.origin)}${eventFrameTag(pack, u.event.id, u.lo)} ${u.event.title}: ${causeOf(u.event)}`);
   if (soon.length) optional.push('WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing — NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them (a WORLD REACTION given above is the one way the world may reach the player); the player may change them, and actual play wins over this:\n' + soon.join('\n'));
   // An event in its window with a cast says who is there right now: never dropped for budget.
   const openCast = openEvents.some((t) => pack.events.get(t.id)!.cast?.length);
@@ -397,6 +423,9 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
     required.push(CAST_RULE + (due.length ? '\nAT THE EVENT UNDER WAY:\n' + due.join('\n') : ''));
   }
 
+  // Time frames: right after the clock line, with the frames of the events shown above.
+  const frames = framesSection(pack, index.state, checkpointTick, inp.origin, [...starting.map((u) => u.event.id), ...underWay.map((u) => u.id), ...dueSoon.map((h) => h.event.id), ...openEvents.map((t) => t.id), ...canon.map((c) => c.packEventId)]);
+  if (frames) required.splice(2, 0, frames);
   if (inp.review) optional.length = 0;
   const reqText = required.join('\n\n');
   let text = reqText;

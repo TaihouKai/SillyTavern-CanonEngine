@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.15.0 — 2026-10-28
+
+- **Time frames: places with their own local time.** A story that visits another era or world (time travel to a past year and back, a realm where a week passes in a day, a dream) needs one story clock that only moves forward and, for each place, how local time reads there. A pack can now declare `frames`: each with a name, a description and a clock — `linked` (at main time `at` the local time is `local`, running `rate` local minutes per main minute) or `unlinked` (a label, no conversion). Places carry `frame_id`; an event is in its own `frame_id`, else in its place's frame, else in the main frame (`calendar.main_frame_name` names it). Every time stays on the main clock.
+  - The reviewer is given the frames in play and reports `scene_frame` when a reply moves the scene into or out of a frame; it is recorded with the reply (swipes, edits and deletions replay it). A flashback or a frame only talked about does not move the scene.
+  - The GM gets a TIME FRAMES section right after the clock: every time is on the main clock, which frame the scene is in, the local time of the frames in play and how they convert; events in another frame carry their local time. Reading the player's message gets the scene's frame for local times ("tomorrow morning" there).
+  - Horae's time is not used while the scene is in another frame (it reads the local date).
+  - Timeline: events in another frame have a colored stripe, show their local time and a 时空 line in the details; the legend lists the frames; 现在 names the scene's frame and local time; **当前时空** sets the scene's frame by hand.
+  - `canon-lint` checks frames and reports them in the summary. Example pack: `examples/frames-demo.canon.json`. Authoring guide §3.4.
+  - A pack without frames is unchanged: same validation, same pack hash, no frame wording in any prompt, same timeline (checked with the Toaru pack in the test SillyTavern).
+- Tests: FR1–FR10; e2e `tests/e2e/frames.mjs` (FX01–FX11).
+
 ## 1.14.2 — 2026-10-26
 
 - The planner gets descriptions only for the entities of the HARD events it plans in detail and of the next day's events, not of every later HARD event (live: 134 of 227 entities carried one).

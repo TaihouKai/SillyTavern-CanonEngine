@@ -1,0 +1,1188 @@
+{
+  "$schema": "../schemas/canon-pack.schema.json",
+  "schema_version": "1.0.0",
+  "pack_id": "frames-demo",
+  "pack_version": "1.0.0",
+  "title": "时序管理局（时空框架示例）",
+  "language": "zh-CN",
+  "description": "原创示例：时序管理局的小队前往1600年的港城回收时之沙漏，之后受邀去时间流速是外面七倍的妖精丘。用来测试时空框架：主时钟是管理局本部的时间；港城是另一个年代，妖精丘时间更快，梦境没有可换算的时间。",
+  "calendar": {
+    "system": "relative_day",
+    "origin_label": "第0天 = 2031-03-02",
+    "day_length_minutes": 1440,
+    "time_zone_label": "管理局本部时间",
+    "notes": "主时钟是管理局本部的时间，只往前走。港城、妖精丘、梦之庭各有自己的当地时间（见时空框架）。",
+    "main_frame_name": "时序管理局本部"
+  },
+  "frames": [
+    {
+      "id": "harbor-1600",
+      "name": "1600年的港城",
+      "description": "小队通过转移室抵达的过去：一座1600年的港口城市。当地时间与本部同速流逝。",
+      "clock": {
+        "kind": "linked",
+        "at": {
+          "day": 1,
+          "minute": 840
+        },
+        "local": "1600-04-12"
+      }
+    },
+    {
+      "id": "faerie-hill",
+      "name": "妖精丘",
+      "description": "妖精的山丘，那里的时间比外面快七倍：外面过一天，丘上过一周。",
+      "clock": {
+        "kind": "linked",
+        "at": {
+          "day": 5,
+          "minute": 600
+        },
+        "local": "0812-09-01 06:00",
+        "rate": 7
+      }
+    },
+    {
+      "id": "dream-garden",
+      "name": "梦之庭",
+      "description": "周默梦里反复出现的庭院。",
+      "clock": {
+        "kind": "unlinked",
+        "label": "梦中没有可读的时间"
+      }
+    }
+  ],
+  "coverage": {
+    "start": {
+      "day": 0,
+      "minute": 480
+    },
+    "end": {
+      "day": 7,
+      "minute": 1439
+    },
+    "notes": "示例覆盖八天。"
+  },
+  "sources": [
+    {
+      "id": "frames-demo-source",
+      "title": "原创示例",
+      "locator": "examples/frames-demo.canon.json",
+      "kind": "example",
+      "notes": "为测试时空框架编写，非任何作品。"
+    }
+  ],
+  "predicates": [
+    {
+      "id": "alive",
+      "description": "是否活着。",
+      "value_type": "boolean"
+    },
+    {
+      "id": "whereabouts",
+      "description": "现在在哪里（地点或年代）。",
+      "value_type": "string",
+      "transient": true,
+      "settled_values": [
+        "时序管理局本部"
+      ]
+    },
+    {
+      "id": "holder",
+      "description": "物品现在在谁手里。",
+      "value_type": "entity_ref"
+    },
+    {
+      "id": "sealed",
+      "description": "异常是否已被封印。",
+      "value_type": "boolean"
+    }
+  ],
+  "entities": [
+    {
+      "id": "bureau",
+      "name": "时序管理局",
+      "aliases": [
+        "管理局"
+      ],
+      "kind": "organization",
+      "static_description": "管理时间异常的机构，总部在2031年的城市地下。",
+      "source_refs": [
+        "frames-demo-source"
+      ]
+    },
+    {
+      "id": "hq",
+      "name": "时序管理局本部",
+      "aliases": [
+        "本部"
+      ],
+      "kind": "place",
+      "static_description": "管理局的地下总部，有办公室、宿舍和转移室。",
+      "source_refs": [
+        "frames-demo-source"
+      ]
+    },
+    {
+      "id": "transfer-room",
+      "name": "转移室",
+      "aliases": [],
+      "kind": "place",
+      "static_description": "本部里把人送往其他年代的房间。",
+      "source_refs": [
+        "frames-demo-source"
+      ]
+    },
+    {
+      "id": "harbor-dock",
+      "name": "港城码头",
+      "aliases": [
+        "码头"
+      ],
+      "kind": "place",
+      "static_description": "1600年港城的码头，商船往来。",
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "frame_id": "harbor-1600"
+    },
+    {
+      "id": "harbor-church",
+      "name": "港城教堂",
+      "aliases": [
+        "教堂"
+      ],
+      "kind": "place",
+      "static_description": "港城高处的石造教堂，地下室里有时间异常。",
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "frame_id": "harbor-1600"
+    },
+    {
+      "id": "harbor-castle",
+      "name": "领主城堡",
+      "aliases": [
+        "城堡"
+      ],
+      "kind": "place",
+      "static_description": "港城领主维克托的城堡。",
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "frame_id": "harbor-1600"
+    },
+    {
+      "id": "dream-garden-place",
+      "name": "梦之庭",
+      "aliases": [],
+      "kind": "place",
+      "static_description": "周默梦里的庭院，长满白色的花。",
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "frame_id": "dream-garden"
+    },
+    {
+      "id": "faerie-hill-place",
+      "name": "妖精丘",
+      "aliases": [
+        "丘"
+      ],
+      "kind": "place",
+      "static_description": "城郊雾里出现的山丘，妖精们的住处。",
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "frame_id": "faerie-hill"
+    },
+    {
+      "id": "lin-lan",
+      "name": "林岚",
+      "aliases": [
+        "局长"
+      ],
+      "kind": "person",
+      "static_description": "时序管理局局长，冷静干练。",
+      "source_refs": [
+        "frames-demo-source"
+      ]
+    },
+    {
+      "id": "zhou-mo",
+      "name": "周默",
+      "aliases": [
+        "小周"
+      ],
+      "kind": "person",
+      "static_description": "管理局新来的研究员，原作的主人公。",
+      "source_refs": [
+        "frames-demo-source"
+      ]
+    },
+    {
+      "id": "ada",
+      "name": "艾达",
+      "aliases": [],
+      "kind": "person",
+      "static_description": "管理局的外勤队员，周默的搭档，擅长剑术。",
+      "source_refs": [
+        "frames-demo-source"
+      ]
+    },
+    {
+      "id": "sister-irene",
+      "name": "艾琳修女",
+      "aliases": [
+        "艾琳"
+      ],
+      "kind": "person",
+      "static_description": "1600年港城教堂的修女，知道地下室的秘密。",
+      "source_refs": [
+        "frames-demo-source"
+      ]
+    },
+    {
+      "id": "lord-victor",
+      "name": "维克托领主",
+      "aliases": [
+        "维克托",
+        "领主"
+      ],
+      "kind": "person",
+      "static_description": "1600年港城的领主，想用时之沙漏延长自己的寿命。",
+      "source_refs": [
+        "frames-demo-source"
+      ]
+    },
+    {
+      "id": "faerie-princess",
+      "name": "莉丝",
+      "aliases": [
+        "妖精王女"
+      ],
+      "kind": "person",
+      "static_description": "妖精丘的王女，好奇外面的世界。",
+      "source_refs": [
+        "frames-demo-source"
+      ]
+    },
+    {
+      "id": "hourglass",
+      "name": "时之沙漏",
+      "aliases": [
+        "沙漏"
+      ],
+      "kind": "object",
+      "static_description": "造成港城时间异常的古老沙漏。",
+      "source_refs": [
+        "frames-demo-source"
+      ]
+    }
+  ],
+  "initial_state": {
+    "at": {
+      "day": 0,
+      "minute": 480
+    },
+    "facts": [
+      {
+        "fact": {
+          "entity_id": "zhou-mo",
+          "predicate": "alive",
+          "value": true
+        },
+        "source_refs": [
+          "frames-demo-source"
+        ],
+        "note": ""
+      },
+      {
+        "fact": {
+          "entity_id": "ada",
+          "predicate": "alive",
+          "value": true
+        },
+        "source_refs": [
+          "frames-demo-source"
+        ],
+        "note": ""
+      },
+      {
+        "fact": {
+          "entity_id": "zhou-mo",
+          "predicate": "whereabouts",
+          "value": "时序管理局本部"
+        },
+        "source_refs": [
+          "frames-demo-source"
+        ],
+        "note": ""
+      },
+      {
+        "fact": {
+          "entity_id": "ada",
+          "predicate": "whereabouts",
+          "value": "时序管理局本部"
+        },
+        "source_refs": [
+          "frames-demo-source"
+        ],
+        "note": ""
+      },
+      {
+        "fact": {
+          "entity_id": "hourglass",
+          "predicate": "holder",
+          "value": "sister-irene"
+        },
+        "source_refs": [
+          "frames-demo-source"
+        ],
+        "note": "修女把沙漏藏在教堂地下室。"
+      },
+      {
+        "fact": {
+          "entity_id": "hourglass",
+          "predicate": "sealed",
+          "value": false
+        },
+        "source_refs": [
+          "frames-demo-source"
+        ],
+        "note": ""
+      }
+    ]
+  },
+  "arcs": [
+    {
+      "id": "harbor",
+      "title": "港城的沙漏",
+      "summary": "小队前往1600年的港城，回收引起时间异常的时之沙漏。",
+      "event_ids": [
+        "briefing",
+        "transfer",
+        "church",
+        "victor-takes",
+        "retake",
+        "return"
+      ]
+    },
+    {
+      "id": "faerie",
+      "title": "妖精丘的邀请",
+      "summary": "回来后，妖精王女邀请周默去妖精丘。",
+      "event_ids": [
+        "faerie-invite",
+        "faerie-week"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "arrival",
+      "title": "周默到管理局报到",
+      "summary": {
+        "trigger": "周默通过选拔，第一天来本部上班。",
+        "course": "林岚带周默参观本部和转移室，介绍搭档艾达。",
+        "result": "周默成为管理局的研究员。",
+        "impact": "周默与艾达开始搭档。"
+      },
+      "classification": "FREE",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 0,
+          "minute": 540
+        },
+        "latest": {
+          "day": 0,
+          "minute": 600
+        },
+        "precision": "range",
+        "label": "第0天上午",
+        "basis": "editorial",
+        "notes": "示例时间。"
+      },
+      "entity_ids": [
+        "zhou-mo",
+        "lin-lan",
+        "ada"
+      ],
+      "location_ids": [
+        "hq"
+      ],
+      "arc_id": null,
+      "canonical_preconditions": {
+        "all": []
+      },
+      "outcomes": [],
+      "canonical_effects": [],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "若玩家在附近，可提供在场或介入的机会；不强迫玩家参与。"
+      },
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "author_note": ""
+    },
+    {
+      "id": "briefing",
+      "title": "港城异常的任务说明",
+      "summary": {
+        "trigger": "观测到1600年的港城出现时间异常。",
+        "motives": [
+          {
+            "who": "林岚",
+            "entity_ids": [
+              "lin-lan"
+            ],
+            "motive": "要在异常扩散前回收源头"
+          }
+        ],
+        "course": "林岚说明异常的源头可能是一件古物，派周默和艾达下午转移过去。",
+        "result": "小队接下任务。",
+        "impact": "下午进行转移。"
+      },
+      "classification": "SOFT",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 1,
+          "minute": 600
+        },
+        "latest": {
+          "day": 1,
+          "minute": 660
+        },
+        "precision": "range",
+        "label": "第1天上午",
+        "basis": "editorial",
+        "notes": "示例时间。"
+      },
+      "entity_ids": [
+        "lin-lan",
+        "zhou-mo",
+        "ada"
+      ],
+      "location_ids": [
+        "hq"
+      ],
+      "arc_id": "harbor",
+      "canonical_preconditions": {
+        "all": []
+      },
+      "outcomes": [],
+      "canonical_effects": [],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "若玩家在附近，可提供在场或介入的机会；不强迫玩家参与。"
+      },
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "author_note": ""
+    },
+    {
+      "id": "transfer",
+      "title": "小队转移到1600年的港城",
+      "summary": {
+        "trigger": "任务说明之后，转移室准备就绪。",
+        "course": "周默和艾达从转移室出发，抵达1600年港城的码头。",
+        "result": "两人到达港城。",
+        "impact": "之后的调查在港城进行。"
+      },
+      "classification": "HARD",
+      "required_description": "周默和艾达抵达1600年港城的码头。",
+      "when": {
+        "earliest": {
+          "day": 1,
+          "minute": 840
+        },
+        "latest": {
+          "day": 1,
+          "minute": 840
+        },
+        "precision": "minute",
+        "label": "第1天14:00（港城当地1600年4月12日）",
+        "basis": "editorial",
+        "notes": "示例时间。"
+      },
+      "entity_ids": [
+        "zhou-mo",
+        "ada"
+      ],
+      "location_ids": [
+        "harbor-dock"
+      ],
+      "arc_id": "harbor",
+      "canonical_preconditions": {
+        "all": []
+      },
+      "outcomes": [
+        {
+          "entity_id": "zhou-mo",
+          "predicate": "whereabouts",
+          "value": "1600年港城"
+        },
+        {
+          "entity_id": "ada",
+          "predicate": "whereabouts",
+          "value": "1600年港城"
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "zhou-mo",
+            "predicate": "whereabouts",
+            "value": "1600年港城"
+          }
+        },
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "ada",
+            "predicate": "whereabouts",
+            "value": "1600年港城"
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "若玩家在附近，可提供在场或介入的机会；不强迫玩家参与。"
+      },
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "author_note": "",
+      "frame_id": "harbor-1600"
+    },
+    {
+      "id": "church",
+      "title": "教堂地下室的秘密",
+      "summary": {
+        "trigger": "小队打听到教堂附近时间流动异常。",
+        "motives": [
+          {
+            "who": "艾琳修女",
+            "entity_ids": [
+              "sister-irene"
+            ],
+            "motive": "守护沙漏，不让领主得到它"
+          }
+        ],
+        "course": "艾琳修女起初隐瞒，后来带两人看了地下室里的沙漏，并说领主一直在找它。",
+        "result": "小队找到了沙漏的位置。",
+        "impact": "领主的人在监视教堂。"
+      },
+      "classification": "SOFT",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 1,
+          "minute": 960
+        },
+        "latest": {
+          "day": 1,
+          "minute": 1200
+        },
+        "precision": "range",
+        "label": "第1天傍晚",
+        "basis": "editorial",
+        "notes": "示例时间。"
+      },
+      "entity_ids": [
+        "zhou-mo",
+        "ada",
+        "sister-irene"
+      ],
+      "location_ids": [
+        "harbor-church"
+      ],
+      "arc_id": "harbor",
+      "canonical_preconditions": {
+        "all": []
+      },
+      "outcomes": [],
+      "canonical_effects": [],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "若玩家在附近，可提供在场或介入的机会；不强迫玩家参与。"
+      },
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "author_note": ""
+    },
+    {
+      "id": "victor-takes",
+      "title": "维克托领主夺走沙漏",
+      "summary": {
+        "trigger": "领主得知修女把沙漏给外人看过。",
+        "motives": [
+          {
+            "who": "维克托领主",
+            "entity_ids": [
+              "lord-victor"
+            ],
+            "motive": "想用沙漏延长寿命"
+          }
+        ],
+        "course": "领主的卫兵闯入教堂，抢走沙漏带回城堡。",
+        "result": "沙漏落入领主手中。",
+        "impact": "小队必须潜入城堡。"
+      },
+      "classification": "HARD",
+      "required_description": "维克托领主得到时之沙漏。",
+      "when": {
+        "earliest": {
+          "day": 2,
+          "minute": 540
+        },
+        "latest": {
+          "day": 2,
+          "minute": 720
+        },
+        "precision": "range",
+        "label": "第2天上午",
+        "basis": "editorial",
+        "notes": "示例时间。"
+      },
+      "entity_ids": [
+        "lord-victor",
+        "sister-irene",
+        "hourglass"
+      ],
+      "location_ids": [
+        "harbor-church"
+      ],
+      "arc_id": "harbor",
+      "canonical_preconditions": {
+        "all": []
+      },
+      "outcomes": [
+        {
+          "entity_id": "hourglass",
+          "predicate": "holder",
+          "value": "lord-victor"
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "hourglass",
+            "predicate": "holder",
+            "value": "lord-victor"
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "若玩家在附近，可提供在场或介入的机会；不强迫玩家参与。"
+      },
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "author_note": ""
+    },
+    {
+      "id": "dream",
+      "title": "周默梦见白花庭院",
+      "summary": {
+        "trigger": "周默在港城的旅店睡着。",
+        "course": "他梦见一座长满白花的庭院，有个声音说\"沙漏不该被打碎\"。",
+        "result": "周默醒来记得这个梦。",
+        "impact": "他决定回收而不是毁掉沙漏。"
+      },
+      "classification": "FREE",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 2,
+          "minute": 1380
+        },
+        "latest": {
+          "day": 2,
+          "minute": 1380
+        },
+        "precision": "minute",
+        "label": "第2天夜里",
+        "basis": "editorial",
+        "notes": "示例时间。"
+      },
+      "entity_ids": [
+        "zhou-mo"
+      ],
+      "location_ids": [
+        "dream-garden-place"
+      ],
+      "arc_id": null,
+      "canonical_preconditions": {
+        "all": []
+      },
+      "outcomes": [],
+      "canonical_effects": [],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "若玩家在附近，可提供在场或介入的机会；不强迫玩家参与。"
+      },
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "author_note": ""
+    },
+    {
+      "id": "retake",
+      "title": "潜入城堡夺回沙漏",
+      "summary": {
+        "trigger": "沙漏被领主夺走。",
+        "motives": [
+          {
+            "who": "艾达",
+            "entity_ids": [
+              "ada"
+            ],
+            "motive": "完成任务"
+          }
+        ],
+        "course": "艾琳修女带路，小队从地下水道潜入城堡，艾达与卫兵交手，周默拿到沙漏并封印。",
+        "result": "沙漏被封印，交给周默保管。",
+        "impact": "可以返回本部了。"
+      },
+      "classification": "SOFT",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 3,
+          "minute": 480
+        },
+        "latest": {
+          "day": 3,
+          "minute": 1080
+        },
+        "precision": "range",
+        "label": "第3天",
+        "basis": "editorial",
+        "notes": "示例时间。"
+      },
+      "entity_ids": [
+        "zhou-mo",
+        "ada",
+        "sister-irene",
+        "lord-victor",
+        "hourglass"
+      ],
+      "location_ids": [
+        "harbor-castle"
+      ],
+      "arc_id": "harbor",
+      "canonical_preconditions": {
+        "all": [
+          {
+            "occurred": "victor-takes"
+          }
+        ]
+      },
+      "outcomes": [
+        {
+          "entity_id": "hourglass",
+          "predicate": "holder",
+          "value": "zhou-mo"
+        },
+        {
+          "entity_id": "hourglass",
+          "predicate": "sealed",
+          "value": true
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "hourglass",
+            "predicate": "holder",
+            "value": "zhou-mo"
+          }
+        },
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "hourglass",
+            "predicate": "sealed",
+            "value": true
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "若玩家在附近，可提供在场或介入的机会；不强迫玩家参与。"
+      },
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "author_note": ""
+    },
+    {
+      "id": "return",
+      "title": "小队返回本部",
+      "summary": {
+        "trigger": "沙漏已回收。",
+        "course": "两人回到码头，转移回本部的转移室。",
+        "result": "小队回到2031年。",
+        "impact": "港城的异常消失。"
+      },
+      "classification": "HARD",
+      "required_description": "周默和艾达回到管理局本部。",
+      "when": {
+        "earliest": {
+          "day": 3,
+          "minute": 1200
+        },
+        "latest": {
+          "day": 3,
+          "minute": 1200
+        },
+        "precision": "minute",
+        "label": "第3天20:00",
+        "basis": "editorial",
+        "notes": "示例时间。"
+      },
+      "entity_ids": [
+        "zhou-mo",
+        "ada"
+      ],
+      "location_ids": [
+        "transfer-room"
+      ],
+      "arc_id": "harbor",
+      "canonical_preconditions": {
+        "all": []
+      },
+      "outcomes": [
+        {
+          "entity_id": "zhou-mo",
+          "predicate": "whereabouts",
+          "value": "时序管理局本部"
+        },
+        {
+          "entity_id": "ada",
+          "predicate": "whereabouts",
+          "value": "时序管理局本部"
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "zhou-mo",
+            "predicate": "whereabouts",
+            "value": "时序管理局本部"
+          }
+        },
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "ada",
+            "predicate": "whereabouts",
+            "value": "时序管理局本部"
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "若玩家在附近，可提供在场或介入的机会；不强迫玩家参与。"
+      },
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "author_note": ""
+    },
+    {
+      "id": "faerie-invite",
+      "title": "妖精王女的邀请",
+      "summary": {
+        "trigger": "沙漏的气息引来了妖精。",
+        "motives": [
+          {
+            "who": "莉丝",
+            "entity_ids": [
+              "faerie-princess"
+            ],
+            "motive": "想见见带回沙漏的人"
+          }
+        ],
+        "course": "莉丝出现在本部门口，邀请周默去妖精丘做客，并提醒那里的时间快得多。",
+        "result": "周默接受邀请。",
+        "impact": "他去妖精丘待一天（丘上一周）。"
+      },
+      "classification": "SOFT",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 5,
+          "minute": 540
+        },
+        "latest": {
+          "day": 5,
+          "minute": 600
+        },
+        "precision": "range",
+        "label": "第5天早上",
+        "basis": "editorial",
+        "notes": "示例时间。"
+      },
+      "entity_ids": [
+        "faerie-princess",
+        "zhou-mo"
+      ],
+      "location_ids": [
+        "hq"
+      ],
+      "arc_id": "faerie",
+      "canonical_preconditions": {
+        "all": []
+      },
+      "outcomes": [],
+      "canonical_effects": [],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "若玩家在附近，可提供在场或介入的机会；不强迫玩家参与。"
+      },
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "author_note": ""
+    },
+    {
+      "id": "faerie-week",
+      "title": "妖精丘的一周",
+      "summary": {
+        "trigger": "周默接受了邀请。",
+        "course": "周默在妖精丘度过七个日夜，参加了丰收祭，学会了妖精的歌。",
+        "result": "周默回到本部，外面只过了一天。",
+        "impact": "他和莉丝成了朋友。"
+      },
+      "classification": "SOFT",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 5,
+          "minute": 600
+        },
+        "latest": {
+          "day": 6,
+          "minute": 600
+        },
+        "precision": "range",
+        "label": "第5天10:00至第6天10:00（丘上一周）",
+        "basis": "editorial",
+        "notes": "示例时间。"
+      },
+      "entity_ids": [
+        "zhou-mo",
+        "faerie-princess"
+      ],
+      "location_ids": [
+        "faerie-hill-place"
+      ],
+      "arc_id": "faerie",
+      "canonical_preconditions": {
+        "all": [
+          {
+            "occurred": "faerie-invite"
+          }
+        ]
+      },
+      "outcomes": [],
+      "canonical_effects": [],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "若玩家在附近，可提供在场或介入的机会；不强迫玩家参与。"
+      },
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "author_note": ""
+    },
+    {
+      "id": "report",
+      "title": "任务报告会",
+      "summary": {
+        "trigger": "任务结束。",
+        "course": "周默和艾达向林岚汇报港城和妖精丘的事。",
+        "result": "沙漏移交管理局保管。",
+        "impact": "沙漏由林岚保管。"
+      },
+      "classification": "FREE",
+      "required_description": null,
+      "when": {
+        "earliest": {
+          "day": 7,
+          "minute": 540
+        },
+        "latest": {
+          "day": 7,
+          "minute": 660
+        },
+        "precision": "range",
+        "label": "第7天上午",
+        "basis": "editorial",
+        "notes": "示例时间。"
+      },
+      "entity_ids": [
+        "zhou-mo",
+        "ada",
+        "lin-lan",
+        "hourglass"
+      ],
+      "location_ids": [
+        "hq"
+      ],
+      "arc_id": null,
+      "canonical_preconditions": {
+        "all": []
+      },
+      "outcomes": [
+        {
+          "entity_id": "hourglass",
+          "predicate": "holder",
+          "value": "lin-lan"
+        }
+      ],
+      "canonical_effects": [
+        {
+          "op": "set",
+          "fact": {
+            "entity_id": "hourglass",
+            "predicate": "holder",
+            "value": "lin-lan"
+          }
+        }
+      ],
+      "visibility": {
+        "mode": "public",
+        "knower_ids": []
+      },
+      "participation": {
+        "offer": "when_relevant",
+        "hook": "若玩家在附近，可提供在场或介入的机会；不强迫玩家参与。"
+      },
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "author_note": ""
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "briefing",
+      "to": "transfer",
+      "relation": "enables",
+      "basis": "editorial",
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "note": "任务说明后才转移"
+    },
+    {
+      "id": "e2",
+      "from": "transfer",
+      "to": "church",
+      "relation": "enables",
+      "basis": "editorial",
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "note": "前者之后才有后者"
+    },
+    {
+      "id": "e3",
+      "from": "church",
+      "to": "victor-takes",
+      "relation": "motivates",
+      "basis": "editorial",
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "note": "领主得知修女把沙漏给外人看"
+    },
+    {
+      "id": "e4",
+      "from": "victor-takes",
+      "to": "retake",
+      "relation": "enables",
+      "basis": "editorial",
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "note": "前者之后才有后者"
+    },
+    {
+      "id": "e5",
+      "from": "retake",
+      "to": "return",
+      "relation": "enables",
+      "basis": "editorial",
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "note": "前者之后才有后者"
+    },
+    {
+      "id": "e6",
+      "from": "faerie-invite",
+      "to": "faerie-week",
+      "relation": "enables",
+      "basis": "editorial",
+      "source_refs": [
+        "frames-demo-source"
+      ],
+      "note": "前者之后才有后者"
+    }
+  ]
+}

@@ -21,6 +21,9 @@ export interface CanonClock {
   weekday?: number | null;
   /** Human-readable label, e.g. "2020-09-18 20:00 (D61)". */
   label?: string;
+  /** Packs with time frames only: the frame the scene is in; `local` is its local time (null in the main frame).
+   *  The fields above stay the main clock; in another frame, dates written in the story are local. */
+  frame?: { id: string; name: string; main: boolean; local: string | null };
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -43,6 +46,7 @@ export function publicClock(engine: CanonEngine): CanonClock {
     active: true, packId: c.packSnapshot.pack_id, tick: lo, tickHi: st.clock.hi, precision: st.clock.precision,
     day: t.day, minute: t.minute, date, time: `${pad(Math.floor(t.minute / 60))}:${pad(t.minute % 60)}`, weekday,
     label: formatTick(lo, origin),
+    ...(() => { const f = engine.sceneFrameNow(); return f ? { frame: { id: f.id, name: f.name, main: f.main, local: f.local } } : {}; })(),
   };
 }
 

@@ -26,7 +26,9 @@ for (const f of files) {
       pack: `${L.pack.pack_id}@${L.pack.pack_version}`, title: L.pack.title, hash: L.hash,
       coverage: `${formatTick(L.coverage.start)} – ${formatTick(L.coverage.end)}`,
       events: L.pack.events.length, entities: L.pack.entities.length, unknownTime: L.unknownTimeEvents.length,
-      classification: L.pack.events.map((e) => ({ id: e.id, class: e.classification, when: e.when.label, required: e.required_description })),
+      // time frames, only for a pack that has them (the report of other packs stays as it was)
+      ...(L.frames.frames.size ? { frames: [...L.frames.frames.values()].map((fr) => ({ id: fr.id, name: fr.name, events: [...L.frames.eventFrame.values()].filter((x) => x === fr.id).length })) } : {}),
+      classification: L.pack.events.map((e) => ({ id: e.id, class: e.classification, when: e.when.label, required: e.required_description, ...(L.frames.eventFrame.has(e.id) ? { frame: L.frames.eventFrame.get(e.id) } : {}) })),
     } : null,
   };
   reports.push(report);
@@ -37,7 +39,8 @@ for (const f of files) {
     if (report.summary) {
       const s = report.summary;
       console.log(`  ${s.title} (${s.pack}) hash ${s.hash.slice(0, 12)}; coverage ${s.coverage}; ${s.events} events, ${s.entities} entities, ${s.unknownTime} unknown-time`);
-      for (const c of s.classification) console.log(`    ${c.class.padEnd(4)} ${c.id}  [${c.when}]${c.required ? '  REQUIRED: ' + c.required : ''}`);
+      if (s.frames) console.log(`  time frames: ${s.frames.map((fr) => `${fr.name} [${fr.id}] ${fr.events} events`).join('; ')}`);
+      for (const c of s.classification) console.log(`    ${c.class.padEnd(4)} ${c.id}  [${c.when}]${c.frame ? ` {${c.frame}}` : ''}${c.required ? '  REQUIRED: ' + c.required : ''}`);
     }
   }
 }

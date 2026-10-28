@@ -97,6 +97,38 @@ A long event and its completion can be separate ordinary event records. Mark eit
 
 If play starts later, the engine derives a baseline through the starting time and overlays the actual transcript. Events whose interval contains the start time are pending unless supported as already accomplished. A binding must not silently start before the covered baseline or promise canon after coverage ends. Past coverage, show that canon data has ended and require an explicit choice to continue without further scheduled canon or bind an updated pack. Do not invent missing canon.
 
+### 3.4 Time frames: places with their own local time
+
+Some stories visit other times or worlds: a team travels to a past era and back, a hero spends a week in a realm where an hour passes outside, a dream has no time at all. The story clock still has to be one line that only moves forward, or "now", "already happened" and "starts soon" stop meaning anything. Canon Engine keeps the **main clock** as the clock of the whole pack — the time lived on the side the story keeps returning to — and lets a pack declare **frames**: parts of the world that keep their own local time. Every event's `when` stays on the main clock; a frame only says how local time reads there.
+
+A pack without `frames` has only the main frame. Nothing below changes anything for it.
+
+```json
+{
+  "calendar": { "...": "...", "main_frame_name": "The bureau headquarters" },
+  "frames": [
+    {"id": "harbor-1600", "name": "The harbor in 1600", "description": "The past the team reaches through the transfer room.",
+     "clock": {"kind": "linked", "at": {"day": 1, "minute": 840}, "local": "1600-04-12"}},
+    {"id": "faerie-hill", "name": "Faerie hill", "description": "Time there runs seven times as fast.",
+     "clock": {"kind": "linked", "at": {"day": 5, "minute": 600}, "local": "0812-09-01 06:00", "rate": 7}},
+    {"id": "dream-garden", "name": "The dream garden", "description": "A garden in a recurring dream.",
+     "clock": {"kind": "unlinked", "label": "no readable time in the dream"}}
+  ]
+}
+```
+
+- **linked**: at main time `at` the local time is `local` (`YYYY-MM-DD` or `YYYY-MM-DD HH:MM`, proleptic Gregorian; year 0 is 1 BC, negative years before it). Without a clock time the local time of day is the main clock's at `at` (a whole-day offset). Afterwards local time runs `rate` local minutes per main minute (default 1).
+- **unlinked**: local time does not convert (no calendar, an unknown era, time standing still); `label` says how it reads.
+- `calendar.main_frame_name` (optional) names the main frame in the GM's context and the timeline.
+- A place belongs to a frame with `frame_id` on the entity. People do not: they move between frames.
+- An event is in its own `frame_id`, else in the frame of its first place that has one, else in the main frame. Set `frame_id` on the event when its places are in several frames or when it has no place in the frame (an arrival, a summoning). `"main"` is the main frame's id and cannot be used for a frame.
+
+Put every event at the main-clock time it happens for the main frame's side. Two sides that run in parallel (the team in 1600, the bureau watching) are on the same main clock; a frame with `rate` other than 1 still has its events on the main clock (a week on the faerie hill is one main day). Keep the local date in `when.label` if you like, but the engine computes local time from the frame.
+
+At play time the reviewer reports when a reply moves the scene into or out of a frame (or the player sets 当前时空 on the timeline). The GM is told that every time it sees is on the main clock, which frame the scene is in and the local time of the frames in play; events in another frame carry their local time. Horae's date is not used while the scene is in another frame (it reads the local date).
+
+`canon-lint` checks frame ids, unknown references, unreadable local dates, a frame on a non-place (warning) and an event whose places are in different frames without its own `frame_id` (warning). See `examples/frames-demo.canon.json`.
+
 ## 4. Sources and provenance
 
 Each source has `id`, `title`, `locator`, `kind`, and `notes`. `locator` can be a volume/chapter/page citation, a stable URL, a user-provided corrected reference path with entry IDs, or an editorial record. It need not be publicly downloadable. `kind` is `primary`, `secondary`, `editorial`, or `example`.

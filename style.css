@@ -196,3 +196,11 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .canon-graph-panel .cg-members { width: 100%; margin-bottom: 10px; }
 .canon-graph-panel .cg-members td { vertical-align: top; }
 .canon-graph-panel .cg-mstate-future td, .canon-graph-panel .cg-mstate-diverged td { opacity: 0.75; }
+/* time frames: a colored stripe on events in another frame, the same color in the legend */
+.cg-frame { pointer-events: none; }
+.cg-frame-0 { fill: #e07a5f; background: #e07a5f; } .cg-frame-1 { fill: #3d9970; background: #3d9970; }
+.cg-frame-2 { fill: #b07cc6; background: #b07cc6; } .cg-frame-3 { fill: #e9b949; background: #e9b949; }
+.cg-frame-4 { fill: #4aa3df; background: #4aa3df; } .cg-frame-5 { fill: #d96c9f; background: #d96c9f; }
+.cg-frame-6 { fill: #8d9440; background: #8d9440; } .cg-frame-7 { fill: #6c7ae0; background: #6c7ae0; }
+.cg-fkey { color: #fff; }
+.cg-frame-sel { width: auto; min-width: 8em; display: inline-block; margin: 0 0 0 4px; }

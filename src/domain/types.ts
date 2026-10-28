@@ -39,12 +39,16 @@ export interface PackEvent {
   source_refs: Id[]; author_note: string;
   /** Who is at the event and from when (fixed story times inside its window): the GM brings each one in at that time. */
   cast?: CastMember[];
+  /** The time frame it happens in (default: the frame of its places, else the main frame). */
+  frame_id?: Id;
 }
 export interface CastMember { entity_id: Id; at: PackTime; role: string }
 export interface PackEntity {
   id: Id; name: string; aliases: string[];
   kind: 'person' | 'organization' | 'place' | 'object' | 'world' | 'other';
   static_description: string; source_refs: Id[];
+  /** A place in a time frame (a past era, another world): scenes and events there keep that frame's local time. */
+  frame_id?: Id;
 }
 export interface PackPredicate {
   id: Id; description: string;
@@ -56,12 +60,22 @@ export interface PackPredicate {
   settled_values?: FactValue[];
 }
 export interface PackEdge { id: Id; from: Id; to: Id; relation: 'enables' | 'motivates' | 'precedes' | 'related'; basis: string; source_refs: Id[]; note: string }
+/** A part of the world that keeps its own local time. The story clock is always the main clock; a frame says how
+ *  local time reads there: linked (local = `local` at main time `at`, running `rate` local minutes per main minute)
+ *  or unlinked (no conversion; `label` says how local time reads). */
+export interface PackFrame {
+  id: Id; name: string; description: string;
+  clock: { kind: 'linked'; at: PackTime; local: string; rate?: number } | { kind: 'unlinked'; label: string };
+  notes?: string;
+}
 export interface PackArc { id: Id; title: string; summary: string; event_ids: Id[] }
 export interface CanonPack {
   $schema?: string;
   schema_version: '1.0.0';
   pack_id: Id; pack_version: string; title: string; language: string; description: string;
-  calendar: { system: 'relative_day'; origin_label: string; day_length_minutes: 1440; time_zone_label: string; notes: string };
+  calendar: { system: 'relative_day'; origin_label: string; day_length_minutes: 1440; time_zone_label: string; notes: string; main_frame_name?: string };
+  /** Time frames (optional): places that keep their own local time. */
+  frames?: PackFrame[];
   coverage: { start: PackTime; end: PackTime; notes: string };
   sources: { id: Id; title: string; locator: string; kind: string; notes: string }[];
   predicates: PackPredicate[];
@@ -106,7 +120,8 @@ export type RecordKind =
   | 'configuration_revision'
   | 'persona_seed'
   | 'engagement'
-  | 'world_contact';
+  | 'world_contact'
+  | 'scene_frame';
 
 /** What a player decision or a contact is about. event/arc: pack ids; faction: an organization entity id;
  *  contact: a world_contact record id; storyline: a free label (out-of-character "stop this line"). */
@@ -209,6 +224,8 @@ export interface LedgerRecord {
   engagement?: EngagementInfo;
   /** kind world_contact: a contact that reached the player. */
   contact?: ContactInfo;
+  /** kind scene_frame: the time frame the scene is in from now on (MAIN_FRAME for the main frame). */
+  frameId?: Id;
 }
 
 export interface RuntimeEntity {
