@@ -204,3 +204,10 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .cg-frame-6 { fill: #8d9440; background: #8d9440; } .cg-frame-7 { fill: #6c7ae0; background: #6c7ae0; }
 .cg-fkey { color: #fff; }
 .cg-frame-sel { width: auto; min-width: 8em; display: inline-block; margin: 0 0 0 4px; }
+/* zoomed far out: boxes of one kind drawn as one path (same colors as the boxes) */
+.cg-far path { stroke-width: 1.5; vector-effect: non-scaling-stroke; cursor: zoom-in; }
+.cg-far.cg-c-HARD path { fill: #8f2a35; stroke: #e05263; } .cg-far.cg-c-SOFT path { fill: #7a5a12; stroke: #e0b03c; }
+.cg-far.cg-c-FREE path { fill: #2f4a63; stroke: #6fa3d1; } .cg-far.cg-c-RUNTIME path, .cg-far.cg-s-runtime path { fill: #4b2f73; stroke: #b48cf2; }
+.cg-far.cg-s-diverged path { fill: #1f6b4f; stroke: #46d39a; } .cg-far.cg-s-omitted path { fill: #3a3a3a; stroke: #888; }
+.cg-far.cg-s-pending path { stroke: #ff4d6d; } .cg-far.cg-s-future path, .cg-far.cg-s-unscheduled path { opacity: 0.45; }
+.cg-far.cg-s-unresolved path { stroke: #ffa500; }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.15.2 — 2026-10-28
+
+- **The history graph stays smooth with a very large pack.** With a 3,747-event pack (FGO main story) the graph put a 2.9 MB SVG with 30,000 elements on the page; opening took 1.6 s and dragging stalled for up to a quarter second a frame. Now it lays the graph out once and draws only the window around the view (one view width to each side), drawing more after a pan or zoom stops. Zoomed far out (全览 of a long timeline) it draws boxes of one kind as one shape, without labels or links, and a click there zooms in on the box under the pointer. Measured in the test SillyTavern with that pack: opening 0.6 s, 424 elements instead of 30,294, dragging at 17 ms a frame (was up to 233 ms), 全览 0.7 s.
+- The time-frame legend lists only the frames of the boxes near the view (FGO has 21). A box in a frame without a convertible clock shows the frame's name only (its name carries the era).
+- Tests: `tests/unit/zz-local-fgo-graph.test.ts` (local, skipped without the pack).
+
 ## 1.15.1 — 2026-10-28
 
 - Time frames, found live: the reviewer did not report a move into another frame (the reply had the team arrive on the 1600 harbor's quay; the scene stayed in the main frame). The instruction sat only in the input data, not in the reply format. It is now part of the reviewer's instructions (only for a pack with frames; other packs keep the prompt byte for byte). And when the reviewer reports none, the place of the last beat the player character takes part in decides, when that place belongs to a frame or is a known place of the main frame (a beat the player only watches does not move them).

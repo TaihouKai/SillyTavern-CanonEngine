@@ -43,7 +43,7 @@ export interface GNode {
   /** The player marked this event 关注. */
   focused?: boolean;
   /** Time frames: the frame the event happens in (not the main one), its local start time and its color index. */
-  frame?: { id: string; name: string; local: string; idx: number };
+  frame?: { id: string; name: string; local: string; idx: number; linked: boolean };
 }
 export interface GEdge { from: string; to: string; kind: string; note?: string }
 export interface GraphData {
@@ -61,7 +61,7 @@ export function packGraph(L: LoadedPack, origin: { y: number; m: number; d: numb
   for (const ev of L.pack.events) {
     const ti = L.timeIndex.find((x) => x.id === ev.id);
     const fr = L.frames.frames.get(L.frames.eventFrame.get(ev.id) || '');
-    const frame = fr ? { id: fr.id, name: fr.name, local: localTime(fr, ti ? ti.lo : 0), idx: frameList.findIndex((x) => x.id === fr.id) } : undefined;
+    const frame = fr ? { id: fr.id, name: fr.name, local: localTime(fr, ti ? ti.lo : 0), idx: frameList.findIndex((x) => x.id === fr.id), linked: fr.clock.kind === 'linked' } : undefined;
     nodes.push({
       frame,
       id: ev.id, title: ev.title, lane: ev.classification, tick: ti ? ti.lo : Number.NEGATIVE_INFINITY, tickHi: ti ? ti.hi : undefined,
@@ -330,38 +330,74 @@ const clip = (s: string, n: number) => ([...s].length > n ? [...s].slice(0, n - 
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
-export function renderGraphSvg(g: GraphData, mode: 'pack' | 'current'): string {
+/** The part of the graph to draw: a window in layout coordinates, and whether text is drawn (zoomed far out it is
+ *  not: thousands of labels too small to read only make panning slow). */
+export interface GraphView { x0: number; x1: number; y0: number; y1: number; detail: boolean }
+export interface GraphLayout { g: GraphData; mode: 'pack' | 'current'; L: ReturnType<typeof layout>; pos: Map<string, Placed> }
+
+/** Positions of every box (computed once per data change; drawing a window of it is cheap). */
+export function graphLayout(g: GraphData, mode: 'pack' | 'current'): GraphLayout {
   // an event in another time frame shows its local time in the box (the axis keeps the main clock)
-  const timeText = (n: GNode) => (n.frame ? `${n.frame.name} ${n.frame.local.split(' ')[0]}` : n.short || n.when.split(' · ')[0]);
+  const timeText = (n: GNode) => (n.frame ? (n.frame.linked ? `${n.frame.name} ${n.frame.local.split(' ')[0]}` : n.frame.name) : n.short || n.when.split(' · ')[0]);
   const g2 = { ...g, nodes: g.nodes.map((n) => ({ ...n, sub: mode === 'current' && n.status ? `${statusLabel(n.status)} · ${timeText(n)}` : timeText(n) })) };
   const L = layout(g2);
-  const pos = new Map(L.placed.map((p) => [p.id, p]));
-  const lanes = LANES.filter((l) => L.laneY[l][1] > L.laneY[l][0]).map((l, i) => `<rect x="0" y="${L.laneY[l][0]}" width="${L.width}" height="${L.laneY[l][1] - L.laneY[l][0]}" class="cg-lane cg-lane-${i % 2}"/><text x="8" y="${L.laneY[l][0] + 18}" class="cg-lane-label">${LANE_LABEL[l]}</text>`).join('');
-  const ticks = L.ticks.map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick${tk.major ? ' cg-tick-major' : ''}"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label${tk.major ? ' cg-tick-major' : ''}">${esc(tk.label)}</text>`).join('')
-    + (L.axisStart > LEFT ? `<text x="${LEFT}" y="${AXIS_H - 12}" class="cg-tick-label">时间不明</text><line x1="${L.axisStart - 20}" y1="${AXIS_H - 6}" x2="${L.axisStart - 20}" y2="${L.height}" class="cg-tick cg-tick-major"/>` : '');
-  const edges = g.edges.map((e) => {
+  return { g, mode, L, pos: new Map(L.placed.map((p) => [p.id, p])) };
+}
+
+/** The SVG's contents for a window of the layout (everything when no window is given). A very large pack (FGO: 3,747
+ *  events, a 2.9 MB SVG) made the browser crawl when every box, label and link was in the page at once. */
+export function graphContent(GL: GraphLayout, view?: GraphView | null): string {
+  const { g, mode, L, pos } = GL;
+  const v = view || { x0: -Infinity, x1: Infinity, y0: -Infinity, y1: Infinity, detail: true };
+  const boxEnd = (n: Placed) => n.x + n.w + (n.inside || !v.detail ? 0 : 6 + Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12);
+  const shown = (n: Placed) => boxEnd(n) >= v.x0 && n.x <= v.x1 && n.y + NODE_H >= v.y0 && n.y <= v.y1;
+  const lanes = LANES.filter((l) => L.laneY[l][1] > L.laneY[l][0]).map((l, i) => `<rect x="0" y="${L.laneY[l][0]}" width="${L.width}" height="${L.laneY[l][1] - L.laneY[l][0]}" class="cg-lane cg-lane-${i % 2}"/><text x="${Math.max(8, Math.min(v.x0 + 8, L.width - 120))}" y="${L.laneY[l][0] + 18}" class="cg-lane-label">${LANE_LABEL[l]}</text>`).join('');
+  const ticks = L.ticks.filter((tk) => tk.x >= v.x0 - 200 && tk.x <= v.x1).map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick${tk.major ? ' cg-tick-major' : ''}"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label${tk.major ? ' cg-tick-major' : ''}">${esc(tk.label)}</text>`).join('')
+    + (L.axisStart > LEFT && v.x0 <= L.axisStart ? `<text x="${LEFT}" y="${AXIS_H - 12}" class="cg-tick-label">时间不明</text><line x1="${L.axisStart - 20}" y1="${AXIS_H - 6}" x2="${L.axisStart - 20}" y2="${L.height}" class="cg-tick cg-tick-major"/>` : '');
+  // zoomed far out the links are a tangle too small to follow: boxes only
+  const edges = !v.detail ? '' : g.edges.map((e) => {
     const a = pos.get(e.from), b = pos.get(e.to);
     if (!a || !b) return '';
+    // a link is drawn when its span crosses the window
+    if (Math.max(a.x + a.w, b.x + b.w) < v.x0 || Math.min(a.x, b.x) > v.x1 || Math.max(a.y, b.y) + NODE_H + 60 < v.y0 || Math.min(a.y, b.y) > v.y1) return '';
     const x1 = a.x + a.w, y1 = a.y + NODE_H / 2, x2 = b.x, y2 = b.y + NODE_H / 2;
     const dx = Math.max(40, Math.abs(x2 - x1) / 2);
     const d = x2 >= x1 ? `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}` : `M${a.x + a.w / 2},${a.y + NODE_H} C${a.x + a.w / 2},${a.y + NODE_H + 60} ${b.x + b.w / 2},${b.y + NODE_H + 60} ${b.x + b.w / 2},${b.y + NODE_H}`;
     return `<path d="${d}" class="cg-edge cg-edge-${esc(e.kind)}" data-from="${esc(e.from)}" data-to="${esc(e.to)}" marker-end="url(#cg-arrow-${esc(e.kind)})"><title>${esc(e.kind)}${e.note ? '：' + esc(e.note) : ''}</title></path>`;
   }).join('');
-  const nodes = L.placed.map((n) => {
-    const cls = mode === 'pack' ? `cg-c-${n.lane}` : `cg-c-${n.lane} cg-s-${n.status}`;
+  const clsOf = (n: Placed) => (mode === 'pack' ? `cg-c-${n.lane}` : `cg-c-${n.lane} cg-s-${n.status}`);
+  // zoomed far out: one path per kind of box instead of one element per box. In SillyTavern every element added to
+  // the page is seen by other observers; 12,000 of them blocked the page for seconds (the same SVG alone painted in a
+  // frame). A click there zooms in on the box under the pointer.
+  const far = () => {
+    const groups = new Map<string, string[]>();
+    for (const n of L.placed) if (shown(n)) groups.set(clsOf(n), [...(groups.get(clsOf(n)) || []), `M${n.x.toFixed(1)},${n.y}h${n.w.toFixed(1)}v${NODE_H}h${(-n.w).toFixed(1)}z`]);
+    return [...groups].map(([cls, ds]) => `<g class="cg-far ${cls}"><path class="cg-agg" d="${ds.join('')}"/></g>`).join('');
+  };
+  const nodes = !v.detail ? far() : L.placed.filter(shown).map((n) => {
+    const cls = clsOf(n);
     const tx = n.inside ? 8 : n.w + 6;
     const tc = n.inside ? '' : ' cg-out';
-    return `<g class="cg-node ${cls}${n.inside ? '' : ' cg-narrow'}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${NODE_H}" rx="${Math.min(7, n.w / 2)}"/>`
+    const head = `<g class="cg-node ${cls}${n.inside ? '' : ' cg-narrow'}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${NODE_H}" rx="${Math.min(7, n.w / 2)}"/>`
+      + (n.frame ? `<rect class="cg-frame cg-frame-${n.frame.idx % 8}" width="${n.w}" height="5" rx="2"/>` : '');
+    const tip = `<title>${esc(n.title)} · ${esc(n.when)}${n.frame ? ` · ${esc(n.frame.name)} 当地 ${esc(n.frame.local)}` : ''}</title></g>`;
+    // a long bar repeats its title so it stays readable wherever it is in view (only the copies near the window)
+    const repeats = n.inside && n.w > 1400 ? Array.from({ length: Math.floor((n.w - 400) / 1000) }, (_, k) => 8 + (k + 1) * 1000).filter((x) => n.x + x >= v.x0 - 1000 && n.x + x <= v.x1) : [];
+    return head
       + (n.inside ? '' : `<rect class="cg-hit" x="${n.w}" width="${Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12}" height="${NODE_H}"/>`)
-      + (n.frame ? `<rect class="cg-frame cg-frame-${n.frame.idx % 8}" width="${n.w}" height="5" rx="2"/>` : '')
       + `<text x="${tx}" y="18" class="cg-node-title${tc}">${esc(n.title2)}</text><text x="${tx}" y="36" class="cg-node-sub${tc}">${esc(n.sub2)}</text>`
-      // a long bar repeats its title so it stays readable wherever it is in view
-      + (n.inside && n.w > 1400 ? Array.from({ length: Math.floor((n.w - 400) / 1000) }, (_, k) => `<text x="${8 + (k + 1) * 1000}" y="18" class="cg-node-title">${esc(n.title2)}</text>`).join('') : '')
-      + `<title>${esc(n.title)} · ${esc(n.when)}${n.frame ? ` · ${esc(n.frame.name)} 当地 ${esc(n.frame.local)}` : ''}</title></g>`;
+      + repeats.map((x) => `<text x="${x}" y="18" class="cg-node-title">${esc(n.title2)}</text>`).join('')
+      + tip;
   }).join('');
   const now = L.nowX !== null ? `<line x1="${L.nowX}" y1="0" x2="${L.nowX}" y2="${L.height}" class="cg-now"/><text x="${L.nowX + 4}" y="12" class="cg-now-label">${esc(nowLabel(g))}</text>` : '';
   const markers = ['enables', 'motivates', 'precedes', 'related', 'cause'].map((k) => `<marker id="cg-arrow-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="cg-arrow-${k}"/></marker>`).join('');
-  return `<svg class="cg-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMin meet" data-w="${L.width}" data-h="${L.height}" viewBox="0 0 ${Math.min(L.width, 1600)} ${L.height}"><defs>${markers}</defs>${lanes}${ticks}${edges}${nodes}${now}</svg>`;
+  return `<defs>${markers}</defs>${lanes}${ticks}${edges}${nodes}${now}`;
+}
+
+export function renderGraphSvg(g: GraphData, mode: 'pack' | 'current', view?: GraphView | null, GL?: GraphLayout): string {
+  const lay = GL || graphLayout(g, mode);
+  const L = lay.L;
+  return `<svg class="cg-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMin meet" data-w="${L.width}" data-h="${L.height}" viewBox="0 0 ${Math.min(L.width, 1600)} ${L.height}">${graphContent(lay, view)}</svg>`;
 }
 
 /** Interactive panel controller (pan/zoom, selection, filters). */
@@ -386,6 +422,11 @@ export class GraphPanel {
   private linkCandidates: (id: string) => { id: string; title: string; when: string }[];
   private armed: string | null = null;
   private showMembers = false;
+  /** The current layout and the window of it that is drawn (see graphContent). */
+  private GL: GraphLayout | null = null;
+  private drawn: GraphView | null = null;
+  private redrawTimer: ReturnType<typeof setTimeout> | null = null;
+  private dragged = false;
   private getMembers: (spoilers: boolean) => MembersView | null;
 
   constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined, linkCandidates: GraphPanel['linkCandidates'] = () => [], getMembers: GraphPanel['getMembers'] = () => null) {
@@ -418,6 +459,8 @@ export class GraphPanel {
     if (!d.current && this.mode === 'current') this.mode = 'pack';
     const g0 = this.mode === 'pack' ? d.pack : d.current;
     const g = g0 ? this.applyFilter(g0) : null;
+    // lay out and draw first: the legend lists the frames near the view
+    const canvasHtml = this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t('graphNoData')}</div>` : this.firstSvg(g);
     const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc(a.id)}" ${a.id === this.filter.arc ? 'selected' : ''}>${esc(a.title)}</option>`).join('');
     this.el.innerHTML = `
       <div class="cg-head">
@@ -436,9 +479,9 @@ export class GraphPanel {
         <button class="menu_button" data-act="fit">${t('graphFit')}</button>
         <button class="menu_button" data-act="close">✕</button>
       </div>
-      <div class="cg-legend">${this.legend()}${this.frameLegend()}<span class="cg-hint">${this.mode === 'pack' ? t('graphPackNote') : t('graphCurrentNote')}</span></div>
+      <div class="cg-legend">${this.legend()}<span class="cg-flegend">${this.frameLegend()}</span><span class="cg-hint">${this.mode === 'pack' ? t('graphPackNote') : t('graphCurrentNote')}</span></div>
       <div class="cg-body">
-        <div class="cg-canvas">${this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t('graphNoData')}</div>` : renderGraphSvg(g, this.mode)}</div>
+        <div class="cg-canvas">${canvasHtml}</div>
         <div class="cg-detail"${this.showMembers ? ' style="display:none"' : ''}><div class="cg-empty">${t('graphPick')}</div></div>
       </div>`;
     this.bindCanvas();
@@ -474,10 +517,12 @@ export class GraphPanel {
     return `<label class="cg-lanechk" title="${esc(t('frameTip'))}">${t('frameNow')} <select class="text_pole cg-frame-sel">${opts.map((o) => `<option value="${esc(o.id)}" ${o.id === now.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select></label>`;
   }
 
+  /** The frames of the boxes near the view (a pack with many frames — FGO has 21 — would fill rows with all of them). */
   private frameLegend(): string {
-    const g = this.mode === 'pack' ? this.data.pack : this.data.current;
-    const list = g?.frames?.list || [];
-    const used = new Set(g?.nodes.map((n) => n.frame?.id).filter(Boolean));
+    const list = this.GL?.g.frames?.list || [];
+    if (!list.length || !this.GL) return '';
+    const v = this.drawn;
+    const used = new Set(this.GL.L.placed.filter((n) => n.frame && (!v || (n.x + n.w >= v.x0 && n.x <= v.x1))).map((n) => n.frame!.id));
     return list.filter((f) => used.has(f.id)).map((f) => `<span class="cg-key cg-fkey cg-frame-${f.idx % 8}">${esc(f.name)}</span>`).join('');
   }
 
@@ -493,24 +538,60 @@ export class GraphPanel {
     return { ...g, nodes, edges: g.edges.filter((e) => ids.has(e.from) && ids.has(e.to)) };
   }
 
+  /** The view box for a new graph (near "now" in the current view, else at the beginning), and the SVG drawn for it. */
+  private firstSvg(g: GraphData): string {
+    this.GL = graphLayout(g, this.mode);
+    const canvas = this.el.querySelector('.cg-canvas') as HTMLElement | null;
+    const cw = canvas?.clientWidth || Math.max(600, (this.el.clientWidth || 1300) - 340), ch = canvas?.clientHeight || Math.max(400, (this.el.clientHeight || 800) - 120);
+    const nowX = this.GL.L.nowX;
+    if (!this.keepView) this.vb = { x: nowX !== null ? Math.max(0, nowX - cw * 0.6) : 0, y: 0, w: cw, h: ch };
+    this.drawn = this.windowFor();
+    return renderGraphSvg(g, this.mode, this.drawn, this.GL);
+  }
+
+  /** The window to draw for the current view box: one view width on each side, so short pans need no redraw. */
+  private windowFor(): GraphView {
+    const svg = this.el.querySelector('.cg-svg') as SVGSVGElement | null;
+    const scale = this.vb.w / (svg?.clientWidth || this.vb.w || 1);
+    return { x0: this.vb.x - this.vb.w, x1: this.vb.x + 2 * this.vb.w, y0: this.vb.y - this.vb.h, y1: this.vb.y + 2 * this.vb.h, detail: scale <= 4 };
+  }
+
+  /** After panning or zooming: draw the new window when the view left the drawn one or the zoom changed the detail. */
+  private scheduleRedraw() {
+    if (this.redrawTimer) clearTimeout(this.redrawTimer);
+    this.redrawTimer = setTimeout(() => {
+      this.redrawTimer = null;
+      const svg = this.el.querySelector('.cg-svg') as SVGSVGElement | null;
+      if (!svg || !this.GL || !this.drawn) return;
+      const want = this.windowFor();
+      const d = this.drawn;
+      const inside = this.vb.x >= d.x0 && this.vb.x + this.vb.w <= d.x1 && this.vb.y >= d.y0 && this.vb.y + this.vb.h <= d.y1;
+      if (inside && want.detail === d.detail && this.vb.w * 3 >= d.x1 - d.x0 - 1) return;
+      this.drawn = want;
+      svg.innerHTML = graphContent(this.GL, want);
+      const fl = this.el.querySelector('.cg-flegend');
+      if (fl) fl.innerHTML = this.frameLegend();
+      if (this.selected) this.highlight(this.selected);
+    }, 120);
+  }
+
   private bindCanvas() {
     const svg = this.el.querySelector('.cg-svg') as SVGSVGElement | null;
     if (!svg) return;
     const W = Number(svg.dataset.w), H = Number(svg.dataset.h);
     const canvas = this.el.querySelector('.cg-canvas') as HTMLElement;
-        // start near "now" in the current view, else at the beginning
-    const nowLine = svg.querySelector('.cg-now') as SVGLineElement | null;
-    const startX = nowLine ? Math.max(0, Number(nowLine.getAttribute('x1')) - (canvas.clientWidth || 1000) * 0.6) : 0;
     const cw = canvas.clientWidth || 1000, ch = canvas.clientHeight || 600;
-    if (!this.keepView) this.vb = { x: startX, y: 0, w: cw, h: ch };
+    // the canvas size is known only now: correct the first view box to it (keeping its left edge)
+    if (!this.keepView) this.vb = { x: this.vb.x, y: 0, w: cw, h: ch };
     this.keepView = false;
-    const apply = () => svg.setAttribute('viewBox', `${this.vb.x} ${this.vb.y} ${this.vb.w} ${this.vb.h}`);
+    const apply = () => { svg.setAttribute('viewBox', `${this.vb.x} ${this.vb.y} ${this.vb.w} ${this.vb.h}`); this.scheduleRedraw(); };
     apply();
     let drag: { x: number; y: number; vx: number; vy: number } | null = null;
-    svg.addEventListener('mousedown', (e) => { if ((e.target as Element).closest('.cg-node')) return; drag = { x: e.clientX, y: e.clientY, vx: this.vb.x, vy: this.vb.y }; svg.classList.add('cg-grab'); });
+    svg.addEventListener('mousedown', (e) => { this.dragged = false; if ((e.target as Element).closest('.cg-node')) return; drag = { x: e.clientX, y: e.clientY, vx: this.vb.x, vy: this.vb.y }; svg.classList.add('cg-grab'); });
     window.addEventListener('mouseup', () => { drag = null; svg.classList.remove('cg-grab'); });
     svg.addEventListener('mousemove', (e) => {
       if (!drag) return;
+      if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) > 4) this.dragged = true;
       const k = this.vb.w / svg.clientWidth;
       this.vb.x = drag.vx - (e.clientX - drag.x) * k;
       this.vb.y = drag.vy - (e.clientY - drag.y) * k;
@@ -592,7 +673,31 @@ export class GraphPanel {
       return;
     }
     const node = tg.closest('.cg-node') as SVGGElement | null;
-    if (node) this.select(node.dataset.id!);
+    if (node) { this.select(node.dataset.id!); return; }
+    if (tg.closest('.cg-far') && !this.dragged) this.zoomTo(ev as MouseEvent);
+  }
+
+  /** Zoomed far out: zoom in on the box under the pointer (1:1) and select it. */
+  private zoomTo(e: MouseEvent) {
+    const svg = this.el.querySelector('.cg-svg') as SVGSVGElement | null;
+    if (!svg || !this.GL) return;
+    const r = svg.getBoundingClientRect();
+    const px = this.vb.x + ((e.clientX - r.left) / r.width) * this.vb.w, py = this.vb.y + ((e.clientY - r.top) / r.height) * this.vb.h;
+    const tol = (this.vb.w / r.width) * 3;
+    const hit = this.GL.L.placed.find((n) => px >= n.x - tol && px <= n.x + n.w + tol && py >= n.y && py <= n.y + NODE_H);
+    const cw = r.width, ch = r.height;
+    this.vb = { x: Math.max(0, px - cw / 2), y: Math.max(0, py - ch / 2), w: cw, h: ch };
+    svg.setAttribute('viewBox', `${this.vb.x} ${this.vb.y} ${this.vb.w} ${this.vb.h}`);
+    this.scheduleRedraw();
+    if (hit) setTimeout(() => this.select(hit.id), 200);
+  }
+
+  /** Marks the selected box and its links (again after a redraw of the window). */
+  private highlight(id: string) {
+    this.el.querySelectorAll('.cg-node.cg-sel').forEach((x) => x.classList.remove('cg-sel'));
+    this.el.querySelectorAll('.cg-edge.cg-hl').forEach((x) => x.classList.remove('cg-hl'));
+    this.el.querySelector(`.cg-node[data-id="${CSS.escape(id)}"]`)?.classList.add('cg-sel');
+    this.el.querySelectorAll(`.cg-edge[data-from="${CSS.escape(id)}"], .cg-edge[data-to="${CSS.escape(id)}"]`).forEach((x) => x.classList.add('cg-hl'));
   }
 
   private select(id: string) {
@@ -601,10 +706,7 @@ export class GraphPanel {
     if (!g || !n) return;
     this.selected = id;
     this.armed = null;
-    this.el.querySelectorAll('.cg-node.cg-sel').forEach((x) => x.classList.remove('cg-sel'));
-    this.el.querySelectorAll('.cg-edge.cg-hl').forEach((x) => x.classList.remove('cg-hl'));
-    this.el.querySelector(`.cg-node[data-id="${CSS.escape(id)}"]`)?.classList.add('cg-sel');
-    this.el.querySelectorAll(`.cg-edge[data-from="${CSS.escape(id)}"], .cg-edge[data-to="${CSS.escape(id)}"]`).forEach((x) => x.classList.add('cg-hl'));
+    this.highlight(id);
     const titleOf = (x: string) => g.nodes.find((k) => k.id === x)?.title || x;
     const ins = g.edges.filter((e) => e.to === id).map((e) => `← ${esc(titleOf(e.from))}（${esc(e.kind)}）`);
     const outs = g.edges.filter((e) => e.from === id).map((e) => `→ ${esc(titleOf(e.to))}（${esc(e.kind)}）`);

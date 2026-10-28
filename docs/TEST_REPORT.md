@@ -1,6 +1,6 @@
 # Canon Engine — test report
 
-Latest full run: 2026-10-28, engine 1.15.1, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
+Latest full run: 2026-10-28, engine 1.15.2, pack schema 1.0.0. The acceptance matrix below was first established on 2026-10-14 (engine 1.0.0) and has been re-run with every release since; tests added after 1.0.0 are listed at the end.
 
 ## Environment
 
@@ -19,7 +19,7 @@ All automated suites use deterministic scripted model outputs. They prove the co
 
 | Suite | Where it runs | Result |
 | --- | --- | --- |
-| `tests/unit/*` (371 tests in 46 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **371 / 371 pass** |
+| `tests/unit/*` (372 tests in 47 files): P, C, E, R, W, schema fixtures, invalid-pack variants, structured-output repair, and the later suites listed below | in-process, fake host + scripted model | **372 / 372 pass** |
 | `tests/e2e/integration.mjs` (117 checks, sections S1–S22) | real ST 1.19.0 + Horae in Chromium, outgoing requests inspected at the mock | **117 / 117 pass** |
 | `tests/e2e/story-session.mjs` (12 checks) | real ST, UI-only: wizard via real file dialog, pack library, composer, banner, swipe arrow, ST edit/delete buttons, reload | **12 / 12 pass** |
 | `tests/e2e/frames.mjs` (11 checks) | real ST, mock model: time frames example pack — GM prompt, reviewer input, scene frame, timeline stripes / local time / 现在 / 当前时空 | **11 / 11 pass** |
