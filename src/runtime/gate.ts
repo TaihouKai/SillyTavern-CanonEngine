@@ -584,8 +584,17 @@ export function runGate(g: GateInput): GateResult {
   }
   const sceneEntities = uniq((ev.scene_entities || []).map(resolveId).filter(Boolean) as Id[]);
   // Time frames: the frame the scene is in after this reply, when the reviewer names a known one (by id or name)
-  // and it is not the current one. A flashback does not move the scene.
-  const sceneFrame = flashback ? null : frameRef(g.pack, ev.scene_frame);
+  // and it is not the current one. Without one, the place of the last beat the player character takes part in, when
+  // that place belongs to a frame (or is a known place of the main frame). A flashback does not move the scene.
+  let sceneFrame = flashback ? null : frameRef(g.pack, ev.scene_frame);
+  if (!sceneFrame && !flashback && g.playerId && g.pack.frames.frames.size) {
+    const fx = g.pack.frames;
+    for (const o of ev.occurrences) {
+      if (o.backstory || !hasQuote(o.quote) || !o.actors.map(resolveId).includes(g.playerId)) continue;
+      const fr = (o.locations || []).map(resolveId).map((l) => (!l ? null : fx.placeFrame.get(l) || (g.pack.entities.get(l)?.kind === 'place' ? MAIN_FRAME : null))).find(Boolean);
+      if (fr) sceneFrame = fr;
+    }
+  }
   const frameNow = g.index.state.sceneFrame?.frameId || MAIN_FRAME;
   if (sceneFrame && sceneFrame !== frameNow) {
     records.push({

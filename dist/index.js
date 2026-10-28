@@ -20333,6 +20333,7 @@ var SCHEMAS = {
   profile: profile_schema_default,
   integrate: integrate_schema_default
 };
+var EVAL_FRAMES_NOTE = `7. TIME FRAMES (this pack has them; see time_frames): also return "scene_frame" in the reply object: the id of the frame the scene is in at the END of the reply \u2014 where the player character is \u2014 when the reply shows them arriving in another frame or coming back (time travel, crossing into another world, entering or waking from a dream); "main" for the main frame; null when they stay in scene_frame_now. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame's conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).`;
 var PROMPTS = Object.fromEntries(Object.entries(RAW_PROMPTS).map(([k, v]) => [k, annotateShape(v, SCHEMAS[k])]));
 var REPAIR_INSTRUCTION = (violations, facts) => `[Canon Engine private revision request \u2014 not part of the story]
 Your previous draft for this turn was not accepted. Write a revised COMPLETE reply to the user's latest message that fixes these problems:
@@ -21400,7 +21401,15 @@ function runGate(g) {
     });
   }
   const sceneEntities = uniq((ev.scene_entities || []).map(resolveId).filter(Boolean));
-  const sceneFrame = flashback ? null : frameRef(g.pack, ev.scene_frame);
+  let sceneFrame = flashback ? null : frameRef(g.pack, ev.scene_frame);
+  if (!sceneFrame && !flashback && g.playerId && g.pack.frames.frames.size) {
+    const fx = g.pack.frames;
+    for (const o of ev.occurrences) {
+      if (o.backstory || !hasQuote(o.quote) || !o.actors.map(resolveId).includes(g.playerId)) continue;
+      const fr = (o.locations || []).map(resolveId).map((l) => !l ? null : fx.placeFrame.get(l) || (g.pack.entities.get(l)?.kind === "place" ? MAIN_FRAME : null)).find(Boolean);
+      if (fr) sceneFrame = fr;
+    }
+  }
   const frameNow = g.index.state.sceneFrame?.frameId || MAIN_FRAME;
   if (sceneFrame && sceneFrame !== frameNow) {
     records.push({
@@ -23567,7 +23576,8 @@ var CanonEngine = class {
       decisions: decisionsSection(decisions) || void 0
     });
     const due = pendingHard(pack2, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
-    const evaluation = await this.withTimeout(callStructured(this.host.model, "evaluate", PROMPTS.evaluate, {
+    const evaluation = await this.withTimeout(callStructured(this.host.model, "evaluate", pack2.frames.frames.size ? `${PROMPTS.evaluate}
+${EVAL_FRAMES_NOTE}` : PROMPTS.evaluate, {
       mode: a.mode,
       candidate: a.text,
       player_action_scope: a.userEntry ? this.ooc(a.userEntry.text).story : "",
@@ -23710,7 +23720,7 @@ ${this.ooc(a.userEntry?.text).story}`);
     const ids = uniq([now, ...eventIds.map((e) => fx.eventFrame.get(e) || ""), ...named]).filter((f) => f && f !== MAIN_FRAME && fx.frames.has(f)).slice(0, 8);
     return {
       time_frames: {
-        rule: `Some places keep their own local time (frames). The story clock (current_time, scene_end) is always the main clock. scene_frame: the id of the frame the scene is in at the END of the reply (where the player character is), when it is not scene_frame_now \u2014 the reply shows them travelling to another time or world, or back ("main" for the main frame) \u2014 else null. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame's conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).`,
+        rule: "Places that keep their own local time: report scene_frame as instructed (TIME FRAMES).",
         main: { id: MAIN_FRAME, name: frameName(fx, MAIN_FRAME, "main frame") },
         scene_frame_now: now,
         frames: ids.map((id) => {

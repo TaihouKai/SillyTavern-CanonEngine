@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { makeEngine, tick, at } from './fake';
+import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
 import { lintPack, validatePackText } from '../../src/domain/pack';
 import { MAIN_FRAME, localTime, parseLocal } from '../../src/domain/frames';
@@ -85,6 +85,7 @@ describe('time frames', () => {
     expect(await turn(x, 'I keep walking.', 'Still dusty. [FR4b]', { scene_end: at(1, 9, 50) })).toBe(true);
     expect(lastCtx(x)).not.toMatch(/TIME FRAMES|\[in /);
     expect(lastEval(x).time_frames).toBeUndefined();
+    expect(x.model.tasks('evaluate').every((c) => !/TIME FRAMES|scene_frame/.test(c.messages![0].content))).toBe(true);
     expect(x.model.tasks('extract_user').slice(-1)[0].input.current_frame).toBeUndefined();
     expect(x.engine.sceneFrameNow()).toBeNull();
   });
@@ -106,7 +107,8 @@ describe('time frames', () => {
     const ev = lastEval(x);
     expect(ev.time_frames.scene_frame_now).toBe(MAIN_FRAME);
     expect(ev.time_frames.frames.map((f: any) => f.id)).toContain('harbor-1600');
-    expect(ev.time_frames.rule).toMatch(/scene_frame: the id of the frame the scene is in at the END of the reply/);
+    // the instruction is in the reviewer's prompt (only for a pack with frames)
+    expect(x.model.tasks('evaluate').slice(-1)[0].messages![0].content).toMatch(/7\. TIME FRAMES \(this pack has them; see time_frames\): also return "scene_frame"/);
   });
 
   it('FR6 the reviewer\'s scene_frame moves the scene; later turns read local time there; Horae is not used in another frame', async () => {
@@ -154,6 +156,27 @@ describe('time frames', () => {
     expect(frameRef(L, '妖精丘')).toBe('faerie-hill');
     expect(frameRef(L, 'main')).toBe(MAIN_FRAME);
     expect(frameRef(L, null)).toBeNull();
+  });
+
+  it('FR11 without the reviewer\'s scene_frame, the place of the last beat the player takes part in moves the scene', async () => {
+    const x = await setup();
+    x.host.addUser('我和他们一起站上转移台。');
+    x.model.draft('白光散去，你们站在港城码头湿漉漉的木栈道上。[FR11a]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[FR11a]'), (i: any) => ({ scene_end: at(1, 14, 5), occurrences: [occ('o1', '抵达码头', '你们站在港城码头', { actors: [i.player_entity.id, 'zhou-mo'], locations: ['harbor-dock'] })] }));
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(frameNow(x)).toBe('harbor-1600');
+    // back: a beat with the player in a known place of the main frame
+    x.host.addUser('回去。');
+    x.model.draft('你们回到了转移室。[FR11b]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[FR11b]'), (i: any) => ({ scene_end: at(1, 15, 0), occurrences: [occ('o1', '返回', '你们回到了转移室', { actors: [i.player_entity.id], locations: ['transfer-room'] })] }));
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(frameNow(x)).toBe(MAIN_FRAME);
+    // a beat the player does not take part in (watched from afar) does not move them
+    x.host.addUser('我看着监视器。');
+    x.model.draft('监视器里，艾琳修女在港城教堂里祈祷。[FR11c]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[FR11c]'), { scene_end: at(1, 15, 10), occurrences: [occ('o1', '修女祈祷', '艾琳修女在港城教堂里祈祷', { actors: ['sister-irene'], locations: ['harbor-church'] })] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(frameNow(x)).toBe(MAIN_FRAME);
   });
 
   it('FR9 当前时空 by hand: the scene moves to the chosen frame and back', async () => {

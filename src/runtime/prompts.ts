@@ -158,6 +158,9 @@ export function annotateShape(prompt: string, schema: unknown): string {
 const SCHEMAS: Record<keyof typeof RAW_PROMPTS, unknown> = {
   extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema,
 };
+/** Added to the reviewer's instructions only for a pack with time frames (other packs keep the prompt as it was). */
+export const EVAL_FRAMES_NOTE = `7. TIME FRAMES (this pack has them; see time_frames): also return "scene_frame" in the reply object: the id of the frame the scene is in at the END of the reply — where the player character is — when the reply shows them arriving in another frame or coming back (time travel, crossing into another world, entering or waking from a dream); "main" for the main frame; null when they stay in scene_frame_now. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame's conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).`;
+
 export const PROMPTS = Object.fromEntries(Object.entries(RAW_PROMPTS).map(([k, v]) => [k, annotateShape(v, SCHEMAS[k as keyof typeof RAW_PROMPTS])])) as Record<keyof typeof RAW_PROMPTS, string>;
 
 export const REPAIR_INSTRUCTION = (violations: string[], facts: string) => `[Canon Engine private revision request — not part of the story]

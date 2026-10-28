@@ -13,7 +13,7 @@ import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
 import type { HostPort } from './host';
 import { callStructured, taskDefaults } from './model';
-import { CONTINUE_INSTRUCTION, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
+import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, sceneFrameOf, type ClaimInput, type RefInput, type Retrieval } from './context';
 import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
@@ -921,7 +921,7 @@ export class CanonEngine {
       decisions: decisionsSection(decisions) || undefined,
     });
     const due = pendingHard(pack, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
-    const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', PROMPTS.evaluate, {
+    const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', pack.frames.frames.size ? `${PROMPTS.evaluate}\n${EVAL_FRAMES_NOTE}` : PROMPTS.evaluate, {
       mode: a.mode,
       candidate: a.text,
       player_action_scope: a.userEntry ? this.ooc(a.userEntry.text).story : '',
@@ -1037,7 +1037,7 @@ export class CanonEngine {
     const ids = uniq([now, ...eventIds.map((e) => fx.eventFrame.get(e) || ''), ...named]).filter((f) => f && f !== MAIN_FRAME && fx.frames.has(f)).slice(0, 8);
     return {
       time_frames: {
-        rule: 'Some places keep their own local time (frames). The story clock (current_time, scene_end) is always the main clock. scene_frame: the id of the frame the scene is in at the END of the reply (where the player character is), when it is not scene_frame_now — the reply shows them travelling to another time or world, or back ("main" for the main frame) — else null. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame\'s conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).',
+        rule: 'Places that keep their own local time: report scene_frame as instructed (TIME FRAMES).',
         main: { id: MAIN_FRAME, name: frameName(fx, MAIN_FRAME, 'main frame') },
         scene_frame_now: now,
         frames: ids.map((id) => { const f = fx.frames.get(id)!; return { id, name: f.name, description: f.description.slice(0, 300), local_now: localTime(f, tick), conversion: conversionText(f, tick, origin) }; }),
