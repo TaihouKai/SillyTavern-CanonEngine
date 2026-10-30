@@ -1,6 +1,6 @@
 {
   "name": "sillytavern-canon-engine",
-  "version": "1.16.1",
+  "version": "1.16.2",
   "private": true,
   "description": "Canon Engine v1 - SillyTavern extension that keeps actual story history and steers toward immutable Hard Anchors.",
   "type": "module",

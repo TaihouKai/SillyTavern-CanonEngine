@@ -6,6 +6,7 @@ export interface DoneInfo { ok: boolean; title: string; body: string }
 
 let titleBase: string | null = null;
 let audio: AudioContext | null = null;
+let last: Notification | null = null;
 
 /** Whether the browser can show system notifications on this page (secure context + API present). */
 export function systemNotificationsAvailable(): boolean {
@@ -65,8 +66,13 @@ export function notifyDone(info: DoneInfo, opts: { sound: boolean; titleMark: st
   if (!opts.force && !inBackground()) return done;
   if (systemNotificationsAvailable() && Notification.permission === 'granted') {
     try {
-      const n = new Notification(info.title, { body: info.body, tag: 'canon-engine-done' });
+      // A notification with the tag of one still in the system's notification center only replaces it
+      // silently (no popup) unless renotify is set, so every alert after the first stayed hidden.
+      try { last?.close(); } catch { /* ignore */ }
+      const n = new Notification(info.title, { body: info.body, tag: 'canon-engine-done', renotify: true } as NotificationOptions);
       n.onclick = () => { try { window.focus(); } catch { /* ignore */ } n.close(); };
+      n.onclose = () => { if (last === n) last = null; };
+      last = n;
       done.push('notification');
     } catch { /* e.g. mobile Chrome needs a service worker */ }
   }

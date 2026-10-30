@@ -20374,8 +20374,8 @@ function interpretationsFor(store, key) {
 function stateHash(s) {
   const facts = [];
   for (const [k, list] of s.facts) {
-    const last = list[list.length - 1];
-    facts.push([k, last ? last.op === "set" ? last.value : null : null]);
+    const last2 = list[list.length - 1];
+    facts.push([k, last2 ? last2.op === "set" ? last2.value : null : null]);
   }
   facts.sort((a, b) => a[0] < b[0] ? -1 : 1);
   return hashObject({
@@ -22199,8 +22199,8 @@ function playerContextHash(index, profile2, persona) {
     if (!k.startsWith(id + "|")) continue;
     const pred = index.pack.predicates.get(k.slice(id.length + 1));
     if (pred?.transient) continue;
-    const last = list[list.length - 1];
-    facts.push([k, last?.op === "set" ? last.value : null]);
+    const last2 = list[list.length - 1];
+    facts.push([k, last2?.op === "set" ? last2.value : null]);
   }
   return hashObject({ p: profile2.personaHash, ids: playerIds(profile2), facts: facts.sort(), e: index.state.engagements.filter((e) => e.stance !== "answered" && e.stance !== "refused").map((e) => `${e.scopeKind}:${e.scopeRef}:${e.stance}`) });
 }
@@ -22652,7 +22652,7 @@ function engagementRecord(s0, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.16.0";
+var ENGINE_RELEASE = "1.16.2";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -24410,8 +24410,8 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     }
     const op = this.lastFailedOp?.op;
     if (op && op !== "rebuild") {
-      const last = this.host.readTranscript().slice(-1)[0];
-      await this.runOperation(last?.role === "user" ? "normal" : op === "continue" ? "continue" : "normal");
+      const last2 = this.host.readTranscript().slice(-1)[0];
+      await this.runOperation(last2?.role === "user" ? "normal" : op === "continue" ? "continue" : "normal");
     } else {
       await this.reconcile("retry");
     }
@@ -24511,11 +24511,11 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const prev = this.playerProfile();
     const persona = this.persona();
     const { profile: profile2, runtimeEntities } = await this.readProfile(persona, prev && prev.profile.personaName === persona.name ? prev.profile : null, void 0, "identity");
-    const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+    const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
     const rev = (prev?.rev || 0) + 1;
-    c.playerProfiles = [...c.playerProfiles || [], { rev, afterMessageId: last ? last.messageId : null, profile: profile2, createdAt: this.host.now() }];
+    c.playerProfiles = [...c.playerProfiles || [], { rev, afterMessageId: last2 ? last2.messageId : null, profile: profile2, createdAt: this.host.now() }];
     const tick = this.current?.replay.state.clock.lo ?? c.binding.startTick;
-    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last ? last.messageId : null, record: seedRecord(profile2, runtimeEntities, tick, rev), at: this.host.now() }];
+    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: seedRecord(profile2, runtimeEntities, tick, rev), at: this.host.now() }];
     delete c.personaKeptHash;
     delete c.integrationCache;
     c.configRevisions.push({ at: this.host.now(), summary: `player identity updated from the Persona "${persona.name}" (revision ${rev})` });
@@ -24867,8 +24867,8 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       const state = this.current.replay.state;
       if (state.dispositions.get(eventId)?.disposition === "occurred") return;
       const rec = forcedCompletion(pack2, state, eventId, state.clock.lo);
-      const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
-      c.manualRecords = [...c.manualRecords || [], { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+      c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `forced to complete: ${eventId}` });
       c.planRevisions.forEach((p) => {
         if (p.status === "active") p.status = "stale";
@@ -24897,7 +24897,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       const state = this.current.replay.state;
       if (sceneFrameOf(state) === frameId) return;
       const tick = state.clock.lo;
-      const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+      const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
       const rec = {
         recordId: newId("rec"),
         kind: "scene_frame",
@@ -24910,7 +24910,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
         evidenceKind: "direct",
         frameId
       };
-      c.manualRecords = [...c.manualRecords || [], { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `scene frame set by hand: ${frameId}` });
     });
     await this.reconcile("set_frame", { allowModel: false });
@@ -24963,8 +24963,8 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     if ("stillUnderWay" in res) return "ongoing";
     const rec = res.record;
     await this.exclusive(async () => {
-      const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
-      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `concluded ${eventId} from the story: ${rec.disposition}` });
       c.planRevisions.forEach((p) => {
         if (p.status === "active") p.status = "stale";
@@ -24995,8 +24995,8 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     if (!occurrenceIds.length) throw new EngineError("incompatible_adapter", "Choose at least one story event to link.");
     await this.exclusive(async () => {
       const rec = linkedCompletion(this.pack(), this.current.replay.state, eventId, occurrenceIds, disposition);
-      const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
-      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `linked ${eventId} (${disposition}) to ${occurrenceIds.length} story event(s)` });
       c.planRevisions.forEach((p) => {
         if (p.status === "active") p.status = "stale";
@@ -25062,8 +25062,8 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     if (!res) throw new EngineError("provider_failure", "The analysis model could not re-judge this event; try again.");
     const rec = res.record;
     await this.exclusive(async () => {
-      const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
-      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `re-analysed ${eventId} with its after story: ${rec.disposition}` });
       c.planRevisions.forEach((p) => {
         if (p.status === "active") p.status = "stale";
@@ -25338,7 +25338,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     if (!c || !st) return;
     const cur = engagementView(st, this.pack()).scopes.get(scopeKey(scopeKind, scopeRef))?.current;
     if (!cur || !["declined", "deferred"].includes(cur.stance) || !!cur.strong === strong) return;
-    const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+    const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
     const tick = st.clock.lo;
     const rec = {
       recordId: newId("rec"),
@@ -25352,7 +25352,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       evidenceKind: "direct",
       engagement: { scopeKind, scopeRef, scopeLabel: cur.scopeLabel, stance: cur.stance, quote: cur.quote, until: cur.until ?? null, source: "ui", strong }
     };
-    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
     c.configRevisions.push({ at: this.host.now(), summary: `${strong ? "\u5F3A\u70C8\u62D2\u7EDD" : "\u53D6\u6D88\u5F3A\u70C8"}: ${cur.scopeLabel}` });
     await this.host.save();
     await this.reconcile("engagement_strong");
@@ -25365,7 +25365,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     if (!c) return;
     if (scopeKind === "event") label = this.pack().events.get(scopeRef)?.title || label;
     else if (scopeKind === "arc") label = this.pack().pack.arcs.find((a) => a.id === scopeRef)?.title || label;
-    const last = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+    const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
     const tick = this.current?.replay.state.clock.lo ?? c.binding.startTick;
     const rec = {
       recordId: newId("rec"),
@@ -25379,7 +25379,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       evidenceKind: "direct",
       engagement: { scopeKind, scopeRef, scopeLabel: label, stance: "reopened", quote: "", until: null, source: "ui" }
     };
-    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
     c.configRevisions.push({ at: this.host.now(), summary: `allowed contact again: ${label}` });
     await this.host.save();
     await this.reconcile("engagement_reopened");
@@ -25749,19 +25749,19 @@ var StHost = class {
     gen.lastDraftReasoning = "";
     try {
       if (req.op === "swipe") {
-        const last = chat[chat.length - 1];
-        if (!last || last.is_user || last.is_system) throw new Error("the swiped reply is no longer the last message");
-        if (!Array.isArray(last.swipes)) {
-          last.swipes = [last.mes];
-          last.swipe_info = [{ send_date: last.send_date, gen_started: last.gen_started, gen_finished: last.gen_finished, extra: structuredClone(last.extra || {}) }];
-          last.swipe_id = 0;
+        const last2 = chat[chat.length - 1];
+        if (!last2 || last2.is_user || last2.is_system) throw new Error("the swiped reply is no longer the last message");
+        if (!Array.isArray(last2.swipes)) {
+          last2.swipes = [last2.mes];
+          last2.swipe_info = [{ send_date: last2.send_date, gen_started: last2.gen_started, gen_finished: last2.gen_finished, extra: structuredClone(last2.extra || {}) }];
+          last2.swipe_id = 0;
         }
         await this.settleSwipe();
         try {
           (await loadStModule()).syncMesToSwipe?.(chat.length - 1);
         } catch {
         }
-        last.swipe_id = last.swipes.length;
+        last2.swipe_id = last2.swipes.length;
         await c.saveReply({ type: "swipe", getMessage: req.text, reasoning });
       } else if (req.op === "continue") {
         await c.saveReply({ type: "appendFinal", getMessage: req.text });
@@ -25805,8 +25805,8 @@ var StHost = class {
     const mod = await loadStModule();
     const chat = c.chat;
     if (op === "regenerate" && prior?.message) {
-      const last = chat[chat.length - 1];
-      const lastId = last?.extra?.[NS]?.mid;
+      const last2 = chat[chat.length - 1];
+      const lastId = last2?.extra?.[NS]?.mid;
       if (lastId && lastId === prior.message?.extra?.[NS]?.mid) return;
       chat.push(prior.message);
       mod.addOneMessage(prior.message);
@@ -26369,12 +26369,12 @@ function publicClock(engine2) {
   };
 }
 function installClockEvents(engine2) {
-  let last = "";
+  let last2 = "";
   engine2.onChange(() => {
     const clk = publicClock(engine2);
     const sig = JSON.stringify(clk);
-    if (sig === last) return;
-    last = sig;
+    if (sig === last2) return;
+    last2 = sig;
     try {
       document.dispatchEvent(new CustomEvent("canon-engine:clock", { detail: clk }));
     } catch {
@@ -26831,6 +26831,7 @@ function t(key) {
 // src/ui/notify.ts
 var titleBase = null;
 var audio = null;
+var last = null;
 function systemNotificationsAvailable() {
   return typeof window !== "undefined" && !!window.isSecureContext && typeof window.Notification === "function";
 }
@@ -26883,7 +26884,11 @@ function notifyDone(info, opts) {
   if (!opts.force && !inBackground()) return done;
   if (systemNotificationsAvailable() && Notification.permission === "granted") {
     try {
-      const n = new Notification(info.title, { body: info.body, tag: "canon-engine-done" });
+      try {
+        last?.close();
+      } catch {
+      }
+      const n = new Notification(info.title, { body: info.body, tag: "canon-engine-done", renotify: true });
       n.onclick = () => {
         try {
           window.focus();
@@ -26891,6 +26896,10 @@ function notifyDone(info, opts) {
         }
         n.close();
       };
+      n.onclose = () => {
+        if (last === n) last = null;
+      };
+      last = n;
       done.push("notification");
     } catch {
     }
@@ -28506,8 +28515,8 @@ async function branchFromConflict() {
     if (!name2) return;
     await new Promise((r) => setTimeout(r, 1500));
     const chat = ctx().chat || [];
-    const last = chat[chat.length - 1];
-    if (last && last.is_user) await ctx().generate("normal");
+    const last2 = chat[chat.length - 1];
+    if (last2 && last2.is_user) await ctx().generate("normal");
     else await ctx().generate("regenerate");
   } catch (e) {
     toast("error", e.message);
@@ -28739,8 +28748,8 @@ function captureGenerationStart(type, params, dryRun) {
   const chat = ctx().chat || [];
   let prior;
   if (type === "regenerate") {
-    const last = chat[chat.length - 1];
-    if (last && !last.is_user && !last.is_system) prior = { message: deepClone(last) };
+    const last2 = chat[chat.length - 1];
+    if (last2 && !last2.is_user && !last2.is_system) prior = { message: deepClone(last2) };
   } else if (type === "swipe") {
     const mesId = chat.length - 1;
     const m = chat[mesId];

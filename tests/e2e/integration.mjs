@@ -740,7 +740,7 @@ try {
       SillyTavern.getContext().extensionSettings.canonEngine.notifyDone = true;
       window.CanonEngine.engine.settings.notifyDone = true;
       window.__shown = [];
-      window.Notification = class { static permission = 'granted'; static requestPermission() { return Promise.resolve('granted'); } constructor(title, o) { window.__shown.push({ title, body: o?.body }); } close() {} };
+      window.Notification = class { static permission = 'granted'; static requestPermission() { return Promise.resolve('granted'); } constructor(title, o) { window.__shown.push({ title, body: o?.body, renotify: o?.renotify }); } close() {} };
       window.__realTitle = document.title;
       Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
       document.hasFocus = () => false;
@@ -750,7 +750,7 @@ try {
     const nt = await page.evaluate(() => ({ shown: window.__shown, title: document.title, secure: window.isSecureContext }));
     await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
     const titleAfter = await page.evaluate(() => document.title);
-    check(results, 'N01 a turn that ends in the background shows a system notification with the reply length and marks the tab title', nt.secure && nt.shown.length === 1 && nt.shown[0].title === 'Canon：回复完成' && /回复 \d+字 · 用时 \d+s/.test(nt.shown[0].body || '') && nt.title.startsWith('✓ 回复完成 '), JSON.stringify(nt));
+    check(results, 'N01 a turn that ends in the background shows a system notification (renotify, so it pops up again) with the reply length and marks the tab title', nt.secure && nt.shown.length === 1 && nt.shown[0].title === 'Canon：回复完成' && nt.shown[0].renotify === true && /回复 \d+字 · 用时 \d+s/.test(nt.shown[0].body || '') && nt.title.startsWith('✓ 回复完成 '), JSON.stringify(nt));
     check(results, 'N02 the title mark goes away when the tab is seen again', titleAfter === nt.title.replace(/^✓ 回复完成 /, '') && !titleAfter.includes('✓'), titleAfter);
     // turned off in the settings: no alert
     await page.evaluate(() => { const el = document.querySelector('[data-set="notifyDone"]'); el.checked = false; el.dispatchEvent(new Event('change', { bubbles: true })); window.__shown = []; Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); });

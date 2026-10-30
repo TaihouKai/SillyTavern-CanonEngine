@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.16.2 — 2026-10-30
+
+- **The reply-done system notification pops up every time.** Each notification used the same tag, so while the previous one was still in the system's notification center (Windows Action Center) the next one only replaced it silently: the alert appeared once or twice and then seemed to stop. The previous notification is now closed and the new one is shown with `renotify`.
+- Docs: the "unsupported command-line flag" bar Chrome shows after the notification flag is enabled is expected and harmless.
+
 ## 1.16.1 — 2026-10-28
 
 - **A pack in the pack library can be viewed without enabling it.** Each row of 历史包库 has a 查看 button: it opens the history graph on that pack's canon reference view (all events, spoilers) with 正在查看：<pack> in the header, in any chat, bound or not, and without changing the chat. 退出查看 (or closing the panel) returns to the chat's own graph.
