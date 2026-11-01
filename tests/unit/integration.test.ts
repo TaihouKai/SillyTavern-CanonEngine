@@ -622,7 +622,7 @@ describe('preferred matters', () => {
     const v = x.engine.integrationView(true)!;
     expect(v.suggestions!.find((s: any) => s.contact.includes('smuggling'))!.sideJob).toBe(true);
     await turn(x, 'I keep walking.', 'More gulls. [Q2]', { scene_end: at(2, 10, 20) });
-    expect(lastCtx(x)).toMatch(/a small matter for a quiet day[^]*bring it in during this reply if the scene allows at all[^]*scare off a petty smuggling crew/);
+    expect(lastCtx(x)).toMatch(/a small matter the player may take up today[^]*does not mean the player is free today[^]*never interrupt a private, intimate or continuous scene[^]*scare off a petty smuggling crew/);
     // day 1, 09:30: the ambush and the broadcast are still due today — not quiet, the flag is ignored
     const y = await setup({ integrate: { assessments: [], opportunities: [job] } });
     await turn(y, 'I look around.', 'The harbor at morning. [Q3]', { scene_end: at(1, 9, 35) });

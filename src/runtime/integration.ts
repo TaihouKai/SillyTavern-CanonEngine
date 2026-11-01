@@ -645,8 +645,8 @@ export function worldReactionSection(index: WorldIndex, o: Opportunity, origin: 
   const who = opportunityBy(index, o).join(', ');
   const when = o.earliest !== null ? ` It can happen from ${formatTick(o.earliest, origin)}${o.latest !== null ? ` until ${formatTick(o.latest, origin)}` : ''}; if this reply ends before then, it has not happened yet.` : '';
   const head = o.sideJob
-    ? 'WORLD REACTION (a small matter for a quiet day — no canon event happens for the rest of today, so bring it in during this reply if the scene allows at all; NOT history; keep everyone in character; the player decides whether to take it)'
-    : 'WORLD REACTION (optional for this reply — NOT history; use it only if it fits the scene and its time; keep everyone in character and leave the player\'s answer to the player; not using it is fine)';
+    ? 'WORLD REACTION (optional: a small matter the player may take up today. It does not mean the player is free today — their own plans and the current scene come first. Bring it in only at a natural pause or change of scene; never interrupt a private, intimate or continuous scene with it (no message, call or knock arriving mid-scene); if it does not fit this reply, leave it out without comment — it stays available for later today. NOT history; keep everyone in character; whether and when to look at it or answer it is up to the player: a message may simply arrive and stay unanswered)'
+    : 'WORLD REACTION (optional for this reply — NOT history; use it only if it fits the scene and its time; never interrupt a private, intimate or continuous scene with it; keep everyone in character and leave the player\'s answer to the player; not using it is fine, without comment)';
   return `${head}:\n- ${who}: ${o.contact} Why: ${o.motivation} What they know about the player: ${o.knowledge}${o.establishes.length ? ` May establish: ${o.establishes.join('; ')}.` : ''}${when}`;
 }
 
