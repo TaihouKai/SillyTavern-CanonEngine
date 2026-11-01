@@ -2,7 +2,7 @@
 
 This is the independent input-format specification for an author or coding agent creating a **new history data file**. Read it without needing the earlier design conversation. The companion `schemas/canon-pack.schema.json` is the exact structural contract. `examples/demo.canon.json` is a complete valid example using an invented world.
 
-Documentation revision 1.1 adds actual-history retrieval and persistent-consequence guidance. The file format remains `schema_version: "1.0.0"`; no new fields or lorebook input path are introduced. `examples/unrelated-history.canon.json` is a second complete example with events independent of the main Hard chain.
+This guide is current for Canon Engine 1.16.3. The file format remains `schema_version: "1.0.0"`; later additions (structured summaries, time frames, etc.) are optional fields, so older packs stay valid. There is no lorebook input path. `examples/unrelated-history.canon.json` is a second complete example with events independent of the main Hard chain.
 
 ## 1. Scope and intended workflow
 
