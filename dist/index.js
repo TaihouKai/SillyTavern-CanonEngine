@@ -26663,6 +26663,7 @@ var D = {
   niSourceCore: { zh: "\u8BFB\u53D6\u81EA Persona Library \u7684\u4E3B\u63CF\u8FF0\uFF08{n} \u5B57\uFF0C\u7B2C {rev} \u7248\uFF09\uFF0C\u989D\u5916\u5206\u7C7B\u5DF2\u5FFD\u7565\u3002", en: "Read from the Persona Library core text ({n} characters, revision {rev}); Additional Sections ignored." },
   secPersona: { zh: "Persona", en: "Persona" },
   ignorePersonaSections: { zh: "Canon \u5FFD\u7565 Persona Library \u7684\u989D\u5916\u5206\u7C7B", en: "Canon ignores Persona Library sections" },
+  niJobsToggle: { zh: "\u5C0F\u4EFB\u52A1\uFF08\u7A7A\u95F2\u65E5\u7531\u4E16\u754C\u6D3E\u7ED9\u4F60\u7684\u5C0F\u4EFB\u52A1\uFF09", en: "Small jobs (offered by the world on free days)" },
   quietDayJobs: { zh: "\u6CA1\u6709\u539F\u4F5C\u4E8B\u4EF6\u7684\u65E5\u5B50\uFF0C\u4E16\u754C\u4E3B\u52A8\u7ED9\u4F60\u6D3E\u5C0F\u4EFB\u52A1", en: "On days without canon events, the world offers you small jobs" },
   quietDayJobsTip: { zh: "\u4E25\u683C\u5224\u5B9A\u7684\u7A7A\u95F2\u65E5\uFF1A\u8FD9\u4E00\u6574\u5929\uFF080:00\u201323:59\uFF09\u6CA1\u6709\u4EFB\u4F55\u539F\u4F5C\u4E8B\u4EF6\uFF08\u5F00\u59CB\u3001\u7ED3\u675F\u3001\u8D2F\u7A7F\u5F53\u5929\u6216\u8FDB\u884C\u4E2D\u7684\u90FD\u7B97\uFF09\uFF0C\u4E14\u5F53\u524D\u65F6\u95F4\u5728 6:00\u201318:00 \u4E4B\u95F4\u65F6\uFF0C\u300C\u4E16\u754C\u5982\u4F55\u63A5\u89E6\u4F60\u300D\u4F1A\u6309\u4F60\u7684\u80CC\u666F\u51C6\u5907\u4E00\u4EF6\u5C0F\u4EFB\u52A1\u2014\u2014\u6BD4\u5982\u4F60\u6240\u5C5E\u7EC4\u7EC7\u7684\u8054\u7EDC\u4EBA\u6D3E\u6765\u7684\u6D3B\uFF1A\u6536\u62FE\u4E00\u4E2A\u5C0F\u5E2E\u6D3E\u3001\u53D6\u9001\u4E1C\u897F\u3001\u62A4\u9001\u3001\u4FA6\u67E5\u3002\n\u5C0F\u4EFB\u52A1\u4E0D\u6539\u52A8\u5386\u53F2\uFF1A\u76EE\u6807\u548C\u5730\u70B9\u662F\u5C0F\u89D2\u8272\u6216\u65B0\u51FA\u73B0\u7684\uFF0C\u4E0D\u78B0\u539F\u4F5C\u4E8B\u4EF6\u548C\u6709\u540D\u6709\u59D3\u7684\u539F\u4F5C\u89D2\u8272\u7684\u72B6\u6001\uFF1B\u767B\u573A\u7684\u5DF2\u6709\u89D2\u8272\u8981\u7B26\u5408\u4ED6\u4EEC\u5F53\u65F6\u7684\u72B6\u6001\u548C\u884C\u8E2A\u3002\u63A5\u4E0D\u63A5\u7531\u4F60\u51B3\u5B9A\u3002\n\u4EFB\u52A1\u987B\u5728\u5F53\u5929 20:00 \u524D\u7ED3\u675F\uFF0C\u8FC7\u65F6\u4F5C\u5E9F\u3002\u5B83\u53EA\u662F\u53EF\u9009\u7684\uFF1AGM \u53EA\u5728\u81EA\u7136\u7684\u505C\u987F\u6216\u6362\u573A\u65F6\u5F15\u5165\uFF0C\u4E0D\u4F1A\u6253\u65AD\u6B63\u5728\u8FDB\u884C\u7684\u573A\u666F\u3002\u4E0D\u4F1A\u989D\u5916\u8C03\u7528\u6A21\u578B\uFF08\u5728\u540C\u4E00\u6B21\u5206\u6790\u91CC\u5B8C\u6210\uFF09\u3002", en: "On a strictly free day \u2014 no canon event touches the whole day (starting, ending, running through it or under way) \u2014 and between 6:00 and 18:00, the world-reaction step prepares a small job that fits your background \u2014 e.g. work from your organization's contact: dealing with a minor gang, a delivery, an escort, scouting.\nSmall jobs change no history: targets and places are minor or new, never canon events or the status of named canon characters; existing characters appear only as fits their current state and whereabouts. Taking it is your choice.\nThe job must be over by 20:00 that day. It is optional: the GM brings it in only at a natural pause or change of scene, never interrupting one. No extra model call (same analysis)." },
   ignorePersonaSectionsTip: { zh: "\u52FE\u9009\u540E\uFF0CCanon \u53EA\u8BFB Persona Library \u7684\u4E3B\u63CF\u8FF0\uFF08core\uFF09\uFF0C\u4E0D\u8BFB\u989D\u5916\u5206\u7C7B\uFF08Additional Sections\uFF09\u3002GM \u7167\u5E38\u6536\u5230\u5168\u90E8\u5185\u5BB9\u3002\n\u9002\u5408\u653E Canon \u7528\u4E0D\u5230\u7684\u4E1C\u897F\uFF08\u548F\u5531\u8BCD\u3001\u6587\u98CE\u8BF4\u660E\u7B49\uFF09\u3002\u80FD\u529B\u3001\u7269\u54C1\u3001\u8EAB\u4EFD\u653E\u5728\u989D\u5916\u5206\u7C7B\u91CC\u7684\u8BDD\uFF0CCanon \u5C31\u4E0D\u77E5\u9053\u4E86\u2014\u2014\u53D1\u73B0\u7F3A\u4E86\u4EC0\u4E48\uFF0C\u53D6\u6D88\u52FE\u9009\u5373\u53EF\u3002\n\u53EA\u5F71\u54CD\u4E4B\u540E\u7684\u8BFB\u53D6\uFF1A\u5DF2\u5F00\u59CB\u7684\u5BF9\u8BDD\u8981\u7528\u53D9\u4E8B\u878D\u5165\u9875\u7684\u300C\u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD\u300D\u91CD\u8BFB\u3002\u82E5\u5728 SillyTavern \u81EA\u5E26\u9762\u677F\u6539\u8FC7 Persona\uFF0C\u4E3B\u63CF\u8FF0\u5BF9\u4E0D\u4E0A\uFF0CCanon \u4F1A\u6539\u8BFB\u5B8C\u6574\u63CF\u8FF0\u3002", en: `When ticked, Canon reads only the Persona Library core text, not its Additional Sections. The GM still gets everything.
@@ -28399,6 +28400,13 @@ function renderInspector() {
         camp.uiPreferences.spoilers = tg.checked;
         renderInspector();
       }
+      if (tg.dataset.act === "ni-jobs") {
+        getSettings().quietDayJobs = tg.checked;
+        E.settings.quietDayJobs = tg.checked;
+        ctx().saveSettingsDebounced?.();
+        refreshUi();
+        renderInspector();
+      }
     });
   }
   const spoilers = !!camp?.uiPreferences.spoilers;
@@ -28440,6 +28448,7 @@ function playerTab(v) {
   if (!v) return `<div>${esc2(t("niOff"))}</div>`;
   const list = (title, items) => items.length ? `<h4>${esc2(title)}</h4><ul class="canon-list">${items.map((i) => `<li>${esc2(i)}</li>`).join("")}</ul>` : "";
   let html = `<div><small>${esc2(t("niIntro"))}</small></div>`;
+  html += `<div class="canon-frow"><label class="checkbox_label canon-check"><input type="checkbox" data-act="ni-jobs" ${E.settings.quietDayJobs !== false ? "checked" : ""}><span>${esc2(t("niJobsToggle"))}</span></label>${tip("quietDayJobsTip")}</div>`;
   if (v.personaChanged) html += `<div class="canon-ni-changed"><b>${esc2(t("niChanged"))}</b><div class="canon-ni-btns"><button class="menu_button" data-act="ni-update">${esc2(t("niUpdate"))}</button><button class="menu_button" data-act="ni-keep">${esc2(t("niKeep"))}</button></div></div>`;
   const p = v.profile;
   if (!p) html += `<div>${esc2(t("niNoProfile"))}</div>`;

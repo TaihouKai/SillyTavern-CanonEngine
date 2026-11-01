@@ -614,6 +614,13 @@ function renderInspector() {
     inspectorEl.addEventListener('change', (ev) => {
       const tg = ev.target as HTMLInputElement;
       if (tg.dataset.act === 'spoilers' && camp) { camp.uiPreferences.spoilers = tg.checked; renderInspector(); }
+      if (tg.dataset.act === 'ni-jobs') {
+        (getSettings() as any).quietDayJobs = tg.checked;
+        E.settings.quietDayJobs = tg.checked;
+        ctx().saveSettingsDebounced?.();
+        refreshUi();
+        renderInspector();
+      }
     });
   }
   const spoilers = !!camp?.uiPreferences.spoilers;
@@ -658,6 +665,8 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   if (!v) return `<div>${esc(t('niOff'))}</div>`;
   const list = (title: string, items: string[]) => (items.length ? `<h4>${esc(title)}</h4><ul class="canon-list">${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
   let html = `<div><small>${esc(t('niIntro'))}</small></div>`;
+  // the same switch as in the settings (小任务 on or off)
+  html += `<div class="canon-frow"><label class="checkbox_label canon-check"><input type="checkbox" data-act="ni-jobs" ${E.settings.quietDayJobs !== false ? 'checked' : ''}><span>${esc(t('niJobsToggle'))}</span></label>${tip('quietDayJobsTip')}</div>`;
   if (v.personaChanged) html += `<div class="canon-ni-changed"><b>${esc(t('niChanged'))}</b><div class="canon-ni-btns"><button class="menu_button" data-act="ni-update">${esc(t('niUpdate'))}</button><button class="menu_button" data-act="ni-keep">${esc(t('niKeep'))}</button></div></div>`;
   const p = v.profile;
   if (!p) html += `<div>${esc(t('niNoProfile'))}</div>`;
