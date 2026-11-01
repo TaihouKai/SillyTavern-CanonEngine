@@ -2,6 +2,7 @@
 
 ## 1.16.3 — 2026-11-01
 
+- **A free day is judged strictly.** A small job used to be prepared whenever no canon event was under way or due for the rest of the day — at 23:50 too, for the remaining ten minutes. Now a day is free only when no canon event touches it at all (none starts, ends, runs through it or is under way), and a job is asked for only between 06:00 and 18:00 and must be over by 20:00 that day.
 - **A world reaction never interrupts a scene.** On a day with no canon event the GM was told to bring the small matter in "during this reply if the scene allows at all", and it read the day as a free day: it worked a text message into a private scene, or spent its reasoning on where to put it. A world reaction is now strictly optional: only at a natural pause or change of scene, never in the middle of a private, intimate or continuous scene; leaving it out needs no comment (the small matter stays available for the rest of the day); a day without a canon event does not mean the player is free; a message may simply arrive and stay unanswered.
 
 ## 1.16.2 — 2026-10-30

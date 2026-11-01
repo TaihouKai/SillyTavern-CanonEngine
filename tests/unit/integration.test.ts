@@ -650,12 +650,22 @@ describe('preferred matters', () => {
     const y = await setup({ pack: JSON.stringify(wide), start: tick(3, 10, 0), integrate: { assessments: [], opportunities: [job] } });
     await turn(y, 'I look around.', 'The festival stalls go up. [J0]', { scene_end: at(3, 10, 10) });
     expect(y.model.tasks('integrate').slice(-1)[0].input.quiet_day).toBeUndefined();
-    // day 2, 10:00: the festival runs through the whole day without starting or ending — quiet
-    const x = await setup({ pack: JSON.stringify(wide), start: tick(2, 10, 0), integrate: { assessments: [], opportunities: [job] } });
+    // day 2, 10:00: the festival runs through the whole day — a free day is strict: not quiet either
+    const w2 = await setup({ pack: JSON.stringify(wide), start: tick(2, 10, 0), integrate: { assessments: [], opportunities: [job] } });
+    await turn(w2, 'I look around.', 'Bunting everywhere. [J0b]', { scene_end: at(2, 10, 10) });
+    expect(w2.model.tasks('integrate').slice(-1)[0].input.quiet_day).toBeUndefined();
+    // a day with no canon event at all, but at 23:50 or 05:00: no job is asked for (there is no day left for it)
+    for (const [h, m] of [[23, 50], [5, 0], [18, 0]]) {
+      const late = await setup({ start: tick(2, h, m), integrate: { assessments: [], opportunities: [job] } });
+      await turn(late, 'I head home.', 'The street is empty. [J0c]', { scene_end: at(2, h, m + 5) });
+      expect(late.model.tasks('integrate').slice(-1)[0].input.quiet_day).toBeUndefined();
+    }
+    // day 2, 10:00 of the plain pack: nothing touches the day — quiet
+    const x = await setup({ start: tick(2, 10, 0), integrate: { assessments: [], opportunities: [job] } });
     await turn(x, 'I walk along the quay.', 'Gulls over the quay. [J1]', { scene_end: at(2, 10, 10) });
     expect(x.model.tasks('integrate').slice(-1)[0].input.quiet_day).toBe(true);
     const opp = x.engine.campaign()!.integrationCache!.opportunities.find((o) => o.sideJob)!;
-    expect(opp.latest).toBe(tick(2, 23, 59)); // an unmade job suggestion lasts the day
+    expect(opp.latest).toBe(tick(2, 20, 0)); // an unmade job suggestion lasts until 20:00 of the day
     expect(x.model.tasks('integrate').slice(-1)[0].input.recent_jobs).toBeUndefined(); // a suggestion is not yet a matter brought to the player
     // the GM delivers it
     await turn(x, 'I keep walking.', 'A Union runner hands you a note from the dockmaster. [J2]', { scene_end: at(2, 10, 20), contacts: [contact('A Union runner hands you a note', { scope_kind: 'faction', scope_ref: 'union', actors: ['union'], opportunity_id: opp.id })] });
@@ -676,7 +686,7 @@ describe('preferred matters', () => {
     const rc = x.model.tasks('integrate').slice(-1)[0].input.recent_contacts.find((c: any) => c.id === k.recordId);
     expect(rc.lapsed).toBe(true);
     // turning the job down is not turning down the organization: a later request from the same people is not blocked
-    const z = await setup({ pack: JSON.stringify(wide), start: tick(2, 10, 0), integrate: { assessments: [], opportunities: [job] } });
+    const z = await setup({ start: tick(2, 10, 0), integrate: { assessments: [], opportunities: [job] } });
     await turn(z, 'I walk along the quay.', 'Gulls over the quay. [J5]', { scene_end: at(2, 10, 10) });
     const zo = z.engine.campaign()!.integrationCache!.opportunities.find((o) => o.sideJob)!;
     await turn(z, 'I keep walking.', 'A Union runner hands you a note from the dockmaster. [J6]', { scene_end: at(2, 10, 20), contacts: [contact('A Union runner hands you a note', { scope_kind: 'faction', scope_ref: 'union', actors: ['union'], opportunity_id: zo.id })] });
@@ -729,7 +739,7 @@ describe('preferred matters', () => {
     const fromOwner = OPP({ ref: 'b1', target_event_id: null, scope_kind: 'storyline', scope_ref: 'bakery order', scope_label: 'a big bakery order', actors: ['Mr. Tanabe'], contact: 'Mr. Tanabe asks Hana to deliver forty buns to the lighthouse keeper before noon', side_job: true });
     const fromNewcomer = OPP({ ref: 'b2', target_event_id: null, scope_kind: 'contact', scope_ref: 'rec_does_not_exist', scope_label: 'a lost umbrella', actors: ['an old woman in a red coat'], contact: 'an old woman in a red coat asks Hana to help find the umbrella she left on the quay', side_job: true, establishes: ['an old woman in a red coat who lives above the fish market'] });
     const notAJob = OPP({ ref: 'b3', target_event_id: null, scope_kind: 'storyline', scope_ref: 'stranger', scope_label: 'a stranger', actors: ['a stranger'], contact: 'a stranger waves' });
-    const x = await setup({ persona: { name: 'Hana', description: 'Hana, an ordinary student.' }, pack: JSON.stringify(wide), start: tick(2, 10, 0), profile: student, integrate: { assessments: [], opportunities: [fromOwner, fromNewcomer, notAJob] } });
+    const x = await setup({ persona: { name: 'Hana', description: 'Hana, an ordinary student.' }, start: tick(2, 10, 0), profile: student, integrate: { assessments: [], opportunities: [fromOwner, fromNewcomer, notAJob] } });
     await turn(x, 'I walk to the bakery.', 'The bakery smells of bread. [H1]', { scene_end: at(2, 10, 10) });
     const prof = x.engine.playerProfile()!.profile;
     const owner = prof.relationships.find((r) => r.name === 'Mr. Tanabe')!;

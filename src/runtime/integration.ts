@@ -464,14 +464,18 @@ export interface IntegrateOut {
   }[];
 }
 
-/** A quiet day: no canon event is under way or due for the rest of the story day. An event counts when it happens
- *  within a day, or starts or ends today (live: 恩底弥翁, 9/15–18, ends with its climax on the evening of 9/18, which was
- *  taken as quiet); only an event that runs through the whole day without starting or ending in it does not. */
+/** A small job is asked for only between these times of a free day, and must be done by JOB_DONE_BY (a job asked at
+ *  23:50 for the remaining ten minutes is no job). */
+export const JOB_FROM = 6 * 60, JOB_UNTIL = 18 * 60, JOB_DONE_BY = 20 * 60;
+
+/** A free day, strictly: no canon event touches the story day at all (none under way, none whose window overlaps
+ *  any part of 00:00–23:59, whether it starts, ends or runs through it), and it is between JOB_FROM and JOB_UNTIL. */
 export function quietDay(index: WorldIndex, tick: number): boolean {
   const st = index.state;
   if (underWayEvents(st).size) return false;
   const dayStart = Math.floor(tick / 1440) * 1440, dayEnd = dayStart + 1439;
-  return !index.pack.timeIndex.some((t) => !st.dispositions.has(t.id) && t.lo <= dayEnd && t.hi >= tick && (t.hi - t.lo <= 1440 || t.lo >= dayStart || t.hi <= dayEnd));
+  if (tick - dayStart < JOB_FROM || tick - dayStart >= JOB_UNTIL) return false;
+  return !index.pack.timeIndex.some((t) => !st.dispositions.has(t.id) && t.lo <= dayEnd && t.hi >= dayStart);
 }
 
 /** A small job the player let lapse: offered on a quiet day, not taken by the start of the next day (pending or
@@ -551,7 +555,7 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
       motivation: (o.motivation || '').slice(0, 800), knowledge: (o.knowledge || '').slice(0, 800), contact: (o.contact || '').slice(0, 800), establishes: (o.establishes || []).slice(0, 8),
       earliest, latest, priority: Math.min(3, Math.max(1, Math.round(o.priority || 2))), focus: !!c?.focus, basisRefs,
       // a side job is only for a quiet day and never about a canonical event
-      ...(isJob ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + 1439), ...(newcomers.length ? { newcomers } : {}) } : {}),
+      ...(isJob ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + JOB_DONE_BY), ...(newcomers.length ? { newcomers } : {}) } : {}),
     });
   }
   return { valid, dropped };
