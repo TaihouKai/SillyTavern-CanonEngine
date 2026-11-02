@@ -110,6 +110,8 @@ export interface GateResult {
   runtimeEntities: RuntimeEntity[];
 }
 
+/** How far an estimated (not stated) time may lie before a canonical event's start and still be moved up to it. */
+export const EARLY_SHIFT_MAX = 3 * 60;
 const DESTRUCTIVE = /(destroy|ruin|demolish|collaps|dead|dissolv|gone|burn|毁|废|塌|灭|亡|解散)/i;
 
 /** Does a reviewer's text refer to this HARD event (id, title, or a run of its required description)? */
@@ -293,7 +295,16 @@ export function runGate(g: GateInput): GateResult {
         const st = pack.timeIndex.find((x) => x.id === pe.id);
         if (st) {
           // clamp to the authored bounds; outside them is a violation for HARD
-          if (time.hi < st.lo || time.lo > st.hi) {
+          // live: a morning reply walked to the opening ceremony (08:00) and the reviewer's minimum estimate of the
+          // whole reply ended at 07:40; three rewrites were sent back over it. The pack knows when the event starts:
+          // an estimated time a little before it is moved up to its start, and the scene ends no earlier.
+          const early = time.hi < st.lo && !flashback && time.precision !== 'minute' && st.lo - time.hi <= EARLY_SHIFT_MAX;
+          if (early) {
+            warnings.push(`"${pe.title}" estimated at ${formatTick(time.lo)}, before its authored start ${formatTick(st.lo)}: moved to its start`);
+            time = { lo: st.lo, hi: Math.max(st.lo, Math.min(st.hi, time.hi)), precision: 'range' };
+            if (sceneEnd.hi < st.lo) sceneEnd = { lo: Math.max(sceneEnd.lo, st.lo), hi: st.lo, precision: sceneEnd.precision };
+            else if (sceneEnd.lo < st.lo) sceneEnd = { ...sceneEnd, lo: st.lo };
+          } else if (time.hi < st.lo || time.lo > st.hi) {
             if (pe.classification === 'HARD') violations.push(`HARD "${pe.title}" is depicted at ${formatTick(time.lo)}, outside its authored bounds ${formatTick(st.lo)}–${formatTick(st.hi)}.`);
             time = { lo: Math.max(st.lo, Math.min(time.lo, st.hi)), hi: Math.min(st.hi, Math.max(time.hi, st.lo)), precision: 'range' };
           }

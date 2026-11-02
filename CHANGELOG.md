@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.16.4 — 2026-11-02
+
+- **A canonical event estimated a little before its start is moved up to it.** A morning reply walked to the opening ceremony (08:00) and the reviewer's minimum time estimate for the whole reply ended at 07:40; the ceremony was "depicted outside its authored bounds" and sent back twice, and the second rewrite (without the ceremony) then failed on something else. The pack knows when the event starts: an estimated time up to 3 hours before it is moved to its start, and the scene ends no earlier. A time the text states is still checked. Tests: `tests/unit/earlyhard.test.ts` (EH1–EH2).
+
 ## 1.16.3 — 2026-11-01
 
 - **小任务 switch in the 叙事融入 tab.** A checkbox at the top of the tab turns small jobs on or off; it is the same setting as 没有原作事件的日子，世界主动给你派小任务 in the settings panel, and the two stay in step. Tests: e2e `tests/e2e/jobs-toggle.mjs` (JT01–JT03).

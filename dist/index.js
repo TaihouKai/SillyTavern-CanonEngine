@@ -20882,6 +20882,7 @@ function matchScope(pack2, contacts, label) {
   const [scopeKind, scopeRef, l] = earlier[0].split("\0");
   return { scopeKind, scopeRef, label: l };
 }
+var EARLY_SHIFT_MAX = 3 * 60;
 var DESTRUCTIVE = /(destroy|ruin|demolish|collaps|dead|dissolv|gone|burn|毁|废|塌|灭|亡|解散)/i;
 function refersToHard(text, id, title, required) {
   if (text.includes(id) || title && text.includes(title)) return true;
@@ -21074,7 +21075,13 @@ function runGate(g) {
         kind = "canon_occurrence";
         const st = pack2.timeIndex.find((x) => x.id === pe.id);
         if (st) {
-          if (time.hi < st.lo || time.lo > st.hi) {
+          const early = time.hi < st.lo && !flashback && time.precision !== "minute" && st.lo - time.hi <= EARLY_SHIFT_MAX;
+          if (early) {
+            warnings.push(`"${pe.title}" estimated at ${formatTick(time.lo)}, before its authored start ${formatTick(st.lo)}: moved to its start`);
+            time = { lo: st.lo, hi: Math.max(st.lo, Math.min(st.hi, time.hi)), precision: "range" };
+            if (sceneEnd.hi < st.lo) sceneEnd = { lo: Math.max(sceneEnd.lo, st.lo), hi: st.lo, precision: sceneEnd.precision };
+            else if (sceneEnd.lo < st.lo) sceneEnd = { ...sceneEnd, lo: st.lo };
+          } else if (time.hi < st.lo || time.lo > st.hi) {
             if (pe.classification === "HARD") violations.push(`HARD "${pe.title}" is depicted at ${formatTick(time.lo)}, outside its authored bounds ${formatTick(st.lo)}\u2013${formatTick(st.hi)}.`);
             time = { lo: Math.max(st.lo, Math.min(time.lo, st.hi)), hi: Math.min(st.hi, Math.max(time.hi, st.lo)), precision: "range" };
           }
@@ -22656,7 +22663,7 @@ function engagementRecord(s0, index, tick, src) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.16.3";
+var ENGINE_RELEASE = "1.16.4";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
