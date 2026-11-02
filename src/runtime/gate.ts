@@ -536,6 +536,14 @@ export function runGate(g: GateInput): GateResult {
       // live: "走一路烧一路魔法陷阱" — the reviewer authorized the burning in player_actions, then still sent back the
       // incantation and the fire as player-only skills the player had not spelled out
       if (act?.authorizedBy) { warnings.push(`reviewer complaint about a player-character act the player's message authorizes ("${act.authorizedBy.quote}") ignored: ${v.detail.slice(0, 160)}`); continue; }
+      // live: "the reply has 美铃 and 刀夜 go along without the player agreeing", quoting 美铃's own request, in a reply
+      // that ended on 食蜂 asking the player what she would do. A player-character act is in the reviewer's
+      // player_actions (checked above) or at least names the player character; evidence that does neither is
+      // someone else's line.
+      if (!act && v.quote && g.playerId) {
+        const names = uniq(g.index.allNames(g.playerId).flatMap((n) => [n, ...n.split(/[·・\s]/)]).filter((n) => n.length >= 2));
+        if (names.length && !names.some((n) => v.quote!.includes(n))) { warnings.push(`reviewer complaint about the player character ignored: its evidence is not something the player character does ("${v.quote.slice(0, 80)}"): ${v.detail.slice(0, 160)}`); continue; }
+      }
     }
     if (/engagement[_ ]pressure/i.test(v.code)) { violations.push(`The reply pulls the player toward something they declined or deferred: ${v.detail}${v.quote ? ` ("${v.quote}")` : ''}. Do not press it again through anyone or anything; let the world go on without it.`); continue; }
     // HARD conformance is decided by the structured HARD checks and deadlines above. A free-text

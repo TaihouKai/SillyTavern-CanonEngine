@@ -21897,6 +21897,13 @@ function runGate(g) {
         warnings.push(`reviewer complaint about a player-character act the player's message authorizes ("${act.authorizedBy.quote}") ignored: ${v.detail.slice(0, 160)}`);
         continue;
       }
+      if (!act && v.quote && g.playerId) {
+        const names = uniq(g.index.allNames(g.playerId).flatMap((n) => [n, ...n.split(/[·・\s]/)]).filter((n) => n.length >= 2));
+        if (names.length && !names.some((n) => v.quote.includes(n))) {
+          warnings.push(`reviewer complaint about the player character ignored: its evidence is not something the player character does ("${v.quote.slice(0, 80)}"): ${v.detail.slice(0, 160)}`);
+          continue;
+        }
+      }
     }
     if (/engagement[_ ]pressure/i.test(v.code)) {
       violations.push(`The reply pulls the player toward something they declined or deferred: ${v.detail}${v.quote ? ` ("${v.quote}")` : ""}. Do not press it again through anyone or anything; let the world go on without it.`);
@@ -23401,7 +23408,7 @@ ${lines.join("\n")}`;
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.18.0";
+var ENGINE_RELEASE = "1.18.1";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
