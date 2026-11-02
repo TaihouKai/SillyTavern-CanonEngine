@@ -205,6 +205,9 @@ export function gmRulesFor(v: import('./voice').PlayerVoice): string {
   return GM_INTEGRATION_RULES.replace('{{PLAYER_VOICE}}', voiceRule(v));
 }
 
+/** evaluate, when someone with the player has a canon event coming without warning (chance_events_with_companion). */
+export const EVAL_CHANCE_NOTE = `9. CHANCE EVENTS (chance_events_with_companion: canon events that come without warning to someone who is with the player). When the reply shows one of them — even with its people unnamed or described only by looks, a little before its listed time, or in another place — record it as an occurrence with that pack_event_id (disposition occurred, diverged or ongoing as shown). Live: a foreign girl asking 佐天 how to use her new phone was 索绮特's encounter, recorded as an unrelated beat.`;
+
 /** extract_user, when the player is known to some groups (recognition_groups). */
 export const EXTRACT_GROUPS_NOTE = `Also return "scene_groups": when the message moves the scene (the player goes somewhere, a new scene starts, time skips to another situation), the ids from recognition_groups whose people are present or very likely present where the scene will be — named or as background (the students of a school at a school-wide event, colleagues at the workplace, a crowd at a big public event they would attend); [] when none; null when the message does not move the scene.`;
 

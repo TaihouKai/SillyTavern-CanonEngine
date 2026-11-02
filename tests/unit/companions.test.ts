@@ -71,6 +71,10 @@ describe("companions' next events", () => {
     const tr = x.engine.lastTrace!;
     expect(tr.attempts[0].violations.join(' ')).toMatch(/comes to Mira without warning at .*10:00, and Mira is still with the player[^]*show it happening to both of them where they are, or end the reply before/);
     expect(tr.attempts.slice(-1)[0].violations).toEqual([]);
+    // the reviewer is told which chance event to link when the reply shows it (live: an unnamed girl's phone question)
+    const ev = x.model.tasks('evaluate').find((c: any) => String(c.input.candidate).includes('[CP5c]'))!;
+    expect(ev.input.chance_events_with_companion[0]).toMatchObject({ event_id: 'medic-ambush', comes_to: 'Mira' });
+    expect(String(ev.messages![0].content)).toContain('9. CHANCE EVENTS');
   });
 
   it('CP4 nobody with the player: no section', async () => {

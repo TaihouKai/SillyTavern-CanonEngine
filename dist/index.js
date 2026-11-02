@@ -20966,6 +20966,7 @@ var CONTINUE_INSTRUCTION = `[Canon Engine private instruction \u2014 not part of
 function gmRulesFor(v) {
   return GM_INTEGRATION_RULES.replace("{{PLAYER_VOICE}}", voiceRule(v));
 }
+var EVAL_CHANCE_NOTE = `9. CHANCE EVENTS (chance_events_with_companion: canon events that come without warning to someone who is with the player). When the reply shows one of them \u2014 even with its people unnamed or described only by looks, a little before its listed time, or in another place \u2014 record it as an occurrence with that pack_event_id (disposition occurred, diverged or ongoing as shown). Live: a foreign girl asking \u4F50\u5929 how to use her new phone was \u7D22\u7EEE\u7279's encounter, recorded as an unrelated beat.`;
 var EXTRACT_GROUPS_NOTE = `Also return "scene_groups": when the message moves the scene (the player goes somewhere, a new scene starts, time skips to another situation), the ids from recognition_groups whose people are present or very likely present where the scene will be \u2014 named or as background (the students of a school at a school-wide event, colleagues at the workplace, a crowd at a big public event they would attend); [] when none; null when the message does not move the scene.`;
 var EVAL_GROUPS_NOTE = `8. RECOGNITION (recognition_groups: groups and people who know about the player, from the Persona \u2014 level "public" recognize the player's public standing on sight; "identity"/"secrets" know more). Return "scene_groups": the ids of those whose people are present in the scene at the END of the reply, named or as background (their uniforms, a crowd of them, someone the text says is one of them). Report a blocking violation (code "recognition") when someone the reply shows as one of them plainly acts as if they did not know what their group knows \u2014 asks who the player is, does not know the player's well-known rank or name, treats them as a stranger \u2014 unless the text gives a reason (they cannot see the player, a disguise, deliberate pretence). Not showing recognition is fine; only a shown ignorance counts. People not in these groups know only the public identity \u2014 knowing a secret stays the unsupported case above.`;
 
@@ -24429,7 +24430,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
     });
     const due = pendingHard(pack2, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
     const groups = prof ? recognitionGroups(index, prof.profile) : [];
-    const evalPrompt = [PROMPTS.evaluate, pack2.frames.frames.size ? EVAL_FRAMES_NOTE : "", groups.length ? EVAL_GROUPS_NOTE : ""].filter(Boolean).join("\n");
+    const evalPrompt = [PROMPTS.evaluate, pack2.frames.frames.size ? EVAL_FRAMES_NOTE : "", groups.length ? EVAL_GROUPS_NOTE : "", a.chance?.length ? EVAL_CHANCE_NOTE : ""].filter(Boolean).join("\n");
     const evaluation = await this.withTimeout(callStructured(this.host.model, "evaluate", evalPrompt, {
       mode: a.mode,
       candidate: a.text,
@@ -24453,7 +24454,8 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       ...this.framesInput(index, tick, a.text + " " + (a.userEntry?.text || ""), [...retrieval.canonEvents, ...this.canonNow(index, tick).map((c2) => c2.id)]),
       player_voice: voiceInput(playerVoice(this.settings.playerVoice)),
       ...this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {},
-      ...groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who, level: g.level, knows: g.about })) } : {}
+      ...groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who, level: g.level, knows: g.about })) } : {},
+      ...a.chance?.length ? { chance_events_with_companion: a.chance.map((x) => ({ event_id: x.eventId, title: x.title, comes_to: x.who, starts: formatTick(x.lo), what: (pack2.events.get(x.eventId)?.summary || "").slice(0, 400) })) } : {}
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
     const stated = statedTime(`${a.text}

@@ -13,7 +13,7 @@ import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
 import type { HostPort } from './host';
 import { callStructured, taskDefaults } from './model';
-import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, EVAL_GROUPS_NOTE, EXTRACT_GROUPS_NOTE, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
+import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, EVAL_GROUPS_NOTE, EVAL_CHANCE_NOTE, EXTRACT_GROUPS_NOTE, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, sceneFrameOf, type ClaimInput, type RefInput, type Retrieval } from './context';
 import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
@@ -1031,7 +1031,7 @@ export class CanonEngine {
     });
     const due = pendingHard(pack, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
     const groups = prof ? recognitionGroups(index, prof.profile) : [];
-    const evalPrompt = [PROMPTS.evaluate, pack.frames.frames.size ? EVAL_FRAMES_NOTE : '', groups.length ? EVAL_GROUPS_NOTE : ''].filter(Boolean).join('\n');
+    const evalPrompt = [PROMPTS.evaluate, pack.frames.frames.size ? EVAL_FRAMES_NOTE : '', groups.length ? EVAL_GROUPS_NOTE : '', a.chance?.length ? EVAL_CHANCE_NOTE : ''].filter(Boolean).join('\n');
     const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', evalPrompt, {
       mode: a.mode,
       candidate: a.text,
@@ -1056,6 +1056,7 @@ export class CanonEngine {
       player_voice: voiceInput(playerVoice(this.settings.playerVoice)),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
       ...(groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who, level: g.level, knows: g.about })) } : {}),
+      ...(a.chance?.length ? { chance_events_with_companion: a.chance.map((x) => ({ event_id: x.eventId, title: x.title, comes_to: x.who, starts: formatTick(x.lo), what: (pack.events.get(x.eventId)?.summary || '').slice(0, 400) })) } : {}),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
     // Horae tracks story time every turn; its time at the end of the previous reply is where this reply
