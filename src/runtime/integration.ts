@@ -748,7 +748,7 @@ export function presentGroups(index: WorldIndex, profile: PlayerProfile, tick: n
 export function recognitionSection(present: { g: RecognitionGroup; why: string[] }[]): string {
   if (!present.length) return '';
   const lines = present.map(({ g, why }) => g.level === 'public'
-    ? `- ${g.who} (${why.join('; ')}) recognize the player on sight as: ${g.about}. Public standing — let it show: they react as such people would (greet, stare, make way, whisper, ask for something), as the scene allows; vary it, and do not repeat the same greeting within one scene.`
+    ? `- ${g.who} (${why.join('; ')}) recognize the player on sight as: ${g.about}. Public standing — show it: wherever people of this group are around, they notice the player and react as such people would (greet, stare, make way, whisper, take a photo, ask for something) — at least once in each scene with such people, more when it matters; vary it and do not repeat the same beat within a scene. Not the player's secrets.`
     : g.level === 'secrets'
       ? `- ${g.who} (${why.join('; ')}) know (secret): ${g.about}. Only they know; they keep it out of others' hearing.`
       : `- ${g.who} (${why.join('; ')}) know who the player is: ${g.about}. They act on it; others here do not learn it from them unless the story shows it.`);

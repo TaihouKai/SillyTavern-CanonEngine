@@ -70,7 +70,7 @@ describe('recognition in the scene', () => {
     await turn(x, 'I sing on the pier.', 'Gulls cry. [RC2a]');
     expect(lastCtx(x)).not.toContain('RECOGNITION IN THIS SCENE');
     await turn(x, 'I walk into the fish market.', 'Crates of fish everywhere. [RC2b]', { scene_entities: ['market'] });
-    expect(section(x)).toMatch(/fishmongers of the market \(at Fish Market\) recognize the player on sight as: the singer who buys their whole catch\. Public standing — let it show/);
+    expect(section(x)).toMatch(/fishmongers of the market \(at Fish Market\) recognize the player on sight as: the singer who buys their whole catch\. Public standing — show it: wherever people of this group are around/);
     expect(section(x)).not.toContain('Council clerks');
     await turn(x, 'I wave Ren over.', 'Ren comes. [RC2c]', { scene_entities: ['ren'] });
     expect(section(x)).toMatch(/Council clerks \(Ren is one of them\) know who the player is: she buys the Council records/);
