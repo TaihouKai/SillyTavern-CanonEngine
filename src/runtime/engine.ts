@@ -1385,7 +1385,9 @@ export class CanonEngine {
           timeJumpTo: jumpTo,
           presence: prof ? presenceSection(index, prof.profile, ctxClock) : undefined,
           // where the scene goes: the player's message when it moves the scene, else where the last reply ended
-          recognition: prof ? recognitionSection(presentGroups(index, prof.profile, ctxClock, uniq([...sceneSeeds, ...horaeSceneIds]),
+          // (a message that moves the scene leaves the last scene's people and places behind)
+          recognition: prof ? recognitionSection(presentGroups(index, prof.profile, ctxClock,
+            Array.isArray(userInterp?.sceneGroups) ? userInterp!.sceneEntities : uniq([...sceneSeeds, ...horaeSceneIds]),
             (userInterp?.sceneGroups ?? prevGmInterp?.sceneGroups) || [])) || undefined : undefined,
           decisions: decisionsSection(eng.lines(clock)) || undefined,
           reaction: offered ? worldReactionSection(index, offered, c.binding.originDate) : undefined,

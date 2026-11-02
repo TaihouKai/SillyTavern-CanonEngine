@@ -91,7 +91,9 @@ describe('recognition in the scene', () => {
     const ev = x.model.tasks('evaluate').slice(-1)[0];
     expect(ev.input.recognition_groups[2]).toEqual({ id: 'g3', who: 'Council clerks', level: 'identity', knows: 'she buys the Council records' });
     expect(String(ev.messages![0].content)).toMatch(/RECOGNITION[^]*code "recognition"/);
-    // the last reply ended with nobody of them; then the player goes home: nobody
+    // at the market (the reply ends there), then the player leaves for home: the market's people stay behind
+    await turn(x, 'I walk into the fish market.', 'Crates of fish. [RC3m]', { scene_entities: ['market'], scene_groups: [] }, { scene_entities: ['market'] });
+    expect(section(x)).toContain('fishmongers of the market (at Fish Market)');
     await turn(x, 'I go home.', 'Home. [RC3c]', { scene_groups: [] });
     expect(lastCtx(x)).not.toContain('RECOGNITION IN THIS SCENE');
   });

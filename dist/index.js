@@ -24549,11 +24549,12 @@ ${this.ooc(a.userEntry?.text).story}`);
           timeJumpTo: jumpTo,
           presence: prof ? presenceSection(index, prof.profile, ctxClock) : void 0,
           // where the scene goes: the player's message when it moves the scene, else where the last reply ended
+          // (a message that moves the scene leaves the last scene's people and places behind)
           recognition: prof ? recognitionSection(presentGroups(
             index,
             prof.profile,
             ctxClock,
-            uniq([...sceneSeeds, ...horaeSceneIds]),
+            Array.isArray(userInterp?.sceneGroups) ? userInterp.sceneEntities : uniq([...sceneSeeds, ...horaeSceneIds]),
             (userInterp?.sceneGroups ?? prevGmInterp?.sceneGroups) || []
           )) || void 0 : void 0,
           decisions: decisionsSection(eng.lines(clock)) || void 0,
