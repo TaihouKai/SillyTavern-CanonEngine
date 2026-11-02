@@ -2,7 +2,7 @@
 // reviewer and the panel. Acts the player wrote themselves are always theirs to carry out; a decision the GM
 // voices is never recorded as the player's (decisions are read from the player's own messages only).
 
-export const VOICE_KINDS = ['dialogue', 'reactions', 'actions', 'movement', 'items', 'skills', 'combat', 'decisions', 'secrets'] as const;
+export const VOICE_KINDS = ['dialogue', 'reactions', 'actions', 'trivial', 'movement', 'items', 'skills', 'combat', 'decisions', 'secrets'] as const;
 export type VoiceKind = typeof VOICE_KINDS[number];
 export type PlayerVoice = Record<VoiceKind, boolean>;
 
@@ -11,11 +11,12 @@ export const VOICE_TEXT: Record<VoiceKind, string> = {
   dialogue: 'dialogue — what the player character says: replies, banter, questions, small talk',
   reactions: 'reactions — expressions, gestures, feelings and inner thoughts',
   actions: 'small actions — everyday acts and natural follow-through in the scene (drinking, picking up the phone, sitting down, walking along with someone)',
+  trivial: 'trivial everyday matters — small things with objects and small yeses of the moment that commit the character to nothing (accepting a snack or a small gift, paying for a drink, taking a flyer, tasting something offered, sitting with someone who asks)',
   movement: 'movement — going somewhere else, leaving or ending the scene, travelling',
-  items: 'items — using, giving away, taking or buying things',
+  items: 'items — using, giving away, taking or buying things that matter (equipment, valuables, key items, notable money); trivial everyday matters are their own kind',
   skills: 'abilities — using skills, powers or magic',
   combat: 'combat — attacking, fighting, hurting or killing someone',
-  decisions: 'decisions — accepting or refusing requests, promises, agreements, consent',
+  decisions: 'decisions — accepting or refusing requests, promises, agreements, consent that commit the character (a task, a plan, a promise, joining something); small yeses of the moment are trivial everyday matters',
   secrets: 'secrets — revealing the player character\'s secrets or hidden identity',
 };
 
@@ -26,7 +27,7 @@ export const INTERVENTION = 'intervention';
 export const INTERVENTION_TEXT = 'intervention — the player character interrupting, stopping, preventing, exposing or redirecting a canonical event or another character\'s significant action, even by a single line of dialogue or a reaction aimed at it';
 
 /** The player's choice by default: the GM voices the character in the scene; anything that commits them is theirs. */
-export const DEFAULT_PLAYER_VOICE: PlayerVoice = { dialogue: true, reactions: true, actions: true, movement: false, items: false, skills: false, combat: false, decisions: false, secrets: false };
+export const DEFAULT_PLAYER_VOICE: PlayerVoice = { dialogue: true, reactions: true, actions: true, trivial: true, movement: false, items: false, skills: false, combat: false, decisions: false, secrets: false };
 
 export function playerVoice(v: Partial<PlayerVoice> | null | undefined): PlayerVoice {
   const out = { ...DEFAULT_PLAYER_VOICE };

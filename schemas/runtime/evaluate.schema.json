@@ -440,6 +440,7 @@
        "dialogue",
        "reactions",
        "actions",
+       "trivial",
        "movement",
        "items",
        "skills",

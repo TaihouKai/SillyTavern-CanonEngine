@@ -22,6 +22,23 @@ async function setup(voice?: Partial<typeof DEFAULT_PLAYER_VOICE>) {
 const act = (quote: string, category: string | null) => ({ quote, authorized_by_quote: null, category });
 
 describe('what the GM may write for the player character', () => {
+  it('PV-T trivial everyday matters (a small gift accepted) pass by default; with the toggle off they are sent back', async () => {
+    // live: a reply was rewritten because the player character accepted a box of sweets from 上条刀夜
+    const x = await setup();
+    x.host.addUser('I give them directions.');
+    x.model.draft('You take the box of sweets with a nod. [VT1]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[VT1]'), { player_actions: [act('You take the box of sweets', 'trivial')] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.model.tasks('draft')).toHaveLength(1);
+    expect(String(x.model.tasks('evaluate').slice(-1)[0].messages![0].content)).toMatch(/trivial everyday matters that commit the character to nothing are trivial, never items or decisions/);
+    const y = await setup({ trivial: false });
+    y.host.addUser('I give them directions.');
+    y.model.draft('You take the box of sweets with a nod. [VT2]', 'They hold out the box of sweets. [VT3]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[VT2]'), { player_actions: [act('You take the box of sweets', 'trivial')] });
+    expect(await y.engine.runOperation('normal')).toBe(true);
+    expect(y.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/\(trivial\)/);
+  });
+
   it('PV1 the GM is told what it may write and what is left to the player; with nothing ticked, the old strict rule', () => {
     const r = gmRulesFor(DEFAULT_PLAYER_VOICE);
     expect(r).toMatch(/the player wants you to write these for their character[^]*dialogue — what the player character says[^]*small actions/);
@@ -38,7 +55,7 @@ describe('what the GM may write for the player character', () => {
     x.model.on('evaluate', (i) => String(i.candidate).includes('[V1]'), { player_actions: [act('"Long day," you say', 'dialogue'), act('sip your tea', 'actions')] });
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect(x.model.tasks('draft')).toHaveLength(1); // no repair
-    expect(x.model.tasks('evaluate').slice(-1)[0].input.player_voice.gm_may_write).toEqual(['dialogue', 'reactions', 'actions']);
+    expect(x.model.tasks('evaluate').slice(-1)[0].input.player_voice.gm_may_write).toEqual(['dialogue', 'reactions', 'actions', 'trivial']);
     expect(String(x.model.tasks('draft')[0].input.engineContext)).toMatch(/the player wants you to write these for their character/);
 
     x.host.addUser('I watch the dock.');

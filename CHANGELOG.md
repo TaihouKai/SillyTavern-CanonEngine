@@ -3,6 +3,7 @@
 ## 1.18.1 — 2026-11-03
 
 - **A reviewer complaint about the player character must point at the player character.** A reply was sent back for "making the player go along with 美铃 without agreeing", with 美铃's own request as the evidence, though the reply ended on 食蜂 asking the player what she would do. A free-text complaint about the player character whose evidence is neither one of the reviewer's own player_actions nor names the player character is now a note. Player-character acts the reviewer lists are checked as before. Tests: `tests/unit/agencyquote.test.ts` (AQ1–AQ2).
+- **鸡毛蒜皮的小事: a new 「GM 可以替玩家角色……」 toggle, on by default.** A reply was rewritten because the player character accepted a box of sweets someone handed her — filed under items, which the player keeps to themselves. Trivial everyday matters that commit the character to nothing (accepting a snack or a small gift, buying a drink, taking a flyer, sitting with someone who asks) are now their own kind, which the GM may write unless the toggle is off; items and decisions cover only what commits the character (equipment, valuables, key items, notable money; a task, a plan, a promise, joining something). Without it the player character tends to answer everything noncommittally. Test: `tests/unit/voice.test.ts` (PV-T).
 
 ## 1.18.0 — 2026-11-03
 
