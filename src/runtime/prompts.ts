@@ -116,7 +116,7 @@ For each group write a short title (at most 20 characters, in the language of th
 SHAPE: {"groups":[{"member_ids":[],"title":"","summary":""}]}`,
 
   foreknow: `${COMMON}
-TASK: Each pair is a person and a canonical event of the original story they take part in, which is about to start. Judge from the event's original summary (its cause and motives) whether that person KNOWS IN ADVANCE, before it starts, that they will be there or do this: an appointment or meeting they arranged, a plan of their own, a duty, shift or task they were given, an errand they set out on — knows=true; or not: a chance encounter, an accident, an attack, summons or news that comes without warning, something that happens to them — knows=false. how: two to six words in the event's language (e.g. "约好的会面", "偶遇").
+TASK: Each pair is a person and a canonical event of the original story they take part in, which is about to start. Judge from the event's original summary (its cause and motives) whether that person KNOWS IN ADVANCE, before it starts, that they will be there or do this: an appointment or meeting they arranged, a plan of their own, a duty, shift or task they were given, an errand they set out on — knows=true; or not: a chance encounter, an accident, an attack, summons or news that comes without warning, something that happens to them — knows=false. What they only decide, propose or notice once the event is under way does not count: knows=true only when, before it starts, they already expect to be there or to meet these people (live: "she proposes it during the event" was read as knowing in advance). how: two to six words in the event's language (e.g. "约好的会面", "偶遇").
 SHAPE: {"judgements":[{"id":"k1","knows":true,"how":""}]}`,
 } as const;
 
