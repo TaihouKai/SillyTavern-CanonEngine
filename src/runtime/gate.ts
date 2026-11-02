@@ -94,6 +94,10 @@ export interface GateInput {
   /** Companions' events that come without warning (judged not known in advance, not declined): with the person
    *  still beside the player when the reply passes the start, the event happens to both of them (user design). */
   chanceCompanions?: { eventId: Id; personId: Id; lo: number; title: string; who: string }[];
+  /** Whether skipping such an event sends the reply back: only the first draft of a turn. It may already have been
+   *  shown without being recognised as the event (live: an unnamed girl's phone question), so a repair that still
+   *  does not show it is kept with a note; the turn never fails over it. */
+  chanceBlocking?: boolean;
 }
 
 export interface GateResult {
@@ -604,7 +608,7 @@ export function runGate(g: GateInput): GateResult {
     const shown = new Set(ev.occurrences.map((o) => o.pack_event_id).filter(Boolean));
     for (const c of g.chanceCompanions || []) {
       if (shown.has(c.eventId) || sceneEnd.lo < c.lo || !sceneEntities.includes(c.personId)) continue;
-      violations.push(`"${c.title}" comes to ${c.who} without warning at ${formatTick(c.lo)}, and ${c.who} is still with the player when this reply passes that time, but the reply does not show it: show it happening to both of them where they are, or end the reply before ${formatTick(c.lo)}.`);
+      (g.chanceBlocking === false ? warnings : violations).push(`"${c.title}" comes to ${c.who} without warning at ${formatTick(c.lo)}, and ${c.who} is still with the player when this reply passes that time, but the reply does not show it: show it happening to both of them where they are, or end the reply before ${formatTick(c.lo)}.`);
     }
   }
   // Time frames: the frame the scene is in after this reply, when the reviewer names a known one (by id or name)

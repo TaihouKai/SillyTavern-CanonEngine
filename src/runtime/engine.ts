@@ -1085,7 +1085,7 @@ export class CanonEngine {
     const gate = runGate({
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: eng.binding(tick).length, hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
-      playerId: prof?.profile.playerId || null, offered: a.offered || null, chanceCompanions: a.chance || [],
+      playerId: prof?.profile.playerId || null, offered: a.offered || null, chanceCompanions: a.chance || [], chanceBlocking: (a.attempt ?? 0) === 0,
     });
     const c = this.campaign();
     const manifest: CoverageManifest | null = c ? {
@@ -1483,7 +1483,7 @@ export class CanonEngine {
             // Gate HARD crossing with staged offscreen occurrences against the committed clock
             review.gate = runGate({
               pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
-              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard: adj.stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: engagementView(stagedIndex.state, pack).binding(stagedIndex.state.clock.lo).length, hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, offered, chanceCompanions: chance,
+              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard: adj.stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: engagementView(stagedIndex.state, pack).binding(stagedIndex.state.clock.lo).length, hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, offered, chanceCompanions: chance, chanceBlocking: attempt === 0,
             });
             this.checkFences(fences, excludeLast);
           }

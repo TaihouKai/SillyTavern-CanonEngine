@@ -77,6 +77,19 @@ describe("companions' next events", () => {
     expect(String(ev.messages![0].content)).toContain('9. CHANCE EVENTS');
   });
 
+  it('CP6 a repair that still does not show it is kept (it may have been shown unrecognised): the turn never fails over it', async () => {
+    const x = await setup(false);
+    await turn(x, 'I walk with Mira.', 'Mira walks beside me. [CP6a]', { scene_entities: ['mira'] });
+    x.host.addUser('We walk on until noon.');
+    x.model.draft('We walk on with Mira until 11:00. [CP6b]', 'We still walk on with Mira until 11:00. [CP6c]');
+    x.model.on('evaluate', (i) => /\[CP6[bc]\]/.test(String(i.candidate)), { scene_end: at(1, 11, 0), scene_entities: ['mira'] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    const tr = x.engine.lastTrace!;
+    expect(tr.attempts).toHaveLength(2);
+    expect(tr.attempts[1].violations).toEqual([]);
+    expect(x.host.chat.slice(-1)[0].text).toContain('[CP6c]');
+  });
+
   it('CP4 nobody with the player: no section', async () => {
     const x = await setup(false);
     await turn(x, 'I walk alone.', 'Quiet road. [CP4a]');

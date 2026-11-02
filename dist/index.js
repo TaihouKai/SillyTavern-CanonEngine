@@ -22020,7 +22020,7 @@ function runGate(g) {
     const shown = new Set(ev.occurrences.map((o) => o.pack_event_id).filter(Boolean));
     for (const c of g.chanceCompanions || []) {
       if (shown.has(c.eventId) || sceneEnd.lo < c.lo || !sceneEntities.includes(c.personId)) continue;
-      violations.push(`"${c.title}" comes to ${c.who} without warning at ${formatTick(c.lo)}, and ${c.who} is still with the player when this reply passes that time, but the reply does not show it: show it happening to both of them where they are, or end the reply before ${formatTick(c.lo)}.`);
+      (g.chanceBlocking === false ? warnings : violations).push(`"${c.title}" comes to ${c.who} without warning at ${formatTick(c.lo)}, and ${c.who} is still with the player when this reply passes that time, but the reply does not show it: show it happening to both of them where they are, or end the reply before ${formatTick(c.lo)}.`);
     }
   }
   let sceneFrame = flashback ? null : frameRef(g.pack, ev.scene_frame);
@@ -24495,7 +24495,8 @@ ${this.ooc(a.userEntry?.text).story}`);
       hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
       playerId: prof?.profile.playerId || null,
       offered: a.offered || null,
-      chanceCompanions: a.chance || []
+      chanceCompanions: a.chance || [],
+      chanceBlocking: (a.attempt ?? 0) === 0
     });
     const c = this.campaign();
     const manifest = c ? {
@@ -24939,7 +24940,8 @@ ${this.ooc(a.userEntry?.text).story}`);
               hasOoc: this.ooc(userEntry?.text).ooc.length > 0,
               playerId: prof?.profile.playerId || null,
               offered,
-              chanceCompanions: chance
+              chanceCompanions: chance,
+              chanceBlocking: attempt === 0
             });
             this.checkFences(fences, excludeLast);
           }
