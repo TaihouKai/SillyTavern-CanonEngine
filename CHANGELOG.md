@@ -3,6 +3,7 @@
 ## 1.17.1 — 2026-11-03
 
 - **An event the player never touched is no longer dropped on a guess.** When actual play involved an event's people, the offscreen judgement could call it "omitted" from where they had been hours earlier (live: 索绮特接受首个任务 at 09:00 was dropped because 佐天 "was at the track with 御坂" — she had been with them the night before, and nothing in play put her anywhere at 09:00). Recent play now reaches the judgement with occurrence ids and times, and an omission must cite a record that rules the event out: one of its people shown during its window (an hour either side) or a lasting change to its people or places. Otherwise the original route stands. Tests: `tests/unit/omitbacked.test.ts` (OB1–OB2).
+- **重新分析 for an event recorded as 未发生.** The button was offered only under 已发生/已改变, so a wrong omission could not be re-judged. Test: OB3.
 
 ## 1.17.0 — 2026-11-03
 

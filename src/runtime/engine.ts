@@ -2273,11 +2273,11 @@ export class CanonEngine {
     await this.host.save();
   }
 
-  /** The chat message whose interpretation recorded this event's 已发生/已改变 (none for the starting history or a 强制完成). */
+  /** The chat message whose interpretation recorded this event's 已发生/已改变/未发生 (none for the starting history or a 强制完成). */
   reanalyzableSource(eventId: Id): { key: string; messageId: string } | null {
     const c = this.campaign();
     const d = this.current?.replay.state.dispositions.get(eventId);
-    if (!c || !d || (d.disposition !== 'occurred' && d.disposition !== 'diverged')) return null;
+    if (!c || !d || !['occurred', 'diverged', 'omitted'].includes(d.disposition)) return null;
     for (const key of Object.keys(c.interpretations)) {
       for (const v of interpretationsFor(c.interpretations, key)) {
         if (v.records.some((r) => r.recordId === d.recordId)) return { key, messageId: v.messageId };

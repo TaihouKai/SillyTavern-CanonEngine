@@ -25513,11 +25513,11 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     await this.reconcile("link_event", { allowModel: false });
     await this.host.save();
   }
-  /** The chat message whose interpretation recorded this event's 已发生/已改变 (none for the starting history or a 强制完成). */
+  /** The chat message whose interpretation recorded this event's 已发生/已改变/未发生 (none for the starting history or a 强制完成). */
   reanalyzableSource(eventId) {
     const c = this.campaign();
     const d = this.current?.replay.state.dispositions.get(eventId);
-    if (!c || !d || d.disposition !== "occurred" && d.disposition !== "diverged") return null;
+    if (!c || !d || !["occurred", "diverged", "omitted"].includes(d.disposition)) return null;
     for (const key of Object.keys(c.interpretations)) {
       for (const v of interpretationsFor(c.interpretations, key)) {
         if (v.records.some((r) => r.recordId === d.recordId)) return { key, messageId: v.messageId };
@@ -27093,10 +27093,11 @@ var D = {
   unconclude: { zh: "\u64A4\u9500\u7ED3\u675F", en: "Undo conclusion" },
   reanalyze: { zh: "\u91CD\u65B0\u5206\u6790", en: "Re-analyse" },
   reanalyzeConfirm: { zh: "\u786E\u8BA4\u91CD\u65B0\u5206\u6790\uFF1F", en: "Re-analyse now?" },
-  reanalyzeTip: { zh: "\u6709\u300C\u540E\u7EED\u300D\u65F6\uFF1A\u6309\u4E8B\u4EF6\u7684\u5168\u90E8\u7ECF\u8FC7\uFF08\u542B\u540E\u7EED\uFF09\u91CD\u65B0\u5224\u5B9A\u7ED3\u679C\uFF0C\u540E\u7EED\u5E76\u5165\u6B63\u6587\u3002\n\u6CA1\u6709\u540E\u7EED\u65F6\uFF1A\u91CD\u65B0\u68C0\u67E5\u8BB0\u4E0B\u8FD9\u4E2A\u7ED3\u679C\u7684\u90A3\u6761\u56DE\u590D\uFF0C\u6309\u73B0\u5728\u7684\u89C4\u5219\u5224\u65AD\u5B83\u662F\u5DF2\u53D1\u751F\u8FD8\u662F\u5DF2\u6539\u53D8\uFF1B\u4E4B\u540E\u7684\u56DE\u590D\u4F1A\u50CF\u4FEE\u6539\u8FC7\u6D88\u606F\u4E00\u6837\u91CD\u65B0\u6838\u5BF9\u3002\n\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\u3002", en: "With an after story: re-judge the result from everything shown of the event, after story included; the after story merges into it.\nWithout one: examine again the reply that recorded this result with the current rules; later replies are re-checked as after an edit.\nUses the analysis model." },
+  reanalyzeTip: { zh: "\u6709\u300C\u540E\u7EED\u300D\u65F6\uFF1A\u6309\u4E8B\u4EF6\u7684\u5168\u90E8\u7ECF\u8FC7\uFF08\u542B\u540E\u7EED\uFF09\u91CD\u65B0\u5224\u5B9A\u7ED3\u679C\uFF0C\u540E\u7EED\u5E76\u5165\u6B63\u6587\u3002\n\u6CA1\u6709\u540E\u7EED\u65F6\uFF1A\u91CD\u65B0\u68C0\u67E5\u8BB0\u4E0B\u8FD9\u4E2A\u7ED3\u679C\u7684\u90A3\u6761\u56DE\u590D\uFF0C\u6309\u73B0\u5728\u7684\u89C4\u5219\u91CD\u65B0\u5224\u65AD\u5B83\u662F\u5DF2\u53D1\u751F\u3001\u5DF2\u6539\u53D8\u8FD8\u662F\u672A\u53D1\u751F\uFF1B\u4E4B\u540E\u7684\u56DE\u590D\u4F1A\u50CF\u4FEE\u6539\u8FC7\u6D88\u606F\u4E00\u6837\u91CD\u65B0\u6838\u5BF9\u3002\n\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\u3002", en: "With an after story: re-judge the result from everything shown of the event, after story included; the after story merges into it.\nWithout one: examine again the reply that recorded this result with the current rules; later replies are re-checked as after an edit.\nUses the analysis model." },
   reanalyzeDone: { zh: "\u91CD\u65B0\u5206\u6790\u5B8C\u6210\uFF1A{s}", en: "Re-analysed: {s}" },
   reanalyzeStatus_occurred: { zh: "\u5DF2\u53D1\u751F", en: "occurred" },
   reanalyzeStatus_diverged: { zh: "\u5DF2\u6539\u53D8", en: "changed" },
+  reanalyzeStatus_omitted: { zh: "\u672A\u53D1\u751F", en: "did not happen" },
   reanalyzeStatus_ongoing: { zh: "\u8FDB\u884C\u4E2D\uFF08\u7ED3\u675F\u65F6\u518D\u5224\u5B9A\uFF09", en: "under way (judged when it ends)" },
   reanalyzeStatus_pending: { zh: "\u5C1A\u672A\u53D1\u751F", en: "not happened yet" },
   notifyDone: { zh: "\u56DE\u590D\u5B8C\u6210\u65F6\u63D0\u9192", en: "Alert when a reply is ready" },
@@ -28276,7 +28277,7 @@ function mountTopButton() {
       }
     }
     if (cur) {
-      for (const n of cur.nodes) if ((n.status === "occurred" || n.status === "diverged") && (n.afterStory || E.reanalyzableSource(n.id))) n.reanalyzable = true;
+      for (const n of cur.nodes) if ((n.status === "occurred" || n.status === "diverged" || n.status === "omitted") && (n.afterStory || E.reanalyzableSource(n.id))) n.reanalyzable = true;
     }
     return { pack: pg, current: cur, spoilers, digested: !!camp?.eventDigest };
   }, (v) => {

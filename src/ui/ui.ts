@@ -60,7 +60,7 @@ function mountTopButton() {
     const frameNow = (() => { try { return E.sceneFrameNow(); } catch { return null; } })();
     if (cur?.frames && frameNow) cur.frames.now = frameNow;
     if (cur) { const f = E.focusEvents(); for (const n of cur.nodes) if (f.has(n.id) && (n.status === 'future' || n.status === 'pending')) { n.focused = true; n.title = '★ ' + n.title; } }
-    if (cur) for (const n of cur.nodes) if ((n.status === 'occurred' || n.status === 'diverged') && (n.afterStory || E.reanalyzableSource(n.id))) n.reanalyzable = true;
+    if (cur) for (const n of cur.nodes) if ((n.status === 'occurred' || n.status === 'diverged' || n.status === 'omitted') && (n.afterStory || E.reanalyzableSource(n.id))) n.reanalyzable = true;
     return { pack: pg, current: cur, spoilers, digested: !!camp?.eventDigest };
   }, (v) => { const camp = E.campaign(); if (camp) camp.uiPreferences.spoilers = v; }, async (act, id, ids) => {
     try {

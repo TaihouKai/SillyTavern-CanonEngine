@@ -45,4 +45,15 @@ describe('an omission from actual play needs a record that rules the event out',
     expect(await turn(x, 'We part at 11:00.', 'We part; it is 11:00. [OB2b]', { scene_end: at(1, 11, 0) })).toBe(true);
     expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('omitted');
   });
+
+  it('OB3 an event recorded as 未发生 can be re-analysed (live: no 重新分析 under it)', async () => {
+    const x = await setup();
+    await turn(x, 'I spend the morning with Mira.', 'Mira stays with me through ten. [OB3a]', { scene_end: at(1, 10, 0), occurrences: [occ('o1', 'Morning with Mira', 'Mira stays with me through ten', { actors: ['mira'], time: { lo: { day: 1, minute: 540 }, hi: { day: 1, minute: 600 }, precision: 'range' } })] });
+    omitCiting(x);
+    await turn(x, 'We part at 11:00.', 'We part; it is 11:00. [OB3b]', { scene_end: at(1, 11, 0) });
+    expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('omitted');
+    expect(x.engine.reanalyzableSource('medic-ambush')).not.toBeNull();
+    x.model.on('adjudicate', (i) => i.candidate?.id === 'medic-ambush', { adjudications: [{ event_id: 'medic-ambush', decision: 'occurred', time: null, account: 'The ambush happens on the road after Mira leaves.', actors: ['mira', 'council'], causes: [], effects: [], plan_step_ids: [], reason: 'original route', extraordinary: false }] });
+    expect(await x.engine.reanalyzeEvent('medic-ambush')).toBe('occurred');
+  });
 });
