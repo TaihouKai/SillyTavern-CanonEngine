@@ -78,7 +78,15 @@ export async function adjudicateInterval(args: {
     // (falling back to the original route if it cannot).
     const play = p.mode === 'deterministic' && p.record?.disposition === 'occurred' && c.event.classification !== 'HARD' && args.port ? recentPlay(pack, scratch, c) : [];
     if (play.length) {
-      const judged = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, play);
+      let judged = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, play);
+      // live: 索绮特接受首个任务 was dropped because 佐天 "was at the track with 御坂" — she had been with them the
+      // night before, and nothing in play put her anywhere at 09:00. The preconditions hold, so the event happens
+      // offscreen unless an actual record rules it out: a participant shown busy during its window, or a lasting
+      // change to one of its people (dead, injured, captured, moved). Otherwise the original route stands.
+      if (judged?.record?.disposition === 'omitted' && !rulesOut(pack, scratch, c, judged.cited || [])) {
+        notes.push(`${c.event.title}: omission not backed by an actual record (${judged.record.dispositionReason || 'no reason'}) — original route kept`);
+        judged = null;
+      }
       if (judged && !judged.postponed) {
         records.push(judged.record);
         basis.push({ eventId: c.event.id, precondition: p.precondition, mode: 'model' });
@@ -128,7 +136,21 @@ export async function adjudicateInterval(args: {
   return { records, basis, stagedHard, notes, forcedUsed };
 }
 
-/** Actual play (player/GM scenes, not canon records) involving this event's people from 2 days before its window. */
+/** Whether cited actual occurrences rule an event out: one of its people shown during its window (an hour either
+ *  side), or a lasting change to one of its people or places. */
+function rulesOut(pack: LoadedPack, s: WorldState, c: Candidate, cited: string[]): boolean {
+  const ents = new Set([...c.event.entity_ids, ...c.event.location_ids]);
+  return cited.some((id) => {
+    const o = s.occurrences.get(id);
+    if (!o) return false;
+    const involved = [...o.actors, ...o.affected].some((x) => ents.has(x));
+    const during = o.time.hi >= c.lo - 60 && o.time.lo <= c.hi + 60;
+    return (involved && during) || o.outcome.some((d) => ents.has(d.entity_id));
+  });
+}
+
+/** Actual play (player/GM scenes, not canon records) involving this event's people from 2 days before its window
+ *  (each line starts with its occurrence id, for the judgement's causes). */
 function recentPlay(pack: LoadedPack, s: WorldState, c: Candidate): string[] {
   const people = new Set(c.event.entity_ids.filter((id) => pack.entities.get(id)?.kind === 'person'));
   if (!people.size) return [];
@@ -136,7 +158,7 @@ function recentPlay(pack: LoadedPack, s: WorldState, c: Candidate): string[] {
   for (const o of s.occurrences.values()) {
     if (o.packEventId || (o.origin !== 'player' && o.origin !== 'gm') || o.time.hi < c.lo - 2 * 1440) continue;
     if (![...o.actors, ...o.affected].some((x) => people.has(x))) continue;
-    out.push(`${formatTick(o.time.lo)} ${o.title}: ${o.account.length > 300 ? o.account.slice(0, 297) + '…' : o.account}`);
+    out.push(`[${o.occurrenceId}] ${formatTick(o.time.lo)}–${formatTick(o.time.hi)} ${o.title}: ${o.account.length > 300 ? o.account.slice(0, 297) + '…' : o.account}`);
   }
   return out.slice(-12);
 }
@@ -208,7 +230,7 @@ function occurredIds(c: import('../domain/types').Condition): string[] {
 
 async function modelAdjudicate(
   args: Parameters<typeof adjudicateInterval>[0], scratch: WorldState, c: Candidate, when: StoryTime, pre: string, explanation: string[], forced: boolean, play: string[] = [],
-): Promise<{ record: RecordDraft; postponed?: boolean } | null> {
+): Promise<{ record: RecordDraft; postponed?: boolean; cited?: string[] } | null> {
   const { pack } = args;
   const ev = c.event;
   const input = {
@@ -282,6 +304,7 @@ async function modelAdjudicate(
       disposition: a.decision === 'occurred' ? 'occurred' : a.decision === 'diverged' ? 'diverged' : 'omitted', dispositionReason: a.reason,
       adjudicationId: newId('adj'), enactedStepIds: (a.plan_step_ids || []).filter((s) => args.plan?.steps.some((x) => x.step_id === s)),
     },
+    cited: (a.causes || []).filter((x) => scratch.occurrences.has(x)),
   };
 }
 

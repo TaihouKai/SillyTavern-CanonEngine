@@ -20634,7 +20634,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it). mode=retained and the message is not story text at all (out-of-character instructions, a setup or system note, rules or a menu \u2014 often the card's opening message telling the GM how to start): decision retain with no occurrences, transitions, state_claims or violations; it establishes nothing.
 SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"backstory":false,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null,"category":"dialogue"}],"step_enactments":[{"step_id":"s1","occurrence_ref":"o1","quote":""}],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":"","blocking":true}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":"","contacts":[{"quote":"","actors":[],"kind":"invitation","scope_kind":"event","scope_ref":"","scope_label":"","opportunity_id":null}]}`,
   adjudicate: `${COMMON}
-TASK: Offscreen adjudication for a story-time advance. For each candidate canonical event in the interval decide what ACTUALLY happens given actual state (not the original summary): occurred (original result), diverged (event happens but with a different actual result), omitted (does not happen; FREE/SOFT only, with reason), postponed (SOFT only, still within its bounds). HARD events MUST occur within their bounds with every required outcome, even if extraordinary means are needed (extraordinary=true only when authorized_forced=true). When the actual state blocks the original route, the account must name the concrete cause (who, by what means). upstream_happened_differently lists prerequisite events that happened differently in this playthrough: decide from what actually happened whether the candidate still comes about, in what form, or not at all (its original summary may assume things that are no longer true, e.g. someone not knowing something). recent_actual_play_with_these_characters, when given, is what actually happened in play with this event's people: the original summary assumes the original situation (who knows what, who is where), so decide from actual play whether it happens as written, happens differently (diverged, with the actual result), or not at all. Give actors, causes (actual occurrence ids), typed effects, a concise account of what occurred and why. A plan step reference alone is not evidence of success.
+TASK: Offscreen adjudication for a story-time advance. For each candidate canonical event in the interval decide what ACTUALLY happens given actual state (not the original summary): occurred (original result), diverged (event happens but with a different actual result), omitted (does not happen; FREE/SOFT only, with reason), postponed (SOFT only, still within its bounds). HARD events MUST occur within their bounds with every required outcome, even if extraordinary means are needed (extraordinary=true only when authorized_forced=true). When the actual state blocks the original route, the account must name the concrete cause (who, by what means). upstream_happened_differently lists prerequisite events that happened differently in this playthrough: decide from what actually happened whether the candidate still comes about, in what form, or not at all (its original summary may assume things that are no longer true, e.g. someone not knowing something). recent_actual_play_with_these_characters, when given, is what actually happened in play with this event's people: the original summary assumes the original situation (who knows what, who is where), so decide from actual play whether it happens as written, happens differently (diverged, with the actual result), or not at all. Offscreen means not shown in the player's story, not that it cannot happen: "omitted" needs actual play that rules it out \u2014 a participant shown elsewhere or busy during the event's window, or a lasting change (dead, injured, captured, gone) \u2014 cite those occurrence ids (the [ids] in recent_actual_play) in causes. Where someone was hours earlier, or their not appearing in the player's scene, rules nothing out. Give actors, causes (actual occurrence ids), typed effects, a concise account of what occurred and why. A plan step reference alone is not evidence of success.
 SHAPE: {"adjudications":[{"event_id":"","decision":"occurred","time":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"account":"","actors":[],"causes":[],"effects":[{"op":"set","entity_id":"","predicate":"","value":true}],"plan_step_ids":[],"reason":"","extraordinary":false}]}`,
   impact: `${COMMON}
 TASK: Impact assessment of newly accepted changes against the active plan and the complete future HARD register. Report changed facts, affected plan steps and anchors (ids from input only), scope (local/global/unknown), severity (none/minor/major \u2014 major only if the change substantially destroys a protected path or requires extraordinary correction; entity count is not severity), and whether replanning is needed. A change made by an enacted plan step (by_plan_step, enacted_plan_steps) or one that follows an anchor's original route is the plan working, not a deviation: severity none, no replan. Judge each change by its actual value; never assume the worst about a change.
@@ -21872,7 +21872,11 @@ async function adjudicateInterval(args) {
     const p = adjudicateDefault(pack2, scratch, c, when);
     const play = p.mode === "deterministic" && p.record?.disposition === "occurred" && c.event.classification !== "HARD" && args.port ? recentPlay(pack2, scratch, c) : [];
     if (play.length) {
-      const judged = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, play);
+      let judged = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, play);
+      if (judged?.record?.disposition === "omitted" && !rulesOut(pack2, scratch, c, judged.cited || [])) {
+        notes.push(`${c.event.title}: omission not backed by an actual record (${judged.record.dispositionReason || "no reason"}) \u2014 original route kept`);
+        judged = null;
+      }
       if (judged && !judged.postponed) {
         records.push(judged.record);
         basis.push({ eventId: c.event.id, precondition: p.precondition, mode: "model" });
@@ -21934,6 +21938,16 @@ async function adjudicateInterval(args) {
   }
   return { records, basis, stagedHard, notes, forcedUsed };
 }
+function rulesOut(pack2, s, c, cited) {
+  const ents = /* @__PURE__ */ new Set([...c.event.entity_ids, ...c.event.location_ids]);
+  return cited.some((id) => {
+    const o = s.occurrences.get(id);
+    if (!o) return false;
+    const involved = [...o.actors, ...o.affected].some((x) => ents.has(x));
+    const during = o.time.hi >= c.lo - 60 && o.time.lo <= c.hi + 60;
+    return involved && during || o.outcome.some((d) => ents.has(d.entity_id));
+  });
+}
 function recentPlay(pack2, s, c) {
   const people = new Set(c.event.entity_ids.filter((id) => pack2.entities.get(id)?.kind === "person"));
   if (!people.size) return [];
@@ -21941,7 +21955,7 @@ function recentPlay(pack2, s, c) {
   for (const o of s.occurrences.values()) {
     if (o.packEventId || o.origin !== "player" && o.origin !== "gm" || o.time.hi < c.lo - 2 * 1440) continue;
     if (![...o.actors, ...o.affected].some((x) => people.has(x))) continue;
-    out.push(`${formatTick(o.time.lo)} ${o.title}: ${o.account.length > 300 ? o.account.slice(0, 297) + "\u2026" : o.account}`);
+    out.push(`[${o.occurrenceId}] ${formatTick(o.time.lo)}\u2013${formatTick(o.time.hi)} ${o.title}: ${o.account.length > 300 ? o.account.slice(0, 297) + "\u2026" : o.account}`);
   }
   return out.slice(-12);
 }
@@ -22099,7 +22113,8 @@ async function modelAdjudicate(args, scratch, c, when, pre, explanation, forced,
       dispositionReason: a.reason,
       adjudicationId: newId("adj"),
       enactedStepIds: (a.plan_step_ids || []).filter((s) => args.plan?.steps.some((x) => x.step_id === s))
-    }
+    },
+    cited: (a.causes || []).filter((x) => scratch.occurrences.has(x))
   };
 }
 
@@ -23123,7 +23138,7 @@ function groupNames(groups, ids) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.17.0";
+var ENGINE_RELEASE = "1.17.1";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
