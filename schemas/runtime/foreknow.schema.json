@@ -1,0 +1,37 @@
+{
+ "type": "object",
+ "properties": {
+  "judgements": {
+   "type": "array",
+   "maxItems": 40,
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "maxLength": 40
+     },
+     "knows": {
+      "type": "boolean"
+     },
+     "how": {
+      "type": "string",
+      "maxLength": 200
+     }
+    },
+    "required": [
+     "id",
+     "knows"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "judgements"
+ ],
+ "additionalProperties": false,
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:canon-engine:task:foreknow",
+ "title": "Canon Engine task output: foreknow"
+}

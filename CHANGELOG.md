@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.18.0 — 2026-11-03
+
+- **People with the player handle their own next events.** Someone in the scene who takes part in a canon event within the next 3 hours (any class) is now shown to the GM in a COMPANIONS' NEXT EVENTS section, which overrides "do not steer" for them. Whether they know it in advance is judged once per event and person by a small analysis call (kept with the game): known in advance (an appointment, a task, a duty) — they bring it up in character, have to go or ask the player along, and the player decides; without warning (a chance encounter, an attack) — they stay with the player and it happens to both of them together, where they are, unless the player declined it, in which case they go and it happens to them after they part. Before, the GM was told only not to steer toward upcoming events, so a companion either stayed and the event was silently lost, or vanished without a reason. Tests: `tests/unit/companions.test.ts` (CP1–CP4).
+
 ## 1.17.1 — 2026-11-03
 
 - **An event the player never touched is no longer dropped on a guess.** When actual play involved an event's people, the offscreen judgement could call it "omitted" from where they had been hours earlier (live: 索绮特接受首个任务 at 09:00 was dropped because 佐天 "was at the track with 御坂" — she had been with them the night before, and nothing in play put her anywhere at 09:00). Recent play now reaches the judgement with occurrence ids and times, and an omission must cite a record that rules the event out: one of its people shown during its window (an hour either side) or a lasting change to its people or places. Otherwise the original route stands. Tests: `tests/unit/omitbacked.test.ts` (OB1–OB2).

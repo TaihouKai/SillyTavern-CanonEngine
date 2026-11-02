@@ -114,6 +114,10 @@ SHAPE: {"assessments":[{"target":"","classification":"opportunity","reason":""}]
 TASK: Group the player's actual story events (in time order) into episodes for a timeline view. An episode is a run of CONSECUTIVE events that belong to one storyline or outing (e.g. going somewhere, what happens there, coming back), typically 3–15 events; a clear change of storyline, goal or day starts a new one. Every event id goes into exactly one group, in the given order; never reorder, skip or invent ids. A lone event may be its own group.
 For each group write a short title (at most 20 characters, in the language of the events) and a one- or two-sentence summary of what actually happened. Neutral and factual; no new facts.
 SHAPE: {"groups":[{"member_ids":[],"title":"","summary":""}]}`,
+
+  foreknow: `${COMMON}
+TASK: Each pair is a person and a canonical event of the original story they take part in, which is about to start. Judge from the event's original summary (its cause and motives) whether that person KNOWS IN ADVANCE, before it starts, that they will be there or do this: an appointment or meeting they arranged, a plan of their own, a duty, shift or task they were given, an errand they set out on — knows=true; or not: a chance encounter, an accident, an attack, summons or news that comes without warning, something that happens to them — knows=false. how: two to six words in the event's language (e.g. "约好的会面", "偶遇").
+SHAPE: {"judgements":[{"id":"k1","knows":true,"how":""}]}`,
 } as const;
 
 // Every SHAPE lists the allowed values of its enum fields ("a|b|c"), generated from the runtime
@@ -127,6 +131,7 @@ import planSchema from '../../schemas/runtime/plan.schema.json';
 import digestSchema from '../../schemas/runtime/digest.schema.json';
 import profileSchema from '../../schemas/runtime/profile.schema.json';
 import integrateSchema from '../../schemas/runtime/integrate.schema.json';
+import foreknowSchema from '../../schemas/runtime/foreknow.schema.json';
 
 function enumsOf(schema: unknown): Map<string, string[]> {
   const found = new Map<string, string[]>();
@@ -157,7 +162,7 @@ export function annotateShape(prompt: string, schema: unknown): string {
 }
 
 const SCHEMAS: Record<keyof typeof RAW_PROMPTS, unknown> = {
-  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema,
+  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema,
 };
 /** Added to the reviewer's instructions only for a pack with time frames (other packs keep the prompt as it was). */
 export const EVAL_FRAMES_NOTE = `7. TIME FRAMES (this pack has them; see time_frames): also return "scene_frame" in the reply object: the id of the frame the scene is in at the END of the reply — where the player character is — when the reply shows them arriving in another frame or coming back (time travel, crossing into another world, entering or waking from a dream); "main" for the main frame; null when they stay in scene_frame_now. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame's conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).`;

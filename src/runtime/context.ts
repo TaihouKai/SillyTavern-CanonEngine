@@ -171,6 +171,8 @@ export interface PacketInput {
   presence?: string;
   /** Who in the scene knows about the player (GM only; the reviewer gets the groups as input). */
   recognition?: string;
+  /** People with the player who take part in a canon event soon, and how it reaches them (GM only). */
+  companions?: string;
   decisions?: string;
   reaction?: string;
   /** The reviewer's copy: it gets the player's input, due HARD events and canon events now as separate inputs,
@@ -352,6 +354,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   // The player in the world and their decisions: required, never dropped for budget, also for the reviewer.
   if (inp.presence) required.push(inp.presence);
   if (inp.recognition) required.push(inp.recognition);
+  if (inp.companions && !inp.review) required.push(inp.companions);
   if (inp.decisions) required.push(inp.decisions);
   // Explicit canon statuses for referenced canonical events (non-occurrence distinctions)
   const canon = [...retrieval.canonEvents].map((id) => index.canonStatus(id, checkpointTick)).filter(Boolean) as CanonStatusView[];
@@ -406,7 +409,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
     .slice(0, 4);
   const open = openEvents.map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${e.classification}; ${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}${eventFrameTag(pack, e.id, checkpointTick)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}${whyLine(e, index)}${castLine(e, index, checkpointTick, inp.origin)}`; });
   const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${formatTick(u.lo, inp.origin)}${eventFrameTag(pack, u.event.id, u.lo)} ${u.event.title}: ${causeOf(u.event)}`);
-  if (soon.length) optional.push('WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing — NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them (a WORLD REACTION given above is the one way the world may reach the player); the player may change them, and actual play wins over this:\n' + soon.join('\n'));
+  if (soon.length) optional.push('WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing — NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them (a WORLD REACTION given above is the one way the world may reach the player, and the COMPANIONS section says how the people with the player handle theirs); the player may change them, and actual play wins over this:\n' + soon.join('\n'));
   // An event in its window with a cast says who is there right now: never dropped for budget.
   const openCast = openEvents.some((t) => pack.events.get(t.id)!.cast?.length);
   if (open.length) (openCast && !inp.review ? required : optional).push('CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts; how far the original route binds depends on the class — rule below):\n' + open.join('\n'));

@@ -760,3 +760,53 @@ export function groupNames(groups: RecognitionGroup[], ids: string[] | null): st
   if (ids === null) return null;
   return uniq(ids.map((id) => groups[Number(String(id).replace(/^g/, '')) - 1]?.key).filter(Boolean) as string[]);
 }
+
+// ---------------------------------------------------------------------------------------------
+// Companions' next events: someone with the player takes part in a canon event soon (user design 2026-11-03). What
+// they know in advance they bring up (they have to go, or ask the player along — the player decides); what comes
+// without warning (a chance encounter) happens to them and the player together, unless the player declined it.
+
+export const COMPANION_HORIZON_MINUTES = 180;
+
+export interface CompanionEvent { personId: Id; event: PackEvent; lo: number; hi: number; declined: boolean }
+
+/** Canon events starting within the horizon (or open now and not begun) that people in the scene take part in. */
+export function companionEvents(index: WorldIndex, sceneIds: Id[], playerId: Id | null, tick: number): CompanionEvent[] {
+  const st = index.state;
+  const pack = index.pack;
+  const people = uniq(sceneIds).filter((x) => x !== playerId && index.entityKind(x) === 'person');
+  if (!people.length) return [];
+  const underWay = underWayEvents(st);
+  const eng = engagementView(st, pack);
+  const out: CompanionEvent[] = [];
+  for (const t of pack.timeIndex) {
+    if (t.lo > tick + COMPANION_HORIZON_MINUTES) break;
+    if (t.hi < tick || st.dispositions.has(t.id) || underWay.has(t.id)) continue;
+    const ev = pack.events.get(t.id)!;
+    if (triLabel(evalCondition(ev.canonical_preconditions, st, pack, { tick: Math.max(t.lo, tick) })) === 'FALSE') continue;
+    for (const p of people) {
+      if (!ev.entity_ids.includes(p)) continue;
+      out.push({ personId: p, event: ev, lo: t.lo, hi: t.hi, declined: !!eng.blockedBy({ eventId: ev.id }, tick) });
+    }
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
+export const foreknowKey = (c: CompanionEvent) => `${c.event.id}|${c.personId}`;
+
+export function companionSection(index: WorldIndex, list: CompanionEvent[], known: Record<string, { knows: boolean; how: string }>, tick: number, origin: { y: number; m: number; d: number } | null, causeOf: (ev: PackEvent) => string): string {
+  if (!list.length) return '';
+  const lines = list.map((c) => {
+    const who = index.entityName(c.personId);
+    const k = known[foreknowKey(c)];
+    const when = c.lo > tick ? `starts ${formatTick(c.lo, origin)} (in ${Math.max(1, Math.round((c.lo - tick) / 60 * 10) / 10)} h)` : `can start now (until ${formatTick(c.hi, origin)})`;
+    const head = `- ${who} — 「${c.event.title}」 [${c.event.id}] (${c.event.classification}) ${when}: ${causeOf(c.event)}`;
+    const hard = c.event.classification === 'HARD' ? ' It must happen (HARD).' : '';
+    if (c.declined) return `${head}\n  The player declined to take part in it: ${who} leaves at a natural moment before it, or it happens to ${who} after they part; do not pull the player in.${hard}`;
+    if (k?.knows) return `${head}\n  ${who} knows this in advance (${k.how || 'planned'}): before it starts, ${who} brings it up in character — has to go, or asks the player to come along. Whether the player goes is the player's choice; if the player keeps ${who} with them, that is their choice too.${hard}`;
+    if (k && !k.knows) return `${head}\n  ${who} does NOT know this in advance (${k.how || 'comes without warning'}): ${who} stays with the player — no leaving or wandering off without a reason, nothing foreshadows it — and when the time comes it happens to both of them together, where they are (its people come to them).${hard}`;
+    return `${head}\n  If ${who} would know it in advance, ${who} brings it up before it starts (has to go, or asks the player along — the player decides); if it comes without warning, ${who} stays with the player and it happens to both of them together, where they are.${hard}`;
+  });
+  return `COMPANIONS' NEXT EVENTS (people with the player now who take part in a canon event soon — this overrides "do not steer" for them):\n${lines.join('\n')}`;
+}

@@ -143,6 +143,7 @@ export function defaultTask(task: TaskName, input: any): any {
     case 'digest': return { groups: [] };
     case 'profile': return { player: { name: input.persona?.name || 'player', aliases: [], summary: `profile of ${input.persona?.name || 'player'}`, public_identity: '' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
     case 'integrate': return { assessments: [], opportunities: [] };
+    case 'foreknow': return { judgements: [] };
     case 'impact': return { changed: [], affected_anchors: [], affected_steps: [], scope: 'local', severity: 'none', replan: false, explanation: 'scripted' };
     case 'plan': {
       const now = input.now?.tick ?? 0;

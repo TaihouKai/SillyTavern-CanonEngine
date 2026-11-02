@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.17.1';
+export const ENGINE_RELEASE = '1.18.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -222,6 +222,9 @@ export interface CampaignData {
   personaKeptHash?: string;
   /** Derived, rebuildable cache of the narrative-integration analysis (never history). */
   integrationCache?: IntegrationCache;
+  /** Whether a person knows in advance about a canon event they take part in ("eventId|personId"): a judgement about
+   *  the pack's story, asked once per pair (companions' next events). */
+  foreknowledge?: Record<string, { knows: boolean; how: string }>;
 }
 
 export interface PlayerProfile {

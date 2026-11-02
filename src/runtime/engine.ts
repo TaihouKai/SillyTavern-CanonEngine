@@ -5,7 +5,7 @@ import type { Persona } from './host';
 import type { Id, LedgerRecord, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { valuesEqual } from '../domain/pack';
-import { buildBootstrap, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
+import { buildBootstrap, causeOf, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
 import { WorldIndex } from '../domain/world-query';
 import { formatTick, formatStoryTime, fromTick, parseDateLabel, toTick } from '../domain/time';
 import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
@@ -22,7 +22,7 @@ import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './a
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { companionEvents, companionSection, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
@@ -74,7 +74,7 @@ export interface EngineSettings {
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
 const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + String(text || '').length * 4));
 
-const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player' };
+const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned' };
 
 /** Length and provider stats of the published reply, shown after the turn timings. */
 export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
@@ -910,6 +910,29 @@ export class CanonEngine {
     return replayRecords(pack, recs);
   }
 
+  /** Whether the people with the player know their next canon events in advance: asked once per (event, person) and
+   *  kept; without an answer the GM gets both cases. */
+  private async judgeForeknowledge(list: import('./integration').CompanionEvent[], signal: AbortSignal, operationId: string): Promise<void> {
+    const c = this.campaign();
+    if (!c || !list.length) return;
+    const todo = list.filter((x) => !c.foreknowledge?.[foreknowKey(x)]);
+    if (!todo.length) return;
+    const index = this.current!.index;
+    try {
+      const out = await this.withTimeout(callStructured<{ judgements: { id: string; knows: boolean; how?: string }[] }>(this.host.model, 'foreknow', PROMPTS.foreknow, {
+        pairs: todo.map((x, i) => ({ id: `k${i + 1}`, person: index.entityName(x.personId), event: x.event.title, original_summary: x.event.summary, cause: causeOf(x.event) })),
+      }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 1500 }), this.settings.taskTimeoutMs * 2, signal);
+      c.foreknowledge ||= {};
+      for (const j of out.judgements) {
+        const x = todo[Number(String(j.id).replace(/^k/, '')) - 1];
+        if (x) c.foreknowledge[foreknowKey(x)] = { knows: !!j.knows, how: String(j.how || '').slice(0, 80) };
+      }
+    } catch (e) {
+      if (e instanceof EngineError && e.kind === 'cancelled') throw e;
+      this.rejects.push(`foreknow: not judged this turn (${(e as Error).message.slice(0, 160)})`);
+    }
+  }
+
   /** The recognition groups the reviewer saw at the end of a reply (stored by name for the next turn). */
   private sceneGroupsOf(index: WorldIndex, userEntry: SourceEntry | null, ids: string[]): { sceneGroups?: string[] } {
     const prof = this.campaign()?.integration ? this.profileFor(userEntry) : null;
@@ -1376,6 +1399,8 @@ export class CanonEngine {
         // Legacy ways in (pack hooks, 关注) — with narrative integration they are inputs of the integrate task; when
         // that analysis failed, or without integration, they are shown as before but never for a declined event.
         const legacy = !prof || integrationFailed;
+        const companions = companionEvents(index, uniq([...sceneSeeds, ...horaeSceneIds]), prof?.profile.playerId ?? null, ctxClock);
+        await this.judgeForeknowledge(companions, abort.signal, operationId);
         const opps = legacy ? this.opportunities(index, clock).filter((o) => !eng.blockedBy({ eventId: o.id }, clock)) : [];
         const sceneLabel = [horaeScene?.location ? `Location (Horae, supporting): ${horaeScene.location}.` : '', horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(', ')}.` : '', horaeNote].filter(Boolean).join(' ');
         const packetArgs = {
@@ -1390,6 +1415,7 @@ export class CanonEngine {
             Array.isArray(userInterp?.sceneGroups) ? userInterp!.sceneEntities : uniq([...sceneSeeds, ...horaeSceneIds]),
             (userInterp?.sceneGroups ?? prevGmInterp?.sceneGroups) || [])) || undefined : undefined,
           decisions: decisionsSection(eng.lines(clock)) || undefined,
+          companions: companionSection(index, companions, c.foreknowledge || {}, ctxClock, c.binding.originDate, causeOf) || undefined,
           reaction: offered ? worldReactionSection(index, offered, c.binding.originDate) : undefined,
         };
         let packet = buildPacket(packetArgs);
