@@ -17,7 +17,7 @@ import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, EVAL_GROUPS_NOTE, EXTRACT_GROUP
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, sceneFrameOf, type ClaimInput, type RefInput, type Retrieval } from './context';
 import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
-import { matchScope, runGate, type EvalOutput, type GateResult } from './gate';
+import { matchScope, runGate, type EvalOutput, type GateInput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
@@ -975,6 +975,8 @@ export class CanonEngine {
     jumpTo?: number | null;
     /** The world reaction offered to the GM this turn (narrative integration). */
     offered?: Opportunity | null;
+    /** Companions' events that come without warning (see the gate). */
+    chance?: GateInput['chanceCompanions'];
   }): Promise<ReviewResult> {
     const { index } = a;
     const pack = index.pack;
@@ -1082,7 +1084,7 @@ export class CanonEngine {
     const gate = runGate({
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: eng.binding(tick).length, hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
-      playerId: prof?.profile.playerId || null, offered: a.offered || null,
+      playerId: prof?.profile.playerId || null, offered: a.offered || null, chanceCompanions: a.chance || [],
     });
     const c = this.campaign();
     const manifest: CoverageManifest | null = c ? {
@@ -1401,6 +1403,8 @@ export class CanonEngine {
         const legacy = !prof || integrationFailed;
         const companions = companionEvents(index, uniq([...sceneSeeds, ...horaeSceneIds]), prof?.profile.playerId ?? null, ctxClock);
         await this.judgeForeknowledge(companions, abort.signal, operationId);
+        const chance: GateInput['chanceCompanions'] = companions.filter((x) => !x.declined && c.foreknowledge?.[foreknowKey(x)]?.knows === false)
+          .map((x) => ({ eventId: x.event.id, personId: x.personId, lo: x.lo, title: x.event.title, who: index.entityName(x.personId) }));
         const opps = legacy ? this.opportunities(index, clock).filter((o) => !eng.blockedBy({ eventId: o.id }, clock)) : [];
         const sceneLabel = [horaeScene?.location ? `Location (Horae, supporting): ${horaeScene.location}.` : '', horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(', ')}.` : '', horaeNote].filter(Boolean).join(' ');
         const packetArgs = {
@@ -1451,7 +1455,7 @@ export class CanonEngine {
         let lastResort = false; // one extra, harsher repair when HARD problems survive the normal repairs
         for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
           this.setStatus('validating', attempt > this.settings.maxRepairs ? 'Re-checking final HARD repair…' : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})…` : 'Validating…');
-          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt, offered, jumpTo });
+          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt, offered, jumpTo, chance });
           this.checkFences(fences, excludeLast);
           // Interval adjudication for the proposed advance. The review that sees the staged results may place the
           // reply's end later: then the events whose windows close in the extra time are settled too (live finding:
@@ -1474,11 +1478,11 @@ export class CanonEngine {
             if (!more.records.length) break;
             // The evaluator must see staged offscreen history: review again with it (not a repair).
             const stagedIndex = new WorldIndex(pack, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
-            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt, offered, jumpTo });
+            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt, offered, jumpTo, chance });
             // Gate HARD crossing with staged offscreen occurrences against the committed clock
             review.gate = runGate({
               pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
-              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard: adj.stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: engagementView(stagedIndex.state, pack).binding(stagedIndex.state.clock.lo).length, hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, offered,
+              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard: adj.stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: engagementView(stagedIndex.state, pack).binding(stagedIndex.state.clock.lo).length, hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, offered, chanceCompanions: chance,
             });
             this.checkFences(fences, excludeLast);
           }

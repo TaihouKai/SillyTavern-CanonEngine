@@ -91,6 +91,9 @@ export interface GateInput {
   /** Narrative integration: the player character's entity and the suggestion offered to the GM this turn. */
   playerId?: Id | null;
   offered?: Opportunity | null;
+  /** Companions' events that come without warning (judged not known in advance, not declined): with the person
+   *  still beside the player when the reply passes the start, the event happens to both of them (user design). */
+  chanceCompanions?: { eventId: Id; personId: Id; lo: number; title: string; who: string }[];
 }
 
 export interface GateResult {
@@ -595,6 +598,15 @@ export function runGate(g: GateInput): GateResult {
     });
   }
   const sceneEntities = uniq((ev.scene_entities || []).map(resolveId).filter(Boolean) as Id[]);
+  // live: 佐天 walked with the player from 08:35 to 09:20 and the reply went past 索绮特's 09:00 chance encounter
+  // without it; it was then settled offscreen as if she had been elsewhere.
+  if (g.mode === 'draft' && !flashback) {
+    const shown = new Set(ev.occurrences.map((o) => o.pack_event_id).filter(Boolean));
+    for (const c of g.chanceCompanions || []) {
+      if (shown.has(c.eventId) || sceneEnd.lo < c.lo || !sceneEntities.includes(c.personId)) continue;
+      violations.push(`"${c.title}" comes to ${c.who} without warning at ${formatTick(c.lo)}, and ${c.who} is still with the player when this reply passes that time, but the reply does not show it: show it happening to both of them where they are, or end the reply before ${formatTick(c.lo)}.`);
+    }
+  }
   // Time frames: the frame the scene is in after this reply, when the reviewer names a known one (by id or name)
   // and it is not the current one. Without one, the place of the last beat the player character takes part in, when
   // that place belongs to a frame (or is a known place of the main frame). A flashback does not move the scene.

@@ -22015,6 +22015,13 @@ function runGate(g) {
     });
   }
   const sceneEntities = uniq((ev.scene_entities || []).map(resolveId).filter(Boolean));
+  if (g.mode === "draft" && !flashback) {
+    const shown = new Set(ev.occurrences.map((o) => o.pack_event_id).filter(Boolean));
+    for (const c of g.chanceCompanions || []) {
+      if (shown.has(c.eventId) || sceneEnd.lo < c.lo || !sceneEntities.includes(c.personId)) continue;
+      violations.push(`"${c.title}" comes to ${c.who} without warning at ${formatTick(c.lo)}, and ${c.who} is still with the player when this reply passes that time, but the reply does not show it: show it happening to both of them where they are, or end the reply before ${formatTick(c.lo)}.`);
+    }
+  }
   let sceneFrame = flashback ? null : frameRef(g.pack, ev.scene_frame);
   if (!sceneFrame && !flashback && g.playerId && g.pack.frames.frames.size) {
     const fx = g.pack.frames;
@@ -24485,7 +24492,8 @@ ${this.ooc(a.userEntry?.text).story}`);
       bindingDecisions: eng.binding(tick).length,
       hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
       playerId: prof?.profile.playerId || null,
-      offered: a.offered || null
+      offered: a.offered || null,
+      chanceCompanions: a.chance || []
     });
     const c = this.campaign();
     const manifest = c ? {
@@ -24823,6 +24831,7 @@ ${this.ooc(a.userEntry?.text).story}`);
         const legacy = !prof || integrationFailed;
         const companions = companionEvents(index, uniq([...sceneSeeds, ...horaeSceneIds]), prof?.profile.playerId ?? null, ctxClock);
         await this.judgeForeknowledge(companions, abort.signal, operationId);
+        const chance = companions.filter((x) => !x.declined && c.foreknowledge?.[foreknowKey(x)]?.knows === false).map((x) => ({ eventId: x.event.id, personId: x.personId, lo: x.lo, title: x.event.title, who: index.entityName(x.personId) }));
         const opps = legacy ? this.opportunities(index, clock).filter((o) => !eng.blockedBy({ eventId: o.id }, clock)) : [];
         const sceneLabel = [horaeScene?.location ? `Location (Horae, supporting): ${horaeScene.location}.` : "", horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(", ")}.` : "", horaeNote].filter(Boolean).join(" ");
         const packetArgs = {
@@ -24881,7 +24890,7 @@ ${this.ooc(a.userEntry?.text).story}`);
         let lastResort = false;
         for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
           this.setStatus("validating", attempt > this.settings.maxRepairs ? "Re-checking final HARD repair\u2026" : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})\u2026` : "Validating\u2026");
-          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt, offered, jumpTo });
+          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt, offered, jumpTo, chance });
           this.checkFences(fences, excludeLast);
           let adj = null;
           let adjTo = clock;
@@ -24908,7 +24917,7 @@ ${this.ooc(a.userEntry?.text).story}`);
             adj = prev ? { ...prev, records: [...prev.records, ...more.records], basis: [...prev.basis, ...more.basis], notes: [...prev.notes, ...more.notes], stagedHard: new Map([...prev.stagedHard, ...more.stagedHard]), forcedUsed: prev.forcedUsed || more.forcedUsed } : more;
             if (!more.records.length) break;
             const stagedIndex = new WorldIndex(pack2, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
-            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt, offered, jumpTo });
+            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt, offered, jumpTo, chance });
             review.gate = runGate({
               pack: pack2,
               index: stagedIndex,
@@ -24927,7 +24936,8 @@ ${this.ooc(a.userEntry?.text).story}`);
               bindingDecisions: engagementView(stagedIndex.state, pack2).binding(stagedIndex.state.clock.lo).length,
               hasOoc: this.ooc(userEntry?.text).ooc.length > 0,
               playerId: prof?.profile.playerId || null,
-              offered
+              offered,
+              chanceCompanions: chance
             });
             this.checkFences(fences, excludeLast);
           }

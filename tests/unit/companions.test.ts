@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { makeEngine, tick } from './fake';
+import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
@@ -58,6 +58,19 @@ describe("companions' next events", () => {
     const decline = { statements: [{ kind: 'engagement', quote: 'I want nothing to do with any ambush', summary: 'declined', entities: [], facts: [], event_id: null, time: null, ambiguous: false, stance: 'declined', scope_kind: 'event', scope_ref: 'medic-ambush', scope_label: null, until: null }], references: [], scene_entities: [] };
     await turn(x, 'I want nothing to do with any ambush.', 'Mira nods. [CP3c]', { scene_entities: ['mira'] }, decline);
     expect(section(x)).toMatch(/The player declined to take part in it: Mira leaves at a natural moment before it/);
+  });
+
+  it('CP5 a reply that passes a chance event while the person is still with the player, without showing it, is sent back', async () => {
+    const x = await setup(false);
+    await turn(x, 'I walk with Mira.', 'Mira walks beside me. [CP5a]', { scene_entities: ['mira'] });
+    x.host.addUser('We walk on until noon.');
+    x.model.draft('We walk on with Mira until 11:00. [CP5b]', 'At ten, crossbow bolts fly at Mira and me. [CP5c]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[CP5b]'), { scene_end: at(1, 11, 0), scene_entities: ['mira'] });
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[CP5c]'), { scene_end: at(1, 10, 5), scene_entities: ['mira'], occurrences: [occ('o1', 'Ambush on the road', 'crossbow bolts fly at Mira and me', { pack_event_id: 'medic-ambush', disposition: 'ongoing', actors: ['council', 'mira'] })] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    const tr = x.engine.lastTrace!;
+    expect(tr.attempts[0].violations.join(' ')).toMatch(/comes to Mira without warning at .*10:00, and Mira is still with the player[^]*show it happening to both of them where they are, or end the reply before/);
+    expect(tr.attempts.slice(-1)[0].violations).toEqual([]);
   });
 
   it('CP4 nobody with the player: no section', async () => {
