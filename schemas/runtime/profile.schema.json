@@ -199,6 +199,14 @@
        "persona_stated",
        "implied"
       ]
+     },
+     "places": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "maxLength": 200
+      },
+      "maxItems": 12
      }
     },
     "required": [
@@ -266,6 +274,46 @@
   "voice": {
    "type": "string",
    "maxLength": 600
+  },
+  "recognized_by": {
+   "type": "array",
+   "maxItems": 10,
+   "items": {
+    "type": "object",
+    "properties": {
+     "who": {
+      "type": "string",
+      "maxLength": 300
+     },
+     "existing_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "maxLength": 200
+     },
+     "places": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "maxLength": 200
+      },
+      "maxItems": 12
+     },
+     "everywhere": {
+      "type": "boolean"
+     },
+     "as": {
+      "type": "string",
+      "maxLength": 400
+     }
+    },
+    "required": [
+     "who",
+     "as"
+    ],
+    "additionalProperties": false
+   }
   }
  },
  "required": [

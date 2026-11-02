@@ -13,7 +13,7 @@ import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
 import type { HostPort } from './host';
 import { callStructured, taskDefaults } from './model';
-import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
+import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, EVAL_GROUPS_NOTE, EXTRACT_GROUPS_NOTE, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, sceneFrameOf, type ClaimInput, type RefInput, type Retrieval } from './context';
 import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
@@ -22,7 +22,7 @@ import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './a
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
@@ -170,6 +170,7 @@ export interface ExtractUserOut {
   }[];
   references: { phrase: string; quote: string; kind: 'entity' | 'event'; mode?: string; candidates?: string[] }[];
   scene_entities?: string[];
+  scene_groups?: string[] | null;
 }
 
 interface DiscoverOut {
@@ -733,7 +734,8 @@ export class CanonEngine {
     const prof = this.profileFor(entry);
     const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.persona();
     const oocParts = this.ooc(entry.text).ooc;
-    const out = await this.withTimeout(callStructured<ExtractUserOut>(this.host.model, 'extract_user', PROMPTS.extract_user, {
+    const groups = prof ? recognitionGroups(index, prof.profile) : [];
+    const out = await this.withTimeout(callStructured<ExtractUserOut>(this.host.model, 'extract_user', groups.length ? `${PROMPTS.extract_user}\n${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       message: entry.text,
       ...(oocParts.length ? { ooc_parts: oocParts } : {}),
       persona,
@@ -743,6 +745,7 @@ export class CanonEngine {
       occurrences: this.occurrenceCatalogue(index, entry.text),
       opportunities,
       ...(prof ? { engagement_context: this.engagementContext(index, prof.profile, tick) } : {}),
+      ...(groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who })) } : {}),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(entry.text) }), this.settings.taskTimeoutMs * 4, signal);
     const records: RecordDraft[] = [];
     const intents: Interpretation['intents'] = [];
@@ -798,6 +801,7 @@ export class CanonEngine {
       createdAt: this.host.now(), origin: 'extraction', records, intents, ...(timeJumpTo ? { timeJumpTo } : {}), stateClaims: [], playerActions: [], dependsOn: [], sceneEnd: null, flashback: false,
       sceneEntities: uniq([...(out.scene_entities || []).filter((x) => index.entityExists(x)), ...out.statements.flatMap((s) => (s.entities || []).filter((x) => index.entityExists(x)))]),
       offscreenBasis: [], warnings, configRequests, declines, basisStateHash: undefined,
+      ...(groups.length && out.scene_groups !== undefined ? { sceneGroups: groupNames(groups, out.scene_groups) } : {}),
     };
     (interp as Interpretation & { refs?: RefInput[] }).refs = refs;
     return interp;
@@ -906,6 +910,13 @@ export class CanonEngine {
     return replayRecords(pack, recs);
   }
 
+  /** The recognition groups the reviewer saw at the end of a reply (stored by name for the next turn). */
+  private sceneGroupsOf(index: WorldIndex, userEntry: SourceEntry | null, ids: string[]): { sceneGroups?: string[] } {
+    const prof = this.campaign()?.integration ? this.profileFor(userEntry) : null;
+    const groups = prof ? recognitionGroups(index, prof.profile) : [];
+    return groups.length ? { sceneGroups: groupNames(groups, ids) || [] } : {};
+  }
+
   private interpretationFromGate(messageId: string, variantId: string, contentHash: string, gate: GateResult, review: ReviewResult, index: WorldIndex, userEntry: SourceEntry | null, clock: number, origin: Interpretation['origin'], commitId: string): Interpretation {
     const src = { messageId, variantId, contentHash };
     const records = gate.records.map((r) => ({ ...r, sourceRefs: [{ ...src, spans: (r.occurrences || []).map(() => ({ quote: '' })).slice(0, 0) }] }));
@@ -925,6 +936,7 @@ export class CanonEngine {
       // Not everything the review looked up (causal/parent pulls, last turn's seeds): stored scene entities
       // seed the next turn's retrieval, so including lookups made the set snowball to its cap.
       sceneEntities: uniq([...gate.sceneEntities, ...review.retrieval.entries.flatMap((e) => e.resolved.entityIds)].filter((x) => index.entityExists(x) || gate.runtimeEntities.some((r) => r.id === x))).slice(0, 24),
+      ...this.sceneGroupsOf(index, userEntry, review.evaluation.scene_groups || []),
       offscreenBasis: [], warnings: gate.warnings.slice(0, 20), manifestId: review.manifest?.manifestId,
     };
   }
@@ -993,7 +1005,9 @@ export class CanonEngine {
       decisions: decisionsSection(decisions) || undefined,
     });
     const due = pendingHard(pack, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
-    const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', pack.frames.frames.size ? `${PROMPTS.evaluate}\n${EVAL_FRAMES_NOTE}` : PROMPTS.evaluate, {
+    const groups = prof ? recognitionGroups(index, prof.profile) : [];
+    const evalPrompt = [PROMPTS.evaluate, pack.frames.frames.size ? EVAL_FRAMES_NOTE : '', groups.length ? EVAL_GROUPS_NOTE : ''].filter(Boolean).join('\n');
+    const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', evalPrompt, {
       mode: a.mode,
       candidate: a.text,
       player_action_scope: a.userEntry ? this.ooc(a.userEntry.text).story : '',
@@ -1016,6 +1030,7 @@ export class CanonEngine {
       ...this.framesInput(index, tick, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.canonEvents, ...this.canonNow(index, tick).map((c) => c.id)]),
       player_voice: voiceInput(playerVoice(this.settings.playerVoice)),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
+      ...(groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who, level: g.level, knows: g.about })) } : {}),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
     // Horae tracks story time every turn; its time at the end of the previous reply is where this reply
@@ -1369,6 +1384,9 @@ export class CanonEngine {
           plan, forced: planInfo.forced, stagedNotes: [] as string[], opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`), focus: legacy ? this.focusLines(index, clock) : [], budgetChars: this.settings.budgetChars, horizon: this.settings.horizonMinutes,
           timeJumpTo: jumpTo,
           presence: prof ? presenceSection(index, prof.profile, ctxClock) : undefined,
+          // where the scene goes: the player's message when it moves the scene, else where the last reply ended
+          recognition: prof ? recognitionSection(presentGroups(index, prof.profile, ctxClock, uniq([...sceneSeeds, ...horaeSceneIds]),
+            (userInterp?.sceneGroups ?? prevGmInterp?.sceneGroups) || [])) || undefined : undefined,
           decisions: decisionsSection(eng.lines(clock)) || undefined,
           reaction: offered ? worldReactionSection(index, offered, c.binding.originDate) : undefined,
         };
@@ -2546,10 +2564,13 @@ export class CanonEngine {
         notSuited: prof.profile.notSuited || [],
         voice: prof.profile.voice || '',
         relationships: prof.profile.relationships.map((r) => `${r.name}: ${r.relation} (${r.basis === 'persona_stated' ? 'Persona' : 'implied'})${orgNow(r.entityId)}`),
+        recognized: (prof.profile.recognizedBy || []).map((r) => `${r.who}${r.everywhere ? (zh ? '（到处）' : ' (everywhere)') : ''}: ${r.as}${r.places.length ? ` (${r.places.map((p) => idx.entityName(p)).join(zh ? '、' : ', ')})` : ''}`),
         knowers: prof.profile.knowers.map((k) => `${k.who} — ${k.level}: ${k.about}`),
         notes: prof.profile.notes,
       } : null,
       personaChanged: this.personaChanged(),
+      // read before 1.17.0: no public recognition list until the Persona is read again
+      profileOld: !!prof && prof.profile.recognizedBy === undefined,
       decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId), strong: !!e.strong, binding: isBinding(e) })),
       // contacts filed as a free storyline before 1.8.1 are grouped with the event or matter they name
       contacts: s.contacts.map((k) => ({ ...k, ...(k.scopeKind === 'storyline' ? (() => { const m = matchScope(idx.pack, s.contacts, k.scopeLabel); return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {}; })() : {}) })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin), ...(k.sideJob ? { sideJob: true, lapsed: jobLapsed(s, k, s.clock.lo) } : {}) })),

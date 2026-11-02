@@ -668,11 +668,12 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   // the same switch as in the settings (小任务 on or off)
   html += `<div class="canon-frow"><label class="checkbox_label canon-check"><input type="checkbox" data-act="ni-jobs" ${E.settings.quietDayJobs !== false ? 'checked' : ''}><span>${esc(t('niJobsToggle'))}</span></label>${tip('quietDayJobsTip')}</div>`;
   if (v.personaChanged) html += `<div class="canon-ni-changed"><b>${esc(t('niChanged'))}</b><div class="canon-ni-btns"><button class="menu_button" data-act="ni-update">${esc(t('niUpdate'))}</button><button class="menu_button" data-act="ni-keep">${esc(t('niKeep'))}</button></div></div>`;
+  else if (v.profileOld) html += `<div class="canon-ni-changed"><b>${esc(t('niOld'))}</b><div class="canon-ni-btns"><button class="menu_button" data-act="ni-update">${esc(t('niUpdate'))}</button></div></div>`;
   const p = v.profile;
   if (!p) html += `<div>${esc(t('niNoProfile'))}</div>`;
   else {
     html += `<h4>${esc(p.name)}</h4><div>${esc(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc(p.publicIdentity)}</small></div>` : ''}<div><small>${esc(t(p.source === 'persona_core' ? 'niSourceCore' : 'niSource').replace('{n}', String(p.chars)).replace('{rev}', String(p.rev)))}</small></div>`;
-    html += list(t('niLore'), p.lore || []) + list(t('niOrgs'), p.affiliations) + list(t('niPlaces'), p.places) + list(t('niRoles'), p.roles || []) + list(t('niNotSuited'), p.notSuited || []) + list(t('niVoice'), p.voice ? [p.voice] : []) + list(t('niConnections'), p.relationships) + list(t('niWho'), p.knowers) + list(t('niNotes'), p.notes);
+    html += list(t('niLore'), p.lore || []) + list(t('niOrgs'), p.affiliations) + list(t('niPlaces'), p.places) + list(t('niRoles'), p.roles || []) + list(t('niNotSuited'), p.notSuited || []) + list(t('niVoice'), p.voice ? [p.voice] : []) + list(t('niConnections'), p.relationships) + list(t('niRecognized'), p.recognized || []) + list(t('niWho'), p.knowers) + list(t('niNotes'), p.notes);
   }
   const stance = (s: string) => t(`niStance_${s}`);
   const negative = new Set(['declined', 'deferred', 'ooc_suppress']);

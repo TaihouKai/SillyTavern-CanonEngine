@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.17.0 — 2026-11-03
+
+- **People who know about the player show it in the scene.** Canon only checked that people did not know what they should not; the Persona's knowers were one line the GM had to connect to the scene itself, so a student council president walked through her school unrecognized. The Persona read now also lists **who recognizes the player for their public identity** (the students of their school, the regulars of their shop, everyone when they are famous; generous, since the player plays to be someone — secrets stay with the listed knowers). Each turn the engine works out which of these groups and knowers are in the scene: known everywhere; a listed person present; a member of their organization present (organization members); at one of their places; or seen there by the analysis — before the reply from the player's message (heading to a school-wide event), after it from what the reply shows (kept until the scene moves). The GM gets a concrete RECOGNITION IN THIS SCENE section (react as such people would, vary it, no repeated greetings); the reviewer sends back a reply where one of them plainly acts as if they did not know (asks who the player is). Profiles read before 1.17.0 have no public recognition list: 更新本局身份 reads it. Panel: 谁认得你（公开身份）. Tests: `tests/unit/recognition.test.ts` (RC1–RC5).
+
 ## 1.16.4 — 2026-11-02
 
 - **A canonical event estimated a little before its start is moved up to it.** A morning reply walked to the opening ceremony (08:00) and the reviewer's minimum time estimate for the whole reply ended at 07:40; the ceremony was "depicted outside its authored bounds" and sent back twice, and the second rewrite (without the ceremony) then failed on something else. The pack knows when the event starts: an estimated time up to 3 hours before it is moved to its start, and the scene ends no earlier. A time the text states is still checked. Tests: `tests/unit/earlyhard.test.ts` (EH1–EH2).

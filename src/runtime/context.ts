@@ -169,6 +169,8 @@ export interface PacketInput {
   /** Narrative integration (required context, also for the reviewer): the player's presence in the world and their
    *  binding decisions; and the one optional WORLD REACTION chosen for this reply (GM only). */
   presence?: string;
+  /** Who in the scene knows about the player (GM only; the reviewer gets the groups as input). */
+  recognition?: string;
   decisions?: string;
   reaction?: string;
   /** The reviewer's copy: it gets the player's input, due HARD events and canon events now as separate inputs,
@@ -349,6 +351,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops; no other supported change through ${cpLabel}; a property not listed for an entity is UNKNOWN — not established, do not assume normality):\n` + (states.length ? states.join('\n') : '- (no referenced entities)'));
   // The player in the world and their decisions: required, never dropped for budget, also for the reviewer.
   if (inp.presence) required.push(inp.presence);
+  if (inp.recognition) required.push(inp.recognition);
   if (inp.decisions) required.push(inp.decisions);
   // Explicit canon statuses for referenced canonical events (non-occurrence distinctions)
   const canon = [...retrieval.canonEvents].map((id) => index.canonStatus(id, checkpointTick)).filter(Boolean) as CanonStatusView[];

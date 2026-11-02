@@ -39,7 +39,8 @@ export interface ProfileOut {
   not_suited?: string[];
   voice?: string;
   relationships: { name: string; existing_id?: string | null; relation?: string; basis?: 'persona_stated' | 'implied' }[];
-  knowers: { who: string; existing_id?: string | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: 'persona_stated' | 'implied' }[];
+  knowers: { who: string; existing_id?: string | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: 'persona_stated' | 'implied'; places?: string[] }[];
+  recognized_by?: { who: string; existing_id?: string | null; places?: string[]; everywhere?: boolean; as: string }[];
   uncertain?: string[];
 }
 
@@ -100,22 +101,39 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
     }
     relationships.push({ entityId: id, name: r.name.trim(), relation: (r.relation || '').slice(0, 400), basis });
   }
+  // a group's organization and places: the pack's, or the Persona's own ones read above
+  const orgRef = (ref: string | null | undefined): Id | null => {
+    if (!ref) return null;
+    const own = affiliations.find((a) => a.entityId === ref || a.name === ref)?.entityId;
+    const id = own || known(ref) || index.resolveEntity(ref).ids.find((x) => pack.entities.has(x)) || null;
+    return id && (own || ['organization', 'other'].includes(kindOf(id))) ? id : null;
+  };
+  const placeRefs = (refs: string[] | undefined): Id[] => uniq((refs || []).map((r) => places.find((p) => p.entityId === r || p.name === r)?.entityId
+    || (known(r) && kindOf(r) === 'place' ? r : null) || index.resolveEntity(r).ids.find((x) => pack.entities.has(x) && kindOf(x) === 'place') || null).filter(Boolean) as Id[]).slice(0, 12);
   const knowers: PlayerProfile['knowers'] = [];
   for (const k of out.knowers || []) {
     if (!k.who?.trim()) continue;
-    const id = known(k.existing_id) || null;
+    const id = known(k.existing_id) || orgRef(k.existing_id) || null;
+    const kp = placeRefs(k.places);
     const basis = k.basis === 'persona_stated' ? 'persona_stated' : 'implied';
     const statedChain = !!id && relationships.some((r) => r.entityId === id && r.basis === 'persona_stated' && CHAIN_ROLE.test(r.relation));
     if (basis === 'implied' && isKnownPerson(id) && !statedChain) { notes.push(`dropped implied knower ${k.who}: a known character knows about the player only when the Persona says so or it happens in play`); continue; }
-    if (basis === 'implied' && k.level === 'secrets') { notes.push(`"${k.who}" kept at identity level: knowing specific secrets needs the Persona to say so`); knowers.push({ who: k.who.trim(), entityId: id, level: 'identity', about: k.about.slice(0, 400), basis }); continue; }
-    knowers.push({ who: k.who.trim(), entityId: id, level: k.level, about: k.about.slice(0, 400), basis });
+    if (basis === 'implied' && k.level === 'secrets') { notes.push(`"${k.who}" kept at identity level: knowing specific secrets needs the Persona to say so`); knowers.push({ who: k.who.trim(), entityId: id, level: 'identity', about: k.about.slice(0, 400), basis, ...(kp.length ? { places: kp } : {}) }); continue; }
+    knowers.push({ who: k.who.trim(), entityId: id, level: k.level, about: k.about.slice(0, 400), basis, ...(kp.length ? { places: kp } : {}) });
+  }
+  // public standing: a known character is never made a recognizer by name (they know what is public anyway)
+  const recognizedBy: NonNullable<PlayerProfile['recognizedBy']> = [];
+  for (const r of out.recognized_by || []) {
+    if (!r.who?.trim() || !r.as?.trim()) continue;
+    if (isKnownPerson(known(r.existing_id))) continue;
+    recognizedBy.push({ who: r.who.trim().slice(0, 300), orgId: orgRef(r.existing_id), places: placeRefs(r.places), everywhere: !!r.everywhere, as: r.as.trim().slice(0, 400) });
   }
   const list = (x?: string[]) => (x || []).map((s) => String(s).trim()).filter(Boolean).slice(0, 20);
   return {
     profile: {
       personaName: persona.name, personaText: persona.description, personaHash: personaHash(persona), source: persona.source || 'standard_persona', playerId,
       summary: (out.player?.summary || '').slice(0, 1500), publicIdentity: (out.player?.public_identity || '').slice(0, 800),
-      affiliations, places, capabilities: list(out.capabilities), resources: list(out.resources), goals: list(out.goals), relationships, knowers, uncertain: list(out.uncertain), notes,
+      affiliations, places, capabilities: list(out.capabilities), resources: list(out.resources), goals: list(out.goals), relationships, knowers, recognizedBy: recognizedBy.slice(0, 10), uncertain: list(out.uncertain), notes,
       roles: (out.roles || []).filter((r) => r?.role?.trim()).slice(0, 8).map((r) => ({ role: r.role.trim().slice(0, 200), brings: list(r.brings), from: list(r.from), style: String(r.style || '').trim().slice(0, 300) })),
       notSuited: list(out.not_suited),
       voice: String(out.voice || '').trim().slice(0, 600),
@@ -678,4 +696,67 @@ export function engagementRecord(s0: { stance?: string | null; scope_kind?: stri
   const until = stance === 'deferred' && s.until && Number.isInteger(s.until.day) && Number.isInteger(s.until.minute) && toTick(s.until) > tick ? toTick(s.until) : null;
   const info: EngagementInfo = { scopeKind: kind, scopeRef: ref, scopeLabel: label.slice(0, 300), stance, quote: s.quote.slice(0, 300), until, source: 'player_message' };
   return { recordId: newId('rec'), kind: 'engagement', storyTime: { lo: tick, hi: tick, precision: 'minute' }, sourceRefs: src, factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] }, summary: `Player ${stance} ${label}: ${s.summary}`.slice(0, 400), evidenceKind: 'direct', engagement: info };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Recognition: who in the scene knows about the player (user design: secrets stay with the listed knowers; public
+// standing is shown generously — the player plays to be someone, and a famous character nobody recognizes is a letdown)
+
+export interface RecognitionGroup { key: string; who: string; level: 'public' | 'identity' | 'secrets'; about: string; personId: Id | null; orgId: Id | null; places: Id[]; everywhere: boolean }
+
+/** The groups and people who know about the player: public recognition first, then the knowers (who know more than
+ *  the public identity). "exists" knowers do not know the player and are left out. */
+export function recognitionGroups(index: WorldIndex, profile: PlayerProfile): RecognitionGroup[] {
+  const out: RecognitionGroup[] = [];
+  for (const r of profile.recognizedBy || []) out.push({ key: r.who, who: r.who, level: 'public', about: r.as, personId: null, orgId: r.orgId, places: r.places, everywhere: r.everywhere });
+  for (const k of profile.knowers) {
+    if (k.level === 'exists') continue;
+    const kind = k.entityId ? index.entityKind(k.entityId) : null;
+    out.push({
+      key: k.who, who: k.who, level: k.level, about: k.about, personId: kind === 'person' ? k.entityId : null,
+      orgId: k.entityId && kind !== 'person' && kind !== 'place' ? k.entityId : null,
+      places: uniq([...(k.places || []), ...(k.entityId && kind === 'place' ? [k.entityId] : [])]), everywhere: false,
+    });
+  }
+  const seen = new Set<string>();
+  return out.filter((g) => !seen.has(g.key) && !!seen.add(g.key)).slice(0, 20);
+}
+
+/** Which of them are in the scene, and why: known everywhere; a listed person present; members of their organization
+ *  present; at one of their places; or the analysis saw them there (reported: group keys). */
+export function presentGroups(index: WorldIndex, profile: PlayerProfile, tick: number, sceneIds: Id[], reported: string[]): { g: RecognitionGroup; why: string[] }[] {
+  const scene = new Set(sceneIds.filter((x) => x !== profile.playerId));
+  const members = memberships(index, tick);
+  const out: { g: RecognitionGroup; why: string[] }[] = [];
+  for (const g of recognitionGroups(index, profile)) {
+    const why: string[] = [];
+    if (g.everywhere) why.push('known everywhere — strangers too, wherever the scene has people');
+    if (g.personId && scene.has(g.personId)) why.push('present');
+    if (g.orgId) {
+      const ms = (members.get(g.orgId) || []).filter((m) => scene.has(m));
+      if (ms.length) why.push(`${ms.map((m) => index.entityName(m)).join(', ')} ${ms.length > 1 ? 'are' : 'is'} one of them`);
+      else if (scene.has(g.orgId)) why.push('their organization is in the scene');
+    }
+    const at = g.places.filter((p) => scene.has(p));
+    if (at.length) why.push(`at ${at.map((p) => index.entityName(p)).join(', ')}`);
+    if (!why.length && reported.includes(g.key)) why.push('in the scene');
+    if (why.length) out.push({ g, why });
+  }
+  return out;
+}
+
+export function recognitionSection(present: { g: RecognitionGroup; why: string[] }[]): string {
+  if (!present.length) return '';
+  const lines = present.map(({ g, why }) => g.level === 'public'
+    ? `- ${g.who} (${why.join('; ')}) recognize the player on sight as: ${g.about}. Public standing — let it show: they react as such people would (greet, stare, make way, whisper, ask for something), as the scene allows; vary it, and do not repeat the same greeting within one scene.`
+    : g.level === 'secrets'
+      ? `- ${g.who} (${why.join('; ')}) know (secret): ${g.about}. Only they know; they keep it out of others' hearing.`
+      : `- ${g.who} (${why.join('; ')}) know who the player is: ${g.about}. They act on it; others here do not learn it from them unless the story shows it.`);
+  return `RECOGNITION IN THIS SCENE (from the player's Persona; people listed here know this — they never act as if they did not, unless the scene gives a reason such as a disguise):\n${lines.join('\n')}`;
+}
+
+/** Group ids of a task's answer ("g1"…) back to their names; null stays null (the scene does not move). */
+export function groupNames(groups: RecognitionGroup[], ids: string[] | null): string[] | null {
+  if (ids === null) return null;
+  return uniq(ids.map((id) => groups[Number(String(id).replace(/^g/, '')) - 1]?.key).filter(Boolean) as string[]);
 }

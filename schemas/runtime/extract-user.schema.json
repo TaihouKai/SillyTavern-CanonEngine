@@ -244,6 +244,17 @@
     "type": "string"
    },
    "maxItems": 200
+  },
+  "scene_groups": {
+   "type": [
+    "array",
+    "null"
+   ],
+   "items": {
+    "type": "string",
+    "maxLength": 40
+   },
+   "maxItems": 20
   }
  },
  "required": [
