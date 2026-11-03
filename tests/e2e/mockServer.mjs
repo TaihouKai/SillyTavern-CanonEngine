@@ -50,6 +50,8 @@ function defaultTask(task, input) {
     case 'impact': return { changed: [], affected_anchors: [], affected_steps: [], scope: 'local', severity: 'none', replan: false, explanation: 'mock' };
     case 'profile': return { player: { name: input.persona?.name || 'player', aliases: [], summary: `mock profile of ${input.persona?.name || 'player'}`, public_identity: '' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
     case 'integrate': return { assessments: [], opportunities: [] };
+    case 'leap': return { events: [], mention: [], impossible: [], life: [], landing: '' };
+    case 'foreknow': return { judgements: [] };
     case 'plan': {
       const now = input.now?.tick ?? 0;
       const steps = (input.protected_hard_detailed || []).map((h, i) => {

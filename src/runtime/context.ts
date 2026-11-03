@@ -175,6 +175,8 @@ export interface PacketInput {
   companions?: string;
   decisions?: string;
   reaction?: string;
+  /** Time leap (this reply): what the GM writes for the time in between and where it lands (GM only). */
+  leap?: string;
   /** The reviewer's copy: it gets the player's input, due HARD events and canon events now as separate inputs,
    *  so those sections and the GM-only background (canon routes, where others stand) are left out. */
   review?: boolean;
@@ -330,6 +332,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   const optional: string[] = [];
   required.push(`[CANON ENGINE CONTEXT — persisted engine data for this request. Categories are distinct; do not print them.]`);
   required.push(`CLOCK & SCENE: committed story time ${formatStoryTime(index.state.clock, inp.origin)}. ${inp.sceneLabel}`);
+  if (inp.leap && !inp.review) required.push(inp.leap);
   if (checkpointTick > pack.coverage.end) required.push(`PACK COVERAGE ENDED at ${formatTick(pack.coverage.end, inp.origin)}: there is no further scheduled canon. Do not invent canonical events; continue only from actual history and the user's choices.`);
   // Actual history
   const occIds = [...retrieval.occurrences.keys()].filter((id) => index.state.occurrences.has(id));

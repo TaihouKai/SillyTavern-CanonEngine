@@ -43,11 +43,11 @@ export const LIVELY = 'Write the player character as vividly as anyone else in t
 export const REACT_NOT_DECIDE = 'When someone asks them to decide (an invitation, a request, a "will you…?"), still write their honest reaction — what they think of it, a complaint, a joke, a question back, their front slipping — as long as it neither accepts nor refuses; leave the yes or no itself to the player. Do not have them dodge every question with an empty non-answer, and do not have characters pile up several questions waiting on the player in one reply: one open question at the end is enough.';
 
 /** The GM instruction line for the player character. */
-export function voiceRule(v: PlayerVoice): string {
+export function voiceRule(v: PlayerVoice, leap = false): string {
   const may = VOICE_KINDS.filter((k) => v[k]);
   const not = VOICE_KINDS.filter((k) => !v[k]);
   const own = 'Actions the player wrote are theirs: carry them out with their natural steps and immediate details.';
-  const always = ` Always leave to the player, whatever else you may write for them: ${INTERVENTION_TEXT}. When a canonical event or another character's significant act happens in front of the player character, let it go on as it would; you may show what the player character notices or suspects, but any interference is the player's to write (they can still act in their next message).`;
+  const always = leap ? ' During this time leap the player character also steps into events as the TIME LEAP section says.' : ` Always leave to the player, whatever else you may write for them: ${INTERVENTION_TEXT}. When a canonical event or another character's significant act happens in front of the player character, let it go on as it would; you may show what the player character notices or suspects, but any interference is the player's to write (they can still act in their next message).`;
   if (!may.length) return `${own} Do not supply new voluntary player actions, decisions, dialogue, consent, or equipment/skill use.${always}`;
   return `THE PLAYER CHARACTER: the player wants you to write these for their character, in character with their Persona and the scene — do it naturally, as part of the scene: ${may.map((k) => VOICE_TEXT[k]).join('; ')}. `
     + (v.dialogue || v.reactions ? `${LIVELY} ` : '')

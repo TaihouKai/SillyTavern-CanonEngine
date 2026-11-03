@@ -13332,13 +13332,487 @@ function validate61(data, { instancePath = "", parentData, parentDataProperty, r
   return errors === 0;
 }
 validate61.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var plan = validate62;
-var schema93 = { "type": "object", "properties": { "rationale": { "type": "string" }, "protected_anchor_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "assumptions": { "type": "array", "items": { "type": "object", "properties": { "text": { "type": "string" }, "fact": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }] } }, "required": ["text", "fact"], "additionalProperties": false }, "maxItems": 200 }, "risks": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "mode": { "enum": ["NORMAL", "FORCED_CONVERGENCE"] }, "steps": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "targets": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "earliest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "latest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "prerequisites": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "action": { "type": "string" }, "intended_effects": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "depends_on": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "means": { "enum": ["ordinary", "extraordinary"] }, "serves_anchor": { "type": ["string", "null"] }, "requires_player_consent": { "type": "boolean" } }, "required": ["step_id", "actors", "earliest", "latest", "action", "intended_effects", "means", "serves_anchor", "requires_player_consent"], "additionalProperties": false }, "maxItems": 40 }, "inadequacy_note": { "type": "string" } }, "required": ["rationale", "protected_anchor_ids", "assumptions", "risks", "mode", "steps"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:plan", "title": "Canon Engine task output: plan" };
+var leap = validate62;
+var schema93 = { "type": "object", "properties": { "events": { "type": "array", "maxItems": 60, "items": { "type": "object", "properties": { "event_id": { "type": "string", "maxLength": 120 }, "decision": { "type": "string", "enum": ["occurred", "diverged", "omitted"] }, "player_part": { "type": "string", "maxLength": 800 }, "account": { "type": "string", "maxLength": 2e3 } }, "required": ["event_id", "decision", "player_part", "account"], "additionalProperties": false } }, "mention": { "type": "array", "maxItems": 30, "items": { "type": "string", "maxLength": 120 } }, "impossible": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "event_id": { "type": "string", "maxLength": 120 }, "why": { "type": "string", "maxLength": 600 } }, "required": ["event_id", "why"], "additionalProperties": false } }, "life": { "type": "array", "maxItems": 30, "items": { "type": "string", "maxLength": 400 } }, "landing": { "type": "string", "maxLength": 800 } }, "required": ["events", "mention", "impossible", "life", "landing"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:leap", "title": "Canon Engine task output: leap" };
 function validate62(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
   const evaluated0 = validate62.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.events === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "events" }, message: "must have required property 'events'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.mention === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "mention" }, message: "must have required property 'mention'" };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.impossible === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "impossible" }, message: "must have required property 'impossible'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    if (data.life === void 0) {
+      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "life" }, message: "must have required property 'life'" };
+      if (vErrors === null) {
+        vErrors = [err3];
+      } else {
+        vErrors.push(err3);
+      }
+      errors++;
+    }
+    if (data.landing === void 0) {
+      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "landing" }, message: "must have required property 'landing'" };
+      if (vErrors === null) {
+        vErrors = [err4];
+      } else {
+        vErrors.push(err4);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "events" || key0 === "mention" || key0 === "impossible" || key0 === "life" || key0 === "landing")) {
+        const err5 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err5];
+        } else {
+          vErrors.push(err5);
+        }
+        errors++;
+      }
+    }
+    if (data.events !== void 0) {
+      let data0 = data.events;
+      if (Array.isArray(data0)) {
+        if (data0.length > 60) {
+          const err6 = { instancePath: instancePath + "/events", schemaPath: "#/properties/events/maxItems", keyword: "maxItems", params: { limit: 60 }, message: "must NOT have more than 60 items" };
+          if (vErrors === null) {
+            vErrors = [err6];
+          } else {
+            vErrors.push(err6);
+          }
+          errors++;
+        }
+        const len0 = data0.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          let data1 = data0[i0];
+          if (data1 && typeof data1 == "object" && !Array.isArray(data1)) {
+            if (data1.event_id === void 0) {
+              const err7 = { instancePath: instancePath + "/events/" + i0, schemaPath: "#/properties/events/items/required", keyword: "required", params: { missingProperty: "event_id" }, message: "must have required property 'event_id'" };
+              if (vErrors === null) {
+                vErrors = [err7];
+              } else {
+                vErrors.push(err7);
+              }
+              errors++;
+            }
+            if (data1.decision === void 0) {
+              const err8 = { instancePath: instancePath + "/events/" + i0, schemaPath: "#/properties/events/items/required", keyword: "required", params: { missingProperty: "decision" }, message: "must have required property 'decision'" };
+              if (vErrors === null) {
+                vErrors = [err8];
+              } else {
+                vErrors.push(err8);
+              }
+              errors++;
+            }
+            if (data1.player_part === void 0) {
+              const err9 = { instancePath: instancePath + "/events/" + i0, schemaPath: "#/properties/events/items/required", keyword: "required", params: { missingProperty: "player_part" }, message: "must have required property 'player_part'" };
+              if (vErrors === null) {
+                vErrors = [err9];
+              } else {
+                vErrors.push(err9);
+              }
+              errors++;
+            }
+            if (data1.account === void 0) {
+              const err10 = { instancePath: instancePath + "/events/" + i0, schemaPath: "#/properties/events/items/required", keyword: "required", params: { missingProperty: "account" }, message: "must have required property 'account'" };
+              if (vErrors === null) {
+                vErrors = [err10];
+              } else {
+                vErrors.push(err10);
+              }
+              errors++;
+            }
+            for (const key1 in data1) {
+              if (!(key1 === "event_id" || key1 === "decision" || key1 === "player_part" || key1 === "account")) {
+                const err11 = { instancePath: instancePath + "/events/" + i0, schemaPath: "#/properties/events/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
+                if (vErrors === null) {
+                  vErrors = [err11];
+                } else {
+                  vErrors.push(err11);
+                }
+                errors++;
+              }
+            }
+            if (data1.event_id !== void 0) {
+              let data2 = data1.event_id;
+              if (typeof data2 === "string") {
+                if (func2(data2) > 120) {
+                  const err12 = { instancePath: instancePath + "/events/" + i0 + "/event_id", schemaPath: "#/properties/events/items/properties/event_id/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err12];
+                  } else {
+                    vErrors.push(err12);
+                  }
+                  errors++;
+                }
+              } else {
+                const err13 = { instancePath: instancePath + "/events/" + i0 + "/event_id", schemaPath: "#/properties/events/items/properties/event_id/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err13];
+                } else {
+                  vErrors.push(err13);
+                }
+                errors++;
+              }
+            }
+            if (data1.decision !== void 0) {
+              let data3 = data1.decision;
+              if (typeof data3 !== "string") {
+                const err14 = { instancePath: instancePath + "/events/" + i0 + "/decision", schemaPath: "#/properties/events/items/properties/decision/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err14];
+                } else {
+                  vErrors.push(err14);
+                }
+                errors++;
+              }
+              if (!(data3 === "occurred" || data3 === "diverged" || data3 === "omitted")) {
+                const err15 = { instancePath: instancePath + "/events/" + i0 + "/decision", schemaPath: "#/properties/events/items/properties/decision/enum", keyword: "enum", params: { allowedValues: schema93.properties.events.items.properties.decision.enum }, message: "must be equal to one of the allowed values" };
+                if (vErrors === null) {
+                  vErrors = [err15];
+                } else {
+                  vErrors.push(err15);
+                }
+                errors++;
+              }
+            }
+            if (data1.player_part !== void 0) {
+              let data4 = data1.player_part;
+              if (typeof data4 === "string") {
+                if (func2(data4) > 800) {
+                  const err16 = { instancePath: instancePath + "/events/" + i0 + "/player_part", schemaPath: "#/properties/events/items/properties/player_part/maxLength", keyword: "maxLength", params: { limit: 800 }, message: "must NOT have more than 800 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err16];
+                  } else {
+                    vErrors.push(err16);
+                  }
+                  errors++;
+                }
+              } else {
+                const err17 = { instancePath: instancePath + "/events/" + i0 + "/player_part", schemaPath: "#/properties/events/items/properties/player_part/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err17];
+                } else {
+                  vErrors.push(err17);
+                }
+                errors++;
+              }
+            }
+            if (data1.account !== void 0) {
+              let data5 = data1.account;
+              if (typeof data5 === "string") {
+                if (func2(data5) > 2e3) {
+                  const err18 = { instancePath: instancePath + "/events/" + i0 + "/account", schemaPath: "#/properties/events/items/properties/account/maxLength", keyword: "maxLength", params: { limit: 2e3 }, message: "must NOT have more than 2000 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err18];
+                  } else {
+                    vErrors.push(err18);
+                  }
+                  errors++;
+                }
+              } else {
+                const err19 = { instancePath: instancePath + "/events/" + i0 + "/account", schemaPath: "#/properties/events/items/properties/account/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err19];
+                } else {
+                  vErrors.push(err19);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err20 = { instancePath: instancePath + "/events/" + i0, schemaPath: "#/properties/events/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            if (vErrors === null) {
+              vErrors = [err20];
+            } else {
+              vErrors.push(err20);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err21 = { instancePath: instancePath + "/events", schemaPath: "#/properties/events/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err21];
+        } else {
+          vErrors.push(err21);
+        }
+        errors++;
+      }
+    }
+    if (data.mention !== void 0) {
+      let data6 = data.mention;
+      if (Array.isArray(data6)) {
+        if (data6.length > 30) {
+          const err22 = { instancePath: instancePath + "/mention", schemaPath: "#/properties/mention/maxItems", keyword: "maxItems", params: { limit: 30 }, message: "must NOT have more than 30 items" };
+          if (vErrors === null) {
+            vErrors = [err22];
+          } else {
+            vErrors.push(err22);
+          }
+          errors++;
+        }
+        const len1 = data6.length;
+        for (let i1 = 0; i1 < len1; i1++) {
+          let data7 = data6[i1];
+          if (typeof data7 === "string") {
+            if (func2(data7) > 120) {
+              const err23 = { instancePath: instancePath + "/mention/" + i1, schemaPath: "#/properties/mention/items/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+              if (vErrors === null) {
+                vErrors = [err23];
+              } else {
+                vErrors.push(err23);
+              }
+              errors++;
+            }
+          } else {
+            const err24 = { instancePath: instancePath + "/mention/" + i1, schemaPath: "#/properties/mention/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err24];
+            } else {
+              vErrors.push(err24);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err25 = { instancePath: instancePath + "/mention", schemaPath: "#/properties/mention/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err25];
+        } else {
+          vErrors.push(err25);
+        }
+        errors++;
+      }
+    }
+    if (data.impossible !== void 0) {
+      let data8 = data.impossible;
+      if (Array.isArray(data8)) {
+        if (data8.length > 20) {
+          const err26 = { instancePath: instancePath + "/impossible", schemaPath: "#/properties/impossible/maxItems", keyword: "maxItems", params: { limit: 20 }, message: "must NOT have more than 20 items" };
+          if (vErrors === null) {
+            vErrors = [err26];
+          } else {
+            vErrors.push(err26);
+          }
+          errors++;
+        }
+        const len2 = data8.length;
+        for (let i2 = 0; i2 < len2; i2++) {
+          let data9 = data8[i2];
+          if (data9 && typeof data9 == "object" && !Array.isArray(data9)) {
+            if (data9.event_id === void 0) {
+              const err27 = { instancePath: instancePath + "/impossible/" + i2, schemaPath: "#/properties/impossible/items/required", keyword: "required", params: { missingProperty: "event_id" }, message: "must have required property 'event_id'" };
+              if (vErrors === null) {
+                vErrors = [err27];
+              } else {
+                vErrors.push(err27);
+              }
+              errors++;
+            }
+            if (data9.why === void 0) {
+              const err28 = { instancePath: instancePath + "/impossible/" + i2, schemaPath: "#/properties/impossible/items/required", keyword: "required", params: { missingProperty: "why" }, message: "must have required property 'why'" };
+              if (vErrors === null) {
+                vErrors = [err28];
+              } else {
+                vErrors.push(err28);
+              }
+              errors++;
+            }
+            for (const key2 in data9) {
+              if (!(key2 === "event_id" || key2 === "why")) {
+                const err29 = { instancePath: instancePath + "/impossible/" + i2, schemaPath: "#/properties/impossible/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key2 }, message: "must NOT have additional properties" };
+                if (vErrors === null) {
+                  vErrors = [err29];
+                } else {
+                  vErrors.push(err29);
+                }
+                errors++;
+              }
+            }
+            if (data9.event_id !== void 0) {
+              let data10 = data9.event_id;
+              if (typeof data10 === "string") {
+                if (func2(data10) > 120) {
+                  const err30 = { instancePath: instancePath + "/impossible/" + i2 + "/event_id", schemaPath: "#/properties/impossible/items/properties/event_id/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err30];
+                  } else {
+                    vErrors.push(err30);
+                  }
+                  errors++;
+                }
+              } else {
+                const err31 = { instancePath: instancePath + "/impossible/" + i2 + "/event_id", schemaPath: "#/properties/impossible/items/properties/event_id/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err31];
+                } else {
+                  vErrors.push(err31);
+                }
+                errors++;
+              }
+            }
+            if (data9.why !== void 0) {
+              let data11 = data9.why;
+              if (typeof data11 === "string") {
+                if (func2(data11) > 600) {
+                  const err32 = { instancePath: instancePath + "/impossible/" + i2 + "/why", schemaPath: "#/properties/impossible/items/properties/why/maxLength", keyword: "maxLength", params: { limit: 600 }, message: "must NOT have more than 600 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err32];
+                  } else {
+                    vErrors.push(err32);
+                  }
+                  errors++;
+                }
+              } else {
+                const err33 = { instancePath: instancePath + "/impossible/" + i2 + "/why", schemaPath: "#/properties/impossible/items/properties/why/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err33];
+                } else {
+                  vErrors.push(err33);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err34 = { instancePath: instancePath + "/impossible/" + i2, schemaPath: "#/properties/impossible/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            if (vErrors === null) {
+              vErrors = [err34];
+            } else {
+              vErrors.push(err34);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err35 = { instancePath: instancePath + "/impossible", schemaPath: "#/properties/impossible/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err35];
+        } else {
+          vErrors.push(err35);
+        }
+        errors++;
+      }
+    }
+    if (data.life !== void 0) {
+      let data12 = data.life;
+      if (Array.isArray(data12)) {
+        if (data12.length > 30) {
+          const err36 = { instancePath: instancePath + "/life", schemaPath: "#/properties/life/maxItems", keyword: "maxItems", params: { limit: 30 }, message: "must NOT have more than 30 items" };
+          if (vErrors === null) {
+            vErrors = [err36];
+          } else {
+            vErrors.push(err36);
+          }
+          errors++;
+        }
+        const len3 = data12.length;
+        for (let i3 = 0; i3 < len3; i3++) {
+          let data13 = data12[i3];
+          if (typeof data13 === "string") {
+            if (func2(data13) > 400) {
+              const err37 = { instancePath: instancePath + "/life/" + i3, schemaPath: "#/properties/life/items/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+              if (vErrors === null) {
+                vErrors = [err37];
+              } else {
+                vErrors.push(err37);
+              }
+              errors++;
+            }
+          } else {
+            const err38 = { instancePath: instancePath + "/life/" + i3, schemaPath: "#/properties/life/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err38];
+            } else {
+              vErrors.push(err38);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err39 = { instancePath: instancePath + "/life", schemaPath: "#/properties/life/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err39];
+        } else {
+          vErrors.push(err39);
+        }
+        errors++;
+      }
+    }
+    if (data.landing !== void 0) {
+      let data14 = data.landing;
+      if (typeof data14 === "string") {
+        if (func2(data14) > 800) {
+          const err40 = { instancePath: instancePath + "/landing", schemaPath: "#/properties/landing/maxLength", keyword: "maxLength", params: { limit: 800 }, message: "must NOT have more than 800 characters" };
+          if (vErrors === null) {
+            vErrors = [err40];
+          } else {
+            vErrors.push(err40);
+          }
+          errors++;
+        }
+      } else {
+        const err41 = { instancePath: instancePath + "/landing", schemaPath: "#/properties/landing/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err41];
+        } else {
+          vErrors.push(err41);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err42 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err42];
+    } else {
+      vErrors.push(err42);
+    }
+    errors++;
+  }
+  validate62.errors = vErrors;
+  return errors === 0;
+}
+validate62.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var plan = validate63;
+var schema94 = { "type": "object", "properties": { "rationale": { "type": "string" }, "protected_anchor_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "assumptions": { "type": "array", "items": { "type": "object", "properties": { "text": { "type": "string" }, "fact": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }] } }, "required": ["text", "fact"], "additionalProperties": false }, "maxItems": 200 }, "risks": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "mode": { "enum": ["NORMAL", "FORCED_CONVERGENCE"] }, "steps": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "targets": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "earliest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "latest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "prerequisites": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "action": { "type": "string" }, "intended_effects": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "depends_on": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "means": { "enum": ["ordinary", "extraordinary"] }, "serves_anchor": { "type": ["string", "null"] }, "requires_player_consent": { "type": "boolean" } }, "required": ["step_id", "actors", "earliest", "latest", "action", "intended_effects", "means", "serves_anchor", "requires_player_consent"], "additionalProperties": false }, "maxItems": 40 }, "inadequacy_note": { "type": "string" } }, "required": ["rationale", "protected_anchor_ids", "assumptions", "risks", "mode", "steps"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:plan", "title": "Canon Engine task output: plan" };
+function validate63(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  ;
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate63.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -13841,7 +14315,7 @@ function validate62(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.mode !== void 0) {
       let data13 = data.mode;
       if (!(data13 === "NORMAL" || data13 === "FORCED_CONVERGENCE")) {
-        const err40 = { instancePath: instancePath + "/mode", schemaPath: "#/properties/mode/enum", keyword: "enum", params: { allowedValues: schema93.properties.mode.enum }, message: "must be equal to one of the allowed values" };
+        const err40 = { instancePath: instancePath + "/mode", schemaPath: "#/properties/mode/enum", keyword: "enum", params: { allowedValues: schema94.properties.mode.enum }, message: "must be equal to one of the allowed values" };
         if (vErrors === null) {
           vErrors = [err40];
         } else {
@@ -13948,7 +14422,7 @@ function validate62(data, { instancePath = "", parentData, parentDataProperty, r
               errors++;
             }
             for (const key3 in data15) {
-              if (!func1.call(schema93.properties.steps.items.properties, key3)) {
+              if (!func1.call(schema94.properties.steps.items.properties, key3)) {
                 const err51 = { instancePath: instancePath + "/steps/" + i4, schemaPath: "#/properties/steps/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
                   vErrors = [err51];
@@ -14525,7 +14999,7 @@ function validate62(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.visibility !== void 0) {
               let data36 = data15.visibility;
               if (!(data36 === "public" || data36 === "restricted" || data36 === "secret")) {
-                const err100 = { instancePath: instancePath + "/steps/" + i4 + "/visibility", schemaPath: "#/properties/steps/items/properties/visibility/enum", keyword: "enum", params: { allowedValues: schema93.properties.steps.items.properties.visibility.enum }, message: "must be equal to one of the allowed values" };
+                const err100 = { instancePath: instancePath + "/steps/" + i4 + "/visibility", schemaPath: "#/properties/steps/items/properties/visibility/enum", keyword: "enum", params: { allowedValues: schema94.properties.steps.items.properties.visibility.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err100];
                 } else {
@@ -14605,7 +15079,7 @@ function validate62(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.means !== void 0) {
               let data41 = data15.means;
               if (!(data41 === "ordinary" || data41 === "extraordinary")) {
-                const err107 = { instancePath: instancePath + "/steps/" + i4 + "/means", schemaPath: "#/properties/steps/items/properties/means/enum", keyword: "enum", params: { allowedValues: schema93.properties.steps.items.properties.means.enum }, message: "must be equal to one of the allowed values" };
+                const err107 = { instancePath: instancePath + "/steps/" + i4 + "/means", schemaPath: "#/properties/steps/items/properties/means/enum", keyword: "enum", params: { allowedValues: schema94.properties.steps.items.properties.means.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err107];
                 } else {
@@ -14617,7 +15091,7 @@ function validate62(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.serves_anchor !== void 0) {
               let data42 = data15.serves_anchor;
               if (typeof data42 !== "string" && data42 !== null) {
-                const err108 = { instancePath: instancePath + "/steps/" + i4 + "/serves_anchor", schemaPath: "#/properties/steps/items/properties/serves_anchor/type", keyword: "type", params: { type: schema93.properties.steps.items.properties.serves_anchor.type }, message: "must be string,null" };
+                const err108 = { instancePath: instancePath + "/steps/" + i4 + "/serves_anchor", schemaPath: "#/properties/steps/items/properties/serves_anchor/type", keyword: "type", params: { type: schema94.properties.steps.items.properties.serves_anchor.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err108];
                 } else {
@@ -14677,17 +15151,17 @@ function validate62(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate62.errors = vErrors;
+  validate63.errors = vErrors;
   return errors === 0;
 }
-validate62.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var profile = validate63;
-var schema94 = { "type": "object", "properties": { "player": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "aliases": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 10 }, "summary": { "type": "string", "maxLength": 1500 }, "public_identity": { "type": "string", "maxLength": 800 } }, "required": ["name", "summary"], "additionalProperties": false }, "affiliations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "kind": { "enum": ["organization", "other"] }, "role": { "type": "string", "maxLength": 400 }, "secrecy": { "enum": ["public", "restricted", "secret"] }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "places": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "use": { "type": "string", "maxLength": 400 }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "capabilities": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "resources": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "goals": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 12 }, "relationships": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] } }, "required": ["name"], "additionalProperties": false } }, "knowers": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 } }, "required": ["who", "level", "about", "basis"], "additionalProperties": false } }, "uncertain": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "roles": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["role"], "additionalProperties": false, "properties": { "role": { "type": "string", "maxLength": 200 }, "brings": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "from": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 8 }, "style": { "type": "string", "maxLength": 300 } } } }, "not_suited": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "voice": { "type": "string", "maxLength": 600 }, "recognized_by": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 }, "everywhere": { "type": "boolean" }, "as": { "type": "string", "maxLength": 400 } }, "required": ["who", "as"], "additionalProperties": false } } }, "required": ["player", "affiliations", "relationships", "knowers"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:profile", "title": "Canon Engine task output: profile" };
-function validate63(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+validate63.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var profile = validate64;
+var schema95 = { "type": "object", "properties": { "player": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "aliases": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 10 }, "summary": { "type": "string", "maxLength": 1500 }, "public_identity": { "type": "string", "maxLength": 800 } }, "required": ["name", "summary"], "additionalProperties": false }, "affiliations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "kind": { "enum": ["organization", "other"] }, "role": { "type": "string", "maxLength": 400 }, "secrecy": { "enum": ["public", "restricted", "secret"] }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "places": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "use": { "type": "string", "maxLength": 400 }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "capabilities": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "resources": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "goals": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 12 }, "relationships": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] } }, "required": ["name"], "additionalProperties": false } }, "knowers": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 } }, "required": ["who", "level", "about", "basis"], "additionalProperties": false } }, "uncertain": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "roles": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["role"], "additionalProperties": false, "properties": { "role": { "type": "string", "maxLength": 200 }, "brings": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "from": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 8 }, "style": { "type": "string", "maxLength": 300 } } } }, "not_suited": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "voice": { "type": "string", "maxLength": 600 }, "recognized_by": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 }, "everywhere": { "type": "boolean" }, "as": { "type": "string", "maxLength": 400 } }, "required": ["who", "as"], "additionalProperties": false } } }, "required": ["player", "affiliations", "relationships", "knowers"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:profile", "title": "Canon Engine task output: profile" };
+function validate64(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate63.evaluated;
+  const evaluated0 = validate64.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -14732,7 +15206,7 @@ function validate63(data, { instancePath = "", parentData, parentDataProperty, r
       errors++;
     }
     for (const key0 in data) {
-      if (!func1.call(schema94.properties, key0)) {
+      if (!func1.call(schema95.properties, key0)) {
         const err4 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
           vErrors = [err4];
@@ -14956,7 +15430,7 @@ function validate63(data, { instancePath = "", parentData, parentDataProperty, r
             if (data7.existing_id !== void 0) {
               let data9 = data7.existing_id;
               if (typeof data9 !== "string" && data9 !== null) {
-                const err24 = { instancePath: instancePath + "/affiliations/" + i1 + "/existing_id", schemaPath: "#/properties/affiliations/items/properties/existing_id/type", keyword: "type", params: { type: schema94.properties.affiliations.items.properties.existing_id.type }, message: "must be string,null" };
+                const err24 = { instancePath: instancePath + "/affiliations/" + i1 + "/existing_id", schemaPath: "#/properties/affiliations/items/properties/existing_id/type", keyword: "type", params: { type: schema95.properties.affiliations.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err24];
                 } else {
@@ -14979,7 +15453,7 @@ function validate63(data, { instancePath = "", parentData, parentDataProperty, r
             if (data7.kind !== void 0) {
               let data10 = data7.kind;
               if (!(data10 === "organization" || data10 === "other")) {
-                const err26 = { instancePath: instancePath + "/affiliations/" + i1 + "/kind", schemaPath: "#/properties/affiliations/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema94.properties.affiliations.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+                const err26 = { instancePath: instancePath + "/affiliations/" + i1 + "/kind", schemaPath: "#/properties/affiliations/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema95.properties.affiliations.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err26];
                 } else {
@@ -15013,7 +15487,7 @@ function validate63(data, { instancePath = "", parentData, parentDataProperty, r
             if (data7.secrecy !== void 0) {
               let data12 = data7.secrecy;
               if (!(data12 === "public" || data12 === "restricted" || data12 === "secret")) {
-                const err29 = { instancePath: instancePath + "/affiliations/" + i1 + "/secrecy", schemaPath: "#/properties/affiliations/items/properties/secrecy/enum", keyword: "enum", params: { allowedValues: schema94.properties.affiliations.items.properties.secrecy.enum }, message: "must be equal to one of the allowed values" };
+                const err29 = { instancePath: instancePath + "/affiliations/" + i1 + "/secrecy", schemaPath: "#/properties/affiliations/items/properties/secrecy/enum", keyword: "enum", params: { allowedValues: schema95.properties.affiliations.items.properties.secrecy.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err29];
                 } else {
@@ -15125,7 +15599,7 @@ function validate63(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.existing_id !== void 0) {
               let data17 = data15.existing_id;
               if (typeof data17 !== "string" && data17 !== null) {
-                const err39 = { instancePath: instancePath + "/places/" + i2 + "/existing_id", schemaPath: "#/properties/places/items/properties/existing_id/type", keyword: "type", params: { type: schema94.properties.places.items.properties.existing_id.type }, message: "must be string,null" };
+                const err39 = { instancePath: instancePath + "/places/" + i2 + "/existing_id", schemaPath: "#/properties/places/items/properties/existing_id/type", keyword: "type", params: { type: schema95.properties.places.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err39];
                 } else {
@@ -15405,7 +15879,7 @@ function validate63(data, { instancePath = "", parentData, parentDataProperty, r
             if (data27.existing_id !== void 0) {
               let data29 = data27.existing_id;
               if (typeof data29 !== "string" && data29 !== null) {
-                const err64 = { instancePath: instancePath + "/relationships/" + i6 + "/existing_id", schemaPath: "#/properties/relationships/items/properties/existing_id/type", keyword: "type", params: { type: schema94.properties.relationships.items.properties.existing_id.type }, message: "must be string,null" };
+                const err64 = { instancePath: instancePath + "/relationships/" + i6 + "/existing_id", schemaPath: "#/properties/relationships/items/properties/existing_id/type", keyword: "type", params: { type: schema95.properties.relationships.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err64];
                 } else {
@@ -15450,7 +15924,7 @@ function validate63(data, { instancePath = "", parentData, parentDataProperty, r
             if (data27.basis !== void 0) {
               let data31 = data27.basis;
               if (!(data31 === "persona_stated" || data31 === "implied")) {
-                const err68 = { instancePath: instancePath + "/relationships/" + i6 + "/basis", schemaPath: "#/properties/relationships/items/properties/basis/enum", keyword: "enum", params: { allowedValues: schema94.properties.relationships.items.properties.basis.enum }, message: "must be equal to one of the allowed values" };
+                const err68 = { instancePath: instancePath + "/relationships/" + i6 + "/basis", schemaPath: "#/properties/relationships/items/properties/basis/enum", keyword: "enum", params: { allowedValues: schema95.properties.relationships.items.properties.basis.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err68];
                 } else {
@@ -15567,7 +16041,7 @@ function validate63(data, { instancePath = "", parentData, parentDataProperty, r
             if (data33.existing_id !== void 0) {
               let data35 = data33.existing_id;
               if (typeof data35 !== "string" && data35 !== null) {
-                const err79 = { instancePath: instancePath + "/knowers/" + i7 + "/existing_id", schemaPath: "#/properties/knowers/items/properties/existing_id/type", keyword: "type", params: { type: schema94.properties.knowers.items.properties.existing_id.type }, message: "must be string,null" };
+                const err79 = { instancePath: instancePath + "/knowers/" + i7 + "/existing_id", schemaPath: "#/properties/knowers/items/properties/existing_id/type", keyword: "type", params: { type: schema95.properties.knowers.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err79];
                 } else {
@@ -15590,7 +16064,7 @@ function validate63(data, { instancePath = "", parentData, parentDataProperty, r
             if (data33.level !== void 0) {
               let data36 = data33.level;
               if (!(data36 === "exists" || data36 === "identity" || data36 === "secrets")) {
-                const err81 = { instancePath: instancePath + "/knowers/" + i7 + "/level", schemaPath: "#/properties/knowers/items/properties/level/enum", keyword: "enum", params: { allowedValues: schema94.properties.knowers.items.properties.level.enum }, message: "must be equal to one of the allowed values" };
+                const err81 = { instancePath: instancePath + "/knowers/" + i7 + "/level", schemaPath: "#/properties/knowers/items/properties/level/enum", keyword: "enum", params: { allowedValues: schema95.properties.knowers.items.properties.level.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err81];
                 } else {
@@ -15624,7 +16098,7 @@ function validate63(data, { instancePath = "", parentData, parentDataProperty, r
             if (data33.basis !== void 0) {
               let data38 = data33.basis;
               if (!(data38 === "persona_stated" || data38 === "implied")) {
-                const err84 = { instancePath: instancePath + "/knowers/" + i7 + "/basis", schemaPath: "#/properties/knowers/items/properties/basis/enum", keyword: "enum", params: { allowedValues: schema94.properties.knowers.items.properties.basis.enum }, message: "must be equal to one of the allowed values" };
+                const err84 = { instancePath: instancePath + "/knowers/" + i7 + "/basis", schemaPath: "#/properties/knowers/items/properties/basis/enum", keyword: "enum", params: { allowedValues: schema95.properties.knowers.items.properties.basis.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err84];
                 } else {
@@ -16070,7 +16544,7 @@ function validate63(data, { instancePath = "", parentData, parentDataProperty, r
             if (data55.existing_id !== void 0) {
               let data57 = data55.existing_id;
               if (typeof data57 !== "string" && data57 !== null) {
-                const err124 = { instancePath: instancePath + "/recognized_by/" + i14 + "/existing_id", schemaPath: "#/properties/recognized_by/items/properties/existing_id/type", keyword: "type", params: { type: schema94.properties.recognized_by.items.properties.existing_id.type }, message: "must be string,null" };
+                const err124 = { instancePath: instancePath + "/recognized_by/" + i14 + "/existing_id", schemaPath: "#/properties/recognized_by/items/properties/existing_id/type", keyword: "type", params: { type: schema95.properties.recognized_by.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err124];
                 } else {
@@ -16197,10 +16671,10 @@ function validate63(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate63.errors = vErrors;
+  validate64.errors = vErrors;
   return errors === 0;
 }
-validate63.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+validate64.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 
 // src/domain/time.ts
 var DAY = 1440;
@@ -20250,6 +20724,102 @@ var foreknow_schema_default = {
   title: "Canon Engine task output: foreknow"
 };
 
+// schemas/runtime/leap.schema.json
+var leap_schema_default = {
+  type: "object",
+  properties: {
+    events: {
+      type: "array",
+      maxItems: 60,
+      items: {
+        type: "object",
+        properties: {
+          event_id: {
+            type: "string",
+            maxLength: 120
+          },
+          decision: {
+            type: "string",
+            enum: [
+              "occurred",
+              "diverged",
+              "omitted"
+            ]
+          },
+          player_part: {
+            type: "string",
+            maxLength: 800
+          },
+          account: {
+            type: "string",
+            maxLength: 2e3
+          }
+        },
+        required: [
+          "event_id",
+          "decision",
+          "player_part",
+          "account"
+        ],
+        additionalProperties: false
+      }
+    },
+    mention: {
+      type: "array",
+      maxItems: 30,
+      items: {
+        type: "string",
+        maxLength: 120
+      }
+    },
+    impossible: {
+      type: "array",
+      maxItems: 20,
+      items: {
+        type: "object",
+        properties: {
+          event_id: {
+            type: "string",
+            maxLength: 120
+          },
+          why: {
+            type: "string",
+            maxLength: 600
+          }
+        },
+        required: [
+          "event_id",
+          "why"
+        ],
+        additionalProperties: false
+      }
+    },
+    life: {
+      type: "array",
+      maxItems: 30,
+      items: {
+        type: "string",
+        maxLength: 400
+      }
+    },
+    landing: {
+      type: "string",
+      maxLength: 800
+    }
+  },
+  required: [
+    "events",
+    "mention",
+    "impossible",
+    "life",
+    "landing"
+  ],
+  additionalProperties: false,
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "urn:canon-engine:task:leap",
+  title: "Canon Engine task output: leap"
+};
+
 // src/runtime/model.ts
 var TASK_SCHEMAS = {
   extract_user: extract_user_schema_default,
@@ -20261,7 +20831,8 @@ var TASK_SCHEMAS = {
   digest: digest_schema_default,
   profile: profile_schema_default,
   integrate: integrate_schema_default,
-  foreknow: foreknow_schema_default
+  foreknow: foreknow_schema_default,
+  leap: leap_schema_default
 };
 var TASK_TAG = (t2) => `[CANON_ENGINE_TASK:${t2}]`;
 var validators = {
@@ -20274,7 +20845,8 @@ var validators = {
   plan,
   profile,
   integrate,
-  foreknow
+  foreknow,
+  leap
 };
 function extractJson(text) {
   const s = String(text ?? "").replace(/^﻿/, "");
@@ -20777,16 +21349,203 @@ function playerVoice(v) {
 var voiceAllows = (v, kind) => !!kind && VOICE_KINDS.includes(kind) && v[kind];
 var LIVELY = "Write the player character as vividly as anyone else in the scene: their lines and reactions carry their whole personality as the Persona gives it (how they come across and talk, in PLAYER IN THIS WORLD) \u2014 opinions, feelings, humour, their own questions, the way they put things. Never reduce them to short, flat, noncommittal replies.";
 var REACT_NOT_DECIDE = 'When someone asks them to decide (an invitation, a request, a "will you\u2026?"), still write their honest reaction \u2014 what they think of it, a complaint, a joke, a question back, their front slipping \u2014 as long as it neither accepts nor refuses; leave the yes or no itself to the player. Do not have them dodge every question with an empty non-answer, and do not have characters pile up several questions waiting on the player in one reply: one open question at the end is enough.';
-function voiceRule(v) {
+function voiceRule(v, leap2 = false) {
   const may = VOICE_KINDS.filter((k) => v[k]);
   const not = VOICE_KINDS.filter((k) => !v[k]);
   const own = "Actions the player wrote are theirs: carry them out with their natural steps and immediate details.";
-  const always = ` Always leave to the player, whatever else you may write for them: ${INTERVENTION_TEXT}. When a canonical event or another character's significant act happens in front of the player character, let it go on as it would; you may show what the player character notices or suspects, but any interference is the player's to write (they can still act in their next message).`;
+  const always = leap2 ? " During this time leap the player character also steps into events as the TIME LEAP section says." : ` Always leave to the player, whatever else you may write for them: ${INTERVENTION_TEXT}. When a canonical event or another character's significant act happens in front of the player character, let it go on as it would; you may show what the player character notices or suspects, but any interference is the player's to write (they can still act in their next message).`;
   if (!may.length) return `${own} Do not supply new voluntary player actions, decisions, dialogue, consent, or equipment/skill use.${always}`;
   return `THE PLAYER CHARACTER: the player wants you to write these for their character, in character with their Persona and the scene \u2014 do it naturally, as part of the scene: ${may.map((k) => VOICE_TEXT[k]).join("; ")}. ` + (v.dialogue || v.reactions ? `${LIVELY} ` : "") + (not.length ? `Leave these to the player (do not write them unless the player's message does): ${not.map((k) => VOICE_TEXT[k]).join("; ")}. ` : "") + (v.dialogue && !v.decisions ? `${REACT_NOT_DECIDE} ` : "") + own + always;
 }
 function voiceInput(v) {
   return { gm_may_write: VOICE_KINDS.filter((k) => v[k]), player_only: [...VOICE_KINDS.filter((k) => !v[k]), INTERVENTION] };
+}
+
+// src/runtime/leap.ts
+var LEAP_RE = /\{\{\s*time_leap\s*[:：]\s*([^}]*?)\s*\}\}/i;
+var LEAP_DEFAULT_MINUTE = 8 * 60;
+function parseLeap(text, origin) {
+  const m = String(text || "").match(LEAP_RE);
+  if (!m) return null;
+  return { raw: m[0], label: m[1], target: parseLeapTime(m[1], origin) };
+}
+function parseLeapTime(s, origin) {
+  const t2 = String(s || "").trim().replace(/[：]/g, ":").replace(/\s+/g, " ");
+  const tick = parseTickLabel(t2);
+  if (tick !== null) return tick;
+  const day = t2.match(/^(?:d(?:ay)?\s*)?(-?\d+)$/i);
+  if (day && /^d/i.test(t2)) return Number(day[1]) * DAY + LEAP_DEFAULT_MINUTE;
+  const cal = t2.match(/^(\d{1,6})\s*[-/年.]\s*(\d{1,2})\s*[-/月.]\s*(\d{1,2})\s*[日号]?(?:\s*(\d{1,2}):(\d{2}))?$/);
+  if (!cal) return null;
+  const at = cal[4] !== void 0 ? `${cal[4]}:${cal[5]}` : `${Math.floor(LEAP_DEFAULT_MINUTE / 60)}:00`;
+  return parseDateLabel(`${cal[1]}-${cal[2]}-${cal[3]} ${at}`, origin);
+}
+var leapText = (text) => String(text || "").replace(LEAP_RE, "").trim();
+function leapProblem(d, now, origin) {
+  if (d.target === null) return `Time leap "${d.label}" is not a time Canon can read. Use the start-time format: "D1500 08:00"${origin ? ' or "2004-10-10 08:00"' : ""}. Edit your message.`;
+  if (d.target <= now) return `Time leap to ${formatTick(d.target, origin)} goes ${d.target === now ? "nowhere: that is the current story time" : `back in time (the story is at ${formatTick(now, origin)})`}. A leap only goes forward; edit your message.`;
+  return null;
+}
+function leapEvents(pack2, state, from, to) {
+  const out = [];
+  for (const t2 of pack2.timeIndex) {
+    if (t2.lo > to) break;
+    if (state.dispositions.has(t2.id) || t2.hi < from) continue;
+    out.push({ id: t2.id, lo: t2.lo, hi: t2.hi, cls: pack2.events.get(t2.id).classification });
+  }
+  return out;
+}
+var LEAP_DETAILED_MAX = 150;
+var LEAP_LINES_CHARS = 4e4;
+function leapEventInput(index, list, origin, focus = /* @__PURE__ */ new Set()) {
+  const pack2 = index.pack;
+  const when = (x) => x.lo === x.hi ? formatTick(x.lo, origin) : `${formatTick(x.lo, origin)} \u2013 ${formatTick(x.hi, origin)}`;
+  const touches = (x) => {
+    const ev = pack2.events.get(x.id);
+    return [...ev.entity_ids, ...ev.location_ids].some((id) => focus.has(id));
+  };
+  const ranked = [...list].sort((a, b) => Number(b.cls === "HARD") - Number(a.cls === "HARD") || Number(touches(b)) - Number(touches(a)) || a.lo - b.lo);
+  const detailed = new Set((list.length <= LEAP_DETAILED_MAX ? list : ranked.filter((x) => x.cls === "HARD" || touches(x)).slice(0, LEAP_DETAILED_MAX)).map((x) => x.id));
+  const room = detailed.size > 80 ? 160 : 300;
+  const crossed = list.filter((x) => detailed.has(x.id)).map((x) => {
+    const ev = pack2.events.get(x.id);
+    const s = causeOf(ev) || ev.summary;
+    const people = ev.entity_ids.filter((id) => index.entityKind(id) === "person").slice(0, 6).map((id) => index.entityName(id));
+    return {
+      id: ev.id,
+      title: ev.title,
+      class: ev.classification,
+      when: when(x),
+      ...people.length ? { people } : {},
+      original: s.length > room ? s.slice(0, room - 1) + "\u2026" : s,
+      ...ev.classification === "HARD" ? { required: ev.required_description } : {}
+    };
+  });
+  const other = [];
+  let size = 0, left = 0;
+  for (const x of list) {
+    if (detailed.has(x.id)) continue;
+    const line = `${x.id} | ${formatTick(x.lo, origin).replace(/ \(D-?\d+\)$/, "")} | ${pack2.events.get(x.id).title}`;
+    if (size + line.length > LEAP_LINES_CHARS) {
+      left++;
+      continue;
+    }
+    other.push(line);
+    size += line.length + 1;
+  }
+  return { crossed_events: crossed, ...other.length ? { other_events: other } : {}, ...left ? { not_listed: `${left} more events of the leap are not listed; they happen as in the original story` } : {} };
+}
+function checkLeapPlan(out, pack2, list) {
+  const crossed = new Map(list.map((x) => [x.id, x]));
+  const decisions = /* @__PURE__ */ new Map();
+  const dropped = [];
+  const impossible = [];
+  for (const i of out.impossible || []) {
+    const ev = pack2.events.get(i.event_id);
+    if (!ev || !crossed.has(ev.id)) {
+      dropped.push(`impossible: unknown or not crossed ${i.event_id}`);
+      continue;
+    }
+    if (ev.classification !== "HARD") {
+      dropped.push(`impossible: ${ev.title} is ${ev.classification}, not HARD (it may simply not happen)`);
+      continue;
+    }
+    impossible.push({ id: ev.id, title: ev.title, why: String(i.why || "").slice(0, 400) });
+  }
+  for (const e of out.events || []) {
+    const ev = pack2.events.get(e.event_id);
+    if (!ev || !crossed.has(ev.id)) {
+      dropped.push(`event: unknown or not crossed ${e.event_id}`);
+      continue;
+    }
+    if (decisions.has(ev.id)) continue;
+    if (ev.classification === "HARD" && e.decision !== "occurred") {
+      if (!impossible.some((x) => x.id === ev.id)) impossible.push({ id: ev.id, title: ev.title, why: String(e.account || e.player_part || "").slice(0, 400) });
+      continue;
+    }
+    if (!String(e.account || "").trim()) {
+      dropped.push(`event: ${ev.title} without an account`);
+      continue;
+    }
+    decisions.set(ev.id, { decision: e.decision, part: String(e.player_part || "").slice(0, 600), account: String(e.account).slice(0, 1500) });
+  }
+  const mention = uniq((out.mention || []).filter((id) => crossed.has(id) && !decisions.has(id))).slice(0, 15);
+  return { decisions, mention, impossible, landing: String(out.landing || "").slice(0, 600), life: (out.life || []).map((x) => String(x).slice(0, 300)).slice(0, 20), dropped };
+}
+function leapRecord(pack2, state, ev, d, playerId) {
+  const event = pack2.events.get(ev.id);
+  const when = occurrenceWindow({ event, lo: ev.lo, hi: ev.hi }, -Infinity, ev.hi);
+  const base = adjudicateDefault(pack2, state, { event, lo: ev.lo, hi: ev.hi }, when);
+  const occurred = d.decision !== "omitted";
+  const deltas = d.decision === "occurred" ? effectsToDeltas(event.canonical_effects) : [];
+  if (event.classification === "HARD") {
+    for (const o of event.outcomes) if (!deltas.some((x) => x.op === "set" && x.entity_id === o.entity_id && x.predicate === o.predicate)) deltas.push({ op: "set", entity_id: o.entity_id, predicate: o.predicate, value: o.value });
+  }
+  const occId = newId("occ");
+  const occ = occurred ? {
+    occurrenceId: occId,
+    title: event.title,
+    account: d.part ? /^zh/i.test(pack2.pack.language) ? `${d.account}\uFF08\u73A9\u5BB6\u89D2\u8272\uFF1A${d.part}\uFF09` : `${d.account} (The player character: ${d.part})` : d.account,
+    actors: uniq([...event.entity_ids, ...d.part && playerId ? [playerId] : []]),
+    affected: event.entity_ids,
+    locations: event.location_ids,
+    time: when,
+    outcome: deltas,
+    causes: [],
+    refPhrases: [event.title],
+    packEventId: event.id,
+    origin: "offscreen",
+    visibility: event.visibility
+  } : void 0;
+  return {
+    recordId: newId("rec"),
+    kind: occurred ? "canon_occurrence" : "canon_disposition",
+    storyTime: when,
+    sourceRefs: [],
+    factsSetOrUnset: deltas,
+    eventOccurrenceIds: occ ? [occId] : [],
+    occurrences: occ ? [occ] : void 0,
+    visibility: event.visibility,
+    summary: `${event.title}: ${d.decision} (time leap)`,
+    evidenceKind: "adjudication",
+    packEventId: event.id,
+    disposition: d.decision,
+    dispositionReason: `time leap (the player's description${base.precondition !== "TRUE" ? `; original preconditions ${base.precondition}` : ""}): ${(d.part || d.account).slice(0, 300)}`
+  };
+}
+var LEAP_VOICE = Object.fromEntries(VOICE_KINDS.map((k) => [k, true]));
+function leapSection(a) {
+  const { index, origin, plan: plan2 } = a;
+  const pack2 = index.pack;
+  const at = (id) => a.list.find((x) => x.id === id);
+  const line = (id) => {
+    const x = at(id);
+    const ev = pack2.events.get(id);
+    return `${formatTick(x.lo, origin).replace(/ \(D-?\d+\)$/, "")} ${ev.title}`;
+  };
+  const days = Math.round((a.to - a.from) / DAY);
+  const span = days >= 730 ? `about ${Math.round(days / 365)} years` : days >= 60 ? `about ${Math.round(days / 30)} months` : days >= 2 ? `${days} days` : `${Math.round((a.to - a.from) / 60)} hours`;
+  const own = [...plan2.decisions].sort((x, y) => at(x[0]).lo - at(y[0]).lo).map(([id, d]) => `- ${line(id)} \u2014 ${d.decision === "occurred" ? "happens" : d.decision === "diverged" ? "happens differently" : "does not happen"}: ${d.account}${d.part ? ` (the player character: ${d.part})` : ""}`);
+  const mention = plan2.mention.slice().sort((x, y) => at(x).lo - at(y).lo).map((id) => `- ${line(id)}: ${causeOf(pack2.events.get(id))}`);
+  const limits = VOICE_KINDS.filter((k) => !a.voice[k]);
+  return [
+    `TIME LEAP (this reply): the player's message leaps story time from ${formatTick(a.from, origin)} to ${formatTick(a.to, origin)} (${span}). Write this reply as a time skip: first the time in between, told in summary in time order \u2014 the player character's life as the player's message describes it, and the world's main events \u2014 at the pace such a span needs (a few lines per stretch of time, not scene by scene); then land in one concrete scene at ${formatTick(a.to, origin)} and end there, leaving the next move to the player.`,
+    `- During the leap the player character lives and acts on their own, as their Persona would: you write their life, words, decisions and actions freely (also what they keep secret or reveal), within everything the player's message says \u2014 never against it, and what it asks for happens. Small invented people and episodes of their life (classmates, a friend, a job) are fine.`,
+    ...plan2.life.length ? ["- The player character's life during the leap (planned from the player's message):", ...plan2.life.map((x) => `  - ${x}`)] : [],
+    own.length ? `- Canon events this leap changes or the player character takes part in (decided; show them as stated):
+${own.join("\n")}` : "- The player's description changes no canon event.",
+    `- All other canon events of the span (${a.settled}) happened as in the original story, offscreen; never contradict them.${mention.length ? " Worth mentioning as the world's background (only what the player character would know of):\n" + mention.join("\n") : ""}`,
+    ...plan2.landing ? [`- Landing at ${formatTick(a.to, origin)}: ${plan2.landing}`] : [],
+    `- The landing scene follows the player's usual limits again${limits.length ? `: leave these to the player there \u2014 ${limits.map((k) => VOICE_TEXT[k]).join("; ")}` : ""}.`
+  ].join("\n");
+}
+function leapNotes(index, plan2, list, records, origin) {
+  const pack2 = index.pack;
+  const decided = [...plan2.decisions].map(([id, d]) => `${formatTick(list.find((x) => x.id === id).lo, origin)} ${pack2.events.get(id).title}: ${d.decision} (time leap) \u2014 ${(d.part || d.account).slice(0, 200)}`);
+  const other = records.filter((r) => r.packEventId && !plan2.decisions.has(r.packEventId));
+  const shown = other.filter((r) => plan2.mention.includes(r.packEventId) || pack2.events.get(r.packEventId)?.classification === "HARD" || r.disposition !== "occurred").map((r) => `${formatTick(r.storyTime.lo, origin)} ${pack2.events.get(r.packEventId).title}: ${r.disposition}${r.disposition !== "occurred" ? ` \u2014 ${(r.dispositionReason || "").slice(0, 160)}` : ""}`);
+  const rest = other.length - shown.length;
+  return [...decided, ...shown.slice(0, 40), ...rest > 0 ? [`${rest} other canon events of the leap occurred offscreen along their original routes`] : []];
 }
 
 // src/runtime/prompts.ts
@@ -20894,7 +21653,16 @@ For each group write a short title (at most 20 characters, in the language of th
 SHAPE: {"groups":[{"member_ids":[],"title":"","summary":""}]}`,
   foreknow: `${COMMON}
 TASK: Each pair is a person and a canonical event of the original story they take part in, which is about to start. Judge from the event's original summary (its cause and motives) whether that person KNOWS IN ADVANCE, before it starts, that they will be there or do this: an appointment or meeting they arranged, a plan of their own, a duty, shift or task they were given, an errand they set out on \u2014 knows=true; or not: a chance encounter, an accident, an attack, summons or news that comes without warning, something that happens to them \u2014 knows=false. What they only decide, propose or notice once the event is under way does not count: knows=true only when, before it starts, they already expect to be there or to meet these people (live: "she proposes it during the event" was read as knowing in advance). how: two to six words in the event's language (e.g. "\u7EA6\u597D\u7684\u4F1A\u9762", "\u5076\u9047").
-SHAPE: {"judgements":[{"id":"k1","knows":true,"how":""}]}`
+SHAPE: {"judgements":[{"id":"k1","knows":true,"how":""}]}`,
+  leap: `${COMMON}
+TASK: The player leaps story time from "from" to "to" in one reply; player_message says what their character does in that time (it is the player's own will: what it asks for happens, nothing goes against it). Everything else in the world happens as in the original story. Decide only what the player's message changes, so that the GM can write the leap:
+- The leap crosses the canon events in crossed_events (with their summaries) and other_events (one line each: "id | time | title"); all of them happen as in the original story unless you list them here.
+- events: the canon events (from crossed_events or other_events, by id) that the player's message changes or that the player character takes part in, with decision occurred (happens, with the player character in it), diverged (happens with a different result) or omitted (does not happen), player_part (what the player character does in it, "" if nothing) and account (what actually happens, in the events' language). List only events the message touches directly or by plain consequence \u2014 what the player says they do, where they are, whom they are with. Never list an event just because the player could have been there; untouched events are not listed (they happen as in the original story).
+- HARD events always happen with their required result ("required"); the player may take part in them, and their route may bend around what the player does. When the player's message seems to prevent one, look for a way both can be true (the player's attempt fails or comes too late, it happens elsewhere or otherwise, someone else does it) and list it as occurred. Only when no reasonable way exists \u2014 the message plainly and directly makes it impossible \u2014 put it in impossible with why (the player's message is then sent back for them to rewrite).
+- mention: up to 12 ids of other events of the leap worth a line in the time skip \u2014 the ones the player character would know of or care about (big public events, people close to them); [] when none.
+- life: the player character's own life in the leap as the player's message describes it, a few short points in time order, with their rough times (a school, a job, friends, what changes in their life); fill in only what the message implies, kept plausible for the setting and the Persona.
+- landing: where the player character is and what they are doing at the "to" time, one or two sentences, from the message (or the natural continuation of their life when it says nothing).
+SHAPE: {"events":[{"event_id":"","decision":"occurred","player_part":"","account":""}],"mention":[],"impossible":[{"event_id":"","why":""}],"life":[],"landing":""}`
 };
 function enumsOf(schema) {
   const found = /* @__PURE__ */ new Map();
@@ -20936,7 +21704,8 @@ var SCHEMAS = {
   digest: digest_schema_default,
   profile: profile_schema_default,
   integrate: integrate_schema_default,
-  foreknow: foreknow_schema_default
+  foreknow: foreknow_schema_default,
+  leap: leap_schema_default
 };
 var EVAL_FRAMES_NOTE = `7. TIME FRAMES (this pack has them; see time_frames): also return "scene_frame" in the reply object: the id of the frame the scene is in at the END of the reply \u2014 where the player character is \u2014 when the reply shows them arriving in another frame or coming back (time travel, crossing into another world, entering or waking from a dream); "main" for the main frame; null when they stay in scene_frame_now. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame's conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).`;
 var PROMPTS = Object.fromEntries(Object.entries(RAW_PROMPTS).map(([k, v]) => [k, annotateShape(v, SCHEMAS[k])]));
@@ -20965,10 +21734,11 @@ ${route.map((r) => `- ${r}`).join("\n")}
 Keep the full length, detail and style a normal reply would have. Do not mention this request. Output only the narrative.`;
 var replyLengthNote = (len) => /[㐀-鿿]/.test(len) ? `[CANON ENGINE \u2014 \u56DE\u590D\u7BC7\u5E45] \u672C\u56DE\u5408\u56DE\u590D\u7BC7\u5E45\u8981\u6C42\uFF1A${len}\u3002\u5199\u5728\u8FD9\u4E2A\u8303\u56F4\u5185\uFF1A\u4E0D\u5230\u4E0B\u9650\u4E0D\u8981\u6536\u5C3E\uFF0C\u7BC7\u5E45\u4E0D\u591F\u65F6\u7EE7\u7EED\u5C55\u5F00\u5F53\u524D\u573A\u666F\uFF08\u73AF\u5883\u4E0E\u611F\u5B98\u7EC6\u8282\u3001NPC \u7684\u884C\u52A8\u3001\u5BF9\u8BDD\u4E0E\u53CD\u5E94\u3001\u5DF2\u53D1\u751F\u884C\u52A8\u7684\u76F4\u63A5\u540E\u679C\uFF09\uFF0C\u4E0D\u8981\u66FF\u7528\u6237\u884C\u52A8\uFF0C\u4E5F\u4E0D\u8981\u8DF3\u8FC7\u65F6\u95F4\uFF1B\u63A5\u8FD1\u4E0A\u9650\u65F6\u6536\u675F\u5F53\u524D\u573A\u666F\uFF0C\u628A\u4E0B\u4E00\u6B65\u7559\u7ED9\u7528\u6237\uFF0C\u4E0D\u8981\u660E\u663E\u8D85\u51FA\u4E0A\u9650\u3002` : `[CANON ENGINE \u2014 reply length] Reply length for this turn: ${len}. Stay within this range: do not wrap up before the lower end; if the reply is still short, keep developing the current scene (surroundings and sensory detail, NPC actions, dialogue and reactions, direct consequences of what already happened) instead of acting for the user or skipping time. Near the upper end, bring the current beat to a close and leave the next step to the user; do not run clearly past it.`;
 var CONTINUE_INSTRUCTION = `[Canon Engine private instruction \u2014 not part of the story] Continue the last GM message exactly from where it stops. Output only the continuation text (do not repeat the existing part).`;
-function gmRulesFor(v) {
-  return GM_INTEGRATION_RULES.replace("{{PLAYER_VOICE}}", voiceRule(v));
+function gmRulesFor(v, leap2 = false) {
+  return GM_INTEGRATION_RULES.replace("{{PLAYER_VOICE}}", voiceRule(v, leap2));
 }
 var EVAL_CHANCE_NOTE = `9. CHANCE EVENTS (chance_events_with_companion: canon events that come without warning to someone who is with the player). When the reply shows one of them \u2014 even with its people unnamed or described only by looks, a little before its listed time, or in another place \u2014 record it as an occurrence with that pack_event_id (disposition occurred, diverged or ongoing as shown). Live: a foreign girl asking \u4F50\u5929 how to use her new phone was \u7D22\u7EEE\u7279's encounter, recorded as an unrelated beat.`;
+var EVAL_LEAP_NOTE = `10. TIME LEAP (time_leap): this reply is a time skip the player asked for, from the current time to time_leap.to; the GM writes the player character's life in it (their words, decisions and actions are allowed, gm_may_write lists every kind) but never against player_action_scope. The canon events of the leap are already settled (staged_offscreen): do not record them again (no occurrence with their pack_event_id) and report a violation only when the reply contradicts one. Record the player character's own life in the leap as a few occurrences at their times (origin "player"), and the landing scene as usual; scene_end is where the reply lands, at or after time_leap.to. Summarized years are not unsupported claims: what the reply tells of the leap is new history.`;
 var EXTRACT_GROUPS_NOTE = `Also return "scene_groups": when the message moves the scene (the player goes somewhere, a new scene starts, time skips to another situation), the ids from recognition_groups whose people are present or very likely present where the scene will be \u2014 named or as background (the students of a school at a school-wide event, colleagues at the workplace, a crowd at a big public event they would attend); [] when none; null when the message does not move the scene.`;
 var EVAL_GROUPS_NOTE = `8. RECOGNITION (recognition_groups: groups and people who know about the player, from the Persona \u2014 level "public" recognize the player's public standing on sight; "identity"/"secrets" know more). Return "scene_groups": the ids of those whose people are present in the scene at the END of the reply, named or as background (their uniforms, a crowd of them, someone the text says is one of them). Report a blocking violation (code "recognition") when someone the reply shows as one of them plainly acts as if they did not know what their group knows \u2014 asks who the player is, does not know the player's well-known rank or name, treats them as a stranger \u2014 unless the text gives a reason (they cannot see the player, a disguise, deliberate pretence). Not showing recognition is fine; only a shown ignorance counts. People not in these groups know only the public identity \u2014 knowing a secret stays the unsupported case above.`;
 
@@ -21373,6 +22143,7 @@ function buildPacket(inp, compact = false) {
   const optional = [];
   required.push(`[CANON ENGINE CONTEXT \u2014 persisted engine data for this request. Categories are distinct; do not print them.]`);
   required.push(`CLOCK & SCENE: committed story time ${formatStoryTime(index.state.clock, inp.origin)}. ${inp.sceneLabel}`);
+  if (inp.leap && !inp.review) required.push(inp.leap);
   if (checkpointTick > pack2.coverage.end) required.push(`PACK COVERAGE ENDED at ${formatTick(pack2.coverage.end, inp.origin)}: there is no further scheduled canon. Do not invent canonical events; continue only from actual history and the user's choices.`);
   const occIds = [...retrieval.occurrences.keys()].filter((id) => index.state.occurrences.has(id));
   occIds.sort((a, b) => index.state.occurrences.get(a).time.lo - index.state.occurrences.get(b).time.lo);
@@ -21780,7 +22551,7 @@ function runGate(g) {
     if (!hasQuote(a.quote)) continue;
     const auth = a.authorized_by_quote && g.userSource && quoteInText(a.authorized_by_quote, g.userText) ? { messageId: g.userSource.messageId, quote: a.authorized_by_quote } : null;
     if (!a.category && spokenLine(a.quote)) a.category = "dialogue";
-    const allowed = voiceAllows(g.voice, a.category);
+    const allowed = !!g.leap || voiceAllows(g.voice, a.category);
     if (!auth && !allowed && g.mode === "draft") violations.push(`The reply has the player character do something the player did not write and leaves to themselves${a.category ? ` (${a.category})` : ""}: "${a.quote}". Leave it to the player.`);
     playerActions.push({ quote: a.quote, authorizedBy: auth, category: a.category ?? null });
   }
@@ -22084,6 +22855,16 @@ async function adjudicateInterval(args) {
   const underWay = new Set([...scratch.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean));
   const cands = crossedCandidates(pack2, scratch, args.fromExclusive, args.toInclusive).filter((c) => !args.exclude.has(c.event.id));
   for (const c of cands) {
+    const decided = args.leap?.decided.get(c.event.id);
+    if (decided) {
+      const r = decided(scratch);
+      records.push(r);
+      basis.push({ eventId: c.event.id, precondition: "unknown", mode: "model" });
+      applyRecord(scratch, { ...r, sequence: ++seq, branchId: "stage", commitId: "stage" });
+      if (c.event.classification === "HARD" && r.occurrences?.[0]) stagedHard.set(c.event.id, r.occurrences[0]);
+      notes.push(`${formatTick(r.storyTime.lo)} ${c.event.title}: ${r.disposition} (time leap)`);
+      continue;
+    }
     const when = occurrenceWindow(c, -Infinity, args.toInclusive);
     const windowStillOpen = c.hi > args.toInclusive;
     if (windowStillOpen) continue;
@@ -22099,7 +22880,7 @@ async function adjudicateInterval(args) {
       }
     }
     const p = adjudicateDefault(pack2, scratch, c, when);
-    const play = p.mode === "deterministic" && p.record?.disposition === "occurred" && c.event.classification !== "HARD" && args.port ? recentPlay(pack2, scratch, c) : [];
+    const play = p.mode === "deterministic" && p.record?.disposition === "occurred" && c.event.classification !== "HARD" && args.port && !args.leap ? recentPlay(pack2, scratch, c) : [];
     if (play.length) {
       let judged = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, play);
       if (judged?.record?.disposition === "omitted" && !rulesOut(pack2, scratch, c, judged.cited || [])) {
@@ -22127,7 +22908,7 @@ async function adjudicateInterval(args) {
       continue;
     }
     if (!args.port) throw new EngineError("provider_failure", `Event "${c.event.title}" needs model adjudication but no model is available`);
-    const playU = c.event.classification !== "HARD" ? recentPlay(pack2, scratch, c) : [];
+    const playU = c.event.classification !== "HARD" && !args.leap ? recentPlay(pack2, scratch, c) : [];
     const rec = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, playU);
     let result = rec;
     if (!result && c.event.classification === "HARD" && args.forcedAllowed) {
@@ -23410,7 +24191,7 @@ ${lines.join("\n")}`;
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.18.1";
+var ENGINE_RELEASE = "1.19.0";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -23465,7 +24246,7 @@ function oocNote(ooc) {
 
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
-var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check", profile: "reading the Persona", integrate: "how the world reacts to the player", foreknow: "what the people with you have planned" };
+var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check", profile: "reading the Persona", integrate: "how the world reacts to the player", foreknow: "what the people with you have planned", leap: "planning the time leap" };
 var formatUsd = (v) => `$${v < 0.1 ? v.toFixed(4) : v < 10 ? v.toFixed(3) : v.toFixed(2)}`;
 var replyChars = (text) => String(text || "").replace(/\s+/g, "").length;
 var DEFAULT_SETTINGS = {
@@ -23571,17 +24352,17 @@ var CanonEngine = class {
   packCache = null;
   /** Discovery result per (operation, text): re-reviewing the same draft against staged history reuses it. */
   discCache = /* @__PURE__ */ new Map();
-  gmRules() {
-    return gmRulesFor(playerVoice(this.settings.playerVoice));
+  gmRules(leap2 = false) {
+    return leap2 ? gmRulesFor(LEAP_VOICE, true) : gmRulesFor(playerVoice(this.settings.playerVoice));
   }
   /** The player's message split into what the player character says and does, and its OOC directions. */
   ooc(text) {
     return splitOoc(text || "", this.settings.oocKeyword);
   }
   /** GM context: the rules, the packet, and this turn's OOC directions as a hidden note. */
-  gmContext(packetText, userText) {
+  gmContext(packetText, userText, leap2 = false) {
     const note = oocNote(this.ooc(userText).ooc);
-    return this.gmRules() + "\n\n" + packetText + (note ? "\n\n" + note : "");
+    return this.gmRules(leap2) + "\n\n" + packetText + (note ? "\n\n" + note : "");
   }
   lengthNote() {
     const len = String(this.settings.replyLength || "").trim();
@@ -24102,6 +24883,10 @@ var CanonEngine = class {
     const prof = this.profileFor(entry);
     const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.persona();
     const oocParts = this.ooc(entry.text).ooc;
+    const origin = this.campaign()?.binding.originDate || null;
+    const leap2 = parseLeap(entry.text, origin);
+    const leapWhy = leap2 ? leapProblem(leap2, tick, origin) : null;
+    if (leapWhy) throw new EngineError("invalid_input", leapWhy);
     const groups = prof ? recognitionGroups(index, prof.profile) : [];
     const out = await this.withTimeout(callStructured(this.host.model, "extract_user", groups.length ? `${PROMPTS.extract_user}
 ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
@@ -24175,7 +24960,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       origin: "extraction",
       records,
       intents,
-      ...timeJumpTo ? { timeJumpTo } : {},
+      ...leap2?.target ? { leapTo: leap2.target, timeJumpTo: leap2.target } : timeJumpTo ? { timeJumpTo } : {},
       stateClaims: [],
       playerActions: [],
       dependsOn: [],
@@ -24210,9 +24995,13 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       for (let k = idx - 1; k >= 0; k--) if (entries[k].role === "gm") return entries[k];
       return null;
     })();
+    const uInterp = userEntry ? interpretationsFor(this.campaign().interpretations, baseKey(userEntry)).find((x) => x.role === "user") : null;
+    const leapTo = uInterp?.leapTo && uInterp.leapTo > r.state.clock.lo && entries[idx - 1]?.role === "user" ? uInterp.leapTo : null;
+    const lp = leapTo ? await this.stageLeap(index, userEntry, leapTo, signal, "reconcile") : null;
+    const rIndex = lp ? lp.index : index;
     const review = await this.reviewCandidate({
       text: entry.text,
-      index,
+      index: rIndex,
       userEntry,
       operationId: "reconcile",
       signal,
@@ -24221,14 +25010,16 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       forced: false,
       sceneSeeds: prevGm ? interpretationsFor(this.campaign().interpretations, baseKey(prevGm))[0]?.sceneEntities || [] : [],
       reevalReasons,
-      stagedNotes: []
+      stagedNotes: lp?.notes || [],
+      stagedHard: lp?.stagedHard,
+      leapTo
     });
     const gate = review.gate;
     const sourceChanged = (reevalReasons || []).some((x) => /authorized|content changed|no longer in the selected transcript/.test(x));
-    const unauthorized = sourceChanged ? gate.playerActions.find((a) => !a.authorizedBy && !voiceAllows(playerVoice(this.settings.playerVoice), a.category)) : void 0;
+    const unauthorized = sourceChanged && !leapTo ? gate.playerActions.find((a) => !a.authorizedBy && !voiceAllows(playerVoice(this.settings.playerVoice), a.category)) : void 0;
     if (unauthorized) gate.violations.unshift(`Narrated player action "${unauthorized.quote}" is not authorized by the edited user message, and no separate cause is described.`);
     const conflict = review.evaluation.decision === "conflict" || gate.violations.length > 0;
-    const interp = this.interpretationFromGate(entry.messageId, entry.variantId, entry.contentHash, gate, review, index, userEntry, r.state.clock.lo, "retained_reeval", newId("cmt"));
+    const interp = this.interpretationFromGate(entry.messageId, entry.variantId, entry.contentHash, gate, review, rIndex, userEntry, r.state.clock.lo, "retained_reeval", newId("cmt"));
     interp.basisStateHash = basis;
     if (!reevalReasons) interp.origin = "extraction";
     if (conflict) {
@@ -24237,7 +25028,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
     } else if (interp.sceneEnd && interp.sceneEnd.lo > r.state.clock.lo) {
       const adj = await adjudicateInterval({
         pack: pack2,
-        state: this.overlay(r.state, interp.records),
+        state: this.overlay(rIndex.state, interp.records),
         fromExclusive: r.state.clock.lo,
         toInclusive: interp.sceneEnd.lo,
         exclude: new Set(interp.records.map((x) => x.packEventId).filter(Boolean)),
@@ -24253,6 +25044,10 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       for (const ar of adj.records) ar.triggerCommitId = interp.commitId;
       interp.records.push(...adj.records);
       interp.offscreenBasis = adj.basis;
+      if (lp) {
+        for (const x of lp.records) x.triggerCommitId = interp.commitId;
+        interp.records.unshift(...lp.records);
+      }
       interp.records.push(this.timeAdvance(interp.sceneEnd, interp.commitId));
     }
     return interp;
@@ -24332,6 +25127,67 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       this.rejects.push(`foreknow: not judged this turn (${e.message.slice(0, 160)})`);
     }
   }
+  /** Time leap: the leap plan (what the player's description changes; one model call), then every crossed canon event
+   *  settled in time order — the planned ones as planned, the rest by the ordinary offscreen adjudication. The result
+   *  is staged for the reply (committed with it). A HARD event the description rules out sends the message back. */
+  async stageLeap(index, userEntry, leapTo, signal, operationId) {
+    const pack2 = index.pack;
+    const clock = index.state.clock.lo;
+    const origin = this.campaign()?.binding.originDate || null;
+    const list = leapEvents(pack2, index.state, clock, leapTo);
+    const prof = this.campaign()?.integration ? this.profileFor(userEntry) : null;
+    let plan2 = { decisions: /* @__PURE__ */ new Map(), mention: [], impossible: [], landing: "", life: [], dropped: [] };
+    if (list.length) {
+      const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.persona();
+      const parts = this.ooc(userEntry.text);
+      const eng = engagementView(index.state, pack2);
+      const out = await this.withTimeout(callStructured(this.host.model, "leap", PROMPTS.leap, {
+        from: formatTick(clock, origin),
+        to: formatTick(leapTo, origin),
+        player_message: leapText(parts.story),
+        ...parts.ooc.length ? { player_ooc: parts.ooc } : {},
+        persona,
+        ...prof ? { player: playerContext(index, prof.profile, clock, { historyLimit: 8 }) } : {},
+        recent_situation: this.recentSituation(index),
+        decisions: eng.lines(clock),
+        // the events the message can touch come with their summaries: those of what it names and of the player's links
+        ...leapEventInput(index, list, origin, /* @__PURE__ */ new Set([...index.scanEntities(parts.story).map((m) => m.id), ...prof ? [prof.profile.playerId, ...prof.profile.relationships.map((r) => r.entityId), ...prof.profile.affiliations.map((a) => a.entityId)].filter(Boolean) : []]))
+      }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 8e3 }), this.settings.taskTimeoutMs * 4, signal);
+      plan2 = checkLeapPlan(out, pack2, list);
+      for (const d of plan2.dropped) this.rejects.push(`leap: kept after a fix: dropped ${d}`);
+      if (plan2.impossible.length) {
+        throw new EngineError("invalid_input", `Time leap sent back: what your message has the character do rules out HARD ${plan2.impossible.map((x) => `"${x.title}" (${x.why})`).join("; ")}. HARD events always happen with their required result; rewrite the leap so they still can.`);
+      }
+    }
+    const byId = new Map(list.map((x) => [x.id, x]));
+    const playerId = prof?.profile.playerId ?? null;
+    const decided = new Map([...plan2.decisions].map(([id, d]) => [id, (s) => leapRecord(pack2, s, byId.get(id), d, playerId)]));
+    const adj = await adjudicateInterval({
+      pack: pack2,
+      state: index.state,
+      fromExclusive: clock,
+      toInclusive: leapTo,
+      exclude: /* @__PURE__ */ new Set(),
+      port: this.host.model,
+      plan: this.activePlan(),
+      forcedAllowed: true,
+      signal,
+      operationId,
+      facts: this.recentSituation(index),
+      log: (l) => this.debugLog("task", l),
+      leap: { decided }
+    });
+    const leapIndex = new WorldIndex(pack2, this.overlay(index.state, adj.records));
+    const settled = adj.records.filter((r) => r.packEventId && !plan2.decisions.has(r.packEventId)).length;
+    return {
+      records: adj.records,
+      stagedHard: adj.stagedHard,
+      index: leapIndex,
+      plan: plan2,
+      notes: leapNotes(leapIndex, plan2, list, adj.records, origin),
+      section: leapSection({ index: leapIndex, from: clock, to: leapTo, origin, plan: plan2, list, settled, voice: playerVoice(this.settings.playerVoice) })
+    };
+  }
   /** The recognition groups the reviewer saw at the end of a reply (stored by name for the next turn). */
   sceneGroupsOf(index, userEntry, ids) {
     const prof = this.campaign()?.integration ? this.profileFor(userEntry) : null;
@@ -24378,6 +25234,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
     const { index } = a;
     const pack2 = index.pack;
     const tick = index.state.clock.lo;
+    const cpTick = Math.max(tick, a.expectedEnd ?? tick, a.leapTo ?? tick);
     const prof = this.campaign()?.integration ? this.profileFor(a.userEntry) : null;
     const eng = engagementView(index.state, pack2);
     const decisions = eng.lines(tick);
@@ -24416,13 +25273,13 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       sceneEntityIds: a.sceneSeeds,
       causalSeedEntityIds: [],
       freeText: [a.text],
-      checkpointTick: Math.max(tick, a.expectedEnd ?? tick)
+      checkpointTick: cpTick
     });
     const packet = buildPacket({
       pack: pack2,
       index,
       retrieval,
-      checkpointTick: Math.max(tick, a.expectedEnd ?? tick),
+      checkpointTick: cpTick,
       origin: this.campaign()?.binding.originDate || null,
       sceneLabel: "",
       playerScope: a.userEntry ? [this.ooc(a.userEntry.text).story] : [],
@@ -24439,7 +25296,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
     });
     const due = pendingHard(pack2, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
     const groups = prof ? recognitionGroups(index, prof.profile) : [];
-    const evalPrompt = [PROMPTS.evaluate, pack2.frames.frames.size ? EVAL_FRAMES_NOTE : "", groups.length ? EVAL_GROUPS_NOTE : "", a.chance?.length ? EVAL_CHANCE_NOTE : ""].filter(Boolean).join("\n");
+    const evalPrompt = [PROMPTS.evaluate, pack2.frames.frames.size ? EVAL_FRAMES_NOTE : "", groups.length ? EVAL_GROUPS_NOTE : "", a.chance?.length ? EVAL_CHANCE_NOTE : "", a.leapTo ? EVAL_LEAP_NOTE : ""].filter(Boolean).join("\n");
     const evaluation = await this.withTimeout(callStructured(this.host.model, "evaluate", evalPrompt, {
       mode: a.mode,
       candidate: a.text,
@@ -24461,7 +25318,8 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote, ...jobLapsed(index.state, k, tick) ? { lapsed: true } : {} })),
       canon_events_now: this.canonNow(index, tick, a.jumpTo ?? this.jumpOf(a.userEntry, tick)),
       ...this.framesInput(index, tick, a.text + " " + (a.userEntry?.text || ""), [...retrieval.canonEvents, ...this.canonNow(index, tick).map((c2) => c2.id)]),
-      player_voice: voiceInput(playerVoice(this.settings.playerVoice)),
+      player_voice: a.leapTo ? { gm_may_write: Object.keys(LEAP_VOICE), player_only: [] } : voiceInput(playerVoice(this.settings.playerVoice)),
+      ...a.leapTo ? { time_leap: { from: formatTick(tick), to: formatTick(a.leapTo) } } : {},
       ...this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {},
       ...groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who, level: g.level, knows: g.about })) } : {},
       ...a.chance?.length ? { chance_events_with_companion: a.chance.map((x) => ({ event_id: x.eventId, title: x.title, comes_to: x.who, starts: formatTick(x.lo), what: (pack2.events.get(x.eventId)?.summary || "").slice(0, 400) })) } : {}
@@ -24469,14 +25327,14 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
     const stated = statedTime(`${a.text}
 ${this.ooc(a.userEntry?.text).story}`);
-    if (evaluation.scene_end && !evaluation.flashback && !stated.anchored) {
+    if (evaluation.scene_end && !evaluation.flashback && !stated.anchored && !a.leapTo) {
       const lo = toTick(evaluation.scene_end.lo), cap = tick + stated.minutes + UNTIMED_ADVANCE_MAX;
       if (lo > cap) {
         evaluation.scene_end = { lo: fromTick(cap), hi: fromTick(Math.max(cap, Math.min(toTick(evaluation.scene_end.hi), cap + UNTIMED_ADVANCE_MAX))), precision: "approx" };
         this.debugLog("task", { kind: "scene_end_capped", from: formatTick(lo), to: formatTick(cap) });
       }
     }
-    const floor = a.mode !== "retained" ? this.horaeTick(tick) : null;
+    const floor = a.leapTo ?? (a.mode !== "retained" ? this.horaeTick(tick) : null);
     if (floor !== null && !evaluation.flashback) {
       const lo = evaluation.scene_end ? toTick(evaluation.scene_end.lo) : tick;
       if (lo < floor) {
@@ -24505,7 +25363,8 @@ ${this.ooc(a.userEntry?.text).story}`);
       playerId: prof?.profile.playerId || null,
       offered: a.offered || null,
       chanceCompanions: a.chance || [],
-      chanceBlocking: (a.attempt ?? 0) === 0
+      chanceBlocking: (a.attempt ?? 0) === 0,
+      leap: !!a.leapTo
     });
     const c = this.campaign();
     const manifest = c ? {
@@ -24808,9 +25667,10 @@ ${this.ooc(a.userEntry?.text).story}`);
         this.setStatus("planning", "Planning\u2026");
         const fresh = !!userEntry && (lastIsUser || op === "regenerate" || op === "swipe");
         const jumpTo = fresh && userInterp?.timeJumpTo && userInterp.timeJumpTo > clock ? userInterp.timeJumpTo : null;
+        const leapTo = fresh && userInterp?.leapTo && userInterp.leapTo > clock ? userInterp.leapTo : null;
         const prof = c.integration ? this.profileFor(null) : null;
         let integrationFailed = false;
-        const integP = prof ? this.integrate(index, prof.profile, fresh ? userEntry : null, jumpTo, abort.signal, operationId).catch((e) => {
+        const integP = prof && !leapTo ? this.integrate(index, prof.profile, fresh ? userEntry : null, jumpTo, abort.signal, operationId).catch((e) => {
           if (e instanceof EngineError && e.kind === "cancelled") throw e;
           integrationFailed = true;
           this.rejects.push(`integrate: no world reaction this turn (${e.message.slice(0, 160)})`);
@@ -24820,9 +25680,14 @@ ${this.ooc(a.userEntry?.text).story}`);
         let plan2 = planInfo.plan;
         const integ = await integP;
         this.checkFences(fences, excludeLast);
+        if (leapTo) this.setStatus("planning", "Planning the time leap\u2026");
+        const lp = leapTo ? await this.stageLeap(index, userEntry, leapTo, abort.signal, operationId) : null;
+        if (lp) this.checkFences(fences, excludeLast);
+        const rIndex = lp ? lp.index : index;
+        const cp = leapTo ?? ctxClock;
         const eng = engagementView(index.state, pack2);
         const busy = [...index.state.occurrences.values()].some((o) => o.inProgressOf && !index.state.dispositions.has(o.inProgressOf));
-        const offered = prof ? selectOpportunity(integ, index, jumpTo ?? clock, busy, new Set(c.preferredScopes || [])) : null;
+        const offered = prof && !leapTo ? selectOpportunity(integ, index, jumpTo ?? clock, busy, new Set(c.preferredScopes || [])) : null;
         const prevGm = (() => {
           for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === "gm") return entries[k];
           return null;
@@ -24832,43 +25697,44 @@ ${this.ooc(a.userEntry?.text).story}`);
         const horaeSceneIds = horaeScene ? uniq([horaeScene.location || "", ...horaeScene.characters || []].flatMap((n) => n ? index.resolveEntity(n).ids : [])) : [];
         const userRefs = userInterp?.refs || [];
         const sceneSeeds = uniq([...prevGmInterp?.sceneEntities || [], ...horaeSceneIds, ...userInterp?.sceneEntities || []]);
-        const retrieval = retrieve(index, {
+        const retrieval = retrieve(rIndex, {
           refs: lastIsUser || op !== "normal" ? userRefs : [],
           claims: [],
           sceneEntityIds: uniq([...prevGmInterp?.sceneEntities || [], ...horaeSceneIds]),
           causalSeedEntityIds: userInterp?.sceneEntities || [],
           freeText: [userEntry?.text || "", prevGm ? prevGm.text.slice(-600) : ""],
-          checkpointTick: ctxClock
+          checkpointTick: cp
         });
         const legacy = !prof || integrationFailed;
-        const companions = companionEvents(index, uniq([...sceneSeeds, ...horaeSceneIds]), prof?.profile.playerId ?? null, ctxClock);
+        const companions = leapTo ? [] : companionEvents(index, uniq([...sceneSeeds, ...horaeSceneIds]), prof?.profile.playerId ?? null, ctxClock);
         await this.judgeForeknowledge(companions, abort.signal, operationId);
         const chance = companions.filter((x) => !x.declined && c.foreknowledge?.[foreknowKey(x)]?.knows === false).map((x) => ({ eventId: x.event.id, personId: x.personId, lo: x.lo, title: x.event.title, who: index.entityName(x.personId) }));
         const opps = legacy ? this.opportunities(index, clock).filter((o) => !eng.blockedBy({ eventId: o.id }, clock)) : [];
         const sceneLabel = [horaeScene?.location ? `Location (Horae, supporting): ${horaeScene.location}.` : "", horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(", ")}.` : "", horaeNote].filter(Boolean).join(" ");
         const packetArgs = {
           pack: pack2,
-          index,
+          index: rIndex,
           retrieval,
-          checkpointTick: ctxClock,
+          checkpointTick: cp,
           origin: c.binding.originDate,
           sceneLabel,
           playerScope: fresh ? [this.ooc(userEntry.text).story, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
-          plan: plan2,
+          plan: leapTo ? null : plan2,
           forced: planInfo.forced,
           stagedNotes: [],
           opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`),
           focus: legacy ? this.focusLines(index, clock) : [],
           budgetChars: this.settings.budgetChars,
           horizon: this.settings.horizonMinutes,
-          timeJumpTo: jumpTo,
-          presence: prof ? presenceSection(index, prof.profile, ctxClock) : void 0,
+          timeJumpTo: leapTo ? null : jumpTo,
+          leap: lp?.section,
+          presence: prof ? presenceSection(rIndex, prof.profile, cp) : void 0,
           // where the scene goes: the player's message when it moves the scene, else where the last reply ended
           // (a message that moves the scene leaves the last scene's people and places behind)
           recognition: prof ? recognitionSection(presentGroups(
-            index,
+            rIndex,
             prof.profile,
-            ctxClock,
+            cp,
             Array.isArray(userInterp?.sceneGroups) ? userInterp.sceneEntities : uniq([...sceneSeeds, ...horaeSceneIds]),
             (userInterp?.sceneGroups ?? prevGmInterp?.sceneGroups) || []
           )) || void 0 : void 0,
@@ -24877,7 +25743,7 @@ ${this.ooc(a.userEntry?.text).story}`);
           reaction: offered ? worldReactionSection(index, offered, c.binding.originDate) : void 0
         };
         let packet = buildPacket(packetArgs);
-        const engineContext = this.gmContext(packet.text, userEntry?.text);
+        const engineContext = this.gmContext(packet.text, userEntry?.text, !!leapTo);
         const loreNames = uniq([...(offered?.actors || []).map((a) => index.entityName(a)), ...this.loreNames(index, retrieval, plan2)]).slice(0, 16);
         this.setStatus("generating", "Generating (private draft)\u2026");
         trace.prompts.push({ kind: "engine_context", text: engineContext });
@@ -24902,7 +25768,7 @@ ${this.ooc(a.userEntry?.text).story}`);
         let lastResort = false;
         for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
           this.setStatus("validating", attempt > this.settings.maxRepairs ? "Re-checking final HARD repair\u2026" : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})\u2026` : "Validating\u2026");
-          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt, offered, jumpTo, chance });
+          let review = await this.reviewCandidate({ text: candidate, index: rIndex, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: lp?.notes || [], stagedHard: lp?.stagedHard, fences, attempt, offered, jumpTo, chance, leapTo });
           this.checkFences(fences, excludeLast);
           let adj = null;
           let adjTo = clock;
@@ -24911,7 +25777,7 @@ ${this.ooc(a.userEntry?.text).story}`);
             if (!end || review.gate.flashback || end.lo <= adjTo) break;
             const more = await adjudicateInterval({
               pack: pack2,
-              state: this.overlay(index.state, [...review.gate.records, ...adj?.records || []]),
+              state: this.overlay(rIndex.state, [...review.gate.records, ...adj?.records || []]),
               fromExclusive: clock,
               toInclusive: end.lo,
               exclude: new Set(review.gate.records.map((r) => r.packEventId).filter(Boolean)),
@@ -24928,8 +25794,9 @@ ${this.ooc(a.userEntry?.text).story}`);
             const prev = adj;
             adj = prev ? { ...prev, records: [...prev.records, ...more.records], basis: [...prev.basis, ...more.basis], notes: [...prev.notes, ...more.notes], stagedHard: new Map([...prev.stagedHard, ...more.stagedHard]), forcedUsed: prev.forcedUsed || more.forcedUsed } : more;
             if (!more.records.length) break;
-            const stagedIndex = new WorldIndex(pack2, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
-            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt, offered, jumpTo, chance });
+            const stagedIndex = new WorldIndex(pack2, this.overlay(rIndex.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
+            const stagedHard = new Map([...lp?.stagedHard || [], ...adj.stagedHard]);
+            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== "continue" ? userEntry : null, operationId, signal: abort.signal, mode: "draft", plan: plan2, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [...lp?.notes || [], ...adj.notes], stagedHard, fences, attempt, offered, jumpTo, chance, leapTo });
             review.gate = runGate({
               pack: pack2,
               index: stagedIndex,
@@ -24941,7 +25808,7 @@ ${this.ooc(a.userEntry?.text).story}`);
               claims: review.claims,
               plan: plan2,
               clockTick: clock,
-              stagedHard: adj.stagedHard,
+              stagedHard,
               mode: "draft",
               forced: planInfo.forced,
               voice: playerVoice(this.settings.playerVoice),
@@ -24950,7 +25817,8 @@ ${this.ooc(a.userEntry?.text).story}`);
               playerId: prof?.profile.playerId || null,
               offered,
               chanceCompanions: chance,
-              chanceBlocking: attempt === 0
+              chanceBlocking: attempt === 0,
+              leap: !!leapTo
             });
             this.checkFences(fences, excludeLast);
           }
@@ -24983,13 +25851,13 @@ ${this.ooc(a.userEntry?.text).story}`);
             packet = buildPacket(packetArgs);
             this.rejects.push(`repair: kept after a fix: the records the rejected draft added did not fit the context budget; repaired with the draft's context`);
           }
-          const repairCtx = this.gmContext(packet.text, userEntry?.text);
+          const repairCtx = this.gmContext(packet.text, userEntry?.text, !!leapTo);
           trace.prompts.push({ kind: hardStuck ? "repair_hard_last_resort" : `repair_${attempt + 1}`, text: repairCtx });
           const replyEnd = Math.max(review.gate.sceneEnd?.hi ?? clock, clock);
-          const hardReqs = hardStuck ? pendingHard(pack2, index.state).filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title))).map((h) => `${h.event.title} (${formatTick(h.lo)}${h.hi !== h.lo ? `\u2013${formatTick(h.hi)}` : ""}): ${h.event.required_description}`) : [];
+          const hardReqs = hardStuck ? pendingHard(pack2, rIndex.state).filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title))).map((h) => `${h.event.title} (${formatTick(h.lo)}${h.hi !== h.lo ? `\u2013${formatTick(h.hi)}` : ""}): ${h.event.required_description}`) : [];
           let route = [];
           if (hardStuck) {
-            const anchors = pendingHard(pack2, index.state).filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title))).map((h) => h.event.id);
+            const anchors = pendingHard(pack2, rIndex.state).filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title))).map((h) => h.event.id);
             const c2 = this.campaign();
             c2._affectedAnchors = uniq([...c2._affectedAnchors || [], ...anchors]);
             this.setStatus("planning", "Planning a route for the HARD event\u2026");
@@ -25025,10 +25893,14 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         const contentHash = this.host.hashAssistant(candidate);
         const interp = this.interpretationFromGate(messageId, variantId, contentHash, accepted.review.gate, accepted.review, index, userEntry, clock, "engine_commit", commitId);
         if (accepted.adj) {
-          mergeClosingBeats(interp.records, accepted.adj.records, index.state);
+          mergeClosingBeats(interp.records, accepted.adj.records, rIndex.state);
           for (const r of accepted.adj.records) r.triggerCommitId = commitId;
           interp.records.push(...accepted.adj.records);
           interp.offscreenBasis = accepted.adj.basis;
+        }
+        if (lp) {
+          for (const r of lp.records) r.triggerCommitId = commitId;
+          interp.records.unshift(...lp.records);
         }
         if (interp.sceneEnd && !interp.flashback && interp.sceneEnd.lo > clock) interp.records.push(this.timeAdvance(interp.sceneEnd, commitId));
         interp.basisStateHash = stateHash(index.state);
@@ -26240,7 +27112,8 @@ function labelForError(kind) {
     capacity: "Context capacity",
     cancelled: "Cancelled",
     configuration_conflict: "Configuration conflict",
-    busy: "Busy"
+    busy: "Busy",
+    invalid_input: "Message sent back"
   };
   return m[kind] || kind;
 }
@@ -27450,6 +28323,24 @@ var D = {
   step_extract_user: { zh: "\u8BFB\u53D6\u73A9\u5BB6\u8F93\u5165", en: "read input" },
   step_profile: { zh: "\u8BFB\u53D6 Persona", en: "read Persona" },
   step_integrate: { zh: "\u4E16\u754C\u53CD\u5E94", en: "world reaction" },
+  step_leap: { zh: "\u89C4\u5212\u65F6\u95F4\u8DF3\u8DC3", en: "plan time leap" },
+  leap: { zh: "\u65F6\u95F4\u8DF3\u8DC3", en: "Time leap" },
+  leapTip: { zh: "\u4E00\u6B21\u5FEB\u8FDB\u5230\u6307\u5B9A\u65F6\u95F4\uFF1A\u671F\u95F4\u4F60\u7684\u89D2\u8272\u7531 GM \u6309\u4EBA\u8BBE\u4EE3\u4F60\u8FC7\u65E5\u5B50\uFF0C\u539F\u4F5C\u4E8B\u4EF6\u7167\u5E38\u53D1\u751F\uFF0C\u9664\u975E\u4F60\u7684\u63CF\u8FF0\u6539\u53D8\u4E86\u5B83\u4EEC\u3002", en: "Leap to a given time in one reply: the GM lives your character's life in between as the Persona would, and canon events happen as in the original unless your description changes them." },
+  leapTitle: { zh: "\u65F6\u95F4\u8DF3\u8DC3", en: "Time leap" },
+  leapNow: { zh: "\u73B0\u5728", en: "Now" },
+  leapTo: { zh: "\u8DF3\u5230", en: "Leap to" },
+  leapToPh: { zh: "D1500 08:00 \u6216 2004-10-10 08:00\uFF08\u53EA\u5199\u65E5\u671F\u5219\u4E3A\u5F53\u5929 08:00\uFF09", en: "D1500 08:00 or 2004-10-10 08:00 (a date alone lands at 08:00)" },
+  leapDesc: { zh: "\u8FD9\u6BB5\u65F6\u95F4\u91CC\u4F60\u7684\u89D2\u8272\u505A\u4EC0\u4E48", en: "What your character does in this time" },
+  leapDescPh: { zh: "\u548C\u666E\u901A\u56DE\u590D\u4E00\u6837\u5199\u7ED9 GM\uFF0C\u4F8B\u5982\uFF1A\u671F\u95F4\u6211\u53BB\u4E0A\u5927\u5B66\uFF0C\u4EA4\u4E86\u4E2A\u670B\u53CB\u2026\u2026", en: "Write it like an ordinary reply to the GM, e.g. I go to university and make a friend\u2026" },
+  leapInsert: { zh: "\u586B\u5165\u56DE\u590D\u6846", en: "Put in the reply box" },
+  leapHint: { zh: "\u4F1A\u5728\u56DE\u590D\u6846\u91CC\u5199\u5165 {{time_leap:\u65F6\u95F4}} \u548C\u4F60\u7684\u63CF\u8FF0\uFF0C\u68C0\u67E5\u540E\u7167\u5E38\u53D1\u9001\u3002\u624B\u52A8\u8F93\u5165\u8FD9\u6BB5\u6307\u4EE4\u4E5F\u4E00\u6837\u6709\u6548\u3002\u8DF3\u8DC3\u671F\u95F4 GM \u53EF\u4EE5\u66FF\u4F60\u7684\u89D2\u8272\u8BF4\u8BDD\u3001\u505A\u51B3\u5B9A\uFF1B\u843D\u5730\u540E\u7684\u573A\u666F\u6062\u590D\u4F60\u5E73\u65F6\u7684\u8BBE\u7F6E\u3002HARD \u4E8B\u4EF6\u4E00\u5B9A\u4F1A\u53D1\u751F\uFF0C\u63CF\u8FF0\u4E0E\u4E4B\u51B2\u7A81\u65F6\u8FD9\u6761\u6D88\u606F\u4F1A\u88AB\u6253\u56DE\u3002", en: "Writes {{time_leap:time}} and your description into the reply box; check it and send as usual. Typing the directive yourself works the same. During the leap the GM may speak and decide for your character; the landing scene follows your usual settings. HARD events always happen: a description that rules one out is sent back." },
+  leapBad: { zh: "\u8BFB\u4E0D\u51FA\u8FD9\u4E2A\u65F6\u95F4\u3002\u683C\u5F0F\u540C\u5F00\u59CB\u65F6\u95F4\uFF1AD1500 08:00 \u6216 2004-10-10 08:00", en: "Cannot read this time. Same format as the start time: D1500 08:00 or 2004-10-10 08:00" },
+  leapBack: { zh: "\u53EA\u80FD\u5F80\u540E\u8DF3\uFF08\u73B0\u5728\u662F {now}\uFF09", en: "A leap only goes forward (now: {now})" },
+  years: { zh: "\u5E74", en: "years" },
+  months: { zh: "\u4E2A\u6708", en: "months" },
+  days: { zh: "\u5929", en: "days" },
+  hours: { zh: "\u5C0F\u65F6", en: "hours" },
+  leapSpan: { zh: "\u8DE8\u8D8A {span}", en: "spans {span}" },
   step_plan: { zh: "\u89C4\u5212", en: "plan" },
   step_draft: { zh: "\u751F\u6210\u56DE\u590D", en: "story reply" },
   step_repair: { zh: "\u4FEE\u6539\u56DE\u590D", en: "revise reply" },
@@ -28665,6 +29556,51 @@ function mountStatus() {
     if (act === "details") showFailureReport(E.settings.debug && E.lastReport ? E.lastReport : E.campaign()?.recoveryState.details);
     if (act === "goto") gotoConflict();
     if (act === "branch") void branchFromConflict();
+    if (act === "leap") openLeapDialog();
+  });
+}
+function openLeapDialog() {
+  const camp = E.campaign();
+  const st = E.current?.replay.state;
+  if (!camp || !st) return;
+  const origin = camp.binding.originDate || null;
+  const now = E.storyNow() ?? st.clock.lo;
+  const label = (tick) => formatTick(tick, origin).replace(/ \(D-?\d+\)$/, "");
+  const el = modal(`<h3>${t("leapTitle")}</h3>
+    <div>${t("leapNow")}: <b>${esc2(label(now))}</b></div>
+    <label>${t("leapTo")} <input class="text_pole canon-leap-to" value="${esc2(label(now))}" placeholder="${esc2(t("leapToPh"))}"></label>
+    <div class="canon-leap-check canon-hint"></div>
+    <label>${t("leapDesc")} <textarea class="text_pole canon-leap-desc" rows="5" placeholder="${esc2(t("leapDescPh"))}"></textarea></label>
+    <div class="canon-hint">${esc2(t("leapHint"))}</div>
+    <div class="canon-row"><button class="menu_button canon-leap-ok" disabled>${t("leapInsert")}</button><button class="menu_button" data-close>${t("close")}</button></div>`);
+  const to = el.querySelector(".canon-leap-to");
+  const check2 = el.querySelector(".canon-leap-check");
+  const ok = el.querySelector(".canon-leap-ok");
+  const span = (m) => {
+    const d = Math.round(m / 1440);
+    return d >= 730 ? `\u2248${Math.round(d / 365)} ${t("years")}` : d >= 60 ? `\u2248${Math.round(d / 30)} ${t("months")}` : d >= 1 ? `${d} ${t("days")}` : `${Math.round(m / 60)} ${t("hours")}`;
+  };
+  const update = () => {
+    const tick = parseLeapTime(to.value, origin);
+    const bad = tick === null ? t("leapBad") : tick <= now ? t("leapBack").replace("{now}", label(now)) : "";
+    check2.textContent = bad || `\u2192 ${formatTick(tick, origin)} \xB7 ${t("leapSpan").replace("{span}", span(tick - now))}`;
+    check2.classList.toggle("err", !!bad);
+    ok.disabled = !!bad;
+  };
+  to.addEventListener("input", update);
+  update();
+  ok.addEventListener("click", () => {
+    const desc = el.querySelector(".canon-leap-desc").value.trim();
+    const box = document.getElementById("send_textarea");
+    const text = `{{time_leap:${to.value.trim()}}}${desc ? "\n" + desc : ""}`;
+    if (box) {
+      const old = box.value.replace(/\{\{\s*time_leap\s*[:：][^}]*\}\}\s*/i, "").trim();
+      box.value = old ? `${text}
+${old}` : text;
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+      box.focus();
+    }
+    el.remove();
   });
 }
 function costPart(tk) {
@@ -28716,6 +29652,7 @@ function renderStatus() {
       ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t("cancel")}</button>` : ""}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t("retry")}</button>` : ""}
       ${!busy && (err && camp.recoveryState.details || E.settings.debug && E.lastReport) ? `<button class="menu_button canon-btn" data-act="details">${t("details")}</button>` : ""}
+      ${!busy && !conflict && camp.enabled && lockOk ? `<button class="menu_button canon-btn" data-act="leap" title="${esc2(t("leapTip"))}">${t("leap")}</button>` : ""}
       ${conflict ? `<button class="menu_button canon-btn" data-act="goto">${t("editIt")}</button><button class="menu_button canon-btn" data-act="branch">${t("branchRegen")}</button>` : ""}
       <button class="menu_button canon-btn" data-act="inspect">${t("inspect")}</button>
     </span>`;

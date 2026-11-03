@@ -118,6 +118,16 @@ SHAPE: {"groups":[{"member_ids":[],"title":"","summary":""}]}`,
   foreknow: `${COMMON}
 TASK: Each pair is a person and a canonical event of the original story they take part in, which is about to start. Judge from the event's original summary (its cause and motives) whether that person KNOWS IN ADVANCE, before it starts, that they will be there or do this: an appointment or meeting they arranged, a plan of their own, a duty, shift or task they were given, an errand they set out on — knows=true; or not: a chance encounter, an accident, an attack, summons or news that comes without warning, something that happens to them — knows=false. What they only decide, propose or notice once the event is under way does not count: knows=true only when, before it starts, they already expect to be there or to meet these people (live: "she proposes it during the event" was read as knowing in advance). how: two to six words in the event's language (e.g. "约好的会面", "偶遇").
 SHAPE: {"judgements":[{"id":"k1","knows":true,"how":""}]}`,
+
+  leap: `${COMMON}
+TASK: The player leaps story time from "from" to "to" in one reply; player_message says what their character does in that time (it is the player's own will: what it asks for happens, nothing goes against it). Everything else in the world happens as in the original story. Decide only what the player's message changes, so that the GM can write the leap:
+- The leap crosses the canon events in crossed_events (with their summaries) and other_events (one line each: "id | time | title"); all of them happen as in the original story unless you list them here.
+- events: the canon events (from crossed_events or other_events, by id) that the player's message changes or that the player character takes part in, with decision occurred (happens, with the player character in it), diverged (happens with a different result) or omitted (does not happen), player_part (what the player character does in it, "" if nothing) and account (what actually happens, in the events' language). List only events the message touches directly or by plain consequence — what the player says they do, where they are, whom they are with. Never list an event just because the player could have been there; untouched events are not listed (they happen as in the original story).
+- HARD events always happen with their required result ("required"); the player may take part in them, and their route may bend around what the player does. When the player's message seems to prevent one, look for a way both can be true (the player's attempt fails or comes too late, it happens elsewhere or otherwise, someone else does it) and list it as occurred. Only when no reasonable way exists — the message plainly and directly makes it impossible — put it in impossible with why (the player's message is then sent back for them to rewrite).
+- mention: up to 12 ids of other events of the leap worth a line in the time skip — the ones the player character would know of or care about (big public events, people close to them); [] when none.
+- life: the player character's own life in the leap as the player's message describes it, a few short points in time order, with their rough times (a school, a job, friends, what changes in their life); fill in only what the message implies, kept plausible for the setting and the Persona.
+- landing: where the player character is and what they are doing at the "to" time, one or two sentences, from the message (or the natural continuation of their life when it says nothing).
+SHAPE: {"events":[{"event_id":"","decision":"occurred","player_part":"","account":""}],"mention":[],"impossible":[{"event_id":"","why":""}],"life":[],"landing":""}`,
 } as const;
 
 // Every SHAPE lists the allowed values of its enum fields ("a|b|c"), generated from the runtime
@@ -132,6 +142,7 @@ import digestSchema from '../../schemas/runtime/digest.schema.json';
 import profileSchema from '../../schemas/runtime/profile.schema.json';
 import integrateSchema from '../../schemas/runtime/integrate.schema.json';
 import foreknowSchema from '../../schemas/runtime/foreknow.schema.json';
+import leapSchema from '../../schemas/runtime/leap.schema.json';
 
 function enumsOf(schema: unknown): Map<string, string[]> {
   const found = new Map<string, string[]>();
@@ -162,7 +173,7 @@ export function annotateShape(prompt: string, schema: unknown): string {
 }
 
 const SCHEMAS: Record<keyof typeof RAW_PROMPTS, unknown> = {
-  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema,
+  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema,
 };
 /** Added to the reviewer's instructions only for a pack with time frames (other packs keep the prompt as it was). */
 export const EVAL_FRAMES_NOTE = `7. TIME FRAMES (this pack has them; see time_frames): also return "scene_frame" in the reply object: the id of the frame the scene is in at the END of the reply — where the player character is — when the reply shows them arriving in another frame or coming back (time travel, crossing into another world, entering or waking from a dream); "main" for the main frame; null when they stay in scene_frame_now. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame's conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).`;
@@ -201,12 +212,15 @@ export const replyLengthNote = (len: string) => /[㐀-鿿]/.test(len)
 export const CONTINUE_INSTRUCTION = `[Canon Engine private instruction — not part of the story] Continue the last GM message exactly from where it stops. Output only the continuation text (do not repeat the existing part).`;
 
 /** The GM instruction with the player's choice of what the GM may write for their character. */
-export function gmRulesFor(v: import('./voice').PlayerVoice): string {
-  return GM_INTEGRATION_RULES.replace('{{PLAYER_VOICE}}', voiceRule(v));
+export function gmRulesFor(v: import('./voice').PlayerVoice, leap = false): string {
+  return GM_INTEGRATION_RULES.replace('{{PLAYER_VOICE}}', voiceRule(v, leap));
 }
 
 /** evaluate, when someone with the player has a canon event coming without warning (chance_events_with_companion). */
 export const EVAL_CHANCE_NOTE = `9. CHANCE EVENTS (chance_events_with_companion: canon events that come without warning to someone who is with the player). When the reply shows one of them — even with its people unnamed or described only by looks, a little before its listed time, or in another place — record it as an occurrence with that pack_event_id (disposition occurred, diverged or ongoing as shown). Live: a foreign girl asking 佐天 how to use her new phone was 索绮特's encounter, recorded as an unrelated beat.`;
+
+/** evaluate, for a time leap reply (time_leap). */
+export const EVAL_LEAP_NOTE = `10. TIME LEAP (time_leap): this reply is a time skip the player asked for, from the current time to time_leap.to; the GM writes the player character's life in it (their words, decisions and actions are allowed, gm_may_write lists every kind) but never against player_action_scope. The canon events of the leap are already settled (staged_offscreen): do not record them again (no occurrence with their pack_event_id) and report a violation only when the reply contradicts one. Record the player character's own life in the leap as a few occurrences at their times (origin "player"), and the landing scene as usual; scene_end is where the reply lands, at or after time_leap.to. Summarized years are not unsupported claims: what the reply tells of the leap is new history.`;
 
 /** extract_user, when the player is known to some groups (recognition_groups). */
 export const EXTRACT_GROUPS_NOTE = `Also return "scene_groups": when the message moves the scene (the player goes somewhere, a new scene starts, time skips to another situation), the ids from recognition_groups whose people are present or very likely present where the scene will be — named or as background (the students of a school at a school-wide event, colleagues at the workplace, a crowd at a big public event they would attend); [] when none; null when the message does not move the scene.`;

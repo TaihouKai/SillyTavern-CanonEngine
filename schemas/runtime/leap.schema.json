@@ -1,0 +1,94 @@
+{
+ "type": "object",
+ "properties": {
+  "events": {
+   "type": "array",
+   "maxItems": 60,
+   "items": {
+    "type": "object",
+    "properties": {
+     "event_id": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "decision": {
+      "type": "string",
+      "enum": [
+       "occurred",
+       "diverged",
+       "omitted"
+      ]
+     },
+     "player_part": {
+      "type": "string",
+      "maxLength": 800
+     },
+     "account": {
+      "type": "string",
+      "maxLength": 2000
+     }
+    },
+    "required": [
+     "event_id",
+     "decision",
+     "player_part",
+     "account"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "mention": {
+   "type": "array",
+   "maxItems": 30,
+   "items": {
+    "type": "string",
+    "maxLength": 120
+   }
+  },
+  "impossible": {
+   "type": "array",
+   "maxItems": 20,
+   "items": {
+    "type": "object",
+    "properties": {
+     "event_id": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "why": {
+      "type": "string",
+      "maxLength": 600
+     }
+    },
+    "required": [
+     "event_id",
+     "why"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "life": {
+   "type": "array",
+   "maxItems": 30,
+   "items": {
+    "type": "string",
+    "maxLength": 400
+   }
+  },
+  "landing": {
+   "type": "string",
+   "maxLength": 800
+  }
+ },
+ "required": [
+  "events",
+  "mention",
+  "impossible",
+  "life",
+  "landing"
+ ],
+ "additionalProperties": false,
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:canon-engine:task:leap",
+ "title": "Canon Engine task output: leap"
+}

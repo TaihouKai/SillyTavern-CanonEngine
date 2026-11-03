@@ -12,13 +12,14 @@ import digestSchema from '../../schemas/runtime/digest.schema.json';
 import profileSchema from '../../schemas/runtime/profile.schema.json';
 import integrateSchema from '../../schemas/runtime/integrate.schema.json';
 import foreknowSchema from '../../schemas/runtime/foreknow.schema.json';
+import leapSchema from '../../schemas/runtime/leap.schema.json';
 
 const TASK_SCHEMAS: Record<string, Record<string, any>> = {
-  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema,
+  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema,
 };
 import { EngineError } from '../domain/util';
 
-export type TaskName = 'extract_user' | 'discover' | 'evaluate' | 'adjudicate' | 'impact' | 'plan' | 'digest' | 'profile' | 'integrate' | 'foreknow';
+export type TaskName = 'extract_user' | 'discover' | 'evaluate' | 'adjudicate' | 'impact' | 'plan' | 'digest' | 'profile' | 'integrate' | 'foreknow' | 'leap';
 
 export interface ChatMsg { role: 'system' | 'user' | 'assistant'; content: string }
 
@@ -80,6 +81,7 @@ const validators: Record<TaskName, ((d: unknown) => boolean) & { errors?: { inst
   profile: V.profile,
   integrate: V.integrate,
   foreknow: V.foreknow,
+  leap: V.leap,
 };
 
 /** Extract the first balanced JSON object from model text (handles code fences / prose around it). */

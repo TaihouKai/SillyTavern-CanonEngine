@@ -36,6 +36,9 @@ function cloneState(pack: LoadedPack, s: WorldState): WorldState {
 export async function adjudicateInterval(args: {
   pack: LoadedPack; state: WorldState; fromExclusive: number; toInclusive: number; exclude: Set<Id>;
   port: ModelPort | null; plan: PlanRevision | null; forcedAllowed: boolean; signal?: AbortSignal; operationId: string; facts: string; log?: (l: unknown) => void;
+  /** Time leap: events the leap plan decided (their record, built on the state so far), settled in time order with
+   *  the rest; the other events are not re-judged from recent play (the plan already weighed the player's part). */
+  leap?: { decided: Map<Id, (s: WorldState) => RecordDraft> };
 }): Promise<AdjudicationResult> {
   const { pack } = args;
   const scratch = cloneState(pack, args.state);
@@ -55,6 +58,16 @@ export async function adjudicateInterval(args: {
   // (it may still happen later inside its bounds, offscreen or in the story): a whole-day event is
   // not settled as done the moment the day begins.
   for (const c of cands) {
+    const decided = args.leap?.decided.get(c.event.id);
+    if (decided) {
+      const r = decided(scratch);
+      records.push(r);
+      basis.push({ eventId: c.event.id, precondition: 'unknown', mode: 'model' });
+      applyRecord(scratch, { ...r, sequence: ++seq, branchId: 'stage', commitId: 'stage' });
+      if (c.event.classification === 'HARD' && r.occurrences?.[0]) stagedHard.set(c.event.id, r.occurrences[0]);
+      notes.push(`${formatTick(r.storyTime.lo)} ${c.event.title}: ${r.disposition} (time leap)`);
+      continue;
+    }
     // the whole window: it went by without the event being settled, so it may have happened at any point in it
     const when = occurrenceWindow(c, -Infinity, args.toInclusive);
     const windowStillOpen = c.hi > args.toInclusive;
@@ -76,7 +89,7 @@ export async function adjudicateInterval(args: {
     // The original route assumes the original situation. When actual play has recently involved this
     // event's characters, what they know or do may no longer fit it: let the model judge from actual play
     // (falling back to the original route if it cannot).
-    const play = p.mode === 'deterministic' && p.record?.disposition === 'occurred' && c.event.classification !== 'HARD' && args.port ? recentPlay(pack, scratch, c) : [];
+    const play = p.mode === 'deterministic' && p.record?.disposition === 'occurred' && c.event.classification !== 'HARD' && args.port && !args.leap ? recentPlay(pack, scratch, c) : [];
     if (play.length) {
       let judged = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, play);
       // live: 索绮特接受首个任务 was dropped because 佐天 "was at the track with 御坂" — she had been with them the
@@ -106,7 +119,7 @@ export async function adjudicateInterval(args: {
     }
     if (!args.port) throw new EngineError('provider_failure', `Event "${c.event.title}" needs model adjudication but no model is available`);
     // what actual play did with this event's characters matters as much when its preconditions are unknown
-    const playU = c.event.classification !== 'HARD' ? recentPlay(pack, scratch, c) : [];
+    const playU = c.event.classification !== 'HARD' && !args.leap ? recentPlay(pack, scratch, c) : [];
     const rec = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, playU);
     let result = rec;
     if (!result && c.event.classification === 'HARD' && args.forcedAllowed) {

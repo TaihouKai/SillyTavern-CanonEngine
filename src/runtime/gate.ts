@@ -98,6 +98,9 @@ export interface GateInput {
    *  shown without being recognised as the event (live: an unnamed girl's phone question), so a repair that still
    *  does not show it is kept with a note; the turn never fails over it. */
   chanceBlocking?: boolean;
+  /** A time leap reply: the GM writes the player character's life in it (any kind of act; contradicting the player's
+   *  message is still the reviewer's violation). */
+  leap?: boolean;
 }
 
 export interface GateResult {
@@ -410,7 +413,7 @@ export function runGate(g: GateInput): GateResult {
     // live: the reviewer left category out (its answer format lacked it) and the player character's own lines were
     // sent back as unlabelled acts; a quote that is plainly a spoken line is dialogue
     if (!a.category && spokenLine(a.quote)) a.category = 'dialogue';
-    const allowed = voiceAllows(g.voice, a.category);
+    const allowed = !!g.leap || voiceAllows(g.voice, a.category);
     if (!auth && !allowed && g.mode === 'draft') violations.push(`The reply has the player character do something the player did not write and leaves to themselves${a.category ? ` (${a.category})` : ''}: "${a.quote}". Leave it to the player.`);
     playerActions.push({ quote: a.quote, authorizedBy: auth, category: a.category ?? null });
   }

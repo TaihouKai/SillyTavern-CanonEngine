@@ -13,7 +13,8 @@ import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
 import type { HostPort } from './host';
 import { callStructured, taskDefaults } from './model';
-import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, EVAL_GROUPS_NOTE, EVAL_CHANCE_NOTE, EXTRACT_GROUPS_NOTE, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
+import { checkLeapPlan, leapEventInput, leapEvents, leapNotes, leapProblem, leapRecord, leapSection, leapText, parseLeap, LEAP_VOICE, type CheckedLeapPlan, type LeapPlanOut } from './leap';
+import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, EVAL_GROUPS_NOTE, EVAL_CHANCE_NOTE, EVAL_LEAP_NOTE, EXTRACT_GROUPS_NOTE, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, sceneFrameOf, type ClaimInput, type RefInput, type Retrieval } from './context';
 import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
@@ -74,7 +75,7 @@ export interface EngineSettings {
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
 const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + String(text || '').length * 4));
 
-const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned' };
+const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap' };
 
 /** Length and provider stats of the published reply, shown after the turn timings. */
 export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
@@ -229,13 +230,13 @@ export class CanonEngine {
   private packCache: { hash: string; loaded: LoadedPack } | null = null;
   /** Discovery result per (operation, text): re-reviewing the same draft against staged history reuses it. */
   private discCache = new Map<string, DiscoverOut>();
-  private gmRules(): string { return gmRulesFor(playerVoice(this.settings.playerVoice)); }
+  private gmRules(leap = false): string { return leap ? gmRulesFor(LEAP_VOICE, true) : gmRulesFor(playerVoice(this.settings.playerVoice)); }
   /** The player's message split into what the player character says and does, and its OOC directions. */
   private ooc(text: string | undefined) { return splitOoc(text || '', this.settings.oocKeyword); }
   /** GM context: the rules, the packet, and this turn's OOC directions as a hidden note. */
-  private gmContext(packetText: string, userText: string | undefined): string {
+  private gmContext(packetText: string, userText: string | undefined, leap = false): string {
     const note = oocNote(this.ooc(userText).ooc);
-    return this.gmRules() + '\n\n' + packetText + (note ? '\n\n' + note : '');
+    return this.gmRules(leap) + '\n\n' + packetText + (note ? '\n\n' + note : '');
   }
   private lengthNote(): string {
     const len = String(this.settings.replyLength || '').trim();
@@ -734,6 +735,11 @@ export class CanonEngine {
     const prof = this.profileFor(entry);
     const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.persona();
     const oocParts = this.ooc(entry.text).ooc;
+    // a time leap that cannot be used sends the message back before any model call
+    const origin = this.campaign()?.binding.originDate || null;
+    const leap = parseLeap(entry.text, origin);
+    const leapWhy = leap ? leapProblem(leap, tick, origin) : null;
+    if (leapWhy) throw new EngineError('invalid_input', leapWhy);
     const groups = prof ? recognitionGroups(index, prof.profile) : [];
     const out = await this.withTimeout(callStructured<ExtractUserOut>(this.host.model, 'extract_user', groups.length ? `${PROMPTS.extract_user}\n${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       message: entry.text,
@@ -798,7 +804,7 @@ export class CanonEngine {
     const refs: RefInput[] = out.references.map((r, i) => ({ id: `u${i + 1}`, quote: r.quote, phrase: r.phrase, kind: r.kind, assertion: 'user_input', temporal: r.kind === 'event' ? 'past' : 'present', candidates: r.candidates }));
     const interp: Interpretation = {
       key: baseKey(entry), messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, role: 'user', commitId: newId('cmt'),
-      createdAt: this.host.now(), origin: 'extraction', records, intents, ...(timeJumpTo ? { timeJumpTo } : {}), stateClaims: [], playerActions: [], dependsOn: [], sceneEnd: null, flashback: false,
+      createdAt: this.host.now(), origin: 'extraction', records, intents, ...(leap?.target ? { leapTo: leap.target, timeJumpTo: leap.target } : timeJumpTo ? { timeJumpTo } : {}), stateClaims: [], playerActions: [], dependsOn: [], sceneEnd: null, flashback: false,
       sceneEntities: uniq([...(out.scene_entities || []).filter((x) => index.entityExists(x)), ...out.statements.flatMap((s) => (s.entities || []).filter((x) => index.entityExists(x)))]),
       offscreenBasis: [], warnings, configRequests, declines, basisStateHash: undefined,
       ...(groups.length && out.scene_groups !== undefined ? { sceneGroups: groupNames(groups, out.scene_groups) } : {}),
@@ -820,19 +826,24 @@ export class CanonEngine {
     let userEntry: SourceEntry | null = null;
     for (let k = idx - 1; k >= 0; k--) if (entries[k].role === 'user') { userEntry = entries[k]; break; }
     const prevGm = (() => { for (let k = idx - 1; k >= 0; k--) if (entries[k].role === 'gm') return entries[k]; return null; })();
+    // the reply to a time leap is checked with the leap staged again (its plan and the canon events it crosses)
+    const uInterp = userEntry ? interpretationsFor(this.campaign()!.interpretations, baseKey(userEntry)).find((x) => x.role === 'user') : null;
+    const leapTo = uInterp?.leapTo && uInterp.leapTo > r.state.clock.lo && entries[idx - 1]?.role === 'user' ? uInterp.leapTo : null;
+    const lp = leapTo ? await this.stageLeap(index, userEntry!, leapTo, signal, 'reconcile') : null;
+    const rIndex = lp ? lp.index : index;
     const review = await this.reviewCandidate({
-      text: entry.text, index, userEntry, operationId: 'reconcile', signal, mode: 'retained', plan: null, forced: false,
+      text: entry.text, index: rIndex, userEntry, operationId: 'reconcile', signal, mode: 'retained', plan: null, forced: false,
       sceneSeeds: prevGm ? (interpretationsFor(this.campaign()!.interpretations, baseKey(prevGm))[0]?.sceneEntities || []) : [], reevalReasons,
-      stagedNotes: [],
+      stagedNotes: lp?.notes || [], stagedHard: lp?.stagedHard, leapTo,
     });
     const gate = review.gate;
     // Deterministic agency check after a source edit: narrated player actions must still be
     // authorized by the (edited) user message; otherwise the retained reply is an editorial conflict.
     const sourceChanged = (reevalReasons || []).some((x) => /authorized|content changed|no longer in the selected transcript/.test(x));
-    const unauthorized = sourceChanged ? gate.playerActions.find((a) => !a.authorizedBy && !voiceAllows(playerVoice(this.settings.playerVoice), a.category)) : undefined;
+    const unauthorized = sourceChanged && !leapTo ? gate.playerActions.find((a) => !a.authorizedBy && !voiceAllows(playerVoice(this.settings.playerVoice), a.category)) : undefined;
     if (unauthorized) gate.violations.unshift(`Narrated player action "${unauthorized.quote}" is not authorized by the edited user message, and no separate cause is described.`);
     const conflict = review.evaluation.decision === 'conflict' || gate.violations.length > 0;
-    const interp = this.interpretationFromGate(entry.messageId, entry.variantId, entry.contentHash, gate, review, index, userEntry, r.state.clock.lo, 'retained_reeval', newId('cmt'));
+    const interp = this.interpretationFromGate(entry.messageId, entry.variantId, entry.contentHash, gate, review, rIndex, userEntry, r.state.clock.lo, 'retained_reeval', newId('cmt'));
     interp.basisStateHash = basis;
     if (!reevalReasons) interp.origin = 'extraction';
     if (conflict) {
@@ -841,7 +852,7 @@ export class CanonEngine {
     } else if (interp.sceneEnd && interp.sceneEnd.lo > r.state.clock.lo) {
       // GM time advance: adjudicate crossed events (deterministic/model) committed with this message.
       const adj = await adjudicateInterval({
-        pack, state: this.overlay(r.state, interp.records), fromExclusive: r.state.clock.lo, toInclusive: interp.sceneEnd.lo,
+        pack, state: this.overlay(rIndex.state, interp.records), fromExclusive: r.state.clock.lo, toInclusive: interp.sceneEnd.lo,
         exclude: new Set(interp.records.map((x) => x.packEventId).filter(Boolean) as string[]), port: this.host.model, plan: this.activePlan(), forcedAllowed: true,
         signal, operationId: 'reconcile', facts: review.facts, log: (l) => this.debugLog('task', l),
       });
@@ -849,6 +860,7 @@ export class CanonEngine {
       for (const ar of adj.records) ar.triggerCommitId = interp.commitId;
       interp.records.push(...adj.records);
       interp.offscreenBasis = adj.basis;
+      if (lp) { for (const x of lp.records) x.triggerCommitId = interp.commitId; interp.records.unshift(...lp.records); }
       interp.records.push(this.timeAdvance(interp.sceneEnd, interp.commitId));
     }
     return interp;
@@ -933,6 +945,55 @@ export class CanonEngine {
     }
   }
 
+  /** Time leap: the leap plan (what the player's description changes; one model call), then every crossed canon event
+   *  settled in time order — the planned ones as planned, the rest by the ordinary offscreen adjudication. The result
+   *  is staged for the reply (committed with it). A HARD event the description rules out sends the message back. */
+  private async stageLeap(index: WorldIndex, userEntry: SourceEntry, leapTo: number, signal: AbortSignal | undefined, operationId: string): Promise<{
+    records: RecordDraft[]; stagedHard: Map<Id, import('../domain/types').Occurrence>; notes: string[]; section: string; index: WorldIndex; plan: CheckedLeapPlan;
+  }> {
+    const pack = index.pack;
+    const clock = index.state.clock.lo;
+    const origin = this.campaign()?.binding.originDate || null;
+    const list = leapEvents(pack, index.state, clock, leapTo);
+    const prof = this.campaign()?.integration ? this.profileFor(userEntry) : null;
+    let plan: CheckedLeapPlan = { decisions: new Map(), mention: [], impossible: [], landing: '', life: [], dropped: [] };
+    if (list.length) {
+      const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.persona();
+      const parts = this.ooc(userEntry.text);
+      const eng = engagementView(index.state, pack);
+      const out = await this.withTimeout(callStructured<LeapPlanOut>(this.host.model, 'leap', PROMPTS.leap, {
+        from: formatTick(clock, origin), to: formatTick(leapTo, origin),
+        player_message: leapText(parts.story),
+        ...(parts.ooc.length ? { player_ooc: parts.ooc } : {}),
+        persona,
+        ...(prof ? { player: playerContext(index, prof.profile, clock, { historyLimit: 8 }) } : {}),
+        recent_situation: this.recentSituation(index),
+        decisions: eng.lines(clock),
+        // the events the message can touch come with their summaries: those of what it names and of the player's links
+        ...leapEventInput(index, list, origin, new Set([...index.scanEntities(parts.story).map((m) => m.id), ...(prof ? [prof.profile.playerId, ...prof.profile.relationships.map((r) => r.entityId), ...prof.profile.affiliations.map((a) => a.entityId)].filter(Boolean) as Id[] : [])])),
+      }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 8000 }), this.settings.taskTimeoutMs * 4, signal);
+      plan = checkLeapPlan(out, pack, list);
+      for (const d of plan.dropped) this.rejects.push(`leap: kept after a fix: dropped ${d}`);
+      if (plan.impossible.length) {
+        throw new EngineError('invalid_input', `Time leap sent back: what your message has the character do rules out HARD ${plan.impossible.map((x) => `"${x.title}" (${x.why})`).join('; ')}. HARD events always happen with their required result; rewrite the leap so they still can.`);
+      }
+    }
+    const byId = new Map(list.map((x) => [x.id, x]));
+    const playerId = prof?.profile.playerId ?? null;
+    const decided = new Map([...plan.decisions].map(([id, d]) => [id, (s: WorldState) => leapRecord(pack, s, byId.get(id)!, d, playerId)] as const));
+    const adj = await adjudicateInterval({
+      pack, state: index.state, fromExclusive: clock, toInclusive: leapTo, exclude: new Set(), port: this.host.model, plan: this.activePlan(), forcedAllowed: true,
+      signal, operationId, facts: this.recentSituation(index), log: (l) => this.debugLog('task', l), leap: { decided },
+    });
+    const leapIndex = new WorldIndex(pack, this.overlay(index.state, adj.records));
+    const settled = adj.records.filter((r) => r.packEventId && !plan.decisions.has(r.packEventId)).length;
+    return {
+      records: adj.records, stagedHard: adj.stagedHard, index: leapIndex, plan,
+      notes: leapNotes(leapIndex, plan, list, adj.records, origin),
+      section: leapSection({ index: leapIndex, from: clock, to: leapTo, origin, plan, list, settled, voice: playerVoice(this.settings.playerVoice) }),
+    };
+  }
+
   /** The recognition groups the reviewer saw at the end of a reply (stored by name for the next turn). */
   private sceneGroupsOf(index: WorldIndex, userEntry: SourceEntry | null, ids: string[]): { sceneGroups?: string[] } {
     const prof = this.campaign()?.integration ? this.profileFor(userEntry) : null;
@@ -977,10 +1038,13 @@ export class CanonEngine {
     offered?: Opportunity | null;
     /** Companions' events that come without warning (see the gate). */
     chance?: GateInput['chanceCompanions'];
+    /** A time leap reply: the time it leaps to. */
+    leapTo?: number | null;
   }): Promise<ReviewResult> {
     const { index } = a;
     const pack = index.pack;
     const tick = index.state.clock.lo;
+    const cpTick = Math.max(tick, a.expectedEnd ?? tick, a.leapTo ?? tick);
     const prof = this.campaign()?.integration ? this.profileFor(a.userEntry) : null;
     const eng = engagementView(index.state, pack);
     const decisions = eng.lines(tick);
@@ -1019,10 +1083,10 @@ export class CanonEngine {
     }
     // Fresh lookup over the complete active ledger (not the generator's context subset).
     const retrieval = retrieve(index, {
-      refs, claims, sceneEntityIds: a.sceneSeeds, causalSeedEntityIds: [], freeText: [a.text], checkpointTick: Math.max(tick, a.expectedEnd ?? tick),
+      refs, claims, sceneEntityIds: a.sceneSeeds, causalSeedEntityIds: [], freeText: [a.text], checkpointTick: cpTick,
     });
     const packet = buildPacket({
-      pack, index, retrieval, checkpointTick: Math.max(tick, a.expectedEnd ?? tick), origin: this.campaign()?.binding.originDate || null, sceneLabel: '',
+      pack, index, retrieval, checkpointTick: cpTick, origin: this.campaign()?.binding.originDate || null, sceneLabel: '',
       playerScope: a.userEntry ? [this.ooc(a.userEntry.text).story] : [], plan: a.plan, forced: a.forced, stagedNotes: a.stagedNotes, opportunities: [], budgetChars: this.settings.budgetChars * 2, review: true,
       horizon: this.settings.horizonMinutes,
       // the reviewer needs the player's presence and decisions as required context (review mode drops optional parts)
@@ -1031,7 +1095,7 @@ export class CanonEngine {
     });
     const due = pendingHard(pack, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
     const groups = prof ? recognitionGroups(index, prof.profile) : [];
-    const evalPrompt = [PROMPTS.evaluate, pack.frames.frames.size ? EVAL_FRAMES_NOTE : '', groups.length ? EVAL_GROUPS_NOTE : '', a.chance?.length ? EVAL_CHANCE_NOTE : ''].filter(Boolean).join('\n');
+    const evalPrompt = [PROMPTS.evaluate, pack.frames.frames.size ? EVAL_FRAMES_NOTE : '', groups.length ? EVAL_GROUPS_NOTE : '', a.chance?.length ? EVAL_CHANCE_NOTE : '', a.leapTo ? EVAL_LEAP_NOTE : ''].filter(Boolean).join('\n');
     const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', evalPrompt, {
       mode: a.mode,
       candidate: a.text,
@@ -1053,7 +1117,8 @@ export class CanonEngine {
       recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote, ...(jobLapsed(index.state, k, tick) ? { lapsed: true } : {}) })),
       canon_events_now: this.canonNow(index, tick, a.jumpTo ?? this.jumpOf(a.userEntry, tick)),
       ...this.framesInput(index, tick, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.canonEvents, ...this.canonNow(index, tick).map((c) => c.id)]),
-      player_voice: voiceInput(playerVoice(this.settings.playerVoice)),
+      player_voice: a.leapTo ? { gm_may_write: Object.keys(LEAP_VOICE), player_only: [] } : voiceInput(playerVoice(this.settings.playerVoice)),
+      ...(a.leapTo ? { time_leap: { from: formatTick(tick), to: formatTick(a.leapTo) } } : {}),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
       ...(groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who, level: g.level, knows: g.about })) } : {}),
       ...(a.chance?.length ? { chance_events_with_companion: a.chance.map((x) => ({ event_id: x.eventId, title: x.title, comes_to: x.who, starts: formatTick(x.lo), what: (pack.events.get(x.eventId)?.summary || '').slice(0, 400) })) } : {}),
@@ -1066,14 +1131,15 @@ export class CanonEngine {
     // UNTIMED_ADVANCE_MAX (live finding: 12:10 -> 14:43 over 11 short continuous replies, +20–40 min each);
     // a reply stating durations ("走了十分钟") may add those on top. A clock time or a time jump lifts the cap.
     const stated = statedTime(`${a.text}\n${this.ooc(a.userEntry?.text).story}`);
-    if (evaluation.scene_end && !evaluation.flashback && !stated.anchored) {
+    if (evaluation.scene_end && !evaluation.flashback && !stated.anchored && !a.leapTo) {
       const lo = toTick(evaluation.scene_end.lo), cap = tick + stated.minutes + UNTIMED_ADVANCE_MAX;
       if (lo > cap) {
         evaluation.scene_end = { lo: fromTick(cap), hi: fromTick(Math.max(cap, Math.min(toTick(evaluation.scene_end.hi), cap + UNTIMED_ADVANCE_MAX))), precision: 'approx' } as EvalOutput['scene_end'];
         this.debugLog('task', { kind: 'scene_end_capped', from: formatTick(lo), to: formatTick(cap) });
       }
     }
-    const floor = a.mode !== 'retained' ? this.horaeTick(tick) : null;
+    // a time leap lands at its target at the earliest (the target is the player's, not an estimate)
+    const floor = a.leapTo ?? (a.mode !== 'retained' ? this.horaeTick(tick) : null);
     if (floor !== null && !evaluation.flashback) {
       const lo = evaluation.scene_end ? toTick(evaluation.scene_end.lo) : tick;
       if (lo < floor) {
@@ -1085,7 +1151,7 @@ export class CanonEngine {
     const gate = runGate({
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: eng.binding(tick).length, hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
-      playerId: prof?.profile.playerId || null, offered: a.offered || null, chanceCompanions: a.chance || [], chanceBlocking: (a.attempt ?? 0) === 0,
+      playerId: prof?.profile.playerId || null, offered: a.offered || null, chanceCompanions: a.chance || [], chanceBlocking: (a.attempt ?? 0) === 0, leap: !!a.leapTo,
     });
     const c = this.campaign();
     const manifest: CoverageManifest | null = c ? {
@@ -1364,9 +1430,12 @@ export class CanonEngine {
         this.setStatus('planning', 'Planning…');
         const fresh = !!userEntry && (lastIsUser || op === 'regenerate' || op === 'swipe');
         const jumpTo = fresh && userInterp?.timeJumpTo && userInterp.timeJumpTo > clock ? userInterp.timeJumpTo : null;
+        // a time leap ({{time_leap:…}}): no world reaction, companions or quiet-day job this turn (the leap plan covers
+        // the time in between, and the landing scene starts fresh)
+        const leapTo = fresh && userInterp?.leapTo && userInterp.leapTo > clock ? userInterp.leapTo : null;
         const prof = c.integration ? this.profileFor(null) : null;
         let integrationFailed = false;
-        const integP = prof
+        const integP = prof && !leapTo
           ? this.integrate(index, prof.profile, fresh ? userEntry : null, jumpTo, abort.signal, operationId).catch((e) => {
             if (e instanceof EngineError && e.kind === 'cancelled') throw e;
             integrationFailed = true;
@@ -1378,11 +1447,18 @@ export class CanonEngine {
         let plan = planInfo.plan;
         const integ = await integP;
         this.checkFences(fences, excludeLast);
+        // the leap's plan and the canon events it crosses, staged for this reply: the GM and the reviewer see the world
+        // as it is where the leap lands
+        if (leapTo) this.setStatus('planning', 'Planning the time leap…');
+        const lp = leapTo ? await this.stageLeap(index, userEntry!, leapTo, abort.signal, operationId) : null;
+        if (lp) this.checkFences(fences, excludeLast);
+        const rIndex = lp ? lp.index : index;
+        const cp = leapTo ?? ctxClock;
         const eng = engagementView(index.state, pack);
         const busy = [...index.state.occurrences.values()].some((o) => o.inProgressOf && !index.state.dispositions.has(o.inProgressOf));
         // after a time jump the scene happens where the jump lands (live: news possible from 08:00 was never offered
         // on the turn that slept until 08:00, measured from 23:15)
-        const offered: Opportunity | null = prof ? selectOpportunity(integ, index, jumpTo ?? clock, busy, new Set(c.preferredScopes || [])) : null;
+        const offered: Opportunity | null = prof && !leapTo ? selectOpportunity(integ, index, jumpTo ?? clock, busy, new Set(c.preferredScopes || [])) : null;
 
         // Pre-generation retrieval: user references + scene + causal seeds + semantic expansion
         const prevGm = (() => { for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === 'gm') return entries[k]; return null; })();
@@ -1391,32 +1467,33 @@ export class CanonEngine {
         const horaeSceneIds = horaeScene ? uniq([horaeScene.location || '', ...(horaeScene.characters || [])].flatMap((n) => (n ? index.resolveEntity(n).ids : []))) : [];
         const userRefs = ((userInterp as Interpretation & { refs?: RefInput[] })?.refs) || [];
         const sceneSeeds = uniq([...(prevGmInterp?.sceneEntities || []), ...horaeSceneIds, ...(userInterp?.sceneEntities || [])]);
-        const retrieval = retrieve(index, {
+        const retrieval = retrieve(rIndex, {
           refs: lastIsUser || op !== 'normal' ? userRefs : [],
           claims: [],
           sceneEntityIds: uniq([...(prevGmInterp?.sceneEntities || []), ...horaeSceneIds]),
           causalSeedEntityIds: userInterp?.sceneEntities || [],
           freeText: [userEntry?.text || '', prevGm ? prevGm.text.slice(-600) : ''],
-          checkpointTick: ctxClock,
+          checkpointTick: cp,
         });
         // Legacy ways in (pack hooks, 关注) — with narrative integration they are inputs of the integrate task; when
         // that analysis failed, or without integration, they are shown as before but never for a declined event.
         const legacy = !prof || integrationFailed;
-        const companions = companionEvents(index, uniq([...sceneSeeds, ...horaeSceneIds]), prof?.profile.playerId ?? null, ctxClock);
+        const companions = leapTo ? [] : companionEvents(index, uniq([...sceneSeeds, ...horaeSceneIds]), prof?.profile.playerId ?? null, ctxClock);
         await this.judgeForeknowledge(companions, abort.signal, operationId);
         const chance: GateInput['chanceCompanions'] = companions.filter((x) => !x.declined && c.foreknowledge?.[foreknowKey(x)]?.knows === false)
           .map((x) => ({ eventId: x.event.id, personId: x.personId, lo: x.lo, title: x.event.title, who: index.entityName(x.personId) }));
         const opps = legacy ? this.opportunities(index, clock).filter((o) => !eng.blockedBy({ eventId: o.id }, clock)) : [];
         const sceneLabel = [horaeScene?.location ? `Location (Horae, supporting): ${horaeScene.location}.` : '', horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(', ')}.` : '', horaeNote].filter(Boolean).join(' ');
         const packetArgs = {
-          pack, index, retrieval, checkpointTick: ctxClock, origin: c.binding.originDate, sceneLabel,
+          pack, index: rIndex, retrieval, checkpointTick: cp, origin: c.binding.originDate, sceneLabel,
           playerScope: fresh ? [this.ooc(userEntry!.text).story, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
-          plan, forced: planInfo.forced, stagedNotes: [] as string[], opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`), focus: legacy ? this.focusLines(index, clock) : [], budgetChars: this.settings.budgetChars, horizon: this.settings.horizonMinutes,
-          timeJumpTo: jumpTo,
-          presence: prof ? presenceSection(index, prof.profile, ctxClock) : undefined,
+          plan: leapTo ? null : plan, forced: planInfo.forced, stagedNotes: [] as string[], opportunities: opps.map((o) => `${o.title} (${o.when}): ${o.hook}`), focus: legacy ? this.focusLines(index, clock) : [], budgetChars: this.settings.budgetChars, horizon: this.settings.horizonMinutes,
+          timeJumpTo: leapTo ? null : jumpTo,
+          leap: lp?.section,
+          presence: prof ? presenceSection(rIndex, prof.profile, cp) : undefined,
           // where the scene goes: the player's message when it moves the scene, else where the last reply ended
           // (a message that moves the scene leaves the last scene's people and places behind)
-          recognition: prof ? recognitionSection(presentGroups(index, prof.profile, ctxClock,
+          recognition: prof ? recognitionSection(presentGroups(rIndex, prof.profile, cp,
             Array.isArray(userInterp?.sceneGroups) ? userInterp!.sceneEntities : uniq([...sceneSeeds, ...horaeSceneIds]),
             (userInterp?.sceneGroups ?? prevGmInterp?.sceneGroups) || [])) || undefined : undefined,
           decisions: decisionsSection(eng.lines(clock)) || undefined,
@@ -1424,7 +1501,7 @@ export class CanonEngine {
           reaction: offered ? worldReactionSection(index, offered, c.binding.originDate) : undefined,
         };
         let packet = buildPacket(packetArgs);
-        const engineContext = this.gmContext(packet.text, userEntry?.text);
+        const engineContext = this.gmContext(packet.text, userEntry?.text, !!leapTo);
         const loreNames = uniq([...(offered?.actors || []).map((a) => index.entityName(a)), ...this.loreNames(index, retrieval, plan)]).slice(0, 16);
 
         // Draft (private)
@@ -1456,7 +1533,7 @@ export class CanonEngine {
         let lastResort = false; // one extra, harsher repair when HARD problems survive the normal repairs
         for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
           this.setStatus('validating', attempt > this.settings.maxRepairs ? 'Re-checking final HARD repair…' : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})…` : 'Validating…');
-          let review = await this.reviewCandidate({ text: candidate, index, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [], fences, attempt, offered, jumpTo, chance });
+          let review = await this.reviewCandidate({ text: candidate, index: rIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: lp?.notes || [], stagedHard: lp?.stagedHard, fences, attempt, offered, jumpTo, chance, leapTo });
           this.checkFences(fences, excludeLast);
           // Interval adjudication for the proposed advance. The review that sees the staged results may place the
           // reply's end later: then the events whose windows close in the extra time are settled too (live finding:
@@ -1467,7 +1544,7 @@ export class CanonEngine {
             const end = review.gate.sceneEnd;
             if (!end || review.gate.flashback || end.lo <= adjTo) break;
             const more = await adjudicateInterval({
-              pack, state: this.overlay(index.state, [...review.gate.records, ...(adj?.records || [])]), fromExclusive: clock, toInclusive: end.lo,
+              pack, state: this.overlay(rIndex.state, [...review.gate.records, ...(adj?.records || [])]), fromExclusive: clock, toInclusive: end.lo,
               exclude: new Set(review.gate.records.map((r) => r.packEventId).filter(Boolean) as string[]),
               port: this.host.model, plan, forcedAllowed: planInfo.forced || this.settings.forcedPlannerAttempt, signal: abort.signal, operationId, facts: review.facts,
               log: (l) => this.debugLog('task', l),
@@ -1478,12 +1555,13 @@ export class CanonEngine {
             adj = prev ? { ...prev, records: [...prev.records, ...more.records], basis: [...prev.basis, ...more.basis], notes: [...prev.notes, ...more.notes], stagedHard: new Map([...prev.stagedHard, ...more.stagedHard]), forcedUsed: prev.forcedUsed || more.forcedUsed } : more;
             if (!more.records.length) break;
             // The evaluator must see staged offscreen history: review again with it (not a repair).
-            const stagedIndex = new WorldIndex(pack, this.overlay(index.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
-            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: adj.notes, stagedHard: adj.stagedHard, fences, attempt, offered, jumpTo, chance });
+            const stagedIndex = new WorldIndex(pack, this.overlay(rIndex.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
+            const stagedHard = new Map([...(lp?.stagedHard || []), ...adj.stagedHard]);
+            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [...(lp?.notes || []), ...adj.notes], stagedHard, fences, attempt, offered, jumpTo, chance, leapTo });
             // Gate HARD crossing with staged offscreen occurrences against the committed clock
             review.gate = runGate({
               pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
-              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard: adj.stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: engagementView(stagedIndex.state, pack).binding(stagedIndex.state.clock.lo).length, hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, offered, chanceCompanions: chance, chanceBlocking: attempt === 0,
+              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: engagementView(stagedIndex.state, pack).binding(stagedIndex.state.clock.lo).length, hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, offered, chanceCompanions: chance, chanceBlocking: attempt === 0, leap: !!leapTo,
             });
             this.checkFences(fences, excludeLast);
           }
@@ -1510,16 +1588,16 @@ export class CanonEngine {
             packet = buildPacket(packetArgs);
             this.rejects.push(`repair: kept after a fix: the records the rejected draft added did not fit the context budget; repaired with the draft's context`);
           }
-          const repairCtx = this.gmContext(packet.text, userEntry?.text);
+          const repairCtx = this.gmContext(packet.text, userEntry?.text, !!leapTo);
           trace.prompts.push({ kind: hardStuck ? 'repair_hard_last_resort' : `repair_${attempt + 1}`, text: repairCtx });
           const replyEnd = Math.max(review.gate.sceneEnd?.hi ?? clock, clock);
-          const hardReqs = hardStuck ? pendingHard(pack, index.state)
+          const hardReqs = hardStuck ? pendingHard(pack, rIndex.state)
             .filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title)))
             .map((h) => `${h.event.title} (${formatTick(h.lo)}${h.hi !== h.lo ? `–${formatTick(h.hi)}` : ''}): ${h.event.required_description}`) : [];
           let route: string[] = [];
           if (hardStuck) {
             // Plan a concrete in-world route for the broken HARD event(s) from the actual situation, then repair along it.
-            const anchors = pendingHard(pack, index.state).filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title))).map((h) => h.event.id);
+            const anchors = pendingHard(pack, rIndex.state).filter((h) => h.lo <= replyEnd || violations.some((v) => v.includes(h.event.title))).map((h) => h.event.id);
             const c = this.campaign()!;
             (c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors = uniq([...((c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors || []), ...anchors]);
             this.setStatus('planning', 'Planning a route for the HARD event…');
@@ -1550,11 +1628,13 @@ export class CanonEngine {
         const contentHash = this.host.hashAssistant(candidate);
         const interp = this.interpretationFromGate(messageId, variantId, contentHash, accepted.review.gate, accepted.review, index, userEntry, clock, 'engine_commit', commitId);
         if (accepted.adj) {
-          mergeClosingBeats(interp.records, accepted.adj.records, index.state);
+          mergeClosingBeats(interp.records, accepted.adj.records, rIndex.state);
           for (const r of accepted.adj.records) r.triggerCommitId = commitId;
           interp.records.push(...accepted.adj.records);
           interp.offscreenBasis = accepted.adj.basis;
         }
+        // the leap's settled events come first (they are earlier than everything the reply records)
+        if (lp) { for (const r of lp.records) r.triggerCommitId = commitId; interp.records.unshift(...lp.records); }
         if (interp.sceneEnd && !interp.flashback && interp.sceneEnd.lo > clock) interp.records.push(this.timeAdvance(interp.sceneEnd, commitId));
         interp.basisStateHash = stateHash(index.state);
         if (continuing && continuedEntry) {
@@ -2707,7 +2787,7 @@ export function labelForError(kind: string): string {
   const m: Record<string, string> = {
     invalid_pack: 'Invalid pack', unresolved_start_time: 'Unresolved starting time', conflicting_transcript: 'Conflicting retained transcript', provider_failure: 'Provider failure',
     invalid_model_json: 'Invalid model JSON', narrative_validation_failure: 'Narrative validation failure', stale_response: 'Stale response', incompatible_adapter: 'Incompatible adapter',
-    stale_memory: 'Stale memory', persistence_failure: 'Persistence failure', capacity: 'Context capacity', cancelled: 'Cancelled', configuration_conflict: 'Configuration conflict', busy: 'Busy',
+    stale_memory: 'Stale memory', persistence_failure: 'Persistence failure', capacity: 'Context capacity', cancelled: 'Cancelled', configuration_conflict: 'Configuration conflict', busy: 'Busy', invalid_input: 'Message sent back',
   };
   return m[kind] || kind;
 }

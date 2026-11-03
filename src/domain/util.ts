@@ -113,7 +113,8 @@ export type EngineErrorKind =
   | 'capacity'
   | 'cancelled'
   | 'configuration_conflict'
-  | 'busy';
+  | 'busy'
+  | 'invalid_input';
 
 export class EngineError extends Error {
   kind: EngineErrorKind;
