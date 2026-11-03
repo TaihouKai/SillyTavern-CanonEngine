@@ -127,6 +127,8 @@ TASK: The player leaps story time from "from" to "to" in one reply; player_messa
 - mention: up to 12 ids of other events of the leap worth a line in the time skip — the ones the player character would know of or care about (big public events, people close to them); [] when none.
 - life: the player character's own life in the leap as the player's message describes it, a few short points in time order, with their rough times (a school, a job, friends, what changes in their life); fill in only what the message implies, kept plausible for the setting and the Persona.
 - landing: where the player character is and what they are doing at the "to" time, one or two sentences, from the message (or the natural continuation of their life when it says nothing).
+- chapter, when given: this reply covers the leap only up to "to" (one chapter of a leap to chapter.final): use only what the message says about the time up to "to"; the rest belongs to later chapters.
+- part, when given ("k of n"): crossed_events are only part k of this reply's events (in time order); decide and mention only these; give life and landing only in the last part (else [] and "").
 SHAPE: {"events":[{"event_id":"","decision":"occurred","player_part":"","account":""}],"mention":[],"impossible":[{"event_id":"","why":""}],"life":[],"landing":""}`,
 } as const;
 

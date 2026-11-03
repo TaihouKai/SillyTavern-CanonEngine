@@ -40,6 +40,8 @@ export interface Interpretation {
   timeJumpTo?: number;
   /** Player message: the time it leaps to ({{time_leap:…}}, see leap.ts). */
   leapTo?: number;
+  /** ...as one chapter of a leap to this time ({{time_leap:<chapter end> → <final>}}). */
+  leapFinal?: number;
   stateClaims: StateClaim[];
   playerActions: PlayerAction[];
   /** Message ids (with hashes) whose content this interpretation depended on. */

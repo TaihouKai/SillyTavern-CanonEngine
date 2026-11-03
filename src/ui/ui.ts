@@ -112,42 +112,56 @@ function mountStatus() {
     if (act === 'goto') gotoConflict();
     if (act === 'branch') void branchFromConflict();
     if (act === 'leap') openLeapDialog();
+    if (act === 'leap-next') { const p = E.pendingLeap(); openLeapDialog(p ? { final: p.final, description: p.description } : undefined); }
   });
 }
 
 /** 时间跳跃: a target time and what the character does meanwhile, written into the reply box as {{time_leap:…}} plus the
  *  description (the player checks it and sends it as usual; the directive is part of the message). */
-function openLeapDialog() {
+function openLeapDialog(prefill?: { final: number; description: string }) {
   const camp = E.campaign();
   const st = E.current?.replay.state;
   if (!camp || !st) return;
   const origin = camp.binding.originDate || null;
   const now = E.storyNow() ?? st.clock.lo;
   const label = (tick: number) => formatTick(tick, origin).replace(/ \(D-?\d+\)$/, '');
-  const el = modal(`<h3>${t('leapTitle')}</h3>
+  const el = modal(`<h3>${t(prefill ? 'leapNextTitle' : 'leapTitle')}</h3>
     <div>${t('leapNow')}: <b>${esc(label(now))}</b></div>
-    <label>${t('leapTo')} <input class="text_pole canon-leap-to" value="${esc(label(now))}" placeholder="${esc(t('leapToPh'))}"></label>
+    <label>${t('leapTo')} <input class="text_pole canon-leap-to" value="${esc(label(prefill?.final ?? now))}" placeholder="${esc(t('leapToPh'))}"></label>
     <div class="canon-leap-check canon-hint"></div>
-    <label>${t('leapDesc')} <textarea class="text_pole canon-leap-desc" rows="5" placeholder="${esc(t('leapDescPh'))}"></textarea></label>
+    <div class="canon-leap-chapters"></div>
+    <label>${t('leapDesc')} <textarea class="text_pole canon-leap-desc" rows="5" placeholder="${esc(t('leapDescPh'))}">${esc(prefill?.description || '')}</textarea></label>
     <div class="canon-hint">${esc(t('leapHint'))}</div>
     <div class="canon-row"><button class="menu_button canon-leap-ok" disabled>${t('leapInsert')}</button><button class="menu_button" data-close>${t('close')}</button></div>`);
   const to = el.querySelector('.canon-leap-to') as HTMLInputElement;
   const check = el.querySelector('.canon-leap-check') as HTMLElement;
   const ok = el.querySelector('.canon-leap-ok') as HTMLButtonElement;
   const span = (m: number) => { const d = Math.round(m / 1440); return d >= 730 ? `≈${Math.round(d / 365)} ${t('years')}` : d >= 60 ? `≈${Math.round(d / 30)} ${t('months')}` : d >= 1 ? `${d} ${t('days')}` : `${Math.round(m / 60)} ${t('hours')}`; };
+  const chEl = el.querySelector('.canon-leap-chapters') as HTMLElement;
+  let chapters: { to: number; after: string | null }[] = [];
+  const split = () => !!(el.querySelector('.canon-leap-split') as HTMLInputElement | null)?.checked;
   const update = () => {
     const tick = parseLeapTime(to.value, origin);
     const bad = tick === null ? t('leapBad') : tick <= now ? t('leapBack').replace('{now}', label(now)) : '';
     check.textContent = bad || `→ ${formatTick(tick!, origin)} · ${t('leapSpan').replace('{span}', span(tick! - now))}`;
     check.classList.toggle('err', !!bad);
     ok.disabled = !!bad;
+    // a leap across a lot of story goes in chapters (one reply each; the next one with 下一章)
+    const was = chapters.length > 1 ? split() : true;
+    chapters = bad ? [] : E.leapPlan(tick!)?.chapters || [];
+    chEl.innerHTML = chapters.length > 1
+      ? `<label class="checkbox_label"><input type="checkbox" class="canon-leap-split" ${was ? 'checked' : ''}> ${esc(t('leapSplit').replace('{n}', String(chapters.length)))}</label>
+        <ol class="canon-list">${chapters.map((c) => `<li>→ ${esc(label(c.to))}${c.after ? ` <small>（${esc(t('leapAfter').replace('{x}', c.after))}）</small>` : ''}</li>`).join('')}</ol>`
+      : '';
   };
   to.addEventListener('input', update);
   update();
   ok.addEventListener('click', () => {
     const desc = (el.querySelector('.canon-leap-desc') as HTMLTextAreaElement).value.trim();
     const box = document.getElementById('send_textarea') as HTMLTextAreaElement | null;
-    const text = `{{time_leap:${to.value.trim()}}}${desc ? '\n' + desc : ''}`;
+    const final = parseLeapTime(to.value, origin);
+    const head = chapters.length > 1 && split() && final !== null ? `{{time_leap:${label(chapters[0].to)} → ${label(final)}}}` : `{{time_leap:${to.value.trim()}}}`;
+    const text = `${head}${desc ? '\n' + desc : ''}`;
     if (box) {
       // a directive already in the box is replaced; the rest of what is there is kept after the description
       const old = box.value.replace(/\{\{\s*time_leap\s*[:：][^}]*\}\}\s*/i, '').trim();
@@ -211,6 +225,7 @@ function renderStatus() {
       ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t('cancel')}</button>` : ''}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t('retry')}</button>` : ''}
       ${!busy && ((err && camp.recoveryState.details) || (E.settings.debug && E.lastReport)) ? `<button class="menu_button canon-btn" data-act="details">${t('details')}</button>` : ''}
+      ${!busy && !conflict && camp.enabled && lockOk && E.pendingLeap() ? `<button class="menu_button canon-btn" data-act="leap-next" title="${esc(t('leapNextTip'))}">${t('leapNext')}</button>` : ''}
       ${!busy && !conflict && camp.enabled && lockOk ? `<button class="menu_button canon-btn" data-act="leap" title="${esc(t('leapTip'))}">${t('leap')}</button>` : ''}
       ${conflict ? `<button class="menu_button canon-btn" data-act="goto">${t('editIt')}</button><button class="menu_button canon-btn" data-act="branch">${t('branchRegen')}</button>` : ''}
       <button class="menu_button canon-btn" data-act="inspect">${t('inspect')}</button>

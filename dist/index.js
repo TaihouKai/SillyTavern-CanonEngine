@@ -21367,7 +21367,10 @@ var LEAP_DEFAULT_MINUTE = 8 * 60;
 function parseLeap(text, origin) {
   const m = String(text || "").match(LEAP_RE);
   if (!m) return null;
-  return { raw: m[0], label: m[1], target: parseLeapTime(m[1], origin) };
+  const [a, b] = m[1].split(/\s*(?:→|->|＞)\s*/);
+  const target = parseLeapTime(a, origin);
+  const final = b !== void 0 ? parseLeapTime(b, origin) : null;
+  return { raw: m[0], label: m[1], target, final: final !== null && target !== null && final > target ? final : null };
 }
 function parseLeapTime(s, origin) {
   const t2 = String(s || "").trim().replace(/[：]/g, ":").replace(/\s+/g, " ");
@@ -21382,9 +21385,48 @@ function parseLeapTime(s, origin) {
 }
 var leapText = (text) => String(text || "").replace(LEAP_RE, "").trim();
 function leapProblem(d, now, origin) {
-  if (d.target === null) return `Time leap "${d.label}" is not a time Canon can read. Use the start-time format: "D1500 08:00"${origin ? ' or "2004-10-10 08:00"' : ""}. Edit your message.`;
+  if (d.target === null || /→|->|＞/.test(d.label) && d.final === null && parseLeapTime(d.label.split(/\s*(?:→|->|＞)\s*/)[1] || "", origin) === null) return `Time leap "${d.label}" is not a time Canon can read. Use the start-time format: "D1500 08:00"${origin ? ' or "2004-10-10 08:00"' : ""}. Edit your message.`;
   if (d.target <= now) return `Time leap to ${formatTick(d.target, origin)} goes ${d.target === now ? "nowhere: that is the current story time" : `back in time (the story is at ${formatTick(now, origin)})`}. A leap only goes forward; edit your message.`;
   return null;
+}
+var LEAP_CHAPTER_EVENTS = 120;
+var LEAP_CHAPTERS_MAX = 6;
+var LEAP_CHAPTER_MIN_ARCS = 2;
+function leapChapters(pack2, state, from, to) {
+  const list = leapEvents(pack2, state, from, to);
+  const arcOf = (id) => pack2.events.get(id).arc_id;
+  const arcIds = uniq(list.map((x) => arcOf(x.id)).filter(Boolean));
+  const byArcs = arcIds.length >= LEAP_CHAPTER_MIN_ARCS * 2;
+  let n = Math.min(LEAP_CHAPTERS_MAX, Math.round(list.length / LEAP_CHAPTER_EVENTS));
+  if (byArcs) n = Math.min(n, Math.floor(arcIds.length / LEAP_CHAPTER_MIN_ARCS));
+  if (n <= 1) return [{ to, after: null }];
+  const span = /* @__PURE__ */ new Map();
+  for (const x of list) {
+    const a = arcOf(x.id);
+    if (!a) continue;
+    const v = span.get(a);
+    span.set(a, v ? { lo: Math.min(v.lo, x.lo), hi: Math.max(v.hi, x.hi) } : { lo: x.lo, hi: x.hi });
+  }
+  const cuts = byArcs ? [...span].map(([id, v]) => ({ t: v.hi, after: pack2.pack.arcs.find((a) => a.id === id)?.title || null })) : list.filter((x) => x.cls === "HARD").map((x) => ({ t: x.hi, after: pack2.events.get(x.id).title }));
+  const before = (t2) => list.filter((x) => x.lo <= t2).length;
+  const arcsEnded = (a, b) => [...span.values()].filter((v) => v.hi > a && v.hi <= b).length;
+  const straddle = (t2) => [...span.values()].filter((v) => v.lo <= t2 && v.hi > t2).length;
+  const share = list.length / n;
+  const out = [];
+  let prevT = from, prevN = 0;
+  for (let k = 1; k < n; k++) {
+    const quota = k * share;
+    const ok = cuts.filter((c) => c.t > prevT && c.t < to && before(c.t) - prevN >= share / 2 && list.length - before(c.t) >= share / 2 && (!byArcs || arcsEnded(prevT, c.t) >= LEAP_CHAPTER_MIN_ARCS && arcsEnded(c.t, to) >= LEAP_CHAPTER_MIN_ARCS));
+    const best = ok.sort((x, y) => Math.abs(before(x.t) - quota) + straddle(x.t) * share * 0.05 - (Math.abs(before(y.t) - quota) + straddle(y.t) * share * 0.05))[0];
+    if (!best) continue;
+    const land = (Math.floor(best.t / DAY) + 1) * DAY + LEAP_DEFAULT_MINUTE;
+    if (land >= to) continue;
+    out.push({ to: land, after: best.after });
+    prevT = best.t;
+    prevN = before(best.t);
+  }
+  out.push({ to, after: null });
+  return out;
 }
 function leapEvents(pack2, state, from, to) {
   const out = [];
@@ -21434,6 +21476,22 @@ function leapEventInput(index, list, origin, focus = /* @__PURE__ */ new Set()) 
     size += line.length + 1;
   }
   return { crossed_events: crossed, ...other.length ? { other_events: other } : {}, ...left ? { not_listed: `${left} more events of the leap are not listed; they happen as in the original story` } : {} };
+}
+function leapBatches(list) {
+  if (list.length <= LEAP_DETAILED_MAX) return [list];
+  const n = Math.ceil(list.length / LEAP_DETAILED_MAX), size = Math.ceil(list.length / n);
+  return Array.from({ length: n }, (_, i) => list.slice(i * size, (i + 1) * size));
+}
+function mergeLeapPlans(outs) {
+  if (outs.length === 1) return outs[0];
+  const each = Math.ceil(12 / outs.length);
+  return {
+    events: outs.flatMap((o) => o.events || []),
+    impossible: outs.flatMap((o) => o.impossible || []),
+    mention: outs.flatMap((o) => (o.mention || []).slice(0, each)),
+    life: uniq(outs.flatMap((o) => o.life || [])),
+    landing: [...outs].reverse().find((o) => String(o.landing || "").trim())?.landing || ""
+  };
 }
 function checkLeapPlan(out, pack2, list) {
   const crossed = new Map(list.map((x) => [x.id, x]));
@@ -21528,8 +21586,9 @@ function leapSection(a) {
   const own = [...plan2.decisions].sort((x, y) => at(x[0]).lo - at(y[0]).lo).map(([id, d]) => `- ${line(id)} \u2014 ${d.decision === "occurred" ? "happens" : d.decision === "diverged" ? "happens differently" : "does not happen"}: ${d.account}${d.part ? ` (the player character: ${d.part})` : ""}`);
   const mention = plan2.mention.slice().sort((x, y) => at(x).lo - at(y).lo).map((id) => `- ${line(id)}: ${causeOf(pack2.events.get(id))}`);
   const limits = VOICE_KINDS.filter((k) => !a.voice[k]);
+  const chapter = a.final && a.final > a.to;
   return [
-    `TIME LEAP (this reply): the player's message leaps story time from ${formatTick(a.from, origin)} to ${formatTick(a.to, origin)} (${span}). Write this reply as a time skip: first the time in between, told in summary in time order \u2014 the player character's life as the player's message describes it, and the world's main events \u2014 at the pace such a span needs (a few lines per stretch of time, not scene by scene); then land in one concrete scene at ${formatTick(a.to, origin)} and end there, leaving the next move to the player.`,
+    `TIME LEAP (this reply): the player's message leaps story time from ${formatTick(a.from, origin)} to ${formatTick(a.to, origin)} (${span})${chapter ? `; this reply is one chapter of their leap to ${formatTick(a.final, origin)}, and the next chapter is a later reply (what their message says about the time after ${formatTick(a.to, origin)} belongs to it)` : ""}. Write this reply as a time skip with the length of a full reply: tell the time in between in time order \u2014 the player character's life as the player's message describes it, and the world's main events \u2014 with its main episodes as short scenes (a few exchanges of dialogue where they matter), not a bare list of happenings; ${chapter ? `then end at ${formatTick(a.to, origin)} with a short moment that leads on into the next chapter (it does not wait for a decision of the player).` : `then land in one concrete scene at ${formatTick(a.to, origin)} and end there, leaving the next move to the player.`}`,
     `- During the leap the player character lives and acts on their own, as their Persona would: you write their life, words, decisions and actions freely (also what they keep secret or reveal), within everything the player's message says \u2014 never against it, and what it asks for happens. Small invented people and episodes of their life (classmates, a friend, a job) are fine.`,
     ...plan2.life.length ? ["- The player character's life during the leap (planned from the player's message):", ...plan2.life.map((x) => `  - ${x}`)] : [],
     own.length ? `- Canon events this leap changes or the player character takes part in (decided; show them as stated):
@@ -21662,6 +21721,8 @@ TASK: The player leaps story time from "from" to "to" in one reply; player_messa
 - mention: up to 12 ids of other events of the leap worth a line in the time skip \u2014 the ones the player character would know of or care about (big public events, people close to them); [] when none.
 - life: the player character's own life in the leap as the player's message describes it, a few short points in time order, with their rough times (a school, a job, friends, what changes in their life); fill in only what the message implies, kept plausible for the setting and the Persona.
 - landing: where the player character is and what they are doing at the "to" time, one or two sentences, from the message (or the natural continuation of their life when it says nothing).
+- chapter, when given: this reply covers the leap only up to "to" (one chapter of a leap to chapter.final): use only what the message says about the time up to "to"; the rest belongs to later chapters.
+- part, when given ("k of n"): crossed_events are only part k of this reply's events (in time order); decide and mention only these; give life and landing only in the last part (else [] and "").
 SHAPE: {"events":[{"event_id":"","decision":"occurred","player_part":"","account":""}],"mention":[],"impossible":[{"event_id":"","why":""}],"life":[],"landing":""}`
 };
 function enumsOf(schema) {
@@ -24963,7 +25024,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       origin: "extraction",
       records,
       intents,
-      ...leap2?.target ? { leapTo: leap2.target, timeJumpTo: leap2.target } : timeJumpTo ? { timeJumpTo } : {},
+      ...leap2?.target ? { leapTo: leap2.target, timeJumpTo: leap2.target, ...leap2.final ? { leapFinal: leap2.final } : {} } : timeJumpTo ? { timeJumpTo } : {},
       stateClaims: [],
       playerActions: [],
       dependsOn: [],
@@ -25000,7 +25061,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
     })();
     const uInterp = userEntry ? interpretationsFor(this.campaign().interpretations, baseKey(userEntry)).find((x) => x.role === "user") : null;
     const leapTo = uInterp?.leapTo && uInterp.leapTo > r.state.clock.lo && entries[idx - 1]?.role === "user" ? uInterp.leapTo : null;
-    const lp = leapTo ? await this.stageLeap(index, userEntry, leapTo, signal, "reconcile") : null;
+    const lp = leapTo ? await this.stageLeap(index, userEntry, leapTo, uInterp?.leapFinal ?? null, signal, "reconcile") : null;
     const rIndex = lp ? lp.index : index;
     const review = await this.reviewCandidate({
       text: entry.text,
@@ -25133,7 +25194,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
   /** Time leap: the leap plan (what the player's description changes; one model call), then every crossed canon event
    *  settled in time order — the planned ones as planned, the rest by the ordinary offscreen adjudication. The result
    *  is staged for the reply (committed with it). A HARD event the description rules out sends the message back. */
-  async stageLeap(index, userEntry, leapTo, signal, operationId) {
+  async stageLeap(index, userEntry, leapTo, leapFinal, signal, operationId) {
     const pack2 = index.pack;
     const clock = index.state.clock.lo;
     const origin = this.campaign()?.binding.originDate || null;
@@ -25144,19 +25205,23 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.persona();
       const parts = this.ooc(userEntry.text);
       const eng = engagementView(index.state, pack2);
-      const out = await this.withTimeout(callStructured(this.host.model, "leap", PROMPTS.leap, {
+      const focus = /* @__PURE__ */ new Set([...index.scanEntities(parts.story).map((m) => m.id), ...prof ? [prof.profile.playerId, ...prof.profile.relationships.map((r) => r.entityId), ...prof.profile.affiliations.map((a) => a.entityId)].filter(Boolean) : []]);
+      const batches = leapBatches(list);
+      const outs = await Promise.all(batches.map((b, i) => this.withTimeout(callStructured(this.host.model, "leap", PROMPTS.leap, {
         from: formatTick(clock, origin),
         to: formatTick(leapTo, origin),
+        ...leapFinal ? { chapter: { final: formatTick(leapFinal, origin), note: `this reply covers only up to "to"; the player's message describes the whole leap to "final"` } } : {},
+        ...batches.length > 1 ? { part: `${i + 1} of ${batches.length}` } : {},
         player_message: leapText(parts.story),
         ...parts.ooc.length ? { player_ooc: parts.ooc } : {},
         persona,
         ...prof ? { player: playerContext(index, prof.profile, clock, { historyLimit: 8 }) } : {},
         recent_situation: this.recentSituation(index),
         decisions: eng.lines(clock),
-        // the events the message can touch come with their summaries: those of what it names and of the player's links
-        ...leapEventInput(index, list, origin, /* @__PURE__ */ new Set([...index.scanEntities(parts.story).map((m) => m.id), ...prof ? [prof.profile.playerId, ...prof.profile.relationships.map((r) => r.entityId), ...prof.profile.affiliations.map((a) => a.entityId)].filter(Boolean) : []]))
-      }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 8e3 }), this.settings.taskTimeoutMs * 4, signal);
-      plan2 = checkLeapPlan(out, pack2, list);
+        // the events the message can touch come first: those of what it names and of the player's links
+        ...leapEventInput(index, b, origin, focus)
+      }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 8e3 }), this.settings.taskTimeoutMs * 4, signal)));
+      plan2 = checkLeapPlan(mergeLeapPlans(outs), pack2, list);
       for (const d of plan2.dropped) this.rejects.push(`leap: kept after a fix: dropped ${d}`);
       if (plan2.impossible.length) {
         throw new EngineError("invalid_input", `Time leap sent back: what your message has the character do rules out HARD ${plan2.impossible.map((x) => `"${x.title}" (${x.why})`).join("; ")}. HARD events always happen with their required result; rewrite the leap so they still can.`);
@@ -25188,8 +25253,32 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       index: leapIndex,
       plan: plan2,
       notes: leapNotes(leapIndex, plan2, list, adj.records, origin),
-      section: leapSection({ index: leapIndex, from: clock, to: leapTo, origin, plan: plan2, list, settled, voice: playerVoice(this.settings.playerVoice) })
+      section: leapSection({ index: leapIndex, from: clock, to: leapTo, final: leapFinal, origin, plan: plan2, list, settled, voice: playerVoice(this.settings.playerVoice) })
     };
+  }
+  /** 时间跳跃 dialog: the chapters a leap from the story's current time to `final` is sent in (one reply each). */
+  leapPlan(final) {
+    const st = this.current?.replay.state;
+    if (!st || !this.current) return null;
+    const from = this.storyNow() ?? st.clock.lo;
+    return final > from ? { from, chapters: leapChapters(this.current.index.pack, st, from, final) } : null;
+  }
+  /** 下一章: the leap the player's latest message is a chapter of, when its reply is in and the leap is not over. */
+  pendingLeap() {
+    const c = this.campaign();
+    const st = this.current?.replay.state;
+    if (!c || !st || this.current?.replay.issue) return null;
+    const entries = this.host.readTranscript();
+    const last2 = entries[entries.length - 1];
+    if (!last2 || last2.role !== "gm") return null;
+    let user = null;
+    for (let k = entries.length - 1; k >= 0; k--) if (entries[k].role === "user") {
+      user = entries[k];
+      break;
+    }
+    const ui = user ? interpretationsFor(c.interpretations, baseKey(user)).find((x) => x.role === "user") : null;
+    if (!ui?.leapFinal || ui.leapFinal <= st.clock.lo) return null;
+    return { final: ui.leapFinal, description: leapText(user.text) };
   }
   /** The recognition groups the reviewer saw at the end of a reply (stored by name for the next turn). */
   sceneGroupsOf(index, userEntry, ids) {
@@ -25684,7 +25773,7 @@ ${this.ooc(a.userEntry?.text).story}`);
         const integ = await integP;
         this.checkFences(fences, excludeLast);
         if (leapTo) this.setStatus("planning", "Planning the time leap\u2026");
-        const lp = leapTo ? await this.stageLeap(index, userEntry, leapTo, abort.signal, operationId) : null;
+        const lp = leapTo ? await this.stageLeap(index, userEntry, leapTo, userInterp?.leapFinal ?? null, abort.signal, operationId) : null;
         if (lp) this.checkFences(fences, excludeLast);
         const rIndex = lp ? lp.index : index;
         const cp = leapTo ?? ctxClock;
@@ -28336,13 +28425,18 @@ var D = {
   leapDesc: { zh: "\u8FD9\u6BB5\u65F6\u95F4\u91CC\u4F60\u7684\u89D2\u8272\u505A\u4EC0\u4E48", en: "What your character does in this time" },
   leapDescPh: { zh: "\u548C\u666E\u901A\u56DE\u590D\u4E00\u6837\u5199\u7ED9 GM\uFF0C\u4F8B\u5982\uFF1A\u671F\u95F4\u6211\u53BB\u4E0A\u5927\u5B66\uFF0C\u4EA4\u4E86\u4E2A\u670B\u53CB\u2026\u2026", en: "Write it like an ordinary reply to the GM, e.g. I go to university and make a friend\u2026" },
   leapInsert: { zh: "\u586B\u5165\u56DE\u590D\u6846", en: "Put in the reply box" },
-  leapHint: { zh: "\u4F1A\u5728\u56DE\u590D\u6846\u91CC\u5199\u5165 {{time_leap:\u65F6\u95F4}} \u548C\u4F60\u7684\u63CF\u8FF0\uFF0C\u68C0\u67E5\u540E\u7167\u5E38\u53D1\u9001\u3002\u624B\u52A8\u8F93\u5165\u8FD9\u6BB5\u6307\u4EE4\u4E5F\u4E00\u6837\u6709\u6548\u3002\u8DF3\u8DC3\u671F\u95F4 GM \u53EF\u4EE5\u66FF\u4F60\u7684\u89D2\u8272\u8BF4\u8BDD\u3001\u505A\u51B3\u5B9A\uFF1B\u843D\u5730\u540E\u7684\u573A\u666F\u6062\u590D\u4F60\u5E73\u65F6\u7684\u8BBE\u7F6E\u3002HARD \u4E8B\u4EF6\u4E00\u5B9A\u4F1A\u53D1\u751F\uFF0C\u63CF\u8FF0\u4E0E\u4E4B\u51B2\u7A81\u65F6\u8FD9\u6761\u6D88\u606F\u4F1A\u88AB\u6253\u56DE\u3002", en: "Writes {{time_leap:time}} and your description into the reply box; check it and send as usual. Typing the directive yourself works the same. During the leap the GM may speak and decide for your character; the landing scene follows your usual settings. HARD events always happen: a description that rules one out is sent back." },
+  leapHint: { zh: "\u4F1A\u5728\u56DE\u590D\u6846\u91CC\u5199\u5165 {{time_leap:\u65F6\u95F4}} \u548C\u4F60\u7684\u63CF\u8FF0\uFF0C\u68C0\u67E5\u540E\u7167\u5E38\u53D1\u9001\u3002\u624B\u52A8\u8F93\u5165\u8FD9\u6BB5\u6307\u4EE4\u4E5F\u4E00\u6837\u6709\u6548\u3002\u8DE8\u8FC7\u7684\u539F\u4F5C\u5185\u5BB9\u5F88\u591A\u65F6\uFF0C\u4F1A\u6309\u5386\u53F2\u5305\u7684\u7BC7\u7AE0\u5EFA\u8BAE\u5206\u51E0\u7AE0\uFF0C\u6BCF\u7AE0\u4E00\u6761\u56DE\u590D\u3002\u8DF3\u8DC3\u671F\u95F4 GM \u53EF\u4EE5\u66FF\u4F60\u7684\u89D2\u8272\u8BF4\u8BDD\u3001\u505A\u51B3\u5B9A\uFF1B\u843D\u5730\u540E\u7684\u573A\u666F\u6062\u590D\u4F60\u5E73\u65F6\u7684\u8BBE\u7F6E\u3002HARD \u4E8B\u4EF6\u4E00\u5B9A\u4F1A\u53D1\u751F\uFF0C\u63CF\u8FF0\u4E0E\u4E4B\u51B2\u7A81\u65F6\u8FD9\u6761\u6D88\u606F\u4F1A\u88AB\u6253\u56DE\u3002", en: "Writes {{time_leap:time}} and your description into the reply box; check it and send as usual. Typing the directive yourself works the same. A leap across a lot of story is offered in chapters along the arcs of the pack, one reply each. During the leap the GM may speak and decide for your character; the landing scene follows your usual settings. HARD events always happen: a description that rules one out is sent back." },
   leapBad: { zh: "\u8BFB\u4E0D\u51FA\u8FD9\u4E2A\u65F6\u95F4\u3002\u683C\u5F0F\u540C\u5F00\u59CB\u65F6\u95F4\uFF1AD1500 08:00 \u6216 2004-10-10 08:00", en: "Cannot read this time. Same format as the start time: D1500 08:00 or 2004-10-10 08:00" },
   leapBack: { zh: "\u53EA\u80FD\u5F80\u540E\u8DF3\uFF08\u73B0\u5728\u662F {now}\uFF09", en: "A leap only goes forward (now: {now})" },
   years: { zh: "\u5E74", en: "years" },
   months: { zh: "\u4E2A\u6708", en: "months" },
   days: { zh: "\u5929", en: "days" },
   hours: { zh: "\u5C0F\u65F6", en: "hours" },
+  leapNext: { zh: "\u4E0B\u4E00\u7AE0", en: "Next chapter" },
+  leapNextTip: { zh: "\u65F6\u95F4\u8DF3\u8DC3\u7684\u4E0B\u4E00\u7AE0\uFF1A\u586B\u597D\u5269\u4E0B\u7684\u65F6\u95F4\u548C\u4F60\u539F\u6765\u7684\u63CF\u8FF0\uFF0C\u68C0\u67E5\u540E\u53D1\u9001\u3002", en: "The next chapter of the time leap: fills in the rest of the leap and your description; check and send." },
+  leapNextTitle: { zh: "\u65F6\u95F4\u8DF3\u8DC3\uFF1A\u4E0B\u4E00\u7AE0", en: "Time leap: next chapter" },
+  leapSplit: { zh: "\u5206 {n} \u7AE0\u53D1\u9001\uFF08\u6BCF\u7AE0\u4E00\u6761\u56DE\u590D\uFF0C\u4E4B\u540E\u70B9\u300C\u4E0B\u4E00\u7AE0\u300D\u7EE7\u7EED\uFF09", en: "Send in {n} chapters (one reply each; continue with \u201CNext chapter\u201D)" },
+  leapAfter: { zh: "{x}\u4E4B\u540E", en: "after {x}" },
   leapSpan: { zh: "\u8DE8\u8D8A {span}", en: "spans {span}" },
   step_plan: { zh: "\u89C4\u5212", en: "plan" },
   step_draft: { zh: "\u751F\u6210\u56DE\u590D", en: "story reply" },
@@ -29560,20 +29654,25 @@ function mountStatus() {
     if (act === "goto") gotoConflict();
     if (act === "branch") void branchFromConflict();
     if (act === "leap") openLeapDialog();
+    if (act === "leap-next") {
+      const p = E.pendingLeap();
+      openLeapDialog(p ? { final: p.final, description: p.description } : void 0);
+    }
   });
 }
-function openLeapDialog() {
+function openLeapDialog(prefill) {
   const camp = E.campaign();
   const st = E.current?.replay.state;
   if (!camp || !st) return;
   const origin = camp.binding.originDate || null;
   const now = E.storyNow() ?? st.clock.lo;
   const label = (tick) => formatTick(tick, origin).replace(/ \(D-?\d+\)$/, "");
-  const el = modal(`<h3>${t("leapTitle")}</h3>
+  const el = modal(`<h3>${t(prefill ? "leapNextTitle" : "leapTitle")}</h3>
     <div>${t("leapNow")}: <b>${esc2(label(now))}</b></div>
-    <label>${t("leapTo")} <input class="text_pole canon-leap-to" value="${esc2(label(now))}" placeholder="${esc2(t("leapToPh"))}"></label>
+    <label>${t("leapTo")} <input class="text_pole canon-leap-to" value="${esc2(label(prefill?.final ?? now))}" placeholder="${esc2(t("leapToPh"))}"></label>
     <div class="canon-leap-check canon-hint"></div>
-    <label>${t("leapDesc")} <textarea class="text_pole canon-leap-desc" rows="5" placeholder="${esc2(t("leapDescPh"))}"></textarea></label>
+    <div class="canon-leap-chapters"></div>
+    <label>${t("leapDesc")} <textarea class="text_pole canon-leap-desc" rows="5" placeholder="${esc2(t("leapDescPh"))}">${esc2(prefill?.description || "")}</textarea></label>
     <div class="canon-hint">${esc2(t("leapHint"))}</div>
     <div class="canon-row"><button class="menu_button canon-leap-ok" disabled>${t("leapInsert")}</button><button class="menu_button" data-close>${t("close")}</button></div>`);
   const to = el.querySelector(".canon-leap-to");
@@ -29583,19 +29682,28 @@ function openLeapDialog() {
     const d = Math.round(m / 1440);
     return d >= 730 ? `\u2248${Math.round(d / 365)} ${t("years")}` : d >= 60 ? `\u2248${Math.round(d / 30)} ${t("months")}` : d >= 1 ? `${d} ${t("days")}` : `${Math.round(m / 60)} ${t("hours")}`;
   };
+  const chEl = el.querySelector(".canon-leap-chapters");
+  let chapters = [];
+  const split = () => !!el.querySelector(".canon-leap-split")?.checked;
   const update = () => {
     const tick = parseLeapTime(to.value, origin);
     const bad = tick === null ? t("leapBad") : tick <= now ? t("leapBack").replace("{now}", label(now)) : "";
     check2.textContent = bad || `\u2192 ${formatTick(tick, origin)} \xB7 ${t("leapSpan").replace("{span}", span(tick - now))}`;
     check2.classList.toggle("err", !!bad);
     ok.disabled = !!bad;
+    const was = chapters.length > 1 ? split() : true;
+    chapters = bad ? [] : E.leapPlan(tick)?.chapters || [];
+    chEl.innerHTML = chapters.length > 1 ? `<label class="checkbox_label"><input type="checkbox" class="canon-leap-split" ${was ? "checked" : ""}> ${esc2(t("leapSplit").replace("{n}", String(chapters.length)))}</label>
+        <ol class="canon-list">${chapters.map((c) => `<li>\u2192 ${esc2(label(c.to))}${c.after ? ` <small>\uFF08${esc2(t("leapAfter").replace("{x}", c.after))}\uFF09</small>` : ""}</li>`).join("")}</ol>` : "";
   };
   to.addEventListener("input", update);
   update();
   ok.addEventListener("click", () => {
     const desc = el.querySelector(".canon-leap-desc").value.trim();
     const box = document.getElementById("send_textarea");
-    const text = `{{time_leap:${to.value.trim()}}}${desc ? "\n" + desc : ""}`;
+    const final = parseLeapTime(to.value, origin);
+    const head = chapters.length > 1 && split() && final !== null ? `{{time_leap:${label(chapters[0].to)} \u2192 ${label(final)}}}` : `{{time_leap:${to.value.trim()}}}`;
+    const text = `${head}${desc ? "\n" + desc : ""}`;
     if (box) {
       const old = box.value.replace(/\{\{\s*time_leap\s*[:：][^}]*\}\}\s*/i, "").trim();
       box.value = old ? `${text}
@@ -29655,6 +29763,7 @@ function renderStatus() {
       ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t("cancel")}</button>` : ""}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t("retry")}</button>` : ""}
       ${!busy && (err && camp.recoveryState.details || E.settings.debug && E.lastReport) ? `<button class="menu_button canon-btn" data-act="details">${t("details")}</button>` : ""}
+      ${!busy && !conflict && camp.enabled && lockOk && E.pendingLeap() ? `<button class="menu_button canon-btn" data-act="leap-next" title="${esc2(t("leapNextTip"))}">${t("leapNext")}</button>` : ""}
       ${!busy && !conflict && camp.enabled && lockOk ? `<button class="menu_button canon-btn" data-act="leap" title="${esc2(t("leapTip"))}">${t("leap")}</button>` : ""}
       ${conflict ? `<button class="menu_button canon-btn" data-act="goto">${t("editIt")}</button><button class="menu_button canon-btn" data-act="branch">${t("branchRegen")}</button>` : ""}
       <button class="menu_button canon-btn" data-act="inspect">${t("inspect")}</button>
