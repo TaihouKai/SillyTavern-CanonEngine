@@ -21044,8 +21044,8 @@ function dropBadItems(root, errors, schema) {
         continue;
       }
       if (nullOk) {
+        repairNotes.push(`set ${list}/${idxS}/${field2} to null (${why}): ${JSON.stringify(item[field2]).slice(0, 120)}`);
         item[field2] = null;
-        repairNotes.push(`set ${list}/${idxS}/${field2} to null (${why})`);
         changed = true;
         continue;
       }
@@ -22423,7 +22423,7 @@ function runGate(g) {
     }
     const deltas = transitionsByRef.get(o.ref) || [];
     const given = toStoryTime(o.time);
-    let time = o.backstory ? given && given.hi < g.clockTick ? given : { lo: Math.max(0, g.clockTick - 365 * 1440), hi: Math.max(0, g.clockTick - 1), precision: "range" } : given || { ...sceneEnd };
+    let time = o.backstory ? given && given.hi < g.clockTick ? given : { lo: Math.max(0, g.clockTick - 365 * 1440), hi: Math.max(0, g.clockTick - 1), precision: "range" } : given || (g.leap && sceneEnd.lo > g.clockTick ? { lo: g.clockTick, hi: sceneEnd.lo, precision: "range" } : { ...sceneEnd });
     const occ = {
       occurrenceId: newId("occ"),
       title: o.title,
@@ -24316,6 +24316,7 @@ var MAX_TIME_JUMP_MINUTES = 7 * 1440;
 var MAX_MANIFESTS = 40;
 function splitRejects(all) {
   const fixes = /* @__PURE__ */ new Map();
+  const sample = /* @__PURE__ */ new Map();
   const rejects = [];
   for (const r of all) {
     const m = r.match(/^(\w+): kept after a fix: (.*)$/s);
@@ -24323,10 +24324,12 @@ function splitRejects(all) {
       rejects.push(r);
       continue;
     }
-    const k = `${m[1]}: ${m[2].replace(/\/\d+\//g, "/#/").replace(/: \{.*$/s, "").slice(0, 140)}`;
+    const k = `${m[1]}: ${m[2].replace(/\/\d+\//g, "/#/").replace(/: [{["].*$/s, "").slice(0, 140)}`;
     fixes.set(k, (fixes.get(k) || 0) + 1);
+    const v = m[2].match(/\): ([{["].*)$/s);
+    if (v && !sample.has(k)) sample.set(k, v[1].slice(0, 120));
   }
-  return { rejects: rejects.slice(-6), fixes: [...fixes].map(([k, n]) => n > 1 ? `${k} \xD7${n}` : k).slice(0, 6) };
+  return { rejects: rejects.slice(-6), fixes: [...fixes].map(([k, n]) => `${n > 1 ? `${k} \xD7${n}` : k}${sample.has(k) ? ` (e.g. ${sample.get(k)})` : ""}`).slice(0, 6) };
 }
 function mergeClosingBeats(reply, closing, committed) {
   for (const r of closing) {

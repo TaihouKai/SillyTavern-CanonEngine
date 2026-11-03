@@ -276,8 +276,10 @@ export function runGate(g: GateInput): GateResult {
     }
     const deltas = transitionsByRef.get(o.ref) || [];
     const given = toStoryTime(o.time);
+    // a beat of a time leap without a usable time happened somewhere in the leap, not at its landing (live: four
+    // episodes of a 33-day leap all recorded at the landing time)
     let time = o.backstory ? (given && given.hi < g.clockTick ? given : { lo: Math.max(0, g.clockTick - 365 * 1440), hi: Math.max(0, g.clockTick - 1), precision: 'range' as const })
-      : given || { ...sceneEnd };
+      : given || (g.leap && sceneEnd.lo > g.clockTick ? { lo: g.clockTick, hi: sceneEnd.lo, precision: 'range' as const } : { ...sceneEnd });
     const occ: Occurrence = {
       occurrenceId: newId('occ'), title: o.title, account: o.account, actors, affected, locations, time, outcome: deltas,
       causes: causes.map((c) => occByRef.get(c)?.occurrenceId || c), refPhrases: uniq([o.title, ...(o.ref_phrases || [])]),

@@ -195,15 +195,19 @@ const MAX_MANIFESTS = 40;
  *  Fixes are grouped by kind with a count, so a turn with many similar fixes stays readable. */
 export function splitRejects(all: string[]): { rejects: string[]; fixes: string[] } {
   const fixes = new Map<string, number>();
+  const sample = new Map<string, string>();
   const rejects: string[] = [];
   for (const r of all) {
     const m = r.match(/^(\w+): kept after a fix: (.*)$/s);
     // a dropped item loses something the reply said: keep it with the real problems
     if (!m || /^dropped/.test(m[2])) { rejects.push(r); continue; }
-    const k = `${m[1]}: ${m[2].replace(/\/\d+\//g, '/#/').replace(/: \{.*$/s, '').slice(0, 140)}`;
+    const k = `${m[1]}: ${m[2].replace(/\/\d+\//g, '/#/').replace(/: [{["].*$/s, '').slice(0, 140)}`;
     fixes.set(k, (fixes.get(k) || 0) + 1);
+    // one example of the value that was replaced
+    const v = m[2].match(/\): ([{["].*)$/s);
+    if (v && !sample.has(k)) sample.set(k, v[1].slice(0, 120));
   }
-  return { rejects: rejects.slice(-6), fixes: [...fixes].map(([k, n]) => (n > 1 ? `${k} ×${n}` : k)).slice(0, 6) };
+  return { rejects: rejects.slice(-6), fixes: [...fixes].map(([k, n]) => `${n > 1 ? `${k} ×${n}` : k}${sample.has(k) ? ` (e.g. ${sample.get(k)})` : ''}`).slice(0, 6) };
 }
 
 /** An event closed by the reply that shows beats of it: those beats are part of its result (main story, not after

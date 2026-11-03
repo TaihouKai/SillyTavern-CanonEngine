@@ -235,7 +235,8 @@ function dropBadItems(root: unknown, errors: { instancePath: string; message?: s
       const types = Array.isArray(fs.type) ? fs.type : [fs.type];
       const nullOk = types.includes('null') || (Array.isArray(fs.enum) && fs.enum.includes(null)) || (Array.isArray(fs.oneOf) && fs.oneOf.some((o: any) => o.type === 'null'));
       if (elemS !== undefined && Array.isArray(item[field])) { item[field].splice(Number(elemS), 1); repairNotes.push(`removed a bad element (${why})`); changed = true; continue; }
-      if (nullOk) { item[field] = null; repairNotes.push(`set ${list}/${idxS}/${field} to null (${why})`); changed = true; continue; }
+      // the bad value goes into the note (which fix is needed shows in the turn report)
+      if (nullOk) { repairNotes.push(`set ${list}/${idxS}/${field} to null (${why}): ${JSON.stringify(item[field]).slice(0, 120)}`); item[field] = null; changed = true; continue; }
       if (!(itemS.required || []).includes(field)) { delete item[field]; repairNotes.push(`removed ${list}/${idxS}/${field} (${why})`); changed = true; continue; }
     }
     if (list === 'occurrences' && item.pack_event_id) continue; // canonical occurrence: send back instead

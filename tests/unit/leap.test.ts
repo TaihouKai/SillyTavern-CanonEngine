@@ -123,6 +123,17 @@ describe('time leap', () => {
     expect(s.clock.lo).toBeGreaterThanOrEqual(tick(5, 8, 0));
   });
 
+  it('LP11 a beat of the leap without a usable time is placed in the leap, not at its landing', async () => {
+    const x = await setup();
+    x.host.addUser('{{time_leap:D5 08:00}}\nI map the coast.');
+    x.model.draft('You map the whole coast over those days. [LP11]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[LP11]'), { occurrences: [{ ref: 'o1', title: 'Mapping the coast', account: 'maps the coast', quote: 'You map the whole coast', actors: [], affected: [], locations: [], time: null, origin: 'player', visibility: 'public', knowers: [], causes: [], pack_event_id: null, disposition: null, continues: null, ref_phrases: [], backstory: false }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    const o = [...x.engine.current!.replay.state.occurrences.values()].find((v) => v.title === 'Mapping the coast')!;
+    expect(o.time.lo).toBe(tick(0, 8, 0));
+    expect(o.time.hi).toBeGreaterThanOrEqual(tick(5, 8, 0));
+  });
+
   it('LP9 the time formats of the start-time field; a date alone lands at 08:00', () => {
     const o = { y: 2000, m: 1, d: 1 };
     expect(parseLeapTime('D3 16:00', null)).toBe(tick(3, 16, 0));
