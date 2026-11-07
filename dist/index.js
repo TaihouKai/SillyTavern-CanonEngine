@@ -22449,6 +22449,22 @@ function withRequired(valid, index, profile2, candidates, tick) {
   }
   return out;
 }
+function liveSuggestions(cache, index, tick, preferred = /* @__PURE__ */ new Set()) {
+  if (!cache) return [];
+  const st = index.state;
+  const since = st.contacts.filter((x) => x.tick >= cache.tick);
+  const underWay = underWayEvents(st);
+  const out = [];
+  for (const o of cache.opportunities) {
+    if (st.contacts.some((x) => x.opportunityId === o.id) || reached(st, o, since)) continue;
+    if (o.latest !== null && o.latest < tick) continue;
+    if (o.targetEventId && st.dispositions.has(o.targetEventId)) continue;
+    const current = aboutUnderWay(o, index, underWay);
+    if (current && !o.directImpact && !preferred.has(`${o.scopeKind}:${o.scopeRef}`)) continue;
+    out.push({ ...o, current });
+  }
+  return out;
+}
 function reached(st, o, contacts = st.contacts) {
   return contacts.some((x) => x.scopeKind === o.scopeKind && x.scopeRef === o.scopeRef || !!o.targetEventId && x.scopeKind === "event" && x.scopeRef === o.targetEventId || x.scopeKind === "faction" && o.actors.includes(x.scopeRef));
 }
@@ -24843,7 +24859,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.20.2";
+var ENGINE_RELEASE = "1.20.3";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -27695,7 +27711,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
         return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {};
       })() : {} })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin), ...k.sideJob ? { sideJob: true, lapsed: jobLapsed(s, k, s.clock.lo) } : {} })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
-      suggestions: spoilers || this.settings.debug ? (c.integrationCache?.opportunities || []).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: aboutUnderWay(o, idx, underWay), preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: opportunityBy(idx, o), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
+      suggestions: spoilers || this.settings.debug ? liveSuggestions(c.integrationCache || null, idx, s.clock.lo, new Set(c.preferredScopes || [])).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: o.current, preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: opportunityBy(idx, o), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null
     };
   }
@@ -29079,7 +29095,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niOlderDecisions: { zh: "\u66F4\u65E9 {n} \u6761", en: "{n} earlier" },
   niMoreSuggestions: { zh: "\u53E6\u5916 {n} \u79CD\u53EF\u80FD", en: "{n} more" },
   niRefresh: { zh: "\u91CD\u65B0\u8BC4\u4F30", en: "Re-evaluate" },
-  niCurrent: { zh: "\u8FDB\u884C\u4E2D", en: "under way" },
+  niCurrent: { zh: "\u4F60\u6B63\u8EAB\u5904\u7684\u4E8B\u4EF6", en: "the event you are in" },
   niSideJob: { zh: "\u5C0F\u4EFB\u52A1", en: "small job" },
   niRoles: { zh: "\u751F\u6D3B\u4E2D\u7684\u8EAB\u4EFD\uFF08\u5C0F\u4EFB\u52A1\u4ECE\u8FD9\u91CC\u6765\uFF09", en: "Roles in life (small matters come from these)" },
   niNotSuited: { zh: "\u4E0D\u63A5\u7684\u4E8B\uFF08\u505A\u4E0D\u5230 / \u4E0D\u4F1A\u505A\uFF09", en: "Does not take on (cannot / will not)" },

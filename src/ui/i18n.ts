@@ -259,7 +259,7 @@ const D: Record<string, { zh: string; en: string }> = {
   niOlderDecisions: { zh: '更早 {n} 条', en: '{n} earlier' },
   niMoreSuggestions: { zh: '另外 {n} 种可能', en: '{n} more' },
   niRefresh: { zh: '重新评估', en: 'Re-evaluate' },
-  niCurrent: { zh: '进行中', en: 'under way' },
+  niCurrent: { zh: '你正身处的事件', en: 'the event you are in' },
   niSideJob: { zh: '小任务', en: 'small job' },
   niRoles: { zh: '生活中的身份（小任务从这里来）', en: 'Roles in life (small matters come from these)' },
   niNotSuited: { zh: '不接的事（做不到 / 不会做）', en: 'Does not take on (cannot / will not)' },

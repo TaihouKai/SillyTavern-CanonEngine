@@ -658,6 +658,27 @@ export function withRequired(valid: Opportunity[], index: WorldIndex, profile: P
   return out;
 }
 
+/** The suggestions still to come, as the panel lists them: not made yet, its matter not reached since the analysis,
+ *  its time not passed, its event not settled; about the event the player is in only when it reaches them directly
+ *  (or they marked it 优先) — the others are never offered while it runs. Live: the list of contacts not yet made
+ *  showed the one the GM had just written, until the next analysis. */
+export function liveSuggestions(cache: IntegrationCache | null, index: WorldIndex, tick: number, preferred: Set<string> = new Set()): (Opportunity & { current: boolean })[] {
+  if (!cache) return [];
+  const st = index.state;
+  const since = st.contacts.filter((x) => x.tick >= cache.tick);
+  const underWay = underWayEvents(st);
+  const out: (Opportunity & { current: boolean })[] = [];
+  for (const o of cache.opportunities) {
+    if (st.contacts.some((x) => x.opportunityId === o.id) || reached(st, o, since)) continue;
+    if (o.latest !== null && o.latest < tick) continue;
+    if (o.targetEventId && st.dispositions.has(o.targetEventId)) continue;
+    const current = aboutUnderWay(o, index, underWay);
+    if (current && !o.directImpact && !preferred.has(`${o.scopeKind}:${o.scopeRef}`)) continue;
+    out.push({ ...o, current });
+  }
+  return out;
+}
+
 /** Whether a contact already reached the player about a matter: about its event or scope, or by its people. */
 export function reached(st: WorldState, o: Pick<Opportunity, 'scopeKind' | 'scopeRef' | 'targetEventId' | 'actors'>, contacts: Pick<ContactInfo, 'scopeKind' | 'scopeRef' | 'actors'>[] = st.contacts): boolean {
   return contacts.some((x) => (x.scopeKind === o.scopeKind && x.scopeRef === o.scopeRef) || (!!o.targetEventId && x.scopeKind === 'event' && x.scopeRef === o.targetEventId)

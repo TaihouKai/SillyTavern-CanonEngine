@@ -547,6 +547,26 @@ describe('varied suggestions', () => {
   });
 });
 
+describe('the list of possible contacts', () => {
+  it('NI-41b lists only what is still to come: not the contact the GM just made, not a matter reached since, not an aside about the event the player is in', async () => {
+    const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'medic-ambush').when, { latest: { day: 1, minute: 720 }, precision: 'range' });
+    const x = await setup({ pack: JSON.stringify(wide), integrate: { assessments: [], opportunities: [
+      OPP({ ref: 'a', kind: 'encounter', direct_impact: true, contact: 'a Council guard blocks the road' }),
+      OPP({ ref: 'b', kind: 'information', direct_impact: false, contact: 'a clerk passes on news of the ambush' }),
+      OPP({ ref: 'u', kind: 'invitation', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the Union invites Vera to a meeting' }),
+    ] } });
+    await turn(x, 'I watch the street.', 'Rain on the harbor. [L1]');
+    const union = x.engine.campaign()!.integrationCache!.opportunities.find((o) => o.scopeRef === 'union')!;
+    expect(x.engine.integrationView(true)!.suggestions!.map((s) => s.contact)).toContain('the Union invites Vera to a meeting');
+    // the GM makes the Union's contact and the ambush begins with the player in it; the cache is not redone yet
+    const ambush = { scene_end: at(1, 10, 0), occurrences: [occ('o1', 'Ambush on the road', 'Bolts start flying', { pack_event_id: 'medic-ambush', disposition: 'ongoing', actors: ['mira'] })], contacts: [contact('A Union runner invites you to a meeting', { scope_kind: 'faction', scope_ref: 'union', actors: ['union'], opportunity_id: union.id })] };
+    await turn(x, 'I follow Mira onto the road.', 'A Union runner invites you to a meeting. At 10:00 Bolts start flying. [L2]', ambush);
+    expect(x.engine.campaign()!.integrationCache!.opportunities).toHaveLength(3); // the analysis itself is unchanged
+    const v = x.engine.integrationView(true)!;
+    expect(v.suggestions!.map((s) => [s.contact, s.current])).toEqual([['a Council guard blocks the road', true]]);
+  });
+});
+
 describe('re-evaluate possible contacts', () => {
   it('NI-42 重新评估 asks the world-reaction step again although nothing changed, and records nothing', async () => {
     const x = await setup({ integrate: { assessments: [], opportunities: [OPP({ contact: 'a clerk asks for a boat' })] } });

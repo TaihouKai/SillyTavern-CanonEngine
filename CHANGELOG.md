@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.20.3 — 2026-11-08
+
+- **尚未发生的可能接触 lists only what is still to come.** The list showed the analysis as it was made, so the contact the GM had just written stayed there until the next analysis, next to things already over. It now leaves out a contact already made, a matter someone reached the player about since, one whose time has passed or whose event is settled, and an aside about the event the player is in that is never offered while it runs (only direct contacts are). The tag on the entries about that event reads 你正身处的事件 instead of 进行中. Test: NI-41b.
+
 ## 1.20.2 — 2026-11-08
 
 - **A day with canon events that are already over is not a free day.** The free-day check skipped events already settled, so a game started at 17:00 on 2020-09-18 — eleven 恩底弥翁 events between 09:00 and 14:00, all settled when the game began — got a small job as if nothing happened that day. Every canon event of the day counts now, settled or not, as 1.16.3 meant. The tests that used day 2 of the demo (an event at 09:00) as a free day now use days without events. Test: NI-45.
