@@ -525,7 +525,9 @@ export function quietDay(index: WorldIndex, tick: number): boolean {
   if (underWayEvents(st).size) return false;
   const dayStart = Math.floor(tick / 1440) * 1440, dayEnd = dayStart + 1439;
   if (tick - dayStart < JOB_FROM || tick - dayStart >= JOB_UNTIL) return false;
-  return !index.pack.timeIndex.some((t) => !st.dispositions.has(t.id) && t.lo <= dayEnd && t.hi >= dayStart);
+  // any canon event of the day counts, also one already over or settled (live: a game started at 17:00 on a day
+  // with eleven events until 14:00, all settled at the start, got a small job as if the day were free)
+  return !index.pack.timeIndex.some((t) => t.lo <= dayEnd && t.hi >= dayStart);
 }
 
 /** A small job the player let lapse: offered on a quiet day, not taken by the start of the next day (pending or

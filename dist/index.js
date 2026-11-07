@@ -22242,7 +22242,7 @@ function quietDay(index, tick) {
   if (underWayEvents(st).size) return false;
   const dayStart = Math.floor(tick / 1440) * 1440, dayEnd = dayStart + 1439;
   if (tick - dayStart < JOB_FROM || tick - dayStart >= JOB_UNTIL) return false;
-  return !index.pack.timeIndex.some((t2) => !st.dispositions.has(t2.id) && t2.lo <= dayEnd && t2.hi >= dayStart);
+  return !index.pack.timeIndex.some((t2) => t2.lo <= dayEnd && t2.hi >= dayStart);
 }
 function jobLapsed(state, c, tick) {
   if (!c.sideJob || c.expires == null || tick < c.expires) return false;
@@ -24843,7 +24843,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.20.1";
+var ENGINE_RELEASE = "1.20.2";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };

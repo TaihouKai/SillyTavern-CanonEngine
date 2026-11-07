@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.20.2 — 2026-11-08
+
+- **A day with canon events that are already over is not a free day.** The free-day check skipped events already settled, so a game started at 17:00 on 2020-09-18 — eleven 恩底弥翁 events between 09:00 and 14:00, all settled when the game began — got a small job as if nothing happened that day. Every canon event of the day counts now, settled or not, as 1.16.3 meant. The tests that used day 2 of the demo (an event at 09:00) as a free day now use days without events. Test: NI-45.
+
 ## 1.20.1 — 2026-11-08
 
 - **Asking an answered question again is sent back again.** Since plain refusals became wishes, the reviewer's complaint about pressing the player was enforced only when a binding refusal existed; asking for an answer the player had already given (or refused) was left as a note too, though it was meant to be enforced (1.x: "a question gets the player's answer once"). Questions and requests the player answered within the day now count as rules again. Live: 白井 kept questioning the player about the people they were with. Test: `tests/unit/people.test.ts` (PP2).
