@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { makeEngine, tick, at } from './fake';
+import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
 import { validatePackText } from '../../src/domain/pack';
 import { factAt } from '../../src/domain/reducer';
@@ -66,7 +66,7 @@ describe('who joins and who leaves', () => {
   });
 
   it('OR2 the Persona puts the player into a canon organization; the canon change keeps them, and the leader the Persona made stays', async () => {
-    const x = await setup(orgPack(), PROFILE([{ name: 'The Council', existing_id: 'council', role: 'head', leads: true, secrecy: 'public' }]));
+    const x = await setup(orgPack(), PROFILE([{ name: 'The Council', existing_id: 'council', role: 'head', status: 'member', leads: true, secrecy: 'public' }]));
     await turn(x, 'I look around.', 'You look around. [O1]');
     const me = player(x);
     expect(memberships(x.engine.current!.index, st(x).clock.lo).get('council')).toEqual(expect.arrayContaining(['sol', 'ren', me]));
@@ -92,7 +92,7 @@ describe('who joins and who leaves', () => {
   });
 
   it('OR4 an original organization is kept like any other: the player, the people the Persona puts in it, the player as its leader', async () => {
-    const x = await setup(orgPack(), PROFILE([{ name: 'Grey Lantern', existing_id: null, role: 'founder', leads: true, members: ['Kit', 'Ren'], secrecy: 'secret' }],
+    const x = await setup(orgPack(), PROFILE([{ name: 'Grey Lantern', existing_id: null, role: 'founder', status: 'member', leads: true, members: ['Kit', 'Ren'], secrecy: 'secret' }],
       [{ name: 'Kit', existing_id: null, relation: 'right hand in the Grey Lantern', basis: 'persona_stated' }]));
     await turn(x, 'I look around.', 'You look around. [O4]');
     const org = x.engine.membershipView(false)!.now.find((o) => o.name === 'Grey Lantern');
@@ -100,7 +100,7 @@ describe('who joins and who leaves', () => {
   });
 
   it('OR5 a new identity takes the player out of what the new Persona no longer gives them', async () => {
-    const x = await setup(orgPack(), PROFILE([{ name: 'The Council', existing_id: 'council', role: 'head', leads: true }]));
+    const x = await setup(orgPack(), PROFILE([{ name: 'The Council', existing_id: 'council', role: 'head', status: 'member', leads: true }]));
     await turn(x, 'I look around.', 'You look around. [O5]');
     const me = player(x);
     x.model.on('profile', null, PROFILE([]), true);
@@ -113,7 +113,7 @@ describe('who joins and who leaves', () => {
 });
 
 describe('what the player\'s own organization does reaches them', () => {
-  const union = PROFILE([{ name: 'The Union', existing_id: 'union', role: 'docker', secrecy: 'public' }]);
+  const union = PROFILE([{ name: 'The Union', existing_id: 'union', role: 'docker', status: 'member', secrecy: 'public' }]);
 
   it('OR6 the Union\'s event within a day is a required contact: the GM must bring it; a draft without it is sent back; once made it is done', async () => {
     const x = await setup(demo, union, tick(1, 12, 30));
@@ -150,3 +150,56 @@ describe('what the player\'s own organization does reaches them', () => {
     if (cand) expect(cand.player_org).toBe('The Union');
   });
 });
+
+describe('the Persona is the start; play goes on from it', () => {
+  // user decision 2026-11-08: "ITEM的新人，暂时还未入职" and joining in the first turn — the Persona's words must not
+  // pull the player back out of the organization they joined in play
+  const joining = PROFILE([{ name: 'The Union', existing_id: 'union', role: 'a newcomer, not taken on yet', status: 'joining', secrecy: 'public' }]);
+
+  it('OR9 about to join: not a member at the start, nothing of theirs is required, the GM is told they are not in it yet', async () => {
+    const x = await setup(orgPack(), joining, tick(1, 12, 30));
+    await turn(x, 'I look at the piers.', 'The piers are busy. [J0]');
+    expect(factAt(st(x), 'union', 'members', { tick: st(x).clock.lo }).value || []).not.toContain(player(x));
+    expect(ctx(x)).toMatch(/organization: The Union \[union\] — now NOT a member yet[^\n]*the Persona's words at the start: a newcomer, not taken on yet/);
+    expect(ctx(x)).not.toMatch(/WORLD REACTION — REQUIRED/);
+    expect(x.engine.integrationView(true)!.profile!.affiliations[0]).toMatch(/^The Union — 尚未加入/);
+  });
+
+  it('OR10 joined in play: a member from then on — the members facts, the GM, the panel, the Union’s events required — although the Persona still says otherwise', async () => {
+    const x = await setup(orgPack(), joining, tick(1, 12, 30));
+    await turn(x, 'I look at the piers.', 'The piers are busy. [J0]');
+    const me = player(x);
+    x.host.addUser('I sign on with the Union.');
+    x.model.draft('The dockmaster writes your name in the Union book. [J1]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[J1]'), { occurrences: [occ('o1', 'Ash joins the Union', 'writes your name in the Union book', { actors: ['union'], origin: 'player' })], transitions: [{ op: 'add', entity_id: 'union', predicate: 'members', value: [me], quote: 'writes your name in the Union book', occurrence_ref: 'o1' }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(factAt(st(x), 'union', 'members', { tick: st(x).clock.lo }).value).toContain(me);
+    x.host.addUser('I wait at the piers.');
+    x.model.draft('You wait. [J2]', 'A Union runner finds you: the dockmaster wants everyone at the piers before dawn. [J3]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[J3]'), { contacts: [{ quote: 'A Union runner finds you', actors: ['union'], kind: 'request', scope_kind: 'faction', scope_ref: 'union', scope_label: '', opportunity_id: null }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(ctx(x, -2)).toMatch(/organization: The Union \[union\] — now member \(joined in play\)/);
+    expect(ctx(x, -2)).toMatch(/WORLD REACTION — REQUIRED[\s\S]*the player is a member of The Union/);
+    expect(ctx(x, -2)).toMatch(/the Persona describes the player at the start of this game, and what happened in play since overrides it/);
+    expect(x.engine.integrationView(true)!.profile!.affiliations[0]).toMatch(/^The Union — 成员（剧情中加入）/);
+    // the same Persona read again (更新本局身份) does not take them out again
+    await x.engine.updateIdentity();
+    expect(factAt(st(x), 'union', 'members', { tick: st(x).clock.lo }).value).toContain(me);
+  });
+
+  it('OR11 a former member is not put in; a member who leaves in play is shown as left', async () => {
+    const x = await setup(orgPack(), PROFILE([{ name: 'The Union', existing_id: 'union', role: 'docker', status: 'member', secrecy: 'public' }, { name: 'The Council', existing_id: 'council', role: 'ex-clerk', status: 'former', leads: true }]), tick(1, 6, 0));
+    await turn(x, 'I look around.', 'You look around. [J6]');
+    const me = player(x);
+    expect(factAt(st(x), 'council', 'members', { tick: st(x).clock.lo }).value).toEqual(['ren', 'sol']);
+    expect(factAt(st(x), 'council', 'leader', { tick: st(x).clock.lo }).value).toBe('sol');
+    x.host.addUser('I quit the Union.');
+    x.model.draft('You hand back your Union badge. [J4]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[J4]'), { occurrences: [occ('o1', 'Ash quits the Union', 'hand back your Union badge', { actors: ['union'], origin: 'player' })], transitions: [{ op: 'remove', entity_id: 'union', predicate: 'members', value: [me], quote: 'hand back your Union badge', occurrence_ref: 'o1' }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    await turn(x, 'I walk home.', 'You walk home. [J5]');
+    expect(ctx(x)).toMatch(/organization: The Union \[union\] — now NOT a member any more \(left in play\)/);
+    expect(ctx(x)).toMatch(/organization: The Council \[council\] — now NOT a member \(a former member\)/);
+  });
+});
+

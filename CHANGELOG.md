@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.22.0 — 2026-11-08
+
+- **The Persona is the start; play goes on from it.** A Persona saying "ITEM的新人，暂时还未入职" was read as membership (the player was in ITEM from the first minute, its events required), and the GM saw the Persona's words every turn, also after the player had joined in play. Now:
+  - The Persona read gives each organization a status at the start: member, joining (about to join, a candidate) or former. Only a member is put into the organization; joining and leaving after that are play's (the members facts), and 更新本局身份 takes the player out only of what the new Persona no longer makes them a member of.
+  - Where the player stands with each organization is decided by the code from the Persona's start and the members facts: member, member (joined in play), left in play, not a member yet, former member. The GM's PLAYER IN THIS WORLD, the analysis input and the panel show it, the Persona's words labelled as the start.
+  - GM rule: the Persona describes the player at the start of this game; what happened in play since (joining or leaving, an injury, a move, a relationship) overrides it. The adjudicator is told the player being taken on by an organization or leaving it is a members change.
+  - Tests: `tests/unit/orgs.test.ts` OR9–OR11.
+
 ## 1.21.0 — 2026-11-08
 
 - **本局设定: the lorebook and the history pack follow this game's world.** A Persona can change the world (a player who is the eighth Level 5), and the lorebook then contradicts it ("there are seven Level 5s"), leaving the GM to guess. Now:

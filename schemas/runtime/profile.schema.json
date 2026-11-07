@@ -58,6 +58,13 @@
       "type": "string",
       "maxLength": 400
      },
+     "status": {
+      "enum": [
+       "member",
+       "joining",
+       "former"
+      ]
+     },
      "leads": {
       "type": "boolean"
      },
@@ -82,7 +89,8 @@
      }
     },
     "required": [
-     "name"
+     "name",
+     "status"
     ],
     "additionalProperties": false
    }

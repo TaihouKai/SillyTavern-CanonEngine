@@ -11,7 +11,7 @@ import { evalCondition, factAt, triLabel } from '../domain/reducer';
 import { formatTick, toTick } from '../domain/time';
 import { hashObject, newId, sha256, uniq } from '../domain/util';
 import type { WorldIndex } from '../domain/world-query';
-import type { IntegrationCache, Opportunity, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
+import type { AffiliationStatus, IntegrationCache, Opportunity, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
 import { markedLines } from './worldset';
 
 /** Story-time lead for candidate events (events starting within it are considered). */
@@ -36,7 +36,7 @@ export const samePersona = (hash: string | undefined, p: { name: string; descrip
 
 export interface ProfileOut {
   player: { name: string; aliases?: string[]; summary: string; public_identity?: string };
-  affiliations: { name: string; existing_id?: string | null; kind?: 'organization' | 'other'; role?: string; leads?: boolean; members?: string[]; secrecy?: 'public' | 'restricted' | 'secret'; description?: string }[];
+  affiliations: { name: string; existing_id?: string | null; kind?: 'organization' | 'other'; role?: string; status: AffiliationStatus; leads?: boolean; members?: string[]; secrecy?: 'public' | 'restricted' | 'secret'; description?: string }[];
   places?: { name: string; existing_id?: string | null; use?: string; description?: string }[];
   capabilities?: string[]; resources?: string[]; goals?: string[];
   roles?: { role: string; brings?: string[]; from?: string[]; style?: string }[];
@@ -87,7 +87,8 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
       id = reuse(a.name, prev?.affiliations) || `rt.org.${slug(a.name)}.${newId('e').slice(2, 8)}`;
       runtimeEntities.push({ id, name: a.name.trim(), aliases: [], kind: a.kind === 'other' ? 'other' : 'organization', description: (a.description || a.role || '').slice(0, 600) });
     }
-    affiliations.push({ entityId: id, name: a.name.trim(), role: (a.role || '').slice(0, 400), secrecy: a.secrecy || 'public', ...(a.leads ? { leads: true } : {}) });
+    const status = a.status === 'joining' || a.status === 'former' ? a.status : 'member';
+    affiliations.push({ entityId: id, name: a.name.trim(), role: (a.role || '').slice(0, 400), status, secrecy: a.secrecy || 'public', ...(a.leads && status === 'member' ? { leads: true } : {}) });
   }
   const places: PlayerProfile['places'] = [];
   for (const p of out.places || []) {
@@ -171,17 +172,19 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
 }
 
 /** The persona_seed record: the player and their original organizations/places enter the world (no story event),
- *  and the player joins the organizations the Persona puts them in — with the people the Persona puts there, and as
- *  their leader when the Persona says so (the Persona decides over the pack's leader). A later revision first takes
- *  the previous player out of what the new Persona no longer gives them. */
+ *  and the player joins the organizations the Persona makes them a member of — with the people the Persona puts there,
+ *  and as their leader when the Persona says so (the Persona decides over the pack's leader). One they are about to
+ *  join or have left is not joined: play does that. A later revision first takes the previous player out of what the
+ *  new Persona no longer makes them a member of. */
 export function seedRecord(profile: PlayerProfile, runtimeEntities: RuntimeEntity[], tick: number, rev: number, prev: PlayerProfile | null = null): RecordDraft {
   const deltas: FactDelta[] = [];
-  for (const a of prev?.affiliations || []) {
-    const kept = profile.playerId === prev!.playerId ? profile.affiliations.find((x) => x.entityId === a.entityId) : undefined;
+  const memberOf = (p: PlayerProfile) => p.affiliations.filter((a) => a.status === 'member');
+  for (const a of prev ? memberOf(prev) : []) {
+    const kept = profile.playerId === prev!.playerId ? memberOf(profile).find((x) => x.entityId === a.entityId) : undefined;
     if (!kept) deltas.push({ op: 'remove', entity_id: a.entityId, predicate: 'members', value: [prev!.playerId] });
     if (a.leads && !kept?.leads) deltas.push({ op: 'remove', entity_id: a.entityId, predicate: 'leader', value: prev!.playerId });
   }
-  for (const a of profile.affiliations) {
+  for (const a of memberOf(profile)) {
     deltas.push({ op: 'add', entity_id: a.entityId, predicate: 'members', value: [profile.playerId, ...(a.memberIds || [])] });
     if (a.leads) deltas.push({ op: 'set', entity_id: a.entityId, predicate: 'leader', value: profile.playerId });
   }
@@ -241,6 +244,31 @@ export function orgsOf(index: WorldIndex, who: Id, tick: number): Id[] {
   return [...memberships(index, tick)].filter(([, s]) => s.includes(who)).map(([org]) => org);
 }
 
+/** Where the player stands with each organization now: the Persona gives the start (member / about to join / former),
+ *  the members facts what play made of it since (joined, left). Decided by the code, so the GM never has to weigh the
+ *  Persona's words against the story. */
+export type OrgStanding = 'member' | 'joined_in_play' | 'left_in_play' | 'not_joined_yet' | 'former';
+export interface PlayerOrg { id: Id; name: string; role: string; secrecy: PlayerProfile['affiliations'][number]['secrecy']; persona: AffiliationStatus | null; standing: OrgStanding; leads: boolean }
+export function playerOrgs(index: WorldIndex, profile: PlayerProfile, tick: number): PlayerOrg[] {
+  const now = new Set(orgsOf(index, profile.playerId, tick));
+  const leads = (id: Id) => factAt(index.state, id, 'leader', { tick }).value === profile.playerId;
+  const out: PlayerOrg[] = profile.affiliations.map((a) => ({
+    id: a.entityId, name: a.name, role: a.role, secrecy: a.secrecy, persona: a.status, leads: leads(a.entityId),
+    standing: now.has(a.entityId) ? (a.status === 'member' ? 'member' : 'joined_in_play') : a.status === 'member' ? 'left_in_play' : a.status === 'joining' ? 'not_joined_yet' : 'former',
+  }));
+  for (const id of now) if (!out.some((o) => o.id === id)) out.push({ id, name: index.entityName(id), role: '', secrecy: 'public', persona: null, standing: 'joined_in_play', leads: leads(id) });
+  return out;
+}
+/** Whether the player is in the organization now (member at the start or joined in play, not left). */
+export const isIn = (o: PlayerOrg) => o.standing === 'member' || o.standing === 'joined_in_play';
+const STANDING: Record<OrgStanding, string> = {
+  member: 'member',
+  joined_in_play: 'member (joined in play)',
+  left_in_play: 'NOT a member any more (left in play)',
+  not_joined_yet: 'NOT a member yet (about to join at the start; not joined in play so far)',
+  former: 'NOT a member (a former member)',
+};
+
 const LEVEL = { exists: 'knows the organization exists (not that the player is in it)', identity: 'knows who the player is / their role', secrets: 'knows' } as const;
 
 function factsLine(index: WorldIndex, id: Id, tick: number): string {
@@ -283,7 +311,7 @@ export function playerContext(index: WorldIndex, profile: PlayerProfile, tick: n
     name: profile.personaName,
     who: profile.summary,
     public_identity: profile.publicIdentity,
-    affiliations: profile.affiliations.map((a) => ({ id: a.entityId, name: a.name, role: a.role, secrecy: a.secrecy, now: factsLine(index, a.entityId, tick).trim() })),
+    affiliations: playerOrgs(index, profile, tick).map((o) => ({ id: o.id, name: o.name, standing: STANDING[o.standing], ...(o.leads ? { leads: true } : {}), ...(o.role ? { persona_role_at_start: o.role } : {}), secrecy: o.secrecy, now: factsLine(index, o.id, tick).trim() })),
     places: profile.places.map((p) => ({ id: p.entityId, name: p.name, use: p.use, now: factsLine(index, p.entityId, tick).trim() })),
     capabilities: profile.capabilities,
     resources: profile.resources,
@@ -791,9 +819,9 @@ export function integrationKey(index: WorldIndex, profile: PlayerProfile, candid
 // GM context sections
 
 export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick: number): string {
-  const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play; the public identity is what anyone may know — famous things (an esper's level and ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
+  const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play — the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know — famous things (an esper's level and ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
   lines.push(`- ${profile.personaName} [${profile.playerId}] (the player character): ${profile.summary || '(no summary)'}${profile.publicIdentity ? ` Public identity: ${profile.publicIdentity}` : ''}${factsLine(index, profile.playerId, tick)}`);
-  for (const a of profile.affiliations) lines.push(`- organization: ${a.name} [${a.entityId}] — ${a.role || 'member'} (${a.secrecy})${factsLine(index, a.entityId, tick)}`);
+  for (const o of playerOrgs(index, profile, tick)) lines.push(`- organization: ${o.name} [${o.id}] — now ${STANDING[o.standing]}${o.leads ? ', its leader' : ''}${o.role ? `; the Persona's words at the start: ${o.role}` : ''} (${o.secrecy})${factsLine(index, o.id, tick)}`);
   for (const p of profile.places) lines.push(`- place: ${p.name} [${p.entityId}] — ${p.use}${factsLine(index, p.entityId, tick)}`);
   if (profile.capabilities.length || profile.resources.length) lines.push(`- can/has: ${[...profile.capabilities, ...profile.resources].slice(0, 10).join('; ')}`);
   if (profile.roles?.length) lines.push(`- roles: ${profile.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(', '), r.from.length ? `from ${r.from.join(', ')}` : ''].filter(Boolean).join('; ')})` : ''}`).join(' | ')}`);

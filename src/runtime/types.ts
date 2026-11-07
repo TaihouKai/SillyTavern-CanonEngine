@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.21.0';
+export const ENGINE_RELEASE = '1.22.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -234,6 +234,8 @@ export interface CampaignData {
   foreknowledge?: Record<string, { knows: boolean; how: string }>;
 }
 
+export type AffiliationStatus = 'member' | 'joining' | 'former';
+
 export interface PlayerProfile {
   personaName: string;
   /** The Persona text the profile was read from (standard Persona description). */
@@ -248,7 +250,9 @@ export interface PlayerProfile {
   publicIdentity: string;
   /** leads: the Persona makes the player its leader; memberIds: the other people the Persona puts in it. The player
    *  (and they) are written into the organization's members, the leader into its leader (persona_seed). */
-  affiliations: { entityId: Id; name: string; role: string; secrecy: 'public' | 'restricted' | 'secret'; leads?: boolean; memberIds?: Id[] }[];
+  /** status: what the Persona makes the player at the start of the game — a member, about to join (not yet in it), a former
+   *  member. Only a member is put into the organization; play changes it from there (the members facts). */
+  affiliations: { entityId: Id; name: string; role: string; status: AffiliationStatus; secrecy: 'public' | 'restricted' | 'secret'; leads?: boolean; memberIds?: Id[] }[];
   places: { entityId: Id; name: string; use: string }[];
   capabilities: string[];
   resources: string[];

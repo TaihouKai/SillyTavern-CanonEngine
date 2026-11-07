@@ -16,7 +16,7 @@ type X = ReturnType<typeof makeEngine>;
 const VERA = { name: 'Vera', description: 'Vera runs the Grey Lantern, a secret smuggling ring at the harbor, from her tea house. Mira owes her a debt.' };
 const PROFILE = {
   player: { name: 'Vera', aliases: [], summary: 'Leader of the Grey Lantern, a secret smuggling ring at the harbor.', public_identity: 'owner of a dockside tea house' },
-  affiliations: [{ name: 'Grey Lantern', existing_id: null, kind: 'organization', role: 'leader', secrecy: 'secret', description: 'a smuggling ring' }],
+  affiliations: [{ name: 'Grey Lantern', existing_id: null, kind: 'organization', role: 'leader', status: 'member', secrecy: 'secret', description: 'a smuggling ring' }],
   places: [{ name: 'Lantern Tea House', existing_id: null, use: 'front and base' }],
   capabilities: ['smuggling routes'], resources: ['twelve members', 'a fast boat'], goals: ['keep the ring alive'],
   relationships: [

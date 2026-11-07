@@ -25,7 +25,7 @@ import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './a
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { companionEvents, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { playerOrgs, isIn, companionEvents, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
@@ -227,6 +227,10 @@ function mergeClosingBeats(reply: RecordDraft[], closing: RecordDraft[], committ
     occ.linkedFrom = [...new Set([...(occ.linkedFrom || []).filter(known), ...ids])];
   }
 }
+
+/** How the panel names where the player stands with an organization. */
+const ORG_STANDING_ZH = { member: '成员', joined_in_play: '成员（剧情中加入）', left_in_play: '已离开（剧情中）', not_joined_yet: '尚未加入', former: '前成员' } as const;
+const ORG_STANDING_EN = { member: 'member', joined_in_play: 'member (joined in play)', left_in_play: 'left (in play)', not_joined_yet: 'not joined yet', former: 'former member' } as const;
 
 export class CanonEngine {
   host: HostPort;
@@ -2143,7 +2147,8 @@ export class CanonEngine {
     const arcIds = uniq(evIds.map((id) => pack.events.get(id)!.arc_id).filter(Boolean) as Id[]);
     const contacts = index.state.contacts.slice(-8);
     // faction scopes: the player's own organizations, whoever reached them lately, the organizations in nearby events
-    const orgIds = uniq([...profile.affiliations.map((a) => a.entityId), ...contacts.flatMap((k) => k.actors), ...evIds.flatMap((id) => pack.events.get(id)!.entity_ids)])
+    const mine = playerOrgs(index, profile, tick);
+    const orgIds = uniq([...mine.map((o) => o.id), ...contacts.flatMap((k) => k.actors), ...evIds.flatMap((id) => pack.events.get(id)!.entity_ids)])
       .filter((id) => index.entityKind(id) === 'organization');
     return {
       player_entity: { id: profile.playerId, name: profile.personaName },
@@ -2151,7 +2156,7 @@ export class CanonEngine {
       recent_contacts: contacts.map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => ({ id: a, name: index.entityName(a) })), quote: k.quote })),
       events: evIds.map((id) => { const e = pack.events.get(id)!; return { id, title: e.title, arc_id: e.arc_id }; }),
       arcs: arcIds.map((id) => { const a = pack.pack.arcs.find((x) => x.id === id); return { id, title: a?.title || id }; }),
-      organizations: orgIds.slice(0, 24).map((id) => ({ id, name: index.entityName(id), player_member: profile.affiliations.some((a) => a.entityId === id) })),
+      organizations: orgIds.slice(0, 24).map((id) => ({ id, name: index.entityName(id), player_member: mine.some((o) => o.id === id && isIn(o)) })),
     };
   }
 
@@ -2856,7 +2861,7 @@ export class CanonEngine {
       profile: prof ? {
         rev: prof.rev, name: prof.profile.personaName, chars: prof.profile.personaText.length, source: prof.profile.source, lore: prof.profile.lore || [],
         summary: prof.profile.summary, publicIdentity: prof.profile.publicIdentity,
-        affiliations: prof.profile.affiliations.map((a) => `${a.name} — ${a.role} (${a.secrecy})${orgNow(a.entityId)}`),
+        affiliations: playerOrgs(idx, prof.profile, s.clock.lo).map((o) => `${o.name} — ${(zh ? ORG_STANDING_ZH : ORG_STANDING_EN)[o.standing]}${o.role ? ` · ${o.role}` : ''} (${o.secrecy})${orgNow(o.id)}`),
         places: prof.profile.places.map((p) => `${p.name} — ${p.use}`),
         roles: (prof.profile.roles || []).map((r) => `${r.role}${r.brings.length ? ` — ${r.brings.join(', ')}` : ''}${r.from.length ? ` (${r.from.join(', ')})` : ''}`),
         notSuited: prof.profile.notSuited || [],
