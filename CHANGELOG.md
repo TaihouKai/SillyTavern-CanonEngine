@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.23.0 — 2026-11-08
+
+- **Relationships and who knows what follow play.** The player's connections and knowers were read once from the Persona and never changed: a friend the player fell out with stayed a "close friend" in every GM prompt, and someone who found out the player's secret was never a knower. Now:
+  - The review of every accepted reply reports `player_ties`: a relationship that begins, changes or ends (a meeting that matters, friendship, enmity, romance, a falling-out, a debt, a death) as it stands now, and someone who learns more about the player (level and what), each with a verbatim quote from the reply or the player's message. The gate records them as `player_tie` records (kept like contacts: a deleted or rewritten message takes them back).
+  - `playedProfile()` applies them to the Persona's start in record order: a relationship is replaced by how it stands now (or ended), keeping what the Persona said at the start; someone met in play is added; a knower only learns more. The GM's PLAYER IN THIS WORLD (latest changes first, with "as it stands since … in play; Persona at the start: …"), the analysis inputs, recognition (a new knower present acts on it) and the candidate events (ended ties no longer link) all use it.
+  - Panel 叙事融入 → 关系 / 谁知道你: each tie with its source (Persona / 身份推断 / 剧情 / 手动), since when, the start and the quote; edit, mark ended, change the level, remove, or add one. The user's changes are `player_tie` records after the last message (the user may also make someone know less).
+  - Tests: `tests/unit/ties.test.ts` (TI1–TI5); e2e `tests/e2e/ties.mjs` (TI01–TI05) on SillyTavern 1.19.0.
+
 ## 1.22.0 — 2026-11-08
 
 - **The Persona is the start; play goes on from it.** A Persona saying "ITEM的新人，暂时还未入职" was read as membership (the player was in ITEM from the first minute, its events required), and the GM saw the Persona's words every turn, also after the player had joined in play. Now:

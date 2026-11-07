@@ -128,6 +128,7 @@ export type RecordKind =
   | 'persona_seed'
   | 'engagement'
   | 'world_contact'
+  | 'player_tie'
   | 'scene_frame';
 
 /** What a player decision or a contact is about. event/arc: pack ids; faction: an organization entity id;
@@ -168,6 +169,25 @@ export interface ContactInfo {
   expires?: number | null;
   /** What the small matter asked (from the suggestion the GM carried out). */
   job?: string;
+}
+
+/** A change of the player character's ties made in play (or by the user in the panel): a relationship with someone,
+ *  or what someone knows about the player. The Persona gives the start; these change it from there. */
+export interface TieInfo {
+  kind: 'relation' | 'knows';
+  /** An entity id when they are known to this world, else null (matched by name). */
+  who: Id | null;
+  name: string;
+  /** relation: the whole relationship as it stands now; ended: it is over (dead, broken off for good). */
+  relation?: string;
+  ended?: boolean;
+  /** knows: how much they know now and what. */
+  level?: 'exists' | 'identity' | 'secrets';
+  about?: string;
+  quote: string;
+  source: 'play' | 'ui';
+  /** ui: the tie is taken out altogether. */
+  removed?: boolean;
 }
 
 /** An actual occurrence (something that happened in this branch). */
@@ -231,6 +251,8 @@ export interface LedgerRecord {
   engagement?: EngagementInfo;
   /** kind world_contact: a contact that reached the player. */
   contact?: ContactInfo;
+  /** kind player_tie: a relationship or what someone knows about the player, changed. */
+  tie?: TieInfo;
   /** kind scene_frame: the time frame the scene is in from now on (MAIN_FRAME for the main frame). */
   frameId?: Id;
 }

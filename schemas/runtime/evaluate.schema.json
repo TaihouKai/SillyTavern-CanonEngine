@@ -676,6 +676,60 @@
     "additionalProperties": false
    }
   },
+  "player_ties": {
+   "type": "array",
+   "maxItems": 12,
+   "items": {
+    "type": "object",
+    "properties": {
+     "tie": {
+      "enum": [
+       "relation",
+       "knows"
+      ]
+     },
+     "who": {
+      "type": "string",
+      "maxLength": 200
+     },
+     "existing_id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "maxLength": 200
+     },
+     "relation": {
+      "type": "string",
+      "maxLength": 400
+     },
+     "ended": {
+      "type": "boolean"
+     },
+     "level": {
+      "enum": [
+       "exists",
+       "identity",
+       "secrets"
+      ]
+     },
+     "about": {
+      "type": "string",
+      "maxLength": 400
+     },
+     "quote": {
+      "type": "string",
+      "maxLength": 600
+     }
+    },
+    "required": [
+     "tie",
+     "who",
+     "quote"
+    ],
+    "additionalProperties": false
+   }
+  },
   "scene_groups": {
    "type": "array",
    "items": {

@@ -1,6 +1,6 @@
 // Pure history replay: baseline + ordered validated ledger records -> world state.
 // Occurrences are kept separate from fluent state; a later reversal never erases an occurrence.
-import type { Condition, ContactInfo, EngagementInfo, FactDelta, FactValue, Id, LedgerRecord, Occurrence, RuntimeEntity, StoryTime, Tri } from './types';
+import type { Condition, ContactInfo, EngagementInfo, TieInfo, FactDelta, FactValue, Id, LedgerRecord, Occurrence, RuntimeEntity, StoryTime, Tri } from './types';
 import { UNKNOWN } from './types';
 import type { LoadedPack } from './pack';
 import { normalizeValue, valuesEqual } from './pack';
@@ -36,6 +36,7 @@ export interface Disposition {
 /** A player decision or a contact as replayed (record order = sequence). */
 export interface EngagementEntry extends EngagementInfo { recordId: string; seq: number; tick: number }
 export interface ContactEntry extends ContactInfo { recordId: string; seq: number; tick: number }
+export interface TieEntry extends TieInfo { recordId: string; seq: number; tick: number }
 
 export interface WorldState {
   packHash: string;
@@ -46,6 +47,8 @@ export interface WorldState {
   /** Narrative integration: the player's decisions and the contacts that reached them, in record order. */
   engagements: EngagementEntry[];
   contacts: ContactEntry[];
+  /** The player's relationships and who knows what about them, as play changed them (record order). */
+  ties: TieEntry[];
   runtimeEntities: Map<Id, RuntimeEntity & { recordId: string }>;
   enactedSteps: Map<string, string>;
   clock: StoryTime;
@@ -68,6 +71,7 @@ export function emptyState(pack: LoadedPack): WorldState {
     declines: new Map(),
     engagements: [],
     contacts: [],
+    ties: [],
     runtimeEntities: new Map(),
     enactedSteps: new Map(),
     clock: { lo: pack.coverage.start, hi: pack.coverage.start, precision: 'minute' },
@@ -110,6 +114,7 @@ export function applyRecord(state: WorldState, rec: LedgerRecord): void {
   if (rec.kind === 'participation_decline' && rec.declinedEventId) state.declines.set(rec.declinedEventId, rec.recordId);
   if (rec.engagement) state.engagements.push({ ...rec.engagement, recordId: rec.recordId, seq: rec.sequence, tick });
   if (rec.contact) state.contacts.push({ ...rec.contact, recordId: rec.recordId, seq: rec.sequence, tick });
+  if (rec.tie) state.ties.push({ ...rec.tie, recordId: rec.recordId, seq: rec.sequence, tick });
   for (const re of rec.runtimeEntities || []) if (!state.runtimeEntities.has(re.id)) state.runtimeEntities.set(re.id, { ...re, recordId: rec.recordId });
   for (const s of rec.enactedStepIds || []) if (!state.enactedSteps.has(s)) state.enactedSteps.set(s, rec.recordId);
   if (rec.kind === 'scene_frame' && rec.frameId) state.sceneFrame = { frameId: rec.frameId, since: tick, recordId: rec.recordId };

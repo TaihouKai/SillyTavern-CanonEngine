@@ -676,6 +676,18 @@ function renderInspector() {
           : E.editWorld(id, null);
         run.then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
       }
+      // relationships and who knows what (the user's own changes)
+      if (act === 'tie-save' || act === 'tie-del') {
+        const kind = b.dataset.kind === 'knows' ? 'knows' : 'relation';
+        const sel = (cls: string) => inspectorEl!.querySelector(`.${cls}[data-kind="${kind}"][data-i="${CSS.escape(b.dataset.i || '')}"]`) as HTMLInputElement | null;
+        const isNew = b.dataset.i === 'new';
+        const name = isNew ? (sel('canon-tie-name')?.value || '') : (b.dataset.name || '');
+        const text = sel('canon-tie-text')?.value.trim() || '';
+        if (act === 'tie-save' && (!name.trim() || (kind === 'relation' && !text))) { toast('warning', t('tieNeedText')); return; }
+        (b as HTMLButtonElement).disabled = true;
+        const patch = act === 'tie-del' ? null : kind === 'relation' ? { relation: text, ended: !!sel('canon-tie-ended')?.checked } : { level: (sel('canon-tie-level')?.value || 'identity') as 'exists' | 'identity' | 'secrets', about: text };
+        E.editTie(kind, isNew ? null : b.dataset.who || null, name, patch).then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
+      }
       if (act === 'ni-update' || act === 'ni-keep' || act === 'ni-reopen' || act === 'ni-strong' || act === 'ni-weak') {
         (b as HTMLButtonElement).disabled = true;
         if (act === 'ni-update') b.textContent = t('niBusy');
@@ -733,8 +745,6 @@ function renderInspector() {
     <div class="canon-insp-body">${body}</div>`;
 }
 
-/** Inspector tab 叙事融入: what was read from the Persona, the player's decisions (with "allow contact again"),
- *  the contacts that reached them; pending suggestions only with spoilers (they are not history). */
 /** 本局设定 in the 叙事融入 tab: the changes, your own, what was checked, and every entry rewritten for this game. */
 function worldSection(): string {
   const w = E.worldView();
@@ -757,6 +767,36 @@ function worldSection(): string {
   return html;
 }
 
+/** The player's relationships and who knows what about them, as play changed them (from the Persona at the start):
+ *  each can be changed or removed here, and new ones added (kept as the user's own, replayed like play's). */
+function tiesSection(p: NonNullable<NonNullable<ReturnType<CanonEngine['integrationView']>>['profile']>): string {
+  const tag = (s: string) => `<span class="canon-tag">${esc(s)}</span>`;
+  const src = (x: { by: string; since: string | null; start: string | null; quote: string }) => `${tag(t(`tieSrc_${x.by}`))}${x.since ? ` <small>${esc(t('tieSince').replace('{t}', x.since))}</small>` : ''}`
+    + `${x.start ? `<br><small>${esc(t('tieStart'))}: ${esc(x.start)}</small>` : ''}${x.quote ? `<br><small>“${esc(x.quote)}”</small>` : ''}`;
+  const ids = (kind: string, x: { who: string | null; name: string }, i: number) => `data-kind="${kind}" data-i="${i}" data-who="${esc(x.who || '')}" data-name="${esc(x.name)}"`;
+  const levels = (cur: string, attr: string) => `<select class="text_pole canon-tie-level" ${attr}>${['exists', 'identity', 'secrets'].map((l) => `<option value="${l}" ${l === cur ? 'selected' : ''}>${esc(t(`tieLevel_${l}`))}</option>`).join('')}</select>`;
+  const btns = (attr: string) => `<button class="menu_button" data-act="tie-save" ${attr}>${esc(t('wsSave'))}</button> <button class="menu_button" data-act="tie-del" ${attr}>${esc(t('wsDelete'))}</button>`;
+  const rel = p.relationships.map((r, i) => {
+    const a = ids('relation', r, i);
+    return `<li><b>${esc(r.name)}</b>${r.ended ? ` ${tag(t('tieEnded'))}` : ''}: ${esc(r.text)}${esc(r.org)} ${src(r)}`
+      + `<details class="canon-older"><summary><small>${esc(t('tieEdit'))}</small></summary><textarea class="text_pole canon-tie-text" ${a} rows="2">${esc(r.text)}</textarea><label class="checkbox_label canon-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r.ended ? 'checked' : ''}><span>${esc(t('tieEnded'))}</span></label>${btns(a)}</details></li>`;
+  });
+  const kn = p.knowers.map((k, i) => {
+    const a = ids('knows', k, i);
+    return `<li><b>${esc(k.name)}</b> ${tag(t(`tieLevel_${k.level}`))}: ${esc(k.text)} ${src(k)}`
+      + `<details class="canon-older"><summary><small>${esc(t('tieEdit'))}</small></summary>${levels(k.level, a)}<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc(k.text)}</textarea>${btns(a)}</details></li>`;
+  });
+  const add = (kind: 'relation' | 'knows') => {
+    const a = `data-kind="${kind}" data-i="new"`;
+    return `<details class="canon-older"><summary><small>${esc(t(kind === 'relation' ? 'tieAddRel' : 'tieAddKnower'))}</small></summary><input class="text_pole canon-tie-name" ${a} placeholder="${esc(t('tieName'))}">${kind === 'knows' ? levels('identity', a) : ''}`
+      + `<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc(t(kind === 'relation' ? 'tieRelText' : 'tieKnowsText'))}"></textarea><button class="menu_button" data-act="tie-save" ${a}>${esc(t('wsSave'))}</button></details>`;
+  };
+  return `<h4>${esc(t('niConnections'))} ${tip('tieTip')}</h4>${rel.length ? `<ul class="canon-list">${rel.join('')}</ul>` : ''}${add('relation')}`
+    + `<h4>${esc(t('niWho'))}</h4>${kn.length ? `<ul class="canon-list">${kn.join('')}</ul>` : ''}${add('knows')}`;
+}
+
+/** Inspector tab 叙事融入: what was read from the Persona, the player's decisions (with "allow contact again"),
+ *  the contacts that reached them; pending suggestions only with spoilers (they are not history). */
 function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   if (!v) return `<div>${esc(t('niOff'))}</div>`;
   const list = (title: string, items: string[]) => (items.length ? `<h4>${esc(title)}</h4><ul class="canon-list">${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
@@ -769,7 +809,7 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   if (!p) html += `<div>${esc(t('niNoProfile'))}</div>`;
   else {
     html += `<h4>${esc(p.name)}</h4><div>${esc(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc(p.publicIdentity)}</small></div>` : ''}<div><small>${esc(t(p.source === 'persona_core' ? 'niSourceCore' : 'niSource').replace('{n}', String(p.chars)).replace('{rev}', String(p.rev)))}</small></div>`;
-    html += list(t('niLore'), p.lore || []) + list(t('niOrgs'), p.affiliations) + list(t('niPlaces'), p.places) + list(t('niRoles'), p.roles || []) + list(t('niNotSuited'), p.notSuited || []) + list(t('niVoice'), p.voice ? [p.voice] : []) + list(t('niConnections'), p.relationships) + list(t('niRecognized'), p.recognized || []) + list(t('niWho'), p.knowers) + list(t('niNotes'), p.notes);
+    html += list(t('niLore'), p.lore || []) + list(t('niOrgs'), p.affiliations) + list(t('niPlaces'), p.places) + list(t('niRoles'), p.roles || []) + list(t('niNotSuited'), p.notSuited || []) + list(t('niVoice'), p.voice ? [p.voice] : []) + list(t('niRecognized'), p.recognized || []) + tiesSection(p) + list(t('niNotes'), p.notes);
   }
   html += worldSection();
   const stance = (s: string) => t(`niStance_${s}`);

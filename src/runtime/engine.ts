@@ -25,7 +25,7 @@ import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './a
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { playerOrgs, isIn, companionEvents, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { playedProfile, playerOrgs, isIn, companionEvents, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
@@ -988,7 +988,7 @@ export class CanonEngine {
       const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.persona();
       const parts = this.ooc(userEntry.text);
       const eng = engagementView(index.state, pack);
-      const focus = new Set([...index.scanEntities(parts.story).map((m) => m.id), ...(prof ? [prof.profile.playerId, ...prof.profile.relationships.map((r) => r.entityId), ...prof.profile.affiliations.map((a) => a.entityId)].filter(Boolean) as Id[] : [])]);
+      const focus = new Set([...index.scanEntities(parts.story).map((m) => m.id), ...(prof ? [prof.profile.playerId, ...playedProfile(index, prof.profile).relationships.filter((r) => !r.ended).map((r) => r.entityId), ...prof.profile.affiliations.map((a) => a.entityId)].filter(Boolean) as Id[] : [])]);
       // the events go to the planner in batches it can read in full (each with its summary), planned side by side;
       // what one batch's decisions do to a later event is worked out by the adjudication below (its preconditions)
       const batches = leapBatches(list);
@@ -2204,7 +2204,7 @@ export class CanonEngine {
       ...(c.preferredScopes?.length ? { preferred: c.preferredScopes } : {}),
       ...(quiet ? { quiet_day: true, ...(recentJobs.length ? { recent_jobs: recentJobs } : {}) } : {}),
       ...(kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {}),
-      registry: this.registry(index, `${userEntry?.text || ''} ${candidates.map((x) => x.event.title).join(' ')}`, [...withIds, ...profile.relationships.map((r) => r.entityId).filter(Boolean) as Id[]], { notes: true }),
+      registry: this.registry(index, `${userEntry?.text || ''} ${candidates.map((x) => x.event.title).join(' ')}`, [...withIds, ...playedProfile(index, profile).relationships.map((r) => r.entityId).filter(Boolean) as Id[]], { notes: true }),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 8000 }), this.settings.taskTimeoutMs * 4, signal);
     const checked = checkOpportunities(out, index, profile, candidates, tick, quiet);
     const dropped = [...checked.dropped, ...checked.valid.filter((o) => keptScopes.has(`${o.scopeKind}:${o.scopeRef}`)).map((o) => ({ id: o.id, reason: `${o.scopeLabel} is kept as it was` }))];
@@ -2841,6 +2841,7 @@ export class CanonEngine {
     const idx = this.current.index;
     const origin = c.binding.originDate;
     const prof = this.playerProfile();
+    const played = prof ? playedProfile(idx, prof.profile) : null;
     const eng = engagementView(s, idx.pack);
     const active = new Set([...eng.scopes.values()].map((x) => x.current?.recordId).filter(Boolean));
     // a pack event/arc title can be a spoiler of canon still to come: masked unless spoilers are on (the quote of
@@ -2866,9 +2867,9 @@ export class CanonEngine {
         roles: (prof.profile.roles || []).map((r) => `${r.role}${r.brings.length ? ` — ${r.brings.join(', ')}` : ''}${r.from.length ? ` (${r.from.join(', ')})` : ''}`),
         notSuited: prof.profile.notSuited || [],
         voice: prof.profile.voice || '',
-        relationships: prof.profile.relationships.map((r) => `${r.name}: ${r.relation} (${r.basis === 'persona_stated' ? 'Persona' : 'implied'})${orgNow(r.entityId)}`),
+        relationships: played!.relationships.map((r) => ({ who: r.entityId, name: r.name, text: r.relation, ended: !!r.ended, basis: r.basis, by: r.changed?.by ?? r.basis, since: r.changed ? formatTick(r.changed.since, origin) : null, start: r.changed?.start ?? null, quote: r.changed?.quote || '', org: orgNow(r.entityId) })),
         recognized: (prof.profile.recognizedBy || []).map((r) => `${r.who}${r.everywhere ? (zh ? '（到处）' : ' (everywhere)') : ''}: ${r.as}${r.places.length ? ` (${r.places.map((p) => idx.entityName(p)).join(zh ? '、' : ', ')})` : ''}`),
-        knowers: prof.profile.knowers.map((k) => `${k.who} — ${k.level}: ${k.about}`),
+        knowers: played!.knowers.map((k) => ({ who: k.entityId, name: k.who, level: k.level, text: k.about, basis: k.basis, by: k.changed?.by ?? k.basis, since: k.changed ? formatTick(k.changed.since, origin) : null, start: k.changed?.start ?? null, quote: k.changed?.quote || '' })),
         notes: prof.profile.notes,
       } : null,
       personaChanged: this.personaChanged(),
@@ -2926,6 +2927,28 @@ export class CanonEngine {
     c.configRevisions.push({ at: this.host.now(), summary: `allowed contact again: ${label}` });
     await this.host.save();
     await this.reconcile('engagement_reopened');
+  }
+
+  /** The user's own change of a relationship or of what someone knows about the player (叙事融入 panel): kept as a
+   *  player_tie record after the current last message, replayed like the ones play made (null removes the tie). */
+  async editTie(kind: 'relation' | 'knows', who: Id | null, name: string, patch: { relation?: string; ended?: boolean; level?: 'exists' | 'identity' | 'secrets'; about?: string } | null): Promise<void> {
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
+    const c = this.campaign();
+    name = String(name || '').trim();
+    if (!c || !name) return;
+    if (patch && kind === 'relation' && !patch.relation?.trim()) return;
+    const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
+    const tick = this.current?.replay.state.clock.lo ?? c.binding.startTick;
+    const id = who || (this.current ? this.current.index.resolveEntity(name).ids.find((x) => this.current!.index.entityKind(x) !== 'place') : undefined) || null;
+    const rec: RecordDraft = {
+      recordId: newId('rec'), kind: 'player_tie', storyTime: { lo: tick, hi: tick, precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+      visibility: { mode: 'public', knower_ids: [] }, summary: `${kind === 'relation' ? 'Relationship' : 'Who knows'}: ${name} ${patch ? 'set' : 'removed'} (Canon Engine panel)`, evidenceKind: 'direct',
+      tie: { kind, who: id, name, quote: '', source: 'ui', ...(patch ? { ...(kind === 'relation' ? { relation: patch.relation!.trim().slice(0, 400), ...(patch.ended ? { ended: true } : {}) } : { level: patch.level || 'identity', about: String(patch.about || '').trim().slice(0, 400) }) } : { removed: true }) },
+    };
+    c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+    c.configRevisions.push({ at: this.host.now(), summary: rec.summary });
+    await this.host.save();
+    await this.reconcile('tie_edited');
   }
 }
 

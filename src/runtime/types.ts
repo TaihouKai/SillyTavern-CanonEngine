@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.22.0';
+export const ENGINE_RELEASE = '1.23.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -234,6 +234,9 @@ export interface CampaignData {
   foreknowledge?: Record<string, { knows: boolean; how: string }>;
 }
 
+export type TieBasis = 'persona_stated' | 'implied' | 'play' | 'ui';
+/** How play (or the user in the panel) changed a tie the Persona gave: since when, and what the Persona said. */
+export interface TieChange { since: number; by: 'play' | 'ui'; start: string | null; quote: string }
 export type AffiliationStatus = 'member' | 'joining' | 'former';
 
 export interface PlayerProfile {
@@ -248,10 +251,10 @@ export interface PlayerProfile {
   playerId: Id;
   summary: string;
   publicIdentity: string;
-  /** leads: the Persona makes the player its leader; memberIds: the other people the Persona puts in it. The player
-   *  (and they) are written into the organization's members, the leader into its leader (persona_seed). */
-  /** status: what the Persona makes the player at the start of the game — a member, about to join (not yet in it), a former
-   *  member. Only a member is put into the organization; play changes it from there (the members facts). */
+  /** status: what the Persona makes the player at the start of the game — a member, about to join (not yet in it), a
+   *  former member. leads: the Persona makes the player its leader; memberIds: the other people the Persona puts in it.
+   *  Only a member (and those people) is written into the organization's members, the leader into its leader
+   *  (persona_seed); play changes it from there (the members facts). */
   affiliations: { entityId: Id; name: string; role: string; status: AffiliationStatus; secrecy: 'public' | 'restricted' | 'secret'; leads?: boolean; memberIds?: Id[] }[];
   places: { entityId: Id; name: string; use: string }[];
   capabilities: string[];
@@ -266,10 +269,12 @@ export interface PlayerProfile {
   voice?: string;
   /** 本局设定: how this game's world differs from the original setting, as the Persona states it (marked lines always). */
   worldChanges?: { text: string; terms: string[]; marked: boolean }[];
-  relationships: { entityId: Id | null; name: string; relation: string; basis: 'persona_stated' | 'implied' }[];
+  /** The player's relationships. Read from the Persona they are the start; playedProfile() gives them as play has
+   *  changed them since (basis "play"/"ui" for a new one, `changed` for one play or the user changed). */
+  relationships: { entityId: Id | null; name: string; relation: string; basis: TieBasis; ended?: boolean; changed?: TieChange }[];
   /** Who plausibly knows about the player, at which level: that an organization exists, the player's identity or
-   *  role, or specific secrets. */
-  knowers: { who: string; entityId: Id | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: 'persona_stated' | 'implied'; places?: Id[] }[];
+   *  role, or specific secrets (the Persona's start; as play changed it in playedProfile()). */
+  knowers: { who: string; entityId: Id | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: TieBasis; places?: Id[]; changed?: TieChange }[];
   /** Who recognizes the player for their PUBLIC identity (nothing secret): the groups among whom the player is known,
    *  the organization they belong to, the places they are mostly found, or everywhere for someone famous. Missing on
    *  profiles read before 1.17.0. */

@@ -8008,7 +8008,7 @@ function validate59(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate59.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 var evaluate = validate60;
-var schema93 = { "type": "object", "properties": { "decision": { "enum": ["retain", "repair", "conflict"] }, "scene_end": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "flashback": { "type": "boolean" }, "claim_checks": { "type": "array", "items": { "type": "object", "properties": { "claim_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "verdict": { "enum": ["consistent", "contradiction", "unsupported", "belief_ok", "new_detail", "not_applicable"] }, "record_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "note": { "type": "string" } }, "required": ["claim_id", "verdict"], "additionalProperties": false }, "maxItems": 400 }, "transitions": { "type": "array", "items": { "type": "object", "properties": { "op": { "enum": ["set", "unset", "add", "remove"] }, "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "occurrence_ref": { "type": ["string", "null"] } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, "maxItems": 200 }, "occurrences": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "title": { "type": "string" }, "account": { "type": "string" }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "affected": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "locations": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "causes": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "quote": { "type": "string" }, "pack_event_id": { "type": ["string", "null"] }, "disposition": { "enum": ["occurred", "diverged", "ongoing", null] }, "ref_phrases": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "continues": { "type": ["string", "null"], "maxLength": 200 }, "backstory": { "type": "boolean" }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "origin": { "enum": ["player", "gm", "intervention"] } }, "required": ["ref", "title", "account", "actors", "quote"], "additionalProperties": false }, "maxItems": 200 }, "state_claims": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["entity_id", "predicate", "value", "quote"], "additionalProperties": false }, "maxItems": 200 }, "player_actions": { "type": "array", "items": { "type": "object", "properties": { "quote": { "type": "string" }, "authorized_by_quote": { "type": ["string", "null"] }, "category": { "type": ["string", "null"], "enum": ["dialogue", "reactions", "actions", "trivial", "movement", "items", "skills", "combat", "decisions", "secrets", "intervention", null] } }, "required": ["quote", "authorized_by_quote"], "additionalProperties": false }, "maxItems": 200 }, "step_enactments": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "occurrence_ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" } }, "required": ["step_id", "occurrence_ref", "quote"], "additionalProperties": false }, "maxItems": 200 }, "new_entities": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "name": { "type": "string" }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "description": { "type": "string" }, "quote": { "type": "string" } }, "required": ["ref", "name", "kind", "description", "quote"], "additionalProperties": false }, "maxItems": 200 }, "violations": { "type": "array", "items": { "type": "object", "properties": { "code": { "type": "string" }, "quote": { "type": "string" }, "detail": { "type": "string" }, "blocking": { "type": "boolean" } }, "required": ["code", "detail"], "additionalProperties": false }, "maxItems": 200 }, "hard_checks": { "type": "array", "items": { "type": "object", "properties": { "event_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "status": { "enum": ["fulfilled", "not_due", "missing", "contradicted"] }, "occurrence_ref": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } }, "required": ["event_id", "status"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "scene_frame": { "type": ["string", "null"], "maxLength": 200 }, "summary": { "type": "string" }, "contacts": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 600 }, "actors": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 }, "kind": { "enum": ["invitation", "request", "information", "probe", "hostile", "consequence", "encounter"] }, "scope_kind": { "enum": ["event", "arc", "faction", "contact", "storyline"] }, "scope_ref": { "type": "string", "maxLength": 200 }, "scope_label": { "type": "string", "maxLength": 300 }, "opportunity_id": { "type": ["string", "null"], "maxLength": 200 } }, "required": ["quote", "kind", "scope_kind", "scope_ref"], "additionalProperties": false } }, "scene_groups": { "type": "array", "items": { "type": "string", "maxLength": 40 }, "maxItems": 20 } }, "required": ["decision", "scene_end", "claim_checks", "transitions", "occurrences", "state_claims", "player_actions", "violations", "hard_checks"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:evaluate", "title": "Canon Engine task output: evaluate" };
+var schema93 = { "type": "object", "properties": { "decision": { "enum": ["retain", "repair", "conflict"] }, "scene_end": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "flashback": { "type": "boolean" }, "claim_checks": { "type": "array", "items": { "type": "object", "properties": { "claim_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "verdict": { "enum": ["consistent", "contradiction", "unsupported", "belief_ok", "new_detail", "not_applicable"] }, "record_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "note": { "type": "string" } }, "required": ["claim_id", "verdict"], "additionalProperties": false }, "maxItems": 400 }, "transitions": { "type": "array", "items": { "type": "object", "properties": { "op": { "enum": ["set", "unset", "add", "remove"] }, "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "occurrence_ref": { "type": ["string", "null"] } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, "maxItems": 200 }, "occurrences": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "title": { "type": "string" }, "account": { "type": "string" }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "affected": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "locations": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "causes": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "quote": { "type": "string" }, "pack_event_id": { "type": ["string", "null"] }, "disposition": { "enum": ["occurred", "diverged", "ongoing", null] }, "ref_phrases": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "continues": { "type": ["string", "null"], "maxLength": 200 }, "backstory": { "type": "boolean" }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "origin": { "enum": ["player", "gm", "intervention"] } }, "required": ["ref", "title", "account", "actors", "quote"], "additionalProperties": false }, "maxItems": 200 }, "state_claims": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["entity_id", "predicate", "value", "quote"], "additionalProperties": false }, "maxItems": 200 }, "player_actions": { "type": "array", "items": { "type": "object", "properties": { "quote": { "type": "string" }, "authorized_by_quote": { "type": ["string", "null"] }, "category": { "type": ["string", "null"], "enum": ["dialogue", "reactions", "actions", "trivial", "movement", "items", "skills", "combat", "decisions", "secrets", "intervention", null] } }, "required": ["quote", "authorized_by_quote"], "additionalProperties": false }, "maxItems": 200 }, "step_enactments": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "occurrence_ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" } }, "required": ["step_id", "occurrence_ref", "quote"], "additionalProperties": false }, "maxItems": 200 }, "new_entities": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "name": { "type": "string" }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "description": { "type": "string" }, "quote": { "type": "string" } }, "required": ["ref", "name", "kind", "description", "quote"], "additionalProperties": false }, "maxItems": 200 }, "violations": { "type": "array", "items": { "type": "object", "properties": { "code": { "type": "string" }, "quote": { "type": "string" }, "detail": { "type": "string" }, "blocking": { "type": "boolean" } }, "required": ["code", "detail"], "additionalProperties": false }, "maxItems": 200 }, "hard_checks": { "type": "array", "items": { "type": "object", "properties": { "event_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "status": { "enum": ["fulfilled", "not_due", "missing", "contradicted"] }, "occurrence_ref": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } }, "required": ["event_id", "status"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "scene_frame": { "type": ["string", "null"], "maxLength": 200 }, "summary": { "type": "string" }, "contacts": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 600 }, "actors": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 }, "kind": { "enum": ["invitation", "request", "information", "probe", "hostile", "consequence", "encounter"] }, "scope_kind": { "enum": ["event", "arc", "faction", "contact", "storyline"] }, "scope_ref": { "type": "string", "maxLength": 200 }, "scope_label": { "type": "string", "maxLength": 300 }, "opportunity_id": { "type": ["string", "null"], "maxLength": 200 } }, "required": ["quote", "kind", "scope_kind", "scope_ref"], "additionalProperties": false } }, "player_ties": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "tie": { "enum": ["relation", "knows"] }, "who": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "ended": { "type": "boolean" }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "quote": { "type": "string", "maxLength": 600 } }, "required": ["tie", "who", "quote"], "additionalProperties": false } }, "scene_groups": { "type": "array", "items": { "type": "string", "maxLength": 40 }, "maxItems": 20 } }, "required": ["decision", "scene_end", "claim_checks", "transitions", "occurrences", "state_claims", "player_actions", "violations", "hard_checks"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:evaluate", "title": "Canon Engine task output: evaluate" };
 function validate60(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -10953,11 +10953,11 @@ function validate60(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
-    if (data.scene_groups !== void 0) {
-      let data111 = data.scene_groups;
+    if (data.player_ties !== void 0) {
+      let data111 = data.player_ties;
       if (Array.isArray(data111)) {
-        if (data111.length > 20) {
-          const err257 = { instancePath: instancePath + "/scene_groups", schemaPath: "#/properties/scene_groups/maxItems", keyword: "maxItems", params: { limit: 20 }, message: "must NOT have more than 20 items" };
+        if (data111.length > 12) {
+          const err257 = { instancePath: instancePath + "/player_ties", schemaPath: "#/properties/player_ties/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
           if (vErrors === null) {
             vErrors = [err257];
           } else {
@@ -10968,9 +10968,9 @@ function validate60(data, { instancePath = "", parentData, parentDataProperty, r
         const len21 = data111.length;
         for (let i21 = 0; i21 < len21; i21++) {
           let data112 = data111[i21];
-          if (typeof data112 === "string") {
-            if (func2(data112) > 40) {
-              const err258 = { instancePath: instancePath + "/scene_groups/" + i21, schemaPath: "#/properties/scene_groups/items/maxLength", keyword: "maxLength", params: { limit: 40 }, message: "must NOT have more than 40 characters" };
+          if (data112 && typeof data112 == "object" && !Array.isArray(data112)) {
+            if (data112.tie === void 0) {
+              const err258 = { instancePath: instancePath + "/player_ties/" + i21, schemaPath: "#/properties/player_ties/items/required", keyword: "required", params: { missingProperty: "tie" }, message: "must have required property 'tie'" };
               if (vErrors === null) {
                 vErrors = [err258];
               } else {
@@ -10978,32 +10978,252 @@ function validate60(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
+            if (data112.who === void 0) {
+              const err259 = { instancePath: instancePath + "/player_ties/" + i21, schemaPath: "#/properties/player_ties/items/required", keyword: "required", params: { missingProperty: "who" }, message: "must have required property 'who'" };
+              if (vErrors === null) {
+                vErrors = [err259];
+              } else {
+                vErrors.push(err259);
+              }
+              errors++;
+            }
+            if (data112.quote === void 0) {
+              const err260 = { instancePath: instancePath + "/player_ties/" + i21, schemaPath: "#/properties/player_ties/items/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
+              if (vErrors === null) {
+                vErrors = [err260];
+              } else {
+                vErrors.push(err260);
+              }
+              errors++;
+            }
+            for (const key18 in data112) {
+              if (!(key18 === "tie" || key18 === "who" || key18 === "existing_id" || key18 === "relation" || key18 === "ended" || key18 === "level" || key18 === "about" || key18 === "quote")) {
+                const err261 = { instancePath: instancePath + "/player_ties/" + i21, schemaPath: "#/properties/player_ties/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key18 }, message: "must NOT have additional properties" };
+                if (vErrors === null) {
+                  vErrors = [err261];
+                } else {
+                  vErrors.push(err261);
+                }
+                errors++;
+              }
+            }
+            if (data112.tie !== void 0) {
+              let data113 = data112.tie;
+              if (!(data113 === "relation" || data113 === "knows")) {
+                const err262 = { instancePath: instancePath + "/player_ties/" + i21 + "/tie", schemaPath: "#/properties/player_ties/items/properties/tie/enum", keyword: "enum", params: { allowedValues: schema93.properties.player_ties.items.properties.tie.enum }, message: "must be equal to one of the allowed values" };
+                if (vErrors === null) {
+                  vErrors = [err262];
+                } else {
+                  vErrors.push(err262);
+                }
+                errors++;
+              }
+            }
+            if (data112.who !== void 0) {
+              let data114 = data112.who;
+              if (typeof data114 === "string") {
+                if (func2(data114) > 200) {
+                  const err263 = { instancePath: instancePath + "/player_ties/" + i21 + "/who", schemaPath: "#/properties/player_ties/items/properties/who/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err263];
+                  } else {
+                    vErrors.push(err263);
+                  }
+                  errors++;
+                }
+              } else {
+                const err264 = { instancePath: instancePath + "/player_ties/" + i21 + "/who", schemaPath: "#/properties/player_ties/items/properties/who/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err264];
+                } else {
+                  vErrors.push(err264);
+                }
+                errors++;
+              }
+            }
+            if (data112.existing_id !== void 0) {
+              let data115 = data112.existing_id;
+              if (typeof data115 !== "string" && data115 !== null) {
+                const err265 = { instancePath: instancePath + "/player_ties/" + i21 + "/existing_id", schemaPath: "#/properties/player_ties/items/properties/existing_id/type", keyword: "type", params: { type: schema93.properties.player_ties.items.properties.existing_id.type }, message: "must be string,null" };
+                if (vErrors === null) {
+                  vErrors = [err265];
+                } else {
+                  vErrors.push(err265);
+                }
+                errors++;
+              }
+              if (typeof data115 === "string") {
+                if (func2(data115) > 200) {
+                  const err266 = { instancePath: instancePath + "/player_ties/" + i21 + "/existing_id", schemaPath: "#/properties/player_ties/items/properties/existing_id/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err266];
+                  } else {
+                    vErrors.push(err266);
+                  }
+                  errors++;
+                }
+              }
+            }
+            if (data112.relation !== void 0) {
+              let data116 = data112.relation;
+              if (typeof data116 === "string") {
+                if (func2(data116) > 400) {
+                  const err267 = { instancePath: instancePath + "/player_ties/" + i21 + "/relation", schemaPath: "#/properties/player_ties/items/properties/relation/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err267];
+                  } else {
+                    vErrors.push(err267);
+                  }
+                  errors++;
+                }
+              } else {
+                const err268 = { instancePath: instancePath + "/player_ties/" + i21 + "/relation", schemaPath: "#/properties/player_ties/items/properties/relation/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err268];
+                } else {
+                  vErrors.push(err268);
+                }
+                errors++;
+              }
+            }
+            if (data112.ended !== void 0) {
+              if (typeof data112.ended !== "boolean") {
+                const err269 = { instancePath: instancePath + "/player_ties/" + i21 + "/ended", schemaPath: "#/properties/player_ties/items/properties/ended/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err269];
+                } else {
+                  vErrors.push(err269);
+                }
+                errors++;
+              }
+            }
+            if (data112.level !== void 0) {
+              let data118 = data112.level;
+              if (!(data118 === "exists" || data118 === "identity" || data118 === "secrets")) {
+                const err270 = { instancePath: instancePath + "/player_ties/" + i21 + "/level", schemaPath: "#/properties/player_ties/items/properties/level/enum", keyword: "enum", params: { allowedValues: schema93.properties.player_ties.items.properties.level.enum }, message: "must be equal to one of the allowed values" };
+                if (vErrors === null) {
+                  vErrors = [err270];
+                } else {
+                  vErrors.push(err270);
+                }
+                errors++;
+              }
+            }
+            if (data112.about !== void 0) {
+              let data119 = data112.about;
+              if (typeof data119 === "string") {
+                if (func2(data119) > 400) {
+                  const err271 = { instancePath: instancePath + "/player_ties/" + i21 + "/about", schemaPath: "#/properties/player_ties/items/properties/about/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err271];
+                  } else {
+                    vErrors.push(err271);
+                  }
+                  errors++;
+                }
+              } else {
+                const err272 = { instancePath: instancePath + "/player_ties/" + i21 + "/about", schemaPath: "#/properties/player_ties/items/properties/about/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err272];
+                } else {
+                  vErrors.push(err272);
+                }
+                errors++;
+              }
+            }
+            if (data112.quote !== void 0) {
+              let data120 = data112.quote;
+              if (typeof data120 === "string") {
+                if (func2(data120) > 600) {
+                  const err273 = { instancePath: instancePath + "/player_ties/" + i21 + "/quote", schemaPath: "#/properties/player_ties/items/properties/quote/maxLength", keyword: "maxLength", params: { limit: 600 }, message: "must NOT have more than 600 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err273];
+                  } else {
+                    vErrors.push(err273);
+                  }
+                  errors++;
+                }
+              } else {
+                const err274 = { instancePath: instancePath + "/player_ties/" + i21 + "/quote", schemaPath: "#/properties/player_ties/items/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err274];
+                } else {
+                  vErrors.push(err274);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err259 = { instancePath: instancePath + "/scene_groups/" + i21, schemaPath: "#/properties/scene_groups/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            const err275 = { instancePath: instancePath + "/player_ties/" + i21, schemaPath: "#/properties/player_ties/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err259];
+              vErrors = [err275];
             } else {
-              vErrors.push(err259);
+              vErrors.push(err275);
             }
             errors++;
           }
         }
       } else {
-        const err260 = { instancePath: instancePath + "/scene_groups", schemaPath: "#/properties/scene_groups/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err276 = { instancePath: instancePath + "/player_ties", schemaPath: "#/properties/player_ties/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err260];
+          vErrors = [err276];
         } else {
-          vErrors.push(err260);
+          vErrors.push(err276);
+        }
+        errors++;
+      }
+    }
+    if (data.scene_groups !== void 0) {
+      let data121 = data.scene_groups;
+      if (Array.isArray(data121)) {
+        if (data121.length > 20) {
+          const err277 = { instancePath: instancePath + "/scene_groups", schemaPath: "#/properties/scene_groups/maxItems", keyword: "maxItems", params: { limit: 20 }, message: "must NOT have more than 20 items" };
+          if (vErrors === null) {
+            vErrors = [err277];
+          } else {
+            vErrors.push(err277);
+          }
+          errors++;
+        }
+        const len22 = data121.length;
+        for (let i22 = 0; i22 < len22; i22++) {
+          let data122 = data121[i22];
+          if (typeof data122 === "string") {
+            if (func2(data122) > 40) {
+              const err278 = { instancePath: instancePath + "/scene_groups/" + i22, schemaPath: "#/properties/scene_groups/items/maxLength", keyword: "maxLength", params: { limit: 40 }, message: "must NOT have more than 40 characters" };
+              if (vErrors === null) {
+                vErrors = [err278];
+              } else {
+                vErrors.push(err278);
+              }
+              errors++;
+            }
+          } else {
+            const err279 = { instancePath: instancePath + "/scene_groups/" + i22, schemaPath: "#/properties/scene_groups/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err279];
+            } else {
+              vErrors.push(err279);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err280 = { instancePath: instancePath + "/scene_groups", schemaPath: "#/properties/scene_groups/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err280];
+        } else {
+          vErrors.push(err280);
         }
         errors++;
       }
     }
   } else {
-    const err261 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err281 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err261];
+      vErrors = [err281];
     } else {
-      vErrors.push(err261);
+      vErrors.push(err281);
     }
     errors++;
   }
@@ -18474,6 +18694,7 @@ function emptyState(pack2) {
     declines: /* @__PURE__ */ new Map(),
     engagements: [],
     contacts: [],
+    ties: [],
     runtimeEntities: /* @__PURE__ */ new Map(),
     enactedSteps: /* @__PURE__ */ new Map(),
     clock: { lo: pack2.coverage.start, hi: pack2.coverage.start, precision: "minute" },
@@ -18514,6 +18735,7 @@ function applyRecord(state, rec) {
   if (rec.kind === "participation_decline" && rec.declinedEventId) state.declines.set(rec.declinedEventId, rec.recordId);
   if (rec.engagement) state.engagements.push({ ...rec.engagement, recordId: rec.recordId, seq: rec.sequence, tick });
   if (rec.contact) state.contacts.push({ ...rec.contact, recordId: rec.recordId, seq: rec.sequence, tick });
+  if (rec.tie) state.ties.push({ ...rec.tie, recordId: rec.recordId, seq: rec.sequence, tick });
   for (const re of rec.runtimeEntities || []) if (!state.runtimeEntities.has(re.id)) state.runtimeEntities.set(re.id, { ...re, recordId: rec.recordId });
   for (const s of rec.enactedStepIds || []) if (!state.enactedSteps.has(s)) state.enactedSteps.set(s, rec.recordId);
   if (rec.kind === "scene_frame" && rec.frameId) state.sceneFrame = { frameId: rec.frameId, since: tick, recordId: rec.recordId };
@@ -20639,6 +20861,60 @@ var evaluate_schema_default = {
         additionalProperties: false
       }
     },
+    player_ties: {
+      type: "array",
+      maxItems: 12,
+      items: {
+        type: "object",
+        properties: {
+          tie: {
+            enum: [
+              "relation",
+              "knows"
+            ]
+          },
+          who: {
+            type: "string",
+            maxLength: 200
+          },
+          existing_id: {
+            type: [
+              "string",
+              "null"
+            ],
+            maxLength: 200
+          },
+          relation: {
+            type: "string",
+            maxLength: 400
+          },
+          ended: {
+            type: "boolean"
+          },
+          level: {
+            enum: [
+              "exists",
+              "identity",
+              "secrets"
+            ]
+          },
+          about: {
+            type: "string",
+            maxLength: 400
+          },
+          quote: {
+            type: "string",
+            maxLength: 600
+          }
+        },
+        required: [
+          "tie",
+          "who",
+          "quote"
+        ],
+        additionalProperties: false
+      }
+    },
     scene_groups: {
       type: "array",
       items: {
@@ -22756,6 +23032,47 @@ function profileAt(revs, entries, position) {
   }
   return best;
 }
+function playedProfile(index, profile2) {
+  const ties = index.state.ties;
+  if (!ties?.length) return profile2;
+  const n = (s) => String(s || "").normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+  const same = (id, name2, t2) => t2.who && id ? t2.who === id : n(name2) === n(t2.name);
+  const rank = { exists: 0, identity: 1, secrets: 2 };
+  let relationships = profile2.relationships.map((r) => ({ ...r }));
+  let knowers = profile2.knowers.map((k) => ({ ...k }));
+  for (const t2 of ties) {
+    const change = (start, prevChange) => ({ since: t2.tick, by: t2.source, start: prevChange ? prevChange.start : start, quote: t2.quote });
+    if (t2.kind === "relation") {
+      const i = relationships.findIndex((r2) => same(r2.entityId, r2.name, t2));
+      if (t2.removed) {
+        if (i >= 0) relationships.splice(i, 1);
+        continue;
+      }
+      if (i < 0) {
+        relationships.push({ entityId: t2.who, name: t2.name, relation: t2.relation || "", basis: t2.source, ...t2.ended ? { ended: true } : {}, changed: change(null) });
+        continue;
+      }
+      const r = relationships[i];
+      relationships[i] = { ...r, entityId: r.entityId || t2.who, relation: t2.relation || r.relation, ended: !!t2.ended, changed: change(r.basis === "play" || r.basis === "ui" ? null : r.relation, r.changed) };
+    } else {
+      const i = knowers.findIndex((k2) => same(k2.entityId, k2.who, t2));
+      if (t2.removed) {
+        if (i >= 0) knowers.splice(i, 1);
+        continue;
+      }
+      const level = t2.level || "identity";
+      if (i < 0) {
+        knowers.push({ who: t2.name, entityId: t2.who, level, about: t2.about || "", basis: t2.source, changed: change(null) });
+        continue;
+      }
+      const k = knowers[i];
+      knowers[i] = { ...k, entityId: k.entityId || t2.who, level: t2.source === "ui" || rank[level] > rank[k.level] ? level : k.level, about: t2.about || k.about, changed: change(k.basis === "play" || k.basis === "ui" ? null : `${k.level}: ${k.about}`, k.changed) };
+    }
+  }
+  relationships = relationships.slice(-40);
+  knowers = knowers.slice(-40);
+  return { ...profile2, relationships, knowers };
+}
 function playerIds(p) {
   return uniq([p.playerId, ...p.affiliations.map((a) => a.entityId), ...p.places.map((x) => x.entityId)]);
 }
@@ -22842,6 +23159,7 @@ function playLinks(index, profile2, limit = 12) {
   return [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => id);
 }
 function playerContext(index, profile2, tick, opts = {}) {
+  profile2 = playedProfile(index, profile2);
   const eng = engagementView(index.state, index.pack);
   return {
     entity_id: profile2.playerId,
@@ -22855,8 +23173,8 @@ function playerContext(index, profile2, tick, opts = {}) {
     goals: profile2.goals,
     ...profile2.roles?.length ? { roles: profile2.roles } : {},
     ...profile2.notSuited?.length ? { not_suited: profile2.notSuited } : {},
-    relationships: profile2.relationships.map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis, ...r.entityId && index.entityKind(r.entityId) === "organization" ? { now: factsLine(index, r.entityId, tick).trim() } : {} })),
-    knowers: profile2.knowers.map((k) => ({ who: k.who, id: k.entityId, level: k.level, about: k.about, basis: k.basis })),
+    relationships: byChange(profile2.relationships).map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis, ...r.ended ? { ended: true } : {}, ...r.changed ? { since: formatTick(r.changed.since), ...r.changed.start ? { at_start: r.changed.start } : {} } : {}, ...r.entityId && index.entityKind(r.entityId) === "organization" ? { now: factsLine(index, r.entityId, tick).trim() } : {} })),
+    knowers: byChange(profile2.knowers).map((k) => ({ who: k.who, id: k.entityId, level: k.level, about: k.about, basis: k.basis, ...k.changed ? { since: formatTick(k.changed.since) } : {} })),
     now: factsLine(index, profile2.playerId, tick).trim(),
     actual_history: playerHistory(index, profile2, opts.historyWith || [], opts.historyLimit ?? 30),
     decisions: eng.lines(tick),
@@ -22999,7 +23317,7 @@ function integrationCandidates(index, profile2, tick, opts = {}) {
   const st = index.state;
   const end = Math.max(tick + (opts.lead ?? INTEGRATION_LEAD_MINUTES), opts.jumpTo ?? 0);
   const focus = new Set(opts.focus || []);
-  const linked = new Set([...profile2.relationships.map((r) => r.entityId), ...profile2.affiliations.map((a) => a.entityId), ...playLinks(index, profile2)].filter(Boolean));
+  const linked = new Set([...playedProfile(index, profile2).relationships.filter((r) => !r.ended).map((r) => r.entityId), ...profile2.affiliations.map((a) => a.entityId), ...playLinks(index, profile2)].filter(Boolean));
   const members = memberships(index, tick);
   for (const id of [...linked]) for (const m of members.get(id) || []) if (m !== profile2.playerId) linked.add(m);
   const underWay = new Set([...st.occurrences.values()].map((o) => o.inProgressOf).filter(Boolean));
@@ -23347,6 +23665,7 @@ function integrationKey(index, profile2, candidates, focus, jumpTo, quiet = fals
     v: 1,
     p: profile2.personaHash,
     ids: [...mine],
+    t: index.state.ties.map((x) => x.recordId),
     c: candidates.map((c) => `${c.event.id}:${c.status}:${index.inProgressBeats(c.event.id).length}`),
     e: index.state.engagements.map((e) => e.recordId),
     k: index.state.contacts.map((c) => c.recordId),
@@ -23358,6 +23677,7 @@ function integrationKey(index, profile2, candidates, focus, jumpTo, quiet = fals
   });
 }
 function presenceSection(index, profile2, tick) {
+  profile2 = playedProfile(index, profile2);
   const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play \u2014 the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know \u2014 famous things (an esper's level and ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
   lines.push(`- ${profile2.personaName} [${profile2.playerId}] (the player character): ${profile2.summary || "(no summary)"}${profile2.publicIdentity ? ` Public identity: ${profile2.publicIdentity}` : ""}${factsLine(index, profile2.playerId, tick)}`);
   for (const o of playerOrgs(index, profile2, tick)) lines.push(`- organization: ${o.name} [${o.id}] \u2014 now ${STANDING[o.standing]}${o.leads ? ", its leader" : ""}${o.role ? `; the Persona's words at the start: ${o.role}` : ""} (${o.secrecy})${factsLine(index, o.id, tick)}`);
@@ -23366,9 +23686,17 @@ function presenceSection(index, profile2, tick) {
   if (profile2.roles?.length) lines.push(`- roles: ${profile2.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(", "), r.from.length ? `from ${r.from.join(", ")}` : ""].filter(Boolean).join("; ")})` : ""}`).join(" | ")}`);
   if (profile2.notSuited?.length) lines.push(`- does not take on: ${profile2.notSuited.join("; ")}`);
   if (profile2.voice) lines.push(`- how they come across and talk (write the player character's lines and reactions this way): ${profile2.voice}`);
-  for (const r of profile2.relationships.slice(0, 12)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ""} \u2014 ${r.relation} (${r.basis === "persona_stated" ? "Persona" : "implied by the role"})${r.entityId && index.entityKind(r.entityId) === "organization" ? factsLine(index, r.entityId, tick) : ""}`);
-  for (const k of profile2.knowers.slice(0, 12)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === "secrets" ? ":" : " \u2014"} ${k.about}`);
+  for (const r of byChange(profile2.relationships).slice(0, 16)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ""} \u2014 ${r.ended ? "ENDED: " : ""}${r.relation} (${tieSource(r)})${r.entityId && index.entityKind(r.entityId) === "organization" ? factsLine(index, r.entityId, tick) : ""}`);
+  for (const k of byChange(profile2.knowers).slice(0, 16)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === "secrets" ? ":" : " \u2014"} ${k.about} (${tieSource(k)})`);
   return lines.join("\n");
+}
+function byChange(xs) {
+  return [...xs.filter((x) => x.changed).sort((a, b) => b.changed.since - a.changed.since), ...xs.filter((x) => !x.changed)];
+}
+function tieSource(x) {
+  const from = { persona_stated: "Persona", implied: "implied by the role", play: "from play", ui: "set by the user" }[x.basis];
+  if (!x.changed || x.basis === "play" || x.basis === "ui") return x.changed ? `${from}, since ${formatTick(x.changed.since)}` : from;
+  return `as it stands since ${formatTick(x.changed.since)} in play; ${from} at the start: ${x.changed.start}`;
 }
 function decisionsSection(lines) {
   return lines.length ? `PLAYER'S DECISIONS (binding; from the player's own words or actions \u2014 they decide what they get drawn into):
@@ -23425,6 +23753,7 @@ function engagementRecord(s0, index, tick, src) {
   return { recordId: newId("rec"), kind: "engagement", storyTime: { lo: tick, hi: tick, precision: "minute" }, sourceRefs: src, factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: "public", knower_ids: [] }, summary: `Player ${stance} ${label}: ${s.summary}`.slice(0, 400), evidenceKind: "direct", engagement: info };
 }
 function recognitionGroups(index, profile2) {
+  profile2 = playedProfile(index, profile2);
   const out = [];
   for (const r of profile2.recognizedBy || []) out.push({ key: r.who, who: r.who, level: "public", about: r.as, personId: null, orgId: r.orgId, places: r.places, everywhere: r.everywhere });
   for (const k of profile2.knowers) {
@@ -23467,7 +23796,7 @@ function presentGroups(index, profile2, tick, sceneIds, reported) {
 function recognitionSection(present) {
   if (!present.length) return "";
   const lines = present.map(({ g, why }) => g.level === "public" ? `- ${g.who} (${why.join("; ")}) recognize the player on sight as: ${g.about}. Public standing \u2014 show it: wherever people of this group are around, they notice the player and react as such people would (greet, stare, make way, whisper, take a photo, ask for something) \u2014 at least once in each scene with such people, more when it matters; vary it and do not repeat the same beat within a scene. Not the player's secrets.` : g.level === "secrets" ? `- ${g.who} (${why.join("; ")}) know (secret): ${g.about}. Only they know; they keep it out of others' hearing.` : `- ${g.who} (${why.join("; ")}) know who the player is: ${g.about}. They act on it; others here do not learn it from them unless the story shows it.`);
-  return `RECOGNITION IN THIS SCENE (from the player's Persona; people listed here know this \u2014 they never act as if they did not, unless the scene gives a reason such as a disguise):
+  return `RECOGNITION IN THIS SCENE (from the player's Persona and what people learned in play; people listed here know this \u2014 they never act as if they did not, unless the scene gives a reason such as a disguise):
 ${lines.join("\n")}`;
 }
 function groupNames(groups, ids) {
@@ -23821,9 +24150,10 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    Scene grouping: when "scene_grouping" lists the current scene's box(es), set an occurrence's "continues" to one of those occurrence_ids (or to the "ref" of an earlier occurrence in this reply) when it is the next beat of that same ongoing scene: the same outing/activity in the same place or a sub-area of it (looking around, chatting, a meal there, small incidents). Start a new box (continues=null) when the place changes (leaving a building or shop, getting into or out of a vehicle, arriving somewhere else) or the activity changes, when more than about 30 minutes pass between beats, a new situation begins (a fight, an accident, a new visitor with a purpose), or the occurrence is a canonical event (pack_event_id). Grouping only decides WHERE an occurrence is filed: record every occurrence you would record anyway, with its own account; never drop or shorten one because it continues a box. With no scene_grouping input, continues is always null.
 5. contacts: every place where the world reaches out to the PLAYER CHARACTER (player_entity) in this reply: an invitation, a request or commission, information brought to them on purpose, a probe or test, a hostile act aimed at them, a consequence of an event reaching them, an encounter with a purpose. Give a verbatim quote, actors (ids), kind, scope (scope_kind "event"/"arc" + an id from offered_contact or canon_events_now, "faction" + the organization's id, otherwise "storyline" + a short scope_label) and opportunity_id when it carries out offered_contact or one of required_contacts. A contact about the same matter as one in recent_contacts (a follow-up, a reminder, a consequence of it) is filed with it: scope_kind "contact" + that contact's id. A demand or request from someone present that asks the player character to do something beyond the conversation \u2014 come along or to an office, give a statement, sign something, hand something over, account for themselves, report somewhere later \u2014 is a contact (kind request, or probe when it questions them about something). Ordinary conversation with people already in the scene is not a contact, and neither is an everyday favor or worry between friends (asking to stay over, telling them to lock the window) unless it asks the player to take part in a story thing; nor is someone answering what the player character just asked or started (they called and are told where to come); no contact, empty list.
    engagement lists the player's decisions; each covers what its quoted words cover (a refusal of jobs covers being asked to do such jobs, by anyone \u2014 not someone's worry, grief or news, and not a thing the player took up themselves: "taken up by the player in play"). Only decisions marked BINDING are enforced: if the reply pulls the player toward something a BINDING decision covers \u2014 through any person or channel (the same NPC again, another one, news, rumors, a friend's plea, a threat made up to force them) \u2014 add a violation with code "engagement_pressure" (blocking) quoting it. A "wish" decision is the player's preference, not a rule for you: never report a violation for it (at most a non-blocking note). A question or request the player has answered (decisions "answered", "refused to answer", or any decision on that one request: "That request has its answer") is enforced too: asking them for that answer again \u2014 the same question reworded, pressed harder, or asked by someone on that person's behalf \u2014 is "engagement_pressure" (blocking); reacting to the answer or the refusal is not. Not a violation: the world going on around them, an everyday favour or remark that does not ask the player to go to, do or join the declined thing (passing on a message, "if you happen to see her"), even when it concerns people involved in it, a consequence with an actual cause in history (news that a friend died, a place they know destroyed \u2014 told to them even by people from the declined side), one natural in-character reaction of the person they just turned down (but a reaction that renews the demand in another form \u2014 a deadline or later appointment, a condition, a warning or veiled threat, "I'll be watching you", "this isn't over" \u2014 is asking again), or the player choosing it themselves. offered_contact has already been checked against these decisions (cleared_by_engine): delivering it as given is not pressure; flag only what goes beyond it \u2014 asking the player to do or join the declined thing. Not using offered_contact is never a violation.
+   player_ties: how this reply (or the player's message, player_action_scope) changes the PLAYER CHARACTER's relationships and what people know about them, compared with the connections and "who knows" lines of PLAYER IN THIS WORLD in retrieved_context (the Persona's start as play has changed it). tie "relation": a relationship that begins, changes or ends with someone who matters in the story \u2014 a meeting that matters beyond the moment (an introduction with a reason to meet again), becoming friends, allies, rivals or enemies, falling in love, dating, a falling-out, a debt or favor owed, trust won or broken, a family tie revealed, the person dying (ended: true) or the tie broken off for good (ended: true). relation: the whole relationship as it stands now in one short phrase in the story's language, not only the change ("\u540C\u73ED\u540C\u5B66\uFF0C\u521A\u548C\u597D\u7684\u670B\u53CB"). tie "knows": someone learns about the player more than they knew \u2014 who they are or their role (level "identity"), a specific secret (level "secrets": about says which), only that their organization exists ("exists"); about: everything they know now. who: the person or group by name, existing_id their registry id or a new_entities ref when they have one, else null. Not: small talk, a passing stranger, a mood of the moment, what the lines already say. quote: verbatim from the reply or the player's message. Nothing changed: empty list.
 6. violations: ONLY problems that require rewriting the reply \u2014 player-character acts the player did not write whose category is in player_voice.player_only (the controller checks player_actions; what player_voice.gm_may_write allows is wanted, never a violation; an act carrying out what the player wrote \u2014 with its means, incantation or exact words \u2014 is never a violation), contradictions, recollections whose claim check is unsupported (a notable past; small compatible backstory is never a violation), leaking secret knowledge to characters who cannot know it, narration that reveals, quotes or paraphrases player_ooc_instructions or shows the player character weighing or planning them ("she thought: if he comes, I will...") \u2014 code "ooc_leak", engine labels/JSON in prose, skipping a due obligation, time moving backwards. Not violations: story time moving forward within the scene, NPCs present or acting on their own, plausible new scene details, the natural completion of an action the player authorized, a plan step whose window the player's time skip passed narrated as having happened off-screen (record it as an occurrence at its own time, with a step_enactment). Set blocking=true for a problem that must be fixed; if you consider something minor or acceptable, leave it out (or set blocking=false).
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it). mode=retained and the message is not story text at all (out-of-character instructions, a setup or system note, rules or a menu \u2014 often the card's opening message telling the GM how to start): decision retain with no occurrences, transitions, state_claims or violations; it establishes nothing.
-SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"backstory":false,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null,"category":"dialogue"}],"step_enactments":[{"step_id":"s1","occurrence_ref":"o1","quote":""}],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":"","blocking":true}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":"","contacts":[{"quote":"","actors":[],"kind":"invitation","scope_kind":"event","scope_ref":"","scope_label":"","opportunity_id":null}]}`,
+SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"backstory":false,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null,"category":"dialogue"}],"step_enactments":[{"step_id":"s1","occurrence_ref":"o1","quote":""}],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":"","blocking":true}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":"","contacts":[{"quote":"","actors":[],"kind":"invitation","scope_kind":"event","scope_ref":"","scope_label":"","opportunity_id":null}],"player_ties":[{"tie":"relation","who":"","existing_id":null,"relation":"","ended":false,"level":"identity","about":"","quote":""}]}`,
   adjudicate: `${COMMON}
 TASK: Offscreen adjudication for a story-time advance. For each candidate canonical event in the interval decide what ACTUALLY happens given actual state (not the original summary): occurred (original result), diverged (event happens but with a different actual result), omitted (does not happen; FREE/SOFT only, with reason), postponed (SOFT only, still within its bounds). HARD events MUST occur within their bounds with every required outcome, even if extraordinary means are needed (extraordinary=true only when authorized_forced=true). When the actual state blocks the original route, the account must name the concrete cause (who, by what means). upstream_happened_differently lists prerequisite events that happened differently in this playthrough: decide from what actually happened whether the candidate still comes about, in what form, or not at all (its original summary may assume things that are no longer true, e.g. someone not knowing something). recent_actual_play_with_these_characters, when given, is what actually happened in play with this event's people: the original summary assumes the original situation (who knows what, who is where), so decide from actual play whether it happens as written, happens differently (diverged, with the actual result), or not at all. Offscreen means not shown in the player's story, not that it cannot happen: "omitted" needs actual play that rules it out \u2014 a participant shown elsewhere or busy during the event's window, or a lasting change (dead, injured, captured, gone) \u2014 cite those occurrence ids (the [ids] in recent_actual_play) in causes. Where someone was hours earlier, or their not appearing in the player's scene, rules nothing out. Give actors, causes (actual occurrence ids), typed effects, a concise account of what occurred and why. A plan step reference alone is not evidence of success.
 Effects: op set/unset for a single value; an entity-set fact (an organization's members) changes by op "add" (value: the ids that join) or "remove" (the ids that leave), never as the whole list; a leader handed over is "remove" of the old one and "add" of the new one.
@@ -25050,6 +25380,32 @@ function runGate(g) {
       contact: { scopeKind, scopeRef, scopeLabel: label.slice(0, 300), opportunityId: opp ?? (job ? g.offered.id : null), contactKind: k.kind, actors, quote: k.quote.slice(0, 300), ...job ? { sideJob: true, expires: Math.floor(sceneEnd.lo / 1440) * 1440 + 1440, job: g.offered.contact.slice(0, 300) } : {} }
     });
   }
+  if (g.playerId) {
+    for (const t2 of ev.player_ties || []) {
+      const name2 = String(t2.who || "").trim();
+      if (!name2 || !(hasQuote(t2.quote) || quoteInText(t2.quote || "", g.userText || ""))) {
+        warnings.push(`tie "${name2 || (t2.quote || "").slice(0, 40)}" ignored: evidence not found in text`);
+        continue;
+      }
+      const id = (t2.existing_id ? resolveId(t2.existing_id) : null) || resolveId(name2);
+      if (id === g.playerId) continue;
+      const relation = String(t2.relation || "").trim().slice(0, 400), about = String(t2.about || "").trim().slice(0, 400);
+      if (t2.tie === "relation" ? !relation : !about && !t2.level) continue;
+      const label = (id && index.entityExists(id) ? index.entityName(id) : runtimeEntities.find((r) => r.id === id)?.name) || name2;
+      records.push({
+        recordId: newId("rec"),
+        kind: "player_tie",
+        storyTime: { ...sceneEnd },
+        sourceRefs: [],
+        factsSetOrUnset: [],
+        eventOccurrenceIds: [],
+        visibility: { mode: "public", knower_ids: [] },
+        summary: `${t2.tie === "relation" ? "Relationship" : "Who knows"}: ${label} \u2014 ${t2.tie === "relation" ? relation : about}`.slice(0, 300),
+        evidenceKind: "direct",
+        tie: t2.tie === "relation" ? { kind: "relation", who: id, name: label, relation, ...t2.ended ? { ended: true } : {}, quote: t2.quote.slice(0, 300), source: "play" } : { kind: "knows", who: id, name: label, level: t2.level || "identity", about, quote: t2.quote.slice(0, 300), source: "play" }
+      });
+    }
+  }
   if (g.mode === "draft" && !g.leap) {
     const made = records.filter((r) => r.contact).map((r) => r.contact);
     const inEvent = new Set(ev.occurrences.filter((o) => o.pack_event_id).map((o) => o.pack_event_id));
@@ -25687,7 +26043,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.22.0";
+var ENGINE_RELEASE = "1.23.0";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -26656,7 +27012,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       const persona = prof ? { name: prof.profile.personaName, description: prof.profile.personaText } : this.persona();
       const parts = this.ooc(userEntry.text);
       const eng = engagementView(index.state, pack2);
-      const focus = /* @__PURE__ */ new Set([...index.scanEntities(parts.story).map((m) => m.id), ...prof ? [prof.profile.playerId, ...prof.profile.relationships.map((r) => r.entityId), ...prof.profile.affiliations.map((a) => a.entityId)].filter(Boolean) : []]);
+      const focus = /* @__PURE__ */ new Set([...index.scanEntities(parts.story).map((m) => m.id), ...prof ? [prof.profile.playerId, ...playedProfile(index, prof.profile).relationships.filter((r) => !r.ended).map((r) => r.entityId), ...prof.profile.affiliations.map((a) => a.entityId)].filter(Boolean) : []]);
       const batches = leapBatches(list);
       const outs = await Promise.all(batches.map((b, i) => this.withTimeout(callStructured(this.host.model, "leap", PROMPTS.leap, {
         from: formatTick(clock, origin),
@@ -27976,7 +28332,7 @@ ${lines.join("\n")}`;
       ...c.preferredScopes?.length ? { preferred: c.preferredScopes } : {},
       ...quiet ? { quiet_day: true, ...recentJobs.length ? { recent_jobs: recentJobs } : {} } : {},
       ...kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {},
-      registry: this.registry(index, `${userEntry?.text || ""} ${candidates.map((x) => x.event.title).join(" ")}`, [...withIds, ...profile2.relationships.map((r) => r.entityId).filter(Boolean)], { notes: true })
+      registry: this.registry(index, `${userEntry?.text || ""} ${candidates.map((x) => x.event.title).join(" ")}`, [...withIds, ...playedProfile(index, profile2).relationships.map((r) => r.entityId).filter(Boolean)], { notes: true })
     }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 8e3 }), this.settings.taskTimeoutMs * 4, signal);
     const checked = checkOpportunities(out, index, profile2, candidates, tick, quiet);
     const dropped = [...checked.dropped, ...checked.valid.filter((o) => keptScopes.has(`${o.scopeKind}:${o.scopeRef}`)).map((o) => ({ id: o.id, reason: `${o.scopeLabel} is kept as it was` }))];
@@ -28644,6 +29000,7 @@ ${lines.join("\n")}`;
     const idx = this.current.index;
     const origin = c.binding.originDate;
     const prof = this.playerProfile();
+    const played = prof ? playedProfile(idx, prof.profile) : null;
     const eng = engagementView(s, idx.pack);
     const active = new Set([...eng.scopes.values()].map((x) => x.current?.recordId).filter(Boolean));
     const lab = (kind, label) => spoilers || !["event", "arc"].includes(kind) ? label : "\u2022\u2022\u2022";
@@ -28671,9 +29028,9 @@ ${lines.join("\n")}`;
         roles: (prof.profile.roles || []).map((r) => `${r.role}${r.brings.length ? ` \u2014 ${r.brings.join(", ")}` : ""}${r.from.length ? ` (${r.from.join(", ")})` : ""}`),
         notSuited: prof.profile.notSuited || [],
         voice: prof.profile.voice || "",
-        relationships: prof.profile.relationships.map((r) => `${r.name}: ${r.relation} (${r.basis === "persona_stated" ? "Persona" : "implied"})${orgNow(r.entityId)}`),
+        relationships: played.relationships.map((r) => ({ who: r.entityId, name: r.name, text: r.relation, ended: !!r.ended, basis: r.basis, by: r.changed?.by ?? r.basis, since: r.changed ? formatTick(r.changed.since, origin) : null, start: r.changed?.start ?? null, quote: r.changed?.quote || "", org: orgNow(r.entityId) })),
         recognized: (prof.profile.recognizedBy || []).map((r) => `${r.who}${r.everywhere ? zh ? "\uFF08\u5230\u5904\uFF09" : " (everywhere)" : ""}: ${r.as}${r.places.length ? ` (${r.places.map((p) => idx.entityName(p)).join(zh ? "\u3001" : ", ")})` : ""}`),
-        knowers: prof.profile.knowers.map((k) => `${k.who} \u2014 ${k.level}: ${k.about}`),
+        knowers: played.knowers.map((k) => ({ who: k.entityId, name: k.who, level: k.level, text: k.about, basis: k.basis, by: k.changed?.by ?? k.basis, since: k.changed ? formatTick(k.changed.since, origin) : null, start: k.changed?.start ?? null, quote: k.changed?.quote || "" })),
         notes: prof.profile.notes
       } : null,
       personaChanged: this.personaChanged(),
@@ -28745,6 +29102,34 @@ ${lines.join("\n")}`;
     c.configRevisions.push({ at: this.host.now(), summary: `allowed contact again: ${label}` });
     await this.host.save();
     await this.reconcile("engagement_reopened");
+  }
+  /** The user's own change of a relationship or of what someone knows about the player (叙事融入 panel): kept as a
+   *  player_tie record after the current last message, replayed like the ones play made (null removes the tie). */
+  async editTie(kind, who, name2, patch) {
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; try again when it is done.");
+    const c = this.campaign();
+    name2 = String(name2 || "").trim();
+    if (!c || !name2) return;
+    if (patch && kind === "relation" && !patch.relation?.trim()) return;
+    const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+    const tick = this.current?.replay.state.clock.lo ?? c.binding.startTick;
+    const id = who || (this.current ? this.current.index.resolveEntity(name2).ids.find((x) => this.current.index.entityKind(x) !== "place") : void 0) || null;
+    const rec = {
+      recordId: newId("rec"),
+      kind: "player_tie",
+      storyTime: { lo: tick, hi: tick, precision: "minute" },
+      sourceRefs: [],
+      factsSetOrUnset: [],
+      eventOccurrenceIds: [],
+      visibility: { mode: "public", knower_ids: [] },
+      summary: `${kind === "relation" ? "Relationship" : "Who knows"}: ${name2} ${patch ? "set" : "removed"} (Canon Engine panel)`,
+      evidenceKind: "direct",
+      tie: { kind, who: id, name: name2, quote: "", source: "ui", ...patch ? { ...kind === "relation" ? { relation: patch.relation.trim().slice(0, 400), ...patch.ended ? { ended: true } : {} } : { level: patch.level || "identity", about: String(patch.about || "").trim().slice(0, 400) } } : { removed: true } }
+    };
+    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
+    c.configRevisions.push({ at: this.host.now(), summary: rec.summary });
+    await this.host.save();
+    await this.reconcile("tie_edited");
   }
 };
 var excludeHoraeForOperation = false;
@@ -30061,6 +30446,24 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niRecognized: { zh: "\u8C01\u8BA4\u5F97\u4F60\uFF08\u516C\u5F00\u8EAB\u4EFD\uFF09", en: "Who recognizes you (public identity)" },
   niWho: { zh: "\u8C01\u77E5\u9053\u4F60", en: "Who knows about you" },
   niConnections: { zh: "\u5173\u7CFB", en: "Connections" },
+  tieTip: { zh: "Persona \u7ED9\u51FA\u5F00\u5C40\u65F6\u7684\u5173\u7CFB\u548C\u77E5\u60C5\u8005\uFF1B\u5267\u60C5\u91CC\u5173\u7CFB\u53D8\u4E86\uFF08\u7ED3\u8BC6\u3001\u4EA4\u597D\u3001\u95F9\u7FFB\u3001\u4EA4\u5F80\u3001\u6B20\u4EBA\u60C5\u3001\u53BB\u4E16\uFF09\u6216\u6709\u4EBA\u77E5\u9053\u4E86\u4F60\u66F4\u591A\u7684\u4E8B\uFF0CCanon \u5BA1\u7A3F\u65F6\u8BB0\u4E0B\u6765\uFF08\u9644\u539F\u6587\uFF09\uFF0CGM \u770B\u5230\u7684\u662F\u73B0\u5728\u7684\u6837\u5B50\u3002\u4E5F\u53EF\u4EE5\u5728\u8FD9\u91CC\u81EA\u5DF1\u6539\u3001\u5220\u6216\u6DFB\u52A0\u3002", en: "The Persona gives the relationships and who knows what at the start; when play changes them (meeting someone who matters, friendship, a falling-out, romance, a debt, a death) or someone learns more about you, the review records it (with the quote), and the GM sees how things stand now. You can change, remove or add them here." },
+  tieSrc_persona_stated: { zh: "Persona", en: "Persona" },
+  tieSrc_implied: { zh: "\u8EAB\u4EFD\u63A8\u65AD", en: "implied by the role" },
+  tieSrc_play: { zh: "\u5267\u60C5", en: "play" },
+  tieSrc_ui: { zh: "\u624B\u52A8", en: "by you" },
+  tieSince: { zh: "\u81EA {t}", en: "since {t}" },
+  tieStart: { zh: "\u5F00\u5C40\u65F6", en: "at the start" },
+  tieEnded: { zh: "\u5DF2\u7ED3\u675F", en: "ended" },
+  tieEdit: { zh: "\u4FEE\u6539", en: "Edit" },
+  tieAddRel: { zh: "\u6DFB\u52A0\u5173\u7CFB", en: "Add a relationship" },
+  tieAddKnower: { zh: "\u6DFB\u52A0\u77E5\u60C5\u8005", en: "Add someone who knows" },
+  tieName: { zh: "\u4EBA\u7269\u6216\u7FA4\u4F53", en: "Person or group" },
+  tieRelText: { zh: "\u73B0\u5728\u662F\u4EC0\u4E48\u5173\u7CFB", en: "How the relationship stands now" },
+  tieKnowsText: { zh: "\u77E5\u9053\u4EC0\u4E48", en: "What they know" },
+  tieNeedText: { zh: "\u8BF7\u586B\u5199\u4EBA\u7269\u548C\u5185\u5BB9", en: "Fill in the person and the text" },
+  tieLevel_exists: { zh: "\u53EA\u77E5\u9053\u7EC4\u7EC7\u5B58\u5728", en: "knows the organization exists" },
+  tieLevel_identity: { zh: "\u77E5\u9053\u4F60\u662F\u8C01", en: "knows who you are" },
+  tieLevel_secrets: { zh: "\u77E5\u9053\u79D8\u5BC6", en: "knows secrets" },
   niOrgs: { zh: "\u7EC4\u7EC7", en: "Organizations" },
   niPlaces: { zh: "\u5730\u70B9", en: "Places" },
   niNotes: { zh: "\u5F15\u64CE\u8C03\u6574", en: "Engine adjustments" },
@@ -31880,6 +32283,23 @@ function renderInspector() {
           renderInspector();
         });
       }
+      if (act === "tie-save" || act === "tie-del") {
+        const kind = b.dataset.kind === "knows" ? "knows" : "relation";
+        const sel = (cls) => inspectorEl.querySelector(`.${cls}[data-kind="${kind}"][data-i="${CSS.escape(b.dataset.i || "")}"]`);
+        const isNew = b.dataset.i === "new";
+        const name2 = isNew ? sel("canon-tie-name")?.value || "" : b.dataset.name || "";
+        const text = sel("canon-tie-text")?.value.trim() || "";
+        if (act === "tie-save" && (!name2.trim() || kind === "relation" && !text)) {
+          toast("warning", t("tieNeedText"));
+          return;
+        }
+        b.disabled = true;
+        const patch = act === "tie-del" ? null : kind === "relation" ? { relation: text, ended: !!sel("canon-tie-ended")?.checked } : { level: sel("canon-tie-level")?.value || "identity", about: text };
+        E.editTie(kind, isNew ? null : b.dataset.who || null, name2, patch).then(() => renderInspector()).catch((e) => {
+          toast("error", e.message);
+          renderInspector();
+        });
+      }
       if (act === "ni-update" || act === "ni-keep" || act === "ni-reopen" || act === "ni-strong" || act === "ni-weak") {
         b.disabled = true;
         if (act === "ni-update") b.textContent = t("niBusy");
@@ -31955,6 +32375,26 @@ function worldSection() {
   if (w.additions.length) html += `<h4>${esc2(t("wsAdditions"))}</h4><ul class="canon-list">${w.additions.map((a) => `<li><b>${esc2(a.title)}</b> <small>${esc2(a.keys.join("\u3001"))}</small>${a.edited ? ` ${tag(t("wsEdited"))}` : ""}${a.reason ? `<br><small>${esc2(a.reason)}</small>` : ""}<details class="canon-older"><summary><small>${esc2(t("wsThisGame"))}</small></summary><textarea class="text_pole canon-ws-edit" data-id="${esc2(a.id)}" rows="4">${esc2(a.content)}</textarea><button class="menu_button" data-act="ws-save" data-id="${esc2(a.id)}">${esc2(t("wsSave"))}</button> <button class="menu_button" data-act="ws-del" data-id="${esc2(a.id)}">${esc2(t("wsDelete"))}</button></details></li>`).join("")}</ul>`;
   return html;
 }
+function tiesSection(p) {
+  const tag = (s) => `<span class="canon-tag">${esc2(s)}</span>`;
+  const src = (x) => `${tag(t(`tieSrc_${x.by}`))}${x.since ? ` <small>${esc2(t("tieSince").replace("{t}", x.since))}</small>` : ""}${x.start ? `<br><small>${esc2(t("tieStart"))}: ${esc2(x.start)}</small>` : ""}${x.quote ? `<br><small>\u201C${esc2(x.quote)}\u201D</small>` : ""}`;
+  const ids = (kind, x, i) => `data-kind="${kind}" data-i="${i}" data-who="${esc2(x.who || "")}" data-name="${esc2(x.name)}"`;
+  const levels = (cur, attr) => `<select class="text_pole canon-tie-level" ${attr}>${["exists", "identity", "secrets"].map((l) => `<option value="${l}" ${l === cur ? "selected" : ""}>${esc2(t(`tieLevel_${l}`))}</option>`).join("")}</select>`;
+  const btns = (attr) => `<button class="menu_button" data-act="tie-save" ${attr}>${esc2(t("wsSave"))}</button> <button class="menu_button" data-act="tie-del" ${attr}>${esc2(t("wsDelete"))}</button>`;
+  const rel = p.relationships.map((r, i) => {
+    const a = ids("relation", r, i);
+    return `<li><b>${esc2(r.name)}</b>${r.ended ? ` ${tag(t("tieEnded"))}` : ""}: ${esc2(r.text)}${esc2(r.org)} ${src(r)}<details class="canon-older"><summary><small>${esc2(t("tieEdit"))}</small></summary><textarea class="text_pole canon-tie-text" ${a} rows="2">${esc2(r.text)}</textarea><label class="checkbox_label canon-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r.ended ? "checked" : ""}><span>${esc2(t("tieEnded"))}</span></label>${btns(a)}</details></li>`;
+  });
+  const kn = p.knowers.map((k, i) => {
+    const a = ids("knows", k, i);
+    return `<li><b>${esc2(k.name)}</b> ${tag(t(`tieLevel_${k.level}`))}: ${esc2(k.text)} ${src(k)}<details class="canon-older"><summary><small>${esc2(t("tieEdit"))}</small></summary>${levels(k.level, a)}<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc2(k.text)}</textarea>${btns(a)}</details></li>`;
+  });
+  const add2 = (kind) => {
+    const a = `data-kind="${kind}" data-i="new"`;
+    return `<details class="canon-older"><summary><small>${esc2(t(kind === "relation" ? "tieAddRel" : "tieAddKnower"))}</small></summary><input class="text_pole canon-tie-name" ${a} placeholder="${esc2(t("tieName"))}">${kind === "knows" ? levels("identity", a) : ""}<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc2(t(kind === "relation" ? "tieRelText" : "tieKnowsText"))}"></textarea><button class="menu_button" data-act="tie-save" ${a}>${esc2(t("wsSave"))}</button></details>`;
+  };
+  return `<h4>${esc2(t("niConnections"))} ${tip("tieTip")}</h4>${rel.length ? `<ul class="canon-list">${rel.join("")}</ul>` : ""}${add2("relation")}<h4>${esc2(t("niWho"))}</h4>${kn.length ? `<ul class="canon-list">${kn.join("")}</ul>` : ""}${add2("knows")}`;
+}
 function playerTab(v) {
   if (!v) return `<div>${esc2(t("niOff"))}</div>`;
   const list = (title, items2) => items2.length ? `<h4>${esc2(title)}</h4><ul class="canon-list">${items2.map((i) => `<li>${esc2(i)}</li>`).join("")}</ul>` : "";
@@ -31966,7 +32406,7 @@ function playerTab(v) {
   if (!p) html += `<div>${esc2(t("niNoProfile"))}</div>`;
   else {
     html += `<h4>${esc2(p.name)}</h4><div>${esc2(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc2(p.publicIdentity)}</small></div>` : ""}<div><small>${esc2(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev)))}</small></div>`;
-    html += list(t("niLore"), p.lore || []) + list(t("niOrgs"), p.affiliations) + list(t("niPlaces"), p.places) + list(t("niRoles"), p.roles || []) + list(t("niNotSuited"), p.notSuited || []) + list(t("niVoice"), p.voice ? [p.voice] : []) + list(t("niConnections"), p.relationships) + list(t("niRecognized"), p.recognized || []) + list(t("niWho"), p.knowers) + list(t("niNotes"), p.notes);
+    html += list(t("niLore"), p.lore || []) + list(t("niOrgs"), p.affiliations) + list(t("niPlaces"), p.places) + list(t("niRoles"), p.roles || []) + list(t("niNotSuited"), p.notSuited || []) + list(t("niVoice"), p.voice ? [p.voice] : []) + list(t("niRecognized"), p.recognized || []) + tiesSection(p) + list(t("niNotes"), p.notes);
   }
   html += worldSection();
   const stance = (s) => t(`niStance_${s}`);

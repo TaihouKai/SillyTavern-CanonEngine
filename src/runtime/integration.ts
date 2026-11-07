@@ -6,12 +6,12 @@
 // - Candidate retrieval and the checked, disposable suggestions of the integrate task (never history).
 import type { ContactInfo, EngagementInfo, FactDelta, Id, PackEvent, RuntimeEntity, ScopeKind } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
-import type { ContactEntry, EngagementEntry, WorldState } from '../domain/reducer';
+import type { ContactEntry, EngagementEntry, TieEntry, WorldState } from '../domain/reducer';
 import { evalCondition, factAt, triLabel } from '../domain/reducer';
 import { formatTick, toTick } from '../domain/time';
 import { hashObject, newId, sha256, uniq } from '../domain/util';
 import type { WorldIndex } from '../domain/world-query';
-import type { AffiliationStatus, IntegrationCache, Opportunity, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
+import type { AffiliationStatus, TieChange, IntegrationCache, Opportunity, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
 import { markedLines } from './worldset';
 
 /** Story-time lead for candidate events (events starting within it are considered). */
@@ -208,6 +208,41 @@ export function profileAt(revs: ProfileRevision[] | undefined, entries: SourceEn
   return best;
 }
 
+/** The profile with the player's relationships and who knows what about them as play has changed them: the Persona
+ *  gives the start, every player_tie record (the analysis of an accepted reply, or the user in the panel) changes it
+ *  from there, in record order — a relationship is replaced by how it stands now (or ended), a knower knows more
+ *  (only the user can make it less), a tie the user removed is gone. Decided by the code, so the GM and the analysis
+ *  see one current list, not the Persona's words next to a story that has moved on. */
+export function playedProfile(index: WorldIndex, profile: PlayerProfile): PlayerProfile {
+  const ties = index.state.ties;
+  if (!ties?.length) return profile;
+  const n = (s: string) => String(s || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+  const same = (id: Id | null, name: string, t: TieEntry) => (t.who && id ? t.who === id : n(name) === n(t.name));
+  const rank = { exists: 0, identity: 1, secrets: 2 } as const;
+  let relationships = profile.relationships.map((r) => ({ ...r }));
+  let knowers = profile.knowers.map((k) => ({ ...k }));
+  for (const t of ties) {
+    const change = (start: string | null, prevChange?: TieChange): TieChange => ({ since: t.tick, by: t.source, start: prevChange ? prevChange.start : start, quote: t.quote });
+    if (t.kind === 'relation') {
+      const i = relationships.findIndex((r) => same(r.entityId, r.name, t));
+      if (t.removed) { if (i >= 0) relationships.splice(i, 1); continue; }
+      if (i < 0) { relationships.push({ entityId: t.who, name: t.name, relation: t.relation || '', basis: t.source, ...(t.ended ? { ended: true } : {}), changed: change(null) }); continue; }
+      const r = relationships[i];
+      relationships[i] = { ...r, entityId: r.entityId || t.who, relation: t.relation || r.relation, ended: !!t.ended, changed: change(r.basis === 'play' || r.basis === 'ui' ? null : r.relation, r.changed) };
+    } else {
+      const i = knowers.findIndex((k) => same(k.entityId, k.who, t));
+      if (t.removed) { if (i >= 0) knowers.splice(i, 1); continue; }
+      const level = t.level || 'identity';
+      if (i < 0) { knowers.push({ who: t.name, entityId: t.who, level, about: t.about || '', basis: t.source, changed: change(null) }); continue; }
+      const k = knowers[i];
+      knowers[i] = { ...k, entityId: k.entityId || t.who, level: t.source === 'ui' || rank[level] > rank[k.level] ? level : k.level, about: t.about || k.about, changed: change(k.basis === 'play' || k.basis === 'ui' ? null : `${k.level}: ${k.about}`, k.changed) };
+    }
+  }
+  relationships = relationships.slice(-40);
+  knowers = knowers.slice(-40);
+  return { ...profile, relationships, knowers };
+}
+
 /** Entities that stand for the player: the player, their organizations and places. */
 export function playerIds(p: PlayerProfile): Id[] {
   return uniq([p.playerId, ...p.affiliations.map((a) => a.entityId), ...p.places.map((x) => x.entityId)]);
@@ -305,6 +340,7 @@ export function playLinks(index: WorldIndex, profile: PlayerProfile, limit = 12)
 /** The player context shared by the HARD planner, the integrate task and (as text) the GM: the same projection,
  *  so no task treats the player as a bare name. */
 export function playerContext(index: WorldIndex, profile: PlayerProfile, tick: number, opts: { historyWith?: Id[]; historyLimit?: number } = {}) {
+  profile = playedProfile(index, profile);
   const eng = engagementView(index.state, index.pack);
   return {
     entity_id: profile.playerId,
@@ -318,8 +354,8 @@ export function playerContext(index: WorldIndex, profile: PlayerProfile, tick: n
     goals: profile.goals,
     ...(profile.roles?.length ? { roles: profile.roles } : {}),
     ...(profile.notSuited?.length ? { not_suited: profile.notSuited } : {}),
-    relationships: profile.relationships.map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis, ...(r.entityId && index.entityKind(r.entityId) === 'organization' ? { now: factsLine(index, r.entityId, tick).trim() } : {}) })),
-    knowers: profile.knowers.map((k) => ({ who: k.who, id: k.entityId, level: k.level, about: k.about, basis: k.basis })),
+    relationships: byChange(profile.relationships).map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis, ...(r.ended ? { ended: true } : {}), ...(r.changed ? { since: formatTick(r.changed.since), ...(r.changed.start ? { at_start: r.changed.start } : {}) } : {}), ...(r.entityId && index.entityKind(r.entityId) === 'organization' ? { now: factsLine(index, r.entityId, tick).trim() } : {}) })),
+    knowers: byChange(profile.knowers).map((k) => ({ who: k.who, id: k.entityId, level: k.level, about: k.about, basis: k.basis, ...(k.changed ? { since: formatTick(k.changed.since) } : {}) })),
     now: factsLine(index, profile.playerId, tick).trim(),
     actual_history: playerHistory(index, profile, opts.historyWith || [], opts.historyLimit ?? 30),
     decisions: eng.lines(tick),
@@ -493,9 +529,9 @@ export function integrationCandidates(index: WorldIndex, profile: PlayerProfile,
   const st = index.state;
   const end = Math.max(tick + (opts.lead ?? INTEGRATION_LEAD_MINUTES), opts.jumpTo ?? 0);
   const focus = new Set(opts.focus || []);
-  // connections: the Persona's, and the people the player has actually dealt with in play (live: 滨面/泷壶, met
-  // on 10/10, were nobody's connection because they are not in the Persona)
-  const linked = new Set([...profile.relationships.map((r) => r.entityId), ...profile.affiliations.map((a) => a.entityId), ...playLinks(index, profile)].filter(Boolean) as Id[]);
+  // connections: the Persona's as play changed them, and the people the player has actually dealt with in play
+  // (live: 滨面/泷壶, met on 10/10, were nobody's connection because they are not in the Persona)
+  const linked = new Set([...playedProfile(index, profile).relationships.filter((r) => !r.ended).map((r) => r.entityId), ...profile.affiliations.map((a) => a.entityId), ...playLinks(index, profile)].filter(Boolean) as Id[]);
   // ...and the members of the organizations among them (a bad relation with SCHOOL makes 垣根's moves the player's
   // concern; membership comes from the pack's facts at the scene's time)
   const members = memberships(index, tick);
@@ -807,7 +843,7 @@ export function integrationKey(index: WorldIndex, profile: PlayerProfile, candid
     return all.some((x) => mine.has(x)) && (all.some((x) => people.has(x)) || o.packEventId);
   }).map((o) => o.occurrenceId).sort();
   return hashObject({
-    v: 1, p: profile.personaHash, ids: [...mine],
+    v: 1, p: profile.personaHash, ids: [...mine], t: index.state.ties.map((x) => x.recordId),
     c: candidates.map((c) => `${c.event.id}:${c.status}:${index.inProgressBeats(c.event.id).length}`),
     e: index.state.engagements.map((e) => e.recordId), k: index.state.contacts.map((c) => c.recordId),
     f: [...focus].sort(), j: jumpTo ?? null, o: linkOccs, ...(quiet ? { q: Math.floor(index.state.clock.lo / 1440) } : {}),
@@ -819,6 +855,7 @@ export function integrationKey(index: WorldIndex, profile: PlayerProfile, candid
 // GM context sections
 
 export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick: number): string {
+  profile = playedProfile(index, profile);
   const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play — the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know — famous things (an esper's level and ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
   lines.push(`- ${profile.personaName} [${profile.playerId}] (the player character): ${profile.summary || '(no summary)'}${profile.publicIdentity ? ` Public identity: ${profile.publicIdentity}` : ''}${factsLine(index, profile.playerId, tick)}`);
   for (const o of playerOrgs(index, profile, tick)) lines.push(`- organization: ${o.name} [${o.id}] — now ${STANDING[o.standing]}${o.leads ? ', its leader' : ''}${o.role ? `; the Persona's words at the start: ${o.role}` : ''} (${o.secrecy})${factsLine(index, o.id, tick)}`);
@@ -827,9 +864,19 @@ export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick:
   if (profile.roles?.length) lines.push(`- roles: ${profile.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(', '), r.from.length ? `from ${r.from.join(', ')}` : ''].filter(Boolean).join('; ')})` : ''}`).join(' | ')}`);
   if (profile.notSuited?.length) lines.push(`- does not take on: ${profile.notSuited.join('; ')}`);
   if (profile.voice) lines.push(`- how they come across and talk (write the player character's lines and reactions this way): ${profile.voice}`);
-  for (const r of profile.relationships.slice(0, 12)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ''} — ${r.relation} (${r.basis === 'persona_stated' ? 'Persona' : 'implied by the role'})${r.entityId && index.entityKind(r.entityId) === 'organization' ? factsLine(index, r.entityId, tick) : ''}`);
-  for (const k of profile.knowers.slice(0, 12)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === 'secrets' ? ':' : ' —'} ${k.about}`);
+  for (const r of byChange(profile.relationships).slice(0, 16)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ''} — ${r.ended ? 'ENDED: ' : ''}${r.relation} (${tieSource(r)})${r.entityId && index.entityKind(r.entityId) === 'organization' ? factsLine(index, r.entityId, tick) : ''}`);
+  for (const k of byChange(profile.knowers).slice(0, 16)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === 'secrets' ? ':' : ' —'} ${k.about} (${tieSource(k)})`);
   return lines.join('\n');
+}
+
+/** Ties play changed first (the latest on top), then the Persona's. */
+function byChange<T extends { changed?: TieChange }>(xs: T[]): T[] {
+  return [...xs.filter((x) => x.changed).sort((a, b) => b.changed!.since - a.changed!.since), ...xs.filter((x) => !x.changed)];
+}
+function tieSource(x: { basis: PlayerProfile['knowers'][number]['basis']; changed?: TieChange }): string {
+  const from = { persona_stated: 'Persona', implied: 'implied by the role', play: 'from play', ui: 'set by the user' }[x.basis];
+  if (!x.changed || x.basis === 'play' || x.basis === 'ui') return x.changed ? `${from}, since ${formatTick(x.changed.since)}` : from;
+  return `as it stands since ${formatTick(x.changed.since)} in play; ${from} at the start: ${x.changed.start}`;
 }
 
 export function decisionsSection(lines: string[]): string {
@@ -885,6 +932,7 @@ export interface RecognitionGroup { key: string; who: string; level: 'public' | 
 /** The groups and people who know about the player: public recognition first, then the knowers (who know more than
  *  the public identity). "exists" knowers do not know the player and are left out. */
 export function recognitionGroups(index: WorldIndex, profile: PlayerProfile): RecognitionGroup[] {
+  profile = playedProfile(index, profile);
   const out: RecognitionGroup[] = [];
   for (const r of profile.recognizedBy || []) out.push({ key: r.who, who: r.who, level: 'public', about: r.as, personId: null, orgId: r.orgId, places: r.places, everywhere: r.everywhere });
   for (const k of profile.knowers) {
@@ -930,7 +978,7 @@ export function recognitionSection(present: { g: RecognitionGroup; why: string[]
     : g.level === 'secrets'
       ? `- ${g.who} (${why.join('; ')}) know (secret): ${g.about}. Only they know; they keep it out of others' hearing.`
       : `- ${g.who} (${why.join('; ')}) know who the player is: ${g.about}. They act on it; others here do not learn it from them unless the story shows it.`);
-  return `RECOGNITION IN THIS SCENE (from the player's Persona; people listed here know this — they never act as if they did not, unless the scene gives a reason such as a disguise):\n${lines.join('\n')}`;
+  return `RECOGNITION IN THIS SCENE (from the player's Persona and what people learned in play; people listed here know this — they never act as if they did not, unless the scene gives a reason such as a disguise):\n${lines.join('\n')}`;
 }
 
 /** Group ids of a task's answer ("g1"…) back to their names; null stays null (the scene does not move). */

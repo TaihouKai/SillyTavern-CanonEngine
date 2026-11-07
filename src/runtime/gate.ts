@@ -41,6 +41,8 @@ export interface EvalOutput {
   summary?: string;
   /** Narrative integration: contacts from the world that reached the player in this reply. */
   contacts?: { quote: string; actors?: string[]; kind: ContactInfo['contactKind']; scope_kind: ScopeKind; scope_ref: string; scope_label?: string; opportunity_id?: string | null }[];
+  /** Narrative integration: changes of the player's relationships and of what people know about them. */
+  player_ties?: { tie: 'relation' | 'knows'; who: string; existing_id?: string | null; relation?: string; ended?: boolean; level?: 'exists' | 'identity' | 'secrets'; about?: string; quote: string }[];
 }
 
 /** A quote that is a line of speech: a quoted span (“…” 「…」 『…』 "…" ‘…’) with at most a short attribution around it. */
@@ -636,6 +638,25 @@ export function runGate(g: GateInput): GateResult {
       visibility: { mode: 'public', knower_ids: [] }, summary: `Contact (${k.kind}) about ${label}: ${k.quote.slice(0, 120)}`, evidenceKind: 'direct',
       contact: { scopeKind, scopeRef, scopeLabel: label.slice(0, 300), opportunityId: opp ?? (job ? g.offered!.id : null), contactKind: k.kind, actors, quote: k.quote.slice(0, 300), ...(job ? { sideJob: true, expires: Math.floor(sceneEnd.lo / 1440) * 1440 + 1440, job: g.offered!.contact.slice(0, 300) } : {}) },
     });
+  }
+  // ---- the player's relationships and who knows what about them, as this reply changes them --------------
+  if (g.playerId) {
+    for (const t of ev.player_ties || []) {
+      const name = String(t.who || '').trim();
+      if (!name || !(hasQuote(t.quote) || quoteInText(t.quote || '', g.userText || ''))) { warnings.push(`tie "${name || (t.quote || '').slice(0, 40)}" ignored: evidence not found in text`); continue; }
+      const id = (t.existing_id ? resolveId(t.existing_id) : null) || resolveId(name);
+      if (id === g.playerId) continue;
+      const relation = String(t.relation || '').trim().slice(0, 400), about = String(t.about || '').trim().slice(0, 400);
+      if (t.tie === 'relation' ? !relation : !about && !t.level) continue;
+      const label = (id && index.entityExists(id) ? index.entityName(id) : runtimeEntities.find((r) => r.id === id)?.name) || name;
+      records.push({
+        recordId: newId('rec'), kind: 'player_tie', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+        visibility: { mode: 'public', knower_ids: [] }, summary: `${t.tie === 'relation' ? 'Relationship' : 'Who knows'}: ${label} — ${t.tie === 'relation' ? relation : about}`.slice(0, 300), evidenceKind: 'direct',
+        tie: t.tie === 'relation'
+          ? { kind: 'relation', who: id, name: label, relation, ...(t.ended ? { ended: true } : {}), quote: t.quote.slice(0, 300), source: 'play' }
+          : { kind: 'knows', who: id, name: label, level: t.level || 'identity', about, quote: t.quote.slice(0, 300), source: 'play' },
+      });
+    }
   }
   // a required contact the reply leaves out (it may also show the player already in the event itself)
   if (g.mode === 'draft' && !g.leap) {

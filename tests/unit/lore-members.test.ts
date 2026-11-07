@@ -90,7 +90,7 @@ describe('membership in the panel and the timeline window', () => {
     x.host.addUser('I look around.');
     x.model.draft('You look around. [L2]');
     expect(await x.engine.runOperation('normal')).toBe(true);
-    expect(x.engine.integrationView(true)!.profile!.relationships).toEqual(['The Council: bad blood (Persona) [成员 Ren、Sol]']);
+    expect(x.engine.integrationView(true)!.profile!.relationships).toEqual([expect.objectContaining({ name: 'The Council', text: 'bad blood', basis: 'persona_stated', org: ' [成员 Ren、Sol]' })]);
     const v = x.engine.membershipView(false)!;
     expect(v.now.find((o) => o.id === 'council')!.members).toEqual(['Ren', 'Sol']);
     expect(v.now.find((o) => o.id === 'union')!.members).toEqual(['Tal']);
