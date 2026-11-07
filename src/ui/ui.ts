@@ -664,6 +664,18 @@ function renderInspector() {
         b.textContent = t('niBusy');
         E.refreshIntegration().then((n) => { toast('info', t('niRefreshDone').replace('{n}', String(n))); renderInspector(); }).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
       }
+      // 本局设定
+      if (act === 'ws-recheck' || act === 'ws-manual' || act === 'ws-save' || act === 'ws-del') {
+        (b as HTMLButtonElement).disabled = true;
+        if (act === 'ws-recheck') b.textContent = t('wsBusy');
+        const box = (sel: string) => (inspectorEl!.querySelector(sel) as HTMLTextAreaElement | null)?.value ?? '';
+        const id = b.dataset.id || '';
+        const run = act === 'ws-recheck' ? E.recheckWorld().then(() => toast('info', t('wsDone')))
+          : act === 'ws-manual' ? E.setWorldManual(box('.canon-ws-manual').split(/\r?\n/))
+          : act === 'ws-save' ? E.editWorld(id, box(`.canon-ws-edit[data-id="${CSS.escape(id)}"]`))
+          : E.editWorld(id, null);
+        run.then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
+      }
       if (act === 'ni-update' || act === 'ni-keep' || act === 'ni-reopen' || act === 'ni-strong' || act === 'ni-weak') {
         (b as HTMLButtonElement).disabled = true;
         if (act === 'ni-update') b.textContent = t('niBusy');
@@ -723,6 +735,28 @@ function renderInspector() {
 
 /** Inspector tab 叙事融入: what was read from the Persona, the player's decisions (with "allow contact again"),
  *  the contacts that reached them; pending suggestions only with spoilers (they are not history). */
+/** 本局设定 in the 叙事融入 tab: the changes, your own, what was checked, and every entry rewritten for this game. */
+function worldSection(): string {
+  const w = E.worldView();
+  if (!w) return '';
+  const tag = (s: string) => `<span class="canon-tag">${esc(s)}</span>`;
+  let html = `<h4>${esc(t('wsTitle'))} <button class="menu_button canon-h4-btn" data-act="ws-recheck" title="${esc(t('wsRecheckTip'))}">${esc(t('wsRecheck'))}</button></h4><div><small>${esc(t('wsIntro'))}</small></div>`;
+  html += w.changes.length
+    ? `<ul class="canon-list">${w.changes.map((c) => `<li>${tag(t(`wsSrc_${c.source}`))} ${esc(c.text)}${c.terms.length ? `<br><small>${esc(t('wsTerms'))}: ${esc(c.terms.join('、'))}</small>` : ''}</li>`).join('')}</ul>`
+    : `<div><small>${esc(t('wsNoChanges'))}</small></div>`;
+  html += `<div><small>${esc(t('wsManual'))}</small></div><textarea class="text_pole canon-ws-manual" rows="3">${esc(w.manual.join('\n'))}</textarea><div><button class="menu_button" data-act="ws-manual">${esc(t('wsSave'))}</button></div>`;
+  if (!w.checked) return html;
+  html += `<div><small>${esc(t('wsChecked').replace('{lore}', String(w.checked.lore)).replace('{ent}', String(w.checked.entities)).replace('{ev}', String(w.checked.events)))}${w.checked.generic.length ? ` ${esc(t('wsGeneric'))}${esc(w.checked.generic.join('、'))}` : ''}</small></div>`;
+  if (!w.loreHook && w.overrides.some((o) => o.kind === 'lore')) html += `<div><small>${esc(t('wsNoHook'))}</small></div>`;
+  const item = (o: (typeof w.overrides)[number]) => `<li><b>${esc(o.title)}</b> ${tag(t(`wsKind_${o.kind}`))}${o.book ? ` <small>${esc(o.book)}</small>` : ''} ${tag(t(o.action === 'disable' ? 'wsDisable' : 'wsReplace'))}${o.edited ? ` ${tag(t('wsEdited'))}` : ''}${o.stale ? ` ${tag(t('wsStale'))}` : ''}`
+    + `${o.reason ? `<br><small>${esc(o.reason)}</small>` : ''}`
+    + `<details class="canon-older"><summary><small>${esc(t('wsOriginal'))} / ${esc(t('wsThisGame'))}</small></summary><div><small><b>${esc(t('wsOriginal'))}:</b> ${esc(o.original)}</small></div><div><small><b>${esc(t('wsThisGame'))}:</b> ${esc(o.action === 'disable' ? '—' : o.content)}</small></div>`
+    + `<textarea class="text_pole canon-ws-edit" data-id="${esc(o.id)}" rows="4" title="${esc(t('wsEditTip'))}">${esc(o.content)}</textarea><button class="menu_button" data-act="ws-save" data-id="${esc(o.id)}">${esc(t('wsSave'))}</button> <button class="menu_button" data-act="ws-del" data-id="${esc(o.id)}">${esc(t('wsDelete'))}</button></details></li>`;
+  html += `<h4>${esc(t('wsOverrides'))}</h4>${w.overrides.length ? `<ul class="canon-list">${w.overrides.map(item).join('')}</ul>` : `<div><small>${esc(t('wsNone'))}</small></div>`}`;
+  if (w.additions.length) html += `<h4>${esc(t('wsAdditions'))}</h4><ul class="canon-list">${w.additions.map((a) => `<li><b>${esc(a.title)}</b> <small>${esc(a.keys.join('、'))}</small>${a.edited ? ` ${tag(t('wsEdited'))}` : ''}${a.reason ? `<br><small>${esc(a.reason)}</small>` : ''}<details class="canon-older"><summary><small>${esc(t('wsThisGame'))}</small></summary><textarea class="text_pole canon-ws-edit" data-id="${esc(a.id)}" rows="4">${esc(a.content)}</textarea><button class="menu_button" data-act="ws-save" data-id="${esc(a.id)}">${esc(t('wsSave'))}</button> <button class="menu_button" data-act="ws-del" data-id="${esc(a.id)}">${esc(t('wsDelete'))}</button></details></li>`).join('')}</ul>`;
+  return html;
+}
+
 function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   if (!v) return `<div>${esc(t('niOff'))}</div>`;
   const list = (title: string, items: string[]) => (items.length ? `<h4>${esc(title)}</h4><ul class="canon-list">${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
@@ -737,6 +771,7 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
     html += `<h4>${esc(p.name)}</h4><div>${esc(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc(p.publicIdentity)}</small></div>` : ''}<div><small>${esc(t(p.source === 'persona_core' ? 'niSourceCore' : 'niSource').replace('{n}', String(p.chars)).replace('{rev}', String(p.rev)))}</small></div>`;
     html += list(t('niLore'), p.lore || []) + list(t('niOrgs'), p.affiliations) + list(t('niPlaces'), p.places) + list(t('niRoles'), p.roles || []) + list(t('niNotSuited'), p.notSuited || []) + list(t('niVoice'), p.voice ? [p.voice] : []) + list(t('niConnections'), p.relationships) + list(t('niRecognized'), p.recognized || []) + list(t('niWho'), p.knowers) + list(t('niNotes'), p.notes);
   }
+  html += worldSection();
   const stance = (s: string) => t(`niStance_${s}`);
   const negative = new Set(['declined', 'deferred', 'ooc_suppress']);
   const strongBtn = (d: (typeof v.decisions)[number]) => d.stance === 'ooc_suppress' ? ''

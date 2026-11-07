@@ -1,11 +1,12 @@
 // Canon Engine controller: binding, reconciliation, one foreground operation (stage -> validate ->
 // commit), journal recovery, backup. Host-independent (see host.ts).
-import { loreFor, type LoreBackground } from './lore';
+import { loreFor, type LoreBackground, type LoreEntry } from './lore';
 import type { Persona } from './host';
 import type { Id, LedgerRecord, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { valuesEqual } from '../domain/pack';
 import { buildBootstrap, causeOf, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
+import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { WorldIndex } from '../domain/world-query';
 import { formatTick, formatStoryTime, fromTick, parseDateLabel, toTick } from '../domain/time';
@@ -76,7 +77,7 @@ export interface EngineSettings {
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
 const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + String(text || '').length * 4));
 
-const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap' };
+const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game' };
 
 /** Length and provider stats of the published reply, shown after the turn timings. */
 export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
@@ -320,7 +321,23 @@ export class CanonEngine {
 
   isBusy(): boolean { return !!this.opActive; }
 
+  /** The chat's pack as this game has it: the bound pack with this game's 本局设定 texts overlaid (same hash). */
   pack(): LoadedPack {
+    return this.overlaid(this.basePack());
+  }
+
+  private overlayCache: { base: LoadedPack; key: string; loaded: LoadedPack } | null = null;
+  private overlaid(base: LoadedPack): LoadedPack {
+    const ws = this.campaign()?.worldSettings;
+    const own = (ws?.overrides || []).filter((o) => o.kind !== 'lore');
+    const key = own.length ? hashObject(own.map((o) => [o.id, o.action, o.content, o.originalHash])) : '';
+    if (!key) return base;
+    if (this.overlayCache?.base !== base || this.overlayCache.key !== key) this.overlayCache = { base, key, loaded: overlayPack(base, ws) };
+    return this.overlayCache.loaded;
+  }
+
+  /** The bound pack itself (no 本局设定). */
+  basePack(): LoadedPack {
     const c = this.campaign();
     if (!c) throw new EngineError('invalid_pack', 'no pack bound');
     if (!this.packCache || this.packCache.hash !== c.packHash) {
@@ -340,17 +357,17 @@ export class CanonEngine {
    *  inside is moved to the store (stored, read back and checked first; the copy in the chat is dropped only then). */
   private async ensurePack(c: CampaignData, writable: boolean): Promise<LoadedPack> {
     if (c.packSnapshot) {
-      const L = this.pack();
+      const L = this.basePack();
       if (writable && this.host.packStore) await this.movePackToStore(c, L).catch((e) => this.host.log('warn', `[CanonEngine] pack kept in the chat: ${(e as Error).message}`));
-      return L;
+      return this.overlaid(L);
     }
-    if (this.packCache?.hash === c.packHash) return this.packCache.loaded;
+    if (this.packCache?.hash === c.packHash) return this.overlaid(this.packCache.loaded);
     const text = this.host.packStore ? await this.host.packStore.load({ hash: c.packHash, file: c.packRef?.file }).catch(() => null) : null;
     if (!text) throw new EngineError('pack_missing', this.packMissingMessage(c));
     const r = validatePackText(text);
     if (!r.ok || !r.loaded || r.loaded.hash !== c.packHash) throw new EngineError('pack_missing', this.packMissingMessage(c));
     this.packCache = { hash: r.loaded.hash, loaded: r.loaded };
-    return r.loaded;
+    return this.overlaid(r.loaded);
   }
 
   /** Store a pack and check the stored copy; returns its reference. */
@@ -1540,6 +1557,7 @@ export class CanonEngine {
           companions: companionSection(index, companions, c.foreknowledge || {}, ctxClock, c.binding.originDate, causeOf) || undefined,
           reaction: offered ? worldReactionSection(index, offered, c.binding.originDate) : undefined,
           requiredContacts: requiredSection(index, required, c.binding.originDate) || undefined,
+          worldLore: this.worldLoreSection(),
         };
         let packet = buildPacket(packetArgs);
         const engineContext = this.gmContext(packet.text, userEntry?.text, !!leapTo);
@@ -1892,6 +1910,133 @@ export class CanonEngine {
     return loreFor((await this.host.loreEntries?.()) || [], `${persona.name}\n${persona.description}`, pack).map((l) => `${l.title}${l.via === 'related' ? ' (related)' : ''}`);
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // 本局设定: this game's changes of the world, and the lorebook entries and pack texts rewritten for them
+
+  /** The changes in effect: the Persona's (marked lines first) and the user's own. */
+  worldChanges(): WorldChange[] {
+    const c = this.campaign();
+    const prof = this.playerProfile()?.profile;
+    return [
+      ...(prof?.worldChanges || []).map((w) => ({ id: `wc_${textHash(w.text)}`, text: w.text, terms: w.terms, source: (w.marked ? 'marked' : 'persona') as WorldChange['source'] })),
+      ...(c?.worldManual || []),
+    ];
+  }
+
+  /** Check the lorebook entries and pack texts the changes' search words find (all of them, in batches read in full)
+   *  and keep what they become in this game. The user's own edits of an entry still found are kept. No changes: no
+   *  call. Kept with the chat; applied to SillyTavern's lorebook scan and to this chat's pack. */
+  private async checkWorld(signal: AbortSignal | undefined, operationId: string): Promise<void> {
+    const c = this.campaign();
+    if (!c) return;
+    const changes0 = this.worldChanges();
+    const prev = c.worldSettings;
+    const empty = { lore: 0, entities: 0, events: 0, generic: [] as string[] };
+    if (!changes0.length) {
+      c.worldSettings = prev && (prev.overrides.some((o) => o.edited) || prev.additions.some((a) => a.edited))
+        ? { ...prev, basis: '', at: this.host.now(), changes: [], overrides: prev.overrides.filter((o) => o.edited), additions: prev.additions.filter((a) => a.edited), checked: empty }
+        : undefined;
+      this.overlayCache = null;
+      return;
+    }
+    this.setStatus('planning', 'Checking the lorebook against this game’s world…');
+    let lore: LoreEntry[] = [];
+    try { lore = (await this.host.loreEntries?.()) || []; } catch (e) { this.host.log('warn', 'lorebook read failed: ' + (e as Error).message); }
+    const base = this.basePack();
+    const changes = changes0.map((ch) => ({ ...ch, terms: termsFor(ch, lore, base) }));
+    const { items, generic } = worldItems(uniq(changes.flatMap((x) => x.terms)), lore, base);
+    const batches = worldBatches(items);
+    const prof = this.playerProfile()?.profile;
+    const outs = await Promise.all(batches.map((b, i) => this.withTimeout(callStructured<WorldCheckOut>(this.host.model, 'world_check', PROMPTS.world_check, {
+      changes: changes.map((x) => ({ id: x.id, text: x.text })),
+      player: prof ? { name: prof.personaName, summary: prof.summary } : null,
+      ...(batches.length > 1 ? { part: `${i + 1} of ${batches.length}` } : {}),
+      additions_wanted: i === 0,
+      items: b.map((it) => ({ ref: it.ref, kind: it.kind === 'lore' ? 'lorebook entry' : it.kind === 'entity' ? 'pack: who or what it is' : 'pack: event summary', title: it.title, text: it.text })),
+    }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 12000 }), this.settings.taskTimeoutMs * 4, signal)));
+    const res = worldResults(items, outs);
+    // the user's own edits stay while their original is still found as it was
+    const same = (a: WorldOverride, b: WorldOverride) => a.kind === b.kind && a.book === b.book && String(a.uid) === String(b.uid) && a.target === b.target;
+    const overrides = res.overrides.filter((o) => !prev?.overrides.some((p) => p.edited && same(p, o)));
+    for (const p of prev?.overrides || []) if (p.edited && items.some((it) => it.kind === p.kind && it.book === p.book && String(it.uid) === String(p.uid) && it.target === p.target && textHash(it.text) === p.originalHash)) overrides.push(p);
+    const additions = [...res.additions.filter((a) => !prev?.additions.some((p) => p.edited && p.id === a.id)), ...(prev?.additions || []).filter((a) => a.edited)];
+    c.worldSettings = {
+      basis: hashObject(changes.map((x) => [x.text, x.terms])), at: this.host.now(), changes, overrides, additions,
+      checked: { lore: items.filter((x) => x.kind === 'lore').length, entities: items.filter((x) => x.kind === 'entity').length, events: items.filter((x) => x.kind === 'event').length, generic },
+    };
+    this.overlayCache = null;
+    c.configRevisions.push({ at: this.host.now(), summary: `本局设定 checked: ${changes.length} change(s), ${items.length} text(s) read, ${overrides.length} rewritten or disabled, ${additions.length} added` });
+  }
+
+  /** 重新检查 (panel): check again with the changes as they are now. */
+  async recheckWorld(): Promise<void> {
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
+    await this.checkWorld(undefined, 'world');
+    await this.host.save();
+    await this.reconcile('world_settings', { allowModel: false });
+  }
+
+  /** The user's own changes (panel): replaced as a whole; checked again with 重新检查. */
+  async setWorldManual(texts: string[]): Promise<void> {
+    const c = this.campaign();
+    if (!c) return;
+    c.worldManual = texts.map((t) => t.trim()).filter(Boolean).map((text) => ({ id: `wm_${textHash(text)}`, text, terms: [], source: 'manual' as const }));
+    await this.host.save();
+  }
+
+  /** Edit (content; empty disables) or remove (null) one override or addition by hand. */
+  async editWorld(id: string, content: string | null): Promise<void> {
+    const ws = this.campaign()?.worldSettings;
+    if (!ws) return;
+    if (content === null) { ws.overrides = ws.overrides.filter((o) => o.id !== id); ws.additions = ws.additions.filter((a) => a.id !== id); }
+    else {
+      const o = ws.overrides.find((x) => x.id === id);
+      if (o) Object.assign(o, { action: content.trim() ? 'replace' : 'disable', content: content.trim(), edited: true });
+      const a = ws.additions.find((x) => x.id === id);
+      if (a) Object.assign(a, { content: content.trim(), edited: true });
+    }
+    this.overlayCache = null;
+    await this.host.save();
+    await this.reconcile('world_settings', { allowModel: false });
+  }
+
+  /** What SillyTavern's lorebook scan does in this chat: entries replaced or disabled by book and uid (only while the
+   *  original is the text they were written from) and entries added. Nothing when the engine is off here. */
+  loreScan(): { overrides: Map<string, WorldOverride>; additions: WorldAddition[] } | null {
+    const c = this.campaign();
+    if (!c?.enabled || !c.worldSettings) return null;
+    return { overrides: loreOverrideMap(c.worldSettings), additions: c.worldSettings.additions };
+  }
+  /** Set by the SillyTavern adapter after each scan: overrides applied, and those whose original changed since. */
+  loreApplied: { applied: number; stale: string[]; at: number } | null = null;
+  /** 本局设定 for the panel: the changes in effect (with the search words of the last check), the user's own, what was
+   *  checked and every override (stale: its lorebook original changed since — seen in the last scan). */
+  worldView() {
+    const c = this.campaign();
+    if (!c?.integration) return null;
+    const ws = c.worldSettings;
+    const terms = new Map((ws?.changes || []).map((x) => [x.text, x.terms]));
+    const stale = new Set(this.loreApplied?.stale || []);
+    return {
+      changes: this.worldChanges().map((x) => ({ ...x, terms: terms.get(x.text) || x.terms })),
+      manual: (c.worldManual || []).map((x) => x.text),
+      checked: ws?.checked || null,
+      overrides: (ws?.overrides || []).map((o) => ({ ...o, stale: o.kind === 'lore' && stale.has(o.title) })),
+      additions: ws?.additions || [],
+      loreHook: this.loreHook,
+    };
+  }
+
+  /** Whether SillyTavern hands its lorebook scan to extensions (else the GM is told the rewritten entries). */
+  loreHook = false;
+  private worldLoreSection(): string | undefined {
+    const ws = this.campaign()?.worldSettings;
+    const lore = (ws?.overrides || []).filter((o) => o.kind === 'lore');
+    if (this.loreHook || (!lore.length && !ws?.additions.length)) return undefined;
+    const lines = [...lore.map((o) => `- ${o.title}: ${o.action === 'disable' ? '(does not apply in this game)' : o.content}`), ...(ws?.additions || []).map((a) => `- ${a.title}: ${a.content}`)];
+    return `LOREBOOK IN THIS GAME (these lorebook entries read as follows in this game; where the lorebook says otherwise, this holds):\n${lines.join('\n')}`;
+  }
+
   /** The profile in effect for new turns (the latest revision), or null. */
   playerProfile(): ProfileRevision | null {
     const revs = this.campaign()?.playerProfiles;
@@ -1913,6 +2058,7 @@ export class CanonEngine {
       c.playerProfiles = [rev];
       c.manualRecords = [...(c.manualRecords || []), { afterMessageId: null, record: seedRecord(profile, runtimeEntities, c.binding.startTick, 1), at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `player profile read from the Persona "${persona.name}" (${persona.description.length} characters)` });
+      await this.checkWorld(signal, operationId);
       await this.host.save();
       return;
     }
@@ -1954,6 +2100,7 @@ export class CanonEngine {
     delete c.personaKeptHash;
     delete c.integrationCache;
     c.configRevisions.push({ at: this.host.now(), summary: `player identity updated from the Persona "${persona.name}" (revision ${rev})` });
+    await this.checkWorld(undefined, 'identity');
     await this.host.save();
     await this.reconcile('identity_updated');
   }

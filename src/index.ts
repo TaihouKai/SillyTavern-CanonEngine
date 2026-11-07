@@ -11,6 +11,7 @@ import { deepClone } from './domain/util';
 import { storyOnly } from './runtime/ooc';
 import { notifyDone, primeNotifications } from './ui/notify';
 import { listLibrary, loadFromLibrary, libraryPackStore } from './ui/library';
+import { applyLoreScan } from './runtime/worldset';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -185,6 +186,19 @@ async function init() {
   registerLast();
   es.on(et.APP_READY, registerLast);
   es.on(et.GENERATION_STOPPED, () => { if (engine?.isBusy() && !gen.draft) engine.cancel(); });
+  // 本局设定: this game's rewritten lorebook entries take the originals' place in SillyTavern's own scan (the event
+  // hands over per-scan copies: the lorebook files and other chats are untouched)
+  if (et.WORLDINFO_ENTRIES_LOADED) {
+    engine.loreHook = true;
+    let template: Record<string, unknown> = { key: [], keysecondary: [], comment: '', content: '', constant: false, selective: false, selectiveLogic: 0, order: 100, position: 0, disable: false, probability: 100, useProbability: true, depth: 4, group: '', groupOverride: false, groupWeight: 100, excludeRecursion: false, preventRecursion: false, role: 0 };
+    const wiUrl = '/scripts/world-info.js';
+    import(/* @vite-ignore */ wiUrl).then((wi: any) => { if (wi?.newWorldInfoEntryTemplate) template = { ...wi.newWorldInfoEntryTemplate, selective: false }; }).catch(() => undefined);
+    es.on(et.WORLDINFO_ENTRIES_LOADED, (lists: Record<string, any[]>) => {
+      const scan = engine?.loreScan();
+      if (!engine || !scan) return;
+      engine.loreApplied = { ...applyLoreScan(lists, scan, template), at: Date.now() };
+    });
+  }
   es.on(et.CHAT_CHANGED, async () => {
     if (!engine) return;
     engine.sourceChanged('chat_changed');

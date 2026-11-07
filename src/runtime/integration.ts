@@ -12,6 +12,7 @@ import { formatTick, toTick } from '../domain/time';
 import { hashObject, newId, sha256, uniq } from '../domain/util';
 import type { WorldIndex } from '../domain/world-query';
 import type { IntegrationCache, Opportunity, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
+import { markedLines } from './worldset';
 
 /** Story-time lead for candidate events (events starting within it are considered). */
 export const INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -44,10 +45,24 @@ export interface ProfileOut {
   relationships: { name: string; existing_id?: string | null; relation?: string; basis?: 'persona_stated' | 'implied' }[];
   knowers: { who: string; existing_id?: string | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: 'persona_stated' | 'implied'; places?: string[] }[];
   recognized_by?: { who: string; existing_id?: string | null; places?: string[]; everywhere?: boolean; as: string }[];
+  world_changes?: { text: string; terms?: string[] }[];
   uncertain?: string[];
 }
 
 const slug = (s: string) => (String(s).normalize('NFKC').toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, '-').replace(/^-|-$/g, '') || 'x').slice(0, 20);
+
+/** 本局设定 from a Persona read: every line marked "(本局设定)" (taken by the code, so none is lost, with the
+ *  analysis' search words when it gave that line), then the other changes the analysis found. */
+export function worldChangesOf(out: Pick<ProfileOut, 'world_changes'>, personaText: string): NonNullable<PlayerProfile['worldChanges']> {
+  const found = (out.world_changes || []).filter((w) => w?.text?.trim()).map((w) => ({ text: w.text.trim().slice(0, 600), terms: (w.terms || []).map((t) => String(t).trim()).filter(Boolean).slice(0, 12) }));
+  const n = (s: string) => s.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+  const marked = markedLines(personaText).map((line) => {
+    const same = found.find((w) => n(w.text).includes(n(line)) || n(line).includes(n(w.text)));
+    return { text: line.slice(0, 600), terms: same?.terms || [], marked: true };
+  });
+  const rest = found.filter((w) => !marked.some((m) => n(m.text).includes(n(w.text)) || n(w.text).includes(n(m.text)))).map((w) => ({ ...w, marked: false }));
+  return [...marked, ...rest].slice(0, 30);
+}
 
 /** Turn the profile task's output into a checked profile. Implied relationships and knowers never name a specific
  *  known character, and nobody knows secrets the Persona does not give them (user decision: allow the knowers an
@@ -149,6 +164,7 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
       roles: (out.roles || []).filter((r) => r?.role?.trim()).slice(0, 8).map((r) => ({ role: r.role.trim().slice(0, 200), brings: list(r.brings), from: list(r.from), style: String(r.style || '').trim().slice(0, 300) })),
       notSuited: list(out.not_suited),
       voice: String(out.voice || '').trim().slice(0, 600),
+      worldChanges: worldChangesOf(out, persona.description),
     },
     runtimeEntities,
   };

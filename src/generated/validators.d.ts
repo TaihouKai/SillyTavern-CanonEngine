@@ -10,3 +10,4 @@ export declare const integrate: { (data: unknown): boolean; errors?: { instanceP
 export declare const leap: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
 export declare const plan: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
 export declare const profile: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
+export declare const world_check: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };

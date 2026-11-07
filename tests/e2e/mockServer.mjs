@@ -52,6 +52,7 @@ function defaultTask(task, input) {
     case 'integrate': return { assessments: [], opportunities: [] };
     case 'leap': return { events: [], mention: [], impossible: [], life: [], landing: '' };
     case 'foreknow': return { judgements: [] };
+    case 'world_check': return { items: [], additions: [] };
     case 'plan': {
       const now = input.now?.tick ?? 0;
       const steps = (input.protected_hard_detailed || []).map((h, i) => {

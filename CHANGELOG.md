@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.21.0 — 2026-11-08
+
+- **本局设定: the lorebook and the history pack follow this game's world.** A Persona can change the world (a player who is the eighth Level 5), and the lorebook then contradicts it ("there are seven Level 5s"), leaving the GM to guess. Now:
+  - The Persona read also lists the world's changes. A line marked `(本局设定)` is taken by the code, mark removed, so none is lost; the analysis adds the other changes it finds in the Persona, with search words. The user can add changes by hand in the panel.
+  - The search words, plus lorebook keys and pack names the change contains, find every enabled lorebook entry (keys, title, text) and every pack description and event summary that mentions them. A word found in more than a third of a large lorebook is too common and is reported instead of used. There is no size cap: all hits are checked by a new analysis task (world_check) in batches of at most 40 items / 30 000 characters, read in full and run in parallel. Each item is kept, rewritten with the least change (the whole text, same language and length) or disabled; entries may be added. No change of the world: no call.
+  - The rewritten lorebook entries take the originals' place in SillyTavern's own World Info scan (the `WORLDINFO_ENTRIES_LOADED` event hands extensions per-scan copies), so the GM sees one consistent lorebook and no extra section; the lorebook files and other chats are untouched. An entry whose original changed since is left alone and marked until checked again. An older SillyTavern without the event gets the rewritten entries in the GM context instead.
+  - The pack's entity descriptions and event summaries are overlaid in this chat's pack (same hash).
+  - Panel 叙事融入 → 本局设定: the changes (标记 / Persona / 手动), what was checked, every entry rewritten or disabled with its original, editable in place (empty saves as disabled) or deletable; 重新检查 keeps the user's own edits while their original is unchanged.
+  - Tests: `tests/unit/worldset.test.ts` (WS1–WS7); e2e `tests/e2e/worldset.mjs` (WE01–WE07), run on SillyTavern 1.19.0: its own scan and the GM's prompt carry the rewritten entry, the lorebook file does not change, an edit in the panel takes effect in the next scan.
+
 ## 1.20.3 — 2026-11-08
 
 - **尚未发生的可能接触 lists only what is still to come.** The list showed the analysis as it was made, so the contact the GM had just written stayed there until the next analysis, next to things already over. It now leaves out a contact already made, a matter someone reached the player about since, one whose time has passed or whose event is settled, and an aside about the event the player is in that is never offered while it runs (only direct contacts are). The tag on the entries about that event reads 你正身处的事件 instead of 进行中. Test: NI-41b.

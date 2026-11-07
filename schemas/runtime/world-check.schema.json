@@ -1,0 +1,78 @@
+{
+ "type": "object",
+ "properties": {
+  "items": {
+   "type": "array",
+   "maxItems": 80,
+   "items": {
+    "type": "object",
+    "properties": {
+     "ref": {
+      "type": "string",
+      "maxLength": 40
+     },
+     "action": {
+      "type": "string",
+      "enum": [
+       "keep",
+       "replace",
+       "disable"
+      ]
+     },
+     "content": {
+      "type": "string",
+      "maxLength": 20000
+     },
+     "reason": {
+      "type": "string",
+      "maxLength": 600
+     }
+    },
+    "required": [
+     "ref",
+     "action"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "additions": {
+   "type": "array",
+   "maxItems": 8,
+   "items": {
+    "type": "object",
+    "properties": {
+     "title": {
+      "type": "string",
+      "maxLength": 200
+     },
+     "keys": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+       "type": "string",
+       "maxLength": 100
+      }
+     },
+     "content": {
+      "type": "string",
+      "maxLength": 4000
+     },
+     "reason": {
+      "type": "string",
+      "maxLength": 600
+     }
+    },
+    "required": [
+     "title",
+     "keys",
+     "content"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "items"
+ ],
+ "additionalProperties": false
+}

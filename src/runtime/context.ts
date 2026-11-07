@@ -177,6 +177,8 @@ export interface PacketInput {
   reaction?: string;
   /** Contacts the world must make in this reply (GM only). */
   requiredContacts?: string;
+  /** 本局设定 when SillyTavern cannot take the rewritten lorebook entries in its own scan (GM only). */
+  worldLore?: string;
   /** Time leap (this reply): what the GM writes for the time in between and where it lands (GM only). */
   leap?: string;
   /** The reviewer's copy: it gets the player's input, due HARD events and canon events now as separate inputs,
@@ -401,6 +403,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   if (restricted.length) required.push(`KNOWLEDGE BOUNDARIES (world truth vs who knows it): ${restricted.length} record(s) above are not public and are known only to the knowers listed with them (none listed: no established knowledge holder). Physical consequences remain visible; do not disclose the hidden cause to the player or other NPCs.`);
   if (retrieval.ambiguous.length) required.push('AMBIGUOUS REFERENCES (do not guess; keep ambiguity in narration):\n' + retrieval.ambiguous.map((a) => '- ' + a).join('\n'));
   if (inp.requiredContacts && !inp.review) required.push(inp.requiredContacts);
+  if (inp.worldLore && !inp.review) required.push(inp.worldLore);
   if (inp.reaction && !inp.review) required.push(inp.reaction);
   if (!inp.review) required.push('PLAYER SCOPE (exact current player input; do not add actions/consent/dialogue beyond it):\n' + (inp.playerScope.length ? inp.playerScope.map((s) => '- ' + s).join('\n') : '- (no new player input in this operation)'));
   // Optional
