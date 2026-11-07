@@ -165,6 +165,13 @@
      "side_job": {
       "type": "boolean"
      },
+     "required": {
+      "type": "boolean"
+     },
+     "required_basis": {
+      "type": "string",
+      "maxLength": 400
+     },
      "basis_refs": {
       "type": "array",
       "items": {

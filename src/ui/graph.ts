@@ -8,6 +8,8 @@ import { localTime } from '../domain/frames';
 import { summaryLines } from '../domain/summary';
 import { sceneRoot, segmentSceneChain, uniq } from '../domain/util';
 import { t } from './i18n';
+import { deltaText } from '../domain/delta';
+import type { FactDelta } from '../domain/types';
 
 export type GStatus = 'occurred' | 'diverged' | 'omitted' | 'pending' | 'future' | 'unresolved' | 'unscheduled' | 'runtime';
 export interface GNode {
@@ -96,7 +98,7 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
     else n.status = 'unresolved';
     if (d) {
       const occ = d.occurrenceId ? s.occurrences.get(d.occurrenceId) : undefined;
-      const actual = occ?.outcome.length ? [`本局结果：${occ.outcome.map((x) => (x.op === 'set' ? `${name(L, x.entity_id, s)}.${x.predicate}=${JSON.stringify(x.value)}` : `${x.entity_id}.${x.predicate} 未知`)).join('；')}`] : [];
+      const actual = occ?.outcome.length ? [`本局结果：${occ.outcome.map((x) => (x.op === 'unset' ? `${name(L, x.entity_id, s)}.${x.predicate} 未知` : deltaText(x, (id) => name(L, id, s)))).join('；')}`] : [];
       if (occ?.origin === 'intervention') n.forced = true;
       if (occ?.linkedFrom?.length) n.linked = true;
       if (/^concluded by the player/.test(d.reason || '')) { n.concluded = true; n.forced = true; }
@@ -131,7 +133,7 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
     const root = sceneRoot(s.occurrences, o.occurrenceId);
     chains.set(root, [...(chains.get(root) || []), o]);
   }
-  const outcomeText = (o: { outcome: { op: string; entity_id: string; predicate: string; value?: unknown }[] }) => o.outcome.map((d) => (d.op === 'set' ? `${name(L, d.entity_id, s)}.${d.predicate}=${JSON.stringify(d.value)}` : `${d.entity_id}.${d.predicate} 未知`));
+  const outcomeText = (o: { outcome: FactDelta[] }) => o.outcome.map((d) => (d.op === 'unset' ? `${name(L, d.entity_id, s)}.${d.predicate} 未知` : deltaText(d, (id) => name(L, id, s))));
   const segments: [string, typeof s.occurrences extends Map<string, infer V> ? V[] : never, (typeof digest)[number]?][] = [];
   for (const [root, ms] of chains) {
     ms.sort((a, b) => a.time.lo - b.time.lo);
@@ -179,6 +181,13 @@ function shortRange(lo: number, hi: number, origin: { y: number; m: number; d: n
   const hm = (t: number) => formatTick(t, origin).split(' ')[1];
   if (a === b) return hi - lo >= 1439 ? a : `${a} ${hm(lo)}${hi > lo ? '–' + hm(hi) : ''}`;
   return `${a} ~ ${b.replace(/^(\d{4})-/, (m, y) => (a.startsWith(y) ? '' : m))}`;
+}
+
+/** A membership change as the table shows it: who joins (+) or leaves (−), or the leader. */
+function memberChange(c: { what: 'members' | 'leader'; op: string; names: string[] }): string {
+  const who = c.names.join('、');
+  if (c.what === 'members') return c.op === 'add' ? `+${who}` : c.op === 'remove' ? `−${who}` : c.op === 'set' && c.names.length ? who : t('membersEmptied');
+  return c.op === 'add' || c.op === 'set' ? `${t('membersLeader')} → ${who}` : c.op === 'remove' ? `${t('membersLeader')} −${who}` : `${t('membersLeader')} → ${t('membersNoLeader')}`;
 }
 
 function name(L: LoadedPack, id: string, s?: WorldState): string {
@@ -403,7 +412,7 @@ export function renderGraphSvg(g: GraphData, mode: 'pack' | 'current', view?: Gr
 /** Interactive panel controller (pan/zoom, selection, filters). */
 export interface MembersView {
   now: { id: string; name: string; leader: string | null; members: string[]; status: string | null }[];
-  changes: { when: string; event: string; org: string; leader?: string | null; members?: string[]; state: 'occurred' | 'diverged' | 'pending' | 'future' }[];
+  changes: { when: string; event: string; org: string; what: 'members' | 'leader'; op: string; names: string[]; state: 'occurred' | 'diverged' | 'pending' | 'future' }[];
   hidden: number;
 }
 
@@ -509,7 +518,7 @@ export class GraphPanel {
       ? `<table class="canon-table cg-members"><tr><th>${t('membersOrg')}</th><th>${t('membersLeader')}</th><th>${t('membersList')}</th><th>${t('membersStatus')}</th></tr>${m.now.map((o) => `<tr><td>${esc(o.name)}</td><td>${esc(o.leader || '—')}</td><td>${esc(o.members.join('、') || '—')}</td><td>${esc(o.status || '')}</td></tr>`).join('')}</table>`
       : `<div class="cg-empty">${t('membersNone')}</div>`;
     const ch = m.changes.length
-      ? `<table class="canon-table cg-members"><tr><th>${t('membersWhen')}</th><th>${t('membersEvent')}</th><th>${t('membersOrg')}</th><th>${t('membersChange')}</th><th></th></tr>${m.changes.map((c) => `<tr class="cg-mstate-${c.state}"><td>${esc(c.when)}</td><td>${esc(c.event)}</td><td>${esc(c.org)}</td><td>${esc(c.members !== undefined ? (c.members.length ? c.members.join('、') : t('membersEmptied')) : `${t('membersLeader')} → ${c.leader || t('membersNoLeader')}`)}</td><td><span class="cg-key cg-s-${c.state}">${statusLabel(c.state as GStatus)}</span></td></tr>`).join('')}</table>`
+      ? `<table class="canon-table cg-members"><tr><th>${t('membersWhen')}</th><th>${t('membersEvent')}</th><th>${t('membersOrg')}</th><th>${t('membersChange')}</th><th></th></tr>${m.changes.map((c) => `<tr class="cg-mstate-${c.state}"><td>${esc(c.when)}</td><td>${esc(c.event)}</td><td>${esc(c.org)}</td><td>${esc(memberChange(c))}</td><td><span class="cg-key cg-s-${c.state}">${statusLabel(c.state as GStatus)}</span></td></tr>`).join('')}</table>`
       : '';
     return `<div class="cg-memberswrap"><h4>${t('membersNowTitle')}</h4>${now}<h4>${t('membersChangesTitle')}</h4>${ch || `<div class="cg-empty">${t('membersNoChanges')}</div>`}${m.hidden ? `<div class="cg-hint">${t('membersHidden').replace('{n}', String(m.hidden))}</div>` : ''}</div>`;
   }

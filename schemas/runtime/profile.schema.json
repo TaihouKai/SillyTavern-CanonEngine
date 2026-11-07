@@ -58,6 +58,17 @@
       "type": "string",
       "maxLength": 400
      },
+     "leads": {
+      "type": "boolean"
+     },
+     "members": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+       "type": "string",
+       "maxLength": 200
+      }
+     },
      "secrecy": {
       "enum": [
        "public",

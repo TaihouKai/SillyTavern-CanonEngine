@@ -231,6 +231,32 @@
       ],
       "additionalProperties": false
     },
+    "outcome": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "enum": [
+            "add",
+            "remove"
+          ]
+        },
+        "entity_id": {
+          "$ref": "#/$defs/id"
+        },
+        "predicate": {
+          "$ref": "#/$defs/id"
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        }
+      },
+      "required": [
+        "entity_id",
+        "predicate",
+        "value"
+      ],
+      "additionalProperties": false
+    },
     "effect": {
       "oneOf": [
         {
@@ -266,6 +292,33 @@
             "op",
             "entity_id",
             "predicate"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "enum": [
+                "add",
+                "remove"
+              ]
+            },
+            "entity_id": {
+              "$ref": "#/$defs/id"
+            },
+            "predicate": {
+              "$ref": "#/$defs/id"
+            },
+            "value": {
+              "$ref": "#/$defs/value"
+            }
+          },
+          "required": [
+            "op",
+            "entity_id",
+            "predicate",
+            "value"
           ],
           "additionalProperties": false
         }
@@ -709,7 +762,7 @@
         "outcomes": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/fact"
+            "$ref": "#/$defs/outcome"
           }
         },
         "canonical_effects": {

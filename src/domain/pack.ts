@@ -1,6 +1,7 @@
 // Pack loading: JSON Schema validation, semantic lint, immutable Graph A with indexes.
 import * as V from '../generated/validators.js';
 import type { CanonPack, Condition, Effect, Fact, FactValue, Id, PackEvent, PackPredicate } from './types';
+import { applyChange, effectTarget, effectToDelta } from './delta';
 import { toTick, whenToStoryTime } from './time';
 import { SUMMARY_LABELS, renderSummary, type EventSummary } from './summary';
 import { deepClone, hashObject, stableStringify } from './util';
@@ -169,6 +170,23 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
     if (!p) err(`${path}/predicate`, `unknown predicate "${f.predicate}"`);
     else checkValue(p, f.value, `${path}/value`);
   };
+  /** A set, add or remove of a fact in an event. An entity set changes only by who joins (add) or leaves (remove) it
+   *  (a whole list is for the initial state). add/remove of a single value names that value. */
+  const checkChange = (op: 'set' | 'add' | 'remove', f: Fact, path: string) => {
+    if (op === 'set') {
+      checkFact(f, path);
+      if (predicates.get(f.predicate)?.value_type === 'entity_set') err(path, `${f.entity_id}.${f.predicate} is an entity set: an event writes who joins (op "add") and who leaves (op "remove"), never the whole list`);
+      return;
+    }
+    checkEntity(f.entity_id, `${path}/entity_id`);
+    const p = predicates.get(f.predicate);
+    if (!p) { err(`${path}/predicate`, `unknown predicate "${f.predicate}"`); return; }
+    if (p.value_type === 'entity_set') {
+      if (!Array.isArray(f.value) || !f.value.length) err(`${path}/value`, `${op} on "${p.id}" expects a nonempty entity id array`);
+      else f.value.forEach((x, i) => checkEntity(String(x), `${path}/value/${i}`));
+    } else if (Array.isArray(f.value)) err(`${path}/value`, `${op} on "${p.id}" expects a single value`);
+    else checkValue(p, f.value, `${path}/value`);
+  };
   const checkCondition = (c: Condition, path: string, selfId?: string) => {
     if ('all' in c) c.all.forEach((x, i) => checkCondition(x, `${path}/all/${i}`, selfId));
     else if ('any' in c) c.any.forEach((x, i) => checkCondition(x, `${path}/any/${i}`, selfId));
@@ -265,7 +283,7 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
       if (missing.length) warn(`${P}/summary`, `${ev.classification} summary lacks ${missing.join(', ')}`);
     }
     // an entity the event changes is one of its entities (retrieval finds the event through it)
-    const changed = [...new Set([...ev.outcomes.map((o) => o.entity_id), ...ev.canonical_effects.map((x) => ('fact' in x ? x.fact.entity_id : x.entity_id))])].filter((x) => x && !ev.entity_ids.includes(x));
+    const changed = [...new Set([...ev.outcomes.map((o) => o.entity_id), ...ev.canonical_effects.map((x) => effectTarget(x).entity_id)])].filter((x) => x && !ev.entity_ids.includes(x));
     if (changed.length) warn(`${P}/entity_ids`, `the event changes ${changed.join(', ')} but does not list ${changed.length > 1 ? 'them' : 'it'} in entity_ids`);
     ev.entity_ids.forEach((x, j) => checkEntity(x, `${P}/entity_ids/${j}`));
     ev.location_ids.forEach((x, j) => {
@@ -288,21 +306,27 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
     });
     ev.visibility.knower_ids.forEach((x, j) => checkEntity(x, `${P}/visibility/knower_ids/${j}`));
     checkCondition(ev.canonical_preconditions, `${P}/canonical_preconditions`, ev.id);
-    ev.outcomes.forEach((f, j) => checkFact(f, `${P}/outcomes/${j}`));
+    ev.outcomes.forEach((f, j) => checkChange(f.op || 'set', f, `${P}/outcomes/${j}`));
+    // one write per fact and kind of change (a leader handed over: remove the old one, add the new one)
     const writes = new Map<string, Effect>();
     ev.canonical_effects.forEach((ef, j) => {
-      const key = ef.op === 'set' ? `${ef.fact.entity_id}|${ef.fact.predicate}` : `${ef.entity_id}|${ef.predicate}`;
-      if (ef.op === 'set') checkFact(ef.fact, `${P}/canonical_effects/${j}/fact`);
-      else {
+      const t = effectTarget(ef);
+      const key = `${t.entity_id}|${t.predicate}|${ef.op === 'unset' ? 'remove' : ef.op}`;
+      if (ef.op === 'set') checkChange('set', ef.fact, `${P}/canonical_effects/${j}/fact`);
+      else if (ef.op === 'unset') {
         checkEntity(ef.entity_id, `${P}/canonical_effects/${j}/entity_id`);
         if (!predicates.has(ef.predicate)) err(`${P}/canonical_effects/${j}/predicate`, `unknown predicate "${ef.predicate}"`);
-      }
-      if (writes.has(key)) err(`${P}/canonical_effects/${j}`, `multiple writes to ${key} within one event`);
+      } else checkChange(ef.op, ef, `${P}/canonical_effects/${j}`);
+      const clash = writes.has(key) || writes.has(`${t.entity_id}|${t.predicate}|set`) || (ef.op === 'set' && [...writes.keys()].some((k) => k.startsWith(`${t.entity_id}|${t.predicate}|`)));
+      if (clash) err(`${P}/canonical_effects/${j}`, `multiple writes to ${t.entity_id}|${t.predicate} within one event`);
       writes.set(key, ef);
     });
     ev.outcomes.forEach((o, j) => {
-      const w = writes.get(`${o.entity_id}|${o.predicate}`);
-      if (!w || w.op !== 'set' || !valuesEqual(w.fact.value, o.value)) err(`${P}/outcomes/${j}`, `outcome ${o.entity_id}.${o.predicate}=${JSON.stringify(o.value)} has no matching final canonical set effect`);
+      const w = writes.get(`${o.entity_id}|${o.predicate}|${o.op || 'set'}`);
+      const v = !w ? undefined : w.op === 'set' ? w.fact.value : w.op === 'unset' ? undefined : w.value;
+      const list = (x: FactValue) => (Array.isArray(x) ? x : [x]);
+      const ok = v !== undefined && (o.op ? list(o.value).every((x) => list(v).some((y) => valuesEqual(x, y))) : valuesEqual(v, o.value));
+      if (!ok) err(`${P}/outcomes/${j}`, `outcome ${o.entity_id}.${o.predicate}${o.op ? ` ${o.op} ` : '='}${JSON.stringify(o.value)} has no matching canonical effect`);
     });
     // time
     const w = ev.when;
@@ -401,7 +425,7 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
   // GM sees e.g. "hospitalized" for the rest of the timeline (live finding: 白井黑子 still 住院 when canon
   // has her fighting six days later).
   const timed = pack.events.map((ev, i) => ({ ev, i, t: whenToStoryTime(ev.when) })).filter((x) => x.t).sort((a, b) => a.t!.lo - b.t!.lo);
-  const touches = (ef: Effect, ent: Id, pred: Id) => (ef.op === 'set' ? ef.fact.entity_id === ent && ef.fact.predicate === pred : ef.entity_id === ent && ef.predicate === pred);
+  const touches = (ef: Effect, ent: Id, pred: Id) => { const t = effectTarget(ef); return t.entity_id === ent && t.predicate === pred; };
   for (const a of timed) {
     a.ev.canonical_effects.forEach((ef, j) => {
       if (ef.op !== 'set') return;
@@ -418,25 +442,25 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
   }
 
   // Organization members who die (review flag): an event records a death, but a `members` set still lists that
-  // person after it. An entity_set is replaced as a whole, so the death event (or a later one) should state the set
-  // without them.
+  // person after it (the initial set with every change up to that event applied), so the death event (or a later
+  // one) should remove them.
   if (predicates.get('members')?.value_type === 'entity_set') {
-    const sets = new Map<Id, { value: Id[]; tick: number }>();
-    for (const f of pack.initial_state.facts) if (f.fact.predicate === 'members' && Array.isArray(f.fact.value)) sets.set(f.fact.entity_id, { value: f.fact.value as Id[], tick: -Infinity });
-    const changes = timed.flatMap((a) => a.ev.canonical_effects.map((ef) => ({ a, ef })))
-      .filter(({ ef }) => (ef.op === 'set' ? ef.fact.predicate === 'members' : ef.predicate === 'members'));
+    const changes = timed.flatMap((a) => a.ev.canonical_effects.map((ef) => ({ a, ef }))).filter(({ ef }) => effectTarget(ef).predicate === 'members');
     for (const a of timed) {
       a.ev.canonical_effects.forEach((ef, j) => {
         if (ef.op !== 'set' || ef.fact.predicate !== 'alive' || ef.fact.value !== false) return;
         const who = ef.fact.entity_id;
         // the sets as they stand once this event is over (later events of the same start time included)
-        const now = new Map(sets);
+        const now = new Map<Id, FactValue | undefined>();
+        for (const f of pack.initial_state.facts) if (f.fact.predicate === 'members') now.set(f.fact.entity_id, f.fact.value);
         for (const c of changes) {
           if (c.a.t!.lo > a.t!.lo) break;
-          now.set(c.ef.op === 'set' ? c.ef.fact.entity_id : c.ef.entity_id, { value: c.ef.op === 'set' && Array.isArray(c.ef.fact.value) ? (c.ef.fact.value as Id[]) : [], tick: c.a.t!.lo });
+          const org = effectTarget(c.ef).entity_id;
+          const r = applyChange(now.get(org), effectToDelta(c.ef));
+          if (r !== 'same') now.set(org, r.value);
         }
-        const still = [...now].filter(([, s]) => s.value.includes(who)).map(([org]) => org);
-        if (still.length) warn(`/events/${a.i}/canonical_effects/${j}`, `${who} dies in this event but is still listed in members of ${still.join(', ')}; state the members set without them in this event`);
+        const still = [...now].filter(([, v]) => Array.isArray(v) && v.includes(who)).map(([org]) => org);
+        if (still.length) warn(`/events/${a.i}/canonical_effects/${j}`, `${who} dies in this event but is still listed in members of ${still.join(', ')}; remove them from those members in this event`);
       });
     }
   }
@@ -521,11 +545,11 @@ function buildLoaded(pack: CanonPack, warnings: LintIssue[]): LoadedPack {
   }
   // Hash is computed over a normalized copy so array order of entity sets does not matter.
   const normalized = deepClone(pack);
-  const normFact = (f: Fact) => { f.value = normalizeValue(f.value); };
+  const normFact = (f: { value: FactValue }) => { f.value = normalizeValue(f.value); };
   normalized.initial_state.facts.forEach((f) => normFact(f.fact));
   normalized.events.forEach((e) => {
     e.outcomes.forEach(normFact);
-    e.canonical_effects.forEach((ef) => { if (ef.op === 'set') normFact(ef.fact); });
+    e.canonical_effects.forEach((ef) => { if (ef.op === 'set') normFact(ef.fact); else if (ef.op !== 'unset') normFact(ef); });
   });
   return {
     pack,

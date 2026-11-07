@@ -6,7 +6,13 @@ export type FactValue = boolean | number | string | string[];
 
 export interface PackTime { day: number; minute: number }
 export interface Fact { entity_id: Id; predicate: Id; value: FactValue }
-export type Effect = { op: 'set'; fact: Fact } | { op: 'unset'; entity_id: Id; predicate: Id };
+/** add/remove change a fact by what joins or leaves it, as it stands when the change applies: an entity set gains or
+ *  loses those ids (an organization's members); a single value is filled when vacant (add) or emptied when it is that
+ *  value (remove) — so a canon change keeps whatever play made of the fact (the player in a canon organization, a
+ *  member who left in play, a leader the Persona made). */
+export type Effect = { op: 'set'; fact: Fact } | { op: 'unset'; entity_id: Id; predicate: Id } | { op: 'add' | 'remove'; entity_id: Id; predicate: Id; value: FactValue };
+/** An outcome is a fact the event results in; op add/remove: those ids join or leave an entity set. */
+export interface Outcome extends Fact { op?: 'add' | 'remove' }
 export type Condition =
   | { all: Condition[] }
   | { any: Condition[] }
@@ -32,7 +38,7 @@ export interface PackEvent {
   when: PackWhen;
   entity_ids: Id[]; location_ids: Id[]; arc_id: Id | null;
   canonical_preconditions: Condition;
-  outcomes: Fact[];
+  outcomes: Outcome[];
   canonical_effects: Effect[];
   visibility: Visibility;
   participation: { offer: 'when_relevant' | 'never'; hook: string };
@@ -104,7 +110,8 @@ export type EvidenceKind = 'direct' | 'attempt' | 'quote' | 'hypothetical' | 'dr
 
 export type FactDelta =
   | { op: 'set'; entity_id: Id; predicate: Id; value: FactValue }
-  | { op: 'unset'; entity_id: Id; predicate: Id };
+  | { op: 'unset'; entity_id: Id; predicate: Id }
+  | { op: 'add' | 'remove'; entity_id: Id; predicate: Id; value: FactValue };
 
 export type RecordKind =
   | 'initial_bootstrap'

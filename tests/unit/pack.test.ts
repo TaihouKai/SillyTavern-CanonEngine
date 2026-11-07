@@ -94,7 +94,7 @@ describe('pack validation', () => {
   it('missing Hard effect / incorrect arc membership / event outside coverage are blocked', () => {
     const a = demoRaw();
     a.events[4].canonical_effects = [a.events[4].canonical_effects[0]];
-    expect(errs(a)).toMatch(/no matching final canonical set effect/);
+    expect(errs(a)).toMatch(/has no matching canonical effect/);
     const b = demoRaw();
     b.arcs[0].event_ids.pop();
     expect(errs(b)).toMatch(/does not list event "conflict-ends"/);

@@ -31,7 +31,7 @@ function membersPack(opts: { deathWithoutUpdate?: boolean } = {}) {
   const base = p.events.find((e: any) => e.id === 'harbor-festival');
   const ev = (id: string, day: number, ents: string[], effects: unknown[]) => ({ ...JSON.parse(JSON.stringify(base)), id, title: id, summary: id, classification: 'FREE', when: { earliest: { day, minute: 600 }, latest: { day, minute: 660 }, precision: 'range', label: id, basis: 'documented', notes: '' }, entity_ids: ents, location_ids: [], arc_id: null, outcomes: [], canonical_effects: effects, cast: undefined });
   p.events.push(ev('ren-errand', 2, ['ren'], []));
-  p.events.push(ev('council-falls', 4, ['council'], [{ op: 'set', fact: { entity_id: 'council', predicate: 'members', value: [] } }]));
+  p.events.push(ev('council-falls', 4, ['council'], [{ op: 'remove', entity_id: 'council', predicate: 'members', value: ['sol', 'ren'] }]));
   if (opts.deathWithoutUpdate) p.events.push(ev('ren-dies', 3, ['ren'], [{ op: 'set', fact: { entity_id: 'ren', predicate: 'alive', value: false } }]));
   for (const a of p.arcs || []) a.event_ids = (a.event_ids || []).filter((x: string) => p.events.some((e: any) => e.id === x));
   return JSON.stringify(p);
@@ -50,7 +50,7 @@ const lore = (book: string, comment: string, keys: string[], content: string, mo
   ({ book, uid: comment, comment, keys, secondary: [], selective: false, logic: 0, constant: false, disabled: false, caseSensitive: null, wholeWords: null, content, ...more });
 
 describe('organization members', () => {
-  it('LM1 a members set is the whole list (also once emptied); affiliation counts only for organizations without one; the dead are left out', () => {
+  it('LM1 a members set changes by who joins and leaves (the list stays, also once emptied); affiliation counts only for organizations without one; the dead are left out', () => {
     const idx = world(membersPack(), tick(1, 9, 0));
     expect(memberships(idx, tick(1, 9, 0)).get('council')).toEqual(['ren', 'sol']);
     expect(memberships(idx, tick(1, 9, 0)).get('union')).toEqual(['tal']);
@@ -97,7 +97,7 @@ describe('membership in the panel and the timeline window', () => {
     expect(v.changes).toEqual([]); // council-falls (day 4) is still to come: a spoiler
     expect(v.hidden).toBe(1);
     const sp = x.engine.membershipView(true)!;
-    expect(sp.changes).toEqual([expect.objectContaining({ event: 'council-falls', org: 'The Council', members: [], state: 'future' })]);
+    expect(sp.changes).toEqual([expect.objectContaining({ event: 'council-falls', org: 'The Council', what: 'members', op: 'remove', names: ['Sol', 'Ren'], state: 'future' })]);
   });
 });
 

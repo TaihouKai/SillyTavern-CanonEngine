@@ -6,7 +6,8 @@ import type { LoadedPack } from '../domain/pack';
 import { coerceClaimValue, valuesEqual } from '../domain/pack';
 import { WorldIndex } from '../domain/world-query';
 import type { WorldState } from '../domain/reducer';
-import { applyRecord, reduce } from '../domain/reducer';
+import { applyRecord, factAt, reduce } from '../domain/reducer';
+import { deltaMeets } from '../domain/delta';
 import { adjudicateDefault, crossedCandidates, occurrenceWindow, type Candidate } from '../domain/schedule';
 import { formatTick, toTick } from '../domain/time';
 import { EngineError, newId } from '../domain/util';
@@ -25,7 +26,7 @@ export interface AdjudicationResult {
 
 interface ModelAdj {
   event_id: string; decision: 'occurred' | 'diverged' | 'omitted' | 'postponed'; time?: { lo: { day: number; minute: number }; hi: { day: number; minute: number }; precision: StoryTime['precision'] } | null;
-  account: string; actors?: string[]; causes?: string[]; effects: { op: 'set' | 'unset'; entity_id: string; predicate: string; value?: never }[];
+  account: string; actors?: string[]; causes?: string[]; effects: { op: 'set' | 'unset' | 'add' | 'remove'; entity_id: string; predicate: string; value?: never }[];
   plan_step_ids?: string[]; reason: string; extraordinary?: boolean;
 }
 
@@ -283,19 +284,29 @@ async function modelAdjudicate(
     const p = pack.predicates.get(e.predicate);
     const eid = resolve(e.entity_id);
     if (!p || !eid) continue;
-    if (e.op !== 'set') { effects.push({ op: 'unset', entity_id: eid, predicate: e.predicate }); continue; }
-    let v: unknown = coerceClaimValue(pack, e.predicate, e.value as never);
+    if (e.op === 'unset') { effects.push({ op: 'unset', entity_id: eid, predicate: e.predicate }); continue; }
+    let v: unknown = p.value_type === 'entity_set' ? e.value : coerceClaimValue(pack, e.predicate, e.value as never);
     if (p.value_type === 'entity_ref') v = resolve(v);
-    else if (p.value_type === 'entity_set') v = Array.isArray(v) && v.every((x) => resolve(x)) ? v.map((x) => resolve(x)) : null;
+    else if (p.value_type === 'entity_set') { const arr = Array.isArray(v) ? v : [v]; v = arr.length && arr.every((x) => resolve(x)) ? [...new Set(arr.map((x) => resolve(x)!))] : null; }
     const typeOk = v !== null && v !== undefined && (p.value_type === 'boolean' ? typeof v === 'boolean' : p.value_type === 'number' ? typeof v === 'number' : p.value_type === 'string' ? typeof v === 'string' : true);
-    if (!typeOk || (p.allowed_values && !p.allowed_values.some((x) => valuesEqual(x, v as never)))) continue;
-    effects.push({ op: 'set', entity_id: eid, predicate: e.predicate, value: v as never });
+    if (!typeOk || (p.value_type !== 'entity_set' && p.allowed_values && !p.allowed_values.some((x) => valuesEqual(x, v as never)))) continue;
+    if (p.value_type === 'entity_set' && e.op === 'set') {
+      // an entity set changes by who joins and who leaves: a whole list is read against the list as it stands
+      const cur = factAt(scratch, eid, p.id, { tick: when.lo });
+      const had: string[] = cur.known && Array.isArray(cur.value) ? cur.value : [];
+      const ids = v as string[];
+      const joins = ids.filter((x) => !had.includes(x)), leaves = had.filter((x) => !ids.includes(x));
+      if (joins.length) effects.push({ op: 'add', entity_id: eid, predicate: p.id, value: joins });
+      if (leaves.length) effects.push({ op: 'remove', entity_id: eid, predicate: p.id, value: leaves });
+      continue;
+    }
+    effects.push({ op: e.op, entity_id: eid, predicate: e.predicate, value: v as never });
   }
   let time = toStoryTime(a.time) || when;
   if (time.lo < c.lo || time.hi > c.hi) time = when;
   if (ev.classification === 'HARD') {
     if (a.decision !== 'occurred') return null;
-    for (const o of ev.outcomes) if (!effects.some((d) => d.op === 'set' && d.entity_id === o.entity_id && d.predicate === o.predicate && valuesEqual(d.value, o.value))) return null;
+    for (const o of ev.outcomes) if (!effects.some((d) => deltaMeets(d, o))) return null;
     if (a.extraordinary && !forced) return null;
   }
   if (a.decision === 'postponed') {

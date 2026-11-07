@@ -7,6 +7,7 @@ import type { WorldState } from './reducer';
 import { applyRecord, evalCondition, factAt, reduce, triLabel } from './reducer';
 import { formatTick } from './time';
 import { newId } from './util';
+import { effectToDelta, withOutcomes } from './delta';
 import type { Condition } from './types';
 
 export interface Candidate { event: PackEvent; lo: number; hi: number }
@@ -40,7 +41,7 @@ export function pendingHard(pack: LoadedPack, state: WorldState): Candidate[] {
 }
 
 export function effectsToDeltas(effects: Effect[]): FactDelta[] {
-  return effects.map((e) => (e.op === 'set' ? { op: 'set', entity_id: e.fact.entity_id, predicate: e.fact.predicate, value: e.fact.value } : { op: 'unset', entity_id: e.entity_id, predicate: e.predicate }));
+  return effects.map(effectToDelta);
 }
 
 /** Explain which atomic terms of a condition are FALSE/UNKNOWN (for recorded dispositions). */
@@ -164,8 +165,7 @@ export function forcedCompletion(pack: LoadedPack, state: WorldState, eventId: I
   const when: StoryTime = !t || t.lo > nowTick ? { lo: nowTick, hi: nowTick, precision: 'minute' }
     : t.hi <= nowTick ? { lo: t.lo, hi: t.hi, precision: t.lo === t.hi ? 'minute' : 'range' }
     : { lo: t.lo, hi: nowTick, precision: t.lo === nowTick ? 'minute' : 'range' };
-  const deltas = effectsToDeltas(ev.canonical_effects);
-  for (const o of ev.outcomes) if (!deltas.some((d) => d.entity_id === o.entity_id && d.predicate === o.predicate)) deltas.push({ op: 'set', entity_id: o.entity_id, predicate: o.predicate, value: o.value });
+  const deltas = withOutcomes(effectsToDeltas(ev.canonical_effects), ev.outcomes);
   const zh = /^zh/i.test(pack.pack.language);
   const occId = newId('occ');
   const prior = state.dispositions.get(eventId);
@@ -200,8 +200,7 @@ export function linkedCompletion(pack: LoadedPack, state: WorldState, eventId: I
   const beats = beatIds.map((id) => state.occurrences.get(id)).filter(Boolean) as Occurrence[];
   if (!beats.length) throw new Error('no story events to link');
   const when: StoryTime = { lo: Math.min(...beats.map((b) => b.time.lo)), hi: Math.max(...beats.map((b) => b.time.hi)), precision: 'range' };
-  const deltas = disposition === 'occurred' ? effectsToDeltas(ev.canonical_effects) : [];
-  if (disposition === 'occurred') for (const o of ev.outcomes) if (!deltas.some((d) => d.entity_id === o.entity_id && d.predicate === o.predicate)) deltas.push({ op: 'set', entity_id: o.entity_id, predicate: o.predicate, value: o.value });
+  const deltas = disposition === 'occurred' ? withOutcomes(effectsToDeltas(ev.canonical_effects), ev.outcomes) : [];
   const zh = /^zh/i.test(pack.pack.language);
   const uniqIds = (xs: string[]) => [...new Set(xs)];
   const occId = newId('occ');

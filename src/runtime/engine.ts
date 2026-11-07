@@ -6,6 +6,7 @@ import type { Id, LedgerRecord, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { valuesEqual } from '../domain/pack';
 import { buildBootstrap, causeOf, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
+import { effectTarget, effectToDelta } from '../domain/delta';
 import { WorldIndex } from '../domain/world-query';
 import { formatTick, formatStoryTime, fromTick, parseDateLabel, toTick } from '../domain/time';
 import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
@@ -23,7 +24,7 @@ import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './a
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { companionEvents, companionSection, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { companionEvents, companionSection, dueRequired, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
@@ -782,7 +783,8 @@ export class CanonEngine {
             configRequests.push(`Assertion "${s.quote}" conflicts with a due HARD requirement; it was not applied. Disable the engine or change the pack binding in settings to alter the contract.`);
             continue;
           }
-          deltas.push({ op: 'set' as const, entity_id: f.entity_id, predicate: f.predicate, value: f.value });
+          // an entity set: what the player asserts joins it
+          deltas.push({ op: p.value_type === 'entity_set' ? 'add' as const : 'set' as const, entity_id: f.entity_id, predicate: f.predicate, value: f.value });
         }
         if (deltas.length) records.push({ recordId: newId('rec'), kind: 'user_assertion', storyTime: st, sourceRefs: src, factsSetOrUnset: deltas, eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] }, summary: `User asserted: ${s.summary}`, evidenceKind: 'direct' });
         else intents.push({ quote: s.quote, summary: s.summary });
@@ -980,7 +982,7 @@ export class CanonEngine {
         recent_situation: this.recentSituation(index),
         decisions: eng.lines(clock),
         // the events the message can touch come first: those of what it names and of the player's links
-        ...leapEventInput(index, b, origin, focus),
+        ...leapEventInput(index, b, origin, focus, prof?.profile.playerId ?? null),
       }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 8000 }), this.settings.taskTimeoutMs * 4, signal)));
       plan = checkLeapPlan(mergeLeapPlans(outs), pack, list);
       for (const d of plan.dropped) this.rejects.push(`leap: kept after a fix: dropped ${d}`);
@@ -1069,6 +1071,8 @@ export class CanonEngine {
     jumpTo?: number | null;
     /** The world reaction offered to the GM this turn (narrative integration). */
     offered?: Opportunity | null;
+    /** The contacts this reply must make (the player's own position binds them to the matter). */
+    required?: Opportunity[];
     /** Companions' events that come without warning (see the gate). */
     chance?: GateInput['chanceCompanions'];
     /** A time leap reply: the time it leaps to. */
@@ -1146,6 +1150,7 @@ export class CanonEngine {
       reeval_reasons: a.reevalReasons || [],
       player_entity: prof ? { id: prof.profile.playerId, name: prof.profile.personaName } : null,
       engagement: decisions,
+      ...(a.required?.length ? { required_contacts: a.required.map((o) => ({ opportunity_id: o.id, scope_kind: o.scopeKind, scope_ref: o.scopeRef, about: o.scopeLabel, actors: o.actors, kind: o.kind, contact: o.contact })) } : {}),
       offered_contact: a.offered ? { opportunity_id: a.offered.id, scope_kind: a.offered.scopeKind, scope_ref: a.offered.scopeRef, about: a.offered.scopeLabel, actors: a.offered.actors, kind: a.offered.kind, contact: a.offered.contact, direct_impact: a.offered.directImpact, cleared_by_engine: true } : null,
       recent_contacts: index.state.contacts.slice(-6).map((k) => ({ id: k.recordId, kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, quote: k.quote, ...(jobLapsed(index.state, k, tick) ? { lapsed: true } : {}) })),
       canon_events_now: this.canonNow(index, tick, a.jumpTo ?? this.jumpOf(a.userEntry, tick)),
@@ -1184,7 +1189,7 @@ export class CanonEngine {
     const gate = runGate({
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: eng.binding(tick).length, hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
-      playerId: prof?.profile.playerId || null, offered: a.offered || null, chanceCompanions: a.chance || [], chanceBlocking: (a.attempt ?? 0) === 0, leap: !!a.leapTo,
+      playerId: prof?.profile.playerId || null, offered: a.offered || null, required: a.required || [], chanceCompanions: a.chance || [], chanceBlocking: (a.attempt ?? 0) === 0, leap: !!a.leapTo,
     });
     const c = this.campaign();
     const manifest: CoverageManifest | null = c ? {
@@ -1492,6 +1497,8 @@ export class CanonEngine {
         // after a time jump the scene happens where the jump lands (live: news possible from 08:00 was never offered
         // on the turn that slept until 08:00, measured from 23:15)
         const offered: Opportunity | null = prof && !leapTo ? selectOpportunity(integ, index, jumpTo ?? clock, busy, new Set(c.preferredScopes || [])) : null;
+        // what the player's own position binds them to reaches them in this reply, busy or not
+        const required: Opportunity[] = prof && !leapTo ? dueRequired(integ, index, clock, jumpTo) : [];
 
         // Pre-generation retrieval: user references + scene + causal seeds + semantic expansion
         const prevGm = (() => { for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === 'gm') return entries[k]; return null; })();
@@ -1532,10 +1539,11 @@ export class CanonEngine {
           decisions: decisionsSection(eng.lines(clock)) || undefined,
           companions: companionSection(index, companions, c.foreknowledge || {}, ctxClock, c.binding.originDate, causeOf) || undefined,
           reaction: offered ? worldReactionSection(index, offered, c.binding.originDate) : undefined,
+          requiredContacts: requiredSection(index, required, c.binding.originDate) || undefined,
         };
         let packet = buildPacket(packetArgs);
         const engineContext = this.gmContext(packet.text, userEntry?.text, !!leapTo);
-        const loreNames = uniq([...(offered?.actors || []).map((a) => index.entityName(a)), ...this.loreNames(index, retrieval, plan)]).slice(0, 16);
+        const loreNames = uniq([...[...(offered?.actors || []), ...required.flatMap((o) => o.actors)].map((a) => index.entityName(a)), ...this.loreNames(index, retrieval, plan)]).slice(0, 16);
 
         // Draft (private)
         this.setStatus('generating', 'Generating (private draft)…');
@@ -1566,7 +1574,7 @@ export class CanonEngine {
         let lastResort = false; // one extra, harsher repair when HARD problems survive the normal repairs
         for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
           this.setStatus('validating', attempt > this.settings.maxRepairs ? 'Re-checking final HARD repair…' : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})…` : 'Validating…');
-          let review = await this.reviewCandidate({ text: candidate, index: rIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: lp?.notes || [], stagedHard: lp?.stagedHard, fences, attempt, offered, jumpTo, chance, leapTo });
+          let review = await this.reviewCandidate({ text: candidate, index: rIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: lp?.notes || [], stagedHard: lp?.stagedHard, fences, attempt, offered, required, jumpTo, chance, leapTo });
           this.checkFences(fences, excludeLast);
           // Interval adjudication for the proposed advance. The review that sees the staged results may place the
           // reply's end later: then the events whose windows close in the extra time are settled too (live finding:
@@ -1590,11 +1598,11 @@ export class CanonEngine {
             // The evaluator must see staged offscreen history: review again with it (not a repair).
             const stagedIndex = new WorldIndex(pack, this.overlay(rIndex.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
             const stagedHard = new Map([...(lp?.stagedHard || []), ...adj.stagedHard]);
-            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [...(lp?.notes || []), ...adj.notes], stagedHard, fences, attempt, offered, jumpTo, chance, leapTo });
+            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [...(lp?.notes || []), ...adj.notes], stagedHard, fences, attempt, offered, required, jumpTo, chance, leapTo });
             // Gate HARD crossing with staged offscreen occurrences against the committed clock
             review.gate = runGate({
               pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
-              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: engagementView(stagedIndex.state, pack).binding(stagedIndex.state.clock.lo).length, hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, offered, chanceCompanions: chance, chanceBlocking: attempt === 0, leap: !!leapTo,
+              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: engagementView(stagedIndex.state, pack).binding(stagedIndex.state.clock.lo).length, hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, offered, required, chanceCompanions: chance, chanceBlocking: attempt === 0, leap: !!leapTo,
             });
             this.checkFences(fences, excludeLast);
           }
@@ -1942,7 +1950,7 @@ export class CanonEngine {
     const rev = (prev?.rev || 0) + 1;
     c.playerProfiles = [...(c.playerProfiles || []), { rev, afterMessageId: last ? last.messageId : null, profile, createdAt: this.host.now() }];
     const tick = this.current?.replay.state.clock.lo ?? c.binding.startTick;
-    c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: seedRecord(profile, runtimeEntities, tick, rev), at: this.host.now() }];
+    c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: seedRecord(profile, runtimeEntities, tick, rev, prev?.profile || null), at: this.host.now() }];
     delete c.personaKeptHash;
     delete c.integrationCache;
     c.configRevisions.push({ at: this.host.now(), summary: `player identity updated from the Persona "${persona.name}" (revision ${rev})` });
@@ -2037,7 +2045,7 @@ export class CanonEngine {
       player_input: this.ooc(userEntry?.text).story,
       recent_scene: this.recentSituation(index),
       player: playerContext(index, profile, tick, { historyWith: withIds }),
-      candidate_events: candidates.map((x) => candidateInput(index, x, tick, eng.blockedBy({ eventId: x.event.id }, tick))),
+      candidate_events: candidates.map((x) => candidateInput(index, x, tick, eng.blockedBy({ eventId: x.event.id }, tick), profile)),
       engagement: eng.lines(tick),
       recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote, ...(jobLapsed(index.state, k, tick) ? { lapsed: true } : {}) })),
       focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f)!.title })),
@@ -2048,7 +2056,7 @@ export class CanonEngine {
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 8000 }), this.settings.taskTimeoutMs * 4, signal);
     const checked = checkOpportunities(out, index, profile, candidates, tick, quiet);
     const dropped = [...checked.dropped, ...checked.valid.filter((o) => keptScopes.has(`${o.scopeKind}:${o.scopeRef}`)).map((o) => ({ id: o.id, reason: `${o.scopeLabel} is kept as it was` }))];
-    const valid = [...kept, ...checked.valid.filter((o) => !keptScopes.has(`${o.scopeKind}:${o.scopeRef}`))];
+    const valid = withRequired([...kept, ...checked.valid.filter((o) => !keptScopes.has(`${o.scopeKind}:${o.scopeRef}`))], index, profile, candidates, tick);
     const cache: IntegrationCache = { key, at: this.host.now(), tick, opportunities: valid, assessments: (out.assessments || []).slice(0, 30), dropped };
     c.integrationCache = cache;
     this.debugLog('integration', { candidates: candidates.map((x) => `${x.event.id}:${x.status}`), valid: valid.map((o) => `${o.id} ${o.kind} ${o.scopeLabel}`), dropped });
@@ -2154,7 +2162,7 @@ export class CanonEngine {
     const state = this.current.replay.state;
     const enacted = new Set(interp.records.flatMap((r) => r.enactedStepIds || []));
     const out = await this.withTimeout(assessImpact(this.host.model, {
-      accepted_changes: interp.records.flatMap((r) => r.factsSetOrUnset.map((d) => ({ entity_id: d.entity_id, predicate: d.predicate, op: d.op, value: d.op === 'set' ? d.value : null, by_plan_step: (r.enactedStepIds || [])[0] || null, event: r.summary }))),
+      accepted_changes: interp.records.flatMap((r) => r.factsSetOrUnset.map((d) => ({ entity_id: d.entity_id, predicate: d.predicate, op: d.op, value: d.op === 'unset' ? null : d.value, by_plan_step: (r.enactedStepIds || [])[0] || null, event: r.summary }))),
       enacted_plan_steps: plan ? plan.steps.filter((x) => enacted.has(x.step_id)).map((x) => ({ step_id: x.step_id, action: x.action, serves_anchor: x.serves_anchor })) : [],
       deviations: interp.records.filter((r) => r.disposition && r.disposition !== 'occurred').map((r) => ({ event: r.packEventId, disposition: r.disposition, reason: r.dispositionReason })),
       plan: plan ? { assumptions: plan.assumptions, steps: plan.steps.map((s) => ({ step_id: s.step_id, action: s.action, serves_anchor: s.serves_anchor })) } : null,
@@ -2603,7 +2611,7 @@ export class CanonEngine {
   /** Organizations as they stand now in this game (leader, members, status from the game's state) and the pack's
    *  membership changes in time order with how they stand in this game. Changes still to come are canon spoilers:
    *  without spoilers only their number is given. */
-  membershipView(spoilers: boolean): { now: { id: Id; name: string; leader: string | null; members: string[]; status: string | null }[]; changes: { when: string; event: string; org: string; leader?: string | null; members?: string[]; state: 'occurred' | 'diverged' | 'pending' | 'future' }[]; hidden: number } | null {
+  membershipView(spoilers: boolean): { now: { id: Id; name: string; leader: string | null; members: string[]; status: string | null }[]; changes: { when: string; event: string; org: string; what: 'members' | 'leader'; op: 'set' | 'unset' | 'add' | 'remove'; names: string[]; state: 'occurred' | 'diverged' | 'pending' | 'future' }[]; hidden: number } | null {
     if (!this.campaign() || !this.current) return null;
     const s = this.current.replay.state;
     const idx = this.current.index;
@@ -2621,17 +2629,14 @@ export class CanonEngine {
     let hidden = 0;
     for (const t of pack.timeIndex) {
       const ev = pack.events.get(t.id)!;
-      const fx = ev.canonical_effects.filter((x) => { const p = x.op === 'set' ? x.fact.predicate : x.predicate; return p === 'members' || p === 'leader'; });
+      const fx = ev.canonical_effects.filter((x) => ['members', 'leader'].includes(effectTarget(x).predicate));
       if (!fx.length) continue;
       const d = s.dispositions.get(t.id)?.disposition;
       const state = d === 'occurred' ? 'occurred' : d === 'diverged' ? 'diverged' : t.hi < tick ? 'pending' : 'future';
       if (state === 'future' && !spoilers) { hidden += fx.length; continue; }
       for (const x of fx) {
-        const org = x.op === 'set' ? x.fact.entity_id : x.entity_id;
-        const pred = x.op === 'set' ? x.fact.predicate : x.predicate;
-        const row = { when: formatTick(t.lo, origin), event: ev.title, org: idx.entityName(org), state } as (typeof changes)[number];
-        if (pred === 'members') row.members = x.op === 'set' && Array.isArray(x.fact.value) ? (x.fact.value as Id[]).map((m) => idx.entityName(m)) : [];
-        else row.leader = x.op === 'set' && typeof x.fact.value === 'string' ? idx.entityName(x.fact.value) : null;
+        const d = effectToDelta(x);
+        const row = { when: formatTick(t.lo, origin), event: ev.title, org: idx.entityName(d.entity_id), what: d.predicate as 'members' | 'leader', op: d.op, names: d.op === 'unset' ? [] : [d.value].flat().map((m) => idx.entityName(String(m))), state } as (typeof changes)[number];
         changes.push(row);
       }
     }

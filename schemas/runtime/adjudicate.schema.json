@@ -106,7 +106,9 @@
         "op": {
          "enum": [
           "set",
-          "unset"
+          "unset",
+          "add",
+          "remove"
          ]
         },
         "entity_id": {

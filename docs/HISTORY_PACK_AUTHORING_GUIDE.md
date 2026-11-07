@@ -2,7 +2,7 @@
 
 This is the independent input-format specification for an author or coding agent creating a **new history data file**. Read it without needing the earlier design conversation. The companion `schemas/canon-pack.schema.json` is the exact structural contract. `examples/demo.canon.json` is a complete valid example using an invented world.
 
-This guide is current for Canon Engine 1.16.3. The file format remains `schema_version: "1.0.0"`; later additions (structured summaries, time frames, etc.) are optional fields, so older packs stay valid. There is no lorebook input path. `examples/unrelated-history.canon.json` is a second complete example with events independent of the main Hard chain.
+This guide is current for Canon Engine 1.20.0. The file format remains `schema_version: "1.0.0"`; later additions (structured summaries, time frames, etc.) are optional fields, so older packs stay valid. There is no lorebook input path. `examples/unrelated-history.canon.json` is a second complete example with events independent of the main Hard chain.
 
 ## 1. Scope and intended workflow
 
@@ -162,18 +162,20 @@ Prefer a recovered value over `unset`: an absent fact is UNKNOWN to the engine (
 **Who belongs to an organization.** Record membership as facts, so that every part of the engine knows it at any point of the timeline. A lorebook can describe an organization, but the engine's analysis steps do not read it, and it cannot change when someone joins, leaves or dies. Use a predicate `members` (`entity_set`) on the organization, and `leader` (`entity_ref`) for whoever runs it:
 
 ```json
-{"id": "members", "description": "The organization's current main members (not the player).", "value_type": "entity_set"}
+{"id": "members", "description": "The organization's main members. Events write who joins (add) and who leaves (remove).", "value_type": "entity_set"}
 ```
 
-- Put the set in the baseline when the organization exists for the covered story. When it forms during the story, set it in the event that forms it.
-- Change it in the events where membership changes. An `entity_set` is **replaced as a whole**, so each change states the full set after the event, and events that change the same set must follow one another in time.
-- When a member dies, state the set without them in the same event. `canon-lint` warns when an event records a death but a `members` set still lists that person.
-- When the organization falls apart, set `members: []` (along with any status fact). An empty set is the whole list, so the engine stops counting anyone as a member, including people whose own `affiliation` still names it.
+- Put the set in the baseline when the organization exists for the covered story.
+- Events change it only by **who joins and who leaves**: `{"op": "add", "entity_id": "item", "predicate": "members", "value": ["hamazura"]}` and `{"op": "remove", ...}`. An event never writes the whole list (`set` on an `entity_set` is an error outside the baseline). The engine applies the change to the set as it stands in the game, so whatever play made of it stays: the player in a canon organization, a member who left or survived in play.
+- When the organization forms during the story, `add` its first members in the event that forms it.
+- When a member dies, `remove` them in the same event. `canon-lint` warns when an event records a death but a `members` set still lists that person.
+- When the organization falls apart, `remove` everyone still in it (along with any status fact).
 - A person may be in several organizations; a `members` set allows that. A single `affiliation` (`entity_ref`) on a person still works for organizations without a `members` set.
+- A leader handed over is `remove` of the one in office and `add` of the new one (`value` a single id). `add` fills the leader only when the post is empty and `remove` empties it only when it holds that person, so a leader the player's Persona made stays leader. `scripts/members-to-changes.mjs` rewrites an older pack's whole lists and leader changes this way.
 
-The engine uses membership in three places:
-- Reading the player's Persona: organizations appear with their leader and members.
-- The world's reaction: when the player belongs to, or is connected with, an organization, its members' events become the player's concern.
+The engine uses membership in these places:
+- Reading the player's Persona: organizations appear with their leader and members; the player is added to the organizations the Persona puts them in (and made leader when it says so).
+- The world's reaction: an event the player's own organization takes part in reaches the player (required); when the player is connected with an organization, its members' events become the player's concern.
 - Everywhere an organization's current facts are shown: the people at an event are listed with their organizations.
 
 | `value_type` | JSON value | Example |
@@ -332,9 +334,16 @@ These are **canonical** prerequisites. A HARD event can use a new validated rout
 {"op": "unset", "entity_id": "mira", "predicate": "whereabouts"}
 ```
 
+```json
+{"op": "add", "entity_id": "council", "predicate": "members", "value": ["ren"]}
+{"op": "remove", "entity_id": "council", "predicate": "leader", "value": "sol"}
+```
+
+`add`/`remove` change a fact by what joins or leaves it, applied to the fact as it stands in the game when the event happens: an `entity_set` gains or loses those ids; a single value is filled when empty (`add`) or emptied when it is that value (`remove`). An event changes an `entity_set` only this way. An outcome on an `entity_set` carries the same `op` and lists the ids that must join or leave (`{"op": "add", "entity_id": "council", "predicate": "members", "value": ["ren"]}`); one write per fact and kind of change in an event (a `remove` and an `add` of the same fact are fine).
+
 `unset` removes known current knowledge of a fact from the state model, returning it to UNKNOWN; it is not an arbitrary undo command. Use it only with an established reason, not to conceal an inconvenient outcome. Runtime deltas must still cite evidence. No event can unset or overwrite its own mandatory outcome at the same logical checkpoint.
 
-Effects are canonical proposals, not unconditional database writes. Validate the actual route and actual consequences before commitment. For the original route, every outcome must be supported by the event's final set effects or an explicit unchanged fact whose truth is validated; the release linter should require a matching final set effect for clarity. Effects on a key must be unambiguous; the engine rejects multiple writes to the same entity/predicate within one event. Alternative routes can have different incidental effects while preserving Hard outcomes.
+Effects are canonical proposals, not unconditional database writes. Validate the actual route and actual consequences before commitment. For the original route, every outcome must be supported by a matching effect of the event (the same value set, or for `add`/`remove` at least the outcome's ids). Effects on a key must be unambiguous; the engine rejects multiple writes to the same entity/predicate within one event. Alternative routes can have different incidental effects while preserving Hard outcomes.
 
 Once an effect is actualized, it persists until a supported later transition changes/unsets it or a source revision invalidates it. HARD/SOFT/FREE governs whether the event must occur, not how long an enacted consequence is remembered. Do not restore baseline values when an event ends or leaves the active arc. Encode important incidental changes in `canonical_effects` even when they are not Hard-defining `outcomes`. A prose-only description of a persistent contradiction is too weak for the deterministic state checks.
 

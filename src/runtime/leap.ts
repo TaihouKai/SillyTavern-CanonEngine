@@ -4,6 +4,7 @@
 // settled by the ordinary offscreen adjudication (original route when its preconditions hold).
 import type { Id, Occurrence, StoryTime } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
+import { withOutcomes } from '../domain/delta';
 import type { WorldState } from '../domain/reducer';
 import { adjudicateDefault, causeOf, effectsToDeltas, occurrenceWindow } from '../domain/schedule';
 import { DAY, formatTick, parseDateLabel, parseTickLabel } from '../domain/time';
@@ -11,6 +12,7 @@ import { newId, uniq } from '../domain/util';
 import { WorldIndex } from '../domain/world-query';
 import type { RecordDraft } from './types';
 import { VOICE_KINDS, VOICE_TEXT, type PlayerVoice } from './voice';
+import { orgsOf } from './integration';
 
 /** {{time_leap:2004-10-10 08:00}} / {{time_leap:D1500 08:00}} (also with a full-width colon); one chapter of a longer
  *  leap: {{time_leap:2020-10-01 08:00 → 2024-10-10 08:00}} (this reply goes to the first time, the leap to the second). */
@@ -148,10 +150,12 @@ export const LEAP_LINES_CHARS = 40000;
  *  the people, places and groups the player's message names or the player is linked to come with their summaries
  *  (the ones the message can touch); every other event is one line "id | when | title", in time order, as far as the
  *  budget goes (an event left out happens as in the original story, like any untouched one). */
-export function leapEventInput(index: WorldIndex, list: LeapEvent[], origin: { y: number; m: number; d: number } | null, focus: Set<Id> = new Set()) {
+export function leapEventInput(index: WorldIndex, list: LeapEvent[], origin: { y: number; m: number; d: number } | null, focus: Set<Id> = new Set(), playerId: Id | null = null) {
   const pack = index.pack;
   const when = (x: LeapEvent) => x.lo === x.hi ? formatTick(x.lo, origin) : `${formatTick(x.lo, origin)} – ${formatTick(x.hi, origin)}`;
-  const touches = (x: LeapEvent) => { const ev = pack.events.get(x.id)!; return [...ev.entity_ids, ...ev.location_ids].some((id) => focus.has(id)); };
+  // the player's own organizations that take part (members facts at the event's time): the player is in it as a member
+  const myOrgs = (x: LeapEvent) => { if (!playerId) return []; const ev = pack.events.get(x.id)!; const there = new Set([...ev.entity_ids, ...(ev.cast || []).map((m) => m.entity_id)]); return orgsOf(index, playerId, x.lo).filter((o) => there.has(o)); };
+  const touches = (x: LeapEvent) => { const ev = pack.events.get(x.id)!; return [...ev.entity_ids, ...ev.location_ids].some((id) => focus.has(id)) || myOrgs(x).length > 0; };
   const ranked = [...list].sort((a, b) => Number(b.cls === 'HARD') - Number(a.cls === 'HARD') || Number(touches(b)) - Number(touches(a)) || a.lo - b.lo);
   const detailed = new Set((list.length <= LEAP_DETAILED_MAX ? list : ranked.filter((x) => x.cls === 'HARD' || touches(x)).slice(0, LEAP_DETAILED_MAX)).map((x) => x.id));
   const room = detailed.size > 80 ? 160 : 300;
@@ -164,6 +168,7 @@ export function leapEventInput(index: WorldIndex, list: LeapEvent[], origin: { y
       ...(people.length ? { people } : {}),
       original: s.length > room ? s.slice(0, room - 1) + '…' : s,
       ...(ev.classification === 'HARD' ? { required: ev.required_description } : {}),
+      ...(myOrgs(x).length ? { player_org: myOrgs(x).map((o) => index.entityName(o)).join(', ') } : {}),
     };
   });
   const other: string[] = [];
@@ -247,9 +252,7 @@ export function leapRecord(pack: LoadedPack, state: WorldState, ev: LeapEvent, d
   const base = adjudicateDefault(pack, state, { event, lo: ev.lo, hi: ev.hi }, when);
   const occurred = d.decision !== 'omitted';
   const deltas = d.decision === 'occurred' ? effectsToDeltas(event.canonical_effects) : [];
-  if (event.classification === 'HARD') {
-    for (const o of event.outcomes) if (!deltas.some((x) => x.op === 'set' && x.entity_id === o.entity_id && x.predicate === o.predicate)) deltas.push({ op: 'set', entity_id: o.entity_id, predicate: o.predicate, value: o.value });
-  }
+  if (event.classification === 'HARD') withOutcomes(deltas, event.outcomes);
   const occId = newId('occ');
   const occ: Occurrence | undefined = occurred ? {
     occurrenceId: occId, title: event.title, account: d.part ? (/^zh/i.test(pack.pack.language) ? `${d.account}（玩家角色：${d.part}）` : `${d.account} (The player character: ${d.part})`) : d.account,

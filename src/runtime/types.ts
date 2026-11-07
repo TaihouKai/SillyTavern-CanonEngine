@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.19.0';
+export const ENGINE_RELEASE = '1.20.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -243,7 +243,9 @@ export interface PlayerProfile {
   playerId: Id;
   summary: string;
   publicIdentity: string;
-  affiliations: { entityId: Id; name: string; role: string; secrecy: 'public' | 'restricted' | 'secret' }[];
+  /** leads: the Persona makes the player its leader; memberIds: the other people the Persona puts in it. The player
+   *  (and they) are written into the organization's members, the leader into its leader (persona_seed). */
+  affiliations: { entityId: Id; name: string; role: string; secrecy: 'public' | 'restricted' | 'secret'; leads?: boolean; memberIds?: Id[] }[];
   places: { entityId: Id; name: string; use: string }[];
   capabilities: string[];
   resources: string[];
@@ -292,6 +294,11 @@ export interface Opportunity {
   basisRefs: string[];
   /** A small job for a quiet day (no canon event for the rest of the day): offered first, changes no history. */
   sideJob?: boolean;
+  /** Required: the player's own position binds them to it (their organization takes part, a duty of their role, a
+   *  threat aimed at them), so the world reaches them before it begins, wherever they are; the reviewer sends back a
+   *  reply that leaves it out. requiredBasis says why. */
+  required?: boolean;
+  requiredBasis?: string;
 }
 
 export interface IntegrationCache {

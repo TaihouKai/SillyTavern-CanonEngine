@@ -3,13 +3,15 @@
 // The evaluator's own verdicts never bypass these checks.
 import type { ContactInfo, FactDelta, FactValue, Id, Occurrence, RuntimeEntity, ScopeKind, StoryTime } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
-import { claimComparable, claimMatches, normalizeValue, valuesEqual, coerceClaimValue } from '../domain/pack';
+import { claimComparable, claimMatches, valuesEqual, coerceClaimValue } from '../domain/pack';
 import { factAt } from '../domain/reducer';
+import { applyChange, deltaMeets, deltaText, outcomeDelta } from '../domain/delta';
 import type { WorldIndex } from '../domain/world-query';
 import { toTick, formatTick } from '../domain/time';
 import { pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
 import type { ClaimInput, Retrieval } from './context';
+import { opportunityBy, reached } from './integration';
 import { voiceAllows, type PlayerVoice } from './voice';
 import { MAIN_FRAME } from '../domain/frames';
 import { normalizeName } from '../domain/pack';
@@ -91,6 +93,9 @@ export interface GateInput {
   /** Narrative integration: the player character's entity and the suggestion offered to the GM this turn. */
   playerId?: Id | null;
   offered?: Opportunity | null;
+  /** Contacts this reply must make (the player's own position binds them to the matter): a draft without one is
+   *  sent back. */
+  required?: Opportunity[];
   /** Companions' events that come without warning (judged not known in advance, not declined): with the person
    *  still beside the player when the reply passes the start, the event happens to both of them (user design). */
   chanceCompanions?: { eventId: Id; personId: Id; lo: number; title: string; who: string }[];
@@ -181,28 +186,37 @@ export function runGate(g: GateInput): GateResult {
   const entityKnown = (id: Id) => index.entityExists(id) || runtimeEntities.some((r) => r.id === id);
 
   // ---- typed delta validation ------------------------------------------------------------------
-  const checkDelta = (d: { op: 'set' | 'unset'; entity_id: string; predicate: string; value?: FactValue }, where: string): FactDelta | null => {
+  /** A model's fact change, typed. An entity set changes by who joins (add) or leaves (remove); a whole list the
+   *  model gives is read as that difference from the list as it stands, so nobody it forgot is dropped silently
+   *  only when the list really omits them (the difference is reported). */
+  const checkDelta = (d: { op: 'set' | 'unset' | 'add' | 'remove'; entity_id: string; predicate: string; value?: FactValue }, where: string): FactDelta[] | null => {
     const eid = resolveId(d.entity_id);
     if (!eid || !entityKnown(eid)) { warnings.push(`${where}: unknown entity "${d.entity_id}" (kept as narrative detail only)`); return null; }
     const p = pack.predicates.get(d.predicate);
     if (!p) { warnings.push(`${where}: undeclared predicate "${d.predicate}" (kept as narrative detail only)`); return null; }
-    if (d.op === 'unset') return { op: 'unset', entity_id: eid, predicate: p.id };
+    if (d.op === 'unset') return [{ op: 'unset', entity_id: eid, predicate: p.id }];
     let v = d.value as FactValue;
+    if (p.value_type === 'entity_set') {
+      const arr = (Array.isArray(v) ? v : typeof v === 'string' ? [v] : null)?.map((x) => resolveId(String(x)));
+      if (!arr || arr.some((x) => !x)) { warnings.push(`${where}: unknown entity in set ${JSON.stringify(v)}`); return null; }
+      const ids = [...new Set(arr as Id[])];
+      if (d.op === 'add' || d.op === 'remove') return ids.length ? [{ op: d.op, entity_id: eid, predicate: p.id, value: ids }] : null;
+      const cur = factAt(index.state, eid, p.id, { tick: g.clockTick });
+      const had: Id[] = cur.known && Array.isArray(cur.value) ? cur.value : [];
+      const joins = ids.filter((x) => !had.includes(x)), leaves = had.filter((x) => !ids.includes(x));
+      if (leaves.length || joins.length) warnings.push(`${where}: ${eid}.${p.id} given as a whole list, read as ${joins.length ? `+[${joins.join(', ')}]` : ''}${leaves.length ? ` −[${leaves.join(', ')}]` : ''}`);
+      return [...(joins.length ? [{ op: 'add' as const, entity_id: eid, predicate: p.id, value: joins }] : []), ...(leaves.length ? [{ op: 'remove' as const, entity_id: eid, predicate: p.id, value: leaves }] : [])];
+    }
     const okType =
       (p.value_type === 'boolean' && typeof v === 'boolean') ||
       (p.value_type === 'number' && typeof v === 'number' && Number.isFinite(v)) ||
       (p.value_type === 'string' && typeof v === 'string') ||
-      (p.value_type === 'entity_ref' && typeof v === 'string') ||
-      (p.value_type === 'entity_set' && Array.isArray(v));
+      (p.value_type === 'entity_ref' && typeof v === 'string');
     if (!okType) { warnings.push(`${where}: value ${JSON.stringify(v)} has the wrong type for ${p.id}`); return null; }
     if (p.value_type === 'entity_ref') { const r = resolveId(String(v)); if (!r) { warnings.push(`${where}: unknown entity value ${v}`); return null; } v = r; }
-    if (p.value_type === 'entity_set') {
-      const arr = (v as string[]).map((x) => resolveId(x));
-      if (arr.some((x) => !x)) { warnings.push(`${where}: unknown entity in set`); return null; }
-      v = normalizeValue(arr as string[]);
-    }
     if (p.allowed_values && !p.allowed_values.some((a) => valuesEqual(a, v))) { warnings.push(`${where}: ${JSON.stringify(v)} not allowed for ${p.id}`); return null; }
-    return { op: 'set', entity_id: eid, predicate: p.id, value: v };
+    // add/remove of a single value: filled when vacant / emptied when it holds that value
+    return [{ op: d.op, entity_id: eid, predicate: p.id, value: v }];
   };
 
   // ---- time --------------------------------------------------------------------------------
@@ -221,12 +235,12 @@ export function runGate(g: GateInput): GateResult {
    *  before a HARD event that later requires a particular whereabouts). */
   const nextHard = [...pendingHardMap.keys()].slice(0, 2);
   const preempted = (d: FactDelta, at: number): Id | undefined => {
-    if (d.op !== 'set') return undefined;
+    if (d.op === 'unset') return undefined;
     const cur = factAt(index.state, d.entity_id, d.predicate, { tick: Number.MAX_SAFE_INTEGER });
-    if (cur.known && valuesEqual(cur.value!, d.value)) return undefined;
+    if (applyChange(cur.known ? cur.value : undefined, d) === 'same') return undefined;
     return (hardOutcomeKeys.get(`${d.entity_id}|${d.predicate}`) || []).find((id) => {
       const c = pendingHardMap.get(id)!;
-      return (nextHard.includes(id) || c.lo <= at + 2 * 1440) && c.event.outcomes.some((o) => o.entity_id === d.entity_id && o.predicate === d.predicate && valuesEqual(o.value, d.value));
+      return (nextHard.includes(id) || c.lo <= at + 2 * 1440) && c.event.outcomes.some((o) => deltaMeets(d, o));
     });
   };
 
@@ -249,16 +263,19 @@ export function runGate(g: GateInput): GateResult {
   for (const o of ev.occurrences) if (o.pack_event_id && pendingHardMap.has(o.pack_event_id)) hardOccRef.set(o.pack_event_id, o.ref);
   for (const t of ev.transitions) {
     if (!hasQuote(t.quote)) { warnings.push(`transition ${t.entity_id}.${t.predicate} dropped: evidence quote not found`); continue; }
-    const d = checkDelta(t, 'transition');
-    if (!d) continue;
-    // (a fact can be a required outcome of several HARD events, e.g. a conflict starting and ending)
-    const hardRef = d.op === 'set' ? [...hardOccRef].find(([hid]) => pendingHardMap.get(hid)!.event.outcomes.some((r) => r.entity_id === d.entity_id && r.predicate === d.predicate && valuesEqual(r.value, d.value!)))?.[1] : undefined;
-    if (hardRef && t.occurrence_ref !== hardRef) {
-      warnings.push(`transition ${d.entity_id}.${d.predicate} re-filed under the HARD occurrence ${hardRef} (was ${t.occurrence_ref || 'none'})`);
-      t.occurrence_ref = hardRef;
+    const ds = checkDelta(t, 'transition');
+    if (!ds) continue;
+    for (const d of ds) {
+      // (a fact can be a required outcome of several HARD events, e.g. a conflict starting and ending)
+      const hardRef = [...hardOccRef].find(([hid]) => pendingHardMap.get(hid)!.event.outcomes.some((r) => deltaMeets(d, r)))?.[1];
+      let ref = t.occurrence_ref;
+      if (hardRef && ref !== hardRef) {
+        warnings.push(`transition ${d.entity_id}.${d.predicate} re-filed under the HARD occurrence ${hardRef} (was ${ref || 'none'})`);
+        ref = hardRef;
+      }
+      if (ref) transitionsByRef.set(ref, [...(transitionsByRef.get(ref) || []), d]);
+      else looseDeltas.push({ d, quote: t.quote! });
     }
-    if (t.occurrence_ref) transitionsByRef.set(t.occurrence_ref, [...(transitionsByRef.get(t.occurrence_ref) || []), d]);
-    else looseDeltas.push({ d, quote: t.quote! });
   }
   for (const o of ev.occurrences) {
     if (!hasQuote(o.quote)) { warnings.push(`occurrence "${o.title}" dropped: evidence quote not found in text`); continue; }
@@ -324,20 +341,22 @@ export function runGate(g: GateInput): GateResult {
           occ.time = { lo: Math.max(time.lo, st.lo), hi: Math.min(time.hi, st.hi), precision: time.precision };
         }
         if (pe.classification === 'HARD') {
-          let missing = pe.outcomes.filter((req) => !deltas.some((d) => d.op === 'set' && d.entity_id === req.entity_id && d.predicate === req.predicate && valuesEqual(d.value, req.value)));
-          const wrong = deltas.filter((d) => pe.outcomes.some((req) => req.entity_id === d.entity_id && req.predicate === d.predicate && (d.op === 'unset' || !valuesEqual(d.value!, req.value))));
+          let missing = pe.outcomes.filter((req) => !deltas.some((d) => deltaMeets(d, req)));
+          // a change of the same fact that is not the required one (for who joins or leaves: one the other way)
+          const wrong = deltas.filter((d) => pe.outcomes.some((req) => req.entity_id === d.entity_id && req.predicate === d.predicate && !deltaMeets(d, req)
+            && (!req.op || d.op === 'unset' || (d.op !== 'set' && d.op !== req.op && [d.value].flat().some((x) => [req.value].flat().includes(x))))));
           // live: the reviewer confirmed the HARD content depicted (an off-screen abduction reported by text message)
           // but left out the outcome fact, whose exact pack wording it never reproduces ("被秘密带离并藏匿"); three
           // rewrites were sent back over it. Its own confirmation stands for the required facts; a different value is
           // still a violation.
           const hc0 = ev.hard_checks.find((h) => h.event_id === pe.id);
           if (missing.length && !wrong.length && disposition === 'occurred' && hc0?.status === 'fulfilled') {
-            for (const m of missing) deltas.push({ op: 'set', entity_id: m.entity_id, predicate: m.predicate, value: m.value });
+            for (const m of missing) deltas.push(outcomeDelta(m));
             warnings.push(`HARD "${pe.title}": required outcome ${missing.map((m) => `${m.entity_id}.${m.predicate}`).join(', ')} taken from the pack (the reviewer confirmed it depicted)`);
             missing = [];
           }
           if (disposition !== 'occurred' || missing.length || wrong.length) {
-            violations.push(`HARD "${pe.title}" must occur with its exact required outcome (${pe.required_description}). Depicted result differs: missing ${missing.map((m) => `${m.entity_id}.${m.predicate}=${JSON.stringify(m.value)}`).join(', ') || 'none'}${wrong.length ? `; conflicting ${wrong.map((w) => `${w.entity_id}.${w.predicate}=${JSON.stringify(w.op === 'set' ? w.value : null)}`).join(', ')}` : ''}.`);
+            violations.push(`HARD "${pe.title}" must occur with its exact required outcome (${pe.required_description}). Depicted result differs: missing ${missing.map((m) => deltaText(outcomeDelta(m))).join(', ') || 'none'}${wrong.length ? `; conflicting ${wrong.map((w) => deltaText(w)).join(', ')}` : ''}.`);
           } else {
             const hc = ev.hard_checks.find((h) => h.event_id === pe.id);
             if (!hc || hc.status !== 'fulfilled') violations.push(`HARD "${pe.title}" outcome facts are claimed but the reviewer did not confirm the required content is depicted (${hc?.status || 'no check'}).`);
@@ -424,7 +443,7 @@ export function runGate(g: GateInput): GateResult {
   const stateClaims: StateClaim[] = [];
   const cp = { tick: Math.max(sceneEnd.lo, g.clockTick) };
   const setInReply = (eid: Id, pred: Id, v: FactValue) =>
-    occRecords.some((r) => r.factsSetOrUnset.some((d) => d.op === 'set' && d.entity_id === eid && d.predicate === pred && valuesEqual(d.value, v)));
+    occRecords.some((r) => r.factsSetOrUnset.some((d) => d.entity_id === eid && d.predicate === pred && (d.op === 'set' ? valuesEqual(d.value, v) : d.op === 'add' && claimMatches(d.value, v))));
   // A name or alias, or one of its words ("the market" for Old Market).
   const mentionsPlace = (eid: Id) => index.allNames(eid).some((n) => !!n && (text.includes(n)
     || n.split(/\s+/).some((w) => w.length >= 4 && new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text))));
@@ -447,7 +466,7 @@ export function runGate(g: GateInput): GateResult {
       const revival = typeof f.value === 'boolean' && f.value === false && value === true && /alive|living|存活|生存/i.test(pred);
       const host = atTick === undefined && !revival ? occRecords.find((r) => (r.occurrences || []).some((o) => o.affected.includes(eid) || o.actors.includes(eid))) : undefined;
       if (host) {
-        const d: FactDelta = { op: 'set', entity_id: eid, predicate: pred, value };
+        const d: FactDelta = { op: pack.predicates.get(pred)?.value_type === 'entity_set' ? 'add' : 'set', entity_id: eid, predicate: pred, value };
         host.factsSetOrUnset.push(d);
         host.occurrences?.[0]?.outcome.push(d);
         warnings.push(`state claim "${quote.slice(0, 60)}" taken as a change this reply depicts: ${eid}.${pred}=${JSON.stringify(value)}`);
@@ -605,7 +624,8 @@ export function runGate(g: GateInput): GateResult {
     else if (scopeKind === 'storyline') { const m = matchScope(pack, index.state.contacts, label || scopeRef); if (m) ({ scopeKind, scopeRef, label } = m); }
     if (scopeKind === 'storyline' && !same) { label ||= scopeRef || k.quote.slice(0, 40); scopeRef = String(label).normalize('NFKC').toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'storyline'; }
     // the offered suggestion is credited only when the contact is about the same thing
-    const opp = g.offered && k.opportunity_id === g.offered.id && g.offered.scopeKind === scopeKind && g.offered.scopeRef === scopeRef ? g.offered.id : null;
+    const req = (g.required || []).find((o) => k.opportunity_id === o.id || reached(index.state, o, [{ scopeKind, scopeRef, actors }]));
+    const opp = req ? req.id : g.offered && k.opportunity_id === g.offered.id && g.offered.scopeKind === scopeKind && g.offered.scopeRef === scopeRef ? g.offered.id : null;
     // the offered small job, delivered (about the same matter): it lapses at the start of the next day unless taken
     const job = !!g.offered?.sideJob && g.offered.scopeKind === scopeKind && g.offered.scopeRef === scopeRef;
     records.push({
@@ -613,6 +633,15 @@ export function runGate(g: GateInput): GateResult {
       visibility: { mode: 'public', knower_ids: [] }, summary: `Contact (${k.kind}) about ${label}: ${k.quote.slice(0, 120)}`, evidenceKind: 'direct',
       contact: { scopeKind, scopeRef, scopeLabel: label.slice(0, 300), opportunityId: opp ?? (job ? g.offered!.id : null), contactKind: k.kind, actors, quote: k.quote.slice(0, 300), ...(job ? { sideJob: true, expires: Math.floor(sceneEnd.lo / 1440) * 1440 + 1440, job: g.offered!.contact.slice(0, 300) } : {}) },
     });
+  }
+  // a required contact the reply leaves out (it may also show the player already in the event itself)
+  if (g.mode === 'draft' && !g.leap) {
+    const made = records.filter((r) => r.contact).map((r) => r.contact!);
+    const inEvent = new Set(ev.occurrences.filter((o) => o.pack_event_id).map((o) => o.pack_event_id));
+    for (const o of g.required || []) {
+      if (made.some((m) => m.opportunityId === o.id) || reached(index.state, o, made) || (o.targetEventId && inEvent.has(o.targetEventId))) continue;
+      violations.push(`The world must reach the player character in this reply about "${o.scopeLabel}" (${o.requiredBasis || o.motivation}), but the reply does not show it: ${opportunityBy(index, o).join(', ')} reach them — ${o.contact} Wherever they are and whatever they are doing: after what the player does in this reply, or interrupting it when the matter begins first. Leave their answer to the player.`);
+    }
   }
   const sceneEntities = uniq((ev.scene_entities || []).map(resolveId).filter(Boolean) as Id[]);
   // live: 佐天 walked with the player from 08:35 to 09:20 and the reply went past 索绮特's 09:00 chance encounter

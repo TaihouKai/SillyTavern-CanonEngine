@@ -4,6 +4,7 @@ import type { Condition, ContactInfo, EngagementInfo, FactDelta, FactValue, Id, 
 import { UNKNOWN } from './types';
 import type { LoadedPack } from './pack';
 import { normalizeValue, valuesEqual } from './pack';
+import { applyChange } from './delta';
 
 export interface Transition {
   tick: number;
@@ -121,13 +122,23 @@ export function applyRecord(state: WorldState, rec: LedgerRecord): void {
 
 function applyDelta(state: WorldState, d: FactDelta, rec: LedgerRecord, tick: number) {
   const k = factKey(d.entity_id, d.predicate);
+  // add/remove apply to the fact as it stands at the record's time
+  let op: 'set' | 'unset' = d.op === 'unset' ? 'unset' : 'set';
+  let value: FactValue | undefined = d.op === 'unset' ? undefined : d.value;
+  if (d.op === 'add' || d.op === 'remove') {
+    const f = factAt(state, d.entity_id, d.predicate, { tick });
+    const r = applyChange(f.known ? f.value : undefined, d);
+    if (r === 'same') return;
+    op = r.value === undefined ? 'unset' : 'set';
+    value = r.value;
+  }
   const list = state.facts.get(k) || [];
   list.push({
     tick,
     tickHi: rec.storyTime.hi,
     seq: rec.sequence,
-    op: d.op,
-    value: d.op === 'set' ? normalizeValue(d.value) : undefined,
+    op,
+    value: op === 'set' ? normalizeValue(value!) : undefined,
     recordId: rec.recordId,
     kind: rec.kind,
   });

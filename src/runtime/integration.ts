@@ -4,7 +4,7 @@
 // - Engagement policy: the player's decisions (declined, deferred, joined, ...) and the contacts that reached them,
 //   both replayable records; one filter for every way the world may pull the player in.
 // - Candidate retrieval and the checked, disposable suggestions of the integrate task (never history).
-import type { ContactInfo, EngagementInfo, Id, PackEvent, RuntimeEntity, ScopeKind } from '../domain/types';
+import type { ContactInfo, EngagementInfo, FactDelta, Id, PackEvent, RuntimeEntity, ScopeKind } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import type { ContactEntry, EngagementEntry, WorldState } from '../domain/reducer';
 import { evalCondition, factAt, triLabel } from '../domain/reducer';
@@ -32,7 +32,7 @@ export const samePersona = (hash: string | undefined, p: { name: string; descrip
 
 export interface ProfileOut {
   player: { name: string; aliases?: string[]; summary: string; public_identity?: string };
-  affiliations: { name: string; existing_id?: string | null; kind?: 'organization' | 'other'; role?: string; secrecy?: 'public' | 'restricted' | 'secret'; description?: string }[];
+  affiliations: { name: string; existing_id?: string | null; kind?: 'organization' | 'other'; role?: string; leads?: boolean; members?: string[]; secrecy?: 'public' | 'restricted' | 'secret'; description?: string }[];
   places?: { name: string; existing_id?: string | null; use?: string; description?: string }[];
   capabilities?: string[]; resources?: string[]; goals?: string[];
   roles?: { role: string; brings?: string[]; from?: string[]; style?: string }[];
@@ -69,7 +69,7 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
       id = reuse(a.name, prev?.affiliations) || `rt.org.${slug(a.name)}.${newId('e').slice(2, 8)}`;
       runtimeEntities.push({ id, name: a.name.trim(), aliases: [], kind: a.kind === 'other' ? 'other' : 'organization', description: (a.description || a.role || '').slice(0, 600) });
     }
-    affiliations.push({ entityId: id, name: a.name.trim(), role: (a.role || '').slice(0, 400), secrecy: a.secrecy || 'public' });
+    affiliations.push({ entityId: id, name: a.name.trim(), role: (a.role || '').slice(0, 400), secrecy: a.secrecy || 'public', ...(a.leads ? { leads: true } : {}) });
   }
   const places: PlayerProfile['places'] = [];
   for (const p of out.places || []) {
@@ -101,6 +101,15 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
     }
     relationships.push({ entityId: id, name: r.name.trim(), relation: (r.relation || '').slice(0, 400), basis });
   }
+  // the other people the Persona puts in an organization: the Persona's own people read above, or this world's
+  out.affiliations?.forEach((a) => {
+    const aff = affiliations.find((x) => x.name === a.name?.trim());
+    if (!aff || !a.members?.length) return;
+    const ids = a.members.map((n) => relationships.find((r) => r.name === n.trim() && r.entityId)?.entityId
+      || index.resolveEntity(n).ids.find((x) => pack.entities.has(x) && kindOf(x) === 'person') || null).filter((x): x is Id => !!x && x !== playerId);
+    if (ids.length) aff.memberIds = uniq(ids).slice(0, 20);
+    if (ids.length < a.members.length) notes.push(`${aff.name}: members not found in this world or the Persona's people: ${a.members.filter((n) => !relationships.some((r) => r.name === n.trim() && r.entityId) && !index.resolveEntity(n).ids.length).join(', ')}`);
+  });
   // a group's organization and places: the pack's, or the Persona's own ones read above
   const orgRef = (ref: string | null | undefined): Id | null => {
     if (!ref) return null;
@@ -142,10 +151,23 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
   };
 }
 
-/** The persona_seed record: the player and their original organizations/places enter the world (no story event). */
-export function seedRecord(profile: PlayerProfile, runtimeEntities: RuntimeEntity[], tick: number, rev: number): RecordDraft {
+/** The persona_seed record: the player and their original organizations/places enter the world (no story event),
+ *  and the player joins the organizations the Persona puts them in — with the people the Persona puts there, and as
+ *  their leader when the Persona says so (the Persona decides over the pack's leader). A later revision first takes
+ *  the previous player out of what the new Persona no longer gives them. */
+export function seedRecord(profile: PlayerProfile, runtimeEntities: RuntimeEntity[], tick: number, rev: number, prev: PlayerProfile | null = null): RecordDraft {
+  const deltas: FactDelta[] = [];
+  for (const a of prev?.affiliations || []) {
+    const kept = profile.playerId === prev!.playerId ? profile.affiliations.find((x) => x.entityId === a.entityId) : undefined;
+    if (!kept) deltas.push({ op: 'remove', entity_id: a.entityId, predicate: 'members', value: [prev!.playerId] });
+    if (a.leads && !kept?.leads) deltas.push({ op: 'remove', entity_id: a.entityId, predicate: 'leader', value: prev!.playerId });
+  }
+  for (const a of profile.affiliations) {
+    deltas.push({ op: 'add', entity_id: a.entityId, predicate: 'members', value: [profile.playerId, ...(a.memberIds || [])] });
+    if (a.leads) deltas.push({ op: 'set', entity_id: a.entityId, predicate: 'leader', value: profile.playerId });
+  }
   return {
-    recordId: newId('rec'), kind: 'persona_seed', storyTime: { lo: tick, hi: tick, precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+    recordId: newId('rec'), kind: 'persona_seed', storyTime: { lo: tick, hi: tick, precision: 'minute' }, sourceRefs: [], factsSetOrUnset: deltas, eventOccurrenceIds: [],
     visibility: { mode: 'public', knower_ids: [] }, summary: `Player presence from the Persona (revision ${rev}): ${profile.personaName}`, evidenceKind: 'bootstrap', runtimeEntities,
   };
 }
@@ -451,7 +473,7 @@ export function integrationCandidates(index: WorldIndex, profile: PlayerProfile,
   return out.filter((c) => kept.has(c)).sort((a, b) => (a.status === 'under_way' ? -1 : 0) - (b.status === 'under_way' ? -1 : 0) || a.lo - b.lo);
 }
 
-export function candidateInput(index: WorldIndex, c: Candidate, tick: number, blocked: EngagementEntry | null) {
+export function candidateInput(index: WorldIndex, c: Candidate, tick: number, blocked: EngagementEntry | null, profile: PlayerProfile | null = null) {
   const ev = c.event;
   const orgs = (id: Id) => { const o = index.entityKind(id) === 'person' ? orgsOf(index, id, Math.max(tick, c.lo)) : []; return o.length ? `, of ${o.map((x) => index.entityName(x)).join(', ')}` : ''; };
   const people = (ev.cast?.length ? ev.cast.map((m) => `${index.entityName(m.entity_id)} [${m.entity_id}${orgs(m.entity_id)}] from ${formatTick(toTick(m.at))} (${m.role})`) : ev.entity_ids.filter((x) => ['person', 'organization'].includes(index.entityKind(x))).map((x) => `${index.entityName(x)} [${x}${orgs(x)}]`));
@@ -467,6 +489,8 @@ export function candidateInput(index: WorldIndex, c: Candidate, tick: number, bl
     never_offer: ev.participation.offer === 'never',
     focus: c.focus,
     player_decision: blocked ? `${blocked.stance}: ${blocked.scopeLabel}` : null,
+    // the player's own organization takes part: a required contact
+    ...(profile && playerOrgsIn(index, profile, c, tick).length ? { player_org: playerOrgsIn(index, profile, c, tick).map((o) => index.entityName(o)).join(', ') } : {}),
   };
 }
 
@@ -479,6 +503,7 @@ export interface IntegrateOut {
     ref: string; target_event_id?: string | null; scope_kind: ScopeKind; scope_ref: string; scope_label?: string; kind: ContactInfo['contactKind'];
     direct_impact?: boolean; actors: string[]; motivation: string; knowledge: string; contact: string; establishes?: string[];
     earliest?: { day: number; minute: number } | null; latest?: { day: number; minute: number } | null; priority?: number; basis_refs?: string[]; side_job?: boolean;
+    required?: boolean; required_basis?: string;
   }[];
 }
 
@@ -574,9 +599,87 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
       earliest, latest, priority: Math.min(3, Math.max(1, Math.round(o.priority || 2))), focus: !!c?.focus, basisRefs,
       // a side job is only for a quiet day and never about a canonical event
       ...(isJob ? { sideJob: true, latest: Math.min(latest ?? Infinity, Math.floor(tick / 1440) * 1440 + JOB_DONE_BY), ...(newcomers.length ? { newcomers } : {}) } : {}),
+      // required needs a reason in the player's own position, and is never a small job
+      ...(o.required && o.required_basis?.trim() && !isJob ? { required: true, requiredBasis: o.required_basis.trim().slice(0, 300) } : {}),
     });
   }
   return { valid, dropped };
+}
+
+/** The organizations of the player's that take part in a candidate event (in its entities or cast), from the members
+ *  facts at the event's time. */
+export function playerOrgsIn(index: WorldIndex, profile: PlayerProfile, c: Candidate, tick: number): Id[] {
+  const mine = orgsOf(index, profile.playerId, Math.max(tick, c.lo));
+  const there = new Set([...c.event.entity_ids, ...(c.event.cast || []).map((m) => m.entity_id)]);
+  return mine.filter((o) => there.has(o));
+}
+
+/** Contacts the world must make: every event not yet settled that one of the player's organizations takes part in
+ *  (decided here from the members facts, not left to the model), and those the analysis marks required with a
+ *  reason. An organization event without a suggestion gets one: the organization calls the player in. Nothing the
+ *  player turned down (the event, its arc, the organization) is required. */
+export function withRequired(valid: Opportunity[], index: WorldIndex, profile: PlayerProfile, candidates: Candidate[], tick: number): Opportunity[] {
+  const eng = engagementView(index.state, index.pack);
+  const out = valid.map((o) => ({ ...o }));
+  for (const c of candidates) {
+    if (c.status === 'settled' || reached(index.state, { scopeKind: 'event', scopeRef: c.event.id, targetEventId: c.event.id, actors: [] })) continue;
+    const orgs = playerOrgsIn(index, profile, c, tick);
+    if (!orgs.length) continue;
+    const org = orgs[0];
+    if (eng.blockedBy({ eventId: c.event.id, scopeKind: 'faction', scopeRef: org, actors: [org] }, tick)) continue;
+    const basis = `the player is a member of ${index.entityName(org)}, which takes part in ${c.event.title}`;
+    const about = out.filter((o) => o.targetEventId === c.event.id || (o.scopeKind === 'event' && o.scopeRef === c.event.id));
+    if (about.length) { about.sort((a, b) => Number(b.actors.includes(org)) - Number(a.actors.includes(org)) || a.priority - b.priority)[0].required = true; about[0].requiredBasis ||= basis; continue; }
+    // who calls: the organization's people in the event (alive), else the organization itself
+    const members = memberships(index, Math.max(tick, c.lo)).get(org) || [];
+    const there = [...(c.event.cast || []).map((m) => m.entity_id), ...c.event.entity_ids].filter((x) => x !== profile.playerId && members.includes(x));
+    const actors = uniq(there).slice(0, 3);
+    const id = 'opp_' + sha256(`required|event|${c.event.id}|${org}`).slice(0, 10);
+    if (index.state.contacts.some((x) => x.opportunityId === id)) continue;
+    out.push({
+      id, scopeKind: 'event', scopeRef: c.event.id, scopeLabel: c.event.title, targetEventId: c.event.id, kind: 'request', directImpact: true,
+      actors: [...actors, org],
+      motivation: `${index.entityName(org)} takes part in ${c.event.title} and the player is one of its members.`,
+      knowledge: `They know the player as one of ${index.entityName(org)}.`,
+      contact: `${actors.length ? actors.map((a) => index.entityName(a)).join(', ') : `Someone of ${index.entityName(org)}`} reach the player through ${index.entityName(org)}'s usual channel and call them in for its part in ${c.event.title}.`,
+      establishes: [], earliest: null, latest: c.status === 'upcoming' ? c.lo : c.hi, priority: 1, focus: c.focus, basisRefs: [c.event.id],
+      required: true, requiredBasis: basis,
+    });
+  }
+  return out;
+}
+
+/** Whether a contact already reached the player about a matter: about its event or scope, or by its people. */
+export function reached(st: WorldState, o: Pick<Opportunity, 'scopeKind' | 'scopeRef' | 'targetEventId' | 'actors'>, contacts: Pick<ContactInfo, 'scopeKind' | 'scopeRef' | 'actors'>[] = st.contacts): boolean {
+  return contacts.some((x) => (x.scopeKind === o.scopeKind && x.scopeRef === o.scopeRef) || (!!o.targetEventId && x.scopeKind === 'event' && x.scopeRef === o.targetEventId)
+    || (x.scopeKind === 'faction' && o.actors.includes(x.scopeRef)));
+}
+
+/** The required contacts this reply must make: not made yet (no contact about the matter since it was suggested), its
+ *  event not settled, not turned down since, and due — its event begins within INTEGRATION_LEAD_MINUTES (or the time
+ *  jump crosses it). */
+export function dueRequired(cache: IntegrationCache | null, index: WorldIndex, tick: number, jumpTo: number | null = null): Opportunity[] {
+  if (!cache) return [];
+  const eng = engagementView(index.state, index.pack);
+  const until = Math.max(tick + INTEGRATION_LEAD_MINUTES, jumpTo ?? 0);
+  return cache.opportunities.filter((o) => {
+    if (!o.required) return false;
+    if (o.latest !== null && o.latest < tick) return false;
+    if (o.targetEventId && index.state.dispositions.has(o.targetEventId)) return false;
+    const t = o.targetEventId ? index.pack.timeIndex.find((x) => x.id === o.targetEventId) : null;
+    if (t && t.lo > until) return false;
+    if (index.state.contacts.some((x) => x.opportunityId === o.id) || reached(index.state, o)) return false;
+    return !eng.blockedBy({ eventId: o.targetEventId, scopeKind: o.scopeKind, scopeRef: o.scopeRef, actors: o.actors }, tick);
+  });
+}
+
+export function requiredSection(index: WorldIndex, list: Opportunity[], origin: { y: number; m: number; d: number } | null): string {
+  if (!list.length) return '';
+  const lines = list.map((o) => {
+    const t = o.targetEventId ? index.pack.timeIndex.find((x) => x.id === o.targetEventId) : null;
+    return `- ${opportunityBy(index, o).join(', ')}: ${o.contact} Why it must reach them: ${o.requiredBasis || o.motivation}. What they know about the player: ${o.knowledge}${t ? ` ${o.scopeLabel} begins ${formatTick(t.lo, origin)}.` : ''}`;
+  });
+  return `WORLD REACTION — REQUIRED (the player's own position binds them to this; it reaches them in THIS reply, wherever they are and whatever they are doing: a call, a message or someone arriving. Bring it after what the player does in this reply; when the matter begins before that would end, it interrupts. Keep everyone in character; whether and how the player answers or goes is up to the player — never decide it for them):\n${lines.join('\n')}`;
 }
 
 /** At most one new contact for this reply: one that can happen now, not in a busy scene (an event under way
@@ -603,6 +706,7 @@ export function selectOpportunity(cache: IntegrationCache | null, index: WorldIn
   const eng = engagementView(index.state, index.pack);
   const pending = unanswered(index.state, tick);
   const ok = cache.opportunities.filter((o) => {
+    if (o.required) return false;
     if (o.latest !== null && o.latest < tick) return false;
     if (o.earliest !== null && o.earliest > tick + OFFER_SOON_MINUTES) return false;
     // in the middle of an event only what already reaches the player — or a matter the player marked 优先

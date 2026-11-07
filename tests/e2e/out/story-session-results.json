@@ -1,5 +1,5 @@
 {
- "at": "2026-10-28T07:09:26.143Z",
+ "at": "2026-11-07T15:38:13.877Z",
  "results": [
   {
    "name": "Wizard preview shows title/version, validation, coverage and Hard count",
@@ -44,7 +44,7 @@
   {
    "name": "After reload the compact status is visible and ready; banner restored with the variant",
    "pass": true,
-   "detail": "Canon\n就绪\n检查面板"
+   "detail": "Canon\n就绪\n时间跳跃\n检查面板"
   },
   {
    "name": "Play continues normally after reload",
@@ -54,7 +54,7 @@
   {
    "name": "Imported pack was saved to the library (ST user files) and is listed in a new chat",
    "pass": true,
-   "detail": "/user/files/canon-pack-demo-harbor-1_0_0-07bb05204f.json | 历史包库 Harbor Convergence — Synthetic Example v1.0.0 · 17 KB\n      \n      用此包启用\n      ✕"
+   "detail": "/user/files/canon-pack-demo-harbor-1_0_0-07bb05204f.json | 历史包库 Harbor Convergence — Synthetic Example v1.0.0 · 17 KB\n      查看\n      \n      用此包启用\n      ✕"
   },
   {
    "name": "Choosing the saved pack opens the binding wizard",

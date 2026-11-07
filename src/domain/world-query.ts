@@ -6,6 +6,7 @@ import { normalizeName } from './pack';
 import type { Checkpoint, OccurrenceEntry, WorldState } from './reducer';
 import { factAt, factKey, factHistory } from './reducer';
 import { formatStoryTime, formatTick } from './time';
+import { deltaText } from './delta';
 
 export interface ResolvedRef {
   phrase: string;
@@ -264,7 +265,7 @@ export class WorldIndex {
       actors: o.actors.map((x) => this.entityName(x)),
       affected: o.affected.map((x) => this.entityName(x)),
       locations: o.locations.map((x) => this.entityName(x)),
-      outcome: o.outcome.map((d) => (d.op === 'set' ? `${this.entityName(d.entity_id)}.${d.predicate}=${JSON.stringify(d.value)}` : `${this.entityName(d.entity_id)}.${d.predicate} unset`)),
+      outcome: o.outcome.map((d) => deltaText(d, (x) => (this.entityExists(x) ? this.entityName(x) : x))),
       causes: o.causes.map((c) => ({ occurrenceId: c, title: this.state.occurrences.get(c)?.title || c })),
       consequences: [...(this.reverseCauses.get(id) || [])].map((c) => ({ occurrenceId: c, title: this.state.occurrences.get(c)?.title || c })),
       laterChanges: later,
