@@ -2192,7 +2192,7 @@ export class CanonEngine {
     // the small matters the player was actually brought (records: they follow edits, swipes and deletes), so the next one differs
     const recentJobs = index.state.contacts.filter((k) => k.sideJob).slice(-8).map((k) => `${k.actors.map((a) => index.entityName(a)).join(', ') || k.scopeLabel}: ${k.job || k.quote}`.slice(0, 300));
     const out = await this.withTimeout(callStructured<IntegrateOut>(this.host.model, 'integrate', PROMPTS.integrate, {
-      now: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
+      now: { label: formatTick(tick, c.binding.originDate || null), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...(jumpTo ? { time_jump_to: formatTick(jumpTo) } : {}),
       player_input: this.ooc(userEntry?.text).story,
       recent_scene: this.recentSituation(index),

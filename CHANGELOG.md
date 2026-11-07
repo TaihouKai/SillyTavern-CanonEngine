@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.23.1 — 2026-11-08
+
+- **The player's history is their own, and old history is old.** Live: a new member of an organization was given the organization's year-old kidnapping of a member as their "actual history" (labelled only `D-313` next to `D61`), and the analysis turned it into "she has been missing since this morning", which the GM wrote. Now:
+  - `actual_history` holds only what the player took part in (not every occurrence of their organizations and places); `playLinks` likewise.
+  - New `lately`: what the player's organizations and places went through without them in the last 30 days (`LATELY_DAYS`), labelled as background, not the player's history.
+  - Every time given to the analysis steps is a date with how long ago it was (`agoLabel`: "5 days ago", "about a year ago"); the integrate task's `now` carries the date too.
+  - Connections show the person's facts now (whereabouts, alive…) for people as well as organizations, in the analysis input and in the GM's PLAYER IN THIS WORLD.
+  - `checkOpportunities` drops a suggestion that rests only on history over for more than 30 days that the player had no part in.
+  - Tests: `tests/unit/history.test.ts` (HI1).
+
 ## 1.23.0 — 2026-11-08
 
 - **Relationships and who knows what follow play.** The player's connections and knowers were read once from the Persona and never changed: a friend the player fell out with stayed a "close friend" in every GM prompt, and someone who found out the player's secret was never a knower. Now:

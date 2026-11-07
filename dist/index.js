@@ -17840,6 +17840,17 @@ function formatTick(tick, origin) {
   }
   return `D${t2.day} ${hhmm}`;
 }
+function agoLabel(then, now) {
+  const d = Math.floor(now / DAY) - Math.floor(then / DAY);
+  if (d < 0) return "later";
+  if (d === 0) return "today";
+  if (d === 1) return "yesterday";
+  if (d < 14) return `${d} days ago`;
+  if (d < 60) return `about ${Math.round(d / 7)} weeks ago`;
+  if (d < 365) return `about ${Math.round(d / 30)} months ago`;
+  const y = Math.round(d / 365);
+  return y === 1 ? "about a year ago" : `about ${y} years ago`;
+}
 function formatStoryTime(st, origin) {
   if (!st) return "?";
   if (st.lo === st.hi) return formatTick(st.lo, origin);
@@ -18875,11 +18886,11 @@ function occurrenceWindow(c, fromExclusive, toInclusive) {
   const hi = Math.min(c.hi, toInclusive);
   return { lo: Math.min(lo, hi), hi, precision: lo === hi ? "minute" : "range" };
 }
-function adjudicateDefault(pack2, state, c, when, origin = "offscreen") {
+function adjudicateDefault(pack2, state, c, when2, origin = "offscreen") {
   const ev = c.event;
-  const v = evalCondition(ev.canonical_preconditions, state, pack2, { tick: when.lo });
+  const v = evalCondition(ev.canonical_preconditions, state, pack2, { tick: when2.lo });
   const precondition = triLabel(v);
-  const explanation = v === true ? [] : explainCondition(ev.canonical_preconditions, state, pack2, when.lo);
+  const explanation = v === true ? [] : explainCondition(ev.canonical_preconditions, state, pack2, when2.lo);
   if (v === true) {
     const occId = newId("occ");
     const deltas = effectsToDeltas(ev.canonical_effects);
@@ -18890,7 +18901,7 @@ function adjudicateDefault(pack2, state, c, when, origin = "offscreen") {
       actors: ev.entity_ids,
       affected: ev.entity_ids,
       locations: ev.location_ids,
-      time: when,
+      time: when2,
       outcome: deltas,
       causes: [],
       refPhrases: [ev.title],
@@ -18906,7 +18917,7 @@ function adjudicateDefault(pack2, state, c, when, origin = "offscreen") {
       record: {
         recordId: newId("rec"),
         kind: "canon_occurrence",
-        storyTime: when,
+        storyTime: when2,
         sourceRefs: [],
         factsSetOrUnset: deltas,
         eventOccurrenceIds: [occId],
@@ -18929,7 +18940,7 @@ function adjudicateDefault(pack2, state, c, when, origin = "offscreen") {
       record: {
         recordId: newId("rec"),
         kind: "canon_disposition",
-        storyTime: when,
+        storyTime: when2,
         sourceRefs: [],
         factsSetOrUnset: [],
         eventOccurrenceIds: [],
@@ -18948,7 +18959,7 @@ function forcedCompletion(pack2, state, eventId, nowTick) {
   const ev = pack2.events.get(eventId);
   if (!ev) throw new Error(`unknown event ${eventId}`);
   const t2 = pack2.timeIndex.find((x) => x.id === eventId);
-  const when = !t2 || t2.lo > nowTick ? { lo: nowTick, hi: nowTick, precision: "minute" } : t2.hi <= nowTick ? { lo: t2.lo, hi: t2.hi, precision: t2.lo === t2.hi ? "minute" : "range" } : { lo: t2.lo, hi: nowTick, precision: t2.lo === nowTick ? "minute" : "range" };
+  const when2 = !t2 || t2.lo > nowTick ? { lo: nowTick, hi: nowTick, precision: "minute" } : t2.hi <= nowTick ? { lo: t2.lo, hi: t2.hi, precision: t2.lo === t2.hi ? "minute" : "range" } : { lo: t2.lo, hi: nowTick, precision: t2.lo === nowTick ? "minute" : "range" };
   const deltas = withOutcomes(effectsToDeltas(ev.canonical_effects), ev.outcomes);
   const zh = /^zh/i.test(pack2.pack.language);
   const occId = newId("occ");
@@ -18956,7 +18967,7 @@ function forcedCompletion(pack2, state, eventId, nowTick) {
   return {
     recordId: newId("rec"),
     kind: "canon_occurrence",
-    storyTime: when,
+    storyTime: when2,
     sourceRefs: [],
     factsSetOrUnset: deltas,
     eventOccurrenceIds: [occId],
@@ -18967,7 +18978,7 @@ function forcedCompletion(pack2, state, eventId, nowTick) {
       actors: ev.entity_ids,
       affected: ev.entity_ids,
       locations: ev.location_ids,
-      time: when,
+      time: when2,
       outcome: deltas,
       causes: [],
       refPhrases: [ev.title],
@@ -18989,7 +19000,7 @@ function linkedCompletion(pack2, state, eventId, beatIds, disposition) {
   if (!ev) throw new Error(`unknown event ${eventId}`);
   const beats = beatIds.map((id) => state.occurrences.get(id)).filter(Boolean);
   if (!beats.length) throw new Error("no story events to link");
-  const when = { lo: Math.min(...beats.map((b) => b.time.lo)), hi: Math.max(...beats.map((b) => b.time.hi)), precision: "range" };
+  const when2 = { lo: Math.min(...beats.map((b) => b.time.lo)), hi: Math.max(...beats.map((b) => b.time.hi)), precision: "range" };
   const deltas = disposition === "occurred" ? withOutcomes(effectsToDeltas(ev.canonical_effects), ev.outcomes) : [];
   const zh = /^zh/i.test(pack2.pack.language);
   const uniqIds = (xs) => [...new Set(xs)];
@@ -18999,7 +19010,7 @@ function linkedCompletion(pack2, state, eventId, beatIds, disposition) {
   return {
     recordId: newId("rec"),
     kind: "canon_occurrence",
-    storyTime: when,
+    storyTime: when2,
     sourceRefs: [],
     factsSetOrUnset: deltas,
     eventOccurrenceIds: [occId],
@@ -19010,7 +19021,7 @@ function linkedCompletion(pack2, state, eventId, beatIds, disposition) {
       actors: uniqIds(beats.flatMap((b) => b.actors)),
       affected: uniqIds(beats.flatMap((b) => b.affected)),
       locations: uniqIds(beats.flatMap((b) => b.locations)),
-      time: when,
+      time: when2,
       outcome: deltas,
       causes: beats.map((b) => b.occurrenceId),
       refPhrases: [ev.title],
@@ -19084,8 +19095,8 @@ function buildBootstrap(pack2, startTick) {
   for (const t2 of pack2.timeIndex) {
     const ev = pack2.events.get(t2.id);
     if (t2.hi < startTick) {
-      const when = { lo: t2.lo, hi: t2.hi, precision: t2.lo === t2.hi ? "minute" : "range" };
-      const p = adjudicateDefault(pack2, scratch, { event: ev, lo: t2.lo, hi: t2.hi }, when, "bootstrap");
+      const when2 = { lo: t2.lo, hi: t2.hi, precision: t2.lo === t2.hi ? "minute" : "range" };
+      const p = adjudicateDefault(pack2, scratch, { event: ev, lo: t2.lo, hi: t2.hi }, when2, "bootstrap");
       let rec = p.record;
       if (!rec && ev.classification === "HARD") {
         const occId = newId("occ");
@@ -19093,11 +19104,11 @@ function buildBootstrap(pack2, startTick) {
         rec = {
           recordId: newId("rec"),
           kind: "canon_occurrence",
-          storyTime: when,
+          storyTime: when2,
           sourceRefs: [],
           factsSetOrUnset: deltas,
           eventOccurrenceIds: [occId],
-          occurrences: [{ occurrenceId: occId, title: ev.title, account: ev.summary, actors: ev.entity_ids, affected: ev.entity_ids, locations: ev.location_ids, time: when, outcome: deltas, causes: [], refPhrases: [ev.title], packEventId: ev.id, origin: "bootstrap", visibility: ev.visibility }],
+          occurrences: [{ occurrenceId: occId, title: ev.title, account: ev.summary, actors: ev.entity_ids, affected: ev.entity_ids, locations: ev.location_ids, time: when2, outcome: deltas, causes: [], refPhrases: [ev.title], packEventId: ev.id, origin: "bootstrap", visibility: ev.visibility }],
           visibility: ev.visibility,
           summary: `${ev.title}: HARD baseline occurrence before start`,
           evidenceKind: "bootstrap",
@@ -23134,27 +23145,37 @@ var STANDING = {
   former: "NOT a member (a former member)"
 };
 var LEVEL = { exists: "knows the organization exists (not that the player is in it)", identity: "knows who the player is / their role", secrets: "knows" };
-function factsLine(index, id, tick) {
+function factsLine(index, id, tick, max = 0) {
   if (!index.entityExists(id)) return "";
   const s = index.entityState(id, { tick });
-  return s.facts.length ? ` [now: ${s.facts.map((f) => `${f.predicate}=${f.display}`).join("; ")}]` : "";
+  const text = s.facts.map((f) => `${f.predicate}=${f.display}`).join("; ");
+  return text ? ` [now: ${max && text.length > max ? text.slice(0, max - 1) + "\u2026" : text}]` : "";
 }
-function playerHistory(index, profile2, withIds = [], limit = 30) {
-  const ids = /* @__PURE__ */ new Set();
-  for (const e of playerIds(profile2)) for (const o of index.occurrencesForEntity(e)) ids.add(o);
-  const occs = [...ids].map((id) => index.state.occurrences.get(id)).filter(Boolean).sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq);
+function when(t2, now) {
+  return `${formatTick(t2, WorldIndex.displayOrigin)}, ${agoLabel(t2, now)}`;
+}
+var LATELY_DAYS = 30;
+function playerHistory(index, profile2, tick, withIds = [], limit = 30) {
+  const occs = index.occurrencesForEntity(profile2.playerId).map((id) => index.state.occurrences.get(id)).filter(Boolean).sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq);
   const withSet = new Set(withIds);
   const keyed = occs.filter((o) => [...o.actors, ...o.affected].some((x) => withSet.has(x)));
   const rest = occs.filter((o) => !keyed.includes(o)).slice(-Math.max(0, limit - keyed.length));
-  return [...keyed, ...rest].sort((a, b) => a.time.lo - b.time.lo).map((o) => ({ id: o.occurrenceId, time: formatTick(o.time.lo), title: o.title, account: o.account.length > 240 ? o.account.slice(0, 237) + "\u2026" : o.account, actors: o.actors.map((a) => index.entityName(a)) }));
+  return [...keyed, ...rest].sort((a, b) => a.time.lo - b.time.lo).map((o) => ({ id: o.occurrenceId, time: when(o.time.lo, tick), title: o.title, account: o.account.length > 240 ? o.account.slice(0, 237) + "\u2026" : o.account, actors: o.actors.map((a) => index.entityName(a)) }));
+}
+function lately(index, profile2, tick, perEntity = 6) {
+  const from = tick - LATELY_DAYS * 1440;
+  const of = (id) => index.occurrencesForEntity(id).map((x) => index.state.occurrences.get(x)).filter((o) => o && o.time.lo <= tick && o.time.hi >= from && ![...o.actors, ...o.affected].includes(profile2.playerId)).sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq).slice(-perEntity).map((o) => ({ id: o.occurrenceId, time: when(o.time.lo, tick), title: o.title, account: o.account.length > 200 ? o.account.slice(0, 197) + "\u2026" : o.account }));
+  return [
+    ...playerOrgs(index, profile2, tick).map((o) => ({ of: o.name, id: o.id, player_standing: STANDING[o.standing], events: of(o.id) })),
+    ...profile2.places.map((p) => ({ of: p.name, id: p.entityId, events: of(p.entityId) }))
+  ].filter((x) => x.events.length);
 }
 function playLinks(index, profile2, limit = 12) {
-  const mine = new Set(playerIds(profile2));
   const seen = /* @__PURE__ */ new Map();
-  for (const e of mine) for (const oid of index.occurrencesForEntity(e)) {
+  for (const oid of index.occurrencesForEntity(profile2.playerId)) {
     const o = index.state.occurrences.get(oid);
     if (!o) continue;
-    for (const x of [...o.actors, ...o.affected]) if (!mine.has(x) && ["person", "organization"].includes(index.entityKind(x))) seen.set(x, Math.max(seen.get(x) ?? -1, o.seq));
+    for (const x of [...o.actors, ...o.affected]) if (x !== profile2.playerId && ["person", "organization"].includes(index.entityKind(x))) seen.set(x, Math.max(seen.get(x) ?? -1, o.seq));
   }
   return [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => id);
 }
@@ -23173,12 +23194,13 @@ function playerContext(index, profile2, tick, opts = {}) {
     goals: profile2.goals,
     ...profile2.roles?.length ? { roles: profile2.roles } : {},
     ...profile2.notSuited?.length ? { not_suited: profile2.notSuited } : {},
-    relationships: byChange(profile2.relationships).map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis, ...r.ended ? { ended: true } : {}, ...r.changed ? { since: formatTick(r.changed.since), ...r.changed.start ? { at_start: r.changed.start } : {} } : {}, ...r.entityId && index.entityKind(r.entityId) === "organization" ? { now: factsLine(index, r.entityId, tick).trim() } : {} })),
-    knowers: byChange(profile2.knowers).map((k) => ({ who: k.who, id: k.entityId, level: k.level, about: k.about, basis: k.basis, ...k.changed ? { since: formatTick(k.changed.since) } : {} })),
+    relationships: byChange(profile2.relationships).map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis, ...r.ended ? { ended: true } : {}, ...r.changed ? { since: when(r.changed.since, tick), ...r.changed.start ? { at_start: r.changed.start } : {} } : {}, ...r.entityId && factsLine(index, r.entityId, tick) ? { now: factsLine(index, r.entityId, tick, 300).trim() } : {} })),
+    knowers: byChange(profile2.knowers).map((k) => ({ who: k.who, id: k.entityId, level: k.level, about: k.about, basis: k.basis, ...k.changed ? { since: when(k.changed.since, tick) } : {} })),
     now: factsLine(index, profile2.playerId, tick).trim(),
-    actual_history: playerHistory(index, profile2, opts.historyWith || [], opts.historyLimit ?? 30),
+    actual_history: playerHistory(index, profile2, tick, opts.historyWith || [], opts.historyLimit ?? 30),
+    lately: lately(index, profile2, tick),
     decisions: eng.lines(tick),
-    profile_note: "From the player's standard Persona description (revision with its own source) and actual play; actual history wins over the Persona when they differ."
+    profile_note: `From the player's standard Persona description (revision with its own source) and actual play; actual history wins over the Persona when they differ. actual_history is what the player themself took part in; lately is what their organizations and places went through without them (the last 30 days) \u2014 not the player's history, and over unless it says otherwise. Every time says how long ago it was: what happened long ago is over; what it set in motion shows in the facts "now" of the people and places.`
   };
 }
 function playerContextHash(index, profile2, persona) {
@@ -23478,6 +23500,16 @@ function checkOpportunities(out, index, profile2, candidates, tick, quiet = fals
       continue;
     }
     const basisRefs = uniq((o.basis_refs || []).filter((b) => st.occurrences.has(b) || pack2.events.has(b)));
+    const old = (b) => {
+      const oc = st.occurrences.get(b);
+      if (oc) return oc.time.hi < tick - LATELY_DAYS * 1440 && ![...oc.actors, ...oc.affected].includes(profile2.playerId);
+      const d = st.dispositions.get(b);
+      return !!d && d.tick < tick - LATELY_DAYS * 1440;
+    };
+    if (!targetEventId && basisRefs.length && basisRefs.every(old)) {
+      dropped.push({ id: ref, reason: "it rests only on history long over that the player had no part in" });
+      continue;
+    }
     const blocked = eng.blockedBy({ eventId: targetEventId, scopeKind, scopeRef, actors }, tick);
     if (blocked) {
       const actualCause = basisRefs.some((b) => {
@@ -23686,7 +23718,7 @@ function presenceSection(index, profile2, tick) {
   if (profile2.roles?.length) lines.push(`- roles: ${profile2.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(", "), r.from.length ? `from ${r.from.join(", ")}` : ""].filter(Boolean).join("; ")})` : ""}`).join(" | ")}`);
   if (profile2.notSuited?.length) lines.push(`- does not take on: ${profile2.notSuited.join("; ")}`);
   if (profile2.voice) lines.push(`- how they come across and talk (write the player character's lines and reactions this way): ${profile2.voice}`);
-  for (const r of byChange(profile2.relationships).slice(0, 16)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ""} \u2014 ${r.ended ? "ENDED: " : ""}${r.relation} (${tieSource(r)})${r.entityId && index.entityKind(r.entityId) === "organization" ? factsLine(index, r.entityId, tick) : ""}`);
+  for (const r of byChange(profile2.relationships).slice(0, 16)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ""} \u2014 ${r.ended ? "ENDED: " : ""}${r.relation} (${tieSource(r)})${r.entityId ? factsLine(index, r.entityId, tick, 300) : ""}`);
   for (const k of byChange(profile2.knowers).slice(0, 16)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === "secrets" ? ":" : " \u2014"} ${k.about} (${tieSource(k)})`);
   return lines.join("\n");
 }
@@ -23707,10 +23739,10 @@ function opportunityBy(index, o) {
 }
 function worldReactionSection(index, o, origin) {
   const who = opportunityBy(index, o).join(", ");
-  const when = o.earliest !== null ? ` It can happen from ${formatTick(o.earliest, origin)}${o.latest !== null ? ` until ${formatTick(o.latest, origin)}` : ""}; if this reply ends before then, it has not happened yet.` : "";
+  const when2 = o.earliest !== null ? ` It can happen from ${formatTick(o.earliest, origin)}${o.latest !== null ? ` until ${formatTick(o.latest, origin)}` : ""}; if this reply ends before then, it has not happened yet.` : "";
   const head = o.sideJob ? "WORLD REACTION (optional: a small matter the player may take up today. It does not mean the player is free today \u2014 their own plans and the current scene come first. Bring it in only at a natural pause or change of scene; never interrupt a private, intimate or continuous scene with it (no message, call or knock arriving mid-scene); if it does not fit this reply, leave it out without comment \u2014 it stays available for later today. NOT history; keep everyone in character; whether and when to look at it or answer it is up to the player: a message may simply arrive and stay unanswered)" : "WORLD REACTION (optional for this reply \u2014 NOT history; use it only if it fits the scene and its time; never interrupt a private, intimate or continuous scene with it; keep everyone in character and leave the player's answer to the player; not using it is fine, without comment)";
   return `${head}:
-- ${who}: ${o.contact} Why: ${o.motivation} What they know about the player: ${o.knowledge}${o.establishes.length ? ` May establish: ${o.establishes.join("; ")}.` : ""}${when}`;
+- ${who}: ${o.contact} Why: ${o.motivation} What they know about the player: ${o.knowledge}${o.establishes.length ? ` May establish: ${o.establishes.join("; ")}.` : ""}${when2}`;
 }
 function engagementRecord(s0, index, tick, src) {
   let s = s0;
@@ -23831,8 +23863,8 @@ function companionSection(index, list, known, tick, origin, causeOf2) {
   const lines = list.map((c) => {
     const who = index.entityName(c.personId);
     const k = known[foreknowKey(c)];
-    const when = c.lo > tick ? `starts ${formatTick(c.lo, origin)} (in ${Math.max(1, Math.round((c.lo - tick) / 60 * 10) / 10)} h)` : `can start now (until ${formatTick(c.hi, origin)})`;
-    const head = `- ${who} \u2014 \u300C${c.event.title}\u300D [${c.event.id}] (${c.event.classification}) ${when}: ${causeOf2(c.event)}`;
+    const when2 = c.lo > tick ? `starts ${formatTick(c.lo, origin)} (in ${Math.max(1, Math.round((c.lo - tick) / 60 * 10) / 10)} h)` : `can start now (until ${formatTick(c.hi, origin)})`;
+    const head = `- ${who} \u2014 \u300C${c.event.title}\u300D [${c.event.id}] (${c.event.classification}) ${when2}: ${causeOf2(c.event)}`;
     const hard = c.event.classification === "HARD" ? " It must happen (HARD)." : "";
     if (c.declined) return `${head}
   The player declined to take part in it: ${who} leaves at a natural moment before it, or it happens to ${who} after they part; do not pull the player in.${hard}`;
@@ -23927,7 +23959,7 @@ var LEAP_DETAILED_MAX = 150;
 var LEAP_LINES_CHARS = 4e4;
 function leapEventInput(index, list, origin, focus = /* @__PURE__ */ new Set(), playerId = null) {
   const pack2 = index.pack;
-  const when = (x) => x.lo === x.hi ? formatTick(x.lo, origin) : `${formatTick(x.lo, origin)} \u2013 ${formatTick(x.hi, origin)}`;
+  const when2 = (x) => x.lo === x.hi ? formatTick(x.lo, origin) : `${formatTick(x.lo, origin)} \u2013 ${formatTick(x.hi, origin)}`;
   const myOrgs = (x) => {
     if (!playerId) return [];
     const ev = pack2.events.get(x.id);
@@ -23949,7 +23981,7 @@ function leapEventInput(index, list, origin, focus = /* @__PURE__ */ new Set(), 
       id: ev.id,
       title: ev.title,
       class: ev.classification,
-      when: when(x),
+      when: when2(x),
       ...people.length ? { people } : {},
       original: s.length > room ? s.slice(0, room - 1) + "\u2026" : s,
       ...ev.classification === "HARD" ? { required: ev.required_description } : {},
@@ -24025,8 +24057,8 @@ function checkLeapPlan(out, pack2, list) {
 }
 function leapRecord(pack2, state, ev, d, playerId) {
   const event = pack2.events.get(ev.id);
-  const when = occurrenceWindow({ event, lo: ev.lo, hi: ev.hi }, -Infinity, ev.hi);
-  const base = adjudicateDefault(pack2, state, { event, lo: ev.lo, hi: ev.hi }, when);
+  const when2 = occurrenceWindow({ event, lo: ev.lo, hi: ev.hi }, -Infinity, ev.hi);
+  const base = adjudicateDefault(pack2, state, { event, lo: ev.lo, hi: ev.hi }, when2);
   const occurred = d.decision !== "omitted";
   const deltas = d.decision === "occurred" ? effectsToDeltas(event.canonical_effects) : [];
   if (event.classification === "HARD") withOutcomes(deltas, event.outcomes);
@@ -24038,7 +24070,7 @@ function leapRecord(pack2, state, ev, d, playerId) {
     actors: uniq([...event.entity_ids, ...d.part && playerId ? [playerId] : []]),
     affected: event.entity_ids,
     locations: event.location_ids,
-    time: when,
+    time: when2,
     outcome: deltas,
     causes: [],
     refPhrases: [event.title],
@@ -24049,7 +24081,7 @@ function leapRecord(pack2, state, ev, d, playerId) {
   return {
     recordId: newId("rec"),
     kind: occurred ? "canon_occurrence" : "canon_disposition",
-    storyTime: when,
+    storyTime: when2,
     sourceRefs: [],
     factsSetOrUnset: deltas,
     eventOccurrenceIds: occ ? [occId] : [],
@@ -24187,9 +24219,9 @@ TASK: Read the player's Persona (their character in this story world) and descri
 Write in the Persona's language. Keep each text short.
 SHAPE: {"player":{"name":"","aliases":[],"summary":"","public_identity":""},"affiliations":[{"name":"","existing_id":null,"kind":"organization","role":"","leads":false,"members":[],"secrecy":"secret","description":""}],"places":[{"name":"","existing_id":null,"use":"","description":""}],"capabilities":[],"resources":[],"goals":[],"roles":[{"role":"","brings":[],"from":[],"style":""}],"not_suited":[],"voice":"","relationships":[{"name":"","existing_id":null,"relation":"","basis":"persona_stated"}],"knowers":[{"who":"","existing_id":null,"level":"exists","about":"","basis":"implied","places":[]}],"recognized_by":[{"who":"","existing_id":null,"places":[],"everywhere":false,"as":""}],"uncertain":[],"world_changes":[{"text":"","terms":[]}]}`,
   integrate: `${COMMON}
-TASK: The story world reacts to the player character. Given who the player is (player: identity, organizations, who knows what about them), what actually happened with them (player.actual_history), what is happening or about to happen (candidate_events, each with its people and status), and the player's own decisions (engagement), work out how the world could reach the player now, so that they become part of the story without having to look for a way in.
+TASK: The story world reacts to the player character. Given who the player is (player: identity, organizations, who knows what about them), what actually happened with them (player.actual_history: only what they themself took part in; player.lately: what their organizations and places went through without them in the last weeks \u2014 background, not their history), what is happening or about to happen (candidate_events, each with its people and status), and the player's own decisions (engagement), work out how the world could reach the player now, so that they become part of the story without having to look for a way in.
 1. assessments: for each candidate event (and any situation from actual history worth it): direct_impact (something already in motion reaches or affects the player: someone who knows of them has their own reason to act toward them, or the event's effects reach where they are), opportunity (a plausible, interesting contact could be made), or no_connection; with a short reason.
-2. opportunities: up to 5, best first, and varied: at most 2 about the same thing (the same event, arc, organization or situation). When another candidate event allows a plausible contact, include it too \u2014 also while the player is busy with an event under way \u2014 so the player always has more than one way to go and is never locked into one storyline. Each: actors (registry ids of people/organizations who exist and are free to act), motivation (their own interest), knowledge (what they know about the player and how, within player.knowers' levels: someone who only knows an organization exists cannot address the player by name; nobody knows a secret not given to them; without a plausible knower use a public channel \u2014 news, a chance encounter \u2014 or nothing), contact (how they reach the player: an invitation, a request, news through a channel the player has, a probe, a hostile act, a consequence reaching them, an encounter), kind, earliest/latest (when it can happen, within the event's time; null when any time soon), establishes (new details it would introduce, e.g. a messenger), scope (what being drawn in is about: "event" + event id, "arc" + arc id for a whole storyline, "faction" + organization id when it is about working for them; "storyline" + a label for a situation from history), target_event_id, direct_impact, basis_refs (occurrence ids from actual history and/or event ids it rests on), priority 1 (strong) to 3.
+2. opportunities: up to 5, best first, and varied: at most 2 about the same thing (the same event, arc, organization or situation). When another candidate event allows a plausible contact, include it too \u2014 also while the player is busy with an event under way \u2014 so the player always has more than one way to go and is never locked into one storyline. Each: actors (registry ids of people/organizations who exist and are free to act), motivation (their own interest), knowledge (what they know about the player and how, within player.knowers' levels: someone who only knows an organization exists cannot address the player by name; nobody knows a secret not given to them; without a plausible knower use a public channel \u2014 news, a chance encounter \u2014 or nothing), contact (how they reach the player: an invitation, a request, news through a channel the player has, a probe, a hostile act, a consequence reaching them, an encounter), kind, earliest/latest (when it can happen, within the event's time; null when any time soon), establishes (new details it would introduce, e.g. a messenger), scope (what being drawn in is about: "event" + event id, "arc" + arc id for a whole storyline, "faction" + organization id when it is about working for them; "storyline" + a label for a situation from history), target_event_id, direct_impact, basis_refs (occurrence ids from actual history or lately and/or event ids it rests on; every time there says how long ago it was \u2014 something long over is not happening now, and a person's "now" facts say where they are and how they are), priority 1 (strong) to 3.
 Favor involvement: prefer the development that gives the player a part to play; plausible coincidences and a touch of protagonist luck are fine. But:
 - characters stay in character and act on their own motives; nobody reaches out only to drag the player in;
 - never guarantee an event's start, course or result; never bring back an event that is settled or whose original conditions failed (a settled event may still have consequences: kind "consequence", or news of what happened: kind "information" \u2014 never an invitation or request to take part in it);
@@ -25484,7 +25516,7 @@ async function adjudicateInterval(args) {
       notes.push(`${formatTick(r.storyTime.lo)} ${c.event.title}: ${r.disposition} (time leap)`);
       continue;
     }
-    const when = occurrenceWindow(c, -Infinity, args.toInclusive);
+    const when2 = occurrenceWindow(c, -Infinity, args.toInclusive);
     const windowStillOpen = c.hi > args.toInclusive;
     if (windowStillOpen) continue;
     if (underWay.has(c.event.id) && args.toInclusive <= c.hi) continue;
@@ -25498,10 +25530,10 @@ async function adjudicateInterval(args) {
         continue;
       }
     }
-    const p = adjudicateDefault(pack2, scratch, c, when);
+    const p = adjudicateDefault(pack2, scratch, c, when2);
     const play = p.mode === "deterministic" && p.record?.disposition === "occurred" && c.event.classification !== "HARD" && args.port && !args.leap ? recentPlay(pack2, scratch, c) : [];
     if (play.length) {
-      let judged = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, play);
+      let judged = await modelAdjudicate(args, scratch, c, when2, p.precondition, p.explanation, false, play);
       if (judged?.record?.disposition === "omitted" && !rulesOut(pack2, scratch, c, judged.cited || [])) {
         notes.push(`${c.event.title}: omission not backed by an actual record (${judged.record.dispositionReason || "no reason"}) \u2014 original route kept`);
         judged = null;
@@ -25523,23 +25555,23 @@ async function adjudicateInterval(args) {
       basis.push({ eventId: c.event.id, precondition: p.precondition, mode: "deterministic" });
       applyRecord(scratch, { ...p.record, sequence: ++seq, branchId: "stage", commitId: "stage" });
       if (c.event.classification === "HARD" && p.record.occurrences?.[0]) stagedHard.set(c.event.id, p.record.occurrences[0]);
-      notes.push(`${formatTick(when.lo)} ${c.event.title}: ${p.record.disposition}${p.record.disposition !== "occurred" ? " \u2014 " + p.record.dispositionReason : ""}`);
+      notes.push(`${formatTick(when2.lo)} ${c.event.title}: ${p.record.disposition}${p.record.disposition !== "occurred" ? " \u2014 " + p.record.dispositionReason : ""}`);
       continue;
     }
     if (!args.port) throw new EngineError("provider_failure", `Event "${c.event.title}" needs model adjudication but no model is available`);
     const playU = c.event.classification !== "HARD" && !args.leap ? recentPlay(pack2, scratch, c) : [];
-    const rec = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, playU);
+    const rec = await modelAdjudicate(args, scratch, c, when2, p.precondition, p.explanation, false, playU);
     let result = rec;
     if (!result && c.event.classification === "HARD" && args.forcedAllowed) {
       forcedUsed = true;
-      result = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, true);
+      result = await modelAdjudicate(args, scratch, c, when2, p.precondition, p.explanation, true);
     }
     if (!result) {
       if (c.event.classification === "HARD") throw new EngineError("narrative_validation_failure", `Could not produce a valid adjudication for HARD "${c.event.title}" at ${formatTick(c.hi)}. The deadline cannot be skipped; retry or adjust the scene.`);
       const r = {
         recordId: newId("rec"),
         kind: "canon_disposition",
-        storyTime: when,
+        storyTime: when2,
         sourceRefs: [],
         factsSetOrUnset: [],
         eventOccurrenceIds: [],
@@ -25591,9 +25623,9 @@ function recentPlay(pack2, s, c) {
 var UNDER_WAY_FINISHED = "The player marked this event as FINISHED in the story: decide from recent_actual_play how it actually ended \u2014 occurred (original result), diverged (different result) or omitted (it did not happen) \u2014 and give the actual account; do not postpone unless the story clearly shows it is still going on.";
 var UNDER_WAY_CLOSED = "The story showed this event under way and its time window has now closed, so it is closed now: decide from recent_actual_play what its result is \u2014 occurred (original result), diverged (different result) or omitted (it did not happen) \u2014 and give the actual account of what the story has shown. Never postpone. If the story is still in the middle of it, judge from what has been shown so far and give only effects the story has already shown; what follows is recorded as its after story.";
 var AFTER_STORY = "Re-judge this event's result from everything the story has shown of it, including its after story (later developments, the last entries of recent_actual_play): occurred (original result), diverged (different result) or omitted (it did not happen), with the actual account. Never postpone.";
-async function judgeUnderWay(args, scratch, c, note, when) {
+async function judgeUnderWay(args, scratch, c, note, when2) {
   const beats = [...scratch.occurrences.values()].filter((o) => o.inProgressOf === c.event.id).sort((a, b) => a.time.lo - b.time.lo);
-  const w = when || { lo: Math.min(beats[0]?.time.lo ?? c.lo, c.hi), hi: Math.max(c.hi, ...beats.map((b) => b.time.hi)), precision: "range" };
+  const w = when2 || { lo: Math.min(beats[0]?.time.lo ?? c.lo, c.hi), hi: Math.max(c.hi, ...beats.map((b) => b.time.hi)), precision: "range" };
   const p = adjudicateDefault(args.pack, scratch, c, w);
   const play = [.../* @__PURE__ */ new Set([...beats.map((o) => `${formatTick(o.time.lo)} ${o.title}: ${o.account}`), ...recentPlay(args.pack, scratch, c)])].slice(-16);
   const r = await modelAdjudicate({ ...args, toInclusive: w.hi }, scratch, c, w, p.precondition, [note, ...p.explanation], false, play);
@@ -25633,11 +25665,11 @@ async function rejudgeWithAfterStory(args, eventId) {
   }
   return { record: r.record };
 }
-async function concludeFromPlay(args, eventId, when) {
+async function concludeFromPlay(args, eventId, when2) {
   const ev = args.pack.events.get(eventId);
   const t2 = args.pack.timeIndex.find((x) => x.id === eventId);
   if (!ev || !t2) return null;
-  const r = await judgeUnderWay(args, cloneState(args.pack, args.state), { event: ev, lo: t2.lo, hi: t2.hi }, UNDER_WAY_FINISHED, when);
+  const r = await judgeUnderWay(args, cloneState(args.pack, args.state), { event: ev, lo: t2.lo, hi: t2.hi }, UNDER_WAY_FINISHED, when2);
   if (!r || "stillUnderWay" in r) return r;
   r.record.override = true;
   r.record.dispositionReason = `concluded by the player from the story: ${r.record.dispositionReason || ""}`.slice(0, 500);
@@ -25649,18 +25681,18 @@ function occurredIds(c) {
   if ("not" in c) return [];
   return "occurred" in c ? [c.occurred] : [];
 }
-async function modelAdjudicate(args, scratch, c, when, pre, explanation, forced, play = []) {
+async function modelAdjudicate(args, scratch, c, when2, pre, explanation, forced, play = []) {
   const { pack: pack2 } = args;
   const ev = c.event;
   const input = {
-    candidate: { id: ev.id, title: ev.title, classification: ev.classification, required_description: ev.required_description, original_summary: ev.summary, window: { lo: ev.when.earliest, hi: ev.when.latest }, adjudication_window: { lo: formatTick(when.lo), hi: formatTick(when.hi) }, original_outcomes: ev.outcomes, original_effects: ev.canonical_effects, entities: ev.entity_ids },
+    candidate: { id: ev.id, title: ev.title, classification: ev.classification, required_description: ev.required_description, original_summary: ev.summary, window: { lo: ev.when.earliest, hi: ev.when.latest }, adjudication_window: { lo: formatTick(when2.lo), hi: formatTick(when2.hi) }, original_outcomes: ev.outcomes, original_effects: ev.canonical_effects, entities: ev.entity_ids },
     original_preconditions_now: pre,
     ...play.length ? { recent_actual_play_with_these_characters: play } : {},
     // prerequisite events that happened differently in this playthrough: judge from what actually happened
     upstream_happened_differently: occurredIds(ev.canonical_preconditions).map((id) => ({ id, d: scratch.dispositions.get(id) })).filter((x) => x.d?.disposition === "diverged").map((x) => ({ id: x.id, title: pack2.events.get(x.id)?.title, actual: x.d.occurrenceId && scratch.occurrences.get(x.d.occurrenceId)?.account || x.d.reason || "" })),
     unmet_conditions: explanation,
     actual_world: args.facts,
-    plan_steps: (args.plan?.steps || []).filter((s) => s.serves_anchor === ev.id || s.latest >= when.lo).slice(0, 10),
+    plan_steps: (args.plan?.steps || []).filter((s) => s.serves_anchor === ev.id || s.latest >= when2.lo).slice(0, 10),
     authorized_forced: forced,
     predicates: [...pack2.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values }))
   };
@@ -25699,7 +25731,7 @@ async function modelAdjudicate(args, scratch, c, when, pre, explanation, forced,
     const typeOk = v !== null && v !== void 0 && (p.value_type === "boolean" ? typeof v === "boolean" : p.value_type === "number" ? typeof v === "number" : p.value_type === "string" ? typeof v === "string" : true);
     if (!typeOk || p.value_type !== "entity_set" && p.allowed_values && !p.allowed_values.some((x) => valuesEqual(x, v))) continue;
     if (p.value_type === "entity_set" && e.op === "set") {
-      const cur = factAt(scratch, eid, p.id, { tick: when.lo });
+      const cur = factAt(scratch, eid, p.id, { tick: when2.lo });
       const had = cur.known && Array.isArray(cur.value) ? cur.value : [];
       const ids = v;
       const joins = ids.filter((x) => !had.includes(x)), leaves = had.filter((x) => !ids.includes(x));
@@ -25709,8 +25741,8 @@ async function modelAdjudicate(args, scratch, c, when, pre, explanation, forced,
     }
     effects.push({ op: e.op, entity_id: eid, predicate: e.predicate, value: v });
   }
-  let time = toStoryTime(a.time) || when;
-  if (time.lo < c.lo || time.hi > c.hi) time = when;
+  let time = toStoryTime(a.time) || when2;
+  if (time.lo < c.lo || time.hi > c.hi) time = when2;
   if (ev.classification === "HARD") {
     if (a.decision !== "occurred") return null;
     for (const o of ev.outcomes) if (!effects.some((d) => deltaMeets(d, o))) return null;
@@ -26043,7 +26075,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.23.0";
+var ENGINE_RELEASE = "1.23.1";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -28320,7 +28352,7 @@ ${lines.join("\n")}`;
     const keptScopes = new Set(kept.map((o) => `${o.scopeKind}:${o.scopeRef}`));
     const recentJobs = index.state.contacts.filter((k) => k.sideJob).slice(-8).map((k) => `${k.actors.map((a) => index.entityName(a)).join(", ") || k.scopeLabel}: ${k.job || k.quote}`.slice(0, 300));
     const out = await this.withTimeout(callStructured(this.host.model, "integrate", PROMPTS.integrate, {
-      now: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
+      now: { label: formatTick(tick, c.binding.originDate || null), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...jumpTo ? { time_jump_to: formatTick(jumpTo) } : {},
       player_input: this.ooc(userEntry?.text).story,
       recent_scene: this.recentSituation(index),
@@ -28667,7 +28699,7 @@ ${lines.join("\n")}`;
     const state = this.current.replay.state;
     const now = this.storyNow() ?? state.clock.lo;
     if (now < t2.lo) throw new EngineError("incompatible_adapter", "This event has not started yet in story time.");
-    const when = { lo: t2.lo, hi: Math.max(t2.lo, Math.min(t2.hi, now)), precision: "range" };
+    const when2 = { lo: t2.lo, hi: Math.max(t2.lo, Math.min(t2.hi, now)), precision: "range" };
     const index = this.current.index;
     const facts = pack2.events.get(eventId).entity_ids.map((id) => {
       const v = index.entityState(id);
@@ -28676,7 +28708,7 @@ ${lines.join("\n")}`;
     this.setStatus("validating", "Concluding the event from the story\u2026");
     let res;
     try {
-      res = await concludeFromPlay({ pack: pack2, state, fromExclusive: state.clock.lo, toInclusive: when.hi, exclude: /* @__PURE__ */ new Set(), port: this.host.model, plan: this.activePlan(), forcedAllowed: false, operationId: "conclude", facts, log: (l) => this.debugLog("task", l) }, eventId, when);
+      res = await concludeFromPlay({ pack: pack2, state, fromExclusive: state.clock.lo, toInclusive: when2.hi, exclude: /* @__PURE__ */ new Set(), port: this.host.model, plan: this.activePlan(), forcedAllowed: false, operationId: "conclude", facts, log: (l) => this.debugLog("task", l) }, eventId, when2);
     } finally {
       if (!this.opActive) this.setStatus("idle");
     }

@@ -41,6 +41,20 @@ export function formatTick(tick: number, origin?: { y: number; m: number; d: num
   return `D${t.day} ${hhmm}`;
 }
 
+/** How long before `now` a time was, for a model reading history ("3 days ago", "about a year ago"): a day number
+ *  alone does not show that something is long over (live: D-313 next to D61 was read as current). */
+export function agoLabel(then: number, now: number): string {
+  const d = Math.floor(now / DAY) - Math.floor(then / DAY);
+  if (d < 0) return 'later';
+  if (d === 0) return 'today';
+  if (d === 1) return 'yesterday';
+  if (d < 14) return `${d} days ago`;
+  if (d < 60) return `about ${Math.round(d / 7)} weeks ago`;
+  if (d < 365) return `about ${Math.round(d / 30)} months ago`;
+  const y = Math.round(d / 365);
+  return y === 1 ? 'about a year ago' : `about ${y} years ago`;
+}
+
 export function formatStoryTime(st: StoryTime | null | undefined, origin?: { y: number; m: number; d: number } | null): string {
   if (!st) return '?';
   if (st.lo === st.hi) return formatTick(st.lo, origin);

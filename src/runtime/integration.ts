@@ -8,9 +8,9 @@ import type { ContactInfo, EngagementInfo, FactDelta, Id, PackEvent, RuntimeEnti
 import type { LoadedPack } from '../domain/pack';
 import type { ContactEntry, EngagementEntry, TieEntry, WorldState } from '../domain/reducer';
 import { evalCondition, factAt, triLabel } from '../domain/reducer';
-import { formatTick, toTick } from '../domain/time';
+import { agoLabel, formatTick, toTick } from '../domain/time';
 import { hashObject, newId, sha256, uniq } from '../domain/util';
-import type { WorldIndex } from '../domain/world-query';
+import { WorldIndex } from '../domain/world-query';
 import type { AffiliationStatus, TieChange, IntegrationCache, Opportunity, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
 import { markedLines } from './worldset';
 
@@ -306,33 +306,57 @@ const STANDING: Record<OrgStanding, string> = {
 
 const LEVEL = { exists: 'knows the organization exists (not that the player is in it)', identity: 'knows who the player is / their role', secrets: 'knows' } as const;
 
-function factsLine(index: WorldIndex, id: Id, tick: number): string {
+/** An entity's facts now; `max` cuts a person's long list (their connections' lines stay short). */
+function factsLine(index: WorldIndex, id: Id, tick: number, max = 0): string {
   if (!index.entityExists(id)) return '';
   const s = index.entityState(id, { tick });
-  return s.facts.length ? ` [now: ${s.facts.map((f) => `${f.predicate}=${f.display}`).join('; ')}]` : '';
+  const text = s.facts.map((f) => `${f.predicate}=${f.display}`).join('; ');
+  return text ? ` [now: ${max && text.length > max ? text.slice(0, max - 1) + '…' : text}]` : '';
 }
 
-/** The player's actual history: every occurrence the player, their organizations or places took part in
- *  (causal retrieval by entity, not the latest few), plus those with the given people. */
-export function playerHistory(index: WorldIndex, profile: PlayerProfile, withIds: Id[] = [], limit = 30): { id: string; time: string; title: string; account: string; actors: string[] }[] {
-  const ids = new Set<string>();
-  for (const e of playerIds(profile)) for (const o of index.occurrencesForEntity(e)) ids.add(o);
-  const occs = [...ids].map((id) => index.state.occurrences.get(id)!).filter(Boolean).sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq);
+/** A time for the analysis steps: the date, and how long before the scene it was. */
+function when(t: number, now: number): string {
+  return `${formatTick(t, WorldIndex.displayOrigin)}, ${agoLabel(t, now)}`;
+}
+
+/** How far back what the player's organizations and places did without them is shown, and how old the history an
+ *  opportunity rests on may be when the player had no part in it. */
+export const LATELY_DAYS = 30;
+
+/** The player's actual history: the occurrences the player took part in (causal retrieval by entity, not the latest
+ *  few), those with the given people always kept. Only the player's own: what their organizations or places did
+ *  without them is not (live: ITEM's year-old kidnapping of a member, given as a new member's history, came back as
+ *  "she has been missing since this morning"); that is `lately`. */
+export function playerHistory(index: WorldIndex, profile: PlayerProfile, tick: number, withIds: Id[] = [], limit = 30): { id: string; time: string; title: string; account: string; actors: string[] }[] {
+  const occs = index.occurrencesForEntity(profile.playerId).map((id) => index.state.occurrences.get(id)!).filter(Boolean).sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq);
   // the ones with the given people are always kept; the rest are the most recent
   const withSet = new Set(withIds);
   const keyed = occs.filter((o) => [...o.actors, ...o.affected].some((x) => withSet.has(x)));
   const rest = occs.filter((o) => !keyed.includes(o)).slice(-Math.max(0, limit - keyed.length));
-  return [...keyed, ...rest].sort((a, b) => a.time.lo - b.time.lo).map((o) => ({ id: o.occurrenceId, time: formatTick(o.time.lo), title: o.title, account: o.account.length > 240 ? o.account.slice(0, 237) + '…' : o.account, actors: o.actors.map((a) => index.entityName(a)) }));
+  return [...keyed, ...rest].sort((a, b) => a.time.lo - b.time.lo).map((o) => ({ id: o.occurrenceId, time: when(o.time.lo, tick), title: o.title, account: o.account.length > 240 ? o.account.slice(0, 237) + '…' : o.account, actors: o.actors.map((a) => index.entityName(a)) }));
+}
+
+/** What the player's organizations and places went through lately without the player (the last LATELY_DAYS, the
+ *  latest few each): background for the analysis, never the player's own history. */
+export function lately(index: WorldIndex, profile: PlayerProfile, tick: number, perEntity = 6) {
+  const from = tick - LATELY_DAYS * 1440;
+  const of = (id: Id) => index.occurrencesForEntity(id).map((x) => index.state.occurrences.get(x)!)
+    .filter((o) => o && o.time.lo <= tick && o.time.hi >= from && ![...o.actors, ...o.affected].includes(profile.playerId))
+    .sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq).slice(-perEntity)
+    .map((o) => ({ id: o.occurrenceId, time: when(o.time.lo, tick), title: o.title, account: o.account.length > 200 ? o.account.slice(0, 197) + '…' : o.account }));
+  return [
+    ...playerOrgs(index, profile, tick).map((o) => ({ of: o.name, id: o.id, player_standing: STANDING[o.standing], events: of(o.id) })),
+    ...profile.places.map((p) => ({ of: p.name, id: p.entityId, events: of(p.entityId) })),
+  ].filter((x) => x.events.length);
 }
 
 /** People (and organizations) who share an actual occurrence with the player, most recent first. */
 export function playLinks(index: WorldIndex, profile: PlayerProfile, limit = 12): Id[] {
-  const mine = new Set(playerIds(profile));
   const seen = new Map<Id, number>();
-  for (const e of mine) for (const oid of index.occurrencesForEntity(e)) {
+  for (const oid of index.occurrencesForEntity(profile.playerId)) {
     const o = index.state.occurrences.get(oid);
     if (!o) continue;
-    for (const x of [...o.actors, ...o.affected]) if (!mine.has(x) && ['person', 'organization'].includes(index.entityKind(x))) seen.set(x, Math.max(seen.get(x) ?? -1, o.seq));
+    for (const x of [...o.actors, ...o.affected]) if (x !== profile.playerId && ['person', 'organization'].includes(index.entityKind(x))) seen.set(x, Math.max(seen.get(x) ?? -1, o.seq));
   }
   return [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => id);
 }
@@ -354,12 +378,13 @@ export function playerContext(index: WorldIndex, profile: PlayerProfile, tick: n
     goals: profile.goals,
     ...(profile.roles?.length ? { roles: profile.roles } : {}),
     ...(profile.notSuited?.length ? { not_suited: profile.notSuited } : {}),
-    relationships: byChange(profile.relationships).map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis, ...(r.ended ? { ended: true } : {}), ...(r.changed ? { since: formatTick(r.changed.since), ...(r.changed.start ? { at_start: r.changed.start } : {}) } : {}), ...(r.entityId && index.entityKind(r.entityId) === 'organization' ? { now: factsLine(index, r.entityId, tick).trim() } : {}) })),
-    knowers: byChange(profile.knowers).map((k) => ({ who: k.who, id: k.entityId, level: k.level, about: k.about, basis: k.basis, ...(k.changed ? { since: formatTick(k.changed.since) } : {}) })),
+    relationships: byChange(profile.relationships).map((r) => ({ name: r.name, id: r.entityId, relation: r.relation, basis: r.basis, ...(r.ended ? { ended: true } : {}), ...(r.changed ? { since: when(r.changed.since, tick), ...(r.changed.start ? { at_start: r.changed.start } : {}) } : {}), ...(r.entityId && factsLine(index, r.entityId, tick) ? { now: factsLine(index, r.entityId, tick, 300).trim() } : {}) })),
+    knowers: byChange(profile.knowers).map((k) => ({ who: k.who, id: k.entityId, level: k.level, about: k.about, basis: k.basis, ...(k.changed ? { since: when(k.changed.since, tick) } : {}) })),
     now: factsLine(index, profile.playerId, tick).trim(),
-    actual_history: playerHistory(index, profile, opts.historyWith || [], opts.historyLimit ?? 30),
+    actual_history: playerHistory(index, profile, tick, opts.historyWith || [], opts.historyLimit ?? 30),
+    lately: lately(index, profile, tick),
     decisions: eng.lines(tick),
-    profile_note: 'From the player\'s standard Persona description (revision with its own source) and actual play; actual history wins over the Persona when they differ.',
+    profile_note: 'From the player\'s standard Persona description (revision with its own source) and actual play; actual history wins over the Persona when they differ. actual_history is what the player themself took part in; lately is what their organizations and places went through without them (the last 30 days) — not the player\'s history, and over unless it says otherwise. Every time says how long ago it was: what happened long ago is over; what it set in motion shows in the facts "now" of the people and places.',
   };
 }
 
@@ -667,6 +692,15 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
     const latest = o.latest ? toTick(o.latest) : null;
     if (latest !== null && latest < tick) { dropped.push({ id: ref, reason: 'its time has passed' }); continue; }
     const basisRefs = uniq((o.basis_refs || []).filter((b) => st.occurrences.has(b) || pack.events.has(b)));
+    // what rests only on history long over that the player had no part in is not happening now (live: a year-old
+    // kidnapping of the player's friend became "she has been missing since this morning")
+    const old = (b: string) => {
+      const oc = st.occurrences.get(b);
+      if (oc) return oc.time.hi < tick - LATELY_DAYS * 1440 && ![...oc.actors, ...oc.affected].includes(profile.playerId);
+      const d = st.dispositions.get(b);
+      return !!d && d.tick < tick - LATELY_DAYS * 1440;
+    };
+    if (!targetEventId && basisRefs.length && basisRefs.every(old)) { dropped.push({ id: ref, reason: 'it rests only on history long over that the player had no part in' }); continue; }
     const blocked = eng.blockedBy({ eventId: targetEventId, scopeKind, scopeRef, actors }, tick);
     if (blocked) {
       // only harm that already has an actual cause in history gets past a refusal
@@ -864,7 +898,7 @@ export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick:
   if (profile.roles?.length) lines.push(`- roles: ${profile.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(', '), r.from.length ? `from ${r.from.join(', ')}` : ''].filter(Boolean).join('; ')})` : ''}`).join(' | ')}`);
   if (profile.notSuited?.length) lines.push(`- does not take on: ${profile.notSuited.join('; ')}`);
   if (profile.voice) lines.push(`- how they come across and talk (write the player character's lines and reactions this way): ${profile.voice}`);
-  for (const r of byChange(profile.relationships).slice(0, 16)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ''} — ${r.ended ? 'ENDED: ' : ''}${r.relation} (${tieSource(r)})${r.entityId && index.entityKind(r.entityId) === 'organization' ? factsLine(index, r.entityId, tick) : ''}`);
+  for (const r of byChange(profile.relationships).slice(0, 16)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ''} — ${r.ended ? 'ENDED: ' : ''}${r.relation} (${tieSource(r)})${r.entityId ? factsLine(index, r.entityId, tick, 300) : ''}`);
   for (const k of byChange(profile.knowers).slice(0, 16)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === 'secrets' ? ':' : ' —'} ${k.about} (${tieSource(k)})`);
   return lines.join('\n');
 }
