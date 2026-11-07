@@ -19,6 +19,9 @@ export const INTEGRATION_LEAD_MINUTES = 24 * 60;
 export const UNANSWERED_HOLD_MINUTES = 24 * 60;
 /** How long an answered / refused question stays in the GM's decisions. */
 export const ANSWER_SHOWN_MINUTES = 24 * 60;
+/** Live (白井, several games): turned down, she left with "if not today, tomorrow at the branch then" — the one
+ *  in-character reaction a refusal allows, used to ask again. */
+export const RENEW_NOT = "The reaction does not renew it in another form: no deadline or later appointment (\"then tomorrow…\"), condition, warning or veiled threat, \"I'll be watching you\" or \"this isn't over\".";
 /** A suggestion is offered to the GM when it can happen within this much story time. */
 export const OFFER_SOON_MINUTES = 3 * 60;
 
@@ -368,6 +371,10 @@ export function engagementView(state: WorldState, pack: LoadedPack) {
     binding(tick: number): EngagementEntry[] {
       return [...scopes.keys()].map((k) => negativeAt(k, tick)).filter((e): e is EngagementEntry => !!e && isBinding(e));
     },
+    /** Questions and requests the player answered lately (any decision on one contact): asking again is enforced. */
+    answers(tick: number): EngagementEntry[] {
+      return [...scopes.values()].map((s) => s.current).filter((c): c is EngagementEntry => !!c && c.scopeKind === 'contact' && tick - c.tick <= ANSWER_SHOWN_MINUTES);
+    },
     /** Lines for the GM, the reviewer and the analysis tasks (decisions and unanswered contacts). */
     lines(tick: number): string[] {
       const out: string[] = [];
@@ -378,14 +385,14 @@ export function engagementView(state: WorldState, pack: LoadedPack) {
         const label = c.scopeLabel || c.scopeRef;
         // a decision on one question or request answers it, whatever the stance was called (agreeing to "will you
         // behave tonight?" was read as accepting): nobody asks it again
-        const once = c.scopeKind === 'contact' ? ' That request has its answer: do not ask it again.' : '';
+        const once = c.scopeKind === 'contact' ? ` That request has its answer: do not ask it again. ${RENEW_NOT}` : '';
         if (c.stance === 'declined' && c.strong) out.push(`BINDING — declined: ${label}${q} — do not pull the player into it again in any way (no other person, channel, news, friend's plea or contrived threat). The world goes on; harm with an actual cause may still reach them.`);
         else if (c.stance === 'declined') out.push(`wish — declined: ${label}${q} — respect it: do not arrange for anyone to pull the player into it. Ordinary remarks, small talk and favours from the people around them are fine.${once}`);
         else if (c.stance === 'deferred' && !(c.until != null && c.until <= tick)) out.push(`${c.strong ? 'BINDING' : 'wish'} — not now: ${label}${q}${c.until != null ? ` — until ${formatTick(c.until)}` : ''} — do not bring it up again${c.until != null ? ' before then' : ' unless the player does'}.`);
         else if (c.stance === 'ooc_suppress') out.push(`BINDING — out of character, stop: ${label}${q} — keep it out of the player's story: no contacts, reminders or NPC arguments about it.`);
         // answers to questions: recent ones only (a day), so a long game does not pile them up
-        else if (c.stance === 'answered' && tick - c.tick <= ANSWER_SHOWN_MINUTES) out.push(`answered: ${label} — the player answered${q}. That is their answer, vague or partial as it may be: react to it if you like, but do not ask for it again.`);
-        else if (c.stance === 'refused' && tick - c.tick <= ANSWER_SHOWN_MINUTES) out.push(`refused to answer: ${label} — the player will not answer${q}. Respect it: one in-character reaction at most, then drop the question; do not ask it again or press for it another way.`);
+        else if (c.stance === 'answered' && tick - c.tick <= ANSWER_SHOWN_MINUTES) out.push(`answered: ${label} — the player answered${q}. That is their answer, vague or partial as it may be: react to it if you like, but do not ask for it again. ${RENEW_NOT}`);
+        else if (c.stance === 'refused' && tick - c.tick <= ANSWER_SHOWN_MINUTES) out.push(`refused to answer: ${label} — the player will not answer${q}. Respect it: one in-character reaction at most, then drop the question; do not ask it again or press for it another way. ${RENEW_NOT}`);
         else if (c.stance === 'joined' || c.stance === 'accepted' || c.stance === 'reopened') out.push(`${c.stance === 'joined' ? 'took part by their own action' : c.stance === 'accepted' ? 'accepted' : 'open to it again'}: ${label}${q} — continue it naturally.${once}`);
         const lim = s.history.filter((h) => h.stance === 'limited' && h.seq > (c?.seq ?? -1)).slice(-1)[0];
         if (lim) out.push(`one act only: ${lim.scopeLabel || lim.scopeRef} ("${lim.quote.slice(0, 120)}") — that act; nothing more of it is accepted.`);

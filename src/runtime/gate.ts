@@ -85,6 +85,7 @@ export interface GateInput {
   /** What the GM may write for the player character without the player writing it (settings). */
   voice: PlayerVoice;
   /** How many refusals in force are binding (强烈拒绝 or out of character); with none, pressure is only a note. */
+  /** Decisions enforced as rules: binding refusals and the questions the player answered lately. */
   bindingDecisions?: number;
   /** The player's message carries out-of-character directions (OOC keyword) this turn. */
   hasOoc?: boolean;
@@ -569,6 +570,8 @@ export function runGate(g: GateInput): GateResult {
         if (names.length && !names.some((n) => v.quote!.includes(n))) { warnings.push(`reviewer complaint about the player character ignored: its evidence is not something the player character does ("${v.quote.slice(0, 80)}"): ${v.detail.slice(0, 160)}`); continue; }
       }
     }
+    // a caricature is sent back once: a rewrite that still has it stands (the turn never fails over style)
+    if (/caricature/i.test(v.code)) { (g.chanceBlocking === false ? warnings : violations).push(`A character acts as a caricature of themselves: ${v.detail}${v.quote ? ` ("${v.quote}")` : ''}. Write them as the person the story shows, with the common sense of their age and situation.`); continue; }
     if (/engagement[_ ]pressure/i.test(v.code)) { violations.push(`The reply pulls the player toward something they declined or deferred: ${v.detail}${v.quote ? ` ("${v.quote}")` : ''}. Do not press it again through anyone or anything; let the world go on without it.`); continue; }
     // HARD conformance is decided by the structured HARD checks and deadlines above. A free-text
     // complaint that only restates a HARD event (live finding: the reviewer treated the canonical ROUTE
