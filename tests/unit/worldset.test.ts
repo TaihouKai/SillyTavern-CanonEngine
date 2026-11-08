@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
 import { validatePackText } from '../../src/domain/pack';
-import { worldChangesOf } from '../../src/runtime/integration';
+import { playerOrgs, worldChangesOf } from '../../src/runtime/integration';
 import { applyLoreScan, markedLines, nonLocal, termsFor, textHash, worldBatches, worldItems, WORLD_BATCH_ITEMS } from '../../src/runtime/worldset';
 import { PROMPTS } from '../../src/runtime/prompts';
 import type { LoreEntry } from '../../src/runtime/lore';
@@ -191,6 +191,10 @@ describe('in the game', () => {
     expect(e.static_description).toBe(x.engine.basePack().entities.get('council')!.static_description);
     expect(x.engine.current!.index.resolveEntity('The Council').ids).toContain('council');
     expect(x.engine.worldView()!.overrides[0]).toMatchObject({ title: 'The Council', name: 'The Council of Nine' });
+    // the Persona's organization is shown by its name in this game, not as the Persona analysis read it
+    const idx = x.engine.current!.index;
+    const profile = { playerId: 'player', affiliations: [{ entityId: 'council', name: 'The Council', role: 'the ninth', status: 'member', secrecy: 'public' }], places: [] } as any;
+    expect(playerOrgs(idx, profile, x.engine.current!.replay.state.clock.lo)[0].name).toBe('The Council of Nine');
   });
   it('WS10 a rewrite is refused unless it changes only the sentences with the words it calls untrue (and adds none)', () => {
     const lv5 = '学园都市的Level 5共有七人。第七位是削板军霸。他们各有排名。';

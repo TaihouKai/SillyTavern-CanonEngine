@@ -25,7 +25,7 @@ import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './a
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { playedProfile, playerOrgs, isIn, companionEvents, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { playedProfile, playerOrgs, nameIn, isIn, companionEvents, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
@@ -2879,7 +2879,7 @@ export class CanonEngine {
         rev: prof.rev, name: prof.profile.personaName, chars: prof.profile.personaText.length, source: prof.profile.source, lore: prof.profile.lore || [],
         summary: prof.profile.summary, publicIdentity: prof.profile.publicIdentity,
         affiliations: playerOrgs(idx, prof.profile, s.clock.lo).map((o) => `${o.name} — ${(zh ? ORG_STANDING_ZH : ORG_STANDING_EN)[o.standing]}${o.role ? ` · ${o.role}` : ''} (${o.secrecy})${orgNow(o.id)}`),
-        places: prof.profile.places.map((p) => `${p.name} — ${p.use}`),
+        places: prof.profile.places.map((p) => `${nameIn(idx, p.entityId, p.name)} — ${p.use}`),
         roles: (prof.profile.roles || []).map((r) => `${r.role}${r.brings.length ? ` — ${r.brings.join(', ')}` : ''}${r.from.length ? ` (${r.from.join(', ')})` : ''}`),
         notSuited: prof.profile.notSuited || [],
         voice: prof.profile.voice || '',

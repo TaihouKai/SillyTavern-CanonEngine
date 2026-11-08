@@ -23238,12 +23238,13 @@ function memberships(index, tick) {
 function orgsOf(index, who, tick) {
   return [...memberships(index, tick)].filter(([, s]) => s.includes(who)).map(([org]) => org);
 }
+var nameIn = (index, id, stored) => index.entityExists(id) ? index.entityName(id) : stored;
 function playerOrgs(index, profile2, tick) {
   const now = new Set(orgsOf(index, profile2.playerId, tick));
   const leads = (id) => factAt(index.state, id, "leader", { tick }).value === profile2.playerId;
   const out = profile2.affiliations.map((a) => ({
     id: a.entityId,
-    name: a.name,
+    name: nameIn(index, a.entityId, a.name),
     role: a.role,
     secrecy: a.secrecy,
     persona: a.status,
@@ -23284,7 +23285,7 @@ function lately(index, profile2, tick, perEntity = 6) {
   const of = (id) => index.occurrencesForEntity(id).map((x) => index.state.occurrences.get(x)).filter((o) => o && o.time.lo <= tick && o.time.hi >= from && ![...o.actors, ...o.affected].includes(profile2.playerId)).sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq).slice(-perEntity).map((o) => ({ id: o.occurrenceId, time: when(o.time.lo, tick), title: o.title, account: o.account.length > 200 ? o.account.slice(0, 197) + "\u2026" : o.account }));
   return [
     ...playerOrgs(index, profile2, tick).map((o) => ({ of: o.name, id: o.id, player_standing: STANDING[o.standing], events: of(o.id) })),
-    ...profile2.places.map((p) => ({ of: p.name, id: p.entityId, events: of(p.entityId) }))
+    ...profile2.places.map((p) => ({ of: nameIn(index, p.entityId, p.name), id: p.entityId, events: of(p.entityId) }))
   ].filter((x) => x.events.length);
 }
 function playLinks(index, profile2, limit = 12) {
@@ -23305,7 +23306,7 @@ function playerContext(index, profile2, tick, opts = {}) {
     who: profile2.summary,
     public_identity: profile2.publicIdentity,
     affiliations: playerOrgs(index, profile2, tick).map((o) => ({ id: o.id, name: o.name, standing: STANDING[o.standing], ...o.leads ? { leads: true } : {}, ...o.role ? { persona_role_at_start: o.role } : {}, secrecy: o.secrecy, now: factsLine(index, o.id, tick).trim() })),
-    places: profile2.places.map((p) => ({ id: p.entityId, name: p.name, use: p.use, now: factsLine(index, p.entityId, tick).trim() })),
+    places: profile2.places.map((p) => ({ id: p.entityId, name: nameIn(index, p.entityId, p.name), use: p.use, now: factsLine(index, p.entityId, tick).trim() })),
     capabilities: profile2.capabilities,
     resources: profile2.resources,
     goals: profile2.goals,
@@ -23830,7 +23831,7 @@ function presenceSection(index, profile2, tick) {
   const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play \u2014 the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know \u2014 famous things (an esper's level and ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
   lines.push(`- ${profile2.personaName} [${profile2.playerId}] (the player character): ${profile2.summary || "(no summary)"}${profile2.publicIdentity ? ` Public identity: ${profile2.publicIdentity}` : ""}${factsLine(index, profile2.playerId, tick)}`);
   for (const o of playerOrgs(index, profile2, tick)) lines.push(`- organization: ${o.name} [${o.id}] \u2014 now ${STANDING[o.standing]}${o.leads ? ", its leader" : ""}${o.role ? `; the Persona's words at the start: ${o.role}` : ""} (${o.secrecy})${factsLine(index, o.id, tick)}`);
-  for (const p of profile2.places) lines.push(`- place: ${p.name} [${p.entityId}] \u2014 ${p.use}${factsLine(index, p.entityId, tick)}`);
+  for (const p of profile2.places) lines.push(`- place: ${nameIn(index, p.entityId, p.name)} [${p.entityId}] \u2014 ${p.use}${factsLine(index, p.entityId, tick)}`);
   if (profile2.capabilities.length || profile2.resources.length) lines.push(`- can/has: ${[...profile2.capabilities, ...profile2.resources].slice(0, 10).join("; ")}`);
   if (profile2.roles?.length) lines.push(`- roles: ${profile2.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(", "), r.from.length ? `from ${r.from.join(", ")}` : ""].filter(Boolean).join("; ")})` : ""}`).join(" | ")}`);
   if (profile2.notSuited?.length) lines.push(`- does not take on: ${profile2.notSuited.join("; ")}`);
@@ -26197,7 +26198,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.23.4";
+var ENGINE_RELEASE = "1.23.5";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -29191,7 +29192,7 @@ ${lines.join("\n")}`;
         summary: prof.profile.summary,
         publicIdentity: prof.profile.publicIdentity,
         affiliations: playerOrgs(idx, prof.profile, s.clock.lo).map((o) => `${o.name} \u2014 ${(zh ? ORG_STANDING_ZH : ORG_STANDING_EN)[o.standing]}${o.role ? ` \xB7 ${o.role}` : ""} (${o.secrecy})${orgNow(o.id)}`),
-        places: prof.profile.places.map((p) => `${p.name} \u2014 ${p.use}`),
+        places: prof.profile.places.map((p) => `${nameIn(idx, p.entityId, p.name)} \u2014 ${p.use}`),
         roles: (prof.profile.roles || []).map((r) => `${r.role}${r.brings.length ? ` \u2014 ${r.brings.join(", ")}` : ""}${r.from.length ? ` (${r.from.join(", ")})` : ""}`),
         notSuited: prof.profile.notSuited || [],
         voice: prof.profile.voice || "",

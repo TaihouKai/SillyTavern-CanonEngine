@@ -284,11 +284,14 @@ export function orgsOf(index: WorldIndex, who: Id, tick: number): Id[] {
  *  Persona's words against the story. */
 export type OrgStanding = 'member' | 'joined_in_play' | 'left_in_play' | 'not_joined_yet' | 'former';
 export interface PlayerOrg { id: Id; name: string; role: string; secrecy: PlayerProfile['affiliations'][number]['secrecy']; persona: AffiliationStatus | null; standing: OrgStanding; leads: boolean }
+/** A Persona organization's or place's name in this game: the pack's (本局设定 may rename it), else as the Persona read. */
+export const nameIn = (index: WorldIndex, id: Id, stored: string) => (index.entityExists(id) ? index.entityName(id) : stored);
+
 export function playerOrgs(index: WorldIndex, profile: PlayerProfile, tick: number): PlayerOrg[] {
   const now = new Set(orgsOf(index, profile.playerId, tick));
   const leads = (id: Id) => factAt(index.state, id, 'leader', { tick }).value === profile.playerId;
   const out: PlayerOrg[] = profile.affiliations.map((a) => ({
-    id: a.entityId, name: a.name, role: a.role, secrecy: a.secrecy, persona: a.status, leads: leads(a.entityId),
+    id: a.entityId, name: nameIn(index, a.entityId, a.name), role: a.role, secrecy: a.secrecy, persona: a.status, leads: leads(a.entityId),
     standing: now.has(a.entityId) ? (a.status === 'member' ? 'member' : 'joined_in_play') : a.status === 'member' ? 'left_in_play' : a.status === 'joining' ? 'not_joined_yet' : 'former',
   }));
   for (const id of now) if (!out.some((o) => o.id === id)) out.push({ id, name: index.entityName(id), role: '', secrecy: 'public', persona: null, standing: 'joined_in_play', leads: leads(id) });
@@ -346,7 +349,7 @@ export function lately(index: WorldIndex, profile: PlayerProfile, tick: number, 
     .map((o) => ({ id: o.occurrenceId, time: when(o.time.lo, tick), title: o.title, account: o.account.length > 200 ? o.account.slice(0, 197) + '…' : o.account }));
   return [
     ...playerOrgs(index, profile, tick).map((o) => ({ of: o.name, id: o.id, player_standing: STANDING[o.standing], events: of(o.id) })),
-    ...profile.places.map((p) => ({ of: p.name, id: p.entityId, events: of(p.entityId) })),
+    ...profile.places.map((p) => ({ of: nameIn(index, p.entityId, p.name), id: p.entityId, events: of(p.entityId) })),
   ].filter((x) => x.events.length);
 }
 
@@ -372,7 +375,7 @@ export function playerContext(index: WorldIndex, profile: PlayerProfile, tick: n
     who: profile.summary,
     public_identity: profile.publicIdentity,
     affiliations: playerOrgs(index, profile, tick).map((o) => ({ id: o.id, name: o.name, standing: STANDING[o.standing], ...(o.leads ? { leads: true } : {}), ...(o.role ? { persona_role_at_start: o.role } : {}), secrecy: o.secrecy, now: factsLine(index, o.id, tick).trim() })),
-    places: profile.places.map((p) => ({ id: p.entityId, name: p.name, use: p.use, now: factsLine(index, p.entityId, tick).trim() })),
+    places: profile.places.map((p) => ({ id: p.entityId, name: nameIn(index, p.entityId, p.name), use: p.use, now: factsLine(index, p.entityId, tick).trim() })),
     capabilities: profile.capabilities,
     resources: profile.resources,
     goals: profile.goals,
@@ -893,7 +896,7 @@ export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick:
   const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play — the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know — famous things (an esper's level and ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
   lines.push(`- ${profile.personaName} [${profile.playerId}] (the player character): ${profile.summary || '(no summary)'}${profile.publicIdentity ? ` Public identity: ${profile.publicIdentity}` : ''}${factsLine(index, profile.playerId, tick)}`);
   for (const o of playerOrgs(index, profile, tick)) lines.push(`- organization: ${o.name} [${o.id}] — now ${STANDING[o.standing]}${o.leads ? ', its leader' : ''}${o.role ? `; the Persona's words at the start: ${o.role}` : ''} (${o.secrecy})${factsLine(index, o.id, tick)}`);
-  for (const p of profile.places) lines.push(`- place: ${p.name} [${p.entityId}] — ${p.use}${factsLine(index, p.entityId, tick)}`);
+  for (const p of profile.places) lines.push(`- place: ${nameIn(index, p.entityId, p.name)} [${p.entityId}] — ${p.use}${factsLine(index, p.entityId, tick)}`);
   if (profile.capabilities.length || profile.resources.length) lines.push(`- can/has: ${[...profile.capabilities, ...profile.resources].slice(0, 10).join('; ')}`);
   if (profile.roles?.length) lines.push(`- roles: ${profile.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(', '), r.from.length ? `from ${r.from.join(', ')}` : ''].filter(Boolean).join('; ')})` : ''}`).join(' | ')}`);
   if (profile.notSuited?.length) lines.push(`- does not take on: ${profile.notSuited.join('; ')}`);
