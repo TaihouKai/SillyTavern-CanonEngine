@@ -178,4 +178,18 @@ describe('in the game', () => {
     const ov = x.engine.worldView()!.overrides;
     expect(ov.map((o) => [o.title, o.future])).toEqual([['The harbor conflict begins', false], ['Union victory', true]]);
   });
+  it('WS9 a pack name that states what a change makes untrue is renamed for this game; the old name still finds it', async () => {
+    const x = await setup([{ text: 'The Council has nine elders in this game', terms: ['Council'] }], 'Ash.');
+    x.model.on('world_check', null, (i: any) => ({ items: i.items.filter((it: any) => it.kind === 'pack: who or what it is' && it.title === 'The Council').map((it: any) => ({ ref: it.ref, action: 'replace', content: '', name: 'The Council of Nine', reason: 'nine elders' })), additions: [] }));
+    x.host.addUser('I look around.');
+    x.model.draft('The harbor. [W9]');
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(PROMPTS.world_check).toMatch(/name \(only for "pack: who or what it is" items/);
+    const e = x.engine.pack().entities.get('council')!;
+    expect(e.name).toBe('The Council of Nine');
+    expect(e.aliases).toContain('The Council');
+    expect(e.static_description).toBe(x.engine.basePack().entities.get('council')!.static_description);
+    expect(x.engine.current!.index.resolveEntity('The Council').ids).toContain('council');
+    expect(x.engine.worldView()!.overrides[0]).toMatchObject({ title: 'The Council', name: 'The Council of Nine' });
+  });
 });

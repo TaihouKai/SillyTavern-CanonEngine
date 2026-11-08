@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.23.3 — 2026-11-08
+
+- **本局设定 renames a pack name that states what a change makes untrue.** The check only rewrote descriptions, so the organization 「七名超能力者」 kept its name in a game with an eighth Level 5. A world_check item for a pack entity may now give `name` (its name in this game); the overlay uses it and keeps the original name as an alias; the panel shows 原名 → 本局名. Tests: `tests/unit/worldset.test.ts` WS9.
+
 ## 1.23.2 — 2026-11-08
 
 - **本局设定 knows when each event is.** Live: the check was given the history pack's event summaries without their times or the game's start, so the player's present situation (transferred into an organization, not yet inducted) was written into that organization's events of a year before, and a new eighth Level 5 was taken to push the sixth down to seventh. Now:

@@ -23,6 +23,10 @@
       "type": "string",
       "maxLength": 20000
      },
+     "name": {
+      "type": "string",
+      "maxLength": 200
+     },
      "reason": {
       "type": "string",
       "maxLength": 600

@@ -22,6 +22,9 @@ export interface WorldOverride {
   kind: 'lore' | 'entity' | 'event';
   book?: string; uid?: string | number; target?: Id;
   title: string;
+  /** A pack entity's name in this game, when its name itself states what a change makes untrue ("七名超能力者");
+   *  the original name stays an alias. */
+  name?: string;
   action: 'replace' | 'disable';
   content: string;
   /** The text it was written from (a changed original is not overridden until checked again). */
@@ -106,7 +109,7 @@ export function worldBatches(items: WorldItem[]): WorldItem[][] {
 }
 
 export interface WorldCheckOut {
-  items: { ref: string; action: 'keep' | 'replace' | 'disable'; content?: string; reason?: string }[];
+  items: { ref: string; action: 'keep' | 'replace' | 'disable'; content?: string; name?: string; reason?: string }[];
   additions?: { title: string; keys: string[]; content: string; reason?: string }[];
 }
 
@@ -119,12 +122,14 @@ export function worldResults(items: WorldItem[], outs: WorldCheckOut[]): { overr
     for (const r of o.items || []) {
       const it = byRef.get(r.ref);
       if (!it || r.action === 'keep') continue;
-      const content = String(r.content || '').trim();
-      if (r.action === 'replace' && (!content || content === it.text.trim())) continue;
+      const name = it.kind === 'entity' && r.action === 'replace' ? String(r.name || '').trim().slice(0, 200) : '';
+      const renamed = !!name && name !== it.title;
+      const content = String(r.content || '').trim() || (renamed ? it.text : '');
+      if (r.action === 'replace' && (!content || (content === it.text.trim() && !renamed))) continue;
       if (overrides.some((x) => x.kind === it.kind && x.book === it.book && String(x.uid) === String(it.uid) && x.target === it.target)) continue;
       overrides.push({
         id: `wo_${textHash(`${it.kind}|${it.book ?? ''}|${it.uid ?? ''}|${it.target ?? ''}`)}`, kind: it.kind, ...(it.book !== undefined ? { book: it.book, uid: it.uid } : {}), ...(it.target ? { target: it.target } : {}),
-        title: it.title, action: r.action, content: r.action === 'replace' ? content : '', original: it.text, originalHash: textHash(it.text), reason: String(r.reason || '').trim(),
+        title: it.title, ...(renamed ? { name } : {}), action: r.action, content: r.action === 'replace' ? content : '', original: it.text, originalHash: textHash(it.text), reason: String(r.reason || '').trim(),
       });
     }
     for (const a of o.additions || []) {
@@ -146,7 +151,9 @@ export function overlayPack(base: LoadedPack, ws: WorldSettings | undefined): Lo
   for (const o of ov) {
     if (o.kind === 'entity') {
       const e = entities.get(o.target!);
-      if (e && textHash(e.static_description) === o.originalHash) entities.set(o.target!, { ...e, static_description: o.action === 'disable' ? '' : o.content } as PackEntity);
+      if (e && textHash(e.static_description) === o.originalHash) {
+        entities.set(o.target!, { ...e, static_description: o.action === 'disable' ? '' : o.content, ...(o.name ? { name: o.name, aliases: [...new Set([...e.aliases, e.name])] } : {}) } as PackEntity);
+      }
     } else {
       const ev = events.get(o.target!);
       if (ev && textHash(ev.summary) === o.originalHash && o.action === 'replace') events.set(o.target!, { ...ev, summary: o.content, sections: null } as PackEvent);
