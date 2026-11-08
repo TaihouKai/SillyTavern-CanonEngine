@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.23.4 — 2026-11-08
+
+- **本局设定 rewrites are local, checked by code.** Live: an entry had its whole sketch paragraph dropped and a sentence about the player added; "the strongest Level 5" became "ranked first" for a new eighth; old events got "the player had not joined yet" appended. Now a replace names the words it finds untrue (`untrue`, verbatim); `nonLocal()` refuses a rewrite whose words are not in the original, that changes or removes any sentence without them, or that adds sentences. Refused rewrites are kept with why (`rejected`) and listed in the panel (未采用的改写). The prompt adds: a newcomer leaves everyone else's standing as it was. Tests: WS10.
+
 ## 1.23.3 — 2026-11-08
 
 - **本局设定 renames a pack name that states what a change makes untrue.** The check only rewrote descriptions, so the organization 「七名超能力者」 kept its name in a game with an eighth Level 5. A world_check item for a pack entity may now give `name` (its name in this game); the overlay uses it and keeps the original name as an alias; the panel shows 原名 → 本局名. Tests: `tests/unit/worldset.test.ts` WS9.

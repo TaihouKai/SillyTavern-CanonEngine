@@ -1976,6 +1976,7 @@ export class CanonEngine {
     c.worldSettings = {
       basis: hashObject(changes.map((x) => [x.text, x.terms])), at: this.host.now(), changes, overrides, additions,
       checked: { lore: items.filter((x) => x.kind === 'lore').length, entities: items.filter((x) => x.kind === 'entity').length, events: items.filter((x) => x.kind === 'event').length, generic },
+      ...(res.rejected.length ? { rejected: res.rejected } : {}),
     };
     this.overlayCache = null;
     c.configRevisions.push({ at: this.host.now(), summary: `本局设定 checked: ${changes.length} change(s), ${items.length} text(s) read, ${overrides.length} rewritten or disabled, ${additions.length} added` });
@@ -2041,6 +2042,7 @@ export class CanonEngine {
       checked: ws?.checked || null,
       overrides: (ws?.overrides || []).map((o) => ({ ...o, stale: o.kind === 'lore' && stale.has(o.title), future: future(o) })),
       additions: ws?.additions || [],
+      rejected: ws?.rejected || [],
       loreHook: this.loreHook,
     };
   }

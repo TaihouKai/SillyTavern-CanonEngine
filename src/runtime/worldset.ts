@@ -43,6 +43,8 @@ export interface WorldSettings {
   additions: WorldAddition[];
   /** What was read: how many lorebook entries and pack texts each search found, terms too common to search by. */
   checked: { lore: number; entities: number; events: number; generic: string[] };
+  /** Rewrites not applied, with why (not a local change of what the change makes untrue). */
+  rejected?: { title: string; kind: WorldOverride['kind']; reason: string; why: string }[];
 }
 
 export const textHash = (s: string) => hashObject(String(s)).slice(0, 16);
@@ -109,15 +111,48 @@ export function worldBatches(items: WorldItem[]): WorldItem[][] {
 }
 
 export interface WorldCheckOut {
-  items: { ref: string; action: 'keep' | 'replace' | 'disable'; content?: string; name?: string; reason?: string }[];
+  items: { ref: string; action: 'keep' | 'replace' | 'disable'; content?: string; name?: string; untrue?: string[]; reason?: string }[];
   additions?: { title: string; keys: string[]; content: string; reason?: string }[];
 }
 
-/** The checked results as overrides (a replacement must change the text; nothing unknown is applied). */
-export function worldResults(items: WorldItem[], outs: WorldCheckOut[]): { overrides: WorldOverride[]; additions: WorldAddition[] } {
+/** Sentences with their ending punctuation (a clause after "；" is its own: appending one is adding a sentence). */
+export function sentences(text: string): string[] {
+  return String(text).split(/(?<=[。！？!?；;\n]|\.\s)/).map((s) => s.trim()).filter(Boolean);
+}
+
+/** Why a rewrite is not a local change of what it calls untrue, or null when it is: the words it calls untrue are in
+ *  the original, and only sentences holding them changed — none other removed or rewritten, none added. Live: an
+ *  entry had a whole paragraph dropped and a sentence about the player added; "the strongest Level 5" became "ranked
+ *  first" for a new eighth; old events got "the player was not there yet" appended. */
+export function nonLocal(original: string, content: string, untrue: string[], title = ''): string | null {
+  const words = untrue.map((w) => String(w).trim()).filter(Boolean);
+  if (!words.length) return 'it names no words of the original that the change makes untrue';
+  const missing = words.filter((w) => !original.includes(w) && !title.includes(w));
+  if (missing.length) return `the words it calls untrue are not in the original: ${missing.join(' / ')}`;
+  const a = sentences(original), b = sentences(content);
+  // longest common subsequence of sentences: what is left out of it was removed (a) or added (b)
+  const dp = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+  for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const removed: string[] = [], added: string[] = [];
+  let i = 0, j = 0;
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && a[i] === b[j]) { i++; j++; }
+    else if (j < b.length && (i >= a.length || dp[i][j + 1] >= dp[i + 1][j])) added.push(b[j++]);
+    else removed.push(a[i++]);
+  }
+  const other = removed.filter((s) => !words.some((w) => s.includes(w)));
+  if (other.length) return `it changes or removes what the change does not touch: “${other[0].slice(0, 60)}”`;
+  if (added.length > removed.length) return `it adds what the original does not say: “${added.find((s) => !a.includes(s))!.slice(0, 60)}”`;
+  return null;
+}
+
+/** The checked results as overrides (a replacement must change the text, locally, where it is untrue; nothing
+ *  unknown is applied); the rewrites refused, with why. */
+export function worldResults(items: WorldItem[], outs: WorldCheckOut[]): { overrides: WorldOverride[]; additions: WorldAddition[]; rejected: NonNullable<WorldSettings['rejected']> } {
   const byRef = new Map(items.map((x) => [x.ref, x]));
   const overrides: WorldOverride[] = [];
   const additions: WorldAddition[] = [];
+  const rejected: NonNullable<WorldSettings['rejected']> = [];
   for (const o of outs) {
     for (const r of o.items || []) {
       const it = byRef.get(r.ref);
@@ -126,6 +161,10 @@ export function worldResults(items: WorldItem[], outs: WorldCheckOut[]): { overr
       const renamed = !!name && name !== it.title;
       const content = String(r.content || '').trim() || (renamed ? it.text : '');
       if (r.action === 'replace' && (!content || (content === it.text.trim() && !renamed))) continue;
+      if (r.action === 'replace' && content !== it.text.trim()) {
+        const why = nonLocal(it.text, content, r.untrue || [], it.title);
+        if (why) { rejected.push({ title: it.title, kind: it.kind, reason: String(r.reason || '').trim(), why }); continue; }
+      }
       if (overrides.some((x) => x.kind === it.kind && x.book === it.book && String(x.uid) === String(it.uid) && x.target === it.target)) continue;
       overrides.push({
         id: `wo_${textHash(`${it.kind}|${it.book ?? ''}|${it.uid ?? ''}|${it.target ?? ''}`)}`, kind: it.kind, ...(it.book !== undefined ? { book: it.book, uid: it.uid } : {}), ...(it.target ? { target: it.target } : {}),
@@ -138,7 +177,7 @@ export function worldResults(items: WorldItem[], outs: WorldCheckOut[]): { overr
       additions.push({ id: `wa_${textHash(`${a.title}|${keys.join(',')}`)}`, title: String(a.title || keys[0]).trim(), keys, content: a.content.trim(), reason: String(a.reason || '').trim() });
     }
   }
-  return { overrides, additions };
+  return { overrides, additions, rejected };
 }
 
 /** This chat's pack with the overridden entity descriptions and event summaries (same hash: the binding is the

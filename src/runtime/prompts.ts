@@ -129,17 +129,17 @@ SHAPE: {"judgements":[{"id":"k1","knows":true,"how":""}]}`,
   world_check: `${COMMON}
 TASK: This game's world differs from the original setting by the changes listed (from the player's Persona and the user). items are lorebook entries and texts of the history pack that mention the same things. For EVERY item give action:
 - keep: nothing in it contradicts a change (most items). Not mentioning the player or the change is no contradiction.
-- replace: it states something a change makes untrue — a count or ranking, who holds a post or belongs somewhere, who exists, what happened. content: the WHOLE item rewritten with the least change that makes it agree (same language, style and length; everything else kept word for word; nothing added about the player beyond what the change requires).
+- replace: it states something a change makes untrue — a count or ranking, who holds a post or belongs somewhere, who exists, what happened. untrue: the exact words of the item (verbatim, short) that the change makes untrue. content: the WHOLE item rewritten with the least change that makes it agree: only the sentences holding the untrue words change; every other sentence stays word for word; no sentence is added or removed (same language and style; nothing added about the player beyond what the change requires). A rewrite that changes anything else is refused.
 - disable: the whole item is about something that does not exist in this game.
 name (only for "pack: who or what it is" items, with replace): its name in this game when the name itself states something a change makes untrue (a count or ranking in the name: "七名超能力者" with an eighth → "八名超能力者"); otherwise leave it out. A rename alone is a replace with content the text as it stands (or rewritten as needed).
 Time: the changes describe the world as it is at game_start. An event item gives its time and whether it comes before or after game_start.
 - before the game starts: change it only where a change makes what it said untrue at its own time (something that already held then — e.g. how many there were, if the change's fact already held). Never write the player's present situation (a post, a transfer, a plan, something decided or about to happen at game_start) into an earlier event.
 - after the game starts: write it as it will go in this game.
-- a count or ranking: change only what the change really moves (a new last place moves nobody above it).
+- a count or ranking: change only what the change really moves (a new last place moves nobody above it). A newcomer leaves everyone else's standing as it was: "the strongest", "the first", "the youngest" stay true unless the change says otherwise.
 reason: which change and what it contradicts, one sentence.
 additions (only when additions_wanted is true, else []): a new lorebook entry only when a change introduces something the world's lorebook should know and no item covers (keys: words that should bring it up). Usually none: the player's Persona is given to the storyteller anyway.
 part, when given ("k of n"): items are part of the hits; judge these.
-SHAPE: {"items":[{"ref":"","action":"keep","content":"","name":"","reason":""}],"additions":[{"title":"","keys":[],"content":"","reason":""}]}`,
+SHAPE: {"items":[{"ref":"","action":"keep","untrue":[],"content":"","name":"","reason":""}],"additions":[{"title":"","keys":[],"content":"","reason":""}]}`,
   leap: `${COMMON}
 TASK: The player leaps story time from "from" to "to" in one reply; player_message says what their character does in that time (it is the player's own will: what it asks for happens, nothing goes against it). Everything else in the world happens as in the original story. Decide only what the player's message changes, so that the GM can write the leap:
 - The leap crosses the canon events in crossed_events (with their summaries) and other_events (one line each: "id | time | title"); all of them happen as in the original story unless you list them here.

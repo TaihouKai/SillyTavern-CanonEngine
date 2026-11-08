@@ -29,7 +29,7 @@ try {
   }, { BOOK, OLD });
   await mock('/control', { taskRules: [
     { task: 'profile', patch: { world_changes: [{ text: '身份：第8位Level 5', terms: ['Level 5'] }] } },
-    { task: 'world_check', match: 'Level 5', patch: { items: [{ ref: 'l1', action: 'replace', content: NEW, reason: '第8位Level 5' }] } },
+    { task: 'world_check', match: 'Level 5', patch: { items: [{ ref: 'l1', action: 'replace', untrue: ['共有七人'], content: NEW, reason: '第8位Level 5' }] } },
   ], clearLogs: true });
   await bind(page, packText(), 480);
   await send(page, '我在街上听人聊起Level 5的排名。');

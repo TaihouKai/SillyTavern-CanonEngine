@@ -9,7 +9,7 @@ import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
 import { validatePackText } from '../../src/domain/pack';
 import { worldChangesOf } from '../../src/runtime/integration';
-import { applyLoreScan, markedLines, termsFor, textHash, worldBatches, worldItems, WORLD_BATCH_ITEMS } from '../../src/runtime/worldset';
+import { applyLoreScan, markedLines, nonLocal, termsFor, textHash, worldBatches, worldItems, WORLD_BATCH_ITEMS } from '../../src/runtime/worldset';
 import { PROMPTS } from '../../src/runtime/prompts';
 import type { LoreEntry } from '../../src/runtime/lore';
 
@@ -77,8 +77,8 @@ describe('in the game', () => {
   it('WS4 the Persona read checks the found entries; a contradicted one is rewritten for this game and takes the original\'s place in SillyTavern\'s scan', async () => {
     const x = await setup([{ text: '身份：第8位Level 5', terms: ['Level 5', '第七位', '超能力者'] }]);
     x.model.on('world_check', null, { items: [
-      { ref: 'l1', action: 'replace', content: '学园都市的Level 5共有八人，第七位是削板军霸，第八位是田中太郎。', reason: '第8位Level 5' },
-      { ref: 'l2', action: 'replace', content: '削板军霸是第七位Level 5。', reason: '不再是最后一位' },
+      { ref: 'l1', action: 'replace', untrue: ['共有七人'], content: '学园都市的Level 5共有八人，第七位是削板军霸，第八位是田中太郎。', reason: '第8位Level 5' },
+      { ref: 'l2', action: 'replace', untrue: ['也是最后一位'], content: '削板军霸是第七位Level 5。', reason: '不再是最后一位' },
       { ref: 'l3', action: 'keep' },
     ], additions: [] });
     x.host.addUser('I look around.');
@@ -109,7 +109,7 @@ describe('in the game', () => {
 
   it('WS5 the pack\'s texts are this game\'s too; an edit by hand is kept through a new check; disabling and removing', async () => {
     const x = await setup([{ text: 'The Council has no harbor office in this game', terms: ['Council'] }], 'Ash.');
-    x.model.on('world_check', null, (i: any) => ({ items: i.items.filter((it: any) => it.kind === 'pack: who or what it is' && it.title === 'The Council').map((it: any) => ({ ref: it.ref, action: 'replace', content: 'The Council, without a harbor office.', reason: 'no office' })), additions: [{ title: 'Council office', keys: ['office'], content: 'There is no Council office at the harbor.', reason: 'new' }] }));
+    x.model.on('world_check', null, (i: any) => ({ items: i.items.filter((it: any) => it.kind === 'pack: who or what it is' && it.title === 'The Council').map((it: any) => ({ ref: it.ref, action: 'replace', untrue: ['A rival political institution'], content: 'The Council, without a harbor office.', reason: 'no office' })), additions: [{ title: 'Council office', keys: ['office'], content: 'There is no Council office at the harbor.', reason: 'new' }] }));
     x.host.addUser('I look around.');
     x.model.draft('The harbor. [W2]');
     expect(await x.engine.runOperation('normal')).toBe(true);
@@ -146,7 +146,7 @@ describe('in the game', () => {
 
   it('WS7 without SillyTavern\'s scan event the GM is given the rewritten entries', async () => {
     const x = await setup([{ text: '身份：第8位Level 5', terms: ['Level 5'] }]);
-    x.model.on('world_check', null, { items: [{ ref: 'l1', action: 'replace', content: 'Level 5 共八人。', reason: 'r' }], additions: [] });
+    x.model.on('world_check', null, { items: [{ ref: 'l1', action: 'replace', untrue: ['共有七人'], content: 'Level 5 共八人。', reason: 'r' }], additions: [] });
     x.host.addUser('I look around.');
     x.model.draft('Academy City. [W4]', 'Academy City again. [W5]');
     expect(await x.engine.runOperation('normal')).toBe(true);
@@ -163,7 +163,7 @@ describe('in the game', () => {
     (x.host as any).persona = () => ({ name: 'Ash', description: 'Ash.' });
     (x.host as any).loreEntries = async () => [];
     x.model.on('profile', null, PROFILE([{ text: 'The Council is taking Ash on as a clerk', terms: ['conflict'] }]));
-    x.model.on('world_check', null, (i: any) => ({ items: i.items.filter((it: any) => ['The harbor conflict begins', 'Union victory'].includes(it.title)).map((it: any) => ({ ref: it.ref, action: 'replace', content: `${it.text} (this game)`, reason: 'r' })), additions: [] }));
+    x.model.on('world_check', null, (i: any) => ({ items: i.items.filter((it: any) => ['The harbor conflict begins', 'Union victory'].includes(it.title)).map((it: any) => ({ ref: it.ref, action: 'replace', untrue: [it.text.slice(-12)], content: `${it.text}!`, reason: 'r' })), additions: [] }));
     await x.engine.bind(demo, { startTick: tick(2, 12, 0), mode: 'new' });
     await x.engine.reconcile('test');
     x.host.addUser('I look around.');
@@ -191,5 +191,21 @@ describe('in the game', () => {
     expect(e.static_description).toBe(x.engine.basePack().entities.get('council')!.static_description);
     expect(x.engine.current!.index.resolveEntity('The Council').ids).toContain('council');
     expect(x.engine.worldView()!.overrides[0]).toMatchObject({ title: 'The Council', name: 'The Council of Nine' });
+  });
+  it('WS10 a rewrite is refused unless it changes only the sentences with the words it calls untrue (and adds none)', () => {
+    const lv5 = '学园都市的Level 5共有七人。第七位是削板军霸。他们各有排名。';
+    expect(nonLocal(lv5, '学园都市的Level 5共有八人。第七位是削板军霸。他们各有排名。', ['共有七人'])).toBeNull();
+    expect(nonLocal(lv5, lv5.replace('七人', '八人'), [])).toMatch(/names no words/);
+    expect(nonLocal(lv5, lv5.replace('七人', '八人'), ['全城仅7人'])).toMatch(/not in the original: 全城仅7人/);
+    // live: a whole paragraph dropped and a sentence about the player added
+    const hanano = '【人物速写】黑发三束的学生少女。\n华野超美是暗部的联络人，参与招募新成员。';
+    expect(nonLocal(hanano, '华野超美是暗部的联络人，参与招募新成员。如今ITEM迎来一名新人。', ['参与招募新成员'])).toMatch(/changes or removes what the change does not touch: “【人物速写】/);
+    // live: "the player was not there yet" appended to an old event
+    const kaiz = '凯兹雇佣ITEM守卫研究所。结果：ITEM布防完毕。';
+    expect(nonLocal(kaiz, '凯兹雇佣ITEM守卫研究所。结果：ITEM布防完毕；新人神光爱丽丝尚未入职，未参与此次布防。', ['ITEM布防完毕'])).toMatch(/adds what the original does not say/);
+    // English sentences too
+    expect(nonLocal('The Council has seven elders. It meets weekly.', 'The Council has eight elders. It meets weekly.', ['seven elders'])).toBeNull();
+    expect(nonLocal('The Council has seven elders. It meets weekly.', 'The Council has eight elders. It meets daily.', ['seven elders'])).toMatch(/does not touch: “It meets weekly/);
+    expect(PROMPTS.world_check).toMatch(/A newcomer leaves everyone else's standing as it was/);
   });
 });

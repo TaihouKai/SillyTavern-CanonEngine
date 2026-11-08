@@ -250,6 +250,7 @@ const D: Record<string, { zh: string; en: string }> = {
   niRecognized: { zh: '谁认得你（公开身份）', en: 'Who recognizes you (public identity)' },
   niWho: { zh: '谁知道你', en: 'Who knows about you' },
   niConnections: { zh: '关系', en: 'Connections' },
+  wsRejected: { zh: '未采用的改写（{n} 条：改了原文中不矛盾的部分）', en: 'Rewrites not applied ({n}: they change what is not contradicted)' },
   wsFutureHidden: { zh: '另有 {n} 个尚未发生的事件也按本局改写了（打开「显示剧透」查看）。', en: '{n} event(s) still to come are rewritten for this game too (turn on spoilers to see them).' },
   tieTip: { zh: 'Persona 给出开局时的关系和知情者；剧情里关系变了（结识、交好、闹翻、交往、欠人情、去世）或有人知道了你更多的事，Canon 审稿时记下来（附原文），GM 看到的是现在的样子。也可以在这里自己改、删或添加。', en: 'The Persona gives the relationships and who knows what at the start; when play changes them (meeting someone who matters, friendship, a falling-out, romance, a debt, a death) or someone learns more about you, the review records it (with the quote), and the GM sees how things stand now. You can change, remove or add them here.' },
   tieSrc_persona_stated: { zh: 'Persona', en: 'Persona' },
