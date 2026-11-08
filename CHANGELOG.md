@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.25.1 — 2026-11-09
+
+- **检查面板: the section jumps under the filter wrap onto more lines** instead of scrolling sideways (most mice have no horizontal wheel); so does the page list on a narrow screen.
+
 ## 1.25.0 — 2026-11-09
 
 - **检查面板 redesigned.** It had grown from read-only lists into one long 叙事融入 column with nested scroll areas, buttons and always-open input boxes, and was rebuilt on every status tick (the scroll jumped to the top, opened folds closed, typing was lost). Now (`src/ui/inspector.ts`):
