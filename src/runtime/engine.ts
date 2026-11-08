@@ -6,7 +6,7 @@ import type { Id, LedgerRecord, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { valuesEqual } from '../domain/pack';
 import { buildBootstrap, causeOf, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
-import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride } from './worldset';
+import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { WorldIndex } from '../domain/world-query';
 import { formatTick, formatStoryTime, fromTick, parseDateLabel, toTick } from '../domain/time';
@@ -1959,14 +1959,30 @@ export class CanonEngine {
       const s = it.kind === 'event' && it.target ? span.get(it.target) : undefined;
       return s ? { time: formatTick(s.lo, origin), when: s.lo < start ? 'before the game starts' : 'after the game starts (still to come)' } : {};
     };
-    const outs = await Promise.all(batches.map((b, i) => this.withTimeout(callStructured<WorldCheckOut>(this.host.model, 'world_check', PROMPTS.world_check, {
+    const check = (b: typeof items, i: number) => this.withTimeout(callStructured<WorldCheckOut>(this.host.model, 'world_check', PROMPTS.world_check, {
       game_start: formatTick(start, origin),
       changes: changes.map((x) => ({ id: x.id, text: x.text })),
       player: prof ? { name: prof.personaName, summary: prof.summary } : null,
       ...(batches.length > 1 ? { part: `${i + 1} of ${batches.length}` } : {}),
       additions_wanted: i === 0,
       items: b.map((it) => ({ ref: it.ref, kind: it.kind === 'lore' ? 'lorebook entry' : it.kind === 'entity' ? 'pack: who or what it is' : 'pack: event summary', title: it.title, ...timeOf(it), text: it.text })),
-    }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 12000 }), this.settings.taskTimeoutMs * 4, signal)));
+    }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 12000 }), this.settings.taskTimeoutMs * 4, signal);
+    // one part failing does not lose the others (live: one of 45 timed out and the turn failed with all of them):
+    // it is tried once more, then left unchecked and listed
+    const unchecked: NonNullable<WorldSettings['unchecked']> = [];
+    const outs = await Promise.all(batches.map(async (b, i) => {
+      for (let attempt = 0; ; attempt++) {
+        try { return await check(b, i); } catch (e) {
+          if (signal?.aborted || (e instanceof EngineError && e.kind === 'cancelled')) throw e;
+          if (attempt) {
+            this.host.log('warn', `本局设定 part ${i + 1} of ${batches.length} not checked: ${(e as Error).message}`);
+            unchecked.push(...b.map((it) => ({ title: it.title, kind: it.kind, why: (e as Error).message.slice(0, 200) })));
+            return { items: [] } as WorldCheckOut;
+          }
+        }
+      }
+    }));
+    if (unchecked.length) this.notice('warn', `本局设定: ${unchecked.length} text(s) could not be checked (the model timed out or failed twice); they are listed in the Canon Engine panel — 重新检查 checks again.`);
     const res = worldResults(items, outs);
     // the user's own edits stay while their original is still found as it was
     const same = (a: WorldOverride, b: WorldOverride) => a.kind === b.kind && a.book === b.book && String(a.uid) === String(b.uid) && a.target === b.target;
@@ -1977,6 +1993,7 @@ export class CanonEngine {
       basis: hashObject(changes.map((x) => [x.text, x.terms])), at: this.host.now(), changes, overrides, additions,
       checked: { lore: items.filter((x) => x.kind === 'lore').length, entities: items.filter((x) => x.kind === 'entity').length, events: items.filter((x) => x.kind === 'event').length, generic },
       ...(res.rejected.length ? { rejected: res.rejected } : {}),
+      ...(unchecked.length ? { unchecked } : {}),
     };
     this.overlayCache = null;
     c.configRevisions.push({ at: this.host.now(), summary: `本局设定 checked: ${changes.length} change(s), ${items.length} text(s) read, ${overrides.length} rewritten or disabled, ${additions.length} added` });
@@ -2043,6 +2060,7 @@ export class CanonEngine {
       overrides: (ws?.overrides || []).map((o) => ({ ...o, stale: o.kind === 'lore' && stale.has(o.title), future: future(o) })),
       additions: ws?.additions || [],
       rejected: ws?.rejected || [],
+      unchecked: ws?.unchecked || [],
       loreHook: this.loreHook,
     };
   }

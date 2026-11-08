@@ -212,4 +212,23 @@ describe('in the game', () => {
     expect(nonLocal('The Council has seven elders. It meets weekly.', 'The Council has eight elders. It meets daily.', ['seven elders'])).toMatch(/does not touch: “It meets weekly/);
     expect(PROMPTS.world_check).toMatch(/A newcomer leaves everyone else's standing as it was/);
   });
+  it('WS11 a part of the check that fails is tried once more; failing twice it is left unchecked and listed, and the turn goes on', async () => {
+    const x = await setup([{ text: '身份：第8位Level 5', terms: ['Level 5', '第七位', '超能力者'] }]);
+    expect(x.engine.campaign()!.worldSettings).toBeUndefined();
+    x.model.failTask.world_check = 1;
+    x.model.on('world_check', null, { items: [{ ref: 'l1', action: 'replace', untrue: ['共有七人'], content: '学园都市的Level 5共有八人，第七位是削板军霸，第八位是田中太郎。', reason: '第8位' }], additions: [] });
+    x.host.addUser('I look around.');
+    x.model.draft('Academy City. [W11]');
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.model.tasks('world_check')).toHaveLength(2);
+    let ws = x.engine.campaign()!.worldSettings!;
+    expect(ws.overrides.map((o) => o.title)).toEqual(['Level 5']);
+    expect(ws.unchecked).toBeUndefined();
+    x.model.failTask.world_check = 2;
+    await x.engine.recheckWorld();
+    ws = x.engine.campaign()!.worldSettings!;
+    expect(ws.unchecked!.map((u) => u.title)).toEqual(['Level 5', '削板军霸', '御坂美琴']);
+    expect(ws.unchecked![0].why).toMatch(/simulated provider failure/);
+    expect(x.engine.worldView()!.unchecked).toHaveLength(3);
+  });
 });

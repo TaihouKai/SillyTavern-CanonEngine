@@ -24335,7 +24335,7 @@ TASK: Read the player's Persona (their character in this story world) and descri
 - voice: how the player character comes across and talks, in one to three short sentences: temperament, manner of speaking, how they react to teasing, questions and invitations. When the Persona gives a front they put on and how they really are, say both and how well the front holds. Only what the Persona states or clearly implies; empty when it says nothing about it.
 - public_identity: everything about the player that is public. Public by default is whatever the Persona does not mark as secret or as known only to certain people: their skills or powers if they have any, school or workplace, looks, temperament, reputation, what they are known for. Secret even when not marked is what is secret by nature in this world: membership in a hidden organization or secret society, covert work, and anything the Persona says only certain people know. uncertain: what the Persona leaves open that matters.
 Write in the Persona's language. Keep each text short.
-SHAPE: {"player":{"name":"","aliases":[],"summary":"","public_identity":""},"affiliations":[{"name":"","existing_id":null,"kind":"organization","role":"","leads":false,"members":[],"secrecy":"secret","description":""}],"places":[{"name":"","existing_id":null,"use":"","description":""}],"capabilities":[],"resources":[],"goals":[],"roles":[{"role":"","brings":[],"from":[],"style":""}],"not_suited":[],"voice":"","relationships":[{"name":"","existing_id":null,"relation":"","basis":"persona_stated"}],"knowers":[{"who":"","existing_id":null,"level":"exists","about":"","basis":"implied","places":[]}],"recognized_by":[{"who":"","existing_id":null,"places":[],"everywhere":false,"as":""}],"uncertain":[],"world_changes":[{"text":"","terms":[]}]}`,
+SHAPE: {"player":{"name":"","aliases":[],"summary":"","public_identity":""},"affiliations":[{"name":"","existing_id":null,"kind":"organization","role":"","status":"member","leads":false,"members":[],"secrecy":"secret","description":""}],"places":[{"name":"","existing_id":null,"use":"","description":""}],"capabilities":[],"resources":[],"goals":[],"roles":[{"role":"","brings":[],"from":[],"style":""}],"not_suited":[],"voice":"","relationships":[{"name":"","existing_id":null,"relation":"","basis":"persona_stated"}],"knowers":[{"who":"","existing_id":null,"level":"exists","about":"","basis":"implied","places":[]}],"recognized_by":[{"who":"","existing_id":null,"places":[],"everywhere":false,"as":""}],"uncertain":[],"world_changes":[{"text":"","terms":[]}]}`,
   integrate: `${COMMON}
 TASK: The story world reacts to the player character. Given who the player is (player: identity, organizations, who knows what about them), what actually happened with them (player.actual_history: only what they themself took part in; player.lately: what their organizations and places went through without them in the last weeks \u2014 background, not their history), what is happening or about to happen (candidate_events, each with its people and status), and the player's own decisions (engagement), work out how the world could reach the player now, so that they become part of the story without having to look for a way in.
 1. assessments: for each candidate event (and any situation from actual history worth it): direct_impact (something already in motion reaches or affects the player: someone who knows of them has their own reason to act toward them, or the event's effects reach where they are), opportunity (a plausible, interesting contact could be made), or no_connection; with a short reason.
@@ -26198,7 +26198,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.23.5";
+var ENGINE_RELEASE = "1.23.6";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -28247,14 +28247,30 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       const s = it.kind === "event" && it.target ? span.get(it.target) : void 0;
       return s ? { time: formatTick(s.lo, origin), when: s.lo < start ? "before the game starts" : "after the game starts (still to come)" } : {};
     };
-    const outs = await Promise.all(batches.map((b, i) => this.withTimeout(callStructured(this.host.model, "world_check", PROMPTS.world_check, {
+    const check2 = (b, i) => this.withTimeout(callStructured(this.host.model, "world_check", PROMPTS.world_check, {
       game_start: formatTick(start, origin),
       changes: changes.map((x) => ({ id: x.id, text: x.text })),
       player: prof ? { name: prof.personaName, summary: prof.summary } : null,
       ...batches.length > 1 ? { part: `${i + 1} of ${batches.length}` } : {},
       additions_wanted: i === 0,
       items: b.map((it) => ({ ref: it.ref, kind: it.kind === "lore" ? "lorebook entry" : it.kind === "entity" ? "pack: who or what it is" : "pack: event summary", title: it.title, ...timeOf(it), text: it.text }))
-    }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 12e3 }), this.settings.taskTimeoutMs * 4, signal)));
+    }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 12e3 }), this.settings.taskTimeoutMs * 4, signal);
+    const unchecked = [];
+    const outs = await Promise.all(batches.map(async (b, i) => {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await check2(b, i);
+        } catch (e) {
+          if (signal?.aborted || e instanceof EngineError && e.kind === "cancelled") throw e;
+          if (attempt) {
+            this.host.log("warn", `\u672C\u5C40\u8BBE\u5B9A part ${i + 1} of ${batches.length} not checked: ${e.message}`);
+            unchecked.push(...b.map((it) => ({ title: it.title, kind: it.kind, why: e.message.slice(0, 200) })));
+            return { items: [] };
+          }
+        }
+      }
+    }));
+    if (unchecked.length) this.notice("warn", `\u672C\u5C40\u8BBE\u5B9A: ${unchecked.length} text(s) could not be checked (the model timed out or failed twice); they are listed in the Canon Engine panel \u2014 \u91CD\u65B0\u68C0\u67E5 checks again.`);
     const res = worldResults(items2, outs);
     const same = (a, b) => a.kind === b.kind && a.book === b.book && String(a.uid) === String(b.uid) && a.target === b.target;
     const overrides = res.overrides.filter((o) => !prev?.overrides.some((p) => p.edited && same(p, o)));
@@ -28267,7 +28283,8 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       overrides,
       additions,
       checked: { lore: items2.filter((x) => x.kind === "lore").length, entities: items2.filter((x) => x.kind === "entity").length, events: items2.filter((x) => x.kind === "event").length, generic },
-      ...res.rejected.length ? { rejected: res.rejected } : {}
+      ...res.rejected.length ? { rejected: res.rejected } : {},
+      ...unchecked.length ? { unchecked } : {}
     };
     this.overlayCache = null;
     c.configRevisions.push({ at: this.host.now(), summary: `\u672C\u5C40\u8BBE\u5B9A checked: ${changes.length} change(s), ${items2.length} text(s) read, ${overrides.length} rewritten or disabled, ${additions.length} added` });
@@ -28331,6 +28348,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       overrides: (ws?.overrides || []).map((o) => ({ ...o, stale: o.kind === "lore" && stale.has(o.title), future: future(o) })),
       additions: ws?.additions || [],
       rejected: ws?.rejected || [],
+      unchecked: ws?.unchecked || [],
       loreHook: this.loreHook
     };
   }
@@ -30614,6 +30632,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niRecognized: { zh: "\u8C01\u8BA4\u5F97\u4F60\uFF08\u516C\u5F00\u8EAB\u4EFD\uFF09", en: "Who recognizes you (public identity)" },
   niWho: { zh: "\u8C01\u77E5\u9053\u4F60", en: "Who knows about you" },
   niConnections: { zh: "\u5173\u7CFB", en: "Connections" },
+  wsUnchecked: { zh: "\u672A\u68C0\u67E5\uFF08{n} \u6761\uFF1A\u6A21\u578B\u4E24\u6B21\u8D85\u65F6\u6216\u51FA\u9519\uFF0C\u70B9\u300C\u91CD\u65B0\u68C0\u67E5\u300D\u518D\u67E5\uFF09", en: "Not checked ({n}: the model timed out or failed twice; check again)" },
   wsRejected: { zh: "\u672A\u91C7\u7528\u7684\u6539\u5199\uFF08{n} \u6761\uFF1A\u6539\u4E86\u539F\u6587\u4E2D\u4E0D\u77DB\u76FE\u7684\u90E8\u5206\uFF09", en: "Rewrites not applied ({n}: they change what is not contradicted)" },
   wsFutureHidden: { zh: "\u53E6\u6709 {n} \u4E2A\u5C1A\u672A\u53D1\u751F\u7684\u4E8B\u4EF6\u4E5F\u6309\u672C\u5C40\u6539\u5199\u4E86\uFF08\u6253\u5F00\u300C\u663E\u793A\u5267\u900F\u300D\u67E5\u770B\uFF09\u3002", en: "{n} event(s) still to come are rewritten for this game too (turn on spoilers to see them)." },
   tieTip: { zh: "Persona \u7ED9\u51FA\u5F00\u5C40\u65F6\u7684\u5173\u7CFB\u548C\u77E5\u60C5\u8005\uFF1B\u5267\u60C5\u91CC\u5173\u7CFB\u53D8\u4E86\uFF08\u7ED3\u8BC6\u3001\u4EA4\u597D\u3001\u95F9\u7FFB\u3001\u4EA4\u5F80\u3001\u6B20\u4EBA\u60C5\u3001\u53BB\u4E16\uFF09\u6216\u6709\u4EBA\u77E5\u9053\u4E86\u4F60\u66F4\u591A\u7684\u4E8B\uFF0CCanon \u5BA1\u7A3F\u65F6\u8BB0\u4E0B\u6765\uFF08\u9644\u539F\u6587\uFF09\uFF0CGM \u770B\u5230\u7684\u662F\u73B0\u5728\u7684\u6837\u5B50\u3002\u4E5F\u53EF\u4EE5\u5728\u8FD9\u91CC\u81EA\u5DF1\u6539\u3001\u5220\u6216\u6DFB\u52A0\u3002", en: "The Persona gives the relationships and who knows what at the start; when play changes them (meeting someone who matters, friendship, a falling-out, romance, a debt, a death) or someone learns more about you, the review records it (with the quote), and the GM sees how things stand now. You can change, remove or add them here." },
@@ -32545,6 +32564,7 @@ function worldSection() {
   const hidden = w.overrides.filter((o) => o.future && !spoilers).length;
   const shown = w.overrides.filter((o) => !o.future || spoilers);
   html += `<h4>${esc2(t("wsOverrides"))}</h4>${shown.length ? `<ul class="canon-list">${shown.map(item).join("")}</ul>` : !hidden ? `<div><small>${esc2(t("wsNone"))}</small></div>` : ""}${hidden ? `<div><small>${esc2(t("wsFutureHidden").replace("{n}", String(hidden)))}</small></div>` : ""}`;
+  if (w.unchecked.length) html += `<details class="canon-older" open><summary><small>${esc2(t("wsUnchecked").replace("{n}", String(w.unchecked.length)))}</small></summary><ul class="canon-list">${w.unchecked.map((r) => `<li>${esc2(r.title)} ${tag(t(`wsKind_${r.kind}`))}</li>`).join("")}</ul><small>${esc2(w.unchecked[0].why)}</small></details>`;
   if (w.rejected.length) html += `<details class="canon-older"><summary><small>${esc2(t("wsRejected").replace("{n}", String(w.rejected.length)))}</small></summary><ul class="canon-list">${w.rejected.map((r) => `<li><b>${esc2(r.title)}</b> ${tag(t(`wsKind_${r.kind}`))}<br><small>${esc2(r.why)}</small>${r.reason ? `<br><small>${esc2(r.reason)}</small>` : ""}</li>`).join("")}</ul></details>`;
   if (w.additions.length) html += `<h4>${esc2(t("wsAdditions"))}</h4><ul class="canon-list">${w.additions.map((a) => `<li><b>${esc2(a.title)}</b> <small>${esc2(a.keys.join("\u3001"))}</small>${a.edited ? ` ${tag(t("wsEdited"))}` : ""}${a.reason ? `<br><small>${esc2(a.reason)}</small>` : ""}<details class="canon-older"><summary><small>${esc2(t("wsThisGame"))}</small></summary><textarea class="text_pole canon-ws-edit" data-id="${esc2(a.id)}" rows="4">${esc2(a.content)}</textarea><button class="menu_button" data-act="ws-save" data-id="${esc2(a.id)}">${esc2(t("wsSave"))}</button> <button class="menu_button" data-act="ws-del" data-id="${esc2(a.id)}">${esc2(t("wsDelete"))}</button></details></li>`).join("")}</ul>`;
   return html;

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.23.6 — 2026-11-08
+
+- **One part of the 本局设定 check failing no longer fails the turn.** Live: one of 45 world_check calls timed out after 300s and the whole first turn failed, losing the other 44 results. A part that fails is tried once more; failing again, its texts are left unchecked (`unchecked`, with why), listed in the panel (未检查) with a notice, and the rest applies; 重新检查 checks again. Tests: WS11.
+- **The profile prompt's shape shows `status`** for affiliations (live: the model left it out and the profile was resent).
+
 ## 1.23.5 — 2026-11-08
 
 - **The Persona's organizations and places go by their name in this game.** The player's affiliations and places kept the name the Persona analysis read (「七名超能力者」) even when 本局设定 renamed the pack entity; the panel, the analysis and the GM context now use the entity's current name (`nameIn`). Tests: WS9.

@@ -45,6 +45,8 @@ export interface WorldSettings {
   checked: { lore: number; entities: number; events: number; generic: string[] };
   /** Rewrites not applied, with why (not a local change of what the change makes untrue). */
   rejected?: { title: string; kind: WorldOverride['kind']; reason: string; why: string }[];
+  /** Texts not checked: their part of the check failed twice (timed out or errored); 重新检查 checks again. */
+  unchecked?: { title: string; kind: WorldOverride['kind']; why: string }[];
 }
 
 export const textHash = (s: string) => hashObject(String(s)).slice(0, 16);
