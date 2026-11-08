@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.25.2 — 2026-11-09
+
+- **A reply's own clock bounds when it ends.** Live: a reply finishing a meal begun two replies earlier (food served at 22:40), with "都快十一点了" in it, was given 23:20–23:35 — the reviewer added "a meal 30-60" again — and the clock only moves on. Now `clockReadings()` finds the time a reply states as now ("都快十一点了", "已经三点半了", "现在十点二十", "it's already 11:30"; not appointments like "明天八点开幕式"), and an estimated end more than 10 minutes after the latest one is taken back to it (a stated time or a time leap is left alone). The prompt: a meal already under way counts only what the reply shows; a clock read in the reply is the time at that point. Tests: CR1, CR2.
+
 ## 1.25.1 — 2026-11-09
 
 - **检查面板: the section jumps under the filter wrap onto more lines** instead of scrolling sideways (most mice have no horizontal wheel); so does the page list on a narrow screen.

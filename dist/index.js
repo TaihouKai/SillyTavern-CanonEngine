@@ -17932,6 +17932,41 @@ function parseTickLabel(s) {
   if (hh > 23 || mm > 59) return null;
   return day * DAY + hh * 60 + mm;
 }
+var CN_DIGIT = { \u96F6: 0, "\u3007": 0, \u4E00: 1, \u4E8C: 2, \u4E24: 2, \u4E09: 3, \u56DB: 4, \u4E94: 5, \u516D: 6, \u4E03: 7, \u516B: 8, \u4E5D: 9 };
+function cnNumber(s) {
+  if (/^\d{1,2}$/.test(s)) return Number(s);
+  const m = s.match(/^([零〇一二两三四五六七八九])?(十)?([零〇一二两三四五六七八九])?$/);
+  if (!m || !s) return null;
+  if (!m[2]) return m[1] && !m[3] ? CN_DIGIT[m[1]] : null;
+  return (m[1] ? CN_DIGIT[m[1]] : 1) * 10 + (m[3] ? CN_DIGIT[m[3]] : 0);
+}
+function clockReadings(text) {
+  const out = [];
+  const N = "[\u96F6\u3007\u4E00\u4E8C\u4E24\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u53410-9]{1,3}";
+  const zh = new RegExp(`(\u90FD|\u5DF2\u7ECF|\u5DF2|\u73B0\u5728|\u8FD9\u90FD|\u773C\u770B)?(\u5FEB|\u5FEB\u8981|\u5C06\u8FD1|\u5DEE\u4E0D\u591A|\u5C31\u8981)?(${N})\u70B9(?:(\u534A)|(\u4E00\u523B)|(\u4E09\u523B)|\u96F6?(${N})\u5206?)?(?:\u591A|\u5DE6\u53F3|\u949F)?(\u4E86)?`, "g");
+  for (const m of String(text).matchAll(zh)) {
+    if (!m[8] && m[1] !== "\u73B0\u5728") continue;
+    if (!m[1] && !m[2]) continue;
+    const hour = cnNumber(m[3]);
+    const minute = m[4] ? 30 : m[5] ? 15 : m[6] ? 45 : m[7] ? cnNumber(m[7]) : 0;
+    if (hour === null || hour > 24 || minute === null || minute > 59) continue;
+    out.push({ hour, minute, nearly: !!m[2], quote: m[0] });
+  }
+  const en = /\b(?:it'?s|it is|already|now)\s+(nearly\s+|almost\s+)?(\d{1,2})(?::(\d{2}))?\s*(?:o'?clock|a\.?m\.?|p\.?m\.?)?/gi;
+  for (const m of String(text).matchAll(en)) {
+    const hour = Number(m[2]), minute = m[3] ? Number(m[3]) : 0;
+    if (!m[3] && !/o'?clock|[ap]\.?m/i.test(m[0])) continue;
+    if (hour > 24 || minute > 59) continue;
+    out.push({ hour: /p\.?m/i.test(m[0]) && hour < 12 ? hour + 12 : hour, minute, nearly: !!m[1], quote: m[0] });
+  }
+  return out;
+}
+function readingTick(r, from) {
+  const day = Math.floor(from / DAY) * DAY;
+  const hours = r.hour >= 13 ? [r.hour] : [r.hour % 12, r.hour % 12 + 12];
+  const ticks = [-1, 0, 1].flatMap((d) => hours.map((h) => day + d * DAY + h * 60 + r.minute)).filter((x) => x >= from - 60 && x <= from + 720).sort((a, b) => a - b);
+  return ticks.length ? ticks[0] : null;
+}
 function parseOriginLabel(label) {
   const m = String(label || "").match(/(\d{3,6})\s*(?:-|\/|年)\s*(\d{1,2})\s*(?:-|\/|月)\s*(\d{1,2})/);
   if (!m) return null;
@@ -24298,7 +24333,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
 1. For EVERY claim id in "claims" return a claim_check verdict: consistent (agrees with retrieved records/state), contradiction (conflicts: e.g. a destroyed place shown operating, a dead person greeting, wrong actor/outcome of a past event, using a missing object), unsupported (asserts a NOTABLE past with no supporting record: a death, serious injury, major fight or crime, a canonical event, or a relationship, rank, membership or secret knowledge \u2014 e.g. who is the player's superior, who knows their secret identity \u2014 that the player profile and records do not give), belief_ok (a character's belief/rumor/lie presented as such), new_detail (compatible new detail; also small invented backstory that contradicts no record, state, canonical event or the player profile \u2014 an anecdote, habit or minor earlier incident, including one shared with the player character such as "last time she helped us catch a bag-snatcher she scorched half a street of billboards" between people who already know each other \u2014 record it as an occurrence with backstory=true; also a character's everyday account of another person's recent whereabouts or doings \u2014 out all night, busy, not answering the phone \u2014 when no record or due event says otherwise), not_applicable. Cite record_ids you relied on.
    Ordinary present-scene details with no record (weather, crowds, shops, decorations, minor NPCs) are new_detail, never contradiction. Preparations, schedules, anticipation or rumors of a FUTURE event ("flags for tomorrow's festival") do not assert that the event has started. A different wording of a free-text state ("\u6B63\u5E38\u8FD0\u8F6C" vs "operating normally") is consistent.
 2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote; an entity-set fact such as an organization's members changes by who joins \u2014 op "add", value: the ids joining \u2014 or leaves \u2014 op "remove" \u2014 never as the whole list; the player character (player_entity) being taken on by an organization or leaving it in this scene is such a change too), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it; backstory=true for small invented past the reply establishes (see new_detail), with time = its approximate past time or null), state_claims (facts the narration presupposes \u2014 what it takes as already true before or apart from this scene; a change the reply itself shows happening (someone is hit and falls, a machine is wrecked, an object is taken) is a TRANSITION with the new value, not a state_claim; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null; put each claim on the entity the quote is actually about \u2014 a building, room, door or object that is not in the registry is NOT its district or city: leave such a claim out rather than file it on a containing place), player_actions (player-character acts depicted \u2014 dialogue, reactions and actions; authorized_by_quote = a span COPIED VERBATIM from the player's message that covers it, or null; category = the kind of act: dialogue|reactions|actions|trivial|movement|items|skills|combat|decisions|secrets|intervention \u2014 the most committing kind that fits: agreeing to a job in a line of dialogue is decisions, burning someone is combat, cutting off or stopping what another character is doing (a canonical event, someone's significant act) \u2014 even with one line like "stop fanning her" \u2014 is intervention; noticing or suspecting it is only a reaction; reacting to an offer or question without saying yes or no \u2014 an opinion, a complaint, a joke, a question back, "maybe", "we'll see" \u2014 is dialogue, not decisions; trivial everyday matters that commit the character to nothing are trivial, never items or decisions \u2014 accepting a snack or a small gift, paying for a drink, taking a flyer, sitting with someone who asks: items and decisions are for what commits the character (equipment, valuables, key items, notable money; a task, plan, promise, joining something)). An action is authorized when it carries out what the player wrote, including its natural steps and immediate details (for "I take her back to the cell and lock her up": stopping her, taking her belongings, escorting her, locking the door) and HOW it is done: for "I burn the traps along the way", each trap burned, the spell, its incantation and what the fire looks like are all authorized; for a line whose gist the player gave, its exact words. Never require the player to have specified such details. An authorized act is fine whatever its category. player_ooc_instructions, when given, are the player's out-of-character directions for this reply (not part of player_action_scope): an act that carries one out is authorized (authorized_by_quote = a span copied from that instruction) only when its condition actually happens in the candidate; if the condition does not happen, null. Use null only for a NEW decision, goal or line of dialogue the player did not express, step_enactments, new_entities (genuinely new people/places/objects introduced).
-3. scene_end: story time when the reply ends ({day, minute} with minute = minutes after midnight on a 24-hour clock: noon / \u4E2D\u534812\u70B9 is 720, 12:10 is 730, midnight is 0; \u665A\u4E0A/\u4E0B\u5348 hours are after 12:00). lo is the MINIMUM time the depicted events actually need, added to the time the scene starts: add up everything the reply shows in order \u2014 dialogue, actions, fighting, movement. Spoken dialogue takes about as long as saying it: a short line a few seconds, a dozen lines of small talk about 1-2 minutes; a single action beat or fight moment under a minute, a whole fight a few minutes; moving by distance (across a room seconds, down the street a few minutes, a train ride to another district 15-30); only a long conversation with many long speeches 10-20 minutes; a meal 30-60; walking/travel by distance; waiting lasts as long as what the text says fills it (reading two articles while waiting is several minutes); sleeping until the stated waking. Activity that runs "until" a part of the day ("\u4E00\u76F4\u5199\u5230\u5929\u9ED1", "until evening") ends at that part of the day's usual clock time for the date (dark in September about 18:00-18:30), not a guessed duration. Time the text does not state (lingering, unstated filler) goes into hi, never into lo; when unsure, keep lo low \u2014 an overestimate can never be taken back. An explicit time, duration or skip in the PLAYER'S MESSAGE (player_action_scope) or in the reply ("13\u70B951\u5206", "\u5927\u69822\u5206\u949F", "two hours later", "\u508D\u665A") anchors scene_end and wins over estimates. precision "approx" for an estimate, "minute" only when a time is stated. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback.
+3. scene_end: story time when the reply ends ({day, minute} with minute = minutes after midnight on a 24-hour clock: noon / \u4E2D\u534812\u70B9 is 720, 12:10 is 730, midnight is 0; \u665A\u4E0A/\u4E0B\u5348 hours are after 12:00). lo is the MINIMUM time the depicted events actually need, added to the time the scene starts: add up everything the reply shows in order \u2014 dialogue, actions, fighting, movement. Spoken dialogue takes about as long as saying it: a short line a few seconds, a dozen lines of small talk about 1-2 minutes; a single action beat or fight moment under a minute, a whole fight a few minutes; moving by distance (across a room seconds, down the street a few minutes, a train ride to another district 15-30); only a long conversation with many long speeches 10-20 minutes; a whole meal shown from sitting down to leaving 30-60 (a meal already under way before this reply counts only what this reply shows: eating while talking takes as long as the talk); walking/travel by distance; waiting lasts as long as what the text says fills it (reading two articles while waiting is several minutes); sleeping until the stated waking. Activity that runs "until" a part of the day ("\u4E00\u76F4\u5199\u5230\u5929\u9ED1", "until evening") ends at that part of the day's usual clock time for the date (dark in September about 18:00-18:30), not a guessed duration. Time the text does not state (lingering, unstated filler) goes into hi, never into lo; when unsure, keep lo low \u2014 an overestimate can never be taken back. An explicit time, duration or skip in the PLAYER'S MESSAGE (player_action_scope) or in the reply ("13\u70B951\u5206", "\u5927\u69822\u5206\u949F", "two hours later", "\u508D\u665A") anchors scene_end and wins over estimates. A clock someone in the reply reads or states as the time now ("\u90FD\u5FEB\u5341\u4E00\u70B9\u4E86", "\u5DF2\u7ECF\u4E09\u70B9\u4E86", "it's 11:30") is the time at that point of the reply: lo is that time plus only what the reply shows after it. precision "approx" for an estimate, "minute" only when a time is stated. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback.
    canon_events_now lists the canonical (non-HARD) events whose time window is open around this scene. If the reply depicts one of them happening \u2014 even with other participants (e.g. the player tagging along) or a different course \u2014 record that occurrence with its pack_event_id and a disposition. Decide the result only when the event has CONCLUDED in this reply (its outcome happened, or it can no longer happen as written): "occurred" if its original result holds, "diverged" if the result is different. While it is still under way \u2014 the fight has started, the attack is in progress, nobody has won yet \u2014 use "ongoing": the result is not settled, and the event is judged in the reply where it ends. Never use "diverged" only because the result is not shown yet. An entry with in_progress lists the beats already shown; continue it ("ongoing" again, or "occurred"/"diverged" when it ends). Never file such an event as an ordinary scene beat. A canonical event that already has its result (its window passed) cannot happen again: what the reply shows of it later \u2014 the fight still going, its aftermath \u2014 is its after story: record it with that pack_event_id and disposition "ongoing".
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
    Caricature (code "character_caricature", blocking): a character of the story acting as a caricature of themselves in a way a reader would notice \u2014 calling themselves by a title or nickname others use for them (\u672C\u5973\u738B for a girl others call \u5973\u738B), using authority they do not have over the player character (an officer demanding a statement, a signature or an account from someone with no incident behind it), or one trait taking over a whole scene against the rest of who they are. Quote it. Ordinary quirks, banter and a character's known manner of speech are not caricature.
@@ -24999,6 +25034,7 @@ function matchScope(pack2, contacts, label) {
   return { scopeKind, scopeRef, label: l };
 }
 var EARLY_SHIFT_MAX = 3 * 60;
+var CLOCK_READING_SLACK = 10;
 var DESTRUCTIVE = /(destroy|ruin|demolish|collaps|dead|dissolv|gone|burn|毁|废|塌|灭|亡|解散)/i;
 function refersToHard(text, id, title, required) {
   if (text.includes(id) || title && text.includes(title)) return true;
@@ -25099,6 +25135,14 @@ function runGate(g) {
   const flashback = !!ev.flashback;
   if (sceneEnd && !flashback && sceneEnd.hi < g.clockTick) violations.push(`Story time moves backwards (ends ${formatTick(sceneEnd.hi)} before the committed ${formatTick(g.clockTick)}) without a flashback frame or recorded intervention.`);
   if (!sceneEnd) sceneEnd = { lo: g.clockTick, hi: g.clockTick, precision: "approx" };
+  if (!flashback && !g.leap && sceneEnd.precision !== "minute") {
+    const rs = clockReadings(g.text).map((r) => ({ r, tick: readingTick(r, g.clockTick) })).filter((x) => x.tick !== null);
+    const last2 = rs.length ? rs.reduce((a, b) => b.tick > a.tick ? b : a) : null;
+    if (last2 && sceneEnd.lo > last2.tick + CLOCK_READING_SLACK) {
+      warnings.push(`scene end ${formatTick(sceneEnd.lo)} is long after the reply's own clock "${last2.r.quote}" (${formatTick(last2.tick)}): taken from it`);
+      sceneEnd = { lo: Math.max(g.clockTick, last2.tick), hi: Math.max(sceneEnd.hi, last2.tick + CLOCK_READING_SLACK), precision: "approx" };
+    }
+  }
   const pendingHardMap = new Map(pendingHard(pack2, index.state).map((c) => [c.event.id, c]));
   const hardOutcomeKeys = /* @__PURE__ */ new Map();
   for (const [id, c] of pendingHardMap) for (const o of c.event.outcomes) {
@@ -26207,7 +26251,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.25.1";
+var ENGINE_RELEASE = "1.25.2";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -26306,7 +26350,7 @@ var TIME_ANCHOR = new RegExp([
   String.raw`\b(?:(?:an?|one|two|three|four|five|six|several|a few|\d+) (?:hours?|minutes?|days?) later|later that|next (?:day|morning)|the following (?:day|morning)|that (?:evening|night|afternoon)|at (?:dawn|dusk|noon|midnight)|\d{1,2} ?(?:am|pm|o'clock))\b`
 ].join("|"), "i");
 var CN_NUM = { \u4E00: 1, \u4E8C: 2, \u4E24: 2, \u4E09: 3, \u56DB: 4, \u4E94: 5, \u516D: 6, \u4E03: 7, \u516B: 8, \u4E5D: 9, \u5341: 10, \u534A: 0.5, \u51E0: 3 };
-var cnNumber = (t2) => {
+var cnNumber2 = (t2) => {
   if (/^\d+$/.test(t2)) return Number(t2);
   if (t2.includes("\u5341")) {
     const [a, b] = t2.split("\u5341");
@@ -26322,7 +26366,7 @@ function statedTime(text) {
   let minutes = 0;
   for (const m of text.matchAll(DURATION)) {
     if (m[3]) {
-      if (m[1] !== "\u534A" || m[3] !== "\u5929") minutes += (cnNumber(m[1]) + (m[2] || m[4] ? 0.5 : 0)) * UNIT_MIN[m[3]];
+      if (m[1] !== "\u534A" || m[3] !== "\u5929") minutes += (cnNumber2(m[1]) + (m[2] || m[4] ? 0.5 : 0)) * UNIT_MIN[m[3]];
     } else if (m[5] || m[8]) minutes += 30;
     else if (m[7]) minutes += (/^\d+$/.test(m[6]) ? Number(m[6]) : EN_NUM[m[6].toLowerCase()] ?? 1) * UNIT_MIN[m[7].toLowerCase().replace(/s$/, "")];
   }
