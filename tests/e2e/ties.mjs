@@ -46,7 +46,7 @@ try {
   // the 叙事融入 tab: the list, and a relationship added by hand
   await page.evaluate(() => (document.querySelector('[data-act="inspect"]'))?.click());
   await page.waitForTimeout(500);
-  await page.evaluate(() => (document.querySelector('#canon-inspector [data-tab="player"]'))?.click());
+  await page.evaluate(() => (document.querySelector('#canon-inspector [data-tab="ties"]'))?.click());
   await page.waitForTimeout(500);
   const shown = await page.evaluate(() => document.querySelector('#canon-inspector')?.textContent || '');
   check('TI04 the panel lists the changed relationship with its start and the new knower', shown.includes('因账本一事绝交的旧友') && shown.includes('青梅竹马的好友') && shown.includes('Ash夜里替走私船干活'), shown.slice(0, 200));
@@ -63,6 +63,8 @@ try {
   const answer = () => page.evaluate(() => window.CanonEngine.engine.integrationView(true).contacts.map((k) => k.answer));
   const click = async (sel) => { await page.evaluate((sel) => document.querySelector(`#canon-inspector ${sel}`)?.click(), sel); await page.waitForTimeout(1500); };
   const btns = () => page.evaluate(() => [...document.querySelectorAll('#canon-inspector [data-act="ni-answer"]')].map((b) => `${b.dataset.stance}:${b.textContent}`));
+  await page.evaluate(() => (document.querySelector('#canon-inspector [data-tab="contacts"]'))?.click());
+  await page.waitForTimeout(500);
   const b0 = await btns();
   await click('[data-act="ni-answer"][data-stance="accepted"]');
   const a1 = await answer(), b1 = await btns();

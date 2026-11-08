@@ -67,7 +67,7 @@ The GM's story replies always use the chat's own connection; only internal analy
 - The reply appears only after validation (buffered, not streamed). No JSON, labels or planner text is shown in the story.
 - Swipe, regenerate and continue work through ST's normal buttons; each candidate is validated the same way.
 - A spoiler-free red banner may appear beside a reply after a major deviation. It belongs to that reply variant and disappears if the reply is deleted or swiped away.
-- **检查面板** (inspector): current time, facts with provenance, actual history, deviations, anchors, plan, recovery status. Future anchors/plans stay hidden until you tick *显示剧透*. *Debug mode* (advanced settings) adds the final outgoing GM prompt, operation traces, coverage manifests and raw JSON.
+- **检查面板** (inspector): a drawer at the right with grouped pages — Player (identity, relationships, contacts, decisions), World (本局设定, facts with provenance, actual history, deviations, anchors), Engine (plan, debug) — an overview with what needs you, a filter per page and cards with their actions; recovery status. Future anchors/plans stay hidden until you tick *显示剧透*. *Debug mode* (advanced settings) adds the final outgoing GM prompt, operation traces, coverage manifests and raw JSON.
 
 ### How the original story is handled
 

@@ -17,7 +17,7 @@ try {
   await bind(page, packText(), 600);
   await page.click('#canon-engine-status [data-act="inspect"]');
   await page.waitForSelector('#canon-inspector');
-  await page.click('#canon-inspector [data-tab="player"]');
+  await page.click('#canon-inspector [data-tab="contacts"]');
   await sleep(500);
   let s = await state(page);
   check('JT01 the 叙事融入 tab has the 小任务 checkbox, on by default like the setting', s.tab === true && s.card !== false, JSON.stringify(s));

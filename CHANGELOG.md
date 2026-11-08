@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.25.0 — 2026-11-09
+
+- **检查面板 redesigned.** It had grown from read-only lists into one long 叙事融入 column with nested scroll areas, buttons and always-open input boxes, and was rebuilt on every status tick (the scroll jumped to the top, opened folds closed, typing was lost). Now (`src/ui/inspector.ts`):
+  - a drawer at the right (resizable by its left edge, remembered; full screen on a phone; Esc closes) with a grouped navigation — Player: 身份 · 关系 · 接触 · 参与意愿; World: 本局设定 · 当前事实 · 实际历史 · 偏离 · 锚点; Engine: 计划 · 调试 — and counts on the entries (waiting contacts, unchecked 本局设定 texts);
+  - 概览 with the story time, pack and revision and 需要你处理 (contacts waiting for an answer, a changed Persona, 本局设定 texts unchecked or stale), each a link to its page;
+  - one scroll area per page with sticky section headers, a filter box (only cards with the text; n/m) and jumps to the sections;
+  - every entry a card, its actions in the header (接受/拒绝/完成, 强烈拒绝, 优先, 重新检查), edit forms folded under 修改; contacts waiting for an answer first; decisions in effect first; facts grouped by entity; history newest first;
+  - rebuilt only when what it shows changed, keeping the scroll, opened folds and a form being typed in.
+- e2e: tab ids `contacts`, `ties`, `world` replace `player`.
+
 ## 1.24.0 — 2026-11-09
 
 - **A contact the player went along with in play is answered, whatever the reviewer called the beat.** "Taken up in play" needed an occurrence the reviewer labelled origin "player", which it hardly ever does (the prompt never asks for it), so contacts the player went along with stayed 未回应. Now a later message's occurrence with the player character among its actors that involves the people who reached out, the organization the contact came through (or its members), or the event it was about answers it; the reply that made the contact does not answer it itself. Probed with the real extract prompt (deepseek-v4.1-flash, made-up replies): spoken and acted acceptances and refusals were classified correctly. Tests: NI-27d.

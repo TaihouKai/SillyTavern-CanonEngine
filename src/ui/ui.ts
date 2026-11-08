@@ -13,6 +13,7 @@ import { parseLeapTime } from '../runtime/leap';
 import { t, setLang } from './i18n';
 import { primeNotifications, systemNotificationsAvailable } from './notify';
 import { GraphPanel, packGraph, currentGraph } from './graph';
+import { createInspector } from './inspector';
 import { validatePackText, type LoadedPack } from '../domain/pack';
 import { listLibrary, saveToLibrary, loadFromLibrary, removeFromLibrary, type LibraryEntry } from './library';
 
@@ -25,8 +26,7 @@ let H: StHost;
 export const CHAT_PROFILE = '__chat__';
 let getSettings: () => EngineSettings & { inspectorOpen: boolean; uiLang?: string };
 let getLock: () => WriterLock | null;
-let inspectorEl: HTMLElement | null = null;
-let inspectorTab = 'overview';
+let inspector: ReturnType<typeof createInspector> | null = null;
 let graphPanel: GraphPanel | null = null;
 /** A library pack opened for viewing (历史包库 → 查看): shown in the graph without binding it to a chat. */
 let packPreview: { label: string; pack: LoadedPack; origin: { y: number; m: number; d: number } | null } | null = null;
@@ -40,6 +40,10 @@ export function mountUi(engine: CanonEngine, host: StHost, settings: typeof getS
   mountSettings();
   mountStatus();
   mountTopButton();
+  inspector = createInspector({
+    engine: () => E, settings: () => getSettings(), saveSettings: () => ctx().saveSettingsDebounced?.(), refreshUi, toast, tip,
+    lastDraftPrompt: () => gen.lastDraftPrompt,
+  });
   refreshUi();
 }
 
@@ -629,239 +633,8 @@ function openUpdateWizard(text: string) {
 }
 
 // ---------------------------------------------------------------------------------------------
-export function toggleInspector(open: boolean) {
-  const s = getSettings();
-  s.inspectorOpen = open;
-  const camp = E.campaign();
-  if (camp) camp.uiPreferences.inspectorOpen = open;
-  ctx().saveSettingsDebounced?.();
-  renderInspector();
-}
-
-function renderInspector() {
-  const s = getSettings();
-  const camp = E.campaign();
-  const open = !!(camp?.uiPreferences.inspectorOpen ?? s.inspectorOpen) && !!camp;
-  if (!open) { inspectorEl?.remove(); inspectorEl = null; return; }
-  if (!inspectorEl) {
-    inspectorEl = document.createElement('div');
-    inspectorEl.id = 'canon-inspector';
-    inspectorEl.className = 'canon-inspector';
-    document.body.appendChild(inspectorEl);
-    inspectorEl.addEventListener('click', (ev) => {
-      const b = (ev.target as HTMLElement).closest('[data-tab],[data-act]') as HTMLElement | null;
-      if (!b) return;
-      if (b.dataset.tab) { inspectorTab = b.dataset.tab; renderInspector(); }
-      if (b.dataset.act === 'close') toggleInspector(false);
-      // 叙事融入: identity and "allow contact again" are explicit player decisions
-      const act = b.dataset.act;
-      if (act === 'ni-prefer') {
-        (b as HTMLButtonElement).disabled = true;
-        E.togglePreferred(b.dataset.scope || '').then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
-      }
-      if (act === 'ni-refresh') {
-        (b as HTMLButtonElement).disabled = true;
-        b.textContent = t('niBusy');
-        E.refreshIntegration().then((n) => { toast('info', t('niRefreshDone').replace('{n}', String(n))); renderInspector(); }).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
-      }
-      // 本局设定
-      if (act === 'ws-recheck' || act === 'ws-manual' || act === 'ws-save' || act === 'ws-del') {
-        (b as HTMLButtonElement).disabled = true;
-        if (act === 'ws-recheck') b.textContent = t('wsBusy');
-        const box = (sel: string) => (inspectorEl!.querySelector(sel) as HTMLTextAreaElement | null)?.value ?? '';
-        const id = b.dataset.id || '';
-        const run = act === 'ws-recheck' ? E.recheckWorld().then(() => toast('info', t('wsDone')))
-          : act === 'ws-manual' ? E.setWorldManual(box('.canon-ws-manual').split(/\r?\n/))
-          : act === 'ws-save' ? E.editWorld(id, box(`.canon-ws-edit[data-id="${CSS.escape(id)}"]`))
-          : E.editWorld(id, null);
-        run.then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
-      }
-      // relationships and who knows what (the user's own changes)
-      if (act === 'tie-save' || act === 'tie-del') {
-        const kind = b.dataset.kind === 'knows' ? 'knows' : 'relation';
-        const sel = (cls: string) => inspectorEl!.querySelector(`.${cls}[data-kind="${kind}"][data-i="${CSS.escape(b.dataset.i || '')}"]`) as HTMLInputElement | null;
-        const isNew = b.dataset.i === 'new';
-        const name = isNew ? (sel('canon-tie-name')?.value || '') : (b.dataset.name || '');
-        const text = sel('canon-tie-text')?.value.trim() || '';
-        if (act === 'tie-save' && (!name.trim() || (kind === 'relation' && !text))) { toast('warning', t('tieNeedText')); return; }
-        (b as HTMLButtonElement).disabled = true;
-        const patch = act === 'tie-del' ? null : kind === 'relation' ? { relation: text, ended: !!sel('canon-tie-ended')?.checked } : { level: (sel('canon-tie-level')?.value || 'identity') as 'exists' | 'identity' | 'secrets', about: text };
-        E.editTie(kind, isNew ? null : b.dataset.who || null, name, patch).then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
-      }
-      if (act === 'ni-answer') {
-        (b as HTMLButtonElement).disabled = true;
-        E.answerContact(b.dataset.rec || '', b.dataset.stance as 'accepted' | 'declined' | 'done').then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
-      }
-      if (act === 'ni-update' || act === 'ni-keep' || act === 'ni-reopen' || act === 'ni-strong' || act === 'ni-weak') {
-        (b as HTMLButtonElement).disabled = true;
-        if (act === 'ni-update') b.textContent = t('niBusy');
-        const run = act === 'ni-update' ? E.updateIdentity() : act === 'ni-keep' ? E.keepIdentity()
-          : act === 'ni-strong' || act === 'ni-weak' ? E.setDecisionStrong(b.dataset.kind as any, b.dataset.ref || '', act === 'ni-strong')
-          : E.reopenScope(b.dataset.kind as any, b.dataset.ref || '', b.dataset.label || '');
-        run.then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
-      }
-    });
-    inspectorEl.addEventListener('change', (ev) => {
-      const tg = ev.target as HTMLInputElement;
-      if (tg.dataset.act === 'spoilers' && camp) { camp.uiPreferences.spoilers = tg.checked; renderInspector(); }
-      if (tg.dataset.act === 'ni-jobs') {
-        (getSettings() as any).quietDayJobs = tg.checked;
-        E.settings.quietDayJobs = tg.checked;
-        ctx().saveSettingsDebounced?.();
-        refreshUi();
-        renderInspector();
-      }
-    });
-  }
-  const spoilers = !!camp?.uiPreferences.spoilers;
-  const d = E.inspector(spoilers);
-  const tabs = ['overview', 'player', 'facts', 'history', 'deviations', 'anchors', 'plan', ...(E.settings.debug ? ['debug'] : [])];
-  const tabName: Record<string, string> = { overview: t('tabOverview'), player: t('tabPlayer'), facts: t('tabFacts'), history: t('tabHistory'), deviations: t('tabDeviations'), anchors: t('tabAnchors'), plan: t('tabPlan'), debug: t('tabDebug') };
-  let body = '';
-  if (!d) body = `<div>${esc(E.status.message || t('phase_reconciling'))}</div>`;
-  else if (inspectorTab === 'overview') {
-    body = `<div><b>${esc(d.title)}</b> · hash ${esc(d.packHash)}</div><div>⏱ ${esc(d.time)}</div><div>rev ${d.revision} · branch ${esc(d.branchId.slice(0, 12))}</div>
-      <div>${esc(d.recovery.status)} ${esc(d.recovery.reason || '')}</div>
-      <ul class="canon-list">${d.notices.map((n) => `<li class="${n.level}">${esc(n.text)}</li>`).join('')}</ul>`;
-  } else if (inspectorTab === 'player') {
-    body = playerTab(d.integration);
-  } else if (inspectorTab === 'facts') {
-    body = `<table class="canon-table"><tr><th>entity</th><th>predicate</th><th>value</th><th>since</th><th>source</th></tr>${d.facts.map((f: any) => `<tr><td>${esc(f.entity)}</td><td>${esc(f.predicate)}</td><td>${esc(f.value)}</td><td>${esc(f.since)}</td><td>${esc(f.source)}</td></tr>`).join('')}</table>`;
-  } else if (inspectorTab === 'history') {
-    body = `<ul class="canon-list">${d.occurrences.map((o) => `<li><b>${esc(o.time)}</b> ${esc(o.title)} <small>(${esc(o.origin)})</small><br><small>${esc(o.account)}</small></li>`).join('')}</ul>`;
-  } else if (inspectorTab === 'deviations') {
-    body = `<ul class="canon-list">${d.deviations.map((x) => `<li>${esc(x.title)}: <b>${esc(x.disposition)}</b> — ${esc(x.reason)}</li>`).join('') || '<li>—</li>'}</ul>`;
-  } else if (inspectorTab === 'anchors') {
-    body = `<ul class="canon-list">${d.anchors.map((a) => `<li>${esc(spoilers ? a.title : '•••')} — <b>${esc(a.status)}</b> ${esc(a.when)}<br><small>${esc(a.required)}</small></li>`).join('')}</ul>`;
-  } else if (inspectorTab === 'plan') {
-    body = `<pre class="canon-pre">${esc(JSON.stringify(d.plan, null, 1))}</pre>`;
-  } else if (inspectorTab === 'debug') {
-    body = `<h4>Last turn</h4><pre class="canon-pre">${esc(E.lastReport || '—')}</pre>
-      <h4>Last operation</h4><pre class="canon-pre">${esc(JSON.stringify(d.lastTrace, null, 1))}</pre>
-      <h4>Final draft prompt (as sent)</h4><pre class="canon-pre">${esc(JSON.stringify(gen.lastDraftPrompt, null, 1))}</pre>
-      <h4>Coverage manifests</h4><pre class="canon-pre">${esc(JSON.stringify(d.manifests, null, 1))}</pre>
-      <h4>Raw campaign JSON</h4><pre class="canon-pre">${esc(JSON.stringify({ ...camp, packSnapshot: '[omitted]' }, null, 1)).slice(0, 200000)}</pre>`;
-  }
-  inspectorEl.innerHTML = `<div class="canon-insp-head"><b>${t('inspect')}</b>
-      <label><input type="checkbox" data-act="spoilers" ${spoilers ? 'checked' : ''}> ${t('spoilers')}</label>
-      <button class="menu_button" data-act="close">✕</button></div>
-    <div class="canon-tabs">${tabs.map((x) => `<button class="menu_button ${x === inspectorTab ? 'active' : ''}" data-tab="${x}">${tabName[x]}</button>`).join('')}</div>
-    <div class="canon-insp-body">${body}</div>`;
-}
-
-/** 本局设定 in the 叙事融入 tab: the changes, your own, what was checked, and every entry rewritten for this game. */
-function worldSection(): string {
-  const w = E.worldView();
-  if (!w) return '';
-  const tag = (s: string) => `<span class="canon-tag">${esc(s)}</span>`;
-  let html = `<h4>${esc(t('wsTitle'))} <button class="menu_button canon-h4-btn" data-act="ws-recheck" title="${esc(t('wsRecheckTip'))}">${esc(t('wsRecheck'))}</button></h4><div><small>${esc(t('wsIntro'))}</small></div>`;
-  html += w.changes.length
-    ? `<ul class="canon-list">${w.changes.map((c) => `<li>${tag(t(`wsSrc_${c.source}`))} ${esc(c.text)}${c.terms.length ? `<br><small>${esc(t('wsTerms'))}: ${esc(c.terms.join('、'))}</small>` : ''}</li>`).join('')}</ul>`
-    : `<div><small>${esc(t('wsNoChanges'))}</small></div>`;
-  html += `<div><small>${esc(t('wsManual'))}</small></div><textarea class="text_pole canon-ws-manual" rows="3">${esc(w.manual.join('\n'))}</textarea><div><button class="menu_button" data-act="ws-manual">${esc(t('wsSave'))}</button></div>`;
-  if (!w.checked) return html;
-  html += `<div><small>${esc(t('wsChecked').replace('{lore}', String(w.checked.lore)).replace('{ent}', String(w.checked.entities)).replace('{ev}', String(w.checked.events)))}${w.checked.generic.length ? ` ${esc(t('wsGeneric'))}${esc(w.checked.generic.join('、'))}` : ''}</small></div>`;
-  if (!w.loreHook && w.overrides.some((o) => o.kind === 'lore')) html += `<div><small>${esc(t('wsNoHook'))}</small></div>`;
-  const item = (o: (typeof w.overrides)[number]) => `<li><b>${esc(o.title)}</b>${o.name ? ` → <b>${esc(o.name)}</b>` : ''} ${tag(t(`wsKind_${o.kind}`))}${o.book ? ` <small>${esc(o.book)}</small>` : ''} ${tag(t(o.action === 'disable' ? 'wsDisable' : 'wsReplace'))}${o.edited ? ` ${tag(t('wsEdited'))}` : ''}${o.stale ? ` ${tag(t('wsStale'))}` : ''}`
-    + `${o.reason ? `<br><small>${esc(o.reason)}</small>` : ''}`
-    + `<details class="canon-older"><summary><small>${esc(t('wsOriginal'))} / ${esc(t('wsThisGame'))}</small></summary><div><small><b>${esc(t('wsOriginal'))}:</b> ${esc(o.original)}</small></div><div><small><b>${esc(t('wsThisGame'))}:</b> ${esc(o.action === 'disable' ? '—' : o.content)}</small></div>`
-    + `<textarea class="text_pole canon-ws-edit" data-id="${esc(o.id)}" rows="4" title="${esc(t('wsEditTip'))}">${esc(o.content)}</textarea><button class="menu_button" data-act="ws-save" data-id="${esc(o.id)}">${esc(t('wsSave'))}</button> <button class="menu_button" data-act="ws-del" data-id="${esc(o.id)}">${esc(t('wsDelete'))}</button></details></li>`;
-  // a rewritten event still to come only with 显示剧透
-  const spoilers = !!E.campaign()?.uiPreferences.spoilers;
-  const hidden = w.overrides.filter((o) => o.future && !spoilers).length;
-  const shown = w.overrides.filter((o) => !o.future || spoilers);
-  html += `<h4>${esc(t('wsOverrides'))}</h4>${shown.length ? `<ul class="canon-list">${shown.map(item).join('')}</ul>` : !hidden ? `<div><small>${esc(t('wsNone'))}</small></div>` : ''}${hidden ? `<div><small>${esc(t('wsFutureHidden').replace('{n}', String(hidden)))}</small></div>` : ''}`;
-  if (w.unchecked.length) html += `<details class="canon-older" open><summary><small>${esc(t('wsUnchecked').replace('{n}', String(w.unchecked.length)))}</small></summary><ul class="canon-list">${w.unchecked.map((r) => `<li>${esc(r.title)} ${tag(t(`wsKind_${r.kind}`))}</li>`).join('')}</ul><small>${esc(w.unchecked[0].why)}</small></details>`;
-  if (w.rejected.length) html += `<details class="canon-older"><summary><small>${esc(t('wsRejected').replace('{n}', String(w.rejected.length)))}</small></summary><ul class="canon-list">${w.rejected.map((r) => `<li><b>${esc(r.title)}</b> ${tag(t(`wsKind_${r.kind}`))}<br><small>${esc(r.why)}</small>${r.reason ? `<br><small>${esc(r.reason)}</small>` : ''}</li>`).join('')}</ul></details>`;
-  if (w.additions.length) html += `<h4>${esc(t('wsAdditions'))}</h4><ul class="canon-list">${w.additions.map((a) => `<li><b>${esc(a.title)}</b> <small>${esc(a.keys.join('、'))}</small>${a.edited ? ` ${tag(t('wsEdited'))}` : ''}${a.reason ? `<br><small>${esc(a.reason)}</small>` : ''}<details class="canon-older"><summary><small>${esc(t('wsThisGame'))}</small></summary><textarea class="text_pole canon-ws-edit" data-id="${esc(a.id)}" rows="4">${esc(a.content)}</textarea><button class="menu_button" data-act="ws-save" data-id="${esc(a.id)}">${esc(t('wsSave'))}</button> <button class="menu_button" data-act="ws-del" data-id="${esc(a.id)}">${esc(t('wsDelete'))}</button></details></li>`).join('')}</ul>`;
-  return html;
-}
-
-/** The player's relationships and who knows what about them, as play changed them (from the Persona at the start):
- *  each can be changed or removed here, and new ones added (kept as the user's own, replayed like play's). */
-function tiesSection(p: NonNullable<NonNullable<ReturnType<CanonEngine['integrationView']>>['profile']>): string {
-  const tag = (s: string) => `<span class="canon-tag">${esc(s)}</span>`;
-  const src = (x: { by: string; since: string | null; start: string | null; quote: string }) => `${tag(t(`tieSrc_${x.by}`))}${x.since ? ` <small>${esc(t('tieSince').replace('{t}', x.since))}</small>` : ''}`
-    + `${x.start ? `<br><small>${esc(t('tieStart'))}: ${esc(x.start)}</small>` : ''}${x.quote ? `<br><small>“${esc(x.quote)}”</small>` : ''}`;
-  const ids = (kind: string, x: { who: string | null; name: string }, i: number) => `data-kind="${kind}" data-i="${i}" data-who="${esc(x.who || '')}" data-name="${esc(x.name)}"`;
-  const levels = (cur: string, attr: string) => `<select class="text_pole canon-tie-level" ${attr}>${['exists', 'identity', 'secrets'].map((l) => `<option value="${l}" ${l === cur ? 'selected' : ''}>${esc(t(`tieLevel_${l}`))}</option>`).join('')}</select>`;
-  const btns = (attr: string) => `<button class="menu_button" data-act="tie-save" ${attr}>${esc(t('wsSave'))}</button> <button class="menu_button" data-act="tie-del" ${attr}>${esc(t('wsDelete'))}</button>`;
-  const rel = p.relationships.map((r, i) => {
-    const a = ids('relation', r, i);
-    return `<li><b>${esc(r.name)}</b>${r.ended ? ` ${tag(t('tieEnded'))}` : ''}: ${esc(r.text)}${esc(r.org)} ${src(r)}`
-      + `<details class="canon-older"><summary><small>${esc(t('tieEdit'))}</small></summary><textarea class="text_pole canon-tie-text" ${a} rows="2">${esc(r.text)}</textarea><label class="checkbox_label canon-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r.ended ? 'checked' : ''}><span>${esc(t('tieEnded'))}</span></label>${btns(a)}</details></li>`;
-  });
-  const kn = p.knowers.map((k, i) => {
-    const a = ids('knows', k, i);
-    return `<li><b>${esc(k.name)}</b> ${tag(t(`tieLevel_${k.level}`))}: ${esc(k.text)} ${src(k)}`
-      + `<details class="canon-older"><summary><small>${esc(t('tieEdit'))}</small></summary>${levels(k.level, a)}<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc(k.text)}</textarea>${btns(a)}</details></li>`;
-  });
-  const add = (kind: 'relation' | 'knows') => {
-    const a = `data-kind="${kind}" data-i="new"`;
-    return `<details class="canon-older"><summary><small>${esc(t(kind === 'relation' ? 'tieAddRel' : 'tieAddKnower'))}</small></summary><input class="text_pole canon-tie-name" ${a} placeholder="${esc(t('tieName'))}">${kind === 'knows' ? levels('identity', a) : ''}`
-      + `<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc(t(kind === 'relation' ? 'tieRelText' : 'tieKnowsText'))}"></textarea><button class="menu_button" data-act="tie-save" ${a}>${esc(t('wsSave'))}</button></details>`;
-  };
-  return `<h4>${esc(t('niConnections'))} ${tip('tieTip')}</h4>${rel.length ? `<ul class="canon-list">${rel.join('')}</ul>` : ''}${add('relation')}`
-    + `<h4>${esc(t('niWho'))}</h4>${kn.length ? `<ul class="canon-list">${kn.join('')}</ul>` : ''}${add('knows')}`;
-}
-
-/** Inspector tab 叙事融入: what was read from the Persona, the player's decisions (with "allow contact again"),
- *  the contacts that reached them; pending suggestions only with spoilers (they are not history). */
-function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
-  if (!v) return `<div>${esc(t('niOff'))}</div>`;
-  const list = (title: string, items: string[]) => (items.length ? `<h4>${esc(title)}</h4><ul class="canon-list">${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
-  let html = `<div><small>${esc(t('niIntro'))}</small></div>`;
-  // the same switch as in the settings (小任务 on or off)
-  html += `<div class="canon-frow"><label class="checkbox_label canon-check"><input type="checkbox" data-act="ni-jobs" ${E.settings.quietDayJobs !== false ? 'checked' : ''}><span>${esc(t('niJobsToggle'))}</span></label>${tip('quietDayJobsTip')}</div>`;
-  if (v.personaChanged) html += `<div class="canon-ni-changed"><b>${esc(t('niChanged'))}</b><div class="canon-ni-btns"><button class="menu_button" data-act="ni-update">${esc(t('niUpdate'))}</button><button class="menu_button" data-act="ni-keep">${esc(t('niKeep'))}</button></div></div>`;
-  else if (v.profileOld) html += `<div class="canon-ni-changed"><b>${esc(t('niOld'))}</b><div class="canon-ni-btns"><button class="menu_button" data-act="ni-update">${esc(t('niUpdate'))}</button></div></div>`;
-  const p = v.profile;
-  if (!p) html += `<div>${esc(t('niNoProfile'))}</div>`;
-  else {
-    html += `<h4>${esc(p.name)}</h4><div>${esc(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc(p.publicIdentity)}</small></div>` : ''}<div><small>${esc(t(p.source === 'persona_core' ? 'niSourceCore' : 'niSource').replace('{n}', String(p.chars)).replace('{rev}', String(p.rev)))}</small></div>`;
-    html += list(t('niLore'), p.lore || []) + list(t('niOrgs'), p.affiliations) + list(t('niPlaces'), p.places) + list(t('niRoles'), p.roles || []) + list(t('niNotSuited'), p.notSuited || []) + list(t('niVoice'), p.voice ? [p.voice] : []) + list(t('niRecognized'), p.recognized || []) + tiesSection(p) + list(t('niNotes'), p.notes);
-  }
-  html += worldSection();
-  const stance = (s: string) => t(`niStance_${s}`);
-  const negative = new Set(['declined', 'deferred', 'ooc_suppress']);
-  const strongBtn = (d: (typeof v.decisions)[number]) => d.stance === 'ooc_suppress' ? ''
-    : ` <button class="menu_button" data-act="${d.strong ? 'ni-weak' : 'ni-strong'}" data-kind="${esc(d.scopeKind)}" data-ref="${esc(d.scopeRef)}" title="${esc(t(d.strong ? 'niWeakTip' : 'niStrongTip'))}">${esc(t(d.strong ? 'niWeak' : 'niStrong'))}</button>`;
-  // one entry per matter: the decision in force (else the newest) on top, earlier ones fold underneath
-  const dg = new Map<string, (typeof v.decisions)[number][]>();
-  for (const d of v.decisions.slice().reverse()) dg.set(d.scope, [...(dg.get(d.scope) || []), d]);
-  const dLine = (d: (typeof v.decisions)[number]) => `<b>${esc(stance(d.stance))}</b> <small>${esc(d.time)}${d.active ? ` · ${esc(t('niActive'))}${negative.has(d.stance) ? ` · ${esc(t(d.binding ? (d.stance === 'ooc_suppress' ? 'niBindingOoc' : 'niBinding') : 'niWish'))}` : ''}` : ''}</small>${d.quote ? `<br><small>“${esc(d.quote)}”</small>` : ''}`;
-  html += `<h4>${esc(t('niDecisions'))} ${tip('niDecisionsTip')}</h4><ul class="canon-list">${[...dg.values()].map((ds) => {
-    const d = ds.find((x) => x.active) || ds[0];
-    const older = ds.filter((x) => x !== d);
-    return `<li><b>${esc(d.label)}</b><br>${dLine(d)}${d.active && negative.has(d.stance) ? `${strongBtn(d)} <button class="menu_button" data-act="ni-reopen" data-kind="${esc(d.scopeKind)}" data-ref="${esc(d.scopeRef)}" data-label="${esc(d.label)}">${esc(t('niReopen'))}</button>` : ''}${older.length ? `<details class="canon-older"><summary><small>${esc(t('niOlderDecisions').replace('{n}', String(older.length)))}</small></summary>${older.map((o) => `<div>${dLine(o)}</div>`).join('')}</details>` : ''}</li>`;
-  }).join('') || '<li>—</li>'}</ul>`;
-  // one entry per matter (newest first); its earlier contacts fold underneath
-  const groups = new Map<string, (typeof v.contacts)[number][]>();
-  for (const k of v.contacts.slice().reverse()) groups.set(k.scope, [...(groups.get(k.scope) || []), k]);
-  const contactLine = (k: (typeof v.contacts)[number]) => `<small>${k.sideJob ? `<span class="canon-tag">${esc(t(k.lapsed ? 'niJobLapsed' : 'niSideJob'))}</span> ` : ''}${esc(k.time)} · ${esc(k.kind)}${k.by.length ? ` · ${esc(k.by.join(', '))}` : ''}${v.unanswered.includes(k.recordId) ? ` · ${esc(t('niUnanswered'))}` : ''}</small><br><small>“${esc(k.quote)}”</small>`;
-  // the player's answer to the matter, set by hand when the analysis missed it: 接受/拒绝; accepted → 完成; declined → 重新接受
-  const POS = ['accepted', 'joined', 'reopened', 'answered', 'limited'], NEG = ['declined', 'deferred', 'refused', 'ooc_suppress'];
-  const ansBtn = (k: (typeof v.contacts)[number], stance: string, label: string) => ` <button class="menu_button" data-act="ni-answer" data-rec="${esc(k.recordId)}" data-stance="${stance}">${esc(t(label))}</button>`;
-  const answerLine = (k: (typeof v.contacts)[number]) => {
-    if (k.lapsed) return '';
-    const a = k.answer;
-    const state = a ? `${t('niAnswer')}${t(`niStance_${a}`)}` : k.inPlay ? t('niAnswerInPlay') : '';
-    const btns = a === 'done' ? '' : a && POS.includes(a) ? ansBtn(k, 'done', 'niDone') : a && NEG.includes(a) ? ansBtn(k, 'accepted', 'niAcceptAgain') : `${ansBtn(k, 'accepted', 'niAccept')}${ansBtn(k, 'declined', 'niDecline')}`;
-    return `<div>${state ? `<small>${esc(state)}</small>` : ''}${btns}</div>`;
-  };
-  html += `<h4>${esc(t('niContacts'))}</h4><ul class="canon-list">${[...groups.values()].map(([k, ...older]) => `<li><b>${esc(k.label)}</b> ${contactLine(k)}${answerLine(k)}${older.length ? `<details class="canon-older"><summary><small>${esc(t('niOlderContacts').replace('{n}', String(older.length)))}</small></summary>${older.map((o) => `<div>${contactLine(o)}</div>`).join('')}</details>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
-  if (v.suggestions) {
-    // one entry per matter, like the contacts above; its other possibilities fold underneath
-    const sg = new Map<string, NonNullable<typeof v.suggestions>>();
-    for (const s of v.suggestions) sg.set(s.scope, [...(sg.get(s.scope) || []), s]);
-    const sLine = (s: NonNullable<typeof v.suggestions>[number]) => `<small>${s.sideJob ? `<span class="canon-tag">${esc(t('niSideJob'))}</span> ` : ''}${esc(s.by.join(', '))}: ${esc(s.contact)} (${esc(s.kind)}${s.direct ? ', direct' : ''})</small>`;
-    const prefBtn = (s: NonNullable<typeof v.suggestions>[number]) => s.current ? ` <span class="canon-tag">${esc(t('niCurrent'))}</span>`
-      : ` <button class="menu_button" data-act="ni-prefer" data-scope="${esc(s.scope)}" title="${esc(t(s.preferred ? 'niUnpreferTip' : 'niPreferTip'))}">${esc(t(s.preferred ? 'niUnprefer' : 'niPrefer'))}</button>${s.preferred ? ` <span class="canon-tag">${esc(t('niPreferred'))}</span>` : ''}`;
-    html += `<h4>${esc(t('niSuggestions'))} <button class="menu_button canon-h4-btn" data-act="ni-refresh" title="${esc(t('niRefreshTip'))}">${esc(t('niRefresh'))}</button></h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc(s.about)}</b>${prefBtn(s)}<br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc(t('niMoreSuggestions').replace('{n}', String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join('')}</details>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
-  }
-  if (v.dropped?.length) html += `<h4>${esc(t('niDropped'))}</h4><ul class="canon-list">${v.dropped.map((x) => `<li>${esc(x.id)}: ${esc(x.reason)}</li>`).join('')}</ul>`;
-  return html;
-}
+export function toggleInspector(open: boolean) { inspector?.toggle(open); }
+function renderInspector() { inspector?.render(); }
 
 // ---------------------------------------------------------------------------------------------
 /** Banners/conflict markers keyed to the message variant's accepted commit (plugin UI, not prose). */

@@ -106,18 +106,18 @@ function entryMatches(e, text, generic = /* @__PURE__ */ new Set()) {
     const m = keyMatch(k, text, e);
     return m !== null && !generic.has(norm(m));
   })) return false;
-  const sec = e.secondary.filter((k) => k.trim());
-  if (!e.selective || !sec.length) return true;
-  const hits = sec.filter((k) => keyMatches(k, text, e)).length;
+  const sec2 = e.secondary.filter((k) => k.trim());
+  if (!e.selective || !sec2.length) return true;
+  const hits = sec2.filter((k) => keyMatches(k, text, e)).length;
   switch (e.logic) {
     case 1:
-      return hits < sec.length;
+      return hits < sec2.length;
     // NOT ALL
     case 2:
       return hits === 0;
     // NOT ANY
     case 3:
-      return hits === sec.length;
+      return hits === sec2.length;
     // AND ALL
     default:
       return hits > 0;
@@ -18436,16 +18436,16 @@ function lintPack(input) {
   pack2.events.forEach((ev, i) => {
     const P = `/events/${i}`;
     if (ev.sections) {
-      const sec = ev.sections;
+      const sec2 = ev.sections;
       const need = ev.classification === "FREE" ? ["course", "result"] : ["trigger", "course", "result"];
-      const missing = need.filter((k) => !sec[k]);
+      const missing = need.filter((k) => !sec2[k]);
       if (missing.length) err(`${P}/summary`, `${ev.classification} summary lacks ${missing.join(", ")}`);
-      (sec.motives || []).forEach((m, j) => {
+      (sec2.motives || []).forEach((m, j) => {
         m.entity_ids.forEach((x, k) => checkEntity(x, `${P}/summary/motives/${j}/entity_ids/${k}`));
         const outside = m.entity_ids.filter((x) => entities.has(x) && !ev.entity_ids.includes(x));
         if (outside.length) warn(`${P}/summary/motives/${j}`, `motive of ${outside.join(", ")}, who ${outside.length > 1 ? "are" : "is"} not in the event's entity_ids`);
       });
-      for (const [, ref] of renderSummary(sec, true).matchAll(/(?:见|see )“([^”]+)”/g)) {
+      for (const [, ref] of renderSummary(sec2, true).matchAll(/(?:见|see )“([^”]+)”/g)) {
         if (!pack2.events.some((x) => x.title.includes(ref))) warn(`${P}/summary`, `reference \u201C${ref}\u201D matches no event title`);
       }
     }
@@ -19750,11 +19750,11 @@ function walk(v, s, path, list, notes) {
     }
     const itemS = s.items || {};
     const out = [];
-    arr.forEach((item, i) => {
+    arr.forEach((item2, i) => {
       const lst = list || path.split("/")[1] || "";
-      const w = walk(item, itemS, `${path}/${i}`, lst, notes);
+      const w = walk(item2, itemS, `${path}/${i}`, lst, notes);
       if (RECORD_LISTS.has(lst) && path === `/${lst}` && !itemUsable(w, itemS, IDENTITY[lst] || [])) {
-        notes.push(`dropped ${lst} item without its identity: ${JSON.stringify(item).slice(0, 100)}`);
+        notes.push(`dropped ${lst} item without its identity: ${JSON.stringify(item2).slice(0, 100)}`);
         return;
       }
       out.push(w);
@@ -19817,15 +19817,15 @@ function walkObject(o, s, path, list, notes) {
   }
   return out;
 }
-function itemUsable(item, s, identity) {
-  if (!isObj(item)) return typesOf(s).length === 0 || typesOf(s).some((t2) => t2 === "integer" ? Number.isInteger(item) : typeof item === t2);
+function itemUsable(item2, s, identity) {
+  if (!isObj(item2)) return typesOf(s).length === 0 || typesOf(s).some((t2) => t2 === "integer" ? Number.isInteger(item2) : typeof item2 === t2);
   for (const k of identity) {
-    const v = item[k];
+    const v = item2[k];
     if (v === void 0 || v === null || typeof v === "string" && !v.trim()) return false;
   }
   const props = s.properties || {};
   for (const k of s.required || []) {
-    const v = item[k];
+    const v = item2[k];
     if (v === void 0) return false;
     const ps = props[k] || {};
     if (typeof v === "string" && ps.minLength >= 1 && !v.trim()) return false;
@@ -22482,12 +22482,12 @@ function extractJson(text) {
   for (const c of candidates) {
     const start = c.indexOf("{");
     if (start < 0) continue;
-    let depth = 0, inStr = false, esc3 = false;
+    let depth = 0, inStr = false, esc4 = false;
     for (let i = start; i < c.length; i++) {
       const ch = c[i];
       if (inStr) {
-        if (esc3) esc3 = false;
-        else if (ch === "\\") esc3 = true;
+        if (esc4) esc4 = false;
+        else if (ch === "\\") esc4 = true;
         else if (ch === '"') inStr = false;
         continue;
       }
@@ -22512,13 +22512,13 @@ function salvageTruncatedJson(text) {
   const start = s.indexOf("{");
   if (start < 0) return null;
   const stack = [];
-  let inStr = false, esc3 = false;
+  let inStr = false, esc4 = false;
   let cut = null;
   for (let i = start; i < s.length; i++) {
     const ch = s[i];
     if (inStr) {
-      if (esc3) esc3 = false;
-      else if (ch === "\\") esc3 = true;
+      if (esc4) esc4 = false;
+      else if (ch === "\\") esc4 = true;
       else if (ch === '"') inStr = false;
       continue;
     }
@@ -22602,7 +22602,7 @@ var ITEM_ALIASES = {
   }
 };
 var ITEM_DEFAULTS = {
-  new_entities: (item, idx) => ({ ref: `n${idx + 1}`, kind: "other", description: "", quote: typeof item.name === "string" ? item.name : "" })
+  new_entities: (item2, idx) => ({ ref: `n${idx + 1}`, kind: "other", description: "", quote: typeof item2.name === "string" ? item2.name : "" })
 };
 function repairItems(root, errors) {
   let changed = false;
@@ -22616,26 +22616,26 @@ function repairItems(root, errors) {
     const arr = root?.[list];
     if (!Array.isArray(arr)) continue;
     for (let i = arr.length - 1; i >= 0; i--) {
-      const item = arr[i];
-      if (!item || typeof item !== "object") {
+      const item2 = arr[i];
+      if (!item2 || typeof item2 !== "object") {
         arr.splice(i, 1);
         changed = true;
         continue;
       }
       for (const [field2, aliases] of Object.entries(ITEM_ALIASES[list])) {
-        if (typeof item[field2] === "string" && item[field2]) continue;
-        const alias = aliases.find((a) => typeof item[a] === "string" && item[a]);
+        if (typeof item2[field2] === "string" && item2[field2]) continue;
+        const alias = aliases.find((a) => typeof item2[a] === "string" && item2[a]);
         if (alias) {
-          item[field2] = item[alias];
-          if (alias !== "id" && alias !== "entity_id") delete item[alias];
+          item2[field2] = item2[alias];
+          if (alias !== "id" && alias !== "entity_id") delete item2[alias];
           changed = true;
         }
       }
-      for (const [field2, v] of Object.entries(ITEM_DEFAULTS[list](item, i))) if (item[field2] === void 0 || item[field2] === null) {
-        item[field2] = v;
+      for (const [field2, v] of Object.entries(ITEM_DEFAULTS[list](item2, i))) if (item2[field2] === void 0 || item2[field2] === null) {
+        item2[field2] = v;
         changed = true;
       }
-      if (typeof item.name !== "string" || !item.name.trim()) {
+      if (typeof item2.name !== "string" || !item2.name.trim()) {
         arr.splice(i, 1);
         changed = true;
       }
@@ -22653,37 +22653,37 @@ function dropBadItems(root, errors, schema) {
     const m = /^\/([a-z_]+)\/(\d+)(?:\/([^/]+)(?:\/(\d+))?)?/.exec(e.instancePath || "");
     if (!m || !DROPPABLE_ITEMS.has(m[1])) continue;
     const [, list, idxS, field2, elemS] = m;
-    const item = root?.[list]?.[Number(idxS)];
-    if (!item || typeof item !== "object") continue;
+    const item2 = root?.[list]?.[Number(idxS)];
+    if (!item2 || typeof item2 !== "object") continue;
     const itemS = schema?.properties?.[list]?.items || {};
     const fs = field2 ? itemS.properties?.[field2] : void 0;
     const why = `${e.instancePath} ${e.message || ""}`.trim();
     const fkey = `${list}/${idxS}/${field2}/${elemS ?? ""}`;
     if (field2 && handled.has(fkey)) continue;
     if (field2) handled.add(fkey);
-    if (field2 && fs && field2 in item) {
+    if (field2 && fs && field2 in item2) {
       const types = Array.isArray(fs.type) ? fs.type : [fs.type];
       const nullOk = types.includes("null") || Array.isArray(fs.enum) && fs.enum.includes(null) || Array.isArray(fs.oneOf) && fs.oneOf.some((o) => o.type === "null");
-      if (elemS !== void 0 && Array.isArray(item[field2])) {
-        item[field2].splice(Number(elemS), 1);
+      if (elemS !== void 0 && Array.isArray(item2[field2])) {
+        item2[field2].splice(Number(elemS), 1);
         repairNotes.push(`removed a bad element (${why})`);
         changed = true;
         continue;
       }
       if (nullOk) {
-        repairNotes.push(`set ${list}/${idxS}/${field2} to null (${why}): ${JSON.stringify(item[field2]).slice(0, 120)}`);
-        item[field2] = null;
+        repairNotes.push(`set ${list}/${idxS}/${field2} to null (${why}): ${JSON.stringify(item2[field2]).slice(0, 120)}`);
+        item2[field2] = null;
         changed = true;
         continue;
       }
       if (!(itemS.required || []).includes(field2)) {
-        delete item[field2];
+        delete item2[field2];
         repairNotes.push(`removed ${list}/${idxS}/${field2} (${why})`);
         changed = true;
         continue;
       }
     }
-    if (list === "occurrences" && item.pack_event_id) continue;
+    if (list === "occurrences" && item2.pack_event_id) continue;
     const mm = dropping.get(list) || /* @__PURE__ */ new Map();
     mm.set(Number(idxS), why);
     dropping.set(list, mm);
@@ -22775,12 +22775,12 @@ var taskDefaults = { callTimeoutMs: 0, observer: null, onDone: null, onReject: n
 function looksTruncated(text) {
   const start = text.indexOf("{");
   if (start < 0) return false;
-  let depth = 0, inStr = false, esc3 = false;
+  let depth = 0, inStr = false, esc4 = false;
   for (let i = start; i < text.length; i++) {
     const ch = text[i];
     if (inStr) {
-      if (esc3) esc3 = false;
-      else if (ch === "\\") esc3 = true;
+      if (esc4) esc4 = false;
+      else if (ch === "\\") esc4 = true;
       else if (ch === '"') inStr = false;
       continue;
     }
@@ -26207,7 +26207,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.24.0";
+var ENGINE_RELEASE = "1.25.0";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -28232,9 +28232,9 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     if (!c) return;
     const changes0 = this.worldChanges();
     const prev = c.worldSettings;
-    const empty = { lore: 0, entities: 0, events: 0, generic: [] };
+    const empty2 = { lore: 0, entities: 0, events: 0, generic: [] };
     if (!changes0.length) {
-      c.worldSettings = prev && (prev.overrides.some((o) => o.edited) || prev.additions.some((a) => a.edited)) ? { ...prev, basis: "", at: this.host.now(), changes: [], overrides: prev.overrides.filter((o) => o.edited), additions: prev.additions.filter((a) => a.edited), checked: empty } : void 0;
+      c.worldSettings = prev && (prev.overrides.some((o) => o.edited) || prev.additions.some((a) => a.edited)) ? { ...prev, basis: "", at: this.host.now(), changes: [], overrides: prev.overrides.filter((o) => o.edited), additions: prev.additions.filter((a) => a.edited), checked: empty2 } : void 0;
       this.overlayCache = null;
       return;
     }
@@ -30160,12 +30160,12 @@ var StModel = class {
           } catch (e) {
             const msg = e.message;
             if (opts.signal?.aborted) throw e;
-            const empty = /No message generated/i.test(msg);
-            if (hasBackup && !empty && !isTransient(msg)) {
+            const empty2 = /No message generated/i.test(msg);
+            if (hasBackup && !empty2 && !isTransient(msg)) {
               why = `error: ${msg.slice(0, 200)}`;
               break;
             }
-            if (!empty) throw e;
+            if (!empty2) throw e;
             if (hasBackup && attempt >= 2) {
               why = `empty reply ${attempt} times`;
               break;
@@ -30650,6 +30650,42 @@ var D = {
   tabPlan: { zh: "\u8BA1\u5212", en: "Plan" },
   tabDebug: { zh: "\u8C03\u8BD5", en: "Debug" },
   tabPlayer: { zh: "\u53D9\u4E8B\u878D\u5165", en: "Player in world" },
+  ciNavPlayer: { zh: "\u73A9\u5BB6", en: "Player" },
+  ciNavWorld: { zh: "\u4E16\u754C", en: "World" },
+  ciNavEngine: { zh: "\u5F15\u64CE", en: "Engine" },
+  ciTabIdentity: { zh: "\u8EAB\u4EFD", en: "Identity" },
+  ciTabTies: { zh: "\u5173\u7CFB", en: "Relationships" },
+  ciTabContacts: { zh: "\u63A5\u89E6", en: "Contacts" },
+  ciTabDecisions: { zh: "\u53C2\u4E0E\u610F\u613F", en: "Decisions" },
+  ciSpoilers: { zh: "\u5267\u900F", en: "Spoilers" },
+  ciClose: { zh: "\u5173\u95ED\uFF08Esc\uFF09", en: "Close (Esc)" },
+  ciFilter: { zh: "\u7B5B\u9009\u672C\u9875\u2026", en: "Filter this page\u2026" },
+  ciNoMatch: { zh: "\u6CA1\u6709\u5339\u914D\u7684\u6761\u76EE", en: "Nothing matches" },
+  ciNone: { zh: "\u6682\u65E0", en: "None" },
+  ciResize: { zh: "\u62D6\u52A8\u8C03\u6574\u5BBD\u5EA6", en: "Drag to resize" },
+  ciTodo: { zh: "\u9700\u8981\u4F60\u5904\u7406", en: "Needs you" },
+  ciAllClear: { zh: "\u6CA1\u6709\u9700\u8981\u5904\u7406\u7684\u4E8B", en: "Nothing waiting" },
+  ciTodoUnanswered: { zh: "{n} \u4EF6\u63A5\u89E6\u7B49\u4F60\u56DE\u5E94", en: "{n} contact(s) waiting for your answer" },
+  ciTodoUnchecked: { zh: "\u672C\u5C40\u8BBE\u5B9A\u6709 {n} \u6761\u672A\u68C0\u67E5", en: "\u672C\u5C40\u8BBE\u5B9A: {n} text(s) not checked" },
+  ciTodoStale: { zh: "\u672C\u5C40\u8BBE\u5B9A\u6709\u6761\u76EE\u7684\u539F\u6587\u5DF2\u6539\u52A8\uFF0C\u9700\u8981\u91CD\u65B0\u68C0\u67E5", en: "\u672C\u5C40\u8BBE\u5B9A: an original changed; check again" },
+  ciNotices: { zh: "\u6700\u8FD1\u901A\u77E5", en: "Recent notices" },
+  ciError: { zh: "\u9519\u8BEF", en: "error" },
+  ciWarn: { zh: "\u6CE8\u610F", en: "warning" },
+  ciInfo: { zh: "\u4FE1\u606F", en: "info" },
+  ciTime: { zh: "\u6545\u4E8B\u65F6\u95F4", en: "Story time" },
+  ciPack: { zh: "\u5386\u53F2\u5305", en: "Pack" },
+  ciRevision: { zh: "\u7248\u672C", en: "Revision" },
+  ciCounts: { zh: "\u8BB0\u5F55", en: "Records" },
+  ciCountsSub: { zh: "\u5B9E\u9645\u5386\u53F2 \xB7 \u5F53\u524D\u4E8B\u5B9E", en: "history \xB7 facts" },
+  ciOtherContacts: { zh: "\u5176\u4F59\u63A5\u89E6", en: "Other contacts" },
+  ciSugg: { zh: "\u53EF\u80FD\u63A5\u89E6", en: "Possible contacts" },
+  ciWsOverrides: { zh: "\u6539\u5199 / \u505C\u7528", en: "Rewritten" },
+  ciWsAdditions: { zh: "\u65B0\u589E", en: "Added" },
+  ciNeedAnswer: { zh: "\u7B49\u4F60\u56DE\u5E94", en: "Waiting for your answer" },
+  ciPast: { zh: "\u5DF2\u4E0D\u751F\u6548", en: "No longer in effect" },
+  ciWsChanges: { zh: "\u8FD9\u4E00\u5C40\u7684\u6539\u52A8", en: "Changes in this game" },
+  ciWsUnchecked: { zh: "\u672A\u68C0\u67E5", en: "Not checked" },
+  ciWsRejected: { zh: "\u672A\u91C7\u7528", en: "Not applied" },
   niIntro: { zh: "\u4E16\u754C\u4F1A\u6839\u636E\u4F60\u7684\u8EAB\u4EFD\u3001\u7ECF\u5386\u548C\u5173\u7CFB\u4E3B\u52A8\u63D0\u4F9B\u5408\u7406\u7684\u63A5\u89E6\uFF1B\u4F60\u62D2\u7EDD\u540E\u4E0D\u4F1A\u518D\u88AB\u62C9\u5165\u3002", en: "The world reaches out to you from your identity, history and connections; once you decline something, it stops pulling you in." },
   niNoProfile: { zh: "\u65B0\u5BF9\u8BDD\u7684\u7B2C\u4E00\u56DE\u5408\u4F1A\u8BFB\u53D6\u4F60\u7684 Persona\u3002", en: "Your Persona is read at the first turn of a new chat." },
   niOff: { zh: "\u6B64\u5BF9\u8BDD\u5728 1.4.0 \u4E4B\u524D\u7ED1\u5B9A\uFF0C\u672A\u542F\u7528\u53D9\u4E8B\u878D\u5165\uFF08\u4E16\u754C\u4E3B\u52A8\u53CD\u5E94\uFF09\u3002", en: "This chat was bound before 1.4.0; narrative integration is not part of it." },
@@ -31707,6 +31743,505 @@ var GraphPanel = class {
   }
 };
 
+// src/ui/inspector.ts
+var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var chip = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc2(s)}</span>`;
+var btn = (label, attrs, tone = "") => `<button class="menu_button ci-btn${tone ? ` ci-btn-${tone}` : ""}" ${attrs}>${esc2(label)}</button>`;
+var sec = (id, label, inner, extra = "", tipHtml = "") => `<section class="ci-sec" data-sec="${id}"><h4 class="ci-sec-h"><span>${esc2(label)}</span>${tipHtml}<span class="ci-sp"></span>${extra}</h4>${inner}</section>`;
+var item = (key, head, body = "", foot = "") => `<div class="ci-item" data-key="${esc2(key)}"><div class="ci-head">${head}</div>${body ? `<div class="ci-body">${body}</div>` : ""}${foot}</div>`;
+var fold = (key, label, inner, cls = "") => `<details class="ci-fold${cls ? ` ${cls}` : ""}" data-key="${esc2(key)}"><summary>${esc2(label)}</summary><div class="ci-fold-in">${inner}</div></details>`;
+var muted = (s) => `<div class="ci-muted">${s}</div>`;
+var empty = () => `<div class="ci-empty">${esc2(t("ciNone"))}</div>`;
+function createInspector(d) {
+  let el = null;
+  let tab = "overview";
+  let lastHtml = "";
+  let lastTab = "";
+  let pending = false;
+  const filters = /* @__PURE__ */ new Map();
+  const scrolls = /* @__PURE__ */ new Map();
+  const opened = /* @__PURE__ */ new Set();
+  const E2 = () => d.engine();
+  const camp = () => E2().campaign();
+  const width = () => {
+    try {
+      return Number(localStorage.getItem("canon-insp-width")) || 0;
+    } catch {
+      return 0;
+    }
+  };
+  function toggle(open) {
+    const s = d.settings();
+    s.inspectorOpen = open;
+    const c = camp();
+    if (c) c.uiPreferences.inspectorOpen = open;
+    d.saveSettings();
+    render(true);
+  }
+  function overview(v, ni, spoilers) {
+    const w = E2().worldView();
+    const todo = [];
+    const go = (tabId, text, tone) => `<button class="ci-todo ci-${tone}" data-tab="${tabId}">${esc2(text)} <span class="ci-arrow">\u203A</span></button>`;
+    if (ni?.personaChanged) todo.push(go("identity", t("niChanged"), "warn"));
+    if (ni && ni.unanswered.length) todo.push(go("contacts", t("ciTodoUnanswered").replace("{n}", String(ni.unanswered.length)), "accent"));
+    if (w?.unchecked.length) todo.push(go("world", t("ciTodoUnchecked").replace("{n}", String(w.unchecked.length)), "warn"));
+    if (w?.overrides.some((o) => o.stale)) todo.push(go("world", t("ciTodoStale"), "warn"));
+    if (v.recovery.status !== "ok") todo.push(`<div class="ci-todo ci-bad">${esc2(v.recovery.status)} ${esc2(v.recovery.reason || "")}</div>`);
+    const tile = (label, value, sub = "") => `<div class="ci-tile"><div class="ci-tile-l">${esc2(label)}</div><div class="ci-tile-v">${esc2(value)}</div>${sub ? `<div class="ci-tile-s">${esc2(sub)}</div>` : ""}</div>`;
+    const tiles = `<div class="ci-tiles">${tile(t("ciTime"), v.time)}${tile(t("ciPack"), v.title, `hash ${v.packHash}`)}${tile(t("ciRevision"), `rev ${v.revision}`, `branch ${v.branchId.slice(0, 12)}`)}${tile(t("ciCounts"), `${v.occurrences.length} \xB7 ${v.facts.length}`, t("ciCountsSub"))}</div>`;
+    const notices = v.notices.slice().reverse().map((n, i) => item(`notice-${i}`, `${chip(n.level === "error" ? t("ciError") : n.level === "warn" ? t("ciWarn") : t("ciInfo"), n.level === "error" ? "bad" : n.level === "warn" ? "warn" : "")}`, esc2(n.text)));
+    void spoilers;
+    return {
+      html: tiles + sec("todo", t("ciTodo"), todo.length ? `<div class="ci-todos">${todo.join("")}</div>` : `<div class="ci-empty">${esc2(t("ciAllClear"))}</div>`) + sec("notices", t("ciNotices"), notices.join("") || empty()),
+      secs: []
+    };
+  }
+  function identity(ni) {
+    let html = "";
+    if (ni.personaChanged) html += `<div class="ci-banner ci-warn"><b>${esc2(t("niChanged"))}</b><div class="ci-actions">${btn(t("niUpdate"), 'data-act="ni-update"', "primary")}${btn(t("niKeep"), 'data-act="ni-keep"')}</div></div>`;
+    else if (ni.profileOld) html += `<div class="ci-banner ci-warn"><b>${esc2(t("niOld"))}</b><div class="ci-actions">${btn(t("niUpdate"), 'data-act="ni-update"', "primary")}</div></div>`;
+    const p = ni.profile;
+    if (!p) return { html: html + `<div class="ci-empty">${esc2(t("niNoProfile"))}</div>`, secs: [] };
+    html += `<div class="ci-hero"><div class="ci-hero-name">${esc2(p.name)}</div><div>${esc2(p.summary)}</div>${p.publicIdentity ? muted(esc2(p.publicIdentity)) : ""}${muted(esc2(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev))))}</div>`;
+    const secs = [];
+    const list = (id, label, rows) => {
+      if (!rows.length) return "";
+      secs.push({ id, label });
+      return sec(id, label, rows.map((r, i) => item(`${id}-${i}`, `<span class="ci-text">${esc2(r)}</span>`)).join(""));
+    };
+    html += list("orgs", t("niOrgs"), p.affiliations) + list("places", t("niPlaces"), p.places) + list("roles", t("niRoles"), p.roles || []) + list("notsuited", t("niNotSuited"), p.notSuited || []) + list("voice", t("niVoice"), p.voice ? [p.voice] : []) + list("recognized", t("niRecognized"), p.recognized || []) + list("lore", t("niLore"), p.lore || []) + list("notes", t("niNotes"), p.notes);
+    return { html, secs };
+  }
+  function ties(ni) {
+    const p = ni.profile;
+    if (!p) return { html: `<div class="ci-empty">${esc2(t("niNoProfile"))}</div>`, secs: [] };
+    const src = (x) => `${chip(t(`tieSrc_${x.by}`), x.by === "ui" ? "accent" : "")}${x.since ? `<span class="ci-meta">${esc2(t("tieSince").replace("{t}", x.since))}</span>` : ""}`;
+    const extra = (x) => `${x.start ? muted(`${esc2(t("tieStart"))}: ${esc2(x.start)}`) : ""}${x.quote ? `<div class="ci-quote">\u201C${esc2(x.quote)}\u201D</div>` : ""}`;
+    const ids = (kind, x, i) => `data-kind="${kind}" data-i="${i}" data-who="${esc2(x.who || "")}" data-name="${esc2(x.name)}"`;
+    const levels = (cur, attr) => `<select class="text_pole canon-tie-level" ${attr}>${["exists", "identity", "secrets"].map((l) => `<option value="${l}" ${l === cur ? "selected" : ""}>${esc2(t(`tieLevel_${l}`))}</option>`).join("")}</select>`;
+    const saveDel = (attr) => `<div class="ci-actions">${btn(t("wsSave"), `data-act="tie-save" ${attr}`, "primary")}${btn(t("wsDelete"), `data-act="tie-del" ${attr}`, "danger")}</div>`;
+    const rel = p.relationships.map((r, i) => {
+      const a = ids("relation", r, i);
+      return item(
+        `rel-${r.name}`,
+        `<span class="ci-title">${esc2(r.name)}</span>${r.ended ? chip(t("tieEnded"), "muted") : ""}${src(r)}`,
+        `${esc2(r.text)}${r.org ? `<span class="ci-meta">${esc2(r.org)}</span>` : ""}${extra(r)}`,
+        fold(`rel-edit-${r.name}`, t("tieEdit"), `<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc2(r.text)}</textarea><label class="checkbox_label ci-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r.ended ? "checked" : ""}><span>${esc2(t("tieEnded"))}</span></label>${saveDel(a)}`, "ci-edit")
+      );
+    });
+    const kn = p.knowers.map((k, i) => {
+      const a = ids("knows", k, i);
+      return item(
+        `kn-${k.name}`,
+        `<span class="ci-title">${esc2(k.name)}</span>${chip(t(`tieLevel_${k.level}`), k.level === "secrets" ? "warn" : "")}${src(k)}`,
+        `${esc2(k.text)}${extra(k)}`,
+        fold(`kn-edit-${k.name}`, t("tieEdit"), `${levels(k.level, a)}<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc2(k.text)}</textarea>${saveDel(a)}`, "ci-edit")
+      );
+    });
+    const add2 = (kind) => {
+      const a = `data-kind="${kind}" data-i="new"`;
+      return fold(`add-${kind}`, t(kind === "relation" ? "tieAddRel" : "tieAddKnower"), `<input class="text_pole canon-tie-name" ${a} placeholder="${esc2(t("tieName"))}">${kind === "knows" ? levels("identity", a) : ""}<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc2(t(kind === "relation" ? "tieRelText" : "tieKnowsText"))}"></textarea><div class="ci-actions">${btn(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`, "ci-add");
+    };
+    return {
+      html: sec("rel", t("niConnections"), (rel.join("") || empty()) + add2("relation"), "", d.tip("tieTip")) + sec("knows", t("niWho"), (kn.join("") || empty()) + add2("knows")),
+      secs: [{ id: "rel", label: t("niConnections") }, { id: "knows", label: t("niWho") }]
+    };
+  }
+  function contacts(ni) {
+    const jobs = `<label class="checkbox_label ci-check ci-switch"><input type="checkbox" data-act="ni-jobs" ${E2().settings.quietDayJobs !== false ? "checked" : ""}><span>${esc2(t("niJobsToggle"))}</span></label>${d.tip("quietDayJobsTip")}`;
+    const groups = /* @__PURE__ */ new Map();
+    for (const k of ni.contacts.slice().reverse()) groups.set(k.scope, [...groups.get(k.scope) || [], k]);
+    const POS = ["accepted", "joined", "reopened", "answered", "limited"], NEG = ["declined", "deferred", "refused", "ooc_suppress"];
+    const ans = (k, stance, label, tone = "") => btn(t(label), `data-act="ni-answer" data-rec="${esc2(k.recordId)}" data-stance="${stance}"`, tone);
+    const line = (k) => `<div class="ci-meta">${esc2(k.time)} \xB7 ${esc2(k.kind)}${k.by.length ? ` \xB7 ${esc2(k.by.join(", "))}` : ""}</div><div class="ci-quote">\u201C${esc2(k.quote)}\u201D</div>`;
+    const need = [], rest = [];
+    for (const [k, ...older] of groups.values()) {
+      const a = k.answer;
+      const waiting = !a && !k.inPlay && !k.lapsed;
+      const status = k.lapsed ? chip(t("niJobLapsed"), "muted") : a ? chip(t(`niStance_${a}`), a === "done" ? "muted" : POS.includes(a) ? "ok" : "bad") : k.inPlay ? chip(t("niAnswerInPlay"), "ok") : ni.unanswered.includes(k.recordId) ? chip(t("niUnanswered"), "accent") : "";
+      const actions = k.lapsed || a === "done" ? "" : a && POS.includes(a) ? ans(k, "done", "niDone", "primary") : a && NEG.includes(a) ? ans(k, "accepted", "niAcceptAgain") : `${ans(k, "accepted", "niAccept", "primary")}${ans(k, "declined", "niDecline")}`;
+      const card2 = item(
+        `c-${k.scope}`,
+        `<span class="ci-title">${esc2(k.label)}</span>${k.sideJob ? chip(t("niSideJob")) : ""}${status}<span class="ci-sp"></span><span class="ci-actions">${actions}</span>`,
+        line(k),
+        older.length ? fold(`c-old-${k.scope}`, t("niOlderContacts").replace("{n}", String(older.length)), older.map(line).join('<hr class="ci-hr">')) : ""
+      );
+      (waiting ? need : rest).push(card2);
+    }
+    let html = `<div class="ci-bar">${jobs}</div>`;
+    const secs = [];
+    html += sec("need", t("ciNeedAnswer"), need.join("") || `<div class="ci-empty">${esc2(t("ciAllClear"))}</div>`);
+    secs.push({ id: "need", label: t("ciNeedAnswer") });
+    html += sec("all", t("ciOtherContacts"), rest.join("") || empty());
+    secs.push({ id: "all", label: t("ciOtherContacts") });
+    if (ni.suggestions) {
+      const sg = /* @__PURE__ */ new Map();
+      for (const s of ni.suggestions) sg.set(s.scope, [...sg.get(s.scope) || [], s]);
+      const sLine = (s) => `<div>${s.sideJob ? chip(t("niSideJob")) : ""}${esc2(s.by.join(", "))}: ${esc2(s.contact)} <span class="ci-meta">${esc2(s.kind)}${s.direct ? " \xB7 direct" : ""}</span></div>`;
+      const pref = (s) => s.current ? chip(t("niCurrent"), "accent") : `${s.preferred ? chip(t("niPreferred"), "ok") : ""}<span class="ci-sp"></span>${btn(t(s.preferred ? "niUnprefer" : "niPrefer"), `data-act="ni-prefer" data-scope="${esc2(s.scope)}" title="${esc2(t(s.preferred ? "niUnpreferTip" : "niPreferTip"))}"`)}`;
+      html += sec(
+        "sugg",
+        t("niSuggestions"),
+        [...sg.values()].map(([s, ...more]) => item(`s-${s.scope}`, `<span class="ci-title">${esc2(s.about)}</span>${pref(s)}`, sLine(s), more.length ? fold(`s-more-${s.scope}`, t("niMoreSuggestions").replace("{n}", String(more.length)), more.map(sLine).join("")) : "")).join("") || empty(),
+        btn(t("niRefresh"), `data-act="ni-refresh" title="${esc2(t("niRefreshTip"))}"`)
+      );
+      secs.push({ id: "sugg", label: t("ciSugg") });
+    }
+    if (ni.dropped?.length) {
+      html += sec("dropped", t("niDropped"), ni.dropped.map((x, i) => item(`dr-${i}`, `<span class="ci-title">${esc2(x.id)}</span>`, esc2(x.reason))).join(""));
+      secs.push({ id: "dropped", label: t("niDropped") });
+    }
+    return { html, secs };
+  }
+  function decisions(ni) {
+    const negative = /* @__PURE__ */ new Set(["declined", "deferred", "ooc_suppress"]);
+    const dg = /* @__PURE__ */ new Map();
+    for (const x of ni.decisions.slice().reverse()) dg.set(x.scope, [...dg.get(x.scope) || [], x]);
+    const dLine = (x) => `<div class="ci-meta">${esc2(t(`niStance_${x.stance}`))} \xB7 ${esc2(x.time)}</div>${x.quote ? `<div class="ci-quote">\u201C${esc2(x.quote)}\u201D</div>` : ""}`;
+    const active = [], past = [];
+    for (const ds of dg.values()) {
+      const x = ds.find((y) => y.active) || ds[0];
+      const older = ds.filter((y) => y !== x);
+      const neg = negative.has(x.stance);
+      const force = x.active && neg ? chip(t(x.binding ? x.stance === "ooc_suppress" ? "niBindingOoc" : "niBinding" : "niWish"), x.binding ? "bad" : "warn") : "";
+      const acts = x.active && neg ? `${x.stance === "ooc_suppress" ? "" : btn(t(x.strong ? "niWeak" : "niStrong"), `data-act="${x.strong ? "ni-weak" : "ni-strong"}" data-kind="${esc2(x.scopeKind)}" data-ref="${esc2(x.scopeRef)}" title="${esc2(t(x.strong ? "niWeakTip" : "niStrongTip"))}"`)}${btn(t("niReopen"), `data-act="ni-reopen" data-kind="${esc2(x.scopeKind)}" data-ref="${esc2(x.scopeRef)}" data-label="${esc2(x.label)}"`)}` : "";
+      const card2 = item(
+        `d-${x.scope}`,
+        `<span class="ci-title">${esc2(x.label)}</span>${chip(t(`niStance_${x.stance}`), neg ? "bad" : "ok")}${force}<span class="ci-sp"></span><span class="ci-actions">${acts}</span>`,
+        dLine(x),
+        older.length ? fold(`d-old-${x.scope}`, t("niOlderDecisions").replace("{n}", String(older.length)), older.map(dLine).join('<hr class="ci-hr">')) : ""
+      );
+      (x.active ? active : past).push(card2);
+    }
+    return {
+      html: sec("active", t("niActive"), active.join("") || empty(), "", d.tip("niDecisionsTip")) + (past.length ? sec("past", t("ciPast"), past.join("")) : ""),
+      secs: past.length ? [{ id: "active", label: t("niActive") }, { id: "past", label: t("ciPast") }] : []
+    };
+  }
+  function world() {
+    const w = E2().worldView();
+    if (!w) return { html: `<div class="ci-empty">${esc2(t("niOff"))}</div>`, secs: [] };
+    const spoilers = !!camp()?.uiPreferences.spoilers;
+    const secs = [];
+    const recheck = btn(t("wsRecheck"), `data-act="ws-recheck" title="${esc2(t("wsRecheckTip"))}"`, "primary");
+    const changes = w.changes.map((c, i) => item(`wc-${i}`, `${chip(t(`wsSrc_${c.source}`))}<span class="ci-text">${esc2(c.text)}</span>`, c.terms.length ? muted(`${esc2(t("wsTerms"))}: ${esc2(c.terms.join("\u3001"))}`) : ""));
+    const manual = fold("ws-manual", t("wsManual"), `<textarea class="text_pole canon-ws-manual" rows="3">${esc2(w.manual.join("\n"))}</textarea><div class="ci-actions">${btn(t("wsSave"), 'data-act="ws-manual"', "primary")}</div>`, "ci-add");
+    const checked = w.checked ? muted(esc2(t("wsChecked").replace("{lore}", String(w.checked.lore)).replace("{ent}", String(w.checked.entities)).replace("{ev}", String(w.checked.events))) + (w.checked.generic.length ? ` ${esc2(t("wsGeneric"))}${esc2(w.checked.generic.join("\u3001"))}` : "")) : "";
+    let html = `<div class="ci-bar">${muted(esc2(t("wsIntro")))}</div>`;
+    html += sec("changes", t("ciWsChanges"), (changes.join("") || `<div class="ci-empty">${esc2(t("wsNoChanges"))}</div>`) + manual + checked, recheck);
+    secs.push({ id: "changes", label: t("ciWsChanges") });
+    if (w.checked) {
+      if (!w.loreHook && w.overrides.some((o) => o.kind === "lore")) html += `<div class="ci-banner ci-warn">${esc2(t("wsNoHook"))}</div>`;
+      if (w.unchecked.length) {
+        html += sec("unchecked", t("wsUnchecked").replace("{n}", String(w.unchecked.length)), `<div class="ci-banner ci-warn">${esc2(w.unchecked[0].why)}</div>` + w.unchecked.map((r, i) => item(`wu-${i}`, `<span class="ci-title">${esc2(r.title)}</span>${chip(t(`wsKind_${r.kind}`))}`)).join(""));
+        secs.push({ id: "unchecked", label: t("ciWsUnchecked") });
+      }
+      const hidden = w.overrides.filter((o) => o.future && !spoilers).length;
+      const shown = w.overrides.filter((o) => !o.future || spoilers);
+      const ov = shown.map((o) => item(
+        `wo-${o.id}`,
+        `<span class="ci-title">${esc2(o.title)}${o.name ? ` \u2192 ${esc2(o.name)}` : ""}</span>${chip(t(`wsKind_${o.kind}`))}${chip(t(o.action === "disable" ? "wsDisable" : "wsReplace"), o.action === "disable" ? "bad" : "accent")}${o.edited ? chip(t("wsEdited"), "ok") : ""}${o.stale ? chip(t("wsStale"), "warn") : ""}${o.book ? `<span class="ci-meta">${esc2(o.book)}</span>` : ""}`,
+        o.reason ? esc2(o.reason) : "",
+        fold(`wo-cmp-${o.id}`, `${t("wsOriginal")} / ${t("wsThisGame")}`, `<div class="ci-cmp"><div><div class="ci-cmp-l">${esc2(t("wsOriginal"))}</div>${esc2(o.original)}</div><div><div class="ci-cmp-l">${esc2(t("wsThisGame"))}</div>${esc2(o.action === "disable" ? "\u2014" : o.content)}</div></div>`) + fold(`wo-edit-${o.id}`, t("tieEdit"), `<textarea class="text_pole canon-ws-edit" data-id="${esc2(o.id)}" rows="5" title="${esc2(t("wsEditTip"))}">${esc2(o.content)}</textarea><div class="ci-actions">${btn(t("wsSave"), `data-act="ws-save" data-id="${esc2(o.id)}"`, "primary")}${btn(t("wsDelete"), `data-act="ws-del" data-id="${esc2(o.id)}"`, "danger")}</div>`, "ci-edit")
+      ));
+      html += sec("overrides", t("wsOverrides"), (ov.join("") || (!hidden ? `<div class="ci-empty">${esc2(t("wsNone"))}</div>` : "")) + (hidden ? muted(esc2(t("wsFutureHidden").replace("{n}", String(hidden)))) : ""));
+      secs.push({ id: "overrides", label: t("ciWsOverrides") });
+      if (w.additions.length) {
+        html += sec("additions", t("wsAdditions"), w.additions.map((a) => item(
+          `wa-${a.id}`,
+          `<span class="ci-title">${esc2(a.title)}</span>${a.edited ? chip(t("wsEdited"), "ok") : ""}<span class="ci-meta">${esc2(a.keys.join("\u3001"))}</span>`,
+          a.reason ? esc2(a.reason) : "",
+          fold(`wa-edit-${a.id}`, t("wsThisGame"), `<textarea class="text_pole canon-ws-edit" data-id="${esc2(a.id)}" rows="5">${esc2(a.content)}</textarea><div class="ci-actions">${btn(t("wsSave"), `data-act="ws-save" data-id="${esc2(a.id)}"`, "primary")}${btn(t("wsDelete"), `data-act="ws-del" data-id="${esc2(a.id)}"`, "danger")}</div>`, "ci-edit")
+        )).join(""));
+        secs.push({ id: "additions", label: t("ciWsAdditions") });
+      }
+      if (w.rejected.length) {
+        html += sec("rejected", t("wsRejected").replace("{n}", String(w.rejected.length)), w.rejected.map((r, i) => item(`wr-${i}`, `<span class="ci-title">${esc2(r.title)}</span>${chip(t(`wsKind_${r.kind}`))}`, `${esc2(r.why)}${r.reason ? muted(esc2(r.reason)) : ""}`)).join(""));
+        secs.push({ id: "rejected", label: t("ciWsRejected") });
+      }
+    }
+    return { html, secs };
+  }
+  function facts(v) {
+    const by = /* @__PURE__ */ new Map();
+    for (const f of v.facts) by.set(f.entity, [...by.get(f.entity) || [], f]);
+    const val = (s) => {
+      try {
+        const x = JSON.parse(s);
+        return Array.isArray(x) ? x.join("\u3001") : typeof x === "string" ? x : s;
+      } catch {
+        return s;
+      }
+    };
+    const cards = [...by].sort((a, b) => a[0].localeCompare(b[0])).map(([e, fs]) => item(
+      `f-${e}`,
+      `<span class="ci-title">${esc2(e)}</span>${chip(String(fs.length), "muted")}`,
+      `<table class="ci-kv">${fs.map((f) => `<tr title="${esc2(f.source)}"><th>${esc2(f.predicate)}</th><td>${esc2(val(f.value))}</td><td class="ci-meta">${esc2(f.since)}</td></tr>`).join("")}</table>`
+    ));
+    return { html: cards.join("") || empty(), secs: [] };
+  }
+  function history(v) {
+    return { html: v.occurrences.slice().reverse().map((o) => item(`h-${o.id}`, `<span class="ci-meta ci-when">${esc2(o.time)}</span><span class="ci-title">${esc2(o.title)}</span>${chip(o.origin, o.origin === "player" ? "accent" : "muted")}`, esc2(o.account))).join("") || empty(), secs: [] };
+  }
+  function deviations(v) {
+    return { html: v.deviations.map((x) => item(`dv-${x.id}`, `<span class="ci-title">${esc2(x.title)}</span>${chip(x.disposition, "warn")}`, esc2(x.reason))).join("") || empty(), secs: [] };
+  }
+  function anchors(v, spoilers) {
+    const tone = (s) => s === "occurred" ? "ok" : s === "pending" ? "muted" : s === "due" ? "accent" : "warn";
+    return { html: v.anchors.map((a) => item(`an-${a.id}`, `<span class="ci-title">${esc2(spoilers ? a.title : "\u2022\u2022\u2022")}</span>${chip(a.status, tone(a.status))}<span class="ci-meta">${esc2(a.when)}</span>`, esc2(a.required))).join("") || empty(), secs: [] };
+  }
+  function debug(v) {
+    const c = camp();
+    const block = (key, label, text) => fold(`dbg-${key}`, label, `<pre class="ci-pre">${esc2(text)}</pre>`);
+    return {
+      html: block("turn", "Last turn", E2().lastReport || "\u2014") + block("op", "Last operation", JSON.stringify(v.lastTrace, null, 1)) + block("prompt", "Final draft prompt (as sent)", JSON.stringify(d.lastDraftPrompt(), null, 1)) + block("manifests", "Coverage manifests", JSON.stringify(v.manifests, null, 1)) + block("raw", "Raw campaign JSON", JSON.stringify({ ...c, packSnapshot: "[omitted]" }, null, 1).slice(0, 2e5)),
+      secs: []
+    };
+  }
+  function nav(v, ni) {
+    const w = E2().worldView();
+    const badge = (n, tone = "") => n ? `<span class="ci-badge${tone ? ` ci-${tone}` : ""}">${n}</span>` : "";
+    const groups = [
+      { label: "", items: [["overview", t("tabOverview"), badge((v?.notices || []).filter((n) => n.level === "error").length, "bad")]] },
+      ...ni ? [{ label: t("ciNavPlayer"), items: [
+        ["identity", t("ciTabIdentity"), ni.personaChanged ? badge(1, "warn") : ""],
+        ["ties", t("ciTabTies"), ""],
+        ["contacts", t("ciTabContacts"), badge(ni.unanswered.length, "accent")],
+        ["decisions", t("ciTabDecisions"), ""]
+      ] }] : [],
+      { label: t("ciNavWorld"), items: [
+        ...ni ? [["world", t("wsTitle"), w?.unchecked.length ? badge(w.unchecked.length, "warn") : badge(w?.overrides.length || 0, "muted")]] : [],
+        ["facts", t("tabFacts"), badge(v?.facts.length || 0, "muted")],
+        ["history", t("tabHistory"), badge(v?.occurrences.length || 0, "muted")],
+        ["deviations", t("tabDeviations"), badge(v?.deviations.length || 0, "muted")],
+        ["anchors", t("tabAnchors"), ""]
+      ] },
+      { label: t("ciNavEngine"), items: [["plan", t("tabPlan"), ""], ...E2().settings.debug ? [["debug", t("tabDebug"), ""]] : []] }
+    ];
+    const ids = groups.flatMap((g) => g.items.map((x) => x[0]));
+    return { ids, html: groups.map((g) => `<div class="ci-nav-g">${g.label ? `<div class="ci-nav-l">${esc2(g.label)}</div>` : ""}${g.items.map(([id, label, b]) => `<button class="ci-nav-i${id === tab ? " ci-on" : ""}" data-tab="${id}"><span>${esc2(label)}</span>${b}</button>`).join("")}</div>`).join("") };
+  }
+  function page(v, spoilers) {
+    const ni = v.integration;
+    const needNi = ["identity", "ties", "contacts", "decisions", "world"];
+    if (needNi.includes(tab) && !ni) return { html: `<div class="ci-empty">${esc2(t("niOff"))}</div>`, secs: [] };
+    switch (tab) {
+      case "identity":
+        return identity(ni);
+      case "ties":
+        return ties(ni);
+      case "contacts":
+        return contacts(ni);
+      case "decisions":
+        return decisions(ni);
+      case "world":
+        return world();
+      case "facts":
+        return facts(v);
+      case "history":
+        return history(v);
+      case "deviations":
+        return deviations(v);
+      case "anchors":
+        return anchors(v, spoilers);
+      case "plan":
+        return { html: `<pre class="ci-pre">${esc2(JSON.stringify(v.plan, null, 1))}</pre>`, secs: [] };
+      case "debug":
+        return debug(v);
+      default:
+        return overview(v, ni, spoilers);
+    }
+  }
+  function applyFilter() {
+    if (!el) return;
+    const q = (filters.get(tab) || "").trim().toLowerCase();
+    const items2 = [...el.querySelectorAll(".ci-page .ci-item")];
+    let shown = 0;
+    for (const it of items2) {
+      const on = !q || (it.textContent || "").toLowerCase().includes(q);
+      it.hidden = !on;
+      if (on) shown++;
+    }
+    for (const s of el.querySelectorAll(".ci-page .ci-sec")) s.hidden = !!q && !s.querySelector(".ci-item:not([hidden])");
+    const n = el.querySelector(".ci-count");
+    if (n) n.textContent = q ? `${shown}/${items2.length}` : "";
+    el.querySelector(".ci-nomatch")?.toggleAttribute("hidden", !(q && !shown && items2.length));
+  }
+  function editing() {
+    const a = document.activeElement;
+    return !!el && !!a && el.contains(a) && /^(TEXTAREA|SELECT)$|^INPUT$/.test(a.tagName) && !a.classList.contains("ci-filter") && a.type !== "checkbox";
+  }
+  function render(force = false) {
+    const c = camp();
+    const s = d.settings();
+    const open = !!(c?.uiPreferences.inspectorOpen ?? s.inspectorOpen) && !!c;
+    if (!open) {
+      el?.remove();
+      el = null;
+      lastHtml = "";
+      return;
+    }
+    if (el && editing() && !force) {
+      pending = true;
+      return;
+    }
+    pending = false;
+    if (!el) mount();
+    const spoilers = !!c?.uiPreferences.spoilers;
+    const v = E2().inspector(spoilers);
+    const ni = v?.integration || null;
+    const n = nav(v, ni);
+    if (!n.ids.includes(tab)) tab = "overview";
+    const pg = v ? page(v, spoilers) : { html: `<div class="ci-empty">${esc2(E2().status.message || t("phase_reconciling"))}</div>`, secs: [] };
+    const head = `<div class="ci-headbar"><div class="ci-heading"><b>${esc2(t("inspect"))}</b>${v ? `<span class="ci-clock">\u23F1 ${esc2(v.time)}</span>` : ""}</div>
+      <label class="ci-spoil" title="${esc2(t("spoilers"))}"><input type="checkbox" data-act="spoilers" ${spoilers ? "checked" : ""}><span>${esc2(t("ciSpoilers"))}</span></label>
+      <button class="menu_button ci-x" data-act="close" title="${esc2(t("ciClose"))}">\u2715</button></div>`;
+    const tools = `<div class="ci-tools"><div class="ci-search"><input class="text_pole ci-filter" type="search" placeholder="${esc2(t("ciFilter"))}" value="${esc2(filters.get(tab) || "")}"><span class="ci-count"></span></div>${pg.secs.length > 1 ? `<div class="ci-jumps">${pg.secs.map((x) => `<button class="ci-jump" data-jump="${x.id}">${esc2(x.label)}</button>`).join("")}</div>` : ""}</div>`;
+    const main = `<div class="ci-page">${pg.html}<div class="ci-empty ci-nomatch" hidden>${esc2(t("ciNoMatch"))}</div></div>`;
+    const html = `${head}<div class="ci-grid"><nav class="ci-nav">${n.html}</nav><div class="ci-main">${tools}<div class="ci-scroll">${main}</div></div></div><div class="ci-grip" title="${esc2(t("ciResize"))}"></div>`;
+    if (!force && html === lastHtml && tab === lastTab) return;
+    const sc = el.querySelector(".ci-scroll");
+    if (sc && lastTab) scrolls.set(lastTab, sc.scrollTop);
+    const focusFilter = document.activeElement?.classList.contains("ci-filter");
+    el.innerHTML = html;
+    lastHtml = html;
+    lastTab = tab;
+    for (const det of el.querySelectorAll("details[data-key]")) if (opened.has(`${tab}|${det.dataset.key}`)) det.open = true;
+    const sc2 = el.querySelector(".ci-scroll");
+    if (sc2) sc2.scrollTop = scrolls.get(tab) || 0;
+    applyFilter();
+    if (focusFilter) {
+      const f = el.querySelector(".ci-filter");
+      f?.focus();
+      f?.setSelectionRange(f.value.length, f.value.length);
+    }
+  }
+  function run(p, after) {
+    p.then(() => {
+      after?.();
+      render(true);
+    }).catch((e) => {
+      d.toast("error", e.message);
+      render(true);
+    });
+  }
+  function mount() {
+    el = document.createElement("div");
+    el.id = "canon-inspector";
+    el.className = "canon-inspector";
+    const wd = width();
+    if (wd) el.style.width = `${wd}px`;
+    document.body.appendChild(el);
+    el.addEventListener("toggle", (ev) => {
+      const det = ev.target;
+      if (!det.dataset?.key) return;
+      const k = `${tab}|${det.dataset.key}`;
+      if (det.open) opened.add(k);
+      else opened.delete(k);
+    }, true);
+    el.addEventListener("focusout", () => {
+      setTimeout(() => {
+        if (pending && !editing()) render();
+      }, 0);
+    });
+    el.addEventListener("input", (ev) => {
+      const f = ev.target;
+      if (f.classList.contains("ci-filter")) {
+        filters.set(tab, f.value);
+        applyFilter();
+      }
+    });
+    el.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && !ev.target.closest("textarea")) toggle(false);
+    });
+    el.addEventListener("pointerdown", (ev) => {
+      if (!ev.target.classList.contains("ci-grip")) return;
+      ev.preventDefault();
+      const move = (e) => {
+        if (el) el.style.width = `${Math.max(340, Math.min(window.innerWidth - 40, window.innerWidth - e.clientX))}px`;
+      };
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        try {
+          localStorage.setItem("canon-insp-width", String(el?.offsetWidth || 0));
+        } catch {
+        }
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    });
+    el.addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-tab],[data-act],[data-jump]");
+      if (!b || !el) return;
+      if (b.dataset.tab) {
+        const sc = el.querySelector(".ci-scroll");
+        if (sc) scrolls.set(tab, sc.scrollTop);
+        tab = b.dataset.tab;
+        render(true);
+        return;
+      }
+      if (b.dataset.jump) {
+        el.querySelector(`.ci-sec[data-sec="${CSS.escape(b.dataset.jump)}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+        return;
+      }
+      const act = b.dataset.act;
+      const E0 = E2();
+      if (act === "close") return toggle(false);
+      if (act === "spoilers" || act === "ni-jobs") return;
+      if (b.tagName === "BUTTON") b.disabled = true;
+      if (act === "ni-prefer") run(E0.togglePreferred(b.dataset.scope || ""));
+      else if (act === "ni-refresh") {
+        b.textContent = t("niBusy");
+        run(E0.refreshIntegration().then((n) => d.toast("info", t("niRefreshDone").replace("{n}", String(n)))));
+      } else if (act === "ws-recheck" || act === "ws-manual" || act === "ws-save" || act === "ws-del") {
+        if (act === "ws-recheck") b.textContent = t("wsBusy");
+        const box = (sel) => el.querySelector(sel)?.value ?? "";
+        const id = b.dataset.id || "";
+        run(act === "ws-recheck" ? E0.recheckWorld().then(() => d.toast("info", t("wsDone"))) : act === "ws-manual" ? E0.setWorldManual(box(".canon-ws-manual").split(/\r?\n/)) : act === "ws-save" ? E0.editWorld(id, box(`.canon-ws-edit[data-id="${CSS.escape(id)}"]`)) : E0.editWorld(id, null));
+      } else if (act === "tie-save" || act === "tie-del") {
+        const kind = b.dataset.kind === "knows" ? "knows" : "relation";
+        const sel = (cls) => el.querySelector(`.${cls}[data-kind="${kind}"][data-i="${CSS.escape(b.dataset.i || "")}"]`);
+        const isNew = b.dataset.i === "new";
+        const name2 = isNew ? sel("canon-tie-name")?.value || "" : b.dataset.name || "";
+        const text = sel("canon-tie-text")?.value.trim() || "";
+        if (act === "tie-save" && (!name2.trim() || kind === "relation" && !text)) {
+          b.disabled = false;
+          d.toast("warning", t("tieNeedText"));
+          return;
+        }
+        const patch = act === "tie-del" ? null : kind === "relation" ? { relation: text, ended: !!sel("canon-tie-ended")?.checked } : { level: sel("canon-tie-level")?.value || "identity", about: text };
+        run(E0.editTie(kind, isNew ? null : b.dataset.who || null, name2, patch), () => {
+          const det = b.closest("details[data-key]");
+          if (det) opened.delete(`${tab}|${det.dataset.key}`);
+        });
+      } else if (act === "ni-answer") run(E0.answerContact(b.dataset.rec || "", b.dataset.stance));
+      else if (act === "ni-update") {
+        b.textContent = t("niBusy");
+        run(E0.updateIdentity());
+      } else if (act === "ni-keep") run(E0.keepIdentity());
+      else if (act === "ni-strong" || act === "ni-weak") run(E0.setDecisionStrong(b.dataset.kind, b.dataset.ref || "", act === "ni-strong"));
+      else if (act === "ni-reopen") run(E0.reopenScope(b.dataset.kind, b.dataset.ref || "", b.dataset.label || ""));
+    });
+    el.addEventListener("change", (ev) => {
+      const tg = ev.target;
+      const c = camp();
+      if (tg.dataset.act === "spoilers" && c) {
+        c.uiPreferences.spoilers = tg.checked;
+        render(true);
+      }
+      if (tg.dataset.act === "ni-jobs") {
+        d.settings().quietDayJobs = tg.checked;
+        E2().settings.quietDayJobs = tg.checked;
+        d.saveSettings();
+        d.refreshUi();
+        render(true);
+      }
+    });
+  }
+  return { render, toggle };
+}
+
 // src/ui/library.ts
 function settingsObj() {
   const es = ctx().extensionSettings;
@@ -31772,11 +32307,10 @@ var H;
 var CHAT_PROFILE = "__chat__";
 var getSettings;
 var getLock;
-var inspectorEl = null;
-var inspectorTab = "overview";
+var inspector = null;
 var graphPanel = null;
 var packPreview = null;
-var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var esc3 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 function mountUi(engine2, host2, settings, lock2) {
   E = engine2;
   H = host2;
@@ -31787,6 +32321,15 @@ function mountUi(engine2, host2, settings, lock2) {
   mountSettings();
   mountStatus();
   mountTopButton();
+  inspector = createInspector({
+    engine: () => E,
+    settings: () => getSettings(),
+    saveSettings: () => ctx().saveSettingsDebounced?.(),
+    refreshUi,
+    toast,
+    tip,
+    lastDraftPrompt: () => gen.lastDraftPrompt
+  });
   refreshUi();
 }
 function mountTopButton() {
@@ -31875,20 +32418,20 @@ function mountTopButton() {
     packPreview = null;
   };
   const holder = document.getElementById("top-settings-holder");
-  const btn = document.createElement("div");
-  btn.id = "canon-engine-top-button";
-  btn.className = "drawer";
-  btn.innerHTML = `<div class="drawer-toggle drawer-header canon-top-toggle"><div class="drawer-icon fa-solid fa-diagram-project fa-fw closedIcon" title="${t("graphTitle")}"></div></div>`;
-  btn.querySelector(".canon-top-toggle").addEventListener("click", (ev) => {
+  const btn2 = document.createElement("div");
+  btn2.id = "canon-engine-top-button";
+  btn2.className = "drawer";
+  btn2.innerHTML = `<div class="drawer-toggle drawer-header canon-top-toggle"><div class="drawer-icon fa-solid fa-diagram-project fa-fw closedIcon" title="${t("graphTitle")}"></div></div>`;
+  btn2.querySelector(".canon-top-toggle").addEventListener("click", (ev) => {
     ev.stopPropagation();
     graphPanel.toggle();
-    btn.querySelector(".drawer-icon").classList.toggle("openIcon", graphPanel.isOpen());
-    btn.querySelector(".drawer-icon").classList.toggle("closedIcon", !graphPanel.isOpen());
+    btn2.querySelector(".drawer-icon").classList.toggle("openIcon", graphPanel.isOpen());
+    btn2.querySelector(".drawer-icon").classList.toggle("closedIcon", !graphPanel.isOpen());
   });
   const before = document.getElementById("persona-management-button") || document.getElementById("rightNavHolder");
-  if (holder && before?.parentElement === holder) holder.insertBefore(btn, before);
-  else if (holder) holder.appendChild(btn);
-  else document.body.appendChild(btn);
+  if (holder && before?.parentElement === holder) holder.insertBefore(btn2, before);
+  else if (holder) holder.appendChild(btn2);
+  else document.body.appendChild(btn2);
 }
 function openGraph() {
   graphPanel?.toggle(true);
@@ -31926,12 +32469,12 @@ function openLeapDialog(prefill) {
   const now = E.storyNow() ?? st.clock.lo;
   const label = (tick) => formatTick(tick, origin).replace(/ \(D-?\d+\)$/, "");
   const el = modal(`<h3>${t(prefill ? "leapNextTitle" : "leapTitle")}</h3>
-    <div>${t("leapNow")}: <b>${esc2(label(now))}</b></div>
-    <label>${t("leapTo")} <input class="text_pole canon-leap-to" value="${esc2(label(prefill?.final ?? now))}" placeholder="${esc2(t("leapToPh"))}"></label>
+    <div>${t("leapNow")}: <b>${esc3(label(now))}</b></div>
+    <label>${t("leapTo")} <input class="text_pole canon-leap-to" value="${esc3(label(prefill?.final ?? now))}" placeholder="${esc3(t("leapToPh"))}"></label>
     <div class="canon-leap-check canon-hint"></div>
     <div class="canon-leap-chapters"></div>
-    <label>${t("leapDesc")} <textarea class="text_pole canon-leap-desc" rows="5" placeholder="${esc2(t("leapDescPh"))}">${esc2(prefill?.description || "")}</textarea></label>
-    <div class="canon-hint">${esc2(t("leapHint"))}</div>
+    <label>${t("leapDesc")} <textarea class="text_pole canon-leap-desc" rows="5" placeholder="${esc3(t("leapDescPh"))}">${esc3(prefill?.description || "")}</textarea></label>
+    <div class="canon-hint">${esc3(t("leapHint"))}</div>
     <div class="canon-row"><button class="menu_button canon-leap-ok" disabled>${t("leapInsert")}</button><button class="menu_button" data-close>${t("close")}</button></div>`);
   const to = el.querySelector(".canon-leap-to");
   const check2 = el.querySelector(".canon-leap-check");
@@ -31951,8 +32494,8 @@ function openLeapDialog(prefill) {
     ok.disabled = !!bad;
     const was = chapters.length > 1 ? split() : true;
     chapters = bad ? [] : E.leapPlan(tick)?.chapters || [];
-    chEl.innerHTML = chapters.length > 1 ? `<label class="checkbox_label"><input type="checkbox" class="canon-leap-split" ${was ? "checked" : ""}> ${esc2(t("leapSplit").replace("{n}", String(chapters.length)))}</label>
-        <ol class="canon-list">${chapters.map((c) => `<li>\u2192 ${esc2(label(c.to))}${c.after ? ` <small>\uFF08${esc2(t("leapAfter").replace("{x}", c.after))}\uFF09</small>` : ""}</li>`).join("")}</ol>` : "";
+    chEl.innerHTML = chapters.length > 1 ? `<label class="checkbox_label"><input type="checkbox" class="canon-leap-split" ${was ? "checked" : ""}> ${esc3(t("leapSplit").replace("{n}", String(chapters.length)))}</label>
+        <ol class="canon-list">${chapters.map((c) => `<li>\u2192 ${esc3(label(c.to))}${c.after ? ` <small>\uFF08${esc3(t("leapAfter").replace("{x}", c.after))}\uFF09</small>` : ""}</li>`).join("")}</ol>` : "";
   };
   to.addEventListener("input", update);
   update();
@@ -32010,19 +32553,19 @@ function renderStatus() {
     rp.outputTokens ? `${t("outTokens")} ${rp.outputTokens}${rp.reasoningTokens ? ` (${t("thinking")} ${rp.reasoningTokens})` : ""}${rp.maxTokens ? ` / ${t("limit")} ${rp.maxTokens}` : ""}` : "",
     rp.finish ? `finish_reason: ${rp.finish}` : ""
   ].filter(Boolean).join("\n") : "";
-  const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc2(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
+  const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc3(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
   const tk = tm?.tokens;
-  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc2([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.storyInput !== void 0 ? [`${t("tokStory")} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} \xB7 ${t("tokAnalysis")} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : [], ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], ...costLines(tk), ...tk.backup?.length ? [t("backupUsed").replace("{n}", String(tk.backup.length)), ...tk.backup] : [], t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}${costPart(tk)}${tk.backup?.length ? ` \xB7 ${t("backupShort").replace("{n}", String(tk.backup.length))}` : ""}</span>` : "";
-  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc2([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...E.settings.debug && tm.repairs?.length ? tm.repairs.flatMap((v, i) => ["", `${t("repairWhy").replace("{n}", String(i + 1))}:`, ...v.map((x) => `- ${x}`)]) : [], ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc2(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc2(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}</span>` : "";
+  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc3([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.storyInput !== void 0 ? [`${t("tokStory")} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} \xB7 ${t("tokAnalysis")} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : [], ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], ...costLines(tk), ...tk.backup?.length ? [t("backupUsed").replace("{n}", String(tk.backup.length)), ...tk.backup] : [], t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}${costPart(tk)}${tk.backup?.length ? ` \xB7 ${t("backupShort").replace("{n}", String(tk.backup.length))}` : ""}</span>` : "";
+  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc3([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...E.settings.debug && tm.repairs?.length ? tm.repairs.flatMap((v, i) => ["", `${t("repairWhy").replace("{n}", String(i + 1))}:`, ...v.map((x) => `- ${x}`)]) : [], ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc3(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc3(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}</span>` : "";
   el.dataset.phase = conflict ? "conflict" : phase;
-  el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc2(t("phase_" + (conflict ? "conflict" : phase)))}</span>
-    <span class="canon-msg" title="${esc2(msg)}">${esc2(msg)}</span>${timing}
+  el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc3(t("phase_" + (conflict ? "conflict" : phase)))}</span>
+    <span class="canon-msg" title="${esc3(msg)}">${esc3(msg)}</span>${timing}
     <span class="canon-actions">
       ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t("cancel")}</button>` : ""}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t("retry")}</button>` : ""}
       ${!busy && (err && camp.recoveryState.details || E.settings.debug && E.lastReport) ? `<button class="menu_button canon-btn" data-act="details">${t("details")}</button>` : ""}
-      ${!busy && !conflict && camp.enabled && lockOk && E.pendingLeap() ? `<button class="menu_button canon-btn" data-act="leap-next" title="${esc2(t("leapNextTip"))}">${t("leapNext")}</button>` : ""}
-      ${!busy && !conflict && camp.enabled && lockOk ? `<button class="menu_button canon-btn" data-act="leap" title="${esc2(t("leapTip"))}">${t("leap")}</button>` : ""}
+      ${!busy && !conflict && camp.enabled && lockOk && E.pendingLeap() ? `<button class="menu_button canon-btn" data-act="leap-next" title="${esc3(t("leapNextTip"))}">${t("leapNext")}</button>` : ""}
+      ${!busy && !conflict && camp.enabled && lockOk ? `<button class="menu_button canon-btn" data-act="leap" title="${esc3(t("leapTip"))}">${t("leap")}</button>` : ""}
       ${conflict ? `<button class="menu_button canon-btn" data-act="goto">${t("editIt")}</button><button class="menu_button canon-btn" data-act="branch">${t("branchRegen")}</button>` : ""}
       <button class="menu_button canon-btn" data-act="inspect">${t("inspect")}</button>
     </span>`;
@@ -32061,11 +32604,11 @@ function renderSettings() {
   const out = [];
   if (H.isGroup()) out.push(`<div class="canon-note warn">${t("groupUnsupported")}</div>`);
   const comp = detectCompetingLore();
-  if (comp.books.length) out.push(`<div class="canon-note warn">${t("competing")} ${comp.books.map(esc2).join(", ")} ${tip("competingHint")}</div>`);
+  if (comp.books.length) out.push(`<div class="canon-note warn">${t("competing")} ${comp.books.map(esc3).join(", ")} ${tip("competingHint")}</div>`);
   if (comp.gmRule) out.push(`<div class="canon-note warn">${t("gmConflictShort")} ${tip("gmConflict")}</div>`);
-  if (hd.version && !hd.ok) out.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc2(hd.missing.join(", "))}</div>`);
+  if (hd.version && !hd.ok) out.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc3(hd.missing.join(", "))}</div>`);
   const lib = listLibrary();
-  const libRows = (mode) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc2(e.file)}"><b>${esc2(e.title)}</b> v${esc2(e.version)} \xB7 ${Math.round(e.size / 1024)} KB</span>
+  const libRows = (mode) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc3(e.file)}"><b>${esc3(e.title)}</b> v${esc3(e.version)} \xB7 ${Math.round(e.size / 1024)} KB</span>
       <button class="menu_button canon-btn" data-act="lib-view" data-i="${i}" title="${t("libViewTip")}">${t("libView")}</button>
       ${mode === "update" ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t("libUpdate")}</button>` : ""}
       ${mode === "enable" ? `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}" ${profileOk ? "" : "disabled"}>${t("libEnable")}</button>` : ""}
@@ -32080,21 +32623,21 @@ function renderSettings() {
     chat.push(`<div class="canon-lib"><div class="canon-lib-head">${t("library")} ${tip("libraryTip")}</div>${lib.length ? libRows("enable") : `<div class="canon-hint">${t("libEmpty")}</div>`}</div>`);
     chat.push(`<div class="canon-btns"><button class="menu_button" data-act="enable" ${profileOk ? "" : "disabled"}>${t("enable")}</button></div>`);
   } else {
-    chat.push(`<div class="canon-pack"><b>${esc2(E.packInfo()?.title || "")}</b> <span>v${esc2(camp.packVersion)}</span>${camp.enabled ? "" : ` <span class="canon-tag">${t("phase_disabled")}</span>`}</div>`);
+    chat.push(`<div class="canon-pack"><b>${esc3(E.packInfo()?.title || "")}</b> <span>v${esc3(camp.packVersion)}</span>${camp.enabled ? "" : ` <span class="canon-tag">${t("phase_disabled")}</span>`}</div>`);
     if (!profileOk) chat.push(`<div class="canon-note warn">${t("needProfileTurns")}</div>`);
     if (E.packMissing()) chat.push(`<div class="canon-note err">${t("packMissing")}</div><div class="canon-btns"><button class="menu_button" data-act="update">${t("packRelink")}</button></div>`);
-    const btn = (act, label, tipKey, cls = "") => `<button class="menu_button ${cls}" data-act="${act}" title="${esc2(t(tipKey))}">${label}</button>`;
+    const btn2 = (act, label, tipKey, cls = "") => `<button class="menu_button ${cls}" data-act="${act}" title="${esc3(t(tipKey))}">${label}</button>`;
     chat.push(`<div class="canon-btns">
-      ${btn("inspect", t("inspect"), "inspectTip")}${btn("retry", t("retry"), "retryTip")}${btn("rebuild", t("rebuild"), "rebuildTip")}</div>
-      <div class="canon-btns">${btn("export", t("exportBackup"), "exportTip")}${btn("import", t("importBackup"), "importTip")}${btn("update", t("updatePack"), "updateTip")}</div>
-      <div class="canon-btns">${btn("toggle", camp.enabled ? t("disable") : t("reenable"), "toggleTip")}${btn("unbind", t("unbindShort"), "unbindTip", "canon-danger")}</div>`);
+      ${btn2("inspect", t("inspect"), "inspectTip")}${btn2("retry", t("retry"), "retryTip")}${btn2("rebuild", t("rebuild"), "rebuildTip")}</div>
+      <div class="canon-btns">${btn2("export", t("exportBackup"), "exportTip")}${btn2("import", t("importBackup"), "importTip")}${btn2("update", t("updatePack"), "updateTip")}</div>
+      <div class="canon-btns">${btn2("toggle", camp.enabled ? t("disable") : t("reenable"), "toggleTip")}${btn2("unbind", t("unbindShort"), "unbindTip", "canon-danger")}</div>`);
     if (lib.length) chat.push(`<details class="canon-lib"><summary>${t("library")} (${lib.length}) ${tip("libraryTip")}</summary>${libRows("update")}</details>`);
   }
   out.push(card(t("secChat"), "secChatTip", chat.join("")));
-  out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc2(String(s.replyLength || ""))}" placeholder="${esc2(t("replyLengthPlaceholder"))}">`, t("replyLengthShort")) + field(t("oocKeyword"), "oocKeywordTip", `<input type="text" class="text_pole" data-set="oocKeyword" value="${esc2(String(s.oocKeyword ?? "OOC"))}" placeholder="OOC">`, t("oocKeywordShort")) + check("notifyDone", s.notifyDone !== false, t("notifyDone"), "notifyDoneTip") + (s.notifyDone !== false ? check("notifySound", s.notifySound !== false, t("notifySound"), "notifySoundTip") + notifyNote() : "")));
+  out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc3(String(s.replyLength || ""))}" placeholder="${esc3(t("replyLengthPlaceholder"))}">`, t("replyLengthShort")) + field(t("oocKeyword"), "oocKeywordTip", `<input type="text" class="text_pole" data-set="oocKeyword" value="${esc3(String(s.oocKeyword ?? "OOC"))}" placeholder="OOC">`, t("oocKeywordShort")) + check("notifyDone", s.notifyDone !== false, t("notifyDone"), "notifyDoneTip") + (s.notifyDone !== false ? check("notifySound", s.notifySound !== false, t("notifySound"), "notifySoundTip") + notifyNote() : "")));
   out.push(card(t("secPersona"), "", check("ignorePersonaSections", !!s.ignorePersonaSections, t("ignorePersonaSections"), "ignorePersonaSectionsTip") + check("quietDayJobs", s.quietDayJobs !== false, t("quietDayJobs"), "quietDayJobsTip")));
   const pv = playerVoice(s.playerVoice);
-  out.push(`<details class="canon-card canon-voice"${s.voiceOpen ? " open" : ""}><summary class="canon-card-title">${t("secVoice")} ${tip("secVoiceTip")} <span class="canon-sub">${esc2(VOICE_KINDS.filter((k) => pv[k]).map((k) => t("voice_" + k)).join("\u3001") || t("voiceNone"))}</span></summary>` + VOICE_KINDS.map((k) => check("voice:" + k, pv[k], t("voice_" + k), "voice_" + k + "Tip")).join("") + `<div class="canon-hint">${t("voiceHint")}</div></details>`);
+  out.push(`<details class="canon-card canon-voice"${s.voiceOpen ? " open" : ""}><summary class="canon-card-title">${t("secVoice")} ${tip("secVoiceTip")} <span class="canon-sub">${esc3(VOICE_KINDS.filter((k) => pv[k]).map((k) => t("voice_" + k)).join("\u3001") || t("voiceNone"))}</span></summary>` + VOICE_KINDS.map((k) => check("voice:" + k, pv[k], t("voice_" + k), "voice_" + k + "Tip")).join("") + `<div class="canon-hint">${t("voiceHint")}</div></details>`);
   out.push(card(t("secEvents"), "", check("ignoreFirstMessage", !!s.ignoreFirstMessage, t("ignoreFirstMessage"), "ignoreFirstMessageTip") + check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip") + check("followHoraeTime", s.followHoraeTime !== false, t("followHoraeTime"), "followHoraeTimeTip")));
   const adv = [
     num("maxRepairs", s.maxRepairs),
@@ -32112,7 +32655,7 @@ function renderSettings() {
   body.innerHTML = out.join("");
 }
 function tip(key) {
-  return key ? `<span class="canon-info" tabindex="0" role="button" aria-label="${esc2(t(key))}" data-tip="${esc2(t(key))}"><i class="fa-solid fa-circle-info"></i></span>` : "";
+  return key ? `<span class="canon-info" tabindex="0" role="button" aria-label="${esc3(t(key))}" data-tip="${esc3(t(key))}"><i class="fa-solid fa-circle-info"></i></span>` : "";
 }
 function card(title, tipKey, inner) {
   return `<div class="canon-card"><div class="canon-card-title">${title} ${tip(tipKey)}</div>${inner}</div>`;
@@ -32123,10 +32666,10 @@ function field(label, tipKey, control, hint = "") {
 var CHROME_FLAG = "chrome://flags/#unsafely-treat-insecure-origin-as-secure";
 function notifyNote() {
   if (!systemNotificationsAvailable()) {
-    const row = (label, value) => `<div class="canon-copyrow"><span>${esc2(label)}</span><code>${esc2(value)}</code><button class="menu_button canon-btn" data-act="copyValue" data-value="${esc2(value)}">${t("copy")}</button></div>`;
-    return `<div class="canon-note">${esc2(t("notifyInsecure"))}${row(t("notifyFlagPage"), CHROME_FLAG)}${row(t("notifyFlagValue"), location.origin)}</div>`;
+    const row = (label, value) => `<div class="canon-copyrow"><span>${esc3(label)}</span><code>${esc3(value)}</code><button class="menu_button canon-btn" data-act="copyValue" data-value="${esc3(value)}">${t("copy")}</button></div>`;
+    return `<div class="canon-note">${esc3(t("notifyInsecure"))}${row(t("notifyFlagPage"), CHROME_FLAG)}${row(t("notifyFlagValue"), location.origin)}</div>`;
   }
-  if (Notification.permission === "denied") return `<div class="canon-note warn">${esc2(t("notifyBlocked"))}</div>`;
+  if (Notification.permission === "denied") return `<div class="canon-note warn">${esc3(t("notifyBlocked"))}</div>`;
   return "";
 }
 function check(key, on, label, tipKey) {
@@ -32143,21 +32686,21 @@ function profileField(current) {
     profiles = [];
   }
   const missing = current && current !== CHAT_PROFILE && !profiles.some((p) => p.id === current);
-  const opts = [`<option value="" ${current ? "" : "selected"} disabled>${t("taskProfilePick")}</option>`].concat(profiles.map((p) => `<option value="${esc2(p.id)}" ${p.id === current ? "selected" : ""}>${esc2(p.name)}${p.model ? ` \xB7 ${esc2(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc2(current)}" selected>\u26A0 ${esc2(current)}</option>`] : []).concat([`<option value="${CHAT_PROFILE}" ${current === CHAT_PROFILE ? "selected" : ""}>${t("taskProfileSame")}</option>`]);
+  const opts = [`<option value="" ${current ? "" : "selected"} disabled>${t("taskProfilePick")}</option>`].concat(profiles.map((p) => `<option value="${esc3(p.id)}" ${p.id === current ? "selected" : ""}>${esc3(p.name)}${p.model ? ` \xB7 ${esc3(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc3(current)}" selected>\u26A0 ${esc3(current)}</option>`] : []).concat([`<option value="${CHAT_PROFILE}" ${current === CHAT_PROFILE ? "selected" : ""}>${t("taskProfileSame")}</option>`]);
   const hint = !current ? `<div class="canon-hint warn">${profiles.length ? t("taskProfileMissing") : t("taskProfileNone")}</div>` : current === CHAT_PROFILE ? `<div class="canon-hint warn">${t("taskProfileSameWarn")}</div>` : `<div class="canon-hint">${t("taskProfileShort")}</div>`;
   const extra = String(getSettings().taskExtraBody || "");
   const profileUsed = current && current !== CHAT_PROFILE;
   return `<div class="canon-field canon-profile${current ? "" : " canon-required"}"><div class="canon-lbl">${t("taskProfile")} ${tip("taskProfileTip")}</div>
     <select class="text_pole" data-set="taskProfileId">${opts.join("")}</select>${hint}</div>
-    ${profileUsed ? field(t("taskExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc2(extra)}</textarea>`, t("taskExtraBodyShort")) : ""}
+    ${profileUsed ? field(t("taskExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc3(extra)}</textarea>`, t("taskExtraBodyShort")) : ""}
     ${current ? backupField(profiles, current) : ""}`;
 }
 function backupField(profiles, main) {
   const s = getSettings();
   const cur = String(s.taskBackupProfileId || "");
   const missing = cur && !profiles.some((p) => p.id === cur);
-  const opts = [`<option value="" ${cur ? "" : "selected"}>${t("taskBackupNone")}</option>`].concat(profiles.filter((p) => p.id !== main).map((p) => `<option value="${esc2(p.id)}" ${p.id === cur ? "selected" : ""}>${esc2(p.name)}${p.model ? ` \xB7 ${esc2(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc2(cur)}" selected>\u26A0 ${esc2(cur)}</option>`] : []);
-  return field(t("taskBackup"), "taskBackupTip", `<select class="text_pole" data-set="taskBackupProfileId">${opts.join("")}</select>`, t("taskBackupShort")) + (cur ? field(t("taskBackupExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskBackupExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc2(String(s.taskBackupExtraBody || ""))}</textarea>`, t("taskExtraBodyShort")) : "");
+  const opts = [`<option value="" ${cur ? "" : "selected"}>${t("taskBackupNone")}</option>`].concat(profiles.filter((p) => p.id !== main).map((p) => `<option value="${esc3(p.id)}" ${p.id === cur ? "selected" : ""}>${esc3(p.name)}${p.model ? ` \xB7 ${esc3(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc3(cur)}" selected>\u26A0 ${esc3(cur)}</option>`] : []);
+  return field(t("taskBackup"), "taskBackupTip", `<select class="text_pole" data-set="taskBackupProfileId">${opts.join("")}</select>`, t("taskBackupShort")) + (cur ? field(t("taskBackupExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskBackupExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc3(String(s.taskBackupExtraBody || ""))}</textarea>`, t("taskExtraBodyShort")) : "");
 }
 var tipEl = null;
 var tipFor = null;
@@ -32349,7 +32892,7 @@ function openBindWizard(text) {
   const existing = chatLen > 1;
   const horae = H.horae?.status().scene;
   if (!p.ok || !p.summary) {
-    modal(`<h3>${t("wizardTitle")}</h3><div class="canon-note err">${t("validation")}: ${t("failed")}</div><ul class="canon-list">${p.errors.slice(0, 40).map((e) => `<li><code>${esc2(e.path)}</code> ${esc2(e.message)}</li>`).join("")}</ul><button class="menu_button" data-close>${t("close")}</button>`);
+    modal(`<h3>${t("wizardTitle")}</h3><div class="canon-note err">${t("validation")}: ${t("failed")}</div><ul class="canon-list">${p.errors.slice(0, 40).map((e) => `<li><code>${esc3(e.path)}</code> ${esc3(e.message)}</li>`).join("")}</ul><button class="menu_button" data-close>${t("close")}</button>`);
     return;
   }
   const S = p.summary;
@@ -32358,17 +32901,17 @@ function openBindWizard(text) {
   const defTick = covStart <= 480 ? 480 : covStart;
   const startDefault = formatTick(defTick, origin0).replace(/ \(D-?\d+\)$/, "");
   const originDefault = origin0 ? `${origin0.y}-${String(origin0.m).padStart(2, "0")}-${String(origin0.d).padStart(2, "0")}` : "";
-  const evOptions = E.previewEvents(text).map((e) => `<option value="${e.lo - 1}">${esc2(e.title)} (${esc2(formatTick(e.lo, origin0))})</option>`).join("");
+  const evOptions = E.previewEvents(text).map((e) => `<option value="${e.lo - 1}">${esc3(e.title)} (${esc3(formatTick(e.lo, origin0))})</option>`).join("");
   const el = modal(`<h3>${t("wizardTitle")}</h3>
-    <div><b>${esc2(S.title)}</b> v${esc2(S.version)} <small>(${esc2(S.packId)}, ${esc2(S.hash.slice(0, 12))})</small></div>
-    <div>${t("validation")}: <b>${t("ok")}</b> \xB7 ${t("coverage")}: ${esc2(S.coverage)} \xB7 ${t("hardCount")}: ${S.hardCount}</div>
-    ${p.warnings.length ? `<details><summary>${t("warnings")} (${p.warnings.length})</summary><ul class="canon-list">${p.warnings.map((w) => `<li>${esc2(w.path)} ${esc2(w.message)}</li>`).join("")}</ul></details>` : ""}
-    ${horae && (horae.date || horae.time) ? `<div class="canon-note">${t("horaeDetected")}: ${esc2(horae.date || "")} ${esc2(horae.time || "")} ${esc2(horae.location || "")}</div>` : ""}
+    <div><b>${esc3(S.title)}</b> v${esc3(S.version)} <small>(${esc3(S.packId)}, ${esc3(S.hash.slice(0, 12))})</small></div>
+    <div>${t("validation")}: <b>${t("ok")}</b> \xB7 ${t("coverage")}: ${esc3(S.coverage)} \xB7 ${t("hardCount")}: ${S.hardCount}</div>
+    ${p.warnings.length ? `<details><summary>${t("warnings")} (${p.warnings.length})</summary><ul class="canon-list">${p.warnings.map((w) => `<li>${esc3(w.path)} ${esc3(w.message)}</li>`).join("")}</ul></details>` : ""}
+    ${horae && (horae.date || horae.time) ? `<div class="canon-note">${t("horaeDetected")}: ${esc3(horae.date || "")} ${esc3(horae.time || "")} ${esc3(horae.location || "")}</div>` : ""}
     ${existing ? `<div class="canon-note">${t("existingChat")}</div>` : ""}
-    <label>${t("startTime")} <input class="text_pole canon-start" value="${esc2(startDefault)}" placeholder="D0 08:00 \u6216 2020-07-20 08:00\uFF08\u9700\u586B\u5199\u4E0B\u65B9\u7B2C0\u5929\u65E5\u671F\uFF09"></label>
+    <label>${t("startTime")} <input class="text_pole canon-start" value="${esc3(startDefault)}" placeholder="D0 08:00 \u6216 2020-07-20 08:00\uFF08\u9700\u586B\u5199\u4E0B\u65B9\u7B2C0\u5929\u65E5\u671F\uFF09"></label>
     <label>${t("startBefore")} <select class="canon-start-ev"><option value="">\u2014</option>${evOptions}</select></label>
-    <label>${t("originDate")} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD" value="${esc2(originDefault)}"></label>
-    ${S.originLabel ? `<div class="canon-note">${t("packOrigin")}: ${esc2(S.originLabel)}</div>` : ""}
+    <label>${t("originDate")} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD" value="${esc3(originDefault)}"></label>
+    ${S.originLabel ? `<div class="canon-note">${t("packOrigin")}: ${esc3(S.originLabel)}</div>` : ""}
     <div class="canon-row"><button class="menu_button canon-confirm">${t("confirmBind")}</button><button class="menu_button" data-close>${t("close")}</button></div>
     <div class="canon-wizard-status"></div>`);
   el.querySelector(".canon-start-ev").addEventListener("change", (ev) => {
@@ -32396,10 +32939,10 @@ function openBindWizard(text) {
       const insp = E.inspector(false);
       const camp = E.campaign();
       el.querySelector(".canon-modal").innerHTML = `<h3>${t("bindingSummary")}</h3>
-        <div>${t("startTime")}: ${esc2(camp.binding.startLabel)} \xB7 ${esc2(E.packInfo()?.packId || "")}@${esc2(camp.packVersion)}</div>
+        <div>${t("startTime")}: ${esc3(camp.binding.startLabel)} \xB7 ${esc3(E.packInfo()?.packId || "")}@${esc3(camp.packVersion)}</div>
         <div>${t("examined")}: ${res.examined}</div>
-        <div>${t("deviations")}: ${insp?.deviations.length ? insp.deviations.map((d) => esc2(`${d.title}: ${d.disposition}`)).join("; ") : "\u2014"}</div>
-        <div>${t("unresolved")}: ${[...res.unresolved, camp.recoveryState.status !== "ok" ? camp.recoveryState.reason : ""].filter(Boolean).map(esc2).join("; ") || "\u2014"}</div>
+        <div>${t("deviations")}: ${insp?.deviations.length ? insp.deviations.map((d) => esc3(`${d.title}: ${d.disposition}`)).join("; ") : "\u2014"}</div>
+        <div>${t("unresolved")}: ${[...res.unresolved, camp.recoveryState.status !== "ok" ? camp.recoveryState.reason : ""].filter(Boolean).map(esc3).join("; ") || "\u2014"}</div>
         <div class="canon-row"><button class="menu_button" data-close>${t("keep")}</button><button class="menu_button canon-undo">${t("undoBind")}</button></div>`;
       el.querySelector(".canon-undo").addEventListener("click", async () => {
         H.setCampaign(null);
@@ -32408,7 +32951,7 @@ function openBindWizard(text) {
         refreshUi();
       });
     } catch (e) {
-      status.innerHTML = `<div class="canon-note err">${esc2(e.message)}</div>`;
+      status.innerHTML = `<div class="canon-note err">${esc3(e.message)}</div>`;
     }
     refreshUi();
   });
@@ -32436,12 +32979,12 @@ async function updateOrRelink(text) {
 function openUpdateWizard(text) {
   const d = E.diffPack(text);
   if (!d.ok) {
-    modal(`<div class="canon-note err">${d.errors.map((e) => esc2(e.message)).join("<br>")}</div><button class="menu_button" data-close>${t("close")}</button>`);
+    modal(`<div class="canon-note err">${d.errors.map((e) => esc3(e.message)).join("<br>")}</div><button class="menu_button" data-close>${t("close")}</button>`);
     return;
   }
   const el = modal(`<h3>${t("updatePack")}</h3><div class="canon-note">${t("updatePreview")}</div>
-    <div>changed: ${esc2(d.changed.join(", ") || "\u2014")}</div><div>deleted: ${esc2(d.deleted.join(", ") || "\u2014")}</div><div>added: ${esc2(d.added.join(", ") || "\u2014")}</div>
-    <div><b>HARD contract changes:</b> ${esc2(d.hardChanged.join(", ") || "\u2014")}</div>
+    <div>changed: ${esc3(d.changed.join(", ") || "\u2014")}</div><div>deleted: ${esc3(d.deleted.join(", ") || "\u2014")}</div><div>added: ${esc3(d.added.join(", ") || "\u2014")}</div>
+    <div><b>HARD contract changes:</b> ${esc3(d.hardChanged.join(", ") || "\u2014")}</div>
     <div class="canon-row"><button class="menu_button canon-exp">${t("exportBackup")}</button><button class="menu_button canon-apply" disabled>${t("applyUpdate")}</button><button class="menu_button" data-close>${t("close")}</button></div>`);
   el.querySelector(".canon-exp").addEventListener("click", () => {
     download(`canon-backup-before-update-${Date.now()}.json`, E.exportBackup());
@@ -32458,236 +33001,10 @@ function openUpdateWizard(text) {
   });
 }
 function toggleInspector(open) {
-  const s = getSettings();
-  s.inspectorOpen = open;
-  const camp = E.campaign();
-  if (camp) camp.uiPreferences.inspectorOpen = open;
-  ctx().saveSettingsDebounced?.();
-  renderInspector();
+  inspector?.toggle(open);
 }
 function renderInspector() {
-  const s = getSettings();
-  const camp = E.campaign();
-  const open = !!(camp?.uiPreferences.inspectorOpen ?? s.inspectorOpen) && !!camp;
-  if (!open) {
-    inspectorEl?.remove();
-    inspectorEl = null;
-    return;
-  }
-  if (!inspectorEl) {
-    inspectorEl = document.createElement("div");
-    inspectorEl.id = "canon-inspector";
-    inspectorEl.className = "canon-inspector";
-    document.body.appendChild(inspectorEl);
-    inspectorEl.addEventListener("click", (ev) => {
-      const b = ev.target.closest("[data-tab],[data-act]");
-      if (!b) return;
-      if (b.dataset.tab) {
-        inspectorTab = b.dataset.tab;
-        renderInspector();
-      }
-      if (b.dataset.act === "close") toggleInspector(false);
-      const act = b.dataset.act;
-      if (act === "ni-prefer") {
-        b.disabled = true;
-        E.togglePreferred(b.dataset.scope || "").then(() => renderInspector()).catch((e) => {
-          toast("error", e.message);
-          renderInspector();
-        });
-      }
-      if (act === "ni-refresh") {
-        b.disabled = true;
-        b.textContent = t("niBusy");
-        E.refreshIntegration().then((n) => {
-          toast("info", t("niRefreshDone").replace("{n}", String(n)));
-          renderInspector();
-        }).catch((e) => {
-          toast("error", e.message);
-          renderInspector();
-        });
-      }
-      if (act === "ws-recheck" || act === "ws-manual" || act === "ws-save" || act === "ws-del") {
-        b.disabled = true;
-        if (act === "ws-recheck") b.textContent = t("wsBusy");
-        const box = (sel) => inspectorEl.querySelector(sel)?.value ?? "";
-        const id = b.dataset.id || "";
-        const run = act === "ws-recheck" ? E.recheckWorld().then(() => toast("info", t("wsDone"))) : act === "ws-manual" ? E.setWorldManual(box(".canon-ws-manual").split(/\r?\n/)) : act === "ws-save" ? E.editWorld(id, box(`.canon-ws-edit[data-id="${CSS.escape(id)}"]`)) : E.editWorld(id, null);
-        run.then(() => renderInspector()).catch((e) => {
-          toast("error", e.message);
-          renderInspector();
-        });
-      }
-      if (act === "tie-save" || act === "tie-del") {
-        const kind = b.dataset.kind === "knows" ? "knows" : "relation";
-        const sel = (cls) => inspectorEl.querySelector(`.${cls}[data-kind="${kind}"][data-i="${CSS.escape(b.dataset.i || "")}"]`);
-        const isNew = b.dataset.i === "new";
-        const name2 = isNew ? sel("canon-tie-name")?.value || "" : b.dataset.name || "";
-        const text = sel("canon-tie-text")?.value.trim() || "";
-        if (act === "tie-save" && (!name2.trim() || kind === "relation" && !text)) {
-          toast("warning", t("tieNeedText"));
-          return;
-        }
-        b.disabled = true;
-        const patch = act === "tie-del" ? null : kind === "relation" ? { relation: text, ended: !!sel("canon-tie-ended")?.checked } : { level: sel("canon-tie-level")?.value || "identity", about: text };
-        E.editTie(kind, isNew ? null : b.dataset.who || null, name2, patch).then(() => renderInspector()).catch((e) => {
-          toast("error", e.message);
-          renderInspector();
-        });
-      }
-      if (act === "ni-answer") {
-        b.disabled = true;
-        E.answerContact(b.dataset.rec || "", b.dataset.stance).then(() => renderInspector()).catch((e) => {
-          toast("error", e.message);
-          renderInspector();
-        });
-      }
-      if (act === "ni-update" || act === "ni-keep" || act === "ni-reopen" || act === "ni-strong" || act === "ni-weak") {
-        b.disabled = true;
-        if (act === "ni-update") b.textContent = t("niBusy");
-        const run = act === "ni-update" ? E.updateIdentity() : act === "ni-keep" ? E.keepIdentity() : act === "ni-strong" || act === "ni-weak" ? E.setDecisionStrong(b.dataset.kind, b.dataset.ref || "", act === "ni-strong") : E.reopenScope(b.dataset.kind, b.dataset.ref || "", b.dataset.label || "");
-        run.then(() => renderInspector()).catch((e) => {
-          toast("error", e.message);
-          renderInspector();
-        });
-      }
-    });
-    inspectorEl.addEventListener("change", (ev) => {
-      const tg = ev.target;
-      if (tg.dataset.act === "spoilers" && camp) {
-        camp.uiPreferences.spoilers = tg.checked;
-        renderInspector();
-      }
-      if (tg.dataset.act === "ni-jobs") {
-        getSettings().quietDayJobs = tg.checked;
-        E.settings.quietDayJobs = tg.checked;
-        ctx().saveSettingsDebounced?.();
-        refreshUi();
-        renderInspector();
-      }
-    });
-  }
-  const spoilers = !!camp?.uiPreferences.spoilers;
-  const d = E.inspector(spoilers);
-  const tabs = ["overview", "player", "facts", "history", "deviations", "anchors", "plan", ...E.settings.debug ? ["debug"] : []];
-  const tabName = { overview: t("tabOverview"), player: t("tabPlayer"), facts: t("tabFacts"), history: t("tabHistory"), deviations: t("tabDeviations"), anchors: t("tabAnchors"), plan: t("tabPlan"), debug: t("tabDebug") };
-  let body = "";
-  if (!d) body = `<div>${esc2(E.status.message || t("phase_reconciling"))}</div>`;
-  else if (inspectorTab === "overview") {
-    body = `<div><b>${esc2(d.title)}</b> \xB7 hash ${esc2(d.packHash)}</div><div>\u23F1 ${esc2(d.time)}</div><div>rev ${d.revision} \xB7 branch ${esc2(d.branchId.slice(0, 12))}</div>
-      <div>${esc2(d.recovery.status)} ${esc2(d.recovery.reason || "")}</div>
-      <ul class="canon-list">${d.notices.map((n) => `<li class="${n.level}">${esc2(n.text)}</li>`).join("")}</ul>`;
-  } else if (inspectorTab === "player") {
-    body = playerTab(d.integration);
-  } else if (inspectorTab === "facts") {
-    body = `<table class="canon-table"><tr><th>entity</th><th>predicate</th><th>value</th><th>since</th><th>source</th></tr>${d.facts.map((f) => `<tr><td>${esc2(f.entity)}</td><td>${esc2(f.predicate)}</td><td>${esc2(f.value)}</td><td>${esc2(f.since)}</td><td>${esc2(f.source)}</td></tr>`).join("")}</table>`;
-  } else if (inspectorTab === "history") {
-    body = `<ul class="canon-list">${d.occurrences.map((o) => `<li><b>${esc2(o.time)}</b> ${esc2(o.title)} <small>(${esc2(o.origin)})</small><br><small>${esc2(o.account)}</small></li>`).join("")}</ul>`;
-  } else if (inspectorTab === "deviations") {
-    body = `<ul class="canon-list">${d.deviations.map((x) => `<li>${esc2(x.title)}: <b>${esc2(x.disposition)}</b> \u2014 ${esc2(x.reason)}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
-  } else if (inspectorTab === "anchors") {
-    body = `<ul class="canon-list">${d.anchors.map((a) => `<li>${esc2(spoilers ? a.title : "\u2022\u2022\u2022")} \u2014 <b>${esc2(a.status)}</b> ${esc2(a.when)}<br><small>${esc2(a.required)}</small></li>`).join("")}</ul>`;
-  } else if (inspectorTab === "plan") {
-    body = `<pre class="canon-pre">${esc2(JSON.stringify(d.plan, null, 1))}</pre>`;
-  } else if (inspectorTab === "debug") {
-    body = `<h4>Last turn</h4><pre class="canon-pre">${esc2(E.lastReport || "\u2014")}</pre>
-      <h4>Last operation</h4><pre class="canon-pre">${esc2(JSON.stringify(d.lastTrace, null, 1))}</pre>
-      <h4>Final draft prompt (as sent)</h4><pre class="canon-pre">${esc2(JSON.stringify(gen.lastDraftPrompt, null, 1))}</pre>
-      <h4>Coverage manifests</h4><pre class="canon-pre">${esc2(JSON.stringify(d.manifests, null, 1))}</pre>
-      <h4>Raw campaign JSON</h4><pre class="canon-pre">${esc2(JSON.stringify({ ...camp, packSnapshot: "[omitted]" }, null, 1)).slice(0, 2e5)}</pre>`;
-  }
-  inspectorEl.innerHTML = `<div class="canon-insp-head"><b>${t("inspect")}</b>
-      <label><input type="checkbox" data-act="spoilers" ${spoilers ? "checked" : ""}> ${t("spoilers")}</label>
-      <button class="menu_button" data-act="close">\u2715</button></div>
-    <div class="canon-tabs">${tabs.map((x) => `<button class="menu_button ${x === inspectorTab ? "active" : ""}" data-tab="${x}">${tabName[x]}</button>`).join("")}</div>
-    <div class="canon-insp-body">${body}</div>`;
-}
-function worldSection() {
-  const w = E.worldView();
-  if (!w) return "";
-  const tag = (s) => `<span class="canon-tag">${esc2(s)}</span>`;
-  let html = `<h4>${esc2(t("wsTitle"))} <button class="menu_button canon-h4-btn" data-act="ws-recheck" title="${esc2(t("wsRecheckTip"))}">${esc2(t("wsRecheck"))}</button></h4><div><small>${esc2(t("wsIntro"))}</small></div>`;
-  html += w.changes.length ? `<ul class="canon-list">${w.changes.map((c) => `<li>${tag(t(`wsSrc_${c.source}`))} ${esc2(c.text)}${c.terms.length ? `<br><small>${esc2(t("wsTerms"))}: ${esc2(c.terms.join("\u3001"))}</small>` : ""}</li>`).join("")}</ul>` : `<div><small>${esc2(t("wsNoChanges"))}</small></div>`;
-  html += `<div><small>${esc2(t("wsManual"))}</small></div><textarea class="text_pole canon-ws-manual" rows="3">${esc2(w.manual.join("\n"))}</textarea><div><button class="menu_button" data-act="ws-manual">${esc2(t("wsSave"))}</button></div>`;
-  if (!w.checked) return html;
-  html += `<div><small>${esc2(t("wsChecked").replace("{lore}", String(w.checked.lore)).replace("{ent}", String(w.checked.entities)).replace("{ev}", String(w.checked.events)))}${w.checked.generic.length ? ` ${esc2(t("wsGeneric"))}${esc2(w.checked.generic.join("\u3001"))}` : ""}</small></div>`;
-  if (!w.loreHook && w.overrides.some((o) => o.kind === "lore")) html += `<div><small>${esc2(t("wsNoHook"))}</small></div>`;
-  const item = (o) => `<li><b>${esc2(o.title)}</b>${o.name ? ` \u2192 <b>${esc2(o.name)}</b>` : ""} ${tag(t(`wsKind_${o.kind}`))}${o.book ? ` <small>${esc2(o.book)}</small>` : ""} ${tag(t(o.action === "disable" ? "wsDisable" : "wsReplace"))}${o.edited ? ` ${tag(t("wsEdited"))}` : ""}${o.stale ? ` ${tag(t("wsStale"))}` : ""}${o.reason ? `<br><small>${esc2(o.reason)}</small>` : ""}<details class="canon-older"><summary><small>${esc2(t("wsOriginal"))} / ${esc2(t("wsThisGame"))}</small></summary><div><small><b>${esc2(t("wsOriginal"))}:</b> ${esc2(o.original)}</small></div><div><small><b>${esc2(t("wsThisGame"))}:</b> ${esc2(o.action === "disable" ? "\u2014" : o.content)}</small></div><textarea class="text_pole canon-ws-edit" data-id="${esc2(o.id)}" rows="4" title="${esc2(t("wsEditTip"))}">${esc2(o.content)}</textarea><button class="menu_button" data-act="ws-save" data-id="${esc2(o.id)}">${esc2(t("wsSave"))}</button> <button class="menu_button" data-act="ws-del" data-id="${esc2(o.id)}">${esc2(t("wsDelete"))}</button></details></li>`;
-  const spoilers = !!E.campaign()?.uiPreferences.spoilers;
-  const hidden = w.overrides.filter((o) => o.future && !spoilers).length;
-  const shown = w.overrides.filter((o) => !o.future || spoilers);
-  html += `<h4>${esc2(t("wsOverrides"))}</h4>${shown.length ? `<ul class="canon-list">${shown.map(item).join("")}</ul>` : !hidden ? `<div><small>${esc2(t("wsNone"))}</small></div>` : ""}${hidden ? `<div><small>${esc2(t("wsFutureHidden").replace("{n}", String(hidden)))}</small></div>` : ""}`;
-  if (w.unchecked.length) html += `<details class="canon-older" open><summary><small>${esc2(t("wsUnchecked").replace("{n}", String(w.unchecked.length)))}</small></summary><ul class="canon-list">${w.unchecked.map((r) => `<li>${esc2(r.title)} ${tag(t(`wsKind_${r.kind}`))}</li>`).join("")}</ul><small>${esc2(w.unchecked[0].why)}</small></details>`;
-  if (w.rejected.length) html += `<details class="canon-older"><summary><small>${esc2(t("wsRejected").replace("{n}", String(w.rejected.length)))}</small></summary><ul class="canon-list">${w.rejected.map((r) => `<li><b>${esc2(r.title)}</b> ${tag(t(`wsKind_${r.kind}`))}<br><small>${esc2(r.why)}</small>${r.reason ? `<br><small>${esc2(r.reason)}</small>` : ""}</li>`).join("")}</ul></details>`;
-  if (w.additions.length) html += `<h4>${esc2(t("wsAdditions"))}</h4><ul class="canon-list">${w.additions.map((a) => `<li><b>${esc2(a.title)}</b> <small>${esc2(a.keys.join("\u3001"))}</small>${a.edited ? ` ${tag(t("wsEdited"))}` : ""}${a.reason ? `<br><small>${esc2(a.reason)}</small>` : ""}<details class="canon-older"><summary><small>${esc2(t("wsThisGame"))}</small></summary><textarea class="text_pole canon-ws-edit" data-id="${esc2(a.id)}" rows="4">${esc2(a.content)}</textarea><button class="menu_button" data-act="ws-save" data-id="${esc2(a.id)}">${esc2(t("wsSave"))}</button> <button class="menu_button" data-act="ws-del" data-id="${esc2(a.id)}">${esc2(t("wsDelete"))}</button></details></li>`).join("")}</ul>`;
-  return html;
-}
-function tiesSection(p) {
-  const tag = (s) => `<span class="canon-tag">${esc2(s)}</span>`;
-  const src = (x) => `${tag(t(`tieSrc_${x.by}`))}${x.since ? ` <small>${esc2(t("tieSince").replace("{t}", x.since))}</small>` : ""}${x.start ? `<br><small>${esc2(t("tieStart"))}: ${esc2(x.start)}</small>` : ""}${x.quote ? `<br><small>\u201C${esc2(x.quote)}\u201D</small>` : ""}`;
-  const ids = (kind, x, i) => `data-kind="${kind}" data-i="${i}" data-who="${esc2(x.who || "")}" data-name="${esc2(x.name)}"`;
-  const levels = (cur, attr) => `<select class="text_pole canon-tie-level" ${attr}>${["exists", "identity", "secrets"].map((l) => `<option value="${l}" ${l === cur ? "selected" : ""}>${esc2(t(`tieLevel_${l}`))}</option>`).join("")}</select>`;
-  const btns = (attr) => `<button class="menu_button" data-act="tie-save" ${attr}>${esc2(t("wsSave"))}</button> <button class="menu_button" data-act="tie-del" ${attr}>${esc2(t("wsDelete"))}</button>`;
-  const rel = p.relationships.map((r, i) => {
-    const a = ids("relation", r, i);
-    return `<li><b>${esc2(r.name)}</b>${r.ended ? ` ${tag(t("tieEnded"))}` : ""}: ${esc2(r.text)}${esc2(r.org)} ${src(r)}<details class="canon-older"><summary><small>${esc2(t("tieEdit"))}</small></summary><textarea class="text_pole canon-tie-text" ${a} rows="2">${esc2(r.text)}</textarea><label class="checkbox_label canon-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r.ended ? "checked" : ""}><span>${esc2(t("tieEnded"))}</span></label>${btns(a)}</details></li>`;
-  });
-  const kn = p.knowers.map((k, i) => {
-    const a = ids("knows", k, i);
-    return `<li><b>${esc2(k.name)}</b> ${tag(t(`tieLevel_${k.level}`))}: ${esc2(k.text)} ${src(k)}<details class="canon-older"><summary><small>${esc2(t("tieEdit"))}</small></summary>${levels(k.level, a)}<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc2(k.text)}</textarea>${btns(a)}</details></li>`;
-  });
-  const add2 = (kind) => {
-    const a = `data-kind="${kind}" data-i="new"`;
-    return `<details class="canon-older"><summary><small>${esc2(t(kind === "relation" ? "tieAddRel" : "tieAddKnower"))}</small></summary><input class="text_pole canon-tie-name" ${a} placeholder="${esc2(t("tieName"))}">${kind === "knows" ? levels("identity", a) : ""}<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc2(t(kind === "relation" ? "tieRelText" : "tieKnowsText"))}"></textarea><button class="menu_button" data-act="tie-save" ${a}>${esc2(t("wsSave"))}</button></details>`;
-  };
-  return `<h4>${esc2(t("niConnections"))} ${tip("tieTip")}</h4>${rel.length ? `<ul class="canon-list">${rel.join("")}</ul>` : ""}${add2("relation")}<h4>${esc2(t("niWho"))}</h4>${kn.length ? `<ul class="canon-list">${kn.join("")}</ul>` : ""}${add2("knows")}`;
-}
-function playerTab(v) {
-  if (!v) return `<div>${esc2(t("niOff"))}</div>`;
-  const list = (title, items2) => items2.length ? `<h4>${esc2(title)}</h4><ul class="canon-list">${items2.map((i) => `<li>${esc2(i)}</li>`).join("")}</ul>` : "";
-  let html = `<div><small>${esc2(t("niIntro"))}</small></div>`;
-  html += `<div class="canon-frow"><label class="checkbox_label canon-check"><input type="checkbox" data-act="ni-jobs" ${E.settings.quietDayJobs !== false ? "checked" : ""}><span>${esc2(t("niJobsToggle"))}</span></label>${tip("quietDayJobsTip")}</div>`;
-  if (v.personaChanged) html += `<div class="canon-ni-changed"><b>${esc2(t("niChanged"))}</b><div class="canon-ni-btns"><button class="menu_button" data-act="ni-update">${esc2(t("niUpdate"))}</button><button class="menu_button" data-act="ni-keep">${esc2(t("niKeep"))}</button></div></div>`;
-  else if (v.profileOld) html += `<div class="canon-ni-changed"><b>${esc2(t("niOld"))}</b><div class="canon-ni-btns"><button class="menu_button" data-act="ni-update">${esc2(t("niUpdate"))}</button></div></div>`;
-  const p = v.profile;
-  if (!p) html += `<div>${esc2(t("niNoProfile"))}</div>`;
-  else {
-    html += `<h4>${esc2(p.name)}</h4><div>${esc2(p.summary)}</div>${p.publicIdentity ? `<div><small>${esc2(p.publicIdentity)}</small></div>` : ""}<div><small>${esc2(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev)))}</small></div>`;
-    html += list(t("niLore"), p.lore || []) + list(t("niOrgs"), p.affiliations) + list(t("niPlaces"), p.places) + list(t("niRoles"), p.roles || []) + list(t("niNotSuited"), p.notSuited || []) + list(t("niVoice"), p.voice ? [p.voice] : []) + list(t("niRecognized"), p.recognized || []) + tiesSection(p) + list(t("niNotes"), p.notes);
-  }
-  html += worldSection();
-  const stance = (s) => t(`niStance_${s}`);
-  const negative = /* @__PURE__ */ new Set(["declined", "deferred", "ooc_suppress"]);
-  const strongBtn = (d) => d.stance === "ooc_suppress" ? "" : ` <button class="menu_button" data-act="${d.strong ? "ni-weak" : "ni-strong"}" data-kind="${esc2(d.scopeKind)}" data-ref="${esc2(d.scopeRef)}" title="${esc2(t(d.strong ? "niWeakTip" : "niStrongTip"))}">${esc2(t(d.strong ? "niWeak" : "niStrong"))}</button>`;
-  const dg = /* @__PURE__ */ new Map();
-  for (const d of v.decisions.slice().reverse()) dg.set(d.scope, [...dg.get(d.scope) || [], d]);
-  const dLine = (d) => `<b>${esc2(stance(d.stance))}</b> <small>${esc2(d.time)}${d.active ? ` \xB7 ${esc2(t("niActive"))}${negative.has(d.stance) ? ` \xB7 ${esc2(t(d.binding ? d.stance === "ooc_suppress" ? "niBindingOoc" : "niBinding" : "niWish"))}` : ""}` : ""}</small>${d.quote ? `<br><small>\u201C${esc2(d.quote)}\u201D</small>` : ""}`;
-  html += `<h4>${esc2(t("niDecisions"))} ${tip("niDecisionsTip")}</h4><ul class="canon-list">${[...dg.values()].map((ds) => {
-    const d = ds.find((x) => x.active) || ds[0];
-    const older = ds.filter((x) => x !== d);
-    return `<li><b>${esc2(d.label)}</b><br>${dLine(d)}${d.active && negative.has(d.stance) ? `${strongBtn(d)} <button class="menu_button" data-act="ni-reopen" data-kind="${esc2(d.scopeKind)}" data-ref="${esc2(d.scopeRef)}" data-label="${esc2(d.label)}">${esc2(t("niReopen"))}</button>` : ""}${older.length ? `<details class="canon-older"><summary><small>${esc2(t("niOlderDecisions").replace("{n}", String(older.length)))}</small></summary>${older.map((o) => `<div>${dLine(o)}</div>`).join("")}</details>` : ""}</li>`;
-  }).join("") || "<li>\u2014</li>"}</ul>`;
-  const groups = /* @__PURE__ */ new Map();
-  for (const k of v.contacts.slice().reverse()) groups.set(k.scope, [...groups.get(k.scope) || [], k]);
-  const contactLine = (k) => `<small>${k.sideJob ? `<span class="canon-tag">${esc2(t(k.lapsed ? "niJobLapsed" : "niSideJob"))}</span> ` : ""}${esc2(k.time)} \xB7 ${esc2(k.kind)}${k.by.length ? ` \xB7 ${esc2(k.by.join(", "))}` : ""}${v.unanswered.includes(k.recordId) ? ` \xB7 ${esc2(t("niUnanswered"))}` : ""}</small><br><small>\u201C${esc2(k.quote)}\u201D</small>`;
-  const POS = ["accepted", "joined", "reopened", "answered", "limited"], NEG = ["declined", "deferred", "refused", "ooc_suppress"];
-  const ansBtn = (k, stance2, label) => ` <button class="menu_button" data-act="ni-answer" data-rec="${esc2(k.recordId)}" data-stance="${stance2}">${esc2(t(label))}</button>`;
-  const answerLine = (k) => {
-    if (k.lapsed) return "";
-    const a = k.answer;
-    const state = a ? `${t("niAnswer")}${t(`niStance_${a}`)}` : k.inPlay ? t("niAnswerInPlay") : "";
-    const btns = a === "done" ? "" : a && POS.includes(a) ? ansBtn(k, "done", "niDone") : a && NEG.includes(a) ? ansBtn(k, "accepted", "niAcceptAgain") : `${ansBtn(k, "accepted", "niAccept")}${ansBtn(k, "declined", "niDecline")}`;
-    return `<div>${state ? `<small>${esc2(state)}</small>` : ""}${btns}</div>`;
-  };
-  html += `<h4>${esc2(t("niContacts"))}</h4><ul class="canon-list">${[...groups.values()].map(([k, ...older]) => `<li><b>${esc2(k.label)}</b> ${contactLine(k)}${answerLine(k)}${older.length ? `<details class="canon-older"><summary><small>${esc2(t("niOlderContacts").replace("{n}", String(older.length)))}</small></summary>${older.map((o) => `<div>${contactLine(o)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
-  if (v.suggestions) {
-    const sg = /* @__PURE__ */ new Map();
-    for (const s of v.suggestions) sg.set(s.scope, [...sg.get(s.scope) || [], s]);
-    const sLine = (s) => `<small>${s.sideJob ? `<span class="canon-tag">${esc2(t("niSideJob"))}</span> ` : ""}${esc2(s.by.join(", "))}: ${esc2(s.contact)} (${esc2(s.kind)}${s.direct ? ", direct" : ""})</small>`;
-    const prefBtn = (s) => s.current ? ` <span class="canon-tag">${esc2(t("niCurrent"))}</span>` : ` <button class="menu_button" data-act="ni-prefer" data-scope="${esc2(s.scope)}" title="${esc2(t(s.preferred ? "niUnpreferTip" : "niPreferTip"))}">${esc2(t(s.preferred ? "niUnprefer" : "niPrefer"))}</button>${s.preferred ? ` <span class="canon-tag">${esc2(t("niPreferred"))}</span>` : ""}`;
-    html += `<h4>${esc2(t("niSuggestions"))} <button class="menu_button canon-h4-btn" data-act="ni-refresh" title="${esc2(t("niRefreshTip"))}">${esc2(t("niRefresh"))}</button></h4><ul class="canon-list">${[...sg.values()].map(([s, ...more]) => `<li><b>${esc2(s.about)}</b>${prefBtn(s)}<br>${sLine(s)}${more.length ? `<details class="canon-older"><summary><small>${esc2(t("niMoreSuggestions").replace("{n}", String(more.length)))}</small></summary>${more.map((m) => `<div>${sLine(m)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
-  }
-  if (v.dropped?.length) html += `<h4>${esc2(t("niDropped"))}</h4><ul class="canon-list">${v.dropped.map((x) => `<li>${esc2(x.id)}: ${esc2(x.reason)}</li>`).join("")}</ul>`;
-  return html;
+  inspector?.render();
 }
 function renderMessageDecorations() {
   document.querySelectorAll(".canon-banner, .canon-conflict").forEach((n) => n.remove());

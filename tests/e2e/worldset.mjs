@@ -55,7 +55,7 @@ try {
   // the 叙事融入 tab shows them; an edit by hand there takes effect in the next scan
   await page.evaluate(() => (document.querySelector('[data-act="inspect"]'))?.click());
   await page.waitForTimeout(500);
-  await page.evaluate(() => (document.querySelector('#canon-inspector [data-tab="player"]'))?.click());
+  await page.evaluate(() => (document.querySelector('#canon-inspector [data-tab="world"]'))?.click());
   await page.waitForTimeout(500);
   const shown = await page.evaluate(() => { const el = document.querySelector('#canon-inspector'); return { text: el?.textContent || '', edits: el?.querySelectorAll('.canon-ws-edit').length || 0 }; });
   check('WE06 the 叙事融入 tab lists 本局设定, the change and the rewritten entry', /本局设定/.test(shown.text) && shown.text.includes('身份: 第8位Level 5') && shown.text.includes(NEW) && shown.edits === 1, shown.text.slice(0, 200));
