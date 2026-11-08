@@ -144,8 +144,8 @@ export interface EngagementInfo {
   /** declined: stop pulling me in; deferred: not now (until, when the player named a time); accepted: agreed;
    *  joined: clearly took part in the thing itself by their own action; limited: one act within it (rescued one
    *  person and left) — no acceptance of the rest; ooc_suppress: out of character, stop building this line;
-   *  reopened: explicitly allows contact again (player's words or UI). */
-  stance: 'declined' | 'deferred' | 'accepted' | 'joined' | 'limited' | 'ooc_suppress' | 'reopened' | 'answered' | 'refused';
+   *  reopened: explicitly allows contact again (player's words or UI); done: the player finished the matter (UI). */
+  stance: 'declined' | 'deferred' | 'accepted' | 'joined' | 'limited' | 'ooc_suppress' | 'reopened' | 'answered' | 'refused' | 'done';
   quote: string;
   until?: number | null;
   source: 'player_message' | 'ui';

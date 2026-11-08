@@ -23420,6 +23420,7 @@ function engagementView(state, pack2) {
         else if (c.stance === "ooc_suppress") out.push(`BINDING \u2014 out of character, stop: ${label}${q} \u2014 keep it out of the player's story: no contacts, reminders or NPC arguments about it.`);
         else if (c.stance === "answered" && tick - c.tick <= ANSWER_SHOWN_MINUTES) out.push(`answered: ${label} \u2014 the player answered${q}. That is their answer, vague or partial as it may be: react to it if you like, but do not ask for it again. ${RENEW_NOT}`);
         else if (c.stance === "refused" && tick - c.tick <= ANSWER_SHOWN_MINUTES) out.push(`refused to answer: ${label} \u2014 the player will not answer${q}. Respect it: one in-character reaction at most, then drop the question; do not ask it again or press for it another way. ${RENEW_NOT}`);
+        else if (c.stance === "done") out.push(`done: ${label} \u2014 the player finished it (Canon Engine panel). It is over: nothing about it is pending; do not bring it up as unfinished.${once}`);
         else if (c.stance === "joined" || c.stance === "accepted" || c.stance === "reopened") out.push(`${c.stance === "joined" ? "took part by their own action" : c.stance === "accepted" ? "accepted" : "open to it again"}: ${label}${q} \u2014 continue it naturally.${once}`);
         const lim = s.history.filter((h) => h.stance === "limited" && h.seq > (c?.seq ?? -1)).slice(-1)[0];
         if (lim) out.push(`one act only: ${lim.scopeLabel || lim.scopeRef} ("${lim.quote.slice(0, 120)}") \u2014 that act; nothing more of it is accepted.`);
@@ -23442,14 +23443,22 @@ function unanswered(state, tick) {
   }
   return out;
 }
-function answeredBy(state, c) {
+var isPlayerId = (id) => id.startsWith("rt.player.");
+function contactDecision(state, c) {
   const k = scopeKey(c.scopeKind, c.scopeRef);
   const sameThing = (id) => {
     const x = state.contacts.find((y) => y.recordId === id);
     return !!x && scopeKey(x.scopeKind, x.scopeRef) === k;
   };
-  if (state.engagements.some((e) => e.scopeKind === "contact" ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k)) return "decision";
-  if ([...state.occurrences.values()].some((o) => o.seq > c.seq && o.origin === "player" && [...o.actors, ...o.affected].some((a) => c.actors.includes(a)))) return "play";
+  const ds = state.engagements.filter((e) => e.stance !== "limited" && (e.scopeKind === "contact" ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k));
+  return ds.length ? ds.reduce((a, b) => b.seq > a.seq ? b : a) : null;
+}
+function answeredBy(state, c) {
+  if (contactDecision(state, c)) return "decision";
+  const commit = state.recordById.get(c.recordId)?.commitId;
+  const members = c.scopeKind === "faction" ? factAt(state, c.scopeRef, "members").value : null;
+  const touched = new Set([...c.actors, ...c.scopeKind === "faction" ? [c.scopeRef, ...Array.isArray(members) ? members.map(String) : []] : []].filter((x) => !isPlayerId(x)));
+  if ([...state.occurrences.values()].some((o) => o.seq > c.seq && o.commitId !== commit && (o.origin === "player" || o.actors.some(isPlayerId)) && ([...o.actors, ...o.affected].some((a) => touched.has(a)) || c.scopeKind === "event" && o.packEventId === c.scopeRef))) return "play";
   return null;
 }
 function integrationCandidates(index, profile2, tick, opts = {}) {
@@ -23525,7 +23534,7 @@ function jobLapsed(state, c, tick) {
     const x = state.contacts.find((y) => y.recordId === id);
     return !!x && scopeKey(x.scopeKind, x.scopeRef) === k;
   };
-  const took = state.engagements.some((e) => ["accepted", "joined", "limited"].includes(e.stance) && e.tick < c.expires && (e.scopeKind === "contact" ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k));
+  const took = state.engagements.some((e) => ["accepted", "joined", "limited", "done"].includes(e.stance) && e.tick < c.expires && (e.scopeKind === "contact" ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k));
   return !took;
 }
 function checkOpportunities(out, index, profile2, candidates, tick, quiet = false) {
@@ -26198,7 +26207,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.23.6";
+var ENGINE_RELEASE = "1.24.0";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -29224,10 +29233,11 @@ ${lines.join("\n")}`;
       profileOld: !!prof && prof.profile.recognizedBy === void 0,
       decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId), strong: !!e.strong, binding: isBinding(e) })),
       // contacts filed as a free storyline before 1.8.1 are grouped with the event or matter they name
-      contacts: s.contacts.map((k) => ({ ...k, ...k.scopeKind === "storyline" ? (() => {
+      // with the player's answer to the matter (a decision, or taken up in play) for the 接受/拒绝/完成 buttons
+      contacts: s.contacts.map((k) => ({ ...k, answer: contactDecision(s, k)?.stance ?? null, inPlay: answeredBy(s, k) === "play", ...k.scopeKind === "storyline" ? (() => {
         const m = matchScope(idx.pack, s.contacts, k.scopeLabel);
         return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {};
-      })() : {} })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin), ...k.sideJob ? { sideJob: true, lapsed: jobLapsed(s, k, s.clock.lo) } : {} })),
+      })() : {} })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin), answer: k.answer, inPlay: k.inPlay, ...k.sideJob ? { sideJob: true, lapsed: jobLapsed(s, k, s.clock.lo) } : {} })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
       suggestions: spoilers || this.settings.debug ? liveSuggestions(c.integrationCache || null, idx, s.clock.lo, new Set(c.preferredScopes || [])).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: o.current, preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: opportunityBy(idx, o), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null
@@ -29261,6 +29271,34 @@ ${lines.join("\n")}`;
     c.configRevisions.push({ at: this.host.now(), summary: `${strong ? "\u5F3A\u70C8\u62D2\u7EDD" : "\u53D6\u6D88\u5F3A\u70C8"}: ${cur.scopeLabel}` });
     await this.host.save();
     await this.reconcile("engagement_strong");
+  }
+  /** 接受 / 拒绝 / 完成 / 重新接受 on a contact (叙事融入 panel): the player's decision on that matter, kept as a UI
+   *  decision after the current last message and replayed like one in a message (scope: that contact). */
+  async answerContact(recordId, stance) {
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; try again when it is done.");
+    const c = this.campaign();
+    const st = this.current?.replay.state;
+    const k = st?.contacts.find((x) => x.recordId === recordId);
+    if (!c || !st || !k) return;
+    const label = `${k.actors.map((a) => this.current.index.entityName(a)).join(", ") || k.scopeLabel}: \u201C${k.quote.slice(0, 120)}\u201D`;
+    const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+    const tick = st.clock.lo;
+    const rec = {
+      recordId: newId("rec"),
+      kind: "engagement",
+      storyTime: { lo: tick, hi: tick, precision: "minute" },
+      sourceRefs: [],
+      factsSetOrUnset: [],
+      eventOccurrenceIds: [],
+      visibility: { mode: "public", knower_ids: [] },
+      summary: `Player ${stance} ${label} (Canon Engine panel)`.slice(0, 400),
+      evidenceKind: "direct",
+      engagement: { scopeKind: "contact", scopeRef: recordId, scopeLabel: label.slice(0, 300), stance, quote: "", until: null, source: "ui" }
+    };
+    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
+    c.configRevisions.push({ at: this.host.now(), summary: `${{ accepted: "\u63A5\u53D7", declined: "\u62D2\u7EDD", done: "\u5B8C\u6210" }[stance]}: ${label}` });
+    await this.host.save();
+    await this.reconcile("engagement_contact");
   }
   /** 允许再次接触: an explicit UI decision that reopens a scope the player declined (kept as their decision, after
    *  the current last message; replayed like a decision in a message). */
@@ -30729,6 +30767,13 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niStance_reopened: { zh: "\u91CD\u65B0\u5141\u8BB8", en: "allowed again" },
   niStance_answered: { zh: "\u5DF2\u56DE\u7B54", en: "answered" },
   niStance_refused: { zh: "\u62D2\u7EDD\u56DE\u7B54", en: "refused to answer" },
+  niStance_done: { zh: "\u5DF2\u5B8C\u6210", en: "done" },
+  niAnswer: { zh: "\u4F60\u7684\u56DE\u5E94\uFF1A", en: "Your answer: " },
+  niAnswerInPlay: { zh: "\u5267\u60C5\u4E2D\u5DF2\u63A5\u624B\uFF08\u6CA1\u6709\u660E\u786E\u8868\u6001\uFF09", en: "taken up in play (no stated answer)" },
+  niAccept: { zh: "\u63A5\u53D7", en: "Accept" },
+  niDecline: { zh: "\u62D2\u7EDD", en: "Decline" },
+  niDone: { zh: "\u5B8C\u6210", en: "Done" },
+  niAcceptAgain: { zh: "\u91CD\u65B0\u63A5\u53D7", en: "Accept again" },
   niBusy: { zh: "\u6B63\u5728\u8BFB\u53D6 Persona\u2026", en: "Reading the Persona\u2026" },
   backupWarning: { zh: "\u5907\u4EFD\u5305\u542B\u5B8C\u6574\u7684\u5386\u53F2\u5305\u4E0E\u672C\u6218\u5F79\u7684\u9690\u85CF\u4FE1\u606F\uFF08\u5267\u900F\uFF09\uFF0C\u8BF7\u52FF\u968F\u610F\u5206\u4EAB\u3002", en: "The backup contains the full pack and hidden campaign data (spoilers)." },
   conflictMarker: { zh: "\u4E0E\u4FEE\u6539\u540E\u7684\u524D\u6587\u51B2\u7A81\uFF1A\u8BF7\u4FEE\u6539\u6B64\u6D88\u606F\uFF0C\u6216\u4ECE\u6B64\u5904\u5206\u652F\u540E\u91CD\u65B0\u751F\u6210\u3002", en: "Conflicts with the edited history: edit this message or branch and regenerate from here." },
@@ -32489,6 +32534,13 @@ function renderInspector() {
           renderInspector();
         });
       }
+      if (act === "ni-answer") {
+        b.disabled = true;
+        E.answerContact(b.dataset.rec || "", b.dataset.stance).then(() => renderInspector()).catch((e) => {
+          toast("error", e.message);
+          renderInspector();
+        });
+      }
       if (act === "ni-update" || act === "ni-keep" || act === "ni-reopen" || act === "ni-strong" || act === "ni-weak") {
         b.disabled = true;
         if (act === "ni-update") b.textContent = t("niBusy");
@@ -32617,7 +32669,16 @@ function playerTab(v) {
   const groups = /* @__PURE__ */ new Map();
   for (const k of v.contacts.slice().reverse()) groups.set(k.scope, [...groups.get(k.scope) || [], k]);
   const contactLine = (k) => `<small>${k.sideJob ? `<span class="canon-tag">${esc2(t(k.lapsed ? "niJobLapsed" : "niSideJob"))}</span> ` : ""}${esc2(k.time)} \xB7 ${esc2(k.kind)}${k.by.length ? ` \xB7 ${esc2(k.by.join(", "))}` : ""}${v.unanswered.includes(k.recordId) ? ` \xB7 ${esc2(t("niUnanswered"))}` : ""}</small><br><small>\u201C${esc2(k.quote)}\u201D</small>`;
-  html += `<h4>${esc2(t("niContacts"))}</h4><ul class="canon-list">${[...groups.values()].map(([k, ...older]) => `<li><b>${esc2(k.label)}</b> ${contactLine(k)}${older.length ? `<details class="canon-older"><summary><small>${esc2(t("niOlderContacts").replace("{n}", String(older.length)))}</small></summary>${older.map((o) => `<div>${contactLine(o)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
+  const POS = ["accepted", "joined", "reopened", "answered", "limited"], NEG = ["declined", "deferred", "refused", "ooc_suppress"];
+  const ansBtn = (k, stance2, label) => ` <button class="menu_button" data-act="ni-answer" data-rec="${esc2(k.recordId)}" data-stance="${stance2}">${esc2(t(label))}</button>`;
+  const answerLine = (k) => {
+    if (k.lapsed) return "";
+    const a = k.answer;
+    const state = a ? `${t("niAnswer")}${t(`niStance_${a}`)}` : k.inPlay ? t("niAnswerInPlay") : "";
+    const btns = a === "done" ? "" : a && POS.includes(a) ? ansBtn(k, "done", "niDone") : a && NEG.includes(a) ? ansBtn(k, "accepted", "niAcceptAgain") : `${ansBtn(k, "accepted", "niAccept")}${ansBtn(k, "declined", "niDecline")}`;
+    return `<div>${state ? `<small>${esc2(state)}</small>` : ""}${btns}</div>`;
+  };
+  html += `<h4>${esc2(t("niContacts"))}</h4><ul class="canon-list">${[...groups.values()].map(([k, ...older]) => `<li><b>${esc2(k.label)}</b> ${contactLine(k)}${answerLine(k)}${older.length ? `<details class="canon-older"><summary><small>${esc2(t("niOlderContacts").replace("{n}", String(older.length)))}</small></summary>${older.map((o) => `<div>${contactLine(o)}</div>`).join("")}</details>` : ""}</li>`).join("") || "<li>\u2014</li>"}</ul>`;
   if (v.suggestions) {
     const sg = /* @__PURE__ */ new Map();
     for (const s of v.suggestions) sg.set(s.scope, [...sg.get(s.scope) || [], s]);

@@ -688,6 +688,10 @@ function renderInspector() {
         const patch = act === 'tie-del' ? null : kind === 'relation' ? { relation: text, ended: !!sel('canon-tie-ended')?.checked } : { level: (sel('canon-tie-level')?.value || 'identity') as 'exists' | 'identity' | 'secrets', about: text };
         E.editTie(kind, isNew ? null : b.dataset.who || null, name, patch).then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
       }
+      if (act === 'ni-answer') {
+        (b as HTMLButtonElement).disabled = true;
+        E.answerContact(b.dataset.rec || '', b.dataset.stance as 'accepted' | 'declined' | 'done').then(() => renderInspector()).catch((e) => { toast('error', (e as Error).message); renderInspector(); });
+      }
       if (act === 'ni-update' || act === 'ni-keep' || act === 'ni-reopen' || act === 'ni-strong' || act === 'ni-weak') {
         (b as HTMLButtonElement).disabled = true;
         if (act === 'ni-update') b.textContent = t('niBusy');
@@ -835,7 +839,17 @@ function playerTab(v: ReturnType<CanonEngine['integrationView']>): string {
   const groups = new Map<string, (typeof v.contacts)[number][]>();
   for (const k of v.contacts.slice().reverse()) groups.set(k.scope, [...(groups.get(k.scope) || []), k]);
   const contactLine = (k: (typeof v.contacts)[number]) => `<small>${k.sideJob ? `<span class="canon-tag">${esc(t(k.lapsed ? 'niJobLapsed' : 'niSideJob'))}</span> ` : ''}${esc(k.time)} · ${esc(k.kind)}${k.by.length ? ` · ${esc(k.by.join(', '))}` : ''}${v.unanswered.includes(k.recordId) ? ` · ${esc(t('niUnanswered'))}` : ''}</small><br><small>“${esc(k.quote)}”</small>`;
-  html += `<h4>${esc(t('niContacts'))}</h4><ul class="canon-list">${[...groups.values()].map(([k, ...older]) => `<li><b>${esc(k.label)}</b> ${contactLine(k)}${older.length ? `<details class="canon-older"><summary><small>${esc(t('niOlderContacts').replace('{n}', String(older.length)))}</small></summary>${older.map((o) => `<div>${contactLine(o)}</div>`).join('')}</details>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
+  // the player's answer to the matter, set by hand when the analysis missed it: 接受/拒绝; accepted → 完成; declined → 重新接受
+  const POS = ['accepted', 'joined', 'reopened', 'answered', 'limited'], NEG = ['declined', 'deferred', 'refused', 'ooc_suppress'];
+  const ansBtn = (k: (typeof v.contacts)[number], stance: string, label: string) => ` <button class="menu_button" data-act="ni-answer" data-rec="${esc(k.recordId)}" data-stance="${stance}">${esc(t(label))}</button>`;
+  const answerLine = (k: (typeof v.contacts)[number]) => {
+    if (k.lapsed) return '';
+    const a = k.answer;
+    const state = a ? `${t('niAnswer')}${t(`niStance_${a}`)}` : k.inPlay ? t('niAnswerInPlay') : '';
+    const btns = a === 'done' ? '' : a && POS.includes(a) ? ansBtn(k, 'done', 'niDone') : a && NEG.includes(a) ? ansBtn(k, 'accepted', 'niAcceptAgain') : `${ansBtn(k, 'accepted', 'niAccept')}${ansBtn(k, 'declined', 'niDecline')}`;
+    return `<div>${state ? `<small>${esc(state)}</small>` : ''}${btns}</div>`;
+  };
+  html += `<h4>${esc(t('niContacts'))}</h4><ul class="canon-list">${[...groups.values()].map(([k, ...older]) => `<li><b>${esc(k.label)}</b> ${contactLine(k)}${answerLine(k)}${older.length ? `<details class="canon-older"><summary><small>${esc(t('niOlderContacts').replace('{n}', String(older.length)))}</small></summary>${older.map((o) => `<div>${contactLine(o)}</div>`).join('')}</details>` : ''}</li>`).join('') || '<li>—</li>'}</ul>`;
   if (v.suggestions) {
     // one entry per matter, like the contacts above; its other possibilities fold underneath
     const sg = new Map<string, NonNullable<typeof v.suggestions>>();

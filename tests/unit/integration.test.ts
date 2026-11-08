@@ -229,6 +229,46 @@ describe('the world reaches the player', () => {
     expect(lastCtx(x)).toMatch(/taken up by the player in play: Ambush of Mira — they went along with it themselves/);
   });
 
+  it('NI-27d going to the people who reached out answers their contact whatever the reviewer called the beat’s origin; the reply that made the contact does not answer it itself', async () => {
+    const x = await setup({ integrate: { assessments: [], opportunities: [OPP()] } });
+    const me = () => x.engine.playerProfile()!.profile.playerId;
+    await turn(x, 'I wake.', 'Morning. [M0]');
+    // the same reply has the player talking to the clerk: not an answer to the note it delivers
+    await turn(x, 'I drink tea.', 'A clerk slips a sealed note under the door and you glance at him. [M1]', { contacts: [contact('A clerk slips a sealed note under the door')], occurrences: [occ('o1', 'Vera sees the clerk', 'you glance at him', { actors: [me()], affected: ['council'] })] });
+    let k = st(x).contacts[0].recordId;
+    expect(x.engine.integrationView(true)!.unanswered).toContain(k);
+    // live: the reviewer labels nearly every beat "gm"; the actors show the player went
+    await turn(x, 'I go to the Council office.', 'You walk into the Council office. [M2]', { occurrences: [occ('o2', 'Vera at the Council office', 'You walk into the Council office', { origin: 'gm', actors: [me(), 'council'] })] });
+    const v = x.engine.integrationView(true)!;
+    expect(v.unanswered).not.toContain(k);
+    expect(v.contacts.find((c) => c.recordId === k)).toMatchObject({ answer: null, inPlay: true });
+    void k; k = '';
+  });
+
+  it('NI-27e the panel answers a contact by hand: 接受 then 完成; 拒绝 then 重新接受 — kept as the player’s decisions and told to the GM', async () => {
+    const x = await setup({ integrate: { assessments: [], opportunities: [OPP()] } });
+    await turn(x, 'I drink tea.', 'A clerk slips a sealed note under the door. [N1]', { contacts: [contact('A clerk slips a sealed note under the door')] });
+    const k = st(x).contacts[0].recordId;
+    const ans = () => x.engine.integrationView(true)!.contacts.find((c) => c.recordId === k)!.answer;
+    await x.engine.answerContact(k, 'accepted');
+    expect(ans()).toBe('accepted');
+    expect(x.engine.integrationView(true)!.unanswered).not.toContain(k);
+    await x.engine.answerContact(k, 'done');
+    expect(ans()).toBe('done');
+    await turn(x, 'I nod.', 'Quiet. [N2]');
+    expect(lastCtx(x)).toMatch(/done: The Council: “A clerk slips a sealed note under the door” — the player finished it/);
+    expect(lastCtx(x)).not.toMatch(/already offered, not answered/);
+    // a later request about the same thing: declined, then accepted again
+    await turn(x, 'I wait.', 'The clerk is back: one more errand tonight. [N3]', { contacts: [contact('one more errand tonight')] });
+    const k2 = st(x).contacts[1].recordId;
+    await x.engine.answerContact(k2, 'declined');
+    expect(x.engine.integrationView(true)!.contacts.find((c) => c.recordId === k2)!.answer).toBe('declined');
+    await x.engine.answerContact(k2, 'accepted');
+    expect(x.engine.integrationView(true)!.contacts.find((c) => c.recordId === k2)!.answer).toBe('accepted');
+    // kept as UI decisions (replayed from the campaign)
+    expect(x.engine.campaign()!.manualRecords!.filter((m) => m.record.engagement?.source === 'ui').map((m) => m.record.engagement!.stance)).toEqual(['accepted', 'done', 'declined', 'accepted']);
+  });
+
   it('NI-05b someone the player dealt with in play becomes a connection: their events days ahead are considered (live: 滨面/泷壶)', async () => {
     const x = await setup({ start: tick(2, 10, 0), integrate: { assessments: [], opportunities: [] } });
     const ids = () => x.model.tasks('integrate').slice(-1)[0].input.candidate_events.map((c: any) => c.id);

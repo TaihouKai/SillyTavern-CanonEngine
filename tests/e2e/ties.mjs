@@ -27,6 +27,7 @@ try {
         { tie: 'relation', who: 'Mira', existing_id: 'mira', relation: '因账本一事绝交的旧友', quote: '这段友谊到此为止' },
         { tie: 'knows', who: 'Mira', existing_id: 'mira', level: 'secrets', about: 'Ash夜里替走私船干活', quote: '明白了你夜里真正在做什么' },
       ] } },
+      { task: 'evaluate', match: 'TI_B', patch: { contacts: [{ quote: '码头上很安静', actors: ['mira'], kind: 'request', scope_kind: 'storyline', scope_ref: '', scope_label: '码头的活', opportunity_id: null }] } },
     ],
     clearLogs: true,
   });
@@ -58,6 +59,16 @@ try {
   await page.waitForTimeout(1500);
   const added = await page.evaluate(() => window.CanonEngine.engine.integrationView(true).profile.relationships.map((r) => [r.name, r.text, r.basis]));
   check('TI05 a relationship added in the panel is kept as the user\'s own', added.some((r) => r[0] === '老托马斯' && r[2] === 'ui'), JSON.stringify(added));
+  // a contact answered by hand: 接受 → 完成
+  const answer = () => page.evaluate(() => window.CanonEngine.engine.integrationView(true).contacts.map((k) => k.answer));
+  const click = async (sel) => { await page.evaluate((sel) => document.querySelector(`#canon-inspector ${sel}`)?.click(), sel); await page.waitForTimeout(1500); };
+  const btns = () => page.evaluate(() => [...document.querySelectorAll('#canon-inspector [data-act="ni-answer"]')].map((b) => `${b.dataset.stance}:${b.textContent}`));
+  const b0 = await btns();
+  await click('[data-act="ni-answer"][data-stance="accepted"]');
+  const a1 = await answer(), b1 = await btns();
+  await click('[data-act="ni-answer"][data-stance="done"]');
+  const a2 = await answer(), b2 = await btns();
+  check('TI06 an unanswered contact has 接受/拒绝; accepted it has 完成; done it has none', JSON.stringify(b0) === JSON.stringify(['accepted:接受', 'declined:拒绝']) && a1[0] === 'accepted' && JSON.stringify(b1) === JSON.stringify(['done:完成']) && a2[0] === 'done' && b2.length === 0, JSON.stringify([b0, a1, b1, a2, b2]));
   if (process.argv[2]) await page.screenshot({ path: process.argv[2] });
 } finally {
   await page.evaluate((persona0) => { SillyTavern.getContext().powerUserSettings.persona_description = persona0; }, persona0).catch(() => undefined);

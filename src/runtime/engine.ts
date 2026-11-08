@@ -25,7 +25,7 @@ import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './a
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { playedProfile, playerOrgs, nameIn, isIn, companionEvents, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { answeredBy, contactDecision, playedProfile, playerOrgs, nameIn, isIn, companionEvents, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
@@ -2911,7 +2911,8 @@ export class CanonEngine {
       profileOld: !!prof && prof.profile.recognizedBy === undefined,
       decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId), strong: !!e.strong, binding: isBinding(e) })),
       // contacts filed as a free storyline before 1.8.1 are grouped with the event or matter they name
-      contacts: s.contacts.map((k) => ({ ...k, ...(k.scopeKind === 'storyline' ? (() => { const m = matchScope(idx.pack, s.contacts, k.scopeLabel); return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {}; })() : {}) })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin), ...(k.sideJob ? { sideJob: true, lapsed: jobLapsed(s, k, s.clock.lo) } : {}) })),
+      // with the player's answer to the matter (a decision, or taken up in play) for the 接受/拒绝/完成 buttons
+      contacts: s.contacts.map((k) => ({ ...k, answer: contactDecision(s, k)?.stance ?? null, inPlay: answeredBy(s, k) === 'play', ...(k.scopeKind === 'storyline' ? (() => { const m = matchScope(idx.pack, s.contacts, k.scopeLabel); return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {}; })() : {}) })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin), answer: k.answer, inPlay: k.inPlay, ...(k.sideJob ? { sideJob: true, lapsed: jobLapsed(s, k, s.clock.lo) } : {}) })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
       suggestions: spoilers || this.settings.debug ? liveSuggestions(c.integrationCache || null, idx, s.clock.lo, new Set(c.preferredScopes || [])).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: o.current, preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: opportunityBy(idx, o), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null,
@@ -2939,6 +2940,28 @@ export class CanonEngine {
     c.configRevisions.push({ at: this.host.now(), summary: `${strong ? '强烈拒绝' : '取消强烈'}: ${cur.scopeLabel}` });
     await this.host.save();
     await this.reconcile('engagement_strong');
+  }
+
+  /** 接受 / 拒绝 / 完成 / 重新接受 on a contact (叙事融入 panel): the player's decision on that matter, kept as a UI
+   *  decision after the current last message and replayed like one in a message (scope: that contact). */
+  async answerContact(recordId: string, stance: 'accepted' | 'declined' | 'done'): Promise<void> {
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
+    const c = this.campaign();
+    const st = this.current?.replay.state;
+    const k = st?.contacts.find((x) => x.recordId === recordId);
+    if (!c || !st || !k) return;
+    const label = `${k.actors.map((a) => this.current!.index.entityName(a)).join(', ') || k.scopeLabel}: “${k.quote.slice(0, 120)}”`;
+    const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
+    const tick = st.clock.lo;
+    const rec: RecordDraft = {
+      recordId: newId('rec'), kind: 'engagement', storyTime: { lo: tick, hi: tick, precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+      visibility: { mode: 'public', knower_ids: [] }, summary: `Player ${stance} ${label} (Canon Engine panel)`.slice(0, 400), evidenceKind: 'direct',
+      engagement: { scopeKind: 'contact', scopeRef: recordId, scopeLabel: label.slice(0, 300), stance, quote: '', until: null, source: 'ui' },
+    };
+    c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+    c.configRevisions.push({ at: this.host.now(), summary: `${{ accepted: '接受', declined: '拒绝', done: '完成' }[stance]}: ${label}` });
+    await this.host.save();
+    await this.reconcile('engagement_contact');
   }
 
   /** 允许再次接触: an explicit UI decision that reopens a scope the player declined (kept as their decision, after

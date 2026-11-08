@@ -501,6 +501,7 @@ export function engagementView(state: WorldState, pack: LoadedPack) {
         // answers to questions: recent ones only (a day), so a long game does not pile them up
         else if (c.stance === 'answered' && tick - c.tick <= ANSWER_SHOWN_MINUTES) out.push(`answered: ${label} — the player answered${q}. That is their answer, vague or partial as it may be: react to it if you like, but do not ask for it again. ${RENEW_NOT}`);
         else if (c.stance === 'refused' && tick - c.tick <= ANSWER_SHOWN_MINUTES) out.push(`refused to answer: ${label} — the player will not answer${q}. Respect it: one in-character reaction at most, then drop the question; do not ask it again or press for it another way. ${RENEW_NOT}`);
+        else if (c.stance === 'done') out.push(`done: ${label} — the player finished it (Canon Engine panel). It is over: nothing about it is pending; do not bring it up as unfinished.${once}`);
         else if (c.stance === 'joined' || c.stance === 'accepted' || c.stance === 'reopened') out.push(`${c.stance === 'joined' ? 'took part by their own action' : c.stance === 'accepted' ? 'accepted' : 'open to it again'}: ${label}${q} — continue it naturally.${once}`);
         const lim = s.history.filter((h) => h.stance === 'limited' && h.seq > (c?.seq ?? -1)).slice(-1)[0];
         if (lim) out.push(`one act only: ${lim.scopeLabel || lim.scopeRef} ("${lim.quote.slice(0, 120)}") — that act; nothing more of it is accepted.`);
@@ -529,14 +530,30 @@ export function unanswered(state: WorldState, tick: number): ContactEntry[] {
   return out;
 }
 
-/** How the player answered a contact: by a decision (on it or the same thing), or in play — they have since acted
- *  with the people who reached out (called them back, went to them). */
-export function answeredBy(state: WorldState, c: ContactEntry): 'decision' | 'play' | null {
+/** The player character's entity (buildProfile names it rt.player.…). */
+export const isPlayerId = (id: Id) => id.startsWith('rt.player.');
+
+/** The decision in force on the matter of a contact: one on any contact about the same thing, or a later one on the
+ *  thing itself (the newest). */
+export function contactDecision(state: WorldState, c: ContactEntry): EngagementEntry | null {
   const k = scopeKey(c.scopeKind, c.scopeRef);
   // answering any contact about the same thing answers it (live: calling back after a message, then told where to come)
   const sameThing = (id: string) => { const x = state.contacts.find((y) => y.recordId === id); return !!x && scopeKey(x.scopeKind, x.scopeRef) === k; };
-  if (state.engagements.some((e) => e.scopeKind === 'contact' ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k)) return 'decision';
-  if ([...state.occurrences.values()].some((o) => o.seq > c.seq && o.origin === 'player' && [...o.actors, ...o.affected].some((a) => c.actors.includes(a)))) return 'play';
+  const ds = state.engagements.filter((e) => e.stance !== 'limited' && (e.scopeKind === 'contact' ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k));
+  return ds.length ? ds.reduce((a, b) => (b.seq > a.seq ? b : a)) : null;
+}
+
+/** How the player answered a contact: by a decision (on it or the same thing), or in play — in a later message the
+ *  player character has since acted with the people who reached out, the organization it came through (or its
+ *  members) or in the event it was about (called them back, went to them). The occurrence's actors decide, not the
+ *  reviewer's origin label (live: hardly ever "player", so a contact the player went along with stayed 未回应). */
+export function answeredBy(state: WorldState, c: ContactEntry): 'decision' | 'play' | null {
+  if (contactDecision(state, c)) return 'decision';
+  const commit = state.recordById.get(c.recordId)?.commitId;
+  const members = c.scopeKind === 'faction' ? factAt(state, c.scopeRef, 'members').value : null;
+  const touched = new Set<Id>([...c.actors, ...(c.scopeKind === 'faction' ? [c.scopeRef, ...(Array.isArray(members) ? members.map(String) : [])] : [])].filter((x) => !isPlayerId(x)));
+  if ([...state.occurrences.values()].some((o) => o.seq > c.seq && o.commitId !== commit && (o.origin === 'player' || o.actors.some(isPlayerId))
+    && ([...o.actors, ...o.affected].some((a) => touched.has(a)) || (c.scopeKind === 'event' && o.packEventId === c.scopeRef)))) return 'play';
   return null;
 }
 
@@ -644,7 +661,7 @@ export function jobLapsed(state: WorldState, c: ContactEntry, tick: number): boo
   if (!c.sideJob || c.expires == null || tick < c.expires) return false;
   const k = scopeKey(c.scopeKind, c.scopeRef);
   const sameThing = (id: string) => { const x = state.contacts.find((y) => y.recordId === id); return !!x && scopeKey(x.scopeKind, x.scopeRef) === k; };
-  const took = state.engagements.some((e) => ['accepted', 'joined', 'limited'].includes(e.stance) && e.tick < c.expires! && (e.scopeKind === 'contact' ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k));
+  const took = state.engagements.some((e) => ['accepted', 'joined', 'limited', 'done'].includes(e.stance) && e.tick < c.expires! && (e.scopeKind === 'contact' ? sameThing(e.scopeRef) : e.seq > c.seq && scopeKey(e.scopeKind, e.scopeRef) === k));
   return !took;
 }
 

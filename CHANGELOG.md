@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.24.0 — 2026-11-09
+
+- **A contact the player went along with in play is answered, whatever the reviewer called the beat.** "Taken up in play" needed an occurrence the reviewer labelled origin "player", which it hardly ever does (the prompt never asks for it), so contacts the player went along with stayed 未回应. Now a later message's occurrence with the player character among its actors that involves the people who reached out, the organization the contact came through (or its members), or the event it was about answers it; the reply that made the contact does not answer it itself. Probed with the real extract prompt (deepseek-v4.1-flash, made-up replies): spoken and acted acceptances and refusals were classified correctly. Tests: NI-27d.
+- **接受 / 拒绝 / 完成 / 重新接受 on each contact (世界已经接触你的).** A contact without an answer has 接受 and 拒绝; accepted, it has 完成 (a new stance `done`: the matter is over, nothing about it is pending); declined, 重新接受. They are kept as the player's decisions on that contact (UI records, replayed) and told to the GM like a stated one; the panel shows the answer in force (or 剧情中已接手). Tests: NI-27e.
+
 ## 1.23.6 — 2026-11-08
 
 - **One part of the 本局设定 check failing no longer fails the turn.** Live: one of 45 world_check calls timed out after 300s and the whole first turn failed, losing the other 44 results. A part that fails is tried once more; failing again, its texts are left unchecked (`unchecked`, with why), listed in the panel (未检查) with a notice, and the rest applies; 重新检查 checks again. Tests: WS11.
