@@ -1951,12 +1951,21 @@ export class CanonEngine {
     const { items, generic } = worldItems(uniq(changes.flatMap((x) => x.terms)), lore, base);
     const batches = worldBatches(items);
     const prof = this.playerProfile()?.profile;
+    // an event's time and whether it comes before the game's start (live: the player's transfer into an organization,
+    // decided now, was written into the organization's events of a year before)
+    const origin = c.binding.originDate || null, start = c.binding.startTick;
+    const span = new Map(base.timeIndex.map((x) => [x.id, x]));
+    const timeOf = (it: (typeof items)[number]) => {
+      const s = it.kind === 'event' && it.target ? span.get(it.target) : undefined;
+      return s ? { time: formatTick(s.lo, origin), when: s.lo < start ? 'before the game starts' : 'after the game starts (still to come)' } : {};
+    };
     const outs = await Promise.all(batches.map((b, i) => this.withTimeout(callStructured<WorldCheckOut>(this.host.model, 'world_check', PROMPTS.world_check, {
+      game_start: formatTick(start, origin),
       changes: changes.map((x) => ({ id: x.id, text: x.text })),
       player: prof ? { name: prof.personaName, summary: prof.summary } : null,
       ...(batches.length > 1 ? { part: `${i + 1} of ${batches.length}` } : {}),
       additions_wanted: i === 0,
-      items: b.map((it) => ({ ref: it.ref, kind: it.kind === 'lore' ? 'lorebook entry' : it.kind === 'entity' ? 'pack: who or what it is' : 'pack: event summary', title: it.title, text: it.text })),
+      items: b.map((it) => ({ ref: it.ref, kind: it.kind === 'lore' ? 'lorebook entry' : it.kind === 'entity' ? 'pack: who or what it is' : 'pack: event summary', title: it.title, ...timeOf(it), text: it.text })),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 12000 }), this.settings.taskTimeoutMs * 4, signal)));
     const res = worldResults(items, outs);
     // the user's own edits stay while their original is still found as it was
@@ -2021,11 +2030,16 @@ export class CanonEngine {
     const ws = c.worldSettings;
     const terms = new Map((ws?.changes || []).map((x) => [x.text, x.terms]));
     const stale = new Set(this.loreApplied?.stale || []);
+    // an event still to come is a spoiler (the panel shows it only with 显示剧透)
+    const st = this.current?.replay.state;
+    const clock = st?.clock.lo ?? c.binding.startTick;
+    const span = new Map(this.basePack().timeIndex.map((x) => [x.id, x]));
+    const future = (o: WorldOverride) => o.kind === 'event' && !!o.target && !st?.dispositions.has(o.target) && (span.get(o.target)?.hi ?? -Infinity) >= clock;
     return {
       changes: this.worldChanges().map((x) => ({ ...x, terms: terms.get(x.text) || x.terms })),
       manual: (c.worldManual || []).map((x) => x.text),
       checked: ws?.checked || null,
-      overrides: (ws?.overrides || []).map((o) => ({ ...o, stale: o.kind === 'lore' && stale.has(o.title) })),
+      overrides: (ws?.overrides || []).map((o) => ({ ...o, stale: o.kind === 'lore' && stale.has(o.title), future: future(o) })),
       additions: ws?.additions || [],
       loreHook: this.loreHook,
     };

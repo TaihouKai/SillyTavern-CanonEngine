@@ -131,6 +131,10 @@ TASK: This game's world differs from the original setting by the changes listed 
 - keep: nothing in it contradicts a change (most items). Not mentioning the player or the change is no contradiction.
 - replace: it states something a change makes untrue — a count or ranking, who holds a post or belongs somewhere, who exists, what happened. content: the WHOLE item rewritten with the least change that makes it agree (same language, style and length; everything else kept word for word; nothing added about the player beyond what the change requires).
 - disable: the whole item is about something that does not exist in this game.
+Time: the changes describe the world as it is at game_start. An event item gives its time and whether it comes before or after game_start.
+- before the game starts: change it only where a change makes what it said untrue at its own time (something that already held then — e.g. how many there were, if the change's fact already held). Never write the player's present situation (a post, a transfer, a plan, something decided or about to happen at game_start) into an earlier event.
+- after the game starts: write it as it will go in this game.
+- a count or ranking: change only what the change really moves (a new last place moves nobody above it).
 reason: which change and what it contradicts, one sentence.
 additions (only when additions_wanted is true, else []): a new lorebook entry only when a change introduces something the world's lorebook should know and no item covers (keys: words that should bring it up). Usually none: the player's Persona is given to the storyteller anyway.
 part, when given ("k of n"): items are part of the hits; judge these.

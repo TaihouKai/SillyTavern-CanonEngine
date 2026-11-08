@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.23.2 — 2026-11-08
+
+- **本局设定 knows when each event is.** Live: the check was given the history pack's event summaries without their times or the game's start, so the player's present situation (transferred into an organization, not yet inducted) was written into that organization's events of a year before, and a new eighth Level 5 was taken to push the sixth down to seventh. Now:
+  - The world_check input has `game_start`, and each event item its `time` and whether it comes before or after the game starts.
+  - The prompt: the changes describe the world at game_start; an earlier event changes only where a change makes what it said untrue at its own time, never with the player's present situation; a later one is written as it will go; a count or ranking changes only where the change really moves it.
+  - Panel: a rewritten event still to come is shown only with spoilers on (otherwise only how many there are).
+  - Tests: `tests/unit/worldset.test.ts` WS8.
+
 ## 1.23.1 — 2026-11-08
 
 - **The player's history is their own, and old history is old.** Live: a new member of an organization was given the organization's year-old kidnapping of a member as their "actual history" (labelled only `D-313` next to `D61`), and the analysis turned it into "she has been missing since this morning", which the GM wrote. Now:

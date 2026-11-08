@@ -157,4 +157,25 @@ describe('in the game', () => {
     expect(String(x.model.tasks('draft').at(-1)!.input.engineContext)).not.toMatch(/LOREBOOK IN THIS GAME/);
     expect(textHash('a')).toBe(textHash('a'));
   });
+
+  it('WS8 the check knows when each event is: before the game starts it is not given the player’s present situation; a rewritten event still to come is a spoiler in the panel', async () => {
+    const x = makeEngine();
+    (x.host as any).persona = () => ({ name: 'Ash', description: 'Ash.' });
+    (x.host as any).loreEntries = async () => [];
+    x.model.on('profile', null, PROFILE([{ text: 'The Council is taking Ash on as a clerk', terms: ['conflict'] }]));
+    x.model.on('world_check', null, (i: any) => ({ items: i.items.filter((it: any) => ['The harbor conflict begins', 'Union victory'].includes(it.title)).map((it: any) => ({ ref: it.ref, action: 'replace', content: `${it.text} (this game)`, reason: 'r' })), additions: [] }));
+    await x.engine.bind(demo, { startTick: tick(2, 12, 0), mode: 'new' });
+    await x.engine.reconcile('test');
+    x.host.addUser('I look around.');
+    x.model.draft('The harbor. [W8]');
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    const input = x.model.tasks('world_check')[0].input;
+    expect(input.game_start).toBe('D2 12:00');
+    const item = (title: string) => input.items.find((it: any) => it.title === title);
+    expect(item('The harbor conflict begins')).toMatchObject({ time: 'D2 09:00', when: 'before the game starts' });
+    expect(item('Union victory')).toMatchObject({ time: 'D4 18:00', when: 'after the game starts (still to come)' });
+    expect(PROMPTS.world_check).toMatch(/Never write the player's present situation[^\n]*into an earlier event/);
+    const ov = x.engine.worldView()!.overrides;
+    expect(ov.map((o) => [o.title, o.future])).toEqual([['The harbor conflict begins', false], ['Union victory', true]]);
+  });
 });

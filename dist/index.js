@@ -24248,6 +24248,10 @@ TASK: This game's world differs from the original setting by the changes listed 
 - keep: nothing in it contradicts a change (most items). Not mentioning the player or the change is no contradiction.
 - replace: it states something a change makes untrue \u2014 a count or ranking, who holds a post or belongs somewhere, who exists, what happened. content: the WHOLE item rewritten with the least change that makes it agree (same language, style and length; everything else kept word for word; nothing added about the player beyond what the change requires).
 - disable: the whole item is about something that does not exist in this game.
+Time: the changes describe the world as it is at game_start. An event item gives its time and whether it comes before or after game_start.
+- before the game starts: change it only where a change makes what it said untrue at its own time (something that already held then \u2014 e.g. how many there were, if the change's fact already held). Never write the player's present situation (a post, a transfer, a plan, something decided or about to happen at game_start) into an earlier event.
+- after the game starts: write it as it will go in this game.
+- a count or ranking: change only what the change really moves (a new last place moves nobody above it).
 reason: which change and what it contradicts, one sentence.
 additions (only when additions_wanted is true, else []): a new lorebook entry only when a change introduces something the world's lorebook should know and no item covers (keys: words that should bring it up). Usually none: the player's Persona is given to the storyteller anyway.
 part, when given ("k of n"): items are part of the hits; judge these.
@@ -26075,7 +26079,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.23.1";
+var ENGINE_RELEASE = "1.23.2";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -28118,12 +28122,19 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const { items: items2, generic } = worldItems(uniq(changes.flatMap((x) => x.terms)), lore, base);
     const batches = worldBatches(items2);
     const prof = this.playerProfile()?.profile;
+    const origin = c.binding.originDate || null, start = c.binding.startTick;
+    const span = new Map(base.timeIndex.map((x) => [x.id, x]));
+    const timeOf = (it) => {
+      const s = it.kind === "event" && it.target ? span.get(it.target) : void 0;
+      return s ? { time: formatTick(s.lo, origin), when: s.lo < start ? "before the game starts" : "after the game starts (still to come)" } : {};
+    };
     const outs = await Promise.all(batches.map((b, i) => this.withTimeout(callStructured(this.host.model, "world_check", PROMPTS.world_check, {
+      game_start: formatTick(start, origin),
       changes: changes.map((x) => ({ id: x.id, text: x.text })),
       player: prof ? { name: prof.personaName, summary: prof.summary } : null,
       ...batches.length > 1 ? { part: `${i + 1} of ${batches.length}` } : {},
       additions_wanted: i === 0,
-      items: b.map((it) => ({ ref: it.ref, kind: it.kind === "lore" ? "lorebook entry" : it.kind === "entity" ? "pack: who or what it is" : "pack: event summary", title: it.title, text: it.text }))
+      items: b.map((it) => ({ ref: it.ref, kind: it.kind === "lore" ? "lorebook entry" : it.kind === "entity" ? "pack: who or what it is" : "pack: event summary", title: it.title, ...timeOf(it), text: it.text }))
     }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 12e3 }), this.settings.taskTimeoutMs * 4, signal)));
     const res = worldResults(items2, outs);
     const same = (a, b) => a.kind === b.kind && a.book === b.book && String(a.uid) === String(b.uid) && a.target === b.target;
@@ -28189,11 +28200,15 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const ws = c.worldSettings;
     const terms = new Map((ws?.changes || []).map((x) => [x.text, x.terms]));
     const stale = new Set(this.loreApplied?.stale || []);
+    const st = this.current?.replay.state;
+    const clock = st?.clock.lo ?? c.binding.startTick;
+    const span = new Map(this.basePack().timeIndex.map((x) => [x.id, x]));
+    const future = (o) => o.kind === "event" && !!o.target && !st?.dispositions.has(o.target) && (span.get(o.target)?.hi ?? -Infinity) >= clock;
     return {
       changes: this.worldChanges().map((x) => ({ ...x, terms: terms.get(x.text) || x.terms })),
       manual: (c.worldManual || []).map((x) => x.text),
       checked: ws?.checked || null,
-      overrides: (ws?.overrides || []).map((o) => ({ ...o, stale: o.kind === "lore" && stale.has(o.title) })),
+      overrides: (ws?.overrides || []).map((o) => ({ ...o, stale: o.kind === "lore" && stale.has(o.title), future: future(o) })),
       additions: ws?.additions || [],
       loreHook: this.loreHook
     };
@@ -30478,6 +30493,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niRecognized: { zh: "\u8C01\u8BA4\u5F97\u4F60\uFF08\u516C\u5F00\u8EAB\u4EFD\uFF09", en: "Who recognizes you (public identity)" },
   niWho: { zh: "\u8C01\u77E5\u9053\u4F60", en: "Who knows about you" },
   niConnections: { zh: "\u5173\u7CFB", en: "Connections" },
+  wsFutureHidden: { zh: "\u53E6\u6709 {n} \u4E2A\u5C1A\u672A\u53D1\u751F\u7684\u4E8B\u4EF6\u4E5F\u6309\u672C\u5C40\u6539\u5199\u4E86\uFF08\u6253\u5F00\u300C\u663E\u793A\u5267\u900F\u300D\u67E5\u770B\uFF09\u3002", en: "{n} event(s) still to come are rewritten for this game too (turn on spoilers to see them)." },
   tieTip: { zh: "Persona \u7ED9\u51FA\u5F00\u5C40\u65F6\u7684\u5173\u7CFB\u548C\u77E5\u60C5\u8005\uFF1B\u5267\u60C5\u91CC\u5173\u7CFB\u53D8\u4E86\uFF08\u7ED3\u8BC6\u3001\u4EA4\u597D\u3001\u95F9\u7FFB\u3001\u4EA4\u5F80\u3001\u6B20\u4EBA\u60C5\u3001\u53BB\u4E16\uFF09\u6216\u6709\u4EBA\u77E5\u9053\u4E86\u4F60\u66F4\u591A\u7684\u4E8B\uFF0CCanon \u5BA1\u7A3F\u65F6\u8BB0\u4E0B\u6765\uFF08\u9644\u539F\u6587\uFF09\uFF0CGM \u770B\u5230\u7684\u662F\u73B0\u5728\u7684\u6837\u5B50\u3002\u4E5F\u53EF\u4EE5\u5728\u8FD9\u91CC\u81EA\u5DF1\u6539\u3001\u5220\u6216\u6DFB\u52A0\u3002", en: "The Persona gives the relationships and who knows what at the start; when play changes them (meeting someone who matters, friendship, a falling-out, romance, a debt, a death) or someone learns more about you, the review records it (with the quote), and the GM sees how things stand now. You can change, remove or add them here." },
   tieSrc_persona_stated: { zh: "Persona", en: "Persona" },
   tieSrc_implied: { zh: "\u8EAB\u4EFD\u63A8\u65AD", en: "implied by the role" },
@@ -32403,7 +32419,10 @@ function worldSection() {
   html += `<div><small>${esc2(t("wsChecked").replace("{lore}", String(w.checked.lore)).replace("{ent}", String(w.checked.entities)).replace("{ev}", String(w.checked.events)))}${w.checked.generic.length ? ` ${esc2(t("wsGeneric"))}${esc2(w.checked.generic.join("\u3001"))}` : ""}</small></div>`;
   if (!w.loreHook && w.overrides.some((o) => o.kind === "lore")) html += `<div><small>${esc2(t("wsNoHook"))}</small></div>`;
   const item = (o) => `<li><b>${esc2(o.title)}</b> ${tag(t(`wsKind_${o.kind}`))}${o.book ? ` <small>${esc2(o.book)}</small>` : ""} ${tag(t(o.action === "disable" ? "wsDisable" : "wsReplace"))}${o.edited ? ` ${tag(t("wsEdited"))}` : ""}${o.stale ? ` ${tag(t("wsStale"))}` : ""}${o.reason ? `<br><small>${esc2(o.reason)}</small>` : ""}<details class="canon-older"><summary><small>${esc2(t("wsOriginal"))} / ${esc2(t("wsThisGame"))}</small></summary><div><small><b>${esc2(t("wsOriginal"))}:</b> ${esc2(o.original)}</small></div><div><small><b>${esc2(t("wsThisGame"))}:</b> ${esc2(o.action === "disable" ? "\u2014" : o.content)}</small></div><textarea class="text_pole canon-ws-edit" data-id="${esc2(o.id)}" rows="4" title="${esc2(t("wsEditTip"))}">${esc2(o.content)}</textarea><button class="menu_button" data-act="ws-save" data-id="${esc2(o.id)}">${esc2(t("wsSave"))}</button> <button class="menu_button" data-act="ws-del" data-id="${esc2(o.id)}">${esc2(t("wsDelete"))}</button></details></li>`;
-  html += `<h4>${esc2(t("wsOverrides"))}</h4>${w.overrides.length ? `<ul class="canon-list">${w.overrides.map(item).join("")}</ul>` : `<div><small>${esc2(t("wsNone"))}</small></div>`}`;
+  const spoilers = !!E.campaign()?.uiPreferences.spoilers;
+  const hidden = w.overrides.filter((o) => o.future && !spoilers).length;
+  const shown = w.overrides.filter((o) => !o.future || spoilers);
+  html += `<h4>${esc2(t("wsOverrides"))}</h4>${shown.length ? `<ul class="canon-list">${shown.map(item).join("")}</ul>` : !hidden ? `<div><small>${esc2(t("wsNone"))}</small></div>` : ""}${hidden ? `<div><small>${esc2(t("wsFutureHidden").replace("{n}", String(hidden)))}</small></div>` : ""}`;
   if (w.additions.length) html += `<h4>${esc2(t("wsAdditions"))}</h4><ul class="canon-list">${w.additions.map((a) => `<li><b>${esc2(a.title)}</b> <small>${esc2(a.keys.join("\u3001"))}</small>${a.edited ? ` ${tag(t("wsEdited"))}` : ""}${a.reason ? `<br><small>${esc2(a.reason)}</small>` : ""}<details class="canon-older"><summary><small>${esc2(t("wsThisGame"))}</small></summary><textarea class="text_pole canon-ws-edit" data-id="${esc2(a.id)}" rows="4">${esc2(a.content)}</textarea><button class="menu_button" data-act="ws-save" data-id="${esc2(a.id)}">${esc2(t("wsSave"))}</button> <button class="menu_button" data-act="ws-del" data-id="${esc2(a.id)}">${esc2(t("wsDelete"))}</button></details></li>`).join("")}</ul>`;
   return html;
 }

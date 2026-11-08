@@ -762,7 +762,11 @@ function worldSection(): string {
     + `${o.reason ? `<br><small>${esc(o.reason)}</small>` : ''}`
     + `<details class="canon-older"><summary><small>${esc(t('wsOriginal'))} / ${esc(t('wsThisGame'))}</small></summary><div><small><b>${esc(t('wsOriginal'))}:</b> ${esc(o.original)}</small></div><div><small><b>${esc(t('wsThisGame'))}:</b> ${esc(o.action === 'disable' ? '—' : o.content)}</small></div>`
     + `<textarea class="text_pole canon-ws-edit" data-id="${esc(o.id)}" rows="4" title="${esc(t('wsEditTip'))}">${esc(o.content)}</textarea><button class="menu_button" data-act="ws-save" data-id="${esc(o.id)}">${esc(t('wsSave'))}</button> <button class="menu_button" data-act="ws-del" data-id="${esc(o.id)}">${esc(t('wsDelete'))}</button></details></li>`;
-  html += `<h4>${esc(t('wsOverrides'))}</h4>${w.overrides.length ? `<ul class="canon-list">${w.overrides.map(item).join('')}</ul>` : `<div><small>${esc(t('wsNone'))}</small></div>`}`;
+  // a rewritten event still to come only with 显示剧透
+  const spoilers = !!E.campaign()?.uiPreferences.spoilers;
+  const hidden = w.overrides.filter((o) => o.future && !spoilers).length;
+  const shown = w.overrides.filter((o) => !o.future || spoilers);
+  html += `<h4>${esc(t('wsOverrides'))}</h4>${shown.length ? `<ul class="canon-list">${shown.map(item).join('')}</ul>` : !hidden ? `<div><small>${esc(t('wsNone'))}</small></div>` : ''}${hidden ? `<div><small>${esc(t('wsFutureHidden').replace('{n}', String(hidden)))}</small></div>` : ''}`;
   if (w.additions.length) html += `<h4>${esc(t('wsAdditions'))}</h4><ul class="canon-list">${w.additions.map((a) => `<li><b>${esc(a.title)}</b> <small>${esc(a.keys.join('、'))}</small>${a.edited ? ` ${tag(t('wsEdited'))}` : ''}${a.reason ? `<br><small>${esc(a.reason)}</small>` : ''}<details class="canon-older"><summary><small>${esc(t('wsThisGame'))}</small></summary><textarea class="text_pole canon-ws-edit" data-id="${esc(a.id)}" rows="4">${esc(a.content)}</textarea><button class="menu_button" data-act="ws-save" data-id="${esc(a.id)}">${esc(t('wsSave'))}</button> <button class="menu_button" data-act="ws-del" data-id="${esc(a.id)}">${esc(t('wsDelete'))}</button></details></li>`).join('')}</ul>`;
   return html;
 }
