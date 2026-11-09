@@ -40,6 +40,8 @@ export interface GNode {
   concluded?: boolean;
   /** Its 已发生/已改变 was recorded from a chat message and can be re-examined. */
   reanalyzable?: boolean;
+  /** A story beat or scene box (本局事件): the occurrences it shows. */
+  members?: string[];
   /** After story entries (later developments of a closed event, merged by 重新分析). */
   afterStory?: number;
   /** The player marked this event 关注. */
@@ -155,7 +157,7 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
     g.nodes.push({
       id: root, title: dg ? `${dg.title}（${members.length}段）` : members.length > 1 ? `${first.title}（${members.length}段）` : first.title, lane: 'RUNTIME', tick: lo, tickHi: hi, when, short: shortRange(lo, hi, origin),
       summary: dg ? `${dg.summary}\n\n${members.map((m) => `· ${formatTick(m.time.lo, origin).split(' ')[1]} ${m.title}`).join('\n')}` : members.length > 1 ? members.map((m) => `${m.title}：${m.account}`).join('\n') : first.account,
-      status: 'runtime', origin: first.origin,
+      status: 'runtime', origin: first.origin, members: members.map((m) => m.occurrenceId),
       detail: [`来源：${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join('、')}`, ...(members.length > 1 && !dg ? [`同一场景：${members.map((m) => `${formatTick(m.time.lo, origin).split(' ')[1]} ${m.title}`).join(' → ')}`] : []), ...(outcomes.length ? [`本局结果：${outcomes.join('；')}`] : [])],
     });
   }
@@ -685,7 +687,8 @@ export class GraphPanel {
       this.armed = null;
       (b as HTMLButtonElement).disabled = true;
       b.textContent = '…';
-      void this.onEventAction(act as 'force' | 'unforce' | 'reanalyze' | 'conclude', id).finally(() => { this.keepView = true; this.refresh(); });
+      const members = act === 'reanalyze' ? this.data.current?.nodes.find((x) => x.id === id)?.members : undefined;
+      void this.onEventAction(act as 'force' | 'unforce' | 'reanalyze' | 'conclude', id, members).finally(() => { this.keepView = true; this.refresh(); });
       return;
     }
     const node = tg.closest('.cg-node') as SVGGElement | null;
@@ -737,7 +740,7 @@ export class GraphPanel {
       ${this.mode === 'current' && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.concluded ? t('unconclude') : n.linked ? t('unlink') : t('unforce')}</button>` : ''}
       ${this.mode === 'current' && n.lane !== 'RUNTIME' && !n.forced && (n.inProgress || n.status === 'pending' || n.status === 'unresolved') ? `<button class="menu_button cg-conclude" data-act="conclude" data-id="${esc(n.id)}" title="${esc(t('concludeTip'))}">${t('conclude')}</button>` : ''}
       ${this.mode === 'current' && n.lane !== 'RUNTIME' && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t('linkTip'))}">${t('link')}</button><div class="cg-linkpick"></div>` : ''}
-      ${this.mode === 'current' && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t('reanalyzeTip'))}">${t('reanalyze')}</button>` : ''}
+      ${this.mode === 'current' && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t(n.members ? 'reanalyzeOccTip' : 'reanalyzeTip'))}">${t('reanalyze')}</button>` : ''}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join('')}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>关系</b><br>${[...ins, ...outs].join('<br>')}</div>` : ''}`;
   }

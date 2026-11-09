@@ -26262,7 +26262,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.25.4";
+var ENGINE_RELEASE = "1.25.5";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -28989,6 +28989,38 @@ ${lines.join("\n")}`;
     }
     return null;
   }
+  /** The chat messages whose interpretation recorded these story beats (本局事件), for 重新分析 of a beat or a scene box. */
+  occurrenceSources(occIds) {
+    const c = this.campaign();
+    const st = this.current?.replay.state;
+    if (!c || !st) return [];
+    const recs = new Set(occIds.map((id) => st.occurrences.get(id)?.recordId).filter(Boolean));
+    const out = [];
+    for (const key of Object.keys(c.interpretations)) {
+      const v = interpretationsFor(c.interpretations, key).find((x) => x.records.some((r) => recs.has(r.recordId)));
+      if (v) out.push({ key, messageId: v.messageId });
+    }
+    return out;
+  }
+  /** 重新分析 of story beats (本局事件, including a small past a reply told): examine again, with the current rules,
+   *  the messages that recorded them; later messages are revalidated as after any edit. Returns how many messages. */
+  async reanalyzeOccurrences(occIds) {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError("incompatible_adapter", "engine state unavailable");
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; wait or cancel it first.");
+    const src = this.occurrenceSources(occIds);
+    if (!src.length) throw new EngineError("incompatible_adapter", "These events were not recorded from a chat message (starting history or added by hand); there is nothing to re-analyse.");
+    await this.exclusive(async () => {
+      for (const s of src) delete c.interpretations[s.key];
+      c.configRevisions.push({ at: this.host.now(), summary: `re-analysed ${src.length} message(s) that recorded story events` });
+      c.planRevisions.forEach((p) => {
+        if (p.status === "active") p.status = "stale";
+      });
+    });
+    await this.reconcile("reanalyze_occurrences");
+    await this.host.save();
+    return src.length;
+  }
   /** "重新分析": examine again the message that recorded this event's result, with the current rules
    *  (e.g. an event recorded as 已改变 while it was still under way). Later messages are revalidated as
    *  after any edit. Returns the event's status afterwards. */
@@ -30612,6 +30644,8 @@ var D = {
   reanalyze: { zh: "\u91CD\u65B0\u5206\u6790", en: "Re-analyse" },
   reanalyzeConfirm: { zh: "\u786E\u8BA4\u91CD\u65B0\u5206\u6790\uFF1F", en: "Re-analyse now?" },
   reanalyzeTip: { zh: "\u6709\u300C\u540E\u7EED\u300D\u65F6\uFF1A\u6309\u4E8B\u4EF6\u7684\u5168\u90E8\u7ECF\u8FC7\uFF08\u542B\u540E\u7EED\uFF09\u91CD\u65B0\u5224\u5B9A\u7ED3\u679C\uFF0C\u540E\u7EED\u5E76\u5165\u6B63\u6587\u3002\n\u6CA1\u6709\u540E\u7EED\u65F6\uFF1A\u91CD\u65B0\u68C0\u67E5\u8BB0\u4E0B\u8FD9\u4E2A\u7ED3\u679C\u7684\u90A3\u6761\u56DE\u590D\uFF0C\u6309\u73B0\u5728\u7684\u89C4\u5219\u91CD\u65B0\u5224\u65AD\u5B83\u662F\u5DF2\u53D1\u751F\u3001\u5DF2\u6539\u53D8\u8FD8\u662F\u672A\u53D1\u751F\uFF1B\u4E4B\u540E\u7684\u56DE\u590D\u4F1A\u50CF\u4FEE\u6539\u8FC7\u6D88\u606F\u4E00\u6837\u91CD\u65B0\u6838\u5BF9\u3002\n\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\u3002", en: "With an after story: re-judge the result from everything shown of the event, after story included; the after story merges into it.\nWithout one: examine again the reply that recorded this result with the current rules; later replies are re-checked as after an edit.\nUses the analysis model." },
+  reanalyzeOccTip: { zh: "\u6309\u73B0\u5728\u7684\u89C4\u5219\u91CD\u65B0\u68C0\u67E5\u8BB0\u4E0B\u8FD9\u4EF6\u4E8B\u7684\u90A3\u6761\u56DE\u590D\uFF08\u65F6\u95F4\u3001\u7ECF\u8FC7\u3001\u4EBA\u7269\u90FD\u4F1A\u91CD\u65B0\u5224\u65AD\uFF09\uFF1B\u4E4B\u540E\u7684\u56DE\u590D\u4F1A\u50CF\u4FEE\u6539\u8FC7\u6D88\u606F\u4E00\u6837\u91CD\u65B0\u6838\u5BF9\u3002\n\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\u3002", en: "Examine again, with the current rules, the reply that recorded this (its time, account and people are judged again); later replies are re-checked as after an edit.\nUses the analysis model." },
+  reanalyzeOccDone: { zh: "\u91CD\u65B0\u5206\u6790\u5B8C\u6210\uFF1A\u91CD\u65B0\u68C0\u67E5\u4E86 {n} \u6761\u56DE\u590D", en: "Re-analysed: {n} repl(ies) examined again" },
   reanalyzeDone: { zh: "\u91CD\u65B0\u5206\u6790\u5B8C\u6210\uFF1A{s}", en: "Re-analysed: {s}" },
   reanalyzeStatus_occurred: { zh: "\u5DF2\u53D1\u751F", en: "occurred" },
   reanalyzeStatus_diverged: { zh: "\u5DF2\u6539\u53D8", en: "changed" },
@@ -31178,6 +31212,7 @@ function currentGraph(L, s, origin, spoilers, digest2 = []) {
 ${members.map((m) => `\xB7 ${formatTick(m.time.lo, origin).split(" ")[1]} ${m.title}`).join("\n")}` : members.length > 1 ? members.map((m) => `${m.title}\uFF1A${m.account}`).join("\n") : first.account,
       status: "runtime",
       origin: first.origin,
+      members: members.map((m) => m.occurrenceId),
       detail: [`\u6765\u6E90\uFF1A${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join("\u3001")}`, ...members.length > 1 && !dg ? [`\u540C\u4E00\u573A\u666F\uFF1A${members.map((m) => `${formatTick(m.time.lo, origin).split(" ")[1]} ${m.title}`).join(" \u2192 ")}`] : [], ...outcomes.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${outcomes.join("\uFF1B")}`] : []]
     });
   }
@@ -31740,7 +31775,8 @@ var GraphPanel = class {
       this.armed = null;
       b.disabled = true;
       b.textContent = "\u2026";
-      void this.onEventAction(act, id).finally(() => {
+      const members = act === "reanalyze" ? this.data.current?.nodes.find((x) => x.id === id)?.members : void 0;
+      void this.onEventAction(act, id, members).finally(() => {
         this.keepView = true;
         this.refresh();
       });
@@ -31795,7 +31831,7 @@ var GraphPanel = class {
       ${this.mode === "current" && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.concluded ? t("unconclude") : n.linked ? t("unlink") : t("unforce")}</button>` : ""}
       ${this.mode === "current" && n.lane !== "RUNTIME" && !n.forced && (n.inProgress || n.status === "pending" || n.status === "unresolved") ? `<button class="menu_button cg-conclude" data-act="conclude" data-id="${esc(n.id)}" title="${esc(t("concludeTip"))}">${t("conclude")}</button>` : ""}
       ${this.mode === "current" && n.lane !== "RUNTIME" && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t("linkTip"))}">${t("link")}</button><div class="cg-linkpick"></div>` : ""}
-      ${this.mode === "current" && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t("reanalyzeTip"))}">${t("reanalyze")}</button>` : ""}
+      ${this.mode === "current" && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t(n.members ? "reanalyzeOccTip" : "reanalyzeTip"))}">${t("reanalyze")}</button>` : ""}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join("")}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>\u5173\u7CFB</b><br>${[...ins, ...outs].join("<br>")}</div>` : ""}`;
   }
@@ -32429,6 +32465,9 @@ function mountTopButton() {
       }
     }
     if (cur) {
+      for (const n of cur.nodes) if (n.members && E.occurrenceSources(n.members).length) n.reanalyzable = true;
+    }
+    if (cur) {
       for (const n of cur.nodes) if ((n.status === "occurred" || n.status === "diverged" || n.status === "omitted") && (n.afterStory || E.reanalyzableSource(n.id))) n.reanalyzable = true;
     }
     return { pack: pg, current: cur, spoilers, digested: !!camp?.eventDigest };
@@ -32452,6 +32491,9 @@ function mountTopButton() {
       } else if (act === "conclude") {
         const r = await E.concludeEvent(id);
         toast("info", r === "ongoing" ? t("concludeOngoing") : t("concludeDone").replace("{s}", t(r === "omitted" ? "concludeOmitted" : "reanalyzeStatus_" + r)));
+      } else if (act === "reanalyze" && ids?.length) {
+        const k = await E.reanalyzeOccurrences(ids);
+        toast("info", t("reanalyzeOccDone").replace("{n}", String(k)));
       } else if (act === "reanalyze") {
         const st = await E.reanalyzeEvent(id);
         toast("info", t("reanalyzeDone").replace("{s}", t("reanalyzeStatus_" + st)));

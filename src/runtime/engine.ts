@@ -2625,6 +2625,38 @@ export class CanonEngine {
     return null;
   }
 
+  /** The chat messages whose interpretation recorded these story beats (本局事件), for 重新分析 of a beat or a scene box. */
+  occurrenceSources(occIds: string[]): { key: string; messageId: string }[] {
+    const c = this.campaign();
+    const st = this.current?.replay.state;
+    if (!c || !st) return [];
+    const recs = new Set(occIds.map((id) => st.occurrences.get(id)?.recordId).filter(Boolean) as string[]);
+    const out: { key: string; messageId: string }[] = [];
+    for (const key of Object.keys(c.interpretations)) {
+      const v = interpretationsFor(c.interpretations, key).find((x) => x.records.some((r) => recs.has(r.recordId)));
+      if (v) out.push({ key, messageId: v.messageId });
+    }
+    return out;
+  }
+
+  /** 重新分析 of story beats (本局事件, including a small past a reply told): examine again, with the current rules,
+   *  the messages that recorded them; later messages are revalidated as after any edit. Returns how many messages. */
+  async reanalyzeOccurrences(occIds: string[]): Promise<number> {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError('incompatible_adapter', 'engine state unavailable');
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; wait or cancel it first.');
+    const src = this.occurrenceSources(occIds);
+    if (!src.length) throw new EngineError('incompatible_adapter', 'These events were not recorded from a chat message (starting history or added by hand); there is nothing to re-analyse.');
+    await this.exclusive(async () => {
+      for (const s of src) delete c.interpretations[s.key];
+      c.configRevisions.push({ at: this.host.now(), summary: `re-analysed ${src.length} message(s) that recorded story events` });
+      c.planRevisions.forEach((p) => { if (p.status === 'active') p.status = 'stale'; });
+    });
+    await this.reconcile('reanalyze_occurrences');
+    await this.host.save();
+    return src.length;
+  }
+
   /** "重新分析": examine again the message that recorded this event's result, with the current rules
    *  (e.g. an event recorded as 已改变 while it was still under way). Later messages are revalidated as
    *  after any edit. Returns the event's status afterwards. */

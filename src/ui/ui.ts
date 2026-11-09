@@ -65,6 +65,7 @@ function mountTopButton() {
     const frameNow = (() => { try { return E.sceneFrameNow(); } catch { return null; } })();
     if (cur?.frames && frameNow) cur.frames.now = frameNow;
     if (cur) { const f = E.focusEvents(); for (const n of cur.nodes) if (f.has(n.id) && (n.status === 'future' || n.status === 'pending')) { n.focused = true; n.title = '★ ' + n.title; } }
+    if (cur) for (const n of cur.nodes) if (n.members && E.occurrenceSources(n.members).length) n.reanalyzable = true;
     if (cur) for (const n of cur.nodes) if ((n.status === 'occurred' || n.status === 'diverged' || n.status === 'omitted') && (n.afterStory || E.reanalyzableSource(n.id))) n.reanalyzable = true;
     return { pack: pg, current: cur, spoilers, digested: !!camp?.eventDigest };
   }, (v) => { const camp = E.campaign(); if (camp) camp.uiPreferences.spoilers = v; }, async (act, id, ids) => {
@@ -76,6 +77,7 @@ function mountTopButton() {
       else if (act === 'set-frame') { await E.setSceneFrame(id); toast('info', t('frameSet')); }
       else if (act === 'link-occurred' || act === 'link-diverged') { await E.linkEvent(id, ids || [], act === 'link-occurred' ? 'occurred' : 'diverged'); toast('info', t('linkDone')); }
       else if (act === 'conclude') { const r = await E.concludeEvent(id); toast('info', r === 'ongoing' ? t('concludeOngoing') : t('concludeDone').replace('{s}', t(r === 'omitted' ? 'concludeOmitted' : 'reanalyzeStatus_' + r))); }
+      else if (act === 'reanalyze' && ids?.length) { const k = await E.reanalyzeOccurrences(ids); toast('info', t('reanalyzeOccDone').replace('{n}', String(k))); }
       else if (act === 'reanalyze') { const st = await E.reanalyzeEvent(id); toast('info', t('reanalyzeDone').replace('{s}', t('reanalyzeStatus_' + st))); }
       else await E.undoForce(id);
     } catch (e) { toast('error', (e as Error).message); }

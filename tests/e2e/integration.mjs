@@ -858,6 +858,15 @@ try {
     await page.click('[data-act="undigest"]');
     await page.waitForFunction(() => ![...document.querySelectorAll('.cg-node')].some((n) => n.textContent.includes('mock episode')), null, { timeout: 10000 });
     check(results, 'DG02 还原 restores the original boxes', (await page.$$eval('.cg-node', (n) => n.length)) === before);
+    // 重新分析 on a story beat (本局事件): the reply that recorded it is examined again
+    await page.evaluate(() => [...document.querySelectorAll('.cg-node')].find((n) => n.textContent.includes('码头') || n.textContent.includes('烤鱼'))?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.waitForSelector('.cg-reanalyze', { timeout: 5000 }).catch(() => {});
+    const hasRa = !!(await page.$('.cg-reanalyze'));
+    await mock('/control', { clearLogs: true });
+    if (hasRa) { await page.click('.cg-reanalyze'); await page.click('.cg-reanalyze'); }
+    await page.waitForFunction(() => [...document.querySelectorAll('.toast-message, .toast')].some((t) => t.textContent.includes('重新检查了')), null, { timeout: 30000 }).catch(() => {});
+    const reEval = (await taskLogs('evaluate')).length;
+    check(results, 'DG03 a story beat has 重新分析; it examines the reply that recorded it again', hasRa && reEval >= 1 && (await engineState(page)).occurrences.some((o) => o.title === '码头吃烤鱼' || /烤鱼/.test(o.title)), `button=${hasRa} evaluate=${reEval}`);
     await page.evaluate(() => document.querySelector('[data-act="close"]')?.click());
   }
   if (want('S20')) {

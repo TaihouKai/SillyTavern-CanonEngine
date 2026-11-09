@@ -138,6 +138,8 @@ const D: Record<string, { zh: string; en: string }> = {
   reanalyze: { zh: '重新分析', en: 'Re-analyse' },
   reanalyzeConfirm: { zh: '确认重新分析？', en: 'Re-analyse now?' },
   reanalyzeTip: { zh: '有「后续」时：按事件的全部经过（含后续）重新判定结果，后续并入正文。\n没有后续时：重新检查记下这个结果的那条回复，按现在的规则重新判断它是已发生、已改变还是未发生；之后的回复会像修改过消息一样重新核对。\n会调用分析模型。', en: 'With an after story: re-judge the result from everything shown of the event, after story included; the after story merges into it.\nWithout one: examine again the reply that recorded this result with the current rules; later replies are re-checked as after an edit.\nUses the analysis model.' },
+  reanalyzeOccTip: { zh: '按现在的规则重新检查记下这件事的那条回复（时间、经过、人物都会重新判断）；之后的回复会像修改过消息一样重新核对。\n会调用分析模型。', en: 'Examine again, with the current rules, the reply that recorded this (its time, account and people are judged again); later replies are re-checked as after an edit.\nUses the analysis model.' },
+  reanalyzeOccDone: { zh: '重新分析完成：重新检查了 {n} 条回复', en: 'Re-analysed: {n} repl(ies) examined again' },
   reanalyzeDone: { zh: '重新分析完成：{s}', en: 'Re-analysed: {s}' },
   reanalyzeStatus_occurred: { zh: '已发生', en: 'occurred' },
   reanalyzeStatus_diverged: { zh: '已改变', en: 'changed' },

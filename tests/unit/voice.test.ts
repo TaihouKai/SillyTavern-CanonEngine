@@ -154,6 +154,13 @@ describe('what the GM may write for the player character', () => {
     expect(x.engine.current!.index.historyView(o.occurrenceId)!.time).toBe(occurrenceTime(o, WorldIndex.displayOrigin));
     const n = currentGraph(x.engine.current!.index.pack, st, null, true).nodes.find((v: any) => v.id === o.occurrenceId)!;
     expect([n.tick, n.tickHi, n.when]).toEqual([o.time.hi, o.time.hi, occurrenceTime(o, null, 'zh')]);
+    // 重新分析 on a story beat (本局事件) examines again the reply that recorded it: here the reviewer now dates it
+    expect(x.engine.occurrenceSources([o.occurrenceId])).toHaveLength(1);
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[B1]'), { scene_end: at(1, 9, 40), occurrences: [{ ...occ('o1', 'Bag-snatcher chase', 'half a street of billboards burned', { actors: ['mira'] } as any), backstory: true, time: { lo: { day: 0, minute: 600 }, hi: { day: 0, minute: 660 }, precision: 'approx' } }] });
+    expect(await x.engine.reanalyzeOccurrences([o.occurrenceId])).toBe(1);
+    const o2 = [...x.engine.current!.replay.state.occurrences.values()].find((v) => v.title === 'Bag-snatcher chase')!;
+    expect([o2.undated, o2.time.lo]).toEqual([undefined, tick(0, 10, 0)]);
+    await expect(x.engine.reanalyzeOccurrences(['nope'])).rejects.toThrow(/nothing to re-analyse/);
     // a backstory the reply dates is not undated
     x.host.addUser('I ask when.');
     x.model.draft('Mira: an umbrella was lost, early this morning. [B2]');

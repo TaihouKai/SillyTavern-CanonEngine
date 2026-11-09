@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.25.5 — 2026-11-09
+
+- **重新分析 on story events (本局事件) too**, a small past a reply told included. It was only on canon events with a result recorded from a reply (已发生 / 已改变 / 未发生), so a story beat recorded wrongly — e.g. an undated backstory recorded before 1.25.4 — could only be fixed by re-checking the whole chat. Now a story box has 重新分析 (two clicks): the replies that recorded its beats are examined again with the current rules (time, account and people judged again); later replies are re-checked as after an edit. Tests: PV10, e2e DG03.
+
 ## 1.25.4 — 2026-11-09
 
 - **A small past a reply tells without saying when is "some time before", not an event lasting months.** Live: "last time she and the player went shopping, half the street turned to look" was shown in the timeline as 2020-07-19 00:00 (D0) – 2020-09-18 17:14 (D61) — the range it may be in (the year before now, cut off at day 0), drawn as a bar across the whole of it. Now such a backstory is marked undated: the timeline places it just before now and shows 「… 之前某时（时间不详）」, the history page and the GM's history read "some time before …"; it is not counted as something that happened lately, and the year before now is no longer cut off at day 0 (story time before day 0 is valid). A backstory the reply dates keeps its time. Test: PV10.
