@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.27.1 — 2026-11-10
+
+- **A time read off a clock bounds the reply's end.** A reply whose phone said 「八点二十出头」 was recorded as ending at 08:50: the reply's own clock (1.25.2) only counted readings with 了 or 现在. Now a time right after someone looks at a phone, watch or clock (「看了看手机。」「瞥了一眼表，」), or said as 「…出头」, is a reading too; a plan after the look (「看了看表，八点要开会」) is not.
+- **Horae's time is not followed against the latest reply's own clock.** Horae's state for that reply said 08:50 as well (the story model's state block ran ahead of its prose); the timeline's now, the GM's current time and the reviewer's Horae hint no longer take a Horae time more than 10 minutes after the latest reply's clock reading. Tests: CR1, CR4, H06.
+
 ## 1.27.0 — 2026-11-09
 
 - **Powers that perceive reach secrets — the player character's too.** A mind reader next to the player character was kept from a secret: the GM steered the player character's thoughts away from it to protect it. Secrecy now says who knows now, not what can happen. A 常态 version can say what the power lets its holder learn (`perceives`: thoughts, memories, emotions, hidden, whereabouts, lies, past, with conditions); while such a person is in the scene, the GM is told that what the power reaches is not hidden, the player character's secrets (from the Persona and from play) included, and not to steer the player character's thoughts toward or away from a secret; whoever perceives one learns it (the reviewer records it under who knows the player) — the world finding out, not the player character revealing it.

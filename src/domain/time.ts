@@ -91,13 +91,21 @@ export function cnNumber(s: string): number | null {
 /** Clock times a text reads as the time NOW — "都快十一点了", "已经三点半了", "现在十点二十了", "it's already 11:30" — as
  *  hour (0–24, as written) and minute; "nearly" (快/将近/差不多/almost) when it is not there yet. Appointments and
  *  plans ("明天八点开幕式", "五点半就得起来") are not readings: a Chinese reading ends in 了 or follows 现在. */
+/** Just before a time: someone looks at a clock, or a clock shows it ("看了看手机。", "瞥了一眼表，", "屏幕上显示"). */
+const LOOKED_AT_CLOCK = /(?:看|瞥|瞄)[了一眼下看]{0,3}(?:手机|手表|腕表|表|时钟|钟|时间|屏幕)[^。！？]{0,4}[。，：:\s]*$|(?:手机|手表|屏幕|时钟|钟)[^。！？]{0,4}(?:显示|跳到|指着|指向|写着)[^。！？]{0,3}$/;
 export function clockReadings(text: string): { hour: number; minute: number; nearly: boolean; quote: string }[] {
   const out: { hour: number; minute: number; nearly: boolean; quote: string }[] = [];
   const N = '[零〇一二两三四五六七八九十0-9]{1,3}';
-  const zh = new RegExp(`(都|已经|已|现在|这都|眼看)?(快|快要|将近|差不多|就要)?(${N})点(?:(半)|(一刻)|(三刻)|零?(${N})分?)?(?:多|左右|钟)?(了)?`, 'g');
+  const zh = new RegExp(`(都|已经|已|现在|这都|眼看)?(快|快要|将近|差不多|就要)?(${N})点(?:(半)|(一刻)|(三刻)|零?(${N})分?)?(出头|多|左右|钟)?(了)?`, 'g');
   for (const m of String(text).matchAll(zh)) {
-    if (!m[8] && m[1] !== '现在') continue;
-    if (!m[1] && !m[2]) continue;
+    // a time just read off a clock ("看了看手机。八点二十出头") or said as "…出头" is a reading too (live: the reviewer
+    // ended a reply at 08:50 whose phone said 八点二十出头)
+    const plan = /^(?:要|得|就|才|再|开始|开|见|集合|出发|前|之前|以前)/.test(String(text).slice(m.index! + m[0].length, m.index! + m[0].length + 2));
+    const read = m[8] === '出头' || (!plan && LOOKED_AT_CLOCK.test(String(text).slice(Math.max(0, m.index! - 14), m.index)));
+    if (!read) {
+      if (!m[9] && m[1] !== '现在') continue;
+      if (!m[1] && !m[2]) continue;
+    }
     const hour = cnNumber(m[3]);
     const minute = m[4] ? 30 : m[5] ? 15 : m[6] ? 45 : m[7] ? cnNumber(m[7]) : 0;
     if (hour === null || hour > 24 || minute === null || minute > 59) continue;

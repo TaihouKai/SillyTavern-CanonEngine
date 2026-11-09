@@ -22,6 +22,11 @@ describe('clock readings in a reply', () => {
     expect(clockReadings('现在十点二十')).toMatchObject([{ hour: 10, minute: 20 }]);
     expect(clockReadings("It's already 11:30 and she is late.")).toMatchObject([{ hour: 11, minute: 30 }]);
     expect(clockReadings('我们约在八点见面，九点开会。')).toEqual([]);
+    // a time read off a clock, or said as "…出头", is the time now (live: 08:50 recorded for a reply whose phone said
+    // 八点二十出头); a plan after a look at the clock is still a plan
+    expect(clockReadings('她低头看了看手机。八点二十出头，离九点还有好一阵。美琴的两人三足八点半开始，可九点又得回来站台。')).toMatchObject([{ hour: 8, minute: 20, quote: '八点二十出头' }]);
+    expect(clockReadings('瞥了一眼手表，九点零五。')).toMatchObject([{ hour: 9, minute: 5 }]);
+    expect(clockReadings('看了看表，八点要开会')).toEqual([]);
     // the reading is placed near the scene: 11 at 22:40 is 23:00 that day
     expect(readingTick({ hour: 11, minute: 0 }, tick(61, 22, 40))).toBe(tick(61, 23, 0));
     expect(readingTick({ hour: 3, minute: 0 }, tick(5, 23, 30))).toBe(tick(6, 3, 0));
@@ -43,5 +48,16 @@ describe('clock readings in a reply', () => {
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect(x.engine.current!.replay.state.clock.lo).toBe(tick(1, 23, 15));
     expect(PROMPTS.evaluate).toMatch(/a meal already under way before this reply counts only what this reply shows/);
+  });
+
+  it('CR4 a time read off a phone bounds the end too (live: 08:50 recorded for a reply whose phone said 八点二十出头)', async () => {
+    const x = makeEngine();
+    await x.engine.bind(demo, { startTick: tick(1, 8, 20), mode: 'new' });
+    await x.engine.reconcile('test');
+    x.host.addUser('我在通道里等着。');
+    x.model.draft('她低头看了看手机。八点二十出头，离九点还有好一阵。美琴的两人三足八点半开始，可九点又得回来站台。[CR4]');
+    x.model.on('evaluate', (i: any) => String(i.candidate).includes('[CR4]'), { scene_end: { lo: { day: 1, minute: 8 * 60 + 50 }, hi: { day: 1, minute: 9 * 60 + 5 }, precision: 'approx' } });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.engine.current!.replay.state.clock.lo).toBe(tick(1, 8, 20));
   });
 });

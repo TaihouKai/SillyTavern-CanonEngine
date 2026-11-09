@@ -9,7 +9,7 @@ import { buildBootstrap, causeOf, pendingHard, forcedCompletion, linkedCompletio
 import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { WorldIndex } from '../domain/world-query';
-import { formatTick, formatStoryTime, fromTick, occurrenceTime, parseDateLabel, toTick } from '../domain/time';
+import { clockReadings, formatTick, formatStoryTime, fromTick, occurrenceTime, parseDateLabel, readingTick, toTick } from '../domain/time';
 import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
 import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
@@ -20,7 +20,7 @@ import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, EVAL_GROUPS_NOTE, EVAL_CHANCE_N
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
 import { buildPacket, retrieve, sceneFrameOf, type ClaimInput, type RefInput, type Retrieval } from './context';
 import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
-import { matchScope, runGate, type EvalOutput, type GateInput, type GateResult } from './gate';
+import { CLOCK_READING_SLACK, matchScope, runGate, type EvalOutput, type GateInput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
@@ -907,7 +907,17 @@ export class CanonEngine {
     const m = h.match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
     if (!m) return null;
     const t = parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin);
-    return t !== null && t > clock && t <= clock + 3 * 1440 ? t : null;
+    return t !== null && t > clock && t <= clock + 3 * 1440 && !this.againstLatestClock(t, clock) ? t : null;
+  }
+
+  /** Horae's time for the latest reply is later than that reply's own clock reading allows (live: Horae 08:50 for a
+   *  reply whose phone said 八点二十出头 — the story model's state block ran ahead of its prose): not followed. */
+  private againstLatestClock(t: number, clock: number): boolean {
+    try {
+      const last = this.host.readTranscript().filter((e) => e.role === 'gm').slice(-1)[0];
+      if (!last) return false;
+      return clockReadings(last.text).some((r) => { const at = readingTick(r, clock); return at !== null && t > at + CLOCK_READING_SLACK; });
+    } catch { return false; }
   }
 
   /** Story time as the player sees it: the engine clock, or Horae's time for the latest reply when Horae is fresh
@@ -925,7 +935,7 @@ export class CanonEngine {
       const m = [h.scene.date, h.scene.time].filter(Boolean).join(' ').match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
       if (!m) return clock;
       const t = parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin);
-      return t !== null && t > clock && t <= clock + 3 * 1440 ? t : clock;
+      return t !== null && t > clock && t <= clock + 3 * 1440 && !this.againstLatestClock(t, clock) ? t : clock;
     } catch { return clock; }
   }
 
@@ -936,7 +946,13 @@ export class CanonEngine {
       // swipe/regenerate/continue: Horae's latest state already includes the reply being replaced
       if (this.opActive?.op !== 'normal' || this.inOtherFrame()) return {};
       if (!st?.available || st.busy || st.staleIndexes.length || !st.scene?.time) return {};
-      return { horae_time: [st.scene.date, st.scene.time].filter(Boolean).join(' ') };
+      const hint = [st.scene.date, st.scene.time].filter(Boolean).join(' ');
+      const clock = this.current?.replay.state.clock.lo;
+      const origin = this.campaign()?.binding.originDate || null;
+      const m = hint.match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
+      const t = m && origin ? parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin) : null;
+      if (t !== null && clock !== undefined && this.againstLatestClock(t, clock)) return {};
+      return { horae_time: hint };
     } catch { return {}; }
   }
 

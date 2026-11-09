@@ -64,6 +64,16 @@ describe('story time follows Horae', () => {
     const y = await setup({ date: '2020/01/02', time: '08:00' });
     expect(y.engine.storyNow()).toBe(tick(1, 9, 30));
   });
+
+  it('H06 Horae ahead of the latest reply\'s own clock is not followed (live: Horae 08:50, the reply\'s phone 八点二十出头)', async () => {
+    const x = await setup({ date: '2020/01/02', time: '10:20' }); // the engine clock is 09:30
+    x.host.addGm('她低头看了看手机。九点四十出头，离十点还有好一阵。');
+    expect(x.engine.storyNow()).toBe(tick(1, 9, 30));
+    // a reading close to Horae's time: followed
+    const y = await setup({ date: '2020/01/02', time: '09:45' });
+    y.host.addGm('她低头看了看手机。九点四十出头。');
+    expect(y.engine.storyNow()).toBe(tick(1, 9, 45));
+  });
 });
 
 describe('the clock does not run ahead of the story', () => {

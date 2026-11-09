@@ -18445,13 +18445,18 @@ function cnNumber(s) {
   if (!m[2]) return m[1] && !m[3] ? CN_DIGIT[m[1]] : null;
   return (m[1] ? CN_DIGIT[m[1]] : 1) * 10 + (m[3] ? CN_DIGIT[m[3]] : 0);
 }
+var LOOKED_AT_CLOCK = /(?:看|瞥|瞄)[了一眼下看]{0,3}(?:手机|手表|腕表|表|时钟|钟|时间|屏幕)[^。！？]{0,4}[。，：:\s]*$|(?:手机|手表|屏幕|时钟|钟)[^。！？]{0,4}(?:显示|跳到|指着|指向|写着)[^。！？]{0,3}$/;
 function clockReadings(text) {
   const out = [];
   const N = "[\u96F6\u3007\u4E00\u4E8C\u4E24\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u53410-9]{1,3}";
-  const zh = new RegExp(`(\u90FD|\u5DF2\u7ECF|\u5DF2|\u73B0\u5728|\u8FD9\u90FD|\u773C\u770B)?(\u5FEB|\u5FEB\u8981|\u5C06\u8FD1|\u5DEE\u4E0D\u591A|\u5C31\u8981)?(${N})\u70B9(?:(\u534A)|(\u4E00\u523B)|(\u4E09\u523B)|\u96F6?(${N})\u5206?)?(?:\u591A|\u5DE6\u53F3|\u949F)?(\u4E86)?`, "g");
+  const zh = new RegExp(`(\u90FD|\u5DF2\u7ECF|\u5DF2|\u73B0\u5728|\u8FD9\u90FD|\u773C\u770B)?(\u5FEB|\u5FEB\u8981|\u5C06\u8FD1|\u5DEE\u4E0D\u591A|\u5C31\u8981)?(${N})\u70B9(?:(\u534A)|(\u4E00\u523B)|(\u4E09\u523B)|\u96F6?(${N})\u5206?)?(\u51FA\u5934|\u591A|\u5DE6\u53F3|\u949F)?(\u4E86)?`, "g");
   for (const m of String(text).matchAll(zh)) {
-    if (!m[8] && m[1] !== "\u73B0\u5728") continue;
-    if (!m[1] && !m[2]) continue;
+    const plan2 = /^(?:要|得|就|才|再|开始|开|见|集合|出发|前|之前|以前)/.test(String(text).slice(m.index + m[0].length, m.index + m[0].length + 2));
+    const read = m[8] === "\u51FA\u5934" || !plan2 && LOOKED_AT_CLOCK.test(String(text).slice(Math.max(0, m.index - 14), m.index));
+    if (!read) {
+      if (!m[9] && m[1] !== "\u73B0\u5728") continue;
+      if (!m[1] && !m[2]) continue;
+    }
     const hour = cnNumber(m[3]);
     const minute = m[4] ? 30 : m[5] ? 15 : m[6] ? 45 : m[7] ? cnNumber(m[7]) : 0;
     if (hour === null || hour > 24 || minute === null || minute > 59) continue;
@@ -23588,7 +23593,7 @@ function voiceInput(v) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.27.0";
+var ENGINE_RELEASE = "1.27.1";
 
 // src/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -27764,7 +27769,21 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
     const m = h.match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
     if (!m) return null;
     const t2 = parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin);
-    return t2 !== null && t2 > clock && t2 <= clock + 3 * 1440 ? t2 : null;
+    return t2 !== null && t2 > clock && t2 <= clock + 3 * 1440 && !this.againstLatestClock(t2, clock) ? t2 : null;
+  }
+  /** Horae's time for the latest reply is later than that reply's own clock reading allows (live: Horae 08:50 for a
+   *  reply whose phone said 八点二十出头 — the story model's state block ran ahead of its prose): not followed. */
+  againstLatestClock(t2, clock) {
+    try {
+      const last2 = this.host.readTranscript().filter((e) => e.role === "gm").slice(-1)[0];
+      if (!last2) return false;
+      return clockReadings(last2.text).some((r) => {
+        const at = readingTick(r, clock);
+        return at !== null && t2 > at + CLOCK_READING_SLACK;
+      });
+    } catch {
+      return false;
+    }
   }
   /** Story time as the player sees it: the engine clock, or Horae's time for the latest reply when Horae is fresh
    *  and up to 3 days ahead (the reviewer can misjudge a reply's end — live: "12:10" recorded as 00:10 — and the
@@ -27781,7 +27800,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       const m = [h.scene.date, h.scene.time].filter(Boolean).join(" ").match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
       if (!m) return clock;
       const t2 = parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin);
-      return t2 !== null && t2 > clock && t2 <= clock + 3 * 1440 ? t2 : clock;
+      return t2 !== null && t2 > clock && t2 <= clock + 3 * 1440 && !this.againstLatestClock(t2, clock) ? t2 : clock;
     } catch {
       return clock;
     }
@@ -27792,7 +27811,13 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       const st = this.host.horae?.status();
       if (this.opActive?.op !== "normal" || this.inOtherFrame()) return {};
       if (!st?.available || st.busy || st.staleIndexes.length || !st.scene?.time) return {};
-      return { horae_time: [st.scene.date, st.scene.time].filter(Boolean).join(" ") };
+      const hint = [st.scene.date, st.scene.time].filter(Boolean).join(" ");
+      const clock = this.current?.replay.state.clock.lo;
+      const origin = this.campaign()?.binding.originDate || null;
+      const m = hint.match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
+      const t2 = m && origin ? parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin) : null;
+      if (t2 !== null && clock !== void 0 && this.againstLatestClock(t2, clock)) return {};
+      return { horae_time: hint };
     } catch {
       return {};
     }
