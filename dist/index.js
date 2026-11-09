@@ -23462,6 +23462,11 @@ function voiceInput(v) {
   return { gm_may_write: VOICE_KINDS.filter((k) => v[k]), player_only: [...VOICE_KINDS.filter((k) => !v[k]), INTERVENTION] };
 }
 
+// src/runtime/types.ts
+var STORAGE_VERSION = 1;
+var ENGINE_VERSION = "1.3.4";
+var ENGINE_RELEASE = "1.26.2";
+
 // src/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
 var UNANSWERED_HOLD_MINUTES = 24 * 60;
@@ -23578,6 +23583,7 @@ function buildProfile(out, pack2, index, persona, prev) {
       personaHash: personaHash(persona),
       source: persona.source || "standard_persona",
       playerId,
+      readBy: ENGINE_RELEASE,
       summary: (out.player?.summary || "").slice(0, 1500),
       publicIdentity: (out.player?.public_identity || "").slice(0, 800),
       affiliations,
@@ -26733,11 +26739,6 @@ async function assessImpact(port, input, signal, operationId, log) {
   return callStructured(port, "impact", PROMPTS.impact, input, { signal, operationId, log });
 }
 
-// src/runtime/types.ts
-var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.26.1";
-
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
 var CLOSERS = new Set(Object.values(OPEN));
@@ -29821,8 +29822,9 @@ ${lines.join("\n")}`;
         notes: prof.profile.notes
       } : null,
       personaChanged: this.personaChanged(),
-      // read before 1.17.0: no public recognition list until the Persona is read again
-      profileOld: !!prof && prof.profile.recognizedBy === void 0,
+      // read by an older release: what later ones read (who recognizes you 1.17.0, 角色常态 1.26.1) is missing until
+      // the Persona is read again
+      profileOld: !!prof && (prof.profile.recognizedBy === void 0 || !prof.profile.readBy),
       decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId), strong: !!e.strong, binding: isBinding(e) })),
       // contacts filed as a free storyline before 1.8.1 are grouped with the event or matter they name
       // with the player's answer to the matter (a decision, or taken up in play) for the 接受/拒绝/完成 buttons
@@ -31313,7 +31315,9 @@ var D = {
 Good for things Canon does not need (incantations, style notes). Abilities, items or identity kept in sections are then unknown to Canon \u2014 untick if something goes missing.
 Affects later reads only: in a started chat, use "Update this game's identity" on the narrative-integration tab. If the Persona was edited in SillyTavern's own panel, the core no longer matches and Canon reads the whole description.` },
   niChanged: { zh: "\u5F53\u524D Persona \u4E0E\u672C\u5C40\u8EAB\u4EFD\u4E0D\u540C\u3002\u672C\u5C40\u4FDD\u6301\u539F\u8EAB\u4EFD\uFF0C\u76F4\u5230\u4F60\u9009\u62E9\uFF1A", en: "The active Persona differs from this game's player. This game keeps its identity until you choose:" },
-  niOld: { zh: "\u672C\u5C40\u8EAB\u4EFD\u662F\u65E7\u7248\u63D2\u4EF6\u8BFB\u7684\uFF0C\u6CA1\u6709\u300C\u8C01\u8BA4\u5F97\u4F60\u300D\u3002\u91CD\u8BFB\u4E00\u6B21 Persona \u5C31\u4F1A\u8865\u4E0A\u3002", en: `This game's identity was read by an older version and has no "who recognizes you". Read the Persona again to add it.` },
+  niOld: { zh: "\u672C\u5C40\u8EAB\u4EFD\u662F\u65E7\u7248\u63D2\u4EF6\u8BFB\u7684\uFF0C\u7F3A\u5C11\u540E\u6765\u624D\u4F1A\u8BFB\u51FA\u7684\u5185\u5BB9\uFF08\u5982\u300C\u8C01\u8BA4\u5F97\u4F60\u300D\u300C\u89D2\u8272\u5E38\u6001\u300D\uFF09\u3002\u91CD\u8BFB\u4E00\u6B21 Persona \u5C31\u4F1A\u8865\u4E0A\uFF08\u8C03\u7528\u4E00\u6B21\u5206\u6790\u6A21\u578B\uFF09\u3002", en: "This game's identity was read by an older version and lacks what later versions read (who recognizes you, your nature). Read the Persona again to add it (one analysis call)." },
+  niReread: { zh: "\u91CD\u8BFB Persona\uFF08\u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD\uFF09", en: "Read the Persona again (update this game's identity)" },
+  niRereadTip: { zh: "\u6309\u5F53\u524D\u7684 Persona \u91CD\u65B0\u8BFB\u51FA\u672C\u5C40\u8EAB\u4EFD\uFF0C\u4ECE\u5F53\u524D\u4F4D\u7F6E\u8D77\u751F\u6548\uFF0C\u4E4B\u524D\u7684\u6D88\u606F\u4FDD\u6301\u539F\u6765\u7684\u8EAB\u4EFD\u3002\u8C03\u7528\u4E00\u6B21\u5206\u6790\u6A21\u578B\u3002", en: "Reads the current Persona as this game's identity from here on; earlier messages keep theirs. One analysis call." },
   niUpdate: { zh: "\u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD\uFF08\u4ECE\u5F53\u524D\u4F4D\u7F6E\u8D77\u751F\u6548\uFF09", en: "Update this game's identity (from here on)" },
   niKeep: { zh: "\u4FDD\u7559\u672C\u5C40\u8EAB\u4EFD", en: "Keep this game's identity" },
   niRecognized: { zh: "\u8C01\u8BA4\u5F97\u4F60\uFF08\u516C\u5F00\u8EAB\u4EFD\uFF09", en: "Who recognizes you (public identity)" },
@@ -32446,7 +32450,7 @@ function createInspector(d) {
     else if (ni.profileOld) html += `<div class="ci-banner ci-warn"><b>${esc2(t("niOld"))}</b><div class="ci-actions">${btn(t("niUpdate"), 'data-act="ni-update"', "primary")}</div></div>`;
     const p = ni.profile;
     if (!p) return { html: html + `<div class="ci-empty">${esc2(t("niNoProfile"))}</div>`, secs: [] };
-    html += `<div class="ci-hero"><div class="ci-hero-name">${esc2(p.name)}</div><div>${esc2(p.summary)}</div>${p.publicIdentity ? muted(esc2(p.publicIdentity)) : ""}${muted(esc2(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev))))}</div>`;
+    html += `<div class="ci-hero"><div class="ci-hero-name">${esc2(p.name)}</div><div>${esc2(p.summary)}</div>${p.publicIdentity ? muted(esc2(p.publicIdentity)) : ""}${muted(esc2(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev))))}${ni.personaChanged || ni.profileOld ? "" : `<div class="ci-actions">${btn(t("niReread"), `data-act="ni-update" title="${esc2(t("niRereadTip"))}"`)}</div>`}</div>`;
     const secs = [];
     const list = (id, label, rows) => {
       if (!rows.length) return "";

@@ -80,7 +80,7 @@ export function createInspector(d: InspectorDeps) {
     else if (ni.profileOld) html += `<div class="ci-banner ci-warn"><b>${esc(t('niOld'))}</b><div class="ci-actions">${btn(t('niUpdate'), 'data-act="ni-update"', 'primary')}</div></div>`;
     const p = ni.profile;
     if (!p) return { html: html + `<div class="ci-empty">${esc(t('niNoProfile'))}</div>`, secs: [] };
-    html += `<div class="ci-hero"><div class="ci-hero-name">${esc(p.name)}</div><div>${esc(p.summary)}</div>${p.publicIdentity ? muted(esc(p.publicIdentity)) : ''}${muted(esc(t(p.source === 'persona_core' ? 'niSourceCore' : 'niSource').replace('{n}', String(p.chars)).replace('{rev}', String(p.rev))))}</div>`;
+    html += `<div class="ci-hero"><div class="ci-hero-name">${esc(p.name)}</div><div>${esc(p.summary)}</div>${p.publicIdentity ? muted(esc(p.publicIdentity)) : ''}${muted(esc(t(p.source === 'persona_core' ? 'niSourceCore' : 'niSource').replace('{n}', String(p.chars)).replace('{rev}', String(p.rev))))}${ni.personaChanged || ni.profileOld ? '' : `<div class="ci-actions">${btn(t('niReread'), `data-act="ni-update" title="${esc(t('niRereadTip'))}"`)}</div>`}</div>`;
     const secs: Page['secs'] = [];
     const list = (id: string, label: string, rows: string[]) => {
       if (!rows.length) return '';

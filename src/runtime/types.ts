@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.26.1';
+export const ENGINE_RELEASE = '1.26.2';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -271,6 +271,8 @@ export interface PlayerProfile {
   voice?: string;
   /** 常态: how the player's own power or condition shows in everyday moments (from the Persona). Missing before 1.26.1. */
   nature?: PlayerNature;
+  /** The engine release that read the Persona (missing before 1.26.2): an older read lacks what later releases read. */
+  readBy?: string;
   /** 本局设定: how this game's world differs from the original setting, as the Persona states it (marked lines always). */
   worldChanges?: { text: string; terms: string[]; marked: boolean }[];
   /** The player's relationships. Read from the Persona they are the start; playedProfile() gives them as play has

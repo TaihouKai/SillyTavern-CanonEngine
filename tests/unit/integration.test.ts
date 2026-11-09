@@ -9,6 +9,7 @@ import { ROOT } from './helpers';
 import { engagementView, isBinding, engagementRecord } from '../../src/runtime/integration';
 import { PROMPTS, gmRulesFor, GM_INTEGRATION_RULES } from '../../src/runtime/prompts';
 import { DEFAULT_PLAYER_VOICE, voiceRule, LIVELY, REACT_NOT_DECIDE, ANSWER_IN_SCENE } from '../../src/runtime/voice';
+import { ENGINE_RELEASE } from '../../src/runtime/types';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 type X = ReturnType<typeof makeEngine>;
@@ -909,6 +910,11 @@ describe('preferred matters', () => {
     await turn(y, 'I look around.', 'The harbor at morning. [W53]', { scene_end: at(1, 9, 35) });
     expect(y.engine.playerProfile()!.profile.nature).toBeUndefined();
     expect(lastCtx(y)).not.toMatch(/- 常态/);
+    // an identity read now is not old; one read before this release (no readBy) is, so the page offers to read it again
+    expect(x.engine.playerProfile()!.profile.readBy).toBe(ENGINE_RELEASE);
+    expect(x.engine.integrationView(true)!.profileOld).toBe(false);
+    delete (x.engine.playerProfile()!.profile as { readBy?: string }).readBy;
+    expect(x.engine.integrationView(true)!.profileOld).toBe(true);
   });
 
   it('NI-51the steps that judge plausibility see who people and places are: the world reaction and the reviewer get the pack descriptions of the entities they handle, the planner those of the events it plans around', async () => {

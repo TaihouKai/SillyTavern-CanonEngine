@@ -2963,8 +2963,9 @@ export class CanonEngine {
         notes: prof.profile.notes,
       } : null,
       personaChanged: this.personaChanged(),
-      // read before 1.17.0: no public recognition list until the Persona is read again
-      profileOld: !!prof && prof.profile.recognizedBy === undefined,
+      // read by an older release: what later ones read (who recognizes you 1.17.0, 角色常态 1.26.1) is missing until
+      // the Persona is read again
+      profileOld: !!prof && (prof.profile.recognizedBy === undefined || !prof.profile.readBy),
       decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId), strong: !!e.strong, binding: isBinding(e) })),
       // contacts filed as a free storyline before 1.8.1 are grouped with the event or matter they name
       // with the player's answer to the matter (a decision, or taken up in play) for the 接受/拒绝/完成 buttons

@@ -11,6 +11,7 @@ import { evalCondition, factAt, triLabel } from '../domain/reducer';
 import { agoLabel, formatTick, toTick } from '../domain/time';
 import { hashObject, newId, sha256, uniq } from '../domain/util';
 import { WorldIndex } from '../domain/world-query';
+import { ENGINE_RELEASE } from './types';
 import type { AffiliationStatus, TieChange, IntegrationCache, Opportunity, PlayerNature, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
 import { markedLines } from './worldset';
 
@@ -160,7 +161,7 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
   const list = (x?: string[]) => (x || []).map((s) => String(s).trim()).filter(Boolean).slice(0, 20);
   return {
     profile: {
-      personaName: persona.name, personaText: persona.description, personaHash: personaHash(persona), source: persona.source || 'standard_persona', playerId,
+      personaName: persona.name, personaText: persona.description, personaHash: personaHash(persona), source: persona.source || 'standard_persona', playerId, readBy: ENGINE_RELEASE,
       summary: (out.player?.summary || '').slice(0, 1500), publicIdentity: (out.player?.public_identity || '').slice(0, 800),
       affiliations, places, capabilities: list(out.capabilities), resources: list(out.resources), goals: list(out.goals), relationships, knowers, recognizedBy: recognizedBy.slice(0, 10), uncertain: list(out.uncertain), notes,
       roles: (out.roles || []).filter((r) => r?.role?.trim()).slice(0, 8).map((r) => ({ role: r.role.trim().slice(0, 200), brings: list(r.brings), from: list(r.from), style: String(r.style || '').trim().slice(0, 300) })),

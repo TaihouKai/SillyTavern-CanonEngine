@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.26.2 — 2026-11-09
+
+- **重读 Persona is always on the narrative-integration page.** 更新本局身份 showed only when the active Persona differed from the game's or the identity was read before 1.17.0, so a game started before 1.26.1 had no way to read its 角色常态. Now the button is always there, and an identity read by an older release is flagged (the profile records the release that read it). Test: NI-50b.
+
 ## 1.26.1 — 2026-11-09
 
 - **Your own 角色常态.** Reading the Persona now also writes the player character's nature when the Persona gives a power, a condition, a non-human body or a device they depend on (habits / uses / others / limits, patterns, not story). The GM sees it with the player in this world: signs that show by themselves are written like a reaction, deliberate use only as the player-character settings allow (能力技能魔法). Shown on the narrative-integration page and first in the timeline's 「角色常态」. A started game gets it with 更新本局身份. Test: NI-50b.
