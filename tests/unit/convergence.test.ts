@@ -8,6 +8,7 @@ import { validatePlan, normalizePlanEffects, planScope, type PlanOutput } from '
 import { refersToHard } from '../../src/runtime/gate';
 import { ROOT } from './helpers';
 import * as V from '../../src/generated/validators.js';
+import { DEFAULT_PLAYER_VOICE, voiceTurnNote } from '../../src/runtime/voice';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 const has = (s: string) => (i: any) => JSON.stringify(i).includes(s);
@@ -385,9 +386,15 @@ describe('reply length setting', () => {
   it('puts the configured reply length into the draft instructions, and nothing when empty', async () => {
     const x = await setup();
     expect(await turn(x, 'I wait.', 'The harbor is quiet. [L0]')).toBe(true);
+    // with the length empty only the player-character note is there (dialogue is the GM's by default)
+    expect((x.model.tasks('draft').slice(-1)[0].input as any).lengthNote).toBe(voiceTurnNote(DEFAULT_PLAYER_VOICE));
+    x.engine.settings.playerVoice = { ...DEFAULT_PLAYER_VOICE, dialogue: false };
+    expect(await turn(x, 'I wait still.', 'Rain starts. [L2]')).toBe(true);
     expect((x.model.tasks('draft').slice(-1)[0].input as any).lengthNote).toBe('');
+    x.engine.settings.playerVoice = { ...DEFAULT_PLAYER_VOICE };
     x.engine.settings.replyLength = '正文约800~1200字';
     expect(await turn(x, 'I wait more.', 'Gulls circle the pier. [L1]')).toBe(true);
     expect((x.model.tasks('draft').slice(-1)[0].input as any).lengthNote).toContain('本回合回复篇幅要求：正文约800~1200字。写在这个范围内');
+    expect((x.model.tasks('draft').slice(-1)[0].input as any).lengthNote).toContain('they answer out loud whatever is said to them');
   });
 });

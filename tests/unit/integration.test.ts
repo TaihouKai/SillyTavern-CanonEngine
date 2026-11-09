@@ -8,7 +8,7 @@ import { makeEngine, tick, at, occ, legacyCampaign } from './fake';
 import { ROOT } from './helpers';
 import { engagementView, isBinding, engagementRecord } from '../../src/runtime/integration';
 import { PROMPTS, gmRulesFor, GM_INTEGRATION_RULES } from '../../src/runtime/prompts';
-import { DEFAULT_PLAYER_VOICE, voiceRule, LIVELY, REACT_NOT_DECIDE } from '../../src/runtime/voice';
+import { DEFAULT_PLAYER_VOICE, voiceRule, LIVELY, REACT_NOT_DECIDE, ANSWER_IN_SCENE } from '../../src/runtime/voice';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 type X = ReturnType<typeof makeEngine>;
@@ -868,6 +868,12 @@ describe('preferred matters', () => {
     expect(none).not.toContain(LIVELY);
     expect(none).not.toContain(REACT_NOT_DECIDE);
     expect(gmRulesFor(DEFAULT_PLAYER_VOICE)).toContain(REACT_NOT_DECIDE);
+    // answered, not mute: keeping a secret and answering a question are dialogue (live: 「你倒是说句话啊」 after a whole accusation)
+    expect(def).toContain(ANSWER_IN_SCENE);
+    expect(none).not.toContain(ANSWER_IN_SCENE);
+    expect(def).toMatch(/keeping them is not: dodging, joking, denying or a cover story[^]*is dialogue/);
+    expect(def).toMatch(/answering a question, giving an opinion or an excuse, teasing back or explaining themselves is dialogue/);
+    expect(PROMPTS.evaluate).toMatch(/secrets is only revealing one — denying, dodging or a cover story that keeps it is dialogue/);
     // the reviewer: a reaction to an offer is dialogue
     expect(PROMPTS.evaluate).toMatch(/reacting to an offer or question without saying yes or no[^]*is dialogue, not decisions/);
     // the Persona reading: how they come across and talk, front and real self

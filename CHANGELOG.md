@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.25.3 — 2026-11-09
+
+- **The player character answers what is said to them.** Live: the player wrote a greeting; 美琴 answered, 黑子 arrived and accused the player character at length, 美琴 asked 「你倒是说句话啊」 — and the player character only thought; the GM's reasoning held back a plain denial as if it were the player's decision or secret, and read the GM preset's "补全符合意图的自然台词" as "the greeting is all they meant to say". Now, when the GM may write dialogue:
+  - the rule says a reply is a whole exchange: the player character answers out loud, as the Persona would, and the talk goes on; the reply does not stop on something they would simply answer ("where were you last night?", "say something!") — only at a decision left to the player;
+  - keeping a secret (dodging, joking, denying, a cover story in keeping with the Persona) is dialogue, only revealing it is 透露秘密; answering a question, an excuse or teasing back is dialogue, not 做决定 — for the GM and for the reviewer's categories, so such a line is no longer sent back for a rewrite;
+  - a short note right after the player's message says the same (with the reply length): the rule alone sits above the last message. Probe (deepseek-v4.1-flash, the live GM preset, a made-up dorm scene where two characters question the player character about the night before): the player character answered in 0 of 4 replies before, 3 of 4 now, each with a cover story in character.
+  - Not in time leaps (the leap has its own rules).
+
 ## 1.25.2 — 2026-11-09
 
 - **A reply's own clock bounds when it ends.** Live: a reply finishing a meal begun two replies earlier (food served at 22:40), with "都快十一点了" in it, was given 23:20–23:35 — the reviewer added "a meal 30-60" again — and the clock only moves on. Now `clockReadings()` finds the time a reply states as now ("都快十一点了", "已经三点半了", "现在十点二十", "it's already 11:30"; not appointments like "明天八点开幕式"), and an estimated end more than 10 minutes after the latest one is taken back to it (a stated time or a time leap is left alone). The prompt: a meal already under way counts only what the reply shows; a clock read in the reply is the time at that point. Tests: CR1, CR2.

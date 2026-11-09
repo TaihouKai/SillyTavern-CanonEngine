@@ -684,6 +684,7 @@ try {
     const lastUser = msgs.map((m) => m.role).lastIndexOf('user');
     check(results, 'R01 the reply length typed in the panel is saved as text', saved === '正文约800~1200字', JSON.stringify(saved));
     check(results, 'R02 the length instruction comes after the latest player message, right before the reply', li >= 0 && li > lastUser && msgs.slice(li + 1).every((m) => m.role !== 'user' && m.role !== 'assistant'), msgs.map((m, i) => `${i}:${m.role}:${String(m.content).slice(0, 24)}`).slice(-4).join(' | '));
+    check(results, 'R02b the note on what the GM writes for the player character comes with it', li >= 0 && String(msgs[li].content).includes('they answer out loud whatever is said to them'), String(msgs[li]?.content || '').slice(0, 120));
     const lore = { content: (msgs.map((m) => String(m.content)).join(' ').match(/\[Canon Engine: relevant to this turn:[^\]]*\]/) || [''])[0] };
     check(results, 'R03 a short list of this turn’s relevant names is offered to the lorebook scan (not the whole registry)', !!lore.content && String(lore.content).includes('Mira') && !String(lore.content).includes('The Council') && String(lore.content).length < 600, String(lore?.content || '').slice(0, 200));
     const all = msgs.map((m) => String(m.content)).join('\n');
