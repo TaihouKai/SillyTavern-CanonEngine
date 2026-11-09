@@ -45,4 +45,12 @@ def mock(task, user):
             out.append({'key': k, 'name': name, 'aliases': [], 'kind': 'place' if k.startswith('p:') else 'person',
                         'description': f'{name}（模拟描述）。', 'id': f'mock-{i}-{zlib.crc32(k.encode('utf8')) % 10000}', 'same_as': '', 'skip': False})
         return {'entities': out}
+    if task.startswith('dedupe'):   # nothing is a duplicate (both the group listing and the pair check)
+        return {'groups': [], 'same': False, 'why': '模拟'}
+    if task == 'nature':
+        return {'none': True}
+    if task == 'nature_story':
+        return {'story': []}
+    if task == 'nature_verify':
+        return {'supported': False, 'quote': ''}
     return {}

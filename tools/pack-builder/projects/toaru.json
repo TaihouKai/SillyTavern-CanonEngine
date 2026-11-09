@@ -63,8 +63,6 @@
   "description": "《魔法禁书目录》系列（含超电磁炮、一方通行、未元物质、心理掌握、暗部少女共栖、幽幻姐妹等外传）的历史事件包。2.0 起由 canon-pack-builder 依据魔禁维基（灰机wiki）的篇章、时间线与考据页，以及英文 Toaru Wiki（fandom）的篇章页与人物经历逐篇细化；日期依考据页。HARD为主线关键节点，SOFT为可被玩家改变的重要事件（如角色死亡），FREE为背景与日常。恋爱关系一律不强制。",
   "time_zone_label": "日本标准时间（UTC+9）"
  },
- "base_pack": "work/toaru/base/toaru-index.canon.v1.3.0.json",
- "base_keep_before": "2019-04-01",
  "frames": {
   "default": "学园都市"
  },

@@ -4,3 +4,5 @@ work/
 config.json
 __pycache__/
 *.pyc
+# Settings for this machine only (projects/<name>.local.json), over the shared project file.
+projects/*.local.json
