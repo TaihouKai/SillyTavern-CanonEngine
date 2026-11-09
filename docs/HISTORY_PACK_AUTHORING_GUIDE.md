@@ -129,6 +129,24 @@ At play time the reviewer reports when a reply moves the scene into or out of a 
 
 `canon-lint` checks frame ids, unknown references, unreadable local dates, a frame on a non-place (warning) and an event whose places are in different frames without its own `frame_id` (warning). See `examples/frames-demo.canon.json`.
 
+### 常态 (a person's nature)
+
+A person with a power, a condition, a non-human body or a device they depend on can carry `nature`: how it shows in everyday scenes, so the GM plays it as part of the person rather than a skill kept for the plot.
+
+```json
+"nature": [
+  {"from_event": null, "habits": "…", "uses": "…", "others": "…", "limits": "…"},
+  {"from_event": "head-shot", "until_event": null, "why": "brain damage: depends on an electrode", "habits": "…", "uses": "…", "others": "…", "limits": "…"}
+]
+```
+
+- `habits`: what shows without any plot need (a passive use, visible signs, how often); `uses`: when they use it on purpose and how far they go with ordinary people and friends; `others`: how people treat them for it; `limits`: what it cannot do, its cost, what they will not do.
+- The first version holds at the story start (`from_event` null). A later one holds once its `from_event` has occurred in the branch, until its `until_event` has; only lasting changes of the nature itself (a power gained, lost or sealed; a prosthesis; a dependence on a device), never an injury that heals or plot.
+- Write patterns, never story: no names of other people outside `limits`, no incident from the original, no nickname or rumor. The GM reads it every turn for the people in the scene; a name or an episode there is taken as something to bring up.
+- canon-pack-builder writes it with `python -m cpb nature -p <project>` (see its README).
+
+`canon-lint` checks that the first version has `from_event` null, later ones have one, and their events exist.
+
 ## 4. Sources and provenance
 
 Each source has `id`, `title`, `locator`, `kind`, and `notes`. `locator` can be a volume/chapter/page citation, a stable URL, a user-provided corrected reference path with entry IDs, or an editorial record. It need not be publicly downloadable. `kind` is `primary`, `secondary`, `editorial`, or `example`.

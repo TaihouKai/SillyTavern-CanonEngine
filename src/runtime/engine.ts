@@ -2,7 +2,7 @@
 // commit), journal recovery, backup. Host-independent (see host.ts).
 import { loreFor, type LoreBackground, type LoreEntry } from './lore';
 import type { Persona } from './host';
-import type { Id, LedgerRecord, StoryTime } from '../domain/types';
+import type { Id, LedgerRecord, NatureVersion, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { valuesEqual } from '../domain/pack';
 import { buildBootstrap, causeOf, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
@@ -2860,6 +2860,25 @@ export class CanonEngine {
       }
     }
     return { now, changes, hidden };
+  }
+
+  /** 常态 of the pack's people: each version with how it stands in this game (in force now, ended, or not reached).
+   *  A version not reached starts at an event still to come: a canon spoiler, shown only with spoilers on. */
+  natureView(spoilers: boolean): { people: { id: Id; name: string; versions: (NatureVersion & { from: string | null; until: string | null; state: 'now' | 'ended' | 'later' })[] }[]; hidden: number } | null {
+    if (!this.campaign() || !this.current) return null;
+    const idx = this.current.index;
+    const s = this.current.replay.state;
+    const title = (e?: Id | null) => (e ? idx.pack.events.get(e)?.title || e : null);
+    const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
+    let hidden = 0;
+    const people = [...idx.pack.entities.values()].filter((e) => e.nature?.length).map((e) => {
+      const nowAt = idx.natureNow(e.id)!.index;
+      const versions = e.nature!.map((v, i) => ({ ...v, from: title(v.from_event), until: title(v.until_event),
+        state: (i === nowAt ? 'now' : i === 0 || occurred(v.from_event) ? 'ended' : 'later') as 'now' | 'ended' | 'later' }))
+        .filter((v) => { if (v.state === 'later' && !spoilers) { hidden++; return false; } return true; });
+      return { id: e.id, name: e.name, versions };
+    });
+    return { people, hidden };
   }
 
   inspector(spoilers: boolean) {

@@ -55,6 +55,14 @@ export interface PackEntity {
   static_description: string; source_refs: Id[];
   /** A place in a time frame (a past era, another world): scenes and events there keep that frame's local time. */
   frame_id?: Id;
+  /** 常态: how a person's power, condition or non-human body shows in everyday scenes, in versions (see natureNow). */
+  nature?: NatureVersion[];
+}
+/** One version of a 常态. The first (from_event null) holds at the story start; a later one once its from_event has
+ *  occurred in the branch, until its until_event has. Written as patterns, never as story. */
+export interface NatureVersion {
+  from_event: Id | null; until_event?: Id | null; why?: string;
+  habits: string; uses: string; others: string; limits: string;
 }
 export interface PackPredicate {
   id: Id; description: string;

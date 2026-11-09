@@ -517,6 +517,60 @@
         },
         "frame_id": {
           "$ref": "#/$defs/id"
+        },
+        "nature": {
+          "description": "常态: how the person's power, condition or non-human body shows in everyday scenes. Version 1 (from_event null) holds at the story start; a later version holds once its from_event has occurred in the branch, until its until_event has.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "properties": {
+              "from_event": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "until_event": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "why": {
+                "type": "string"
+              },
+              "habits": {
+                "type": "string"
+              },
+              "uses": {
+                "type": "string"
+              },
+              "others": {
+                "type": "string"
+              },
+              "limits": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "from_event",
+              "habits",
+              "uses",
+              "others",
+              "limits"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [

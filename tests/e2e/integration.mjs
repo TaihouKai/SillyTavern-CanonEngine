@@ -869,6 +869,33 @@ try {
     check(results, 'DG03 a story beat has 重新分析; it examines the reply that recorded it again', hasRa && reEval >= 1 && (await engineState(page)).occurrences.some((o) => o.title === '码头吃烤鱼' || /烤鱼/.test(o.title)), `button=${hasRa} evaluate=${reEval}`);
     await page.evaluate(() => document.querySelector('[data-act="close"]')?.click());
   }
+  if (want('S31')) {
+    console.log('\n== S31 角色常态 ==');
+    await mock('/control', { mainQueue: [], mainRules: [], taskRules: [], auxRules: [], malformedNext: {}, clearLogs: true });
+    await newChat(page);
+    const p = JSON.parse(packText('demo.canon.json'));
+    p.entities.find((e) => e.id === 'mira').nature = [
+      { from_event: null, habits: 'NT_NOW 缝伤口时总哼着歌', uses: '谁受伤都会顺手处理', others: '码头工人信任她', limits: '救不回已经死去的人' },
+      { from_event: 'conflict-begins', until_event: null, why: 'NT_LATER_WHY', habits: 'NT_LATER 手会发抖', uses: '仍然缝合，但更慢', others: '工人们担心她', limits: '做不了精细活' }];
+    await bind(page, JSON.stringify(p), tick(0, 8));
+    await mock('/control', { mainQueue: ['米拉抬起头。NT_A'], clearLogs: true, taskRules: [rule('extract_user', '去找那位医生', { references: [{ phrase: '那位医生', quote: '那位医生', kind: 'entity', mode: 'indirect', candidates: ['mira'] }], scene_entities: ['mira'] })] });
+    await send(page, '我去找那位医生聊聊。');
+    const all = ((await mainLogs())[0]?.messages || []).map((m) => String(m.content)).join('\n');
+    check(results, 'NT01 the story model gets the 常态 in force of the person in the scene, as background, not the version to come', all.includes('HOW THEY ARE (常态') && all.includes('NT_NOW') && !all.includes('NT_LATER'), `section=${all.includes('HOW THEY ARE')} now=${all.includes('NT_NOW')} later=${all.includes('NT_LATER')}`);
+    await page.evaluate(() => document.querySelector('#canon-engine-top-button .canon-top-toggle')?.click());
+    await page.waitForSelector('.cg-nature-btn', { timeout: 10000 });
+    await page.click('.cg-nature-btn');
+    await page.waitForSelector('.cg-naturewrap', { timeout: 5000 });
+    const view = await page.$eval('.cg-naturewrap', (n) => n.textContent);
+    check(results, 'NT02 角色常态 in the timeline lists the person, the version in force marked; the one to come hidden without spoilers', view.includes('Mira') && view.includes('NT_NOW') && view.includes('当前生效') && !view.includes('NT_LATER') && view.includes('尚未到来的常态版本'), view.slice(0, 200));
+    await page.click('.cg-spoil');
+    await page.waitForFunction(() => document.querySelector('.cg-naturewrap')?.textContent.includes('NT_LATER'), null, { timeout: 5000 }).catch(() => {});
+    const spoiled = await page.$eval('.cg-naturewrap', (n) => n.textContent).catch(() => '');
+    check(results, 'NT03 with spoilers on, the version to come shows with the event it starts at', spoiled.includes('NT_LATER') && spoiled.includes('尚未到来') && spoiled.includes('从「'), spoiled.slice(0, 300));
+    await page.click('.cg-spoil');
+    await page.click('.cg-nature-btn');   // back to the timeline: the panel keeps its view when reopened
+    await page.evaluate(() => document.querySelector('[data-act="close"]')?.click());
+  }
   if (want('S20')) {
     console.log('\n== S20 events under way; 重新分析 ==');
     await freshChat();

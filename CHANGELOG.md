@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.26.0 — 2026-11-09
+
+- **角色常态 (a person's nature).** A pack person can carry `nature`: how their power, condition or non-human body shows in everyday scenes (habits / uses / others / limits), in versions that start (and end) at pack events. The GM was playing such people as ordinary people who own a skill used only when the plot calls for it (a telepath who never reads a mind unasked, an electro-master who never sparks). Now the version in force in this branch — the last whose event has occurred, so a change the player prevented never comes — goes to the story model for the people in the scene, introduced as background, not story: not a topic, not the same display every reply; what a person learns through their own power is how they know it. The text is written as patterns, never story (no names, no episodes: canon-pack-builder checks both). canon-lint checks the versions' events. Tests: NT1–NT4, e2e NT01–NT03.
+- **「角色常态」 in the timeline window**: every person's 常态 with the version in force marked; versions still to come are spoilers (shown with 剧透 on); the search box filters by name.
+- Pack: 魔禁 2.2.0 carries 常态 for 305 people (canon-pack-builder `nature`).
+
 ## 1.25.6 — 2026-11-09
 
 - **A story event that sets exactly a HARD event's required outcome, inside its time window, is that event occurring.** Live: a reply ended on the opening announcement at the authored time; the reviewer filed it as a plain story event with the outcome (festival in progress) but neither linked it to the HARD event nor confirmed its check, so the draft was rewritten as "sets a required outcome without that event occurring". Now such an occurrence is linked to the HARD event (all its required outcomes, no other value of them, the time within the window or a little before its start as for linked events); a reviewer check saying contradicted still blocks it, and outside the window it is still a violation. Test: EH3.

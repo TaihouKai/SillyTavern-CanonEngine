@@ -301,6 +301,24 @@ function presentAt(index: WorldIndex, eventId: Id, tick: number): Set<Id> {
 const routeLabel = (cls: string | undefined) => (cls === 'SOFT' ? 'Original route (SOFT: the default course)' : 'Original route (FREE: reference)');
 const CAST_RULE = 'CAST of an event (fixed times, like the event\'s own): each listed person is at the event from that time. Whoever\'s time has come is there — show them when the player character is there or arrives, even if the scene so far is about someone else. Whoever\'s time is later turns up at that time, whatever the player has done meanwhile (fighting or talking with someone else does not keep them away); only actual history that makes it impossible (dead, held captive) does. If your reply ends before someone\'s time, they have not arrived yet; do not move the clock to reach or avoid an arrival. What they do once there follows from actual play; the role says why they are there.';
 
+/** At most this many people's 常态 in one context: the people in the scene first, then those the text mentions. */
+export const NATURE_MAX = 6;
+// User: the worry is that the GM takes this as story to bring up every turn; it is written as patterns (no names, no
+// episodes) and introduced as background.
+const NATURE_HEAD = 'HOW THEY ARE (常态: the standing nature of people here — how their power, condition or body shows in everyday behaviour, as of now in this branch). Background, not story: let it show in what they do and notice when the scene gives it room — a habit, a reflex, a passive use — without making it a topic, and without the same display every reply. Nothing in it happened; it is how they are. What a person learns through their own power (reading minds, sensing) is how they know it, not "knowing what they could not know".';
+function natureSection(index: WorldIndex, retrieval: Retrieval): string {
+  const rank = (t: Set<string>) => (t.has('scene') ? 0 : t.has('mentioned') ? 1 : 2);
+  const people = [...retrieval.entities].filter(([id, t]) => rank(t) < 2 && index.entityKind(id) === 'person')
+    .sort((a, b) => rank(a[1]) - rank(b[1]))
+    .map(([id]) => ({ id, now: index.natureNow(id) })).filter((p) => p.now).slice(0, NATURE_MAX);
+  if (!people.length) return '';
+  return NATURE_HEAD + '\n' + people.map(({ id, now }) => {
+    const v = now!.version;
+    const parts = (['habits', 'uses', 'others', 'limits'] as const).filter((k) => v[k]?.trim()).map((k) => `${k}: ${v[k].trim()}`);
+    return `- ${index.entityName(id)} [${id}]: ${parts.join(' | ')}`;
+  }).join('\n');
+}
+
 function canonLine(c: CanonStatusView): string {
   return `- ${c.title} [${c.packEventId}] (${c.classification}): ${c.status.toUpperCase()} — ${c.note}`;
 }
@@ -358,6 +376,8 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   const states = views.filter((v) => !bare.includes(v)).map((v) => stateLine(v, compact, listed));
   if (bare.length) states.push(`- no established facts: ${bare.map((v) => `${v.name} [${v.entityId}]`).join(', ')}`);
   required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops; no other supported change through ${cpLabel}; a property not listed for an entity is UNKNOWN — not established, do not assume normality):\n` + (states.length ? states.join('\n') : '- (no referenced entities)'));
+  const nature = natureSection(index, retrieval);
+  if (nature) required.push(nature);
   // The player in the world and their decisions: required, never dropped for budget, also for the reviewer.
   if (inp.presence) required.push(inp.presence);
   if (inp.recognition) required.push(inp.recognition);

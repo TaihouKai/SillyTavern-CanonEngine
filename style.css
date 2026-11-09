@@ -183,6 +183,16 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .canon-graph-panel .cg-members { width: 100%; margin-bottom: 10px; }
 .canon-graph-panel .cg-members td { vertical-align: top; }
 .canon-graph-panel .cg-mstate-future td, .canon-graph-panel .cg-mstate-diverged td { opacity: 0.75; }
+/* 常态: one collapsible block per person, a block per version; the version in force stands out */
+.cg-nperson { border-bottom: 1px solid rgba(128,128,128,.3); padding: 4px 0; }
+.cg-nperson > summary { cursor: pointer; font-weight: bold; }
+.cg-nver { margin: 6px 0 6px 12px; padding: 4px 8px; border-left: 3px solid rgba(128,128,128,.4); }
+.cg-nver-now { border-left-color: #46d39a; }
+.cg-nver-ended, .cg-nver-later { opacity: .7; }
+.cg-nhead { margin-bottom: 3px; }
+.cg-nwhy { margin-left: 6px; opacity: .8; font-size: .92em; }
+.cg-nfield b { margin-right: 6px; }
+.cg-key.cg-nstate-now { background: #1f6b4f; border-color: #46d39a; } .cg-key.cg-nstate-ended { background: #555; } .cg-key.cg-nstate-later { background: #333; opacity: .7; }
 /* time frames: a colored stripe on events in another frame, the same color in the legend */
 .cg-frame { pointer-events: none; }
 .cg-frame-0 { fill: #e07a5f; background: #e07a5f; } .cg-frame-1 { fill: #3d9970; background: #3d9970; }

@@ -482,7 +482,23 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
   }
   if (!pack.events.some((e) => e.when.earliest)) warn('/coverage', 'coverage promises scheduled play but no finite-time events exist');
   lintFrames(pack, entities, err, warn);
+  lintNature(pack, err, warn);
   return { errors: dedupeIssues(errors), warnings: dedupeIssues(warnings) };
+}
+
+/** 常态 versions: the first holds at the start (from_event null), later ones start (and end) at known events. */
+function lintNature(pack: CanonPack, err: (p: string, m: string) => void, warn: (p: string, m: string) => void) {
+  const evs = new Set(pack.events.map((e) => e.id));
+  pack.entities.forEach((e, i) => {
+    if (!e.nature) return;
+    if (e.kind !== 'person') warn(`/entities/${i}/nature`, `nature on a ${e.kind}: it is written for people`);
+    e.nature.forEach((v, j) => {
+      const at = `/entities/${i}/nature/${j}`;
+      if (j === 0 && v.from_event !== null) err(`${at}/from_event`, 'the first version holds at the story start: from_event must be null');
+      if (j > 0 && v.from_event === null) err(`${at}/from_event`, 'a later version starts at an event: from_event is missing');
+      for (const k of ['from_event', 'until_event'] as const) if (v[k] && !evs.has(v[k]!)) err(`${at}/${k}`, `unknown event "${v[k]}"`);
+    });
+  });
 }
 
 /** Time frames: ids unique and not "main", linked clocks readable, references known, places' frames consistent. */

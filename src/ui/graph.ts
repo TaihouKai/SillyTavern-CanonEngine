@@ -420,6 +420,12 @@ export interface MembersView {
   hidden: number;
 }
 
+/** 常态 of the pack's people as the timeline shows them (see CanonEngine.natureView). */
+export interface NatureView {
+  people: { id: string; name: string; versions: { from: string | null; until: string | null; why?: string; habits: string; uses: string; others: string; limits: string; state: 'now' | 'ended' | 'later' }[] }[];
+  hidden: number;
+}
+
 export class GraphPanel {
   el: HTMLElement;
   private data: { pack: GraphData | null; current: GraphData | null } = { pack: null, current: null };
@@ -444,10 +450,13 @@ export class GraphPanel {
   private redrawTimer: ReturnType<typeof setTimeout> | null = null;
   private dragged = false;
   private getMembers: (spoilers: boolean) => MembersView | null;
+  private showNature = false;
+  private getNature: (spoilers: boolean) => NatureView | null;
 
-  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined, linkCandidates: GraphPanel['linkCandidates'] = () => [], getMembers: GraphPanel['getMembers'] = () => null) {
+  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined, linkCandidates: GraphPanel['linkCandidates'] = () => [], getMembers: GraphPanel['getMembers'] = () => null, getNature: GraphPanel['getNature'] = () => null) {
     this.getData = getData;
     this.getMembers = getMembers;
+    this.getNature = getNature;
     this.setSpoilers = setSpoilers;
     this.onEventAction = onEventAction;
     this.linkCandidates = linkCandidates;
@@ -472,12 +481,12 @@ export class GraphPanel {
     if (!this.isOpen()) return;
     const d = this.getData(false);
     this.data = { pack: d.pack, current: d.current };
-    if (d.preview) { this.mode = 'pack'; this.showMembers = false; }
+    if (d.preview) { this.mode = 'pack'; this.showMembers = false; this.showNature = false; }
     if (!d.current && this.mode === 'current') this.mode = 'pack';
     const g0 = this.mode === 'pack' ? d.pack : d.current;
     const g = g0 ? this.applyFilter(g0) : null;
     // lay out and draw first: the legend lists the frames near the view
-    const canvasHtml = this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t('graphNoData')}</div>` : this.firstSvg(g);
+    const canvasHtml = this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t('graphNoData')}</div>` : this.firstSvg(g);
     const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc(a.id)}" ${a.id === this.filter.arc ? 'selected' : ''}>${esc(a.title)}</option>`).join('');
     this.el.innerHTML = `
       <div class="cg-head">
@@ -493,13 +502,14 @@ export class GraphPanel {
         ${this.mode === 'current' && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t('digestTip'))}">${t('digest')}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t('undigestTip'))}">${t('undigest')}</button>` : ''}` : ''}
         ${this.mode === 'current' && d.current?.frames?.now ? this.frameSelect(d.current) : ''}
         ${d.preview ? '' : `<button class="menu_button ${this.showMembers ? 'active' : ''}" data-act="members" title="${esc(t('membersTip'))}">${t('members')}</button>`}
+        ${d.preview ? '' : `<button class="menu_button cg-nature-btn ${this.showNature ? 'active' : ''}" data-act="nature" title="${esc(t('natureTip'))}">${t('nature')}</button>`}
         <button class="menu_button" data-act="fit">${t('graphFit')}</button>
         <button class="menu_button" data-act="close">✕</button>
       </div>
       <div class="cg-legend">${this.legend()}<span class="cg-flegend">${this.frameLegend()}</span><span class="cg-hint">${this.mode === 'pack' ? t('graphPackNote') : t('graphCurrentNote')}</span></div>
       <div class="cg-body">
         <div class="cg-canvas">${canvasHtml}</div>
-        <div class="cg-detail"${this.showMembers ? ' style="display:none"' : ''}><div class="cg-empty">${t('graphPick')}</div></div>
+        <div class="cg-detail"${this.showMembers || this.showNature ? ' style="display:none"' : ''}><div class="cg-empty">${t('graphPick')}</div></div>
       </div>`;
     this.bindCanvas();
     if (this.selected) this.select(this.selected);
@@ -525,6 +535,21 @@ export class GraphPanel {
       ? `<table class="canon-table cg-members"><tr><th>${t('membersWhen')}</th><th>${t('membersEvent')}</th><th>${t('membersOrg')}</th><th>${t('membersChange')}</th><th></th></tr>${m.changes.map((c) => `<tr class="cg-mstate-${c.state}"><td>${esc(c.when)}</td><td>${esc(c.event)}</td><td>${esc(c.org)}</td><td>${esc(memberChange(c))}</td><td><span class="cg-key cg-s-${c.state}">${statusLabel(c.state as GStatus)}</span></td></tr>`).join('')}</table>`
       : '';
     return `<div class="cg-memberswrap"><h4>${t('membersNowTitle')}</h4>${now}<h4>${t('membersChangesTitle')}</h4>${ch || `<div class="cg-empty">${t('membersNoChanges')}</div>`}${m.hidden ? `<div class="cg-hint">${t('membersHidden').replace('{n}', String(m.hidden))}</div>` : ''}</div>`;
+  }
+
+  /** 常态: each person's versions, the one in force in this game marked; the search box filters by name. */
+  private natureHtml(spoilers: boolean): string {
+    const v = this.getNature(spoilers);
+    if (!v) return `<div class="cg-empty">${t('graphNoData')}</div>`;
+    if (!v.people.length) return `<div class="cg-empty">${t('natureNone')}</div>`;
+    const q = this.filter.q.trim().toLowerCase();
+    const people = v.people.filter((p) => !q || p.name.toLowerCase().includes(q));
+    const field = (k: string, x: string) => (x.trim() ? `<div class="cg-nfield"><b>${t('nature_' + k)}</b>${esc(x)}</div>` : '');
+    const ver = (x: NatureView['people'][number]['versions'][number]) => {
+      const head = x.from ? t('natureFrom').replace('{e}', x.from) + (x.until ? t('natureUntil').replace('{e}', x.until) : '') : t('natureStart');
+      return `<div class="cg-nver cg-nver-${x.state}"><div class="cg-nhead">${esc(head)} <span class="cg-key cg-nstate-${x.state}">${t('natureState_' + x.state)}</span>${x.why ? `<span class="cg-nwhy">${esc(x.why)}</span>` : ''}</div>${field('habits', x.habits)}${field('uses', x.uses)}${field('others', x.others)}${field('limits', x.limits)}</div>`;
+    };
+    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t('natureNote').replace('{n}', String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? ' open' : ''}><summary>${esc(p.name)}${p.versions.length > 1 ? ` <span class="cg-hint">${t('natureVersions').replace('{n}', String(p.versions.length))}</span>` : ''}</summary>${p.versions.map(ver).join('')}</details>`).join('')}${v.hidden ? `<div class="cg-hint">${t('natureHidden').replace('{n}', String(v.hidden))}</div>` : ''}</div>`;
   }
 
   /** 当前时空: the scene's time frame, changeable by hand when the reviewer missed a move between frames. */
@@ -647,7 +672,8 @@ export class GraphPanel {
     if (b?.dataset.mode) { this.mode = b.dataset.mode as 'pack' | 'current'; this.selected = null; this.refresh(); return; }
     if (b?.dataset.act === 'close') { this.toggle(false); return; }
     if (b?.dataset.act === 'preview-exit') { this.onPreviewEnd?.(); this.selected = null; this.keepView = false; this.refresh(); return; }
-    if (b?.dataset.act === 'members') { this.showMembers = !this.showMembers; this.keepView = true; this.refresh(); return; }
+    if (b?.dataset.act === 'members') { this.showMembers = !this.showMembers; this.showNature = false; this.keepView = true; this.refresh(); return; }
+    if (b?.dataset.act === 'nature') { this.showNature = !this.showNature; this.showMembers = false; this.keepView = true; this.refresh(); return; }
     if (b?.dataset.act === 'fit') { (this as unknown as { fit?: () => void }).fit?.(); return; }
     if (b?.dataset.act === 'digest' || b?.dataset.act === 'undigest') {
       (b as HTMLButtonElement).disabled = true;
