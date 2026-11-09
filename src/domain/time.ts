@@ -61,6 +61,12 @@ export function formatStoryTime(st: StoryTime | null | undefined, origin?: { y: 
   return `${formatTick(st.lo, origin)} – ${formatTick(st.hi, origin)}`;
 }
 
+/** When an occurrence happened, for display: an undated backstory is "some time before" its latest possible time. */
+export function occurrenceTime(o: { time: StoryTime; undated?: true }, origin?: { y: number; m: number; d: number } | null, lang: 'en' | 'zh' = 'en'): string {
+  if (!o.undated) return formatStoryTime(o.time, origin);
+  return lang === 'zh' ? `${formatTick(o.time.hi, origin)} 之前某时（时间不详）` : `some time before ${formatTick(o.time.hi, origin)} (when is not given)`;
+}
+
 /** Parse "D3 16:00", "3 16:00", "day 3 16:00", "-1 08:30" into a tick. */
 export function parseTickLabel(s: string): number | null {
   const m = String(s).trim().match(/^(?:d(?:ay)?\s*)?(-?\d+)(?:\s+|\s*[,/]\s*)(\d{1,2}):(\d{2})$/i);

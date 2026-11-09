@@ -5,7 +5,7 @@ import type { LoadedPack } from './pack';
 import { normalizeName } from './pack';
 import type { Checkpoint, OccurrenceEntry, WorldState } from './reducer';
 import { factAt, factKey, factHistory } from './reducer';
-import { formatStoryTime, formatTick } from './time';
+import { formatStoryTime, formatTick, occurrenceTime } from './time';
 import { deltaText } from './delta';
 
 export interface ResolvedRef {
@@ -259,7 +259,7 @@ export class WorldIndex {
       title: o.title,
       status: 'occurred',
       account: o.account,
-      time: formatStoryTime(o.time, origin),
+      time: occurrenceTime(o, origin),
       timeTicks: o.time,
       origin: o.origin,
       actors: o.actors.map((x) => this.entityName(x)),

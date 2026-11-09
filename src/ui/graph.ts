@@ -3,7 +3,7 @@
 // start to end), swim lanes by classification (HARD / SOFT / FREE / 本局事件), greedy row packing inside lanes.
 import type { LoadedPack } from '../domain/pack';
 import type { WorldState } from '../domain/reducer';
-import { formatTick, formatStoryTime } from '../domain/time';
+import { formatTick, formatStoryTime, occurrenceTime } from '../domain/time';
 import { localTime } from '../domain/frames';
 import { summaryLines } from '../domain/summary';
 import { sceneRoot, segmentSceneChain, uniq } from '../domain/util';
@@ -147,11 +147,13 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
   for (const [id, seg] of segments) for (const m of seg) boxOf.set(m.occurrenceId, id);
   for (const [root, members, dg] of segments) {
     const first = members[0];
-    const lo = Math.min(...members.map((m) => m.time.lo)), hi = Math.max(...members.map((m) => m.time.hi));
+    // an undated backstory sits just before its latest possible time, not across the whole range it may be in
+    const lo = Math.min(...members.map((m) => (m.undated ? m.time.hi : m.time.lo))), hi = Math.max(...members.map((m) => m.time.hi));
     const span = members.length > 1 ? { lo, hi, precision: 'range' as const } : first.time;
+    const when = members.length === 1 ? occurrenceTime(first, origin, 'zh') : formatStoryTime(span, origin);
     const outcomes = members.flatMap(outcomeText);
     g.nodes.push({
-      id: root, title: dg ? `${dg.title}（${members.length}段）` : members.length > 1 ? `${first.title}（${members.length}段）` : first.title, lane: 'RUNTIME', tick: lo, tickHi: hi, when: formatStoryTime(span, origin), short: shortRange(lo, hi, origin),
+      id: root, title: dg ? `${dg.title}（${members.length}段）` : members.length > 1 ? `${first.title}（${members.length}段）` : first.title, lane: 'RUNTIME', tick: lo, tickHi: hi, when, short: shortRange(lo, hi, origin),
       summary: dg ? `${dg.summary}\n\n${members.map((m) => `· ${formatTick(m.time.lo, origin).split(' ')[1]} ${m.title}`).join('\n')}` : members.length > 1 ? members.map((m) => `${m.title}：${m.account}`).join('\n') : first.account,
       status: 'runtime', origin: first.origin,
       detail: [`来源：${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join('、')}`, ...(members.length > 1 && !dg ? [`同一场景：${members.map((m) => `${formatTick(m.time.lo, origin).split(' ')[1]} ${m.title}`).join(' → ')}`] : []), ...(outcomes.length ? [`本局结果：${outcomes.join('；')}`] : [])],

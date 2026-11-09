@@ -9,7 +9,7 @@ import { buildBootstrap, causeOf, pendingHard, forcedCompletion, linkedCompletio
 import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { WorldIndex } from '../domain/world-query';
-import { formatTick, formatStoryTime, fromTick, parseDateLabel, toTick } from '../domain/time';
+import { formatTick, formatStoryTime, fromTick, occurrenceTime, parseDateLabel, toTick } from '../domain/time';
 import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
 import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
@@ -751,7 +751,7 @@ export class CanonEngine {
     // recent actual occurrences (indirect references usually point at recent history)
     const recent = [...index.state.occurrences.values()].sort((a, b) => b.seq - a.seq).slice(0, 15);
     for (const o of recent) hits.add(o.occurrenceId);
-    return [...hits].slice(0, limit).map((id) => { const o = index.state.occurrences.get(id)!; return { id, title: o.title, time: formatStoryTime(o.time), refPhrases: o.refPhrases }; });
+    return [...hits].slice(0, limit).map((id) => { const o = index.state.occurrences.get(id)!; return { id, title: o.title, time: occurrenceTime(o), refPhrases: o.refPhrases }; });
   }
 
   async extractUser(entry: SourceEntry, index: WorldIndex, signal?: AbortSignal, operationId = 'reconcile'): Promise<Interpretation> {
@@ -2852,7 +2852,7 @@ export class CanonEngine {
       branchId: c.branchId,
       recovery: c.recoveryState,
       facts,
-      occurrences: [...s.occurrences.values()].filter((o) => !hidden(o.packEventId)).map((o) => ({ id: o.occurrenceId, title: o.title, time: formatStoryTime(o.time, origin), origin: o.origin, account: o.account })),
+      occurrences: [...s.occurrences.values()].filter((o) => !hidden(o.packEventId)).map((o) => ({ id: o.occurrenceId, title: o.title, time: formatStoryTime(o.time, origin), before: o.undated ? formatTick(o.time.hi, origin) : undefined, origin: o.origin, account: o.account })),
       deviations: [...s.dispositions].filter(([, d]) => d.disposition !== 'occurred').map(([id, d]) => ({ id, title: pack.events.get(id)?.title, disposition: d.disposition, reason: d.reason })),
       anchors: pack.hardEvents.map((id) => {
         const e = pack.events.get(id)!;

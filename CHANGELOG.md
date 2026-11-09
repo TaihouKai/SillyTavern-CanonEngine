@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.25.4 — 2026-11-09
+
+- **A small past a reply tells without saying when is "some time before", not an event lasting months.** Live: "last time she and the player went shopping, half the street turned to look" was shown in the timeline as 2020-07-19 00:00 (D0) – 2020-09-18 17:14 (D61) — the range it may be in (the year before now, cut off at day 0), drawn as a bar across the whole of it. Now such a backstory is marked undated: the timeline places it just before now and shows 「… 之前某时（时间不详）」, the history page and the GM's history read "some time before …"; it is not counted as something that happened lately, and the year before now is no longer cut off at day 0 (story time before day 0 is valid). A backstory the reply dates keeps its time. Test: PV10.
+
 ## 1.25.3 — 2026-11-09
 
 - **The player character answers what is said to them.** Live: the player wrote a greeting; 美琴 answered, 黑子 arrived and accused the player character at length, 美琴 asked 「你倒是说句话啊」 — and the player character only thought; the GM's reasoning held back a plain denial as if it were the player's decision or secret, and read the GM preset's "补全符合意图的自然台词" as "the greeting is all they meant to say". Now, when the GM may write dialogue:

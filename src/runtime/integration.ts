@@ -344,7 +344,7 @@ export function playerHistory(index: WorldIndex, profile: PlayerProfile, tick: n
 export function lately(index: WorldIndex, profile: PlayerProfile, tick: number, perEntity = 6) {
   const from = tick - LATELY_DAYS * 1440;
   const of = (id: Id) => index.occurrencesForEntity(id).map((x) => index.state.occurrences.get(x)!)
-    .filter((o) => o && o.time.lo <= tick && o.time.hi >= from && ![...o.actors, ...o.affected].includes(profile.playerId))
+    .filter((o) => o && !o.undated && o.time.lo <= tick && o.time.hi >= from && ![...o.actors, ...o.affected].includes(profile.playerId))
     .sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq).slice(-perEntity)
     .map((o) => ({ id: o.occurrenceId, time: when(o.time.lo, tick), title: o.title, account: o.account.length > 200 ? o.account.slice(0, 197) + '…' : o.account }));
   return [
@@ -716,7 +716,7 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
     // kidnapping of the player's friend became "she has been missing since this morning")
     const old = (b: string) => {
       const oc = st.occurrences.get(b);
-      if (oc) return oc.time.hi < tick - LATELY_DAYS * 1440 && ![...oc.actors, ...oc.affected].includes(profile.playerId);
+      if (oc) return (!!oc.undated || oc.time.hi < tick - LATELY_DAYS * 1440) && ![...oc.actors, ...oc.affected].includes(profile.playerId);
       const d = st.dispositions.get(b);
       return !!d && d.tick < tick - LATELY_DAYS * 1440;
     };

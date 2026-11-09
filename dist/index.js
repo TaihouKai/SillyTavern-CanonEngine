@@ -17923,6 +17923,10 @@ function formatStoryTime(st, origin) {
   if (st.lo === st.hi) return formatTick(st.lo, origin);
   return `${formatTick(st.lo, origin)} \u2013 ${formatTick(st.hi, origin)}`;
 }
+function occurrenceTime(o, origin, lang2 = "en") {
+  if (!o.undated) return formatStoryTime(o.time, origin);
+  return lang2 === "zh" ? `${formatTick(o.time.hi, origin)} \u4E4B\u524D\u67D0\u65F6\uFF08\u65F6\u95F4\u4E0D\u8BE6\uFF09` : `some time before ${formatTick(o.time.hi, origin)} (when is not given)`;
+}
 function parseTickLabel(s) {
   const m = String(s).trim().match(/^(?:d(?:ay)?\s*)?(-?\d+)(?:\s+|\s*[,/]\s*)(\d{1,2}):(\d{2})$/i);
   if (!m) return null;
@@ -19608,7 +19612,7 @@ var WorldIndex = class _WorldIndex {
       title: o.title,
       status: "occurred",
       account: o.account,
-      time: formatStoryTime(o.time, origin),
+      time: occurrenceTime(o, origin),
       timeTicks: o.time,
       origin: o.origin,
       actors: o.actors.map((x) => this.entityName(x)),
@@ -23322,7 +23326,7 @@ function playerHistory(index, profile2, tick, withIds = [], limit = 30) {
 }
 function lately(index, profile2, tick, perEntity = 6) {
   const from = tick - LATELY_DAYS * 1440;
-  const of = (id) => index.occurrencesForEntity(id).map((x) => index.state.occurrences.get(x)).filter((o) => o && o.time.lo <= tick && o.time.hi >= from && ![...o.actors, ...o.affected].includes(profile2.playerId)).sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq).slice(-perEntity).map((o) => ({ id: o.occurrenceId, time: when(o.time.lo, tick), title: o.title, account: o.account.length > 200 ? o.account.slice(0, 197) + "\u2026" : o.account }));
+  const of = (id) => index.occurrencesForEntity(id).map((x) => index.state.occurrences.get(x)).filter((o) => o && !o.undated && o.time.lo <= tick && o.time.hi >= from && ![...o.actors, ...o.affected].includes(profile2.playerId)).sort((a, b) => a.time.lo - b.time.lo || a.seq - b.seq).slice(-perEntity).map((o) => ({ id: o.occurrenceId, time: when(o.time.lo, tick), title: o.title, account: o.account.length > 200 ? o.account.slice(0, 197) + "\u2026" : o.account }));
   return [
     ...playerOrgs(index, profile2, tick).map((o) => ({ of: o.name, id: o.id, player_standing: STANDING[o.standing], events: of(o.id) })),
     ...profile2.places.map((p) => ({ of: nameIn(index, p.entityId, p.name), id: p.entityId, events: of(p.entityId) }))
@@ -23669,7 +23673,7 @@ function checkOpportunities(out, index, profile2, candidates, tick, quiet = fals
     const basisRefs = uniq((o.basis_refs || []).filter((b) => st.occurrences.has(b) || pack2.events.has(b)));
     const old = (b) => {
       const oc = st.occurrences.get(b);
-      if (oc) return oc.time.hi < tick - LATELY_DAYS * 1440 && ![...oc.actors, ...oc.affected].includes(profile2.playerId);
+      if (oc) return (!!oc.undated || oc.time.hi < tick - LATELY_DAYS * 1440) && ![...oc.actors, ...oc.affected].includes(profile2.playerId);
       const d = st.dispositions.get(b);
       return !!d && d.tick < tick - LATELY_DAYS * 1440;
     };
@@ -25216,7 +25220,8 @@ function runGate(g) {
     }
     const deltas = transitionsByRef.get(o.ref) || [];
     const given = toStoryTime(o.time);
-    let time = o.backstory ? given && given.hi < g.clockTick ? given : { lo: Math.max(0, g.clockTick - 365 * 1440), hi: Math.max(0, g.clockTick - 1), precision: "range" } : given || (g.leap && sceneEnd.lo > g.clockTick ? { lo: g.clockTick, hi: sceneEnd.lo, precision: "range" } : { ...sceneEnd });
+    const undated = o.backstory && !(given && given.hi < g.clockTick);
+    let time = o.backstory ? !undated ? given : { lo: g.clockTick - 365 * 1440, hi: g.clockTick - 1, precision: "range" } : given || (g.leap && sceneEnd.lo > g.clockTick ? { lo: g.clockTick, hi: sceneEnd.lo, precision: "range" } : { ...sceneEnd });
     const occ = {
       occurrenceId: newId("occ"),
       title: o.title,
@@ -25229,7 +25234,8 @@ function runGate(g) {
       causes: causes.map((c) => occByRef.get(c)?.occurrenceId || c),
       refPhrases: uniq([o.title, ...o.ref_phrases || []]),
       origin: o.origin === "player" ? "player" : o.origin === "intervention" ? "intervention" : "gm",
-      visibility: { mode: o.visibility || "public", knower_ids: uniq((o.knowers || []).map(resolveId).filter(Boolean)) }
+      visibility: { mode: o.visibility || "public", knower_ids: uniq((o.knowers || []).map(resolveId).filter(Boolean)) },
+      ...undated ? { undated: true } : {}
     };
     let kind = occ.origin === "player" ? "enacted_action" : occ.origin === "intervention" ? "authored_intervention" : "world_event";
     let packEventId;
@@ -26256,7 +26262,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.25.3";
+var ENGINE_RELEASE = "1.25.4";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -26958,7 +26964,7 @@ var CanonEngine = class {
     for (const o of recent) hits.add(o.occurrenceId);
     return [...hits].slice(0, limit).map((id) => {
       const o = index.state.occurrences.get(id);
-      return { id, title: o.title, time: formatStoryTime(o.time), refPhrases: o.refPhrases };
+      return { id, title: o.title, time: occurrenceTime(o), refPhrases: o.refPhrases };
     });
   }
   async extractUser(entry, index, signal, operationId = "reconcile") {
@@ -29222,7 +29228,7 @@ ${lines.join("\n")}`;
       branchId: c.branchId,
       recovery: c.recoveryState,
       facts,
-      occurrences: [...s.occurrences.values()].filter((o) => !hidden(o.packEventId)).map((o) => ({ id: o.occurrenceId, title: o.title, time: formatStoryTime(o.time, origin), origin: o.origin, account: o.account })),
+      occurrences: [...s.occurrences.values()].filter((o) => !hidden(o.packEventId)).map((o) => ({ id: o.occurrenceId, title: o.title, time: formatStoryTime(o.time, origin), before: o.undated ? formatTick(o.time.hi, origin) : void 0, origin: o.origin, account: o.account })),
       deviations: [...s.dispositions].filter(([, d]) => d.disposition !== "occurred").map(([id, d]) => ({ id, title: pack2.events.get(id)?.title, disposition: d.disposition, reason: d.reason })),
       anchors: pack2.hardEvents.map((id) => {
         const e = pack2.events.get(id);
@@ -30710,6 +30716,7 @@ var D = {
   ciSpoilers: { zh: "\u5267\u900F", en: "Spoilers" },
   ciClose: { zh: "\u5173\u95ED\uFF08Esc\uFF09", en: "Close (Esc)" },
   ciFilter: { zh: "\u7B5B\u9009\u672C\u9875\u2026", en: "Filter this page\u2026" },
+  ciUndated: { zh: "{t} \u4E4B\u524D\u67D0\u65F6\uFF08\u65F6\u95F4\u4E0D\u8BE6\uFF09", en: "some time before {t} (when is not given)" },
   ciNoMatch: { zh: "\u6CA1\u6709\u5339\u914D\u7684\u6761\u76EE", en: "Nothing matches" },
   ciNone: { zh: "\u6682\u65E0", en: "None" },
   ciResize: { zh: "\u62D6\u52A8\u8C03\u6574\u5BBD\u5EA6", en: "Drag to resize" },
@@ -31154,8 +31161,9 @@ function currentGraph(L, s, origin, spoilers, digest2 = []) {
   for (const [id, seg] of segments) for (const m of seg) boxOf.set(m.occurrenceId, id);
   for (const [root, members, dg] of segments) {
     const first = members[0];
-    const lo = Math.min(...members.map((m) => m.time.lo)), hi = Math.max(...members.map((m) => m.time.hi));
+    const lo = Math.min(...members.map((m) => m.undated ? m.time.hi : m.time.lo)), hi = Math.max(...members.map((m) => m.time.hi));
     const span = members.length > 1 ? { lo, hi, precision: "range" } : first.time;
+    const when2 = members.length === 1 ? occurrenceTime(first, origin, "zh") : formatStoryTime(span, origin);
     const outcomes = members.flatMap(outcomeText);
     g.nodes.push({
       id: root,
@@ -31163,7 +31171,7 @@ function currentGraph(L, s, origin, spoilers, digest2 = []) {
       lane: "RUNTIME",
       tick: lo,
       tickHi: hi,
-      when: formatStoryTime(span, origin),
+      when: when2,
       short: shortRange(lo, hi, origin),
       summary: dg ? `${dg.summary}
 
@@ -32031,7 +32039,7 @@ function createInspector(d) {
     return { html: cards.join("") || empty(), secs: [] };
   }
   function history(v) {
-    return { html: v.occurrences.slice().reverse().map((o) => item(`h-${o.id}`, `<span class="ci-meta ci-when">${esc2(o.time)}</span><span class="ci-title">${esc2(o.title)}</span>${chip(o.origin, o.origin === "player" ? "accent" : "muted")}`, esc2(o.account))).join("") || empty(), secs: [] };
+    return { html: v.occurrences.slice().reverse().map((o) => item(`h-${o.id}`, `<span class="ci-meta ci-when">${esc2(o.before ? t("ciUndated").replace("{t}", o.before) : o.time)}</span><span class="ci-title">${esc2(o.title)}</span>${chip(o.origin, o.origin === "player" ? "accent" : "muted")}`, esc2(o.account))).join("") || empty(), secs: [] };
   }
   function deviations(v) {
     return { html: v.deviations.map((x) => item(`dv-${x.id}`, `<span class="ci-title">${esc2(x.title)}</span>${chip(x.disposition, "warn")}`, esc2(x.reason))).join("") || empty(), secs: [] };

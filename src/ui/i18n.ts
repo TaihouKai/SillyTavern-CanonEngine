@@ -242,6 +242,7 @@ const D: Record<string, { zh: string; en: string }> = {
   ciSpoilers: { zh: '剧透', en: 'Spoilers' },
   ciClose: { zh: '关闭（Esc）', en: 'Close (Esc)' },
   ciFilter: { zh: '筛选本页…', en: 'Filter this page…' },
+  ciUndated: { zh: '{t} 之前某时（时间不详）', en: 'some time before {t} (when is not given)' },
   ciNoMatch: { zh: '没有匹配的条目', en: 'Nothing matches' },
   ciNone: { zh: '暂无', en: 'None' },
   ciResize: { zh: '拖动调整宽度', en: 'Drag to resize' },

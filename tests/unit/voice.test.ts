@@ -9,6 +9,9 @@ import { ROOT } from './helpers';
 import { gmRulesFor, PROMPTS } from '../../src/runtime/prompts';
 import { spokenLine } from '../../src/runtime/gate';
 import { DEFAULT_PLAYER_VOICE, playerVoice, VOICE_KINDS } from '../../src/runtime/voice';
+import { occurrenceTime, formatTick } from '../../src/domain/time';
+import { WorldIndex } from '../../src/domain/world-query';
+import { currentGraph } from '../../src/ui/graph';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 
@@ -142,6 +145,21 @@ describe('what the GM may write for the player character', () => {
     expect(o.packEventId).toBeUndefined();
     expect(st.dispositions.has('medic-ambush')).toBe(false); // a backstory never settles a canonical event
     expect(o.outcome).toEqual([]); // nor changes facts
+    // no time given: undated, shown as some time before now — not as lasting the whole year it may be in (live:
+    // "last time we went shopping" read D0 00:00 – D61 17:14); story time before day 0 is not clamped to it
+    expect(o.undated).toBe(true);
+    expect(o.time.lo).toBe(o.time.hi + 1 - 365 * 1440);
+    expect(occurrenceTime(o)).toBe(`some time before ${formatTick(o.time.hi)} (when is not given)`);
+    expect(occurrenceTime(o, null, 'zh')).toMatch(/之前某时（时间不详）$/);
+    expect(x.engine.current!.index.historyView(o.occurrenceId)!.time).toBe(occurrenceTime(o, WorldIndex.displayOrigin));
+    const n = currentGraph(x.engine.current!.index.pack, st, null, true).nodes.find((v: any) => v.id === o.occurrenceId)!;
+    expect([n.tick, n.tickHi, n.when]).toEqual([o.time.hi, o.time.hi, occurrenceTime(o, null, 'zh')]);
+    // a backstory the reply dates is not undated
+    x.host.addUser('I ask when.');
+    x.model.draft('Mira: an umbrella was lost, early this morning. [B2]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[B2]'), { occurrences: [occ('o1', 'Lost umbrella', 'an umbrella was lost', { actors: ['mira'], backstory: true, time: { lo: { day: 1, minute: 6 * 60 }, hi: { day: 1, minute: 7 * 60 }, precision: 'approx' } } as any)] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect([...x.engine.current!.replay.state.occurrences.values()].find((v) => v.title === 'Lost umbrella')!.undated).toBeUndefined();
   });
 
   it('PV11 the player character stepping into what others are doing is always the player\'s, whatever the settings (live: 「扇子别乱扇」)', async () => {

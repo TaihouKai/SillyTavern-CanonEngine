@@ -311,13 +311,16 @@ export function runGate(g: GateInput): GateResult {
     const given = toStoryTime(o.time);
     // a beat of a time leap without a usable time happened somewhere in the leap, not at its landing (live: four
     // episodes of a 33-day leap all recorded at the landing time)
-    let time = o.backstory ? (given && given.hi < g.clockTick ? given : { lo: Math.max(0, g.clockTick - 365 * 1440), hi: Math.max(0, g.clockTick - 1), precision: 'range' as const })
+    // a backstory without a usable time is undated: some time in the year before now (story time may be before day 0)
+    const undated = o.backstory && !(given && given.hi < g.clockTick);
+    let time = o.backstory ? (!undated ? given! : { lo: g.clockTick - 365 * 1440, hi: g.clockTick - 1, precision: 'range' as const })
       : given || (g.leap && sceneEnd.lo > g.clockTick ? { lo: g.clockTick, hi: sceneEnd.lo, precision: 'range' as const } : { ...sceneEnd });
     const occ: Occurrence = {
       occurrenceId: newId('occ'), title: o.title, account: o.account, actors, affected, locations, time, outcome: deltas,
       causes: causes.map((c) => occByRef.get(c)?.occurrenceId || c), refPhrases: uniq([o.title, ...(o.ref_phrases || [])]),
       origin: o.origin === 'player' ? 'player' : o.origin === 'intervention' ? 'intervention' : 'gm',
       visibility: { mode: o.visibility || 'public', knower_ids: uniq((o.knowers || []).map(resolveId).filter(Boolean) as Id[]) },
+      ...(undated ? { undated: true as const } : {}),
     };
     let kind: RecordDraft['kind'] = occ.origin === 'player' ? 'enacted_action' : occ.origin === 'intervention' ? 'authored_intervention' : 'world_event';
     let packEventId: Id | undefined;

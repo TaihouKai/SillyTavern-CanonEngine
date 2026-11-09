@@ -239,7 +239,7 @@ export function createInspector(d: InspectorDeps) {
 
   function history(v: NonNullable<View>): Page {
     // newest first
-    return { html: v.occurrences.slice().reverse().map((o) => item(`h-${o.id}`, `<span class="ci-meta ci-when">${esc(o.time)}</span><span class="ci-title">${esc(o.title)}</span>${chip(o.origin, o.origin === 'player' ? 'accent' : 'muted')}`, esc(o.account))).join('') || empty(), secs: [] };
+    return { html: v.occurrences.slice().reverse().map((o) => item(`h-${o.id}`, `<span class="ci-meta ci-when">${esc(o.before ? t('ciUndated').replace('{t}', o.before) : o.time)}</span><span class="ci-title">${esc(o.title)}</span>${chip(o.origin, o.origin === 'player' ? 'accent' : 'muted')}`, esc(o.account))).join('') || empty(), secs: [] };
   }
 
   function deviations(v: NonNullable<View>): Page {

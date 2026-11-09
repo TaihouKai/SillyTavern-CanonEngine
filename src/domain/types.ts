@@ -215,6 +215,9 @@ export interface Occurrence {
   linkedFrom?: string[];
   /** Scene grouping: the earlier occurrence (same ongoing scene) this one continues; shown and summarized as one box. */
   continues?: string;
+  /** Small past a reply invents (backstory) whose time it does not give: some time before `time.hi`, not an event lasting
+   *  the whole of `time` (live: "last time we went shopping" shown as D0 00:00 – D61 17:14). */
+  undated?: true;
   origin: 'player' | 'gm' | 'canon' | 'offscreen' | 'bootstrap' | 'intervention';
   visibility: Visibility;
 }
