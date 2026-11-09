@@ -88,7 +88,7 @@ export function createInspector(d: InspectorDeps) {
       return sec(id, label, rows.map((r, i) => item(`${id}-${i}`, `<span class="ci-text">${esc(r)}</span>`)).join(''));
     };
     html += list('orgs', t('niOrgs'), p.affiliations) + list('places', t('niPlaces'), p.places) + list('roles', t('niRoles'), p.roles || [])
-      + list('notsuited', t('niNotSuited'), p.notSuited || []) + list('voice', t('niVoice'), p.voice ? [p.voice] : []) + list('recognized', t('niRecognized'), p.recognized || [])
+      + list('notsuited', t('niNotSuited'), p.notSuited || []) + list('voice', t('niVoice'), p.voice ? [p.voice] : []) + list('nature', t('niNature'), p.nature || []) + list('recognized', t('niRecognized'), p.recognized || [])
       + list('lore', t('niLore'), p.lore || []) + list('notes', t('niNotes'), p.notes);
     return { html, secs };
   }

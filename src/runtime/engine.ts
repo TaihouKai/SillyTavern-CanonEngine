@@ -2864,20 +2864,23 @@ export class CanonEngine {
 
   /** 常态 of the pack's people: each version with how it stands in this game (in force now, ended, or not reached).
    *  A version not reached starts at an event still to come: a canon spoiler, shown only with spoilers on. */
-  natureView(spoilers: boolean): { people: { id: Id; name: string; versions: (NatureVersion & { from: string | null; until: string | null; state: 'now' | 'ended' | 'later' })[] }[]; hidden: number } | null {
+  natureView(spoilers: boolean): { people: { id: Id; name: string; player?: boolean; versions: (NatureVersion & { from: string | null; until: string | null; state: 'now' | 'ended' | 'later' })[] }[]; hidden: number } | null {
     if (!this.campaign() || !this.current) return null;
     const idx = this.current.index;
     const s = this.current.replay.state;
     const title = (e?: Id | null) => (e ? idx.pack.events.get(e)?.title || e : null);
     const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
     let hidden = 0;
-    const people = [...idx.pack.entities.values()].filter((e) => e.nature?.length).map((e) => {
+    const people: NonNullable<ReturnType<CanonEngine['natureView']>>['people'] = [...idx.pack.entities.values()].filter((e) => e.nature?.length).map((e) => {
       const nowAt = idx.natureNow(e.id)!.index;
       const versions = e.nature!.map((v, i) => ({ ...v, from: title(v.from_event), until: title(v.until_event),
         state: (i === nowAt ? 'now' : i === 0 || occurred(v.from_event) ? 'ended' : 'later') as 'now' | 'ended' | 'later' }))
         .filter((v) => { if (v.state === 'later' && !spoilers) { hidden++; return false; } return true; });
       return { id: e.id, name: e.name, versions };
     });
+    // the player's own, from the Persona, first
+    const prof = this.playerProfile()?.profile;
+    if (prof?.nature) people.unshift({ id: prof.playerId, name: prof.personaName, player: true, versions: [{ from_event: null, ...prof.nature, from: null, until: null, state: 'now' }] });
     return { people, hidden };
   }
 
@@ -2953,6 +2956,7 @@ export class CanonEngine {
         roles: (prof.profile.roles || []).map((r) => `${r.role}${r.brings.length ? ` — ${r.brings.join(', ')}` : ''}${r.from.length ? ` (${r.from.join(', ')})` : ''}`),
         notSuited: prof.profile.notSuited || [],
         voice: prof.profile.voice || '',
+        nature: prof.profile.nature ? (['habits', 'uses', 'others', 'limits'] as const).filter((k) => prof.profile.nature![k]).map((k) => `${{ habits: zh ? '平时' : 'Habits', uses: zh ? '使用' : 'Uses', others: zh ? '旁人' : 'Others', limits: zh ? '限制' : 'Limits' }[k]}：${prof.profile.nature![k]}`) : [],
         relationships: played!.relationships.map((r) => ({ who: r.entityId, name: r.name, text: r.relation, ended: !!r.ended, basis: r.basis, by: r.changed?.by ?? r.basis, since: r.changed ? formatTick(r.changed.since, origin) : null, start: r.changed?.start ?? null, quote: r.changed?.quote || '', org: orgNow(r.entityId) })),
         recognized: (prof.profile.recognizedBy || []).map((r) => `${r.who}${r.everywhere ? (zh ? '（到处）' : ' (everywhere)') : ''}: ${r.as}${r.places.length ? ` (${r.places.map((p) => idx.entityName(p)).join(zh ? '、' : ', ')})` : ''}`),
         knowers: played!.knowers.map((k) => ({ who: k.entityId, name: k.who, level: k.level, text: k.about, basis: k.basis, by: k.changed?.by ?? k.basis, since: k.changed ? formatTick(k.changed.since, origin) : null, start: k.changed?.start ?? null, quote: k.changed?.quote || '' })),

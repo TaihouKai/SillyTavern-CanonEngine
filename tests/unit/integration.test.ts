@@ -767,7 +767,8 @@ describe('preferred matters', () => {
   it('NI-47 small matters come out of the player\'s own life, whatever it is: the Persona reading keeps roles and what they cannot do (an operative, and an ordinary student with no powers and no organization)', async () => {
     expect(PROMPTS.profile).toMatch(/- roles: the parts of the player's life the Persona gives, of whatever kind[^]*an ordinary person has ordinary roles/);
     expect(PROMPTS.profile).toMatch(/- not_suited: kinds of tasks or matters the player cannot or will not take on at all[^]*Only whole kinds of tasks — not the conditions, costs or weaknesses of their skills/);
-    expect(PROMPTS.profile + PROMPTS.integrate).not.toMatch(/"limits"|player\.limits|- limits:/);
+    // (the 常态's own "limits" — what the power cannot do — is part of nature, not a list of the player's limits)
+    expect((PROMPTS.profile + PROMPTS.integrate).replace(/"nature":\{[^}]*\}/g, '')).not.toMatch(/"limits":\[|player\.limits|^- limits:/m);
     expect(PROMPTS.integrate).toMatch(/It comes out of the player's own life as player\.roles gives it[^]*never asks for a kind of task in player\.not_suited or beyond their capabilities — an ordinary person gets an ordinary matter[^]*a new minor person from their everyday surroundings/);
     // no setting-specific examples in the analysis prompts
     for (const k of ['profile', 'integrate', 'extract_user', 'evaluate'] as const) expect(PROMPTS[k]).not.toMatch(/暗部|gang|esper/i);
@@ -891,7 +892,26 @@ describe('preferred matters', () => {
     expect(lastCtx(y)).not.toMatch(/- how they come across and talk/);
   });
 
-  it('NI-51 the steps that judge plausibility see who people and places are: the world reaction and the reviewer get the pack descriptions of the entities they handle, the planner those of the events it plans around', async () => {
+  it('NI-50b the player\'s own 常态 from the Persona: the GM sees it with the player as background, deliberate use as the player-character rules allow; the timeline lists it first', async () => {
+    expect(PROMPTS.profile).toMatch(/- nature: when the Persona gives the player a power[^]*Write patterns, never story[^]*an ordinary person has none/);
+    expect(PROMPTS.profile).toMatch(/"nature":\{"habits":"","uses":"","others":"","limits":""\}/);
+    const nature = { habits: 'sparks crackle in her hair when she is annoyed', uses: 'shocks a friend who goes too far, lightly', others: 'classmates keep their phones away from her', limits: 'cannot hold back a full discharge near machines' };
+    const x = await setup({ profile: { ...PROFILE, nature: { ...nature, limits: '  ' + nature.limits } } });
+    await turn(x, 'I look around.', 'The harbor at morning. [W52]', { scene_end: at(1, 9, 35) });
+    expect(x.engine.playerProfile()!.profile.nature).toEqual(nature);
+    expect(lastCtx(x)).toMatch(/- 常态 \(how their own power or condition shows[^)]*background, not story[^)]*a deliberate use only as the player-character rules allow\): habits: sparks crackle/);
+    expect(x.engine.integrationView(true)!.profile!.nature.join(' ')).toContain('sparks crackle');
+    const v = x.engine.natureView(false)!;
+    expect(v.people[0].player).toBe(true);
+    expect(v.people[0].versions[0].habits).toBe(nature.habits);
+    // an ordinary Persona: nothing
+    const y = await setup({ profile: { ...PROFILE, nature: { habits: '', uses: '', others: '', limits: '' } } });
+    await turn(y, 'I look around.', 'The harbor at morning. [W53]', { scene_end: at(1, 9, 35) });
+    expect(y.engine.playerProfile()!.profile.nature).toBeUndefined();
+    expect(lastCtx(y)).not.toMatch(/- 常态/);
+  });
+
+  it('NI-51the steps that judge plausibility see who people and places are: the world reaction and the reviewer get the pack descriptions of the entities they handle, the planner those of the events it plans around', async () => {
     const pack = JSON.parse(demo);
     const desc = new Map<string, string>(pack.entities.map((e: any) => [e.id, e.static_description]));
     const x = await setup();

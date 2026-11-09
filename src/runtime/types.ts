@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } fro
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.26.0';
+export const ENGINE_RELEASE = '1.26.1';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -239,6 +239,8 @@ export type TieBasis = 'persona_stated' | 'implied' | 'play' | 'ui';
 export interface TieChange { since: number; by: 'play' | 'ui'; start: string | null; quote: string }
 export type AffiliationStatus = 'member' | 'joining' | 'former';
 
+/** The player's 常态 (one version: the Persona describes the player at the start; a later Persona read replaces it). */
+export interface PlayerNature { habits: string; uses: string; others: string; limits: string }
 export interface PlayerProfile {
   personaName: string;
   /** The Persona text the profile was read from (standard Persona description). */
@@ -267,6 +269,8 @@ export interface PlayerProfile {
   notSuited?: string[];
   /** How the player character comes across and talks (from the Persona). Missing on profiles read before 1.14.0. */
   voice?: string;
+  /** 常态: how the player's own power or condition shows in everyday moments (from the Persona). Missing before 1.26.1. */
+  nature?: PlayerNature;
   /** 本局设定: how this game's world differs from the original setting, as the Persona states it (marked lines always). */
   worldChanges?: { text: string; terms: string[]; marked: boolean }[];
   /** The player's relationships. Read from the Persona they are the start; playedProfile() gives them as play has

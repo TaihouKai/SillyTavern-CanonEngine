@@ -1,0 +1,1429 @@
+{
+ "name": "toaru",
+ "adapter": "wiki_arcs",
+ "wiki": {
+  "fandom": "work/toaru/raw/fandom.json",
+  "huiji": "work/toaru/raw/huiji.json",
+  "timelines": [
+   "时间线/一年前",
+   "时间线/上半年",
+   "时间线/旧约",
+   "时间线/新约",
+   "时间线/创约"
+  ],
+  "chronology_when_page_below": 0.6,
+  "fetch": [
+   {
+    "site": "https://toarumajutsunoindex.fandom.com",
+    "start": "/wiki/Main_Page",
+    "out": "work/toaru/raw/fandom.json",
+    "categories": [
+     "Category:Story Arcs",
+     "Category:Characters"
+    ],
+    "prefixes": [
+     "Toaru Majutsu no Index Light Novel Volume",
+     "Shinyaku Toaru Majutsu no Index Light Novel Volume",
+     "Souyaku Toaru Majutsu no Index Light Novel Volume",
+     "Toaru Anbu no Item Light Novel Volume"
+    ]
+   },
+   {
+    "site": "https://toaru.huijiwiki.com",
+    "start": "/wiki/%E9%A6%96%E9%A1%B5",
+    "out": "work/toaru/raw/huiji.json",
+    "categories": [
+     "Category:篇章",
+     "Category:角色",
+     "Category:机构与组织",
+     "Category:地点"
+    ],
+    "prefixes": [
+     "时间线"
+    ]
+   }
+  ]
+ },
+ "protagonist": {
+  "name": "上条当麻",
+  "id": "kamijou-touma",
+  "gender": "male",
+  "aliases": [
+   "上条",
+   "当麻",
+   "Kamijou Touma"
+  ],
+  "description": "学园都市第七学区某高中的学生，Level 0。右手寄宿着能消除异能的“幻想杀手”，体质极为不幸。"
+ },
+ "pack": {
+  "pack_id": "toaru-index-chronicle",
+  "pack_version": "2.0.1",
+  "title": "魔法禁书目录 编年史（旧约·新约·创约及外传）",
+  "language": "zh-CN",
+  "description": "《魔法禁书目录》系列（含超电磁炮、一方通行、未元物质、心理掌握、暗部少女共栖、幽幻姐妹等外传）的历史事件包。2.0 起由 canon-pack-builder 依据魔禁维基（灰机wiki）的篇章、时间线与考据页，以及英文 Toaru Wiki（fandom）的篇章页与人物经历逐篇细化；日期依考据页。HARD为主线关键节点，SOFT为可被玩家改变的重要事件（如角色死亡），FREE为背景与日常。恋爱关系一律不强制。",
+  "time_zone_label": "日本标准时间（UTC+9）"
+ },
+ "base_pack": "work/toaru/base/toaru-index.canon.v1.3.0.json",
+ "base_keep_before": "2019-04-01",
+ "frames": {
+  "default": "学园都市"
+ },
+ "timeline": {
+  "origin_date": "2020-07-19",
+  "home_years": [
+   2019,
+   2021
+  ]
+ },
+ "classification": {
+  "max_hard_per_chapter": 3
+ },
+ "summary": {
+  "max_chars": 60000
+ },
+ "generic_aliases": [
+  "Level 0",
+  "Level 1",
+  "Level 2",
+  "Level 3",
+  "Level 4",
+  "Level 5",
+  "超能力者",
+  "大能力者",
+  "无能力者",
+  "魔法师",
+  "修女",
+  "警备员",
+  "风纪委员",
+  "研究员",
+  "学生"
+ ],
+ "arcs": [
+  {
+   "id": "railgun-past",
+   "title": "超电磁炮 美琴过去篇（一年前）",
+   "start": "2019-04-01",
+   "end": "2019-10-31",
+   "huiji": [
+    "美琴过去篇"
+   ],
+   "fandom": [
+    "Railgun Past Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Railgun Past Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据#某科学的超电磁炮"
+   ]
+  },
+  {
+   "id": "enemy-item",
+   "title": "暗少1 ITEM冠名篇",
+   "start": "2019-06-30",
+   "end": "2019-07-31",
+   "huiji": [
+    "ITEM冠名篇"
+   ],
+   "fandom": [
+    "Enemy Item Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Enemy Item Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/某暗部的少女共栖#暗少1"
+   ]
+  },
+  {
+   "id": "biohacker",
+   "title": "生物黑客篇（一年前）",
+   "start": "2019-07-30",
+   "end": "2019-08-01",
+   "huiji": [
+    "生物黑客篇"
+   ]
+  },
+  {
+   "id": "honey-queen",
+   "title": "暗少2 蜂蜜女王篇",
+   "start": "2019-08-03",
+   "end": "2019-08-09",
+   "huiji": [
+    "蜂蜜女王篇"
+   ],
+   "fandom": [
+    "Honey Queen Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Honey Queen Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/某暗部的少女共栖#暗少2"
+   ]
+  },
+  {
+   "id": "dark-justice",
+   "title": "暗少3 正义篇",
+   "start": "2019-08-29",
+   "end": "2019-08-31",
+   "huiji": [
+    "正义篇"
+   ],
+   "fandom": [
+    "Dark Justice Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Dark Justice Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/某暗部的少女共栖#暗少3"
+   ]
+  },
+  {
+   "id": "mugino-family",
+   "title": "暗少4 麦野本家篇",
+   "start": "2019-09-10",
+   "end": "2019-09-11",
+   "huiji": [
+    "麦野本家篇"
+   ],
+   "fandom": [
+    "Mugino Family Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Mugino Family Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/某暗部的少女共栖#暗少4"
+   ]
+  },
+  {
+   "id": "item-daihasei",
+   "title": "暗少5 D子篇（一年前大霸星祭）",
+   "start": "2019-09-17",
+   "end": "2019-09-21",
+   "huiji": [
+    "D子篇"
+   ],
+   "chron": [
+    [
+     "Toaru Anbu no Item",
+     "Daihasei Festival Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/某暗部的少女共栖#暗少5"
+   ],
+   "fandom_volumes": [
+    "Toaru Anbu no Item Light Novel Volume 05"
+   ]
+  },
+  {
+   "id": "blackmailer",
+   "title": "暗少6 勒索专家篇",
+   "start": "2019-09-22",
+   "end": "2019-10-30",
+   "huiji": [
+    "勒索专家篇"
+   ],
+   "fandom": [
+    "Blackmailer Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Blackmailer Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/某暗部的少女共栖#暗少6"
+   ]
+  },
+  {
+   "id": "number-six",
+   "title": "暗少7 第六位篇",
+   "start": "2019-10-20",
+   "end": "2019-10-31",
+   "chron": [
+    [
+     "*",
+     "Number Six Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/某暗部的少女共栖#暗少7"
+   ],
+   "fandom_volumes": [
+    "Toaru Anbu no Item Light Novel Volume 07"
+   ]
+  },
+  {
+   "id": "gemstone",
+   "title": "SS2 原石拯救篇",
+   "start": "2020-01-18",
+   "end": "2020-10-11",
+   "huiji": [
+    "原石拯救篇"
+   ],
+   "chron": [
+    [
+     "*",
+     "Toaru Majutsu no Index Light Novel Volume SS2"
+    ],
+    [
+     "*",
+     "Gemstone Mining"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#SS2"
+   ],
+   "fandom_volumes": [
+    "Toaru Majutsu no Index Light Novel Volume SS2"
+   ]
+  },
+  {
+   "id": "level-upper",
+   "title": "超电磁炮 幻想御手篇",
+   "start": "2020-06-17",
+   "end": "2020-07-31",
+   "huiji": [
+    "幻想御手篇"
+   ],
+   "fandom": [
+    "Level Upper Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Level Upper Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据#某科学的超电磁炮"
+   ]
+  },
+  {
+   "id": "index",
+   "title": "旧约1 禁书目录篇",
+   "start": "2020-07-19",
+   "end": "2020-07-28",
+   "huiji": [
+    "禁书目录篇"
+   ],
+   "fandom": [
+    "Index Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约1"
+   ]
+  },
+  {
+   "id": "satellite",
+   "title": "超电磁炮 卫星诱导车篇",
+   "start": "2020-08-01",
+   "end": "2020-08-01",
+   "huiji": [
+    "卫星诱导车篇"
+   ]
+  },
+  {
+   "id": "poltergeist",
+   "title": "超电磁炮 乱杂开放篇",
+   "start": "2020-08-02",
+   "end": "2020-08-09",
+   "huiji": [
+    "乱杂开放篇"
+   ],
+   "fandom": [
+    "Poltergeist Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Poltergeist Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据#某科学的超电磁炮"
+   ]
+  },
+  {
+   "id": "big-spider",
+   "title": "超电磁炮 大蜘蛛篇",
+   "start": "2020-08-03",
+   "end": "2020-08-07",
+   "fandom": [
+    "Big Spider Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Big Spider Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据#某科学的超电磁炮"
+   ]
+  },
+  {
+   "id": "deep-blood",
+   "title": "旧约2 吸血杀手篇",
+   "start": "2020-08-08",
+   "end": "2020-08-09",
+   "huiji": [
+    "吸血杀手篇"
+   ],
+   "fandom": [
+    "Deep Blood Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约2"
+   ]
+  },
+  {
+   "id": "sisters",
+   "title": "旧约3/超电磁炮 妹妹篇",
+   "start": "2020-08-10",
+   "end": "2020-08-22",
+   "huiji": [
+    "妹妹篇"
+   ],
+   "fandom": [
+    "Sisters Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Sisters Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约3",
+    "时间线/考据#某科学的超电磁炮"
+   ]
+  },
+  {
+   "id": "silent-party",
+   "title": "超电磁炮S 革命未明篇",
+   "start": "2020-08-24",
+   "end": "2020-09-02",
+   "huiji": [
+    "革命未明篇"
+   ],
+   "fandom": [
+    "Silent Party Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Silent Party Arc"
+    ]
+   ]
+  },
+  {
+   "id": "angel-fall",
+   "title": "旧约4 天使坠落篇",
+   "start": "2020-08-27",
+   "end": "2020-08-30",
+   "huiji": [
+    "天使坠落篇"
+   ],
+   "fandom": [
+    "Angel Fall Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约4"
+   ]
+  },
+  {
+   "id": "three-stories",
+   "title": "旧约5 8月31日篇",
+   "start": "2020-08-31",
+   "end": "2020-08-31",
+   "huiji": [
+    "8月31日篇"
+   ],
+   "fandom": [
+    "Three Stories Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Three Stories Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约5"
+   ]
+  },
+  {
+   "id": "kazakiri",
+   "title": "旧约6 风斩冰华篇",
+   "start": "2020-09-01",
+   "end": "2020-09-01",
+   "huiji": [
+    "风斩冰华篇"
+   ],
+   "fandom": [
+    "Kazakiri Hyouka Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约6"
+   ]
+  },
+  {
+   "id": "yuzuriha",
+   "title": "未元物质 杠林檎篇",
+   "start": "2020-09-02",
+   "end": "2020-09-03",
+   "huiji": [
+    "杠林檎篇"
+   ],
+   "fandom": [
+    "Yuzuriha Ringo Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Yuzuriha Ringo Arc"
+    ]
+   ]
+  },
+  {
+   "id": "liberal-arts",
+   "title": "超电磁炮 学艺都市篇",
+   "start": "2020-09-03",
+   "end": "2020-09-06",
+   "huiji": [
+    "学艺都市篇"
+   ],
+   "fandom": [
+    "Liberal Arts City Arc",
+    "Toaru Kagaku no Railgun SS: Liberal Arts City"
+   ],
+   "chron": [
+    [
+     "*",
+     "Toaru Kagaku no Railgun SS: Liberal Arts City"
+    ]
+   ]
+  },
+  {
+   "id": "necromancer",
+   "title": "一方通行 死灵术师篇",
+   "start": "2020-09-01",
+   "end": "2020-09-13",
+   "huiji": [
+    "死灵术师篇"
+   ],
+   "fandom": [
+    "Necromancer Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Necromancer Arc"
+    ]
+   ]
+  },
+  {
+   "id": "orsola",
+   "title": "旧约7 法之书篇",
+   "start": "2020-09-08",
+   "end": "2020-09-09",
+   "huiji": [
+    "法之书篇"
+   ],
+   "fandom": [
+    "Orsola Aquinas Rescue Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约7"
+   ]
+  },
+  {
+   "id": "itsuwa",
+   "title": "五和篇",
+   "start": "2020-09-09",
+   "end": "2020-09-12",
+   "huiji": [
+    "五和篇"
+   ]
+  },
+  {
+   "id": "nectar",
+   "title": "一方通行 神之饮品篇",
+   "start": "2020-09-09",
+   "end": "2020-09-13",
+   "huiji": [
+    "神之饮品篇"
+   ],
+   "fandom": [
+    "Nectar Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Nectar Arc"
+    ]
+   ]
+  },
+  {
+   "id": "tree-diagram",
+   "title": "旧约8 树状图残骸篇",
+   "start": "2020-09-14",
+   "end": "2020-09-15",
+   "huiji": [
+    "树状图残骸篇"
+   ],
+   "fandom": [
+    "Tree Diagram Remnant Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约8"
+   ]
+  },
+  {
+   "id": "endymion",
+   "title": "剧场版 恩底弥翁篇",
+   "start": "2020-09-11",
+   "end": "2020-09-18",
+   "huiji": [
+    "恩底弥翁篇"
+   ]
+  },
+  {
+   "id": "daihasei-index",
+   "title": "旧约9-10 大霸星祭·使徒十字篇",
+   "start": "2020-09-19",
+   "end": "2020-09-20",
+   "huiji": [
+    "使徒十字篇"
+   ],
+   "fandom": [
+    "Daihasei Festival Arc (Index)"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约9-10"
+   ]
+  },
+  {
+   "id": "daihasei-railgun",
+   "title": "超电磁炮 大霸星祭篇",
+   "start": "2020-09-19",
+   "end": "2020-09-25",
+   "huiji": [
+    "大霸星祭篇"
+   ],
+   "fandom": [
+    "Daihasei Festival Arc (Railgun)"
+   ],
+   "kaoju": [
+    "时间线/考据#某科学的超电磁炮"
+   ]
+  },
+  {
+   "id": "regina",
+   "title": "旧约11 女王舰队篇",
+   "start": "2020-09-25",
+   "end": "2020-09-28",
+   "huiji": [
+    "女王舰队篇"
+   ],
+   "fandom": [
+    "La Regina del Mare Adriatico Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约11"
+   ]
+  },
+  {
+   "id": "dream-ranker",
+   "title": "超电磁炮 天赋梦路篇",
+   "start": "2020-09-26",
+   "end": "2020-10-13",
+   "huiji": [
+    "天赋梦路篇"
+   ],
+   "fandom": [
+    "Dream Ranker Arc"
+   ],
+   "kaoju": [
+    "时间线/考据#某科学的超电磁炮"
+   ]
+  },
+  {
+   "id": "astral-buddy",
+   "title": "幽幻姐妹 幽体连理篇",
+   "start": "2020-09-27",
+   "end": "2020-10-05",
+   "fandom": [
+    "Astral Buddy Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Astral Buddy Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据#幽幻姐妹"
+   ]
+  },
+  {
+   "id": "academy-invasion",
+   "title": "旧约12-13 九三〇篇",
+   "start": "2020-09-30",
+   "end": "2020-09-30",
+   "huiji": [
+    "九三〇篇"
+   ],
+   "fandom": [
+    "Academy City Invasion Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约12-13"
+   ]
+  },
+  {
+   "id": "tokiwadai-election",
+   "title": "心理掌握 万能结晶篇",
+   "start": "2020-09-30",
+   "end": "2020-10-17",
+   "huiji": [
+    "万能结晶篇"
+   ],
+   "fandom": [
+    "Tokiwadai Election Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Tokiwadai Election Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据#某科学的心理掌握"
+   ]
+  },
+  {
+   "id": "skill-out",
+   "title": "旧约SS 武装无能力集团篇",
+   "start": "2020-10-03",
+   "end": "2020-10-04",
+   "huiji": [
+    "武装无能力集团篇"
+   ],
+   "chron": [
+    [
+     "*",
+     "Skill-Out Uprising"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#SS"
+   ],
+   "fandom_volumes": [
+    "Toaru Majutsu no Index Light Novel Volume SS"
+   ]
+  },
+  {
+   "id": "stargazer",
+   "title": "SP 天体观测图篇",
+   "start": "2020-10-04",
+   "end": "2020-10-05",
+   "huiji": [
+    "天体观测图篇"
+   ]
+  },
+  {
+   "id": "constantine",
+   "title": "旧约14 C文书篇",
+   "start": "2020-10-07",
+   "end": "2020-10-08",
+   "huiji": [
+    "C文书篇"
+   ],
+   "fandom": [
+    "Document of Constantine Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约14"
+   ]
+  },
+  {
+   "id": "battle-royale",
+   "title": "旧约15 暗部大战篇",
+   "start": "2020-10-09",
+   "end": "2020-10-09",
+   "huiji": [
+    "暗部大战篇"
+   ],
+   "fandom": [
+    "Battle Royale Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约15"
+   ]
+  },
+  {
+   "id": "acqua",
+   "title": "旧约16 后方之水入侵篇",
+   "start": "2020-10-11",
+   "end": "2020-10-14",
+   "huiji": [
+    "后方之水入侵篇"
+   ],
+   "fandom": [
+    "Acqua of the Back Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约16"
+   ]
+  },
+  {
+   "id": "jailbreaker",
+   "title": "超电磁炮 越狱风暴篇",
+   "start": "2020-10-15",
+   "end": "2020-10-18",
+   "huiji": [
+    "越狱风暴篇"
+   ],
+   "fandom": [
+    "Jailbreaker Arc"
+   ],
+   "kaoju": [
+    "时间线/考据#某科学的超电磁炮"
+   ]
+  },
+  {
+   "id": "british",
+   "title": "旧约17-18 不列颠万圣夜篇",
+   "start": "2020-10-15",
+   "end": "2020-10-18",
+   "huiji": [
+    "不列颠万圣夜篇"
+   ],
+   "fandom": [
+    "British Royal Family Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约17-18"
+   ]
+  },
+  {
+   "id": "dragon",
+   "title": "旧约19 暗部脱逃篇",
+   "start": "2020-10-16",
+   "end": "2020-10-18",
+   "huiji": [
+    "暗部脱逃篇"
+   ],
+   "fandom": [
+    "DRAGON Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约19"
+   ]
+  },
+  {
+   "id": "wwiii",
+   "title": "旧约20-22 第三次世界大战篇",
+   "start": "2020-10-18",
+   "end": "2020-10-30",
+   "huiji": [
+    "第三次世界大战篇"
+   ],
+   "fandom": [
+    "World War III Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "World War III Arc"
+    ],
+    [
+     "*",
+     "Anglican Church–Russian Orthodox Church Prewar Conference"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/某魔法的禁书目录#旧约20-22"
+   ]
+  },
+  {
+   "id": "freshmen",
+   "title": "新约1 新入生篇",
+   "start": "2020-11-05",
+   "end": "2020-11-05",
+   "huiji": [
+    "新入生篇"
+   ],
+   "fandom": [
+    "Freshmen Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Freshmen Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约1"
+   ]
+  },
+  {
+   "id": "homecoming",
+   "title": "新约2 探空仪要塞篇",
+   "start": "2020-11-05",
+   "end": "2020-11-06",
+   "huiji": [
+    "探空仪要塞篇"
+   ],
+   "fandom": [
+    "Homecoming Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Homecoming Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约2"
+   ]
+  },
+  {
+   "id": "hawaii",
+   "title": "新约3 夏威夷篇",
+   "start": "2020-11-10",
+   "end": "2020-11-10",
+   "huiji": [
+    "夏威夷篇"
+   ],
+   "fandom": [
+    "Hawaii Invasion Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约3"
+   ]
+  },
+  {
+   "id": "baggage",
+   "title": "新约4 巴格吉城篇",
+   "start": "2020-11-13",
+   "end": "2020-11-13",
+   "huiji": [
+    "巴格吉城篇"
+   ],
+   "fandom": [
+    "Baggage City Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约4"
+   ]
+  },
+  {
+   "id": "ichihanaran",
+   "title": "新约5-6 一端览祭篇",
+   "start": "2020-11-14",
+   "end": "2020-11-15",
+   "huiji": [
+    "一端览祭篇"
+   ],
+   "fandom": [
+    "Ichihanaran Festival Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约5-6"
+   ]
+  },
+  {
+   "id": "agitate",
+   "title": "新约7 人力资源篇",
+   "start": "2020-11-16",
+   "end": "2020-11-17",
+   "huiji": [
+    "人力资源篇"
+   ],
+   "fandom": [
+    "Agitate Halation Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约7"
+   ]
+  },
+  {
+   "id": "othinus",
+   "title": "新约8-10 欧提努斯篇",
+   "start": "2020-11-18",
+   "end": "2020-11-21",
+   "huiji": [
+    "欧提努斯篇"
+   ],
+   "fandom": [
+    "Magic God Othinus Arc"
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约8-10"
+   ]
+  },
+  {
+   "id": "mental-out",
+   "title": "新约11 心理掌握篇",
+   "start": "2020-11-22",
+   "end": "2020-11-23",
+   "huiji": [
+    "心理掌握篇"
+   ],
+   "fandom": [
+    "Mental Out Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Mental Out Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约11"
+   ]
+  },
+  {
+   "id": "st-germain",
+   "title": "新约12 圣日耳曼篇",
+   "start": "2020-12-01",
+   "end": "2020-12-01",
+   "huiji": [
+    "圣日耳曼篇"
+   ],
+   "fandom": [
+    "St. Germain Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "St. Germain Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约12"
+   ]
+  },
+  {
+   "id": "magic-god-invasion",
+   "title": "新约13 魔神僧正篇",
+   "start": "2020-12-03",
+   "end": "2020-12-03",
+   "huiji": [
+    "魔神僧正篇"
+   ],
+   "fandom": [
+    "Magic God Invasion Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Magic God Invasion Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约13"
+   ]
+  },
+  {
+   "id": "world-rejecter",
+   "title": "新约14 理想放逐篇",
+   "start": "2020-12-03",
+   "end": "2020-12-04",
+   "huiji": [
+    "上里翔流篇"
+   ],
+   "fandom": [
+    "World Rejecter Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "World Rejecter Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约14"
+   ]
+  },
+  {
+   "id": "salome",
+   "title": "新约15 去鸣篇",
+   "start": "2020-12-04",
+   "end": "2020-12-06",
+   "fandom": [
+    "Salome Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Salome Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约15"
+   ]
+  },
+  {
+   "id": "element",
+   "title": "新约16 大热浪篇",
+   "start": "2020-12-07",
+   "end": "2020-12-09",
+   "huiji": [
+    "大热浪篇"
+   ],
+   "fandom": [
+    "Element Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Element Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约16"
+   ]
+  },
+  {
+   "id": "kamisato-rescue",
+   "title": "新约17 上里归来篇",
+   "start": "2020-12-09",
+   "end": "2020-12-11",
+   "huiji": [
+    "上里归来篇"
+   ],
+   "fandom": [
+    "Kamisato Rescue Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Kamisato Rescue Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约17"
+   ]
+  },
+  {
+   "id": "aleister",
+   "title": "新约18 亚雷斯塔篇",
+   "start": "2020-12-11",
+   "end": "2020-12-11",
+   "fandom": [
+    "Aleister Crowley Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Aleister Crowley Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约18"
+   ]
+  },
+  {
+   "id": "processor",
+   "title": "新约19 演算战斗服篇",
+   "start": "2020-12-12",
+   "end": "2020-12-13",
+   "fandom": [
+    "Processor Suit Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Processor Suit Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约19"
+   ]
+  },
+  {
+   "id": "coronzon",
+   "title": "新约20-22 重返英国·科隆尊篇",
+   "start": "2020-12-13",
+   "end": "2020-12-21",
+   "huiji": [
+    "黄金黎明篇"
+   ],
+   "fandom": [
+    "Coronzon Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Coronzon Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/新约 某魔法的禁书目录#新约20"
+   ]
+  },
+  {
+   "id": "kamijou",
+   "title": "新约22R 神净讨魔篇",
+   "start": "2020-12-21",
+   "end": "2020-12-23",
+   "fandom": [
+    "Kamijou Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Kamijou Arc"
+    ]
+   ]
+  },
+  {
+   "id": "christmas-eve",
+   "title": "创约1 平安夜篇",
+   "start": "2020-12-24",
+   "end": "2020-12-24",
+   "huiji": [
+    "平安夜篇"
+   ],
+   "fandom": [
+    "Christmas Eve Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Christmas Eve Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/创约 某魔法的禁书目录#创约1"
+   ]
+  },
+  {
+   "id": "christmas-day",
+   "title": "创约2 圣诞节篇",
+   "start": "2020-12-25",
+   "end": "2020-12-25",
+   "huiji": [
+    "圣诞节篇"
+   ],
+   "fandom": [
+    "Christmas Day Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Christmas Day Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/创约 某魔法的禁书目录#创约2"
+   ]
+  },
+  {
+   "id": "handcuffs",
+   "title": "创约3 手铐行动篇",
+   "start": "2020-12-25",
+   "end": "2020-12-26",
+   "huiji": [
+    "手铐行动篇"
+   ],
+   "fandom": [
+    "Operation Handcuffs Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Operation Handcuffs Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/创约 某魔法的禁书目录#创约3"
+   ]
+  },
+  {
+   "id": "los-angeles",
+   "title": "创约4 洛杉矶篇",
+   "start": "2020-12-26",
+   "end": "2020-12-27",
+   "huiji": [
+    "洛杉矶篇"
+   ],
+   "fandom": [
+    "Los Angeles Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Los Angeles Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/创约 某魔法的禁书目录#创约4"
+   ]
+  },
+  {
+   "id": "post-handcuffs",
+   "title": "创约5 手铐余波篇",
+   "start": "2020-12-29",
+   "end": "2020-12-29",
+   "huiji": [
+    "手铐余波篇"
+   ],
+   "fandom": [
+    "Post-Handcuffs Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Post-Handcuffs Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/创约 某魔法的禁书目录#创约5"
+   ]
+  },
+  {
+   "id": "new-years-eve",
+   "title": "创约6 涩谷篇（除夕）",
+   "start": "2020-12-31",
+   "end": "2020-12-31",
+   "fandom": [
+    "New Year's Eve Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "New Year's Eve Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/创约 某魔法的禁书目录#创约6"
+   ]
+  },
+  {
+   "id": "new-year",
+   "title": "创约7-10 新年篇（领事馆·安娜逃亡·CRC·爱丽丝）",
+   "start": "2021-01-01",
+   "end": "2021-01-06",
+   "huiji": [
+    "CRC篇"
+   ],
+   "fandom": [
+    "New Year's Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "New Year's Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/创约 某魔法的禁书目录#创约7",
+    "时间线/考据/创约 某魔法的禁书目录#创约8",
+    "时间线/考据/创约 某魔法的禁书目录#创约9",
+    "时间线/考据/创约 某魔法的禁书目录#创约10"
+   ]
+  },
+  {
+   "id": "hell-tour",
+   "title": "创约11 地狱篇",
+   "start": "2021-01-07",
+   "end": "2021-01-07",
+   "fandom": [
+    "Hell Tour Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Hell Tour Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/创约 某魔法的禁书目录#创约11"
+   ]
+  },
+  {
+   "id": "resurrection",
+   "title": "创约12-14 复活篇",
+   "start": "2021-01-08",
+   "end": "2021-01-09",
+   "fandom": [
+    "Resurrection Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Resurrection Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/创约 某魔法的禁书目录#创约12",
+    "时间线/考据/创约 某魔法的禁书目录#创约13",
+    "时间线/考据/创约 某魔法的禁书目录#创约14"
+   ]
+  },
+  {
+   "id": "narthex",
+   "title": "创约15 前厅篇",
+   "start": "2021-01-10",
+   "end": "2021-01-13",
+   "fandom": [
+    "Narthex Arc"
+   ],
+   "chron": [
+    [
+     "*",
+     "Narthex Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/创约 某魔法的禁书目录#创约15"
+   ],
+   "fandom_volumes": [
+    "Souyaku Toaru Majutsu no Index Light Novel Volume 15"
+   ]
+  },
+  {
+   "id": "third-term",
+   "title": "创约16 第三学期篇",
+   "start": "2021-01-14",
+   "end": "2021-01-16",
+   "chron": [
+    [
+     "*",
+     "Mid-January Arc"
+    ]
+   ],
+   "kaoju": [
+    "时间线/考据/创约 某魔法的禁书目录#创约16"
+   ],
+   "fandom_volumes": [
+    "Souyaku Toaru Majutsu no Index Light Novel Volume 16"
+   ]
+  }
+ ]
+}

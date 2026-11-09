@@ -107,6 +107,10 @@ Operational problems are shown out of story: invalid pack, unresolved starting t
 - **导出备份** downloads a JSON backup (contains the full pack and hidden/spoiler data). **导入备份** restores it into the open chat and revalidates it against the transcript.
 - A chat stays pinned to the pack snapshot it was bound with. To change versions use **更换历史包…** (or **更新** next to a library pack): it previews changed/added/deleted event ids and changed HARD contracts, requires a backup export first, then revalidates every stored message against the new pack deterministically; only messages whose basis really changed are examined again.
 
+## Making a history pack
+
+`tools/pack-builder/` (canon-pack-builder) builds a pack from a work's story source: game scripts (FGO via Atlas Academy) or wiki arc pages (MediaWiki, used for 魔禁). Code does the mechanical parts (download, parsing, who is present, dates, timeline, assembly, `canon-lint`); a cheap model (DeepSeek Flash by default, any OpenAI-compatible API) writes the summaries, classifications, entity descriptions and 角色常态. Python 3.10+, standard library only. A new work needs a project file in `tools/pack-builder/projects/`, and an adapter when its source has a new format. Setup, commands and costs: [tools/pack-builder/README.md](tools/pack-builder/README.md) (Chinese). Downloaded source text, model caches, built packs (`work/`) and your API key (`config.json`) stay local; they are git-ignored.
+
 ## Context size
 
 The engine context (rules + retrieved history + state) adds roughly 3–20k tokens to the story prompt, growing with the size of the pack and how much has happened (a large pack after a few days of story time: about 15k). Each turn also makes 3–4 analysis calls (extraction, discovery, review; planning and offscreen adjudication when needed) on the analysis connection; the review is the largest, about 1–2× the engine context. Use a model context of at least 64k tokens for a large pack. After each turn the status line shows the tokens your provider actually reported for all of the engine's requests in that turn ("消耗 N Token"; hover for input/output and the number of calls). SillyTavern's own token counter may overstate the total: it double-counts in-chat injections across its categories and, for model names it does not recognise, counts with an OpenAI tokenizer (for Chinese text with a Qwen model about 1.6× too high). If SillyTavern trims the engine context because the prompt does not fit, the turn stops with a *Context capacity* error instead of generating an unchecked reply.
@@ -152,6 +156,7 @@ document.addEventListener('canon-engine:clock', (e) => console.log(e.detail)); /
 | `docs/` | Architecture, runtime schemas, GM integration rules, world-state contract, acceptance tests, test report, user guide, authoring guide |
 | `tests/unit` | Domain/runtime acceptance tests (vitest) |
 | `tests/e2e` | Real ST/Horae integration proof (Playwright + mock OpenAI-compatible server) |
+| `tools/pack-builder` | canon-pack-builder: builds history packs from story sources (Python; `python -m unittest discover -s tests` in that folder) |
 
 ```
 npm install

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.26.1 — 2026-11-09
+
+- **Your own 角色常态.** Reading the Persona now also writes the player character's nature when the Persona gives a power, a condition, a non-human body or a device they depend on (habits / uses / others / limits, patterns, not story). The GM sees it with the player in this world: signs that show by themselves are written like a reaction, deliberate use only as the player-character settings allow (能力技能魔法). Shown on the narrative-integration page and first in the timeline's 「角色常态」. A started game gets it with 更新本局身份. Test: NI-50b.
+- **canon-pack-builder is part of the repository** (`tools/pack-builder/`): builds history packs from story sources (FGO game scripts, MediaWiki arc pages), 角色常态 included. A base pack's whole-list membership writes are now turned into who joins and who leaves.
+
 ## 1.26.0 — 2026-11-09
 
 - **角色常态 (a person's nature).** A pack person can carry `nature`: how their power, condition or non-human body shows in everyday scenes (habits / uses / others / limits), in versions that start (and end) at pack events. The GM was playing such people as ordinary people who own a skill used only when the plot calls for it (a telepath who never reads a mind unasked, an electro-master who never sparks). Now the version in force in this branch — the last whose event has occurred, so a change the player prevented never comes — goes to the story model for the people in the scene, introduced as background, not story: not a topic, not the same display every reply; what a person learns through their own power is how they know it. The text is written as patterns, never story (no names, no episodes: canon-pack-builder checks both). canon-lint checks the versions' events. Tests: NT1–NT4, e2e NT01–NT03.

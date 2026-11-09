@@ -1,0 +1,6 @@
+# Downloaded game data, model outputs and built packs stay on this machine (copyrighted source text).
+work/
+# Your API key lives here.
+config.json
+__pycache__/
+*.pyc

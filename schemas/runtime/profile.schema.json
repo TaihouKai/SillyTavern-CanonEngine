@@ -358,6 +358,28 @@
     ],
     "additionalProperties": false
    }
+  },
+  "nature": {
+   "type": "object",
+   "properties": {
+    "habits": {
+     "type": "string",
+     "maxLength": 500
+    },
+    "uses": {
+     "type": "string",
+     "maxLength": 500
+    },
+    "others": {
+     "type": "string",
+     "maxLength": 500
+    },
+    "limits": {
+     "type": "string",
+     "maxLength": 500
+    }
+   },
+   "additionalProperties": false
   }
  },
  "required": [

@@ -1,0 +1,46 @@
+{
+  "llm": {
+    "provider": "openai_compatible",
+    "base_url": "https://api.deepseek.com",
+    "api_key": "",
+    "model": "deepseek-flash",
+    "extra_body": {
+      "thinking": {
+        "type": "disabled"
+      }
+    },
+    "temperature": 0.3,
+    "max_output_tokens": 8192,
+    "concurrency": 6,
+    "timeout_s": 300,
+    "prices_usd_per_mtok": {
+      "input_hit": 0.006,
+      "input_miss": 0.3,
+      "output": 1.2
+    },
+    "offpeak": {
+      "discount": 0.5,
+      "peak_utc_hours": [
+        [
+          1,
+          4
+        ],
+        [
+          6,
+          10
+        ]
+      ],
+      "peak_weekdays": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "max_usd_per_run": 3.0,
+    "json_mode": false
+  },
+  "canon_lint": "../../dist/canon-lint.mjs",
+  "node": "node"
+}

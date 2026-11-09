@@ -11,7 +11,7 @@ import { evalCondition, factAt, triLabel } from '../domain/reducer';
 import { agoLabel, formatTick, toTick } from '../domain/time';
 import { hashObject, newId, sha256, uniq } from '../domain/util';
 import { WorldIndex } from '../domain/world-query';
-import type { AffiliationStatus, TieChange, IntegrationCache, Opportunity, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
+import type { AffiliationStatus, TieChange, IntegrationCache, Opportunity, PlayerNature, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
 import { markedLines } from './worldset';
 
 /** Story-time lead for candidate events (events starting within it are considered). */
@@ -42,6 +42,7 @@ export interface ProfileOut {
   roles?: { role: string; brings?: string[]; from?: string[]; style?: string }[];
   not_suited?: string[];
   voice?: string;
+  nature?: Partial<PlayerNature>;
   relationships: { name: string; existing_id?: string | null; relation?: string; basis?: 'persona_stated' | 'implied' }[];
   knowers: { who: string; existing_id?: string | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: 'persona_stated' | 'implied'; places?: string[] }[];
   recognized_by?: { who: string; existing_id?: string | null; places?: string[]; everywhere?: boolean; as: string }[];
@@ -165,10 +166,18 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
       roles: (out.roles || []).filter((r) => r?.role?.trim()).slice(0, 8).map((r) => ({ role: r.role.trim().slice(0, 200), brings: list(r.brings), from: list(r.from), style: String(r.style || '').trim().slice(0, 300) })),
       notSuited: list(out.not_suited),
       voice: String(out.voice || '').trim().slice(0, 600),
+      ...natureOf(out.nature),
       worldChanges: worldChangesOf(out, persona.description),
     },
     runtimeEntities,
   };
+}
+
+/** The player's 常态 from the profile reply: kept when any field says something. */
+function natureOf(n: ProfileOut['nature']): { nature?: PlayerNature } {
+  const pick = (k: keyof PlayerNature) => String(n?.[k] || '').trim().slice(0, 500);
+  const v: PlayerNature = { habits: pick('habits'), uses: pick('uses'), others: pick('others'), limits: pick('limits') };
+  return Object.values(v).some(Boolean) ? { nature: v } : {};
 }
 
 /** The persona_seed record: the player and their original organizations/places enter the world (no story event),
@@ -908,6 +917,10 @@ export function integrationKey(index: WorldIndex, profile: PlayerProfile, candid
 // ---------------------------------------------------------------------------------------------
 // GM context sections
 
+export function natureText(n: PlayerNature): string {
+  return (['habits', 'uses', 'others', 'limits'] as const).filter((k) => n[k]).map((k) => `${k}: ${n[k]}`).join(' | ');
+}
+
 export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick: number): string {
   profile = playedProfile(index, profile);
   const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play — the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know — famous things (an esper's level and ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
@@ -918,6 +931,7 @@ export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick:
   if (profile.roles?.length) lines.push(`- roles: ${profile.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(', '), r.from.length ? `from ${r.from.join(', ')}` : ''].filter(Boolean).join('; ')})` : ''}`).join(' | ')}`);
   if (profile.notSuited?.length) lines.push(`- does not take on: ${profile.notSuited.join('; ')}`);
   if (profile.voice) lines.push(`- how they come across and talk (write the player character's lines and reactions this way): ${profile.voice}`);
+  if (profile.nature) lines.push(`- 常态 (how their own power or condition shows in everyday moments — background, not story; signs that show by themselves may be written like a reaction, a deliberate use only as the player-character rules allow): ${natureText(profile.nature)}`);
   for (const r of byChange(profile.relationships).slice(0, 16)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ''} — ${r.ended ? 'ENDED: ' : ''}${r.relation} (${tieSource(r)})${r.entityId ? factsLine(index, r.entityId, tick, 300) : ''}`);
   for (const k of byChange(profile.knowers).slice(0, 16)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === 'secrets' ? ':' : ' —'} ${k.about} (${tieSource(k)})`);
   return lines.join('\n');

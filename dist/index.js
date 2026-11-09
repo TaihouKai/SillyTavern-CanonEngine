@@ -15938,7 +15938,7 @@ function validate66(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate66.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 var profile = validate67;
-var schema102 = { "type": "object", "properties": { "player": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "aliases": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 10 }, "summary": { "type": "string", "maxLength": 1500 }, "public_identity": { "type": "string", "maxLength": 800 } }, "required": ["name", "summary"], "additionalProperties": false }, "affiliations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "kind": { "enum": ["organization", "other"] }, "role": { "type": "string", "maxLength": 400 }, "status": { "enum": ["member", "joining", "former"] }, "leads": { "type": "boolean" }, "members": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } }, "secrecy": { "enum": ["public", "restricted", "secret"] }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name", "status"], "additionalProperties": false } }, "places": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "use": { "type": "string", "maxLength": 400 }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "capabilities": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "resources": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "goals": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 12 }, "relationships": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] } }, "required": ["name"], "additionalProperties": false } }, "knowers": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 } }, "required": ["who", "level", "about", "basis"], "additionalProperties": false } }, "uncertain": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "roles": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["role"], "additionalProperties": false, "properties": { "role": { "type": "string", "maxLength": 200 }, "brings": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "from": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 8 }, "style": { "type": "string", "maxLength": 300 } } } }, "not_suited": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "voice": { "type": "string", "maxLength": 600 }, "world_changes": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "text": { "type": "string", "maxLength": 600 }, "terms": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 60 } } }, "required": ["text"], "additionalProperties": false } }, "recognized_by": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 }, "everywhere": { "type": "boolean" }, "as": { "type": "string", "maxLength": 400 } }, "required": ["who", "as"], "additionalProperties": false } } }, "required": ["player", "affiliations", "relationships", "knowers"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:profile", "title": "Canon Engine task output: profile" };
+var schema102 = { "type": "object", "properties": { "player": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "aliases": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 10 }, "summary": { "type": "string", "maxLength": 1500 }, "public_identity": { "type": "string", "maxLength": 800 } }, "required": ["name", "summary"], "additionalProperties": false }, "affiliations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "kind": { "enum": ["organization", "other"] }, "role": { "type": "string", "maxLength": 400 }, "status": { "enum": ["member", "joining", "former"] }, "leads": { "type": "boolean" }, "members": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } }, "secrecy": { "enum": ["public", "restricted", "secret"] }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name", "status"], "additionalProperties": false } }, "places": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "use": { "type": "string", "maxLength": 400 }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "capabilities": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "resources": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "goals": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 12 }, "relationships": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] } }, "required": ["name"], "additionalProperties": false } }, "knowers": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 } }, "required": ["who", "level", "about", "basis"], "additionalProperties": false } }, "uncertain": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "roles": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["role"], "additionalProperties": false, "properties": { "role": { "type": "string", "maxLength": 200 }, "brings": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "from": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 8 }, "style": { "type": "string", "maxLength": 300 } } } }, "not_suited": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "voice": { "type": "string", "maxLength": 600 }, "world_changes": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "text": { "type": "string", "maxLength": 600 }, "terms": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 60 } } }, "required": ["text"], "additionalProperties": false } }, "recognized_by": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 }, "everywhere": { "type": "boolean" }, "as": { "type": "string", "maxLength": 400 } }, "required": ["who", "as"], "additionalProperties": false } }, "nature": { "type": "object", "properties": { "habits": { "type": "string", "maxLength": 500 }, "uses": { "type": "string", "maxLength": 500 }, "others": { "type": "string", "maxLength": 500 }, "limits": { "type": "string", "maxLength": 500 } }, "additionalProperties": false } }, "required": ["player", "affiliations", "relationships", "knowers"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:profile", "title": "Canon Engine task output: profile" };
 function validate67(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -17644,12 +17644,124 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
+    if (data.nature !== void 0) {
+      let data71 = data.nature;
+      if (data71 && typeof data71 == "object" && !Array.isArray(data71)) {
+        for (const key9 in data71) {
+          if (!(key9 === "habits" || key9 === "uses" || key9 === "others" || key9 === "limits")) {
+            const err153 = { instancePath: instancePath + "/nature", schemaPath: "#/properties/nature/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key9 }, message: "must NOT have additional properties" };
+            if (vErrors === null) {
+              vErrors = [err153];
+            } else {
+              vErrors.push(err153);
+            }
+            errors++;
+          }
+        }
+        if (data71.habits !== void 0) {
+          let data72 = data71.habits;
+          if (typeof data72 === "string") {
+            if (func2(data72) > 500) {
+              const err154 = { instancePath: instancePath + "/nature/habits", schemaPath: "#/properties/nature/properties/habits/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
+              if (vErrors === null) {
+                vErrors = [err154];
+              } else {
+                vErrors.push(err154);
+              }
+              errors++;
+            }
+          } else {
+            const err155 = { instancePath: instancePath + "/nature/habits", schemaPath: "#/properties/nature/properties/habits/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err155];
+            } else {
+              vErrors.push(err155);
+            }
+            errors++;
+          }
+        }
+        if (data71.uses !== void 0) {
+          let data73 = data71.uses;
+          if (typeof data73 === "string") {
+            if (func2(data73) > 500) {
+              const err156 = { instancePath: instancePath + "/nature/uses", schemaPath: "#/properties/nature/properties/uses/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
+              if (vErrors === null) {
+                vErrors = [err156];
+              } else {
+                vErrors.push(err156);
+              }
+              errors++;
+            }
+          } else {
+            const err157 = { instancePath: instancePath + "/nature/uses", schemaPath: "#/properties/nature/properties/uses/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err157];
+            } else {
+              vErrors.push(err157);
+            }
+            errors++;
+          }
+        }
+        if (data71.others !== void 0) {
+          let data74 = data71.others;
+          if (typeof data74 === "string") {
+            if (func2(data74) > 500) {
+              const err158 = { instancePath: instancePath + "/nature/others", schemaPath: "#/properties/nature/properties/others/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
+              if (vErrors === null) {
+                vErrors = [err158];
+              } else {
+                vErrors.push(err158);
+              }
+              errors++;
+            }
+          } else {
+            const err159 = { instancePath: instancePath + "/nature/others", schemaPath: "#/properties/nature/properties/others/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err159];
+            } else {
+              vErrors.push(err159);
+            }
+            errors++;
+          }
+        }
+        if (data71.limits !== void 0) {
+          let data75 = data71.limits;
+          if (typeof data75 === "string") {
+            if (func2(data75) > 500) {
+              const err160 = { instancePath: instancePath + "/nature/limits", schemaPath: "#/properties/nature/properties/limits/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
+              if (vErrors === null) {
+                vErrors = [err160];
+              } else {
+                vErrors.push(err160);
+              }
+              errors++;
+            }
+          } else {
+            const err161 = { instancePath: instancePath + "/nature/limits", schemaPath: "#/properties/nature/properties/limits/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err161];
+            } else {
+              vErrors.push(err161);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err162 = { instancePath: instancePath + "/nature", schemaPath: "#/properties/nature/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        if (vErrors === null) {
+          vErrors = [err162];
+        } else {
+          vErrors.push(err162);
+        }
+        errors++;
+      }
+    }
   } else {
-    const err153 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err163 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err153];
+      vErrors = [err163];
     } else {
-      vErrors.push(err153);
+      vErrors.push(err163);
     }
     errors++;
   }
@@ -22331,6 +22443,28 @@ var profile_schema_default = {
         ],
         additionalProperties: false
       }
+    },
+    nature: {
+      type: "object",
+      properties: {
+        habits: {
+          type: "string",
+          maxLength: 500
+        },
+        uses: {
+          type: "string",
+          maxLength: 500
+        },
+        others: {
+          type: "string",
+          maxLength: 500
+        },
+        limits: {
+          type: "string",
+          maxLength: 500
+        }
+      },
+      additionalProperties: false
     }
   },
   required: [
@@ -23459,10 +23593,16 @@ function buildProfile(out, pack2, index, persona, prev) {
       roles: (out.roles || []).filter((r) => r?.role?.trim()).slice(0, 8).map((r) => ({ role: r.role.trim().slice(0, 200), brings: list(r.brings), from: list(r.from), style: String(r.style || "").trim().slice(0, 300) })),
       notSuited: list(out.not_suited),
       voice: String(out.voice || "").trim().slice(0, 600),
+      ...natureOf(out.nature),
       worldChanges: worldChangesOf(out, persona.description)
     },
     runtimeEntities
   };
+}
+function natureOf(n) {
+  const pick = (k) => String(n?.[k] || "").trim().slice(0, 500);
+  const v = { habits: pick("habits"), uses: pick("uses"), others: pick("others"), limits: pick("limits") };
+  return Object.values(v).some(Boolean) ? { nature: v } : {};
 }
 function seedRecord(profile2, runtimeEntities, tick, rev, prev = null) {
   const deltas = [];
@@ -24175,6 +24315,9 @@ function integrationKey(index, profile2, candidates, focus, jumpTo, quiet = fals
     s: playerIds(profile2).map((id) => factAt(index.state, id, "exists", { tick: Number.MAX_SAFE_INTEGER }).value ?? null)
   });
 }
+function natureText(n) {
+  return ["habits", "uses", "others", "limits"].filter((k) => n[k]).map((k) => `${k}: ${n[k]}`).join(" | ");
+}
 function presenceSection(index, profile2, tick) {
   profile2 = playedProfile(index, profile2);
   const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play \u2014 the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know \u2014 famous things (an esper's level and ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
@@ -24185,6 +24328,7 @@ function presenceSection(index, profile2, tick) {
   if (profile2.roles?.length) lines.push(`- roles: ${profile2.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(", "), r.from.length ? `from ${r.from.join(", ")}` : ""].filter(Boolean).join("; ")})` : ""}`).join(" | ")}`);
   if (profile2.notSuited?.length) lines.push(`- does not take on: ${profile2.notSuited.join("; ")}`);
   if (profile2.voice) lines.push(`- how they come across and talk (write the player character's lines and reactions this way): ${profile2.voice}`);
+  if (profile2.nature) lines.push(`- \u5E38\u6001 (how their own power or condition shows in everyday moments \u2014 background, not story; signs that show by themselves may be written like a reaction, a deliberate use only as the player-character rules allow): ${natureText(profile2.nature)}`);
   for (const r of byChange(profile2.relationships).slice(0, 16)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ""} \u2014 ${r.ended ? "ENDED: " : ""}${r.relation} (${tieSource(r)})${r.entityId ? factsLine(index, r.entityId, tick, 300) : ""}`);
   for (const k of byChange(profile2.knowers).slice(0, 16)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === "secrets" ? ":" : " \u2014"} ${k.about} (${tieSource(k)})`);
   return lines.join("\n");
@@ -24682,9 +24826,10 @@ TASK: Read the player's Persona (their character in this story world) and descri
 - roles: the parts of the player's life the Persona gives, of whatever kind the character and the world have \u2014 an occupation or trade, an organization they work for, school or university, a club, family duties, a part-time job, a household, a craft. For each: role (what they are there), brings (the kinds of matters that part of life brings them), from (who brings them), style (how they handle such matters, when the Persona says). Only what the Persona states or clearly implies (a student has school and classmates); an ordinary person has ordinary roles.
 - not_suited: kinds of tasks or matters the player cannot or will not take on at all, as the Persona states or as follows from who they are (an ordinary person: fighting trained opponents; "bad at stealth and intelligence work"). Only whole kinds of tasks \u2014 not the conditions, costs or weaknesses of their skills.
 - voice: how the player character comes across and talks, in one to three short sentences: temperament, manner of speaking, how they react to teasing, questions and invitations. When the Persona gives a front they put on and how they really are, say both and how well the front holds. Only what the Persona states or clearly implies; empty when it says nothing about it.
+- nature: when the Persona gives the player a power or ability, a magic or fighting art they live by, a bodily condition, an unusual or non-human body, or an implant or device they depend on: how it shows in their everyday behaviour, so the player character is played with it as part of them, not as a skill kept for the plot. habits: what shows without any plot need (a passive use, visible signs, how often or when); uses: when they use it on purpose or cannot help it, and how far they go with ordinary people and friends; others: what people around them know of it and how they treat them for it; limits: what it cannot do, its cost, what they will not do with it. One or two sentences each, in the Persona's language, only what the Persona states or what follows directly from how the power works. Write patterns, never story: no names, no specific incidents. Omit nature (or leave every field empty) when the Persona gives nothing of the kind: an ordinary person has none.
 - public_identity: everything about the player that is public. Public by default is whatever the Persona does not mark as secret or as known only to certain people: their skills or powers if they have any, school or workplace, looks, temperament, reputation, what they are known for. Secret even when not marked is what is secret by nature in this world: membership in a hidden organization or secret society, covert work, and anything the Persona says only certain people know. uncertain: what the Persona leaves open that matters.
 Write in the Persona's language. Keep each text short.
-SHAPE: {"player":{"name":"","aliases":[],"summary":"","public_identity":""},"affiliations":[{"name":"","existing_id":null,"kind":"organization","role":"","status":"member","leads":false,"members":[],"secrecy":"secret","description":""}],"places":[{"name":"","existing_id":null,"use":"","description":""}],"capabilities":[],"resources":[],"goals":[],"roles":[{"role":"","brings":[],"from":[],"style":""}],"not_suited":[],"voice":"","relationships":[{"name":"","existing_id":null,"relation":"","basis":"persona_stated"}],"knowers":[{"who":"","existing_id":null,"level":"exists","about":"","basis":"implied","places":[]}],"recognized_by":[{"who":"","existing_id":null,"places":[],"everywhere":false,"as":""}],"uncertain":[],"world_changes":[{"text":"","terms":[]}]}`,
+SHAPE: {"player":{"name":"","aliases":[],"summary":"","public_identity":""},"affiliations":[{"name":"","existing_id":null,"kind":"organization","role":"","status":"member","leads":false,"members":[],"secrecy":"secret","description":""}],"places":[{"name":"","existing_id":null,"use":"","description":""}],"capabilities":[],"resources":[],"goals":[],"roles":[{"role":"","brings":[],"from":[],"style":""}],"not_suited":[],"voice":"","nature":{"habits":"","uses":"","others":"","limits":""},"relationships":[{"name":"","existing_id":null,"relation":"","basis":"persona_stated"}],"knowers":[{"who":"","existing_id":null,"level":"exists","about":"","basis":"implied","places":[]}],"recognized_by":[{"who":"","existing_id":null,"places":[],"everywhere":false,"as":""}],"uncertain":[],"world_changes":[{"text":"","terms":[]}]}`,
   integrate: `${COMMON}
 TASK: The story world reacts to the player character. Given who the player is (player: identity, organizations, who knows what about them), what actually happened with them (player.actual_history: only what they themself took part in; player.lately: what their organizations and places went through without them in the last weeks \u2014 background, not their history), what is happening or about to happen (candidate_events, each with its people and status), and the player's own decisions (engagement), work out how the world could reach the player now, so that they become part of the story without having to look for a way in.
 1. assessments: for each candidate event (and any situation from actual history worth it): direct_impact (something already in motion reaches or affects the player: someone who knows of them has their own reason to act toward them, or the event's effects reach where they are), opportunity (a plausible, interesting contact could be made), or no_connection; with a short reason.
@@ -26591,7 +26736,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.26.0";
+var ENGINE_RELEASE = "1.26.1";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
@@ -29592,6 +29737,8 @@ ${lines.join("\n")}`;
       });
       return { id: e.id, name: e.name, versions };
     });
+    const prof = this.playerProfile()?.profile;
+    if (prof?.nature) people.unshift({ id: prof.playerId, name: prof.personaName, player: true, versions: [{ from_event: null, ...prof.nature, from: null, until: null, state: "now" }] });
     return { people, hidden };
   }
   inspector(spoilers) {
@@ -29667,6 +29814,7 @@ ${lines.join("\n")}`;
         roles: (prof.profile.roles || []).map((r) => `${r.role}${r.brings.length ? ` \u2014 ${r.brings.join(", ")}` : ""}${r.from.length ? ` (${r.from.join(", ")})` : ""}`),
         notSuited: prof.profile.notSuited || [],
         voice: prof.profile.voice || "",
+        nature: prof.profile.nature ? ["habits", "uses", "others", "limits"].filter((k) => prof.profile.nature[k]).map((k) => `${{ habits: zh ? "\u5E73\u65F6" : "Habits", uses: zh ? "\u4F7F\u7528" : "Uses", others: zh ? "\u65C1\u4EBA" : "Others", limits: zh ? "\u9650\u5236" : "Limits" }[k]}\uFF1A${prof.profile.nature[k]}`) : [],
         relationships: played.relationships.map((r) => ({ who: r.entityId, name: r.name, text: r.relation, ended: !!r.ended, basis: r.basis, by: r.changed?.by ?? r.basis, since: r.changed ? formatTick(r.changed.since, origin) : null, start: r.changed?.start ?? null, quote: r.changed?.quote || "", org: orgNow(r.entityId) })),
         recognized: (prof.profile.recognizedBy || []).map((r) => `${r.who}${r.everywhere ? zh ? "\uFF08\u5230\u5904\uFF09" : " (everywhere)" : ""}: ${r.as}${r.places.length ? ` (${r.places.map((p) => idx.entityName(p)).join(zh ? "\u3001" : ", ")})` : ""}`),
         knowers: played.knowers.map((k) => ({ who: k.entityId, name: k.who, level: k.level, text: k.about, basis: k.basis, by: k.changed?.by ?? k.basis, since: k.changed ? formatTick(k.changed.since, origin) : null, start: k.changed?.start ?? null, quote: k.changed?.quote || "" })),
@@ -30960,6 +31108,8 @@ var D = {
   natureHidden: { zh: "\u53E6\u6709 {n} \u4E2A\u5C1A\u672A\u5230\u6765\u7684\u5E38\u6001\u7248\u672C\uFF08\u5267\u900F\uFF0C\u52FE\u9009\u201C\u5267\u900F\u201D\u663E\u793A\uFF09\u3002", en: "{n} versions still to come hidden (spoilers; tick Spoilers to show)." },
   natureVersions: { zh: "{n} \u4E2A\u7248\u672C", en: "{n} versions" },
   natureStart: { zh: "\u5267\u672C\u5F00\u59CB\u65F6", en: "At the story start" },
+  naturePlayer: { zh: "\uFF08\u4F60\u7684\u89D2\u8272\uFF0C\u8BFB\u81EA Persona\uFF09", en: "(your character, from the Persona)" },
+  naturePersona: { zh: "\u8BFB\u81EA Persona\uFF08\u6539\u4E86 Persona \u540E\u70B9\u300C\u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD\u300D\u91CD\u8BFB\uFF09", en: "From the Persona (after changing it, use \u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD to read it again)" },
   natureFrom: { zh: "\u4ECE\u300C{e}\u300D\u8D77", en: 'From "{e}"' },
   natureUntil: { zh: "\uFF0C\u5230\u300C{e}\u300D\u4E3A\u6B62", en: ', until "{e}"' },
   natureState_now: { zh: "\u5F53\u524D\u751F\u6548", en: "In force" },
@@ -31235,6 +31385,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niSideJob: { zh: "\u5C0F\u4EFB\u52A1", en: "small job" },
   niRoles: { zh: "\u751F\u6D3B\u4E2D\u7684\u8EAB\u4EFD\uFF08\u5C0F\u4EFB\u52A1\u4ECE\u8FD9\u91CC\u6765\uFF09", en: "Roles in life (small matters come from these)" },
   niNotSuited: { zh: "\u4E0D\u63A5\u7684\u4E8B\uFF08\u505A\u4E0D\u5230 / \u4E0D\u4F1A\u505A\uFF09", en: "Does not take on (cannot / will not)" },
+  niNature: { zh: "\u89D2\u8272\u5E38\u6001\uFF08\u4F60\u7684\u80FD\u529B\u6216\u4F53\u8D28\u5E73\u65F6\u7684\u6837\u5B50\uFF1BGM \u7167\u8FD9\u4E2A\u5199\uFF0C\u4E3B\u52A8\u4F7F\u7528\u4ECD\u6309\u4E0A\u9762\u7684\u52FE\u9009\uFF09", en: "Your nature (how your power or condition shows; the GM writes it this way, deliberate use still as ticked above)" },
   niVoice: { zh: "\u6027\u683C\u4E0E\u8BF4\u8BDD\u65B9\u5F0F\uFF08GM \u7167\u8FD9\u4E2A\u5199\u4F60\u7684\u53F0\u8BCD\uFF09", en: "How you come across and talk (the GM writes your lines this way)" },
   niJobLapsed: { zh: "\u5C0F\u4EFB\u52A1\xB7\u5DF2\u8FC7\u671F", en: "small job \xB7 lapsed" },
   niPrefer: { zh: "\u4F18\u5148", en: "Prefer" },
@@ -31927,11 +32078,11 @@ var GraphPanel = class {
     const q = this.filter.q.trim().toLowerCase();
     const people = v.people.filter((p) => !q || p.name.toLowerCase().includes(q));
     const field2 = (k, x) => x.trim() ? `<div class="cg-nfield"><b>${t("nature_" + k)}</b>${esc(x)}</div>` : "";
-    const ver = (x) => {
-      const head = x.from ? t("natureFrom").replace("{e}", x.from) + (x.until ? t("natureUntil").replace("{e}", x.until) : "") : t("natureStart");
+    const ver = (x, player = false) => {
+      const head = player ? t("naturePersona") : x.from ? t("natureFrom").replace("{e}", x.from) + (x.until ? t("natureUntil").replace("{e}", x.until) : "") : t("natureStart");
       return `<div class="cg-nver cg-nver-${x.state}"><div class="cg-nhead">${esc(head)} <span class="cg-key cg-nstate-${x.state}">${t("natureState_" + x.state)}</span>${x.why ? `<span class="cg-nwhy">${esc(x.why)}</span>` : ""}</div>${field2("habits", x.habits)}${field2("uses", x.uses)}${field2("others", x.others)}${field2("limits", x.limits)}</div>`;
     };
-    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t("natureNote").replace("{n}", String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? " open" : ""}><summary>${esc(p.name)}${p.versions.length > 1 ? ` <span class="cg-hint">${t("natureVersions").replace("{n}", String(p.versions.length))}</span>` : ""}</summary>${p.versions.map(ver).join("")}</details>`).join("")}${v.hidden ? `<div class="cg-hint">${t("natureHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
+    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t("natureNote").replace("{n}", String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? " open" : ""}><summary>${esc(p.name)}${p.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}${p.versions.length > 1 ? ` <span class="cg-hint">${t("natureVersions").replace("{n}", String(p.versions.length))}</span>` : ""}</summary>${p.versions.map((x) => ver(x, !!p.player)).join("")}</details>`).join("")}${v.hidden ? `<div class="cg-hint">${t("natureHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
   }
   /** 当前时空: the scene's time frame, changeable by hand when the reviewer missed a move between frames. */
   frameSelect(g) {
@@ -32302,7 +32453,7 @@ function createInspector(d) {
       secs.push({ id, label });
       return sec(id, label, rows.map((r, i) => item(`${id}-${i}`, `<span class="ci-text">${esc2(r)}</span>`)).join(""));
     };
-    html += list("orgs", t("niOrgs"), p.affiliations) + list("places", t("niPlaces"), p.places) + list("roles", t("niRoles"), p.roles || []) + list("notsuited", t("niNotSuited"), p.notSuited || []) + list("voice", t("niVoice"), p.voice ? [p.voice] : []) + list("recognized", t("niRecognized"), p.recognized || []) + list("lore", t("niLore"), p.lore || []) + list("notes", t("niNotes"), p.notes);
+    html += list("orgs", t("niOrgs"), p.affiliations) + list("places", t("niPlaces"), p.places) + list("roles", t("niRoles"), p.roles || []) + list("notsuited", t("niNotSuited"), p.notSuited || []) + list("voice", t("niVoice"), p.voice ? [p.voice] : []) + list("nature", t("niNature"), p.nature || []) + list("recognized", t("niRecognized"), p.recognized || []) + list("lore", t("niLore"), p.lore || []) + list("notes", t("niNotes"), p.notes);
     return { html, secs };
   }
   function ties(ni) {

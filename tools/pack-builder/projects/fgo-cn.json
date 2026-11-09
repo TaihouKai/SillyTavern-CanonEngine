@@ -1,0 +1,111 @@
+{
+  "name": "fgo-cn",
+  "adapter": "atlas",
+  "atlas": {
+    "region": "CN",
+    "year_region": "JP",
+    "wars": "main",
+    "exclude_wars": [
+      503
+    ],
+    "quest_types": [
+      "main"
+    ],
+    "download_workers": 6,
+    "merge_characters": {
+      "f98001": "s800100"
+    }
+  },
+  "protagonist": {
+    "name": "藤丸立香",
+    "gender": "male",
+    "id": "fujimaru-ritsuka",
+    "aliases": [
+      "前辈",
+      "立香"
+    ],
+    "description": "迦勒底的御主，人理修复（第一部）与白纸化地球的旅程（第二部）的主人公。原本只是被临时招募的一般人候补，因事故成为迦勒底唯一的御主。"
+  },
+  "pack": {
+    "pack_id": "fgo-chronicle",
+    "pack_version": "0.1.0",
+    "title": "Fate/Grand Order 编年史（主线）",
+    "language": "zh-CN",
+    "description": "FGO 主线剧情的编年史。事件按迦勒底一侧经历的时间排列；特异点、异闻带等地的当地年代写在每个事件的时间说明里。由 canon-pack-builder 从 Atlas Academy 的国服剧情脚本生成，年份按日服惯例。",
+    "time_zone_label": "迦勒底时间（各地当地年代见事件时间说明）"
+  },
+  "frames": {
+    "default": "迦勒底",
+    "chapter_frames": {}
+  },
+  "timeline": {
+    "origin_date": "2015-07-30",
+    "origin_note": "第0天 = 2015年7月30日（编辑选定：脚本只说第一部始于2015年（冬木：“この2015年において”），未给出日期；取日服开服日作为显示日期）。",
+    "gap_days": 14,
+    "anchors": [
+      {
+        "chapter": "w108",
+        "start": "2016-12-30 08:00",
+        "basis": "documented",
+        "note": "终局特异点：迦勒底中心部将于2016年12月31日被确定（日服脚本），决战在此之前。"
+      },
+      {
+        "chapter": "w300",
+        "start": "2017-12-26 08:00",
+        "basis": "documented",
+        "note": "第二部序章标题：2017年12月26日（日服年份）。"
+      },
+      {
+        "chapter": "w301",
+        "start": "2018-04-01 08:00",
+        "basis": "documented",
+        "note": "第一章：在虚数空间漂流后上浮，回到地表时已是2018年4月初（日服年份）。"
+      }
+    ]
+  },
+  "classification": {
+    "max_hard_per_chapter": 3
+  },
+  "generic_aliases": [
+    "Saber",
+    "Archer",
+    "Lancer",
+    "Rider",
+    "Caster",
+    "Assassin",
+    "Berserker",
+    "Ruler",
+    "Avenger",
+    "Shielder",
+    "Moon Cancer",
+    "Alter Ego",
+    "Foreigner",
+    "Pretender",
+    "Beast",
+    "剑士",
+    "弓兵",
+    "枪兵",
+    "骑兵",
+    "魔术师",
+    "暗匿者",
+    "狂战士",
+    "裁定者",
+    "复仇者",
+    "盾兵",
+    "月之癌",
+    "他人格",
+    "降临者",
+    "伪装者",
+    "从者",
+    "英灵",
+    "御主",
+    "所长",
+    "影从者",
+    "狂化剑士",
+    "狂化弓兵",
+    "狂化枪兵",
+    "狂化骑兵",
+    "狂化魔术师",
+    "狂化暗匿者"
+  ]
+}
