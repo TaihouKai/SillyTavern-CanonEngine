@@ -25203,6 +25203,25 @@ function runGate(g) {
     }
   }
   for (const o of ev.occurrences) {
+    if (o.pack_event_id || o.backstory || !hasQuote(o.quote)) continue;
+    const ds = transitionsByRef.get(o.ref) || [];
+    if (!ds.length) continue;
+    const given = toStoryTime(o.time);
+    const when2 = given || (g.leap && sceneEnd.lo > g.clockTick ? { lo: g.clockTick, hi: sceneEnd.lo, precision: "range" } : sceneEnd);
+    const early = !flashback && when2.precision !== "minute" ? EARLY_SHIFT_MAX : 0;
+    const hid = [...pendingHardMap.values()].find((c) => !hardOccRef.has(c.event.id) && !ev.hard_checks.some((h) => h.event_id === c.event.id && h.status === "contradicted") && when2.hi >= c.lo - early && when2.lo <= c.hi && c.event.outcomes.every((r) => ds.some((d) => deltaMeets(d, r))) && !ds.some((d) => c.event.outcomes.some((r) => r.entity_id === d.entity_id && r.predicate === d.predicate && !deltaMeets(d, r))))?.event.id;
+    if (!hid) continue;
+    o.pack_event_id = hid;
+    o.disposition = "occurred";
+    hardOccRef.set(hid, o.ref);
+    const hc = ev.hard_checks.find((h) => h.event_id === hid);
+    if (hc) {
+      hc.status = "fulfilled";
+      hc.occurrence_ref = o.ref;
+    } else ev.hard_checks.push({ event_id: hid, status: "fulfilled", occurrence_ref: o.ref, quote: o.quote });
+    warnings.push(`occurrence "${o.title}" sets the required outcome of HARD "${pendingHardMap.get(hid).event.title}" within its window: taken as that event occurring`);
+  }
+  for (const o of ev.occurrences) {
     if (!hasQuote(o.quote)) {
       warnings.push(`occurrence "${o.title}" dropped: evidence quote not found in text`);
       continue;
@@ -26262,7 +26281,7 @@ async function assessImpact(port, input, signal, operationId, log) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.25.5";
+var ENGINE_RELEASE = "1.25.6";
 
 // src/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };

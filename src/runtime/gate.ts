@@ -293,6 +293,28 @@ export function runGate(g: GateInput): GateResult {
       else looseDeltas.push({ d, quote: t.quote! });
     }
   }
+  // live: a reply announced the opening ceremony at its authored time ("开幕式现在开始！"); the reviewer filed it as a story
+  // event setting the HARD outcome (大霸星祭 进行中) but neither linked it nor confirmed the HARD check, and the draft was sent
+  // back as setting the outcome "without that event occurring". An occurrence whose facts are all the required outcomes of
+  // a pending HARD event, exactly and with no other value of them, at a time within its window, is that event occurring.
+  for (const o of ev.occurrences) {
+    if (o.pack_event_id || o.backstory || !hasQuote(o.quote)) continue;
+    const ds = transitionsByRef.get(o.ref) || [];
+    if (!ds.length) continue;
+    const given = toStoryTime(o.time);
+    const when = given || (g.leap && sceneEnd.lo > g.clockTick ? { lo: g.clockTick, hi: sceneEnd.lo, precision: 'range' as const } : sceneEnd);
+    const early = !flashback && when.precision !== 'minute' ? EARLY_SHIFT_MAX : 0;
+    const hid = [...pendingHardMap.values()].find((c) => !hardOccRef.has(c.event.id)
+      && !ev.hard_checks.some((h) => h.event_id === c.event.id && h.status === 'contradicted')
+      && when.hi >= c.lo - early && when.lo <= c.hi
+      && c.event.outcomes.every((r) => ds.some((d) => deltaMeets(d, r)))
+      && !ds.some((d) => c.event.outcomes.some((r) => r.entity_id === d.entity_id && r.predicate === d.predicate && !deltaMeets(d, r))))?.event.id;
+    if (!hid) continue;
+    o.pack_event_id = hid; o.disposition = 'occurred'; hardOccRef.set(hid, o.ref);
+    const hc = ev.hard_checks.find((h) => h.event_id === hid);
+    if (hc) { hc.status = 'fulfilled'; hc.occurrence_ref = o.ref; } else ev.hard_checks.push({ event_id: hid, status: 'fulfilled', occurrence_ref: o.ref, quote: o.quote });
+    warnings.push(`occurrence "${o.title}" sets the required outcome of HARD "${pendingHardMap.get(hid)!.event.title}" within its window: taken as that event occurring`);
+  }
   for (const o of ev.occurrences) {
     if (!hasQuote(o.quote)) { warnings.push(`occurrence "${o.title}" dropped: evidence quote not found in text`); continue; }
     const actors = uniq(o.actors.map(resolveId).filter(Boolean) as Id[]);

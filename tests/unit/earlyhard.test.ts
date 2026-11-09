@@ -39,6 +39,24 @@ describe('a canonical event estimated a little before its start', () => {
     expect(x.engine.lastTrace!.attempts[0].violations).toEqual([]);
   });
 
+  it('EH3 a story event setting exactly the HARD outcome within its window is that event (live: 开幕式现在开始)', async () => {
+    const x = await setup();
+    const loose = (sceneEnd: any) => ({
+      scene_end: sceneEnd,
+      occurrences: [occ('o1', 'Fighting at the docks', 'Council militias storm the docks', { actors: ['council', 'union'] })],
+      transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true, quote: 'Council militias storm the docks', occurrence_ref: 'o1' }],
+      hard_checks: [{ event_id: 'conflict-begins', status: 'not_due', occurrence_ref: null, quote: null }],
+    });
+    const est = { lo: at(2, 8, 50).lo, hi: at(2, 9, 0).hi, precision: 'approx' };
+    expect(await turn(x, 'I walk down; Council militias storm the docks. [EH3]', loose(est))).toBe(true);
+    expect(x.engine.lastTrace!.attempts[0].violations).toEqual([]);
+    expect(x.engine.current!.replay.state.dispositions.get('conflict-begins')?.disposition).toBe('occurred');
+    // far before the window it is not taken as the event: still a violation
+    const y = await setup();
+    await turn(y, 'At 07:30 Council militias storm the docks. [EH3b]', loose(at(2, 7, 30)));
+    expect(y.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/required outcome of pending HARD/);
+  });
+
   it('EH2 a time the text states before the start is still a violation', async () => {
     const x = await setup();
     await turn(x, 'At 07:40 Council militias storm the docks. [EH2]', begins(at(2, 7, 40)));

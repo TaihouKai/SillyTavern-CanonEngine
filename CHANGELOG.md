@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.25.6 — 2026-11-09
+
+- **A story event that sets exactly a HARD event's required outcome, inside its time window, is that event occurring.** Live: a reply ended on the opening announcement at the authored time; the reviewer filed it as a plain story event with the outcome (festival in progress) but neither linked it to the HARD event nor confirmed its check, so the draft was rewritten as "sets a required outcome without that event occurring". Now such an occurrence is linked to the HARD event (all its required outcomes, no other value of them, the time within the window or a little before its start as for linked events); a reviewer check saying contradicted still blocks it, and outside the window it is still a violation. Test: EH3.
+
 ## 1.25.5 — 2026-11-09
 
 - **重新分析 on story events (本局事件) too**, a small past a reply told included. It was only on canon events with a result recorded from a reply (已发生 / 已改变 / 未发生), so a story beat recorded wrongly — e.g. an undated backstory recorded before 1.25.4 — could only be fixed by re-checking the whole chat. Now a story box has 重新分析 (two clicks): the replies that recorded its beats are examined again with the current rules (time, account and people judged again); later replies are re-checked as after an edit. Tests: PV10, e2e DG03.
