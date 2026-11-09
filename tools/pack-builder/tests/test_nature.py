@@ -63,6 +63,21 @@ class NatureTest(unittest.TestCase):
         self.assertTrue(nature.check_nature(['sealed'])({'versions': [V, {**V, 'from_event': 'sealed', 'lasts': 'until'}]}))
 
 
+class PerceiveTest(unittest.TestCase):
+    def test_check_and_attach(self):
+        check = nature.check_perceive(2)
+        self.assertEqual(check({'versions': [{'kinds': ['thoughts'], 'how': 'in sight'}, None]}), [])
+        self.assertTrue(check({'versions': [None]}))                                   # one per version
+        self.assertTrue(check({'versions': [{'kinds': ['telepathy']}, None]}))          # only the listed kinds
+        import tempfile, json, os
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, 'a.json'), 'w', encoding='utf8') as f:
+                json.dump({'versions': [{**V, 'from_event': None, 'perceives': {'kinds': ['thoughts'], 'how': 'in sight'}}]}, f)
+            pk = {'events': [], 'entities': [{'id': 'a', 'name': 'A', 'kind': 'person'}]}
+            self.assertEqual(nature.attach(pk, d), 1)
+            self.assertEqual(pk['entities'][0]['nature'][0]['perceives'], {'kinds': ['thoughts'], 'how': 'in sight'})
+
+
 class FakeClient:
     def __init__(self, story):
         self.story = story

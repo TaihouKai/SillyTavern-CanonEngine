@@ -44,6 +44,7 @@ export interface ProfileOut {
   not_suited?: string[];
   voice?: string;
   nature?: Partial<PlayerNature>;
+  defenses?: string;
   relationships: { name: string; existing_id?: string | null; relation?: string; basis?: 'persona_stated' | 'implied' }[];
   knowers: { who: string; existing_id?: string | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: 'persona_stated' | 'implied'; places?: string[] }[];
   recognized_by?: { who: string; existing_id?: string | null; places?: string[]; everywhere?: boolean; as: string }[];
@@ -168,6 +169,7 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
       notSuited: list(out.not_suited),
       voice: String(out.voice || '').trim().slice(0, 600),
       ...natureOf(out.nature),
+      ...(String(out.defenses || '').trim() ? { defenses: String(out.defenses).trim().slice(0, 500) } : {}),
       worldChanges: worldChangesOf(out, persona.description),
     },
     runtimeEntities,

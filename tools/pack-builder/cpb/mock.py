@@ -49,6 +49,8 @@ def mock(task, user):
         return {'groups': [], 'same': False, 'why': '模拟'}
     if task == 'nature':
         return {'none': True}
+    if task == 'nature_perceive':
+        return {'versions': [None] * len(re.findall(r'^Version \d+:', user, re.M))}
     if task == 'nature_story':
         return {'story': []}
     if task == 'nature_verify':

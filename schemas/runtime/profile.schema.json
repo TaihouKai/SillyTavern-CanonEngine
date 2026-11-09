@@ -380,6 +380,10 @@
     }
    },
    "additionalProperties": false
+  },
+  "defenses": {
+   "type": "string",
+   "maxLength": 500
   }
  },
  "required": [

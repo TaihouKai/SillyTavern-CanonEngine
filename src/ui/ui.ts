@@ -317,7 +317,8 @@ function renderSettings() {
   // ---- what the GM may write for the player character
   const pv = playerVoice((s as any).playerVoice);
   out.push(`<details class="canon-card canon-voice"${(s as any).voiceOpen ? ' open' : ''}><summary class="canon-card-title">${t('secVoice')} ${tip('secVoiceTip')} <span class="canon-sub">${esc(VOICE_KINDS.filter((k) => pv[k]).map((k) => t('voice_' + k)).join('、') || t('voiceNone'))}</span></summary>`
-    + VOICE_KINDS.map((k) => check('voice:' + k, pv[k], t('voice_' + k), 'voice_' + k + 'Tip')).join('') + `<div class="canon-hint">${t('voiceHint')}</div></details>`);
+    + VOICE_KINDS.map((k) => check('voice:' + k, pv[k], t('voice_' + k), 'voice_' + k + 'Tip')).join('') + `<div class="canon-hint">${t('voiceHint')}</div>`
+    + check('secretsReadable', (s as any).secretsReadable !== false, t('secretsReadable'), 'secretsReadableTip') + `</details>`);
 
   // ---- event log
   out.push(card(t('secEvents'), '', check('ignoreFirstMessage', !!s.ignoreFirstMessage, t('ignoreFirstMessage'), 'ignoreFirstMessageTip') + check('sceneGrouping', !!s.sceneGrouping, t('sceneGrouping'), 'sceneGroupingTip') + check('followHoraeTime', s.followHoraeTime !== false, t('followHoraeTime'), 'followHoraeTimeTip')));

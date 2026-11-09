@@ -133,6 +133,7 @@ def main(argv=None):
         cl = client(gcfg, project, args)
         try:
             nature.generate(project, cl, pk, [e['id'] for e in pk['entities'] if e.get('kind') == 'person'], nature.wiki_pages(project), lang=steps.lang_name(project))
+            nature.perception(project, cl, pk, lang=steps.lang_name(project))
         except llm.BudgetExceeded as e:
             log(str(e))
             log('run the same command again to continue (finished results are kept)')

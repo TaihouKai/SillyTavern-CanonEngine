@@ -560,6 +560,35 @@
               },
               "limits": {
                 "type": "string"
+              },
+              "perceives": {
+                "description": "What the power lets the person learn that others cannot; while it reaches someone, their secrets are open to it.",
+                "type": "object",
+                "properties": {
+                  "kinds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "enum": [
+                        "thoughts",
+                        "memories",
+                        "emotions",
+                        "hidden",
+                        "whereabouts",
+                        "lies",
+                        "past"
+                      ]
+                    }
+                  },
+                  "how": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kinds"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [

@@ -143,6 +143,7 @@ A person with a power, a condition, a non-human body or a device they depend on 
 - `habits`: what shows without any plot need (a passive use, visible signs, how often); `uses`: when they use it on purpose and how far they go with ordinary people and friends; `others`: how people treat them for it; `limits`: what it cannot do, its cost, what they will not do.
 - The first version holds at the story start (`from_event` null). A later one holds once its `from_event` has occurred in the branch, until its `until_event` has; only lasting changes of the nature itself (a power gained, lost or sealed; a prosthesis; a dependence on a device), never an injury that heals or plot.
 - Write patterns, never story: no names of other people outside `limits`, no incident from the original, no nickname or rumor. The GM reads it every turn for the people in the scene; a name or an episode there is taken as something to bring up.
+- `perceives` (optional, per version): what the power lets them learn that others cannot — `kinds` from `thoughts`, `memories`, `emotions`, `hidden` (behind cover), `whereabouts`, `lies`, `past` — and `how` (its conditions, who it does not work on). While such a person is in the scene, the GM is told that what the power reaches is not hidden from them, the player character's secrets included (the player can turn that off; Persona shields hold).
 - canon-pack-builder writes it with `python -m cpb nature -p <project>` (see its README).
 
 `canon-lint` checks that the first version has `from_event` null, later ones have one, and their events exist.

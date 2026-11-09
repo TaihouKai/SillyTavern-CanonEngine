@@ -17,7 +17,7 @@ export const VOICE_TEXT: Record<VoiceKind, string> = {
   skills: 'abilities — using skills, powers or magic',
   combat: 'combat — attacking, fighting, hurting or killing someone',
   decisions: 'decisions — accepting or refusing requests, promises, agreements, consent that commit the character (a task, a plan, a promise, joining something); small yeses of the moment are trivial everyday matters, and answering a question, giving an opinion or an excuse, teasing back or explaining themselves is dialogue',
-  secrets: 'secrets — revealing the player character\'s secrets or hidden identity; keeping them is not: dodging, joking, denying or a cover story in keeping with the Persona is dialogue',
+  secrets: 'secrets — revealing the player character\'s secrets or hidden identity; keeping them is not: dodging, joking, denying or a cover story in keeping with the Persona is dialogue; someone learning one through their own power (reading the player character\'s mind) is the world finding out, not the player character revealing it',
 };
 
 /** Always the player's, whatever the settings (not a setting): the player character stepping into what others are

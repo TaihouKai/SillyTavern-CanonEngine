@@ -917,7 +917,32 @@ describe('preferred matters', () => {
     expect(x.engine.integrationView(true)!.profileOld).toBe(true);
   });
 
-  it('NI-51the steps that judge plausibility see who people and places are: the world reaction and the reviewer get the pack descriptions of the entities they handle, the planner those of the events it plans around', async () => {
+  it('NI-50c a power that perceives reaches the player character\'s secrets unless the player turns it off; the Persona\'s shields hold (user: a mind reader was kept from a secret, the GM steering the player character\'s thoughts)', async () => {
+    const p = JSON.parse(demo);
+    p.entities.find((e: any) => e.id === 'mira').nature = [{ from_event: null, habits: 'hears what people near her think', uses: 'answers what was not said', others: 'people avoid her', limits: 'needs to see them', perceives: { kinds: ['thoughts', 'emotions'], how: 'within sight' } }];
+    const pack = JSON.stringify(p);
+    const mira = { references: [], statements: [], scene_entities: ['mira'] };
+    const x = await setup({ pack });
+    await turn(x, 'I sit down next to Mira.', 'Mira glances at you. [PC1]', { scene_end: at(1, 9, 35) }, mira);
+    expect(lastCtx(x)).toMatch(/Mira \[mira\]:[^\n]*perceives: what someone is thinking, someone's feelings \(within sight\)/);
+    expect(lastCtx(x)).toMatch(/POWERS THAT PERCEIVE \(Mira\): what such a power reaches is not hidden from its holder — secrets included, the player character's[^\n]*Do not steer the player character's thoughts toward a secret or away from it/);
+    expect(lastCtx(x)).not.toMatch(/The Persona shields/);
+    // turned off: never the player character's secrets
+    const y = await setup({ pack });
+    (y.engine.settings as any).secretsReadable = false;
+    await turn(y, 'I sit down next to Mira.', 'Mira glances at you. [PC2]', { scene_end: at(1, 9, 35) }, mira);
+    expect(lastCtx(y)).toMatch(/POWERS THAT PERCEIVE \(Mira\): the player has chosen that other people's powers do not reach the player character's secrets[^\n]*never those secrets/);
+    // the Persona's shield
+    const z = await setup({ pack, profile: { ...PROFILE, defenses: 'her mind cannot be read' } });
+    await turn(z, 'I sit down next to Mira.', 'Mira glances at you. [PC3]', { scene_end: at(1, 9, 35) }, mira);
+    expect(z.engine.playerProfile()!.profile.defenses).toBe('her mind cannot be read');
+    expect(lastCtx(z)).toMatch(/The Persona shields the player character: her mind cannot be read — that holds against these powers/);
+    // the reviewer counts learning by power as someone coming to know; the GM's voice rule says it is not revealing
+    expect(PROMPTS.evaluate).toMatch(/tie "knows": someone learns about the player more than they knew \(also through their own power: reading the player character's mind or memories\)/);
+    expect(voiceRule(DEFAULT_PLAYER_VOICE)).toMatch(/someone learning one through their own power \(reading the player character's mind\) is the world finding out, not the player character revealing it/);
+  });
+
+  it('NI-51 the steps that judge plausibility see who people and places are: the world reaction and the reviewer get the pack descriptions of the entities they handle, the planner those of the events it plans around', async () => {
     const pack = JSON.parse(demo);
     const desc = new Map<string, string>(pack.entities.map((e: any) => [e.id, e.static_description]));
     const x = await setup();

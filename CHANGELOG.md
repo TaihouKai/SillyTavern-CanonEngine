@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.27.0 — 2026-11-09
+
+- **Powers that perceive reach secrets — the player character's too.** A mind reader next to the player character was kept from a secret: the GM steered the player character's thoughts away from it to protect it. Secrecy now says who knows now, not what can happen. A 常态 version can say what the power lets its holder learn (`perceives`: thoughts, memories, emotions, hidden, whereabouts, lies, past, with conditions); while such a person is in the scene, the GM is told that what the power reaches is not hidden, the player character's secrets (from the Persona and from play) included, and not to steer the player character's thoughts toward or away from a secret; whoever perceives one learns it (the reviewer records it under who knows the player) — the world finding out, not the player character revealing it.
+- **允许 NPC 用能力读到我的秘密** (on by default) in 「GM 可以替玩家角色……」: off, other people's powers never reach the player character's secrets.
+- **Persona shields**: reading the Persona also reads what it says protects the player from others' powers (a mind that cannot be read…); it holds against them. Shown on the narrative-integration page (防护).
+- 「角色常态」 shows what each person can perceive. 魔禁 pack 2.3.0: 54 versions perceive something. Tests: NI-50c, e2e NT04–NT05.
+
 ## 1.26.2 — 2026-11-09
 
 - **重读 Persona is always on the narrative-integration page.** 更新本局身份 showed only when the active Persona differed from the game's or the identity was read before 1.17.0, so a game started before 1.26.1 had no way to read its 角色常态. Now the button is always there, and an identity read by an older release is flagged (the profile records the release that read it). Test: NI-50b.

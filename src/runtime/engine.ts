@@ -70,6 +70,8 @@ export interface EngineSettings {
   quietDayJobs: boolean;
   /** What the GM may write for the player character (dialogue, reactions, small actions...; see voice.ts). */
   playerVoice: PlayerVoice;
+  /** 允许 NPC 用能力读到我的秘密: a power that perceives (a mind reader) reaches the player character's secrets. */
+  secretsReadable: boolean;
   /** Marks out-of-character parts of the player's message ("(OOC: if A, then B)"); '' = no OOC parsing. */
   oocKeyword: string;
 }
@@ -112,6 +114,7 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   ignoreFirstMessage: false,
   quietDayJobs: true,
   playerVoice: { ...DEFAULT_PLAYER_VOICE },
+  secretsReadable: true,
   oocKeyword: 'OOC',
 };
 
@@ -1150,6 +1153,7 @@ export class CanonEngine {
       horizon: this.settings.horizonMinutes,
       // the reviewer needs the player's presence and decisions as required context (review mode drops optional parts)
       presence: prof ? presenceSection(index, prof.profile, tick) : undefined,
+      perception: prof ? { open: this.settings.secretsReadable !== false, defenses: prof.profile.defenses } : undefined,
       decisions: decisionsSection(decisions) || undefined,
     });
     const due = pendingHard(pack, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
@@ -1553,6 +1557,7 @@ export class CanonEngine {
           timeJumpTo: leapTo ? null : jumpTo,
           leap: lp?.section,
           presence: prof ? presenceSection(rIndex, prof.profile, cp) : undefined,
+          perception: prof ? { open: this.settings.secretsReadable !== false, defenses: prof.profile.defenses } : undefined,
           // where the scene goes: the player's message when it moves the scene, else where the last reply ended
           // (a message that moves the scene leaves the last scene's people and places behind)
           recognition: prof ? recognitionSection(presentGroups(rIndex, prof.profile, cp,
@@ -2956,6 +2961,7 @@ export class CanonEngine {
         roles: (prof.profile.roles || []).map((r) => `${r.role}${r.brings.length ? ` — ${r.brings.join(', ')}` : ''}${r.from.length ? ` (${r.from.join(', ')})` : ''}`),
         notSuited: prof.profile.notSuited || [],
         voice: prof.profile.voice || '',
+        defenses: prof.profile.defenses || '',
         nature: prof.profile.nature ? (['habits', 'uses', 'others', 'limits'] as const).filter((k) => prof.profile.nature![k]).map((k) => `${{ habits: zh ? '平时' : 'Habits', uses: zh ? '使用' : 'Uses', others: zh ? '旁人' : 'Others', limits: zh ? '限制' : 'Limits' }[k]}：${prof.profile.nature![k]}`) : [],
         relationships: played!.relationships.map((r) => ({ who: r.entityId, name: r.name, text: r.relation, ended: !!r.ended, basis: r.basis, by: r.changed?.by ?? r.basis, since: r.changed ? formatTick(r.changed.since, origin) : null, start: r.changed?.start ?? null, quote: r.changed?.quote || '', org: orgNow(r.entityId) })),
         recognized: (prof.profile.recognizedBy || []).map((r) => `${r.who}${r.everywhere ? (zh ? '（到处）' : ' (everywhere)') : ''}: ${r.as}${r.places.length ? ` (${r.places.map((p) => idx.entityName(p)).join(zh ? '、' : ', ')})` : ''}`),

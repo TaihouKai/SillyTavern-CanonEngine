@@ -422,7 +422,7 @@ export interface MembersView {
 
 /** 常态 of the pack's people as the timeline shows them (see CanonEngine.natureView). */
 export interface NatureView {
-  people: { id: string; name: string; player?: boolean; versions: { from: string | null; until: string | null; why?: string; habits: string; uses: string; others: string; limits: string; state: 'now' | 'ended' | 'later' }[] }[];
+  people: { id: string; name: string; player?: boolean; versions: { from: string | null; until: string | null; why?: string; habits: string; uses: string; others: string; limits: string; perceives?: { kinds: string[]; how?: string }; state: 'now' | 'ended' | 'later' }[] }[];
   hidden: number;
 }
 
@@ -547,7 +547,7 @@ export class GraphPanel {
     const field = (k: string, x: string) => (x.trim() ? `<div class="cg-nfield"><b>${t('nature_' + k)}</b>${esc(x)}</div>` : '');
     const ver = (x: NatureView['people'][number]['versions'][number], player = false) => {
       const head = player ? t('naturePersona') : x.from ? t('natureFrom').replace('{e}', x.from) + (x.until ? t('natureUntil').replace('{e}', x.until) : '') : t('natureStart');
-      return `<div class="cg-nver cg-nver-${x.state}"><div class="cg-nhead">${esc(head)} <span class="cg-key cg-nstate-${x.state}">${t('natureState_' + x.state)}</span>${x.why ? `<span class="cg-nwhy">${esc(x.why)}</span>` : ''}</div>${field('habits', x.habits)}${field('uses', x.uses)}${field('others', x.others)}${field('limits', x.limits)}</div>`;
+      return `<div class="cg-nver cg-nver-${x.state}"><div class="cg-nhead">${esc(head)} <span class="cg-key cg-nstate-${x.state}">${t('natureState_' + x.state)}</span>${x.why ? `<span class="cg-nwhy">${esc(x.why)}</span>` : ''}</div>${field('habits', x.habits)}${field('uses', x.uses)}${field('others', x.others)}${field('limits', x.limits)}${x.perceives?.kinds.length ? field('perceives', x.perceives.kinds.map((k) => t('perceive_' + k)).join('、') + (x.perceives.how ? `（${x.perceives.how}）` : '')) : ''}</div>`;
     };
     return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t('natureNote').replace('{n}', String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? ' open' : ''}><summary>${esc(p.name)}${p.player ? ` <span class="cg-hint">${t('naturePlayer')}</span>` : ''}${p.versions.length > 1 ? ` <span class="cg-hint">${t('natureVersions').replace('{n}', String(p.versions.length))}</span>` : ''}</summary>${p.versions.map((x) => ver(x, !!p.player)).join('')}</details>`).join('')}${v.hidden ? `<div class="cg-hint">${t('natureHidden').replace('{n}', String(v.hidden))}</div>` : ''}</div>`;
   }

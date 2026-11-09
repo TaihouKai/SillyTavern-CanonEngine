@@ -348,7 +348,7 @@ def generate(project, client, pack, entity_ids, wiki, lang='Simplified Chinese',
     return res
 
 
-PACK_FIELDS = ('from_event', 'until_event', 'why', *FIELDS)
+PACK_FIELDS = ('from_event', 'until_event', 'why', *FIELDS, 'perceives')
 
 
 def attach(pack, nature_dir):
@@ -365,7 +365,7 @@ def attach(pack, nature_dir):
         for i, v in enumerate(d['versions']):
             if i and (v.get('from_event') not in evs or (v.get('until_event') and v['until_event'] not in evs)):
                 continue
-            out = {k: v.get(k) for k in PACK_FIELDS if k in ('from_event', 'until_event') or str(v.get(k) or '').strip()}
+            out = {k: v.get(k) for k in PACK_FIELDS if k in ('from_event', 'until_event') or (v.get(k) and str(v.get(k)).strip())}
             out['from_event'] = None if not vs else out['from_event']
             if not out.get('until_event'):
                 out.pop('until_event', None)
@@ -387,3 +387,55 @@ def wiki_pages(project):
         if path:
             pages.update(read_json(path if os.path.isabs(path) else os.path.join(ROOT, path), {}) or {})
     return pages
+
+
+# ---- what a power lets the person learn that others cannot (the engine opens secrets to it) ----
+PERCEIVE_VERSION = 'perceive-1'
+PERCEIVE_KINDS = ('thoughts', 'memories', 'emotions', 'hidden', 'whereabouts', 'lies', 'past')
+
+PERCEIVE_SYSTEM = """For one person of a story world you get their 常态 (how their power or condition shows), in versions. For each version, say what their power lets them LEARN that ordinary people cannot — the game uses it to decide when other people's secrets are open to them. Kinds (use only these):
+- thoughts: what someone is thinking right now (surface thoughts, intentions); memories: someone's memories; emotions: someone's feelings or mood;
+- hidden: what is behind cover (inside clothes or bags, behind walls); whereabouts: where a person is or goes (tracking, sensing their position);
+- lies: whether someone tells the truth; past: what happened at a place or to an object.
+Only what the power itself does, not what the person learns by ordinary means (asking, spying, hacking, deduction, rank). A power that does none of these (fire, strength, flight, healing, teleporting) gives null. how: one short sentence in {lang} with the conditions and limits (range, sight, touch, a device, who it does not work on); general words, no story. Reply with a JSON object only: {{"versions": [{{"kinds": ["thoughts"], "how": ""}} or null, ...]}} — one entry per version, in order."""
+
+
+def check_perceive(n):
+    def check(obj):
+        vs = obj.get('versions') if isinstance(obj, dict) else None
+        if not isinstance(vs, list) or len(vs) != n:
+            return [f'"versions" must list {n} entries, one per version (null when the power learns nothing)']
+        bad = [k for v in vs if isinstance(v, dict) for k in (v.get('kinds') or []) if k not in PERCEIVE_KINDS]
+        return [f'unknown kinds: {", ".join(bad)} (use only {", ".join(PERCEIVE_KINDS)})'] if bad else []
+    return check
+
+
+def perception(project, client, pack, nature_dir=None, lang='Simplified Chinese'):
+    """Adds "perceives" ({kinds, how} or null per version) to the generated 常态 files of the pack's people."""
+    nature_dir = nature_dir or project.p('nature')
+    ents = {e['id']: e for e in pack['entities']}
+    jobs, files = [], {}
+    for eid, e in ents.items():
+        path = f'{nature_dir}/{eid}.json'
+        d = read_json(path)
+        if not d or d.get('none') or not d.get('versions'):
+            continue
+        files[eid] = (path, d)
+        text = '\n'.join(f'Version {i + 1}: habits: {v.get("habits", "")} | uses: {v.get("uses", "")} | limits: {v.get("limits", "")}' for i, v in enumerate(d['versions']))
+        user = f'Person: {e["name"]}\nPack description: {e.get("static_description", "")}\n\n{text}'
+        jobs.append((eid, (lambda u=user, n=len(d['versions']): client.call('nature_perceive', PERCEIVE_VERSION, PERCEIVE_SYSTEM.format(lang=lang), u, check_perceive(n), max_tokens=800))))
+    res = client.run_many(jobs, 'nature_perceive')
+    n = 0
+    for eid, r in res.items():
+        if isinstance(r, Exception) or not r:
+            continue
+        path, d = files[eid]
+        for v, p in zip(d['versions'], r['versions']):
+            kinds = [k for k in (p or {}).get('kinds') or [] if k in PERCEIVE_KINDS] if isinstance(p, dict) else []
+            if kinds:
+                v['perceives'] = {'kinds': sorted(set(kinds), key=PERCEIVE_KINDS.index), 'how': str(p.get('how') or '').strip()[:300]}
+                n += 1
+            else:
+                v.pop('perceives', None)
+        write_json(path, d)
+    log(f'perception: {n} versions that learn what others cannot — {client.ledger.summary()}')

@@ -1,6 +1,6 @@
 // Controller-owned retrieval (causal OR mentioned, plus scene/entity constraints) and the
 // bounded GM context packet. The model receives record CONTENT, never bare ids.
-import type { Id, PackEvent } from '../domain/types';
+import type { Id, PackEvent, PerceiveKind } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { WorldIndex, type HistoryRecordView, type EntityStateView, type CanonStatusView } from '../domain/world-query';
 import { formatStoryTime, formatTick, toTick } from '../domain/time';
@@ -169,6 +169,9 @@ export interface PacketInput {
   /** Narrative integration (required context, also for the reviewer): the player's presence in the world and their
    *  binding decisions; and the one optional WORLD REACTION chosen for this reply (GM only). */
   presence?: string;
+  /** The player character's secrets and other people's powers: open (the player allows it; default) and what the
+   *  Persona says shields them. Absent without a player profile. */
+  perception?: { open: boolean; defenses?: string };
   /** Who in the scene knows about the player (GM only; the reviewer gets the groups as input). */
   recognition?: string;
   /** People with the player who take part in a canon event soon, and how it reaches them (GM only). */
@@ -306,7 +309,7 @@ export const NATURE_MAX = 6;
 // User: the worry is that the GM takes this as story to bring up every turn; it is written as patterns (no names, no
 // episodes) and introduced as background.
 const NATURE_HEAD = 'HOW THEY ARE (常态: the standing nature of people here — how their power, condition or body shows in everyday behaviour, as of now in this branch). Background, not story: let it show in what they do and notice when the scene gives it room — a habit, a reflex, a passive use — without making it a topic, and without the same display every reply. Nothing in it happened; it is how they are. What a person learns through their own power (reading minds, sensing) is how they know it, not "knowing what they could not know".';
-function natureSection(index: WorldIndex, retrieval: Retrieval): string {
+function natureSection(index: WorldIndex, retrieval: Retrieval, perception?: PacketInput['perception']): string {
   const rank = (t: Set<string>) => (t.has('scene') ? 0 : t.has('mentioned') ? 1 : 2);
   const people = [...retrieval.entities].filter(([id, t]) => rank(t) < 2 && index.entityKind(id) === 'person')
     .sort((a, b) => rank(a[1]) - rank(b[1]))
@@ -315,8 +318,20 @@ function natureSection(index: WorldIndex, retrieval: Retrieval): string {
   return NATURE_HEAD + '\n' + people.map(({ id, now }) => {
     const v = now!.version;
     const parts = (['habits', 'uses', 'others', 'limits'] as const).filter((k) => v[k]?.trim()).map((k) => `${k}: ${v[k].trim()}`);
+    if (v.perceives?.kinds.length) parts.push(`perceives: ${v.perceives.kinds.map((k) => PERCEIVE_TEXT[k]).join(', ')}${v.perceives.how ? ` (${v.perceives.how})` : ''}`);
     return `- ${index.entityName(id)} [${id}]: ${parts.join(' | ')}`;
-  }).join('\n');
+  }).join('\n') + perceptionRule(people.filter((p) => p.now!.version.perceives?.kinds.length).map((p) => index.entityName(p.id)), perception);
+}
+
+const PERCEIVE_TEXT: Record<PerceiveKind, string> = { thoughts: 'what someone is thinking', memories: "someone's memories", emotions: "someone's feelings", hidden: 'what is behind cover', whereabouts: 'where someone is', lies: 'whether someone lies', past: 'what happened at a place or to an object' };
+/** User: a mind reader next to the player character was kept from their secrets — the GM steered the player
+ *  character's thoughts away from a secret to protect it. A power that perceives is a way of learning like any other:
+ *  secrecy says who knows now, not what can happen. The player can turn it off; the Persona's shields hold. */
+function perceptionRule(who: string[], p?: PacketInput['perception']): string {
+  if (!who.length || !p) return '';
+  const names = who.join(', ');
+  if (!p.open) return `\nPOWERS THAT PERCEIVE (${names}): the player has chosen that other people's powers do not reach the player character's secrets (from the Persona or from play). ${names} may perceive anything else as their power allows, but never those secrets.`;
+  return `\nPOWERS THAT PERCEIVE (${names}): what such a power reaches is not hidden from its holder — secrets included, the player character's (from the Persona or from play) as much as anyone's — whenever the scene puts it within the power's conditions. Secrecy says who knows now, not what can happen: someone who perceives a secret learns it, as by seeing or overhearing. Do not steer the player character's thoughts toward a secret or away from it to protect it; they think what the scene makes them think, and what is on their mind is what a mind reader reads. This is the world finding out, not the player character revealing it.${p.defenses ? ` The Persona shields the player character: ${p.defenses} — that holds against these powers as it says.` : ''}`;
 }
 
 function canonLine(c: CanonStatusView): string {
@@ -376,7 +391,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   const states = views.filter((v) => !bare.includes(v)).map((v) => stateLine(v, compact, listed));
   if (bare.length) states.push(`- no established facts: ${bare.map((v) => `${v.name} [${v.entityId}]`).join(', ')}`);
   required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops; no other supported change through ${cpLabel}; a property not listed for an entity is UNKNOWN — not established, do not assume normality):\n` + (states.length ? states.join('\n') : '- (no referenced entities)'));
-  const nature = natureSection(index, retrieval);
+  const nature = natureSection(index, retrieval, inp.perception);
   if (nature) required.push(nature);
   // The player in the world and their decisions: required, never dropped for budget, also for the reviewer.
   if (inp.presence) required.push(inp.presence);

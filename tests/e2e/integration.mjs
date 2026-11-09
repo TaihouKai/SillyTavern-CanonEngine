@@ -875,13 +875,17 @@ try {
     await newChat(page);
     const p = JSON.parse(packText('demo.canon.json'));
     p.entities.find((e) => e.id === 'mira').nature = [
-      { from_event: null, habits: 'NT_NOW 缝伤口时总哼着歌', uses: '谁受伤都会顺手处理', others: '码头工人信任她', limits: '救不回已经死去的人' },
+      { from_event: null, habits: 'NT_NOW 缝伤口时总哼着歌', uses: '谁受伤都会顺手处理', others: '码头工人信任她', limits: '救不回已经死去的人', perceives: { kinds: ['thoughts'], how: '视线之内' } },
       { from_event: 'conflict-begins', until_event: null, why: 'NT_LATER_WHY', habits: 'NT_LATER 手会发抖', uses: '仍然缝合，但更慢', others: '工人们担心她', limits: '做不了精细活' }];
     await bind(page, JSON.stringify(p), tick(0, 8));
     await mock('/control', { mainQueue: ['米拉抬起头。NT_A'], clearLogs: true, taskRules: [rule('extract_user', '去找那位医生', { references: [{ phrase: '那位医生', quote: '那位医生', kind: 'entity', mode: 'indirect', candidates: ['mira'] }], scene_entities: ['mira'] })] });
     await send(page, '我去找那位医生聊聊。');
     const all = ((await mainLogs())[0]?.messages || []).map((m) => String(m.content)).join('\n');
     check(results, 'NT01 the story model gets the 常态 in force of the person in the scene, as background, not the version to come', all.includes('HOW THEY ARE (常态') && all.includes('NT_NOW') && !all.includes('NT_LATER'), `section=${all.includes('HOW THEY ARE')} now=${all.includes('NT_NOW')} later=${all.includes('NT_LATER')}`);
+    const hasProfile = all.includes('PLAYER IN THIS WORLD');
+    check(results, 'NT04 a person who perceives thoughts is in the scene: the GM is told the player character secrets are open to it (setting on by default)', !hasProfile || (all.includes('POWERS THAT PERCEIVE (Mira)') && all.includes('Do not steer the player character') && all.includes('perceives: what someone is thinking (视线之内)')), `profile=${hasProfile} rule=${all.includes('POWERS THAT PERCEIVE')}`);
+    const box = await page.evaluate(() => { const b = document.querySelector('input[data-set="secretsReadable"]'); return b ? b.checked : null; });
+    check(results, 'NT05 the drawer has 允许 NPC 用能力读到我的秘密, on by default', box === true, String(box));
     await page.evaluate(() => document.querySelector('#canon-engine-top-button .canon-top-toggle')?.click());
     await page.waitForSelector('.cg-nature-btn', { timeout: 10000 });
     await page.click('.cg-nature-btn');

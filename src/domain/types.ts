@@ -63,7 +63,11 @@ export interface PackEntity {
 export interface NatureVersion {
   from_event: Id | null; until_event?: Id | null; why?: string;
   habits: string; uses: string; others: string; limits: string;
+  /** What the power lets them learn that others cannot (how: its conditions); while it reaches the player character,
+   *  their secrets are open to it (unless the player turned that off or the Persona shields them). */
+  perceives?: { kinds: PerceiveKind[]; how?: string };
 }
+export type PerceiveKind = 'thoughts' | 'memories' | 'emotions' | 'hidden' | 'whereabouts' | 'lies' | 'past';
 export interface PackPredicate {
   id: Id; description: string;
   value_type: 'boolean' | 'number' | 'string' | 'entity_ref' | 'entity_set';
