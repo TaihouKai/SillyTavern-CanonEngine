@@ -12,6 +12,14 @@ const errs = (raw: unknown) => validatePack(raw).errors.map((e) => `${e.path} ${
 const boot = (L: ReturnType<typeof load>, start: number) => buildBootstrap(L, start).records.map((r, i) => ({ ...r, sequence: i + 1, branchId: 'b', commitId: 'c' }) as LedgerRecord);
 
 describe('pack validation', () => {
+  it('P01b a name in capitals is a proper name, not the generic word (live: the organization SCHOOL)', () => {
+    const p = demoRaw() as any;
+    p.entities[0].aliases = ['SCHOOL'];
+    expect(validatePack(p).warnings.map((w) => w.message).join(' ')).not.toMatch(/generic or very short alias "SCHOOL"/);
+    p.entities[0].aliases = ['school'];
+    expect(validatePack(p).warnings.map((w) => w.message).join(' ')).toMatch(/generic or very short alias "school"/);
+  });
+
   it('P01 accepts both complete samples and reports Hard count', () => {
     const r = validatePack(demoRaw());
     expect(r.ok).toBe(true);

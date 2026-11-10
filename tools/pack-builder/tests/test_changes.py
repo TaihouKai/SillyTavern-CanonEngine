@@ -43,6 +43,10 @@ class ChangesTest(unittest.TestCase):
         changes.complete(events, init)
         self.assertEqual(len(events[0]['canonical_effects']), 1)
         self.assertIn(changes.change('remove', 'org', 'members', ['a', 'b']), events[1]['canonical_effects'])
+        # members again: it is not gone any more (live: 黄金黎明 覆灭 in 1900, its members brought back in 2020)
+        events.append(ev('back', 9, [changes.change('add', 'org', 'members', ['a'])]))
+        changes.complete(events, init)
+        self.assertIn({'op': 'unset', 'entity_id': 'org', 'predicate': 'status'}, events[2]['canonical_effects'])
 
     def test_handover_and_death(self):
         init = [{'fact': {'entity_id': 'org', 'predicate': 'members', 'value': ['a', 'b']}},

@@ -218,7 +218,7 @@ def main(argv=None):
             write_json(path, pk, indent=1)
             log(f'mind: {n} people with a 思考方式')
         res = report.lint(gcfg, path)
-        report.write(project, pack, rep, chrep, clock, path, res, cl.ledger if cl else None)
+        report.write(project, read_json(path) or pack, rep, chrep, clock, path, res, cl.ledger if cl else None)
         if res is not None:
             log(f'canon-lint: {"OK" if res.get("ok") else "ERRORS"} — {len(res.get("errors", []))} errors, {len(res.get("warnings", []))} warnings')
         log(f'pack: {path}')

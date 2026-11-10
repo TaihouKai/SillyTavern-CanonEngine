@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.29.1 — 2026-11-10
+
+- canon-lint: a name in capitals is a proper name, not the generic word (the organization SCHOOL was flagged as "school"). Test: P01b.
+- canon-pack-builder **quality checks on every build**: the report opens with them (`cpb/checks.py`, code only) — each kind of problem found in packs so far, over the whole pack: problems that should be none, and review lists of what the steps decided. Project `checks.leading` (characters that must be there) and `checks.dates` (days to list the organizations at). The report now checks the pack as written, with 常态, 思考方式 and the sorted statuses in it.
+- canon-pack-builder: what lint asked an author to review is done by the builder — a description loses a clause that says what is so now or that someone died; names are compared as the engine does (克兰斯·R.札尔斯基 / 克兰斯·R·札尔斯基 are one); one name with two kinds, or one's name the other's alias, is one entity unless the wiki gives each a page; an alias that is another entity's name is dropped; a vague word (学校) is no entity; a whereabouts of the moment ends at the next appearance; an organization gone that has members again is not gone (黄金黎明); a decision or an errand under way, and a person in the middle of a fight or unconscious, are moments whatever the model said; one title in two parts of an arc is one happening when one of them has no date. 魔禁 3.0.0: lint 0 errors 0 warnings. Tests: builder test_checks, test_changes, test_lasting.
+
 ## 1.29.0 — 2026-11-10
 
 - **The player character has what anyone has.** Fixes for "an ordinary character has it, I do not" were made one spot at a time, because the player's data lived in a structure of its own that each feature had to remember. The player's 常态 now sits on the player's entity like a pack person's: the index answers for the player as for anyone (`natureNow`), the GM gets it in HOW THEY ARE with everyone else (marked as the player character: signs that show by themselves may be written, a deliberate use only as the player-character rules allow), and the timeline's 角色常态 lists it the same way. A new Persona read replaces the player's entity (before, the first read stayed).

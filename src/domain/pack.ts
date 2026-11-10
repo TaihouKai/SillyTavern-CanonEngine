@@ -217,7 +217,8 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
     for (const a of [e.name, ...e.aliases]) {
       const k = normalizeName(a);
       if (!k) continue;
-      if (GENERIC_ALIASES.has(k) || k.length < 2 && !/[㐀-鿿]/.test(k)) warn(`/entities/${i}`, `generic or very short alias "${a}"`);
+      // a name in capitals is a proper name (the organization SCHOOL), not the word "school"
+      if ((GENERIC_ALIASES.has(k) && !/^[A-Z][A-Z0-9 .&-]+$/.test(a.trim())) || k.length < 2 && !/[㐀-鿿]/.test(k)) warn(`/entities/${i}`, `generic or very short alias "${a}"`);
       const owners = aliasOwners.get(k) || [];
       if (!owners.includes(e.id)) owners.push(e.id);
       aliasOwners.set(k, owners);

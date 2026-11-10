@@ -48,6 +48,12 @@ def write(project, pack, rep, chrep, clock, pack_path, lint_res, ledger=None):
             for x in warns[:60]:
                 L.append(f'- {_msg(x)}')
         L.append('')
+    from . import checks
+    cl, summary = checks.section(project, pack)
+    L += cl + ['']
+    from .util import write_json
+    write_json(project.p('out', 'entities-last.json'), {e['id']: e['name'] for e in pack['entities']})
+    log(summary)
     L += ['## 时间线（主时钟）', '', '| 章 | 开始 | 结束 | 锚点 | 排法 |', '|---|---|---|---|---|']
     titles = {a['id'][4:]: a['title'] for a in pack['arcs']}
     for r in chrep:
@@ -62,7 +68,7 @@ def write(project, pack, rep, chrep, clock, pack_path, lint_res, ledger=None):
     names = {'downgraded': '改为 SOFT 的 HARD', 'unresolved': '未能对应到实体的名字（这些人物/变化没进包）', 'alias_collision': '别名冲突（未作别名）',
              'name_collision': '同名实体', 'link_dropped': '舍弃的关联', 'missing': '缺少的步骤结果', 'healed': '按“已恢复”处理的伤势（编辑推定）',
              'merged': '合并为同一实体的候选', 'deaths': '死亡判断（复活、没死、另一个体）',
-             'old_multi': '被多个篇章认领的原有事件', 'order': '按前提条件调整的时间'}
+             'order': '按前提条件调整的时间'}
     for k, title in names.items():
         items = rep.items.get(k)
         if items:

@@ -215,10 +215,14 @@ def apply(project, chapter_id, sums):
     seen = {}
     for s_ in sums:
         for b_ in s_['beats']:
-            k = (re.sub(r'\s+', '', b_['title']), b_['time'].get('date') or '')
-            if k[1] and k in seen and seen[k][1] != s_['unit']:
-                groups.append([seen[k][0], b_['id']])
-            seen.setdefault(k, (b_['id'], s_['unit']))
+            t_, d_ = re.sub(r'\s+', '', b_['title']), b_['time'].get('date') or ''
+            for (t0, d0), (bid0, unit0) in list(seen.items()):
+                # one title from two parts on one day, or with no day in one of them (live: 欧提努斯篇 told 「亚雷斯塔入侵隐世」
+                # dated in one part and undated in another)
+                if t0 == t_ and unit0 != s_['unit'] and (d0 == d_ or not d0 or not d_):
+                    groups.append([bid0, b_['id']])
+                    break
+            seen.setdefault((t_, d_), (b_['id'], s_['unit']))
     if groups:
         sums = _merge_groups(sums, joined(groups), {b['id']: b for s in sums for b in s['beats']})
     cross = cross_groups(project)

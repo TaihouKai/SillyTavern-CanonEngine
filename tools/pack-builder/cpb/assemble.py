@@ -148,11 +148,36 @@ def group_candidates(described, rep, chars=None, pages=None):
     return out
 
 
+def norm_name(s):
+    """A name as the engine compares names: case, spaces and punctuation aside."""
+    return re.sub(r'[\s·・._\-\'"“”‘’「」『』]+', '', str(s or '').lower())
+
+
+# what a description must not say: it is read as standing truth, and a change is an event's (the engine's lint warns)
+TEMPORAL = re.compile(r'已死|死亡|已经|现在是|目前|成为了|被杀|遇害|身亡')
+
+
+def stable(desc):
+    """A description without what can change: a clause that says someone died or what is so "now" goes (that is an
+    event's business); 死亡保险 is a kind of insurance."""
+    d = (desc or '').replace('死亡保险', '寿险')
+    if not TEMPORAL.search(d):
+        return d
+    parts = [x for x in re.split(r'(?<=[，。；])', d) if x and not TEMPORAL.search(x)]
+    return ''.join(parts).rstrip('，；') + ('。' if parts and not ''.join(parts).endswith('。') else '')
+
+
 def page_title(d, pages):
     """The title of the wiki page a candidate has (by its name or an alias), or None."""
     if not pages:
         return None
     return next((n for n in [d.get('name')] + list(d.get('aliases') or []) if n and n in pages), None)
+
+
+def page_kind(title, pages):
+    """The kind of entity a wiki page is about, from its infobox (person, organization, place), or None."""
+    m = re.match(r'\s*(?:\{\{[^{}]*\}\}\s*)*\{\{Infobox (character|organization|location)', pages.get(title or '') or '', re.I)
+    return {'character': 'person', 'organization': 'organization', 'location': 'place'}.get(m.group(1).lower()) if m else None
 
 
 def page_english(d, pages):
@@ -202,13 +227,58 @@ def build_entities(project, c, rep):
     one = {}
     for g in sorted(groups, key=lambda g: -weight(g)):
         d = described[g[0]]
-        k = (names.clean(d['name']), d['kind'])
+        k = (norm_name(d['name']), d['kind'])
         if k in one and not any(chars.get(x, {}).get('servant') for x in g[1] + one[k][1]):
             one[k][1].extend(g[1])
             rep.add('merged', f'{d["name"]}（{g[0]}）与同名同类的 {described[one[k][0]]["name"]}（{one[k][0]}）合并')
             continue
         one.setdefault(k, g) if k not in one else one.setdefault((k, g[0]), g)
     groups = list(one.values())
+    # one name, two kinds (卡提纳正统 as a thing and as a "person"), or one's name another's alias (马瑟斯 of 山缪·李德·
+    # 麦奎恩·马瑟斯): one entity, the heavier, unless the wiki gives each a page of its own; a place keeps its own
+    # (迦勒底 the institution and 迦勒底 the base, below)
+    def page_of_group(g):
+        return page_title(described[g[0]], pages)
+    merged_into, lead_key = {}, {}
+    order = sorted(groups, key=lambda g: -weight(g))
+    for i, g in enumerate(order):
+        if id(g) in merged_into or any(chars.get(x, {}).get('servant') for x in g[1]):
+            continue
+        d = described[g[0]]
+        gn = norm_name(d['name'])
+        ga = {norm_name(a) for k in g[1] for a in described[k].get('aliases', [])}
+        for h in order[i + 1:]:
+            if id(h) in merged_into or any(chars.get(x, {}).get('servant') for x in h[1]):
+                continue
+            e = described[h[0]]
+            if 'place' in (d['kind'], e['kind']):
+                continue
+            hn = norm_name(e['name'])
+            ha = {norm_name(a) for k in h[1] for a in described[k].get('aliases', [])}
+            same = gn == hn or (d['kind'] == e['kind'] and (hn in ga or gn in ha))
+            pg, ph = page_of_group(g), page_of_group(h)
+            if not same or (pg and ph and pg != ph):
+                continue
+            pk = page_kind(pg or ph, pages)
+            # the kind its page says, else a thing or a group over a "person" by its name (卡提纳正统 is a sword)
+            if d['kind'] != e['kind'] and (pk == e['kind'] or (pk is None and d['kind'] == 'person' and e['kind'] in ('object', 'organization', 'other', 'world'))):
+                # the other one is of the kind its page says: it keeps the entity (its key first)
+                g[1].extend(h[1])
+                lead_key[id(g)] = h[0]
+            else:
+                g[1].extend(h[1])
+            merged_into[id(h)] = g
+            rep.add('merged', f'{e["name"]}（{h[0]}，{e["kind"]}）与 {d["name"]}（{g[0]}，{d["kind"]}）同名或互为别名，合并')
+    groups = [(lead_key.get(id(g), g[0]), g[1]) for g in groups if id(g) not in merged_into]
+    # a vague word is no entity (学校, 城市): the summaries use it for whatever place is meant. Only the built-in words: a
+    # project's generic aliases are words no person goes by, and some name an organization (live: 风纪委员, 警备员 were lost)
+    kept = []
+    for g in groups:
+        if described[g[0]]['kind'] in ('place', 'other') and names.clean(described[g[0]]['name']).lower() in GENERIC_ALIASES:
+            rep.add('merged', f'{described[g[0]]["name"]}（{g[0]}）是通用词，不作实体')
+            continue
+        kept.append(g)
+    groups = kept
     # a few people named together (史提尔·马格努斯与神裂火织, 史蒂芬妮、麦野、泷壶、绢旗) are not an entity of their own:
     # their names go to each of them (live: 16 such "people", one of them an ITEM member of 天草式 at the start)
     single = {names.clean(described[g[0]]['name']) for g in groups}
@@ -237,24 +307,32 @@ def build_entities(project, c, rep):
         if len(longer) != 1:
             continue
         h = longer[0]
+        h[1].extend(g[1])
+        groups.remove(g)
+        rep.add('merged', f'{d["name"]}（{g[0]}）是 {described[h[0]]["name"]} 的简称，并入')
+    # after every merge: a name an entity goes by that is someone's page of their own, and no entity's name, is that
+    # someone (live: 天草式's 对马 ended up as an alias of 泷壶理后, through the short name 泷壶)
+    entity_names = {norm_name(described[g[0]]['name']) for g in groups}
+    for g in list(groups):
+        if described[g[0]]['kind'] != 'person':
+            continue
+        own_name = norm_name(described[g[0]]['name'])
         own = uniq([a for k in g[1] for a in described[k].get('aliases', []) + list((described[k].get('names') or {}).keys())
-                    if is_person_page(a) and names.clean(a) != names.clean(described[h[0]]['name'])])
+                    if is_person_page(a) and norm_name(a) != own_name and norm_name(a) not in entity_names and a != page_title(described[g[0]], pages)])
+        if not own:
+            continue
         gone = set(own) | {page_english({'name': a}, pages) for a in own}
         for k in g[1]:
             described[k] = dict(described[k], aliases=[a for a in described[k].get('aliases', []) if a not in gone],
                                 names={x: c for x, c in (described[k].get('names') or {}).items() if x not in gone})
-        h[1].extend(g[1])
-        groups.remove(g)
-        rep.add('merged', f'{d["name"]}（{g[0]}）是 {described[h[0]]["name"]} 的简称，并入')
         for a in own:
-            if names.clean(a) in by_name:
-                continue
             k = f'page:{a}'
-            described[k] = {'key': k, 'name': a, 'aliases': [page_english({'name': a}, pages)] if page_english({'name': a}, pages) else [], 'kind': 'person',
-                            'description': page_lead(project, a) or a, 'id': slug(page_english({'name': a}, pages)) or slug(a), 'weight': 1, 'names': {a: 1}}
+            en = page_english({'name': a}, pages)
+            described[k] = {'key': k, 'name': a, 'aliases': [en] if en else [], 'kind': 'person', 'description': page_lead(project, a) or a,
+                            'id': slug(en) or slug(a), 'weight': 1, 'names': {a: 1}}
             groups.append((k, [k]))
-            by_name[names.clean(a)] = groups[-1]
-            rep.add('merged', f'{a} 有自己的页面，从 {d["name"]} 分出')
+            entity_names.add(norm_name(a))
+            rep.add('merged', f'{a} 有自己的页面，从 {described[g[0]]["name"]} 分出')
     # people and organizations get the plain slug; a place of the same name gets "-place" (迦勒底 the institution
     # and 迦勒底 the base)
     groups.sort(key=lambda g: described[g[0]]['kind'] == 'place')
@@ -277,8 +355,8 @@ def build_entities(project, c, rep):
                 nm[names.clean(n)] += cnt or 1
             if chars.get(k, {}).get('spirit'):
                 spirits.add(eid)
-        desc = d.get('description') or '（无描述）'
-        ents.append({'id': eid, 'name': d['name'], 'aliases': [a for k in ks for a in described[k].get('aliases', [])], 'kind': d['kind'],
+        desc = stable(d.get('description')) or '（无描述）'
+        ents.append({'id': eid, 'name': d['name'], 'aliases': [a for k in ks for a in [described[k]['name']] + described[k].get('aliases', [])], 'kind': d['kind'],
                      'static_description': desc, 'source_refs': ['source-scripts'], '_names': dict(nm)})
     # one name for two people: a servant's class tells them apart (Gilles de Rais as Saber and as Caster)
     by_name = collections.defaultdict(list)
@@ -311,6 +389,7 @@ def build_entities(project, c, rep):
             uses[names.clean(a)][e['id']] += 1
         for a, n in e['_names'].items():
             uses[names.clean(a)][e['id']] += max(1, n)
+    entity_names = {norm_name(x['name']) for x in ents}
     for e in ents:
         al = []
         for a in uniq([names.clean(x) for x in e['aliases'] + list(e['_names'])]):
@@ -320,6 +399,8 @@ def build_entities(project, c, rep):
                 continue
             if '未在文本中出现' in a or a.startswith('？'):
                 continue
+            if norm_name(a) in entity_names and norm_name(a) != norm_name(e['name']):
+                continue        # another entity's own name (恋查（#029） is not an alias of 恋查)
             u = uses[a]
             if len(u) > 1:
                 (top, n1), (_, n2) = u.most_common(2)
@@ -935,8 +1016,7 @@ def build(project, out_path=None, raw=False):
                     st.recovery_values.add(healed)
                     rep.add('healed', f'{ent}：{iev} 的伤势“{val}”在 {e["id"]}（{e["title"]}）之前未见结束，按已恢复处理')
                     del open_inj[ent]
-    # a whereabouts of the moment (missing, carried off, vanished) ends when the person is there again in a later
-    # chapter or a day later (live: 神裂火织 「已消灭（被龙卷风吞噬而消失）」, 奥提努斯 dissolved into light, both back in
+    # a whereabouts of the moment (missing, carried off, vanished) ends when the person is there again (live: 神裂火织 「已消灭（被龙卷风吞噬而消失）」, 奥提努斯 dissolved into light, both back in
     # later events)
     if project.get('end_whereabouts', True):
         at = lambda x: x['when']['earliest']['day'] * 1440 + x['when']['earliest']['minute']  # noqa: E731
@@ -951,7 +1031,7 @@ def build(project, out_path=None, raw=False):
                 w = open_w.get(who)
                 if not w or w[3] == e['id'] or w[2] in st.settled_where:
                     continue
-                if (w[0] != e['arc_id'] or at(e) >= w[1] + 1440) and not any((o.get('fact') or {}).get('entity_id') == who and (o.get('fact') or {}).get('predicate') in ('whereabouts', 'alive') for o in e['canonical_effects']):
+                if at(e) > w[1] and not any((o.get('fact') or {}).get('entity_id') == who and (o.get('fact') or {}).get('predicate') in ('whereabouts', 'alive') for o in e['canonical_effects']):
                     fact = {'entity_id': who, 'predicate': 'whereabouts', 'value': back}
                     e['canonical_effects'].append({'op': 'set', 'fact': fact})
                     if e['classification'] != 'HARD':

@@ -6,6 +6,7 @@ blackout, an attack under way, a heatwave); a passing one is left to the event's
 
 The decisions are kept in <work>/lasting.json by entity and value, so a rebuild applies them without the model."""
 import os
+import re
 
 from .util import log, read_json, write_json
 
@@ -19,6 +20,12 @@ When unsure, answer "lasting".
 Reply with a JSON object only: {"items": [{"n": 1, "is": "lasting"}, ...]} with one entry per item, in order."""
 
 PEOPLE_VERSION = 'lasting-people-1'
+# a status that says something is about to happen or under way (决定前往夏威夷, 正在追击) is a moment whatever the
+# model said (live: 滨面仕上 「决定前往夏威夷」 kept 35 days)
+UNDER_WAY = re.compile(r'^(?:决定|准备|正在|赶往|前往|打算|即将)')
+# a person in the middle of something (a fight, unconscious, a standoff): a moment too (live: 神裂火织
+# 「留下与凯莉莎等人交战」 kept 30 days); checks.py looks for the same
+MOMENT = re.compile(r'被击倒|昏迷|昏倒|晕倒|正在|中$|对峙|交战|逃跑|追击|战斗|待命|赶往|前往')
 
 # a person's status stays the same way (live: 一方通行 「黑翼暴走后力竭昏倒」 and 土御门元春 「昏迷」 for a month)
 PEOPLE_SYSTEM = """You sort the states a story's events leave people in. Each item is a status an event wrote for a person; the game keeps it as that person's current state until a later event writes another one, possibly weeks later. Decide for each:
@@ -101,8 +108,9 @@ def apply(pack, path):
     if not known:
         return 0
     n = 0
+    people = {e['id'] for e in pack['entities'] if e.get('kind') == 'person'}
     for ev, i, ent, val in sorted(statuses(pack) + statuses(pack, True), key=lambda x: -x[1]):   # later effects of an event first
-        if known.get(key_of(ent, val)) != 'passing':
+        if known.get(key_of(ent, val)) != 'passing' and not UNDER_WAY.match(str(val)) and not (ent in people and MOMENT.search(str(val))):
             continue
         same = lambda o: (o.get('fact') or o).get('entity_id') == ent and (o.get('fact') or o).get('predicate') == 'status' and (o.get('fact') or o).get('value') == val  # noqa: E731
         del ev['canonical_effects'][i]

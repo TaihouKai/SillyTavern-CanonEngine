@@ -43,6 +43,7 @@ def complete(events, initial_facts):
             slots[(e, p)] = v
     at = lambda x: (x['when']['earliest']['day'] * 1440 + x['when']['earliest']['minute']) if x['when'].get('earliest') else float('inf')  # noqa: E731
     out_by_death = {}       # who a death took out of which sets: a return puts them back
+    gone_status = {}        # organizations whose status says they are gone
     for ev in sorted(events, key=at):
         added = []
         dead = set()
@@ -53,6 +54,8 @@ def complete(events, initial_facts):
                 cur = sets.setdefault((ent, pred), set())
                 if op == 'add':
                     cur |= set(val)
+                    if gone_status.pop(ent, None) and not any(effect_key(x) == (ent, 'status', 'set') for x in ev['canonical_effects']):
+                        added.append({'op': 'unset', 'entity_id': ent, 'predicate': 'status'})
                 elif op == 'remove':
                     cur -= set(val)
                 else:
@@ -90,7 +93,12 @@ def complete(events, initial_facts):
                     if (org, p_) in sets and ent not in sets[(org, p_)]:
                         sets[(org, p_)].add(ent)
                         added.append(change('add', org, p_, [ent]))
-            elif pred == 'status' and isinstance(val, str) and DISSOLVED.search(val) and not NOT_WHOLE.search(val) and (sets.get((ent, 'members')) or slots.get((ent, 'leader'))):
+            elif pred == 'status' and op == 'set':
+                is_gone = isinstance(val, str) and DISSOLVED.search(val) and not NOT_WHOLE.search(val)
+                if not is_gone:
+                    gone_status.pop(ent, None)
+                    continue
+                gone_status[ent] = True
                 gone = sorted(sets.get((ent, 'members')) or [])
                 if gone and not any(effect_key(x) == (ent, 'members', 'remove') for x in ev['canonical_effects']):
                     added.append(change('remove', ent, 'members', gone))
@@ -113,7 +121,7 @@ def complete(events, initial_facts):
                 ev['entity_ids'].append(org)
         for ef in added:
             ev['canonical_effects'].append(ef)
-            if ev['classification'] != 'HARD':
+            if ev['classification'] != 'HARD' and ef['op'] != 'unset':     # an outcome states a value
                 ev['outcomes'].append(dict(ef))
             if ef['entity_id'] not in ev['entity_ids']:
                 ev['entity_ids'].append(ef['entity_id'])
