@@ -1,0 +1,40 @@
+# Publishes the site in site/ to GitHub Pages. The live demo is bundled from the engine's own code and reads the
+# example pack, so every push that changes either redeploys a site that matches them.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'src/**', 'style.css', 'examples/**', 'scripts/build-site.mjs', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/gen-validators.mjs
+      - run: node scripts/build-site.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
