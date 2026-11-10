@@ -141,10 +141,11 @@ export class WorldIndex {
     return r ? [r.name, ...r.aliases] : [id];
   }
 
-  /** The 常态 version in force for a pack person in this branch: the last whose from_event has occurred and whose
-   *  until_event has not (the first holds from the start); null when the pack gives none. */
+  /** The 常态 version in force for a person in this branch: the last whose from_event has occurred and whose
+   *  until_event has not (the first holds from the start); null when none is given. A person the story brought in
+   *  (the player character, from the Persona) is read the same way as the pack's. */
   natureNow(id: Id): { version: NatureVersion; index: number } | null {
-    const vs = this.pack.entities.get(id)?.nature;
+    const vs = this.pack.entities.get(id)?.nature || this.state.runtimeEntities.get(id)?.nature;
     if (!vs?.length) return null;
     const occurred = (e?: Id | null) => !!e && this.state.dispositions.get(e)?.disposition === 'occurred';
     let index = 0;

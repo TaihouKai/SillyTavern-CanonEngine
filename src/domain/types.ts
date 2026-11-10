@@ -77,7 +77,8 @@ export interface NatureVersion {
    *  their secrets are open to it (unless the player turned that off or the Persona shields them). */
   perceives?: { kinds: PerceiveKind[]; how?: string };
 }
-export type PerceiveKind = 'thoughts' | 'memories' | 'emotions' | 'hidden' | 'whereabouts' | 'lies' | 'past';
+export const PERCEIVE_KINDS = ['thoughts', 'memories', 'emotions', 'hidden', 'whereabouts', 'lies', 'past'] as const;
+export type PerceiveKind = (typeof PERCEIVE_KINDS)[number];
 export interface PackPredicate {
   id: Id; description: string;
   value_type: 'boolean' | 'number' | 'string' | 'entity_ref' | 'entity_set';
@@ -288,6 +289,8 @@ export interface RuntimeEntity {
   aliases: string[];
   kind: PackEntity['kind'];
   description: string;
+  /** 常态 of a person the story brought in (the player character from the Persona): read like a pack person's. */
+  nature?: NatureVersion[];
 }
 
 export const UNKNOWN = Symbol('UNKNOWN');

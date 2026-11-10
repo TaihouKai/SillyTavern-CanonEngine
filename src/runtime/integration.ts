@@ -5,6 +5,7 @@
 //   both replayable records; one filter for every way the world may pull the player in.
 // - Candidate retrieval and the checked, disposable suggestions of the integrate task (never history).
 import type { ContactInfo, EngagementInfo, FactDelta, Id, PackEvent, RuntimeEntity, ScopeKind } from '../domain/types';
+import { PERCEIVE_KINDS } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import type { ContactEntry, EngagementEntry, TieEntry, WorldState } from '../domain/reducer';
 import { evalCondition, factAt, triLabel } from '../domain/reducer';
@@ -79,7 +80,9 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
   const name = (out.player?.name || persona.name || 'player').trim();
   const playerId = prev?.playerId || `rt.player.${slug(name)}.${newId('e').slice(2, 8)}`;
   const aliases = uniq([...(out.player?.aliases || []), ...(persona.name && persona.name !== name ? [persona.name] : [])].map((a) => a.trim()).filter((a) => a && a !== name)).slice(0, 8);
-  runtimeEntities.push({ id: playerId, name, aliases, kind: 'person', description: `The player character. ${out.player?.summary || ''}`.slice(0, 600) });
+  // the player is a person of this world like the pack's: their 常态 sits on their entity, read where anyone's is
+  const nature = natureOf(out.nature).nature;
+  runtimeEntities.push({ id: playerId, name, aliases, kind: 'person', description: `The player character. ${out.player?.summary || ''}`.slice(0, 600), ...(nature ? { nature: [{ from_event: null, ...nature }] } : {}) });
   const reuse = (n: string, list: { entityId: Id; name: string }[] | undefined) => list?.find((x) => x.name === n)?.entityId;
   const affiliations: PlayerProfile['affiliations'] = [];
   for (const a of out.affiliations || []) {
@@ -168,7 +171,7 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
       roles: (out.roles || []).filter((r) => r?.role?.trim()).slice(0, 8).map((r) => ({ role: r.role.trim().slice(0, 200), brings: list(r.brings), from: list(r.from), style: String(r.style || '').trim().slice(0, 300) })),
       notSuited: list(out.not_suited),
       voice: String(out.voice || '').trim().slice(0, 600),
-      ...natureOf(out.nature),
+      ...(nature ? { nature } : {}),
       ...(String(out.defenses || '').trim() ? { defenses: String(out.defenses).trim().slice(0, 500) } : {}),
       worldChanges: worldChangesOf(out, persona.description),
     },
@@ -178,9 +181,11 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
 
 /** The player's 常态 from the profile reply: kept when any field says something. */
 function natureOf(n: ProfileOut['nature']): { nature?: PlayerNature } {
-  const pick = (k: keyof PlayerNature) => String(n?.[k] || '').trim().slice(0, 500);
+  const pick = (k: 'habits' | 'uses' | 'others' | 'limits') => String(n?.[k] || '').trim().slice(0, 500);
   const v: PlayerNature = { habits: pick('habits'), uses: pick('uses'), others: pick('others'), limits: pick('limits') };
-  return Object.values(v).some(Boolean) ? { nature: v } : {};
+  const kinds = uniq((n?.perceives?.kinds || []).filter((k) => PERCEIVE_KINDS.includes(k)));
+  if (kinds.length) v.perceives = { kinds, ...(String(n?.perceives?.how || '').trim() ? { how: String(n!.perceives!.how).trim().slice(0, 300) } : {}) };
+  return [v.habits, v.uses, v.others, v.limits].some(Boolean) || v.perceives ? { nature: v } : {};
 }
 
 /** The persona_seed record: the player and their original organizations/places enter the world (no story event),
@@ -920,10 +925,6 @@ export function integrationKey(index: WorldIndex, profile: PlayerProfile, candid
 // ---------------------------------------------------------------------------------------------
 // GM context sections
 
-export function natureText(n: PlayerNature): string {
-  return (['habits', 'uses', 'others', 'limits'] as const).filter((k) => n[k]).map((k) => `${k}: ${n[k]}`).join(' | ');
-}
-
 export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick: number): string {
   profile = playedProfile(index, profile);
   const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play — the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know — famous things (an esper's level and ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
@@ -934,7 +935,6 @@ export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick:
   if (profile.roles?.length) lines.push(`- roles: ${profile.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(', '), r.from.length ? `from ${r.from.join(', ')}` : ''].filter(Boolean).join('; ')})` : ''}`).join(' | ')}`);
   if (profile.notSuited?.length) lines.push(`- does not take on: ${profile.notSuited.join('; ')}`);
   if (profile.voice) lines.push(`- how they come across and talk (write the player character's lines and reactions this way): ${profile.voice}`);
-  if (profile.nature) lines.push(`- 常态 (how their own power or condition shows in everyday moments — background, not story; signs that show by themselves may be written like a reaction, a deliberate use only as the player-character rules allow): ${natureText(profile.nature)}`);
   for (const r of byChange(profile.relationships).slice(0, 16)) lines.push(`- connection: ${r.name}${r.entityId ? ` [${r.entityId}]` : ''} — ${r.ended ? 'ENDED: ' : ''}${r.relation} (${tieSource(r)})${r.entityId ? factsLine(index, r.entityId, tick, 300) : ''}`);
   for (const k of byChange(profile.knowers).slice(0, 16)) lines.push(`- who knows: ${k.who} ${LEVEL[k.level]}${k.level === 'secrets' ? ':' : ' —'} ${k.about} (${tieSource(k)})`);
   return lines.join('\n');

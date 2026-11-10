@@ -1,10 +1,10 @@
 // Runtime persistent types. Documented in docs/RUNTIME_SCHEMAS.md.
-import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, StoryTime } from '../domain/types';
+import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, NatureVersion, StoryTime } from '../domain/types';
 
 export const STORAGE_VERSION = 1;
 export const ENGINE_VERSION = '1.3.4';
 /** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.28.1';
+export const ENGINE_RELEASE = '1.29.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -240,7 +240,8 @@ export interface TieChange { since: number; by: 'play' | 'ui'; start: string | n
 export type AffiliationStatus = 'member' | 'joining' | 'former';
 
 /** The player's 常态 (one version: the Persona describes the player at the start; a later Persona read replaces it). */
-export interface PlayerNature { habits: string; uses: string; others: string; limits: string }
+/** The player's 常态, read from the Persona like a pack person's (perceives: what their power lets them learn). */
+export interface PlayerNature { habits: string; uses: string; others: string; limits: string; perceives?: NatureVersion['perceives'] }
 export interface PlayerProfile {
   personaName: string;
   /** The Persona text the profile was read from (standard Persona description). */

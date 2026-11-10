@@ -147,6 +147,7 @@ export function defaultTask(task: TaskName, input: any): any {
     case 'leap': return { events: [], mention: [], impossible: [], life: [], landing: '' };
     case 'world_check': return { items: [], additions: [] };
     case 'mind': return { minds: [] };
+    case 'affiliations': return { organizations: [] };
     case 'impact': return { changed: [], affected_anchors: [], affected_steps: [], scope: 'local', severity: 'none', replan: false, explanation: 'scripted' };
     case 'plan': {
       const now = input.now?.tick ?? 0;

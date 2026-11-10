@@ -895,12 +895,17 @@ describe('preferred matters', () => {
 
   it('NI-50b the player\'s own 常态 from the Persona: the GM sees it with the player as background, deliberate use as the player-character rules allow; the timeline lists it first', async () => {
     expect(PROMPTS.profile).toMatch(/- nature: when the Persona gives the player a power[^]*Write patterns, never story[^]*an ordinary person has none/);
-    expect(PROMPTS.profile).toMatch(/"nature":\{"habits":"","uses":"","others":"","limits":""\}/);
+    expect(PROMPTS.profile).toMatch(/"nature":\{"habits":"","uses":"","others":"","limits":"","perceives":null\}/);
     const nature = { habits: 'sparks crackle in her hair when she is annoyed', uses: 'shocks a friend who goes too far, lightly', others: 'classmates keep their phones away from her', limits: 'cannot hold back a full discharge near machines' };
     const x = await setup({ profile: { ...PROFILE, nature: { ...nature, limits: '  ' + nature.limits } } });
     await turn(x, 'I look around.', 'The harbor at morning. [W52]', { scene_end: at(1, 9, 35) });
     expect(x.engine.playerProfile()!.profile.nature).toEqual(nature);
-    expect(lastCtx(x)).toMatch(/- 常态 \(how their own power or condition shows[^)]*background, not story[^)]*a deliberate use only as the player-character rules allow\): habits: sparks crackle/);
+    // read like anyone's, in HOW THEY ARE (user: whatever an ordinary character has, the player character has too)
+    const { playerId: pid, personaName } = x.engine.playerProfile()!.profile;
+    const how = lastCtx(x).slice(lastCtx(x).indexOf('HOW THEY ARE'));
+    expect(how).toContain(`- ${x.engine.current!.index.entityName(pid)} [${pid}] (the player character: signs that show by themselves may be written like a reaction; a deliberate use only as the player-character rules allow): habits: sparks crackle`);
+    expect(personaName).toBeTruthy();
+    expect(lastCtx(x)).not.toMatch(/- 常态 \(/);
     expect(x.engine.integrationView(true)!.profile!.nature.join(' ')).toContain('sparks crackle');
     const v = x.engine.natureView(false)!;
     expect(v.people[0].player).toBe(true);
@@ -909,7 +914,7 @@ describe('preferred matters', () => {
     const y = await setup({ profile: { ...PROFILE, nature: { habits: '', uses: '', others: '', limits: '' } } });
     await turn(y, 'I look around.', 'The harbor at morning. [W53]', { scene_end: at(1, 9, 35) });
     expect(y.engine.playerProfile()!.profile.nature).toBeUndefined();
-    expect(lastCtx(y)).not.toMatch(/- 常态/);
+    expect(lastCtx(y)).not.toMatch(/the player character: signs/);
     // an identity read now is not old; one read before this release (no readBy) is, so the page offers to read it again
     expect(x.engine.playerProfile()!.profile.readBy).toBe(ENGINE_RELEASE);
     expect(x.engine.integrationView(true)!.profileOld).toBe(false);
@@ -940,6 +945,54 @@ describe('preferred matters', () => {
     // the reviewer counts learning by power as someone coming to know; the GM's voice rule says it is not revealing
     expect(PROMPTS.evaluate).toMatch(/tie "knows": someone learns about the player more than they knew \(also through their own power: reading the player character's mind or memories\)/);
     expect(voiceRule(DEFAULT_PLAYER_VOICE)).toMatch(/someone learning one through their own power \(reading the player character's mind\) is the world finding out, not the player character revealing it/);
+  });
+
+  it('NI-50d the player character has what anyone has (user: a fix for each "an ordinary character has it, I do not" was a patch for one spot): their 常态 and a power that perceives are read like a pack person\'s; a new Persona read replaces them', async () => {
+    expect(PROMPTS.profile).toMatch(/perceives: what the power lets them LEARN that ordinary people cannot, as for any person of the world/);
+    const nature = { habits: 'hears the surface thoughts of people near her', uses: 'answers what was not said', others: 'people keep their distance', limits: 'needs to see them', perceives: { kinds: ['thoughts'], how: 'within sight' } };
+    const x = await setup({ profile: { ...PROFILE, nature } });
+    await turn(x, 'I sit down next to Mira.', 'Mira glances at you. [PC4]', { scene_end: at(1, 9, 35) }, { references: [], statements: [], scene_entities: ['mira'] });
+    const { playerId } = x.engine.playerProfile()!.profile;
+    expect(x.engine.playerProfile()!.profile.nature!.perceives).toEqual({ kinds: ['thoughts'], how: 'within sight' });
+    // the same structure as a pack person's: the index answers for the player as for anyone
+    expect(x.engine.current!.index.natureNow(playerId)!.version).toMatchObject({ from_event: null, habits: nature.habits, perceives: { kinds: ['thoughts'] } });
+    const how = lastCtx(x).slice(lastCtx(x).indexOf('HOW THEY ARE'));
+    expect(how).toMatch(/\(the player character: [^)]*\): habits: hears the surface thoughts[^\n]*perceives: what someone is thinking \(within sight\)/);
+    expect(how).toMatch(/THE PLAYER CHARACTER PERCEIVES: what their power reaches is not hidden from them — other people's secrets included/);
+    expect(how).not.toMatch(/POWERS THAT PERCEIVE \(/); // nobody else here perceives
+    expect(x.engine.natureView(false)!.people[0]).toMatchObject({ id: playerId, player: true, versions: [{ perceives: { kinds: ['thoughts'] }, state: 'now' }] });
+    // a new Persona read describes the player anew
+    x.model.on('profile', null, { ...PROFILE, nature: { ...nature, habits: 'hums when she reads someone', perceives: null } });
+    (x as any).persona.description += '\nNow she hums.';
+    await x.engine.updateIdentity();
+    expect(x.engine.current!.index.natureNow(playerId)!.version).toMatchObject({ habits: 'hums when she reads someone' });
+    expect(x.engine.current!.index.natureNow(playerId)!.version.perceives).toBeUndefined();
+  });
+
+  it('NI-50e which organizations the Persona puts the player in is decided one by one (live: "Level 5的第八位" in the Persona\'s 本局设定 was taken for a change of the world only; an organization she was only managed from was made hers)', async () => {
+    expect(PROMPTS.affiliations).toMatch(/lines marked 本局设定 \(this game's changes of the world\) included[^]*A rank, seat, number or title that makes them one of a group counts/);
+    expect(PROMPTS.affiliations).toMatch(/"none": the Persona only connects them with it some other way — works with it or for one of its people, is managed/);
+    const p = JSON.parse(demo);
+    p.entities.find((e: any) => e.id === 'council').aliases = ['Elders们'];
+    const persona = { name: 'Vera', description: 'Vera runs the Grey Lantern.\n- The Elders have a fourth seat: Vera\'s (本局设定)\nShe is managed by a clerk of the Union.' };
+    // the read misses the seat and makes the Union hers
+    const read = { ...PROFILE, affiliations: [...PROFILE.affiliations, { name: 'The Union', existing_id: 'union', kind: 'organization', role: 'client', status: 'member', secrecy: 'public' }] };
+    const x = await setup({ persona, pack: JSON.stringify(p), profile: read });
+    x.model.on('affiliations', null, { organizations: [{ ref: 'council', status: 'member', role: 'the fourth elder', secrecy: 'public' }, { ref: 'union', status: 'none' }, { ref: 'own1', status: 'member', role: 'leader', leads: true, secrecy: 'secret' }] });
+    await turn(x, 'I look around.', 'The harbor. [AF1]', { scene_end: at(1, 9, 35) });
+    const input = x.model.tasks('affiliations')[0].input as any;
+    // the code finds the candidates: named by an alias (with 们 dropped), given by the read, the Persona's own
+    expect(input.organizations.map((o: any) => o.ref).sort()).toEqual(['council', 'own1', 'union']);
+    expect(input.organizations.find((o: any) => o.ref === 'union').read).toEqual({ status: 'member', role: 'client' });
+    expect(input.organizations.find((o: any) => o.ref === 'council').read).toBeNull();
+    const prof = x.engine.playerProfile()!.profile;
+    expect(prof.affiliations.map((a) => [a.entityId.startsWith('rt.org.') ? 'own' : a.entityId, a.status, a.role])).toEqual([['council', 'member', 'the fourth elder'], ['own', 'member', 'leader']]);
+    expect(x.engine.membershipView(false)!.now.find((o) => o.id === 'council')!.members).toContain('Vera');
+    // a failed check keeps the read
+    const y = await setup({ persona, pack: JSON.stringify(p), profile: read });
+    y.model.on('affiliations', null, () => { throw new Error('down'); });
+    await turn(y, 'I look around.', 'The harbor. [AF2]', { scene_end: at(1, 9, 35) });
+    expect(y.engine.playerProfile()!.profile.affiliations.map((a) => a.entityId).filter((id) => !id.startsWith('rt.'))).toEqual(['union']);
   });
 
   it('NI-51 the steps that judge plausibility see who people and places are: the world reaction and the reviewer get the pack descriptions of the entities they handle, the planner those of the events it plans around', async () => {

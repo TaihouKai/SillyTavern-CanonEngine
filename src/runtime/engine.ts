@@ -4,7 +4,7 @@ import { loreFor, type LoreBackground, type LoreEntry } from './lore';
 import type { Persona } from './host';
 import type { Id, LedgerRecord, MindProfile, NatureVersion, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
-import { valuesEqual } from '../domain/pack';
+import { normalizeName, valuesEqual } from '../domain/pack';
 import { buildBootstrap, causeOf, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
 import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
@@ -1210,7 +1210,7 @@ export class CanonEngine {
       horizon: this.settings.horizonMinutes,
       // the reviewer needs the player's presence and decisions as required context (review mode drops optional parts)
       presence: prof ? presenceSection(index, prof.profile, tick) : undefined,
-      perception: prof ? { open: this.settings.secretsReadable !== false, defenses: prof.profile.defenses } : undefined,
+      perception: prof ? { open: this.settings.secretsReadable !== false, defenses: prof.profile.defenses, player: prof.profile.playerId } : undefined,
       decisions: decisionsSection(decisions) || undefined,
     });
     const due = pendingHard(pack, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
@@ -1614,7 +1614,7 @@ export class CanonEngine {
           timeJumpTo: leapTo ? null : jumpTo,
           leap: lp?.section,
           presence: prof ? presenceSection(rIndex, prof.profile, cp) : undefined,
-          perception: prof ? { open: this.settings.secretsReadable !== false, defenses: prof.profile.defenses } : undefined,
+          perception: prof ? { open: this.settings.secretsReadable !== false, defenses: prof.profile.defenses, player: prof.profile.playerId } : undefined,
           // where the scene goes: the player's message when it moves the scene, else where the last reply ended
           // (a message that moves the scene leaves the last scene's people and places behind)
           recognition: prof ? recognitionSection(presentGroups(rIndex, prof.profile, cp,
@@ -1972,9 +1972,56 @@ export class CanonEngine {
       ...(lore.length ? { background_lore: lore.map((l) => ({ title: l.title, entity_id: l.entity_id, via: l.via, text: l.text })) } : {}),
       ...(prev ? { previous_profile: { summary: prev.summary, affiliations: prev.affiliations.map((a) => a.name), places: prev.places.map((p) => p.name) } } : {}),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 6000 }), this.settings.taskTimeoutMs * 4, signal);
+    out.affiliations = await this.checkAffiliations(out, pack, persona, signal, operationId);
     const built = buildProfile(out, pack, index, persona, prev);
     if (lore.length) built.profile.lore = this.lastProfileLore;
     return built;
+  }
+
+  /** Which organizations the Persona puts the player in, decided one by one (live: "Level 5的第八位", in the Persona's
+   *  本局设定, was read as a change of the world only, and the player was not one of the Level 5s, while an
+   *  organization she was only managed from was made hers). The candidates come from the code: the world's
+   *  organizations the Persona names (by name or alias), the ones this game's 本局设定 renamed, and the ones the read
+   *  gave; a focused call says for each whether the player is a member, about to join, a former member or none. A
+   *  failed call keeps the read's. */
+  private async checkAffiliations(out: ProfileOut, pack: LoadedPack, persona: Persona, signal: AbortSignal | undefined, operationId: string): Promise<ProfileOut['affiliations']> {
+    const read = out.affiliations || [];
+    const text = normalizeName(`${persona.name}\n${persona.description}`);
+    const base = this.basePack();
+    const orgs = [...pack.entities.values()].filter((e) => e.kind === 'organization' || e.kind === 'other');
+    const named = (e: { name: string; aliases: string[] }) => [e.name, ...e.aliases].some((n) => [n, n.replace(/[们們]$/, '')].some((x) => { const k = normalizeName(x); return k.length >= 2 && text.includes(k); }));
+    const readOf = (id: Id) => read.find((a) => a.existing_id === id || (a.name && pack.entities.get(id)?.name === a.name.trim()));
+    const ids = uniq([...read.map((a) => (a.existing_id && pack.entities.has(a.existing_id) ? a.existing_id : null)).filter((x): x is Id => !!x),
+      ...orgs.filter((e) => named(e) || base.entities.get(e.id)?.name !== e.name).map((e) => e.id)]).slice(0, 30);
+    const own = read.filter((a) => a.name?.trim() && !(a.existing_id && pack.entities.has(a.existing_id)) && !ids.some((id) => readOf(id) === a));
+    if (!ids.length && !own.length) return read;
+    const index = this.current?.index || new WorldIndex(pack, reduceRecords(pack, []));
+    const members = memberships(index, index.state.clock.lo);
+    const asRead = (a?: ProfileOut['affiliations'][number]) => (a ? { status: a.status, role: a.role || '' } : null);
+    const cands = [
+      ...ids.map((id) => { const e = pack.entities.get(id)!; return { ref: id, name: e.name, aliases: e.aliases, about: index.entityNote(id), members: (members.get(id) || []).slice(0, 20).map((m) => index.entityName(m)), read: asRead(readOf(id)) }; }),
+      ...own.map((a, i) => ({ ref: `own${i + 1}`, name: a.name.trim(), aliases: [], about: (a.description || '').slice(0, 300), members: a.members || [], read: asRead(a) })),
+    ];
+    let res: { organizations: { ref: string; status: 'member' | 'joining' | 'former' | 'none'; role?: string; leads?: boolean; secrecy?: 'public' | 'restricted' | 'secret' }[] };
+    try {
+      res = await this.withTimeout(callStructured(this.host.model, 'affiliations', PROMPTS.affiliations, { persona: { name: persona.name, description: persona.description }, organizations: cands },
+        { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 3000 }), this.settings.taskTimeoutMs * 2, signal);
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') throw e;
+      this.host.log('warn', `organizations of the Persona not checked: ${(e as Error).message}`);
+      return read;
+    }
+    const verdict = new Map(res.organizations.map((o) => [o.ref, o]));
+    const result: ProfileOut['affiliations'] = [];
+    for (const c of cands) {
+      const v = verdict.get(c.ref);
+      const r = c.ref.startsWith('own') ? own[Number(c.ref.slice(3)) - 1] : readOf(c.ref);
+      if (!v) { if (r) result.push(r); continue; }
+      if (v.status === 'none') continue;
+      result.push({ ...(r || { kind: 'organization' as const }), name: r?.name || c.name, existing_id: c.ref.startsWith('own') ? r?.existing_id ?? null : c.ref, status: v.status,
+        role: v.role?.trim() || r?.role || '', leads: v.status === 'member' && !!(v.leads ?? r?.leads), secrecy: v.secrecy || r?.secrecy || 'public' });
+    }
+    return result;
   }
 
   /** The lorebook entries a Persona read would take as background now (titles; no model call). Without a bound
@@ -2936,8 +2983,9 @@ export class CanonEngine {
     return { now, changes, hidden };
   }
 
-  /** 常态 of the pack's people: each version with how it stands in this game (in force now, ended, or not reached).
-   *  A version not reached starts at an event still to come: a canon spoiler, shown only with spoilers on. */
+  /** 常态 of the people: each version with how it stands in this game (in force now, ended, or not reached). A
+   *  version not reached starts at an event still to come: a canon spoiler, shown only with spoilers on. The people
+   *  the story brought in (the player character first) are listed like the pack's. */
   natureView(spoilers: boolean): { people: { id: Id; name: string; player?: boolean; mind?: MindProfile; versions: (NatureVersion & { from: string | null; until: string | null; state: 'now' | 'ended' | 'later' })[] }[]; hidden: number } | null {
     if (!this.campaign() || !this.current) return null;
     const idx = this.current.index;
@@ -2945,16 +2993,15 @@ export class CanonEngine {
     const title = (e?: Id | null) => (e ? idx.pack.events.get(e)?.title || e : null);
     const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
     let hidden = 0;
-    const people: NonNullable<ReturnType<CanonEngine['natureView']>>['people'] = [...idx.pack.entities.values()].filter((e) => e.nature?.length || e.mind).map((e) => {
+    const player = this.playerProfile()?.profile.playerId;
+    const all = [...[...s.runtimeEntities.values()].sort((a, b) => Number(b.id === player) - Number(a.id === player)), ...idx.pack.entities.values()] as { id: Id; name: string; nature?: NatureVersion[]; mind?: MindProfile }[];
+    const people: NonNullable<ReturnType<CanonEngine['natureView']>>['people'] = all.filter((e) => e.nature?.length || e.mind).map((e) => {
       const nowAt = idx.natureNow(e.id)?.index ?? -1;
       const versions = (e.nature || []).map((v, i) => ({ ...v, from: title(v.from_event), until: title(v.until_event),
         state: (i === nowAt ? 'now' : i === 0 || occurred(v.from_event) ? 'ended' : 'later') as 'now' | 'ended' | 'later' }))
         .filter((v) => { if (v.state === 'later' && !spoilers) { hidden++; return false; } return true; });
-      return { id: e.id, name: e.name, ...(e.mind ? { mind: e.mind } : {}), versions };
+      return { id: e.id, name: e.name, ...(e.id === player ? { player: true } : {}), ...(e.mind ? { mind: e.mind } : {}), versions };
     });
-    // the player's own, from the Persona, first
-    const prof = this.playerProfile()?.profile;
-    if (prof?.nature) people.unshift({ id: prof.playerId, name: prof.personaName, player: true, versions: [{ from_event: null, ...prof.nature, from: null, until: null, state: 'now' }] });
     return { people, hidden };
   }
 
@@ -3031,7 +3078,8 @@ export class CanonEngine {
         notSuited: prof.profile.notSuited || [],
         voice: prof.profile.voice || '',
         defenses: prof.profile.defenses || '',
-        nature: prof.profile.nature ? (['habits', 'uses', 'others', 'limits'] as const).filter((k) => prof.profile.nature![k]).map((k) => `${{ habits: zh ? '平时' : 'Habits', uses: zh ? '使用' : 'Uses', others: zh ? '旁人' : 'Others', limits: zh ? '限制' : 'Limits' }[k]}：${prof.profile.nature![k]}`) : [],
+        nature: prof.profile.nature ? [...(['habits', 'uses', 'others', 'limits'] as const).filter((k) => prof.profile.nature![k]).map((k) => `${{ habits: zh ? '平时' : 'Habits', uses: zh ? '使用' : 'Uses', others: zh ? '旁人' : 'Others', limits: zh ? '限制' : 'Limits' }[k]}：${prof.profile.nature![k]}`),
+          ...(prof.profile.nature.perceives ? [`${zh ? '能得知' : 'Perceives'}：${prof.profile.nature.perceives.kinds.join(', ')}${prof.profile.nature.perceives.how ? `（${prof.profile.nature.perceives.how}）` : ''}`] : [])] : [],
         relationships: played!.relationships.map((r) => ({ who: r.entityId, name: r.name, text: r.relation, ended: !!r.ended, basis: r.basis, by: r.changed?.by ?? r.basis, since: r.changed ? formatTick(r.changed.since, origin) : null, start: r.changed?.start ?? null, quote: r.changed?.quote || '', org: orgNow(r.entityId) })),
         recognized: (prof.profile.recognizedBy || []).map((r) => `${r.who}${r.everywhere ? (zh ? '（到处）' : ' (everywhere)') : ''}: ${r.as}${r.places.length ? ` (${r.places.map((p) => idx.entityName(p)).join(zh ? '、' : ', ')})` : ''}`),
         knowers: played!.knowers.map((k) => ({ who: k.entityId, name: k.who, level: k.level, text: k.about, basis: k.basis, by: k.changed?.by ?? k.basis, since: k.changed ? formatTick(k.changed.since, origin) : null, start: k.changed?.start ?? null, quote: k.changed?.quote || '' })),

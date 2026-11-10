@@ -377,6 +377,34 @@
     "limits": {
      "type": "string",
      "maxLength": 500
+    },
+    "perceives": {
+     "type": [
+      "object",
+      "null"
+     ],
+     "properties": {
+      "kinds": {
+       "type": "array",
+       "uniqueItems": true,
+       "items": {
+        "enum": [
+         "thoughts",
+         "memories",
+         "emotions",
+         "hidden",
+         "whereabouts",
+         "lies",
+         "past"
+        ]
+       }
+      },
+      "how": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "additionalProperties": false
     }
    },
    "additionalProperties": false

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.29.0 — 2026-11-10
+
+- **The player character has what anyone has.** Fixes for "an ordinary character has it, I do not" were made one spot at a time, because the player's data lived in a structure of its own that each feature had to remember. The player's 常态 now sits on the player's entity like a pack person's: the index answers for the player as for anyone (`natureNow`), the GM gets it in HOW THEY ARE with everyone else (marked as the player character: signs that show by themselves may be written, a deliberate use only as the player-character rules allow), and the timeline's 角色常态 lists it the same way. A new Persona read replaces the player's entity (before, the first read stayed).
+- **The player's power that perceives.** Reading the Persona now also reads what the player's power lets them learn (`perceives`, the same kinds as a pack person's). When it does, the GM is told that what it reaches is not hidden from the player character — other people's secrets included, past KNOWLEDGE BOUNDARIES — shown as what they perceive, never as a decision or conclusion of theirs. Shown on the narrative-integration page (能得知).
+- **Which organizations the Persona puts the player in is checked one by one** (live: 「Level 5的第八位」 in the Persona's 本局设定 was read as a change of the world only, so the player was not one of the Level 5s, while 统括理事会 — she is managed by an aide of one of its members — was made hers). The code collects the candidates: the world's organizations the Persona names (name or alias), the ones this game's 本局设定 renamed, and the ones the read gave; a focused call (`affiliations`) says for each member / joining / former / none, a rank or seat counting as membership and 本局设定 lines as much as any. A failed call keeps the read. DeepSeek 4.1 flash, the live case 3 of 3 right: +$0.002 and 6–13 s per Persona read.
+- Not given to the player: 思考方式 and 角色盘算 — working out a character's next move is the player's. Tests: NI-50b, NI-50d, NI-50e.
+
 ## 1.28.1 — 2026-11-10
 
 - **组织成员表 shows since when a status holds** (date and how long ago): a status stays until an event writes another, so an old one now reads as old.

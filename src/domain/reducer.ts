@@ -115,7 +115,8 @@ export function applyRecord(state: WorldState, rec: LedgerRecord): void {
   if (rec.engagement) state.engagements.push({ ...rec.engagement, recordId: rec.recordId, seq: rec.sequence, tick });
   if (rec.contact) state.contacts.push({ ...rec.contact, recordId: rec.recordId, seq: rec.sequence, tick });
   if (rec.tie) state.ties.push({ ...rec.tie, recordId: rec.recordId, seq: rec.sequence, tick });
-  for (const re of rec.runtimeEntities || []) if (!state.runtimeEntities.has(re.id)) state.runtimeEntities.set(re.id, { ...re, recordId: rec.recordId });
+  // a later Persona read describes the player (and the Persona's own people, groups, places) anew: it wins
+  for (const re of rec.runtimeEntities || []) if (!state.runtimeEntities.has(re.id) || rec.kind === 'persona_seed') state.runtimeEntities.set(re.id, { ...re, recordId: rec.recordId });
   for (const s of rec.enactedStepIds || []) if (!state.enactedSteps.has(s)) state.enactedSteps.set(s, rec.recordId);
   if (rec.kind === 'scene_frame' && rec.frameId) state.sceneFrame = { frameId: rec.frameId, since: tick, recordId: rec.recordId };
   // The committed clock moves only through time-advance/bootstrap records and never backwards;

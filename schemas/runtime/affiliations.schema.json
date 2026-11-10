@@ -1,0 +1,53 @@
+{
+ "type": "object",
+ "properties": {
+  "organizations": {
+   "type": "array",
+   "maxItems": 40,
+   "items": {
+    "type": "object",
+    "properties": {
+     "ref": {
+      "type": "string",
+      "maxLength": 200
+     },
+     "status": {
+      "enum": [
+       "member",
+       "joining",
+       "former",
+       "none"
+      ]
+     },
+     "role": {
+      "type": "string",
+      "maxLength": 400
+     },
+     "leads": {
+      "type": "boolean"
+     },
+     "secrecy": {
+      "enum": [
+       "public",
+       "restricted",
+       "secret"
+      ]
+     },
+     "why": {
+      "type": "string",
+      "maxLength": 300
+     }
+    },
+    "required": [
+     "ref",
+     "status"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "organizations"
+ ],
+ "additionalProperties": false
+}
