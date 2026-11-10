@@ -1,0 +1,84 @@
+{
+ "type": "object",
+ "properties": {
+  "minds": {
+   "type": "array",
+   "maxItems": 6,
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "reads": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+       "type": "object",
+       "properties": {
+        "what": {
+         "type": "string",
+         "maxLength": 400
+        },
+        "basis": {
+         "type": "string",
+         "maxLength": 400
+        },
+        "sure": {
+         "enum": [
+          "low",
+          "mid",
+          "high"
+         ]
+        },
+        "surface": {
+         "enum": [
+          "say",
+          "show",
+          "keep"
+         ]
+        },
+        "purpose": {
+         "type": "string",
+         "maxLength": 300
+        }
+       },
+       "required": [
+        "what",
+        "surface"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "wants": {
+      "type": "string",
+      "maxLength": 400
+     },
+     "move": {
+      "type": "string",
+      "maxLength": 800
+     },
+     "next": {
+      "type": "string",
+      "maxLength": 600
+     }
+    },
+    "required": [
+     "id",
+     "reads",
+     "wants",
+     "move"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "minds"
+ ],
+ "additionalProperties": false,
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:canon-engine:task:mind",
+ "title": "Canon Engine task output: mind"
+}

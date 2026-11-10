@@ -306,6 +306,7 @@ function renderSettings() {
 
   // ---- model and replies
   out.push(card(t('secModel'), '', profileField(s.taskProfileId || '') +
+    check('mindPlans', (s as any).mindPlans !== false, t('mindPlans'), 'mindPlansTip') + ((s as any).mindPlans !== false ? mindField() : '') +
     field(t('replyLength'), 'replyLengthTip', `<input type="text" class="text_pole" data-set="replyLength" value="${esc(String(s.replyLength || ''))}" placeholder="${esc(t('replyLengthPlaceholder'))}">`, t('replyLengthShort')) +
     field(t('oocKeyword'), 'oocKeywordTip', `<input type="text" class="text_pole" data-set="oocKeyword" value="${esc(String(s.oocKeyword ?? 'OOC'))}" placeholder="OOC">`, t('oocKeywordShort')) +
     check('notifyDone', s.notifyDone !== false, t('notifyDone'), 'notifyDoneTip') +
@@ -382,6 +383,18 @@ function profileField(current: string): string {
     <select class="text_pole" data-set="taskProfileId">${opts.join('')}</select>${hint}</div>
     ${profileUsed ? field(t('taskExtraBody'), 'taskExtraBodyTip', `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc(extra)}</textarea>`, t('taskExtraBodyShort')) : ''}
     ${current ? backupField(profiles, current) : ''}`;
+}
+
+/** Connection for 角色盘算 ('' = the analysis connection). */
+function mindField(): string {
+  const cur = String((getSettings() as any).mindProfileId || '');
+  let profiles: { id: string; name: string; model?: string }[] = [];
+  try { profiles = (ctx() as any).ConnectionManagerRequestService?.getSupportedProfiles?.() || []; } catch { profiles = []; }
+  const missing = cur && !profiles.some((p) => p.id === cur);
+  const opts = [`<option value="" ${cur ? '' : 'selected'}>${t('mindProfileSame')}</option>`]
+    .concat(profiles.map((p) => `<option value="${esc(p.id)}" ${p.id === cur ? 'selected' : ''}>${esc(p.name)}${p.model ? ` · ${esc(p.model)}` : ''}</option>`))
+    .concat(missing ? [`<option value="${esc(cur)}" selected>⚠ ${esc(cur)}</option>`] : []);
+  return field(t('mindProfile'), 'mindProfileTip', `<select class="text_pole" data-set="mindProfileId">${opts.join('')}</select>`, t('mindProfileShort'));
 }
 
 /** Backup analysis connection: answers a task the main connection blocks, refuses or leaves empty. */

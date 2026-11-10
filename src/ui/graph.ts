@@ -422,7 +422,7 @@ export interface MembersView {
 
 /** 常态 of the pack's people as the timeline shows them (see CanonEngine.natureView). */
 export interface NatureView {
-  people: { id: string; name: string; player?: boolean; versions: { from: string | null; until: string | null; why?: string; habits: string; uses: string; others: string; limits: string; perceives?: { kinds: string[]; how?: string }; state: 'now' | 'ended' | 'later' }[] }[];
+  people: { id: string; name: string; player?: boolean; mind?: { deliberation: string; sharpness: string; approach: string; thinks_hard_about?: string; pushed?: string; notices?: string; blind?: string; speaks?: string }; versions: { from: string | null; until: string | null; why?: string; habits: string; uses: string; others: string; limits: string; perceives?: { kinds: string[]; how?: string }; state: 'now' | 'ended' | 'later' }[] }[];
   hidden: number;
 }
 
@@ -544,12 +544,13 @@ export class GraphPanel {
     if (!v.people.length) return `<div class="cg-empty">${t('natureNone')}</div>`;
     const q = this.filter.q.trim().toLowerCase();
     const people = v.people.filter((p) => !q || p.name.toLowerCase().includes(q));
-    const field = (k: string, x: string) => (x.trim() ? `<div class="cg-nfield"><b>${t('nature_' + k)}</b>${esc(x)}</div>` : '');
+    const field = (k: string, x: string) => (x.trim() ? `<div class="cg-nfield"><b>${t(k.startsWith('mind_') ? k : 'nature_' + k)}</b>${esc(x)}</div>` : '');
     const ver = (x: NatureView['people'][number]['versions'][number], player = false) => {
       const head = player ? t('naturePersona') : x.from ? t('natureFrom').replace('{e}', x.from) + (x.until ? t('natureUntil').replace('{e}', x.until) : '') : t('natureStart');
       return `<div class="cg-nver cg-nver-${x.state}"><div class="cg-nhead">${esc(head)} <span class="cg-key cg-nstate-${x.state}">${t('natureState_' + x.state)}</span>${x.why ? `<span class="cg-nwhy">${esc(x.why)}</span>` : ''}</div>${field('habits', x.habits)}${field('uses', x.uses)}${field('others', x.others)}${field('limits', x.limits)}${x.perceives?.kinds.length ? field('perceives', x.perceives.kinds.map((k) => t('perceive_' + k)).join('、') + (x.perceives.how ? `（${x.perceives.how}）` : '')) : ''}</div>`;
     };
-    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t('natureNote').replace('{n}', String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? ' open' : ''}><summary>${esc(p.name)}${p.player ? ` <span class="cg-hint">${t('naturePlayer')}</span>` : ''}${p.versions.length > 1 ? ` <span class="cg-hint">${t('natureVersions').replace('{n}', String(p.versions.length))}</span>` : ''}</summary>${p.versions.map((x) => ver(x, !!p.player)).join('')}</details>`).join('')}${v.hidden ? `<div class="cg-hint">${t('natureHidden').replace('{n}', String(v.hidden))}</div>` : ''}</div>`;
+    const mind = (m: NonNullable<NatureView['people'][number]['mind']>) => `<div class="cg-nver cg-nmind"><div class="cg-nhead">${t('mindTitle')} <span class="cg-key">${t('mindDelib_' + m.deliberation)} · ${t('mindSharp_' + m.sharpness)}</span></div>${(['approach', 'thinks_hard_about', 'pushed', 'notices', 'blind', 'speaks'] as const).map((k) => field('mind_' + k, m[k] || '')).join('')}</div>`;
+    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t('natureNote').replace('{n}', String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? ' open' : ''}><summary>${esc(p.name)}${p.player ? ` <span class="cg-hint">${t('naturePlayer')}</span>` : ''}${p.versions.length > 1 ? ` <span class="cg-hint">${t('natureVersions').replace('{n}', String(p.versions.length))}</span>` : ''}</summary>${p.versions.map((x) => ver(x, !!p.player)).join('')}${p.mind ? mind(p.mind) : ''}</details>`).join('')}${v.hidden ? `<div class="cg-hint">${t('natureHidden').replace('{n}', String(v.hidden))}</div>` : ''}</div>`;
   }
 
   /** 当前时空: the scene's time frame, changeable by hand when the reviewer missed a move between frames. */

@@ -128,6 +128,17 @@ SHAPE: {"groups":[{"member_ids":[],"title":"","summary":""}]}`,
 TASK: Each pair is a person and a canonical event of the original story they take part in, which is about to start. Judge from the event's original summary (its cause and motives) whether that person KNOWS IN ADVANCE, before it starts, that they will be there or do this: an appointment or meeting they arranged, a plan of their own, a duty, shift or task they were given, an errand they set out on — knows=true; or not: a chance encounter, an accident, an attack, summons or news that comes without warning, something that happens to them — knows=false. What they only decide, propose or notice once the event is under way does not count: knows=true only when, before it starts, they already expect to be there or to meet these people (live: "she proposes it during the event" was read as knowing in advance). how: two to six words in the event's language (e.g. "约好的会面", "偶遇").
 SHAPE: {"judgements":[{"id":"k1","knows":true,"how":""}]}`,
 
+  // User: smart characters only sounded clever and said what anyone would say; the GM writes every person in one pass
+  // with the same effort. Here the people who think before they act get a pass of their own, before the reply.
+  mind: `${COMMON}
+TASK: The game master is about to write the next reply of a story. For each person in people (all of them think before they act), work out what THEY make of this moment and what they do in that reply — as that person would think it, not as you would. Inputs: people (name, description, mind: their 思考方式, nature: their 常态), context (the game master's engine context for this turn: the world, the scene, who knows what), last_reply (the end of the previous reply), player_message (what the player character just said and did), player_character.
+- Think with their mind. "situational": they think it through only when the stakes or their interest are there; otherwise they go by habit and instinct. "habitual": they read everything — what the player character and the others said and did, whether it fits what came before, what someone avoids or lets slip, what the situation offers them; their own goal here; their move; what they hold back; how others may react and their answer to it. sharpness sets how deep and far they see ("plain" misses things). What they misjudge (mind "misjudges") is where they go wrong: a sharp person can be wrong — write the wrong belief as their read.
+- Knowledge: only what the context says they know, plus what they see and hear in this scene, plus what their own power reaches as their nature and POWERS THAT PERCEIVE allow. Nothing else — not the player character's secrets otherwise, nor what the context gives as known only to others.
+- No story: never the original plot or events to come; never decide anything for the player character (their words, choices, feelings).
+- How each read comes out in this reply (surface). "say": they say it, because saying it does something for them — presses someone, tests them, shows they are a step ahead, gives an order, reassures; give that purpose. They say the conclusion, not the chain of reasoning, unless showing the chain is the point. "show": it comes out without words — an action, a look, a pause, a question that only makes sense if they have worked it out. "keep": it does not come out in this reply. Choose by their mind "in speech": a direct person says what they think; a schemer says little, shows some and keeps most. A reader must be able to follow a clever person, so at least one read of a habitual thinker comes out (say or show).
+- Brief: at most 5 reads per person; every field one or two sentences. Write in the language of the context.
+SHAPE: {"minds":[{"id":"","reads":[{"what":"","basis":"","sure":"","surface":"","purpose":""}],"wants":"","move":"","next":""}]}`,
+
   world_check: `${COMMON}
 TASK: This game's world differs from the original setting by the changes listed (from the player's Persona and the user). items are lorebook entries and texts of the history pack that mention the same things. For EVERY item give action:
 - keep: nothing in it contradicts a change (most items). Not mentioning the player or the change is no contradiction.
@@ -169,6 +180,7 @@ import integrateSchema from '../../schemas/runtime/integrate.schema.json';
 import foreknowSchema from '../../schemas/runtime/foreknow.schema.json';
 import leapSchema from '../../schemas/runtime/leap.schema.json';
 import worldCheckSchema from '../../schemas/runtime/world-check.schema.json';
+import mindSchema from '../../schemas/runtime/mind.schema.json';
 
 function enumsOf(schema: unknown): Map<string, string[]> {
   const found = new Map<string, string[]>();
@@ -199,7 +211,7 @@ export function annotateShape(prompt: string, schema: unknown): string {
 }
 
 const SCHEMAS: Record<keyof typeof RAW_PROMPTS, unknown> = {
-  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema, world_check: worldCheckSchema,
+  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema, world_check: worldCheckSchema, mind: mindSchema,
 };
 /** Added to the reviewer's instructions only for a pack with time frames (other packs keep the prompt as it was). */
 export const EVAL_FRAMES_NOTE = `7. TIME FRAMES (this pack has them; see time_frames): also return "scene_frame" in the reply object: the id of the frame the scene is in at the END of the reply — where the player character is — when the reply shows them arriving in another frame or coming back (time travel, crossing into another world, entering or waking from a dream); "main" for the main frame; null when they stay in scene_frame_now. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame's conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).`;

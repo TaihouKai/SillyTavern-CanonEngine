@@ -85,7 +85,7 @@ import { readFileSync } from "node:fs";
 
 // src/generated/validators.js
 var pack = validate20;
-var schema31 = { "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:pack:1.0.0", "title": "Canon Engine v1 History Pack", "description": "Structural validation only. Semantic validation is specified in HISTORY_PACK_AUTHORING_GUIDE.md.", "type": "object", "properties": { "$schema": { "type": "string" }, "schema_version": { "const": "1.0.0" }, "pack_id": { "$ref": "#/$defs/id" }, "pack_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }, "title": { "type": "string", "minLength": 1 }, "language": { "type": "string", "minLength": 1 }, "description": { "type": "string", "minLength": 1 }, "calendar": { "type": "object", "properties": { "system": { "const": "relative_day" }, "origin_label": { "type": "string", "minLength": 1 }, "day_length_minutes": { "const": 1440 }, "time_zone_label": { "type": "string", "minLength": 1 }, "notes": { "type": "string" }, "main_frame_name": { "type": "string", "minLength": 1 } }, "required": ["system", "origin_label", "day_length_minutes", "time_zone_label", "notes"], "additionalProperties": false }, "frames": { "type": "array", "items": { "$ref": "#/$defs/frame" } }, "coverage": { "type": "object", "properties": { "start": { "$ref": "#/$defs/time" }, "end": { "$ref": "#/$defs/time" }, "notes": { "type": "string" } }, "required": ["start", "end", "notes"], "additionalProperties": false }, "sources": { "type": "array", "items": { "$ref": "#/$defs/source" }, "minItems": 1 }, "predicates": { "type": "array", "items": { "$ref": "#/$defs/predicate" }, "minItems": 1 }, "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" }, "minItems": 1 }, "initial_state": { "type": "object", "properties": { "at": { "$ref": "#/$defs/time" }, "facts": { "type": "array", "items": { "$ref": "#/$defs/initial_fact" } } }, "required": ["at", "facts"], "additionalProperties": false }, "arcs": { "type": "array", "items": { "$ref": "#/$defs/arc" } }, "events": { "type": "array", "items": { "$ref": "#/$defs/event" }, "minItems": 1 }, "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } } }, "required": ["schema_version", "pack_id", "pack_version", "title", "language", "description", "calendar", "coverage", "sources", "predicates", "entities", "initial_state", "arcs", "events", "edges"], "additionalProperties": false, "$defs": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]*$" }, "time": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }] }, "fact": { "type": "object", "properties": { "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" }, "value": { "$ref": "#/$defs/value" } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "outcome": { "type": "object", "properties": { "op": { "enum": ["add", "remove"] }, "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" }, "value": { "$ref": "#/$defs/value" } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "effect": { "oneOf": [{ "type": "object", "properties": { "op": { "const": "set" }, "fact": { "$ref": "#/$defs/fact" } }, "required": ["op", "fact"], "additionalProperties": false }, { "type": "object", "properties": { "op": { "const": "unset" }, "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, { "type": "object", "properties": { "op": { "enum": ["add", "remove"] }, "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" }, "value": { "$ref": "#/$defs/value" } }, "required": ["op", "entity_id", "predicate", "value"], "additionalProperties": false }] }, "condition": { "oneOf": [{ "type": "object", "properties": { "all": { "type": "array", "items": { "$ref": "#/$defs/condition" } } }, "required": ["all"], "additionalProperties": false }, { "type": "object", "properties": { "any": { "type": "array", "items": { "$ref": "#/$defs/condition" }, "minItems": 1 } }, "required": ["any"], "additionalProperties": false }, { "type": "object", "properties": { "not": { "$ref": "#/$defs/condition" } }, "required": ["not"], "additionalProperties": false }, { "type": "object", "properties": { "fact": { "$ref": "#/$defs/fact" } }, "required": ["fact"], "additionalProperties": false }, { "type": "object", "properties": { "occurred": { "$ref": "#/$defs/id" } }, "required": ["occurred"], "additionalProperties": false }] }, "source": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1 }, "locator": { "type": "string", "minLength": 1 }, "kind": { "enum": ["primary", "secondary", "editorial", "example"] }, "notes": { "type": "string" } }, "required": ["id", "title", "locator", "kind", "notes"], "additionalProperties": false }, "predicate": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "description": { "type": "string", "minLength": 1 }, "value_type": { "enum": ["boolean", "number", "string", "entity_ref", "entity_set"] }, "allowed_values": { "type": "array", "items": { "$ref": "#/$defs/value" }, "minItems": 1, "uniqueItems": true }, "transient": { "type": "boolean" }, "settled_values": { "type": "array", "items": { "$ref": "#/$defs/value" }, "minItems": 1, "uniqueItems": true } }, "required": ["id", "description", "value_type"], "additionalProperties": false }, "entity": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "name": { "type": "string", "minLength": 1 }, "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "static_description": { "type": "string", "minLength": 1 }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "frame_id": { "$ref": "#/$defs/id" }, "nature": { "description": "\u5E38\u6001: how the person's power, condition or non-human body shows in everyday scenes. Version 1 (from_event null) holds at the story start; a later version holds once its from_event has occurred in the branch, until its until_event has.", "type": "array", "minItems": 1, "maxItems": 6, "items": { "type": "object", "properties": { "from_event": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "until_event": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "why": { "type": "string" }, "habits": { "type": "string" }, "uses": { "type": "string" }, "others": { "type": "string" }, "limits": { "type": "string" }, "perceives": { "description": "What the power lets the person learn that others cannot; while it reaches someone, their secrets are open to it.", "type": "object", "properties": { "kinds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["thoughts", "memories", "emotions", "hidden", "whereabouts", "lies", "past"] } }, "how": { "type": "string" } }, "required": ["kinds"], "additionalProperties": false } }, "required": ["from_event", "habits", "uses", "others", "limits"], "additionalProperties": false } } }, "required": ["id", "name", "aliases", "kind", "static_description", "source_refs"], "additionalProperties": false }, "when": { "type": "object", "properties": { "earliest": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }, "latest": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }, "precision": { "enum": ["minute", "day", "range", "unknown"] }, "label": { "type": "string", "minLength": 1 }, "basis": { "enum": ["documented", "editorial", "unknown"] }, "notes": { "type": "string" } }, "required": ["earliest", "latest", "precision", "label", "basis", "notes"], "additionalProperties": false }, "visibility": { "type": "object", "properties": { "mode": { "enum": ["public", "restricted", "secret"] }, "knower_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true } }, "required": ["mode", "knower_ids"], "additionalProperties": false }, "participation": { "type": "object", "properties": { "offer": { "enum": ["when_relevant", "never"] }, "hook": { "type": "string" } }, "required": ["offer", "hook"], "additionalProperties": false }, "event": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1 }, "summary": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "object", "properties": { "background": { "type": "string", "minLength": 1 }, "trigger": { "type": "string", "minLength": 1 }, "motives": { "type": "array", "items": { "type": "object", "properties": { "who": { "type": "string", "minLength": 1 }, "entity_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } }, "motive": { "type": "string", "minLength": 1 } }, "required": ["who", "entity_ids", "motive"], "additionalProperties": false } }, "course": { "type": "string", "minLength": 1 }, "result": { "type": "string", "minLength": 1 }, "aftermath": { "type": "string", "minLength": 1 }, "impact": { "type": "string", "minLength": 1 }, "note": { "type": "string", "minLength": 1 } }, "required": ["course"], "additionalProperties": false }] }, "classification": { "enum": ["HARD", "SOFT", "FREE"] }, "required_description": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }, "when": { "$ref": "#/$defs/when" }, "entity_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "location_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "arc_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "canonical_preconditions": { "$ref": "#/$defs/condition" }, "outcomes": { "type": "array", "items": { "$ref": "#/$defs/outcome" } }, "canonical_effects": { "type": "array", "items": { "$ref": "#/$defs/effect" } }, "visibility": { "$ref": "#/$defs/visibility" }, "participation": { "$ref": "#/$defs/participation" }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "author_note": { "type": "string" }, "cast": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "$ref": "#/$defs/id" }, "at": { "$ref": "#/$defs/time" }, "role": { "type": "string", "minLength": 1 } }, "required": ["entity_id", "at", "role"], "additionalProperties": false } }, "frame_id": { "$ref": "#/$defs/id" } }, "required": ["id", "title", "summary", "classification", "required_description", "when", "entity_ids", "location_ids", "arc_id", "canonical_preconditions", "outcomes", "canonical_effects", "visibility", "participation", "source_refs", "author_note"], "additionalProperties": false, "allOf": [{ "if": { "properties": { "classification": { "const": "HARD" } }, "required": ["classification"] }, "then": { "properties": { "required_description": { "type": "string", "minLength": 1 }, "outcomes": { "minItems": 1 }, "when": { "properties": { "earliest": { "$ref": "#/$defs/time" }, "latest": { "$ref": "#/$defs/time" }, "precision": { "enum": ["minute", "day", "range"] }, "basis": { "enum": ["documented", "editorial"] } } } } }, "else": { "properties": { "required_description": { "type": "null" } } } }] }, "edge": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "from": { "$ref": "#/$defs/id" }, "to": { "$ref": "#/$defs/id" }, "relation": { "enum": ["enables", "motivates", "precedes", "related"] }, "basis": { "enum": ["documented", "inferred", "editorial"] }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "note": { "type": "string", "minLength": 1 } }, "required": ["id", "from", "to", "relation", "basis", "source_refs", "note"], "additionalProperties": false }, "arc": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1 }, "summary": { "type": "string", "minLength": 1 }, "event_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true } }, "required": ["id", "title", "summary", "event_ids"], "additionalProperties": false }, "initial_fact": { "type": "object", "properties": { "fact": { "$ref": "#/$defs/fact" }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "note": { "type": "string" } }, "required": ["fact", "source_refs", "note"], "additionalProperties": false }, "frame": { "type": "object", "description": "A time frame: a part of the world that keeps its own local time (a past era reached by time travel, another world, a realm where time flows differently). The story clock stays the main clock; a frame only says how its local time reads.", "properties": { "id": { "$ref": "#/$defs/id" }, "name": { "type": "string", "minLength": 1 }, "description": { "type": "string" }, "clock": { "oneOf": [{ "type": "object", "description": "Local time follows the main clock: at main time `at` the local time is `local`; afterwards local time runs `rate` local minutes per main minute (default 1).", "properties": { "kind": { "const": "linked" }, "at": { "$ref": "#/$defs/time" }, "local": { "type": "string", "pattern": "^-?\\d{1,6}-\\d{2}-\\d{2}( \\d{2}:\\d{2})?$" }, "rate": { "type": "number", "exclusiveMinimum": 0 } }, "required": ["kind", "at", "local"], "additionalProperties": false }, { "type": "object", "description": "Local time cannot be converted (no calendar, unknown era, time stands still): `label` says how local time reads.", "properties": { "kind": { "const": "unlinked" }, "label": { "type": "string", "minLength": 1 } }, "required": ["kind", "label"], "additionalProperties": false }] }, "notes": { "type": "string" } }, "required": ["id", "name", "description", "clock"], "additionalProperties": false } } };
+var schema31 = { "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:pack:1.0.0", "title": "Canon Engine v1 History Pack", "description": "Structural validation only. Semantic validation is specified in HISTORY_PACK_AUTHORING_GUIDE.md.", "type": "object", "properties": { "$schema": { "type": "string" }, "schema_version": { "const": "1.0.0" }, "pack_id": { "$ref": "#/$defs/id" }, "pack_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }, "title": { "type": "string", "minLength": 1 }, "language": { "type": "string", "minLength": 1 }, "description": { "type": "string", "minLength": 1 }, "calendar": { "type": "object", "properties": { "system": { "const": "relative_day" }, "origin_label": { "type": "string", "minLength": 1 }, "day_length_minutes": { "const": 1440 }, "time_zone_label": { "type": "string", "minLength": 1 }, "notes": { "type": "string" }, "main_frame_name": { "type": "string", "minLength": 1 } }, "required": ["system", "origin_label", "day_length_minutes", "time_zone_label", "notes"], "additionalProperties": false }, "frames": { "type": "array", "items": { "$ref": "#/$defs/frame" } }, "coverage": { "type": "object", "properties": { "start": { "$ref": "#/$defs/time" }, "end": { "$ref": "#/$defs/time" }, "notes": { "type": "string" } }, "required": ["start", "end", "notes"], "additionalProperties": false }, "sources": { "type": "array", "items": { "$ref": "#/$defs/source" }, "minItems": 1 }, "predicates": { "type": "array", "items": { "$ref": "#/$defs/predicate" }, "minItems": 1 }, "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" }, "minItems": 1 }, "initial_state": { "type": "object", "properties": { "at": { "$ref": "#/$defs/time" }, "facts": { "type": "array", "items": { "$ref": "#/$defs/initial_fact" } } }, "required": ["at", "facts"], "additionalProperties": false }, "arcs": { "type": "array", "items": { "$ref": "#/$defs/arc" } }, "events": { "type": "array", "items": { "$ref": "#/$defs/event" }, "minItems": 1 }, "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } } }, "required": ["schema_version", "pack_id", "pack_version", "title", "language", "description", "calendar", "coverage", "sources", "predicates", "entities", "initial_state", "arcs", "events", "edges"], "additionalProperties": false, "$defs": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]*$" }, "time": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }] }, "fact": { "type": "object", "properties": { "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" }, "value": { "$ref": "#/$defs/value" } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "outcome": { "type": "object", "properties": { "op": { "enum": ["add", "remove"] }, "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" }, "value": { "$ref": "#/$defs/value" } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "effect": { "oneOf": [{ "type": "object", "properties": { "op": { "const": "set" }, "fact": { "$ref": "#/$defs/fact" } }, "required": ["op", "fact"], "additionalProperties": false }, { "type": "object", "properties": { "op": { "const": "unset" }, "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, { "type": "object", "properties": { "op": { "enum": ["add", "remove"] }, "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" }, "value": { "$ref": "#/$defs/value" } }, "required": ["op", "entity_id", "predicate", "value"], "additionalProperties": false }] }, "condition": { "oneOf": [{ "type": "object", "properties": { "all": { "type": "array", "items": { "$ref": "#/$defs/condition" } } }, "required": ["all"], "additionalProperties": false }, { "type": "object", "properties": { "any": { "type": "array", "items": { "$ref": "#/$defs/condition" }, "minItems": 1 } }, "required": ["any"], "additionalProperties": false }, { "type": "object", "properties": { "not": { "$ref": "#/$defs/condition" } }, "required": ["not"], "additionalProperties": false }, { "type": "object", "properties": { "fact": { "$ref": "#/$defs/fact" } }, "required": ["fact"], "additionalProperties": false }, { "type": "object", "properties": { "occurred": { "$ref": "#/$defs/id" } }, "required": ["occurred"], "additionalProperties": false }] }, "source": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1 }, "locator": { "type": "string", "minLength": 1 }, "kind": { "enum": ["primary", "secondary", "editorial", "example"] }, "notes": { "type": "string" } }, "required": ["id", "title", "locator", "kind", "notes"], "additionalProperties": false }, "predicate": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "description": { "type": "string", "minLength": 1 }, "value_type": { "enum": ["boolean", "number", "string", "entity_ref", "entity_set"] }, "allowed_values": { "type": "array", "items": { "$ref": "#/$defs/value" }, "minItems": 1, "uniqueItems": true }, "transient": { "type": "boolean" }, "settled_values": { "type": "array", "items": { "$ref": "#/$defs/value" }, "minItems": 1, "uniqueItems": true } }, "required": ["id", "description", "value_type"], "additionalProperties": false }, "entity": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "name": { "type": "string", "minLength": 1 }, "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "static_description": { "type": "string", "minLength": 1 }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "frame_id": { "$ref": "#/$defs/id" }, "nature": { "description": "\u5E38\u6001: how the person's power, condition or non-human body shows in everyday scenes. Version 1 (from_event null) holds at the story start; a later version holds once its from_event has occurred in the branch, until its until_event has.", "type": "array", "minItems": 1, "maxItems": 6, "items": { "type": "object", "properties": { "from_event": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "until_event": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "why": { "type": "string" }, "habits": { "type": "string" }, "uses": { "type": "string" }, "others": { "type": "string" }, "limits": { "type": "string" }, "perceives": { "description": "What the power lets the person learn that others cannot; while it reaches someone, their secrets are open to it.", "type": "object", "properties": { "kinds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["thoughts", "memories", "emotions", "hidden", "whereabouts", "lies", "past"] } }, "how": { "type": "string" } }, "required": ["kinds"], "additionalProperties": false } }, "required": ["from_event", "habits", "uses", "others", "limits"], "additionalProperties": false } }, "mind": { "description": "\u601D\u8003\u65B9\u5F0F: how the person thinks \u2014 how much effort they put into thinking before they act (deliberation), how well they reason when they do (sharpness), and how they go about a problem. The engine plans the moves of those who think before they act; the game master plays everyone by it. Patterns, never story.", "type": "object", "properties": { "deliberation": { "enum": ["rarely", "situational", "habitual"] }, "sharpness": { "enum": ["plain", "sharp", "exceptional"] }, "approach": { "type": "string" }, "thinks_hard_about": { "type": "string" }, "pushed": { "type": "string" }, "notices": { "type": "string" }, "blind": { "type": "string" }, "speaks": { "type": "string" } }, "required": ["deliberation", "sharpness", "approach"], "additionalProperties": false } }, "required": ["id", "name", "aliases", "kind", "static_description", "source_refs"], "additionalProperties": false }, "when": { "type": "object", "properties": { "earliest": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }, "latest": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }, "precision": { "enum": ["minute", "day", "range", "unknown"] }, "label": { "type": "string", "minLength": 1 }, "basis": { "enum": ["documented", "editorial", "unknown"] }, "notes": { "type": "string" } }, "required": ["earliest", "latest", "precision", "label", "basis", "notes"], "additionalProperties": false }, "visibility": { "type": "object", "properties": { "mode": { "enum": ["public", "restricted", "secret"] }, "knower_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true } }, "required": ["mode", "knower_ids"], "additionalProperties": false }, "participation": { "type": "object", "properties": { "offer": { "enum": ["when_relevant", "never"] }, "hook": { "type": "string" } }, "required": ["offer", "hook"], "additionalProperties": false }, "event": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1 }, "summary": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "object", "properties": { "background": { "type": "string", "minLength": 1 }, "trigger": { "type": "string", "minLength": 1 }, "motives": { "type": "array", "items": { "type": "object", "properties": { "who": { "type": "string", "minLength": 1 }, "entity_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } }, "motive": { "type": "string", "minLength": 1 } }, "required": ["who", "entity_ids", "motive"], "additionalProperties": false } }, "course": { "type": "string", "minLength": 1 }, "result": { "type": "string", "minLength": 1 }, "aftermath": { "type": "string", "minLength": 1 }, "impact": { "type": "string", "minLength": 1 }, "note": { "type": "string", "minLength": 1 } }, "required": ["course"], "additionalProperties": false }] }, "classification": { "enum": ["HARD", "SOFT", "FREE"] }, "required_description": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }, "when": { "$ref": "#/$defs/when" }, "entity_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "location_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "arc_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "canonical_preconditions": { "$ref": "#/$defs/condition" }, "outcomes": { "type": "array", "items": { "$ref": "#/$defs/outcome" } }, "canonical_effects": { "type": "array", "items": { "$ref": "#/$defs/effect" } }, "visibility": { "$ref": "#/$defs/visibility" }, "participation": { "$ref": "#/$defs/participation" }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "author_note": { "type": "string" }, "cast": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "$ref": "#/$defs/id" }, "at": { "$ref": "#/$defs/time" }, "role": { "type": "string", "minLength": 1 } }, "required": ["entity_id", "at", "role"], "additionalProperties": false } }, "frame_id": { "$ref": "#/$defs/id" } }, "required": ["id", "title", "summary", "classification", "required_description", "when", "entity_ids", "location_ids", "arc_id", "canonical_preconditions", "outcomes", "canonical_effects", "visibility", "participation", "source_refs", "author_note"], "additionalProperties": false, "allOf": [{ "if": { "properties": { "classification": { "const": "HARD" } }, "required": ["classification"] }, "then": { "properties": { "required_description": { "type": "string", "minLength": 1 }, "outcomes": { "minItems": 1 }, "when": { "properties": { "earliest": { "$ref": "#/$defs/time" }, "latest": { "$ref": "#/$defs/time" }, "precision": { "enum": ["minute", "day", "range"] }, "basis": { "enum": ["documented", "editorial"] } } } } }, "else": { "properties": { "required_description": { "type": "null" } } } }] }, "edge": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "from": { "$ref": "#/$defs/id" }, "to": { "$ref": "#/$defs/id" }, "relation": { "enum": ["enables", "motivates", "precedes", "related"] }, "basis": { "enum": ["documented", "inferred", "editorial"] }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "note": { "type": "string", "minLength": 1 } }, "required": ["id", "from", "to", "relation", "basis", "source_refs", "note"], "additionalProperties": false }, "arc": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1 }, "summary": { "type": "string", "minLength": 1 }, "event_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true } }, "required": ["id", "title", "summary", "event_ids"], "additionalProperties": false }, "initial_fact": { "type": "object", "properties": { "fact": { "$ref": "#/$defs/fact" }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "note": { "type": "string" } }, "required": ["fact", "source_refs", "note"], "additionalProperties": false }, "frame": { "type": "object", "description": "A time frame: a part of the world that keeps its own local time (a past era reached by time travel, another world, a realm where time flows differently). The story clock stays the main clock; a frame only says how its local time reads.", "properties": { "id": { "$ref": "#/$defs/id" }, "name": { "type": "string", "minLength": 1 }, "description": { "type": "string" }, "clock": { "oneOf": [{ "type": "object", "description": "Local time follows the main clock: at main time `at` the local time is `local`; afterwards local time runs `rate` local minutes per main minute (default 1).", "properties": { "kind": { "const": "linked" }, "at": { "$ref": "#/$defs/time" }, "local": { "type": "string", "pattern": "^-?\\d{1,6}-\\d{2}-\\d{2}( \\d{2}:\\d{2})?$" }, "rate": { "type": "number", "exclusiveMinimum": 0 } }, "required": ["kind", "at", "local"], "additionalProperties": false }, { "type": "object", "description": "Local time cannot be converted (no calendar, unknown era, time stands still): `label` says how local time reads.", "properties": { "kind": { "const": "unlinked" }, "label": { "type": "string", "minLength": 1 } }, "required": ["kind", "label"], "additionalProperties": false }] }, "notes": { "type": "string" } }, "required": ["id", "name", "description", "clock"], "additionalProperties": false } } };
 var func1 = Object.prototype.hasOwnProperty;
 var func2 = require_ucs2length().default;
 var pattern4 = new RegExp("^[a-z][a-z0-9_.-]*$", "u");
@@ -1083,7 +1083,7 @@ function validate25(data, { instancePath = "", parentData, parentDataProperty, r
   return errors === 0;
 }
 validate25.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema44 = { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "name": { "type": "string", "minLength": 1 }, "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "static_description": { "type": "string", "minLength": 1 }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "frame_id": { "$ref": "#/$defs/id" }, "nature": { "description": "\u5E38\u6001: how the person's power, condition or non-human body shows in everyday scenes. Version 1 (from_event null) holds at the story start; a later version holds once its from_event has occurred in the branch, until its until_event has.", "type": "array", "minItems": 1, "maxItems": 6, "items": { "type": "object", "properties": { "from_event": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "until_event": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "why": { "type": "string" }, "habits": { "type": "string" }, "uses": { "type": "string" }, "others": { "type": "string" }, "limits": { "type": "string" }, "perceives": { "description": "What the power lets the person learn that others cannot; while it reaches someone, their secrets are open to it.", "type": "object", "properties": { "kinds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["thoughts", "memories", "emotions", "hidden", "whereabouts", "lies", "past"] } }, "how": { "type": "string" } }, "required": ["kinds"], "additionalProperties": false } }, "required": ["from_event", "habits", "uses", "others", "limits"], "additionalProperties": false } } }, "required": ["id", "name", "aliases", "kind", "static_description", "source_refs"], "additionalProperties": false };
+var schema44 = { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "name": { "type": "string", "minLength": 1 }, "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "static_description": { "type": "string", "minLength": 1 }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "frame_id": { "$ref": "#/$defs/id" }, "nature": { "description": "\u5E38\u6001: how the person's power, condition or non-human body shows in everyday scenes. Version 1 (from_event null) holds at the story start; a later version holds once its from_event has occurred in the branch, until its until_event has.", "type": "array", "minItems": 1, "maxItems": 6, "items": { "type": "object", "properties": { "from_event": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "until_event": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "why": { "type": "string" }, "habits": { "type": "string" }, "uses": { "type": "string" }, "others": { "type": "string" }, "limits": { "type": "string" }, "perceives": { "description": "What the power lets the person learn that others cannot; while it reaches someone, their secrets are open to it.", "type": "object", "properties": { "kinds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["thoughts", "memories", "emotions", "hidden", "whereabouts", "lies", "past"] } }, "how": { "type": "string" } }, "required": ["kinds"], "additionalProperties": false } }, "required": ["from_event", "habits", "uses", "others", "limits"], "additionalProperties": false } }, "mind": { "description": "\u601D\u8003\u65B9\u5F0F: how the person thinks \u2014 how much effort they put into thinking before they act (deliberation), how well they reason when they do (sharpness), and how they go about a problem. The engine plans the moves of those who think before they act; the game master plays everyone by it. Patterns, never story.", "type": "object", "properties": { "deliberation": { "enum": ["rarely", "situational", "habitual"] }, "sharpness": { "enum": ["plain", "sharp", "exceptional"] }, "approach": { "type": "string" }, "thinks_hard_about": { "type": "string" }, "pushed": { "type": "string" }, "notices": { "type": "string" }, "blind": { "type": "string" }, "speaks": { "type": "string" } }, "required": ["deliberation", "sharpness", "approach"], "additionalProperties": false } }, "required": ["id", "name", "aliases", "kind", "static_description", "source_refs"], "additionalProperties": false };
 function validate30(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   let vErrors = null;
   let errors = 0;
@@ -1150,7 +1150,7 @@ function validate30(data, { instancePath = "", parentData, parentDataProperty, r
       errors++;
     }
     for (const key0 in data) {
-      if (!(key0 === "id" || key0 === "name" || key0 === "aliases" || key0 === "kind" || key0 === "static_description" || key0 === "source_refs" || key0 === "frame_id" || key0 === "nature")) {
+      if (!func1.call(schema44.properties, key0)) {
         const err6 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
           vErrors = [err6];
@@ -1740,12 +1740,153 @@ function validate30(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
+    if (data.mind !== void 0) {
+      let data22 = data.mind;
+      if (data22 && typeof data22 == "object" && !Array.isArray(data22)) {
+        if (data22.deliberation === void 0) {
+          const err55 = { instancePath: instancePath + "/mind", schemaPath: "#/properties/mind/required", keyword: "required", params: { missingProperty: "deliberation" }, message: "must have required property 'deliberation'" };
+          if (vErrors === null) {
+            vErrors = [err55];
+          } else {
+            vErrors.push(err55);
+          }
+          errors++;
+        }
+        if (data22.sharpness === void 0) {
+          const err56 = { instancePath: instancePath + "/mind", schemaPath: "#/properties/mind/required", keyword: "required", params: { missingProperty: "sharpness" }, message: "must have required property 'sharpness'" };
+          if (vErrors === null) {
+            vErrors = [err56];
+          } else {
+            vErrors.push(err56);
+          }
+          errors++;
+        }
+        if (data22.approach === void 0) {
+          const err57 = { instancePath: instancePath + "/mind", schemaPath: "#/properties/mind/required", keyword: "required", params: { missingProperty: "approach" }, message: "must have required property 'approach'" };
+          if (vErrors === null) {
+            vErrors = [err57];
+          } else {
+            vErrors.push(err57);
+          }
+          errors++;
+        }
+        for (const key3 in data22) {
+          if (!(key3 === "deliberation" || key3 === "sharpness" || key3 === "approach" || key3 === "thinks_hard_about" || key3 === "pushed" || key3 === "notices" || key3 === "blind" || key3 === "speaks")) {
+            const err58 = { instancePath: instancePath + "/mind", schemaPath: "#/properties/mind/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
+            if (vErrors === null) {
+              vErrors = [err58];
+            } else {
+              vErrors.push(err58);
+            }
+            errors++;
+          }
+        }
+        if (data22.deliberation !== void 0) {
+          let data23 = data22.deliberation;
+          if (!(data23 === "rarely" || data23 === "situational" || data23 === "habitual")) {
+            const err59 = { instancePath: instancePath + "/mind/deliberation", schemaPath: "#/properties/mind/properties/deliberation/enum", keyword: "enum", params: { allowedValues: schema44.properties.mind.properties.deliberation.enum }, message: "must be equal to one of the allowed values" };
+            if (vErrors === null) {
+              vErrors = [err59];
+            } else {
+              vErrors.push(err59);
+            }
+            errors++;
+          }
+        }
+        if (data22.sharpness !== void 0) {
+          let data24 = data22.sharpness;
+          if (!(data24 === "plain" || data24 === "sharp" || data24 === "exceptional")) {
+            const err60 = { instancePath: instancePath + "/mind/sharpness", schemaPath: "#/properties/mind/properties/sharpness/enum", keyword: "enum", params: { allowedValues: schema44.properties.mind.properties.sharpness.enum }, message: "must be equal to one of the allowed values" };
+            if (vErrors === null) {
+              vErrors = [err60];
+            } else {
+              vErrors.push(err60);
+            }
+            errors++;
+          }
+        }
+        if (data22.approach !== void 0) {
+          if (typeof data22.approach !== "string") {
+            const err61 = { instancePath: instancePath + "/mind/approach", schemaPath: "#/properties/mind/properties/approach/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err61];
+            } else {
+              vErrors.push(err61);
+            }
+            errors++;
+          }
+        }
+        if (data22.thinks_hard_about !== void 0) {
+          if (typeof data22.thinks_hard_about !== "string") {
+            const err62 = { instancePath: instancePath + "/mind/thinks_hard_about", schemaPath: "#/properties/mind/properties/thinks_hard_about/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err62];
+            } else {
+              vErrors.push(err62);
+            }
+            errors++;
+          }
+        }
+        if (data22.pushed !== void 0) {
+          if (typeof data22.pushed !== "string") {
+            const err63 = { instancePath: instancePath + "/mind/pushed", schemaPath: "#/properties/mind/properties/pushed/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err63];
+            } else {
+              vErrors.push(err63);
+            }
+            errors++;
+          }
+        }
+        if (data22.notices !== void 0) {
+          if (typeof data22.notices !== "string") {
+            const err64 = { instancePath: instancePath + "/mind/notices", schemaPath: "#/properties/mind/properties/notices/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err64];
+            } else {
+              vErrors.push(err64);
+            }
+            errors++;
+          }
+        }
+        if (data22.blind !== void 0) {
+          if (typeof data22.blind !== "string") {
+            const err65 = { instancePath: instancePath + "/mind/blind", schemaPath: "#/properties/mind/properties/blind/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err65];
+            } else {
+              vErrors.push(err65);
+            }
+            errors++;
+          }
+        }
+        if (data22.speaks !== void 0) {
+          if (typeof data22.speaks !== "string") {
+            const err66 = { instancePath: instancePath + "/mind/speaks", schemaPath: "#/properties/mind/properties/speaks/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err66];
+            } else {
+              vErrors.push(err66);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err67 = { instancePath: instancePath + "/mind", schemaPath: "#/properties/mind/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        if (vErrors === null) {
+          vErrors = [err67];
+        } else {
+          vErrors.push(err67);
+        }
+        errors++;
+      }
+    }
   } else {
-    const err55 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err68 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err55];
+      vErrors = [err68];
     } else {
-      vErrors.push(err55);
+      vErrors.push(err68);
     }
     errors++;
   }
@@ -14590,12 +14731,384 @@ function validate65(data, { instancePath = "", parentData, parentDataProperty, r
   return errors === 0;
 }
 validate65.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema101 = { "type": "object", "properties": { "rationale": { "type": "string" }, "protected_anchor_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "assumptions": { "type": "array", "items": { "type": "object", "properties": { "text": { "type": "string" }, "fact": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }] } }, "required": ["text", "fact"], "additionalProperties": false }, "maxItems": 200 }, "risks": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "mode": { "enum": ["NORMAL", "FORCED_CONVERGENCE"] }, "steps": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "targets": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "earliest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "latest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "prerequisites": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "action": { "type": "string" }, "intended_effects": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "depends_on": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "means": { "enum": ["ordinary", "extraordinary"] }, "serves_anchor": { "type": ["string", "null"] }, "requires_player_consent": { "type": "boolean" } }, "required": ["step_id", "actors", "earliest", "latest", "action", "intended_effects", "means", "serves_anchor", "requires_player_consent"], "additionalProperties": false }, "maxItems": 40 }, "inadequacy_note": { "type": "string" } }, "required": ["rationale", "protected_anchor_ids", "assumptions", "risks", "mode", "steps"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:plan", "title": "Canon Engine task output: plan" };
+var schema101 = { "type": "object", "properties": { "minds": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "id": { "type": "string", "maxLength": 120 }, "reads": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "what": { "type": "string", "maxLength": 400 }, "basis": { "type": "string", "maxLength": 400 }, "sure": { "enum": ["low", "mid", "high"] }, "surface": { "enum": ["say", "show", "keep"] }, "purpose": { "type": "string", "maxLength": 300 } }, "required": ["what", "surface"], "additionalProperties": false } }, "wants": { "type": "string", "maxLength": 400 }, "move": { "type": "string", "maxLength": 800 }, "next": { "type": "string", "maxLength": 600 } }, "required": ["id", "reads", "wants", "move"], "additionalProperties": false } } }, "required": ["minds"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:mind", "title": "Canon Engine task output: mind" };
 function validate66(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
   const evaluated0 = validate66.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.minds === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "minds" }, message: "must have required property 'minds'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "minds")) {
+        const err1 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err1];
+        } else {
+          vErrors.push(err1);
+        }
+        errors++;
+      }
+    }
+    if (data.minds !== void 0) {
+      let data0 = data.minds;
+      if (Array.isArray(data0)) {
+        if (data0.length > 6) {
+          const err2 = { instancePath: instancePath + "/minds", schemaPath: "#/properties/minds/maxItems", keyword: "maxItems", params: { limit: 6 }, message: "must NOT have more than 6 items" };
+          if (vErrors === null) {
+            vErrors = [err2];
+          } else {
+            vErrors.push(err2);
+          }
+          errors++;
+        }
+        const len0 = data0.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          let data1 = data0[i0];
+          if (data1 && typeof data1 == "object" && !Array.isArray(data1)) {
+            if (data1.id === void 0) {
+              const err3 = { instancePath: instancePath + "/minds/" + i0, schemaPath: "#/properties/minds/items/required", keyword: "required", params: { missingProperty: "id" }, message: "must have required property 'id'" };
+              if (vErrors === null) {
+                vErrors = [err3];
+              } else {
+                vErrors.push(err3);
+              }
+              errors++;
+            }
+            if (data1.reads === void 0) {
+              const err4 = { instancePath: instancePath + "/minds/" + i0, schemaPath: "#/properties/minds/items/required", keyword: "required", params: { missingProperty: "reads" }, message: "must have required property 'reads'" };
+              if (vErrors === null) {
+                vErrors = [err4];
+              } else {
+                vErrors.push(err4);
+              }
+              errors++;
+            }
+            if (data1.wants === void 0) {
+              const err5 = { instancePath: instancePath + "/minds/" + i0, schemaPath: "#/properties/minds/items/required", keyword: "required", params: { missingProperty: "wants" }, message: "must have required property 'wants'" };
+              if (vErrors === null) {
+                vErrors = [err5];
+              } else {
+                vErrors.push(err5);
+              }
+              errors++;
+            }
+            if (data1.move === void 0) {
+              const err6 = { instancePath: instancePath + "/minds/" + i0, schemaPath: "#/properties/minds/items/required", keyword: "required", params: { missingProperty: "move" }, message: "must have required property 'move'" };
+              if (vErrors === null) {
+                vErrors = [err6];
+              } else {
+                vErrors.push(err6);
+              }
+              errors++;
+            }
+            for (const key1 in data1) {
+              if (!(key1 === "id" || key1 === "reads" || key1 === "wants" || key1 === "move" || key1 === "next")) {
+                const err7 = { instancePath: instancePath + "/minds/" + i0, schemaPath: "#/properties/minds/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
+                if (vErrors === null) {
+                  vErrors = [err7];
+                } else {
+                  vErrors.push(err7);
+                }
+                errors++;
+              }
+            }
+            if (data1.id !== void 0) {
+              let data2 = data1.id;
+              if (typeof data2 === "string") {
+                if (func2(data2) > 120) {
+                  const err8 = { instancePath: instancePath + "/minds/" + i0 + "/id", schemaPath: "#/properties/minds/items/properties/id/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err8];
+                  } else {
+                    vErrors.push(err8);
+                  }
+                  errors++;
+                }
+              } else {
+                const err9 = { instancePath: instancePath + "/minds/" + i0 + "/id", schemaPath: "#/properties/minds/items/properties/id/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err9];
+                } else {
+                  vErrors.push(err9);
+                }
+                errors++;
+              }
+            }
+            if (data1.reads !== void 0) {
+              let data3 = data1.reads;
+              if (Array.isArray(data3)) {
+                if (data3.length > 6) {
+                  const err10 = { instancePath: instancePath + "/minds/" + i0 + "/reads", schemaPath: "#/properties/minds/items/properties/reads/maxItems", keyword: "maxItems", params: { limit: 6 }, message: "must NOT have more than 6 items" };
+                  if (vErrors === null) {
+                    vErrors = [err10];
+                  } else {
+                    vErrors.push(err10);
+                  }
+                  errors++;
+                }
+                const len1 = data3.length;
+                for (let i1 = 0; i1 < len1; i1++) {
+                  let data4 = data3[i1];
+                  if (data4 && typeof data4 == "object" && !Array.isArray(data4)) {
+                    if (data4.what === void 0) {
+                      const err11 = { instancePath: instancePath + "/minds/" + i0 + "/reads/" + i1, schemaPath: "#/properties/minds/items/properties/reads/items/required", keyword: "required", params: { missingProperty: "what" }, message: "must have required property 'what'" };
+                      if (vErrors === null) {
+                        vErrors = [err11];
+                      } else {
+                        vErrors.push(err11);
+                      }
+                      errors++;
+                    }
+                    if (data4.surface === void 0) {
+                      const err12 = { instancePath: instancePath + "/minds/" + i0 + "/reads/" + i1, schemaPath: "#/properties/minds/items/properties/reads/items/required", keyword: "required", params: { missingProperty: "surface" }, message: "must have required property 'surface'" };
+                      if (vErrors === null) {
+                        vErrors = [err12];
+                      } else {
+                        vErrors.push(err12);
+                      }
+                      errors++;
+                    }
+                    for (const key2 in data4) {
+                      if (!(key2 === "what" || key2 === "basis" || key2 === "sure" || key2 === "surface" || key2 === "purpose")) {
+                        const err13 = { instancePath: instancePath + "/minds/" + i0 + "/reads/" + i1, schemaPath: "#/properties/minds/items/properties/reads/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key2 }, message: "must NOT have additional properties" };
+                        if (vErrors === null) {
+                          vErrors = [err13];
+                        } else {
+                          vErrors.push(err13);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data4.what !== void 0) {
+                      let data5 = data4.what;
+                      if (typeof data5 === "string") {
+                        if (func2(data5) > 400) {
+                          const err14 = { instancePath: instancePath + "/minds/" + i0 + "/reads/" + i1 + "/what", schemaPath: "#/properties/minds/items/properties/reads/items/properties/what/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+                          if (vErrors === null) {
+                            vErrors = [err14];
+                          } else {
+                            vErrors.push(err14);
+                          }
+                          errors++;
+                        }
+                      } else {
+                        const err15 = { instancePath: instancePath + "/minds/" + i0 + "/reads/" + i1 + "/what", schemaPath: "#/properties/minds/items/properties/reads/items/properties/what/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                        if (vErrors === null) {
+                          vErrors = [err15];
+                        } else {
+                          vErrors.push(err15);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data4.basis !== void 0) {
+                      let data6 = data4.basis;
+                      if (typeof data6 === "string") {
+                        if (func2(data6) > 400) {
+                          const err16 = { instancePath: instancePath + "/minds/" + i0 + "/reads/" + i1 + "/basis", schemaPath: "#/properties/minds/items/properties/reads/items/properties/basis/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+                          if (vErrors === null) {
+                            vErrors = [err16];
+                          } else {
+                            vErrors.push(err16);
+                          }
+                          errors++;
+                        }
+                      } else {
+                        const err17 = { instancePath: instancePath + "/minds/" + i0 + "/reads/" + i1 + "/basis", schemaPath: "#/properties/minds/items/properties/reads/items/properties/basis/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                        if (vErrors === null) {
+                          vErrors = [err17];
+                        } else {
+                          vErrors.push(err17);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data4.sure !== void 0) {
+                      let data7 = data4.sure;
+                      if (!(data7 === "low" || data7 === "mid" || data7 === "high")) {
+                        const err18 = { instancePath: instancePath + "/minds/" + i0 + "/reads/" + i1 + "/sure", schemaPath: "#/properties/minds/items/properties/reads/items/properties/sure/enum", keyword: "enum", params: { allowedValues: schema101.properties.minds.items.properties.reads.items.properties.sure.enum }, message: "must be equal to one of the allowed values" };
+                        if (vErrors === null) {
+                          vErrors = [err18];
+                        } else {
+                          vErrors.push(err18);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data4.surface !== void 0) {
+                      let data8 = data4.surface;
+                      if (!(data8 === "say" || data8 === "show" || data8 === "keep")) {
+                        const err19 = { instancePath: instancePath + "/minds/" + i0 + "/reads/" + i1 + "/surface", schemaPath: "#/properties/minds/items/properties/reads/items/properties/surface/enum", keyword: "enum", params: { allowedValues: schema101.properties.minds.items.properties.reads.items.properties.surface.enum }, message: "must be equal to one of the allowed values" };
+                        if (vErrors === null) {
+                          vErrors = [err19];
+                        } else {
+                          vErrors.push(err19);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data4.purpose !== void 0) {
+                      let data9 = data4.purpose;
+                      if (typeof data9 === "string") {
+                        if (func2(data9) > 300) {
+                          const err20 = { instancePath: instancePath + "/minds/" + i0 + "/reads/" + i1 + "/purpose", schemaPath: "#/properties/minds/items/properties/reads/items/properties/purpose/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
+                          if (vErrors === null) {
+                            vErrors = [err20];
+                          } else {
+                            vErrors.push(err20);
+                          }
+                          errors++;
+                        }
+                      } else {
+                        const err21 = { instancePath: instancePath + "/minds/" + i0 + "/reads/" + i1 + "/purpose", schemaPath: "#/properties/minds/items/properties/reads/items/properties/purpose/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                        if (vErrors === null) {
+                          vErrors = [err21];
+                        } else {
+                          vErrors.push(err21);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err22 = { instancePath: instancePath + "/minds/" + i0 + "/reads/" + i1, schemaPath: "#/properties/minds/items/properties/reads/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+                    if (vErrors === null) {
+                      vErrors = [err22];
+                    } else {
+                      vErrors.push(err22);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err23 = { instancePath: instancePath + "/minds/" + i0 + "/reads", schemaPath: "#/properties/minds/items/properties/reads/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err23];
+                } else {
+                  vErrors.push(err23);
+                }
+                errors++;
+              }
+            }
+            if (data1.wants !== void 0) {
+              let data10 = data1.wants;
+              if (typeof data10 === "string") {
+                if (func2(data10) > 400) {
+                  const err24 = { instancePath: instancePath + "/minds/" + i0 + "/wants", schemaPath: "#/properties/minds/items/properties/wants/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err24];
+                  } else {
+                    vErrors.push(err24);
+                  }
+                  errors++;
+                }
+              } else {
+                const err25 = { instancePath: instancePath + "/minds/" + i0 + "/wants", schemaPath: "#/properties/minds/items/properties/wants/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err25];
+                } else {
+                  vErrors.push(err25);
+                }
+                errors++;
+              }
+            }
+            if (data1.move !== void 0) {
+              let data11 = data1.move;
+              if (typeof data11 === "string") {
+                if (func2(data11) > 800) {
+                  const err26 = { instancePath: instancePath + "/minds/" + i0 + "/move", schemaPath: "#/properties/minds/items/properties/move/maxLength", keyword: "maxLength", params: { limit: 800 }, message: "must NOT have more than 800 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err26];
+                  } else {
+                    vErrors.push(err26);
+                  }
+                  errors++;
+                }
+              } else {
+                const err27 = { instancePath: instancePath + "/minds/" + i0 + "/move", schemaPath: "#/properties/minds/items/properties/move/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err27];
+                } else {
+                  vErrors.push(err27);
+                }
+                errors++;
+              }
+            }
+            if (data1.next !== void 0) {
+              let data12 = data1.next;
+              if (typeof data12 === "string") {
+                if (func2(data12) > 600) {
+                  const err28 = { instancePath: instancePath + "/minds/" + i0 + "/next", schemaPath: "#/properties/minds/items/properties/next/maxLength", keyword: "maxLength", params: { limit: 600 }, message: "must NOT have more than 600 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err28];
+                  } else {
+                    vErrors.push(err28);
+                  }
+                  errors++;
+                }
+              } else {
+                const err29 = { instancePath: instancePath + "/minds/" + i0 + "/next", schemaPath: "#/properties/minds/items/properties/next/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err29];
+                } else {
+                  vErrors.push(err29);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err30 = { instancePath: instancePath + "/minds/" + i0, schemaPath: "#/properties/minds/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            if (vErrors === null) {
+              vErrors = [err30];
+            } else {
+              vErrors.push(err30);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err31 = { instancePath: instancePath + "/minds", schemaPath: "#/properties/minds/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err31];
+        } else {
+          vErrors.push(err31);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err32 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err32];
+    } else {
+      vErrors.push(err32);
+    }
+    errors++;
+  }
+  validate66.errors = vErrors;
+  return errors === 0;
+}
+validate66.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var schema102 = { "type": "object", "properties": { "rationale": { "type": "string" }, "protected_anchor_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "assumptions": { "type": "array", "items": { "type": "object", "properties": { "text": { "type": "string" }, "fact": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }] } }, "required": ["text", "fact"], "additionalProperties": false }, "maxItems": 200 }, "risks": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "mode": { "enum": ["NORMAL", "FORCED_CONVERGENCE"] }, "steps": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "targets": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "earliest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "latest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "prerequisites": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "action": { "type": "string" }, "intended_effects": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "depends_on": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "means": { "enum": ["ordinary", "extraordinary"] }, "serves_anchor": { "type": ["string", "null"] }, "requires_player_consent": { "type": "boolean" } }, "required": ["step_id", "actors", "earliest", "latest", "action", "intended_effects", "means", "serves_anchor", "requires_player_consent"], "additionalProperties": false }, "maxItems": 40 }, "inadequacy_note": { "type": "string" } }, "required": ["rationale", "protected_anchor_ids", "assumptions", "risks", "mode", "steps"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:plan", "title": "Canon Engine task output: plan" };
+function validate67(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  ;
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate67.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -15098,7 +15611,7 @@ function validate66(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.mode !== void 0) {
       let data13 = data.mode;
       if (!(data13 === "NORMAL" || data13 === "FORCED_CONVERGENCE")) {
-        const err40 = { instancePath: instancePath + "/mode", schemaPath: "#/properties/mode/enum", keyword: "enum", params: { allowedValues: schema101.properties.mode.enum }, message: "must be equal to one of the allowed values" };
+        const err40 = { instancePath: instancePath + "/mode", schemaPath: "#/properties/mode/enum", keyword: "enum", params: { allowedValues: schema102.properties.mode.enum }, message: "must be equal to one of the allowed values" };
         if (vErrors === null) {
           vErrors = [err40];
         } else {
@@ -15205,7 +15718,7 @@ function validate66(data, { instancePath = "", parentData, parentDataProperty, r
               errors++;
             }
             for (const key3 in data15) {
-              if (!func1.call(schema101.properties.steps.items.properties, key3)) {
+              if (!func1.call(schema102.properties.steps.items.properties, key3)) {
                 const err51 = { instancePath: instancePath + "/steps/" + i4, schemaPath: "#/properties/steps/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
                   vErrors = [err51];
@@ -15782,7 +16295,7 @@ function validate66(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.visibility !== void 0) {
               let data36 = data15.visibility;
               if (!(data36 === "public" || data36 === "restricted" || data36 === "secret")) {
-                const err100 = { instancePath: instancePath + "/steps/" + i4 + "/visibility", schemaPath: "#/properties/steps/items/properties/visibility/enum", keyword: "enum", params: { allowedValues: schema101.properties.steps.items.properties.visibility.enum }, message: "must be equal to one of the allowed values" };
+                const err100 = { instancePath: instancePath + "/steps/" + i4 + "/visibility", schemaPath: "#/properties/steps/items/properties/visibility/enum", keyword: "enum", params: { allowedValues: schema102.properties.steps.items.properties.visibility.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err100];
                 } else {
@@ -15862,7 +16375,7 @@ function validate66(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.means !== void 0) {
               let data41 = data15.means;
               if (!(data41 === "ordinary" || data41 === "extraordinary")) {
-                const err107 = { instancePath: instancePath + "/steps/" + i4 + "/means", schemaPath: "#/properties/steps/items/properties/means/enum", keyword: "enum", params: { allowedValues: schema101.properties.steps.items.properties.means.enum }, message: "must be equal to one of the allowed values" };
+                const err107 = { instancePath: instancePath + "/steps/" + i4 + "/means", schemaPath: "#/properties/steps/items/properties/means/enum", keyword: "enum", params: { allowedValues: schema102.properties.steps.items.properties.means.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err107];
                 } else {
@@ -15874,7 +16387,7 @@ function validate66(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.serves_anchor !== void 0) {
               let data42 = data15.serves_anchor;
               if (typeof data42 !== "string" && data42 !== null) {
-                const err108 = { instancePath: instancePath + "/steps/" + i4 + "/serves_anchor", schemaPath: "#/properties/steps/items/properties/serves_anchor/type", keyword: "type", params: { type: schema101.properties.steps.items.properties.serves_anchor.type }, message: "must be string,null" };
+                const err108 = { instancePath: instancePath + "/steps/" + i4 + "/serves_anchor", schemaPath: "#/properties/steps/items/properties/serves_anchor/type", keyword: "type", params: { type: schema102.properties.steps.items.properties.serves_anchor.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err108];
                 } else {
@@ -15934,16 +16447,16 @@ function validate66(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate66.errors = vErrors;
+  validate67.errors = vErrors;
   return errors === 0;
 }
-validate66.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema102 = { "type": "object", "properties": { "player": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "aliases": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 10 }, "summary": { "type": "string", "maxLength": 1500 }, "public_identity": { "type": "string", "maxLength": 800 } }, "required": ["name", "summary"], "additionalProperties": false }, "affiliations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "kind": { "enum": ["organization", "other"] }, "role": { "type": "string", "maxLength": 400 }, "status": { "enum": ["member", "joining", "former"] }, "leads": { "type": "boolean" }, "members": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } }, "secrecy": { "enum": ["public", "restricted", "secret"] }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name", "status"], "additionalProperties": false } }, "places": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "use": { "type": "string", "maxLength": 400 }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "capabilities": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "resources": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "goals": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 12 }, "relationships": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] } }, "required": ["name"], "additionalProperties": false } }, "knowers": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 } }, "required": ["who", "level", "about", "basis"], "additionalProperties": false } }, "uncertain": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "roles": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["role"], "additionalProperties": false, "properties": { "role": { "type": "string", "maxLength": 200 }, "brings": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "from": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 8 }, "style": { "type": "string", "maxLength": 300 } } } }, "not_suited": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "voice": { "type": "string", "maxLength": 600 }, "world_changes": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "text": { "type": "string", "maxLength": 600 }, "terms": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 60 } } }, "required": ["text"], "additionalProperties": false } }, "recognized_by": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 }, "everywhere": { "type": "boolean" }, "as": { "type": "string", "maxLength": 400 } }, "required": ["who", "as"], "additionalProperties": false } }, "nature": { "type": "object", "properties": { "habits": { "type": "string", "maxLength": 500 }, "uses": { "type": "string", "maxLength": 500 }, "others": { "type": "string", "maxLength": 500 }, "limits": { "type": "string", "maxLength": 500 } }, "additionalProperties": false }, "defenses": { "type": "string", "maxLength": 500 } }, "required": ["player", "affiliations", "relationships", "knowers"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:profile", "title": "Canon Engine task output: profile" };
-function validate67(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+validate67.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var schema103 = { "type": "object", "properties": { "player": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "aliases": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 10 }, "summary": { "type": "string", "maxLength": 1500 }, "public_identity": { "type": "string", "maxLength": 800 } }, "required": ["name", "summary"], "additionalProperties": false }, "affiliations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "kind": { "enum": ["organization", "other"] }, "role": { "type": "string", "maxLength": 400 }, "status": { "enum": ["member", "joining", "former"] }, "leads": { "type": "boolean" }, "members": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } }, "secrecy": { "enum": ["public", "restricted", "secret"] }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name", "status"], "additionalProperties": false } }, "places": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "use": { "type": "string", "maxLength": 400 }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "capabilities": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "resources": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "goals": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 12 }, "relationships": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] } }, "required": ["name"], "additionalProperties": false } }, "knowers": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 } }, "required": ["who", "level", "about", "basis"], "additionalProperties": false } }, "uncertain": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "roles": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["role"], "additionalProperties": false, "properties": { "role": { "type": "string", "maxLength": 200 }, "brings": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "from": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 8 }, "style": { "type": "string", "maxLength": 300 } } } }, "not_suited": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "voice": { "type": "string", "maxLength": 600 }, "world_changes": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "text": { "type": "string", "maxLength": 600 }, "terms": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 60 } } }, "required": ["text"], "additionalProperties": false } }, "recognized_by": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 }, "everywhere": { "type": "boolean" }, "as": { "type": "string", "maxLength": 400 } }, "required": ["who", "as"], "additionalProperties": false } }, "nature": { "type": "object", "properties": { "habits": { "type": "string", "maxLength": 500 }, "uses": { "type": "string", "maxLength": 500 }, "others": { "type": "string", "maxLength": 500 }, "limits": { "type": "string", "maxLength": 500 } }, "additionalProperties": false }, "defenses": { "type": "string", "maxLength": 500 } }, "required": ["player", "affiliations", "relationships", "knowers"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:profile", "title": "Canon Engine task output: profile" };
+function validate68(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate67.evaluated;
+  const evaluated0 = validate68.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -15988,7 +16501,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
       errors++;
     }
     for (const key0 in data) {
-      if (!func1.call(schema102.properties, key0)) {
+      if (!func1.call(schema103.properties, key0)) {
         const err4 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
           vErrors = [err4];
@@ -16186,7 +16699,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
               errors++;
             }
             for (const key2 in data7) {
-              if (!func1.call(schema102.properties.affiliations.items.properties, key2)) {
+              if (!func1.call(schema103.properties.affiliations.items.properties, key2)) {
                 const err22 = { instancePath: instancePath + "/affiliations/" + i1, schemaPath: "#/properties/affiliations/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key2 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
                   vErrors = [err22];
@@ -16221,7 +16734,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
             if (data7.existing_id !== void 0) {
               let data9 = data7.existing_id;
               if (typeof data9 !== "string" && data9 !== null) {
-                const err25 = { instancePath: instancePath + "/affiliations/" + i1 + "/existing_id", schemaPath: "#/properties/affiliations/items/properties/existing_id/type", keyword: "type", params: { type: schema102.properties.affiliations.items.properties.existing_id.type }, message: "must be string,null" };
+                const err25 = { instancePath: instancePath + "/affiliations/" + i1 + "/existing_id", schemaPath: "#/properties/affiliations/items/properties/existing_id/type", keyword: "type", params: { type: schema103.properties.affiliations.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err25];
                 } else {
@@ -16244,7 +16757,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
             if (data7.kind !== void 0) {
               let data10 = data7.kind;
               if (!(data10 === "organization" || data10 === "other")) {
-                const err27 = { instancePath: instancePath + "/affiliations/" + i1 + "/kind", schemaPath: "#/properties/affiliations/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema102.properties.affiliations.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+                const err27 = { instancePath: instancePath + "/affiliations/" + i1 + "/kind", schemaPath: "#/properties/affiliations/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema103.properties.affiliations.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err27];
                 } else {
@@ -16278,7 +16791,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
             if (data7.status !== void 0) {
               let data12 = data7.status;
               if (!(data12 === "member" || data12 === "joining" || data12 === "former")) {
-                const err30 = { instancePath: instancePath + "/affiliations/" + i1 + "/status", schemaPath: "#/properties/affiliations/items/properties/status/enum", keyword: "enum", params: { allowedValues: schema102.properties.affiliations.items.properties.status.enum }, message: "must be equal to one of the allowed values" };
+                const err30 = { instancePath: instancePath + "/affiliations/" + i1 + "/status", schemaPath: "#/properties/affiliations/items/properties/status/enum", keyword: "enum", params: { allowedValues: schema103.properties.affiliations.items.properties.status.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err30];
                 } else {
@@ -16346,7 +16859,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
             if (data7.secrecy !== void 0) {
               let data16 = data7.secrecy;
               if (!(data16 === "public" || data16 === "restricted" || data16 === "secret")) {
-                const err36 = { instancePath: instancePath + "/affiliations/" + i1 + "/secrecy", schemaPath: "#/properties/affiliations/items/properties/secrecy/enum", keyword: "enum", params: { allowedValues: schema102.properties.affiliations.items.properties.secrecy.enum }, message: "must be equal to one of the allowed values" };
+                const err36 = { instancePath: instancePath + "/affiliations/" + i1 + "/secrecy", schemaPath: "#/properties/affiliations/items/properties/secrecy/enum", keyword: "enum", params: { allowedValues: schema103.properties.affiliations.items.properties.secrecy.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err36];
                 } else {
@@ -16458,7 +16971,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
             if (data19.existing_id !== void 0) {
               let data21 = data19.existing_id;
               if (typeof data21 !== "string" && data21 !== null) {
-                const err46 = { instancePath: instancePath + "/places/" + i3 + "/existing_id", schemaPath: "#/properties/places/items/properties/existing_id/type", keyword: "type", params: { type: schema102.properties.places.items.properties.existing_id.type }, message: "must be string,null" };
+                const err46 = { instancePath: instancePath + "/places/" + i3 + "/existing_id", schemaPath: "#/properties/places/items/properties/existing_id/type", keyword: "type", params: { type: schema103.properties.places.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err46];
                 } else {
@@ -16738,7 +17251,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
             if (data31.existing_id !== void 0) {
               let data33 = data31.existing_id;
               if (typeof data33 !== "string" && data33 !== null) {
-                const err71 = { instancePath: instancePath + "/relationships/" + i7 + "/existing_id", schemaPath: "#/properties/relationships/items/properties/existing_id/type", keyword: "type", params: { type: schema102.properties.relationships.items.properties.existing_id.type }, message: "must be string,null" };
+                const err71 = { instancePath: instancePath + "/relationships/" + i7 + "/existing_id", schemaPath: "#/properties/relationships/items/properties/existing_id/type", keyword: "type", params: { type: schema103.properties.relationships.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err71];
                 } else {
@@ -16783,7 +17296,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
             if (data31.basis !== void 0) {
               let data35 = data31.basis;
               if (!(data35 === "persona_stated" || data35 === "implied")) {
-                const err75 = { instancePath: instancePath + "/relationships/" + i7 + "/basis", schemaPath: "#/properties/relationships/items/properties/basis/enum", keyword: "enum", params: { allowedValues: schema102.properties.relationships.items.properties.basis.enum }, message: "must be equal to one of the allowed values" };
+                const err75 = { instancePath: instancePath + "/relationships/" + i7 + "/basis", schemaPath: "#/properties/relationships/items/properties/basis/enum", keyword: "enum", params: { allowedValues: schema103.properties.relationships.items.properties.basis.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err75];
                 } else {
@@ -16900,7 +17413,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
             if (data37.existing_id !== void 0) {
               let data39 = data37.existing_id;
               if (typeof data39 !== "string" && data39 !== null) {
-                const err86 = { instancePath: instancePath + "/knowers/" + i8 + "/existing_id", schemaPath: "#/properties/knowers/items/properties/existing_id/type", keyword: "type", params: { type: schema102.properties.knowers.items.properties.existing_id.type }, message: "must be string,null" };
+                const err86 = { instancePath: instancePath + "/knowers/" + i8 + "/existing_id", schemaPath: "#/properties/knowers/items/properties/existing_id/type", keyword: "type", params: { type: schema103.properties.knowers.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err86];
                 } else {
@@ -16923,7 +17436,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
             if (data37.level !== void 0) {
               let data40 = data37.level;
               if (!(data40 === "exists" || data40 === "identity" || data40 === "secrets")) {
-                const err88 = { instancePath: instancePath + "/knowers/" + i8 + "/level", schemaPath: "#/properties/knowers/items/properties/level/enum", keyword: "enum", params: { allowedValues: schema102.properties.knowers.items.properties.level.enum }, message: "must be equal to one of the allowed values" };
+                const err88 = { instancePath: instancePath + "/knowers/" + i8 + "/level", schemaPath: "#/properties/knowers/items/properties/level/enum", keyword: "enum", params: { allowedValues: schema103.properties.knowers.items.properties.level.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err88];
                 } else {
@@ -16957,7 +17470,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
             if (data37.basis !== void 0) {
               let data42 = data37.basis;
               if (!(data42 === "persona_stated" || data42 === "implied")) {
-                const err91 = { instancePath: instancePath + "/knowers/" + i8 + "/basis", schemaPath: "#/properties/knowers/items/properties/basis/enum", keyword: "enum", params: { allowedValues: schema102.properties.knowers.items.properties.basis.enum }, message: "must be equal to one of the allowed values" };
+                const err91 = { instancePath: instancePath + "/knowers/" + i8 + "/basis", schemaPath: "#/properties/knowers/items/properties/basis/enum", keyword: "enum", params: { allowedValues: schema103.properties.knowers.items.properties.basis.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err91];
                 } else {
@@ -17526,7 +18039,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
             if (data64.existing_id !== void 0) {
               let data66 = data64.existing_id;
               if (typeof data66 !== "string" && data66 !== null) {
-                const err142 = { instancePath: instancePath + "/recognized_by/" + i17 + "/existing_id", schemaPath: "#/properties/recognized_by/items/properties/existing_id/type", keyword: "type", params: { type: schema102.properties.recognized_by.items.properties.existing_id.type }, message: "must be string,null" };
+                const err142 = { instancePath: instancePath + "/recognized_by/" + i17 + "/existing_id", schemaPath: "#/properties/recognized_by/items/properties/existing_id/type", keyword: "type", params: { type: schema103.properties.recognized_by.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err142];
                 } else {
@@ -17787,16 +18300,16 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate67.errors = vErrors;
+  validate68.errors = vErrors;
   return errors === 0;
 }
-validate67.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema103 = { "type": "object", "properties": { "items": { "type": "array", "maxItems": 80, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 40 }, "action": { "type": "string", "enum": ["keep", "replace", "disable"] }, "content": { "type": "string", "maxLength": 2e4 }, "name": { "type": "string", "maxLength": 200 }, "untrue": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 200 } }, "reason": { "type": "string", "maxLength": 600 } }, "required": ["ref", "action"], "additionalProperties": false } }, "additions": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "title": { "type": "string", "maxLength": 200 }, "keys": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 100 } }, "content": { "type": "string", "maxLength": 4e3 }, "reason": { "type": "string", "maxLength": 600 } }, "required": ["title", "keys", "content"], "additionalProperties": false } } }, "required": ["items"], "additionalProperties": false, "$id": "urn:canon-engine:world_check" };
-function validate68(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+validate68.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var schema104 = { "type": "object", "properties": { "items": { "type": "array", "maxItems": 80, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 40 }, "action": { "type": "string", "enum": ["keep", "replace", "disable"] }, "content": { "type": "string", "maxLength": 2e4 }, "name": { "type": "string", "maxLength": 200 }, "untrue": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 200 } }, "reason": { "type": "string", "maxLength": 600 } }, "required": ["ref", "action"], "additionalProperties": false } }, "additions": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "title": { "type": "string", "maxLength": 200 }, "keys": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 100 } }, "content": { "type": "string", "maxLength": 4e3 }, "reason": { "type": "string", "maxLength": 600 } }, "required": ["title", "keys", "content"], "additionalProperties": false } } }, "required": ["items"], "additionalProperties": false, "$id": "urn:canon-engine:world_check" };
+function validate69(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate68.evaluated;
+  const evaluated0 = validate69.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -17903,7 +18416,7 @@ function validate68(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
               if (!(data3 === "keep" || data3 === "replace" || data3 === "disable")) {
-                const err9 = { instancePath: instancePath + "/items/" + i0 + "/action", schemaPath: "#/properties/items/items/properties/action/enum", keyword: "enum", params: { allowedValues: schema103.properties.items.items.properties.action.enum }, message: "must be equal to one of the allowed values" };
+                const err9 = { instancePath: instancePath + "/items/" + i0 + "/action", schemaPath: "#/properties/items/items/properties/action/enum", keyword: "enum", params: { allowedValues: schema104.properties.items.items.properties.action.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err9];
                 } else {
@@ -18237,10 +18750,10 @@ function validate68(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate68.errors = vErrors;
+  validate69.errors = vErrors;
   return errors === 0;
 }
-validate68.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+validate69.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 
 // src/domain/delta.ts
 var effectTarget = (ef) => ef.op === "set" ? { entity_id: ef.fact.entity_id, predicate: ef.fact.predicate } : { entity_id: ef.entity_id, predicate: ef.predicate };
@@ -18901,6 +19414,7 @@ function lintPack(input) {
 function lintNature(pack2, err, warn) {
   const evs = new Set(pack2.events.map((e) => e.id));
   pack2.entities.forEach((e, i) => {
+    if (e.mind && e.kind !== "person") warn(`/entities/${i}/mind`, `mind on a ${e.kind}: it is written for people`);
     if (!e.nature) return;
     if (e.kind !== "person") warn(`/entities/${i}/nature`, `nature on a ${e.kind}: it is written for people`);
     e.nature.forEach((v, j) => {

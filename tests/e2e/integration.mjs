@@ -877,6 +877,7 @@ try {
     p.entities.find((e) => e.id === 'mira').nature = [
       { from_event: null, habits: 'NT_NOW 缝伤口时总哼着歌', uses: '谁受伤都会顺手处理', others: '码头工人信任她', limits: '救不回已经死去的人', perceives: { kinds: ['thoughts'], how: '视线之内' } },
       { from_event: 'conflict-begins', until_event: null, why: 'NT_LATER_WHY', habits: 'NT_LATER 手会发抖', uses: '仍然缝合，但更慢', others: '工人们担心她', limits: '做不了精细活' }];
+    p.entities.find((e) => e.id === 'mira').mind = { deliberation: 'habitual', sharpness: 'sharp', approach: 'MD_APPROACH 先问清楚再动手', speaks: '只问不答' };
     await bind(page, JSON.stringify(p), tick(0, 8));
     await mock('/control', { mainQueue: ['米拉抬起头。NT_A'], clearLogs: true, taskRules: [rule('extract_user', '去找那位医生', { references: [{ phrase: '那位医生', quote: '那位医生', kind: 'entity', mode: 'indirect', candidates: ['mira'] }], scene_entities: ['mira'] })] });
     await send(page, '我去找那位医生聊聊。');
@@ -884,6 +885,10 @@ try {
     check(results, 'NT01 the story model gets the 常态 in force of the person in the scene, as background, not the version to come', all.includes('HOW THEY ARE (常态') && all.includes('NT_NOW') && !all.includes('NT_LATER'), `section=${all.includes('HOW THEY ARE')} now=${all.includes('NT_NOW')} later=${all.includes('NT_LATER')}`);
     const hasProfile = all.includes('PLAYER IN THIS WORLD');
     check(results, 'NT04 a person who perceives thoughts is in the scene: the GM is told the player character secrets are open to it (setting on by default)', !hasProfile || (all.includes('POWERS THAT PERCEIVE (Mira)') && all.includes('Do not steer the player character') && all.includes('perceives: what someone is thinking (视线之内)')), `profile=${hasProfile} rule=${all.includes('POWERS THAT PERCEIVE')}`);
+    const minds = await taskLogs('mind');
+    check(results, 'MD01 someone in the scene who always thinks first gets a 角色盘算 call; the GM gets how they think and the plan', minds.length === 1 && all.includes('HOW THEY THINK') && all.includes('MD_APPROACH') && all.includes('CHARACTER PLANS') && all.includes('move: mock move'), `calls=${minds.length} think=${all.includes('HOW THEY THINK')} plans=${all.includes('CHARACTER PLANS')}`);
+    const mbox = await page.evaluate(() => { const b = document.querySelector('input[data-set="mindPlans"]'); return b ? b.checked : null; });
+    check(results, 'MD02 the drawer has 角色盘算, on by default, with the model to use', mbox === true && !!(await page.$('select[data-set="mindProfileId"]')), String(mbox));
     const box = await page.evaluate(() => { const b = document.querySelector('input[data-set="secretsReadable"]'); return b ? b.checked : null; });
     check(results, 'NT05 the drawer has 允许 NPC 用能力读到我的秘密, on by default', box === true, String(box));
     await page.evaluate(() => document.querySelector('#canon-engine-top-button .canon-top-toggle')?.click());
@@ -892,6 +897,7 @@ try {
     await page.waitForSelector('.cg-naturewrap', { timeout: 5000 });
     const view = await page.$eval('.cg-naturewrap', (n) => n.textContent);
     check(results, 'NT02 角色常态 in the timeline lists the person, the version in force marked; the one to come hidden without spoilers', view.includes('Mira') && view.includes('NT_NOW') && view.includes('当前生效') && !view.includes('NT_LATER') && view.includes('尚未到来的常态版本'), view.slice(0, 200));
+    check(results, 'MD03 the same view shows how they think', view.includes('思考方式') && view.includes('总在想') && view.includes('MD_APPROACH'), view.slice(0, 300));
     await page.click('.cg-spoil');
     await page.waitForFunction(() => document.querySelector('.cg-naturewrap')?.textContent.includes('NT_LATER'), null, { timeout: 5000 }).catch(() => {});
     const spoiled = await page.$eval('.cg-naturewrap', (n) => n.textContent).catch(() => '');

@@ -57,6 +57,16 @@ export interface PackEntity {
   frame_id?: Id;
   /** 常态: how a person's power, condition or non-human body shows in everyday scenes, in versions (see natureNow). */
   nature?: NatureVersion[];
+  /** 思考方式: how the person thinks (see MindProfile). */
+  mind?: MindProfile;
+}
+/** How a person thinks: how much effort they put into thinking before they act and how well they reason when they do
+ *  are separate (a brawler can be sharp and rarely bother). Those who think before they act get their moves planned
+ *  each turn they are in the scene (the engine's 角色盘算); the game master plays everyone by it. */
+export interface MindProfile {
+  deliberation: 'rarely' | 'situational' | 'habitual';
+  sharpness: 'plain' | 'sharp' | 'exceptional';
+  approach: string; thinks_hard_about?: string; pushed?: string; notices?: string; blind?: string; speaks?: string;
 }
 /** One version of a 常态. The first (from_event null) holds at the story start; a later one once its from_event has
  *  occurred in the branch, until its until_event has. Written as patterns, never as story. */

@@ -47,6 +47,8 @@ def mock(task, user):
         return {'entities': out}
     if task.startswith('dedupe'):   # nothing is a duplicate (both the group listing and the pair check)
         return {'groups': [], 'same': False, 'why': '模拟'}
+    if task == 'mind':
+        return {'deliberation': 'situational', 'sharpness': 'plain', 'approach': '（模拟）照常处理', 'speaks': '（模拟）'}
     if task == 'nature':
         return {'none': True}
     if task == 'nature_perceive':

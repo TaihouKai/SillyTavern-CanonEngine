@@ -1,6 +1,6 @@
 // Controller-owned retrieval (causal OR mentioned, plus scene/entity constraints) and the
 // bounded GM context packet. The model receives record CONTENT, never bare ids.
-import type { Id, PackEvent, PerceiveKind } from '../domain/types';
+import type { Id, MindProfile, PackEvent, PerceiveKind } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { WorldIndex, type HistoryRecordView, type EntityStateView, type CanonStatusView } from '../domain/world-query';
 import { formatStoryTime, formatTick, toTick } from '../domain/time';
@@ -172,6 +172,8 @@ export interface PacketInput {
   /** The player character's secrets and other people's powers: open (the player allows it; default) and what the
    *  Persona says shields them. Absent without a player profile. */
   perception?: { open: boolean; defenses?: string };
+  /** 角色盘算: this turn's moves of the people here who think before they act (GM only). */
+  minds?: string;
   /** Who in the scene knows about the player (GM only; the reviewer gets the groups as input). */
   recognition?: string;
   /** People with the player who take part in a canon event soon, and how it reaches them (GM only). */
@@ -323,6 +325,51 @@ function natureSection(index: WorldIndex, retrieval: Retrieval, perception?: Pac
   }).join('\n') + perceptionRule(people.filter((p) => p.now!.version.perceives?.kinds.length).map((p) => index.entityName(p.id)), perception);
 }
 
+/** People here with a 思考方式, the people in the scene first, then those the text mentions. */
+export function mindPeople(index: WorldIndex, retrieval: Retrieval): { id: Id; mind: MindProfile }[] {
+  const rank = (t: Set<string>) => (t.has('scene') ? 0 : t.has('mentioned') ? 1 : 2);
+  return [...retrieval.entities].filter(([id, t]) => rank(t) < 2 && index.entityKind(id) === 'person')
+    .sort((a, b) => rank(a[1]) - rank(b[1]))
+    .map(([id]) => ({ id, mind: index.mindOf(id)! })).filter((p) => p.mind).slice(0, NATURE_MAX);
+}
+export const DELIBERATION_TEXT: Record<MindProfile['deliberation'], string> = {
+  rarely: 'rarely thinks before acting (acts on instinct and feeling; thinks a problem through only when pushed)',
+  situational: 'thinks when the stakes or their interest call for it',
+  habitual: 'always thinking (reads the situation, plans, keeps their own angle)',
+};
+export const MIND_FIELDS = [['approach', 'approach'], ['thinks_hard_about', 'thinks hard about'], ['pushed', 'pushed to think by'], ['notices', 'notices'], ['blind', 'misjudges'], ['speaks', 'in speech']] as const;
+/** User: smart characters only sounded clever; what they said was what anyone would say. People differ in how much
+ *  effort they put into thinking before they act, not only in tone ("Tyson would think hard with a gun to his head,
+ *  but normally he would not"). */
+const MIND_HEAD = 'HOW THEY THINK (思考方式: how much effort each puts into thinking before acting, how well they reason when they do, how they go about a problem). Play each by it in what they say and do, not only in their tone: someone who rarely thinks before acting goes with instinct and does not reason like a scholar unless what pushes them is happening; someone always thinking keeps their own angle, reads what others let slip, and does not say every conclusion. Patterns, not story.';
+function mindSection(index: WorldIndex, retrieval: Retrieval): string {
+  const people = mindPeople(index, retrieval);
+  if (!people.length) return '';
+  return MIND_HEAD + '\n' + people.map(({ id, mind }) => {
+    const parts = [`${DELIBERATION_TEXT[mind.deliberation]}; reasoning when they do: ${mind.sharpness}`, ...MIND_FIELDS.filter(([k]) => mind[k]?.trim()).map(([k, label]) => `${label}: ${mind[k]!.trim()}`)];
+    return `- ${index.entityName(id)} [${id}]: ${parts.join(' | ')}`;
+  }).join('\n');
+}
+
+/** At most this many people get their moves planned in one turn (角色盘算). */
+export const MIND_PLAN_MAX = 3;
+export interface MindOut { minds: { id: string; reads: { what: string; basis?: string; sure?: 'low' | 'mid' | 'high'; surface: 'say' | 'show' | 'keep'; purpose?: string }[]; wants: string; move: string; next?: string }[] }
+const SURFACE: Record<'say' | 'show' | 'keep', string> = { say: 'says', show: 'shows', keep: 'keeps to themselves' };
+// User: in stories a character shows what they think or says it so the reader can follow — never saying anything is
+// hard to follow, saying everything is not clever. Each read says how it comes out this reply.
+const MINDS_HEAD = 'CHARACTER PLANS (角色盘算: worked out for this reply as these people would think it; private — never print it or narrate it as such). Write their words and actions from it. "says" comes out in their words — the conclusion, not the reasoning, unless they mean to show it — for the purpose given; "shows" comes out as something visible (an action, a look, a pause, a question only someone who has worked it out would ask), not as narrated thought; "keeps to themselves" does not come out in this reply, neither in their words nor in narration of their thoughts. A plan is their intention: what the player character does can still change how it goes.';
+/** The GM's CHARACTER PLANS section from the mind task's output ('' when it planned nobody it was asked about). */
+export function mindsSection(index: WorldIndex, ids: Id[], out: MindOut): string {
+  const lines = out.minds.filter((m) => ids.includes(m.id)).map((m) => {
+    const reads = (['say', 'show', 'keep'] as const).map((k) => {
+      const r = m.reads.filter((x) => x.surface === k);
+      return r.length ? `${SURFACE[k]}: ${r.map((x) => `${x.what.trim()}${x.sure === 'low' ? ' (a guess)' : ''}${k === 'say' && x.purpose?.trim() ? ` — to ${x.purpose.trim()}` : ''}`).join('; ')}` : '';
+    }).filter(Boolean);
+    return `- ${index.entityName(m.id)} [${m.id}]: wants: ${m.wants.trim()} | move: ${m.move.trim()}${reads.length ? ' | ' + reads.join(' | ') : ''}${m.next?.trim() ? ` | if others react: ${m.next.trim()}` : ''}`;
+  });
+  return lines.length ? MINDS_HEAD + '\n' + lines.join('\n') : '';
+}
+
 const PERCEIVE_TEXT: Record<PerceiveKind, string> = { thoughts: 'what someone is thinking', memories: "someone's memories", emotions: "someone's feelings", hidden: 'what is behind cover', whereabouts: 'where someone is', lies: 'whether someone lies', past: 'what happened at a place or to an object' };
 /** User: a mind reader next to the player character was kept from their secrets — the GM steered the player
  *  character's thoughts away from a secret to protect it. A power that perceives is a way of learning like any other:
@@ -393,6 +440,9 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops; no other supported change through ${cpLabel}; a property not listed for an entity is UNKNOWN — not established, do not assume normality):\n` + (states.length ? states.join('\n') : '- (no referenced entities)'));
   const nature = natureSection(index, retrieval, inp.perception);
   if (nature) required.push(nature);
+  const mind = inp.review ? '' : mindSection(index, retrieval);
+  if (mind) required.push(mind);
+  if (inp.minds && !inp.review) required.push(inp.minds);
   // The player in the world and their decisions: required, never dropped for budget, also for the reviewer.
   if (inp.presence) required.push(inp.presence);
   if (inp.recognition) required.push(inp.recognition);

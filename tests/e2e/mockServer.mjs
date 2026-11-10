@@ -53,6 +53,7 @@ function defaultTask(task, input) {
     case 'leap': return { events: [], mention: [], impossible: [], life: [], landing: '' };
     case 'foreknow': return { judgements: [] };
     case 'world_check': return { items: [], additions: [] };
+    case 'mind': return { minds: (input.people || []).map((p) => ({ id: p.id, reads: [{ what: 'mock read', surface: 'show' }], wants: 'mock want', move: 'mock move' })) };
     case 'plan': {
       const now = input.now?.tick ?? 0;
       const steps = (input.protected_hard_detailed || []).map((h, i) => {

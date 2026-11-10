@@ -148,6 +148,19 @@ A person with a power, a condition, a non-human body or a device they depend on 
 
 `canon-lint` checks that the first version has `from_event` null, later ones have one, and their events exist.
 
+### 思考方式 (how a person thinks)
+
+Any person, with or without a power, can carry `mind`: how much effort they put into thinking before they act, how well they reason when they do, and how they go about a problem. Without it the GM gives everyone the same mind and changes only the tone: a schemer merely sounds clever, a hothead reasons like a scholar.
+
+```json
+"mind": {"deliberation": "habitual", "sharpness": "exceptional", "approach": "…", "thinks_hard_about": "…", "pushed": "…", "notices": "…", "blind": "…", "speaks": "…"}
+```
+
+- `deliberation`: `rarely` (acts on instinct; thinks a problem through only when pushed), `situational` (when the stakes or their interest call for it), `habitual` (always reading the situation, keeping their own angle). `sharpness`: `plain`, `sharp`, `exceptional` — how well they reason when they do, separate from how often. `approach` is required; the rest optional: what they think hard about even if they rarely deliberate, what pushes them to think, what they notice, what they misjudge, how their thinking shows in what they say.
+- The GM gets it for the people in the scene. Those whose `deliberation` is not `rarely` also get their moves for the reply worked out first in a call of their own (角色盘算, a setting, on by default): what they read from the moment, what they want, their move, and for each read whether they say it, show it or keep it to themselves.
+- Patterns, never story, as with 常态: no names, no episodes. An ordinary person gets an ordinary description.
+- canon-pack-builder writes it with `python -m cpb mind -p <project>` for the people with a page of their own in the sources.
+
 ## 4. Sources and provenance
 
 Each source has `id`, `title`, `locator`, `kind`, and `notes`. `locator` can be a volume/chapter/page citation, a stable URL, a user-provided corrected reference path with entry IDs, or an editorial record. It need not be publicly downloadable. `kind` is `primary`, `secondary`, `editorial`, or `example`.

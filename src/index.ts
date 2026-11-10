@@ -166,6 +166,7 @@ async function init() {
   model.taskProfileId = () => { const id = String(globalSettings().taskProfileId || ''); return id === CHAT_PROFILE ? '' : id; };
   model.taskExtraBody = () => String(globalSettings().taskExtraBody || '');
   model.taskBackupProfileId = () => String(globalSettings().taskBackupProfileId || '');
+  model.mindProfileId = () => { const id = String(globalSettings().mindProfileId || ''); return id === CHAT_PROFILE ? '' : id; };
   model.taskBackupExtraBody = () => String(globalSettings().taskBackupExtraBody || '');
   model.taskTemperature = () => { const t = Number(globalSettings().taskTemperature); return Number.isFinite(t) ? t : 0.2; };
   engine = new CanonEngine(host, globalSettings());

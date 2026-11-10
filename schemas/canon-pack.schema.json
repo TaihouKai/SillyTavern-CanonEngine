@@ -600,6 +600,50 @@
             ],
             "additionalProperties": false
           }
+        },
+        "mind": {
+          "description": "思考方式: how the person thinks — how much effort they put into thinking before they act (deliberation), how well they reason when they do (sharpness), and how they go about a problem. The engine plans the moves of those who think before they act; the game master plays everyone by it. Patterns, never story.",
+          "type": "object",
+          "properties": {
+            "deliberation": {
+              "enum": [
+                "rarely",
+                "situational",
+                "habitual"
+              ]
+            },
+            "sharpness": {
+              "enum": [
+                "plain",
+                "sharp",
+                "exceptional"
+              ]
+            },
+            "approach": {
+              "type": "string"
+            },
+            "thinks_hard_about": {
+              "type": "string"
+            },
+            "pushed": {
+              "type": "string"
+            },
+            "notices": {
+              "type": "string"
+            },
+            "blind": {
+              "type": "string"
+            },
+            "speaks": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "deliberation",
+            "sharpness",
+            "approach"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [

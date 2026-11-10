@@ -4,7 +4,7 @@ import sys
 
 import os
 
-from . import adapters, assemble, dedupe, llm, merge, nature, report, skeleton, steps
+from . import adapters, assemble, dedupe, llm, merge, mind, nature, report, skeleton, steps
 from . import prompts as P
 from .config import Project, load_global
 from .util import log, read_json, write_json
@@ -72,7 +72,7 @@ def main(argv=None):
         except (AttributeError, ValueError):
             pass
     ap = argparse.ArgumentParser(prog='python -m cpb', description='Build a Canon Engine history pack from a story source.')
-    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'run', 'status'])
+    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'run', 'status'])
     ap.add_argument('-p', '--project', default='fgo-cn', help='project name under projects/ or a path to a project file')
     ap.add_argument('--config', help='global config file (default: config.json)')
     ap.add_argument('--chapters', help='only these chapter ids, comma separated (e.g. w100,w101)')
@@ -80,8 +80,8 @@ def main(argv=None):
     ap.add_argument('--mock', action='store_true', help='use the stand-in model (free; for testing the pipeline)')
     ap.add_argument('--refresh', action='store_true', help='download the source again')
     ap.add_argument('--yes', action='store_true', help='run: do not ask before the model steps')
-    ap.add_argument('--pack', help='nature: the pack to give 常态 to (default: the built pack of the project)')
-    ap.add_argument('--out', help='nature: where to write the pack (default: over --pack)')
+    ap.add_argument('--pack', help='nature, mind: the pack to give 常态 / 思考方式 to (default: the built pack of the project)')
+    ap.add_argument('--out', help='nature, mind: where to write the pack (default: over --pack)')
     ap.add_argument('--offpeak', action='store_true', help='make model calls only at the off-peak price; stop when peak hours begin')
     args = ap.parse_args(argv)
     gcfg = load_global(args.config)
@@ -123,6 +123,25 @@ def main(argv=None):
         log(str(e))
         log('run the same command again to continue (finished results are kept)')
         return 2
+    if cmd == 'mind':
+        # 思考方式 for the people of a built pack who have a page of their own, written into it
+        src_path = args.pack or project.p('out', project.get('pack', {}).get('file') or f'{project.get("pack", {}).get("pack_id", project.name)}.canon.json')
+        pk = read_json(src_path)
+        if not pk:
+            log(f'mind: no pack at {src_path} (build first, or give --pack)')
+            return 2
+        cl = client(gcfg, project, args)
+        try:
+            mind.generate(project, cl, pk, nature.wiki_pages(project), lang=steps.lang_name(project))
+        except llm.BudgetExceeded as e:
+            log(str(e))
+            log('run the same command again to continue (finished results are kept)')
+            return 2
+        n = mind.attach(pk, project.p('mind'))
+        out = args.out or src_path
+        write_json(out, pk, indent=1)
+        res = report.lint(gcfg, out)
+        log(f'mind: {n} people with a 思考方式 — pack: {out}' + (f' — canon-lint: {"OK" if res.get("ok") else "ERRORS"}, {len(res.get("errors", []))} errors' if res else ''))
     if cmd == 'nature':
         # 常态 for the people of a built pack, written into it (a separate command: it needs the built pack's events)
         src_path = args.pack or project.p('out', project.get('pack', {}).get('file') or f'{project.get("pack", {}).get("pack_id", project.name)}.canon.json')
@@ -150,6 +169,11 @@ def main(argv=None):
             n = nature.attach(pk, project.p('nature'))
             write_json(path, pk, indent=1)
             log(f'nature: {n} people with a 常态')
+        if os.path.isdir(project.p('mind')):   # and 思考方式
+            pk = read_json(path)
+            n = mind.attach(pk, project.p('mind'))
+            write_json(path, pk, indent=1)
+            log(f'mind: {n} people with a 思考方式')
         res = report.lint(gcfg, path)
         report.write(project, pack, rep, chrep, clock, path, res, cl.ledger if cl else None)
         if res is not None:

@@ -1,6 +1,6 @@
 // Actual-history retrieval (causal OR mentioned) and independent entity/scene state queries.
 // Lookups never traverse the Hard graph and never depend on anchor relevance.
-import type { FactValue, Id, NatureVersion, Occurrence, StoryTime } from './types';
+import type { FactValue, Id, MindProfile, NatureVersion, Occurrence, StoryTime } from './types';
 import type { LoadedPack } from './pack';
 import { normalizeName } from './pack';
 import type { Checkpoint, OccurrenceEntry, WorldState } from './reducer';
@@ -150,6 +150,11 @@ export class WorldIndex {
     let index = 0;
     vs.forEach((v, i) => { if (i > 0 && occurred(v.from_event) && !occurred(v.until_event)) index = i; });
     return { version: vs[index], index };
+  }
+
+  /** 思考方式 of a pack person (null for others and for people the story added). */
+  mindOf(id: Id): MindProfile | null {
+    return this.pack.entities.get(id)?.mind || null;
   }
 
   entityExists(id: Id): boolean {

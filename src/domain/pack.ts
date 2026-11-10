@@ -486,10 +486,12 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
   return { errors: dedupeIssues(errors), warnings: dedupeIssues(warnings) };
 }
 
-/** 常态 versions: the first holds at the start (from_event null), later ones start (and end) at known events. */
+/** 常态 versions: the first holds at the start (from_event null), later ones start (and end) at known events. 思考方式 is
+ *  for people too. */
 function lintNature(pack: CanonPack, err: (p: string, m: string) => void, warn: (p: string, m: string) => void) {
   const evs = new Set(pack.events.map((e) => e.id));
   pack.entities.forEach((e, i) => {
+    if (e.mind && e.kind !== 'person') warn(`/entities/${i}/mind`, `mind on a ${e.kind}: it is written for people`);
     if (!e.nature) return;
     if (e.kind !== 'person') warn(`/entities/${i}/nature`, `nature on a ${e.kind}: it is written for people`);
     e.nature.forEach((v, j) => {

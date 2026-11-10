@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.28.0 — 2026-11-10
+
+- **思考方式 (how a person thinks).** Clever characters only sounded clever: the GM writes everyone in one pass with the same effort and changes only the tone, so a schemer said what anyone would say. A pack person can now carry `mind`: how much effort they put into thinking before they act (`deliberation`: rarely / situational / habitual), how well they reason when they do (`sharpness`: plain / sharp / exceptional — separate: a brawler can be sharp and rarely bother), how they go about a problem, what they think hard about, what pushes them to think, what they notice and misjudge, how their thinking shows in what they say. The GM gets it for the people in the scene (HOW THEY THINK), with or without a power.
+- **角色盘算 (character plans; on by default, in 模型与回复).** Before each reply, the people in the scene who think before they act (situational or habitual, at most 3, those the player's message involves first) get a call of their own (the `mind` task): from their mind and what they actually know (the GM's context; their own power as their 常态 allows), what they read from the moment, what they want, their move, what they do if others react — and for each read whether it comes out this reply: said (for a purpose; the conclusion, not the reasoning), shown (an action, a look, a question only someone who worked it out would ask) or kept. The GM writes them by it (CHARACTER PLANS); the reviewer does not see it. Someone who rarely thinks first is not planned for. A failed call leaves the reply as it was. 「盘算用的模型」 picks another connection for it (default: the analysis connection). Trial on DeepSeek 4.1 flash: +$0.002–0.006 and 8–22 s per turn with such a person present; a schemer kept what she had read instead of saying it, and clever people reasoned from what they knew instead of inventing facts.
+- 「角色常态」 in the timeline shows each person's 思考方式 too.
+- canon-pack-builder `mind`: 思考方式 for the pack's people with a page of their own in the sources (names of people they share events with are sent back, as for 常态). Tests: MD1–MD5, e2e MD01–MD03, builder test_mind.
+
 ## 1.27.1 — 2026-11-10
 
 - **A time read off a clock bounds the reply's end.** A reply whose phone said 「八点二十出头」 was recorded as ending at 08:50: the reply's own clock (1.25.2) only counted readings with 了 or 现在. Now a time right after someone looks at a phone, watch or clock (「看了看手机。」「瞥了一眼表，」), or said as 「…出头」, is a reading too; a plan after the look (「看了看表，八点要开会」) is not.

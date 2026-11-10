@@ -2,7 +2,7 @@
 // commit), journal recovery, backup. Host-independent (see host.ts).
 import { loreFor, type LoreBackground, type LoreEntry } from './lore';
 import type { Persona } from './host';
-import type { Id, LedgerRecord, NatureVersion, StoryTime } from '../domain/types';
+import type { Id, LedgerRecord, MindProfile, NatureVersion, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { valuesEqual } from '../domain/pack';
 import { buildBootstrap, causeOf, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
@@ -18,7 +18,7 @@ import { callStructured, taskDefaults } from './model';
 import { checkLeapPlan, leapBatches, leapChapters, mergeLeapPlans, leapEventInput, leapEvents, leapNotes, leapProblem, leapRecord, leapSection, leapText, parseLeap, LEAP_VOICE, type CheckedLeapPlan, type LeapPlanOut } from './leap';
 import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, EVAL_GROUPS_NOTE, EVAL_CHANCE_NOTE, EVAL_LEAP_NOTE, EXTRACT_GROUPS_NOTE, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
 import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
-import { buildPacket, retrieve, sceneFrameOf, type ClaimInput, type RefInput, type Retrieval } from './context';
+import { buildPacket, DELIBERATION_TEXT, MIND_FIELDS, MIND_PLAN_MAX, mindPeople, mindsSection, retrieve, sceneFrameOf, type ClaimInput, type MindOut, type RefInput, type Retrieval } from './context';
 import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
 import { CLOCK_READING_SLACK, matchScope, runGate, type EvalOutput, type GateInput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
@@ -72,6 +72,11 @@ export interface EngineSettings {
   playerVoice: PlayerVoice;
   /** 允许 NPC 用能力读到我的秘密: a power that perceives (a mind reader) reaches the player character's secrets. */
   secretsReadable: boolean;
+  /** 角色盘算: before each reply, the people in the scene who think before they act get their moves planned in a
+   *  call of their own (their 思考方式 from the pack). */
+  mindPlans: boolean;
+  /** Connection profile for 角色盘算 ('' = the analysis connection). */
+  mindProfileId: string;
   /** Marks out-of-character parts of the player's message ("(OOC: if A, then B)"); '' = no OOC parsing. */
   oocKeyword: string;
 }
@@ -79,7 +84,7 @@ export interface EngineSettings {
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
 const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + String(text || '').length * 4));
 
-const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game' };
+const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan' };
 
 /** Length and provider stats of the published reply, shown after the turn timings. */
 export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
@@ -115,6 +120,8 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   quietDayJobs: true,
   playerVoice: { ...DEFAULT_PLAYER_VOICE },
   secretsReadable: true,
+  mindPlans: true,
+  mindProfileId: '',
   oocKeyword: 'OOC',
 };
 
@@ -969,6 +976,40 @@ export class CanonEngine {
     return replayRecords(pack, recs);
   }
 
+  /** 角色盘算: what the people in the scene who think before they act make of this moment and do in the reply (one
+   *  call for all of them, at most MIND_PLAN_MAX), as the GM's CHARACTER PLANS section; '' when there is nobody to plan
+   *  for or the call failed (the reply goes ahead without it). Who is decided here: the pack's people with a 思考方式
+   *  other than "rarely" who are in the scene or whom the player's message involves (named, referred to, or in the scene
+   *  it sets), those it involves first. */
+  private async planMinds(index: WorldIndex, retrieval: Retrieval, context: string, userEntry: SourceEntry, prevGm: SourceEntry | null, playerName: string, involved: Id[], signal: AbortSignal, operationId: string): Promise<string> {
+    const userText = this.ooc(userEntry.text).story;
+    const named = new Set([...index.scanEntities(userText).map((m) => m.id), ...involved]);
+    const people = mindPeople(index, retrieval)
+      .filter((p) => p.mind.deliberation !== 'rarely' && (retrieval.entities.get(p.id)?.has('scene') || named.has(p.id)))
+      .sort((a, b) => Number(named.has(b.id)) - Number(named.has(a.id)) || Number(b.mind.deliberation === 'habitual') - Number(a.mind.deliberation === 'habitual'))
+      .slice(0, MIND_PLAN_MAX);
+    if (!people.length) return '';
+    try {
+      const out = await this.withTimeout(callStructured<MindOut>(this.host.model, 'mind', PROMPTS.mind, {
+        people: people.map(({ id, mind }) => {
+          const n = index.natureNow(id)?.version;
+          return { id, name: index.entityName(id), description: index.pack.entities.get(id)?.static_description || '',
+            mind: { deliberation: DELIBERATION_TEXT[mind.deliberation], sharpness: mind.sharpness, ...Object.fromEntries(MIND_FIELDS.filter(([k]) => mind[k]?.trim()).map(([k, label]) => [label, mind[k]!.trim()])) },
+            ...(n ? { nature: [n.habits, n.uses, n.limits].filter(Boolean).join(' ') } : {}) };
+        }),
+        context,
+        last_reply: prevGm ? prevGm.text.slice(-3000) : '',
+        player_message: userText,
+        player_character: playerName,
+      }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 6000 }), this.settings.taskTimeoutMs * 2, signal);
+      return mindsSection(index, people.map((p) => p.id), out);
+    } catch (e) {
+      if (e instanceof EngineError && e.kind === 'cancelled') throw e;
+      this.rejects.push(`mind: no character plans this turn (${(e as Error).message.slice(0, 160)})`);
+      return '';
+    }
+  }
+
   /** Whether the people with the player know their next canon events in advance: asked once per (event, person) and
    *  kept; without an answer the GM gets both cases. */
   private async judgeForeknowledge(list: import('./integration').CompanionEvent[], signal: AbortSignal, operationId: string): Promise<void> {
@@ -1584,8 +1625,17 @@ export class CanonEngine {
           reaction: offered ? worldReactionSection(index, offered, c.binding.originDate) : undefined,
           requiredContacts: requiredSection(index, required, c.binding.originDate) || undefined,
           worldLore: this.worldLoreSection(),
+          minds: undefined as string | undefined,
         };
         let packet = buildPacket(packetArgs);
+        // 角色盘算: the people here who think before they act get this reply's moves worked out first
+        if (fresh && !leapTo && !continuing && this.settings.mindPlans !== false) {
+          // who the player's message involves: named in it, referred to (one candidate), or in the scene it sets
+          const involved = uniq([...(userInterp?.sceneEntities || []), ...userRefs.filter((r) => r.candidates?.length === 1).map((r) => r.candidates![0])]);
+          const minds = await this.planMinds(rIndex, retrieval, packet.text, userEntry!, prevGm, prof?.profile.personaName || '', involved, abort.signal, operationId);
+          this.checkFences(fences, excludeLast);
+          if (minds) { packetArgs.minds = minds; packet = buildPacket(packetArgs); }
+        }
         const engineContext = this.gmContext(packet.text, userEntry?.text, !!leapTo);
         const loreNames = uniq([...[...(offered?.actors || []), ...required.flatMap((o) => o.actors)].map((a) => index.entityName(a)), ...this.loreNames(index, retrieval, plan)]).slice(0, 16);
 
@@ -2885,19 +2935,19 @@ export class CanonEngine {
 
   /** 常态 of the pack's people: each version with how it stands in this game (in force now, ended, or not reached).
    *  A version not reached starts at an event still to come: a canon spoiler, shown only with spoilers on. */
-  natureView(spoilers: boolean): { people: { id: Id; name: string; player?: boolean; versions: (NatureVersion & { from: string | null; until: string | null; state: 'now' | 'ended' | 'later' })[] }[]; hidden: number } | null {
+  natureView(spoilers: boolean): { people: { id: Id; name: string; player?: boolean; mind?: MindProfile; versions: (NatureVersion & { from: string | null; until: string | null; state: 'now' | 'ended' | 'later' })[] }[]; hidden: number } | null {
     if (!this.campaign() || !this.current) return null;
     const idx = this.current.index;
     const s = this.current.replay.state;
     const title = (e?: Id | null) => (e ? idx.pack.events.get(e)?.title || e : null);
     const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
     let hidden = 0;
-    const people: NonNullable<ReturnType<CanonEngine['natureView']>>['people'] = [...idx.pack.entities.values()].filter((e) => e.nature?.length).map((e) => {
-      const nowAt = idx.natureNow(e.id)!.index;
-      const versions = e.nature!.map((v, i) => ({ ...v, from: title(v.from_event), until: title(v.until_event),
+    const people: NonNullable<ReturnType<CanonEngine['natureView']>>['people'] = [...idx.pack.entities.values()].filter((e) => e.nature?.length || e.mind).map((e) => {
+      const nowAt = idx.natureNow(e.id)?.index ?? -1;
+      const versions = (e.nature || []).map((v, i) => ({ ...v, from: title(v.from_event), until: title(v.until_event),
         state: (i === nowAt ? 'now' : i === 0 || occurred(v.from_event) ? 'ended' : 'later') as 'now' | 'ended' | 'later' }))
         .filter((v) => { if (v.state === 'later' && !spoilers) { hidden++; return false; } return true; });
-      return { id: e.id, name: e.name, versions };
+      return { id: e.id, name: e.name, ...(e.mind ? { mind: e.mind } : {}), versions };
     });
     // the player's own, from the Persona, first
     const prof = this.playerProfile()?.profile;

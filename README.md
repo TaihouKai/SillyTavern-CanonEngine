@@ -109,7 +109,7 @@ Operational problems are shown out of story: invalid pack, unresolved starting t
 
 ## Making a history pack
 
-`tools/pack-builder/` (canon-pack-builder) builds a pack from a work's story source: game scripts (FGO via Atlas Academy) or wiki arc pages (MediaWiki, used for 魔禁). Code does the mechanical parts (download, parsing, who is present, dates, timeline, assembly, `canon-lint`); a cheap model (DeepSeek Flash by default, any OpenAI-compatible API) writes the summaries, classifications, entity descriptions and 角色常态. Python 3.10+, standard library only. A new work needs a project file in `tools/pack-builder/projects/`, and an adapter when its source has a new format. Setup, commands and costs: [tools/pack-builder/README.md](tools/pack-builder/README.md) (Chinese). Downloaded source text, model caches, built packs (`work/`) and your API key (`config.json`) stay local; they are git-ignored.
+`tools/pack-builder/` (canon-pack-builder) builds a pack from a work's story source: game scripts (FGO via Atlas Academy) or wiki arc pages (MediaWiki, used for 魔禁). Code does the mechanical parts (download, parsing, who is present, dates, timeline, assembly, `canon-lint`); a cheap model (DeepSeek Flash by default, any OpenAI-compatible API) writes the summaries, classifications, entity descriptions, 角色常态 and 思考方式. Python 3.10+, standard library only. A new work needs a project file in `tools/pack-builder/projects/`, and an adapter when its source has a new format. Setup, commands and costs: [tools/pack-builder/README.md](tools/pack-builder/README.md) (Chinese). Downloaded source text, model caches, built packs (`work/`) and your API key (`config.json`) stay local; they are git-ignored.
 
 ## Context size
 

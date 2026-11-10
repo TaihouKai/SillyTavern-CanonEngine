@@ -582,6 +582,8 @@ export class StModel implements ModelPort {
    *  refuses it (an answer with no JSON at all) or returns nothing. Its own extra body parameters. */
   taskBackupProfileId: () => string = () => '';
   taskBackupExtraBody: () => string = () => '';
+  /** Connection profile for 角色盘算 (the mind task; '' = the analysis connection). Its own preset's body parameters. */
+  mindProfileId: () => string = () => '';
   /** Tasks the backup answered since the last takeUsage(), with why. */
   private backupUses: string[] = [];
 
@@ -663,7 +665,8 @@ export class StModel implements ModelPort {
         let why: string;
         for (let attempt = 1; ; attempt++) {
           try {
-            const out = await this.complete(msgs, budget, opts.signal);
+            const own = task === 'mind' ? this.mindProfileId() : '';
+            const out = own ? await this.complete(msgs, budget, opts.signal, own, '') : await this.complete(msgs, budget, opts.signal);
             if (!hasBackup || !looksRefused(out)) return out;
             why = `refused: "${out.replace(/\s+/g, ' ').slice(0, 120)}"`;
             break;
