@@ -54,13 +54,21 @@ const countUp = (el, to) => {
 // the nixie meter: digits scramble and settle on a new reading, now and then
 const tubes = document.querySelector('#meter .tubes');
 const CELLS = 8;
+const CATHODES = '<span class="cath">' + [...'0123456789'].map((n) => `<span>${n}</span>`).join('') + '</span>';
 for (let i = 0; i < CELLS; i++) {
   const d = document.createElement('div');
-  d.className = 'tube' + (i === 1 ? ' dot' : '');
-  d.innerHTML = '<b>' + (i === 1 ? '.' : '0') + '</b>';
+  d.className = 'cell' + (i === 1 ? ' dot' : '');
+  d.innerHTML = i === 1 ? '<i></i>' : `<div class="tube"><span class="mesh"></span>${CATHODES}<b>0</b><span class="glass"></span></div><div class="socket"></div>`;
   tubes.appendChild(d);
 }
-const digits = [...tubes.querySelectorAll('.tube:not(.dot) b')];
+const digits = [...tubes.querySelectorAll('.tube b')];
+
+// the title leans toward the pointer
+const title = document.getElementById('title');
+if (!reduced) addEventListener('pointermove', (e) => {
+  title.style.setProperty('--ry', ((e.clientX / innerWidth - 0.5) * 14).toFixed(2) + 'deg');
+  title.style.setProperty('--rx', ((0.5 - e.clientY / innerHeight) * 10).toFixed(2) + 'deg');
+}, { passive: true });
 const reading = () => [Math.random() < 0.6 ? 0 : 1, ...Array.from({ length: CELLS - 2 }, () => Math.floor(Math.random() * 10))];
 const settle = () => {
   const target = reading();
