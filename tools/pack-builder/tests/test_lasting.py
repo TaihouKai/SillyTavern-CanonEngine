@@ -54,18 +54,19 @@ class LastingTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             pj, pk = Project(d), pack()
             known = lasting.generate(pj, FakeClient(), pk)
-            self.assertEqual(known, {'city|被大量元素占据并袭击': 'passing', 'city|瓦解': 'lasting', 'city|遭到袭击': 'passing'})
+            # a person's status too (live: 一方通行 「黑翼暴走后力竭昏倒」 for a month)
+            self.assertEqual(known, {'city|被大量元素占据并袭击': 'passing', 'city|瓦解': 'lasting', 'city|遭到袭击': 'passing', 'p|被袭击': 'passing'})
             n = lasting.apply(pk, pj.p('lasting.json'))
-            self.assertEqual(n, 2)
-            # a person's status is not sorted; the lasting one stays; a HARD event bound to nothing else is SOFT
-            self.assertEqual(pk['events'][0]['canonical_effects'], [st('p', '被袭击'), st('city', '瓦解')])
+            self.assertEqual(n, 3)
+            # the lasting one stays; a HARD event bound to nothing else is SOFT
+            self.assertEqual(pk['events'][0]['canonical_effects'], [st('city', '瓦解')])
             self.assertEqual(pk['events'][0]['outcomes'], [st('city', '瓦解')['fact']])
             self.assertEqual(pk['events'][1]['canonical_effects'], [])
             self.assertEqual(pk['events'][1]['classification'], 'SOFT')
             # decided once: a rebuild applies the file
             write_json(pj.p('lasting.json'), known)
             pk2 = pack()
-            self.assertEqual(lasting.apply(pk2, pj.p('lasting.json')), 2)
+            self.assertEqual(lasting.apply(pk2, pj.p('lasting.json')), 3)
 
     def test_an_agreement_is_not_membership(self):
         by_id = {'church': {'kind': 'organization'}, 'city': {'kind': 'organization'}, 'coalition': {'kind': 'organization'}}

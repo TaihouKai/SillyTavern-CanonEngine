@@ -157,7 +157,7 @@ def page_title(d, pages):
 
 def page_english(d, pages):
     t = page_title(d, pages)
-    m = re.search(r'\|\s*英文\s*=\s*([^\n|{}]+)', pages.get(t) or '') if t else None
+    m = re.search(r'\|\s*英文(?:名)?\s*=\s*([^\n|{}]+)', pages.get(t) or '') if t else None
     return m.group(1).strip() if m else ''
 
 
@@ -223,6 +223,38 @@ def build_entities(project, c, rep):
             continue
         kept.append(g)
     groups = kept
+    # a person named by what is only the start of another person's name, with no page of their own, is that person
+    # (泷壶 of 泷壶理后); a name among its aliases that is someone's page of their own is that someone (live: 天草式's
+    # 对马 and 泷壶理后 were one entity, "泷壶", with 泷壶理后's description and 对马's id)
+    is_person_page = lambda t: bool(re.match(r'\s*(?:\{\{[^{}]*\}\}\s*)*\{\{Infobox character', pages.get(t) or '', re.I))  # noqa: E731
+    by_name = {names.clean(described[g[0]]['name']): g for g in groups if described[g[0]]['kind'] == 'person'}
+    for g in list(groups):
+        d = described[g[0]]
+        n = names.clean(d['name'])
+        if d['kind'] != 'person' or n in pages or len(n) < 2:
+            continue
+        longer = [h for m, h in by_name.items() if h is not g and m.startswith(n) and len(m) > len(n) and m in pages]
+        if len(longer) != 1:
+            continue
+        h = longer[0]
+        own = uniq([a for k in g[1] for a in described[k].get('aliases', []) + list((described[k].get('names') or {}).keys())
+                    if is_person_page(a) and names.clean(a) != names.clean(described[h[0]]['name'])])
+        gone = set(own) | {page_english({'name': a}, pages) for a in own}
+        for k in g[1]:
+            described[k] = dict(described[k], aliases=[a for a in described[k].get('aliases', []) if a not in gone],
+                                names={x: c for x, c in (described[k].get('names') or {}).items() if x not in gone})
+        h[1].extend(g[1])
+        groups.remove(g)
+        rep.add('merged', f'{d["name"]}（{g[0]}）是 {described[h[0]]["name"]} 的简称，并入')
+        for a in own:
+            if names.clean(a) in by_name:
+                continue
+            k = f'page:{a}'
+            described[k] = {'key': k, 'name': a, 'aliases': [page_english({'name': a}, pages)] if page_english({'name': a}, pages) else [], 'kind': 'person',
+                            'description': page_lead(project, a) or a, 'id': slug(page_english({'name': a}, pages)) or slug(a), 'weight': 1, 'names': {a: 1}}
+            groups.append((k, [k]))
+            by_name[names.clean(a)] = groups[-1]
+            rep.add('merged', f'{a} 有自己的页面，从 {d["name"]} 分出')
     # people and organizations get the plain slug; a place of the same name gets "-place" (迦勒底 the institution
     # and 迦勒底 the base)
     groups.sort(key=lambda g: described[g[0]]['kind'] == 'place')
@@ -342,6 +374,8 @@ def page_lead(project, title):
     t = clean_wikitext(t, 4000)
     t = re.sub(r'\{\{[^{}]*\}\}', '', t)
     first = next((x.strip() for x in t.split('\n') if x.strip() and not x.strip().startswith(('=', '[', '{', '|'))), '')
+    if first and first[0] in '，,、。；：':
+        first = title + first      # the name was a template the cleaning took out ({{Nihongo|海原|…}}，全名不明…)
     return first[:200]
 
 
@@ -862,7 +896,8 @@ def build(project, out_path=None, raw=False):
         arcs.append({'id': arc_id, 'title': ch['title'], 'summary': ed.get('summary') or ' '.join(recaps)[:600] or ch['title'], 'event_ids': arc_events})
 
     # deaths that do not hold (cpb/deaths.py: decided by the model, applied here)
-    back, n_back = deaths.apply(events, project.p('deaths.json'), rep) if not raw else (set(), 0)
+    back, n_back = deaths.apply(events, project.p('deaths.json'), rep, ents) if not raw else (set(), 0)
+    by_id.update({e['id']: e for e in ents if e['id'] not in by_id})
     if n_back:
         st.settled_where |= back
     # an injury still open when the person takes part in a later chapter, a day later, or for the last time in its
@@ -900,6 +935,30 @@ def build(project, out_path=None, raw=False):
                     st.recovery_values.add(healed)
                     rep.add('healed', f'{ent}：{iev} 的伤势“{val}”在 {e["id"]}（{e["title"]}）之前未见结束，按已恢复处理')
                     del open_inj[ent]
+    # a whereabouts of the moment (missing, carried off, vanished) ends when the person is there again in a later
+    # chapter or a day later (live: 神裂火织 「已消灭（被龙卷风吞噬而消失）」, 奥提努斯 dissolved into light, both back in
+    # later events)
+    if project.get('end_whereabouts', True):
+        at = lambda x: x['when']['earliest']['day'] * 1440 + x['when']['earliest']['minute']  # noqa: E731
+        open_w = {}
+        back = '重新出现'
+        for e in sorted(events, key=at):
+            for o in e['canonical_effects']:
+                f = o.get('fact')
+                if f and f['predicate'] == 'whereabouts' and o.get('op', 'set') == 'set':
+                    open_w[f['entity_id']] = (e['arc_id'], at(e), f['value'], e['id'])
+            for who in list(e['entity_ids']):
+                w = open_w.get(who)
+                if not w or w[3] == e['id'] or w[2] in st.settled_where:
+                    continue
+                if (w[0] != e['arc_id'] or at(e) >= w[1] + 1440) and not any((o.get('fact') or {}).get('entity_id') == who and (o.get('fact') or {}).get('predicate') in ('whereabouts', 'alive') for o in e['canonical_effects']):
+                    fact = {'entity_id': who, 'predicate': 'whereabouts', 'value': back}
+                    e['canonical_effects'].append({'op': 'set', 'fact': fact})
+                    if e['classification'] != 'HARD':
+                        e['outcomes'].append(dict(fact))
+                    st.settled_where.add(back)
+                    rep.add('healed', f'{who}：{w[3]} 的去向“{w[2]}”在 {e["id"]}（{e["title"]}）再出场时结束')
+                    del open_w[who]
     # time frames: a place used only by the events of one frame belongs to it (the engine then knows a scene there is in
     # that frame); places also used at home or in several frames stay in the main frame
     place_frames = collections.defaultdict(set)

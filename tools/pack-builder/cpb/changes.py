@@ -115,4 +115,6 @@ def complete(events, initial_facts):
             ev['canonical_effects'].append(ef)
             if ev['classification'] != 'HARD':
                 ev['outcomes'].append(dict(ef))
+            if ef['entity_id'] not in ev['entity_ids']:
+                ev['entity_ids'].append(ef['entity_id'])
     return events

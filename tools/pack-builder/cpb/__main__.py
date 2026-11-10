@@ -7,7 +7,7 @@ import os
 from . import adapters, assemble, deaths, dedupe, lasting, llm, mind, nature, report, skeleton, start, steps
 from . import prompts as P
 from .config import Project, load_global
-from .util import log, read_json, write_json
+from .util import ROOT, log, read_json, write_json
 
 # calibrated on a real run (DeepSeek V4.1 Flash, FGO CN, 2 chapters): per unit ~0.62 tokens per character of
 # Chinese script plus ~2.3k of instructions in, ~2.6k out; ~4.4 beats per unit; the chapter step ~215 tokens in and
@@ -186,7 +186,7 @@ def main(argv=None):
         pk = assemble.build(project, project.p('out', 'raw.canon.json'), raw=True)[0]
         cl = client(gcfg, project, args)
         try:
-            deaths.generate(project, cl, pk)
+            deaths.generate(project, cl, pk, read_json(os.path.join(ROOT, project['wiki']['huiji'])) if (project.get('wiki') or {}).get('huiji') else {})
         except llm.BudgetExceeded as e:
             log(str(e))
             return 2

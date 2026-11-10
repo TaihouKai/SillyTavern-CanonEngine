@@ -61,7 +61,7 @@ def write(project, pack, rep, chrep, clock, pack_path, lint_res, ledger=None):
             L.append(f'- **{e["title"]}**（{e["id"]}，{e["when"]["label"]}）：{e["required_description"]}  \n  结果：{outs}')
     names = {'downgraded': '改为 SOFT 的 HARD', 'unresolved': '未能对应到实体的名字（这些人物/变化没进包）', 'alias_collision': '别名冲突（未作别名）',
              'name_collision': '同名实体', 'link_dropped': '舍弃的关联', 'missing': '缺少的步骤结果', 'healed': '按“已恢复”处理的伤势（编辑推定）',
-             'merged': '合并为同一实体的候选', 'old_unmapped': '原有事件中没有对应片段、原样保留的', 'old_folded': '一个片段合并了多个原有事件',
+             'merged': '合并为同一实体的候选', 'deaths': '死亡判断（复活、没死、另一个体）',
              'old_multi': '被多个篇章认领的原有事件', 'order': '按前提条件调整的时间'}
     for k, title in names.items():
         items = rep.items.get(k)

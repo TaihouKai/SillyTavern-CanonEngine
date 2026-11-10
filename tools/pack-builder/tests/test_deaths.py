@@ -35,6 +35,23 @@ class DeathsTest(unittest.TestCase):
         self.assertEqual(events[0]['canonical_effects'], [dies('a')])
         self.assertEqual(settled, {deaths.BACK})
 
+    def test_another_individual_takes_the_later_appearances(self):
+        # 垣根帝督 dies; the one present later is 垣根帝督 (独角仙05), a page of its own on the wiki
+        events = [ev('k-dies', 1, [dies('k')]), ev('later', 3, [{'op': 'set', 'fact': {'entity_id': 'k', 'predicate': 'status', 'value': '白色'}}], cast=['k'])]
+        events[1]['entity_ids'] = ['k', 'x']
+        ents = [{'id': 'k', 'name': '垣根帝督', 'aliases': [], 'kind': 'person', 'static_description': '', 'source_refs': []}]
+        self.assertEqual(deaths.other_pages('垣根帝督', {'垣根帝督': '{{Other uses|垣根帝督 (独角仙05)|若要查询…}}'}), ['垣根帝督 (独角仙05)'])
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'deaths.json')
+            write_json(path, {'k-dies|k': {'is': 'another', 'as': '垣根帝督 (独角仙05)', 'why': '独角仙05'}})
+            deaths.apply(events, path, None, ents)
+        other = ents[-1]
+        self.assertEqual(other['name'], '垣根帝督 (独角仙05)')
+        self.assertEqual(events[1]['entity_ids'], [other['id'], 'x'])
+        self.assertEqual(events[1]['cast'], [{'entity_id': other['id']}])
+        self.assertEqual(events[1]['canonical_effects'][0]['fact']['entity_id'], other['id'])
+        self.assertEqual(events[0]['canonical_effects'], [dies('k')])
+
 
 if __name__ == '__main__':
     unittest.main()
