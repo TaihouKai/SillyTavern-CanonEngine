@@ -144,7 +144,8 @@ def unit_prompt(project, c, u, text, part=None):
         n = u.get('part_of') or 1
         user = P.SUMMARY_WIKI_USER.format(work=project.get('pack', {}).get('title', project.name), chapter=chapter['title'], start=chapter['start'],
                                           end=chapter['end'], start_year=chapter['start'][:4], siblings='；'.join(near),
-                                          part=(f'This is part {u["order"]} of {n} of the material: summarize the happenings of this part\'s English text (the Chinese texts are the whole arc, for names, dates and details).\n' if n > 1 else ''),
+                                          part=(f'This is part {u["order"]} of {n} of the material: the Chinese texts of the whole arc. Summarize every happening they tell, from the arc\'s beginning to its end (the English parts are summarized separately; the same happening told twice is merged later).\n' if u.get('zh_only') else
+                                                f'This is part {u["order"]} of {n} of the material: summarize the happenings of this part\'s English text (the Chinese texts are the whole arc, for names, dates and details).\n' if n > 1 else ''),
                                           text=text)
         return system, user
     units = {x['id']: x for x in c['units']}
@@ -281,8 +282,7 @@ def edit_chapters(project, client, chapters=None):
         ids = [b['id'] for b in beats]
         prev = read_json(out_path)
         version = P.CHAPTER_WIKI_VERSION if wiki(project) else P.CHAPTER_VERSION
-        olds = old_records(project, ch) if wiki(project) else []
-        if prev and prev.get('beat_ids') == ids and prev.get('version') == version and prev.get('old_ids', []) == [o['id'] for o in olds]:
+        if prev and prev.get('beat_ids') == ids and prev.get('version') == version:
             continue
         # a long chapter is edited in parts (cut between units), each seeing the whole chapter's beat titles
         parts = chapter_parts(sums, project.get('chapter', {}).get('max_beats', 90))
@@ -290,19 +290,16 @@ def edit_chapters(project, client, chapters=None):
         outline = '\n'.join(f'[{b["id"]}] {b["title"]}' for b in beats)
         n = len(parts)
 
-        def job(part, path, n=n, system=system, outline=outline, ch=ch, i=i, olds=olds, version=version):
+        def job(part, path, n=n, system=system, outline=outline, ch=ch, i=i, version=version):
             pids = [b['id'] for b in part]
             note = '' if n == 1 and len(path) == 1 else P.CHAPTER_PART.format(k=path[0] + 1, n=n, outline=outline)
             user = P.CHAPTER_USER.format(work=project.get('pack', {}).get('title', project.name), order=ch['order'], chapter=ch['title'], era=ch['era'] or '—',
                                          prev=chs[i - 1]['title'] if i else '（无）', next=chs[i + 1]['title'] if i + 1 < len(chs) else '（无）',
                                          beats='\n'.join(_beat_line(b) for b in part)) + note
             check = check_chapter(pids, max_hard)
-            if olds:
-                user += P.CHAPTER_OLD.format(records='\n'.join(_old_line(o) for o in olds))
-                check = check_old(check, [o['id'] for o in olds], pids)
-            mt = min(60000, 4000 + 220 * len(part) + 60 * len(olds))
+            mt = min(60000, 4000 + 220 * len(part))
             return lambda: client.call('chapter', version, system, user, check, max_tokens=mt, json_mode=False)
-        plan[ch['id']] = (ids, out_path, [o['id'] for o in olds], version)
+        plan[ch['id']] = (ids, out_path, version)
         for k, part in enumerate(parts):
             pending[(ch['id'], (k,))] = (part, job)
     if not pending:
@@ -326,67 +323,15 @@ def edit_chapters(project, client, chapters=None):
         if not retry:
             break
         pending = retry
-    for cid, (ids, out_path, old_ids, version) in plan.items():
+    for cid, (ids, out_path, version) in plan.items():
         keys = sorted(k for k in results if k[0] == cid)
         got = [b for k in keys for b in check_ids(results[k])]
         if set(ids) - set(got):
             warn(f'{cid}: some parts have no usable edit; run the command again to retry')
             continue
         rs = [results[k] for k in keys]
-        om = {}
-        for r in rs:
-            for x in _list(r.get('old_map')):
-                if isinstance(x, dict) and x.get('old') in old_ids and x.get('beat') in ids and not om.get(x['old']):
-                    om[x['old']] = x['beat']
-        write_json(out_path, normalize_chapter(merge_parts(rs), ids, max_hard) | {'chapter': cid, 'beat_ids': ids, 'version': version, 'parts': len(rs),
-                                                                                 'old_ids': old_ids, 'old_map': {o: om.get(o, '') for o in old_ids}})
+        write_json(out_path, normalize_chapter(merge_parts(rs), ids, max_hard) | {'chapter': cid, 'beat_ids': ids, 'version': version, 'parts': len(rs)})
     log(f'chapters done — {client.ledger.summary()}')
-
-
-def old_records(project, ch):
-    """The base pack's events in a chapter's period (wiki projects): what the chapter edit maps to its beats."""
-    import datetime as dt
-    import os
-    from .util import ROOT
-    base = _base_pack(os.path.join(ROOT, project['base_pack'])) if project.get('base_pack') else None
-    if not base:
-        return []
-    origin = dt.date.fromisoformat(project['timeline']['origin_date'])
-    day = lambda s: (dt.date.fromisoformat(s) - origin).days  # noqa: E731
-    keep = day(project.get('base_keep_before', '1900-01-01'))
-    lo, hi = day(ch['start']) - 1, day(ch['end']) + 1
-    return [e for e in base['events'] if e['when']['earliest']['day'] >= keep and e['when']['earliest']['day'] <= hi and e['when']['latest']['day'] >= lo]
-
-
-_BASE = {}
-
-
-def _base_pack(path):
-    if path not in _BASE:
-        _BASE[path] = read_json(path)
-    return _BASE[path]
-
-
-def _old_line(e):
-    s = e.get('summary') or {}
-    text = s.get('course') if isinstance(s, dict) else str(s)
-    req = f'；必须发生：{e["required_description"]}' if e['classification'] == 'HARD' and e.get('required_description') else ''
-    return f'[{e["id"]}] {e["title"]}（{e["classification"]}；{e["when"].get("label", "")}）{(text or "")[:160]}{req[:200]}'
-
-
-def check_old(check, old_ids, pids):
-    def f(obj):
-        probs = check(obj)
-        if isinstance(obj, dict):
-            got = {x.get('old') for x in _list(obj.get('old_map')) if isinstance(x, dict)}
-            miss = [o for o in old_ids if o not in got]
-            if miss:
-                probs.append('old_map lacks these records: ' + ', '.join(miss[:20]))
-            bad = [x.get('beat') for x in _list(obj.get('old_map')) if isinstance(x, dict) and x.get('beat') and x.get('beat') not in pids]
-            if bad:
-                probs.append('old_map names beats that are not in the list: ' + ', '.join(str(b) for b in bad[:10]))
-        return probs
-    return f
 
 
 def split_part(part):
@@ -586,20 +531,15 @@ def describe_entities(project, client):
         if sorted(v.get('sig') or sig({'names': collections.Counter(v.get('names') or {})})) != sig(cand[k]):
             v['version'] = 'stale'
         v.update(names=dict(cand[k]['names']), chapters=cand[k]['chapters'], weight=cand[k]['weight'])
-    # entities of the base pack are kept as they are
-    todo = [e for k, e in cand.items() if done.get(k, {}).get('version') != P.ENTITY_VERSION and e['weight'] > 0 and not k.startswith('base:')]
+    todo = [e for k, e in cand.items() if done.get(k, {}).get('version') != P.ENTITY_VERSION and e['weight'] > 0]
     todo.sort(key=lambda e: (-e['weight'], e['key']))
     batch = project.get('entities', {}).get('batch', 30)
-    registry = '\n'.join(f'base:{e["id"]} {e["name"]}' + (f'（{"、".join(e.get("aliases", [])[:6])}）' if e.get('aliases') else '') for e in names.base_entities(project))
     jobs = []
     for i in range(0, len(todo), batch):
         part = todo[i:i + batch]
         keys = [e['key'] for e in part]
         system = P.ENTITY_SYSTEM.format(lang=lang_name(project))
         user = P.ENTITY_USER.format(work=project.get('pack', {}).get('title', project.name), items='\n\n'.join(entity_item(c, e) for e in part))
-        if registry:
-            system += P.ENTITY_BASE
-            user += '\n\nExisting registry:\n' + registry
         jobs.append((i, (lambda s=system, u=user, ks=keys: client.call('entity', P.ENTITY_VERSION, s, u, check_entities(ks), max_tokens=12000))))
     if jobs:
         log(f'entities: {len(todo)} candidates in {len(jobs)} model calls')

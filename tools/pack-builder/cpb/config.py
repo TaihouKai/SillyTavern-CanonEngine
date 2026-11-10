@@ -34,8 +34,7 @@ class Project:
             raise SystemExit(f'project file not found: {path}')
         self.path = path
         self.data = read_json(path)
-        # projects/<name>.local.json (not in git): settings for this machine only, over the shared project file —
-        # e.g. an earlier pack of your own to refine (base_pack), which you do not publish
+        # projects/<name>.local.json (not in git): settings for this machine only, over the shared project file
         local = os.path.splitext(path)[0] + '.local.json'
         if os.path.exists(local):
             self.data = _merge(self.data, read_json(local))

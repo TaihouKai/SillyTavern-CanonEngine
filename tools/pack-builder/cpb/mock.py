@@ -50,6 +50,11 @@ def mock(task, user):
     if task == 'lasting':   # a status that names an attack is passing, the rest lasts
         items = re.findall(r'^(\d+)\. .*? — status: (.*)$', user, re.M)
         return {'items': [{'n': int(n), 'is': 'passing' if '袭击' in v else 'lasting'} for n, v in items]}
+    if task == 'deaths':   # whoever is present later came back
+        return {'items': [{'n': int(n), 'is': 'returned'} for n in re.findall(r'^(\d+)\. ', user, re.M)]}
+    if task == 'start':   # the first candidate is a member
+        m = re.search(r'^Candidate people[^\n]*\n([^ |\n]+) \|', user, re.M)
+        return {'members': [m.group(1)], 'leader': None, 'why': '（模拟）'} if m else {'none': True}
     if task == 'mind':
         return {'deliberation': 'situational', 'sharpness': 'plain', 'approach': '（模拟）照常处理', 'speaks': '（模拟）'}
     if task == 'nature':

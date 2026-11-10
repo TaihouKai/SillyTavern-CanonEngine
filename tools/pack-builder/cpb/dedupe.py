@@ -6,6 +6,7 @@ beats that are one happening; code merges each group into its first beat (the lo
 person, place, motive and change of all of them) and drops the rest.
 """
 import collections
+import re
 
 from .util import log, read_json, write_json
 
@@ -27,19 +28,36 @@ def check(ids):
     def f(obj):
         if not isinstance(obj, dict) or not isinstance(obj.get('groups'), list):
             return ['"groups" must be a list']
-        seen, probs = set(), []
-        for g in obj['groups']:
-            if not isinstance(g, list) or len(g) < 2:
-                probs.append(f'a group needs two or more ids: {g}')
-                continue
-            for i in g:
-                if i not in ids:
-                    probs.append(f'unknown beat id {i}')
-                elif i in seen:
-                    probs.append(f'{i} is in two groups')
-                seen.add(i)
-        return probs
+        # a beat in two groups joins them, a group of one is nothing (joined() makes them so): only unknown ids are
+        # sent back (live: the reply for 超电磁炮 大霸星祭篇 was refused three times for beats in two groups, and
+        # none of its duplicates was merged)
+        return [f'unknown beat id {i}' for g in obj['groups'] if isinstance(g, list) for i in g if i not in ids]
     return f
+
+
+def joined(groups):
+    """Groups sharing a beat are one; groups of one are dropped; each keeps the order its beats were first named."""
+    parent = {}
+
+    def find(x):
+        while parent.setdefault(x, x) != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    order = []
+    for g in groups:
+        if not isinstance(g, list):
+            continue
+        for i in g:
+            if i not in parent:
+                order.append(i)
+            find(i)
+        for i in g[1:]:
+            parent[find(i)] = find(g[0])
+    out = {}
+    for i in order:
+        out.setdefault(find(i), []).append(i)
+    return [g for g in out.values() if len(g) >= 2]
 
 
 CROSS_VERSION = 'dedupe-cross-2'
@@ -178,7 +196,7 @@ def run(project, client, chapters=None):
         r = res.get(cid)
         if r is None or isinstance(r, Exception):
             continue
-        groups = [g for g in r['groups'] if isinstance(g, list) and len(g) >= 2]
+        groups = joined(r['groups'])
         n += sum(len(g) - 1 for g in groups)
         write_json(path, {'chapter': cid, 'version': VERSION, 'beat_ids': ids, 'groups': groups})
     log(f'dedupe: {n} duplicate beats found — {client.ledger.summary()}')
@@ -191,8 +209,18 @@ def apply(project, chapter_id, sums):
     arc tells too (cross_groups) merged into the one beat kept for them."""
     d = read_json(project.p('dedupe', f'{chapter_id}.json'))
     ids = [b['id'] for s in sums for b in s['beats']]
-    if d and d.get('beat_ids') == ids:
-        sums = _merge_groups(sums, d['groups'], {b['id']: b for s in sums for b in s['beats']})
+    groups = list(d['groups']) if d and d.get('beat_ids') == ids else []
+    # one title on one day from two parts of the arc is one happening told twice (the Chinese part and an English
+    # part name it alike; live: 30 such pairs the model's groups had missed)
+    seen = {}
+    for s_ in sums:
+        for b_ in s_['beats']:
+            k = (re.sub(r'\s+', '', b_['title']), b_['time'].get('date') or '')
+            if k[1] and k in seen and seen[k][1] != s_['unit']:
+                groups.append([seen[k][0], b_['id']])
+            seen.setdefault(k, (b_['id'], s_['unit']))
+    if groups:
+        sums = _merge_groups(sums, joined(groups), {b['id']: b for s in sums for b in s['beats']})
     cross = cross_groups(project)
     if not cross:
         return sums

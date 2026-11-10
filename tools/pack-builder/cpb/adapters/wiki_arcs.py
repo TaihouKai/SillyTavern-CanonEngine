@@ -209,7 +209,7 @@ def timeline_lines(huiji, pages, arc_names):
 # ---------------------------------------------------------------------------------------------------------------
 # glossary (English name -> Chinese name)
 
-def glossary(huiji, base_entities):
+def glossary(huiji):
     g = {}
     for title, v in huiji.items():
         if not v:
@@ -220,10 +220,6 @@ def glossary(huiji, base_entities):
                 g.setdefault(m.group(1).strip(), title)
         for m in re.finditer(r'\{\{nihongo\|([^|{}]+)\|(?:[^|{}]|\{\{[^{}]*\}\})*\|([A-Za-z][^|{}]+?)\s*(?:\||\}\})', v, re.I):
             g.setdefault(m.group(2).strip(), m.group(1).strip())
-    for e in base_entities or []:
-        for a in e.get('aliases', []):
-            if re.fullmatch(r"[A-Za-z][A-Za-z .'\-&]+", a):
-                g[a] = e['name']
     g = {k: v for k, v in g.items() if 2 < len(k) < 60 and k.lower() not in GLOSSARY_STOP}
     # a single word that is part of a longer name belongs to whoever the text means ("Anna" of "Anna Sprengel" is not
     # the 杏奈 whose page lists "Anna"): left to the model
@@ -252,8 +248,7 @@ def build_corpus(project):
     cfg = project['wiki']
     fandom = read_json(os.path.join(ROOT, cfg['fandom']), {})
     huiji = read_json(os.path.join(ROOT, cfg['huiji']), {})
-    base = read_json(os.path.join(ROOT, project['base_pack']), {}) if project.get('base_pack') else {}
-    g = glossary(huiji, base.get('entities'))
+    g = glossary(huiji)
     chron = chronologies(fandom)
     ratio = float(cfg.get('chronology_when_page_below', 0.6))
     limit = int(project.get('summary', {}).get('max_chars', 60000))
@@ -318,11 +313,17 @@ def build_corpus(project):
                 n += len(b)
             if cur:
                 groups.append(cur)
+            # the Chinese texts are a part of their own too: what only they tell (live: the English parts of
+            # 第三次世界大战篇 told its last day, and the Russian days before it, in the Chinese page only, were lost)
+            if zh_text:
+                groups.append(None)
         uids = []
         for k, grp in enumerate(groups):
             uid = f'{cid}.{k + 1:03d}'
-            body = SPLIT.join(grp)
-            if len(groups) == 1:
+            body = SPLIT.join(grp) if grp is not None else ''
+            if grp is None:
+                text = f'【本部分：中文资料（全篇）；第{k + 1}/{len(groups)}部分】\n' + zh_text
+            elif len(groups) == 1:
                 text = (zh_text + ('\n\n' if zh_text and body else '') + body).strip()
             else:
                 text = ('【中文参考资料（全篇；本部分只摘要下面英文部分所写的情节，中文资料用于译名、日期和补充细节）】\n' + zh_text + '\n\n' if zh_text else '') + \
@@ -332,7 +333,7 @@ def build_corpus(project):
                 text = f'【译名对照（英文→中文）】{gl}\n\n' + text
             write_text(project.p('text', cid, f'{uid}.txt'), text)
             units.append({'id': uid, 'chapter': cid, 'order': k + 1, 'title': a['title'] + (f'（第{k + 1}部分）' if len(groups) > 1 else ''), 'sub': '',
-                          'place': '', 'present': [], 'speakers': {}, 'chars': len(text), 'scripts': [], 'part_of': len(groups)})
+                          'place': '', 'present': [], 'speakers': {}, 'chars': len(text), 'scripts': [], 'part_of': len(groups), **({'zh_only': True} if grp is None else {})})
             uids.append(uid)
         report.append(f'{cid}: zh {len(zh_text):,} / page {page_len:,} / accounts {acc_len:,}{" (used)" if use_acc else ""} -> {len(groups)} unit(s)')
         chapters.append({'id': cid, 'order': i + 1, 'source_id': cid, 'title': a['title'], 'name': a['title'], 'era': '', 'units': uids, 'event': False,

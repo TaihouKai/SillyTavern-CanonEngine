@@ -3,9 +3,14 @@ as members, and a leader handed over as "remove" of the old one and "add" of the
 the fact as it stands in the game, so whatever play made of it is kept (the player in a canon organization, a leader
 the Persona made). This pass walks all events in time order and completes what a single beat cannot know: a new
 leader whose predecessor is named elsewhere, and a death that takes the person out of every organization."""
+import re
 
 SETS = ('members',)
 SLOTS = ('leader',)
+# an organization's status that says it is gone: nobody is in it any more (live: 黄金黎明 覆灭 in 1900 with its members
+# still listed in 2020)
+DISSOLVED = re.compile(r'瓦解|覆灭|解散|解体|灭亡|组织毁灭|全员被歼灭|成员全灭')
+NOT_WHOLE = re.compile(r'部分|暂时|一度|分裂|濒临|险些|几乎|面临')
 
 
 def effect_key(ef):
@@ -37,6 +42,7 @@ def complete(events, initial_facts):
         elif p in SLOTS:
             slots[(e, p)] = v
     at = lambda x: (x['when']['earliest']['day'] * 1440 + x['when']['earliest']['minute']) if x['when'].get('earliest') else float('inf')  # noqa: E731
+    out_by_death = {}       # who a death took out of which sets: a return puts them back
     for ev in sorted(events, key=at):
         added = []
         dead = set()
@@ -79,10 +85,24 @@ def complete(events, initial_facts):
                     slots[(ent, pred)] = val
             elif pred == 'alive' and val is False:
                 dead.add(ent)
+            elif pred == 'alive' and val is True and out_by_death.get(ent):
+                for (org, p_) in out_by_death.pop(ent):
+                    if (org, p_) in sets and ent not in sets[(org, p_)]:
+                        sets[(org, p_)].add(ent)
+                        added.append(change('add', org, p_, [ent]))
+            elif pred == 'status' and isinstance(val, str) and DISSOLVED.search(val) and not NOT_WHOLE.search(val) and (sets.get((ent, 'members')) or slots.get((ent, 'leader'))):
+                gone = sorted(sets.get((ent, 'members')) or [])
+                if gone and not any(effect_key(x) == (ent, 'members', 'remove') for x in ev['canonical_effects']):
+                    added.append(change('remove', ent, 'members', gone))
+                sets[(ent, 'members')] = set()
+                if slots.get((ent, 'leader')) and not any(effect_key(x) == (ent, 'leader', 'remove') for x in ev['canonical_effects']):
+                    added.append(change('remove', ent, 'leader', slots.pop((ent, 'leader'))))
         for (org, pred), cur in sets.items():
             gone = sorted(cur & dead)
             if not gone:
                 continue
+            for g in gone:
+                out_by_death.setdefault(g, []).append((org, pred))
             mine = next((x for x in ev['canonical_effects'] + added if effect_key(x) == (org, pred, 'remove')), None)
             if mine:
                 mine['value'] = sorted(set(mine['value']) | set(gone))

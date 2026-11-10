@@ -57,7 +57,7 @@
  },
  "pack": {
   "pack_id": "toaru-index-chronicle",
-  "pack_version": "2.0.1",
+  "pack_version": "3.0.0",
   "title": "魔法禁书目录 编年史（旧约·新约·创约及外传）",
   "language": "zh-CN",
   "description": "《魔法禁书目录》系列（含超电磁炮、一方通行、未元物质、心理掌握、暗部少女共栖、幽幻姐妹等外传）的历史事件包。2.0 起由 canon-pack-builder 依据魔禁维基（灰机wiki）的篇章、时间线与考据页，以及英文 Toaru Wiki（fandom）的篇章页与人物经历逐篇细化；日期依考据页。HARD为主线关键节点，SOFT为可被玩家改变的重要事件（如角色死亡），FREE为背景与日常。恋爱关系一律不强制。",
@@ -97,6 +97,15 @@
   "学生"
  ],
  "arcs": [
+  {
+   "id": "prehistory",
+   "title": "前日谭（故事开始前的历史）",
+   "start": "0001-01-01",
+   "end": "2019-03-31",
+   "huiji": [
+    "时间线/前日谭"
+   ]
+  },
   {
    "id": "railgun-past",
    "title": "超电磁炮 美琴过去篇（一年前）",
@@ -1422,6 +1431,21 @@
    "fandom_volumes": [
     "Souyaku Toaru Majutsu no Index Light Novel Volume 16"
    ]
+  }
+ ],
+ "source_title": "魔禁维基（灰机wiki）篇章页、时间线与考据页；英文 Toaru Wiki（fandom）篇章页与人物经历",
+ "source_locator": "https://toaru.huijiwiki.com/ ；https://toarumajutsunoindex.fandom.com/ （本地快照）",
+ "groups": [
+  {
+   "id": "level5",
+   "name": "七名超能力者",
+   "aliases": [
+    "超能力者",
+    "Level 5",
+    "Level 5们",
+    "LEVEL5"
+   ],
+   "page": "超能力者"
   }
  ]
 }

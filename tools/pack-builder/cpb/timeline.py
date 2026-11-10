@@ -213,3 +213,97 @@ def windows(order, pos):
             hi = max(hi, s + 120)
         out[bid] = (s, max(s, hi))
     return out
+
+
+# ---- arcs with dates of their own (a project's "arcs": start and end per chapter, from the sources' chronology)
+
+def _day(origin, s):
+    return (dt.date.fromisoformat(s) - origin).days
+
+
+def _clock(s):
+    m = re.fullmatch(r'(\d{1,2}):(\d{2})', s or '')
+    if not m:
+        return None
+    h, mi = int(m.group(1)), int(m.group(2))
+    return h * 60 + mi if h < 24 and mi < 60 else None
+
+
+def place_arc(origin, arc, beats):
+    """{beat id: (start, end, dated)} for an arc's beats, in the pack's minutes."""
+    s0, e0 = _day(origin, arc['start']), _day(origin, arc['end'])
+    lo, hi = s0 * DAY + 8 * 60, e0 * DAY + 22 * 60
+    fixed, past = {}, {}
+    for i, b in enumerate(beats):
+        t = b['time']
+        if t.get('date'):
+            try:
+                d = _day(origin, t['date'])
+                if not s0 - 3 <= d <= e0 + 3:
+                    # a wrong year (the arc's month and day in another year) is the arc's year
+                    for y in range(int(arc['start'][:4]), int(arc['end'][:4]) + 1):
+                        dd = _day(origin, f'{y}{t["date"][4:]}')
+                        if s0 - 3 <= dd <= e0 + 3:
+                            d = dd
+            except ValueError:
+                continue
+            if not s0 - 3 <= d <= e0 + 3 and d < s0:
+                # a happening of the past the sources tell here: at its own date (out of the arc's sequence)
+                c = _clock(t.get('clock'))
+                past[beats[i]['id']] = (d * DAY + (c if c is not None else 9 * 60), d * DAY + (c if c is not None else 9 * 60) + max(5, t['duration_minutes']), True)
+                continue
+            if s0 - 3 <= d <= e0 + 3:
+                c = _clock(t.get('clock'))
+                if c is None:
+                    c = time_of(t.get('stated'))
+                if c is None and t.get('time_of_day') in HOUR:
+                    c = HOUR[t['time_of_day']] * 60
+                prev = fixed[max(fixed)] if fixed else None
+                if c is None:
+                    # no time of day: after the previous dated beat of that day, else the morning
+                    c = prev % DAY + 30 if prev is not None and prev // DAY == d else 9 * 60
+                elif prev is not None and prev // DAY == d and d * DAY + c <= prev and t['after_previous'] != 'parallel' and _clock(t.get('clock')) is None:
+                    # only a part of the day ("morning") that would put it before the beat it follows: right after it
+                    c = prev % DAY + 30
+                if prev is not None and d * DAY + c == prev and t['after_previous'] != 'parallel':
+                    c += 10
+                fixed[i] = d * DAY + c
+    if past:
+        rest = [b for b in beats if b['id'] not in past]
+        keep = {b['id']: j for j, b in enumerate(rest)}
+        out = place_arc(origin, arc, rest) if rest else {}
+        return {**out, **past}
+    # segments between dated beats (the arc's start and end bound the first and the last)
+    out = {}
+    idx = sorted(fixed)
+    bounds = [(-1, lo)] + [(i, fixed[i]) for i in idx] + [(len(beats), max(hi, max(fixed.values(), default=hi)))]
+    for (a, ta), (z, tz) in zip(bounds, bounds[1:]):
+        if a >= 0:
+            out[a] = (ta, ta + max(5, beats[a]['time']['duration_minutes']), True)
+        seg = list(range(a + 1, z))
+        if not seg:
+            continue
+        cur = out[a][1] if a >= 0 else ta
+        prev_start = out[a][0] if a >= 0 else ta
+        rel = []
+        for i in seg:
+            t = beats[i]['time']
+            if t['after_previous'] == 'parallel':
+                st = prev_start
+            elif a < 0 and i == seg[0]:
+                st = ta
+            else:
+                st = place_beat(cur, t)
+            en = st + max(5, t['duration_minutes'])
+            rel.append((st, en))
+            prev_start, cur = st, en
+        # compress into [ta, tz) when the cues run past the next dated beat (or the arc's end)
+        last = max(e for _, e in rel)
+        room = tz - ta
+        if tz > ta and (z < len(beats) and last >= tz or z == len(beats) and last > tz):
+            span = last - ta
+            f = max(0.01, (room - 1) / span) if span > 0 else 1.0
+            rel = [(ta + int((s - ta) * f), ta + max(int((e - ta) * f), int((s - ta) * f) + 1)) for s, e in rel]
+        for i, (s, e) in zip(seg, rel):
+            out[i] = (s, e, False)
+    return {beats[i]['id']: out[i] for i in range(len(beats))}

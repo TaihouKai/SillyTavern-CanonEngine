@@ -34,6 +34,16 @@ class ChangesTest(unittest.TestCase):
         self.assertEqual(events[2]['canonical_effects'], [changes.change('remove', 'org', 'members', ['c'])])
         self.assertEqual(events[3]['canonical_effects'], [changes.change('remove', 'org', 'members', ['b', 'x'])])
 
+    def test_dissolved_organization_has_no_members(self):
+        # a status that says the organization is gone takes everyone out (live: 黄金黎明 覆灭 with members in 2020);
+        # a split or a near collapse does not
+        init = [{'fact': {'entity_id': 'org', 'predicate': 'members', 'value': ['a', 'b']}}]
+        events = [ev('split', 2, [{'op': 'set', 'fact': {'entity_id': 'org', 'predicate': 'status', 'value': '内部分裂'}}]),
+                  ev('gone', 3, [{'op': 'set', 'fact': {'entity_id': 'org', 'predicate': 'status', 'value': '覆灭'}}])]
+        changes.complete(events, init)
+        self.assertEqual(len(events[0]['canonical_effects']), 1)
+        self.assertIn(changes.change('remove', 'org', 'members', ['a', 'b']), events[1]['canonical_effects'])
+
     def test_handover_and_death(self):
         init = [{'fact': {'entity_id': 'org', 'predicate': 'members', 'value': ['a', 'b']}},
                 {'fact': {'entity_id': 'org', 'predicate': 'leader', 'value': 'a'}}]

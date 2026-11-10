@@ -124,7 +124,7 @@ Beats in order:
 {beats}"""
 
 
-ENTITY_VERSION = 'entity-2'
+ENTITY_VERSION = 'entity-3'
 
 ENTITY_SYSTEM = """You write the registry of people, places, organizations and things for a story's history database. For each candidate you get the names the story uses, what the source data says, and short notes from the sections where it appears.
 
@@ -153,7 +153,7 @@ PREDICATES = ['alive', 'whereabouts', 'injury', 'status', 'condition', 'knows', 
 # ---------------------------------------------------------------------------------------------------------------
 # wiki sources (adapter wiki_arcs): one story arc as fan wikis describe it, instead of a script
 
-SUMMARY_WIKI_VERSION = 'wiki-1'
+SUMMARY_WIKI_VERSION = 'wiki-2'
 
 SUMMARY_WIKI_SYSTEM = """You turn one story arc of a long series, as fan wikis describe it, into a structured record for a history database that a game master will use to run the story with a player.
 
@@ -211,16 +211,5 @@ Material:
 {text}"""
 
 
-CHAPTER_WIKI_VERSION = 'chapter-wiki-1'
+CHAPTER_WIKI_VERSION = 'chapter-wiki-2'
 
-CHAPTER_OLD = """
-
-Existing records of this period, from an older and coarser version of this database (one record often covers several of the beats above):
-{records}
-
-old_map: for each existing record above, the id of the beat above that is the same happening, or, when the record covers several beats, the beat that is its core (for a record of a death, the beat where the death happens; for a record of an arc's outcome, the beat of that outcome). "" when no beat above is that happening (the record is about another arc or a part of the story these beats do not cover). Add to your JSON: "old_map": [{{"old": "record id", "beat": "beat id or empty"}}], one entry per record."""
-
-
-ENTITY_BASE = """
-
-The registry already has the entities listed under "Existing registry" (key, name, other names). When a candidate is one of them under another name or spelling (another translation, a variant character such as 沉/沈, a nickname), set same_as to that registry key (e.g. "base:mugino-shizuri") instead of describing a new entity; name, description and id may then be left empty."""

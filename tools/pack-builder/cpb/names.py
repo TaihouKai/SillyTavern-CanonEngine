@@ -27,6 +27,8 @@ def official(name, known):
 
 GROUP_SUFFIX = re.compile(r'(等从者|等人|等|们|一行人|一行|一伙|众人|全员|一方|阵营|的阵营)$')
 LIST_SEP = re.compile(r'[、，,；;]|以及|及')
+# a few people named together (初春饰利与佐天泪子): only where every part is someone's name
+PAIR_SEP = re.compile(r'[、，,；;]|以及|及|与|和|跟')
 
 
 def expand(name):
@@ -115,31 +117,7 @@ def from_corpus(corpus, project):
             if k != best and ctr[best] < 20:
                 r.add(n, k)
     prot = project.get('protagonist', {})
-    base = base_entities(project)
     for n in [prot.get('name', '主人公'), '主人公', '主角'] + list(prot.get('aliases', [])):
-        r.add(n, 'base:' + prot['id'] if base and prot.get('id') in {e['id'] for e in base} else 'protagonist', strong=True)
-    # an earlier version of the pack (project base_pack): its entities keep their ids, as keys "base:<id>"
-    for e in base:
-        r.add(e['name'], 'base:' + e['id'], strong=True)
-        bare = PAREN.sub('', clean(e['name'])).strip()
-        if bare and bare != e['name']:
-            r.add(bare, 'base:' + e['id'])
-        for a in e.get('aliases', []):
-            r.add(a, 'base:' + e['id'])
+        r.add(n, 'protagonist', strong=True)
     return r
 
-
-_BASE = {}
-
-
-def base_entities(project):
-    """The entities of the project's base pack (an earlier version this build refines), else []."""
-    import os
-    from .util import ROOT, read_json
-    path = project.get('base_pack')
-    if not path:
-        return []
-    path = os.path.join(ROOT, path)
-    if path not in _BASE:
-        _BASE[path] = (read_json(path) or {}).get('entities', [])
-    return _BASE[path]

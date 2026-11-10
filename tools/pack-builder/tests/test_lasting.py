@@ -56,15 +56,16 @@ class LastingTest(unittest.TestCase):
             known = lasting.generate(pj, FakeClient(), pk)
             self.assertEqual(known, {'city|被大量元素占据并袭击': 'passing', 'city|瓦解': 'lasting', 'city|遭到袭击': 'passing'})
             n = lasting.apply(pk, pj.p('lasting.json'))
-            self.assertEqual(n, 1)
-            # a person's status is not sorted; the lasting one stays; a HARD event keeps the outcome it is bound to
+            self.assertEqual(n, 2)
+            # a person's status is not sorted; the lasting one stays; a HARD event bound to nothing else is SOFT
             self.assertEqual(pk['events'][0]['canonical_effects'], [st('p', '被袭击'), st('city', '瓦解')])
             self.assertEqual(pk['events'][0]['outcomes'], [st('city', '瓦解')['fact']])
-            self.assertEqual(pk['events'][1]['canonical_effects'], [st('city', '遭到袭击')])
+            self.assertEqual(pk['events'][1]['canonical_effects'], [])
+            self.assertEqual(pk['events'][1]['classification'], 'SOFT')
             # decided once: a rebuild applies the file
             write_json(pj.p('lasting.json'), known)
             pk2 = pack()
-            self.assertEqual(lasting.apply(pk2, pj.p('lasting.json')), 1)
+            self.assertEqual(lasting.apply(pk2, pj.p('lasting.json')), 2)
 
     def test_an_agreement_is_not_membership(self):
         by_id = {'church': {'kind': 'organization'}, 'city': {'kind': 'organization'}, 'coalition': {'kind': 'organization'}}

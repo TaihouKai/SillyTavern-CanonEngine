@@ -1,11 +1,13 @@
 """Step: assemble the Canon Engine pack (code, no model) from the corpus, summaries, chapter edits and entities."""
 import collections
+import datetime as dt
+import os
 import re
 
-from . import changes as org_changes, dates, names, timeline
+from . import changes as org_changes, dates, deaths, names, start as start_state, timeline
 from .skeleton import corpus, unit_text
 from .steps import all_summaries
-from .util import read_json, write_json, uniq
+from .util import ROOT, read_json, write_json, uniq
 
 ID_OK = re.compile(r'^[a-z][a-z0-9_.-]*$')
 DEFAULT_HOOK = '若玩家在附近且合理知情，可提供在场或介入的机会；不强迫玩家参与。'
@@ -21,7 +23,7 @@ PREDICATES = [
     {'id': 'whereabouts', 'description': '人物当前的去向/所在；被消灭、退场的从者写明已消灭。', 'value_type': 'string', 'transient': True},
     {'id': 'injury', 'description': '人物持续性的伤势或身体状况。', 'value_type': 'string', 'transient': True},
     {'id': 'status', 'description': '人物、组织或存在的当前处境（被捕、被解放、与御主缔结契约等）。', 'value_type': 'string'},
-    {'id': 'condition', 'description': '地点、建筑或物体的物理状况。', 'value_type': 'string'},
+    {'id': 'condition', 'description': '地点、建筑或物体的物理状况。', 'value_type': 'string', 'allowed_values': ['完好', '受损', '毁坏']},
     {'id': 'knows', 'description': '人物掌握的重要秘密或真相（写在知情者身上）。', 'value_type': 'string'},
     {'id': 'leader', 'description': '组织的实际领导者。', 'value_type': 'entity_ref'},
     {'id': 'members', 'description': '组织的主要成员。事件写加入（add）与离开（remove）的人，不写整份名单。', 'value_type': 'entity_set'},
@@ -47,7 +49,7 @@ class Report:
         self.items[kind].append(text)
 
 
-def group_candidates(described, rep, chars=None):
+def group_candidates(described, rep, chars=None, pages=None):
     """Which described candidates are one entity: [(representative key, [keys])], heaviest first.
 
     Joined: the model's same_as links; a name-only candidate whose name one source character already uses; and
@@ -126,9 +128,14 @@ def group_candidates(described, rep, chars=None):
         sl = slug(described[k].get('id'))
         if sl:
             by_slug[sl].append(k)
+    # one id for two candidates of one kind is one entity, unless the sources give each a page of its own: the model
+    # gave 警备员 and 风纪委员 both the id "judgment", and 风纪委员 vanished into 警备员
+    def named_alike(a, b):
+        pa, pb = page_title(described[a], pages), page_title(described[b], pages)
+        return not (pa and pb and pa != pb)
     for sl, ks in by_slug.items():
         for k in ks[1:]:
-            if described[k]['kind'] == described[ks[0]]['kind']:
+            if described[k]['kind'] == described[ks[0]]['kind'] and named_alike(ks[0], k):
                 union(ks[0], k, f'同一标识 {sl}')
     groups = collections.defaultdict(list)
     for k in keys:
@@ -139,6 +146,19 @@ def group_candidates(described, rep, chars=None):
         out.append((ks[0], ks))
     out.sort(key=lambda x: -sum(described[k].get('weight', 0) for k in x[1]))
     return out
+
+
+def page_title(d, pages):
+    """The title of the wiki page a candidate has (by its name or an alias), or None."""
+    if not pages:
+        return None
+    return next((n for n in [d.get('name')] + list(d.get('aliases') or []) if n and n in pages), None)
+
+
+def page_english(d, pages):
+    t = page_title(d, pages)
+    m = re.search(r'\|\s*英文\s*=\s*([^\n|{}]+)', pages.get(t) or '') if t else None
+    return m.group(1).strip() if m else ''
 
 
 def build_entities(project, c, rep):
@@ -171,14 +191,50 @@ def build_entities(project, c, rep):
     ents.append({'id': pid, 'name': prot.get('name', '主人公'), 'aliases': list(prot.get('aliases', [])), 'kind': 'person',
                  'static_description': prot.get('description') or '原作的主人公。', 'source_refs': ['source-scripts'], '_names': {}})
 
-    groups = group_candidates(described, rep, c.get('characters') or {})
+    # one wiki's pages (the Chinese one for a wiki project): the same entity has a page in each
+    wk = project.get('wiki') or {}
+    pages = read_json(os.path.join(ROOT, wk['huiji']), {}) if wk.get('huiji') else {}
+    groups = group_candidates(described, rep, c.get('characters') or {}, pages)
+    # candidates of one kind and one name are one entity (live: 史提尔·马格努斯 twice, 英国清教 three times, each
+    # described in another batch); the one the story names most keeps its description. A servant's figures stay apart
+    # (one name, several classes)
+    weight = lambda g: sum(described[k].get('weight', 0) for k in g[1])  # noqa: E731
+    one = {}
+    for g in sorted(groups, key=lambda g: -weight(g)):
+        d = described[g[0]]
+        k = (names.clean(d['name']), d['kind'])
+        if k in one and not any(chars.get(x, {}).get('servant') for x in g[1] + one[k][1]):
+            one[k][1].extend(g[1])
+            rep.add('merged', f'{d["name"]}（{g[0]}）与同名同类的 {described[one[k][0]]["name"]}（{one[k][0]}）合并')
+            continue
+        one.setdefault(k, g) if k not in one else one.setdefault((k, g[0]), g)
+    groups = list(one.values())
+    # a few people named together (史提尔·马格努斯与神裂火织, 史蒂芬妮、麦野、泷壶、绢旗) are not an entity of their own:
+    # their names go to each of them (live: 16 such "people", one of them an ITEM member of 天草式 at the start)
+    single = {names.clean(described[g[0]]['name']) for g in groups}
+    single |= {names.clean(a) for g in groups for k in g[1] for a in described[k].get('aliases', [])}
+    def several(n):
+        parts = [p for p in (x.strip() for x in names.PAIR_SEP.split(names.clean(n))) if p]
+        return len(parts) >= 2 and sum(1 for p in parts if p in single or any(s.startswith(p) for s in single if len(p) >= 2)) >= 2
+    kept = []
+    for g in groups:
+        if described[g[0]]['kind'] in ('person', 'organization') and several(described[g[0]]['name']):
+            rep.add('merged', f'{described[g[0]]["name"]}（{g[0]}）是几个人一起，不作实体')
+            continue
+        kept.append(g)
+    groups = kept
     # people and organizations get the plain slug; a place of the same name gets "-place" (迦勒底 the institution
     # and 迦勒底 the base)
     groups.sort(key=lambda g: described[g[0]]['kind'] == 'place')
     spirits = set()
+    # an id two entities want goes by the sources: each takes its own page's English name (风纪委员 is Judgment,
+    # 警备员 Anti-Skill)
+    wants = collections.Counter(slug(described[r].get('id')) for r, _ in groups)
     for r, ks in groups:
         d = described[r]
         want = slug(d.get('id'))
+        if wants[want] > 1 and slug(page_english(d, pages)):
+            want = slug(page_english(d, pages))
         if d['kind'] == 'place' and want in used_ids:
             want = f'{want}-place'
         eid = take_id(want, r)
@@ -246,6 +302,16 @@ def build_entities(project, c, rep):
     for e in ents:
         if names_seen[e['name']] > 1:
             rep.add('name_collision', f'同名实体：{e["name"]}（{e["id"]}）')
+    # groups the sources describe on a page of their own but the summaries never write as an organization (a rank
+    # such as the Level 5s): the project names them (groups: [{id, name, aliases, page}]); their members come from the
+    # page in 开局状态. Their aliases are theirs even when generic for anyone else (超能力者 of a person is a rank)
+    have = {names.clean(n) for e in ents for n in [e['name']] + e['aliases']}
+    for g in project.get('groups', []):
+        if names.clean(g['name']) in have or g['id'] in used_ids:
+            continue
+        used_ids.add(g['id'])
+        ents.append({'id': g['id'], 'name': g['name'], 'aliases': [a for a in g.get('aliases', []) if names.clean(a) not in have], 'kind': g.get('kind', 'organization'),
+                     'static_description': g.get('description') or page_lead(project, g.get('page') or g['name']) or g['name'], 'source_refs': ['source-scripts'], '_names': {}})
     # resolver over the pack's ids
     # resolving a summary's names is wider than aliases: a title the story uses for one person ("所长" in a chapter
     # with one director) still resolves when that person is far its most frequent owner
@@ -258,10 +324,25 @@ def build_entities(project, c, rep):
         top = u.most_common(2)
         if len(top) == 1 or top[0][1] >= 3 * top[1][1]:
             res.add(a, top[0][0])
+    for g in project.get('groups', []):
+        for a in g.get('aliases', []):
+            if any(e['id'] == g['id'] and a in e['aliases'] for e in ents):
+                res.add(a, g['id'])
     base = names.from_corpus(c, project)
     for e in ents:
         e.pop('_names', None)
     return ents, res, key_id, base, spirits
+
+
+def page_lead(project, title):
+    """The first sentences of a wiki page (the project's wiki), for a group's description; '' without one."""
+    from .nature import clean_wikitext, wiki_pages
+    t = wiki_pages(project).get(title) or ''
+    t = re.sub(r'^\s*\{\{[^{}]*(?:\{\{[^{}]*\}\}[^{}]*)*\}\}', '', t, flags=re.S)
+    t = clean_wikitext(t, 4000)
+    t = re.sub(r'\{\{[^{}]*\}\}', '', t)
+    first = next((x.strip() for x in t.split('\n') if x.strip() and not x.strip().startswith(('=', '[', '{', '|'))), '')
+    return first[:200]
 
 
 def resolve(res, base, key_id, name):
@@ -297,6 +378,22 @@ def eids_add(i, eids):
 
 
 ORG_KINDS = {'organization', 'world', 'other'}
+# a lasting injury (a lost limb, an artificial eye) is a settled state; being knocked out is over within the scene
+INJURY_LASTING = r'失去(?:了)?(?:一条|一只|双|左|右|两)?(?:手|臂|腿|眼|足|脚)|截肢|义肢|义眼|残疾|瘫痪'
+INJURY_PASSING = r'^(?:被[^，。；]{0,12})?(?:击倒|打倒|击飞|昏迷|昏倒|晕倒|晕厥|失去意识|昏过去|倒地|倒下|失神|被吹飞)[^，。；]{0,8}$'
+CONDITION_WORDS = ((('毁', '塌', '炸', '摧', '烧尽', '沉没', '坠毁', '消失', '覆灭'), '毁坏'), (('修复', '重建', '复原', '恢复原状'), '完好'),
+                   (('损', '破', '裂', '坏', '烧', '洞'), '受损'))
+
+
+def physical(pred, val):
+    """(predicate, value) with a physical condition among 完好/受损/毁坏: whatever else a beat says of a place (a
+    blackout, a sealed building) is its status."""
+    if pred != 'condition' or val in ('完好', '受损', '毁坏') or not isinstance(val, str):
+        return pred, val
+    for words, v in CONDITION_WORDS:
+        if any(w in val for w in words):
+            return pred, v
+    return 'status', val
 THING_KINDS = {'object', 'other', 'place', 'world'}
 
 
@@ -310,6 +407,7 @@ class FactState:
         self.spirits = set(spirits)     # summoned beings: their "death" is being destroyed, and they can come back
         self.members = {}
         self.recovery_values, self.settled_where, self.alive_changed = set(), set(), set()
+        self.injured = set()
 
     def kind(self, i):
         return self.by_id.get(i, {}).get('kind')
@@ -328,7 +426,9 @@ class FactState:
                 return None
         if pred in ('members', 'leader') and self.kind(ent) not in ORG_KINDS:
             return None
-        return ent, pred, val
+        if pred == 'condition' and self.kind(ent) == 'person':
+            return ent, 'status', val       # a person's state is not a physical condition of a place or thing
+        return (ent, *physical(pred, val))
 
     def apply(self, sid, k, v, obj_name, oid, put):
         # put(entity, predicate, value, op): op "add"/"remove" is who joins or leaves (see changes.py)
@@ -375,9 +475,17 @@ class FactState:
             put(sid, 'whereabouts', w)
             self.settled_where.add(w)
         elif k == 'injury':
+            if re.search(INJURY_PASSING, v or ''):
+                return      # knocked out, fainted: over within the scene, not a lasting injury
             put(sid, 'injury', v or '受伤')
+            self.injured.add(sid)
         elif k == 'recovery':
             val = v or '已痊愈'
+            if sid not in self.injured:
+                # only an injury that was recorded can end; anything else that "recovers" (memories) is a status
+                put(sid, 'status', val)
+                return
+            self.injured.discard(sid)
             put(sid, 'injury', val)
             self.recovery_values.add(val)
         elif k == 'moves':
@@ -387,7 +495,7 @@ class FactState:
         elif k == 'learns':
             put(sid, 'knows', v)
         elif k == 'condition':
-            put(sid, 'condition', v)
+            put(sid, *physical('condition', v))
         elif k == 'form':
             put(sid, 'form', v)
         else:
@@ -491,7 +599,8 @@ def stated_anchors(project, chapters, beats_by_ch, units, unit_of, clock):
     return out
 
 
-def build(project, out_path=None):
+def build(project, out_path=None, raw=False):
+    """raw: without the steps that read a built pack and are applied to it (开局状态, deaths), for those steps."""
     c = corpus(project)
     rep = Report()
     cfg_pack = project.get('pack', {})
@@ -499,6 +608,14 @@ def build(project, out_path=None):
     ents, res, key_id, base, spirits = build_entities(project, c, rep)
     by_id = {e['id']: e for e in ents}
     R = lambda n: resolve(res, base, key_id, n)  # noqa: E731
+
+    def RR(n):
+        """The ids a name of the summary stands for: its entity, or each of a few people named together."""
+        i = R(n)
+        if i:
+            return [i]
+        parts = [x.strip() for x in names.PAIR_SEP.split(names.clean(n)) if x.strip()]
+        return uniq([j for j in (R(x) for x in parts) if j]) if len(parts) >= 2 else []
 
     sums = all_summaries(project, c)
     units = {u['id']: u for u in c['units']}
@@ -515,8 +632,35 @@ def build(project, out_path=None):
             rep.add('missing', f'{ch["id"]} 没有章节编辑结果（分类、关联）；全部按 SOFT 处理')
 
     clock0 = timeline.Clock(project.get('timeline', {}).get('origin_date', '2000-01-01'))
-    pos, chrep, clock = timeline.compute(project, chapters, beats_by_ch, stated_anchors(project, chapters, beats_by_ch, units, unit_of, clock0))
-    order = [b['id'] for ch in chapters for b in beats_by_ch[ch['id']]]
+    dated = set()
+    if project.get('arcs'):
+        # each chapter has dates of its own (the sources' chronology): a beat with a date sits there, the ones between
+        # follow their cues; chapters running at the same time interleave (live: 超电磁炮 and 禁书目录 in one July)
+        arc_of = {a['id']: a for a in project['arcs']}
+        origin = dt.date.fromisoformat(project['timeline']['origin_date'])
+        pos = {}
+        for ch in chapters:
+            for bid, (s, e, d) in timeline.place_arc(origin, arc_of[ch['id']], beats_by_ch[ch['id']]).items():
+                pos[bid] = {'start': s, 'end': e}
+                if d:
+                    dated.add(bid)
+        clock = clock0
+        chrep = [{'chapter': ch['id'], 'start': min(pos[b['id']]['start'] for b in beats_by_ch[ch['id']]), 'end': max(pos[b['id']]['end'] for b in beats_by_ch[ch['id']]),
+                  'anchor': None, 'compressed': None, 'note': f'{arc_of[ch["id"]]["start"]}–{arc_of[ch["id"]]["end"]}'} for ch in chapters]
+        for r in chrep:
+            r['start_label'], r['end_label'] = clock.label(r['start']), clock.label(r['end'])
+        seq = {b['id']: (i, j) for i, ch in enumerate(chapters) for j, b in enumerate(beats_by_ch[ch['id']])}
+        order = sorted(seq, key=lambda x: (pos[x]['start'], seq[x]))
+        # strictly increasing starts, so windows never touch (two beats at one minute happen one after the other)
+        last = None
+        for x in order:
+            if last is not None and pos[x]['start'] <= last:
+                pos[x]['start'] = last + 1
+            pos[x]['end'] = max(pos[x]['end'], pos[x]['start'] + 1)
+            last = pos[x]['start']
+    else:
+        pos, chrep, clock = timeline.compute(project, chapters, beats_by_ch, stated_anchors(project, chapters, beats_by_ch, units, unit_of, clock0))
+        order = [b['id'] for ch in chapters for b in beats_by_ch[ch['id']]]
     win = timeline.windows(order, pos)
 
     # places: every place entity, so location ids can be checked
@@ -567,9 +711,9 @@ def build(project, out_path=None):
             ppl = [p for p in b['people'] if p['presence'] != 'mentioned']
             eids = []
             for p in ppl:
-                i = R(p['name'])
-                if i:
-                    eids.append(i)
+                ids_ = RR(p['name'])
+                if ids_:
+                    eids.extend(ids_)
                 else:
                     dropped[p['name']] += 1
             motives = []
@@ -646,7 +790,7 @@ def build(project, out_path=None):
                 outcomes = all_facts
             # time
             s, e = win[bid]
-            lab = f'约{clock.label(s)}（{project.get("frames", {}).get("default", "主线")}时间，编辑推定）'
+            lab = clock.label(s) if bid in dated else f'约{clock.label(s)}（{project.get("frames", {}).get("default", "主线")}时间，编辑推定）'
             # an event in the chapter's frame gets its local era from the frame; other labels stay in the text
             in_frame = bool(frame) and not b.get('home')
             if frame_label and not b.get('home') and not in_frame:
@@ -654,8 +798,8 @@ def build(project, out_path=None):
             if b['time']['stated']:
                 lab += f'；文中：{b["time"]["stated"]}'
             when = {'earliest': {'day': s // 1440, 'minute': s % 1440}, 'latest': {'day': e // 1440, 'minute': e % 1440},
-                    'precision': 'minute' if s == e else 'range', 'label': lab, 'basis': 'editorial',
-                    'notes': '按剧情先后与文中的时间提示推定（先后顺序可靠，具体时刻为估计）。'}
+                    'precision': 'minute' if s == e else 'range', 'label': lab, 'basis': 'documented' if bid in dated else 'editorial',
+                    'notes': '日期出自资料。' if bid in dated else '按剧情先后与文中的时间提示推定（先后顺序可靠，具体时刻为估计）。'}
             # summary
             summ = {}
             for f in ('background', 'trigger'):
@@ -680,9 +824,9 @@ def build(project, out_path=None):
             cast = []
             if len([p for p in ppl if p['presence'] == 'onsite']) >= 2:
                 for p in ppl:
-                    i = R(p['name'])
-                    if p['presence'] == 'onsite' and i in eids and i not in [x['entity_id'] for x in cast] and by_id[i]['kind'] == 'person':
-                        cast.append({'entity_id': i, 'at': dict(when['earliest']), 'role': p['role'] or '在场'})
+                    for i in RR(p['name']):
+                        if p['presence'] == 'onsite' and i in eids and i not in [x['entity_id'] for x in cast] and by_id[i]['kind'] == 'person':
+                            cast.append({'entity_id': i, 'at': dict(when['earliest']), 'role': p['role'] or '在场'})
             vis = {'mode': 'public', 'knower_ids': []}
             if b['secret']['is_secret']:
                 kn = [x for x in uniq([R(k) for k in b['secret']['knowers']]) if x]
@@ -717,13 +861,26 @@ def build(project, out_path=None):
         recaps = [s['recap'] for s in sums if s['chapter'] == cid and s['recap']]
         arcs.append({'id': arc_id, 'title': ch['title'], 'summary': ed.get('summary') or ' '.join(recaps)[:600] or ch['title'], 'event_ids': arc_events})
 
-    # an injury still open when the person takes part in a later chapter ended in between (editorial): the model
-    # usually records the recovery, but not always, and a "near death" that never ends misleads every later turn
+    # deaths that do not hold (cpb/deaths.py: decided by the model, applied here)
+    back, n_back = deaths.apply(events, project.p('deaths.json'), rep) if not raw else (set(), 0)
+    if n_back:
+        st.settled_where |= back
+    # an injury still open when the person takes part in a later chapter, a day later, or for the last time in its
+    # chapter ended in between (editorial): the model usually records the recovery, but not always, and a "near
+    # death" that never ends misleads every later turn
     if project.get('heal_between_chapters', True):
-        settled = set(st.recovery_values)
+        at = lambda x: x['when']['earliest']['day'] * 1440 + x['when']['earliest']['minute']  # noqa: E731
+        chrono = sorted(events, key=at)
+        settled = set(st.recovery_values) | {f['value'] for e in events for o in e['canonical_effects'] for f in [o.get('fact')]
+                                             if f and f['predicate'] == 'injury' and isinstance(f['value'], str) and re.search(INJURY_LASTING, f['value'])}
+        st.recovery_values |= settled
+        last_in_arc = {}
+        for e in chrono:
+            for ent in e['entity_ids']:
+                last_in_arc[(ent, e['arc_id'])] = e['id']
         open_inj = {}
         healed = '已恢复（编辑推定：之后的章节中正常行动）'
-        for e in events:
+        for e in chrono:
             ch_ = e['arc_id']
             for o in e['canonical_effects']:
                 f = o.get('fact')
@@ -731,10 +888,11 @@ def build(project, out_path=None):
                     if f['value'] in settled:
                         open_inj.pop(f['entity_id'], None)
                     else:
-                        open_inj[f['entity_id']] = (ch_, e['id'], f['value'])
+                        open_inj[f['entity_id']] = (ch_, e['id'], f['value'], at(e))
             for ent in list(open_inj):
-                ich, iev, val = open_inj[ent]
-                if ich != ch_ and ent in e['entity_ids'] and not any(o.get('fact', {}).get('entity_id') == ent and o.get('fact', {}).get('predicate') == 'injury' for o in e['canonical_effects']):
+                ich, iev, val, t0 = open_inj[ent]
+                later = at(e) >= t0 + 1440 or ich != ch_ or (last_in_arc.get((ent, ch_)) == e['id'] and e['id'] != iev)
+                if later and at(e) > t0 and ent in e['entity_ids'] and not any(o.get('fact', {}).get('entity_id') == ent and o.get('fact', {}).get('predicate') == 'injury' for o in e['canonical_effects']):
                     fact = {'entity_id': ent, 'predicate': 'injury', 'value': healed}
                     e['canonical_effects'].append({'op': 'set', 'fact': fact})
                     if e['classification'] != 'HARD':
@@ -769,7 +927,7 @@ def build(project, out_path=None):
     start = (first // 1440 - 1) * 1440
     end = (last // 1440 + 1) * 1440 + 1439
     init_facts = [{'fact': {'entity_id': i, 'predicate': 'alive', 'value': True}, 'source_refs': ['source-scripts'], 'note': '基线'}
-                  for i in sorted(st.alive_changed) if by_id.get(i, {}).get('kind') == 'person']
+                  for i in sorted(st.alive_changed) if by_id.get(i, {}).get('kind') == 'person'] + (start_state.place(project, by_id, events) if not raw else [])
     src = c['source']
     tl = project.get('timeline', {})
     pack = {

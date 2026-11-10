@@ -4,7 +4,7 @@ import sys
 
 import os
 
-from . import adapters, assemble, dedupe, lasting, llm, merge, mind, nature, report, skeleton, steps
+from . import adapters, assemble, deaths, dedupe, lasting, llm, mind, nature, report, skeleton, start, steps
 from . import prompts as P
 from .config import Project, load_global
 from .util import log, read_json, write_json
@@ -72,7 +72,7 @@ def main(argv=None):
         except (AttributeError, ValueError):
             pass
     ap = argparse.ArgumentParser(prog='python -m cpb', description='Build a Canon Engine history pack from a story source.')
-    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'lasting', 'run', 'status'])
+    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'lasting', 'start', 'deaths', 'run', 'status'])
     ap.add_argument('-p', '--project', default='fgo-cn', help='project name under projects/ or a path to a project file')
     ap.add_argument('--config', help='global config file (default: config.json)')
     ap.add_argument('--chapters', help='only these chapter ids, comma separated (e.g. w100,w101)')
@@ -181,8 +181,27 @@ def main(argv=None):
         write_json(out, pk, indent=1)
         res = report.lint(gcfg, out)
         log(f'nature: {n} people with a 常态 — pack: {out}' + (f' — canon-lint: {"OK" if res.get("ok") else "ERRORS"}, {len(res.get("errors", []))} errors' if res else ''))
-    if cmd in ('build', 'run'):
-        pack, rep, chrep, clock, path = (merge.build(project) if project.get('base_pack') else assemble.build(project))
+    if cmd == 'deaths':
+        # deaths followed by the person's presence: died, came back, or only thought dead; then the pack is built again
+        pk = assemble.build(project, project.p('out', 'raw.canon.json'), raw=True)[0]
+        cl = client(gcfg, project, args)
+        try:
+            deaths.generate(project, cl, pk)
+        except llm.BudgetExceeded as e:
+            log(str(e))
+            return 2
+    if cmd == 'start':
+        # who is in each organization when the story begins, from its page; then the pack is built again with it
+        pk = assemble.build(project, project.p('out', 'raw.canon.json'), raw=True)[0]
+        cl = client(gcfg, project, args)
+        try:
+            start.generate(project, cl, pk, nature.wiki_pages(project))
+        except llm.BudgetExceeded as e:
+            log(str(e))
+            log('run the same command again to continue (finished results are kept)')
+            return 2
+    if cmd in ('build', 'run', 'start', 'deaths'):
+        pack, rep, chrep, clock, path = assemble.build(project)
         if os.path.isdir(project.p('nature')):   # 常态 generated before is kept on a rebuild
             pk = read_json(path)
             n = nature.attach(pk, project.p('nature'))

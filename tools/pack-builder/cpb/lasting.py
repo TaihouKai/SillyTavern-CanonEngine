@@ -79,8 +79,8 @@ def generate(project, client, pack):
 
 
 def apply(pack, path):
-    """Takes the passing statuses out of the events' effects and outcomes (a HARD event keeps an outcome it is
-    bound to); returns how many were taken out."""
+    """Takes the passing statuses out of the events' effects and outcomes (a HARD event left with no outcome is
+    SOFT); returns how many were taken out."""
     known = read_json(path, {}) if os.path.isfile(path) else {}
     if not known:
         return 0
@@ -89,9 +89,12 @@ def apply(pack, path):
         if known.get(key_of(ent, val)) != 'passing':
             continue
         same = lambda o: (o.get('fact') or o).get('entity_id') == ent and (o.get('fact') or o).get('predicate') == 'status' and (o.get('fact') or o).get('value') == val  # noqa: E731
-        if ev.get('classification') == 'HARD' and any(same(o) for o in ev.get('outcomes') or []):
-            continue
         del ev['canonical_effects'][i]
         ev['outcomes'] = [o for o in ev.get('outcomes') or [] if not same(o)]
+        if ev.get('classification') == 'HARD' and not ev['outcomes']:
+            # a moment's situation was all its contract bound: no lasting outcome to hold it to (live: ITEM
+            # 「追击起床闹钟中」 as a HARD outcome kept for ten months)
+            ev['classification'] = 'SOFT'
+            ev['required_description'] = None
         n += 1
     return n
