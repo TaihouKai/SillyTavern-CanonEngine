@@ -75,7 +75,7 @@ canvas { display: block; }
 .hero-inner { position: relative; z-index: 2; max-width: 980px; }
 .kicker { font-family: var(--mono); font-size: 13px; letter-spacing: 0.32em; text-transform: uppercase; color: var(--cyan); margin-bottom: 18px; }
 .hero-inner::before { content: ''; position: absolute; inset: -12% -18%; z-index: -1; pointer-events: none; background: radial-gradient(ellipse 46% 40% at 50% 52%, rgba(4, 5, 13, 0.38) 0%, rgba(4, 5, 13, 0.16) 50%, transparent 80%); }
-.title { font-family: var(--display); font-weight: 900; font-size: clamp(54px, 11vw, 150px); line-height: 0.95; margin: 0; letter-spacing: 0.04em; perspective: 900px; }
+.title { font-family: var(--display); font-weight: 700; font-size: clamp(44px, 8.6vw, 118px); line-height: 0.95; margin: 0; letter-spacing: 0.04em; perspective: 900px; }
 .title .w { display: block; position: relative; transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transform-style: preserve-3d; transition: transform 0.25s ease-out; }
 .title .w + .w { letter-spacing: 0.14em; margin-top: 0.04em; }
 /* the face: polished chrome with a horizon line (CANON), molten plasma (ENGINE); a sheen of light runs across both */
@@ -101,8 +101,8 @@ canvas { display: block; }
 @property --pp { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 /* depth: the letters extruded behind the face */
 .title .w::before { content: attr(data-text); position: absolute; inset: 0; z-index: 1; color: #0b1430; -webkit-text-fill-color: #0b1430; pointer-events: none;
-  text-shadow: 1px 1px 0 #102050, 2px 2px 0 #0f1c46, 3px 3px 0 #0d183d, 4px 4px 0 #0b1434, 5px 5px 0 #09102b, 6px 6px 0 #070c22, 8px 10px 24px rgba(0, 0, 0, 0.8); }
-.title .t2::before { color: #2a0f10; -webkit-text-fill-color: #2a0f10; text-shadow: 1px 1px 0 #4a1a12, 2px 2px 0 #43160f, 3px 3px 0 #3a130d, 4px 4px 0 #31100b, 5px 5px 0 #280d09, 6px 6px 0 #1f0a07, 8px 10px 24px rgba(0, 0, 0, 0.8); }
+  text-shadow: 1px 1px 0 #102050, 2px 2px 0 #0d183d, 3px 3px 0 #0b1434, 4px 4px 0 #070c22, 6px 8px 20px rgba(0, 0, 0, 0.8); }
+.title .t2::before { color: #2a0f10; -webkit-text-fill-color: #2a0f10; text-shadow: 1px 1px 0 #4a1a12, 2px 2px 0 #3a130d, 3px 3px 0 #31100b, 4px 4px 0 #1f0a07, 6px 8px 20px rgba(0, 0, 0, 0.8); }
 /* a glitch now and then: the letters split into colour ghosts and slices */
 .title .w::after { content: attr(data-text); position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0; mix-blend-mode: screen; color: var(--cyan); -webkit-text-fill-color: var(--cyan); text-shadow: -4px 0 var(--magenta); animation: glitch 6.5s steps(1) infinite; }
 .title .t2::after { color: var(--magenta); -webkit-text-fill-color: var(--magenta); text-shadow: 4px 0 var(--cyan); animation-delay: 2.1s; }
@@ -117,7 +117,7 @@ canvas { display: block; }
 .title .w { animation: draw 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 .title .w + .w { animation-delay: 0.25s; }
 @keyframes draw { from { clip-path: inset(0 100% 0 0); filter: blur(8px) brightness(2.5); } to { clip-path: inset(0 -20% -20% -5%); filter: none; } }
-.tagline { font-size: clamp(22px, 3.2vw, 36px); font-weight: 600; margin: 30px 0 8px; line-height: 1.3; color: #f4f8ff;
+.tagline { font-size: clamp(18px, 2.4vw, 27px); font-weight: 500; letter-spacing: 0.02em; margin: 26px 0 8px; line-height: 1.3; color: #f4f8ff;
   text-shadow: 0 0 1px rgba(255, 255, 255, 0.7), 0 2px 6px rgba(4, 5, 13, 0.95), 0 0 22px rgba(4, 5, 13, 0.95), 0 0 46px rgba(4, 5, 13, 0.8); }
 .tagline em { text-shadow: 0 2px 6px rgba(4, 5, 13, 0.95), 0 0 22px rgba(4, 5, 13, 0.9), 0 0 26px rgba(255, 198, 92, 0.5); }
 .sub { color: var(--muted); max-width: 720px; margin: 26px auto 0; font-size: clamp(16px, 1.6vw, 19px); }
