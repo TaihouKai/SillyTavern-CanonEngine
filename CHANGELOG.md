@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.29.3 — 2026-11-11
+
+- **Website** (`site/`, GitHub Pages via `.github/workflows/pages.yml`): what the engine does, in English and Chinese (by the browser's language), with a live demo that is the engine's own code: the example pack loaded and validated as the engine does, its canon replayed to a day the visitor picks (the bootstrap a new game runs), and the timeline window with its 组织成员 and 角色常态 views; the page's numbers and character profiles come from the pack as loaded. Nothing on the site reads the pack format itself, so it follows the engine and the pack.
+- `examples/toaru-index.canon.json`: the *A Certain Magical Index* chronicle (3.0.0), public with its sources and license (CC BY-NC-SA 3.0; `examples/README.md`).
+- The timeline window's 组织成员 and 常态 views are worked out in `runtime/views.ts` from a world index and a time, for the game in play or any other world. A pack preview that is given a world offers them; a preview never offers game actions (force, link, digest...).
+
 ## 1.29.2 — 2026-11-11
 
 - **README in English, with a feature overview**: the turn pipeline step by step, the chronicle and the timeline window, the player in the world (Inspector), reliability and tools; every UI label in its English form.

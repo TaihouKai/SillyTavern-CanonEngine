@@ -8,7 +8,7 @@ Canon Engine keeps the **actual history** of an interactive story and steers its
 - Play happens in the normal ST input box. Every GM reply is generated privately, checked, and only then published.
 - Editing or deleting **any** user or GM message, swipes, regenerate, continue, branches and reload rebuild the world from the selected transcript.
 
-Chinese player guide: [`docs/USER_GUIDE_ZH.md`](docs/USER_GUIDE_ZH.md).
+Chinese player guide: [`docs/USER_GUIDE_ZH.md`](docs/USER_GUIDE_ZH.md). Website, with the engine running live on a real chronicle: <https://taihoukai.github.io/SillyTavern-CanonEngine/>.
 
 ## What it does
 
@@ -183,7 +183,7 @@ Operational problems are shown out of story: invalid pack, unresolved starting t
 
 `tools/pack-builder/` (canon-pack-builder) builds a pack from a work's story source: game scripts (FGO via Atlas Academy) or wiki arc pages (MediaWiki). Code does the mechanical parts (download, parsing, who is present, dates and the timeline, starting state, membership changes, assembly, `canon-lint`, quality checks); a cheap model (DeepSeek Flash by default, any OpenAI-compatible API) writes the summaries, classifications, entity descriptions, natures and ways of thinking, and judges what code cannot (whether a death holds, whether a state lasts). Python 3.10+, standard library only. A new work needs a project file in `tools/pack-builder/projects/`, and an adapter when its source has a new format. Setup, commands and costs: [tools/pack-builder/README.md](tools/pack-builder/README.md) (Chinese). Downloaded source text, model caches and your API key (`config.json`) stay local; they are git-ignored.
 
-`examples/` holds small demo packs used by the tests.
+`examples/` holds small demo packs used by the tests, and `toaru-index.canon.json`: the *A Certain Magical Index* chronicle built with canon-pack-builder, which the website's demo runs on (sources and license: [examples/README.md](examples/README.md)).
 
 ## Context size
 
@@ -231,11 +231,13 @@ document.addEventListener('canon-engine:clock', (e) => console.log(e.detail)); /
 | `tests/unit` | Domain/runtime acceptance tests (vitest) |
 | `tests/e2e` | Real ST/Horae integration proof (Playwright + mock OpenAI-compatible server) |
 | `tools/pack-builder` | canon-pack-builder: builds history packs from story sources (Python; `python -m unittest discover -s tests` in that folder) |
+| `site/` | The website (GitHub Pages). Its live demo (`site/src/demo.ts`) is the engine's own code — pack loading, the canon replayed to a chosen day, the timeline window — bundled by `scripts/build-site.mjs`; `.github/workflows/pages.yml` builds and deploys it on every push that changes it, the engine or the examples |
 
 ```
 npm install
 npm run build        # validators + dist/index.js + dist/canon-lint.mjs
 npm test             # unit/acceptance tests
+node scripts/build-site.mjs                   # the website into site/; preview with any static server, e.g. python -m http.server -d site
 node tests/e2e/mockServer.mjs 5555 &          # then, with ST running on :8000 and this extension installed:
 node tests/e2e/integration.mjs                # or a section: node tests/e2e/integration.mjs S5
 node tests/e2e/story-session.mjs

@@ -449,6 +449,9 @@ export class GraphPanel {
   private linkCandidates: (id: string) => { id: string; title: string; when: string }[];
   private armed: string | null = null;
   private showMembers = false;
+  /** A preview has no game to act on: no game actions (force, link, digest...) are offered. */
+  private preview = false;
+  private acts() { return this.mode === 'current' && !this.preview; }
   /** The current layout and the window of it that is drawn (see graphContent). */
   private GL: GraphLayout | null = null;
   private drawn: GraphView | null = null;
@@ -486,7 +489,9 @@ export class GraphPanel {
     if (!this.isOpen()) return;
     const d = this.getData(false);
     this.data = { pack: d.pack, current: d.current };
-    if (d.preview) { this.mode = 'pack'; this.showMembers = false; this.showNature = false; }
+    this.preview = !!d.preview;
+    // a library pack seen without a world: only its canon reference view
+    if (d.preview && !d.current) { this.mode = 'pack'; this.showMembers = false; this.showNature = false; }
     if (!d.current && this.mode === 'current') this.mode = 'pack';
     const g0 = this.mode === 'pack' ? d.pack : d.current;
     const g = g0 ? this.applyFilter(g0) : null;
@@ -504,10 +509,10 @@ export class GraphPanel {
         <select class="text_pole cg-arc"><option value="">${t('graphAllArcs')}</option>${arcs}</select>
         ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? 'checked' : ''}>${laneLabel(l)}</label>`).join('')}
         ${d.preview ? '' : `<label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? 'checked' : ''}>${t('spoilers')}</label>`}
-        ${this.mode === 'current' && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t('digestTip'))}">${t('digest')}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t('undigestTip'))}">${t('undigest')}</button>` : ''}` : ''}
+        ${this.acts() && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t('digestTip'))}">${t('digest')}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t('undigestTip'))}">${t('undigest')}</button>` : ''}` : ''}
         ${this.mode === 'current' && d.current?.frames?.now ? this.frameSelect(d.current) : ''}
-        ${d.preview ? '' : `<button class="menu_button ${this.showMembers ? 'active' : ''}" data-act="members" title="${esc(t('membersTip'))}">${t('members')}</button>`}
-        ${d.preview ? '' : `<button class="menu_button cg-nature-btn ${this.showNature ? 'active' : ''}" data-act="nature" title="${esc(t('natureTip'))}">${t('nature')}</button>`}
+        ${d.preview && !d.current ? '' : `<button class="menu_button ${this.showMembers ? 'active' : ''}" data-act="members" title="${esc(t('membersTip'))}">${t('members')}</button>`}
+        ${d.preview && !d.current ? '' : `<button class="menu_button cg-nature-btn ${this.showNature ? 'active' : ''}" data-act="nature" title="${esc(t('natureTip'))}">${t('nature')}</button>`}
         <button class="menu_button" data-act="fit">${t('graphFit')}</button>
         <button class="menu_button" data-act="close">✕</button>
       </div>
@@ -767,11 +772,11 @@ export class GraphPanel {
       <div class="cg-when">${esc(n.when)}</div>
       ${n.required ? `<div class="cg-req"><b>${t('g_required')}</b>${esc(n.required)}</div>` : ''}
       <p style="white-space:pre-line">${esc(n.summary)}</p>
-      ${this.mode === 'current' && (n.lane === 'SOFT' || n.lane === 'FREE') && (n.status === 'future' || n.status === 'pending') ? `<button class="menu_button cg-focus${n.focused ? ' active' : ''}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t('focusTip'))}">${n.focused ? t('unfocus') : t('focus')}</button>` : ''}
-      ${this.mode === 'current' && n.lane !== 'RUNTIME' && n.status !== 'occurred' && n.status !== 'diverged' ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t('force')}</button>` : ''}
-      ${this.mode === 'current' && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.concluded ? t('unconclude') : n.linked ? t('unlink') : t('unforce')}</button>` : ''}
-      ${this.mode === 'current' && n.lane !== 'RUNTIME' && !n.forced && (n.inProgress || n.status === 'pending' || n.status === 'unresolved') ? `<button class="menu_button cg-conclude" data-act="conclude" data-id="${esc(n.id)}" title="${esc(t('concludeTip'))}">${t('conclude')}</button>` : ''}
-      ${this.mode === 'current' && n.lane !== 'RUNTIME' && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t('linkTip'))}">${t('link')}</button><div class="cg-linkpick"></div>` : ''}
+      ${this.acts() && (n.lane === 'SOFT' || n.lane === 'FREE') && (n.status === 'future' || n.status === 'pending') ? `<button class="menu_button cg-focus${n.focused ? ' active' : ''}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t('focusTip'))}">${n.focused ? t('unfocus') : t('focus')}</button>` : ''}
+      ${this.acts() && n.lane !== 'RUNTIME' && n.status !== 'occurred' && n.status !== 'diverged' ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t('force')}</button>` : ''}
+      ${this.acts() && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.concluded ? t('unconclude') : n.linked ? t('unlink') : t('unforce')}</button>` : ''}
+      ${this.acts() && n.lane !== 'RUNTIME' && !n.forced && (n.inProgress || n.status === 'pending' || n.status === 'unresolved') ? `<button class="menu_button cg-conclude" data-act="conclude" data-id="${esc(n.id)}" title="${esc(t('concludeTip'))}">${t('conclude')}</button>` : ''}
+      ${this.acts() && n.lane !== 'RUNTIME' && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t('linkTip'))}">${t('link')}</button><div class="cg-linkpick"></div>` : ''}
       ${this.mode === 'current' && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t(n.members ? 'reanalyzeOccTip' : 'reanalyzeTip'))}">${t('reanalyze')}</button>` : ''}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join('')}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>${t('g_relations')}</b><br>${[...ins, ...outs].join('<br>')}</div>` : ''}`;

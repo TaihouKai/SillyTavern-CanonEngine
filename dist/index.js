@@ -24591,7 +24591,7 @@ function voiceInput(v) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.29.2";
+var ENGINE_RELEASE = "1.29.3";
 
 // src/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -27988,6 +27988,65 @@ function oocNote(ooc) {
   ].join("\n");
 }
 
+// src/runtime/views.ts
+function membershipView(idx, tick, origin, spoilers) {
+  const s = idx.state, pack2 = idx.pack;
+  const members = memberships(idx, tick);
+  const str = (id, p) => {
+    const f = factAt(s, id, p, { tick });
+    return f.known && typeof f.value === "string" ? f.value : null;
+  };
+  const orgs = [...new Set([...pack2.entities.values()].filter((e) => e.kind === "organization").map((e) => e.id).concat([...s.runtimeEntities.values()].filter((e) => e.kind === "organization").map((e) => e.id)))];
+  const now = orgs.map((id) => {
+    const leader = str(id, "leader");
+    const st = factAt(s, id, "status", { tick });
+    const status = st.known && typeof st.value === "string" ? st.value : null;
+    return { id, name: idx.entityName(id), leader: leader ? idx.entityName(leader) : null, members: (members.get(id) || []).map((m) => idx.entityName(m)), status, statusSince: status && st.validFrom !== void 0 ? `${formatTick(st.validFrom, origin)}, ${agoLabel(st.validFrom, tick)}` : null };
+  }).filter((o) => o.leader || o.members.length || o.status);
+  const changes = [];
+  let hidden = 0;
+  for (const t2 of pack2.timeIndex) {
+    const ev = pack2.events.get(t2.id);
+    const fx = ev.canonical_effects.filter((x) => ["members", "leader"].includes(effectTarget(x).predicate));
+    if (!fx.length) continue;
+    const d = s.dispositions.get(t2.id)?.disposition;
+    const state = d === "occurred" ? "occurred" : d === "diverged" ? "diverged" : t2.hi < tick ? "pending" : "future";
+    if (state === "future" && !spoilers) {
+      hidden += fx.length;
+      continue;
+    }
+    for (const x of fx) {
+      const d2 = effectToDelta(x);
+      changes.push({ when: formatTick(t2.lo, origin), event: ev.title, org: idx.entityName(d2.entity_id), what: d2.predicate, op: d2.op, names: d2.op === "unset" ? [] : [d2.value].flat().map((m) => idx.entityName(String(m))), state });
+    }
+  }
+  return { now, changes, hidden };
+}
+function natureView(idx, spoilers, player) {
+  const s = idx.state;
+  const title = (e) => e ? idx.pack.events.get(e)?.title || e : null;
+  const occurred = (e) => !!e && s.dispositions.get(e)?.disposition === "occurred";
+  let hidden = 0;
+  const all = [...[...s.runtimeEntities.values()].sort((a, b) => Number(b.id === player) - Number(a.id === player)), ...idx.pack.entities.values()];
+  const people = all.filter((e) => e.nature?.length || e.mind).map((e) => {
+    const nowAt = idx.natureNow(e.id)?.index ?? -1;
+    const versions = (e.nature || []).map((v, i) => ({
+      ...v,
+      from: title(v.from_event),
+      until: title(v.until_event),
+      state: i === nowAt ? "now" : i === 0 || occurred(v.from_event) ? "ended" : "later"
+    })).filter((v) => {
+      if (v.state === "later" && !spoilers) {
+        hidden++;
+        return false;
+      }
+      return true;
+    });
+    return { id: e.id, name: e.name, ...e.id === player ? { player: true } : {}, ...e.mind ? { mind: e.mind } : {}, versions };
+  });
+  return { people, hidden };
+}
+
 // src/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
 var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check", profile: "reading the Persona", integrate: "how the world reacts to the player", foreknow: "what the people with you have planned", leap: "planning the time leap", world_check: "checking the lorebook against this game", mind: "what the people here think and plan" };
@@ -31042,72 +31101,12 @@ ${lines.join("\n")}`;
    *  without spoilers only their number is given. */
   membershipView(spoilers) {
     if (!this.campaign() || !this.current) return null;
-    const s = this.current.replay.state;
-    const idx = this.current.index;
-    const pack2 = idx.pack;
-    const tick = s.clock.lo;
-    const origin = this.campaign().binding.originDate;
-    const members = memberships(idx, tick);
-    const str = (id, p) => {
-      const f = factAt(s, id, p, { tick });
-      return f.known && typeof f.value === "string" ? f.value : null;
-    };
-    const orgs = [...new Set([...pack2.entities.values()].filter((e) => e.kind === "organization").map((e) => e.id).concat([...s.runtimeEntities.values()].filter((e) => e.kind === "organization").map((e) => e.id)))];
-    const now = orgs.map((id) => {
-      const leader = str(id, "leader");
-      const st = factAt(s, id, "status", { tick });
-      const status = st.known && typeof st.value === "string" ? st.value : null;
-      return { id, name: idx.entityName(id), leader: leader ? idx.entityName(leader) : null, members: (members.get(id) || []).map((m) => idx.entityName(m)), status, statusSince: status && st.validFrom !== void 0 ? `${formatTick(st.validFrom, origin)}, ${agoLabel(st.validFrom, tick)}` : null };
-    }).filter((o) => o.leader || o.members.length || o.status);
-    const changes = [];
-    let hidden = 0;
-    for (const t2 of pack2.timeIndex) {
-      const ev = pack2.events.get(t2.id);
-      const fx = ev.canonical_effects.filter((x) => ["members", "leader"].includes(effectTarget(x).predicate));
-      if (!fx.length) continue;
-      const d = s.dispositions.get(t2.id)?.disposition;
-      const state = d === "occurred" ? "occurred" : d === "diverged" ? "diverged" : t2.hi < tick ? "pending" : "future";
-      if (state === "future" && !spoilers) {
-        hidden += fx.length;
-        continue;
-      }
-      for (const x of fx) {
-        const d2 = effectToDelta(x);
-        const row = { when: formatTick(t2.lo, origin), event: ev.title, org: idx.entityName(d2.entity_id), what: d2.predicate, op: d2.op, names: d2.op === "unset" ? [] : [d2.value].flat().map((m) => idx.entityName(String(m))), state };
-        changes.push(row);
-      }
-    }
-    return { now, changes, hidden };
+    return membershipView(this.current.index, this.current.replay.state.clock.lo, this.campaign().binding.originDate, spoilers);
   }
-  /** 常态 of the people: each version with how it stands in this game (in force now, ended, or not reached). A
-   *  version not reached starts at an event still to come: a canon spoiler, shown only with spoilers on. The people
-   *  the story brought in (the player character first) are listed like the pack's. */
+  /** 常态 of the people, as the timeline window shows them (see views.natureView). */
   natureView(spoilers) {
     if (!this.campaign() || !this.current) return null;
-    const idx = this.current.index;
-    const s = this.current.replay.state;
-    const title = (e) => e ? idx.pack.events.get(e)?.title || e : null;
-    const occurred = (e) => !!e && s.dispositions.get(e)?.disposition === "occurred";
-    let hidden = 0;
-    const player = this.playerProfile()?.profile.playerId;
-    const all = [...[...s.runtimeEntities.values()].sort((a, b) => Number(b.id === player) - Number(a.id === player)), ...idx.pack.entities.values()];
-    const people = all.filter((e) => e.nature?.length || e.mind).map((e) => {
-      const nowAt = idx.natureNow(e.id)?.index ?? -1;
-      const versions = (e.nature || []).map((v, i) => ({
-        ...v,
-        from: title(v.from_event),
-        until: title(v.until_event),
-        state: i === nowAt ? "now" : i === 0 || occurred(v.from_event) ? "ended" : "later"
-      })).filter((v) => {
-        if (v.state === "later" && !spoilers) {
-          hidden++;
-          return false;
-        }
-        return true;
-      });
-      return { id: e.id, name: e.name, ...e.id === player ? { player: true } : {}, ...e.mind ? { mind: e.mind } : {}, versions };
-    });
-    return { people, hidden };
+    return natureView(this.current.index, spoilers, this.playerProfile()?.profile.playerId);
   }
   inspector(spoilers) {
     const c = this.campaign();
@@ -33449,6 +33448,11 @@ var GraphPanel = class {
   linkCandidates;
   armed = null;
   showMembers = false;
+  /** A preview has no game to act on: no game actions (force, link, digest...) are offered. */
+  preview = false;
+  acts() {
+    return this.mode === "current" && !this.preview;
+  }
   /** The current layout and the window of it that is drawn (see graphContent). */
   GL = null;
   drawn = null;
@@ -33486,7 +33490,8 @@ var GraphPanel = class {
     if (!this.isOpen()) return;
     const d = this.getData(false);
     this.data = { pack: d.pack, current: d.current };
-    if (d.preview) {
+    this.preview = !!d.preview;
+    if (d.preview && !d.current) {
       this.mode = "pack";
       this.showMembers = false;
       this.showNature = false;
@@ -33507,10 +33512,10 @@ var GraphPanel = class {
         <select class="text_pole cg-arc"><option value="">${t("graphAllArcs")}</option>${arcs}</select>
         ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? "checked" : ""}>${laneLabel(l)}</label>`).join("")}
         ${d.preview ? "" : `<label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? "checked" : ""}>${t("spoilers")}</label>`}
-        ${this.mode === "current" && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t("digestTip"))}">${t("digest")}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t("undigestTip"))}">${t("undigest")}</button>` : ""}` : ""}
+        ${this.acts() && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t("digestTip"))}">${t("digest")}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t("undigestTip"))}">${t("undigest")}</button>` : ""}` : ""}
         ${this.mode === "current" && d.current?.frames?.now ? this.frameSelect(d.current) : ""}
-        ${d.preview ? "" : `<button class="menu_button ${this.showMembers ? "active" : ""}" data-act="members" title="${esc(t("membersTip"))}">${t("members")}</button>`}
-        ${d.preview ? "" : `<button class="menu_button cg-nature-btn ${this.showNature ? "active" : ""}" data-act="nature" title="${esc(t("natureTip"))}">${t("nature")}</button>`}
+        ${d.preview && !d.current ? "" : `<button class="menu_button ${this.showMembers ? "active" : ""}" data-act="members" title="${esc(t("membersTip"))}">${t("members")}</button>`}
+        ${d.preview && !d.current ? "" : `<button class="menu_button cg-nature-btn ${this.showNature ? "active" : ""}" data-act="nature" title="${esc(t("natureTip"))}">${t("nature")}</button>`}
         <button class="menu_button" data-act="fit">${t("graphFit")}</button>
         <button class="menu_button" data-act="close">\u2715</button>
       </div>
@@ -33845,11 +33850,11 @@ var GraphPanel = class {
       <div class="cg-when">${esc(n.when)}</div>
       ${n.required ? `<div class="cg-req"><b>${t("g_required")}</b>${esc(n.required)}</div>` : ""}
       <p style="white-space:pre-line">${esc(n.summary)}</p>
-      ${this.mode === "current" && (n.lane === "SOFT" || n.lane === "FREE") && (n.status === "future" || n.status === "pending") ? `<button class="menu_button cg-focus${n.focused ? " active" : ""}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t("focusTip"))}">${n.focused ? t("unfocus") : t("focus")}</button>` : ""}
-      ${this.mode === "current" && n.lane !== "RUNTIME" && n.status !== "occurred" && n.status !== "diverged" ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t("force")}</button>` : ""}
-      ${this.mode === "current" && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.concluded ? t("unconclude") : n.linked ? t("unlink") : t("unforce")}</button>` : ""}
-      ${this.mode === "current" && n.lane !== "RUNTIME" && !n.forced && (n.inProgress || n.status === "pending" || n.status === "unresolved") ? `<button class="menu_button cg-conclude" data-act="conclude" data-id="${esc(n.id)}" title="${esc(t("concludeTip"))}">${t("conclude")}</button>` : ""}
-      ${this.mode === "current" && n.lane !== "RUNTIME" && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t("linkTip"))}">${t("link")}</button><div class="cg-linkpick"></div>` : ""}
+      ${this.acts() && (n.lane === "SOFT" || n.lane === "FREE") && (n.status === "future" || n.status === "pending") ? `<button class="menu_button cg-focus${n.focused ? " active" : ""}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t("focusTip"))}">${n.focused ? t("unfocus") : t("focus")}</button>` : ""}
+      ${this.acts() && n.lane !== "RUNTIME" && n.status !== "occurred" && n.status !== "diverged" ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t("force")}</button>` : ""}
+      ${this.acts() && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.concluded ? t("unconclude") : n.linked ? t("unlink") : t("unforce")}</button>` : ""}
+      ${this.acts() && n.lane !== "RUNTIME" && !n.forced && (n.inProgress || n.status === "pending" || n.status === "unresolved") ? `<button class="menu_button cg-conclude" data-act="conclude" data-id="${esc(n.id)}" title="${esc(t("concludeTip"))}">${t("conclude")}</button>` : ""}
+      ${this.acts() && n.lane !== "RUNTIME" && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t("linkTip"))}">${t("link")}</button><div class="cg-linkpick"></div>` : ""}
       ${this.mode === "current" && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t(n.members ? "reanalyzeOccTip" : "reanalyzeTip"))}">${t("reanalyze")}</button>` : ""}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join("")}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>${t("g_relations")}</b><br>${[...ins, ...outs].join("<br>")}</div>` : ""}`;

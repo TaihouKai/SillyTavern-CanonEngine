@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Canon Engine</title>
+  <meta name="description" content="A narrative world engine: it remembers what actually happened, steers the future toward the moments that must happen, and lets everyone in the world — you included — think, remember and reach out.">
+  <meta property="og:title" content="Canon Engine">
+  <meta property="og:description" content="Rewrite the story. The anchors hold.">
+  <meta property="og:image" content="assets/mark.svg">
+  <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/engine.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="cursor-glow" aria-hidden="true"></div>
+
+  <header class="nav">
+    <a class="brand" href="#top"><img src="assets/mark.svg" alt=""><span>CANON<b>ENGINE</b></span></a>
+    <nav class="links">
+      <a href="#anchors" data-i18n="nav.engine"></a>
+      <a href="#turn" data-i18n="nav.turn"></a>
+      <a href="#you" data-i18n="nav.you"></a>
+      <a href="#minds" data-i18n="nav.minds"></a>
+      <a href="#chronicle" data-i18n="nav.chronicle"></a>
+      <a href="#builder" data-i18n="nav.builder"></a>
+    </nav>
+    <div class="nav-right">
+      <button class="lang" id="lang" aria-label="Language"><span data-l="en">EN</span><i>/</i><span data-l="zh">中文</span></button>
+      <a class="gh" href="https://github.com/TaihouKai/SillyTavern-CanonEngine" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" width="20" height="20"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+    </div>
+  </header>
+
+  <main>
+    <!-- HERO -->
+    <section class="hero" id="top">
+      <canvas id="hero-gl" aria-hidden="true"></canvas>
+      <div class="hero-vignette" aria-hidden="true"></div>
+      <div class="hero-inner">
+        <div class="kicker glitch" data-i18n="hero.kicker"></div>
+        <h1 class="title"><span class="t1">CANON</span><span class="t2">ENGINE</span></h1>
+        <p class="tagline" data-i18n="hero.tagline"></p>
+        <div class="meter" id="meter" aria-label="worldline divergence">
+          <div class="tubes"></div>
+          <div class="meter-label" data-i18n="meter.label"></div>
+        </div>
+        <p class="sub" data-i18n="hero.sub"></p>
+        <div class="cta">
+          <a class="btn primary" href="#chronicle"><span data-i18n="hero.cta1"></span><i>→</i></a>
+          <a class="btn ghost" href="https://github.com/TaihouKai/SillyTavern-CanonEngine" target="_blank" rel="noopener" data-i18n="hero.cta2"></a>
+        </div>
+      </div>
+      <div class="stats">
+        <div><b data-count="events">0</b><span data-i18n="stat.events"></span></div>
+        <div><b data-count="arcs">0</b><span data-i18n="stat.arcs"></span></div>
+        <div><b data-count="entities">0</b><span data-i18n="stat.entities"></span></div>
+        <div><b data-count="hard" class="gold">0</b><span data-i18n="stat.hard"></span></div>
+      </div>
+      <div class="scroll-cue" aria-hidden="true"><span></span></div>
+    </section>
+
+    <!-- 01 CONVERGENCE -->
+    <section class="sec" id="anchors">
+      <div class="sec-head reveal">
+        <div class="kicker" data-i18n="anchors.kicker"></div>
+        <h2 data-i18n="anchors.title"></h2>
+        <p class="lead" data-i18n="anchors.lead"></p>
+      </div>
+      <div class="worldlines reveal">
+        <canvas id="anchors-canvas"></canvas>
+        <div class="wl-legend">
+          <span class="lg orig" data-i18n="anchors.legend.orig"></span>
+          <span class="lg you" data-i18n="anchors.legend.you"></span>
+          <span class="lg anchor" data-i18n="anchors.legend.anchor"></span>
+        </div>
+      </div>
+      <div class="cards">
+        <article class="card hard reveal"><div class="tag">HARD</div><h3 data-i18n="card.hard.t"></h3><p data-i18n="card.hard.d"></p></article>
+        <article class="card soft reveal"><div class="tag">SOFT</div><h3 data-i18n="card.soft.t"></h3><p data-i18n="card.soft.d"></p></article>
+        <article class="card free reveal"><div class="tag">FREE</div><h3 data-i18n="card.free.t"></h3><p data-i18n="card.free.d"></p></article>
+        <article class="card actual reveal"><div class="tag">ACTUAL</div><h3 data-i18n="card.actual.t"></h3><p data-i18n="card.actual.d"></p></article>
+      </div>
+    </section>
+
+    <!-- 02 THE TURN -->
+    <section class="sec" id="turn">
+      <div class="sec-head reveal">
+        <div class="kicker" data-i18n="turn.kicker"></div>
+        <h2 data-i18n="turn.title"></h2>
+        <p class="lead" data-i18n="turn.lead"></p>
+      </div>
+      <div class="reactor reveal">
+        <svg class="ring" viewBox="-110 -30 820 660" aria-hidden="true"></svg>
+        <div class="core"><div class="core-num" id="core-num">01</div><div class="core-t" id="core-t"></div><div class="core-d" id="core-d"></div></div>
+      </div>
+    </section>
+
+    <!-- 03 YOU -->
+    <section class="sec split" id="you">
+      <div class="sec-head reveal">
+        <div class="kicker" data-i18n="you.kicker"></div>
+        <h2 data-i18n="you.title"></h2>
+        <p class="lead" data-i18n="you.lead"></p>
+        <ul class="feats">
+          <li class="reveal"><b data-i18n="you.b1.t"></b><span data-i18n="you.b1.d"></span></li>
+          <li class="reveal"><b data-i18n="you.b2.t"></b><span data-i18n="you.b2.d"></span></li>
+          <li class="reveal"><b data-i18n="you.b3.t"></b><span data-i18n="you.b3.d"></span></li>
+          <li class="reveal"><b data-i18n="you.b4.t"></b><span data-i18n="you.b4.d"></span></li>
+          <li class="reveal"><b data-i18n="you.b5.t"></b><span data-i18n="you.b5.d"></span></li>
+        </ul>
+      </div>
+      <div class="orbit reveal">
+        <canvas id="orbit-canvas"></canvas>
+        <div class="orbit-legend">
+          <span class="ol exists" data-i18n="orbit.exists"></span>
+          <span class="ol identity" data-i18n="orbit.identity"></span>
+          <span class="ol secrets" data-i18n="orbit.secrets"></span>
+          <span class="ol contact" data-i18n="orbit.contact"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 MINDS -->
+    <section class="sec" id="minds">
+      <div class="sec-head reveal">
+        <div class="kicker" data-i18n="minds.kicker"></div>
+        <h2 data-i18n="minds.title"></h2>
+        <p class="lead" data-i18n="minds.lead"></p>
+      </div>
+      <div class="surface reveal">
+        <div class="sf say"><b data-i18n="minds.say"></b><span data-i18n="minds.saydesc"></span></div>
+        <div class="sf show"><b data-i18n="minds.show"></b><span data-i18n="minds.showdesc"></span></div>
+        <div class="sf keep"><b data-i18n="minds.keep"></b><span data-i18n="minds.keepdesc"></span></div>
+      </div>
+      <p class="note reveal" data-i18n="minds.note"></p>
+      <div class="mind-deck reveal" id="mind-deck"></div>
+    </section>
+
+    <!-- 05 CHRONICLE -->
+    <section class="sec wide" id="chronicle">
+      <div class="sec-head reveal">
+        <div class="kicker" data-i18n="chron.kicker"></div>
+        <h2 data-i18n="chron.title"></h2>
+        <p class="lead" data-i18n="chron.lead"></p>
+      </div>
+      <div class="chron reveal">
+        <div class="chron-bar">
+          <span class="chron-label" data-i18n="chron.time"></span>
+          <div class="demo-controls" id="demo-controls"></div>
+        </div>
+        <div class="engine-demo" id="engine-demo"><div class="demo-loading" data-i18n="chron.loading"></div></div>
+        <div class="chron-hint" data-i18n="chron.hint"></div>
+        <div class="chron-data" data-i18n="chron.data"></div>
+      </div>
+    </section>
+
+    <!-- 06 BUILDER -->
+    <section class="sec" id="builder">
+      <div class="sec-head reveal">
+        <div class="kicker" data-i18n="build.kicker"></div>
+        <h2 data-i18n="build.title"></h2>
+        <p class="lead" data-i18n="build.lead"></p>
+      </div>
+      <div class="pipe reveal" id="pipe"></div>
+      <div class="term reveal"><div class="term-bar"><i></i><i></i><i></i><span>canon-pack-builder</span></div><pre id="term"></pre></div>
+      <p class="cost reveal" data-i18n="build.cost"></p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <img src="assets/mark.svg" alt="" class="foot-logo">
+    <p class="foot-line" data-i18n="foot.line"></p>
+    <div class="foot-links">
+      <a class="btn primary" href="https://github.com/TaihouKai/SillyTavern-CanonEngine" target="_blank" rel="noopener" data-i18n="foot.get"></a>
+      <a class="btn ghost" href="https://github.com/TaihouKai/SillyTavern-CanonEngine#readme" target="_blank" rel="noopener" data-i18n="foot.docs"></a>
+    </div>
+    <p class="legal" data-i18n="foot.legal"></p>
+  </footer>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
