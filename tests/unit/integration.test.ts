@@ -123,7 +123,7 @@ describe('player presence (Persona -> profile)', () => {
     (x as any).persona.description = 'Vera is a retired courier with no ring any more.';
     expect(x.engine.personaChanged()).toBe(true);
     await turn(x, 'I sweep the floor.', 'Dust motes. [V2]');
-    expect(x.engine.notices.some((n) => /differs from this game's player/.test(n.text))).toBe(true);
+    expect(x.engine.notices.some((n) => /和本局的玩家（"[^"]*"）不同/.test(n.text))).toBe(true);
     expect(x.engine.playerProfile()!.rev).toBe(1); // nothing changes until the player chooses
     await x.engine.updateIdentity();
     expect(x.engine.playerProfile()!.rev).toBe(2);
@@ -970,7 +970,7 @@ describe('preferred matters', () => {
   });
 
   it('NI-50e which organizations the Persona puts the player in is decided one by one (live: "Level 5的第八位" in the Persona\'s 本局设定 was taken for a change of the world only; an organization she was only managed from was made hers)', async () => {
-    expect(PROMPTS.affiliations).toMatch(/lines marked 本局设定 \(this game's changes of the world\) included[^]*A rank, seat, number or title that makes them one of a group counts/);
+    expect(PROMPTS.affiliations).toMatch(/lines marked 本局设定 or "world change" \(this game's changes of the world\) included[^]*A rank, seat, number or title that makes them one of a group counts/);
     expect(PROMPTS.affiliations).toMatch(/"none": the Persona only connects them with it some other way — works with it or for one of its people, is managed/);
     const p = JSON.parse(demo);
     p.entities.find((e: any) => e.id === 'council').aliases = ['Elders们'];

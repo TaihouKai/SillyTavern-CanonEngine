@@ -20590,7 +20590,7 @@ function buildBootstrap(pack2, startTick) {
 }
 
 // src/runtime/worldset.ts
-var WORLD_MARK_RE = /[(（]\s*本局设定\s*[)）]/;
+var WORLD_MARK_RE = /[(（]\s*(?:本局设定|world change)\s*[)）]/i;
 var textHash = (s) => hashObject(String(s)).slice(0, 16);
 function markedLines(persona) {
   return String(persona || "").split(/\r?\n/).filter((l) => WORLD_MARK_RE.test(l)).map((l) => l.replace(WORLD_MARK_RE, "").replace(/\s*\/\/\s*$/, "").trim()).filter(Boolean);
@@ -20819,10 +20819,10 @@ var WorldIndex = class _WorldIndex {
       this.phraseIndex.get(k).add(o.occurrenceId);
     }
     const names = [...o.actors, ...o.affected, ...o.locations].map((id) => this.allNames(id).join(" ")).join(" ");
-    const tf = /* @__PURE__ */ new Map();
-    for (const t2 of tokens(`${o.title} ${o.account} ${o.refPhrases.join(" ")} ${names}`)) tf.set(t2, (tf.get(t2) || 0) + 1);
-    this.docTokens.set(o.occurrenceId, tf);
-    for (const t2 of tf.keys()) this.df.set(t2, (this.df.get(t2) || 0) + 1);
+    const tf2 = /* @__PURE__ */ new Map();
+    for (const t2 of tokens(`${o.title} ${o.account} ${o.refPhrases.join(" ")} ${names}`)) tf2.set(t2, (tf2.get(t2) || 0) + 1);
+    this.docTokens.set(o.occurrenceId, tf2);
+    for (const t2 of tf2.keys()) this.df.set(t2, (this.df.get(t2) || 0) + 1);
   }
   entityName(id) {
     return this.pack.entities.get(id)?.name || this.state.runtimeEntities.get(id)?.name || id;
@@ -20900,9 +20900,9 @@ var WorldIndex = class _WorldIndex {
     const q = new Set(tokens(text));
     const N = Math.max(1, this.docTokens.size);
     const scores = [];
-    for (const [id, tf] of this.docTokens) {
+    for (const [id, tf2] of this.docTokens) {
       let s = 0;
-      for (const t2 of q) if (tf.has(t2)) s += Math.log(1 + N / (this.df.get(t2) || 1));
+      for (const t2 of q) if (tf2.has(t2)) s += Math.log(1 + N / (this.df.get(t2) || 1));
       if (s >= minScore) scores.push({ occurrenceId: id, score: s });
     }
     return scores.sort((a, b) => b.score - a.score).slice(0, k);
@@ -24591,7 +24591,7 @@ function voiceInput(v) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.29.1";
+var ENGINE_RELEASE = "1.29.2";
 
 // src/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -25999,7 +25999,7 @@ TASK: The game master is about to write the next reply of a story. For each pers
 - Brief: at most 5 reads per person; every field one or two sentences. Write in the language of the context.
 SHAPE: {"minds":[{"id":"","reads":[{"what":"","basis":"","sure":"","surface":"","purpose":""}],"wants":"","move":"","next":""}]}`,
   affiliations: `${COMMON}
-TASK: The player's Persona (persona) describes the player character at the start of a game. organizations lists every organization or group of this world the Persona names or may put them in (ref, name, aliases, what it is, its members as the world has them, and read: how an earlier reading took it, or null). For EACH one say how the Persona places the player character in it at the start of the game, from everything the Persona says \u2014 lines marked \u672C\u5C40\u8BBE\u5B9A (this game's changes of the world) included: they state facts of this game as much as any other line.
+TASK: The player's Persona (persona) describes the player character at the start of a game. organizations lists every organization or group of this world the Persona names or may put them in (ref, name, aliases, what it is, its members as the world has them, and read: how an earlier reading took it, or null). For EACH one say how the Persona places the player character in it at the start of the game, from everything the Persona says \u2014 lines marked \u672C\u5C40\u8BBE\u5B9A or "world change" (this game's changes of the world) included: they state facts of this game as much as any other line.
 - status "member": they belong to it now. A rank, seat, number or title that makes them one of a group counts ("the eighth of the Seven Sages" is one of them, however many the world's own list has), and so does a post in it.
 - "joining": about to join, a candidate, a newcomer not yet taken on ("not yet joined", "starts next week").
 - "former": they left it, were expelled, retired.
@@ -28100,6 +28100,10 @@ var CanonEngine = class {
   host;
   settings;
   status = { phase: "idle", message: "", canRetry: false, canCancel: false };
+  /** A message to the user in the UI language (Chinese unless English is chosen, as the panel). */
+  tr(zh, en) {
+    return this.settings.uiLang === "en" ? en : zh;
+  }
   epoch = 0;
   packCache = null;
   /** Discovery result per (operation, text): re-reviewing the same draft against staged history reuses it. */
@@ -28224,7 +28228,11 @@ var CanonEngine = class {
     return this.packCache.loaded;
   }
   packMissingMessage(c) {
-    return `The history pack of this chat (${c.packRef?.title || c.packRef?.packId || "?"} v${c.packVersion}, hash ${c.packHash.slice(0, 12)}) is not in the pack library any more${c.packRef?.file ? ` (${c.packRef.file})` : ""}. Choose that pack file again (\u66F4\u65B0\u5386\u53F2\u5305 / \u9009\u62E9\u5386\u53F2\u5305\u6587\u4EF6); the same pack reconnects the chat as it was.`;
+    const what = `${c.packRef?.title || c.packRef?.packId || "?"} v${c.packVersion}, hash ${c.packHash.slice(0, 12)}`, file = c.packRef?.file ? ` (${c.packRef.file})` : "";
+    return this.tr(
+      `\u672C\u5BF9\u8BDD\u7684\u5386\u53F2\u5305\uFF08${what}\uFF09\u5DF2\u4E0D\u5728\u5386\u53F2\u5305\u5E93\u91CC${file}\u3002\u8BF7\u91CD\u65B0\u9009\u62E9\u8FD9\u4E2A\u5386\u53F2\u5305\u6587\u4EF6\uFF08\u66F4\u65B0\u5386\u53F2\u5305 / \u9009\u62E9\u5386\u53F2\u5305\u6587\u4EF6\uFF09\uFF1B\u540C\u4E00\u4E2A\u5386\u53F2\u5305\u4F1A\u8BA9\u5BF9\u8BDD\u539F\u6837\u63A5\u4E0A\u3002`,
+      `The history pack of this chat (${what}) is not in the pack library any more${file}. Choose that pack file again (Choose the pack file, or Update next to it in the library); the same pack reconnects the chat as it was.`
+    );
   }
   /** The chat's pack, loaded from the pack store when the chat keeps only a reference; a chat that still keeps the pack
    *  inside is moved to the store (stored, read back and checked first; the copy in the chat is dropped only then). */
@@ -28269,7 +28277,10 @@ var CanonEngine = class {
     if (!c) throw new EngineError("invalid_pack", "no campaign");
     const r = validatePackText(text);
     if (!r.ok || !r.loaded) throw new EngineError("invalid_pack", r.errors.map((e) => `${e.path}: ${e.message}`).join("\n"));
-    if (r.loaded.hash !== c.packHash) throw new EngineError("invalid_pack", `This is not the pack this chat was bound to (hash ${r.loaded.hash.slice(0, 12)}, the chat's is ${c.packHash.slice(0, 12)}). Choose that pack; a different version is applied with \u66F4\u65B0\u5386\u53F2\u5305 once the chat's own pack is back.`);
+    if (r.loaded.hash !== c.packHash) throw new EngineError("invalid_pack", this.tr(
+      `\u8FD9\u4E0D\u662F\u672C\u5BF9\u8BDD\u7ED1\u5B9A\u7684\u5386\u53F2\u5305\uFF08hash ${r.loaded.hash.slice(0, 12)}\uFF0C\u672C\u5BF9\u8BDD\u7684\u662F ${c.packHash.slice(0, 12)}\uFF09\u3002\u8BF7\u9009\u62E9\u90A3\u4E2A\u5386\u53F2\u5305\uFF1B\u5BF9\u8BDD\u81EA\u5DF1\u7684\u5386\u53F2\u5305\u63A5\u4E0A\u4EE5\u540E\uFF0C\u518D\u7528\u300C\u66F4\u65B0\u5386\u53F2\u5305\u300D\u6362\u6210\u522B\u7684\u7248\u672C\u3002`,
+      `This is not the pack this chat was bound to (hash ${r.loaded.hash.slice(0, 12)}, the chat's is ${c.packHash.slice(0, 12)}). Choose that pack; a different version is applied with Change pack\u2026 once the chat's own pack is back.`
+    ));
     this.packCache = { hash: r.loaded.hash, loaded: r.loaded };
     if (this.host.packStore) {
       c.packRef = await this.storePack(r.loaded, text);
@@ -29328,7 +29339,7 @@ ${this.ooc(a.userEntry?.text).story}`);
     if (!st || !pack2 || !pack2.frames.frames.size) return null;
     const id = sceneFrameOf(st);
     const f = pack2.frames.frames.get(id);
-    return { id, name: frameName(pack2.frames, id, "\u4E3B\u65F6\u95F4\u7EBF"), local: f ? localTime(f, this.storyNow() ?? st.clock.lo) : null, main: !f };
+    return { id, name: frameName(pack2.frames, id, this.tr("\u4E3B\u65F6\u95F4\u7EBF", "Main timeline")), local: f ? localTime(f, this.storyNow() ?? st.clock.lo) : null, main: !f };
   }
   canonNow(index, tick, jumpTo = null) {
     const pack2 = index.pack;
@@ -29785,7 +29796,14 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         this.lastReply = { chars: replyChars(continuing ? draft : candidate), ...info || {} };
         await this.commit(c, { op, interp, fences, candidate, commitId, messageId, variantId, contentHash, prior, excludeLast });
         committed = true;
-        if (info?.finish === "length") this.notice("warn", `The reply was cut off at the output limit${info.maxTokens || info.reasoningTokens ? ` (${[info.maxTokens ? `limit ${info.maxTokens} tokens` : "", info.reasoningTokens ? `thinking used ${info.reasoningTokens}` : ""].filter(Boolean).join("; ")})` : ""}. Raise the maximum response length (\u6700\u5927\u56DE\u590D\u957F\u5EA6) in your API preset.`);
+        if (info?.finish === "length") {
+          const zhNote = [info.maxTokens ? `\u4E0A\u9650 ${info.maxTokens} token` : "", info.reasoningTokens ? `\u601D\u8003\u7528\u4E86 ${info.reasoningTokens}` : ""].filter(Boolean).join("\uFF1B");
+          const enNote = [info.maxTokens ? `limit ${info.maxTokens} tokens` : "", info.reasoningTokens ? `thinking used ${info.reasoningTokens}` : ""].filter(Boolean).join("; ");
+          this.notice("warn", this.tr(
+            `\u56DE\u590D\u5728\u8F93\u51FA\u4E0A\u9650\u5904\u88AB\u622A\u65AD${zhNote ? `\uFF08${zhNote}\uFF09` : ""}\u3002\u8BF7\u5728 API \u9884\u8BBE\u91CC\u8C03\u9AD8\u300C\u6700\u5927\u56DE\u590D\u957F\u5EA6\u300D\u3002`,
+            `The reply was cut off at the output limit${enNote ? ` (${enNote})` : ""}. Raise the maximum response length in your API preset.`
+          ));
+        }
         trace.outcome = "committed";
         {
           const cc = this.campaign();
@@ -30140,14 +30158,17 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
         } catch (e) {
           if (signal?.aborted || e instanceof EngineError && e.kind === "cancelled") throw e;
           if (attempt) {
-            this.host.log("warn", `\u672C\u5C40\u8BBE\u5B9A part ${i + 1} of ${batches.length} not checked: ${e.message}`);
+            this.host.log("warn", `This game's world: part ${i + 1} of ${batches.length} not checked: ${e.message}`);
             unchecked.push(...b.map((it) => ({ title: it.title, kind: it.kind, why: e.message.slice(0, 200) })));
             return { items: [] };
           }
         }
       }
     }));
-    if (unchecked.length) this.notice("warn", `\u672C\u5C40\u8BBE\u5B9A: ${unchecked.length} text(s) could not be checked (the model timed out or failed twice); they are listed in the Canon Engine panel \u2014 \u91CD\u65B0\u68C0\u67E5 checks again.`);
+    if (unchecked.length) this.notice("warn", this.tr(
+      `\u672C\u5C40\u8BBE\u5B9A\uFF1A\u6709 ${unchecked.length} \u6761\u6CA1\u80FD\u68C0\u67E5\uFF08\u6A21\u578B\u8D85\u65F6\u6216\u8FDE\u7EED\u51FA\u9519\u4E24\u6B21\uFF09\uFF0C\u5DF2\u5217\u5728 Canon Engine \u9762\u677F\u91CC\uFF0C\u70B9\u300C\u91CD\u65B0\u68C0\u67E5\u300D\u518D\u67E5\u3002`,
+      `This game's world: ${unchecked.length} text(s) could not be checked (the model timed out or failed twice); they are listed in the Canon Engine panel \u2014 Check again checks them.`
+    ));
     const res = worldResults(items2, outs);
     const same = (a, b) => a.kind === b.kind && a.book === b.book && String(a.uid) === String(b.uid) && a.target === b.target;
     const overrides = res.overrides.filter((o) => !prev?.overrides.some((p) => p.edited && same(p, o)));
@@ -30164,7 +30185,10 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       ...unchecked.length ? { unchecked } : {}
     };
     this.overlayCache = null;
-    c.configRevisions.push({ at: this.host.now(), summary: `\u672C\u5C40\u8BBE\u5B9A checked: ${changes.length} change(s), ${items2.length} text(s) read, ${overrides.length} rewritten or disabled, ${additions.length} added` });
+    c.configRevisions.push({ at: this.host.now(), summary: this.tr(
+      `\u672C\u5C40\u8BBE\u5B9A\u5DF2\u68C0\u67E5\uFF1A${changes.length} \u5904\u6539\u52A8\uFF0C\u8BFB\u4E86 ${items2.length} \u6761\uFF0C\u6539\u5199\u6216\u505C\u7528 ${overrides.length} \u6761\uFF0C\u65B0\u589E ${additions.length} \u6761`,
+      `This game's world checked: ${changes.length} change(s), ${items2.length} text(s) read, ${overrides.length} rewritten or disabled, ${additions.length} added`
+    ) });
   }
   /** 重新检查 (panel): check again with the changes as they are now. */
   async recheckWorld() {
@@ -30266,7 +30290,10 @@ ${lines.join("\n")}`;
     const h = personaHash(persona);
     if (!samePersona(latest.profile.personaHash, persona) && !samePersona(c.personaKeptHash, persona) && this.personaNoticeHash !== h) {
       this.personaNoticeHash = h;
-      this.notice("warn", `The active Persona ("${persona.name}") differs from this game's player ("${latest.profile.personaName}"). This game keeps its identity until you choose \u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD in the Canon Engine panel (or \u4FDD\u7559\u672C\u5C40\u8EAB\u4EFD to stop this notice).`);
+      this.notice("warn", this.tr(
+        `\u5F53\u524D\u7684 Persona\uFF08"${persona.name}"\uFF09\u548C\u672C\u5C40\u7684\u73A9\u5BB6\uFF08"${latest.profile.personaName}"\uFF09\u4E0D\u540C\u3002\u672C\u5C40\u4F1A\u4FDD\u7559\u539F\u6765\u7684\u8EAB\u4EFD\uFF0C\u76F4\u5230\u4F60\u5728 Canon Engine \u9762\u677F\u91CC\u9009\u300C\u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD\u300D\uFF08\u9009\u300C\u4FDD\u7559\u672C\u5C40\u8EAB\u4EFD\u300D\u5219\u4E0D\u518D\u63D0\u793A\uFF09\u3002`,
+        `The active Persona ("${persona.name}") differs from this game's player ("${latest.profile.personaName}"). This game keeps its identity until you choose Update this game's identity in the Canon Engine panel (or Keep this game's identity to stop this notice).`
+      ));
     }
   }
   personaNoticeHash = "";
@@ -30529,7 +30556,7 @@ ${lines.join("\n")}`;
     if (out.severity === "major" && validAnchors.length && (out.replan || c._impactForced)) {
       const routeBroken = validAnchors.some((a) => state.dispositions.get(a)?.disposition !== "occurred");
       if (routeBroken) {
-        const banner = { severity: "major", text: "\u4E25\u91CD\u5386\u53F2\u504F\u79BB\uFF1A\u672C\u6B21\u53D8\u5316\u663E\u8457\u5F71\u54CD\u4E86\u65E2\u5B9A\u5386\u53F2\u7684\u5B9E\u73B0\u8DEF\u5F84\uFF0C\u4E16\u754C\u6536\u675F\u673A\u5236\u6B63\u5728\u8C03\u6574\u540E\u7EED\u4E8B\u4EF6\u3002", commitId: interp.commitId, reason: out.explanation.slice(0, 300) };
+        const banner = { severity: "major", text: this.tr("\u4E25\u91CD\u5386\u53F2\u504F\u79BB\uFF1A\u672C\u6B21\u53D8\u5316\u663E\u8457\u5F71\u54CD\u4E86\u65E2\u5B9A\u5386\u53F2\u7684\u5B9E\u73B0\u8DEF\u5F84\uFF0C\u4E16\u754C\u6536\u675F\u673A\u5236\u6B63\u5728\u8C03\u6574\u540E\u7EED\u4E8B\u4EF6\u3002", "Major deviation: this change significantly affects how established history can come about; the world is adjusting the events ahead."), commitId: interp.commitId, reason: out.explanation.slice(0, 300) };
         const list = interpretationsFor(c.interpretations, interp.key);
         const mine = list.find((x) => x.commitId === interp.commitId);
         if (mine) mine.banner = banner;
@@ -30666,7 +30693,7 @@ ${lines.join("\n")}`;
   assertReplayComplete() {
     const issue = this.current?.replay.issue;
     if (!issue) return;
-    throw new EngineError("incompatible_adapter", `Canon Engine is stopped at message ${issue.index} (${issue.status}): ${(issue.reasons[0] || "").slice(0, 160)} \u2014 resolve that first (\u91CD\u8BD5 re-checks it), then try again.`);
+    throw new EngineError("incompatible_adapter", `Canon Engine is stopped at message ${issue.index} (${issue.status}): ${(issue.reasons[0] || "").slice(0, 160)} ${this.tr(" \u2014\u2014 \u8BF7\u5148\u5904\u7406\u5B83\uFF08\u300C\u91CD\u8BD5\u300D\u4F1A\u91CD\u65B0\u68C0\u67E5\uFF09\uFF0C\u518D\u8BD5\u4E00\u6B21\u3002", " \u2014 resolve that first (Retry re-checks it), then try again.")}`);
   }
   /** 当前时空: move the scene to a time frame by hand (the reviewer missed a move between frames). Anchored after the
    *  last message like 强制完成; later replies are told the new frame. */
@@ -30725,7 +30752,7 @@ ${lines.join("\n")}`;
     this.assertReplayComplete();
     const pack2 = this.pack();
     const t2 = pack2.timeIndex.find((x) => x.id === eventId);
-    if (!t2) throw new EngineError("incompatible_adapter", "This event has no story time; use \u5F3A\u5236\u5B8C\u6210 or \u5173\u8054\u672C\u5C40\u4E8B\u4EF6 instead.");
+    if (!t2) throw new EngineError("incompatible_adapter", this.tr("\u8FD9\u4E2A\u4E8B\u4EF6\u6CA1\u6709\u6545\u4E8B\u65F6\u95F4\uFF1B\u8BF7\u6539\u7528\u300C\u5F3A\u5236\u5B8C\u6210\u300D\u6216\u300C\u5173\u8054\u672C\u5C40\u4E8B\u4EF6\u300D\u3002", "This event has no story time; use Force complete or Link story events instead."));
     if (this.current.replay.state.dispositions.has(eventId)) throw new EngineError("incompatible_adapter", "This event already has a result.");
     const state = this.current.replay.state;
     const now = this.storyNow() ?? state.clock.lo;
@@ -30743,7 +30770,7 @@ ${lines.join("\n")}`;
     } finally {
       if (!this.opActive) this.setStatus("idle");
     }
-    if (!res) throw new EngineError("provider_failure", "The analysis model could not conclude this event; try again, or use \u5173\u8054\u672C\u5C40\u4E8B\u4EF6 / \u5F3A\u5236\u5B8C\u6210.");
+    if (!res) throw new EngineError("provider_failure", this.tr("\u5206\u6790\u6A21\u578B\u6CA1\u80FD\u7ED9\u8FD9\u4E2A\u4E8B\u4EF6\u5B9A\u7ED3\u679C\uFF1B\u8BF7\u518D\u8BD5\u4E00\u6B21\uFF0C\u6216\u4F7F\u7528\u300C\u5173\u8054\u672C\u5C40\u4E8B\u4EF6\u300D/\u300C\u5F3A\u5236\u5B8C\u6210\u300D\u3002", "The analysis model could not conclude this event; try again, or use Link story events / Force complete."));
     if ("stillUnderWay" in res) return "ongoing";
     const rec = res.record;
     await this.exclusive(async () => {
@@ -30842,7 +30869,7 @@ ${lines.join("\n")}`;
     if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; wait or cancel it first.");
     if (this.current.index.afterStory(eventId).length) return this.mergeAfterStory(eventId);
     const src = this.reanalyzableSource(eventId);
-    if (!src) throw new EngineError("incompatible_adapter", "This result was not recorded from a chat message (starting history or \u5F3A\u5236\u5B8C\u6210); there is nothing to re-analyse.");
+    if (!src) throw new EngineError("incompatible_adapter", this.tr("\u8FD9\u4E2A\u7ED3\u679C\u4E0D\u662F\u4ECE\u804A\u5929\u6D88\u606F\u91CC\u8BB0\u4E0B\u7684\uFF08\u5F00\u5C40\u5386\u53F2\u6216\u300C\u5F3A\u5236\u5B8C\u6210\u300D\uFF09\uFF0C\u6CA1\u6709\u53EF\u91CD\u65B0\u5206\u6790\u7684\u5185\u5BB9\u3002", "This result was not recorded from a chat message (starting history or Force complete); there is nothing to re-analyse."));
     await this.exclusive(async () => {
       delete c.interpretations[src.key];
       c.configRevisions.push({ at: this.host.now(), summary: `re-analysed the message that recorded ${eventId}` });
@@ -31206,7 +31233,7 @@ ${lines.join("\n")}`;
       engagement: { scopeKind, scopeRef, scopeLabel: cur.scopeLabel, stance: cur.stance, quote: cur.quote, until: cur.until ?? null, source: "ui", strong }
     };
     c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
-    c.configRevisions.push({ at: this.host.now(), summary: `${strong ? "\u5F3A\u70C8\u62D2\u7EDD" : "\u53D6\u6D88\u5F3A\u70C8"}: ${cur.scopeLabel}` });
+    c.configRevisions.push({ at: this.host.now(), summary: `${strong ? this.tr("\u5F3A\u70C8\u62D2\u7EDD", "Made binding") : this.tr("\u53D6\u6D88\u5F3A\u70C8", "No longer binding")}: ${cur.scopeLabel}` });
     await this.host.save();
     await this.reconcile("engagement_strong");
   }
@@ -31234,7 +31261,7 @@ ${lines.join("\n")}`;
       engagement: { scopeKind: "contact", scopeRef: recordId, scopeLabel: label.slice(0, 300), stance, quote: "", until: null, source: "ui" }
     };
     c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
-    c.configRevisions.push({ at: this.host.now(), summary: `${{ accepted: "\u63A5\u53D7", declined: "\u62D2\u7EDD", done: "\u5B8C\u6210" }[stance]}: ${label}` });
+    c.configRevisions.push({ at: this.host.now(), summary: `${{ accepted: this.tr("\u63A5\u53D7", "Accepted"), declined: this.tr("\u62D2\u7EDD", "Declined"), done: this.tr("\u5B8C\u6210", "Done") }[stance]}: ${label}` });
     await this.host.save();
     await this.reconcile("engagement_contact");
   }
@@ -32362,6 +32389,9 @@ var lang = "zh";
 function setLang(l) {
   lang = l;
 }
+function getLang() {
+  return lang;
+}
 var D = {
   title: { zh: "Canon Engine \u5386\u53F2\u5F15\u64CE", en: "Canon Engine" },
   noChat: { zh: "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u89D2\u8272\u5BF9\u8BDD\uFF0C\u518D\u4E3A\u8BE5\u5BF9\u8BDD\u542F\u7528 Canon Engine\u3002", en: "Open a character chat first, then enable Canon Engine for it." },
@@ -32459,7 +32489,7 @@ var D = {
   natureVersions: { zh: "{n} \u4E2A\u7248\u672C", en: "{n} versions" },
   natureStart: { zh: "\u5267\u672C\u5F00\u59CB\u65F6", en: "At the story start" },
   naturePlayer: { zh: "\uFF08\u4F60\u7684\u89D2\u8272\uFF0C\u8BFB\u81EA Persona\uFF09", en: "(your character, from the Persona)" },
-  naturePersona: { zh: "\u8BFB\u81EA Persona\uFF08\u6539\u4E86 Persona \u540E\u70B9\u300C\u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD\u300D\u91CD\u8BFB\uFF09", en: "From the Persona (after changing it, use \u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD to read it again)" },
+  naturePersona: { zh: "\u8BFB\u81EA Persona\uFF08\u6539\u4E86 Persona \u540E\u70B9\u300C\u66F4\u65B0\u672C\u5C40\u8EAB\u4EFD\u300D\u91CD\u8BFB\uFF09", en: "From the Persona (after changing it, use \u201CUpdate this game's identity\u201D to read it again)" },
   natureFrom: { zh: "\u4ECE\u300C{e}\u300D\u8D77", en: 'From "{e}"' },
   natureUntil: { zh: "\uFF0C\u5230\u300C{e}\u300D\u4E3A\u6B62", en: ', until "{e}"' },
   natureState_now: { zh: "\u5F53\u524D\u751F\u6548", en: "In force" },
@@ -32529,10 +32559,10 @@ var D = {
   unlink: { zh: "\u64A4\u9500\u5173\u8054", en: "Undo link" },
   conclude: { zh: "\u7ED3\u675F\u4E8B\u4EF6", en: "Conclude event" },
   concludeConfirm: { zh: "\u786E\u8BA4\u7ED3\u675F\u8FD9\u4E2A\u4E8B\u4EF6\uFF1F", en: "Conclude this event now?" },
-  concludeTip: { zh: "\u8FD9\u4E2A\u4E8B\u4EF6\u5728\u6545\u4E8B\u91CC\u5DF2\u7ECF\u7ED3\u675F\u4E86\uFF1A\u6309\u6545\u4E8B\u91CC\u5B9E\u9645\u53D1\u751F\u7684\u60C5\u51B5\u6765\u5224\u5B9A\u5B83\u7684\u7ED3\u679C\uFF08\u5DF2\u53D1\u751F\u3001\u5DF2\u6539\u53D8\u6216\u672A\u53D1\u751F\uFF09\uFF0C\u548C\u65F6\u95F4\u7A97\u53E3\u7ED3\u675F\u65F6\u7684\u7ED3\u7B97\u4E00\u6837\uFF0C\u53EA\u662F\u73B0\u5728\u5C31\u505A\u3002\u4E0E\u300C\u5F3A\u5236\u5B8C\u6210\u300D\u4E0D\u540C\uFF0C\u4E0D\u4F1A\u5957\u7528\u539F\u4F5C\u8DEF\u7EBF\u3002\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\uFF1B\u53EF\u4EE5\u64A4\u9500\u3002", en: "This event has ended in the story: judge its result from what actually happened (occurred, changed or did not happen), as at the end of its window, but now. Unlike \u5F3A\u5236\u5B8C\u6210 it does not apply the original route. Uses the analysis model; can be undone." },
+  concludeTip: { zh: "\u8FD9\u4E2A\u4E8B\u4EF6\u5728\u6545\u4E8B\u91CC\u5DF2\u7ECF\u7ED3\u675F\u4E86\uFF1A\u6309\u6545\u4E8B\u91CC\u5B9E\u9645\u53D1\u751F\u7684\u60C5\u51B5\u6765\u5224\u5B9A\u5B83\u7684\u7ED3\u679C\uFF08\u5DF2\u53D1\u751F\u3001\u5DF2\u6539\u53D8\u6216\u672A\u53D1\u751F\uFF09\uFF0C\u548C\u65F6\u95F4\u7A97\u53E3\u7ED3\u675F\u65F6\u7684\u7ED3\u7B97\u4E00\u6837\uFF0C\u53EA\u662F\u73B0\u5728\u5C31\u505A\u3002\u4E0E\u300C\u5F3A\u5236\u5B8C\u6210\u300D\u4E0D\u540C\uFF0C\u4E0D\u4F1A\u5957\u7528\u539F\u4F5C\u8DEF\u7EBF\u3002\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\uFF1B\u53EF\u4EE5\u64A4\u9500\u3002", en: "This event has ended in the story: judge its result from what actually happened (occurred, changed or did not happen), as at the end of its window, but now. Unlike Force complete it does not apply the original route. Uses the analysis model; can be undone." },
   concludeDone: { zh: "\u4E8B\u4EF6\u5DF2\u7ED3\u675F\uFF1A{s}", en: "Event concluded: {s}" },
   concludeOmitted: { zh: "\u672A\u53D1\u751F", en: "did not happen" },
-  concludeOngoing: { zh: "\u5206\u6790\u6A21\u578B\u8BA4\u4E3A\u6545\u4E8B\u91CC\u8FD9\u4E2A\u4E8B\u4EF6\u8FD8\u5728\u8FDB\u884C\uFF0C\u6CA1\u6709\u7ED3\u675F\u5B83\u3002\u53EF\u4EE5\u7EE7\u7EED\u63A8\u8FDB\u6545\u4E8B\uFF0C\u6216\u7528\u300C\u5F3A\u5236\u5B8C\u6210\u300D/\u300C\u5173\u8054\u672C\u5C40\u4E8B\u4EF6\u300D\u3002", en: "The analysis model finds the event still going on in the story and did not conclude it. Continue the story, or use \u5F3A\u5236\u5B8C\u6210 / \u5173\u8054\u672C\u5C40\u4E8B\u4EF6." },
+  concludeOngoing: { zh: "\u5206\u6790\u6A21\u578B\u8BA4\u4E3A\u6545\u4E8B\u91CC\u8FD9\u4E2A\u4E8B\u4EF6\u8FD8\u5728\u8FDB\u884C\uFF0C\u6CA1\u6709\u7ED3\u675F\u5B83\u3002\u53EF\u4EE5\u7EE7\u7EED\u63A8\u8FDB\u6545\u4E8B\uFF0C\u6216\u7528\u300C\u5F3A\u5236\u5B8C\u6210\u300D/\u300C\u5173\u8054\u672C\u5C40\u4E8B\u4EF6\u300D\u3002", en: "The analysis model finds the event still going on in the story and did not conclude it. Continue the story, or use Force complete / Link story events." },
   unconclude: { zh: "\u64A4\u9500\u7ED3\u675F", en: "Undo conclusion" },
   reanalyze: { zh: "\u91CD\u65B0\u5206\u6790", en: "Re-analyse" },
   reanalyzeConfirm: { zh: "\u786E\u8BA4\u91CD\u65B0\u5206\u6790\uFF1F", en: "Re-analyse now?" },
@@ -32650,8 +32680,8 @@ var D = {
   ciTodo: { zh: "\u9700\u8981\u4F60\u5904\u7406", en: "Needs you" },
   ciAllClear: { zh: "\u6CA1\u6709\u9700\u8981\u5904\u7406\u7684\u4E8B", en: "Nothing waiting" },
   ciTodoUnanswered: { zh: "{n} \u4EF6\u63A5\u89E6\u7B49\u4F60\u56DE\u5E94", en: "{n} contact(s) waiting for your answer" },
-  ciTodoUnchecked: { zh: "\u672C\u5C40\u8BBE\u5B9A\u6709 {n} \u6761\u672A\u68C0\u67E5", en: "\u672C\u5C40\u8BBE\u5B9A: {n} text(s) not checked" },
-  ciTodoStale: { zh: "\u672C\u5C40\u8BBE\u5B9A\u6709\u6761\u76EE\u7684\u539F\u6587\u5DF2\u6539\u52A8\uFF0C\u9700\u8981\u91CD\u65B0\u68C0\u67E5", en: "\u672C\u5C40\u8BBE\u5B9A: an original changed; check again" },
+  ciTodoUnchecked: { zh: "\u672C\u5C40\u8BBE\u5B9A\u6709 {n} \u6761\u672A\u68C0\u67E5", en: "This game's world: {n} text(s) not checked" },
+  ciTodoStale: { zh: "\u672C\u5C40\u8BBE\u5B9A\u6709\u6761\u76EE\u7684\u539F\u6587\u5DF2\u6539\u52A8\uFF0C\u9700\u8981\u91CD\u65B0\u68C0\u67E5", en: "This game's world: an original changed; check again" },
   ciNotices: { zh: "\u6700\u8FD1\u901A\u77E5", en: "Recent notices" },
   ciError: { zh: "\u9519\u8BEF", en: "error" },
   ciWarn: { zh: "\u6CE8\u610F", en: "warning" },
@@ -32723,7 +32753,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niOlderDecisions: { zh: "\u66F4\u65E9 {n} \u6761", en: "{n} earlier" },
   niMoreSuggestions: { zh: "\u53E6\u5916 {n} \u79CD\u53EF\u80FD", en: "{n} more" },
   wsTitle: { zh: "\u672C\u5C40\u8BBE\u5B9A", en: "This game's world" },
-  wsIntro: { zh: "\u8FD9\u4E00\u5C40\u7684\u4E16\u754C\u548C\u539F\u4F5C\u4E0D\u540C\u7684\u5730\u65B9\uFF1APersona \u91CC\u6807\u7740 (\u672C\u5C40\u8BBE\u5B9A) \u7684\u884C\u4E00\u5B9A\u4F1A\u8BFB\u51FA\u6765\uFF0C\u5176\u4F59\u7531\u5206\u6790\u6A21\u578B\u4ECE Persona \u91CC\u627E\uFF0C\u4F60\u4E5F\u53EF\u4EE5\u624B\u52A8\u6DFB\u52A0\u3002Canon \u7528\u5B83\u4EEC\u53BB\u68C0\u7D22\u4E16\u754C\u4E66\u548C\u5386\u53F2\u5305\uFF0C\u547D\u4E2D\u7684\u6761\u76EE\u5168\u90E8\u68C0\u67E5\uFF1B\u77DB\u76FE\u7684\u6761\u76EE\u53EA\u5728\u8FD9\u4E00\u5C40\u91CC\u6539\u5199\u6216\u505C\u7528\uFF08\u4E16\u754C\u4E66\u6587\u4EF6\u4E0D\u53D8\uFF09\uFF0CGM \u770B\u5230\u7684\u5C31\u662F\u6539\u597D\u7684\u6761\u76EE\u3002", en: "Where this game's world differs from the original: lines of the Persona marked (\u672C\u5C40\u8BBE\u5B9A) always, others the analysis finds, and your own. Canon searches the lorebook and the history pack with them and checks every hit; entries that contradict them are rewritten or disabled for this game only (the lorebook files stay as they are), and the GM sees the rewritten entries." },
+  wsIntro: { zh: "\u8FD9\u4E00\u5C40\u7684\u4E16\u754C\u548C\u539F\u4F5C\u4E0D\u540C\u7684\u5730\u65B9\uFF1APersona \u91CC\u6807\u7740 (\u672C\u5C40\u8BBE\u5B9A) \u7684\u884C\u4E00\u5B9A\u4F1A\u8BFB\u51FA\u6765\uFF0C\u5176\u4F59\u7531\u5206\u6790\u6A21\u578B\u4ECE Persona \u91CC\u627E\uFF0C\u4F60\u4E5F\u53EF\u4EE5\u624B\u52A8\u6DFB\u52A0\u3002Canon \u7528\u5B83\u4EEC\u53BB\u68C0\u7D22\u4E16\u754C\u4E66\u548C\u5386\u53F2\u5305\uFF0C\u547D\u4E2D\u7684\u6761\u76EE\u5168\u90E8\u68C0\u67E5\uFF1B\u77DB\u76FE\u7684\u6761\u76EE\u53EA\u5728\u8FD9\u4E00\u5C40\u91CC\u6539\u5199\u6216\u505C\u7528\uFF08\u4E16\u754C\u4E66\u6587\u4EF6\u4E0D\u53D8\uFF09\uFF0CGM \u770B\u5230\u7684\u5C31\u662F\u6539\u597D\u7684\u6761\u76EE\u3002", en: "Where this game's world differs from the original: lines of the Persona marked (\u672C\u5C40\u8BBE\u5B9A) \u2014 the marker itself \u2014 always, others the analysis finds, and your own. Canon searches the lorebook and the history pack with them and checks every hit; entries that contradict them are rewritten or disabled for this game only (the lorebook files stay as they are), and the GM sees the rewritten entries." },
   wsRecheck: { zh: "\u91CD\u65B0\u68C0\u67E5", en: "Check again" },
   wsRecheckTip: { zh: "\u7528\u73B0\u5728\u7684\u6539\u52A8\u91CD\u65B0\u68C0\u7D22\u3001\u68C0\u67E5\u4E16\u754C\u4E66\u548C\u5386\u53F2\u5305\uFF08\u4F1A\u8C03\u7528\u5206\u6790\u6A21\u578B\uFF1B\u6CA1\u6709\u6539\u52A8\u5C31\u4E0D\u8C03\u7528\uFF09\u3002\u4F60\u624B\u52A8\u7F16\u8F91\u8FC7\u7684\u6761\u76EE\uFF0C\u53EA\u8981\u539F\u6587\u6CA1\u53D8\u5C31\u4FDD\u7559\u3002", en: "Search and check the lorebook and the history pack again with the changes as they are now (analysis calls; none without changes). Entries you edited stay while their original is unchanged." },
   wsBusy: { zh: "\u68C0\u67E5\u4E2D\u2026", en: "Checking\u2026" },
@@ -32760,7 +32790,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niNotSuited: { zh: "\u4E0D\u63A5\u7684\u4E8B\uFF08\u505A\u4E0D\u5230 / \u4E0D\u4F1A\u505A\uFF09", en: "Does not take on (cannot / will not)" },
   niDefenses: { zh: "\u9632\u62A4\uFF08Persona \u5199\u7684\u3001\u80FD\u6321\u4F4F\u522B\u4EBA\u80FD\u529B\u7684\u4E1C\u897F\uFF09", en: "Shields (what the Persona says protects you from others' powers)" },
   mindPlans: { zh: "\u89D2\u8272\u76D8\u7B97", en: "Character plans" },
-  mindPlansTip: { zh: "\u52FE\u9009\u65F6\uFF08\u9ED8\u8BA4\uFF09\uFF0C\u6BCF\u56DE\u5408\u5199\u6B63\u6587\u4E4B\u524D\uFF0C\u5148\u66FF\u5728\u573A\u7684\u3001\u9047\u4E8B\u4F1A\u5148\u60F3\u518D\u505A\u7684\u4EBA\uFF08history pack \u91CC\u300C\u601D\u8003\u65B9\u5F0F\u300D\u662F\u300C\u770B\u60C5\u51B5\u300D\u6216\u300C\u603B\u5728\u60F3\u300D\u7684\u4EBA\uFF0C\u6700\u591A 3 \u4E2A\uFF09\u5355\u72EC\u60F3\u4E00\u904D\uFF1A\u4ED6\u4EEC\u4ECE\u773C\u4E0B\u770B\u51FA\u4E86\u4EC0\u4E48\u3001\u8FD9\u4E00\u573A\u8981\u4EC0\u4E48\u3001\u6253\u7B97\u600E\u4E48\u505A\u3001\u4EC0\u4E48\u8BF4\u51FA\u6765\u3001\u4EC0\u4E48\u53EA\u9732\u51FA\u4E00\u70B9\u3001\u4EC0\u4E48\u85CF\u7740\u3002GM \u7167\u8FD9\u4E2A\u5199\u4ED6\u4EEC\u7684\u8A00\u884C\u3002\u8FD9\u6837\u806A\u660E\u4EBA\u4E0D\u53EA\u662F\u8BED\u6C14\u50CF\u806A\u660E\u4EBA\u3002\u6BCF\u56DE\u5408\u591A\u4E00\u6B21\u8C03\u7528\uFF08\u6709\u8FD9\u6837\u7684\u4EBA\u5728\u573A\u65F6\uFF09\u3002", en: 'When ticked (default), before each reply the people in the scene who think before they act (those whose \u601D\u8003\u65B9\u5F0F in the history pack is "situational" or "habitual", at most 3) get a call of their own: what they make of the moment, what they want, their move, what they say, show or keep to themselves. The GM writes them by it, so a clever person is not clever in tone only. One more call per turn when such a person is there.' },
+  mindPlansTip: { zh: "\u52FE\u9009\u65F6\uFF08\u9ED8\u8BA4\uFF09\uFF0C\u6BCF\u56DE\u5408\u5199\u6B63\u6587\u4E4B\u524D\uFF0C\u5148\u66FF\u5728\u573A\u7684\u3001\u9047\u4E8B\u4F1A\u5148\u60F3\u518D\u505A\u7684\u4EBA\uFF08history pack \u91CC\u300C\u601D\u8003\u65B9\u5F0F\u300D\u662F\u300C\u770B\u60C5\u51B5\u300D\u6216\u300C\u603B\u5728\u60F3\u300D\u7684\u4EBA\uFF0C\u6700\u591A 3 \u4E2A\uFF09\u5355\u72EC\u60F3\u4E00\u904D\uFF1A\u4ED6\u4EEC\u4ECE\u773C\u4E0B\u770B\u51FA\u4E86\u4EC0\u4E48\u3001\u8FD9\u4E00\u573A\u8981\u4EC0\u4E48\u3001\u6253\u7B97\u600E\u4E48\u505A\u3001\u4EC0\u4E48\u8BF4\u51FA\u6765\u3001\u4EC0\u4E48\u53EA\u9732\u51FA\u4E00\u70B9\u3001\u4EC0\u4E48\u85CF\u7740\u3002GM \u7167\u8FD9\u4E2A\u5199\u4ED6\u4EEC\u7684\u8A00\u884C\u3002\u8FD9\u6837\u806A\u660E\u4EBA\u4E0D\u53EA\u662F\u8BED\u6C14\u50CF\u806A\u660E\u4EBA\u3002\u6BCF\u56DE\u5408\u591A\u4E00\u6B21\u8C03\u7528\uFF08\u6709\u8FD9\u6837\u7684\u4EBA\u5728\u573A\u65F6\uFF09\u3002", en: 'When ticked (default), before each reply the people in the scene who think before they act (those whose way of thinking in the history pack is "situational" or "habitual", at most 3) get a call of their own: what they make of the moment, what they want, their move, what they say, show or keep to themselves. The GM writes them by it, so a clever person is not clever in tone only. One more call per turn when such a person is there.' },
   mindProfile: { zh: "\u76D8\u7B97\u7528\u7684\u6A21\u578B", en: "Model for character plans" },
   mindProfileTip: { zh: "\u89D2\u8272\u76D8\u7B97\u7528\u54EA\u4E2A\u8FDE\u63A5\u914D\u7F6E\u3002\u9ED8\u8BA4\u548C\u5206\u6790\u7528\u540C\u4E00\u4E2A\u3002\u60F3\u8BA9\u76D8\u7B97\u66F4\u806A\u660E\uFF0C\u53EF\u4EE5\u5355\u72EC\u9009\u4E00\u4E2A\u66F4\u5F3A\u7684\u6A21\u578B\uFF1B\u5B83\u7528\u90A3\u4E2A\u914D\u7F6E\u81EA\u5DF1\u7684\u9884\u8BBE\u53C2\u6570\u3002", en: "Which connection profile character plans use. By default the analysis connection. Pick a stronger model here to make the plans sharper; it uses the preset parameters of that profile." },
   mindProfileShort: { zh: "\u9ED8\u8BA4\u548C\u5206\u6790\u6A21\u578B\u76F8\u540C", en: "Default: the analysis model" },
@@ -32912,8 +32942,60 @@ Also [OOC \u2026], \u3010OOC\uFF1A\u2026\u3011, or a line starting with "OOC:".
   adv_draftTimeoutMsTip: { zh: "\u5199\u4E00\u6761\u56DE\u590D\u8D85\u8FC7\u8FD9\u4E48\u4E45\u5C31\u653E\u5F03\u3002300000 = 5 \u5206\u949F\u3002", en: "Writing a reply gives up after this long. 300000 = 5 minutes." },
   adv_taskTemperature: { zh: "\u5185\u90E8\u68C0\u67E5\u6E29\u5EA6", en: "Check temperature" },
   adv_taskTemperatureTip: { zh: "\u5185\u90E8\u68C0\u67E5\u7684\u968F\u673A\u7A0B\u5EA6\u3002\u4F4E\u4E00\u70B9\u66F4\u7A33\u5B9A\uFF0C\u4E00\u822C\u4E0D\u7528\u6539\u3002", en: "How random internal checks are. Lower is steadier; usually leave it." },
-  debugTip: { zh: "\u5728\u68C0\u67E5\u9762\u677F\u91CC\u591A\u663E\u793A\u63D0\u793A\u8BCD\u7B49\u6280\u672F\u4FE1\u606F\uFF0C\u6392\u67E5\u95EE\u9898\u65F6\u7528\u3002\n\u72B6\u6001\u680F\u7684\u8017\u65F6\u63D0\u793A\u91CC\u4F1A\u5217\u51FA\u6BCF\u4E00\u7A3F\u88AB\u9000\u56DE\u91CD\u5199\u7684\u539F\u56E0\uFF1B\u70B9\u300C\u8BE6\u60C5\u300D\u53EF\u770B\u4E0A\u4E00\u56DE\u5408\u7684\u5B8C\u6574\u62A5\u544A\uFF0C\u5305\u62EC\u6BCF\u4E00\u7A3F\u7684\u539F\u6587\u3002", en: "Shows prompts and other technical details in the Inspector, for troubleshooting.\nThe timing tooltip in the status bar lists why each draft was sent back; \u8BE6\u60C5 shows the full report of the last turn, including the text of each draft." },
+  debugTip: { zh: "\u5728\u68C0\u67E5\u9762\u677F\u91CC\u591A\u663E\u793A\u63D0\u793A\u8BCD\u7B49\u6280\u672F\u4FE1\u606F\uFF0C\u6392\u67E5\u95EE\u9898\u65F6\u7528\u3002\n\u72B6\u6001\u680F\u7684\u8017\u65F6\u63D0\u793A\u91CC\u4F1A\u5217\u51FA\u6BCF\u4E00\u7A3F\u88AB\u9000\u56DE\u91CD\u5199\u7684\u539F\u56E0\uFF1B\u70B9\u300C\u8BE6\u60C5\u300D\u53EF\u770B\u4E0A\u4E00\u56DE\u5408\u7684\u5B8C\u6574\u62A5\u544A\uFF0C\u5305\u62EC\u6BCF\u4E00\u7A3F\u7684\u539F\u6587\u3002", en: "Shows prompts and other technical details in the Inspector, for troubleshooting.\nThe timing tooltip in the status bar lists why each draft was sent back; Details shows the full report of the last turn, including the text of each draft." },
   uiLang: { zh: "\u754C\u9762\u8BED\u8A00", en: "Language" },
+  // the history graph (graph.ts)
+  g_frame: { zh: "\u65F6\u7A7A\uFF1A{name}\uFF08\u5F53\u5730 {local}{until}\uFF09", en: "Frame: {name} (local {local}{until})" },
+  g_frameUntil: { zh: " \u8D77\uFF0C\u81F3 {t}", en: " to {t}" },
+  g_canonOutcome: { zh: "\u539F\u4F5C\u7ED3\u679C\uFF1A", en: "Original outcome: " },
+  g_note: { zh: "\u6CE8\uFF1A", en: "Note: " },
+  g_actualOutcome: { zh: "\u672C\u5C40\u7ED3\u679C\uFF1A", en: "Outcome in this playthrough: " },
+  g_unknownValue: { zh: "\u672A\u77E5", en: "unknown" },
+  g_status: { zh: "\u672C\u5C40\u72B6\u6001\uFF1A", en: "Status in this playthrough: " },
+  g_account: { zh: "\u5B9E\u9645\u7ECF\u8FC7\uFF1A", en: "What happened: " },
+  g_source: { zh: "\u6765\u6E90\uFF1A", en: "Source: " },
+  g_after: { zh: "\u540E\u7EED\uFF08{t}\uFF09\uFF1A", en: "Afterwards ({t}): " },
+  g_underWay: { zh: "\u8FDB\u884C\u4E2D\uFF08\u65F6\u95F4\u7A97\u53E3\u7ED3\u675F\u65F6\u5B9A\u7ED3\u679C\uFF09", en: "under way (settled when its window ends)" },
+  g_soFar: { zh: "\u5DF2\u53D1\u751F\u7684\u90E8\u5206\uFF1A", en: "So far: " },
+  g_hardHidden: { zh: "HARD \u951A\u70B9\uFF08\u5267\u900F\u5DF2\u9690\u85CF\uFF09", en: "HARD anchor (spoiler hidden)" },
+  g_futureHidden: { zh: "\uFF08\u672A\u6765\u4E8B\u4EF6\uFF1B\u52FE\u9009\u201C\u663E\u793A\u5267\u900F\u201D\u67E5\u770B\uFF09", en: "(a future event; tick \u201CShow spoilers\u201D to see it)" },
+  g_hidden: { zh: "\uFF08\u5267\u900F\u5DF2\u9690\u85CF\uFF09", en: "(spoiler hidden)" },
+  g_parts: { zh: "\uFF08{n}\u6BB5\uFF09", en: " ({n} parts)" },
+  g_sameScene: { zh: "\u540C\u4E00\u573A\u666F\uFF1A", en: "Same scene: " },
+  g_actualCause: { zh: "\u672C\u5C40\u5B9E\u9645\u56E0\u679C", en: "actual cause in this playthrough" },
+  g_sep: { zh: "\u3001", en: ", " },
+  g_semi: { zh: "\uFF1B", en: "; " },
+  g_origin_player: { zh: "\u73A9\u5BB6", en: "Player" },
+  g_origin_gm: { zh: "GM/NPC", en: "GM/NPC" },
+  g_origin_canon: { zh: "\u6B63\u53F2", en: "Canon" },
+  g_origin_offscreen: { zh: "\u573A\u5916", en: "Offscreen" },
+  g_origin_bootstrap: { zh: "\u5F00\u5C40\u524D", en: "Before the start" },
+  g_origin_intervention: { zh: "\u5E72\u9884", en: "Intervention" },
+  g_st_occurred: { zh: "\u5DF2\u53D1\u751F", en: "Occurred" },
+  g_st_diverged: { zh: "\u5DF2\u6539\u53D8", en: "Changed" },
+  g_st_omitted: { zh: "\u672A\u53D1\u751F", en: "Did not happen" },
+  g_st_pending: { zh: "\u8FDB\u884C\u4E2D/\u4E34\u8FD1", en: "Under way / near" },
+  g_st_future: { zh: "\u672A\u6765", en: "Future" },
+  g_st_unresolved: { zh: "\u65F6\u95F4\u5DF2\u8FC7\uFF0C\u4E0B\u6B21\u65F6\u95F4\u63A8\u8FDB\u65F6\u7ED3\u7B97", en: "Window past; settled when time next moves on" },
+  g_st_unscheduled: { zh: "\u65F6\u95F4\u4E0D\u660E\uFF08\u80CC\u666F\uFF09", en: "Time unknown (background)" },
+  g_st_runtime: { zh: "\u672C\u5C40\u4E8B\u4EF6", en: "Story event" },
+  g_lane_HARD: { zh: "HARD \u5FC5\u7136", en: "HARD \u2014 must happen" },
+  g_lane_SOFT: { zh: "SOFT \u91CD\u8981", en: "SOFT \u2014 default course" },
+  g_lane_FREE: { zh: "FREE \u80CC\u666F", en: "FREE \u2014 background" },
+  g_lane_RUNTIME: { zh: "\u672C\u5C40\u4E8B\u4EF6", en: "Story events" },
+  g_month: { zh: "{m}\u6708", en: "{m}" },
+  g_now: { zh: "\u73B0\u5728", en: "Now" },
+  g_timeUnknown: { zh: "\u65F6\u95F4\u4E0D\u660E", en: "Time unknown" },
+  g_local: { zh: "\u5F53\u5730", en: "local" },
+  g_required: { zh: "\u5FC5\u987B\u5B9E\u73B0\uFF1A", en: "Must happen: " },
+  g_relations: { zh: "\u5173\u7CFB", en: "Relations" },
+  g_rel_enables: { zh: "\u4FC3\u6210", en: "enables" },
+  g_rel_motivates: { zh: "\u52A8\u673A", en: "motivates" },
+  g_rel_precedes: { zh: "\u5148\u540E", en: "precedes" },
+  g_rel_related: { zh: "\u76F8\u5173", en: "related" },
+  g_rel_cause: { zh: "\u672C\u5C40\u56E0\u679C", en: "actual cause" },
+  g_rel_pack: { zh: "\u539F\u4F5C\u5173\u7CFB", en: "pack relation" },
+  startPlaceholder: { zh: "D0 08:00 \u6216 2020-07-20 08:00\uFF08\u9700\u586B\u5199\u4E0B\u65B9\u7B2C0\u5929\u65E5\u671F\uFF09", en: "D0 08:00 or 2020-07-20 08:00 (needs the day-0 date below)" },
   gmConflictShort: { zh: "GM \u89D2\u8272\u5361\u91CC\u6709\u65E7\u7684\u201C\u5386\u53F2\u770B\u4E16\u754C\u4E66\u201D\u89C4\u5219\u3002", en: 'The GM card has an old "history comes from lore" rule.' }
 };
 function t(key) {
@@ -33007,7 +33089,9 @@ function notifyDone(info, opts) {
 }
 
 // src/ui/graph.ts
-var ORIGIN_LABEL = { player: "\u73A9\u5BB6", gm: "GM/NPC", canon: "\u6B63\u53F2", offscreen: "\u573A\u5916", bootstrap: "\u5F00\u5C40\u524D", intervention: "\u5E72\u9884" };
+var ORIGIN_KEYS = /* @__PURE__ */ new Set(["player", "gm", "canon", "offscreen", "bootstrap", "intervention"]);
+var originLabel = (o) => ORIGIN_KEYS.has(o) ? t(`g_origin_${o}`) : o;
+var tf = (key, vars) => t(key).replace(/\{(\w+)\}/g, (m, k) => k in vars ? String(vars[k]) : m);
 function packGraph(L, origin) {
   const nodes = [];
   const frameList = [...L.frames.frames.values()].map((f, idx) => ({ id: f.id, name: f.name, idx }));
@@ -33029,9 +33113,9 @@ function packGraph(L, origin) {
       required: ev.required_description,
       arc: ev.arc_id,
       detail: [
-        ...frame ? [`\u65F6\u7A7A\uFF1A${frame.name}\uFF08\u5F53\u5730 ${frame.local}${ti && ti.hi > ti.lo ? ` \u8D77\uFF0C\u81F3 ${localTime(fr, ti.hi)}` : ""}\uFF09`] : [],
-        ...ev.outcomes.length ? [`\u539F\u4F5C\u7ED3\u679C\uFF1A${ev.outcomes.map((o) => `${name(L, o.entity_id)}.${o.predicate}=${JSON.stringify(o.value)}`).join("\uFF1B")}`] : [],
-        ...ev.author_note ? [`\u6CE8\uFF1A${ev.author_note}`] : []
+        ...frame ? [tf("g_frame", { name: frame.name, local: frame.local, until: ti && ti.hi > ti.lo ? tf("g_frameUntil", { t: localTime(fr, ti.hi) }) : "" })] : [],
+        ...ev.outcomes.length ? [t("g_canonOutcome") + ev.outcomes.map((o) => `${name(L, o.entity_id)}.${o.predicate}=${JSON.stringify(o.value)}`).join(t("g_semi"))] : [],
+        ...ev.author_note ? [t("g_note") + ev.author_note] : []
       ]
     });
   }
@@ -33053,7 +33137,7 @@ function currentGraph(L, s, origin, spoilers, digest2 = []) {
     else n.status = "unresolved";
     if (d) {
       const occ = d.occurrenceId ? s.occurrences.get(d.occurrenceId) : void 0;
-      const actual = occ?.outcome.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${occ.outcome.map((x) => x.op === "unset" ? `${name(L, x.entity_id, s)}.${x.predicate} \u672A\u77E5` : deltaText(x, (id) => name(L, id, s))).join("\uFF1B")}`] : [];
+      const actual = occ?.outcome.length ? [t("g_actualOutcome") + occ.outcome.map((x) => x.op === "unset" ? `${name(L, x.entity_id, s)}.${x.predicate} ${t("g_unknownValue")}` : deltaText(x, (id) => name(L, id, s))).join(t("g_semi"))] : [];
       if (occ?.origin === "intervention") n.forced = true;
       if (occ?.linkedFrom?.length) n.linked = true;
       if (/^concluded by the player/.test(d.reason || "")) {
@@ -33063,18 +33147,18 @@ function currentGraph(L, s, origin, spoilers, digest2 = []) {
       const merged = new Set(occ?.linkedFrom || []);
       const after = [...s.occurrences.values()].filter((o) => o.afterOf === n.id && !merged.has(o.occurrenceId)).sort((a, b) => a.time.lo - b.time.lo);
       if (after.length) n.afterStory = after.length;
-      n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`, ...occ ? [`\u5B9E\u9645\u7ECF\u8FC7\uFF1A${occ.account}`, `\u6765\u6E90\uFF1A${ORIGIN_LABEL[occ.origin] || occ.origin}`] : [], ...actual, ...after.map((o) => `\u540E\u7EED\uFF08${formatTick(o.time.lo, origin)}\uFF09\uFF1A${o.account}`), ...n.detail || []];
+      n.detail = [t("g_status") + statusLabel(n.status), ...occ ? [t("g_account") + occ.account, t("g_source") + originLabel(occ.origin)] : [], ...actual, ...after.map((o) => tf("g_after", { t: formatTick(o.time.lo, origin) }) + o.account), ...n.detail || []];
     } else {
       const beats = [...s.occurrences.values()].filter((o) => o.inProgressOf === n.id).sort((a, b) => a.time.lo - b.time.lo);
       if (beats.length) n.inProgress = true;
-      n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${beats.length ? "\u8FDB\u884C\u4E2D\uFF08\u65F6\u95F4\u7A97\u53E3\u7ED3\u675F\u65F6\u5B9A\u7ED3\u679C\uFF09" : statusLabel(n.status)}`, ...beats.map((o) => `\u5DF2\u53D1\u751F\u7684\u90E8\u5206\uFF1A${o.account}`), ...n.detail || []];
+      n.detail = [t("g_status") + (beats.length ? t("g_underWay") : statusLabel(n.status)), ...beats.map((o) => t("g_soFar") + o.account), ...n.detail || []];
     }
     if (!spoilers && (n.status === "future" || n.status === "pending")) {
       n.masked = true;
-      n.title = n.lane === "HARD" ? "HARD \u951A\u70B9\uFF08\u5267\u900F\u5DF2\u9690\u85CF\uFF09" : "\uFF1F\uFF1F\uFF1F";
-      n.summary = "\uFF08\u672A\u6765\u4E8B\u4EF6\uFF1B\u52FE\u9009\u201C\u663E\u793A\u5267\u900F\u201D\u67E5\u770B\uFF09";
-      n.required = n.lane === "HARD" ? "\uFF08\u5267\u900F\u5DF2\u9690\u85CF\uFF09" : null;
-      n.detail = [`\u672C\u5C40\u72B6\u6001\uFF1A${statusLabel(n.status)}`];
+      n.title = n.lane === "HARD" ? t("g_hardHidden") : "\uFF1F\uFF1F\uFF1F";
+      n.summary = t("g_futureHidden");
+      n.required = n.lane === "HARD" ? t("g_hidden") : null;
+      n.detail = [t("g_status") + statusLabel(n.status)];
       n.frame = void 0;
     }
   }
@@ -33086,7 +33170,7 @@ function currentGraph(L, s, origin, spoilers, digest2 = []) {
     const root = sceneRoot(s.occurrences, o.occurrenceId);
     chains.set(root, [...chains.get(root) || [], o]);
   }
-  const outcomeText = (o) => o.outcome.map((d) => d.op === "unset" ? `${name(L, d.entity_id, s)}.${d.predicate} \u672A\u77E5` : deltaText(d, (id) => name(L, id, s)));
+  const outcomeText = (o) => o.outcome.map((d) => d.op === "unset" ? `${name(L, d.entity_id, s)}.${d.predicate} ${t("g_unknownValue")}` : deltaText(d, (id) => name(L, id, s)));
   const segments = [];
   for (const [root, ms] of chains) {
     ms.sort((a, b) => a.time.lo - b.time.lo);
@@ -33102,11 +33186,11 @@ function currentGraph(L, s, origin, spoilers, digest2 = []) {
     const first = members[0];
     const lo = Math.min(...members.map((m) => m.undated ? m.time.hi : m.time.lo)), hi = Math.max(...members.map((m) => m.time.hi));
     const span = members.length > 1 ? { lo, hi, precision: "range" } : first.time;
-    const when2 = members.length === 1 ? occurrenceTime(first, origin, "zh") : formatStoryTime(span, origin);
+    const when2 = members.length === 1 ? occurrenceTime(first, origin, getLang()) : formatStoryTime(span, origin);
     const outcomes = members.flatMap(outcomeText);
     g.nodes.push({
       id: root,
-      title: dg ? `${dg.title}\uFF08${members.length}\u6BB5\uFF09` : members.length > 1 ? `${first.title}\uFF08${members.length}\u6BB5\uFF09` : first.title,
+      title: dg ? dg.title + tf("g_parts", { n: members.length }) : members.length > 1 ? first.title + tf("g_parts", { n: members.length }) : first.title,
       lane: "RUNTIME",
       tick: lo,
       tickHi: hi,
@@ -33118,7 +33202,7 @@ ${members.map((m) => `\xB7 ${formatTick(m.time.lo, origin).split(" ")[1]} ${m.ti
       status: "runtime",
       origin: first.origin,
       members: members.map((m) => m.occurrenceId),
-      detail: [`\u6765\u6E90\uFF1A${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join("\u3001")}`, ...members.length > 1 && !dg ? [`\u540C\u4E00\u573A\u666F\uFF1A${members.map((m) => `${formatTick(m.time.lo, origin).split(" ")[1]} ${m.title}`).join(" \u2192 ")}`] : [], ...outcomes.length ? [`\u672C\u5C40\u7ED3\u679C\uFF1A${outcomes.join("\uFF1B")}`] : []]
+      detail: [t("g_source") + uniq(members.map((m) => originLabel(m.origin))).join(t("g_sep")), ...members.length > 1 && !dg ? [t("g_sameScene") + members.map((m) => `${formatTick(m.time.lo, origin).split(" ")[1]} ${m.title}`).join(" \u2192 ")] : [], ...outcomes.length ? [t("g_actualOutcome") + outcomes.join(t("g_semi"))] : []]
     });
   }
   const nodeOf = (occId) => {
@@ -33130,7 +33214,7 @@ ${members.map((m) => `\xB7 ${formatTick(m.time.lo, origin).split(" ")[1]} ${m.ti
     const from = nodeOf(c), to = nodeOf(o.occurrenceId);
     if (from === to || edgeSeen.has(`${from}>${to}`)) continue;
     edgeSeen.add(`${from}>${to}`);
-    g.edges.push({ from, to, kind: "cause", note: "\u672C\u5C40\u5B9E\u9645\u56E0\u679C" });
+    g.edges.push({ from, to, kind: "cause", note: t("g_actualCause") });
   }
   if (!spoilers) {
     const hidden = new Set(g.nodes.filter((n) => n.masked && n.lane !== "HARD").map((n) => n.id));
@@ -33156,8 +33240,8 @@ function name(L, id, s) {
   return L.entities.get(id)?.name || s?.runtimeEntities.get(id)?.name || id;
 }
 function statusLabel(st) {
-  const m = { occurred: "\u5DF2\u53D1\u751F", diverged: "\u5DF2\u6539\u53D8", omitted: "\u672A\u53D1\u751F", pending: "\u8FDB\u884C\u4E2D/\u4E34\u8FD1", future: "\u672A\u6765", unresolved: "\u65F6\u95F4\u5DF2\u8FC7\uFF0C\u4E0B\u6B21\u65F6\u95F4\u63A8\u8FDB\u65F6\u7ED3\u7B97", unscheduled: "\u65F6\u95F4\u4E0D\u660E\uFF08\u80CC\u666F\uFF09", runtime: "\u672C\u5C40\u4E8B\u4EF6" };
-  return st ? m[st] || st : "";
+  const known = ["occurred", "diverged", "omitted", "pending", "future", "unresolved", "unscheduled", "runtime"];
+  return st ? known.includes(st) ? t(`g_st_${st}`) : st : "";
 }
 var NODE_H = 46;
 var ROW_GAP = 10;
@@ -33167,7 +33251,9 @@ var LEFT = 92;
 var MIN_BAR = 10;
 var UNK_W = 168;
 var LANES = ["HARD", "SOFT", "FREE", "RUNTIME"];
-var LANE_LABEL = { HARD: "HARD \u5FC5\u7136", SOFT: "SOFT \u91CD\u8981", FREE: "FREE \u80CC\u666F", RUNTIME: "\u672C\u5C40\u4E8B\u4EF6" };
+var laneLabel = (l) => t(`g_lane_${l}`);
+var MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+var monthLabel = (mo) => getLang() === "en" ? MONTHS_EN[mo - 1] : t("g_month").replace("{m}", String(mo));
 var gapPx = (dt) => dt <= 0 ? 0 : 10 + 26 * Math.log2(1 + dt / 60);
 var textW = (s, px) => [...s].reduce((a, c) => a + (/[\u0000-ÿ]/.test(c) ? px * 0.56 : px), 0);
 function timeScale(ticks, x0) {
@@ -33268,7 +33354,7 @@ function axisTicks(g, sc, bounds) {
       const dt = dayOf(d);
       const yr = dt.getUTCFullYear(), mo = dt.getUTCMonth() + 1, dd = dt.getUTCDate();
       if (dd === 1) {
-        cands.push({ t: d * 1440, label: yr !== prevY ? `${yr}-${String(mo).padStart(2, "0")}` : `${mo}\u6708`, major: true });
+        cands.push({ t: d * 1440, label: yr !== prevY ? `${yr}-${String(mo).padStart(2, "0")}` : monthLabel(mo), major: true });
         prevY = yr;
       } else cands.push({ t: d * 1440, label: `${mo}/${dd}`, major: false });
     }
@@ -33294,8 +33380,8 @@ function axisTicks(g, sc, bounds) {
 }
 function nowLabel(g) {
   const f = g.frames?.now;
-  if (!f) return "\u73B0\u5728";
-  return f.main ? `\u73B0\u5728 \xB7 ${f.name}` : `\u73B0\u5728 \xB7 ${f.name} ${f.local || ""}`.trim();
+  if (!f) return t("g_now");
+  return f.main ? `${t("g_now")} \xB7 ${f.name}` : `${t("g_now")} \xB7 ${f.name} ${f.local || ""}`.trim();
 }
 var clip2 = (s, n) => [...s].length > n ? [...s].slice(0, n - 1).join("") + "\u2026" : s;
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -33310,8 +33396,8 @@ function graphContent(GL, view) {
   const v = view || { x0: -Infinity, x1: Infinity, y0: -Infinity, y1: Infinity, detail: true };
   const boxEnd = (n) => n.x + n.w + (n.inside || !v.detail ? 0 : 6 + Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12);
   const shown = (n) => boxEnd(n) >= v.x0 && n.x <= v.x1 && n.y + NODE_H >= v.y0 && n.y <= v.y1;
-  const lanes = LANES.filter((l) => L.laneY[l][1] > L.laneY[l][0]).map((l, i) => `<rect x="0" y="${L.laneY[l][0]}" width="${L.width}" height="${L.laneY[l][1] - L.laneY[l][0]}" class="cg-lane cg-lane-${i % 2}"/><text x="${Math.max(8, Math.min(v.x0 + 8, L.width - 120))}" y="${L.laneY[l][0] + 18}" class="cg-lane-label">${LANE_LABEL[l]}</text>`).join("");
-  const ticks = L.ticks.filter((tk) => tk.x >= v.x0 - 200 && tk.x <= v.x1).map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick${tk.major ? " cg-tick-major" : ""}"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label${tk.major ? " cg-tick-major" : ""}">${esc(tk.label)}</text>`).join("") + (L.axisStart > LEFT && v.x0 <= L.axisStart ? `<text x="${LEFT}" y="${AXIS_H - 12}" class="cg-tick-label">\u65F6\u95F4\u4E0D\u660E</text><line x1="${L.axisStart - 20}" y1="${AXIS_H - 6}" x2="${L.axisStart - 20}" y2="${L.height}" class="cg-tick cg-tick-major"/>` : "");
+  const lanes = LANES.filter((l) => L.laneY[l][1] > L.laneY[l][0]).map((l, i) => `<rect x="0" y="${L.laneY[l][0]}" width="${L.width}" height="${L.laneY[l][1] - L.laneY[l][0]}" class="cg-lane cg-lane-${i % 2}"/><text x="${Math.max(8, Math.min(v.x0 + 8, L.width - 120))}" y="${L.laneY[l][0] + 18}" class="cg-lane-label">${laneLabel(l)}</text>`).join("");
+  const ticks = L.ticks.filter((tk) => tk.x >= v.x0 - 200 && tk.x <= v.x1).map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick${tk.major ? " cg-tick-major" : ""}"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label${tk.major ? " cg-tick-major" : ""}">${esc(tk.label)}</text>`).join("") + (L.axisStart > LEFT && v.x0 <= L.axisStart ? `<text x="${LEFT}" y="${AXIS_H - 12}" class="cg-tick-label">${t("g_timeUnknown")}</text><line x1="${L.axisStart - 20}" y1="${AXIS_H - 6}" x2="${L.axisStart - 20}" y2="${L.height}" class="cg-tick cg-tick-major"/>` : "");
   const edges = !v.detail ? "" : g.edges.map((e) => {
     const a = pos.get(e.from), b = pos.get(e.to);
     if (!a || !b) return "";
@@ -33332,7 +33418,7 @@ function graphContent(GL, view) {
     const tx = n.inside ? 8 : n.w + 6;
     const tc = n.inside ? "" : " cg-out";
     const head = `<g class="cg-node ${cls}${n.inside ? "" : " cg-narrow"}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${NODE_H}" rx="${Math.min(7, n.w / 2)}"/>` + (n.frame ? `<rect class="cg-frame cg-frame-${n.frame.idx % 8}" width="${n.w}" height="5" rx="2"/>` : "");
-    const tip2 = `<title>${esc(n.title)} \xB7 ${esc(n.when)}${n.frame ? ` \xB7 ${esc(n.frame.name)} \u5F53\u5730 ${esc(n.frame.local)}` : ""}</title></g>`;
+    const tip2 = `<title>${esc(n.title)} \xB7 ${esc(n.when)}${n.frame ? ` \xB7 ${esc(n.frame.name)} ${t("g_local")} ${esc(n.frame.local)}` : ""}</title></g>`;
     const repeats = n.inside && n.w > 1400 ? Array.from({ length: Math.floor((n.w - 400) / 1e3) }, (_, k) => 8 + (k + 1) * 1e3).filter((x) => n.x + x >= v.x0 - 1e3 && n.x + x <= v.x1) : [];
     return head + (n.inside ? "" : `<rect class="cg-hit" x="${n.w}" width="${Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12}" height="${NODE_H}"/>`) + `<text x="${tx}" y="18" class="cg-node-title${tc}">${esc(n.title2)}</text><text x="${tx}" y="36" class="cg-node-sub${tc}">${esc(n.sub2)}</text>` + repeats.map((x) => `<text x="${x}" y="18" class="cg-node-title">${esc(n.title2)}</text>`).join("") + tip2;
   }).join("");
@@ -33419,7 +33505,7 @@ var GraphPanel = class {
         </div>
         <input class="text_pole cg-q" placeholder="${t("graphSearch")}" value="${esc(this.filter.q)}">
         <select class="text_pole cg-arc"><option value="">${t("graphAllArcs")}</option>${arcs}</select>
-        ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? "checked" : ""}>${LANE_LABEL[l]}</label>`).join("")}
+        ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? "checked" : ""}>${laneLabel(l)}</label>`).join("")}
         ${d.preview ? "" : `<label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? "checked" : ""}>${t("spoilers")}</label>`}
         ${this.mode === "current" && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t("digestTip"))}">${t("digest")}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t("undigestTip"))}">${t("undigest")}</button>` : ""}` : ""}
         ${this.mode === "current" && d.current?.frames?.now ? this.frameSelect(d.current) : ""}
@@ -33482,8 +33568,8 @@ var GraphPanel = class {
     return list.filter((f) => used.has(f.id)).map((f) => `<span class="cg-key cg-fkey cg-frame-${f.idx % 8}">${esc(f.name)}</span>`).join("");
   }
   legend() {
-    if (this.mode === "pack") return `<span class="cg-key cg-c-HARD">HARD</span><span class="cg-key cg-c-SOFT">SOFT</span><span class="cg-key cg-c-FREE">FREE</span><span class="cg-ek cg-edge-enables">\u4FC3\u6210</span><span class="cg-ek cg-edge-motivates">\u52A8\u673A</span><span class="cg-ek cg-edge-precedes">\u5148\u540E</span><span class="cg-ek cg-edge-related">\u76F8\u5173</span>`;
-    return ["occurred", "diverged", "omitted", "pending", "future", "runtime"].map((s) => `<span class="cg-key cg-s-${s}">${statusLabel(s)}</span>`).join("") + `<span class="cg-ek cg-edge-cause">\u672C\u5C40\u56E0\u679C</span><span class="cg-ek cg-edge-enables">\u539F\u4F5C\u5173\u7CFB</span>`;
+    if (this.mode === "pack") return `<span class="cg-key cg-c-HARD">HARD</span><span class="cg-key cg-c-SOFT">SOFT</span><span class="cg-key cg-c-FREE">FREE</span><span class="cg-ek cg-edge-enables">${t("g_rel_enables")}</span><span class="cg-ek cg-edge-motivates">${t("g_rel_motivates")}</span><span class="cg-ek cg-edge-precedes">${t("g_rel_precedes")}</span><span class="cg-ek cg-edge-related">${t("g_rel_related")}</span>`;
+    return ["occurred", "diverged", "omitted", "pending", "future", "runtime"].map((s) => `<span class="cg-key cg-s-${s}">${statusLabel(s)}</span>`).join("") + `<span class="cg-ek cg-edge-cause">${t("g_rel_cause")}</span><span class="cg-ek cg-edge-enables">${t("g_rel_pack")}</span>`;
   }
   applyFilter(g) {
     const q = this.filter.q.trim().toLowerCase();
@@ -33755,9 +33841,9 @@ var GraphPanel = class {
     const outs = g.edges.filter((e) => e.from === id).map((e) => `\u2192 ${esc(titleOf(e.to))}\uFF08${esc(e.kind)}\uFF09`);
     this.el.querySelector(".cg-detail").innerHTML = `
       <h3>${esc(n.title)}</h3>
-      <div class="cg-badges"><span class="cg-key cg-c-${n.lane}">${n.lane === "RUNTIME" ? "\u672C\u5C40\u4E8B\u4EF6" : n.lane}</span>${n.status ? `<span class="cg-key cg-s-${n.status}">${statusLabel(n.status)}</span>` : ""}</div>
+      <div class="cg-badges"><span class="cg-key cg-c-${n.lane}">${n.lane === "RUNTIME" ? t("g_lane_RUNTIME") : n.lane}</span>${n.status ? `<span class="cg-key cg-s-${n.status}">${statusLabel(n.status)}</span>` : ""}</div>
       <div class="cg-when">${esc(n.when)}</div>
-      ${n.required ? `<div class="cg-req"><b>\u5FC5\u987B\u5B9E\u73B0\uFF1A</b>${esc(n.required)}</div>` : ""}
+      ${n.required ? `<div class="cg-req"><b>${t("g_required")}</b>${esc(n.required)}</div>` : ""}
       <p style="white-space:pre-line">${esc(n.summary)}</p>
       ${this.mode === "current" && (n.lane === "SOFT" || n.lane === "FREE") && (n.status === "future" || n.status === "pending") ? `<button class="menu_button cg-focus${n.focused ? " active" : ""}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t("focusTip"))}">${n.focused ? t("unfocus") : t("focus")}</button>` : ""}
       ${this.mode === "current" && n.lane !== "RUNTIME" && n.status !== "occurred" && n.status !== "diverged" ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t("force")}</button>` : ""}
@@ -33766,7 +33852,7 @@ var GraphPanel = class {
       ${this.mode === "current" && n.lane !== "RUNTIME" && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t("linkTip"))}">${t("link")}</button><div class="cg-linkpick"></div>` : ""}
       ${this.mode === "current" && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t(n.members ? "reanalyzeOccTip" : "reanalyzeTip"))}">${t("reanalyze")}</button>` : ""}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join("")}
-      ${ins.length || outs.length ? `<div class="cg-rel"><b>\u5173\u7CFB</b><br>${[...ins, ...outs].join("<br>")}</div>` : ""}`;
+      ${ins.length || outs.length ? `<div class="cg-rel"><b>${t("g_relations")}</b><br>${[...ins, ...outs].join("<br>")}</div>` : ""}`;
   }
 };
 
@@ -34959,7 +35045,7 @@ function openBindWizard(text) {
     ${p.warnings.length ? `<details><summary>${t("warnings")} (${p.warnings.length})</summary><ul class="canon-list">${p.warnings.map((w) => `<li>${esc3(w.path)} ${esc3(w.message)}</li>`).join("")}</ul></details>` : ""}
     ${horae && (horae.date || horae.time) ? `<div class="canon-note">${t("horaeDetected")}: ${esc3(horae.date || "")} ${esc3(horae.time || "")} ${esc3(horae.location || "")}</div>` : ""}
     ${existing ? `<div class="canon-note">${t("existingChat")}</div>` : ""}
-    <label>${t("startTime")} <input class="text_pole canon-start" value="${esc3(startDefault)}" placeholder="D0 08:00 \u6216 2020-07-20 08:00\uFF08\u9700\u586B\u5199\u4E0B\u65B9\u7B2C0\u5929\u65E5\u671F\uFF09"></label>
+    <label>${t("startTime")} <input class="text_pole canon-start" value="${esc3(startDefault)}" placeholder="${esc3(t("startPlaceholder"))}"></label>
     <label>${t("startBefore")} <select class="canon-start-ev"><option value="">\u2014</option>${evOptions}</select></label>
     <label>${t("originDate")} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD" value="${esc3(originDefault)}"></label>
     ${S.originLabel ? `<div class="canon-note">${t("packOrigin")}: ${esc3(S.originLabel)}</div>` : ""}

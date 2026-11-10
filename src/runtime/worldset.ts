@@ -11,7 +11,8 @@ import { hashObject } from '../domain/util';
 import { keyMatches, type LoreEntry } from './lore';
 
 /** A line of the Persona that marks a change of the world: `身份: 第8位Level 5 (本局设定)`. */
-export const WORLD_MARK_RE = /[(（]\s*本局设定\s*[)）]/;
+/** The mark, in Chinese or English: `(本局设定)` or `(world change)`. */
+export const WORLD_MARK_RE = /[(（]\s*(?:本局设定|world change)\s*[)）]/i;
 
 export interface WorldChange { id: string; text: string; terms: string[]; source: 'marked' | 'persona' | 'manual' }
 

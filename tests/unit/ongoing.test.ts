@@ -266,7 +266,7 @@ describe('结束事件', () => {
     await expect(x.engine.concludeEvent('medic-ambush')).rejects.toThrow(/not started yet/);
     expect(await turn(x, 'I follow Mira onto the road.', 'At 10:00 bolts start flying at Mira. [CE2]', ambush('ongoing', 'Bolts start flying'))).toBe(true);
     x.model.on('adjudicate', (i) => i.candidate?.id === 'medic-ambush', { adjudications: [] });
-    await expect(x.engine.concludeEvent('medic-ambush')).rejects.toThrow(/could not conclude this event/);
+    await expect(x.engine.concludeEvent('medic-ambush')).rejects.toThrow(/没能给这个事件定结果/);
     expect(st(x).dispositions.has('medic-ambush')).toBe(false);
   });
 });
@@ -320,6 +320,6 @@ describe('重新分析', () => {
     const x = await setup();
     await x.engine.forceComplete('council-broadcast');
     expect(x.engine.reanalyzableSource('council-broadcast')).toBeNull();
-    await expect(x.engine.reanalyzeEvent('council-broadcast')).rejects.toThrow(/nothing to re-analyse/);
+    await expect(x.engine.reanalyzeEvent('council-broadcast')).rejects.toThrow(/没有可重新分析的内容/);
   });
 });

@@ -140,7 +140,7 @@ TASK: The game master is about to write the next reply of a story. For each pers
 SHAPE: {"minds":[{"id":"","reads":[{"what":"","basis":"","sure":"","surface":"","purpose":""}],"wants":"","move":"","next":""}]}`,
 
   affiliations: `${COMMON}
-TASK: The player's Persona (persona) describes the player character at the start of a game. organizations lists every organization or group of this world the Persona names or may put them in (ref, name, aliases, what it is, its members as the world has them, and read: how an earlier reading took it, or null). For EACH one say how the Persona places the player character in it at the start of the game, from everything the Persona says — lines marked 本局设定 (this game's changes of the world) included: they state facts of this game as much as any other line.
+TASK: The player's Persona (persona) describes the player character at the start of a game. organizations lists every organization or group of this world the Persona names or may put them in (ref, name, aliases, what it is, its members as the world has them, and read: how an earlier reading took it, or null). For EACH one say how the Persona places the player character in it at the start of the game, from everything the Persona says — lines marked 本局设定 or "world change" (this game's changes of the world) included: they state facts of this game as much as any other line.
 - status "member": they belong to it now. A rank, seat, number or title that makes them one of a group counts ("the eighth of the Seven Sages" is one of them, however many the world's own list has), and so does a post in it.
 - "joining": about to join, a candidate, a newcomer not yet taken on ("not yet joined", "starts next week").
 - "former": they left it, were expelled, retired.

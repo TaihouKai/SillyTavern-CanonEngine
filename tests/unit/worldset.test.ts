@@ -29,6 +29,8 @@ describe('this game\'s changes of the world', () => {
   it('WS1 a marked line is always a change (by the code, the mark taken off), with the analysis\' search words when it gave them; others are added', () => {
     expect(markedLines(PERSONA)).toEqual(['身份: 第8位Level 5']);
     expect(markedLines('a\n身份（本局设定）：X')).toEqual(['身份：X']);
+    // the English mark is the same mark
+    expect(markedLines('Rank: the eighth of the Seven (world change)\nb')).toEqual(['Rank: the eighth of the Seven']);
     // the analysis missed the marked line: it is there all the same
     expect(worldChangesOf({ world_changes: [{ text: '常盘台有男生', terms: ['常盘台'] }] }, PERSONA)).toEqual([
       { text: '身份: 第8位Level 5', terms: [], marked: true },

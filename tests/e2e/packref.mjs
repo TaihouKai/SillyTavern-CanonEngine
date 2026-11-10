@@ -55,7 +55,7 @@ try {
   await reopen(page);
   st = { status: await page.evaluate(() => window.CanonEngine.engine.status) };
   const missing = await page.evaluate(() => window.CanonEngine.engine.packMissing());
-  check('PK05 a pack deleted from the library is reported (the engine stops)', missing && st?.status?.phase === 'error' && /not in the pack library any more/.test(st?.status?.message || ''), JSON.stringify({ missing, status: st?.status }).slice(0, 300));
+  check('PK05 a pack deleted from the library is reported (the engine stops)', missing && st?.status?.phase === 'error' && /not in the pack library any more|已不在历史包库里/.test(st?.status?.message || ''), JSON.stringify({ missing, status: st?.status }).slice(0, 300));
   await page.evaluate(() => { document.querySelector('#extensions_settings2 .canon-settings, #canon-engine-settings')?.scrollIntoView(); });
   const note = await page.evaluate(() => [...document.querySelectorAll('.canon-note.err')].map((x) => x.textContent).join(' '));
   check('PK06 the settings show what to do', /历史包库里找不到了|no longer in the pack library/.test(note), note.slice(0, 80));

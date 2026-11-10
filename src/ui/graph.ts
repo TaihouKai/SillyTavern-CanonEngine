@@ -7,7 +7,7 @@ import { formatTick, formatStoryTime, occurrenceTime } from '../domain/time';
 import { localTime } from '../domain/frames';
 import { summaryLines } from '../domain/summary';
 import { sceneRoot, segmentSceneChain, uniq } from '../domain/util';
-import { t } from './i18n';
+import { getLang, t } from './i18n';
 import { deltaText } from '../domain/delta';
 import type { FactDelta } from '../domain/types';
 
@@ -56,7 +56,10 @@ export interface GraphData {
   frames?: { list: { id: string; name: string; idx: number }[]; now?: { id: string; name: string; local: string | null; main: boolean } | null };
 }
 
-const ORIGIN_LABEL: Record<string, string> = { player: '玩家', gm: 'GM/NPC', canon: '正史', offscreen: '场外', bootstrap: '开局前', intervention: '干预' };
+const ORIGIN_KEYS = new Set(['player', 'gm', 'canon', 'offscreen', 'bootstrap', 'intervention']);
+const originLabel = (o: string) => (ORIGIN_KEYS.has(o) ? t(`g_origin_${o}`) : o);
+/** A text with {name} fields filled in. */
+const tf = (key: string, vars: Record<string, string | number>) => t(key).replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
 
 /** Canonical graph straight from the pack (Graph A). */
 export function packGraph(L: LoadedPack, origin: { y: number; m: number; d: number } | null): GraphData {
@@ -74,9 +77,9 @@ export function packGraph(L: LoadedPack, origin: { y: number; m: number; d: numb
       // a structured summary one section per line (the details panel keeps line breaks)
       summary: ev.sections ? summaryLines(ev.sections, /^zh/i.test(L.pack.language)).join('\n') : ev.summary, required: ev.required_description, arc: ev.arc_id,
       detail: [
-        ...(frame ? [`时空：${frame.name}（当地 ${frame.local}${ti && ti.hi > ti.lo ? ` 起，至 ${localTime(fr!, ti.hi)}` : ''}）`] : []),
-        ...(ev.outcomes.length ? [`原作结果：${ev.outcomes.map((o) => `${name(L, o.entity_id)}.${o.predicate}=${JSON.stringify(o.value)}`).join('；')}`] : []),
-        ...(ev.author_note ? [`注：${ev.author_note}`] : []),
+        ...(frame ? [tf('g_frame', { name: frame.name, local: frame.local, until: ti && ti.hi > ti.lo ? tf('g_frameUntil', { t: localTime(fr!, ti.hi) }) : '' })] : []),
+        ...(ev.outcomes.length ? [t('g_canonOutcome') + ev.outcomes.map((o) => `${name(L, o.entity_id)}.${o.predicate}=${JSON.stringify(o.value)}`).join(t('g_semi'))] : []),
+        ...(ev.author_note ? [t('g_note') + ev.author_note] : []),
       ],
     });
   }
@@ -100,7 +103,7 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
     else n.status = 'unresolved';
     if (d) {
       const occ = d.occurrenceId ? s.occurrences.get(d.occurrenceId) : undefined;
-      const actual = occ?.outcome.length ? [`本局结果：${occ.outcome.map((x) => (x.op === 'unset' ? `${name(L, x.entity_id, s)}.${x.predicate} 未知` : deltaText(x, (id) => name(L, id, s)))).join('；')}`] : [];
+      const actual = occ?.outcome.length ? [t('g_actualOutcome') + occ.outcome.map((x) => (x.op === 'unset' ? `${name(L, x.entity_id, s)}.${x.predicate} ${t('g_unknownValue')}` : deltaText(x, (id) => name(L, id, s)))).join(t('g_semi'))] : [];
       if (occ?.origin === 'intervention') n.forced = true;
       if (occ?.linkedFrom?.length) n.linked = true;
       if (/^concluded by the player/.test(d.reason || '')) { n.concluded = true; n.forced = true; }
@@ -108,19 +111,19 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
       const merged = new Set(occ?.linkedFrom || []);
       const after = [...s.occurrences.values()].filter((o) => o.afterOf === n.id && !merged.has(o.occurrenceId)).sort((a, b) => a.time.lo - b.time.lo);
       if (after.length) n.afterStory = after.length;
-      n.detail = [`本局状态：${statusLabel(n.status)}`, ...(occ ? [`实际经过：${occ.account}`, `来源：${ORIGIN_LABEL[occ.origin] || occ.origin}`] : []), ...actual, ...after.map((o) => `后续（${formatTick(o.time.lo, origin)}）：${o.account}`), ...(n.detail || [])];
+      n.detail = [t('g_status') + statusLabel(n.status), ...(occ ? [t('g_account') + occ.account, t('g_source') + originLabel(occ.origin)] : []), ...actual, ...after.map((o) => tf('g_after', { t: formatTick(o.time.lo, origin) }) + o.account), ...(n.detail || [])];
     } else {
       // shown under way in play, result not settled yet: judged when it ends
       const beats = [...s.occurrences.values()].filter((o) => o.inProgressOf === n.id).sort((a, b) => a.time.lo - b.time.lo);
       if (beats.length) n.inProgress = true;
-      n.detail = [`本局状态：${beats.length ? '进行中（时间窗口结束时定结果）' : statusLabel(n.status)}`, ...beats.map((o) => `已发生的部分：${o.account}`), ...(n.detail || [])];
+      n.detail = [t('g_status') + (beats.length ? t('g_underWay') : statusLabel(n.status)), ...beats.map((o) => t('g_soFar') + o.account), ...(n.detail || [])];
     }
     if (!spoilers && (n.status === 'future' || n.status === 'pending')) {
       n.masked = true;
-      n.title = n.lane === 'HARD' ? 'HARD 锚点（剧透已隐藏）' : '？？？';
-      n.summary = '（未来事件；勾选“显示剧透”查看）';
-      n.required = n.lane === 'HARD' ? '（剧透已隐藏）' : null;
-      n.detail = [`本局状态：${statusLabel(n.status)}`];
+      n.title = n.lane === 'HARD' ? t('g_hardHidden') : '？？？';
+      n.summary = t('g_futureHidden');
+      n.required = n.lane === 'HARD' ? t('g_hidden') : null;
+      n.detail = [t('g_status') + statusLabel(n.status)];
       n.frame = undefined;
     }
   }
@@ -135,7 +138,7 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
     const root = sceneRoot(s.occurrences, o.occurrenceId);
     chains.set(root, [...(chains.get(root) || []), o]);
   }
-  const outcomeText = (o: { outcome: FactDelta[] }) => o.outcome.map((d) => (d.op === 'unset' ? `${name(L, d.entity_id, s)}.${d.predicate} 未知` : deltaText(d, (id) => name(L, id, s))));
+  const outcomeText = (o: { outcome: FactDelta[] }) => o.outcome.map((d) => (d.op === 'unset' ? `${name(L, d.entity_id, s)}.${d.predicate} ${t('g_unknownValue')}` : deltaText(d, (id) => name(L, id, s))));
   const segments: [string, typeof s.occurrences extends Map<string, infer V> ? V[] : never, (typeof digest)[number]?][] = [];
   for (const [root, ms] of chains) {
     ms.sort((a, b) => a.time.lo - b.time.lo);
@@ -152,13 +155,13 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
     // an undated backstory sits just before its latest possible time, not across the whole range it may be in
     const lo = Math.min(...members.map((m) => (m.undated ? m.time.hi : m.time.lo))), hi = Math.max(...members.map((m) => m.time.hi));
     const span = members.length > 1 ? { lo, hi, precision: 'range' as const } : first.time;
-    const when = members.length === 1 ? occurrenceTime(first, origin, 'zh') : formatStoryTime(span, origin);
+    const when = members.length === 1 ? occurrenceTime(first, origin, getLang()) : formatStoryTime(span, origin);
     const outcomes = members.flatMap(outcomeText);
     g.nodes.push({
-      id: root, title: dg ? `${dg.title}（${members.length}段）` : members.length > 1 ? `${first.title}（${members.length}段）` : first.title, lane: 'RUNTIME', tick: lo, tickHi: hi, when, short: shortRange(lo, hi, origin),
+      id: root, title: dg ? dg.title + tf('g_parts', { n: members.length }) : members.length > 1 ? first.title + tf('g_parts', { n: members.length }) : first.title, lane: 'RUNTIME', tick: lo, tickHi: hi, when, short: shortRange(lo, hi, origin),
       summary: dg ? `${dg.summary}\n\n${members.map((m) => `· ${formatTick(m.time.lo, origin).split(' ')[1]} ${m.title}`).join('\n')}` : members.length > 1 ? members.map((m) => `${m.title}：${m.account}`).join('\n') : first.account,
       status: 'runtime', origin: first.origin, members: members.map((m) => m.occurrenceId),
-      detail: [`来源：${uniq(members.map((m) => ORIGIN_LABEL[m.origin] || m.origin)).join('、')}`, ...(members.length > 1 && !dg ? [`同一场景：${members.map((m) => `${formatTick(m.time.lo, origin).split(' ')[1]} ${m.title}`).join(' → ')}`] : []), ...(outcomes.length ? [`本局结果：${outcomes.join('；')}`] : [])],
+      detail: [t('g_source') + uniq(members.map((m) => originLabel(m.origin))).join(t('g_sep')), ...(members.length > 1 && !dg ? [t('g_sameScene') + members.map((m) => `${formatTick(m.time.lo, origin).split(' ')[1]} ${m.title}`).join(' → ')] : []), ...(outcomes.length ? [t('g_actualOutcome') + outcomes.join(t('g_semi'))] : [])],
     });
   }
   // actual causal links (occurrence -> occurrence), mapped onto canon nodes / scene boxes where applicable
@@ -168,7 +171,7 @@ export function currentGraph(L: LoadedPack, s: WorldState, origin: { y: number; 
     const from = nodeOf(c), to = nodeOf(o.occurrenceId);
     if (from === to || edgeSeen.has(`${from}>${to}`)) continue;
     edgeSeen.add(`${from}>${to}`);
-    g.edges.push({ from, to, kind: 'cause', note: '本局实际因果' });
+    g.edges.push({ from, to, kind: 'cause', note: t('g_actualCause') });
   }
   if (!spoilers) {
     const hidden = new Set(g.nodes.filter((n) => n.masked && n.lane !== 'HARD').map((n) => n.id));
@@ -199,8 +202,8 @@ function name(L: LoadedPack, id: string, s?: WorldState): string {
 }
 
 export function statusLabel(st?: GStatus): string {
-  const m: Record<string, string> = { occurred: '已发生', diverged: '已改变', omitted: '未发生', pending: '进行中/临近', future: '未来', unresolved: '时间已过，下次时间推进时结算', unscheduled: '时间不明（背景）', runtime: '本局事件' };
-  return st ? m[st] || st : '';
+  const known = ['occurred', 'diverged', 'omitted', 'pending', 'future', 'unresolved', 'unscheduled', 'runtime'];
+  return st ? (known.includes(st) ? t(`g_st_${st}`) : st) : '';
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -212,7 +215,9 @@ export function statusLabel(st?: GStatus): string {
 // shows the text beside it.
 const NODE_H = 46, ROW_GAP = 10, LANE_PAD = 28, AXIS_H = 40, LEFT = 92, MIN_BAR = 10, UNK_W = 168;
 const LANES: GNode['lane'][] = ['HARD', 'SOFT', 'FREE', 'RUNTIME'];
-const LANE_LABEL: Record<string, string> = { HARD: 'HARD 必然', SOFT: 'SOFT 重要', FREE: 'FREE 背景', RUNTIME: '本局事件' };
+const laneLabel = (l: string) => t(`g_lane_${l}`);
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const monthLabel = (mo: number) => (getLang() === 'en' ? MONTHS_EN[mo - 1] : t('g_month').replace('{m}', String(mo)));
 
 interface Placed extends GNode { x: number; y: number; w: number; inside: boolean; title2: string; sub2: string }
 
@@ -306,7 +311,7 @@ function axisTicks(g: GraphData, sc: { x: (t: number) => number }, bounds: numbe
     for (let d = Math.max(day0, day1 - 20000); d <= day1; d++) {
       const dt = dayOf(d);
       const yr = dt.getUTCFullYear(), mo = dt.getUTCMonth() + 1, dd = dt.getUTCDate();
-      if (dd === 1) { cands.push({ t: d * 1440, label: yr !== prevY ? `${yr}-${String(mo).padStart(2, '0')}` : `${mo}月`, major: true }); prevY = yr; }
+      if (dd === 1) { cands.push({ t: d * 1440, label: yr !== prevY ? `${yr}-${String(mo).padStart(2, '0')}` : monthLabel(mo), major: true }); prevY = yr; }
       else cands.push({ t: d * 1440, label: `${mo}/${dd}`, major: false });
     }
   } else {
@@ -335,8 +340,8 @@ function axisTicks(g: GraphData, sc: { x: (t: number) => number }, bounds: numbe
 /** 现在, with the scene's time frame when the pack has frames (and its local time in another frame). */
 function nowLabel(g: GraphData): string {
   const f = g.frames?.now;
-  if (!f) return '现在';
-  return f.main ? `现在 · ${f.name}` : `现在 · ${f.name} ${f.local || ''}`.trim();
+  if (!f) return t('g_now');
+  return f.main ? `${t('g_now')} · ${f.name}` : `${t('g_now')} · ${f.name} ${f.local || ''}`.trim();
 }
 
 const clip = (s: string, n: number) => ([...s].length > n ? [...s].slice(0, n - 1).join('') + '…' : s);
@@ -364,9 +369,9 @@ export function graphContent(GL: GraphLayout, view?: GraphView | null): string {
   const v = view || { x0: -Infinity, x1: Infinity, y0: -Infinity, y1: Infinity, detail: true };
   const boxEnd = (n: Placed) => n.x + n.w + (n.inside || !v.detail ? 0 : 6 + Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12);
   const shown = (n: Placed) => boxEnd(n) >= v.x0 && n.x <= v.x1 && n.y + NODE_H >= v.y0 && n.y <= v.y1;
-  const lanes = LANES.filter((l) => L.laneY[l][1] > L.laneY[l][0]).map((l, i) => `<rect x="0" y="${L.laneY[l][0]}" width="${L.width}" height="${L.laneY[l][1] - L.laneY[l][0]}" class="cg-lane cg-lane-${i % 2}"/><text x="${Math.max(8, Math.min(v.x0 + 8, L.width - 120))}" y="${L.laneY[l][0] + 18}" class="cg-lane-label">${LANE_LABEL[l]}</text>`).join('');
+  const lanes = LANES.filter((l) => L.laneY[l][1] > L.laneY[l][0]).map((l, i) => `<rect x="0" y="${L.laneY[l][0]}" width="${L.width}" height="${L.laneY[l][1] - L.laneY[l][0]}" class="cg-lane cg-lane-${i % 2}"/><text x="${Math.max(8, Math.min(v.x0 + 8, L.width - 120))}" y="${L.laneY[l][0] + 18}" class="cg-lane-label">${laneLabel(l)}</text>`).join('');
   const ticks = L.ticks.filter((tk) => tk.x >= v.x0 - 200 && tk.x <= v.x1).map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick${tk.major ? ' cg-tick-major' : ''}"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label${tk.major ? ' cg-tick-major' : ''}">${esc(tk.label)}</text>`).join('')
-    + (L.axisStart > LEFT && v.x0 <= L.axisStart ? `<text x="${LEFT}" y="${AXIS_H - 12}" class="cg-tick-label">时间不明</text><line x1="${L.axisStart - 20}" y1="${AXIS_H - 6}" x2="${L.axisStart - 20}" y2="${L.height}" class="cg-tick cg-tick-major"/>` : '');
+    + (L.axisStart > LEFT && v.x0 <= L.axisStart ? `<text x="${LEFT}" y="${AXIS_H - 12}" class="cg-tick-label">${t('g_timeUnknown')}</text><line x1="${L.axisStart - 20}" y1="${AXIS_H - 6}" x2="${L.axisStart - 20}" y2="${L.height}" class="cg-tick cg-tick-major"/>` : '');
   // zoomed far out the links are a tangle too small to follow: boxes only
   const edges = !v.detail ? '' : g.edges.map((e) => {
     const a = pos.get(e.from), b = pos.get(e.to);
@@ -393,7 +398,7 @@ export function graphContent(GL: GraphLayout, view?: GraphView | null): string {
     const tc = n.inside ? '' : ' cg-out';
     const head = `<g class="cg-node ${cls}${n.inside ? '' : ' cg-narrow'}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${NODE_H}" rx="${Math.min(7, n.w / 2)}"/>`
       + (n.frame ? `<rect class="cg-frame cg-frame-${n.frame.idx % 8}" width="${n.w}" height="5" rx="2"/>` : '');
-    const tip = `<title>${esc(n.title)} · ${esc(n.when)}${n.frame ? ` · ${esc(n.frame.name)} 当地 ${esc(n.frame.local)}` : ''}</title></g>`;
+    const tip = `<title>${esc(n.title)} · ${esc(n.when)}${n.frame ? ` · ${esc(n.frame.name)} ${t('g_local')} ${esc(n.frame.local)}` : ''}</title></g>`;
     // a long bar repeats its title so it stays readable wherever it is in view (only the copies near the window)
     const repeats = n.inside && n.w > 1400 ? Array.from({ length: Math.floor((n.w - 400) / 1000) }, (_, k) => 8 + (k + 1) * 1000).filter((x) => n.x + x >= v.x0 - 1000 && n.x + x <= v.x1) : [];
     return head
@@ -497,7 +502,7 @@ export class GraphPanel {
         </div>
         <input class="text_pole cg-q" placeholder="${t('graphSearch')}" value="${esc(this.filter.q)}">
         <select class="text_pole cg-arc"><option value="">${t('graphAllArcs')}</option>${arcs}</select>
-        ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? 'checked' : ''}>${LANE_LABEL[l]}</label>`).join('')}
+        ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? 'checked' : ''}>${laneLabel(l)}</label>`).join('')}
         ${d.preview ? '' : `<label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? 'checked' : ''}>${t('spoilers')}</label>`}
         ${this.mode === 'current' && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t('digestTip'))}">${t('digest')}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t('undigestTip'))}">${t('undigest')}</button>` : ''}` : ''}
         ${this.mode === 'current' && d.current?.frames?.now ? this.frameSelect(d.current) : ''}
@@ -570,8 +575,8 @@ export class GraphPanel {
   }
 
   private legend(): string {
-    if (this.mode === 'pack') return `<span class="cg-key cg-c-HARD">HARD</span><span class="cg-key cg-c-SOFT">SOFT</span><span class="cg-key cg-c-FREE">FREE</span><span class="cg-ek cg-edge-enables">促成</span><span class="cg-ek cg-edge-motivates">动机</span><span class="cg-ek cg-edge-precedes">先后</span><span class="cg-ek cg-edge-related">相关</span>`;
-    return ['occurred', 'diverged', 'omitted', 'pending', 'future', 'runtime'].map((s) => `<span class="cg-key cg-s-${s}">${statusLabel(s as GStatus)}</span>`).join('') + `<span class="cg-ek cg-edge-cause">本局因果</span><span class="cg-ek cg-edge-enables">原作关系</span>`;
+    if (this.mode === 'pack') return `<span class="cg-key cg-c-HARD">HARD</span><span class="cg-key cg-c-SOFT">SOFT</span><span class="cg-key cg-c-FREE">FREE</span><span class="cg-ek cg-edge-enables">${t('g_rel_enables')}</span><span class="cg-ek cg-edge-motivates">${t('g_rel_motivates')}</span><span class="cg-ek cg-edge-precedes">${t('g_rel_precedes')}</span><span class="cg-ek cg-edge-related">${t('g_rel_related')}</span>`;
+    return ['occurred', 'diverged', 'omitted', 'pending', 'future', 'runtime'].map((s) => `<span class="cg-key cg-s-${s}">${statusLabel(s as GStatus)}</span>`).join('') + `<span class="cg-ek cg-edge-cause">${t('g_rel_cause')}</span><span class="cg-ek cg-edge-enables">${t('g_rel_pack')}</span>`;
   }
 
   private applyFilter(g: GraphData): GraphData {
@@ -758,9 +763,9 @@ export class GraphPanel {
     const outs = g.edges.filter((e) => e.from === id).map((e) => `→ ${esc(titleOf(e.to))}（${esc(e.kind)}）`);
     (this.el.querySelector('.cg-detail') as HTMLElement).innerHTML = `
       <h3>${esc(n.title)}</h3>
-      <div class="cg-badges"><span class="cg-key cg-c-${n.lane}">${n.lane === 'RUNTIME' ? '本局事件' : n.lane}</span>${n.status ? `<span class="cg-key cg-s-${n.status}">${statusLabel(n.status)}</span>` : ''}</div>
+      <div class="cg-badges"><span class="cg-key cg-c-${n.lane}">${n.lane === 'RUNTIME' ? t('g_lane_RUNTIME') : n.lane}</span>${n.status ? `<span class="cg-key cg-s-${n.status}">${statusLabel(n.status)}</span>` : ''}</div>
       <div class="cg-when">${esc(n.when)}</div>
-      ${n.required ? `<div class="cg-req"><b>必须实现：</b>${esc(n.required)}</div>` : ''}
+      ${n.required ? `<div class="cg-req"><b>${t('g_required')}</b>${esc(n.required)}</div>` : ''}
       <p style="white-space:pre-line">${esc(n.summary)}</p>
       ${this.mode === 'current' && (n.lane === 'SOFT' || n.lane === 'FREE') && (n.status === 'future' || n.status === 'pending') ? `<button class="menu_button cg-focus${n.focused ? ' active' : ''}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t('focusTip'))}">${n.focused ? t('unfocus') : t('focus')}</button>` : ''}
       ${this.mode === 'current' && n.lane !== 'RUNTIME' && n.status !== 'occurred' && n.status !== 'diverged' ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t('force')}</button>` : ''}
@@ -769,6 +774,6 @@ export class GraphPanel {
       ${this.mode === 'current' && n.lane !== 'RUNTIME' && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t('linkTip'))}">${t('link')}</button><div class="cg-linkpick"></div>` : ''}
       ${this.mode === 'current' && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t(n.members ? 'reanalyzeOccTip' : 'reanalyzeTip'))}">${t('reanalyze')}</button>` : ''}
       ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join('')}
-      ${ins.length || outs.length ? `<div class="cg-rel"><b>关系</b><br>${[...ins, ...outs].join('<br>')}</div>` : ''}`;
+      ${ins.length || outs.length ? `<div class="cg-rel"><b>${t('g_relations')}</b><br>${[...ins, ...outs].join('<br>')}</div>` : ''}`;
   }
 }

@@ -246,6 +246,8 @@ export class CanonEngine {
   host: HostPort;
   settings: EngineSettings;
   status: StatusInfo = { phase: 'idle', message: '', canRetry: false, canCancel: false };
+  /** A message to the user in the UI language (Chinese unless English is chosen, as the panel). */
+  private tr(zh: string, en: string): string { return (this.settings as { uiLang?: string }).uiLang === 'en' ? en : zh; }
   epoch = 0;
   private packCache: { hash: string; loaded: LoadedPack } | null = null;
   /** Discovery result per (operation, text): re-reviewing the same draft against staged history reuses it. */
@@ -365,7 +367,9 @@ export class CanonEngine {
   }
 
   private packMissingMessage(c: CampaignData): string {
-    return `The history pack of this chat (${c.packRef?.title || c.packRef?.packId || '?'} v${c.packVersion}, hash ${c.packHash.slice(0, 12)}) is not in the pack library any more${c.packRef?.file ? ` (${c.packRef.file})` : ''}. Choose that pack file again (更新历史包 / 选择历史包文件); the same pack reconnects the chat as it was.`;
+    const what = `${c.packRef?.title || c.packRef?.packId || '?'} v${c.packVersion}, hash ${c.packHash.slice(0, 12)}`, file = c.packRef?.file ? ` (${c.packRef.file})` : '';
+    return this.tr(`本对话的历史包（${what}）已不在历史包库里${file}。请重新选择这个历史包文件（更新历史包 / 选择历史包文件）；同一个历史包会让对话原样接上。`,
+      `The history pack of this chat (${what}) is not in the pack library any more${file}. Choose that pack file again (Choose the pack file, or Update next to it in the library); the same pack reconnects the chat as it was.`);
   }
 
   /** The chat's pack, loaded from the pack store when the chat keeps only a reference; a chat that still keeps the pack
@@ -415,7 +419,8 @@ export class CanonEngine {
     if (!c) throw new EngineError('invalid_pack', 'no campaign');
     const r = validatePackText(text);
     if (!r.ok || !r.loaded) throw new EngineError('invalid_pack', r.errors.map((e) => `${e.path}: ${e.message}`).join('\n'));
-    if (r.loaded.hash !== c.packHash) throw new EngineError('invalid_pack', `This is not the pack this chat was bound to (hash ${r.loaded.hash.slice(0, 12)}, the chat's is ${c.packHash.slice(0, 12)}). Choose that pack; a different version is applied with 更新历史包 once the chat's own pack is back.`);
+    if (r.loaded.hash !== c.packHash) throw new EngineError('invalid_pack', this.tr(`这不是本对话绑定的历史包（hash ${r.loaded.hash.slice(0, 12)}，本对话的是 ${c.packHash.slice(0, 12)}）。请选择那个历史包；对话自己的历史包接上以后，再用「更新历史包」换成别的版本。`,
+      `This is not the pack this chat was bound to (hash ${r.loaded.hash.slice(0, 12)}, the chat's is ${c.packHash.slice(0, 12)}). Choose that pack; a different version is applied with Change pack… once the chat's own pack is back.`));
     this.packCache = { hash: r.loaded.hash, loaded: r.loaded };
     if (this.host.packStore) { c.packRef = await this.storePack(r.loaded, text); delete c.packSnapshot; }
     else c.packSnapshot = deepClone(r.loaded.pack);
@@ -1367,7 +1372,7 @@ export class CanonEngine {
     if (!st || !pack || !pack.frames.frames.size) return null;
     const id = sceneFrameOf(st);
     const f = pack.frames.frames.get(id);
-    return { id, name: frameName(pack.frames, id, '主时间线'), local: f ? localTime(f, this.storyNow() ?? st.clock.lo) : null, main: !f };
+    return { id, name: frameName(pack.frames, id, this.tr('主时间线', 'Main timeline')), local: f ? localTime(f, this.storyNow() ?? st.clock.lo) : null, main: !f };
   }
 
   private canonNow(index: WorldIndex, tick: number, jumpTo: number | null = null): { id: string; title: string; window: string; original: string; in_progress?: string[] }[] {
@@ -1782,7 +1787,12 @@ export class CanonEngine {
         this.lastReply = { chars: replyChars(continuing ? draft : candidate), ...(info || {}) };
         await this.commit(c, { op, interp, fences, candidate, commitId, messageId, variantId, contentHash, prior, excludeLast });
         committed = true;
-        if (info?.finish === 'length') this.notice('warn', `The reply was cut off at the output limit${info.maxTokens || info.reasoningTokens ? ` (${[info.maxTokens ? `limit ${info.maxTokens} tokens` : '', info.reasoningTokens ? `thinking used ${info.reasoningTokens}` : ''].filter(Boolean).join('; ')})` : ''}. Raise the maximum response length (最大回复长度) in your API preset.`);
+        if (info?.finish === 'length') {
+          const zhNote = [info.maxTokens ? `上限 ${info.maxTokens} token` : '', info.reasoningTokens ? `思考用了 ${info.reasoningTokens}` : ''].filter(Boolean).join('；');
+          const enNote = [info.maxTokens ? `limit ${info.maxTokens} tokens` : '', info.reasoningTokens ? `thinking used ${info.reasoningTokens}` : ''].filter(Boolean).join('; ');
+          this.notice('warn', this.tr(`回复在输出上限处被截断${zhNote ? `（${zhNote}）` : ''}。请在 API 预设里调高「最大回复长度」。`,
+            `The reply was cut off at the output limit${enNote ? ` (${enNote})` : ''}. Raise the maximum response length in your API preset.`));
+        }
         trace.outcome = 'committed';
         { const cc = this.campaign(); if (cc && cc.recoveryState.status === 'error') { cc.recoveryState = { status: 'ok' }; } }
         this.lastFailedOp = null;
@@ -2094,14 +2104,15 @@ export class CanonEngine {
         try { return await check(b, i); } catch (e) {
           if (signal?.aborted || (e instanceof EngineError && e.kind === 'cancelled')) throw e;
           if (attempt) {
-            this.host.log('warn', `本局设定 part ${i + 1} of ${batches.length} not checked: ${(e as Error).message}`);
+            this.host.log('warn', `This game's world: part ${i + 1} of ${batches.length} not checked: ${(e as Error).message}`);
             unchecked.push(...b.map((it) => ({ title: it.title, kind: it.kind, why: (e as Error).message.slice(0, 200) })));
             return { items: [] } as WorldCheckOut;
           }
         }
       }
     }));
-    if (unchecked.length) this.notice('warn', `本局设定: ${unchecked.length} text(s) could not be checked (the model timed out or failed twice); they are listed in the Canon Engine panel — 重新检查 checks again.`);
+    if (unchecked.length) this.notice('warn', this.tr(`本局设定：有 ${unchecked.length} 条没能检查（模型超时或连续出错两次），已列在 Canon Engine 面板里，点「重新检查」再查。`,
+      `This game's world: ${unchecked.length} text(s) could not be checked (the model timed out or failed twice); they are listed in the Canon Engine panel — Check again checks them.`));
     const res = worldResults(items, outs);
     // the user's own edits stay while their original is still found as it was
     const same = (a: WorldOverride, b: WorldOverride) => a.kind === b.kind && a.book === b.book && String(a.uid) === String(b.uid) && a.target === b.target;
@@ -2115,7 +2126,8 @@ export class CanonEngine {
       ...(unchecked.length ? { unchecked } : {}),
     };
     this.overlayCache = null;
-    c.configRevisions.push({ at: this.host.now(), summary: `本局设定 checked: ${changes.length} change(s), ${items.length} text(s) read, ${overrides.length} rewritten or disabled, ${additions.length} added` });
+    c.configRevisions.push({ at: this.host.now(), summary: this.tr(`本局设定已检查：${changes.length} 处改动，读了 ${items.length} 条，改写或停用 ${overrides.length} 条，新增 ${additions.length} 条`,
+      `This game's world checked: ${changes.length} change(s), ${items.length} text(s) read, ${overrides.length} rewritten or disabled, ${additions.length} added`) });
   }
 
   /** 重新检查 (panel): check again with the changes as they are now. */
@@ -2222,7 +2234,8 @@ export class CanonEngine {
     const h = personaHash(persona);
     if (!samePersona(latest.profile.personaHash, persona) && !samePersona(c.personaKeptHash, persona) && this.personaNoticeHash !== h) {
       this.personaNoticeHash = h;
-      this.notice('warn', `The active Persona ("${persona.name}") differs from this game's player ("${latest.profile.personaName}"). This game keeps its identity until you choose 更新本局身份 in the Canon Engine panel (or 保留本局身份 to stop this notice).`);
+      this.notice('warn', this.tr(`当前的 Persona（"${persona.name}"）和本局的玩家（"${latest.profile.personaName}"）不同。本局会保留原来的身份，直到你在 Canon Engine 面板里选「更新本局身份」（选「保留本局身份」则不再提示）。`,
+        `The active Persona ("${persona.name}") differs from this game's player ("${latest.profile.personaName}"). This game keeps its identity until you choose Update this game's identity in the Canon Engine panel (or Keep this game's identity to stop this notice).`));
     }
   }
   private personaNoticeHash = '';
@@ -2484,7 +2497,7 @@ export class CanonEngine {
     if (out.severity === 'major' && validAnchors.length && (out.replan || (c as CampaignData & { _impactForced?: boolean })._impactForced)) {
       const routeBroken = validAnchors.some((a) => state.dispositions.get(a)?.disposition !== 'occurred');
       if (routeBroken) {
-        const banner: Banner = { severity: 'major', text: '严重历史偏离：本次变化显著影响了既定历史的实现路径，世界收束机制正在调整后续事件。', commitId: interp.commitId, reason: out.explanation.slice(0, 300) };
+        const banner: Banner = { severity: 'major', text: this.tr('严重历史偏离：本次变化显著影响了既定历史的实现路径，世界收束机制正在调整后续事件。', 'Major deviation: this change significantly affects how established history can come about; the world is adjusting the events ahead.'), commitId: interp.commitId, reason: out.explanation.slice(0, 300) };
         const list = interpretationsFor(c.interpretations, interp.key);
         const mine = list.find((x) => x.commitId === interp.commitId);
         if (mine) mine.banner = banner;
@@ -2616,7 +2629,7 @@ export class CanonEngine {
   private assertReplayComplete(): void {
     const issue = this.current?.replay.issue;
     if (!issue) return;
-    throw new EngineError('incompatible_adapter', `Canon Engine is stopped at message ${issue.index} (${issue.status}): ${(issue.reasons[0] || '').slice(0, 160)} — resolve that first (重试 re-checks it), then try again.`);
+    throw new EngineError('incompatible_adapter', `Canon Engine is stopped at message ${issue.index} (${issue.status}): ${(issue.reasons[0] || '').slice(0, 160)} ${this.tr(' —— 请先处理它（「重试」会重新检查），再试一次。', ' — resolve that first (Retry re-checks it), then try again.')}`);
   }
 
   /** 当前时空: move the scene to a time frame by hand (the reviewer missed a move between frames). Anchored after the
@@ -2668,7 +2681,7 @@ export class CanonEngine {
     this.assertReplayComplete();
     const pack = this.pack();
     const t = pack.timeIndex.find((x) => x.id === eventId);
-    if (!t) throw new EngineError('incompatible_adapter', 'This event has no story time; use 强制完成 or 关联本局事件 instead.');
+    if (!t) throw new EngineError('incompatible_adapter', this.tr('这个事件没有故事时间；请改用「强制完成」或「关联本局事件」。', 'This event has no story time; use Force complete or Link story events instead.'));
     if (this.current.replay.state.dispositions.has(eventId)) throw new EngineError('incompatible_adapter', 'This event already has a result.');
     const state = this.current.replay.state;
     const now = this.storyNow() ?? state.clock.lo;
@@ -2681,7 +2694,7 @@ export class CanonEngine {
     try {
       res = await concludeFromPlay({ pack, state, fromExclusive: state.clock.lo, toInclusive: when.hi, exclude: new Set(), port: this.host.model, plan: this.activePlan(), forcedAllowed: false, operationId: 'conclude', facts, log: (l) => this.debugLog('task', l) }, eventId, when);
     } finally { if (!this.opActive) this.setStatus('idle'); }
-    if (!res) throw new EngineError('provider_failure', 'The analysis model could not conclude this event; try again, or use 关联本局事件 / 强制完成.');
+    if (!res) throw new EngineError('provider_failure', this.tr('分析模型没能给这个事件定结果；请再试一次，或使用「关联本局事件」/「强制完成」。', 'The analysis model could not conclude this event; try again, or use Link story events / Force complete.'));
     if ('stillUnderWay' in res) return 'ongoing';
     const rec = res.record;
     await this.exclusive(async () => {
@@ -2785,7 +2798,7 @@ export class CanonEngine {
     // With an after story: re-judge from everything the story showed of it; the after story merges into the result.
     if (this.current.index.afterStory(eventId).length) return this.mergeAfterStory(eventId);
     const src = this.reanalyzableSource(eventId);
-    if (!src) throw new EngineError('incompatible_adapter', 'This result was not recorded from a chat message (starting history or 强制完成); there is nothing to re-analyse.');
+    if (!src) throw new EngineError('incompatible_adapter', this.tr('这个结果不是从聊天消息里记下的（开局历史或「强制完成」），没有可重新分析的内容。', 'This result was not recorded from a chat message (starting history or Force complete); there is nothing to re-analyse.'));
     await this.exclusive(async () => {
       delete c.interpretations[src.key];
       c.configRevisions.push({ at: this.host.now(), summary: `re-analysed the message that recorded ${eventId}` });
@@ -3117,7 +3130,7 @@ export class CanonEngine {
       engagement: { scopeKind, scopeRef, scopeLabel: cur.scopeLabel, stance: cur.stance, quote: cur.quote, until: cur.until ?? null, source: 'ui', strong },
     };
     c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
-    c.configRevisions.push({ at: this.host.now(), summary: `${strong ? '强烈拒绝' : '取消强烈'}: ${cur.scopeLabel}` });
+    c.configRevisions.push({ at: this.host.now(), summary: `${strong ? this.tr('强烈拒绝', 'Made binding') : this.tr('取消强烈', 'No longer binding')}: ${cur.scopeLabel}` });
     await this.host.save();
     await this.reconcile('engagement_strong');
   }
@@ -3139,7 +3152,7 @@ export class CanonEngine {
       engagement: { scopeKind: 'contact', scopeRef: recordId, scopeLabel: label.slice(0, 300), stance, quote: '', until: null, source: 'ui' },
     };
     c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
-    c.configRevisions.push({ at: this.host.now(), summary: `${{ accepted: '接受', declined: '拒绝', done: '完成' }[stance]}: ${label}` });
+    c.configRevisions.push({ at: this.host.now(), summary: `${{ accepted: this.tr('接受', 'Accepted'), declined: this.tr('拒绝', 'Declined'), done: this.tr('完成', 'Done') }[stance]}: ${label}` });
     await this.host.save();
     await this.reconcile('engagement_contact');
   }

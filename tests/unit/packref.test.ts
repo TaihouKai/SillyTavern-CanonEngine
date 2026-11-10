@@ -90,10 +90,10 @@ describe('pack kept by reference', () => {
     x.st.files.clear();
     x.host.reload();
     const y = new CanonEngine(x.host, { taskTimeoutMs: 5000, draftTimeoutMs: 5000 });
-    await expect(y.reconcile('chat_changed')).rejects.toThrow(/not in the pack library any more.*Choose that pack file again/);
+    await expect(y.reconcile('chat_changed')).rejects.toThrow(/已不在历史包库里.*请重新选择这个历史包文件/);
     expect(y.status.errorKind).toBe('pack_missing');
     expect(y.packMissing()).toBe(true);
-    await expect(y.relinkPack(other)).rejects.toThrow(/not the pack this chat was bound to/);
+    await expect(y.relinkPack(other)).rejects.toThrow(/这不是本对话绑定的历史包/);
     await y.relinkPack(demo);
     expect(y.packMissing()).toBe(false);
     expect(x.st.files.size).toBe(1);

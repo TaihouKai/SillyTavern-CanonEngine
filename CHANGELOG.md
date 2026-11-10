@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.29.2 — 2026-11-11
+
+- **README in English, with a feature overview**: the turn pipeline step by step, the chronicle and the timeline window, the player in the world (Inspector), reliability and tools; every UI label in its English form.
+- **English interface completed**: the timeline window's event details, lanes, statuses, legend, axis and "now" label were Chinese in the English interface; English texts no longer name Chinese buttons; the engine's notices and errors (a pack missing from the library, a changed Persona, a cut-off reply, the deviation banner, conclude / re-analyse errors, the default frame name) follow the interface language.
+- A Persona line marked `(world change)` is a change of this game's world, as `(本局设定)` is. Test: worldset markedLines.
+
 ## 1.29.1 — 2026-11-10
 
 - canon-lint: a name in capitals is a proper name, not the generic word (the organization SCHOOL was flagged as "school"). Test: P01b.
