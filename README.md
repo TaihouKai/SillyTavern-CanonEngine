@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/logo.webp" width="256" alt="Canon Engine logo"></p>
+<p align="center"><img src="assets/logo.svg" width="200" alt="Canon Engine logo"></p>
 
 # Canon Engine — SillyTavern extension
 
