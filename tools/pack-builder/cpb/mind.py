@@ -62,6 +62,13 @@ def check_mind(names=()):
     return check
 
 
+def drop_named(obj, names):
+    if not isinstance(obj, dict) or obj.get('none'):
+        return obj
+    out = {k: ('' if k in FIELDS and any(n in str(v or '') for n in names) else v) for k, v in obj.items()}
+    return out if str(out.get('approach') or '').strip() else {'none': True}
+
+
 def page_of(e, wiki):
     return next((wiki[n] for n in [e['name'], *(e.get('aliases') or [])] if n in wiki), '')
 
@@ -81,9 +88,10 @@ def generate(project, client, pack, wiki, lang='Simplified Chinese', out_dir=Non
         try:
             return client.call('mind', MIND_VERSION, system, user, check_mind(names), max_tokens=2000)
         except LLMError as err:
-            # a name it would not write away: the reply as it is
-            warn(f'mind {e["id"]}: {err}; taking the reply without the name check')
-            return client.call('mind', MIND_VERSION, system, user, check_mind(), max_tokens=2000)
+            # a name it would not write away: the reply without the fields that name someone (live: 欧雷尔斯's
+            # "pushed" kept naming 欧提努斯 after three tries); without an approach there is none
+            warn(f'mind {e["id"]}: {err}; dropping the fields that name someone')
+            return drop_named(client.call('mind', MIND_VERSION, system, user, check_mind(), max_tokens=2000), names)
 
     res = client.run_many([(e['id'], (lambda e=e: one(e))) for e in people], 'mind')
     ents = {e['id']: e for e in people}

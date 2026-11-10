@@ -49,6 +49,10 @@ class MindTest(unittest.TestCase):
         self.assertTrue(check({**OK, 'approach': ''}))
         self.assertTrue(any('白井黑子' in p for p in check({**OK, 'blind': '总把白井黑子当作威胁'})))
 
+    def test_drop_named(self):
+        self.assertEqual(mind.drop_named({**OK, 'pushed': '对手是欧提努斯时'}, ['欧提努斯'])['pushed'], '')
+        self.assertEqual(mind.drop_named({**OK, 'approach': '跟着欧提努斯'}, ['欧提努斯']), {'none': True})
+
     def test_only_people_with_a_page(self):
         pack = {'title': 'w', 'events': [], 'entities': [
             {'id': 'a', 'name': '甲', 'aliases': [], 'kind': 'person'},
