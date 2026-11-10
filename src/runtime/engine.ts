@@ -9,7 +9,7 @@ import { buildBootstrap, causeOf, pendingHard, forcedCompletion, linkedCompletio
 import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { WorldIndex } from '../domain/world-query';
-import { clockReadings, formatTick, formatStoryTime, fromTick, occurrenceTime, parseDateLabel, readingTick, toTick } from '../domain/time';
+import { agoLabel, clockReadings, formatTick, formatStoryTime, fromTick, occurrenceTime, parseDateLabel, readingTick, toTick } from '../domain/time';
 import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
 import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
@@ -2901,7 +2901,7 @@ export class CanonEngine {
   /** Organizations as they stand now in this game (leader, members, status from the game's state) and the pack's
    *  membership changes in time order with how they stand in this game. Changes still to come are canon spoilers:
    *  without spoilers only their number is given. */
-  membershipView(spoilers: boolean): { now: { id: Id; name: string; leader: string | null; members: string[]; status: string | null }[]; changes: { when: string; event: string; org: string; what: 'members' | 'leader'; op: 'set' | 'unset' | 'add' | 'remove'; names: string[]; state: 'occurred' | 'diverged' | 'pending' | 'future' }[]; hidden: number } | null {
+  membershipView(spoilers: boolean): { now: { id: Id; name: string; leader: string | null; members: string[]; status: string | null; statusSince: string | null }[]; changes: { when: string; event: string; org: string; what: 'members' | 'leader'; op: 'set' | 'unset' | 'add' | 'remove'; names: string[]; state: 'occurred' | 'diverged' | 'pending' | 'future' }[]; hidden: number } | null {
     if (!this.campaign() || !this.current) return null;
     const s = this.current.replay.state;
     const idx = this.current.index;
@@ -2913,7 +2913,10 @@ export class CanonEngine {
     const orgs = [...new Set([...pack.entities.values()].filter((e) => e.kind === 'organization').map((e) => e.id).concat([...s.runtimeEntities.values()].filter((e) => e.kind === 'organization').map((e) => e.id)))];
     const now = orgs.map((id) => {
       const leader = str(id, 'leader');
-      return { id, name: idx.entityName(id), leader: leader ? idx.entityName(leader) : null, members: (members.get(id) || []).map((m) => idx.entityName(m)), status: str(id, 'status') };
+      // a status holds until another is written: when it was written shows how old it is
+      const st = factAt(s, id, 'status', { tick });
+      const status = st.known && typeof st.value === 'string' ? st.value : null;
+      return { id, name: idx.entityName(id), leader: leader ? idx.entityName(leader) : null, members: (members.get(id) || []).map((m) => idx.entityName(m)), status, statusSince: status && st.validFrom !== undefined ? `${formatTick(st.validFrom, origin)}, ${agoLabel(st.validFrom, tick)}` : null };
     }).filter((o) => o.leader || o.members.length || o.status);
     const changes: NonNullable<ReturnType<CanonEngine['membershipView']>>['changes'] = [];
     let hidden = 0;

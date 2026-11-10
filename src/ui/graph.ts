@@ -415,7 +415,7 @@ export function renderGraphSvg(g: GraphData, mode: 'pack' | 'current', view?: Gr
 
 /** Interactive panel controller (pan/zoom, selection, filters). */
 export interface MembersView {
-  now: { id: string; name: string; leader: string | null; members: string[]; status: string | null }[];
+  now: { id: string; name: string; leader: string | null; members: string[]; status: string | null; statusSince?: string | null }[];
   changes: { when: string; event: string; org: string; what: 'members' | 'leader'; op: string; names: string[]; state: 'occurred' | 'diverged' | 'pending' | 'future' }[];
   hidden: number;
 }
@@ -529,7 +529,7 @@ export class GraphPanel {
     const m = this.getMembers(spoilers);
     if (!m) return `<div class="cg-empty">${t('graphNoData')}</div>`;
     const now = m.now.length
-      ? `<table class="canon-table cg-members"><tr><th>${t('membersOrg')}</th><th>${t('membersLeader')}</th><th>${t('membersList')}</th><th>${t('membersStatus')}</th></tr>${m.now.map((o) => `<tr><td>${esc(o.name)}</td><td>${esc(o.leader || '—')}</td><td>${esc(o.members.join('、') || '—')}</td><td>${esc(o.status || '')}</td></tr>`).join('')}</table>`
+      ? `<table class="canon-table cg-members"><tr><th>${t('membersOrg')}</th><th>${t('membersLeader')}</th><th>${t('membersList')}</th><th>${t('membersStatus')}</th></tr>${m.now.map((o) => `<tr><td>${esc(o.name)}</td><td>${esc(o.leader || '—')}</td><td>${esc(o.members.join('、') || '—')}</td><td>${esc(o.status || '')}${o.statusSince ? ` <span class="cg-since">(${t('membersSince')} ${esc(o.statusSince)})</span>` : ''}</td></tr>`).join('')}</table>`
       : `<div class="cg-empty">${t('membersNone')}</div>`;
     const ch = m.changes.length
       ? `<table class="canon-table cg-members"><tr><th>${t('membersWhen')}</th><th>${t('membersEvent')}</th><th>${t('membersOrg')}</th><th>${t('membersChange')}</th><th></th></tr>${m.changes.map((c) => `<tr class="cg-mstate-${c.state}"><td>${esc(c.when)}</td><td>${esc(c.event)}</td><td>${esc(c.org)}</td><td>${esc(memberChange(c))}</td><td><span class="cg-key cg-s-${c.state}">${statusLabel(c.state as GStatus)}</span></td></tr>`).join('')}</table>`

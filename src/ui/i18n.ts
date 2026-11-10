@@ -83,6 +83,7 @@ const D: Record<string, { zh: string; en: string }> = {
   membersLeader: { zh: '首领', en: 'Leader' },
   membersList: { zh: '成员', en: 'Members' },
   membersStatus: { zh: '状态', en: 'Status' },
+  membersSince: { zh: '自', en: 'since' },
   membersWhen: { zh: '时间', en: 'When' },
   membersEvent: { zh: '事件', en: 'Event' },
   membersChange: { zh: '变化后', en: 'After it' },

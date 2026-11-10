@@ -21,6 +21,19 @@ class ChangesTest(unittest.TestCase):
         self.assertEqual(events[0]['canonical_effects'], [changes.change('add', 'org', 'members', ['c']), changes.change('remove', 'org', 'members', ['a'])])
         self.assertEqual(events[0]['outcomes'], [changes.change('add', 'org', 'members', ['c']), changes.change('remove', 'org', 'members', ['a'])])
 
+    def test_whole_list_keeps_who_joined_by_a_change(self):
+        # a base pack's list written without someone a beat had added does not take them out (live: 天草式 left
+        # 英国清教 at the base pack's next list); an empty list still empties the set
+        init = [{'fact': {'entity_id': 'org', 'predicate': 'members', 'value': ['a', 'b']}}]
+        events = [ev('j', 2, [changes.change('add', 'org', 'members', ['x'])]),
+                  ev('list', 3, [{'op': 'set', 'fact': {'entity_id': 'org', 'predicate': 'members', 'value': ['b', 'c']}}]),
+                  ev('list2', 4, [{'op': 'set', 'fact': {'entity_id': 'org', 'predicate': 'members', 'value': ['b']}}]),
+                  ev('gone', 5, [{'op': 'set', 'fact': {'entity_id': 'org', 'predicate': 'members', 'value': []}}])]
+        changes.complete(events, init)
+        self.assertEqual(events[1]['canonical_effects'], [changes.change('add', 'org', 'members', ['c']), changes.change('remove', 'org', 'members', ['a'])])
+        self.assertEqual(events[2]['canonical_effects'], [changes.change('remove', 'org', 'members', ['c'])])
+        self.assertEqual(events[3]['canonical_effects'], [changes.change('remove', 'org', 'members', ['b', 'x'])])
+
     def test_handover_and_death(self):
         init = [{'fact': {'entity_id': 'org', 'predicate': 'members', 'value': ['a', 'b']}},
                 {'fact': {'entity_id': 'org', 'predicate': 'leader', 'value': 'a'}}]

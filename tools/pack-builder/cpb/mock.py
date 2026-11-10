@@ -47,6 +47,9 @@ def mock(task, user):
         return {'entities': out}
     if task.startswith('dedupe'):   # nothing is a duplicate (both the group listing and the pair check)
         return {'groups': [], 'same': False, 'why': '模拟'}
+    if task == 'lasting':   # a status that names an attack is passing, the rest lasts
+        items = re.findall(r'^(\d+)\. .*? — status: (.*)$', user, re.M)
+        return {'items': [{'n': int(n), 'is': 'passing' if '袭击' in v else 'lasting'} for n, v in items]}
     if task == 'mind':
         return {'deliberation': 'situational', 'sharpness': 'plain', 'approach': '（模拟）照常处理', 'speaks': '（模拟）'}
     if task == 'nature':

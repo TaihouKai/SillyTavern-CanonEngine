@@ -25,6 +25,7 @@ PREDICATES = [
     {'id': 'knows', 'description': '人物掌握的重要秘密或真相（写在知情者身上）。', 'value_type': 'string'},
     {'id': 'leader', 'description': '组织的实际领导者。', 'value_type': 'entity_ref'},
     {'id': 'members', 'description': '组织的主要成员。事件写加入（add）与离开（remove）的人，不写整份名单。', 'value_type': 'entity_set'},
+    {'id': 'ally', 'description': '组织的同盟或合作对象。', 'value_type': 'entity_ref'},
     {'id': 'holder', 'description': '物品当前的持有者。', 'value_type': 'entity_ref'},
     {'id': 'form', 'description': '人物的身体形态。', 'value_type': 'string'},
 ]
@@ -332,7 +333,11 @@ class FactState:
     def apply(self, sid, k, v, obj_name, oid, put):
         # put(entity, predicate, value, op): op "add"/"remove" is who joins or leaves (see changes.py)
         if k in ('joins', 'leaves'):
-            if oid and self.kind(oid) in ORG_KINDS:
+            if oid and self.kind(sid) != 'person' and v and obj_name and obj_name in v:
+                # an organization "joining" another on terms that name it made an agreement with it, it did not
+                # become part of it (live: 英国清教 joins 学园都市, 「与学园都市达成合作协议」)
+                put(sid, 'ally', oid)
+            elif oid and self.kind(oid) in ORG_KINDS:
                 cur = set(self.members.get(oid, set()))
                 (cur.add if k == 'joins' else cur.discard)(sid)
                 self.members[oid] = cur

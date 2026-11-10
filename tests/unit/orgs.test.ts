@@ -99,6 +99,13 @@ describe('who joins and who leaves', () => {
     expect(org).toMatchObject({ leader: 'Ash', members: expect.arrayContaining(['Ash', 'Kit', 'Ren']) });
   });
 
+  it('OR4b an organization\'s status says since when it holds (live: a blackout of the first night shown as the city\'s status months on)', async () => {
+    const x = await setup(orgPack((p) => { p.predicates.push({ id: 'status', description: 'standing', value_type: 'string' }); p.events.at(-1).canonical_effects.push({ op: 'set', fact: { entity_id: 'council', predicate: 'status', value: 'in recess' } }); }), PROFILE([]));
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[O4b]'), { scene_end: at(5, 9, 0) });
+    expect(await turn(x, 'I sleep until the fifth day.', 'Days pass. [O4b]')).toBe(true);
+    expect(x.engine.membershipView(false)!.now.find((o) => o.id === 'council')).toMatchObject({ status: 'in recess', statusSince: expect.stringMatching(/^D3 10:00, 2 days ago$/) });
+  });
+
   it('OR5 a new identity takes the player out of what the new Persona no longer gives them', async () => {
     const x = await setup(orgPack(), PROFILE([{ name: 'The Council', existing_id: 'council', role: 'head', status: 'member', leads: true }]));
     await turn(x, 'I look around.', 'You look around. [O5]');

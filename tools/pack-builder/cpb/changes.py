@@ -28,10 +28,12 @@ def complete(events, initial_facts):
     """Walk the events in time order: a new leader removes the one in office (when the event does not), a death
     removes the person from every organization they are in. Outcomes follow the effects added (not for HARD)."""
     sets, slots = {}, {}
+    listed = {}     # who a whole list named (the initial state's or an event's): only they can drop out of one
     for f in initial_facts:
         e, p, v = f['fact']['entity_id'], f['fact']['predicate'], f['fact']['value']
         if p in SETS:
             sets[(e, p)] = set(v)
+            listed[(e, p)] = set(v)
         elif p in SLOTS:
             slots[(e, p)] = v
     at = lambda x: (x['when']['earliest']['day'] * 1440 + x['when']['earliest']['minute']) if x['when'].get('earliest') else float('inf')  # noqa: E731
@@ -49,15 +51,20 @@ def complete(events, initial_facts):
                     cur -= set(val)
                 else:
                     # a whole list (an older pack, or unset) becomes who joins and who leaves against the set as it
-                    # stands, as the engine reads it (live: a refined pack kept its base pack's whole-list writes)
+                    # stands, as the engine reads it (live: a refined pack kept its base pack's whole-list writes).
+                    # Who joined since by a change of their own and is not on the list stays: the list was written
+                    # without them, not against them (live: 天草式, joined from a beat, left 英国清教 at the base
+                    # pack's next list); an empty list or unset empties the set
                     new = set(val) if op == 'set' and isinstance(val, list) else set()
-                    parts = ([change('add', ent, pred, sorted(new - cur))] if new - cur else []) + ([change('remove', ent, pred, sorted(cur - new))] if cur - new else [])
+                    gone = cur - new if not new else (cur & listed.get((ent, pred), set())) - new
+                    parts = ([change('add', ent, pred, sorted(new - cur))] if new - cur else []) + ([change('remove', ent, pred, sorted(gone))] if gone else [])
                     whole = lambda x: (x.get('fact') or x).get('entity_id') == ent and (x.get('fact') or x).get('predicate') == pred and x.get('op', 'set') not in ('add', 'remove')  # noqa: E731
                     i = ev['canonical_effects'].index(ef)
                     ev['canonical_effects'][i:i + 1] = parts
                     if any(whole(o) for o in ev.get('outcomes') or []):
                         ev['outcomes'] = [o for o in ev['outcomes'] if not whole(o)] + [dict(x) for x in parts]
-                    sets[(ent, pred)] = new
+                    sets[(ent, pred)] = cur - gone | new
+                    listed[(ent, pred)] = new
             elif pred in SLOTS:
                 holder = slots.get((ent, pred))
                 if op == 'add' and holder not in (None, val):

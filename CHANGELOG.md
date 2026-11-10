@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.28.1 — 2026-11-10
+
+- **组织成员表 shows since when a status holds** (date and how long ago): a status stays until an event writes another, so an old one now reads as old.
+- canon-pack-builder, organization members: a base pack's whole member list no longer takes out who a beat had added and the list does not name (an empty list still empties the organization). The 魔禁 pack had people dropped by older builds this way: 黑子、初春、固法 out of 风纪委员 in an August 2019 beat, 麦野、芙兰达、泷壶 out of ITEM, 土御门 and others out of GROUP, 茵蒂克丝 and the others out of 英国清教 when 天草式 joined.
+- canon-pack-builder: an organization "joining" another on terms that name it (「与学园都市达成合作协议」) made an agreement with it: written as `ally`, not membership (英国清教 was listed as a member of 学园都市).
+- canon-pack-builder `lasting`: the model tells which statuses of organizations, places and things last and which pass (a blackout, an attack under way, a heatwave); the passing ones leave the pack's states (they stay in the events' accounts). Decisions are kept in `work/<project>/lasting.json` and applied on every `build`. 魔禁: 18 of 97 (学园都市's 「八成区域停电」 from the first night was its status since). Tests: OR4b, builder test_changes, test_lasting.
+
 ## 1.28.0 — 2026-11-10
 
 - **思考方式 (how a person thinks).** Clever characters only sounded clever: the GM writes everyone in one pass with the same effort and changes only the tone, so a schemer said what anyone would say. A pack person can now carry `mind`: how much effort they put into thinking before they act (`deliberation`: rarely / situational / habitual), how well they reason when they do (`sharpness`: plain / sharp / exceptional — separate: a brawler can be sharp and rarely bother), how they go about a problem, what they think hard about, what pushes them to think, what they notice and misjudge, how their thinking shows in what they say. The GM gets it for the people in the scene (HOW THEY THINK), with or without a power.

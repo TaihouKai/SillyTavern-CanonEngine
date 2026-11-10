@@ -24200,7 +24200,7 @@ function voiceInput(v) {
 // src/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.28.0";
+var ENGINE_RELEASE = "1.28.1";
 
 // src/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -30553,7 +30553,9 @@ ${lines.join("\n")}`;
     const orgs = [...new Set([...pack2.entities.values()].filter((e) => e.kind === "organization").map((e) => e.id).concat([...s.runtimeEntities.values()].filter((e) => e.kind === "organization").map((e) => e.id)))];
     const now = orgs.map((id) => {
       const leader = str(id, "leader");
-      return { id, name: idx.entityName(id), leader: leader ? idx.entityName(leader) : null, members: (members.get(id) || []).map((m) => idx.entityName(m)), status: str(id, "status") };
+      const st = factAt(s, id, "status", { tick });
+      const status = st.known && typeof st.value === "string" ? st.value : null;
+      return { id, name: idx.entityName(id), leader: leader ? idx.entityName(leader) : null, members: (members.get(id) || []).map((m) => idx.entityName(m)), status, statusSince: status && st.validFrom !== void 0 ? `${formatTick(st.validFrom, origin)}, ${agoLabel(st.validFrom, tick)}` : null };
     }).filter((o) => o.leader || o.members.length || o.status);
     const changes = [];
     let hidden = 0;
@@ -31961,6 +31963,7 @@ var D = {
   membersLeader: { zh: "\u9996\u9886", en: "Leader" },
   membersList: { zh: "\u6210\u5458", en: "Members" },
   membersStatus: { zh: "\u72B6\u6001", en: "Status" },
+  membersSince: { zh: "\u81EA", en: "since" },
   membersWhen: { zh: "\u65F6\u95F4", en: "When" },
   membersEvent: { zh: "\u4E8B\u4EF6", en: "Event" },
   membersChange: { zh: "\u53D8\u5316\u540E", en: "After it" },
@@ -32966,7 +32969,7 @@ var GraphPanel = class {
   membersHtml(spoilers) {
     const m = this.getMembers(spoilers);
     if (!m) return `<div class="cg-empty">${t("graphNoData")}</div>`;
-    const now = m.now.length ? `<table class="canon-table cg-members"><tr><th>${t("membersOrg")}</th><th>${t("membersLeader")}</th><th>${t("membersList")}</th><th>${t("membersStatus")}</th></tr>${m.now.map((o) => `<tr><td>${esc(o.name)}</td><td>${esc(o.leader || "\u2014")}</td><td>${esc(o.members.join("\u3001") || "\u2014")}</td><td>${esc(o.status || "")}</td></tr>`).join("")}</table>` : `<div class="cg-empty">${t("membersNone")}</div>`;
+    const now = m.now.length ? `<table class="canon-table cg-members"><tr><th>${t("membersOrg")}</th><th>${t("membersLeader")}</th><th>${t("membersList")}</th><th>${t("membersStatus")}</th></tr>${m.now.map((o) => `<tr><td>${esc(o.name)}</td><td>${esc(o.leader || "\u2014")}</td><td>${esc(o.members.join("\u3001") || "\u2014")}</td><td>${esc(o.status || "")}${o.statusSince ? ` <span class="cg-since">(${t("membersSince")} ${esc(o.statusSince)})</span>` : ""}</td></tr>`).join("")}</table>` : `<div class="cg-empty">${t("membersNone")}</div>`;
     const ch = m.changes.length ? `<table class="canon-table cg-members"><tr><th>${t("membersWhen")}</th><th>${t("membersEvent")}</th><th>${t("membersOrg")}</th><th>${t("membersChange")}</th><th></th></tr>${m.changes.map((c) => `<tr class="cg-mstate-${c.state}"><td>${esc(c.when)}</td><td>${esc(c.event)}</td><td>${esc(c.org)}</td><td>${esc(memberChange(c))}</td><td><span class="cg-key cg-s-${c.state}">${statusLabel(c.state)}</span></td></tr>`).join("")}</table>` : "";
     return `<div class="cg-memberswrap"><h4>${t("membersNowTitle")}</h4>${now}<h4>${t("membersChangesTitle")}</h4>${ch || `<div class="cg-empty">${t("membersNoChanges")}</div>`}${m.hidden ? `<div class="cg-hint">${t("membersHidden").replace("{n}", String(m.hidden))}</div>` : ""}</div>`;
   }
