@@ -2,7 +2,8 @@
 
 ## Layers
 
-The engine (`src/core`) knows no host. A host — today SillyTavern, in `src/hosts/sillytavern` — implements
+The engine (`src/core`) knows no host. A host — SillyTavern (`src/hosts/sillytavern`) or Canon Engine Play, a page
+of its own (`src/hosts/web`) — implements
 `HostPort` (the conversation, storage, publishing replies, the Persona, optional lore entries, scene tracker and pack
 store) and `ModelPort` (analysis tasks and story drafts), and uses the core only through `src/core/index.ts`.
 `scripts/check-boundary.mjs` (run by `npm run build` and `npm test`) fails the build when the core imports a host or
@@ -38,9 +39,14 @@ flowchart LR
     stui[settings drawer, library, notifications, clock API]
     lock[writer lock]
   end
+  subgraph web [src/hosts/web — Canon Engine Play]
+    wh[WebHost: saved games in IndexedDB, publish, Persona]
+    wm[WebModel: any OpenAI-compatible API, the GM's instructions]
+  end
   domain --> runtime
   runtime --> cui
   st -->|src/core/index.ts| core
+  web -->|src/core/index.ts| core
 ```
 
 Graph A (pinned pack), the actual history ledger, Graph B (projection = reducer state over baseline + ledger) and future plans are separate types and namespaces. Indexes are rebuildable projections; the selected transcript + pinned pack + binding seed are the only authorities.

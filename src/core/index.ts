@@ -26,5 +26,6 @@ export type { LedgerRecord } from './domain/types';
 
 // the interface pieces any host can show: the timeline window, the inspector, the texts
 export { GraphPanel, packGraph, currentGraph } from './ui/graph';
+export { timelineData } from './ui/timeline';
 export { createInspector } from './ui/inspector';
 export { t, setLang, getLang } from './ui/i18n';

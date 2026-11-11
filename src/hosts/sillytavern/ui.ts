@@ -1,6 +1,6 @@
 // Small persistent UI: status pill near the composer, settings drawer, binding wizard,
 // on-demand inspector (spoilers behind a toggle), per-variant banners and conflict markers.
-import { VOICE_KINDS, playerVoice, labelForError, formatUsd, interpretationsFor, baseKey, parseTickLabel, parseDateLabel, parseOriginLabel, formatTick, parseLeapTime, t, setLang, GraphPanel, packGraph, currentGraph, createInspector, validatePackText, type CanonEngine, type EngineSettings, type LoadedPack } from '../../core';
+import { VOICE_KINDS, playerVoice, labelForError, formatUsd, interpretationsFor, baseKey, parseTickLabel, parseDateLabel, parseOriginLabel, formatTick, parseLeapTime, t, setLang, GraphPanel, packGraph, currentGraph, createInspector, validatePackText, type CanonEngine, type EngineSettings, type LoadedPack, timelineData } from '../../core';
 import type { StHost } from './st';
 import { ctx, NS, gen } from './st';
 import { HoraeAdapter } from './horae';
@@ -46,20 +46,7 @@ function mountTopButton() {
   graphPanel = new GraphPanel((sp) => {
     void sp;
     if (packPreview) { const pg = packGraph(packPreview.pack, packPreview.origin); return { pack: pg, current: null, spoilers: true, preview: packPreview.label }; }
-    const src = (() => { try { return E.graphSource(); } catch { return null; } })();
-    const camp = E.campaign();
-    const spoilers = !!camp?.uiPreferences.spoilers;
-    if (!src) return { pack: null, current: null, spoilers };
-    const now = src.state ? (E.storyNow() ?? src.state.clock.lo) : null;
-    const pg = packGraph(src.pack, src.origin); pg.nowTick = now;
-    const cur = src.state ? currentGraph(src.pack, src.state, src.origin, spoilers, E.digestGroups()) : null;
-    if (cur && now !== null) cur.nowTick = now;
-    const frameNow = (() => { try { return E.sceneFrameNow(); } catch { return null; } })();
-    if (cur?.frames && frameNow) cur.frames.now = frameNow;
-    if (cur) { const f = E.focusEvents(); for (const n of cur.nodes) if (f.has(n.id) && (n.status === 'future' || n.status === 'pending')) { n.focused = true; n.title = '★ ' + n.title; } }
-    if (cur) for (const n of cur.nodes) if (n.members && E.occurrenceSources(n.members).length) n.reanalyzable = true;
-    if (cur) for (const n of cur.nodes) if ((n.status === 'occurred' || n.status === 'diverged' || n.status === 'omitted') && (n.afterStory || E.reanalyzableSource(n.id))) n.reanalyzable = true;
-    return { pack: pg, current: cur, spoilers, digested: !!camp?.eventDigest };
+    return timelineData(E);
   }, (v) => { const camp = E.campaign(); if (camp) camp.uiPreferences.spoilers = v; }, async (act, id, ids) => {
     try {
       if (act === 'force') await E.forceComplete(id);

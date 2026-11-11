@@ -1,6 +1,6 @@
 <p align="center"><img src="assets/logo.svg" width="200" alt="Canon Engine logo"></p>
 
-# Canon Engine — SillyTavern extension
+# Canon Engine
 
 Canon Engine keeps the **actual history** of an interactive story and steers its future toward immutable, author-selected **HARD anchors**. The player changes the route; the defined anchors stay mandatory. Everything else in the original story (SOFT and FREE events) is default history that the player may change. The world reacts to the player as a person in it: their identity, organizations, relationships and decisions shape who reaches out to them and how. It is a standalone browser extension: no database server, daemon or companion service.
 
@@ -9,6 +9,11 @@ Canon Engine keeps the **actual history** of an interactive story and steers its
 - Editing or deleting **any** user or GM message, swipes, regenerate, continue, branches and reload rebuild the world from the selected transcript.
 
 Chinese player guide: [`docs/USER_GUIDE_ZH.md`](docs/USER_GUIDE_ZH.md). Website, with the engine running live on a real chronicle: <https://taihoukai.github.io/SillyTavern-CanonEngine/>.
+
+Canon Engine runs in two places today (the engine itself, `src/core`, knows neither):
+
+- **SillyTavern**, as an extension — everything below is about it.
+- **Canon Engine Play**, a page of its own: <https://taihoukai.github.io/SillyTavern-CanonEngine/play/>. Pick a history pack (the A Certain Magical Index chronicle, a small demo, or your own `.canon.json`), a start point and your character, connect any OpenAI-compatible API (Venice, DeepSeek, OpenRouter, a local server) with your own key, and play: the same turn pipeline, timeline window and inspector, edits and alternative replies, games saved in the browser. Your key and games never leave the browser; requests go straight to the provider. Analysis runs with thinking off on Venice and DeepSeek (as a good SillyTavern setup does). Measured with DeepSeek 4.1 flash on Venice: about 45–60 s and $0.06 a turn. The GM's standing instructions are a general game-master text (editable in the settings); a work's own rules go in the game's world notes.
 
 ## What it does
 
@@ -223,6 +228,7 @@ document.addEventListener('canon-engine:clock', (e) => console.log(e.detail)); /
 | Path | Content |
 | --- | --- |
 | `src/core/` | The engine, with no host: `domain/` (pack validation/lint, time, reducer, scheduler, world query), `runtime/` (replay/reconcile, operation pipeline, planner, adjudicator, context/retrieval, narrative integration, gate, prompts, model task runner; `host.ts` is what a host provides), `ui/` (timeline window, inspector, texts). Its public API is `src/core/index.ts`; built alone as `dist/canon-core.mjs` |
+| `src/hosts/web/` | Canon Engine Play, the web host: saved games in IndexedDB, any OpenAI-compatible API, the GM's instructions, the page (built into `site/play/`) |
 | `src/hosts/sillytavern/` | The SillyTavern host: adapter (managed generation, prompt hooks, persistence), Horae as the scene tracker, World Info as lore entries, settings drawer, wizard, library, notifications, clock API, writer lock |
 | `schemas/` | Pack schema (1.0.0) and runtime task schemas |
 | `docs/` | Architecture, runtime schemas, GM integration rules, world-state contract, acceptance tests, test report, user guide, authoring guide |
@@ -240,6 +246,7 @@ PROMPT_LOG=out/a npm test; …; PROMPT_LOG=out/b npm test; node scripts/prompt-l
 node scripts/build-site.mjs                   # the website into site/; preview with any static server, e.g. python -m http.server -d site
 node tests/e2e/mockServer.mjs 5555 &          # then, with ST running on :8000 and this extension installed:
 node tests/e2e/integration.mjs                # or a section: node tests/e2e/integration.mjs S5
+node scripts/build-site.mjs && node tests/e2e/play.mjs   # Canon Engine Play with the mock server (no SillyTavern)
 node tests/e2e/story-session.mjs
 node dist/canon-lint.mjs path/to/pack.canon.json   # validate a pack (structure + semantics)
 ```

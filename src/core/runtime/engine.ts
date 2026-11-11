@@ -419,7 +419,7 @@ export class CanonEngine {
   // ---------------------------------------------------------------------------------------------
   // Binding
 
-  previewPack(text: string): { ok: boolean; errors: LintIssue[]; warnings: LintIssue[]; summary?: { originLabel: string; title: string; version: string; packId: string; hash: string; hardCount: number; events: number; entities: number; coverage: string; hard: { id: string; title: string; when: string; required: string }[] } } {
+  previewPack(text: string): { ok: boolean; errors: LintIssue[]; warnings: LintIssue[]; summary?: { originLabel: string; title: string; version: string; packId: string; hash: string; hardCount: number; events: number; entities: number; coverage: string; hard: { id: string; title: string; when: string; required: string }[]; arcs: { id: string; title: string; lo: number }[] } } {
     const r = validatePackText(text);
     if (!r.ok || !r.loaded) return { ok: false, errors: r.errors, warnings: r.warnings };
     const L = r.loaded;
@@ -429,6 +429,9 @@ export class CanonEngine {
         originLabel: L.pack.calendar.origin_label, title: L.pack.title, version: L.pack.pack_version, packId: L.pack.pack_id, hash: L.hash, hardCount: L.hardEvents.length, events: L.pack.events.length,
         entities: L.pack.entities.length, coverage: `${formatTick(L.coverage.start)} – ${formatTick(L.coverage.end)}`,
         hard: L.hardEvents.map((id) => { const e = L.events.get(id)!; return { id, title: e.title, when: e.when.label, required: e.required_description || '' }; }),
+        // each arc with the time of its first event (a host offers them as start points: just before that event)
+        arcs: L.pack.arcs.map((a) => ({ id: a.id, title: a.title, lo: Math.min(...L.timeIndex.filter((x) => L.events.get(x.id)!.arc_id === a.id).map((x) => x.lo)) }))
+          .filter((a) => Number.isFinite(a.lo) && a.lo - 1 >= L.coverage.start).sort((a, b) => a.lo - b.lo),
       },
     };
   }

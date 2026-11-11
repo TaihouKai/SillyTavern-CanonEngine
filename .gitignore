@@ -6,3 +6,4 @@ site/data/
 site/js/engine-demo.js
 site/css/engine.css
 dist/canon-core.mjs
+site/play/play.js

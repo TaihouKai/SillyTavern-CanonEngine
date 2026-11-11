@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.31.0 — 2026-11-11
+
+- **Canon Engine Play: the engine without SillyTavern.** A second host, `src/hosts/web`, a page of its own on the website (`/play/`): a history pack (the example chronicle, a small demo or the player's own), a start point from the pack's arcs, the player's character and world notes, any OpenAI-compatible API with the player's key (Venice, DeepSeek, OpenRouter, a local server). The whole turn pipeline, the timeline window and the inspector run as in SillyTavern; messages can be edited or deleted (the world is rebuilt), a reply re-rolled (the earlier kept as an alternative) or continued; games are saved in the browser (IndexedDB). The GM's standing instructions are a general game-master text after the user's GM preset (editable); a work's own rules go in the game's world notes.
+- The second host fitted the host interface as it is: `WebHost` is about a hundred lines. What it changed in the core: the pack preview gives each arc with its first event (`previewPack().summary.arcs`), so a host can offer start points; the timeline window's data for the game in play is the core's (`timelineData`), no longer assembled by each host.
+- Analysis requests to Venice and DeepSeek go without thinking by default (`disable_thinking` / `thinking: disabled`), as the SillyTavern setup does: live with DeepSeek 4.1 flash on Venice a turn took 300 s with thinking (one review 146 s), 45–60 s without, at about $0.06.
+- Tests: e2e `play.mjs` (13 checks against the mock server: binding, a turn, the GM prompt, re-roll, an edit rebuilding the world, a reload, the timeline window and inspector, no page errors); live two turns on the Toaru pack with DeepSeek 4.1 flash.
+
 ## 1.30.0 — 2026-11-11
 
 - **The engine and its host are apart.** The engine is `src/core` (domain, runtime, the timeline window, inspector and texts) and knows no host; SillyTavern is one host, `src/hosts/sillytavern`, which implements `HostPort` and `ModelPort` and uses the core only through `src/core/index.ts`. `npm run build` also bundles the core alone (`dist/canon-core.mjs`, loads in plain Node). `scripts/check-boundary.mjs` (in `npm run build` and `npm test`) fails when the core imports a host or uses a host global, or a host reaches past the core's entry point.

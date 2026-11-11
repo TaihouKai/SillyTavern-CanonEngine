@@ -24566,7 +24566,7 @@ function voiceInput(v) {
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.30.0";
+var ENGINE_RELEASE = "1.31.0";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -28354,7 +28354,9 @@ var CanonEngine = class {
         hard: L.hardEvents.map((id) => {
           const e = L.events.get(id);
           return { id, title: e.title, when: e.when.label, required: e.required_description || "" };
-        })
+        }),
+        // each arc with the time of its first event (a host offers them as start points: just before that event)
+        arcs: L.pack.arcs.map((a) => ({ id: a.id, title: a.title, lo: Math.min(...L.timeIndex.filter((x) => L.events.get(x.id).arc_id === a.id).map((x) => x.lo)) })).filter((a) => Number.isFinite(a.lo) && a.lo - 1 >= L.coverage.start).sort((a, b) => a.lo - b.lo)
       }
     };
   }
@@ -32726,6 +32728,47 @@ var GraphPanel = class {
   }
 };
 
+// src/core/ui/timeline.ts
+function timelineData(engine2) {
+  const src = (() => {
+    try {
+      return engine2.graphSource();
+    } catch {
+      return null;
+    }
+  })();
+  const camp = engine2.campaign();
+  const spoilers = !!camp?.uiPreferences.spoilers;
+  if (!src) return { pack: null, current: null, spoilers };
+  const now = src.state ? engine2.storyNow() ?? src.state.clock.lo : null;
+  const pg = packGraph(src.pack, src.origin);
+  pg.nowTick = now;
+  const cur = src.state ? currentGraph(src.pack, src.state, src.origin, spoilers, engine2.digestGroups()) : null;
+  if (cur && now !== null) cur.nowTick = now;
+  const frameNow = (() => {
+    try {
+      return engine2.sceneFrameNow();
+    } catch {
+      return null;
+    }
+  })();
+  if (cur?.frames && frameNow) cur.frames.now = frameNow;
+  if (cur) {
+    const f = engine2.focusEvents();
+    for (const n of cur.nodes) if (f.has(n.id) && (n.status === "future" || n.status === "pending")) {
+      n.focused = true;
+      n.title = "\u2605 " + n.title;
+    }
+  }
+  if (cur) {
+    for (const n of cur.nodes) if (n.members && engine2.occurrenceSources(n.members).length) n.reanalyzable = true;
+  }
+  if (cur) {
+    for (const n of cur.nodes) if ((n.status === "occurred" || n.status === "diverged" || n.status === "omitted") && (n.afterStory || engine2.reanalyzableSource(n.id))) n.reanalyzable = true;
+  }
+  return { pack: pg, current: cur, spoilers, digested: !!camp?.eventDigest };
+}
+
 // src/core/ui/inspector.ts
 var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 var chip = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc2(s)}</span>`;
@@ -34466,46 +34509,10 @@ function mountTopButton() {
   graphPanel = new GraphPanel((sp) => {
     void sp;
     if (packPreview) {
-      const pg2 = packGraph(packPreview.pack, packPreview.origin);
-      return { pack: pg2, current: null, spoilers: true, preview: packPreview.label };
+      const pg = packGraph(packPreview.pack, packPreview.origin);
+      return { pack: pg, current: null, spoilers: true, preview: packPreview.label };
     }
-    const src = (() => {
-      try {
-        return E.graphSource();
-      } catch {
-        return null;
-      }
-    })();
-    const camp = E.campaign();
-    const spoilers = !!camp?.uiPreferences.spoilers;
-    if (!src) return { pack: null, current: null, spoilers };
-    const now = src.state ? E.storyNow() ?? src.state.clock.lo : null;
-    const pg = packGraph(src.pack, src.origin);
-    pg.nowTick = now;
-    const cur = src.state ? currentGraph(src.pack, src.state, src.origin, spoilers, E.digestGroups()) : null;
-    if (cur && now !== null) cur.nowTick = now;
-    const frameNow = (() => {
-      try {
-        return E.sceneFrameNow();
-      } catch {
-        return null;
-      }
-    })();
-    if (cur?.frames && frameNow) cur.frames.now = frameNow;
-    if (cur) {
-      const f = E.focusEvents();
-      for (const n of cur.nodes) if (f.has(n.id) && (n.status === "future" || n.status === "pending")) {
-        n.focused = true;
-        n.title = "\u2605 " + n.title;
-      }
-    }
-    if (cur) {
-      for (const n of cur.nodes) if (n.members && E.occurrenceSources(n.members).length) n.reanalyzable = true;
-    }
-    if (cur) {
-      for (const n of cur.nodes) if ((n.status === "occurred" || n.status === "diverged" || n.status === "omitted") && (n.afterStory || E.reanalyzableSource(n.id))) n.reanalyzable = true;
-    }
-    return { pack: pg, current: cur, spoilers, digested: !!camp?.eventDigest };
+    return timelineData(E);
   }, (v) => {
     const camp = E.campaign();
     if (camp) camp.uiPreferences.spoilers = v;
