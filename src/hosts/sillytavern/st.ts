@@ -5,14 +5,14 @@
 //   through ST's own saveReply.
 // - isolation: internal structured tasks use generateRaw; prompt hooks of other extensions are
 //   neutralized by restoring the exact task messages at CHAT_COMPLETION_PROMPT_READY.
-import type { HostPort, Persona, PublishRequest } from '../runtime/host';
-import type { LoreEntry } from '../runtime/lore';
-import type { CampaignData, Interpretation, OpType, SourceEntry } from '../runtime/types';
-import type { ChatMsg, DraftRequest, ModelPort, TaskName } from '../runtime/model';
-import { TASK_TAG, isTransient } from '../runtime/model';
-import { newId, sha256, deepClone, EngineError } from '../domain/util';
+import type { HostPort, Persona, PublishRequest } from '../../core/runtime/host';
+import type { LoreEntry } from '../../core/runtime/lore';
+import type { CampaignData, Interpretation, OpType, SourceEntry } from '../../core/runtime/types';
+import type { ChatMsg, DraftRequest, ModelPort, TaskName } from '../../core/runtime/model';
+import { TASK_TAG, isTransient } from '../../core/runtime/model';
+import { newId, sha256, deepClone, EngineError } from '../../core/domain/util';
 import { HoraeAdapter } from './horae';
-import { excludeHoraeForOperation } from '../runtime/engine';
+import { excludeHoraeForOperation } from '../../core/runtime/engine';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare const SillyTavern: { getContext(): any };
@@ -74,7 +74,7 @@ export const gen = {
   /** Reasoning of the most recent private draft. ST's quiet generation drops it, so it is captured here
    * and attached when that draft is published (the accepted draft is always the latest one). */
   lastDraftReasoning: '',
-  lastDraftInfo: null as null | import('../runtime/model').DraftInfo,
+  lastDraftInfo: null as null | import('../../core/runtime/model').DraftInfo,
 };
 
 function attachmentIdentity(m: any): string {
@@ -386,7 +386,7 @@ export class StHost implements HostPort {
 
 /** Provider-reported token use of Canon Engine's own requests (story drafts carry the engine context,
  *  analysis calls carry a task tag); other extensions' requests are not counted. */
-const usage: import('../runtime/model').TokenUsage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0, costUsd: 0, storyCostUsd: 0, costUnreported: 0, diem: 0 };
+const usage: import('../../core/runtime/model').TokenUsage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0, costUsd: 0, storyCostUsd: 0, costUnreported: 0, diem: 0 };
 let usageTapped = false;
 /** Folds an OpenAI-style event stream back into one chat.completion object (null if the text is not a stream). */
 export function sseToCompletion(text: string): any {
@@ -569,7 +569,7 @@ export const looksRefused = (out: string) => !/[{[]/.test(out);
 export class StModel implements ModelPort {
   constructor() { tapUsage(); }
   lastDraftInfo() { return gen.lastDraftInfo; }
-  takeUsage() { const u: import('../runtime/model').TokenUsage = { ...usage, ...(this.backupUses.length ? { backup: this.backupUses.splice(0) } : {}) }; usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0; return u; }
+  takeUsage() { const u: import('../../core/runtime/model').TokenUsage = { ...usage, ...(this.backupUses.length ? { backup: this.backupUses.splice(0) } : {}) }; usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0; return u; }
   private queue: Promise<unknown> = Promise.resolve();
   horaePresent = false;
   /** Read at call time so the drawer setting applies immediately. */

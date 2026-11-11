@@ -1,6 +1,6 @@
 // Read-only Horae adapter (public window.Horae API only; never writes private fields).
 // Verified against Horae 1.15.1 (TaihouKai/SillyTavern-Horae-Metadata fork, metadata mode).
-import type { HoraePort, HoraeStatus } from '../runtime/host';
+import type { HoraePort, HoraeStatus } from '../../core/runtime/host';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare const SillyTavern: { getContext(): any };

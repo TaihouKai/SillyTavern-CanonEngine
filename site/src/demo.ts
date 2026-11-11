@@ -2,15 +2,15 @@
 // validated and loaded as the engine loads it, its canon is replayed up to the story time the visitor picks (the
 // bootstrap a new game runs), and the timeline window — the extension's own — shows the result, with its 组织成员
 // and 常态 views. Nothing here reads the pack's format by itself, so the site follows the engine when packs change.
-import { validatePackText, type LoadedPack } from '../../src/domain/pack';
-import { buildBootstrap } from '../../src/domain/schedule';
-import { reduce, type WorldState } from '../../src/domain/reducer';
-import { WorldIndex } from '../../src/domain/world-query';
-import { parseOriginLabel, formatTick } from '../../src/domain/time';
-import type { LedgerRecord } from '../../src/domain/types';
-import { GraphPanel, packGraph, currentGraph } from '../../src/ui/graph';
-import { setLang, t } from '../../src/ui/i18n';
-import { membershipView, natureView, type NatureViewData } from '../../src/runtime/views';
+import { validatePackText, type LoadedPack } from '../../src/core/domain/pack';
+import { buildBootstrap } from '../../src/core/domain/schedule';
+import { reduce, type WorldState } from '../../src/core/domain/reducer';
+import { WorldIndex } from '../../src/core/domain/world-query';
+import { parseOriginLabel, formatTick } from '../../src/core/domain/time';
+import type { LedgerRecord } from '../../src/core/domain/types';
+import { GraphPanel, packGraph, currentGraph } from '../../src/core/ui/graph';
+import { setLang, t } from '../../src/core/ui/i18n';
+import { membershipView, natureView, type NatureViewData } from '../../src/core/runtime/views';
 
 export interface DemoStats { events: number; entities: number; people: number; orgs: number; arcs: number; hard: number; natures: number; minds: number; title: string; errors: number; warnings: number }
 export interface Demo {

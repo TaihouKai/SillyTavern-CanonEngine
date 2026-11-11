@@ -1,7 +1,7 @@
 // Pack library: imported history packs are kept in the ST user's files folder
 // (data/<user>/user/files/, inside ST's data directory, so Docker volumes and backups include it).
 // The index lives in the extension settings (also under data/<user>/settings.json).
-import { ctx } from '../adapters/st';
+import { ctx } from './st';
 
 export interface LibraryEntry { file: string; title: string; packId: string; version: string; hash: string; size: number; added: number }
 

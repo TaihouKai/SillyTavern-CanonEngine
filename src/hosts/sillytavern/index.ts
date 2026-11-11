@@ -1,17 +1,17 @@
 // Canon Engine — SillyTavern extension entry point.
-import { CanonEngine, DEFAULT_SETTINGS, type EngineSettings } from './runtime/engine';
-import { StHost, StModel, ctx, gen, promptReadyFirst, promptReadyLast, loadStModule, NS } from './adapters/st';
+import { CanonEngine, DEFAULT_SETTINGS, type EngineSettings } from '../../core/runtime/engine';
+import { StHost, StModel, ctx, gen, promptReadyFirst, promptReadyLast, loadStModule, NS } from './st';
 import { publicClock, installClockEvents } from './api';
-import { HoraeAdapter } from './adapters/horae';
-import { WriterLock } from './adapters/lock';
-import { CHAT_PROFILE, mountUi, refreshUi, renderMessageDecorations, t } from './ui/ui';
-import type { OpType } from './runtime/types';
-import { ENGINE_RELEASE } from './runtime/types';
-import { deepClone } from './domain/util';
-import { storyOnly } from './runtime/ooc';
-import { notifyDone, primeNotifications } from './ui/notify';
-import { listLibrary, loadFromLibrary, libraryPackStore } from './ui/library';
-import { applyLoreScan } from './runtime/worldset';
+import { HoraeAdapter } from './horae';
+import { WriterLock } from './lock';
+import { CHAT_PROFILE, mountUi, refreshUi, renderMessageDecorations, t } from './ui';
+import type { OpType } from '../../core/runtime/types';
+import { ENGINE_RELEASE } from '../../core/runtime/types';
+import { deepClone } from '../../core/domain/util';
+import { storyOnly } from '../../core/runtime/ooc';
+import { notifyDone, primeNotifications } from './notify';
+import { listLibrary, loadFromLibrary, libraryPackStore } from './library';
+import { applyLoreScan } from '../../core/runtime/worldset';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 

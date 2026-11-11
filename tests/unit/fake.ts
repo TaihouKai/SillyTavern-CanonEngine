@@ -1,9 +1,22 @@
 // In-memory host + scripted model for deterministic engine tests (no ST, no network).
-import type { HostPort, HoraePort, PublishRequest } from '../../src/runtime/host';
-import type { CampaignData, Interpretation, OpType, SourceEntry } from '../../src/runtime/types';
-import type { ChatMsg, DraftRequest, ModelPort, TaskName } from '../../src/runtime/model';
-import { CanonEngine, type EngineSettings } from '../../src/runtime/engine';
-import { newId, sha256, deepClone } from '../../src/domain/util';
+import type { HostPort, HoraePort, PublishRequest } from '../../src/core/runtime/host';
+import type { CampaignData, Interpretation, OpType, SourceEntry } from '../../src/core/runtime/types';
+import type { ChatMsg, DraftRequest, ModelPort, TaskName } from '../../src/core/runtime/model';
+import { CanonEngine, type EngineSettings } from '../../src/core/runtime/engine';
+import { newId, sha256, deepClone } from '../../src/core/domain/util';
+import { appendFileSync, mkdirSync } from 'node:fs';
+import { basename, join } from 'node:path';
+import { expect } from 'vitest';
+
+/** PROMPT_LOG=<dir>: every request the engine sends a model is appended there (one file per test file), so a
+ *  refactor can be checked to leave every prompt unchanged (scripts/prompt-log-compare.mjs). */
+function logPrompt(task: string, payload: unknown) {
+  const dir = process.env.PROMPT_LOG;
+  if (!dir) return;
+  const st = expect.getState();
+  mkdirSync(dir, { recursive: true });
+  appendFileSync(join(dir, basename(st.testPath || 'unknown') + '.jsonl'), JSON.stringify({ test: st.currentTestName, task, payload }) + '\n');
+}
 
 export interface FakeMsg { role: 'user' | 'gm' | 'system'; text: string; mid: string; vid: string; swipes?: { text: string; vid: string }[]; swipeId?: number }
 
@@ -96,6 +109,7 @@ export class ScriptedModel implements ModelPort {
   async runTask(task: TaskName, messages: ChatMsg[]): Promise<string> {
     const input = JSON.parse(messages[1].content.replace(/^INPUT[^\n]*\n/, ''));
     this.calls.push({ task, input, messages });
+    logPrompt(task, messages);
     if (this.taskGate[task]) await this.taskGate[task]!();
     if ((this.failTask[task] || 0) > 0) { this.failTask[task]!--; throw new Error('simulated provider failure'); }
     const idx = this.rules.findIndex((r) => r.task === task && (!r.when || r.when(input)));
@@ -110,6 +124,7 @@ export class ScriptedModel implements ModelPort {
 
   async generateDraft(req: DraftRequest): Promise<string> {
     this.calls.push({ task: 'draft', input: req });
+    logPrompt('draft', { ...req, signal: undefined });
     if (this.taskGate.draft) await this.taskGate.draft();
     if ((this.failTask.draft || 0) > 0) { this.failTask.draft!--; throw new Error('simulated provider failure'); }
     const d = this.drafts.shift();

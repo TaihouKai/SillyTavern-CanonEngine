@@ -2,20 +2,20 @@
 // Model output is data only: never executed, never written to storage directly.
 import * as V from '../generated/validators.js';
 import { normalizeToSchema } from './normalize';
-import extractUserSchema from '../../schemas/runtime/extract-user.schema.json';
-import discoverSchema from '../../schemas/runtime/discover.schema.json';
-import evaluateSchema from '../../schemas/runtime/evaluate.schema.json';
-import adjudicateSchema from '../../schemas/runtime/adjudicate.schema.json';
-import impactSchema from '../../schemas/runtime/impact.schema.json';
-import planSchema from '../../schemas/runtime/plan.schema.json';
-import digestSchema from '../../schemas/runtime/digest.schema.json';
-import profileSchema from '../../schemas/runtime/profile.schema.json';
-import integrateSchema from '../../schemas/runtime/integrate.schema.json';
-import foreknowSchema from '../../schemas/runtime/foreknow.schema.json';
-import leapSchema from '../../schemas/runtime/leap.schema.json';
-import worldCheckSchema from '../../schemas/runtime/world-check.schema.json';
-import mindSchema from '../../schemas/runtime/mind.schema.json';
-import affiliationsSchema from '../../schemas/runtime/affiliations.schema.json';
+import extractUserSchema from '../../../schemas/runtime/extract-user.schema.json';
+import discoverSchema from '../../../schemas/runtime/discover.schema.json';
+import evaluateSchema from '../../../schemas/runtime/evaluate.schema.json';
+import adjudicateSchema from '../../../schemas/runtime/adjudicate.schema.json';
+import impactSchema from '../../../schemas/runtime/impact.schema.json';
+import planSchema from '../../../schemas/runtime/plan.schema.json';
+import digestSchema from '../../../schemas/runtime/digest.schema.json';
+import profileSchema from '../../../schemas/runtime/profile.schema.json';
+import integrateSchema from '../../../schemas/runtime/integrate.schema.json';
+import foreknowSchema from '../../../schemas/runtime/foreknow.schema.json';
+import leapSchema from '../../../schemas/runtime/leap.schema.json';
+import worldCheckSchema from '../../../schemas/runtime/world-check.schema.json';
+import mindSchema from '../../../schemas/runtime/mind.schema.json';
+import affiliationsSchema from '../../../schemas/runtime/affiliations.schema.json';
 
 const TASK_SCHEMAS: Record<string, Record<string, any>> = {
   extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema, world_check: worldCheckSchema, mind: mindSchema, affiliations: affiliationsSchema,

@@ -1,20 +1,20 @@
 // Small persistent UI: status pill near the composer, settings drawer, binding wizard,
 // on-demand inspector (spoilers behind a toggle), per-variant banners and conflict markers.
-import { VOICE_KINDS, playerVoice } from '../runtime/voice';
-import type { CanonEngine, EngineSettings } from '../runtime/engine';
-import { labelForError, formatUsd } from '../runtime/engine';
-import type { StHost } from '../adapters/st';
-import { ctx, NS, gen } from '../adapters/st';
-import { HoraeAdapter } from '../adapters/horae';
-import type { WriterLock } from '../adapters/lock';
-import { interpretationsFor, baseKey } from '../runtime/replay';
-import { parseTickLabel, parseDateLabel, parseOriginLabel, formatTick } from '../domain/time';
-import { parseLeapTime } from '../runtime/leap';
-import { t, setLang } from './i18n';
+import { VOICE_KINDS, playerVoice } from '../../core/runtime/voice';
+import type { CanonEngine, EngineSettings } from '../../core/runtime/engine';
+import { labelForError, formatUsd } from '../../core/runtime/engine';
+import type { StHost } from './st';
+import { ctx, NS, gen } from './st';
+import { HoraeAdapter } from './horae';
+import type { WriterLock } from './lock';
+import { interpretationsFor, baseKey } from '../../core/runtime/replay';
+import { parseTickLabel, parseDateLabel, parseOriginLabel, formatTick } from '../../core/domain/time';
+import { parseLeapTime } from '../../core/runtime/leap';
+import { t, setLang } from '../../core/ui/i18n';
 import { primeNotifications, systemNotificationsAvailable } from './notify';
-import { GraphPanel, packGraph, currentGraph } from './graph';
-import { createInspector } from './inspector';
-import { validatePackText, type LoadedPack } from '../domain/pack';
+import { GraphPanel, packGraph, currentGraph } from '../../core/ui/graph';
+import { createInspector } from '../../core/ui/inspector';
+import { validatePackText, type LoadedPack } from '../../core/domain/pack';
 import { listLibrary, saveToLibrary, loadFromLibrary, removeFromLibrary, type LibraryEntry } from './library';
 
 export { t };
@@ -180,11 +180,11 @@ function openLeapDialog(prefill?: { final: number; description: string }) {
 }
 
 /** " · $0.0352" when the provider reported what the turn cost ("+" when some calls reported nothing). */
-function costPart(tk: import('../runtime/model').TokenUsage): string {
+function costPart(tk: import('../../core/runtime/model').TokenUsage): string {
   if (!tk.costUsd && !tk.diem) return '';
   return ` · ${formatUsd(tk.costUsd || 0)}${tk.costUnreported ? '+' : ''}${tk.diem ? ` · ${tk.diem} DIEM` : ''}`;
 }
-function costLines(tk: import('../runtime/model').TokenUsage): string[] {
+function costLines(tk: import('../../core/runtime/model').TokenUsage): string[] {
   if (!tk.costUsd && !tk.diem) return tk.calls ? [t('costNone')] : [];
   return [
     `${t('costLabel')} ${formatUsd(tk.costUsd || 0)}${tk.storyCostUsd !== undefined ? ` — ${t('tokStory')} ${formatUsd(tk.storyCostUsd || 0)} · ${t('tokAnalysis')} ${formatUsd((tk.costUsd || 0) - (tk.storyCostUsd || 0))}` : ''}${tk.diem ? ` · ${tk.diem} DIEM` : ''}`,

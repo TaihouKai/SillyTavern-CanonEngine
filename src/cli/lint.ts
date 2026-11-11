@@ -1,8 +1,8 @@
 // canon-lint: structural + semantic validation of .canon.json history packs (no SillyTavern needed).
 // Usage: node dist/canon-lint.mjs <pack.canon.json> [--json]
 import { readFileSync } from 'node:fs';
-import { validatePackText } from '../domain/pack';
-import { formatTick } from '../domain/time';
+import { validatePackText } from '../core/domain/pack';
+import { formatTick } from '../core/domain/time';
 
 const args = process.argv.slice(2);
 const asJson = args.includes('--json');
