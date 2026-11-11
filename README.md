@@ -222,10 +222,8 @@ document.addEventListener('canon-engine:clock', (e) => console.log(e.detail)); /
 
 | Path | Content |
 | --- | --- |
-| `src/domain/*` | Pure core: pack validation/lint, time, reducer, scheduler, world query (no ST/Horae imports) |
-| `src/runtime/*` | Controller: replay/reconcile, operation pipeline, planner, adjudicator, context/retrieval, narrative integration, gate, prompts, model task runner |
-| `src/adapters/*` | ST adapter (managed generation, prompt hooks, persistence), Horae read-only adapter, writer lock |
-| `src/ui/*` | Status bar, settings drawer, wizard, inspector, banners, timeline window, i18n |
+| `src/core/` | The engine, with no host: `domain/` (pack validation/lint, time, reducer, scheduler, world query), `runtime/` (replay/reconcile, operation pipeline, planner, adjudicator, context/retrieval, narrative integration, gate, prompts, model task runner; `host.ts` is what a host provides), `ui/` (timeline window, inspector, texts). Its public API is `src/core/index.ts`; built alone as `dist/canon-core.mjs` |
+| `src/hosts/sillytavern/` | The SillyTavern host: adapter (managed generation, prompt hooks, persistence), Horae as the scene tracker, World Info as lore entries, settings drawer, wizard, library, notifications, clock API, writer lock |
 | `schemas/` | Pack schema (1.0.0) and runtime task schemas |
 | `docs/` | Architecture, runtime schemas, GM integration rules, world-state contract, acceptance tests, test report, user guide, authoring guide |
 | `tests/unit` | Domain/runtime acceptance tests (vitest) |
@@ -235,8 +233,10 @@ document.addEventListener('canon-engine:clock', (e) => console.log(e.detail)); /
 
 ```
 npm install
-npm run build        # validators + dist/index.js + dist/canon-lint.mjs
-npm test             # unit/acceptance tests
+npm run build        # boundary check + validators + dist/index.js + dist/canon-core.mjs + dist/canon-lint.mjs
+npm test             # boundary check + unit/acceptance tests
+PROMPT_LOG=out/a npm test; …; PROMPT_LOG=out/b npm test; node scripts/prompt-log-compare.mjs out/a out/b
+                     # a refactor that must not change what the models are sent: every request compared
 node scripts/build-site.mjs                   # the website into site/; preview with any static server, e.g. python -m http.server -d site
 node tests/e2e/mockServer.mjs 5555 &          # then, with ST running on :8000 and this extension installed:
 node tests/e2e/integration.mjs                # or a section: node tests/e2e/integration.mjs S5

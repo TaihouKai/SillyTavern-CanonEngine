@@ -1,6 +1,6 @@
 // TA01-TA02: the history graph uses a real time axis (order and span follow story time).
 import { describe, expect, it } from 'vitest';
-import { timeScale, renderGraphSvg, type GraphData } from '../../src/ui/graph';
+import { timeScale, renderGraphSvg, type GraphData } from '../../src/core/ui/graph';
 
 describe('history graph time axis', () => {
   it('TA01 the scale is monotone and keeps longer gaps wider', () => {

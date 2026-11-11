@@ -1,4 +1,4 @@
-// Pure helpers shared by the domain and runtime layers. No ST/Horae dependencies.
+// Pure helpers shared by the domain and runtime layers. No host dependencies.
 
 /** Deterministic JSON serialization with sorted object keys. */
 export function stableStringify(value: unknown): string {

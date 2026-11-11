@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, occ } from './fake';
 import { ROOT } from './helpers';
-import { currentGraph } from '../../src/ui/graph';
+import { currentGraph } from '../../src/core/ui/graph';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 

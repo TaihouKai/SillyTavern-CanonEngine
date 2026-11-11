@@ -3,9 +3,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { causeOf, situationOf, summarySection } from '../../src/domain/schedule';
-import { lintPack, validatePackText, loadPinnedPack } from '../../src/domain/pack';
-import { renderSummary, summaryLines } from '../../src/domain/summary';
+import { causeOf, situationOf, summarySection } from '../../src/core/domain/schedule';
+import { lintPack, validatePackText, loadPinnedPack } from '../../src/core/domain/pack';
+import { renderSummary, summaryLines } from '../../src/core/domain/summary';
 import { ROOT } from './helpers';
 
 const S = '背景：节庆期间。起因：照片被传到网站。动机：食蜂——抹掉线索；凯兹——掩盖。经过：她突袭支部。结果：资料被删。影响：第二天的前提。';

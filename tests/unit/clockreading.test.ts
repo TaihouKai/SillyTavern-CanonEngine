@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { clockReadings, readingTick, cnNumber } from '../../src/domain/time';
-import { PROMPTS } from '../../src/runtime/prompts';
+import { clockReadings, readingTick, cnNumber } from '../../src/core/domain/time';
+import { PROMPTS } from '../../src/core/runtime/prompts';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 

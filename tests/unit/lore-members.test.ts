@@ -5,13 +5,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { lintPack, validatePackText } from '../../src/domain/pack';
-import { buildBootstrap } from '../../src/domain/schedule';
-import { WorldIndex } from '../../src/domain/world-query';
-import { replay } from '../../src/runtime/replay';
-import { candidateInput, integrationCandidates, memberships, orgsOf } from '../../src/runtime/integration';
-import { keyMatches, loreFor, type LoreEntry } from '../../src/runtime/lore';
-import type { PlayerProfile } from '../../src/runtime/types';
+import { lintPack, validatePackText } from '../../src/core/domain/pack';
+import { buildBootstrap } from '../../src/core/domain/schedule';
+import { WorldIndex } from '../../src/core/domain/world-query';
+import { replay } from '../../src/core/runtime/replay';
+import { candidateInput, integrationCandidates, memberships, orgsOf } from '../../src/core/runtime/integration';
+import { keyMatches, loreFor, type LoreEntry } from '../../src/core/runtime/lore';
+import type { PlayerProfile } from '../../src/core/runtime/types';
 
 /** The demo pack with organization membership: the Council's members Sol and Ren (a `members` set), Tal in the
  *  Union by `affiliation`, Ren's errand on day 2, and an event that empties the Council on day 4. */
@@ -47,7 +47,7 @@ const profile = (rel: Partial<PlayerProfile> = {}): PlayerProfile => ({
   affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [], notes: [], ...rel,
 } as PlayerProfile);
 const lore = (book: string, comment: string, keys: string[], content: string, more: Partial<LoreEntry> = {}): LoreEntry =>
-  ({ book, uid: comment, comment, keys, secondary: [], selective: false, logic: 0, constant: false, disabled: false, caseSensitive: null, wholeWords: null, content, ...more });
+  ({ book, uid: comment, title: comment, keys, secondary: [], secondaryLogic: null, constant: false, disabled: false, caseSensitive: null, wholeWords: null, content, ...more });
 
 describe('organization members', () => {
   it('LM1 a members set changes by who joins and leaves (the list stays, also once emptied); affiliation counts only for organizations without one; the dead are left out', () => {
@@ -131,7 +131,7 @@ describe('lorebook background for the Persona', () => {
   it('LM6 the Persona is read with the lorebook entries it names and the organizations\' members; the panel lists the entries', async () => {
     const x = makeEngine();
     x.host.persona = () => ({ name: 'Ash', description: 'Relation to COUNCIL: bad.' });
-    (x.host as any).loreEntries = async () => book;
+    x.host.lore = { entries: async () => book, appliesOverrides: false };
     await x.engine.bind(membersPack(), { startTick: tick(1, 9, 0), mode: 'new' });
     await x.engine.reconcile('t');
     x.host.addUser('I look around.');

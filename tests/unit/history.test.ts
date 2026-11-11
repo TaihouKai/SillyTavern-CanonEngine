@@ -8,8 +8,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { checkOpportunities, integrationCandidates } from '../../src/runtime/integration';
-import { agoLabel } from '../../src/domain/time';
+import { checkOpportunities, integrationCandidates } from '../../src/core/runtime/integration';
+import { agoLabel } from '../../src/core/domain/time';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 

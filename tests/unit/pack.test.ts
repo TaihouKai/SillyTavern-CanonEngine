@@ -1,11 +1,11 @@
 // P01-P18: deterministic pack, clock and reducer behaviour.
 import { describe, expect, it } from 'vitest';
-import { validatePack, validatePackText, valuesEqual, normalizeValue, WORLD_INFO_ERROR } from '../../src/domain/pack';
-import { reduce, evalCondition, factAt, triLabel, applyRecord } from '../../src/domain/reducer';
-import { buildBootstrap, crossedCandidates, adjudicateDefault, occurrenceWindow, hardDeadlinesReached } from '../../src/domain/schedule';
-import { formatTick, toTick, parseDateLabel, parseOriginLabel } from '../../src/domain/time';
-import { hashObject } from '../../src/domain/util';
-import type { LedgerRecord } from '../../src/domain/types';
+import { validatePack, validatePackText, valuesEqual, normalizeValue, WORLD_INFO_ERROR } from '../../src/core/domain/pack';
+import { reduce, evalCondition, factAt, triLabel, applyRecord } from '../../src/core/domain/reducer';
+import { buildBootstrap, crossedCandidates, adjudicateDefault, occurrenceWindow, hardDeadlinesReached } from '../../src/core/domain/schedule';
+import { formatTick, toTick, parseDateLabel, parseOriginLabel } from '../../src/core/domain/time';
+import { hashObject } from '../../src/core/domain/util';
+import type { LedgerRecord } from '../../src/core/domain/types';
 import { demoRaw, unrelatedRaw, load, T } from './helpers';
 
 const errs = (raw: unknown) => validatePack(raw).errors.map((e) => `${e.path} ${e.message}`).join('\n');

@@ -1,17 +1,14 @@
 // Canon Engine — SillyTavern extension entry point.
-import { CanonEngine, DEFAULT_SETTINGS, type EngineSettings } from '../../core/runtime/engine';
+import { CanonEngine, DEFAULT_SETTINGS, ENGINE_RELEASE, deepClone, storyOnly, type OpType } from '../../core';
+import { migrateSettings, ST_DEFAULTS, type StSettings } from './settings';
 import { StHost, StModel, ctx, gen, promptReadyFirst, promptReadyLast, loadStModule, NS } from './st';
 import { publicClock, installClockEvents } from './api';
 import { HoraeAdapter } from './horae';
 import { WriterLock } from './lock';
 import { CHAT_PROFILE, mountUi, refreshUi, renderMessageDecorations, t } from './ui';
-import type { OpType } from '../../core/runtime/types';
-import { ENGINE_RELEASE } from '../../core/runtime/types';
-import { deepClone } from '../../core/domain/util';
-import { storyOnly } from '../../core/runtime/ooc';
 import { notifyDone, primeNotifications } from './notify';
 import { listLibrary, loadFromLibrary, libraryPackStore } from './library';
-import { applyLoreScan } from '../../core/runtime/worldset';
+import { applyLoreScan } from './lorescan';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -22,9 +19,10 @@ let lock: WriterLock | null = null;
 let reconcileTimer: ReturnType<typeof setTimeout> | null = null;
 let lastGenStart: { type: string; params: any; prior: any } | null = null;
 
-export function globalSettings(): EngineSettings & { inspectorOpen: boolean } {
+export function globalSettings(): StSettings {
   const es = ctx().extensionSettings;
-  es[SETTINGS_KEY] = { ...DEFAULT_SETTINGS, inspectorOpen: false, ...(es[SETTINGS_KEY] || {}) };
+  if (es[SETTINGS_KEY]) migrateSettings(es[SETTINGS_KEY]);
+  es[SETTINGS_KEY] = { ...ST_DEFAULTS, ...(es[SETTINGS_KEY] || {}) };
   // 1.3.1 measured timeouts per call; the old whole-check default (180 s) is too short for that.
   if (es[SETTINGS_KEY].taskTimeoutMs === 180000) es[SETTINGS_KEY].taskTimeoutMs = DEFAULT_SETTINGS.taskTimeoutMs;
   // 1.3.5: the old 24000-char packet budget was too small for large packs (e.g. a full light-novel arc).
@@ -86,7 +84,7 @@ async function interceptor(chat: any[], _contextSize: number, abort: (immediate:
     // Start only after the native call unwinds.
     setTimeout(() => {
       ctx().deactivateSendButtons?.();
-      if (engine!.settings.notifyDone) primeNotifications();
+      if (globalSettings().notifyDone) primeNotifications();
       engine!.runOperation(op, prior).then((ok) => announceDone(ok)).finally(() => {
         try { ctx().activateSendButtons?.(); } catch { /* ignore */ }
         refreshUi();
@@ -101,7 +99,7 @@ async function interceptor(chat: any[], _contextSize: number, abort: (immediate:
 function announceDone(ok: boolean) {
   try {
     const e = engine!;
-    if (!e.settings.notifyDone) return;
+    if (!globalSettings().notifyDone) return;
     const rec = e.campaign()?.recoveryState;
     if (!ok && (rec?.errorKind === 'cancelled' || rec?.status === 'ok')) return; // cancelled, or nothing ran
     const tm = e.lastTimings;
@@ -111,7 +109,7 @@ function announceDone(ok: boolean) {
     const body = ok
       ? t('notifyBodyOk').replace('{name}', who).replace('{n}', String(tm?.reply?.chars ?? '?')).replace('{t}', took)
       : `${who}: ${String(rec?.reason || '').slice(0, 140)}`;
-    notifyDone({ ok, title: t(ok ? 'notifyTitleOk' : 'notifyTitleFail'), body }, { sound: !!e.settings.notifySound, titleMark: t(ok ? 'notifyMarkOk' : 'notifyMarkFail') });
+    notifyDone({ ok, title: t(ok ? 'notifyTitleOk' : 'notifyTitleFail'), body }, { sound: !!globalSettings().notifySound, titleMark: t(ok ? 'notifyMarkOk' : 'notifyMarkFail') });
   } catch { /* an alert must never break a turn */ }
 }
 
@@ -162,6 +160,7 @@ async function init() {
   const model = new StModel();
   host = new StHost(model);
   host.packStore = libraryPackStore;
+  host.settings = () => globalSettings();
   model.horaePresent = !!HoraeAdapter.detect();
   model.taskProfileId = () => { const id = String(globalSettings().taskProfileId || ''); return id === CHAT_PROFILE ? '' : id; };
   model.taskExtraBody = () => String(globalSettings().taskExtraBody || '');
@@ -190,7 +189,7 @@ async function init() {
   // 本局设定: this game's rewritten lorebook entries take the originals' place in SillyTavern's own scan (the event
   // hands over per-scan copies: the lorebook files and other chats are untouched)
   if (et.WORLDINFO_ENTRIES_LOADED) {
-    engine.loreHook = true;
+    host.loreAppliesOverrides = true;
     let template: Record<string, unknown> = { key: [], keysecondary: [], comment: '', content: '', constant: false, selective: false, selectiveLogic: 0, order: 100, position: 0, disable: false, probability: 100, useProbability: true, depth: 4, group: '', groupOverride: false, groupWeight: 100, excludeRecursion: false, preventRecursion: false, role: 0 };
     const wiUrl = '/scripts/world-info.js';
     import(/* @vite-ignore */ wiUrl).then((wi: any) => { if (wi?.newWorldInfoEntryTemplate) template = { ...wi.newWorldInfoEntryTemplate, selective: false }; }).catch(() => undefined);
@@ -203,8 +202,8 @@ async function init() {
   es.on(et.CHAT_CHANGED, async () => {
     if (!engine) return;
     engine.sourceChanged('chat_changed');
-    host!.horae = HoraeAdapter.detect();
-    model.horaePresent = !!host!.horae;
+    host!.sceneTracker = HoraeAdapter.detect();
+    model.horaePresent = !!host!.sceneTracker;
     const camp = engine.campaign();
     lock?.setCampaign(camp?.enabled ? camp.sessionId : null);
     try { await engine.onChatLoaded(); } catch (e) { console.warn('[CanonEngine] chat load reconcile failed', e); }

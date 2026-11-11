@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, D, occ, legacyCampaign } from './fake';
-import { factAt } from '../../src/domain/reducer';
-import { validatePlan, normalizePlanEffects, planScope, type PlanOutput } from '../../src/runtime/planner';
-import { refersToHard } from '../../src/runtime/gate';
+import { factAt } from '../../src/core/domain/reducer';
+import { validatePlan, normalizePlanEffects, planScope, type PlanOutput } from '../../src/core/runtime/planner';
+import { refersToHard } from '../../src/core/runtime/gate';
 import { ROOT } from './helpers';
-import * as V from '../../src/generated/validators.js';
-import { DEFAULT_PLAYER_VOICE, voiceTurnNote } from '../../src/runtime/voice';
+import * as V from '../../src/core/generated/validators.js';
+import { DEFAULT_PLAYER_VOICE, voiceTurnNote } from '../../src/core/runtime/voice';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 const has = (s: string) => (i: any) => JSON.stringify(i).includes(s);

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
-import { segmentSceneChain } from '../../src/domain/util';
+import { segmentSceneChain } from '../../src/core/domain/util';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 const m = (lo: number, hi = lo, locations: string[] = []) => ({ time: { lo, hi }, locations });

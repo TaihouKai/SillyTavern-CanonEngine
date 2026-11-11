@@ -1,8 +1,9 @@
 // 本局设定: what this game's world changes from the original setting (from the player's Persona, lines marked
 // "(本局设定)" always, and changes the user adds by hand), and the lorebook entries and history-pack texts that
-// contradict them, rewritten for this game only. The rewritten lorebook entries replace the originals in
-// SillyTavern's own World Info scan (an extension event hands over per-scan copies), so the GM sees one consistent
-// lorebook and nothing extra; the pack's entity descriptions and event summaries are overlaid in this chat's pack.
+// contradict them, rewritten for this game only. The rewritten lorebook entries replace the originals in the host's
+// own lore scan where it allows (SillyTavern: src/hosts/sillytavern/lorescan.ts), so the GM sees one consistent
+// lorebook and nothing extra (else the GM is told them); the pack's entity descriptions and event summaries are
+// overlaid in this chat's pack.
 // User design (2026-11-08): no special markup the GM could stumble over, no total size cap (every hit is checked, in
 // batches), the check runs with the Persona read.
 import type { LoadedPack } from '../domain/pack';
@@ -77,7 +78,7 @@ export function worldItems(terms: string[], lore: LoreEntry[], pack: LoadedPack 
   const live = lore.filter((e) => !e.disabled && e.content.trim());
   const generic: string[] = [];
   const hit = (text: string, term: string) => norm(text).includes(norm(term));
-  const loreHits = (e: LoreEntry, term: string) => hit(e.content, term) || hit(e.comment, term) || e.keys.some((k) => hit(k, term) || keyMatches(k, term, e));
+  const loreHits = (e: LoreEntry, term: string) => hit(e.content, term) || hit(e.title, term) || e.keys.some((k) => hit(k, term) || keyMatches(k, term, e));
   const useful = terms.filter((term) => {
     if (live.length >= 60 && live.filter((e) => loreHits(e, term)).length > live.length / 3) { generic.push(term); return false; }
     return true;
@@ -85,7 +86,7 @@ export function worldItems(terms: string[], lore: LoreEntry[], pack: LoadedPack 
   const items: WorldItem[] = [];
   for (const e of live) {
     const hits = useful.filter((term) => loreHits(e, term));
-    if (hits.length) items.push({ ref: `l${items.length + 1}`, kind: 'lore', title: e.comment || e.keys[0] || String(e.uid), text: e.content, book: e.book, uid: e.uid, hits });
+    if (hits.length) items.push({ ref: `l${items.length + 1}`, kind: 'lore', title: e.title || e.keys[0] || String(e.uid), text: e.content, book: e.book, uid: e.uid, hits });
   }
   if (pack) {
     for (const e of pack.entities.values()) {
@@ -207,26 +208,4 @@ export function overlayPack(base: LoadedPack, ws: WorldSettings | undefined): Lo
 /** How a lorebook scan applies this game's overrides: by book and uid; one whose original changed is left alone. */
 export function loreOverrideMap(ws: WorldSettings | undefined): Map<string, WorldOverride> {
   return new Map((ws?.overrides || []).filter((o) => o.kind === 'lore').map((o) => [`${o.book}|${o.uid}`, o]));
-}
-
-/** One SillyTavern lorebook scan with this game's overrides applied in place (the lists SillyTavern hands to
- *  extensions hold per-scan copies): replaced or disabled by book and uid while the original is the text they were
- *  written from, added entries joining the chat lore. Returns what was applied and what was not (original changed). */
-export function applyLoreScan(lists: Record<string, any[]> | null | undefined, scan: { overrides: Map<string, WorldOverride>; additions: WorldAddition[] }, template: Record<string, unknown>): { applied: number; stale: string[] } {
-  let applied = 0;
-  const stale: string[] = [];
-  for (const arr of [lists?.globalLore, lists?.characterLore, lists?.chatLore, lists?.personaLore]) {
-    if (!Array.isArray(arr)) continue;
-    for (const e of arr) {
-      const o = scan.overrides.get(`${e?.world}|${e?.uid}`);
-      if (!o) continue;
-      if (textHash(String(e.content || '')) !== o.originalHash) { stale.push(o.title); continue; }
-      if (o.action === 'disable') e.disable = true; else e.content = o.content;
-      applied++;
-    }
-  }
-  if (scan.additions.length && Array.isArray(lists?.chatLore)) {
-    scan.additions.forEach((a, i) => lists!.chatLore.push({ ...template, uid: 990000 + i, world: 'Canon Engine 本局设定', key: [...a.keys], keysecondary: [], comment: a.title, content: a.content, disable: false, constant: false, selective: false }));
-  }
-  return { applied, stale: [...new Set(stale)] };
 }

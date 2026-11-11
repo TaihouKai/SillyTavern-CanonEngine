@@ -2,8 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { callStructured, salvageTruncatedJson } from '../../src/runtime/model';
-import type { ModelPort } from '../../src/runtime/model';
+import { callStructured, salvageTruncatedJson } from '../../src/core/runtime/model';
+import type { ModelPort } from '../../src/core/runtime/model';
 import { makeEngine, tick, at, occ, defaultTask } from './fake';
 import { ROOT } from './helpers';
 

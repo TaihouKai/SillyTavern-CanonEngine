@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
-import { lintPack, validatePackText } from '../../src/domain/pack';
+import { lintPack, validatePackText } from '../../src/core/domain/pack';
 
 const base = JSON.parse(readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8'));
 const V1 = { from_event: null, habits: 'hums a sea shanty while she sews wounds shut', uses: 'mends anyone hurt near her', others: 'dockers trust her', limits: 'cannot mend what is already dead' };

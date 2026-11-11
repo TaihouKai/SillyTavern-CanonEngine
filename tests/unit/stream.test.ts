@@ -1,7 +1,7 @@
 // SR01–SR04: Canon's own requests to a custom endpoint are streamed to the provider (so a slow
 // reasoning model does not hit a gateway timeout) and folded back into one ordinary completion.
 import { describe, expect, it } from 'vitest';
-import { sseToCompletion, streamedBody, StModel, costOf, deepseekCost, deepseekPeak, isDeepSeekOfficial } from '../../src/adapters/st';
+import { sseToCompletion, streamedBody, StModel, costOf, deepseekCost, deepseekPeak, isDeepSeekOfficial } from '../../src/hosts/sillytavern/st';
 
 const sse = (...chunks: unknown[]) => chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join('') + 'data: [DONE]\n\n';
 const delta = (d: object, finish: string | null = null) => ({ id: 'x', model: 'm', choices: [{ index: 0, delta: d, finish_reason: finish }] });

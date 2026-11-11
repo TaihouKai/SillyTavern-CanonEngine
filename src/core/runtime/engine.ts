@@ -41,32 +41,15 @@ export interface EngineSettings {
   horizonMinutes: number;
   readyWindowMinutes: number;
   opportunityWindowMinutes: number;
-  horaeWaitMs: number;
-  /** Take Horae's story time as the start of each new reply when Horae is installed and fresh. */
-  followHoraeTime: boolean;
-  /** When a reply finishes while the tab is in the background: system notification (where allowed), tab title mark. */
-  notifyDone: boolean;
-  /** ...and a short chime. */
-  notifySound: boolean;
+  /** How long to wait for a busy scene tracker. */
+  trackerWaitMs: number;
+  /** Take the scene tracker's story time as the start of each new reply when the host has one and it is fresh. */
+  followTrackerTime: boolean;
   debug: boolean;
-  /** Sampling temperature for internal structured tasks (not the GM's story replies). */
-  taskTemperature: number;
-  /** ST connection profile id for internal analysis tasks; '' = the chat's own connection. */
-  taskProfileId: string;
-  /** Extra request-body parameters (YAML, as in ST's "Include Body Parameters") for analysis-profile requests. */
-  taskExtraBody: string;
-  /** Backup connection profile for analysis tasks the main one blocks or refuses ('' = none), and its extra body. */
-  taskBackupProfileId: string;
-  taskBackupExtraBody: string;
   /** Optional reply-length target for story drafts and repairs, e.g. "正文约800~1200字"; '' = none. */
   replyLength: string;
   /** Scene grouping: beats of the same ongoing scene continue one 本局事件 box instead of each making a new one. */
   sceneGrouping: boolean;
-  /** Canon reads Persona Library's core text without its Additional Sections (the GM still gets everything). */
-  ignorePersonaSections: boolean;
-  /** Canon never reads the chat's first message when it is the character's (a greeting): not when the pack is bound,
-   *  not later. The story model still sees it. */
-  ignoreFirstMessage: boolean;
   /** On a day with no canon event left, the world offers a small job that fits the player's background. */
   quietDayJobs: boolean;
   /** What the GM may write for the player character (dialogue, reactions, small actions...; see voice.ts). */
@@ -76,8 +59,6 @@ export interface EngineSettings {
   /** 角色盘算: before each reply, the people in the scene who think before they act get their moves planned in a
    *  call of their own (their 思考方式 from the pack). */
   mindPlans: boolean;
-  /** Connection profile for 角色盘算 ('' = the analysis connection). */
-  mindProfileId: string;
   /** Marks out-of-character parts of the player's message ("(OOC: if A, then B)"); '' = no OOC parsing. */
   oocKeyword: string;
 }
@@ -104,25 +85,15 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   horizonMinutes: 3 * 1440,
   readyWindowMinutes: 1440,
   opportunityWindowMinutes: 720,
-  horaeWaitMs: 60000,
-  followHoraeTime: true,
-  notifyDone: true,
-  notifySound: true,
+  trackerWaitMs: 60000,
+  followTrackerTime: true,
   debug: false,
-  taskTemperature: 0.2,
-  taskProfileId: '',
-  taskExtraBody: '',
-  taskBackupProfileId: '',
-  taskBackupExtraBody: '',
   replyLength: '',
   sceneGrouping: false,
-  ignorePersonaSections: false,
-  ignoreFirstMessage: false,
   quietDayJobs: true,
   playerVoice: { ...DEFAULT_PLAYER_VOICE },
   secretsReadable: true,
   mindPlans: true,
-  mindProfileId: '',
   oocKeyword: 'OOC',
 };
 
@@ -541,7 +512,7 @@ export class CanonEngine {
     const integ = this.host.integrity();
     if (c.chatId !== chatId) {
       if (c.integrity && integ && c.integrity !== integ) {
-        // ST branch: metadata copied with a fresh integrity slug -> new branch identity, shared prefix.
+        // A branch of the conversation: metadata copied with a fresh integrity token -> new branch identity, shared prefix.
         c.parentBranch = c.branchId;
         c.branchId = newId('br');
         c.configRevisions.push({ at: this.host.now(), summary: `branch created from ${c.chatId}` });
@@ -913,7 +884,7 @@ export class CanonEngine {
   /** Horae's story time at the end of the previous reply as a tick, when it is usable: a new reply (not a
    *  swipe/regenerate/continue), Horae fresh, a calendar date, later than the engine clock and at most 3 days ahead. */
   private horaeTick(clock: number): number | null {
-    if (!this.settings.followHoraeTime || this.inOtherFrame()) return null;
+    if (!this.settings.followTrackerTime || this.inOtherFrame()) return null;
     const h = this.horaeTimeHint().horae_time;
     const origin = this.campaign()?.binding.originDate || null;
     if (!h || !origin) return null;
@@ -940,9 +911,9 @@ export class CanonEngine {
     const st = this.current?.replay.state;
     if (!st) return null;
     const clock = st.clock.lo;
-    if (!this.settings.followHoraeTime || this.inOtherFrame()) return clock;
+    if (!this.settings.followTrackerTime || this.inOtherFrame()) return clock;
     try {
-      const h = this.host.horae?.status();
+      const h = this.host.sceneTracker?.status();
       const origin = this.campaign()?.binding.originDate || null;
       if (!h?.available || h.busy || h.staleIndexes.length || !h.scene?.time || !origin) return clock;
       const m = [h.scene.date, h.scene.time].filter(Boolean).join(' ').match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
@@ -955,7 +926,7 @@ export class CanonEngine {
   /** Horae's story time at the end of the previous reply (supporting evidence for the reviewer's scene_end). */
   private horaeTimeHint(): { horae_time?: string } {
     try {
-      const st = this.host.horae?.status();
+      const st = this.host.sceneTracker?.status();
       // swipe/regenerate/continue: Horae's latest state already includes the reply being replaced
       if (this.opActive?.op !== 'normal' || this.inOtherFrame()) return {};
       if (!st?.available || st.busy || st.staleIndexes.length || !st.scene?.time) return {};
@@ -1592,7 +1563,7 @@ export class CanonEngine {
         // Pre-generation retrieval: user references + scene + causal seeds + semantic expansion
         const prevGm = (() => { for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === 'gm') return entries[k]; return null; })();
         const prevGmInterp = prevGm ? interpretationsFor(c.interpretations, baseKey(prevGm))[0] : null;
-        const horaeScene = this.host.horae?.status().scene;
+        const horaeScene = this.host.sceneTracker?.status().scene;
         const horaeSceneIds = horaeScene ? uniq([horaeScene.location || '', ...(horaeScene.characters || [])].flatMap((n) => (n ? index.resolveEntity(n).ids : []))) : [];
         const userRefs = ((userInterp as Interpretation & { refs?: RefInput[] })?.refs) || [];
         const sceneSeeds = uniq([...(prevGmInterp?.sceneEntities || []), ...horaeSceneIds, ...(userInterp?.sceneEntities || [])]);
@@ -1612,7 +1583,7 @@ export class CanonEngine {
         const chance: GateInput['chanceCompanions'] = companions.filter((x) => !x.declined && c.foreknowledge?.[foreknowKey(x)]?.knows === false)
           .map((x) => ({ eventId: x.event.id, personId: x.personId, lo: x.lo, title: x.event.title, who: index.entityName(x.personId) }));
         const opps = legacy ? this.opportunities(index, clock).filter((o) => !eng.blockedBy({ eventId: o.id }, clock)) : [];
-        const sceneLabel = [horaeScene?.location ? `Location (Horae, supporting): ${horaeScene.location}.` : '', horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(', ')}.` : '', horaeNote].filter(Boolean).join(' ');
+        const sceneLabel = [horaeScene?.location ? `Location (${this.host.sceneTracker!.name}, supporting): ${horaeScene.location}.` : '', horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(', ')}.` : '', horaeNote].filter(Boolean).join(' ');
         const packetArgs = {
           pack, index: rIndex, retrieval, checkpointTick: cp, origin: c.binding.originDate, sceneLabel,
           playerScope: fresh ? [this.ooc(userEntry!.text).story, ...(userInterp?.intents || []).map((i) => `intent: ${i.summary}`)] : [],
@@ -1856,7 +1827,7 @@ export class CanonEngine {
     } finally {
       this.publishing = false;
     }
-    // Bind the interpretation to the exact landed content (ST may normalize whitespace).
+    // Bind the interpretation to the exact landed content (the host may normalize whitespace).
     const landed = this.host.readTranscript().find((e) => e.role === 'gm' && e.variantId === a.variantId);
     if (!landed) throw new EngineError('persistence_failure', 'the accepted reply did not land in the transcript');
     if (landed.contentHash !== a.interp.contentHash || landed.messageId !== a.interp.messageId) {
@@ -1974,7 +1945,7 @@ export class CanonEngine {
     const ent = (e: { id: string; name: string; aliases?: string[]; kind: string }) => `${e.id} | ${e.name} | ${(e.aliases || []).join(', ')} | ${e.kind}${e.kind === 'organization' && orgLine(e.id) ? ` | ${orgLine(e.id)}` : ''}`;
     // the user's lorebook entries for what the Persona names (background, read once with the Persona)
     let lore: LoreBackground[] = [];
-    try { lore = loreFor((await this.host.loreEntries?.()) || [], `${persona.name}\n${persona.description}`, pack); } catch (e) { this.host.log('warn', 'lorebook read failed: ' + (e as Error).message); }
+    try { lore = loreFor((await this.host.lore?.entries()) || [], `${persona.name}\n${persona.description}`, pack); } catch (e) { this.host.log('warn', 'lorebook read failed: ' + (e as Error).message); }
     this.lastProfileLore = lore.map((l) => `${l.title}${l.via === 'related' ? ' (related)' : ''}`);
     const out = await this.withTimeout(callStructured<ProfileOut>(this.host.model, 'profile', PROMPTS.profile, {
       persona: { name: persona.name, description: persona.description },
@@ -2041,7 +2012,7 @@ export class CanonEngine {
     const pack = this.campaign() || !packText ? this.pack() : validatePackText(packText).loaded;
     if (!pack) throw new EngineError('invalid_pack', 'the pack is not valid');
     const persona = this.persona();
-    return loreFor((await this.host.loreEntries?.()) || [], `${persona.name}\n${persona.description}`, pack).map((l) => `${l.title}${l.via === 'related' ? ' (related)' : ''}`);
+    return loreFor((await this.host.lore?.entries()) || [], `${persona.name}\n${persona.description}`, pack).map((l) => `${l.title}${l.via === 'related' ? ' (related)' : ''}`);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -2059,7 +2030,7 @@ export class CanonEngine {
 
   /** Check the lorebook entries and pack texts the changes' search words find (all of them, in batches read in full)
    *  and keep what they become in this game. The user's own edits of an entry still found are kept. No changes: no
-   *  call. Kept with the chat; applied to SillyTavern's lorebook scan and to this chat's pack. */
+   *  call. Kept with the chat; applied to the host's lore scan and to this chat's pack. */
   private async checkWorld(signal: AbortSignal | undefined, operationId: string): Promise<void> {
     const c = this.campaign();
     if (!c) return;
@@ -2075,7 +2046,7 @@ export class CanonEngine {
     }
     this.setStatus('planning', 'Checking the lorebook against this game’s world…');
     let lore: LoreEntry[] = [];
-    try { lore = (await this.host.loreEntries?.()) || []; } catch (e) { this.host.log('warn', 'lorebook read failed: ' + (e as Error).message); }
+    try { lore = (await this.host.lore?.entries()) || []; } catch (e) { this.host.log('warn', 'lorebook read failed: ' + (e as Error).message); }
     const base = this.basePack();
     const changes = changes0.map((ch) => ({ ...ch, terms: termsFor(ch, lore, base) }));
     const { items, generic } = worldItems(uniq(changes.flatMap((x) => x.terms)), lore, base);
@@ -2163,14 +2134,14 @@ export class CanonEngine {
     await this.reconcile('world_settings', { allowModel: false });
   }
 
-  /** What SillyTavern's lorebook scan does in this chat: entries replaced or disabled by book and uid (only while the
+  /** What the host's lore scan does in this chat: entries replaced or disabled by book and uid (only while the
    *  original is the text they were written from) and entries added. Nothing when the engine is off here. */
   loreScan(): { overrides: Map<string, WorldOverride>; additions: WorldAddition[] } | null {
     const c = this.campaign();
     if (!c?.enabled || !c.worldSettings) return null;
     return { overrides: loreOverrideMap(c.worldSettings), additions: c.worldSettings.additions };
   }
-  /** Set by the SillyTavern adapter after each scan: overrides applied, and those whose original changed since. */
+  /** Set by the host after each lore scan: overrides applied, and those whose original changed since. */
   loreApplied: { applied: number; stale: string[]; at: number } | null = null;
   /** 本局设定 for the panel: the changes in effect (with the search words of the last check), the user's own, what was
    *  checked and every override (stale: its lorebook original changed since — seen in the last scan). */
@@ -2193,16 +2164,16 @@ export class CanonEngine {
       additions: ws?.additions || [],
       rejected: ws?.rejected || [],
       unchecked: ws?.unchecked || [],
-      loreHook: this.loreHook,
+      loreHook: this.loreHook(),
     };
   }
 
-  /** Whether SillyTavern hands its lorebook scan to extensions (else the GM is told the rewritten entries). */
-  loreHook = false;
+  /** Whether the host applies the rewritten entries in its own lore scan (else the GM is told them). */
+  private loreHook(): boolean { return !!this.host.lore?.appliesOverrides; }
   private worldLoreSection(): string | undefined {
     const ws = this.campaign()?.worldSettings;
     const lore = (ws?.overrides || []).filter((o) => o.kind === 'lore');
-    if (this.loreHook || (!lore.length && !ws?.additions.length)) return undefined;
+    if (this.loreHook() || (!lore.length && !ws?.additions.length)) return undefined;
     const lines = [...lore.map((o) => `- ${o.title}: ${o.action === 'disable' ? '(does not apply in this game)' : o.content}`), ...(ws?.additions || []).map((a) => `- ${a.title}: ${a.content}`)];
     return `LOREBOOK IN THIS GAME (these lorebook entries read as follows in this game; where the lorebook says otherwise, this holds):\n${lines.join('\n')}`;
   }
@@ -2242,7 +2213,7 @@ export class CanonEngine {
   private personaNoticeHash = '';
   /** The lorebook entries given with the last Persona read (titles; for the panel and tests). */
   lastProfileLore: string[] = [];
-  private persona() { return this.host.persona({ ignoreSections: this.settings.ignorePersonaSections }); }
+  private persona() { return this.host.persona(); }
 
   /** Whether the active Persona differs from this game's player profile (for the panel). */
   personaChanged(): boolean {
@@ -2512,24 +2483,24 @@ export class CanonEngine {
   // Horae
 
   private async horaeBarrier(signal: AbortSignal): Promise<string> {
-    const h = this.host.horae;
+    const h = this.host.sceneTracker;
     if (!h) return '';
     let st = h.status();
     if (!st.available) return '';
-    if (st.busy) await this.withTimeout(h.waitForIdle(this.settings.horaeWaitMs), this.settings.horaeWaitMs + 1000, signal).catch(() => false);
+    if (st.busy) await this.withTimeout(h.waitForIdle(this.settings.trackerWaitMs), this.settings.trackerWaitMs + 1000, signal).catch(() => false);
     st = h.status();
     if (st.staleIndexes.length) {
       // Supported repair: re-analyze affected messages once, then verify freshness.
       for (const i of st.staleIndexes.slice(0, 20)) { try { await h.reanalyze(i); } catch { /* verified below */ } }
-      await this.withTimeout(h.waitForIdle(this.settings.horaeWaitMs), this.settings.horaeWaitMs + 1000, signal).catch(() => false);
+      await this.withTimeout(h.waitForIdle(this.settings.trackerWaitMs), this.settings.trackerWaitMs + 1000, signal).catch(() => false);
       st = h.status();
     }
     if (st.staleIndexes.length || st.busy) {
-      excludeHoraeForOperation = true;
-      this.notice('warn', 'Horae memory is stale for edited messages and could not be refreshed; it was excluded from this reply\'s prompt. Use Horae\'s re-analyze to repair it.');
-      return 'Horae memory excluded for this reply (stale after edits).';
+      h.excludeFromPrompt?.(true);
+      this.notice('warn', `${h.name} memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use ${h.name}'s re-analyze to repair it.`);
+      return `${h.name} memory excluded for this reply (stale after edits).`;
     }
-    excludeHoraeForOperation = false;
+    h.excludeFromPrompt?.(false);
     return '';
   }
 
@@ -3168,8 +3139,6 @@ export interface ReviewResult {
   refs: RefInput[];
 }
 
-/** Set by the Horae barrier; read by the ST adapter's prompt hook for the current operation. */
-export let excludeHoraeForOperation = false;
 
 function replayRecords(pack: LoadedPack, recs: LedgerRecord[]): WorldState {
   return reduceRecords(pack, recs);

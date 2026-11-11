@@ -5,9 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ, deferred, D } from './fake';
-import { factAt } from '../../src/domain/reducer';
-import { retrieve, buildPacket } from '../../src/runtime/context';
-import { WorldIndex } from '../../src/domain/world-query';
+import { factAt } from '../../src/core/domain/reducer';
+import { retrieve, buildPacket } from '../../src/core/runtime/context';
+import { WorldIndex } from '../../src/core/domain/world-query';
 import { ROOT } from './helpers';
 
 const base = JSON.parse(readFileSync(join(ROOT, 'examples', 'unrelated-history.canon.json'), 'utf8'));

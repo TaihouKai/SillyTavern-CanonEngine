@@ -7,8 +7,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { playedProfile, recognitionGroups } from '../../src/runtime/integration';
-import { PROMPTS } from '../../src/runtime/prompts';
+import { playedProfile, recognitionGroups } from '../../src/core/runtime/integration';
+import { PROMPTS } from '../../src/core/runtime/prompts';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 type X = ReturnType<typeof makeEngine>;

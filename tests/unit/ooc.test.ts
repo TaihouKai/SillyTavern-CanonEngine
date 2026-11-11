@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { PROMPTS } from '../../src/runtime/prompts';
-import { oocNote, splitOoc, storyOnly } from '../../src/runtime/ooc';
+import { PROMPTS } from '../../src/core/runtime/prompts';
+import { oocNote, splitOoc, storyOnly } from '../../src/core/runtime/ooc';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 

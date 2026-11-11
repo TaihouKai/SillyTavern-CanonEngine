@@ -1,5 +1,5 @@
 // In-memory host + scripted model for deterministic engine tests (no ST, no network).
-import type { HostPort, HoraePort, PublishRequest } from '../../src/core/runtime/host';
+import type { HostPort, SceneTrackerPort, PublishRequest } from '../../src/core/runtime/host';
 import type { CampaignData, Interpretation, OpType, SourceEntry } from '../../src/core/runtime/types';
 import type { ChatMsg, DraftRequest, ModelPort, TaskName } from '../../src/core/runtime/model';
 import { CanonEngine, type EngineSettings } from '../../src/core/runtime/engine';
@@ -30,7 +30,8 @@ export class FakeHost implements HostPort {
   failNextSaves = 0;
   saveDelay: (() => Promise<void>) | null = null;
   publishHook: (() => Promise<void>) | null = null;
-  horae: HoraePort | null = null;
+  sceneTracker: SceneTrackerPort | null = null;
+  lore?: HostPort['lore'];
   packStore?: HostPort['packStore'];
   model: ScriptedModel;
   logs: string[] = [];

@@ -7,15 +7,16 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { validatePackText } from '../../src/domain/pack';
-import { playerOrgs, worldChangesOf } from '../../src/runtime/integration';
-import { applyLoreScan, markedLines, nonLocal, termsFor, textHash, worldBatches, worldItems, WORLD_BATCH_ITEMS } from '../../src/runtime/worldset';
-import { PROMPTS } from '../../src/runtime/prompts';
-import type { LoreEntry } from '../../src/runtime/lore';
+import { validatePackText } from '../../src/core/domain/pack';
+import { playerOrgs, worldChangesOf } from '../../src/core/runtime/integration';
+import { markedLines, nonLocal, termsFor, textHash, worldBatches, worldItems, WORLD_BATCH_ITEMS } from '../../src/core/runtime/worldset';
+import { applyLoreScan } from '../../src/hosts/sillytavern/lorescan';
+import { PROMPTS } from '../../src/core/runtime/prompts';
+import type { LoreEntry } from '../../src/core/runtime/lore';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 const lore = (uid: number, comment: string, keys: string[], content: string, more: Partial<LoreEntry> = {}): LoreEntry =>
-  ({ book: 'world', uid, comment, keys, secondary: [], selective: false, logic: 0, constant: false, disabled: false, caseSensitive: null, wholeWords: null, content, ...more });
+  ({ book: 'world', uid, title: comment, keys, secondary: [], secondaryLogic: null, constant: false, disabled: false, caseSensitive: null, wholeWords: null, content, ...more });
 const BOOK = [
   lore(1, 'Level 5', ['Level 5', '超能力者'], '学园都市的Level 5共有七人，第七位是削板军霸。'),
   lore(2, '削板军霸', ['削板'], '削板军霸是第七位，也是最后一位Level 5。'),
@@ -69,7 +70,7 @@ describe('in the game', () => {
   async function setup(world: any[] = [], persona = PERSONA) {
     const x = makeEngine();
     (x.host as any).persona = () => ({ name: '田中太郎', description: persona });
-    (x.host as any).loreEntries = async () => BOOK;
+    x.host.lore = { entries: async () => BOOK, appliesOverrides: false };
     x.model.on('profile', null, PROFILE(world));
     await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
     await x.engine.reconcile('test');
@@ -153,7 +154,7 @@ describe('in the game', () => {
     x.model.draft('Academy City. [W4]', 'Academy City again. [W5]');
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect(String(x.model.tasks('draft')[0].input.engineContext)).toMatch(/LOREBOOK IN THIS GAME[^\n]*\n- Level 5: Level 5 共八人。/);
-    x.engine.loreHook = true;
+    x.host.lore = { entries: x.host.lore!.entries, appliesOverrides: true };
     x.host.addUser('I walk on.');
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect(String(x.model.tasks('draft').at(-1)!.input.engineContext)).not.toMatch(/LOREBOOK IN THIS GAME/);
@@ -163,7 +164,7 @@ describe('in the game', () => {
   it('WS8 the check knows when each event is: before the game starts it is not given the player’s present situation; a rewritten event still to come is a spoiler in the panel', async () => {
     const x = makeEngine();
     (x.host as any).persona = () => ({ name: 'Ash', description: 'Ash.' });
-    (x.host as any).loreEntries = async () => [];
+    x.host.lore = { entries: async () => [], appliesOverrides: false };
     x.model.on('profile', null, PROFILE([{ text: 'The Council is taking Ash on as a clerk', terms: ['conflict'] }]));
     x.model.on('world_check', null, (i: any) => ({ items: i.items.filter((it: any) => ['The harbor conflict begins', 'Union victory'].includes(it.title)).map((it: any) => ({ ref: it.ref, action: 'replace', untrue: [it.text.slice(-12)], content: `${it.text}!`, reason: 'r' })), additions: [] }));
     await x.engine.bind(demo, { startTick: tick(2, 12, 0), mode: 'new' });

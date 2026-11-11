@@ -6,10 +6,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ, legacyCampaign } from './fake';
 import { ROOT } from './helpers';
-import { engagementView, isBinding, engagementRecord } from '../../src/runtime/integration';
-import { PROMPTS, gmRulesFor, GM_INTEGRATION_RULES } from '../../src/runtime/prompts';
-import { DEFAULT_PLAYER_VOICE, voiceRule, LIVELY, REACT_NOT_DECIDE, ANSWER_IN_SCENE } from '../../src/runtime/voice';
-import { ENGINE_RELEASE } from '../../src/runtime/types';
+import { engagementView, isBinding, engagementRecord } from '../../src/core/runtime/integration';
+import { PROMPTS, gmRulesFor, GM_INTEGRATION_RULES } from '../../src/core/runtime/prompts';
+import { DEFAULT_PLAYER_VOICE, voiceRule, LIVELY, REACT_NOT_DECIDE, ANSWER_IN_SCENE } from '../../src/core/runtime/voice';
+import { ENGINE_RELEASE } from '../../src/core/runtime/types';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 type X = ReturnType<typeof makeEngine>;

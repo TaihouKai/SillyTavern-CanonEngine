@@ -4,9 +4,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
-import { currentGraph } from '../../src/ui/graph';
-import { buildPacket, retrieve } from '../../src/runtime/context';
-import { WorldIndex } from '../../src/domain/world-query';
+import { currentGraph } from '../../src/core/ui/graph';
+import { buildPacket, retrieve } from '../../src/core/runtime/context';
+import { WorldIndex } from '../../src/core/domain/world-query';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { validatePack, type LoadedPack } from '../../src/domain/pack';
-import type { CanonPack } from '../../src/domain/types';
+import { validatePack, type LoadedPack } from '../../src/core/domain/pack';
+import type { CanonPack } from '../../src/core/domain/types';
 
 export const ROOT = join(__dirname, '..', '..');
 export function demoRaw(): CanonPack {

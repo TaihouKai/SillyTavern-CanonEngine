@@ -7,10 +7,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
-import { lintPack, validatePackText } from '../../src/domain/pack';
-import { MAIN_FRAME, localTime, parseLocal } from '../../src/domain/frames';
-import { frameRef } from '../../src/runtime/gate';
-import { packGraph, renderGraphSvg } from '../../src/ui/graph';
+import { lintPack, validatePackText } from '../../src/core/domain/pack';
+import { MAIN_FRAME, localTime, parseLocal } from '../../src/core/domain/frames';
+import { frameRef } from '../../src/core/runtime/gate';
+import { packGraph, renderGraphSvg } from '../../src/core/ui/graph';
 
 const framesText = readFileSync(join(ROOT, 'examples', 'frames-demo.canon.json'), 'utf8');
 const demoText = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
@@ -113,7 +113,7 @@ describe('time frames', () => {
 
   it('FR6 the reviewer\'s scene_frame moves the scene; later turns read local time there; Horae is not used in another frame', async () => {
     const x = await setup();
-    x.host.horae = { status: () => ({ available: true, version: 'x', mode: 'metadata', staleIndexes: [], busy: false, scene: { date: '1600/04/12', time: '15:00' } }), waitForIdle: async () => true, reanalyze: async () => undefined } as any;
+    x.host.sceneTracker = { name: 'Horae', status: () => ({ available: true, version: 'x', mode: 'metadata', staleIndexes: [], busy: false, scene: { date: '1600/04/12', time: '15:00' } }), waitForIdle: async () => true, reanalyze: async () => undefined } as any;
     expect(await turn(x, '出发。', '光芒散去，你们站在1600年的码头上。[FR6a]', { scene_end: at(1, 14, 5), scene_frame: 'harbor-1600' })).toBe(true);
     expect(frameNow(x)).toBe('harbor-1600');
     expect(x.engine.sceneFrameNow()).toEqual({ id: 'harbor-1600', name: '1600年的港城', local: '1600-04-12 14:05', main: false });

@@ -1,11 +1,11 @@
 // W01-W02: a canon event with a long window (e.g. a whole day) is not settled offscreen the moment its window opens.
 import { describe, expect, it } from 'vitest';
-import { reduce } from '../../src/domain/reducer';
-import { buildBootstrap } from '../../src/domain/schedule';
-import type { LedgerRecord } from '../../src/domain/types';
-import { adjudicateInterval } from '../../src/runtime/adjudicator';
-import { buildPacket, retrieve } from '../../src/runtime/context';
-import { WorldIndex } from '../../src/domain/world-query';
+import { reduce } from '../../src/core/domain/reducer';
+import { buildBootstrap } from '../../src/core/domain/schedule';
+import type { LedgerRecord } from '../../src/core/domain/types';
+import { adjudicateInterval } from '../../src/core/runtime/adjudicator';
+import { buildPacket, retrieve } from '../../src/core/runtime/context';
+import { WorldIndex } from '../../src/core/domain/world-query';
 import { demoRaw, load, T } from './helpers';
 
 function setup() {

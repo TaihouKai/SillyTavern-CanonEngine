@@ -40,7 +40,7 @@ try {
   const scan = await page.evaluate(async () => {
     const wi = await import('/scripts/world-info.js');
     const r = await wi.getWorldInfoPrompt(['我在街上听人聊起Level 5的排名。'], 8000, true);
-    return { text: r.worldInfoString, applied: window.CanonEngine.engine.loreApplied, hook: window.CanonEngine.engine.loreHook };
+    return { text: r.worldInfoString, applied: window.CanonEngine.engine.loreApplied, hook: window.CanonEngine.host.lore.appliesOverrides };
   });
   check('WE02 SillyTavern\'s own scan carries the rewritten entry, not the original', scan.text.includes(NEW) && !scan.text.includes(OLD) && scan.hook === true && scan.applied?.applied === 1, JSON.stringify(scan).slice(0, 300));
   const main = (await logs()).filter((l) => l.type === 'main').map((l) => (l.messages || []).map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n'));

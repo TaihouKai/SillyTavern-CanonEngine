@@ -183,7 +183,7 @@ export interface PacketInput {
   reaction?: string;
   /** Contacts the world must make in this reply (GM only). */
   requiredContacts?: string;
-  /** 本局设定 when SillyTavern cannot take the rewritten lorebook entries in its own scan (GM only). */
+  /** 本局设定 when the host cannot take the rewritten lorebook entries in its own lore scan (GM only). */
   worldLore?: string;
   /** Time leap (this reply): what the GM writes for the time in between and where it lands (GM only). */
   leap?: string;

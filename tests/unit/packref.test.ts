@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { CanonEngine } from '../../src/runtime/engine';
-import { validatePackText } from '../../src/domain/pack';
+import { CanonEngine } from '../../src/core/runtime/engine';
+import { validatePackText } from '../../src/core/domain/pack';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 const other = readFileSync(join(ROOT, 'examples', 'frames-demo.canon.json'), 'utf8');

@@ -1,20 +1,12 @@
 // Small persistent UI: status pill near the composer, settings drawer, binding wizard,
 // on-demand inspector (spoilers behind a toggle), per-variant banners and conflict markers.
-import { VOICE_KINDS, playerVoice } from '../../core/runtime/voice';
-import type { CanonEngine, EngineSettings } from '../../core/runtime/engine';
-import { labelForError, formatUsd } from '../../core/runtime/engine';
+import { VOICE_KINDS, playerVoice, labelForError, formatUsd, interpretationsFor, baseKey, parseTickLabel, parseDateLabel, parseOriginLabel, formatTick, parseLeapTime, t, setLang, GraphPanel, packGraph, currentGraph, createInspector, validatePackText, type CanonEngine, type EngineSettings, type LoadedPack } from '../../core';
 import type { StHost } from './st';
 import { ctx, NS, gen } from './st';
 import { HoraeAdapter } from './horae';
+import type { StSettings } from './settings';
 import type { WriterLock } from './lock';
-import { interpretationsFor, baseKey } from '../../core/runtime/replay';
-import { parseTickLabel, parseDateLabel, parseOriginLabel, formatTick } from '../../core/domain/time';
-import { parseLeapTime } from '../../core/runtime/leap';
-import { t, setLang } from '../../core/ui/i18n';
 import { primeNotifications, systemNotificationsAvailable } from './notify';
-import { GraphPanel, packGraph, currentGraph } from '../../core/ui/graph';
-import { createInspector } from '../../core/ui/inspector';
-import { validatePackText, type LoadedPack } from '../../core/domain/pack';
 import { listLibrary, saveToLibrary, loadFromLibrary, removeFromLibrary, type LibraryEntry } from './library';
 
 export { t };
@@ -24,7 +16,7 @@ let E: CanonEngine;
 let H: StHost;
 /** taskProfileId value for "analysis uses the chat's own connection", chosen explicitly ('' = not chosen yet). */
 export const CHAT_PROFILE = '__chat__';
-let getSettings: () => EngineSettings & { inspectorOpen: boolean; uiLang?: string };
+let getSettings: () => StSettings;
 let getLock: () => WriterLock | null;
 let inspector: ReturnType<typeof createInspector> | null = null;
 let graphPanel: GraphPanel | null = null;
@@ -180,11 +172,11 @@ function openLeapDialog(prefill?: { final: number; description: string }) {
 }
 
 /** " · $0.0352" when the provider reported what the turn cost ("+" when some calls reported nothing). */
-function costPart(tk: import('../../core/runtime/model').TokenUsage): string {
+function costPart(tk: import('../../core').TokenUsage): string {
   if (!tk.costUsd && !tk.diem) return '';
   return ` · ${formatUsd(tk.costUsd || 0)}${tk.costUnreported ? '+' : ''}${tk.diem ? ` · ${tk.diem} DIEM` : ''}`;
 }
-function costLines(tk: import('../../core/runtime/model').TokenUsage): string[] {
+function costLines(tk: import('../../core').TokenUsage): string[] {
   if (!tk.costUsd && !tk.diem) return tk.calls ? [t('costNone')] : [];
   return [
     `${t('costLabel')} ${formatUsd(tk.costUsd || 0)}${tk.storyCostUsd !== undefined ? ` — ${t('tokStory')} ${formatUsd(tk.storyCostUsd || 0)} · ${t('tokAnalysis')} ${formatUsd((tk.costUsd || 0) - (tk.storyCostUsd || 0))}` : ''}${tk.diem ? ` · ${tk.diem} DIEM` : ''}`,
@@ -322,7 +314,7 @@ function renderSettings() {
     + check('secretsReadable', (s as any).secretsReadable !== false, t('secretsReadable'), 'secretsReadableTip') + `</details>`);
 
   // ---- event log
-  out.push(card(t('secEvents'), '', check('ignoreFirstMessage', !!s.ignoreFirstMessage, t('ignoreFirstMessage'), 'ignoreFirstMessageTip') + check('sceneGrouping', !!s.sceneGrouping, t('sceneGrouping'), 'sceneGroupingTip') + check('followHoraeTime', s.followHoraeTime !== false, t('followHoraeTime'), 'followHoraeTimeTip')));
+  out.push(card(t('secEvents'), '', check('ignoreFirstMessage', !!s.ignoreFirstMessage, t('ignoreFirstMessage'), 'ignoreFirstMessageTip') + check('sceneGrouping', !!s.sceneGrouping, t('sceneGrouping'), 'sceneGroupingTip') + check('followTrackerTime', s.followTrackerTime !== false, t('followHoraeTime'), 'followHoraeTimeTip')));
 
   // ---- advanced
   const adv = [num('maxRepairs', s.maxRepairs), num('maxOrdinaryPlanner', s.maxOrdinaryPlanner), check('forcedPlannerAttempt', !!s.forcedPlannerAttempt, t('adv_forcedPlannerAttempt'), 'adv_forcedPlannerAttemptTip'),
@@ -552,7 +544,7 @@ function openBindWizard(text: string) {
   const p = E.previewPack(text);
   const chatLen = H.readTranscript().filter((e) => e.role !== 'system').length;
   const existing = chatLen > 1;
-  const horae = H.horae?.status().scene;
+  const horae = H.sceneTracker?.status().scene;
   if (!p.ok || !p.summary) {
     modal(`<h3>${t('wizardTitle')}</h3><div class="canon-note err">${t('validation')}: ${t('failed')}</div><ul class="canon-list">${p.errors.slice(0, 40).map((e) => `<li><code>${esc(e.path)}</code> ${esc(e.message)}</li>`).join('')}</ul><button class="menu_button" data-close>${t('close')}</button>`);
     return;

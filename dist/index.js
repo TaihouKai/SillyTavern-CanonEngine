@@ -1,4 +1,4 @@
-/* Canon Engine v1 - built bundle. Source: src/. Do not edit by hand. */
+/* Canon Engine v1 - built bundle. Source: src/hosts/sillytavern (the SillyTavern host) and src/core (the engine). Do not edit by hand. */
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __commonJS = (cb, mod) => function __require() {
   try {
@@ -80,7 +80,7 @@ var require_equal = __commonJS({
   }
 });
 
-// src/runtime/lore.ts
+// src/core/runtime/lore.ts
 var norm = (s) => s.normalize("NFKC").trim().toLowerCase();
 function keyMatch(key, text, e) {
   const k = key.trim();
@@ -107,18 +107,15 @@ function entryMatches(e, text, generic = /* @__PURE__ */ new Set()) {
     return m !== null && !generic.has(norm(m));
   })) return false;
   const sec2 = e.secondary.filter((k) => k.trim());
-  if (!e.selective || !sec2.length) return true;
+  if (!e.secondaryLogic || !sec2.length) return true;
   const hits = sec2.filter((k) => keyMatches(k, text, e)).length;
-  switch (e.logic) {
-    case 1:
+  switch (e.secondaryLogic) {
+    case "not_all":
       return hits < sec2.length;
-    // NOT ALL
-    case 2:
+    case "not_any":
       return hits === 0;
-    // NOT ANY
-    case 3:
+    case "all":
       return hits === sec2.length;
-    // AND ALL
     default:
       return hits > 0;
   }
@@ -130,7 +127,7 @@ function loreFor(entries, text, pack2, opts = {}) {
   for (const ent of pack2.entities.values()) for (const n of [ent.name, ...ent.aliases || []]) if (n && norm(n).length >= 2) byName.set(norm(n), ent.id);
   const usable = entries.filter((e) => !e.disabled && !e.constant && e.content.trim());
   const titled = (e) => {
-    const t2 = norm(e.comment || ""), head = norm((e.comment || "").split(/[（(]/)[0]);
+    const t2 = norm(e.title || ""), head = norm((e.title || "").split(/[（(]/)[0]);
     return byName.get(t2) || byName.get(head) || (head.length >= 3 ? [...byName].find(([n]) => n.endsWith(head))?.[1] : void 0) || null;
   };
   const about = new Map(usable.map((e) => [e, titled(e)]));
@@ -147,7 +144,7 @@ function loreFor(entries, text, pack2, opts = {}) {
     if (used + piece.length > budget) return;
     taken.add(e);
     used += piece.length;
-    out.push({ title: e.comment || e.keys[0] || String(e.uid), entity_id: tied.get(e) || null, via, text: piece });
+    out.push({ title: e.title || e.keys[0] || String(e.uid), entity_id: tied.get(e) || null, via, text: piece });
   };
   const uses = /* @__PURE__ */ new Map();
   for (const e of pool) for (const k of new Set(e.keys.map(norm))) uses.set(k, (uses.get(k) || 0) + 1);
@@ -169,7 +166,7 @@ function loreFor(entries, text, pack2, opts = {}) {
   return out;
 }
 
-// src/generated/validators.js
+// src/core/generated/validators.js
 var pack = validate20;
 var schema31 = { "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:pack:1.0.0", "title": "Canon Engine v1 History Pack", "description": "Structural validation only. Semantic validation is specified in HISTORY_PACK_AUTHORING_GUIDE.md.", "type": "object", "properties": { "$schema": { "type": "string" }, "schema_version": { "const": "1.0.0" }, "pack_id": { "$ref": "#/$defs/id" }, "pack_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }, "title": { "type": "string", "minLength": 1 }, "language": { "type": "string", "minLength": 1 }, "description": { "type": "string", "minLength": 1 }, "calendar": { "type": "object", "properties": { "system": { "const": "relative_day" }, "origin_label": { "type": "string", "minLength": 1 }, "day_length_minutes": { "const": 1440 }, "time_zone_label": { "type": "string", "minLength": 1 }, "notes": { "type": "string" }, "main_frame_name": { "type": "string", "minLength": 1 } }, "required": ["system", "origin_label", "day_length_minutes", "time_zone_label", "notes"], "additionalProperties": false }, "frames": { "type": "array", "items": { "$ref": "#/$defs/frame" } }, "coverage": { "type": "object", "properties": { "start": { "$ref": "#/$defs/time" }, "end": { "$ref": "#/$defs/time" }, "notes": { "type": "string" } }, "required": ["start", "end", "notes"], "additionalProperties": false }, "sources": { "type": "array", "items": { "$ref": "#/$defs/source" }, "minItems": 1 }, "predicates": { "type": "array", "items": { "$ref": "#/$defs/predicate" }, "minItems": 1 }, "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" }, "minItems": 1 }, "initial_state": { "type": "object", "properties": { "at": { "$ref": "#/$defs/time" }, "facts": { "type": "array", "items": { "$ref": "#/$defs/initial_fact" } } }, "required": ["at", "facts"], "additionalProperties": false }, "arcs": { "type": "array", "items": { "$ref": "#/$defs/arc" } }, "events": { "type": "array", "items": { "$ref": "#/$defs/event" }, "minItems": 1 }, "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } } }, "required": ["schema_version", "pack_id", "pack_version", "title", "language", "description", "calendar", "coverage", "sources", "predicates", "entities", "initial_state", "arcs", "events", "edges"], "additionalProperties": false, "$defs": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]*$" }, "time": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }] }, "fact": { "type": "object", "properties": { "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" }, "value": { "$ref": "#/$defs/value" } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "outcome": { "type": "object", "properties": { "op": { "enum": ["add", "remove"] }, "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" }, "value": { "$ref": "#/$defs/value" } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "effect": { "oneOf": [{ "type": "object", "properties": { "op": { "const": "set" }, "fact": { "$ref": "#/$defs/fact" } }, "required": ["op", "fact"], "additionalProperties": false }, { "type": "object", "properties": { "op": { "const": "unset" }, "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, { "type": "object", "properties": { "op": { "enum": ["add", "remove"] }, "entity_id": { "$ref": "#/$defs/id" }, "predicate": { "$ref": "#/$defs/id" }, "value": { "$ref": "#/$defs/value" } }, "required": ["op", "entity_id", "predicate", "value"], "additionalProperties": false }] }, "condition": { "oneOf": [{ "type": "object", "properties": { "all": { "type": "array", "items": { "$ref": "#/$defs/condition" } } }, "required": ["all"], "additionalProperties": false }, { "type": "object", "properties": { "any": { "type": "array", "items": { "$ref": "#/$defs/condition" }, "minItems": 1 } }, "required": ["any"], "additionalProperties": false }, { "type": "object", "properties": { "not": { "$ref": "#/$defs/condition" } }, "required": ["not"], "additionalProperties": false }, { "type": "object", "properties": { "fact": { "$ref": "#/$defs/fact" } }, "required": ["fact"], "additionalProperties": false }, { "type": "object", "properties": { "occurred": { "$ref": "#/$defs/id" } }, "required": ["occurred"], "additionalProperties": false }] }, "source": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1 }, "locator": { "type": "string", "minLength": 1 }, "kind": { "enum": ["primary", "secondary", "editorial", "example"] }, "notes": { "type": "string" } }, "required": ["id", "title", "locator", "kind", "notes"], "additionalProperties": false }, "predicate": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "description": { "type": "string", "minLength": 1 }, "value_type": { "enum": ["boolean", "number", "string", "entity_ref", "entity_set"] }, "allowed_values": { "type": "array", "items": { "$ref": "#/$defs/value" }, "minItems": 1, "uniqueItems": true }, "transient": { "type": "boolean" }, "settled_values": { "type": "array", "items": { "$ref": "#/$defs/value" }, "minItems": 1, "uniqueItems": true } }, "required": ["id", "description", "value_type"], "additionalProperties": false }, "entity": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "name": { "type": "string", "minLength": 1 }, "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "static_description": { "type": "string", "minLength": 1 }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "frame_id": { "$ref": "#/$defs/id" }, "nature": { "description": "\u5E38\u6001: how the person's power, condition or non-human body shows in everyday scenes. Version 1 (from_event null) holds at the story start; a later version holds once its from_event has occurred in the branch, until its until_event has.", "type": "array", "minItems": 1, "maxItems": 6, "items": { "type": "object", "properties": { "from_event": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "until_event": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "why": { "type": "string" }, "habits": { "type": "string" }, "uses": { "type": "string" }, "others": { "type": "string" }, "limits": { "type": "string" }, "perceives": { "description": "What the power lets the person learn that others cannot; while it reaches someone, their secrets are open to it.", "type": "object", "properties": { "kinds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["thoughts", "memories", "emotions", "hidden", "whereabouts", "lies", "past"] } }, "how": { "type": "string" } }, "required": ["kinds"], "additionalProperties": false } }, "required": ["from_event", "habits", "uses", "others", "limits"], "additionalProperties": false } }, "mind": { "description": "\u601D\u8003\u65B9\u5F0F: how the person thinks \u2014 how much effort they put into thinking before they act (deliberation), how well they reason when they do (sharpness), and how they go about a problem. The engine plans the moves of those who think before they act; the game master plays everyone by it. Patterns, never story.", "type": "object", "properties": { "deliberation": { "enum": ["rarely", "situational", "habitual"] }, "sharpness": { "enum": ["plain", "sharp", "exceptional"] }, "approach": { "type": "string" }, "thinks_hard_about": { "type": "string" }, "pushed": { "type": "string" }, "notices": { "type": "string" }, "blind": { "type": "string" }, "speaks": { "type": "string" } }, "required": ["deliberation", "sharpness", "approach"], "additionalProperties": false } }, "required": ["id", "name", "aliases", "kind", "static_description", "source_refs"], "additionalProperties": false }, "when": { "type": "object", "properties": { "earliest": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }, "latest": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }, "precision": { "enum": ["minute", "day", "range", "unknown"] }, "label": { "type": "string", "minLength": 1 }, "basis": { "enum": ["documented", "editorial", "unknown"] }, "notes": { "type": "string" } }, "required": ["earliest", "latest", "precision", "label", "basis", "notes"], "additionalProperties": false }, "visibility": { "type": "object", "properties": { "mode": { "enum": ["public", "restricted", "secret"] }, "knower_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true } }, "required": ["mode", "knower_ids"], "additionalProperties": false }, "participation": { "type": "object", "properties": { "offer": { "enum": ["when_relevant", "never"] }, "hook": { "type": "string" } }, "required": ["offer", "hook"], "additionalProperties": false }, "event": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1 }, "summary": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "object", "properties": { "background": { "type": "string", "minLength": 1 }, "trigger": { "type": "string", "minLength": 1 }, "motives": { "type": "array", "items": { "type": "object", "properties": { "who": { "type": "string", "minLength": 1 }, "entity_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } }, "motive": { "type": "string", "minLength": 1 } }, "required": ["who", "entity_ids", "motive"], "additionalProperties": false } }, "course": { "type": "string", "minLength": 1 }, "result": { "type": "string", "minLength": 1 }, "aftermath": { "type": "string", "minLength": 1 }, "impact": { "type": "string", "minLength": 1 }, "note": { "type": "string", "minLength": 1 } }, "required": ["course"], "additionalProperties": false }] }, "classification": { "enum": ["HARD", "SOFT", "FREE"] }, "required_description": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }, "when": { "$ref": "#/$defs/when" }, "entity_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "location_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "arc_id": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] }, "canonical_preconditions": { "$ref": "#/$defs/condition" }, "outcomes": { "type": "array", "items": { "$ref": "#/$defs/outcome" } }, "canonical_effects": { "type": "array", "items": { "$ref": "#/$defs/effect" } }, "visibility": { "$ref": "#/$defs/visibility" }, "participation": { "$ref": "#/$defs/participation" }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "author_note": { "type": "string" }, "cast": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "$ref": "#/$defs/id" }, "at": { "$ref": "#/$defs/time" }, "role": { "type": "string", "minLength": 1 } }, "required": ["entity_id", "at", "role"], "additionalProperties": false } }, "frame_id": { "$ref": "#/$defs/id" } }, "required": ["id", "title", "summary", "classification", "required_description", "when", "entity_ids", "location_ids", "arc_id", "canonical_preconditions", "outcomes", "canonical_effects", "visibility", "participation", "source_refs", "author_note"], "additionalProperties": false, "allOf": [{ "if": { "properties": { "classification": { "const": "HARD" } }, "required": ["classification"] }, "then": { "properties": { "required_description": { "type": "string", "minLength": 1 }, "outcomes": { "minItems": 1 }, "when": { "properties": { "earliest": { "$ref": "#/$defs/time" }, "latest": { "$ref": "#/$defs/time" }, "precision": { "enum": ["minute", "day", "range"] }, "basis": { "enum": ["documented", "editorial"] } } } } }, "else": { "properties": { "required_description": { "type": "null" } } } }] }, "edge": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "from": { "$ref": "#/$defs/id" }, "to": { "$ref": "#/$defs/id" }, "relation": { "enum": ["enables", "motivates", "precedes", "related"] }, "basis": { "enum": ["documented", "inferred", "editorial"] }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "note": { "type": "string", "minLength": 1 } }, "required": ["id", "from", "to", "relation", "basis", "source_refs", "note"], "additionalProperties": false }, "arc": { "type": "object", "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1 }, "summary": { "type": "string", "minLength": 1 }, "event_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true } }, "required": ["id", "title", "summary", "event_ids"], "additionalProperties": false }, "initial_fact": { "type": "object", "properties": { "fact": { "$ref": "#/$defs/fact" }, "source_refs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "note": { "type": "string" } }, "required": ["fact", "source_refs", "note"], "additionalProperties": false }, "frame": { "type": "object", "description": "A time frame: a part of the world that keeps its own local time (a past era reached by time travel, another world, a realm where time flows differently). The story clock stays the main clock; a frame only says how its local time reads.", "properties": { "id": { "$ref": "#/$defs/id" }, "name": { "type": "string", "minLength": 1 }, "description": { "type": "string" }, "clock": { "oneOf": [{ "type": "object", "description": "Local time follows the main clock: at main time `at` the local time is `local`; afterwards local time runs `rate` local minutes per main minute (default 1).", "properties": { "kind": { "const": "linked" }, "at": { "$ref": "#/$defs/time" }, "local": { "type": "string", "pattern": "^-?\\d{1,6}-\\d{2}-\\d{2}( \\d{2}:\\d{2})?$" }, "rate": { "type": "number", "exclusiveMinimum": 0 } }, "required": ["kind", "at", "local"], "additionalProperties": false }, { "type": "object", "description": "Local time cannot be converted (no calendar, unknown era, time stands still): `label` says how local time reads.", "properties": { "kind": { "const": "unlinked" }, "label": { "type": "string", "minLength": 1 } }, "required": ["kind", "label"], "additionalProperties": false }] }, "notes": { "type": "string" } }, "required": ["id", "name", "description", "clock"], "additionalProperties": false } } };
 var func1 = Object.prototype.hasOwnProperty;
@@ -19158,7 +19155,7 @@ function validate70(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate70.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 
-// src/domain/delta.ts
+// src/core/domain/delta.ts
 var effectTarget = (ef) => ef.op === "set" ? { entity_id: ef.fact.entity_id, predicate: ef.fact.predicate } : { entity_id: ef.entity_id, predicate: ef.predicate };
 function effectToDelta(e) {
   if (e.op === "set") return { op: "set", entity_id: e.fact.entity_id, predicate: e.fact.predicate, value: e.fact.value };
@@ -19198,7 +19195,7 @@ function withOutcomes(deltas, outcomes) {
   return deltas;
 }
 
-// src/domain/time.ts
+// src/core/domain/time.ts
 var DAY = 1440;
 function toTick(t2) {
   return t2.day * DAY + t2.minute;
@@ -19311,7 +19308,7 @@ function parseDateLabel(s, origin) {
   return day * DAY + hh * 60 + mm;
 }
 
-// src/domain/summary.ts
+// src/core/domain/summary.ts
 var SUMMARY_SECTIONS = [
   ["background", "\u80CC\u666F", "Background"],
   ["trigger", "\u8D77\u56E0", "Cause"],
@@ -19351,7 +19348,7 @@ function summaryLines(s, zh, present = /* @__PURE__ */ new Set()) {
 }
 var LABEL_RE = new RegExp(`(${SUMMARY_LABELS.join("|")})\uFF1A`, "g");
 
-// src/domain/util.ts
+// src/core/domain/util.ts
 function stableStringify(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return "[" + value.map((v) => stableStringify(v === void 0 ? null : v)).join(",") + "]";
@@ -19539,7 +19536,7 @@ function sceneRoot(occs, id) {
   }
 }
 
-// src/domain/frames.ts
+// src/core/domain/frames.ts
 var MAIN_FRAME = "main";
 function indexFrames(pack2) {
   const frames = new Map((pack2.frames || []).map((f) => [f.id, f]));
@@ -19587,7 +19584,7 @@ function frameName(fx, id, fallback) {
   return fx.frames.get(id)?.name || id;
 }
 
-// src/domain/pack.ts
+// src/core/domain/pack.ts
 function normalizeName(s) {
   return String(s).normalize("NFKC").toLowerCase().replace(/[\s·・._\-'"“”‘’「」『』]+/g, "");
 }
@@ -20136,11 +20133,11 @@ function claimComparable(pack2, predicate, value) {
   return Array.isArray(p.allowed_values) && p.allowed_values.length > 0 && p.allowed_values.includes(value);
 }
 
-// src/domain/types.ts
+// src/core/domain/types.ts
 var PERCEIVE_KINDS = ["thoughts", "memories", "emotions", "hidden", "whereabouts", "lies", "past"];
 var UNKNOWN = /* @__PURE__ */ Symbol("UNKNOWN");
 
-// src/domain/reducer.ts
+// src/core/domain/reducer.ts
 var factKey = (entity, predicate) => `${entity}|${predicate}`;
 function emptyState(pack2) {
   return {
@@ -20291,7 +20288,7 @@ function triLabel(v) {
   return v === UNKNOWN ? "UNKNOWN" : v ? "TRUE" : "FALSE";
 }
 
-// src/domain/schedule.ts
+// src/core/domain/schedule.ts
 function crossedCandidates(pack2, state, fromExclusive, toInclusive) {
   const out = [];
   for (const t2 of pack2.timeIndex) {
@@ -20589,7 +20586,7 @@ function buildBootstrap(pack2, startTick) {
   return { records, unresolved, pending };
 }
 
-// src/runtime/worldset.ts
+// src/core/runtime/worldset.ts
 var WORLD_MARK_RE = /[(（]\s*(?:本局设定|world change)\s*[)）]/i;
 var textHash = (s) => hashObject(String(s)).slice(0, 16);
 function markedLines(persona) {
@@ -20610,7 +20607,7 @@ function worldItems(terms, lore, pack2) {
   const live = lore.filter((e) => !e.disabled && e.content.trim());
   const generic = [];
   const hit = (text, term) => norm2(text).includes(norm2(term));
-  const loreHits = (e, term) => hit(e.content, term) || hit(e.comment, term) || e.keys.some((k) => hit(k, term) || keyMatches(k, term, e));
+  const loreHits = (e, term) => hit(e.content, term) || hit(e.title, term) || e.keys.some((k) => hit(k, term) || keyMatches(k, term, e));
   const useful = terms.filter((term) => {
     if (live.length >= 60 && live.filter((e) => loreHits(e, term)).length > live.length / 3) {
       generic.push(term);
@@ -20621,7 +20618,7 @@ function worldItems(terms, lore, pack2) {
   const items2 = [];
   for (const e of live) {
     const hits = useful.filter((term) => loreHits(e, term));
-    if (hits.length) items2.push({ ref: `l${items2.length + 1}`, kind: "lore", title: e.comment || e.keys[0] || String(e.uid), text: e.content, book: e.book, uid: e.uid, hits });
+    if (hits.length) items2.push({ ref: `l${items2.length + 1}`, kind: "lore", title: e.title || e.keys[0] || String(e.uid), text: e.content, book: e.book, uid: e.uid, hits });
   }
   if (pack2) {
     for (const e of pack2.entities.values()) {
@@ -20741,30 +20738,8 @@ function overlayPack(base, ws) {
 function loreOverrideMap(ws) {
   return new Map((ws?.overrides || []).filter((o) => o.kind === "lore").map((o) => [`${o.book}|${o.uid}`, o]));
 }
-function applyLoreScan(lists, scan, template) {
-  let applied = 0;
-  const stale = [];
-  for (const arr of [lists?.globalLore, lists?.characterLore, lists?.chatLore, lists?.personaLore]) {
-    if (!Array.isArray(arr)) continue;
-    for (const e of arr) {
-      const o = scan.overrides.get(`${e?.world}|${e?.uid}`);
-      if (!o) continue;
-      if (textHash(String(e.content || "")) !== o.originalHash) {
-        stale.push(o.title);
-        continue;
-      }
-      if (o.action === "disable") e.disable = true;
-      else e.content = o.content;
-      applied++;
-    }
-  }
-  if (scan.additions.length && Array.isArray(lists?.chatLore)) {
-    scan.additions.forEach((a, i) => lists.chatLore.push({ ...template, uid: 99e4 + i, world: "Canon Engine \u672C\u5C40\u8BBE\u5B9A", key: [...a.keys], keysecondary: [], comment: a.title, content: a.content, disable: false, constant: false, selective: false }));
-  }
-  return { applied, stale: [...new Set(stale)] };
-}
 
-// src/domain/world-query.ts
+// src/core/domain/world-query.ts
 var CONTAINMENT_RE = /(located|location|parent|part.?of|within|inside|contain|district|area|region|位于|所在|属于|内)/i;
 function tokens(text) {
   const s = String(text || "").normalize("NFKC").toLowerCase();
@@ -21085,7 +21060,7 @@ var WorldIndex = class _WorldIndex {
   }
 };
 
-// src/runtime/normalize.ts
+// src/core/runtime/normalize.ts
 var RECORD_LISTS = /* @__PURE__ */ new Set(["transitions", "occurrences", "new_entities", "step_enactments", "references", "claims", "statements", "scene_entities", "steps", "assumptions", "risks", "adjudications", "changed"]);
 var IDENTITY = {
   occurrences: ["title"],
@@ -24036,7 +24011,7 @@ var affiliations_schema_default = {
   additionalProperties: false
 };
 
-// src/runtime/model.ts
+// src/core/runtime/model.ts
 var TASK_SCHEMAS = {
   extract_user: extract_user_schema_default,
   discover: discover_schema_default,
@@ -24546,7 +24521,7 @@ ${system}` },
   throw new EngineError("invalid_model_json", `invalid structured output for ${task}: ${lastErr}`);
 }
 
-// src/runtime/voice.ts
+// src/core/runtime/voice.ts
 var VOICE_KINDS = ["dialogue", "reactions", "actions", "trivial", "movement", "items", "skills", "combat", "decisions", "secrets"];
 var VOICE_TEXT = {
   dialogue: "dialogue \u2014 what the player character says: replies, banter, questions, small talk",
@@ -24588,12 +24563,12 @@ function voiceInput(v) {
   return { gm_may_write: VOICE_KINDS.filter((k) => v[k]), player_only: [...VOICE_KINDS.filter((k) => !v[k]), INTERVENTION] };
 }
 
-// src/runtime/types.ts
+// src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
 var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.29.3";
+var ENGINE_RELEASE = "1.30.0";
 
-// src/runtime/integration.ts
+// src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
 var UNANSWERED_HOLD_MINUTES = 24 * 60;
 var ANSWER_SHOWN_MINUTES = 24 * 60;
@@ -25622,7 +25597,7 @@ function companionSection(index, list, known, tick, origin, causeOf2) {
 ${lines.join("\n")}`;
 }
 
-// src/runtime/leap.ts
+// src/core/runtime/leap.ts
 var LEAP_RE = /\{\{\s*time_leap\s*[:：]\s*([^}]*?)\s*\}\}/i;
 var LEAP_DEFAULT_MINUTE = 8 * 60;
 function parseLeap(text, origin) {
@@ -25873,7 +25848,7 @@ function leapNotes(index, plan2, list, records, origin) {
   return [...decided, ...shown.slice(0, 40), ...rest > 0 ? [`${rest} other canon events of the leap occurred offscreen along their original routes`] : []];
 }
 
-// src/runtime/prompts.ts
+// src/core/runtime/prompts.ts
 var GM_INTEGRATION_RULES = `[Canon Engine \u2014 scoped timeline integration. Active only while Canon Engine is enabled for this chat.]
 You remain an external, non-diegetic GM. Canon Engine supplies explicit persisted context in separate categories: ACTUAL FACTS, ACTUAL HISTORY, CANON REFERENCE, FUTURE OBLIGATIONS and PROPOSED ACTIONS. Only actual facts and validated story events are accomplished history. Original canon can be displaced by actual play; future plans are intentions, not accomplished events. This context replaces any older instruction that historical events come from World Info.
 HARD obligations retain the exact required event content, outcome and authored time bounds. Do not cancel, downgrade, postpone, weaken or escape them through an alternate-world declaration. Their route may change. Use the provided validated next steps and any explicitly authorized extraordinary intervention. Preserve the actual record of previous actions: restoration or time intervention is a new event, not erasure of what happened.
@@ -26113,7 +26088,7 @@ var EVAL_LEAP_NOTE = `10. TIME LEAP (time_leap): this reply is a time skip the p
 var EXTRACT_GROUPS_NOTE = `Also return "scene_groups": when the message moves the scene (the player goes somewhere, a new scene starts, time skips to another situation), the ids from recognition_groups whose people are present or very likely present where the scene will be \u2014 named or as background (the students of a school at a school-wide event, colleagues at the workplace, a crowd at a big public event they would attend); [] when none; null when the message does not move the scene.`;
 var EVAL_GROUPS_NOTE = `8. RECOGNITION (recognition_groups: groups and people who know about the player, from the Persona \u2014 level "public" recognize the player's public standing on sight; "identity"/"secrets" know more). Return "scene_groups": the ids of those whose people are present in the scene at the END of the reply, named or as background (their uniforms, a crowd of them, someone the text says is one of them). Report a blocking violation (code "recognition") when someone the reply shows as one of them plainly acts as if they did not know what their group knows \u2014 asks who the player is, does not know the player's well-known rank or name, treats them as a stranger \u2014 unless the text gives a reason (they cannot see the player, a disguise, deliberate pretence). Not showing recognition is fine; only a shown ignorance counts. People not in these groups know only the public identity \u2014 knowing a secret stays the unsupported case above.`;
 
-// src/runtime/replay.ts
+// src/core/runtime/replay.ts
 var baseKey = (e) => `${e.messageId}:${e.variantId}:${e.contentHash}`;
 function interpretationsFor(store, key) {
   const v = store[key];
@@ -26303,7 +26278,7 @@ function earliestChange(oldM, newM) {
   return -1;
 }
 
-// src/runtime/context.ts
+// src/core/runtime/context.ts
 function add(m, k, t2) {
   if (!m.has(k)) m.set(k, /* @__PURE__ */ new Set());
   m.get(k).add(t2);
@@ -26679,7 +26654,7 @@ function buildPacket(inp, compact = false) {
   return { text, facts, hash: sha256(text), required: reqText.length, optional: text.length - reqText.length, truncatedOptional: truncated };
 }
 
-// src/runtime/gate.ts
+// src/core/runtime/gate.ts
 function spokenLine(q) {
   const s = q.trim();
   const m = /^(.{0,12}?)(“[^”]*”|「[^」]*」|『[^』]*』|"[^"]*"|‘[^’]*’)(.{0,12})$/su.exec(s);
@@ -27355,7 +27330,7 @@ function frameRef(pack2, ref) {
   return null;
 }
 
-// src/runtime/adjudicator.ts
+// src/core/runtime/adjudicator.ts
 function cloneState(pack2, s) {
   return reduce(pack2, s.records);
 }
@@ -27656,7 +27631,7 @@ async function modelAdjudicate(args, scratch, c, when2, pre, explanation, forced
   };
 }
 
-// src/runtime/planner.ts
+// src/core/runtime/planner.ts
 var ESCAPE_RE = /(parallel world|alternate (timeline|world|worldline)|another worldline|different timeline|drop(ped)? (the )?anchor|cancel (the )?anchor|平行世界|另一条世界线|世界线变动|取消锚点|放弃锚点)/i;
 function planScope(pack2, state, affected = []) {
   const pend = pendingHard(pack2, state).map((c) => c.event.id);
@@ -27937,7 +27912,7 @@ async function assessImpact(port, input, signal, operationId, log) {
   return callStructured(port, "impact", PROMPTS.impact, input, { signal, operationId, log });
 }
 
-// src/runtime/ooc.ts
+// src/core/runtime/ooc.ts
 var OPEN = { "(": ")", "\uFF08": "\uFF09", "[": "]", "\u3010": "\u3011", "{": "}", "<": ">", "\u3008": "\u3009", "\u300A": "\u300B" };
 var CLOSERS = new Set(Object.values(OPEN));
 var escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -27988,7 +27963,7 @@ function oocNote(ooc) {
   ].join("\n");
 }
 
-// src/runtime/views.ts
+// src/core/runtime/views.ts
 function membershipView(idx, tick, origin, spoilers) {
   const s = idx.state, pack2 = idx.pack;
   const members = memberships(idx, tick);
@@ -28047,7 +28022,7 @@ function natureView(idx, spoilers, player) {
   return { people, hidden };
 }
 
-// src/runtime/engine.ts
+// src/core/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
 var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check", profile: "reading the Persona", integrate: "how the world reacts to the player", foreknow: "what the people with you have planned", leap: "planning the time leap", world_check: "checking the lorebook against this game", mind: "what the people here think and plan" };
 var formatUsd = (v) => `$${v < 0.1 ? v.toFixed(4) : v < 10 ? v.toFixed(3) : v.toFixed(2)}`;
@@ -28062,25 +28037,15 @@ var DEFAULT_SETTINGS = {
   horizonMinutes: 3 * 1440,
   readyWindowMinutes: 1440,
   opportunityWindowMinutes: 720,
-  horaeWaitMs: 6e4,
-  followHoraeTime: true,
-  notifyDone: true,
-  notifySound: true,
+  trackerWaitMs: 6e4,
+  followTrackerTime: true,
   debug: false,
-  taskTemperature: 0.2,
-  taskProfileId: "",
-  taskExtraBody: "",
-  taskBackupProfileId: "",
-  taskBackupExtraBody: "",
   replyLength: "",
   sceneGrouping: false,
-  ignorePersonaSections: false,
-  ignoreFirstMessage: false,
   quietDayJobs: true,
   playerVoice: { ...DEFAULT_PLAYER_VOICE },
   secretsReadable: true,
   mindPlans: true,
-  mindProfileId: "",
   oocKeyword: "OOC"
 };
 var UNTIMED_ADVANCE_MAX = 20;
@@ -28892,7 +28857,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
   /** Horae's story time at the end of the previous reply as a tick, when it is usable: a new reply (not a
    *  swipe/regenerate/continue), Horae fresh, a calendar date, later than the engine clock and at most 3 days ahead. */
   horaeTick(clock) {
-    if (!this.settings.followHoraeTime || this.inOtherFrame()) return null;
+    if (!this.settings.followTrackerTime || this.inOtherFrame()) return null;
     const h = this.horaeTimeHint().horae_time;
     const origin = this.campaign()?.binding.originDate || null;
     if (!h || !origin) return null;
@@ -28922,9 +28887,9 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
     const st = this.current?.replay.state;
     if (!st) return null;
     const clock = st.clock.lo;
-    if (!this.settings.followHoraeTime || this.inOtherFrame()) return clock;
+    if (!this.settings.followTrackerTime || this.inOtherFrame()) return clock;
     try {
-      const h = this.host.horae?.status();
+      const h = this.host.sceneTracker?.status();
       const origin = this.campaign()?.binding.originDate || null;
       if (!h?.available || h.busy || h.staleIndexes.length || !h.scene?.time || !origin) return clock;
       const m = [h.scene.date, h.scene.time].filter(Boolean).join(" ").match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
@@ -28938,7 +28903,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
   /** Horae's story time at the end of the previous reply (supporting evidence for the reviewer's scene_end). */
   horaeTimeHint() {
     try {
-      const st = this.host.horae?.status();
+      const st = this.host.sceneTracker?.status();
       if (this.opActive?.op !== "normal" || this.inOtherFrame()) return {};
       if (!st?.available || st.busy || st.staleIndexes.length || !st.scene?.time) return {};
       const hint = [st.scene.date, st.scene.time].filter(Boolean).join(" ");
@@ -29616,7 +29581,7 @@ ${this.ooc(a.userEntry?.text).story}`);
           return null;
         })();
         const prevGmInterp = prevGm ? interpretationsFor(c.interpretations, baseKey(prevGm))[0] : null;
-        const horaeScene = this.host.horae?.status().scene;
+        const horaeScene = this.host.sceneTracker?.status().scene;
         const horaeSceneIds = horaeScene ? uniq([horaeScene.location || "", ...horaeScene.characters || []].flatMap((n) => n ? index.resolveEntity(n).ids : [])) : [];
         const userRefs = userInterp?.refs || [];
         const sceneSeeds = uniq([...prevGmInterp?.sceneEntities || [], ...horaeSceneIds, ...userInterp?.sceneEntities || []]);
@@ -29633,7 +29598,7 @@ ${this.ooc(a.userEntry?.text).story}`);
         await this.judgeForeknowledge(companions, abort.signal, operationId);
         const chance = companions.filter((x) => !x.declined && c.foreknowledge?.[foreknowKey(x)]?.knows === false).map((x) => ({ eventId: x.event.id, personId: x.personId, lo: x.lo, title: x.event.title, who: index.entityName(x.personId) }));
         const opps = legacy ? this.opportunities(index, clock).filter((o) => !eng.blockedBy({ eventId: o.id }, clock)) : [];
-        const sceneLabel = [horaeScene?.location ? `Location (Horae, supporting): ${horaeScene.location}.` : "", horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(", ")}.` : "", horaeNote].filter(Boolean).join(" ");
+        const sceneLabel = [horaeScene?.location ? `Location (${this.host.sceneTracker.name}, supporting): ${horaeScene.location}.` : "", horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(", ")}.` : "", horaeNote].filter(Boolean).join(" ");
         const packetArgs = {
           pack: pack2,
           index: rIndex,
@@ -30062,7 +30027,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
     const ent = (e) => `${e.id} | ${e.name} | ${(e.aliases || []).join(", ")} | ${e.kind}${e.kind === "organization" && orgLine(e.id) ? ` | ${orgLine(e.id)}` : ""}`;
     let lore = [];
     try {
-      lore = loreFor(await this.host.loreEntries?.() || [], `${persona.name}
+      lore = loreFor(await this.host.lore?.entries() || [], `${persona.name}
 ${persona.description}`, pack2);
     } catch (e) {
       this.host.log("warn", "lorebook read failed: " + e.message);
@@ -30155,7 +30120,7 @@ ${persona.description}`);
     const pack2 = this.campaign() || !packText ? this.pack() : validatePackText(packText).loaded;
     if (!pack2) throw new EngineError("invalid_pack", "the pack is not valid");
     const persona = this.persona();
-    return loreFor(await this.host.loreEntries?.() || [], `${persona.name}
+    return loreFor(await this.host.lore?.entries() || [], `${persona.name}
 ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " (related)" : ""}`);
   }
   // ---------------------------------------------------------------------------------------------
@@ -30171,7 +30136,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
   }
   /** Check the lorebook entries and pack texts the changes' search words find (all of them, in batches read in full)
    *  and keep what they become in this game. The user's own edits of an entry still found are kept. No changes: no
-   *  call. Kept with the chat; applied to SillyTavern's lorebook scan and to this chat's pack. */
+   *  call. Kept with the chat; applied to the host's lore scan and to this chat's pack. */
   async checkWorld(signal, operationId) {
     const c = this.campaign();
     if (!c) return;
@@ -30186,7 +30151,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     this.setStatus("planning", "Checking the lorebook against this game\u2019s world\u2026");
     let lore = [];
     try {
-      lore = await this.host.loreEntries?.() || [];
+      lore = await this.host.lore?.entries() || [];
     } catch (e) {
       this.host.log("warn", "lorebook read failed: " + e.message);
     }
@@ -30280,14 +30245,14 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     await this.host.save();
     await this.reconcile("world_settings", { allowModel: false });
   }
-  /** What SillyTavern's lorebook scan does in this chat: entries replaced or disabled by book and uid (only while the
+  /** What the host's lore scan does in this chat: entries replaced or disabled by book and uid (only while the
    *  original is the text they were written from) and entries added. Nothing when the engine is off here. */
   loreScan() {
     const c = this.campaign();
     if (!c?.enabled || !c.worldSettings) return null;
     return { overrides: loreOverrideMap(c.worldSettings), additions: c.worldSettings.additions };
   }
-  /** Set by the SillyTavern adapter after each scan: overrides applied, and those whose original changed since. */
+  /** Set by the host after each lore scan: overrides applied, and those whose original changed since. */
   loreApplied = null;
   /** 本局设定 for the panel: the changes in effect (with the search words of the last check), the user's own, what was
    *  checked and every override (stale: its lorebook original changed since — seen in the last scan). */
@@ -30309,15 +30274,17 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       additions: ws?.additions || [],
       rejected: ws?.rejected || [],
       unchecked: ws?.unchecked || [],
-      loreHook: this.loreHook
+      loreHook: this.loreHook()
     };
   }
-  /** Whether SillyTavern hands its lorebook scan to extensions (else the GM is told the rewritten entries). */
-  loreHook = false;
+  /** Whether the host applies the rewritten entries in its own lore scan (else the GM is told them). */
+  loreHook() {
+    return !!this.host.lore?.appliesOverrides;
+  }
   worldLoreSection() {
     const ws = this.campaign()?.worldSettings;
     const lore = (ws?.overrides || []).filter((o) => o.kind === "lore");
-    if (this.loreHook || !lore.length && !ws?.additions.length) return void 0;
+    if (this.loreHook() || !lore.length && !ws?.additions.length) return void 0;
     const lines = [...lore.map((o) => `- ${o.title}: ${o.action === "disable" ? "(does not apply in this game)" : o.content}`), ...(ws?.additions || []).map((a) => `- ${a.title}: ${a.content}`)];
     return `LOREBOOK IN THIS GAME (these lorebook entries read as follows in this game; where the lorebook says otherwise, this holds):
 ${lines.join("\n")}`;
@@ -30359,7 +30326,7 @@ ${lines.join("\n")}`;
   /** The lorebook entries given with the last Persona read (titles; for the panel and tests). */
   lastProfileLore = [];
   persona() {
-    return this.host.persona({ ignoreSections: this.settings.ignorePersonaSections });
+    return this.host.persona();
   }
   /** Whether the active Persona differs from this game's player profile (for the panel). */
   personaChanged() {
@@ -30627,11 +30594,11 @@ ${lines.join("\n")}`;
   // ---------------------------------------------------------------------------------------------
   // Horae
   async horaeBarrier(signal) {
-    const h = this.host.horae;
+    const h = this.host.sceneTracker;
     if (!h) return "";
     let st = h.status();
     if (!st.available) return "";
-    if (st.busy) await this.withTimeout(h.waitForIdle(this.settings.horaeWaitMs), this.settings.horaeWaitMs + 1e3, signal).catch(() => false);
+    if (st.busy) await this.withTimeout(h.waitForIdle(this.settings.trackerWaitMs), this.settings.trackerWaitMs + 1e3, signal).catch(() => false);
     st = h.status();
     if (st.staleIndexes.length) {
       for (const i of st.staleIndexes.slice(0, 20)) {
@@ -30640,15 +30607,15 @@ ${lines.join("\n")}`;
         } catch {
         }
       }
-      await this.withTimeout(h.waitForIdle(this.settings.horaeWaitMs), this.settings.horaeWaitMs + 1e3, signal).catch(() => false);
+      await this.withTimeout(h.waitForIdle(this.settings.trackerWaitMs), this.settings.trackerWaitMs + 1e3, signal).catch(() => false);
       st = h.status();
     }
     if (st.staleIndexes.length || st.busy) {
-      excludeHoraeForOperation = true;
-      this.notice("warn", "Horae memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use Horae's re-analyze to repair it.");
-      return "Horae memory excluded for this reply (stale after edits).";
+      h.excludeFromPrompt?.(true);
+      this.notice("warn", `${h.name} memory is stale for edited messages and could not be refreshed; it was excluded from this reply's prompt. Use ${h.name}'s re-analyze to repair it.`);
+      return `${h.name} memory excluded for this reply (stale after edits).`;
     }
-    excludeHoraeForOperation = false;
+    h.excludeFromPrompt?.(false);
     return "";
   }
   // ---------------------------------------------------------------------------------------------
@@ -31320,7 +31287,6 @@ ${lines.join("\n")}`;
     await this.reconcile("tie_edited");
   }
 };
-var excludeHoraeForOperation = false;
 function replayRecords(pack2, recs) {
   return reduce(pack2, recs);
 }
@@ -31367,1023 +31333,7 @@ function labelForError(kind) {
   return m[kind] || kind;
 }
 
-// src/adapters/horae.ts
-var HoraeAdapter = class _HoraeAdapter {
-  api;
-  constructor(api) {
-    this.api = api;
-  }
-  static diagnose() {
-    const api = globalThis.Horae;
-    if (!api) return { ok: false, version: null, missing: ["window.Horae"], mode: null };
-    const missing = [];
-    for (const k of ["getLatestState", "getStateMode"]) if (typeof api[k] !== "function") missing.push(k);
-    for (const k of ["getStatus", "isBusy", "waitForIdle", "reanalyze"]) if (typeof api.background?.[k] !== "function") missing.push("background." + k);
-    let mode = null;
-    try {
-      mode = api.getStateMode?.() || null;
-    } catch {
-    }
-    return { ok: missing.length === 0, version: api.version || null, missing, mode };
-  }
-  static detect() {
-    const api = globalThis.Horae;
-    return api ? new _HoraeAdapter(api) : null;
-  }
-  status() {
-    const d = _HoraeAdapter.diagnose();
-    const api = this.api;
-    if (!api || !(api.isEnabled?.() ?? true)) return { available: false, version: d.version, mode: d.mode, staleIndexes: [], busy: false, scene: null };
-    const staleIndexes = [];
-    let busy = false;
-    if (d.ok) {
-      try {
-        busy = !!api.background.isBusy();
-      } catch {
-      }
-      const chat = SillyTavern.getContext().chat || [];
-      for (let i = 0; i < chat.length; i++) {
-        const m = chat[i];
-        if (!m || m.is_user || m.is_system) continue;
-        let st = null;
-        try {
-          st = api.background.getStatus(i);
-        } catch {
-          st = null;
-        }
-        if (st === "outdated" || st === "failed") staleIndexes.push(i);
-      }
-    }
-    let scene = null;
-    try {
-      const s = api.getLatestState?.();
-      if (s) scene = { date: s.timestamp?.story_date, time: s.timestamp?.story_time, location: s.scene?.location, characters: s.scene?.characters_present || [] };
-      if (scene) Object.assign(scene, _HoraeAdapter.latestTime(api.getChat?.() || SillyTavern.getContext().chat || []));
-    } catch {
-    }
-    return { available: d.ok, version: d.version, mode: d.mode, staleIndexes, busy, scene };
-  }
-  /** Story date and time from the latest message that records either — both from that one message.
-   *  getLatestState() carries each field forward on its own, so a reply with a date but no clock time
-   *  ("2020/10/9 上午") was joined with the previous evening's time ("21:30") into a wrong "10/9 21:30".
-   *  A time without a date keeps the last recorded date (same day); a date without a time gives no time. */
-  static latestTime(chat) {
-    for (let i = chat.length - 1; i >= 0; i--) {
-      const ts = chat[i]?.horae_meta && !chat[i].horae_meta._skipHorae ? chat[i].horae_meta.timestamp : null;
-      const date = ts?.story_date || "", time = ts?.story_time || "";
-      if (!date && !time) continue;
-      if (date) return { date, time: time || void 0 };
-      for (let j = i - 1; j >= 0; j--) {
-        const d = chat[j]?.horae_meta && !chat[j].horae_meta._skipHorae ? chat[j].horae_meta.timestamp?.story_date : "";
-        if (d) return { date: d, time };
-      }
-      return { date: void 0, time };
-    }
-    return { date: void 0, time: void 0 };
-  }
-  async waitForIdle(timeoutMs) {
-    try {
-      return !!await this.api?.background?.waitForIdle?.(timeoutMs);
-    } catch {
-      return false;
-    }
-  }
-  async reanalyze(index) {
-    await this.api?.background?.reanalyze?.(index);
-  }
-};
-
-// src/adapters/st.ts
-var NS = "canonEngine";
-var EXT_PROMPT_KEY = "canon_engine_context";
-var EXT_LENGTH_KEY = "canon_engine_length";
-var EXT_INSTRUCTION_KEY = "canon_engine_instruction";
-var EXT_LORE_KEY = "canon_engine_lore";
-var stModule = null;
-async function loadStModule() {
-  if (stModule) return stModule;
-  const url = "/script.js";
-  stModule = await import(
-    /* @vite-ignore */
-    url
-  );
-  return stModule;
-}
-var reasoningModule = null;
-async function loadReasoningModule() {
-  if (reasoningModule) return reasoningModule;
-  const url = "/scripts/reasoning.js";
-  try {
-    reasoningModule = await import(
-      /* @vite-ignore */
-      url
-    );
-  } catch {
-    reasoningModule = {};
-  }
-  return reasoningModule;
-}
-function personaLibraryCore(entry, description) {
-  const core = typeof entry?.core === "string" ? entry.core.trim() : "";
-  const sections = Array.isArray(entry?.sections) ? entry.sections.filter((s) => s?.enabled && String(s.content ?? "").trim()) : [];
-  if (!core || !sections.length) return null;
-  return description.trim().startsWith(core) ? core : null;
-}
-function ctx() {
-  return SillyTavern.getContext();
-}
-var gen = {
-  draft: null,
-  raw: null,
-  lastDraftPrompt: null,
-  /** Reasoning of the most recent private draft. ST's quiet generation drops it, so it is captured here
-   * and attached when that draft is published (the accepted draft is always the latest one). */
-  lastDraftReasoning: "",
-  lastDraftInfo: null
-};
-function attachmentIdentity(m) {
-  const legacy = m?.extra ? Object.getOwnPropertyDescriptor(m.extra, "file") : void 0;
-  const files = Array.isArray(m?.extra?.files) ? m.extra.files : legacy && "value" in legacy && legacy.value ? [legacy.value] : [];
-  const media = Array.isArray(m?.extra?.media) ? m.extra.media : [];
-  return [...files.map((f) => f?.url || f?.name || ""), ...media.map((x) => x?.url || "")].join("|");
-}
-function isGenuineSystem(m) {
-  if (!m?.is_system) return false;
-  if (m.is_user) return false;
-  const x = m.extra || {};
-  if (x.type || x.tool_invocations || x.isSmallSys) return true;
-  if (m.name === "SillyTavern System") return true;
-  if (x[NS]?.mid) return false;
-  return !x.api && !x.model && !Array.isArray(m.swipes);
-}
-function contentHashOf(role, name2, text, attach) {
-  return sha256(`${role}\0${name2}\0${text}\0${attach}`);
-}
-var StHost = class {
-  horae;
-  packStore;
-  model;
-  saving = Promise.resolve();
-  pendingStamp = null;
-  writerCheck = null;
-  isWriter() {
-    return this.writerCheck ? this.writerCheck() : true;
-  }
-  constructor(model) {
-    this.model = model;
-    this.horae = HoraeAdapter.detect();
-  }
-  chatId() {
-    try {
-      return ctx().getCurrentChatId?.() || null;
-    } catch {
-      return null;
-    }
-  }
-  isGroup() {
-    return !!ctx().groupId;
-  }
-  integrity() {
-    return ctx().chatMetadata?.integrity || null;
-  }
-  /** Stable ids live in message.extra.canonEngine (per swipe via swipe_info[i].extra). */
-  readTranscript() {
-    const c = ctx();
-    const chat = c.chat || [];
-    const out = [];
-    const seen = /* @__PURE__ */ new Set();
-    const skipGreeting = !!c.extensionSettings?.[NS]?.ignoreFirstMessage;
-    chat.forEach((m, index) => {
-      if (!m) return;
-      const kind = isGenuineSystem(m) ? "system" : m.is_user ? "user" : "gm";
-      const role = skipGreeting && index === 0 && kind === "gm" ? "system" : kind;
-      if (!m.extra || typeof m.extra !== "object") m.extra = {};
-      let id = m.extra[NS];
-      if (!id || typeof id !== "object" || !id.mid) {
-        id = { mid: newId("msg"), vid: kind === "gm" ? newId("var") : "v0" };
-        m.extra[NS] = id;
-        this.syncSwipeExtra(m);
-      }
-      if (seen.has(id.mid)) {
-        id = { mid: newId("msg"), vid: kind === "gm" ? newId("var") : "v0" };
-        m.extra[NS] = id;
-        this.syncSwipeExtra(m);
-      }
-      seen.add(id.mid);
-      const text = String(m.mes ?? "");
-      out.push({ index, messageId: id.mid, variantId: id.vid || "v0", contentHash: contentHashOf(role, String(m.name || ""), text, attachmentIdentity(m)), role, name: String(m.name || ""), text });
-    });
-    return out;
-  }
-  syncSwipeExtra(m) {
-    if (typeof m.swipe_id === "number" && Array.isArray(m.swipe_info) && m.swipe_info[m.swipe_id]) {
-      const si = m.swipe_info[m.swipe_id];
-      si.extra = si.extra && typeof si.extra === "object" ? si.extra : {};
-      si.extra[NS] = deepClone(m.extra[NS]);
-    }
-  }
-  hashAssistant(text) {
-    return contentHashOf("gm", String(ctx().name2 || ""), text, "");
-  }
-  getCampaign() {
-    if (!this.chatId()) return null;
-    const md = ctx().chatMetadata;
-    return md && md[NS] || null;
-  }
-  setCampaign(data) {
-    const md = ctx().chatMetadata;
-    if (!md || data && !this.chatId()) return;
-    if (data) md[NS] = data;
-    else delete md[NS];
-  }
-  /**
-   * Durable save. Uses ST's own serialized save path (saveChatConditional, which coordinates with
-   * ST's and other extensions' saves - concurrent direct saves fail on Windows with EPERM during
-   * the atomic rename) and then VERIFIES the result by reading the chat file back, because that
-   * path swallows errors. Throws when the save cannot be verified.
-   */
-  async save() {
-    const run = async () => {
-      if (this.isGroup()) throw new Error("group chats are not supported");
-      const c = ctx();
-      const camp = this.getCampaign();
-      const token = newId("sv");
-      if (camp) camp.saveToken = token;
-      const seen = [];
-      const delays = [500, 1e3, 2e3, 3e3, 4e3];
-      for (let attempt = 1; attempt <= delays.length + 1; attempt++) {
-        const req = await this.watchSaveRequest(() => c.saveChat());
-        if (!camp) return;
-        const v = await this.verifySaved(token);
-        if (v.ok) return;
-        seen.push(`attempt ${attempt}: ${req}; read-back: ${v.detail}`);
-        console.warn("[CanonEngine] save not verified", seen[seen.length - 1]);
-        if (attempt > delays.length) break;
-        await new Promise((r) => setTimeout(r, delays[attempt - 1]));
-      }
-      throw new Error(`the chat file could not be saved (server did not persist the engine state). ${saveHint(seen)} Details (${seen.length} attempts): ${[...new Set(seen.map((x) => x.replace(/^attempt \d+: /, "")))].join(" | ")}`);
-    };
-    const p = this.saving.then(run, run);
-    this.saving = p.catch(() => void 0);
-    return p;
-  }
-  /** Runs ST's save while recording what happened to its /api/chats/save request (ST swallows errors). */
-  async watchSaveRequest(run) {
-    const orig = window.fetch;
-    let info = "SillyTavern sent no save request (save skipped: another save still running, or no chat file)";
-    const wrapped = async (input, init2) => {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      const isSave = /\/api\/chats\/save/.test(url);
-      try {
-        const r = await orig(input, init2);
-        if (isSave) {
-          const size = typeof init2?.body === "string" ? init2.body.length : init2?.body?.size ?? 0;
-          let body = "";
-          if (!r.ok) {
-            try {
-              body = (await r.clone().text()).slice(0, 160);
-            } catch {
-            }
-          }
-          info = `save request HTTP ${r.status}${r.statusText ? " " + r.statusText : ""} (${Math.round(size / 1024)} KB${init2?.headers?.["Content-Encoding"] ? ", compressed" : ""})${body ? ": " + body : ""}`;
-        }
-        return r;
-      } catch (e) {
-        if (isSave) info = `save request failed: ${e.message}`;
-        throw e;
-      }
-    };
-    window.fetch = wrapped;
-    try {
-      await run();
-    } finally {
-      if (window.fetch === wrapped) window.fetch = orig;
-    }
-    return info;
-  }
-  async verifySaved(token) {
-    const c = ctx();
-    const ch = c.characters?.[c.characterId];
-    if (!ch) return { ok: false, detail: "no current character" };
-    try {
-      const resp = await fetch("/api/chats/get", { method: "POST", headers: c.getRequestHeaders(), cache: "no-cache", body: JSON.stringify({ ch_name: ch.name, file_name: String(ch.chat || "").replace(/\.jsonl$/, ""), avatar_url: ch.avatar }) });
-      if (!resp.ok) return { ok: false, detail: `HTTP ${resp.status} reading chat "${ch.chat}"` };
-      const data = await resp.json();
-      if (!Array.isArray(data) || !data.length) return { ok: false, detail: `chat "${ch.chat}" not found on the server` };
-      const saved = data[0]?.chat_metadata?.[NS];
-      if (!saved) return { ok: false, detail: `chat "${ch.chat}" has no engine data` };
-      return saved.saveToken === token ? { ok: true, detail: "ok" } : { ok: false, detail: "older engine data on the server" };
-    } catch (e) {
-      return { ok: false, detail: `read-back failed: ${e.message}` };
-    }
-  }
-  async publish(req, _interp) {
-    const c = ctx();
-    const chat = c.chat;
-    this.pendingStamp = { messageId: req.messageId, variantId: req.variantId, commitId: req.commitId };
-    const reasoning = gen.lastDraftReasoning;
-    gen.lastDraftReasoning = "";
-    try {
-      if (req.op === "swipe") {
-        const last2 = chat[chat.length - 1];
-        if (!last2 || last2.is_user || last2.is_system) throw new Error("the swiped reply is no longer the last message");
-        if (!Array.isArray(last2.swipes)) {
-          last2.swipes = [last2.mes];
-          last2.swipe_info = [{ send_date: last2.send_date, gen_started: last2.gen_started, gen_finished: last2.gen_finished, extra: structuredClone(last2.extra || {}) }];
-          last2.swipe_id = 0;
-        }
-        await this.settleSwipe();
-        try {
-          (await loadStModule()).syncMesToSwipe?.(chat.length - 1);
-        } catch {
-        }
-        last2.swipe_id = last2.swipes.length;
-        await c.saveReply({ type: "swipe", getMessage: req.text, reasoning });
-      } else if (req.op === "continue") {
-        await c.saveReply({ type: "appendFinal", getMessage: req.text });
-      } else {
-        await c.saveReply({ type: "normal", getMessage: req.text, reasoning });
-      }
-      const m = chat[chat.length - 1];
-      if (m && !m.is_user) {
-        m.extra = m.extra || {};
-        m.extra[NS] = { mid: req.messageId, vid: req.variantId, commitId: req.commitId };
-        this.syncSwipeExtra(m);
-      }
-    } finally {
-      this.pendingStamp = null;
-    }
-    await this.save();
-  }
-  /** Wait (bounded) until ST's native swipe animation/revert has finished. */
-  async settleSwipe() {
-    const c = ctx();
-    for (let i = 0; i < 40; i++) {
-      let st = "none";
-      try {
-        st = c.swipe?.state?.();
-      } catch {
-      }
-      if (!st || st === "none" || st === 0) return;
-      await new Promise((r) => setTimeout(r, 100));
-    }
-  }
-  /** MESSAGE_RECEIVED (first listener): stamp identity before render/other extensions run. */
-  stampReceived(messageId) {
-    if (!this.pendingStamp) return;
-    const m = ctx().chat?.[messageId];
-    if (!m || m.is_user) return;
-    m.extra = m.extra || {};
-    m.extra[NS] = { mid: this.pendingStamp.messageId, vid: this.pendingStamp.variantId, commitId: this.pendingStamp.commitId };
-  }
-  async restorePrior(op, prior) {
-    const c = ctx();
-    const mod = await loadStModule();
-    const chat = c.chat;
-    if (op === "regenerate" && prior?.message) {
-      const last2 = chat[chat.length - 1];
-      const lastId = last2?.extra?.[NS]?.mid;
-      if (lastId && lastId === prior.message?.extra?.[NS]?.mid) return;
-      chat.push(prior.message);
-      mod.addOneMessage(prior.message);
-      await this.save();
-    } else if (op === "swipe" && prior && typeof prior.mesId === "number") {
-      const m = chat[prior.mesId];
-      if (!m) return;
-      if (typeof m.swipe_id === "number" && m.swipe_id >= (m.swipes?.length ?? 0)) {
-        m.swipe_id = prior.swipeId;
-        if (mod.syncSwipeToMes) mod.syncSwipeToMes(prior.mesId, prior.swipeId);
-        else {
-          m.mes = m.swipes[prior.swipeId];
-          m.extra = structuredClone(m.swipe_info?.[prior.swipeId]?.extra || m.extra);
-        }
-        mod.addOneMessage(m, { type: "swipe", forceId: prior.mesId, scroll: true });
-        try {
-          c.swipe?.refresh?.();
-        } catch {
-        }
-        await this.save();
-      }
-    }
-  }
-  async settle() {
-    await this.settleSwipe();
-  }
-  async loreEntries() {
-    const c = ctx();
-    let wi = {};
-    const url = "/scripts/world-info.js";
-    try {
-      wi = await import(
-        /* @vite-ignore */
-        url
-      );
-    } catch {
-    }
-    const ch = c.characters?.[c.characterId];
-    const extra = (wi.world_info?.charLore || []).find((x) => x?.name === String(ch?.avatar || "").replace(/\.[^.]+$/, "") || x?.name === ch?.avatar)?.extraBooks || [];
-    const names = [...new Set([...wi.selected_world_info || [], ch?.data?.extensions?.world, ...extra, c.chatMetadata?.world_info, c.powerUserSettings?.persona_description_lorebook].filter(Boolean))];
-    const load = c.loadWorldInfo || wi.loadWorldInfo;
-    if (!load) return [];
-    const out = [];
-    for (const book of names) {
-      let d = null;
-      try {
-        d = await load(book);
-      } catch {
-        continue;
-      }
-      for (const e of Object.values(d?.entries || {})) {
-        out.push({
-          book,
-          uid: e.uid,
-          comment: String(e.comment || ""),
-          keys: (e.key || []).map(String),
-          secondary: (e.keysecondary || []).map(String),
-          selective: !!e.selective,
-          logic: Number(e.selectiveLogic) || 0,
-          constant: !!e.constant,
-          disabled: !!e.disable,
-          caseSensitive: e.caseSensitive ?? null,
-          wholeWords: e.matchWholeWords ?? null,
-          content: String(e.content || "")
-        });
-      }
-    }
-    return out;
-  }
-  persona(opts) {
-    const c = ctx();
-    const name2 = String(c.name1 || "");
-    const description = String(c.powerUserSettings?.persona_description || "");
-    const core = personaLibraryCore(c.extensionSettings?.personaLibrarySections?.[stModule?.user_avatar], description);
-    if (core === null) return { name: name2, description };
-    return opts?.ignoreSections ? { name: name2, description: core, alt: description, source: "persona_core" } : { name: name2, description, alt: core };
-  }
-  now() {
-    return Date.now();
-  }
-  log(level, msg, data) {
-    const f = level === "error" ? console.error : level === "warn" ? console.warn : level === "debug" ? console.debug : console.log;
-    f(`[CanonEngine] ${msg}`, data === void 0 ? "" : data);
-  }
-};
-var usage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0, costUsd: 0, storyCostUsd: 0, costUnreported: 0, diem: 0 };
-var usageTapped = false;
-function sseToCompletion(text) {
-  let content = "", reasoning = "", finish = null, usage2, id, model, seen = false, cost, unlid;
-  for (const line of text.split(/\r?\n/)) {
-    if (!line.startsWith("data:")) continue;
-    const data = line.slice(5).trim();
-    if (!data || data === "[DONE]") continue;
-    let o;
-    try {
-      o = JSON.parse(data);
-    } catch {
-      continue;
-    }
-    seen = true;
-    if (o.error) return { error: o.error };
-    id ??= o.id;
-    model ??= o.model;
-    if (o.usage) usage2 = o.usage;
-    if (o.cost !== void 0) cost = o.cost;
-    if (o.unlid !== void 0) unlid = o.unlid;
-    const ch = o.choices?.[0];
-    if (!ch) continue;
-    const d = ch.delta || ch.message || {};
-    if (typeof d.content === "string") content += d.content;
-    const r = d.reasoning_content ?? d.reasoning;
-    if (typeof r === "string") reasoning += r;
-    if (ch.finish_reason) finish = ch.finish_reason;
-  }
-  if (!seen) return null;
-  const message = { role: "assistant", content };
-  if (reasoning) message.reasoning_content = reasoning;
-  return { id, object: "chat.completion", model, choices: [{ index: 0, message, finish_reason: finish }], ...usage2 ? { usage: usage2 } : {}, ...cost !== void 0 ? { cost } : {}, ...unlid !== void 0 ? { unlid } : {} };
-}
-function costOf(d) {
-  const num2 = (x) => typeof x === "number" && Number.isFinite(x) ? x : typeof x === "string" && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null;
-  const diem = num2(d?.cost?.diem) || 0;
-  const usd = num2(d?.cost?.usd) ?? num2(d?.cost) ?? num2(d?.unlid?.cost_usd) ?? num2(d?.usage?.cost) ?? num2(d?.usage?.cost_usd) ?? num2(d?.usage?.total_cost);
-  return { usd, diem };
-}
-var DEEPSEEK_PRICES = [
-  { match: /pro/i, hit: 0.044, miss: 1.32, out: 3.96 },
-  { match: /./, hit: 6e-3, miss: 0.3, out: 1.2 }
-  // deepseek-flash; legacy names are billed at the Flash price
-];
-function isDeepSeekOfficial(b) {
-  return b?.chat_completion_source === "deepseek" || b?.chat_completion_source === "custom" && /^(https?:\/\/)?api\.deepseek\.com(\/|$)/i.test(String(b?.custom_url || "").trim());
-}
-function deepseekPeak(at) {
-  const d = at.getUTCDay(), h = at.getUTCHours();
-  return d >= 1 && d <= 5 && (h >= 1 && h < 4 || h >= 6 && h < 10);
-}
-function deepseekCost(model, u, at) {
-  const n = (x) => typeof x === "number" && Number.isFinite(x) ? x : null;
-  const out = n(u?.completion_tokens), prompt = n(u?.prompt_tokens);
-  if (out === null && prompt === null) return null;
-  const hit = n(u?.prompt_cache_hit_tokens) ?? 0;
-  const miss = n(u?.prompt_cache_miss_tokens) ?? Math.max(0, (prompt ?? 0) - hit);
-  const p = DEEPSEEK_PRICES.find((x) => x.match.test(model));
-  const k = deepseekPeak(at) ? 1 : 0.5;
-  return (hit * p.hit + miss * p.miss + (out ?? 0) * p.out) * k / 1e6;
-}
-function streamedBody(body) {
-  let b;
-  try {
-    b = JSON.parse(body);
-  } catch {
-    return null;
-  }
-  if (b?.stream !== false || b.chat_completion_source !== "custom") return null;
-  const yaml = String(b.custom_include_body || "");
-  const t2 = yaml.trim();
-  if (!/stream_options/.test(yaml) && !t2.startsWith("{") && !t2.startsWith("-")) b.custom_include_body = (t2 ? yaml.replace(/\s*$/, "\n") : "") + "stream_options:\n  include_usage: true";
-  b.stream = true;
-  return JSON.stringify(b);
-}
-var STREAM_STALL_MS = 3e5;
-var StreamStall = class extends Error {
-};
-var lastDraftStall = null;
-function stallError(ms, what) {
-  return new StreamStall(`the provider sent nothing for ${Math.round(ms / 1e3)}s (${what}); the connection stalled, so Canon Engine stopped waiting. Check the provider's status or request log; try again.`);
-}
-async function withStall(p, ctrl, ms, what) {
-  let timer;
-  const t2 = new Promise((_, rej) => {
-    timer = setTimeout(() => {
-      rej(stallError(ms, what));
-      ctrl.abort();
-    }, ms);
-  });
-  try {
-    return await Promise.race([p, t2]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-async function readStream(r, ctrl, ms) {
-  if (!r.body) return r.text();
-  const reader = r.body.getReader();
-  const dec = new TextDecoder();
-  let text = "";
-  for (; ; ) {
-    const { done, value } = await withStall(reader.read(), ctrl, ms, "in the middle of the reply");
-    if (done) break;
-    text += dec.decode(value, { stream: true });
-  }
-  return text + dec.decode();
-}
-function tapUsage() {
-  if (usageTapped || typeof window === "undefined" || typeof window.fetch !== "function") return;
-  usageTapped = true;
-  const orig = window.fetch.bind(window);
-  window.fetch = (async (input, init2) => {
-    let res = null;
-    const url0 = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    const body0 = typeof init2?.body === "string" ? init2.body : "";
-    const sb = url0.includes("/api/backends/chat-completions/generate") && (body0.includes("[CANON ENGINE CONTEXT") || body0.includes("[CANON_ENGINE_TASK:")) ? streamedBody(body0) : null;
-    if (sb) {
-      const ctrl = new AbortController();
-      const outer = init2?.signal;
-      if (outer?.aborted) ctrl.abort();
-      else outer?.addEventListener("abort", () => ctrl.abort(), { once: true });
-      const stallMs = Number(globalThis.__canonStreamStallMs) || STREAM_STALL_MS;
-      try {
-        const r = await withStall(orig(input, { ...init2, body: sb, signal: ctrl.signal }), ctrl, stallMs, "waiting for the provider to start the reply");
-        if (r.ok) {
-          const text = await readStream(r, ctrl, stallMs);
-          const done = sseToCompletion(text);
-          res = done ? new Response(JSON.stringify(done), { status: 200, headers: { "Content-Type": "application/json" } }) : new Response(text, { status: r.status, statusText: r.statusText, headers: r.headers });
-        } else if (r.status < 400 || r.status >= 500) res = r;
-      } catch (e) {
-        if (e instanceof StreamStall) {
-          if (body0.includes("[CANON ENGINE CONTEXT")) lastDraftStall = e.message;
-          throw e;
-        }
-        if (e?.name === "AbortError" || init2?.signal?.aborted) throw e;
-      }
-    }
-    const startedAt = /* @__PURE__ */ new Date();
-    if (!res) res = await orig(input, init2);
-    try {
-      const body = body0;
-      if (/\/api\/backends\/(chat|text)-completions\/generate/.test(url0) && (body.includes("[CANON ENGINE CONTEXT") || body.includes("[CANON_ENGINE_TASK:"))) {
-        usage.calls++;
-        res.clone().json().then((d) => {
-          const u = d?.usage;
-          const inp = Number(u?.prompt_tokens ?? u?.input_tokens), out = Number(u?.completion_tokens ?? u?.output_tokens);
-          const story = !body.includes("[CANON_ENGINE_TASK:");
-          const i = Number.isFinite(inp) ? inp : 0, o = Number.isFinite(out) ? out : 0;
-          if (Number.isFinite(inp) || Number.isFinite(out)) {
-            usage.input += i;
-            usage.output += o;
-            if (story) {
-              usage.storyInput += i;
-              usage.storyOutput += o;
-            }
-          } else usage.unreported++;
-          const c = costOf(d);
-          if (c.usd === null) {
-            let b = null;
-            try {
-              b = JSON.parse(body);
-            } catch {
-            }
-            if (isDeepSeekOfficial(b)) c.usd = deepseekCost(String(d?.model || b?.model || ""), u, startedAt);
-          }
-          if (c.usd !== null) {
-            usage.costUsd += c.usd;
-            if (story) usage.storyCostUsd += c.usd;
-          } else usage.costUnreported++;
-          usage.diem += c.diem;
-        }).catch(() => {
-          usage.unreported++;
-          usage.costUnreported++;
-        });
-      }
-    } catch {
-    }
-    return res;
-  });
-}
-var looksRefused = (out) => !/[{[]/.test(out);
-var StModel = class {
-  constructor() {
-    tapUsage();
-  }
-  lastDraftInfo() {
-    return gen.lastDraftInfo;
-  }
-  takeUsage() {
-    const u = { ...usage, ...this.backupUses.length ? { backup: this.backupUses.splice(0) } : {} };
-    usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0;
-    return u;
-  }
-  queue = Promise.resolve();
-  horaePresent = false;
-  /** Read at call time so the drawer setting applies immediately. */
-  taskTemperature = () => 0.2;
-  /** Connection profile for internal analysis tasks ('' = the chat's own connection). Story drafts never use it. */
-  taskProfileId = () => "";
-  /** Extra body parameters (YAML) for profile requests; overrides what the active chat settings would add. */
-  taskExtraBody = () => "";
-  /** Backup connection profile ('' = none): takes over one analysis task when the main connection blocks it,
-   *  refuses it (an answer with no JSON at all) or returns nothing. Its own extra body parameters. */
-  taskBackupProfileId = () => "";
-  taskBackupExtraBody = () => "";
-  /** Connection profile for 角色盘算 (the mind task; '' = the analysis connection). Its own preset's body parameters. */
-  mindProfileId = () => "";
-  /** Tasks the backup answered since the last takeUsage(), with why. */
-  backupUses = [];
-  /** Human-readable name of the connection internal tasks use (for error messages). */
-  describeTaskConnection() {
-    const id = this.taskProfileId();
-    const backup = this.taskBackupProfileId() ? ` (backup: ${this.profileLabel(this.taskBackupProfileId(), "backup profile")})` : "";
-    if (!id) {
-      const cs = ctx().chatCompletionSettings || {};
-      return `the chat's own connection (${cs.custom_model || cs.openai_model || "current model"})${backup}`;
-    }
-    return this.profileLabel(id, "analysis profile") + backup;
-  }
-  profileLabel(id, what) {
-    try {
-      const p = ctx().ConnectionManagerRequestService.getProfile(id);
-      return `${what} "${p.name}" (${p.model || "model not set"})`;
-    } catch {
-      return `a missing ${what}`;
-    }
-  }
-  /** One internal-task completion, through the task profile when one is configured. */
-  async complete(msgs, budget, signal, profileId = this.taskProfileId(), extraBody = this.taskExtraBody()) {
-    const c = ctx();
-    if (profileId) {
-      const svc = c.ConnectionManagerRequestService;
-      if (!svc) throw new Error("the analysis connection profile needs the SillyTavern Connection Manager (Connection Profiles), which is not available");
-      let profile2;
-      try {
-        profile2 = svc.getProfile(profileId);
-      } catch {
-        throw new Error("the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings");
-      }
-      try {
-        const extra = extraBody.trim();
-        const res = await svc.sendRequest(profileId, msgs, budget, { stream: false, signal: signal || null, extractData: true, includePreset: true }, { temperature: this.taskTemperature(), ...extra ? { custom_include_body: extra } : {} });
-        const out = String(res?.content ?? "").trim();
-        if (!out) throw new Error("No message generated");
-        return out;
-      } catch (e) {
-        const err = e;
-        if (/No message generated/.test(err.message)) throw err;
-        throw new Error(`analysis profile "${profile2?.name || profileId}": ${err.cause?.message || err.message}`);
-      }
-    }
-    const cs = c.chatCompletionSettings;
-    const savedTemp = cs?.temp_openai;
-    if (cs && savedTemp !== void 0) cs.temp_openai = Math.min(Number(savedTemp), this.taskTemperature());
-    try {
-      return String(await c.generateRaw({ prompt: msgs, responseLength: budget, trimNames: false }) ?? "");
-    } finally {
-      if (cs && savedTemp !== void 0) cs.temp_openai = savedTemp;
-    }
-  }
-  serialize(fn) {
-    const p = this.queue.then(fn, fn);
-    this.queue = p.catch(() => void 0);
-    return p;
-  }
-  runTask(task, messages, opts) {
-    return this.serialize(async () => {
-      if (opts.signal?.aborted) throw new Error("aborted");
-      const c = ctx();
-      const msgs = messages.map((m) => ({ ...m }));
-      if (this.horaePresent) msgs[0].content += `
-[HORAE_INTERNAL:NO_CONTEXT_INJECTION:canon]
-[HORAE_INTERNAL:NO_VECTOR_RECALL:canon]`;
-      const token = newId("raw");
-      gen.raw = { token, messages: messages.map((m) => ({ ...m })) };
-      const stopRaw = () => {
-        if (!this.taskProfileId()) try {
-          c.eventSource?.emit(c.eventTypes?.GENERATION_STOPPED ?? "generation_stopped");
-        } catch {
-        }
-      };
-      opts.signal?.addEventListener("abort", stopRaw, { once: true });
-      try {
-        let budget = opts.maxTokens || 4096;
-        const backupId = this.taskBackupProfileId();
-        const hasBackup = !!backupId && backupId !== this.taskProfileId();
-        let why;
-        for (let attempt = 1; ; attempt++) {
-          try {
-            const own = task === "mind" ? this.mindProfileId() : "";
-            const out = own ? await this.complete(msgs, budget, opts.signal, own, "") : await this.complete(msgs, budget, opts.signal);
-            if (!hasBackup || !looksRefused(out)) return out;
-            why = `refused: "${out.replace(/\s+/g, " ").slice(0, 120)}"`;
-            break;
-          } catch (e) {
-            const msg = e.message;
-            if (opts.signal?.aborted) throw e;
-            const empty2 = /No message generated/i.test(msg);
-            if (hasBackup && !empty2 && !isTransient(msg)) {
-              why = `error: ${msg.slice(0, 200)}`;
-              break;
-            }
-            if (!empty2) throw e;
-            if (hasBackup && attempt >= 2) {
-              why = `empty reply ${attempt} times`;
-              break;
-            }
-            if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort, or choose a fast non-reasoning model as the analysis connection in the Canon Engine settings), a provider content filter blocking the request, or a very small max response length.`);
-            budget = Math.min(budget * 2, 16384);
-          }
-        }
-        if (opts.signal?.aborted) throw new Error("aborted");
-        try {
-          const out = await this.complete(msgs, opts.maxTokens || 4096, opts.signal, backupId, this.taskBackupExtraBody());
-          this.backupUses.push(`${task}: ${why}`);
-          return out;
-        } catch (e) {
-          throw new Error(`main analysis connection failed (${why}); the backup failed too: ${e.message}`);
-        }
-      } finally {
-        opts.signal?.removeEventListener("abort", stopRaw);
-        if (gen.raw?.token === token) gen.raw = null;
-      }
-    });
-  }
-  generateDraft(req) {
-    return this.serialize(async () => {
-      if (req.signal?.aborted) throw new Error("aborted");
-      const c = ctx();
-      const mod = await loadStModule();
-      const token = newId("draft");
-      gen.draft = { token, excludeLastAssistant: req.excludeLastAssistant, captured: null, before: null, injectedRemoved: 0 };
-      const rmod = await loadReasoningModule();
-      gen.lastDraftReasoning = "";
-      gen.lastDraftInfo = null;
-      const origFetch = window.fetch;
-      let apiReasoning = null;
-      const tap = async (input, init2) => {
-        const res = await origFetch(input, init2);
-        try {
-          const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-          if (url.includes("/api/backends/chat-completions/generate") && typeof init2?.body === "string" && init2.body.includes("[CANON ENGINE CONTEXT") && res.ok) {
-            let maxTokens;
-            try {
-              const b = JSON.parse(init2.body);
-              maxTokens = Number(b.max_tokens ?? b.max_completion_tokens) || void 0;
-            } catch {
-            }
-            apiReasoning = res.clone().json().then((d) => {
-              const u = d?.usage || {};
-              gen.lastDraftInfo = { finish: d?.choices?.[0]?.finish_reason || void 0, outputTokens: u.completion_tokens, reasoningTokens: u.completion_tokens_details?.reasoning_tokens, maxTokens };
-              return String(rmod.extractReasoningFromData?.(d) || "");
-            }).catch(() => "");
-          }
-        } catch {
-        }
-        return res;
-      };
-      window.fetch = tap;
-      c.setExtensionPrompt(EXT_PROMPT_KEY, req.engineContext, mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
-      c.setExtensionPrompt(EXT_LENGTH_KEY, req.lengthNote || "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
-      c.setExtensionPrompt(EXT_INSTRUCTION_KEY, req.instruction || "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
-      const lore = (req.loreNames || []).length ? `[Canon Engine: relevant to this turn: ${req.loreNames.join(", ")}]` : "";
-      c.setExtensionPrompt(EXT_LORE_KEY, lore, mod.extension_prompt_types.IN_CHAT, 1, true, mod.extension_prompt_roles.SYSTEM);
-      const onAbort = () => {
-        try {
-          c.stopGeneration?.();
-        } catch {
-        }
-      };
-      req.signal?.addEventListener("abort", onAbort, { once: true });
-      try {
-        lastDraftStall = null;
-        let out;
-        try {
-          out = await c.generateQuietPrompt({ quietPrompt: "", removeReasoning: false, skipWIAN: false });
-        } catch (e) {
-          if (lastDraftStall) throw new Error(lastDraftStall);
-          throw e;
-        }
-        if (req.signal?.aborted) throw new Error("aborted");
-        if (lastDraftStall) throw new Error(lastDraftStall);
-        const captured = gen.draft?.token === token ? gen.draft.captured : null;
-        if (captured && !captured.some((m) => typeof m.content === "string" && m.content.includes("[CANON ENGINE CONTEXT"))) {
-          throw new EngineError("capacity", "SillyTavern dropped the Canon Engine context from the prompt because it did not fit the configured context size. Increase \u201CContext Size (tokens)\u201D in the API settings, or lower budgetChars in Canon Engine advanced settings.");
-        }
-        let text = String(out ?? "");
-        let parsed = "";
-        const stripped = typeof rmod.removeReasoningFromString === "function" ? String(rmod.removeReasoningFromString(text)) : text;
-        if (stripped !== text) {
-          parsed = String(rmod.parseReasoningFromString?.(text)?.reasoning || "");
-          text = stripped;
-        }
-        gen.lastDraftReasoning = (apiReasoning ? await apiReasoning : "") || parsed;
-        return text;
-      } finally {
-        if (window.fetch === tap) window.fetch = origFetch;
-        req.signal?.removeEventListener("abort", onAbort);
-        c.setExtensionPrompt(EXT_PROMPT_KEY, "", mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
-        c.setExtensionPrompt(EXT_LENGTH_KEY, "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
-        c.setExtensionPrompt(EXT_INSTRUCTION_KEY, "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
-        c.setExtensionPrompt(EXT_LORE_KEY, "", mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
-        if (gen.draft?.token === token) {
-          gen.lastDraftPrompt = gen.draft.captured;
-          gen.draft = null;
-        }
-      }
-    });
-  }
-};
-function promptReadyFirst(eventData) {
-  if (eventData?.dryRun) return;
-  if (gen.draft && Array.isArray(eventData?.chat)) gen.draft.before = new Set(eventData.chat);
-}
-function promptReadyLast(eventData) {
-  if (eventData?.dryRun || !Array.isArray(eventData?.chat)) return;
-  if (gen.raw && eventData.chat.some((m) => typeof m?.content === "string" && m.content.includes("[CANON_ENGINE_TASK:"))) {
-    eventData.chat.splice(0, eventData.chat.length, ...gen.raw.messages.map((m) => ({ role: m.role, content: m.content })));
-    return;
-  }
-  if (gen.draft) {
-    if (excludeHoraeForOperation && gen.draft.before) {
-      const before = gen.draft.before;
-      for (let i = eventData.chat.length - 1; i >= 0; i--) {
-        const m = eventData.chat[i];
-        if (!before.has(m) && m?.role === "system" && typeof m.content === "string" && !m.content.includes("[CANON ENGINE")) {
-          eventData.chat.splice(i, 1);
-          gen.draft.injectedRemoved++;
-        }
-      }
-    }
-    gen.draft.captured = eventData.chat.map((m) => ({ role: m.role, content: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }));
-  }
-}
-function saveHint(seen) {
-  const all = seen.join(" ");
-  if (/HTTP 413/.test(all)) return "The request was too large for something between the browser and SillyTavern (usually a reverse proxy such as nginx: raise client_max_body_size, e.g. to 50m).";
-  if (/HTTP 400/.test(all) && /integrity/i.test(all)) return "SillyTavern refused the save because the chat file changed elsewhere (another browser/device has this chat open). Close other tabs/devices and reload.";
-  if (/HTTP 403|HTTP 401/.test(all)) return "SillyTavern refused the save (session/CSRF expired). Reload the page.";
-  if (/no save request/.test(all)) return "SillyTavern skipped the save. Wait a moment and press Retry.";
-  return "Press Retry; if it keeps failing, reload the page and send these details.";
-}
-
-// src/api.ts
-var pad = (n) => String(n).padStart(2, "0");
-function publicClock(engine2) {
-  const c = engine2.campaign();
-  const st = engine2.current?.replay.state;
-  if (!c || !c.enabled || !st) return { active: false };
-  const origin = c.binding.originDate || null;
-  const lo = st.clock.lo;
-  const t2 = fromTick(lo);
-  let date = null;
-  let weekday = null;
-  if (origin) {
-    const d = new Date(Date.UTC(origin.y, origin.m - 1, origin.d) + t2.day * 864e5);
-    date = `${d.getUTCFullYear()}/${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}`;
-    weekday = d.getUTCDay();
-  }
-  return {
-    active: true,
-    packId: engine2.packInfo()?.packId,
-    tick: lo,
-    tickHi: st.clock.hi,
-    precision: st.clock.precision,
-    day: t2.day,
-    minute: t2.minute,
-    date,
-    time: `${pad(Math.floor(t2.minute / 60))}:${pad(t2.minute % 60)}`,
-    weekday,
-    label: formatTick(lo, origin),
-    ...(() => {
-      const f = engine2.sceneFrameNow();
-      return f ? { frame: { id: f.id, name: f.name, main: f.main, local: f.local } } : {};
-    })()
-  };
-}
-function installClockEvents(engine2) {
-  let last2 = "";
-  engine2.onChange(() => {
-    const clk = publicClock(engine2);
-    const sig = JSON.stringify(clk);
-    if (sig === last2) return;
-    last2 = sig;
-    try {
-      document.dispatchEvent(new CustomEvent("canon-engine:clock", { detail: clk }));
-    } catch {
-    }
-  });
-}
-
-// src/adapters/lock.ts
-var PREFIX = "canonEngine.writer.";
-var STALE_MS = 6e3;
-var WriterLock = class {
-  instanceId;
-  sessionId = null;
-  timer = null;
-  owner = true;
-  constructor(instanceId) {
-    this.instanceId = instanceId;
-    if (typeof window !== "undefined") window.addEventListener("beforeunload", () => this.release());
-  }
-  read() {
-    try {
-      const v = localStorage.getItem(PREFIX + this.sessionId);
-      return v ? JSON.parse(v) : null;
-    } catch {
-      return null;
-    }
-  }
-  beat() {
-    if (!this.sessionId) return;
-    const cur = this.read();
-    if (!cur || cur.id === this.instanceId || Date.now() - cur.ts > STALE_MS) {
-      try {
-        localStorage.setItem(PREFIX + this.sessionId, JSON.stringify({ id: this.instanceId, ts: Date.now() }));
-      } catch {
-      }
-      this.owner = true;
-    } else {
-      this.owner = false;
-    }
-  }
-  setCampaign(sessionId) {
-    if (this.sessionId === sessionId) return;
-    this.release();
-    this.sessionId = sessionId;
-    if (!sessionId) {
-      this.owner = true;
-      return;
-    }
-    this.beat();
-    this.timer = setInterval(() => this.beat(), 2e3);
-  }
-  isOwner() {
-    if (!this.sessionId) return true;
-    this.beat();
-    return this.owner;
-  }
-  release() {
-    if (this.timer) clearInterval(this.timer);
-    this.timer = null;
-    if (this.sessionId) {
-      const cur = this.read();
-      if (cur?.id === this.instanceId) try {
-        localStorage.removeItem(PREFIX + this.sessionId);
-      } catch {
-      }
-    }
-  }
-};
-
-// src/ui/i18n.ts
+// src/core/ui/i18n.ts
 var lang = "zh";
 function setLang(l) {
   lang = l;
@@ -33002,92 +31952,7 @@ function t(key) {
   return e ? e[lang] : key;
 }
 
-// src/ui/notify.ts
-var titleBase = null;
-var audio = null;
-var last = null;
-function systemNotificationsAvailable() {
-  return typeof window !== "undefined" && !!window.isSecureContext && typeof window.Notification === "function";
-}
-function primeNotifications() {
-  try {
-    if (systemNotificationsAvailable() && Notification.permission === "default") void Notification.requestPermission();
-  } catch {
-  }
-  try {
-    if (!audio && typeof AudioContext === "function") audio = new AudioContext();
-  } catch {
-  }
-}
-function inBackground() {
-  return document.hidden || typeof document.hasFocus === "function" && !document.hasFocus();
-}
-function markTitle(mark) {
-  if (titleBase === null) titleBase = document.title;
-  document.title = `${mark} ${titleBase}`;
-  const restore = () => {
-    if (document.hidden) return;
-    if (titleBase !== null) document.title = titleBase;
-    titleBase = null;
-    document.removeEventListener("visibilitychange", restore);
-    window.removeEventListener("focus", restore);
-  };
-  document.addEventListener("visibilitychange", restore);
-  window.addEventListener("focus", restore);
-}
-function chime(ok) {
-  try {
-    if (!audio) audio = new AudioContext();
-    void audio.resume();
-    const t0 = audio.currentTime;
-    (ok ? [660, 880] : [440, 330]).forEach((f, i) => {
-      const o = audio.createOscillator(), g = audio.createGain();
-      o.frequency.value = f;
-      g.gain.setValueAtTime(1e-4, t0 + i * 0.18);
-      g.gain.exponentialRampToValueAtTime(0.12, t0 + i * 0.18 + 0.02);
-      g.gain.exponentialRampToValueAtTime(1e-4, t0 + i * 0.18 + 0.3);
-      o.connect(g).connect(audio.destination);
-      o.start(t0 + i * 0.18);
-      o.stop(t0 + i * 0.18 + 0.32);
-    });
-  } catch {
-  }
-}
-function notifyDone(info, opts) {
-  const done = [];
-  if (!opts.force && !inBackground()) return done;
-  if (systemNotificationsAvailable() && Notification.permission === "granted") {
-    try {
-      try {
-        last?.close();
-      } catch {
-      }
-      const n = new Notification(info.title, { body: info.body, tag: "canon-engine-done", renotify: true });
-      n.onclick = () => {
-        try {
-          window.focus();
-        } catch {
-        }
-        n.close();
-      };
-      n.onclose = () => {
-        if (last === n) last = null;
-      };
-      last = n;
-      done.push("notification");
-    } catch {
-    }
-  }
-  markTitle(opts.titleMark);
-  done.push("title");
-  if (opts.sound) {
-    chime(info.ok);
-    done.push("sound");
-  }
-  return done;
-}
-
-// src/ui/graph.ts
+// src/core/ui/graph.ts
 var ORIGIN_KEYS = /* @__PURE__ */ new Set(["player", "gm", "canon", "offscreen", "bootstrap", "intervention"]);
 var originLabel = (o) => ORIGIN_KEYS.has(o) ? t(`g_origin_${o}`) : o;
 var tf = (key, vars) => t(key).replace(/\{(\w+)\}/g, (m, k) => k in vars ? String(vars[k]) : m);
@@ -33861,7 +32726,7 @@ var GraphPanel = class {
   }
 };
 
-// src/ui/inspector.ts
+// src/core/ui/inspector.ts
 var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 var chip = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc2(s)}</span>`;
 var btn = (label, attrs, tone = "") => `<button class="menu_button ci-btn${tone ? ` ci-btn-${tone}` : ""}" ${attrs}>${esc2(label)}</button>`;
@@ -34360,7 +33225,1153 @@ function createInspector(d) {
   return { render, toggle };
 }
 
-// src/ui/library.ts
+// src/hosts/sillytavern/settings.ts
+var ST_DEFAULTS = {
+  ...DEFAULT_SETTINGS,
+  inspectorOpen: false,
+  ignorePersonaSections: false,
+  notifyDone: true,
+  notifySound: true,
+  taskTemperature: 0.2,
+  taskProfileId: "",
+  taskExtraBody: "",
+  taskBackupProfileId: "",
+  taskBackupExtraBody: "",
+  ignoreFirstMessage: false,
+  mindProfileId: ""
+};
+function migrateSettings(s) {
+  if ("followHoraeTime" in s) {
+    if (!("followTrackerTime" in s)) s.followTrackerTime = s.followHoraeTime;
+    delete s.followHoraeTime;
+  }
+  if ("horaeWaitMs" in s) {
+    if (!("trackerWaitMs" in s)) s.trackerWaitMs = s.horaeWaitMs;
+    delete s.horaeWaitMs;
+  }
+}
+
+// src/hosts/sillytavern/horae.ts
+var HoraeAdapter = class _HoraeAdapter {
+  name = "Horae";
+  /** Set by the engine for the current operation: Horae's memory is stale, the prompt hook leaves it out. */
+  static excluded = false;
+  excludeFromPrompt(on) {
+    _HoraeAdapter.excluded = on;
+  }
+  api;
+  constructor(api) {
+    this.api = api;
+  }
+  static diagnose() {
+    const api = globalThis.Horae;
+    if (!api) return { ok: false, version: null, missing: ["window.Horae"], mode: null };
+    const missing = [];
+    for (const k of ["getLatestState", "getStateMode"]) if (typeof api[k] !== "function") missing.push(k);
+    for (const k of ["getStatus", "isBusy", "waitForIdle", "reanalyze"]) if (typeof api.background?.[k] !== "function") missing.push("background." + k);
+    let mode = null;
+    try {
+      mode = api.getStateMode?.() || null;
+    } catch {
+    }
+    return { ok: missing.length === 0, version: api.version || null, missing, mode };
+  }
+  static detect() {
+    const api = globalThis.Horae;
+    return api ? new _HoraeAdapter(api) : null;
+  }
+  status() {
+    const d = _HoraeAdapter.diagnose();
+    const api = this.api;
+    if (!api || !(api.isEnabled?.() ?? true)) return { available: false, version: d.version, mode: d.mode, staleIndexes: [], busy: false, scene: null };
+    const staleIndexes = [];
+    let busy = false;
+    if (d.ok) {
+      try {
+        busy = !!api.background.isBusy();
+      } catch {
+      }
+      const chat = SillyTavern.getContext().chat || [];
+      for (let i = 0; i < chat.length; i++) {
+        const m = chat[i];
+        if (!m || m.is_user || m.is_system) continue;
+        let st = null;
+        try {
+          st = api.background.getStatus(i);
+        } catch {
+          st = null;
+        }
+        if (st === "outdated" || st === "failed") staleIndexes.push(i);
+      }
+    }
+    let scene = null;
+    try {
+      const s = api.getLatestState?.();
+      if (s) scene = { date: s.timestamp?.story_date, time: s.timestamp?.story_time, location: s.scene?.location, characters: s.scene?.characters_present || [] };
+      if (scene) Object.assign(scene, _HoraeAdapter.latestTime(api.getChat?.() || SillyTavern.getContext().chat || []));
+    } catch {
+    }
+    return { available: d.ok, version: d.version, mode: d.mode, staleIndexes, busy, scene };
+  }
+  /** Story date and time from the latest message that records either — both from that one message.
+   *  getLatestState() carries each field forward on its own, so a reply with a date but no clock time
+   *  ("2020/10/9 上午") was joined with the previous evening's time ("21:30") into a wrong "10/9 21:30".
+   *  A time without a date keeps the last recorded date (same day); a date without a time gives no time. */
+  static latestTime(chat) {
+    for (let i = chat.length - 1; i >= 0; i--) {
+      const ts = chat[i]?.horae_meta && !chat[i].horae_meta._skipHorae ? chat[i].horae_meta.timestamp : null;
+      const date = ts?.story_date || "", time = ts?.story_time || "";
+      if (!date && !time) continue;
+      if (date) return { date, time: time || void 0 };
+      for (let j = i - 1; j >= 0; j--) {
+        const d = chat[j]?.horae_meta && !chat[j].horae_meta._skipHorae ? chat[j].horae_meta.timestamp?.story_date : "";
+        if (d) return { date: d, time };
+      }
+      return { date: void 0, time };
+    }
+    return { date: void 0, time: void 0 };
+  }
+  async waitForIdle(timeoutMs) {
+    try {
+      return !!await this.api?.background?.waitForIdle?.(timeoutMs);
+    } catch {
+      return false;
+    }
+  }
+  async reanalyze(index) {
+    await this.api?.background?.reanalyze?.(index);
+  }
+};
+
+// src/hosts/sillytavern/st.ts
+var NS = "canonEngine";
+var EXT_PROMPT_KEY = "canon_engine_context";
+var EXT_LENGTH_KEY = "canon_engine_length";
+var EXT_INSTRUCTION_KEY = "canon_engine_instruction";
+var EXT_LORE_KEY = "canon_engine_lore";
+var stModule = null;
+async function loadStModule() {
+  if (stModule) return stModule;
+  const url = "/script.js";
+  stModule = await import(
+    /* @vite-ignore */
+    url
+  );
+  return stModule;
+}
+var reasoningModule = null;
+async function loadReasoningModule() {
+  if (reasoningModule) return reasoningModule;
+  const url = "/scripts/reasoning.js";
+  try {
+    reasoningModule = await import(
+      /* @vite-ignore */
+      url
+    );
+  } catch {
+    reasoningModule = {};
+  }
+  return reasoningModule;
+}
+function personaLibraryCore(entry, description) {
+  const core = typeof entry?.core === "string" ? entry.core.trim() : "";
+  const sections = Array.isArray(entry?.sections) ? entry.sections.filter((s) => s?.enabled && String(s.content ?? "").trim()) : [];
+  if (!core || !sections.length) return null;
+  return description.trim().startsWith(core) ? core : null;
+}
+function stLogic(e) {
+  if (!e?.selective) return null;
+  return ["any", "not_all", "not_any", "all"][Number(e.selectiveLogic) || 0] || "any";
+}
+function ctx() {
+  return SillyTavern.getContext();
+}
+var gen = {
+  draft: null,
+  raw: null,
+  lastDraftPrompt: null,
+  /** Reasoning of the most recent private draft. ST's quiet generation drops it, so it is captured here
+   * and attached when that draft is published (the accepted draft is always the latest one). */
+  lastDraftReasoning: "",
+  lastDraftInfo: null
+};
+function attachmentIdentity(m) {
+  const legacy = m?.extra ? Object.getOwnPropertyDescriptor(m.extra, "file") : void 0;
+  const files = Array.isArray(m?.extra?.files) ? m.extra.files : legacy && "value" in legacy && legacy.value ? [legacy.value] : [];
+  const media = Array.isArray(m?.extra?.media) ? m.extra.media : [];
+  return [...files.map((f) => f?.url || f?.name || ""), ...media.map((x) => x?.url || "")].join("|");
+}
+function isGenuineSystem(m) {
+  if (!m?.is_system) return false;
+  if (m.is_user) return false;
+  const x = m.extra || {};
+  if (x.type || x.tool_invocations || x.isSmallSys) return true;
+  if (m.name === "SillyTavern System") return true;
+  if (x[NS]?.mid) return false;
+  return !x.api && !x.model && !Array.isArray(m.swipes);
+}
+function contentHashOf(role, name2, text, attach) {
+  return sha256(`${role}\0${name2}\0${text}\0${attach}`);
+}
+var StHost = class {
+  sceneTracker;
+  /** Set when SillyTavern hands its World Info scan to extensions (本局设定 then rewrites the scan itself). */
+  loreAppliesOverrides = false;
+  lore;
+  /** Reads the host's own settings (Persona Library sections). */
+  settings = () => ({});
+  packStore;
+  model;
+  saving = Promise.resolve();
+  pendingStamp = null;
+  writerCheck = null;
+  isWriter() {
+    return this.writerCheck ? this.writerCheck() : true;
+  }
+  constructor(model) {
+    this.model = model;
+    this.sceneTracker = HoraeAdapter.detect();
+    const self = this;
+    this.lore = { entries: () => this.loreEntries(), get appliesOverrides() {
+      return self.loreAppliesOverrides;
+    } };
+  }
+  chatId() {
+    try {
+      return ctx().getCurrentChatId?.() || null;
+    } catch {
+      return null;
+    }
+  }
+  isGroup() {
+    return !!ctx().groupId;
+  }
+  integrity() {
+    return ctx().chatMetadata?.integrity || null;
+  }
+  /** Stable ids live in message.extra.canonEngine (per swipe via swipe_info[i].extra). */
+  readTranscript() {
+    const c = ctx();
+    const chat = c.chat || [];
+    const out = [];
+    const seen = /* @__PURE__ */ new Set();
+    const skipGreeting = !!c.extensionSettings?.[NS]?.ignoreFirstMessage;
+    chat.forEach((m, index) => {
+      if (!m) return;
+      const kind = isGenuineSystem(m) ? "system" : m.is_user ? "user" : "gm";
+      const role = skipGreeting && index === 0 && kind === "gm" ? "system" : kind;
+      if (!m.extra || typeof m.extra !== "object") m.extra = {};
+      let id = m.extra[NS];
+      if (!id || typeof id !== "object" || !id.mid) {
+        id = { mid: newId("msg"), vid: kind === "gm" ? newId("var") : "v0" };
+        m.extra[NS] = id;
+        this.syncSwipeExtra(m);
+      }
+      if (seen.has(id.mid)) {
+        id = { mid: newId("msg"), vid: kind === "gm" ? newId("var") : "v0" };
+        m.extra[NS] = id;
+        this.syncSwipeExtra(m);
+      }
+      seen.add(id.mid);
+      const text = String(m.mes ?? "");
+      out.push({ index, messageId: id.mid, variantId: id.vid || "v0", contentHash: contentHashOf(role, String(m.name || ""), text, attachmentIdentity(m)), role, name: String(m.name || ""), text });
+    });
+    return out;
+  }
+  syncSwipeExtra(m) {
+    if (typeof m.swipe_id === "number" && Array.isArray(m.swipe_info) && m.swipe_info[m.swipe_id]) {
+      const si = m.swipe_info[m.swipe_id];
+      si.extra = si.extra && typeof si.extra === "object" ? si.extra : {};
+      si.extra[NS] = deepClone(m.extra[NS]);
+    }
+  }
+  hashAssistant(text) {
+    return contentHashOf("gm", String(ctx().name2 || ""), text, "");
+  }
+  getCampaign() {
+    if (!this.chatId()) return null;
+    const md = ctx().chatMetadata;
+    return md && md[NS] || null;
+  }
+  setCampaign(data) {
+    const md = ctx().chatMetadata;
+    if (!md || data && !this.chatId()) return;
+    if (data) md[NS] = data;
+    else delete md[NS];
+  }
+  /**
+   * Durable save. Uses ST's own serialized save path (saveChatConditional, which coordinates with
+   * ST's and other extensions' saves - concurrent direct saves fail on Windows with EPERM during
+   * the atomic rename) and then VERIFIES the result by reading the chat file back, because that
+   * path swallows errors. Throws when the save cannot be verified.
+   */
+  async save() {
+    const run = async () => {
+      if (this.isGroup()) throw new Error("group chats are not supported");
+      const c = ctx();
+      const camp = this.getCampaign();
+      const token = newId("sv");
+      if (camp) camp.saveToken = token;
+      const seen = [];
+      const delays = [500, 1e3, 2e3, 3e3, 4e3];
+      for (let attempt = 1; attempt <= delays.length + 1; attempt++) {
+        const req = await this.watchSaveRequest(() => c.saveChat());
+        if (!camp) return;
+        const v = await this.verifySaved(token);
+        if (v.ok) return;
+        seen.push(`attempt ${attempt}: ${req}; read-back: ${v.detail}`);
+        console.warn("[CanonEngine] save not verified", seen[seen.length - 1]);
+        if (attempt > delays.length) break;
+        await new Promise((r) => setTimeout(r, delays[attempt - 1]));
+      }
+      throw new Error(`the chat file could not be saved (server did not persist the engine state). ${saveHint(seen)} Details (${seen.length} attempts): ${[...new Set(seen.map((x) => x.replace(/^attempt \d+: /, "")))].join(" | ")}`);
+    };
+    const p = this.saving.then(run, run);
+    this.saving = p.catch(() => void 0);
+    return p;
+  }
+  /** Runs ST's save while recording what happened to its /api/chats/save request (ST swallows errors). */
+  async watchSaveRequest(run) {
+    const orig = window.fetch;
+    let info = "SillyTavern sent no save request (save skipped: another save still running, or no chat file)";
+    const wrapped = async (input, init2) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const isSave = /\/api\/chats\/save/.test(url);
+      try {
+        const r = await orig(input, init2);
+        if (isSave) {
+          const size = typeof init2?.body === "string" ? init2.body.length : init2?.body?.size ?? 0;
+          let body = "";
+          if (!r.ok) {
+            try {
+              body = (await r.clone().text()).slice(0, 160);
+            } catch {
+            }
+          }
+          info = `save request HTTP ${r.status}${r.statusText ? " " + r.statusText : ""} (${Math.round(size / 1024)} KB${init2?.headers?.["Content-Encoding"] ? ", compressed" : ""})${body ? ": " + body : ""}`;
+        }
+        return r;
+      } catch (e) {
+        if (isSave) info = `save request failed: ${e.message}`;
+        throw e;
+      }
+    };
+    window.fetch = wrapped;
+    try {
+      await run();
+    } finally {
+      if (window.fetch === wrapped) window.fetch = orig;
+    }
+    return info;
+  }
+  async verifySaved(token) {
+    const c = ctx();
+    const ch = c.characters?.[c.characterId];
+    if (!ch) return { ok: false, detail: "no current character" };
+    try {
+      const resp = await fetch("/api/chats/get", { method: "POST", headers: c.getRequestHeaders(), cache: "no-cache", body: JSON.stringify({ ch_name: ch.name, file_name: String(ch.chat || "").replace(/\.jsonl$/, ""), avatar_url: ch.avatar }) });
+      if (!resp.ok) return { ok: false, detail: `HTTP ${resp.status} reading chat "${ch.chat}"` };
+      const data = await resp.json();
+      if (!Array.isArray(data) || !data.length) return { ok: false, detail: `chat "${ch.chat}" not found on the server` };
+      const saved = data[0]?.chat_metadata?.[NS];
+      if (!saved) return { ok: false, detail: `chat "${ch.chat}" has no engine data` };
+      return saved.saveToken === token ? { ok: true, detail: "ok" } : { ok: false, detail: "older engine data on the server" };
+    } catch (e) {
+      return { ok: false, detail: `read-back failed: ${e.message}` };
+    }
+  }
+  async publish(req, _interp) {
+    const c = ctx();
+    const chat = c.chat;
+    this.pendingStamp = { messageId: req.messageId, variantId: req.variantId, commitId: req.commitId };
+    const reasoning = gen.lastDraftReasoning;
+    gen.lastDraftReasoning = "";
+    try {
+      if (req.op === "swipe") {
+        const last2 = chat[chat.length - 1];
+        if (!last2 || last2.is_user || last2.is_system) throw new Error("the swiped reply is no longer the last message");
+        if (!Array.isArray(last2.swipes)) {
+          last2.swipes = [last2.mes];
+          last2.swipe_info = [{ send_date: last2.send_date, gen_started: last2.gen_started, gen_finished: last2.gen_finished, extra: structuredClone(last2.extra || {}) }];
+          last2.swipe_id = 0;
+        }
+        await this.settleSwipe();
+        try {
+          (await loadStModule()).syncMesToSwipe?.(chat.length - 1);
+        } catch {
+        }
+        last2.swipe_id = last2.swipes.length;
+        await c.saveReply({ type: "swipe", getMessage: req.text, reasoning });
+      } else if (req.op === "continue") {
+        await c.saveReply({ type: "appendFinal", getMessage: req.text });
+      } else {
+        await c.saveReply({ type: "normal", getMessage: req.text, reasoning });
+      }
+      const m = chat[chat.length - 1];
+      if (m && !m.is_user) {
+        m.extra = m.extra || {};
+        m.extra[NS] = { mid: req.messageId, vid: req.variantId, commitId: req.commitId };
+        this.syncSwipeExtra(m);
+      }
+    } finally {
+      this.pendingStamp = null;
+    }
+    await this.save();
+  }
+  /** Wait (bounded) until ST's native swipe animation/revert has finished. */
+  async settleSwipe() {
+    const c = ctx();
+    for (let i = 0; i < 40; i++) {
+      let st = "none";
+      try {
+        st = c.swipe?.state?.();
+      } catch {
+      }
+      if (!st || st === "none" || st === 0) return;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+  /** MESSAGE_RECEIVED (first listener): stamp identity before render/other extensions run. */
+  stampReceived(messageId) {
+    if (!this.pendingStamp) return;
+    const m = ctx().chat?.[messageId];
+    if (!m || m.is_user) return;
+    m.extra = m.extra || {};
+    m.extra[NS] = { mid: this.pendingStamp.messageId, vid: this.pendingStamp.variantId, commitId: this.pendingStamp.commitId };
+  }
+  async restorePrior(op, prior) {
+    const c = ctx();
+    const mod = await loadStModule();
+    const chat = c.chat;
+    if (op === "regenerate" && prior?.message) {
+      const last2 = chat[chat.length - 1];
+      const lastId = last2?.extra?.[NS]?.mid;
+      if (lastId && lastId === prior.message?.extra?.[NS]?.mid) return;
+      chat.push(prior.message);
+      mod.addOneMessage(prior.message);
+      await this.save();
+    } else if (op === "swipe" && prior && typeof prior.mesId === "number") {
+      const m = chat[prior.mesId];
+      if (!m) return;
+      if (typeof m.swipe_id === "number" && m.swipe_id >= (m.swipes?.length ?? 0)) {
+        m.swipe_id = prior.swipeId;
+        if (mod.syncSwipeToMes) mod.syncSwipeToMes(prior.mesId, prior.swipeId);
+        else {
+          m.mes = m.swipes[prior.swipeId];
+          m.extra = structuredClone(m.swipe_info?.[prior.swipeId]?.extra || m.extra);
+        }
+        mod.addOneMessage(m, { type: "swipe", forceId: prior.mesId, scroll: true });
+        try {
+          c.swipe?.refresh?.();
+        } catch {
+        }
+        await this.save();
+      }
+    }
+  }
+  async settle() {
+    await this.settleSwipe();
+  }
+  async loreEntries() {
+    const c = ctx();
+    let wi = {};
+    const url = "/scripts/world-info.js";
+    try {
+      wi = await import(
+        /* @vite-ignore */
+        url
+      );
+    } catch {
+    }
+    const ch = c.characters?.[c.characterId];
+    const extra = (wi.world_info?.charLore || []).find((x) => x?.name === String(ch?.avatar || "").replace(/\.[^.]+$/, "") || x?.name === ch?.avatar)?.extraBooks || [];
+    const names = [...new Set([...wi.selected_world_info || [], ch?.data?.extensions?.world, ...extra, c.chatMetadata?.world_info, c.powerUserSettings?.persona_description_lorebook].filter(Boolean))];
+    const load = c.loadWorldInfo || wi.loadWorldInfo;
+    if (!load) return [];
+    const out = [];
+    for (const book of names) {
+      let d = null;
+      try {
+        d = await load(book);
+      } catch {
+        continue;
+      }
+      for (const e of Object.values(d?.entries || {})) {
+        out.push({
+          book,
+          uid: e.uid,
+          title: String(e.comment || ""),
+          keys: (e.key || []).map(String),
+          secondary: (e.keysecondary || []).map(String),
+          secondaryLogic: stLogic(e),
+          constant: !!e.constant,
+          disabled: !!e.disable,
+          caseSensitive: e.caseSensitive ?? null,
+          wholeWords: e.matchWholeWords ?? null,
+          content: String(e.content || "")
+        });
+      }
+    }
+    return out;
+  }
+  persona() {
+    const opts = { ignoreSections: !!this.settings().ignorePersonaSections };
+    const c = ctx();
+    const name2 = String(c.name1 || "");
+    const description = String(c.powerUserSettings?.persona_description || "");
+    const core = personaLibraryCore(c.extensionSettings?.personaLibrarySections?.[stModule?.user_avatar], description);
+    if (core === null) return { name: name2, description };
+    return opts?.ignoreSections ? { name: name2, description: core, alt: description, source: "persona_core" } : { name: name2, description, alt: core };
+  }
+  now() {
+    return Date.now();
+  }
+  log(level, msg, data) {
+    const f = level === "error" ? console.error : level === "warn" ? console.warn : level === "debug" ? console.debug : console.log;
+    f(`[CanonEngine] ${msg}`, data === void 0 ? "" : data);
+  }
+};
+var usage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0, costUsd: 0, storyCostUsd: 0, costUnreported: 0, diem: 0 };
+var usageTapped = false;
+function sseToCompletion(text) {
+  let content = "", reasoning = "", finish = null, usage2, id, model, seen = false, cost, unlid;
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.startsWith("data:")) continue;
+    const data = line.slice(5).trim();
+    if (!data || data === "[DONE]") continue;
+    let o;
+    try {
+      o = JSON.parse(data);
+    } catch {
+      continue;
+    }
+    seen = true;
+    if (o.error) return { error: o.error };
+    id ??= o.id;
+    model ??= o.model;
+    if (o.usage) usage2 = o.usage;
+    if (o.cost !== void 0) cost = o.cost;
+    if (o.unlid !== void 0) unlid = o.unlid;
+    const ch = o.choices?.[0];
+    if (!ch) continue;
+    const d = ch.delta || ch.message || {};
+    if (typeof d.content === "string") content += d.content;
+    const r = d.reasoning_content ?? d.reasoning;
+    if (typeof r === "string") reasoning += r;
+    if (ch.finish_reason) finish = ch.finish_reason;
+  }
+  if (!seen) return null;
+  const message = { role: "assistant", content };
+  if (reasoning) message.reasoning_content = reasoning;
+  return { id, object: "chat.completion", model, choices: [{ index: 0, message, finish_reason: finish }], ...usage2 ? { usage: usage2 } : {}, ...cost !== void 0 ? { cost } : {}, ...unlid !== void 0 ? { unlid } : {} };
+}
+function costOf(d) {
+  const num2 = (x) => typeof x === "number" && Number.isFinite(x) ? x : typeof x === "string" && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null;
+  const diem = num2(d?.cost?.diem) || 0;
+  const usd = num2(d?.cost?.usd) ?? num2(d?.cost) ?? num2(d?.unlid?.cost_usd) ?? num2(d?.usage?.cost) ?? num2(d?.usage?.cost_usd) ?? num2(d?.usage?.total_cost);
+  return { usd, diem };
+}
+var DEEPSEEK_PRICES = [
+  { match: /pro/i, hit: 0.044, miss: 1.32, out: 3.96 },
+  { match: /./, hit: 6e-3, miss: 0.3, out: 1.2 }
+  // deepseek-flash; legacy names are billed at the Flash price
+];
+function isDeepSeekOfficial(b) {
+  return b?.chat_completion_source === "deepseek" || b?.chat_completion_source === "custom" && /^(https?:\/\/)?api\.deepseek\.com(\/|$)/i.test(String(b?.custom_url || "").trim());
+}
+function deepseekPeak(at) {
+  const d = at.getUTCDay(), h = at.getUTCHours();
+  return d >= 1 && d <= 5 && (h >= 1 && h < 4 || h >= 6 && h < 10);
+}
+function deepseekCost(model, u, at) {
+  const n = (x) => typeof x === "number" && Number.isFinite(x) ? x : null;
+  const out = n(u?.completion_tokens), prompt = n(u?.prompt_tokens);
+  if (out === null && prompt === null) return null;
+  const hit = n(u?.prompt_cache_hit_tokens) ?? 0;
+  const miss = n(u?.prompt_cache_miss_tokens) ?? Math.max(0, (prompt ?? 0) - hit);
+  const p = DEEPSEEK_PRICES.find((x) => x.match.test(model));
+  const k = deepseekPeak(at) ? 1 : 0.5;
+  return (hit * p.hit + miss * p.miss + (out ?? 0) * p.out) * k / 1e6;
+}
+function streamedBody(body) {
+  let b;
+  try {
+    b = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (b?.stream !== false || b.chat_completion_source !== "custom") return null;
+  const yaml = String(b.custom_include_body || "");
+  const t2 = yaml.trim();
+  if (!/stream_options/.test(yaml) && !t2.startsWith("{") && !t2.startsWith("-")) b.custom_include_body = (t2 ? yaml.replace(/\s*$/, "\n") : "") + "stream_options:\n  include_usage: true";
+  b.stream = true;
+  return JSON.stringify(b);
+}
+var STREAM_STALL_MS = 3e5;
+var StreamStall = class extends Error {
+};
+var lastDraftStall = null;
+function stallError(ms, what) {
+  return new StreamStall(`the provider sent nothing for ${Math.round(ms / 1e3)}s (${what}); the connection stalled, so Canon Engine stopped waiting. Check the provider's status or request log; try again.`);
+}
+async function withStall(p, ctrl, ms, what) {
+  let timer;
+  const t2 = new Promise((_, rej) => {
+    timer = setTimeout(() => {
+      rej(stallError(ms, what));
+      ctrl.abort();
+    }, ms);
+  });
+  try {
+    return await Promise.race([p, t2]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function readStream(r, ctrl, ms) {
+  if (!r.body) return r.text();
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let text = "";
+  for (; ; ) {
+    const { done, value } = await withStall(reader.read(), ctrl, ms, "in the middle of the reply");
+    if (done) break;
+    text += dec.decode(value, { stream: true });
+  }
+  return text + dec.decode();
+}
+function tapUsage() {
+  if (usageTapped || typeof window === "undefined" || typeof window.fetch !== "function") return;
+  usageTapped = true;
+  const orig = window.fetch.bind(window);
+  window.fetch = (async (input, init2) => {
+    let res = null;
+    const url0 = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const body0 = typeof init2?.body === "string" ? init2.body : "";
+    const sb = url0.includes("/api/backends/chat-completions/generate") && (body0.includes("[CANON ENGINE CONTEXT") || body0.includes("[CANON_ENGINE_TASK:")) ? streamedBody(body0) : null;
+    if (sb) {
+      const ctrl = new AbortController();
+      const outer = init2?.signal;
+      if (outer?.aborted) ctrl.abort();
+      else outer?.addEventListener("abort", () => ctrl.abort(), { once: true });
+      const stallMs = Number(globalThis.__canonStreamStallMs) || STREAM_STALL_MS;
+      try {
+        const r = await withStall(orig(input, { ...init2, body: sb, signal: ctrl.signal }), ctrl, stallMs, "waiting for the provider to start the reply");
+        if (r.ok) {
+          const text = await readStream(r, ctrl, stallMs);
+          const done = sseToCompletion(text);
+          res = done ? new Response(JSON.stringify(done), { status: 200, headers: { "Content-Type": "application/json" } }) : new Response(text, { status: r.status, statusText: r.statusText, headers: r.headers });
+        } else if (r.status < 400 || r.status >= 500) res = r;
+      } catch (e) {
+        if (e instanceof StreamStall) {
+          if (body0.includes("[CANON ENGINE CONTEXT")) lastDraftStall = e.message;
+          throw e;
+        }
+        if (e?.name === "AbortError" || init2?.signal?.aborted) throw e;
+      }
+    }
+    const startedAt = /* @__PURE__ */ new Date();
+    if (!res) res = await orig(input, init2);
+    try {
+      const body = body0;
+      if (/\/api\/backends\/(chat|text)-completions\/generate/.test(url0) && (body.includes("[CANON ENGINE CONTEXT") || body.includes("[CANON_ENGINE_TASK:"))) {
+        usage.calls++;
+        res.clone().json().then((d) => {
+          const u = d?.usage;
+          const inp = Number(u?.prompt_tokens ?? u?.input_tokens), out = Number(u?.completion_tokens ?? u?.output_tokens);
+          const story = !body.includes("[CANON_ENGINE_TASK:");
+          const i = Number.isFinite(inp) ? inp : 0, o = Number.isFinite(out) ? out : 0;
+          if (Number.isFinite(inp) || Number.isFinite(out)) {
+            usage.input += i;
+            usage.output += o;
+            if (story) {
+              usage.storyInput += i;
+              usage.storyOutput += o;
+            }
+          } else usage.unreported++;
+          const c = costOf(d);
+          if (c.usd === null) {
+            let b = null;
+            try {
+              b = JSON.parse(body);
+            } catch {
+            }
+            if (isDeepSeekOfficial(b)) c.usd = deepseekCost(String(d?.model || b?.model || ""), u, startedAt);
+          }
+          if (c.usd !== null) {
+            usage.costUsd += c.usd;
+            if (story) usage.storyCostUsd += c.usd;
+          } else usage.costUnreported++;
+          usage.diem += c.diem;
+        }).catch(() => {
+          usage.unreported++;
+          usage.costUnreported++;
+        });
+      }
+    } catch {
+    }
+    return res;
+  });
+}
+var looksRefused = (out) => !/[{[]/.test(out);
+var StModel = class {
+  constructor() {
+    tapUsage();
+  }
+  lastDraftInfo() {
+    return gen.lastDraftInfo;
+  }
+  takeUsage() {
+    const u = { ...usage, ...this.backupUses.length ? { backup: this.backupUses.splice(0) } : {} };
+    usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0;
+    return u;
+  }
+  queue = Promise.resolve();
+  horaePresent = false;
+  /** Read at call time so the drawer setting applies immediately. */
+  taskTemperature = () => 0.2;
+  /** Connection profile for internal analysis tasks ('' = the chat's own connection). Story drafts never use it. */
+  taskProfileId = () => "";
+  /** Extra body parameters (YAML) for profile requests; overrides what the active chat settings would add. */
+  taskExtraBody = () => "";
+  /** Backup connection profile ('' = none): takes over one analysis task when the main connection blocks it,
+   *  refuses it (an answer with no JSON at all) or returns nothing. Its own extra body parameters. */
+  taskBackupProfileId = () => "";
+  taskBackupExtraBody = () => "";
+  /** Connection profile for 角色盘算 (the mind task; '' = the analysis connection). Its own preset's body parameters. */
+  mindProfileId = () => "";
+  /** Tasks the backup answered since the last takeUsage(), with why. */
+  backupUses = [];
+  /** Human-readable name of the connection internal tasks use (for error messages). */
+  describeTaskConnection() {
+    const id = this.taskProfileId();
+    const backup = this.taskBackupProfileId() ? ` (backup: ${this.profileLabel(this.taskBackupProfileId(), "backup profile")})` : "";
+    if (!id) {
+      const cs = ctx().chatCompletionSettings || {};
+      return `the chat's own connection (${cs.custom_model || cs.openai_model || "current model"})${backup}`;
+    }
+    return this.profileLabel(id, "analysis profile") + backup;
+  }
+  profileLabel(id, what) {
+    try {
+      const p = ctx().ConnectionManagerRequestService.getProfile(id);
+      return `${what} "${p.name}" (${p.model || "model not set"})`;
+    } catch {
+      return `a missing ${what}`;
+    }
+  }
+  /** One internal-task completion, through the task profile when one is configured. */
+  async complete(msgs, budget, signal, profileId = this.taskProfileId(), extraBody = this.taskExtraBody()) {
+    const c = ctx();
+    if (profileId) {
+      const svc = c.ConnectionManagerRequestService;
+      if (!svc) throw new Error("the analysis connection profile needs the SillyTavern Connection Manager (Connection Profiles), which is not available");
+      let profile2;
+      try {
+        profile2 = svc.getProfile(profileId);
+      } catch {
+        throw new Error("the connection profile chosen for Canon Engine analysis no longer exists; pick another one in the Canon Engine settings");
+      }
+      try {
+        const extra = extraBody.trim();
+        const res = await svc.sendRequest(profileId, msgs, budget, { stream: false, signal: signal || null, extractData: true, includePreset: true }, { temperature: this.taskTemperature(), ...extra ? { custom_include_body: extra } : {} });
+        const out = String(res?.content ?? "").trim();
+        if (!out) throw new Error("No message generated");
+        return out;
+      } catch (e) {
+        const err = e;
+        if (/No message generated/.test(err.message)) throw err;
+        throw new Error(`analysis profile "${profile2?.name || profileId}": ${err.cause?.message || err.message}`);
+      }
+    }
+    const cs = c.chatCompletionSettings;
+    const savedTemp = cs?.temp_openai;
+    if (cs && savedTemp !== void 0) cs.temp_openai = Math.min(Number(savedTemp), this.taskTemperature());
+    try {
+      return String(await c.generateRaw({ prompt: msgs, responseLength: budget, trimNames: false }) ?? "");
+    } finally {
+      if (cs && savedTemp !== void 0) cs.temp_openai = savedTemp;
+    }
+  }
+  serialize(fn) {
+    const p = this.queue.then(fn, fn);
+    this.queue = p.catch(() => void 0);
+    return p;
+  }
+  runTask(task, messages, opts) {
+    return this.serialize(async () => {
+      if (opts.signal?.aborted) throw new Error("aborted");
+      const c = ctx();
+      const msgs = messages.map((m) => ({ ...m }));
+      if (this.horaePresent) msgs[0].content += `
+[HORAE_INTERNAL:NO_CONTEXT_INJECTION:canon]
+[HORAE_INTERNAL:NO_VECTOR_RECALL:canon]`;
+      const token = newId("raw");
+      gen.raw = { token, messages: messages.map((m) => ({ ...m })) };
+      const stopRaw = () => {
+        if (!this.taskProfileId()) try {
+          c.eventSource?.emit(c.eventTypes?.GENERATION_STOPPED ?? "generation_stopped");
+        } catch {
+        }
+      };
+      opts.signal?.addEventListener("abort", stopRaw, { once: true });
+      try {
+        let budget = opts.maxTokens || 4096;
+        const backupId = this.taskBackupProfileId();
+        const hasBackup = !!backupId && backupId !== this.taskProfileId();
+        let why;
+        for (let attempt = 1; ; attempt++) {
+          try {
+            const own = task === "mind" ? this.mindProfileId() : "";
+            const out = own ? await this.complete(msgs, budget, opts.signal, own, "") : await this.complete(msgs, budget, opts.signal);
+            if (!hasBackup || !looksRefused(out)) return out;
+            why = `refused: "${out.replace(/\s+/g, " ").slice(0, 120)}"`;
+            break;
+          } catch (e) {
+            const msg = e.message;
+            if (opts.signal?.aborted) throw e;
+            const empty2 = /No message generated/i.test(msg);
+            if (hasBackup && !empty2 && !isTransient(msg)) {
+              why = `error: ${msg.slice(0, 200)}`;
+              break;
+            }
+            if (!empty2) throw e;
+            if (hasBackup && attempt >= 2) {
+              why = `empty reply ${attempt} times`;
+              break;
+            }
+            if (attempt >= 3) throw new Error(`the model returned an empty reply ${attempt} times (last budget ${budget} tokens). Usual causes: a reasoning/thinking model spending the whole budget on reasoning (lower its reasoning effort, or choose a fast non-reasoning model as the analysis connection in the Canon Engine settings), a provider content filter blocking the request, or a very small max response length.`);
+            budget = Math.min(budget * 2, 16384);
+          }
+        }
+        if (opts.signal?.aborted) throw new Error("aborted");
+        try {
+          const out = await this.complete(msgs, opts.maxTokens || 4096, opts.signal, backupId, this.taskBackupExtraBody());
+          this.backupUses.push(`${task}: ${why}`);
+          return out;
+        } catch (e) {
+          throw new Error(`main analysis connection failed (${why}); the backup failed too: ${e.message}`);
+        }
+      } finally {
+        opts.signal?.removeEventListener("abort", stopRaw);
+        if (gen.raw?.token === token) gen.raw = null;
+      }
+    });
+  }
+  generateDraft(req) {
+    return this.serialize(async () => {
+      if (req.signal?.aborted) throw new Error("aborted");
+      const c = ctx();
+      const mod = await loadStModule();
+      const token = newId("draft");
+      gen.draft = { token, excludeLastAssistant: req.excludeLastAssistant, captured: null, before: null, injectedRemoved: 0 };
+      const rmod = await loadReasoningModule();
+      gen.lastDraftReasoning = "";
+      gen.lastDraftInfo = null;
+      const origFetch = window.fetch;
+      let apiReasoning = null;
+      const tap = async (input, init2) => {
+        const res = await origFetch(input, init2);
+        try {
+          const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+          if (url.includes("/api/backends/chat-completions/generate") && typeof init2?.body === "string" && init2.body.includes("[CANON ENGINE CONTEXT") && res.ok) {
+            let maxTokens;
+            try {
+              const b = JSON.parse(init2.body);
+              maxTokens = Number(b.max_tokens ?? b.max_completion_tokens) || void 0;
+            } catch {
+            }
+            apiReasoning = res.clone().json().then((d) => {
+              const u = d?.usage || {};
+              gen.lastDraftInfo = { finish: d?.choices?.[0]?.finish_reason || void 0, outputTokens: u.completion_tokens, reasoningTokens: u.completion_tokens_details?.reasoning_tokens, maxTokens };
+              return String(rmod.extractReasoningFromData?.(d) || "");
+            }).catch(() => "");
+          }
+        } catch {
+        }
+        return res;
+      };
+      window.fetch = tap;
+      c.setExtensionPrompt(EXT_PROMPT_KEY, req.engineContext, mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
+      c.setExtensionPrompt(EXT_LENGTH_KEY, req.lengthNote || "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
+      c.setExtensionPrompt(EXT_INSTRUCTION_KEY, req.instruction || "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
+      const lore = (req.loreNames || []).length ? `[Canon Engine: relevant to this turn: ${req.loreNames.join(", ")}]` : "";
+      c.setExtensionPrompt(EXT_LORE_KEY, lore, mod.extension_prompt_types.IN_CHAT, 1, true, mod.extension_prompt_roles.SYSTEM);
+      const onAbort = () => {
+        try {
+          c.stopGeneration?.();
+        } catch {
+        }
+      };
+      req.signal?.addEventListener("abort", onAbort, { once: true });
+      try {
+        lastDraftStall = null;
+        let out;
+        try {
+          out = await c.generateQuietPrompt({ quietPrompt: "", removeReasoning: false, skipWIAN: false });
+        } catch (e) {
+          if (lastDraftStall) throw new Error(lastDraftStall);
+          throw e;
+        }
+        if (req.signal?.aborted) throw new Error("aborted");
+        if (lastDraftStall) throw new Error(lastDraftStall);
+        const captured = gen.draft?.token === token ? gen.draft.captured : null;
+        if (captured && !captured.some((m) => typeof m.content === "string" && m.content.includes("[CANON ENGINE CONTEXT"))) {
+          throw new EngineError("capacity", "SillyTavern dropped the Canon Engine context from the prompt because it did not fit the configured context size. Increase \u201CContext Size (tokens)\u201D in the API settings, or lower budgetChars in Canon Engine advanced settings.");
+        }
+        let text = String(out ?? "");
+        let parsed = "";
+        const stripped = typeof rmod.removeReasoningFromString === "function" ? String(rmod.removeReasoningFromString(text)) : text;
+        if (stripped !== text) {
+          parsed = String(rmod.parseReasoningFromString?.(text)?.reasoning || "");
+          text = stripped;
+        }
+        gen.lastDraftReasoning = (apiReasoning ? await apiReasoning : "") || parsed;
+        return text;
+      } finally {
+        if (window.fetch === tap) window.fetch = origFetch;
+        req.signal?.removeEventListener("abort", onAbort);
+        c.setExtensionPrompt(EXT_PROMPT_KEY, "", mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
+        c.setExtensionPrompt(EXT_LENGTH_KEY, "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
+        c.setExtensionPrompt(EXT_INSTRUCTION_KEY, "", mod.extension_prompt_types.IN_CHAT, 0, false, mod.extension_prompt_roles.SYSTEM);
+        c.setExtensionPrompt(EXT_LORE_KEY, "", mod.extension_prompt_types.IN_CHAT, 1, false, mod.extension_prompt_roles.SYSTEM);
+        if (gen.draft?.token === token) {
+          gen.lastDraftPrompt = gen.draft.captured;
+          gen.draft = null;
+        }
+      }
+    });
+  }
+};
+function promptReadyFirst(eventData) {
+  if (eventData?.dryRun) return;
+  if (gen.draft && Array.isArray(eventData?.chat)) gen.draft.before = new Set(eventData.chat);
+}
+function promptReadyLast(eventData) {
+  if (eventData?.dryRun || !Array.isArray(eventData?.chat)) return;
+  if (gen.raw && eventData.chat.some((m) => typeof m?.content === "string" && m.content.includes("[CANON_ENGINE_TASK:"))) {
+    eventData.chat.splice(0, eventData.chat.length, ...gen.raw.messages.map((m) => ({ role: m.role, content: m.content })));
+    return;
+  }
+  if (gen.draft) {
+    if (HoraeAdapter.excluded && gen.draft.before) {
+      const before = gen.draft.before;
+      for (let i = eventData.chat.length - 1; i >= 0; i--) {
+        const m = eventData.chat[i];
+        if (!before.has(m) && m?.role === "system" && typeof m.content === "string" && !m.content.includes("[CANON ENGINE")) {
+          eventData.chat.splice(i, 1);
+          gen.draft.injectedRemoved++;
+        }
+      }
+    }
+    gen.draft.captured = eventData.chat.map((m) => ({ role: m.role, content: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }));
+  }
+}
+function saveHint(seen) {
+  const all = seen.join(" ");
+  if (/HTTP 413/.test(all)) return "The request was too large for something between the browser and SillyTavern (usually a reverse proxy such as nginx: raise client_max_body_size, e.g. to 50m).";
+  if (/HTTP 400/.test(all) && /integrity/i.test(all)) return "SillyTavern refused the save because the chat file changed elsewhere (another browser/device has this chat open). Close other tabs/devices and reload.";
+  if (/HTTP 403|HTTP 401/.test(all)) return "SillyTavern refused the save (session/CSRF expired). Reload the page.";
+  if (/no save request/.test(all)) return "SillyTavern skipped the save. Wait a moment and press Retry.";
+  return "Press Retry; if it keeps failing, reload the page and send these details.";
+}
+
+// src/hosts/sillytavern/api.ts
+var pad = (n) => String(n).padStart(2, "0");
+function publicClock(engine2) {
+  const c = engine2.campaign();
+  const st = engine2.current?.replay.state;
+  if (!c || !c.enabled || !st) return { active: false };
+  const origin = c.binding.originDate || null;
+  const lo = st.clock.lo;
+  const t2 = fromTick(lo);
+  let date = null;
+  let weekday = null;
+  if (origin) {
+    const d = new Date(Date.UTC(origin.y, origin.m - 1, origin.d) + t2.day * 864e5);
+    date = `${d.getUTCFullYear()}/${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}`;
+    weekday = d.getUTCDay();
+  }
+  return {
+    active: true,
+    packId: engine2.packInfo()?.packId,
+    tick: lo,
+    tickHi: st.clock.hi,
+    precision: st.clock.precision,
+    day: t2.day,
+    minute: t2.minute,
+    date,
+    time: `${pad(Math.floor(t2.minute / 60))}:${pad(t2.minute % 60)}`,
+    weekday,
+    label: formatTick(lo, origin),
+    ...(() => {
+      const f = engine2.sceneFrameNow();
+      return f ? { frame: { id: f.id, name: f.name, main: f.main, local: f.local } } : {};
+    })()
+  };
+}
+function installClockEvents(engine2) {
+  let last2 = "";
+  engine2.onChange(() => {
+    const clk = publicClock(engine2);
+    const sig = JSON.stringify(clk);
+    if (sig === last2) return;
+    last2 = sig;
+    try {
+      document.dispatchEvent(new CustomEvent("canon-engine:clock", { detail: clk }));
+    } catch {
+    }
+  });
+}
+
+// src/hosts/sillytavern/lock.ts
+var PREFIX = "canonEngine.writer.";
+var STALE_MS = 6e3;
+var WriterLock = class {
+  instanceId;
+  sessionId = null;
+  timer = null;
+  owner = true;
+  constructor(instanceId) {
+    this.instanceId = instanceId;
+    if (typeof window !== "undefined") window.addEventListener("beforeunload", () => this.release());
+  }
+  read() {
+    try {
+      const v = localStorage.getItem(PREFIX + this.sessionId);
+      return v ? JSON.parse(v) : null;
+    } catch {
+      return null;
+    }
+  }
+  beat() {
+    if (!this.sessionId) return;
+    const cur = this.read();
+    if (!cur || cur.id === this.instanceId || Date.now() - cur.ts > STALE_MS) {
+      try {
+        localStorage.setItem(PREFIX + this.sessionId, JSON.stringify({ id: this.instanceId, ts: Date.now() }));
+      } catch {
+      }
+      this.owner = true;
+    } else {
+      this.owner = false;
+    }
+  }
+  setCampaign(sessionId) {
+    if (this.sessionId === sessionId) return;
+    this.release();
+    this.sessionId = sessionId;
+    if (!sessionId) {
+      this.owner = true;
+      return;
+    }
+    this.beat();
+    this.timer = setInterval(() => this.beat(), 2e3);
+  }
+  isOwner() {
+    if (!this.sessionId) return true;
+    this.beat();
+    return this.owner;
+  }
+  release() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    if (this.sessionId) {
+      const cur = this.read();
+      if (cur?.id === this.instanceId) try {
+        localStorage.removeItem(PREFIX + this.sessionId);
+      } catch {
+      }
+    }
+  }
+};
+
+// src/hosts/sillytavern/notify.ts
+var titleBase = null;
+var audio = null;
+var last = null;
+function systemNotificationsAvailable() {
+  return typeof window !== "undefined" && !!window.isSecureContext && typeof window.Notification === "function";
+}
+function primeNotifications() {
+  try {
+    if (systemNotificationsAvailable() && Notification.permission === "default") void Notification.requestPermission();
+  } catch {
+  }
+  try {
+    if (!audio && typeof AudioContext === "function") audio = new AudioContext();
+  } catch {
+  }
+}
+function inBackground() {
+  return document.hidden || typeof document.hasFocus === "function" && !document.hasFocus();
+}
+function markTitle(mark) {
+  if (titleBase === null) titleBase = document.title;
+  document.title = `${mark} ${titleBase}`;
+  const restore = () => {
+    if (document.hidden) return;
+    if (titleBase !== null) document.title = titleBase;
+    titleBase = null;
+    document.removeEventListener("visibilitychange", restore);
+    window.removeEventListener("focus", restore);
+  };
+  document.addEventListener("visibilitychange", restore);
+  window.addEventListener("focus", restore);
+}
+function chime(ok) {
+  try {
+    if (!audio) audio = new AudioContext();
+    void audio.resume();
+    const t0 = audio.currentTime;
+    (ok ? [660, 880] : [440, 330]).forEach((f, i) => {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.frequency.value = f;
+      g.gain.setValueAtTime(1e-4, t0 + i * 0.18);
+      g.gain.exponentialRampToValueAtTime(0.12, t0 + i * 0.18 + 0.02);
+      g.gain.exponentialRampToValueAtTime(1e-4, t0 + i * 0.18 + 0.3);
+      o.connect(g).connect(audio.destination);
+      o.start(t0 + i * 0.18);
+      o.stop(t0 + i * 0.18 + 0.32);
+    });
+  } catch {
+  }
+}
+function notifyDone(info, opts) {
+  const done = [];
+  if (!opts.force && !inBackground()) return done;
+  if (systemNotificationsAvailable() && Notification.permission === "granted") {
+    try {
+      try {
+        last?.close();
+      } catch {
+      }
+      const n = new Notification(info.title, { body: info.body, tag: "canon-engine-done", renotify: true });
+      n.onclick = () => {
+        try {
+          window.focus();
+        } catch {
+        }
+        n.close();
+      };
+      n.onclose = () => {
+        if (last === n) last = null;
+      };
+      last = n;
+      done.push("notification");
+    } catch {
+    }
+  }
+  markTitle(opts.titleMark);
+  done.push("title");
+  if (opts.sound) {
+    chime(info.ok);
+    done.push("sound");
+  }
+  return done;
+}
+
+// src/hosts/sillytavern/library.ts
 function settingsObj() {
   const es = ctx().extensionSettings;
   return es.canonEngine || (es.canonEngine = {});
@@ -34419,7 +34430,7 @@ async function removeFromLibrary(e) {
   ctx().saveSettingsDebounced?.();
 }
 
-// src/ui/ui.ts
+// src/hosts/sillytavern/ui.ts
 var E;
 var H;
 var CHAT_PROFILE = "__chat__";
@@ -34768,7 +34779,7 @@ function renderSettings() {
   out.push(card(t("secPersona"), "", check("ignorePersonaSections", !!s.ignorePersonaSections, t("ignorePersonaSections"), "ignorePersonaSectionsTip") + check("quietDayJobs", s.quietDayJobs !== false, t("quietDayJobs"), "quietDayJobsTip")));
   const pv = playerVoice(s.playerVoice);
   out.push(`<details class="canon-card canon-voice"${s.voiceOpen ? " open" : ""}><summary class="canon-card-title">${t("secVoice")} ${tip("secVoiceTip")} <span class="canon-sub">${esc3(VOICE_KINDS.filter((k) => pv[k]).map((k) => t("voice_" + k)).join("\u3001") || t("voiceNone"))}</span></summary>` + VOICE_KINDS.map((k) => check("voice:" + k, pv[k], t("voice_" + k), "voice_" + k + "Tip")).join("") + `<div class="canon-hint">${t("voiceHint")}</div>` + check("secretsReadable", s.secretsReadable !== false, t("secretsReadable"), "secretsReadableTip") + `</details>`);
-  out.push(card(t("secEvents"), "", check("ignoreFirstMessage", !!s.ignoreFirstMessage, t("ignoreFirstMessage"), "ignoreFirstMessageTip") + check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip") + check("followHoraeTime", s.followHoraeTime !== false, t("followHoraeTime"), "followHoraeTimeTip")));
+  out.push(card(t("secEvents"), "", check("ignoreFirstMessage", !!s.ignoreFirstMessage, t("ignoreFirstMessage"), "ignoreFirstMessageTip") + check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip") + check("followTrackerTime", s.followTrackerTime !== false, t("followHoraeTime"), "followHoraeTimeTip")));
   const adv = [
     num("maxRepairs", s.maxRepairs),
     num("maxOrdinaryPlanner", s.maxOrdinaryPlanner),
@@ -35032,7 +35043,7 @@ function openBindWizard(text) {
   const p = E.previewPack(text);
   const chatLen = H.readTranscript().filter((e) => e.role !== "system").length;
   const existing = chatLen > 1;
-  const horae = H.horae?.status().scene;
+  const horae = H.sceneTracker?.status().scene;
   if (!p.ok || !p.summary) {
     modal(`<h3>${t("wizardTitle")}</h3><div class="canon-note err">${t("validation")}: ${t("failed")}</div><ul class="canon-list">${p.errors.slice(0, 40).map((e) => `<li><code>${esc3(e.path)}</code> ${esc3(e.message)}</li>`).join("")}</ul><button class="menu_button" data-close>${t("close")}</button>`);
     return;
@@ -35328,7 +35339,31 @@ function refreshUi() {
   void NS;
 }
 
-// src/index.ts
+// src/hosts/sillytavern/lorescan.ts
+function applyLoreScan(lists, scan, template) {
+  let applied = 0;
+  const stale = [];
+  for (const arr of [lists?.globalLore, lists?.characterLore, lists?.chatLore, lists?.personaLore]) {
+    if (!Array.isArray(arr)) continue;
+    for (const e of arr) {
+      const o = scan.overrides.get(`${e?.world}|${e?.uid}`);
+      if (!o) continue;
+      if (textHash(String(e.content || "")) !== o.originalHash) {
+        stale.push(o.title);
+        continue;
+      }
+      if (o.action === "disable") e.disable = true;
+      else e.content = o.content;
+      applied++;
+    }
+  }
+  if (scan.additions.length && Array.isArray(lists?.chatLore)) {
+    scan.additions.forEach((a, i) => lists.chatLore.push({ ...template, uid: 99e4 + i, world: "Canon Engine \u672C\u5C40\u8BBE\u5B9A", key: [...a.keys], keysecondary: [], comment: a.title, content: a.content, disable: false, constant: false, selective: false }));
+  }
+  return { applied, stale: [...new Set(stale)] };
+}
+
+// src/hosts/sillytavern/index.ts
 var SETTINGS_KEY = "canonEngine";
 var engine = null;
 var host = null;
@@ -35337,7 +35372,8 @@ var reconcileTimer = null;
 var lastGenStart = null;
 function globalSettings() {
   const es = ctx().extensionSettings;
-  es[SETTINGS_KEY] = { ...DEFAULT_SETTINGS, inspectorOpen: false, ...es[SETTINGS_KEY] || {} };
+  if (es[SETTINGS_KEY]) migrateSettings(es[SETTINGS_KEY]);
+  es[SETTINGS_KEY] = { ...ST_DEFAULTS, ...es[SETTINGS_KEY] || {} };
   if (es[SETTINGS_KEY].taskTimeoutMs === 18e4) es[SETTINGS_KEY].taskTimeoutMs = DEFAULT_SETTINGS.taskTimeoutMs;
   if (es[SETTINGS_KEY].budgetChars === 24e3) es[SETTINGS_KEY].budgetChars = DEFAULT_SETTINGS.budgetChars;
   return es[SETTINGS_KEY];
@@ -35395,7 +35431,7 @@ async function interceptor(chat, _contextSize, abort, type) {
     }
     setTimeout(() => {
       ctx().deactivateSendButtons?.();
-      if (engine.settings.notifyDone) primeNotifications();
+      if (globalSettings().notifyDone) primeNotifications();
       engine.runOperation(op, prior).then((ok) => announceDone(ok)).finally(() => {
         try {
           ctx().activateSendButtons?.();
@@ -35411,7 +35447,7 @@ async function interceptor(chat, _contextSize, abort, type) {
 function announceDone(ok) {
   try {
     const e = engine;
-    if (!e.settings.notifyDone) return;
+    if (!globalSettings().notifyDone) return;
     const rec = e.campaign()?.recoveryState;
     if (!ok && (rec?.errorKind === "cancelled" || rec?.status === "ok")) return;
     const tm = e.lastTimings;
@@ -35419,7 +35455,7 @@ function announceDone(ok) {
     const took = secs >= 60 ? `${Math.floor(secs / 60)}m${secs % 60}s` : `${secs}s`;
     const who = String(ctx().name2 || "Canon Engine");
     const body = ok ? t("notifyBodyOk").replace("{name}", who).replace("{n}", String(tm?.reply?.chars ?? "?")).replace("{t}", took) : `${who}: ${String(rec?.reason || "").slice(0, 140)}`;
-    notifyDone({ ok, title: t(ok ? "notifyTitleOk" : "notifyTitleFail"), body }, { sound: !!e.settings.notifySound, titleMark: t(ok ? "notifyMarkOk" : "notifyMarkFail") });
+    notifyDone({ ok, title: t(ok ? "notifyTitleOk" : "notifyTitleFail"), body }, { sound: !!globalSettings().notifySound, titleMark: t(ok ? "notifyMarkOk" : "notifyMarkFail") });
   } catch {
   }
 }
@@ -35467,6 +35503,7 @@ async function init() {
   const model = new StModel();
   host = new StHost(model);
   host.packStore = libraryPackStore;
+  host.settings = () => globalSettings();
   model.horaePresent = !!HoraeAdapter.detect();
   model.taskProfileId = () => {
     const id = String(globalSettings().taskProfileId || "");
@@ -35511,7 +35548,7 @@ async function init() {
     if (engine?.isBusy() && !gen.draft) engine.cancel();
   });
   if (et.WORLDINFO_ENTRIES_LOADED) {
-    engine.loreHook = true;
+    host.loreAppliesOverrides = true;
     let template = { key: [], keysecondary: [], comment: "", content: "", constant: false, selective: false, selectiveLogic: 0, order: 100, position: 0, disable: false, probability: 100, useProbability: true, depth: 4, group: "", groupOverride: false, groupWeight: 100, excludeRecursion: false, preventRecursion: false, role: 0 };
     const wiUrl = "/scripts/world-info.js";
     import(
@@ -35529,8 +35566,8 @@ async function init() {
   es.on(et.CHAT_CHANGED, async () => {
     if (!engine) return;
     engine.sourceChanged("chat_changed");
-    host.horae = HoraeAdapter.detect();
-    model.horaePresent = !!host.horae;
+    host.sceneTracker = HoraeAdapter.detect();
+    model.horaePresent = !!host.sceneTracker;
     const camp = engine.campaign();
     lock?.setCampaign(camp?.enabled ? camp.sessionId : null);
     try {

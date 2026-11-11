@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.30.0 — 2026-11-11
+
+- **The engine and its host are apart.** The engine is `src/core` (domain, runtime, the timeline window, inspector and texts) and knows no host; SillyTavern is one host, `src/hosts/sillytavern`, which implements `HostPort` and `ModelPort` and uses the core only through `src/core/index.ts`. `npm run build` also bundles the core alone (`dist/canon-core.mjs`, loads in plain Node). `scripts/check-boundary.mjs` (in `npm run build` and `npm test`) fails when the core imports a host or uses a host global, or a host reaches past the core's entry point.
+- What was shaped after SillyTavern in the host interface is generic or the host's own: Horae is the host's **scene tracker** (`sceneTracker`, with its name — the GM still reads "Horae" in SillyTavern); World Info is the host's **lore entries** (`lore`: entries with title, keys and a named secondary-key logic; applying 本局设定 in World Info's scan is the host's, `lorescan.ts`); Persona Library's sections are read by the host with its own setting; connection profiles, task temperature, notifications and "ignore the first message" are the host's settings. Settings `followHoraeTime` / `horaeWaitMs` are now `followTrackerTime` / `trackerWaitMs` (moved over on load).
+- **Nothing the models are sent changed**: a prompt log of the unit tests (`PROMPT_LOG`, `scripts/prompt-log-compare.mjs`) compared all 4269 requests before and after — identical. Unit 471, e2e 127/127, 12/12, frames 11/11, libview 8, worldset 7, leap 10, packref 8/8, ties 6, jobs 3. Tests: HS1–HS3 (World Info logic, settings moved over).
+
 ## 1.29.3 — 2026-11-11
 
 - **Website** (`site/`, GitHub Pages via `.github/workflows/pages.yml`): what the engine does, in English and Chinese (by the browser's language), with a live demo that is the engine's own code: the example pack loaded and validated as the engine does, its canon replayed to a day the visitor picks (the bootstrap a new game runs), and the timeline window with its 组织成员 and 角色常态 views; the page's numbers and character profiles come from the pack as loaded. Nothing on the site reads the pack format itself, so it follows the engine and the pack.

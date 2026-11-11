@@ -7,9 +7,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
-import { validatePackText } from '../../src/domain/pack';
-import { factAt } from '../../src/domain/reducer';
-import { memberships } from '../../src/runtime/integration';
+import { validatePackText } from '../../src/core/domain/pack';
+import { factAt } from '../../src/core/domain/reducer';
+import { memberships } from '../../src/core/runtime/integration';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 type X = ReturnType<typeof makeEngine>;

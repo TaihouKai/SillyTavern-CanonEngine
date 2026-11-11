@@ -6,9 +6,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { validatePackText } from '../../src/domain/pack';
-import { emptyState } from '../../src/domain/reducer';
-import { LEAP_CHAPTERS_MAX, LEAP_DETAILED_MAX, leapChapters, leapEvents, parseLeap } from '../../src/runtime/leap';
+import { validatePackText } from '../../src/core/domain/pack';
+import { emptyState } from '../../src/core/domain/reducer';
+import { LEAP_CHAPTERS_MAX, LEAP_DETAILED_MAX, leapChapters, leapEvents, parseLeap } from '../../src/core/runtime/leap';
 
 const demoText = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 

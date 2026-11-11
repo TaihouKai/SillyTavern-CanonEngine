@@ -1,6 +1,6 @@
 // HM01–HM02: a message the user hid (ST sets is_system) stays part of the story; real system messages do not.
 import { describe, expect, it } from 'vitest';
-import { isGenuineSystem } from '../../src/adapters/st';
+import { isGenuineSystem } from '../../src/hosts/sillytavern/st';
 
 describe('hidden messages', () => {
   it('HM01 hidden player and GM messages are not system messages', () => {

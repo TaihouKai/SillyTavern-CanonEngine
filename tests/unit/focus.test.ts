@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, legacyCampaign } from './fake';
 import { ROOT } from './helpers';
-import { focusedLive } from '../../src/domain/schedule';
+import { focusedLive } from '../../src/core/domain/schedule';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 

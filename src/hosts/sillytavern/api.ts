@@ -1,6 +1,5 @@
 // Stable public API for other extensions (window.CanonEngine.api). Read-only.
-import type { CanonEngine } from '../../core/runtime/engine';
-import { fromTick, formatTick } from '../../core/domain/time';
+import { fromTick, formatTick, type CanonEngine } from '../../core';
 
 export interface CanonClock {
   /** false when no chat is bound or the engine is disabled for this chat. */

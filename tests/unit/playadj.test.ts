@@ -1,10 +1,10 @@
 // PA1-PA2: a SOFT event whose people were recently involved in actual play is judged by the model from that play,
 // not recorded along its original route automatically.
 import { describe, expect, it } from 'vitest';
-import { reduce, applyRecord } from '../../src/domain/reducer';
-import { buildBootstrap } from '../../src/domain/schedule';
-import type { LedgerRecord } from '../../src/domain/types';
-import { adjudicateInterval } from '../../src/runtime/adjudicator';
+import { reduce, applyRecord } from '../../src/core/domain/reducer';
+import { buildBootstrap } from '../../src/core/domain/schedule';
+import type { LedgerRecord } from '../../src/core/domain/types';
+import { adjudicateInterval } from '../../src/core/runtime/adjudicator';
 import { demoRaw, load, T } from './helpers';
 
 function setup(withPlay: boolean) {

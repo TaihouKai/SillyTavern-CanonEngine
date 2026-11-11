@@ -2,7 +2,7 @@
 // error), refuses it (no JSON at all) or answers with nothing; temporary trouble stays on the main one.
 // User request: official DeepSeek for analysis (cheap) with Venice as the backup for NSFW refusals.
 import { beforeEach, describe, expect, it } from 'vitest';
-import { looksRefused, StModel } from '../../src/adapters/st';
+import { looksRefused, StModel } from '../../src/hosts/sillytavern/st';
 
 type Reply = string | Error;
 let replies: Record<string, Reply[]> = {};

@@ -4,15 +4,16 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { mentionsTime, statedTime } from '../../src/runtime/engine';
-import { PROMPTS } from '../../src/runtime/prompts';
+import { mentionsTime, statedTime } from '../../src/core/runtime/engine';
+import { PROMPTS } from '../../src/core/runtime/prompts';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 const ORIGIN = { y: 2020, m: 1, d: 1 }; // day 1 = 2020/01/02
 
 async function setup(horae: { date: string; time: string } | null) {
   const x = makeEngine();
-  if (horae) x.host.horae = {
+  if (horae) x.host.sceneTracker = {
+    name: 'Horae',
     status: () => ({ available: true, version: 'x', mode: 'metadata', staleIndexes: [], busy: false, scene: { date: horae.date, time: horae.time } }),
     waitForIdle: async () => true, reanalyze: async () => undefined,
   } as any;

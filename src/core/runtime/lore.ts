@@ -1,19 +1,19 @@
-// Background from the user's lorebooks (SillyTavern World Info) for reading the Persona: the entries whose keys the
-// Persona text contains, as SillyTavern's own scan would find them, plus one hop to the entries those mention. Only
+// Background from the user's lore entries (lorebooks; SillyTavern: World Info) for reading the Persona: the entries
+// whose keys the Persona text contains, as a keyword lore scan would find them, plus one hop to the entries those mention. Only
 // entries of this world count: an entry whose key or title is the name of a pack entity, and the other entries of
 // lorebooks that have such entries (an unrelated lorebook — a style or rules book — contributes nothing).
 import type { LoadedPack } from '../domain/pack';
 import type { Id } from '../domain/types';
 
+/** One lore entry: it applies when a key is in the text, and then, when it has secondary keys and a logic, as the
+ *  logic says of them (any / not all / none / all present). */
 export interface LoreEntry {
   book: string;
   uid: string | number;
-  comment: string;
+  title: string;
   keys: string[];
   secondary: string[];
-  /** SillyTavern: selective + selectiveLogic (0 AND ANY, 1 NOT ALL, 2 NOT ANY, 3 AND ALL) for the secondary keys. */
-  selective: boolean;
-  logic: number;
+  secondaryLogic: 'any' | 'not_all' | 'not_any' | 'all' | null;
   constant: boolean;
   disabled: boolean;
   caseSensitive: boolean | null;
@@ -25,7 +25,7 @@ export interface LoreBackground { title: string; entity_id: Id | null; via: 'per
 
 const norm = (s: string) => s.normalize('NFKC').trim().toLowerCase();
 
-/** One SillyTavern key against a text: "/pattern/flags" is a regex, anything else a substring (case-insensitive unless
+/** One key against a text: "/pattern/flags" is a regex, anything else a substring (case-insensitive unless
  *  the entry says otherwise; whole words only for Latin-script keys). Returns the matched text, or null. */
 export function keyMatch(key: string, text: string, e: Pick<LoreEntry, 'caseSensitive' | 'wholeWords'>): string | null {
   const k = key.trim();
@@ -49,13 +49,13 @@ export const keyMatches = (key: string, text: string, e: Pick<LoreEntry, 'caseSe
 function entryMatches(e: LoreEntry, text: string, generic: Set<string> = new Set()): boolean {
   if (!e.keys.some((k) => { const m = keyMatch(k, text, e); return m !== null && !generic.has(norm(m)); })) return false;
   const sec = e.secondary.filter((k) => k.trim());
-  if (!e.selective || !sec.length) return true;
+  if (!e.secondaryLogic || !sec.length) return true;
   const hits = sec.filter((k) => keyMatches(k, text, e)).length;
-  switch (e.logic) {
-    case 1: return hits < sec.length; // NOT ALL
-    case 2: return hits === 0; // NOT ANY
-    case 3: return hits === sec.length; // AND ALL
-    default: return hits > 0; // AND ANY
+  switch (e.secondaryLogic) {
+    case 'not_all': return hits < sec.length;
+    case 'not_any': return hits === 0;
+    case 'all': return hits === sec.length;
+    default: return hits > 0;
   }
 }
 
@@ -69,7 +69,7 @@ export function loreFor(entries: LoreEntry[], text: string, pack: LoadedPack, op
   // an entry is about an entity when its title is the entity's name ("SCHOOL（学校）", "BLOCK（区块）": the part
   // before the bracket; 暗部SCHOOL ends with SCHOOL), or else its first key is
   const titled = (e: LoreEntry): Id | null => {
-    const t = norm(e.comment || ''), head = norm((e.comment || '').split(/[（(]/)[0]);
+    const t = norm(e.title || ''), head = norm((e.title || '').split(/[（(]/)[0]);
     return byName.get(t) || byName.get(head) || (head.length >= 3 ? [...byName].find(([n]) => n.endsWith(head))?.[1] : undefined) || null;
   };
   const about = new Map(usable.map((e) => [e, titled(e)]));
@@ -87,7 +87,7 @@ export function loreFor(entries: LoreEntry[], text: string, pack: LoadedPack, op
     if (used + piece.length > budget) return;
     taken.add(e);
     used += piece.length;
-    out.push({ title: e.comment || e.keys[0] || String(e.uid), entity_id: tied.get(e) || null, via, text: piece });
+    out.push({ title: e.title || e.keys[0] || String(e.uid), entity_id: tied.get(e) || null, via, text: piece });
   };
   const uses = new Map<string, number>();
   for (const e of pool) for (const k of new Set(e.keys.map(norm))) uses.set(k, (uses.get(k) || 0) + 1);

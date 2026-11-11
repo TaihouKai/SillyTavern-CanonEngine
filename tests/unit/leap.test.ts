@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { parseLeapTime } from '../../src/runtime/leap';
+import { parseLeapTime } from '../../src/core/runtime/leap';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 const ALL = ['medic-ambush', 'council-broadcast', 'conflict-begins', 'harbor-festival', 'conflict-ends'];

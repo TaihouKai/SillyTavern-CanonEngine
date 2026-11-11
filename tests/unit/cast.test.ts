@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
-import { lintPack, validatePackText } from '../../src/domain/pack';
+import { lintPack, validatePackText } from '../../src/core/domain/pack';
 
 const base = JSON.parse(readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8'));
 // the ambush runs 10:00–11:00: Mira is on the road from 10:00, the council's patrol arrives at 10:30

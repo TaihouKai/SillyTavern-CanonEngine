@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
-import { claimMatches } from '../../src/domain/pack';
-import { factAt } from '../../src/domain/reducer';
-import { baseKey, interpretationsFor } from '../../src/runtime/replay';
+import { claimMatches } from '../../src/core/domain/pack';
+import { factAt } from '../../src/core/domain/reducer';
+import { baseKey, interpretationsFor } from '../../src/core/runtime/replay';
 import { ROOT } from './helpers';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');

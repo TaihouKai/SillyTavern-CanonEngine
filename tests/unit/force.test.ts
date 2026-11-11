@@ -1,11 +1,11 @@
 // F01-F04: "强制完成" (the player forces a canon event to complete); U01-U02: GM context of where other characters stand.
 import { describe, expect, it } from 'vitest';
-import { factAt, reduce } from '../../src/domain/reducer';
-import { buildBootstrap, forcedCompletion, situationOf, upcomingRoute } from '../../src/domain/schedule';
-import type { LedgerRecord } from '../../src/domain/types';
-import { buildPacket, retrieve } from '../../src/runtime/context';
-import { replay } from '../../src/runtime/replay';
-import { WorldIndex } from '../../src/domain/world-query';
+import { factAt, reduce } from '../../src/core/domain/reducer';
+import { buildBootstrap, forcedCompletion, situationOf, upcomingRoute } from '../../src/core/domain/schedule';
+import type { LedgerRecord } from '../../src/core/domain/types';
+import { buildPacket, retrieve } from '../../src/core/runtime/context';
+import { replay } from '../../src/core/runtime/replay';
+import { WorldIndex } from '../../src/core/domain/world-query';
 import { demoRaw, load, T } from './helpers';
 
 function setup(start = T(2, 23)) {

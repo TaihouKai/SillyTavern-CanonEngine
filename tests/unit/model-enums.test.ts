@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { callStructured } from '../../src/runtime/model';
-import type { ModelPort } from '../../src/runtime/model';
+import { callStructured } from '../../src/core/runtime/model';
+import type { ModelPort } from '../../src/core/runtime/model';
 
 const ref = (mode: string) => ({ id: 'r1', quote: '修女', phrase: '修女', ref_kind: 'person', mode, assertion: 'narrator', temporal: 'present', candidate_ids: [] });
 const claim = (kind: string) => ({ id: 'c1', quote: '便利店', kind, entity_phrases: [], assertion: 'narrator', expected: null });
@@ -44,7 +44,7 @@ describe('structured output enum handling (real-model findings)', () => {
 });
 
 import { readFileSync } from 'node:fs';
-import { validatePack, claimComparable } from '../../src/domain/pack';
+import { validatePack, claimComparable } from '../../src/core/domain/pack';
 
 describe('deterministic state-claim comparison', () => {
   it('compares booleans, entity refs and closed vocabularies, but not free-text paraphrases', () => {
@@ -135,7 +135,7 @@ describe('truncated replies', () => {
   });
 });
 
-import { TRANSIENT_DELAYS_MS } from '../../src/runtime/model';
+import { TRANSIENT_DELAYS_MS } from '../../src/core/runtime/model';
 describe('temporary provider errors', () => {
   it('waits and re-sends after a 503, without spending a parse attempt', async () => {
     const saved = TRANSIENT_DELAYS_MS.splice(0, TRANSIENT_DELAYS_MS.length, 5, 5);

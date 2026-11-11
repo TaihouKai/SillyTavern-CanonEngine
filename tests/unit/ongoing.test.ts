@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
-import { factAt } from '../../src/domain/reducer';
-import { PROMPTS as PROMPTS_ } from '../../src/runtime/prompts';
+import { factAt } from '../../src/core/domain/reducer';
+import { PROMPTS as PROMPTS_ } from '../../src/core/runtime/prompts';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 // the ambush window widened to 10:00–12:00 so it can stay under way across replies (the demo has point windows)

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { validatePack } from '../../src/domain/pack';
-import { buildBootstrap } from '../../src/domain/schedule';
-import { replay } from '../../src/runtime/replay';
-import { WorldIndex } from '../../src/domain/world-query';
-import { retrieve, buildPacket } from '../../src/runtime/context';
+import { validatePack } from '../../src/core/domain/pack';
+import { buildBootstrap } from '../../src/core/domain/schedule';
+import { replay } from '../../src/core/runtime/replay';
+import { WorldIndex } from '../../src/core/domain/world-query';
+import { retrieve, buildPacket } from '../../src/core/runtime/context';
 
 function setup() {
   const L = validatePack(JSON.parse(readFileSync('examples/demo.canon.json', 'utf8'))).loaded!;

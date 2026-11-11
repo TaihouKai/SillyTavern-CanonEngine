@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HoraeAdapter } from '../../src/adapters/horae';
+import { HoraeAdapter } from '../../src/hosts/sillytavern/horae';
 
 const msg = (story_date: string, story_time: string, extra: Record<string, unknown> = {}) => ({ mes: '', horae_meta: { timestamp: { story_date, story_time }, ...extra } });
 

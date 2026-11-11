@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { lintPack, validatePackText } from '../../src/domain/pack';
+import { lintPack, validatePackText } from '../../src/core/domain/pack';
 
 const base = JSON.parse(readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8'));
 const SCHEMER = { deliberation: 'habitual', sharpness: 'exceptional', approach: 'trades favours, never pays in coin', notices: 'when a story changes between tellings', blind: 'that kindness can be meant', speaks: 'asks, rarely tells' };

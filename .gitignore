@@ -5,3 +5,4 @@ tests/unit/zz-local-*.test.ts
 site/data/
 site/js/engine-demo.js
 site/css/engine.css
+dist/canon-core.mjs

@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { DEFAULT_PLAYER_VOICE, playerVoice } from '../../src/runtime/voice';
+import { DEFAULT_PLAYER_VOICE, playerVoice } from '../../src/core/runtime/voice';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 

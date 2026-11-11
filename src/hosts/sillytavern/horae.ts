@@ -1,13 +1,17 @@
 // Read-only Horae adapter (public window.Horae API only; never writes private fields).
 // Verified against Horae 1.15.1 (TaihouKai/SillyTavern-Horae-Metadata fork, metadata mode).
-import type { HoraePort, HoraeStatus } from '../../core/runtime/host';
+import type { SceneTrackerPort, SceneTrackerStatus } from '../../core';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare const SillyTavern: { getContext(): any };
 
 export interface HoraeDiagnosis { ok: boolean; version: string | null; missing: string[]; mode: string | null }
 
-export class HoraeAdapter implements HoraePort {
+export class HoraeAdapter implements SceneTrackerPort {
+  readonly name = 'Horae';
+  /** Set by the engine for the current operation: Horae's memory is stale, the prompt hook leaves it out. */
+  static excluded = false;
+  excludeFromPrompt(on: boolean) { HoraeAdapter.excluded = on; }
   private api: any;
   constructor(api: any) { this.api = api; }
 
@@ -27,7 +31,7 @@ export class HoraeAdapter implements HoraePort {
     return api ? new HoraeAdapter(api) : null;
   }
 
-  status(): HoraeStatus {
+  status(): SceneTrackerStatus {
     const d = HoraeAdapter.diagnose();
     const api = this.api;
     if (!api || !(api.isEnabled?.() ?? true)) return { available: false, version: d.version, mode: d.mode, staleIndexes: [], busy: false, scene: null };
@@ -44,7 +48,7 @@ export class HoraeAdapter implements HoraePort {
         if (st === 'outdated' || st === 'failed') staleIndexes.push(i);
       }
     }
-    let scene: HoraeStatus['scene'] = null;
+    let scene: SceneTrackerStatus['scene'] = null;
     try {
       const s = api.getLatestState?.();
       if (s) scene = { date: s.timestamp?.story_date, time: s.timestamp?.story_time, location: s.scene?.location, characters: s.scene?.characters_present || [] };

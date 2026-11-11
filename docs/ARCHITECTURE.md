@@ -2,16 +2,24 @@
 
 ## Layers
 
+The engine (`src/core`) knows no host. A host — today SillyTavern, in `src/hosts/sillytavern` — implements
+`HostPort` (the conversation, storage, publishing replies, the Persona, optional lore entries, scene tracker and pack
+store) and `ModelPort` (analysis tasks and story drafts), and uses the core only through `src/core/index.ts`.
+`scripts/check-boundary.mjs` (run by `npm run build` and `npm test`) fails the build when the core imports a host or
+uses a host global, or a host reaches past the core's entry point. `npm run build` also bundles the core alone as
+`dist/canon-core.mjs`.
+
 ```mermaid
 flowchart LR
-  subgraph domain [src/domain — pure, no ST/Horae]
+  subgraph core [src/core — the engine, no host]
+  subgraph domain [domain — pure]
     pack[pack: schema + semantic lint, Graph A]
     time[time: ticks, bounds]
     red[reducer: facts, occurrences, dispositions]
     sch[schedule: crossed intervals, default adjudication, bootstrap]
     wq[world-query: identity, occurrence & entity indexes, causal closure, lexical search]
   end
-  subgraph runtime [src/runtime — controller]
+  subgraph runtime [runtime — controller]
     rep[replay/reconcile]
     eng[engine: operation pipeline, journal, backup]
     pl[planner + impact + forced control]
@@ -19,15 +27,20 @@ flowchart LR
     ctx[context: retrieval + packet]
     gate[gate: deterministic validation + coverage]
     mdl[model: structured task runner]
+    port[host: HostPort, the host's side]
   end
-  subgraph adapters [src/adapters]
-    st[ST: interceptor, quiet draft, raw tasks, prompt hooks, publish, verified save]
-    hor[Horae read-only]
+  cui[ui: timeline window, inspector, texts]
+  end
+  subgraph st [src/hosts/sillytavern — the SillyTavern host]
+    sth[StHost / StModel: interceptor, quiet draft, raw tasks, prompt hooks, publish, verified save]
+    hor[Horae as the scene tracker]
+    lore[World Info as lore entries; 本局设定 in its scan]
+    stui[settings drawer, library, notifications, clock API]
     lock[writer lock]
   end
-  ui[src/ui]
-  domain --> runtime --> adapters
-  ui --> runtime
+  domain --> runtime
+  runtime --> cui
+  st -->|src/core/index.ts| core
 ```
 
 Graph A (pinned pack), the actual history ledger, Graph B (projection = reducer state over baseline + ledger) and future plans are separate types and namespaces. Indexes are rebuildable projections; the selected transcript + pinned pack + binding seed are the only authorities.
@@ -110,7 +123,7 @@ Non-HARD canon is default history, never planned toward:
 
 ## Story time
 
-The clock moves only through time-advance records (scene end of an accepted reply) and never backwards. The reviewer estimates how long each reply takes; explicit times in the text win. With Horae installed and fresh, a new reply (not a swipe/regenerate/continue) starts no earlier than Horae's story time at the end of the previous reply, if that is later than the engine clock and at most 3 days ahead (`followHoraeTime`).
+The clock moves only through time-advance records (scene end of an accepted reply) and never backwards. The reviewer estimates how long each reply takes; explicit times in the text win. With a scene tracker the host provides (SillyTavern: Horae) installed and fresh, a new reply (not a swipe/regenerate/continue) starts no earlier than the tracker's story time at the end of the previous reply, if that is later than the engine clock and at most 3 days ahead (`followTrackerTime`).
 
 ## Scene boxes
 

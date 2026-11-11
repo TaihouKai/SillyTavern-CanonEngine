@@ -2,9 +2,9 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import * as V from '../../src/generated/validators.js';
-import { validatePack } from '../../src/domain/pack';
-import { extractJson } from '../../src/runtime/model';
+import * as V from '../../src/core/generated/validators.js';
+import { validatePack } from '../../src/core/domain/pack';
+import { extractJson } from '../../src/core/runtime/model';
 import { demoRaw, ROOT } from './helpers';
 
 describe('model response schemas', () => {

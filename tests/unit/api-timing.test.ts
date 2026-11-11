@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { publicClock } from '../../src/api';
-import { ENGINE_RELEASE } from '../../src/runtime/types';
+import { publicClock } from '../../src/hosts/sillytavern/api';
+import { ENGINE_RELEASE } from '../../src/core/runtime/types';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 

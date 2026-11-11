@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { personaLibraryCore } from '../../src/adapters/st';
-import { personaHash, samePersona } from '../../src/runtime/integration';
+import { personaLibraryCore } from '../../src/hosts/sillytavern/st';
+import { personaHash, samePersona } from '../../src/core/runtime/integration';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 const CORE = 'A wandering cartographer from the coast.';
@@ -32,8 +32,8 @@ describe('Canon ignores Persona Library sections', () => {
 
   it('PS3 with the setting the profile is read from the core; switching it later raises no "Persona differs" notice', async () => {
     const x = makeEngine();
-    x.engine.settings.ignorePersonaSections = true;
-    x.host.persona = (o?: { ignoreSections?: boolean }) => (o?.ignoreSections ? { name: 'Mia', description: CORE, alt: FULL, source: 'persona_core' as const } : { name: 'Mia', description: FULL, alt: CORE });
+    let ignoreSections = true; // the SillyTavern host's setting
+    x.host.persona = () => (ignoreSections ? { name: 'Mia', description: CORE, alt: FULL, source: 'persona_core' as const } : { name: 'Mia', description: FULL, alt: CORE });
     await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
     await x.engine.reconcile('t');
     x.host.addUser('I look around.');
@@ -42,7 +42,7 @@ describe('Canon ignores Persona Library sections', () => {
     const input = x.model.tasks('profile')[0].input;
     expect(input.persona.description).toBe(CORE);
     expect(x.engine.playerProfile()!.profile.source).toBe('persona_core');
-    x.engine.settings.ignorePersonaSections = false;
+    ignoreSections = false;
     expect(x.engine.personaChanged()).toBe(false);
   });
 });

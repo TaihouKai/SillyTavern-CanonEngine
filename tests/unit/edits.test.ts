@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ, deferred, legacyCampaign } from './fake';
-import { factAt } from '../../src/domain/reducer';
+import { factAt } from '../../src/core/domain/reducer';
 import { ROOT } from './helpers';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');

@@ -1,7 +1,7 @@
 // N01–N06: schema-driven normalization of model output (shapes observed from real models).
 import { describe, expect, it } from 'vitest';
-import { callStructured } from '../../src/runtime/model';
-import type { ModelPort } from '../../src/runtime/model';
+import { callStructured } from '../../src/core/runtime/model';
+import type { ModelPort } from '../../src/core/runtime/model';
 
 function port(replies: unknown[]): ModelPort & { seen: number } {
   const p = { seen: 0, async runTask() { p.seen++; return JSON.stringify(replies.shift() ?? {}); }, async generateDraft() { return ''; } };

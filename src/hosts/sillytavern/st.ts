@@ -5,14 +5,8 @@
 //   through ST's own saveReply.
 // - isolation: internal structured tasks use generateRaw; prompt hooks of other extensions are
 //   neutralized by restoring the exact task messages at CHAT_COMPLETION_PROMPT_READY.
-import type { HostPort, Persona, PublishRequest } from '../../core/runtime/host';
-import type { LoreEntry } from '../../core/runtime/lore';
-import type { CampaignData, Interpretation, OpType, SourceEntry } from '../../core/runtime/types';
-import type { ChatMsg, DraftRequest, ModelPort, TaskName } from '../../core/runtime/model';
-import { TASK_TAG, isTransient } from '../../core/runtime/model';
-import { newId, sha256, deepClone, EngineError } from '../../core/domain/util';
+import { TASK_TAG, isTransient, newId, sha256, deepClone, EngineError, type HostPort, type Persona, type PublishRequest, type LoreEntry, type CampaignData, type Interpretation, type OpType, type SourceEntry, type ChatMsg, type DraftRequest, type ModelPort, type TaskName } from '../../core';
 import { HoraeAdapter } from './horae';
-import { excludeHoraeForOperation } from '../../core/runtime/engine';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare const SillyTavern: { getContext(): any };
@@ -62,6 +56,12 @@ export function personaLibraryCore(entry: any, description: string): string | nu
   return description.trim().startsWith(core) ? core : null;
 }
 
+/** World Info's secondary-key logic (selective + selectiveLogic: 0 AND ANY, 1 NOT ALL, 2 NOT ANY, 3 AND ALL). */
+export function stLogic(e: any): LoreEntry['secondaryLogic'] {
+  if (!e?.selective) return null;
+  return (['any', 'not_all', 'not_any', 'all'] as const)[Number(e.selectiveLogic) || 0] || 'any';
+}
+
 export function ctx(): any {
   return SillyTavern.getContext();
 }
@@ -74,7 +74,7 @@ export const gen = {
   /** Reasoning of the most recent private draft. ST's quiet generation drops it, so it is captured here
    * and attached when that draft is published (the accepted draft is always the latest one). */
   lastDraftReasoning: '',
-  lastDraftInfo: null as null | import('../../core/runtime/model').DraftInfo,
+  lastDraftInfo: null as null | import('../../core').DraftInfo,
 };
 
 function attachmentIdentity(m: any): string {
@@ -105,7 +105,12 @@ export function contentHashOf(role: string, name: string, text: string, attach: 
 }
 
 export class StHost implements HostPort {
-  horae: HoraeAdapter | null;
+  sceneTracker: HoraeAdapter | null;
+  /** Set when SillyTavern hands its World Info scan to extensions (本局设定 then rewrites the scan itself). */
+  loreAppliesOverrides = false;
+  lore: NonNullable<HostPort['lore']>;
+  /** Reads the host's own settings (Persona Library sections). */
+  settings: () => { ignorePersonaSections?: boolean } = () => ({});
   packStore?: HostPort['packStore'];
   model: ModelPort;
   private saving: Promise<void> = Promise.resolve();
@@ -116,7 +121,9 @@ export class StHost implements HostPort {
 
   constructor(model: ModelPort) {
     this.model = model;
-    this.horae = HoraeAdapter.detect();
+    this.sceneTracker = HoraeAdapter.detect();
+    const self = this;
+    this.lore = { entries: () => this.loreEntries(), get appliesOverrides() { return self.loreAppliesOverrides; } };
   }
 
   chatId(): string | null {
@@ -355,8 +362,8 @@ export class StHost implements HostPort {
       try { d = await load(book); } catch { continue; }
       for (const e of Object.values<any>(d?.entries || {})) {
         out.push({
-          book, uid: e.uid, comment: String(e.comment || ''), keys: (e.key || []).map(String), secondary: (e.keysecondary || []).map(String),
-          selective: !!e.selective, logic: Number(e.selectiveLogic) || 0, constant: !!e.constant, disabled: !!e.disable,
+          book, uid: e.uid, title: String(e.comment || ''), keys: (e.key || []).map(String), secondary: (e.keysecondary || []).map(String),
+          secondaryLogic: stLogic(e), constant: !!e.constant, disabled: !!e.disable,
           caseSensitive: e.caseSensitive ?? null, wholeWords: e.matchWholeWords ?? null, content: String(e.content || ''),
         });
       }
@@ -364,7 +371,8 @@ export class StHost implements HostPort {
     return out;
   }
 
-  persona(opts?: { ignoreSections?: boolean }): Persona {
+  persona(): Persona {
+    const opts = { ignoreSections: !!this.settings().ignorePersonaSections };
     const c = ctx();
     const name = String(c.name1 || '');
     const description = String(c.powerUserSettings?.persona_description || '');
@@ -386,7 +394,7 @@ export class StHost implements HostPort {
 
 /** Provider-reported token use of Canon Engine's own requests (story drafts carry the engine context,
  *  analysis calls carry a task tag); other extensions' requests are not counted. */
-const usage: import('../../core/runtime/model').TokenUsage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0, costUsd: 0, storyCostUsd: 0, costUnreported: 0, diem: 0 };
+const usage: import('../../core').TokenUsage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0, costUsd: 0, storyCostUsd: 0, costUnreported: 0, diem: 0 };
 let usageTapped = false;
 /** Folds an OpenAI-style event stream back into one chat.completion object (null if the text is not a stream). */
 export function sseToCompletion(text: string): any {
@@ -569,7 +577,7 @@ export const looksRefused = (out: string) => !/[{[]/.test(out);
 export class StModel implements ModelPort {
   constructor() { tapUsage(); }
   lastDraftInfo() { return gen.lastDraftInfo; }
-  takeUsage() { const u: import('../../core/runtime/model').TokenUsage = { ...usage, ...(this.backupUses.length ? { backup: this.backupUses.splice(0) } : {}) }; usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0; return u; }
+  takeUsage() { const u: import('../../core').TokenUsage = { ...usage, ...(this.backupUses.length ? { backup: this.backupUses.splice(0) } : {}) }; usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0; return u; }
   private queue: Promise<unknown> = Promise.resolve();
   horaePresent = false;
   /** Read at call time so the drawer setting applies immediately. */
@@ -793,7 +801,7 @@ export function promptReadyLast(eventData: any) {
     return;
   }
   if (gen.draft) {
-    if (excludeHoraeForOperation && gen.draft.before) {
+    if (HoraeAdapter.excluded && gen.draft.before) {
       // Stale Horae memory after edits: drop messages other extensions injected at prompt-ready time.
       const before = gen.draft.before;
       for (let i = eventData.chat.length - 1; i >= 0; i--) {
