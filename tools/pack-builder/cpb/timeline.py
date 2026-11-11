@@ -199,18 +199,49 @@ def compute(project, chapters, beats_by_chapter, beat_anchors=None):
     return pos, rep, clock
 
 
-def windows(order, pos):
-    """Event windows: from a beat's start to just before the next beat, at most a day; never overlapping."""
+SLACK = 120
+# the end of a part of the day, in minutes from the start of its day (night runs into the next day)
+PART_END = {'dawn': 8 * 60, 'morning': 12 * 60, 'noon': 14 * 60, 'afternoon': 18 * 60, 'evening': 21 * 60, 'night': DAY + 3 * 60}
+
+
+def _clocked(time):
+    return _clock(time.get('clock')) is not None or time_of(time.get('stated')) is not None
+
+
+def day_only(time):
+    """Do the sources give only the day of the beat? (no clock, no part of the day, not tied to the beat before it)"""
+    if not time or _clocked(time) or time.get('time_of_day') in HOUR:
+        return False
+    return time.get('after_previous') not in ('continuous', 'same_day', 'parallel')
+
+
+def windows(order, pos, times=None, loose=(), chapter_of=None):
+    """Event windows: the beat's own length, at least SLACK minutes; a beat of which the sources give only a part of
+    the day, to the end of that part; only the day (`loose`: placed at a day without a time, or `day_only`), to the
+    end of that day. Never past the next beat of its own story (beats of another story may run at the same time; with
+    no chapter_of, the next beat of all). The next beat is not a bound to reach: a beat with nothing soon after it (the
+    last of a story, or one with days to the next) keeps its own length (live: a film's climax at 12:30 ran until 07:59
+    the next morning, when the next story began, and a HARD event was due only then)."""
+    times = times or {}
+    ch = chapter_of or {}
     out = {}
     for i, bid in enumerate(order):
         s = pos[bid]['start']
         e = pos[bid]['end']
-        nxt = pos[order[i + 1]]['start'] if i + 1 < len(order) else None
-        hi = max(e, s)
+        nxt = next((pos[x]['start'] for x in order[i + 1:] if ch.get(x) == ch.get(bid)), None)
+        hi = max(e, s + SLACK)
+        t = times.get(bid) or {}
+        if bid in loose or day_only(t):
+            hi = max(hi, (s // DAY + 1) * DAY - 1)
+        elif t.get('time_of_day') in PART_END and not _clocked(t):
+            tod, m = t['time_of_day'], s % DAY
+            if tod == 'night' and m < 12 * 60:
+                m += DAY  # a night that has passed midnight
+            # only when the beat starts in that part of the day (one pushed out of it by the beats before keeps its own length)
+            if HOUR[tod] * 60 - 60 <= m <= PART_END[tod]:
+                hi = max(hi, s - m + PART_END[tod])
         if nxt is not None:
-            hi = min(max(hi, min(nxt - 1, s + DAY)), nxt - 1) if nxt > s else s
-        else:
-            hi = max(hi, s + 120)
+            hi = min(hi, nxt - 1) if nxt > s else s
         out[bid] = (s, max(s, hi))
     return out
 
@@ -229,8 +260,9 @@ def _clock(s):
     return h * 60 + mi if h < 24 and mi < 60 else None
 
 
-def place_arc(origin, arc, beats):
-    """{beat id: (start, end, dated)} for an arc's beats, in the pack's minutes."""
+def place_arc(origin, arc, beats, loose=None):
+    """{beat id: (start, end, dated)} for an arc's beats, in the pack's minutes. `loose` (a set) gets the beats placed
+    at a day the sources give without any time of it."""
     s0, e0 = _day(origin, arc['start']), _day(origin, arc['end'])
     lo, hi = s0 * DAY + 8 * 60, e0 * DAY + 22 * 60
     fixed, past = {}, {}
@@ -250,6 +282,8 @@ def place_arc(origin, arc, beats):
             if not s0 - 3 <= d <= e0 + 3 and d < s0:
                 # a happening of the past the sources tell here: at its own date (out of the arc's sequence)
                 c = _clock(t.get('clock'))
+                if c is None and loose is not None:
+                    loose.add(beats[i]['id'])
                 past[beats[i]['id']] = (d * DAY + (c if c is not None else 9 * 60), d * DAY + (c if c is not None else 9 * 60) + max(5, t['duration_minutes']), True)
                 continue
             if s0 - 3 <= d <= e0 + 3:
@@ -260,8 +294,18 @@ def place_arc(origin, arc, beats):
                     c = HOUR[t['time_of_day']] * 60
                 prev = fixed[max(fixed)] if fixed else None
                 if c is None:
-                    # no time of day: after the previous dated beat of that day, else the morning
-                    c = prev % DAY + 30 if prev is not None and prev // DAY == d else 9 * 60
+                    # no time of day: after the previous dated beat of that day, else the morning (the day is all
+                    # that is known)
+                    if prev is not None and prev // DAY == d:
+                        c = prev % DAY + 30
+                        # later the same day as a beat of which only the day is known: so is this one's (not one
+                        # that follows right after it: that one keeps close to it)
+                        if loose is not None and beats[max(fixed)]['id'] in loose and t['after_previous'] not in ('continuous', 'parallel'):
+                            loose.add(b['id'])
+                    else:
+                        c = 9 * 60
+                        if loose is not None:
+                            loose.add(b['id'])
                 elif prev is not None and prev // DAY == d and d * DAY + c <= prev and t['after_previous'] != 'parallel' and _clock(t.get('clock')) is None:
                     # only a part of the day ("morning") that would put it before the beat it follows: right after it
                     c = prev % DAY + 30
@@ -271,7 +315,7 @@ def place_arc(origin, arc, beats):
     if past:
         rest = [b for b in beats if b['id'] not in past]
         keep = {b['id']: j for j, b in enumerate(rest)}
-        out = place_arc(origin, arc, rest) if rest else {}
+        out = place_arc(origin, arc, rest, loose) if rest else {}
         return {**out, **past}
     # segments between dated beats (the arc's start and end bound the first and the last)
     out = {}

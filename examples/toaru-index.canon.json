@@ -33962,8 +33962,8 @@
      "minute": 570
     },
     "latest": {
-     "day": -443,
-     "minute": 570
+     "day": -444,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-05-02 09:30；文中：5月2日",
@@ -34131,8 +34131,8 @@
      "minute": 480
     },
     "latest": {
-     "day": -412,
-     "minute": 480
+     "day": -413,
+     "minute": 1020
     },
     "precision": "range",
     "label": "2019-06-02 08:00；文中：某日8:00",
@@ -34339,8 +34339,8 @@
      "minute": 570
     },
     "latest": {
-     "day": -411,
-     "minute": 539
+     "day": -412,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-06-03 09:30",
@@ -34451,8 +34451,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -410,
-     "minute": 539
+     "day": -411,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-06-04 09:00",
@@ -34597,8 +34597,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -409,
-     "minute": 539
+     "day": -410,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-06-05 09:00",
@@ -34716,8 +34716,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -408,
-     "minute": 540
+     "day": -409,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-06-06 09:00",
@@ -34837,8 +34837,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -404,
-     "minute": 539
+     "day": -405,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-06-10 09:00",
@@ -34940,8 +34940,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -403,
-     "minute": 540
+     "day": -401,
+     "minute": 539
     },
     "precision": "range",
     "label": "2019-06-11 09:00；文中：四天后",
@@ -35052,8 +35052,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -400,
-     "minute": 539
+     "day": -401,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-06-14 09:00；文中：又三天后",
@@ -35326,8 +35326,8 @@
      "minute": 570
     },
     "latest": {
-     "day": -399,
-     "minute": 570
+     "day": -400,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-06-15 09:30",
@@ -35688,8 +35688,8 @@
      "minute": 570
     },
     "latest": {
-     "day": -290,
-     "minute": 539
+     "day": -291,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-10-02 09:30",
@@ -36212,7 +36212,7 @@
     },
     "latest": {
      "day": -384,
-     "minute": 599
+     "minute": 180
     },
     "precision": "range",
     "label": "2019-06-30 21:00；文中：1年前6月30日深夜",
@@ -36774,8 +36774,8 @@
      "minute": 690
     },
     "latest": {
-     "day": -383,
-     "minute": 690
+     "day": -384,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-07-01 11:30",
@@ -37475,8 +37475,8 @@
      "minute": 1260
     },
     "latest": {
-     "day": -377,
-     "minute": 1260
+     "day": -378,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-07-07 21:00；文中：1年前7月7日夜晚",
@@ -37904,8 +37904,8 @@
      "minute": 1080
     },
     "latest": {
-     "day": -370,
-     "minute": 1080
+     "day": -371,
+     "minute": 1260
     },
     "precision": "range",
     "label": "2019-07-14 18:00",
@@ -38076,8 +38076,8 @@
      "minute": 1200
     },
     "latest": {
-     "day": -363,
-     "minute": 1200
+     "day": -364,
+     "minute": 1320
     },
     "precision": "range",
     "label": "2019-07-21 20:00；文中：1年前7月21日20:00",
@@ -38365,8 +38365,8 @@
      "minute": 870
     },
     "latest": {
-     "day": -356,
-     "minute": 870
+     "day": -357,
+     "minute": 990
     },
     "precision": "range",
     "label": "2019-07-28 14:30",
@@ -42223,8 +42223,8 @@
      "minute": 690
     },
     "latest": {
-     "day": -353,
-     "minute": 479
+     "day": -354,
+     "minute": 810
     },
     "precision": "range",
     "label": "2019-07-31 11:30；学园都市（一年前，7月末至8月初）",
@@ -44078,8 +44078,8 @@
      "minute": 1290
     },
     "latest": {
-     "day": -352,
-     "minute": 1290
+     "day": -353,
+     "minute": 1410
     },
     "precision": "range",
     "label": "2019-08-01 21:30；学园都市（一年前，7月末至8月初）",
@@ -44265,8 +44265,8 @@
      "minute": 630
     },
     "latest": {
-     "day": -350,
-     "minute": 539
+     "day": -351,
+     "minute": 750
     },
     "precision": "range",
     "label": "2019-08-03 10:30；文中：1年前8月3日10:30，「ITEM」肃清初羽攫里。",
@@ -46452,8 +46452,8 @@
      "minute": 0
     },
     "latest": {
-     "day": -346,
-     "minute": 0
+     "day": -347,
+     "minute": 120
     },
     "precision": "range",
     "label": "2019-08-07 00:00；文中：1年前8月7日0:00，麦野与鲇鱼女对决。",
@@ -46743,8 +46743,8 @@
      "minute": 510
     },
     "latest": {
-     "day": -345,
-     "minute": 510
+     "day": -346,
+     "minute": 630
     },
     "precision": "range",
     "label": "2019-08-08 08:30",
@@ -46816,7 +46816,7 @@
     },
     "latest": {
      "day": -344,
-     "minute": 1260
+     "minute": 0
     },
     "precision": "range",
     "label": "2019-08-09 21:00；文中：1年前8月9日，庙会里，麦野向芙兰达诉苦。",
@@ -47481,8 +47481,8 @@
      "minute": 660
     },
     "latest": {
-     "day": -324,
-     "minute": 269
+     "day": -325,
+     "minute": 780
     },
     "precision": "range",
     "label": "2019-08-29 11:00；文中：1年前8月29日11:00之后",
@@ -49379,7 +49379,7 @@
     },
     "latest": {
      "day": -322,
-     "minute": 1350
+     "minute": 30
     },
     "precision": "range",
     "label": "2019-08-31 22:30",
@@ -49455,7 +49455,7 @@
     },
     "latest": {
      "day": -323,
-     "minute": 1259
+     "minute": 300
     },
     "precision": "range",
     "label": "2019-08-31 03:00；文中：1年前8月31日3:00",
@@ -51973,8 +51973,8 @@
      "minute": 690
     },
     "latest": {
-     "day": -311,
-     "minute": 690
+     "day": -312,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-09-11 11:30；文中：一年前9月11日",
@@ -52981,8 +52981,8 @@
      "minute": 480
     },
     "latest": {
-     "day": -304,
-     "minute": 419
+     "day": -305,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2019-09-18 08:00；学园都市·大霸星祭（一年前）；文中：一年前9月18日上午",
@@ -53799,7 +53799,7 @@
     },
     "latest": {
      "day": -303,
-     "minute": 1019
+     "minute": 120
     },
     "precision": "range",
     "label": "2019-09-20 00:00；学园都市·大霸星祭（一年前）；文中：一年前9月20日0:00",
@@ -56289,8 +56289,8 @@
      "minute": 930
     },
     "latest": {
-     "day": -300,
-     "minute": 899
+     "day": -301,
+     "minute": 1439
     },
     "precision": "range",
     "label": "约2019-09-22 15:30（学园都市时间，编辑推定）；学园都市（暗部侧·十月下旬）",
@@ -56930,8 +56930,8 @@
      "minute": 1110
     },
     "latest": {
-     "day": -298,
-     "minute": 899
+     "day": -299,
+     "minute": 1290
     },
     "precision": "range",
     "label": "约2019-09-24 18:30（学园都市时间，编辑推定）；学园都市（暗部侧·十月下旬）；文中：傍晚",
@@ -57235,8 +57235,8 @@
      "minute": 1080
     },
     "latest": {
-     "day": -297,
-     "minute": 899
+     "day": -298,
+     "minute": 1200
     },
     "precision": "range",
     "label": "约2019-09-25 18:00（学园都市时间，编辑推定）；学园都市（暗部侧·十月下旬）；文中：1小时后",
@@ -57418,8 +57418,8 @@
      "minute": 901
     },
     "latest": {
-     "day": -296,
-     "minute": 899
+     "day": -297,
+     "minute": 1439
     },
     "precision": "range",
     "label": "约2019-09-26 15:01（学园都市时间，编辑推定）；学园都市（暗部侧·十月下旬）",
@@ -57629,8 +57629,8 @@
      "minute": 930
     },
     "latest": {
-     "day": -295,
-     "minute": 930
+     "day": -296,
+     "minute": 1439
     },
     "precision": "range",
     "label": "约2019-09-27 15:30（学园都市时间，编辑推定）；学园都市（暗部侧·十月下旬）",
@@ -57798,7 +57798,7 @@
      "minute": 540
     },
     "latest": {
-     "day": -292,
+     "day": -290,
      "minute": 539
     },
     "precision": "range",
@@ -58047,8 +58047,8 @@
      "minute": 630
     },
     "latest": {
-     "day": -289,
-     "minute": 630
+     "day": -290,
+     "minute": 1439
     },
     "precision": "range",
     "label": "约2019-10-03 10:30（学园都市时间，编辑推定）；学园都市（暗部侧·十月下旬）",
@@ -58142,7 +58142,7 @@
     },
     "latest": {
      "day": -267,
-     "minute": 1109
+     "minute": 180
     },
     "precision": "range",
     "label": "2019-10-25 21:00；文中：1年前10月25日深夜，「ITEM」前去肃清不惑幻妖。",
@@ -58199,8 +58199,8 @@
      "minute": 1110
     },
     "latest": {
-     "day": -266,
-     "minute": 1110
+     "day": -267,
+     "minute": 1439
     },
     "precision": "range",
     "label": "约2019-10-26 18:30（学园都市时间，编辑推定）；文中：夜晚（18:30以后），芙兰达设下陷阱。",
@@ -58387,8 +58387,8 @@
      "minute": 1110
     },
     "latest": {
-     "day": -264,
-     "minute": 1110
+     "day": -265,
+     "minute": 1290
     },
     "precision": "range",
     "label": "2019-10-28 18:30；文中：1年前10月28日傍晚，「ITEM」追击起床闹钟。",
@@ -58460,7 +58460,7 @@
     },
     "latest": {
      "day": -182,
-     "minute": 1260
+     "minute": 0
     },
     "precision": "range",
     "label": "2020-01-18 21:00；文中：1月第3个星期五（1月18/19日）",
@@ -58625,8 +58625,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -168,
-     "minute": 540
+     "day": -169,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-02-01 09:00；文中：2月第1个星期五（2月1/2日）",
@@ -58718,8 +58718,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -147,
-     "minute": 540
+     "day": -148,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-02-22 09:00；文中：2月第4个星期五（2月22/23日）",
@@ -58838,8 +58838,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -125,
-     "minute": 540
+     "day": -126,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-03-15 09:00；文中：3月第3个星期五为3月15日",
@@ -58968,8 +58968,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -104,
-     "minute": 540
+     "day": -105,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-04-05 09:00；文中：4月第1个星期五（4月5日）",
@@ -59070,8 +59070,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -83,
-     "minute": 540
+     "day": -84,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-04-26 09:00；文中：4月第4个星期五（4月26日）",
@@ -59157,8 +59157,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -69,
-     "minute": 540
+     "day": -70,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-05-10 09:00；文中：5月第2个星期五（5月10日）",
@@ -59258,8 +59258,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -55,
-     "minute": 540
+     "day": -56,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-05-24 09:00；文中：5月第4个星期五（5月24日）",
@@ -59344,8 +59344,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -34,
-     "minute": 540
+     "day": -35,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-06-14 09:00；文中：6月第2个星期五（6月14日）",
@@ -59478,8 +59478,8 @@
      "minute": 1080
     },
     "latest": {
-     "day": -13,
-     "minute": 1080
+     "day": -14,
+     "minute": 1320
     },
     "precision": "range",
     "label": "2020-07-05 18:00；文中：7月第1个星期五（7月5日）",
@@ -59626,8 +59626,8 @@
      "minute": 900
     },
     "latest": {
-     "day": -6,
-     "minute": 900
+     "day": -7,
+     "minute": 1020
     },
     "precision": "range",
     "label": "2020-07-12 15:00；文中：7月第2个星期五（7月12日）",
@@ -59707,8 +59707,8 @@
      "minute": 540
     },
     "latest": {
-     "day": 8,
-     "minute": 479
+     "day": 7,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-07-26 09:00；文中：7月第4个星期五（7月26日）",
@@ -59755,8 +59755,8 @@
      "minute": 540
     },
     "latest": {
-     "day": 36,
-     "minute": 479
+     "day": 35,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-08-23 09:00；文中：8月第4个星期五（8月23日）",
@@ -60895,8 +60895,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -31,
-     "minute": 540
+     "day": -32,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-06-17 09:00；学园都市（超电磁炮线）；文中：6月17日",
@@ -60988,8 +60988,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -8,
-     "minute": 539
+     "day": -9,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-07-10 09:00；学园都市（超电磁炮线）；文中：7月10日",
@@ -61048,8 +61048,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -7,
-     "minute": 540
+     "day": -8,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-07-11 09:00；学园都市（超电磁炮线）；文中：7月11日",
@@ -61107,8 +61107,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -2,
-     "minute": 539
+     "day": -3,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-07-16 09:00；学园都市（超电磁炮线）；文中：7月16日",
@@ -61366,8 +61366,8 @@
      "minute": 1110
     },
     "latest": {
-     "day": -1,
-     "minute": 539
+     "day": -2,
+     "minute": 1230
     },
     "precision": "range",
     "label": "2020-07-17 18:30；学园都市（超电磁炮线）；文中：7月17日",
@@ -61483,8 +61483,8 @@
      "minute": 570
     },
     "latest": {
-     "day": 0,
-     "minute": 570
+     "day": -1,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-07-18 09:30；学园都市（超电磁炮线）；文中：7月18日",
@@ -62010,7 +62010,7 @@
     },
     "latest": {
      "day": 4,
-     "minute": 540
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-07-22 09:00；学园都市（超电磁炮线）；文中：7月22日-23日",
@@ -62827,8 +62827,8 @@
      "minute": 540
     },
     "latest": {
-     "day": 7,
-     "minute": 539
+     "day": 6,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-07-25 09:00；学园都市（超电磁炮线）；文中：7月25日",
@@ -63551,8 +63551,8 @@
      "minute": 540
     },
     "latest": {
-     "day": 3,
-     "minute": 539
+     "day": 4,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-07-21 09:00；文中：7月21日~7月23日",
@@ -64251,8 +64251,8 @@
      "minute": 22
     },
     "latest": {
-     "day": 10,
-     "minute": 22
+     "day": 9,
+     "minute": 142
     },
     "precision": "range",
     "label": "2020-07-28 00:22；文中：7月28日0:22",
@@ -64416,8 +64416,8 @@
      "minute": 540
     },
     "latest": {
-     "day": 11,
-     "minute": 540
+     "day": 10,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-07-29 09:00；文中：7月29日",
@@ -65164,8 +65164,8 @@
      "minute": 750
     },
     "latest": {
-     "day": 14,
-     "minute": 479
+     "day": 13,
+     "minute": 870
     },
     "precision": "range",
     "label": "2020-08-01 12:30；学园都市（八月一日）",
@@ -65765,8 +65765,8 @@
      "minute": 480
     },
     "latest": {
-     "day": 17,
-     "minute": 479
+     "day": 16,
+     "minute": 1439
     },
     "precision": "range",
     "label": "约2020-08-04 08:00（学园都市时间，编辑推定）；学园都市（夏，乱杂开放事件）；文中：第二天",
@@ -66242,8 +66242,8 @@
      "minute": 720
     },
     "latest": {
-     "day": 18,
-     "minute": 479
+     "day": 17,
+     "minute": 840
     },
     "precision": "range",
     "label": "约2020-08-05 12:00（学园都市时间，编辑推定）；学园都市（夏，乱杂开放事件）",
@@ -66809,8 +66809,8 @@
      "minute": 540
     },
     "latest": {
-     "day": 20,
-     "minute": 479
+     "day": 19,
+     "minute": 1439
     },
     "precision": "range",
     "label": "约2020-08-07 09:00（学园都市时间，编辑推定）；学园都市（夏，乱杂开放事件）",
@@ -68454,8 +68454,8 @@
      "minute": 1313
     },
     "latest": {
-     "day": 22,
-     "minute": 1079
+     "day": 21,
+     "minute": 1433
     },
     "precision": "range",
     "label": "约2020-08-09 21:53（学园都市时间，编辑推定）；学园都市（夏，乱杂开放事件）",
@@ -69759,8 +69759,8 @@
      "minute": 945
     },
     "latest": {
-     "day": 16,
-     "minute": 479
+     "day": 15,
+     "minute": 1065
     },
     "precision": "range",
     "label": "约2020-08-03 15:45（学园都市时间，编辑推定）；学园都市（第10学区·奇异之地）",
@@ -69898,8 +69898,8 @@
      "minute": 540
     },
     "latest": {
-     "day": -10,
-     "minute": 540
+     "day": -11,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-07-08 09:00；学园都市（八月上旬）；文中：7月8日",
@@ -72390,8 +72390,8 @@
      "minute": 1080
     },
     "latest": {
-     "day": 23,
-     "minute": 1080
+     "day": 22,
+     "minute": 1260
     },
     "precision": "range",
     "label": "2020-08-10 18:00；学园都市（旧约3·超电磁炮妹妹篇）；文中：8月10日",
@@ -73063,8 +73063,8 @@
      "minute": 540
     },
     "latest": {
-     "day": 31,
-     "minute": 539
+     "day": 30,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-08-18 09:00；学园都市（旧约3·超电磁炮妹妹篇）；文中：8月18日",
@@ -73490,8 +73490,8 @@
      "minute": 630
     },
     "latest": {
-     "day": 32,
-     "minute": 630
+     "day": 31,
+     "minute": 750
     },
     "precision": "range",
     "label": "2020-08-19 10:30；学园都市（旧约3·超电磁炮妹妹篇）；文中：8月19日",
@@ -73844,7 +73844,7 @@
     },
     "latest": {
      "day": 33,
-     "minute": 1079
+     "minute": 0
     },
     "precision": "range",
     "label": "2020-08-20 21:00；学园都市（旧约3·超电磁炮妹妹篇）；文中：8月20日",
@@ -75113,8 +75113,8 @@
      "minute": 1080
     },
     "latest": {
-     "day": 35,
-     "minute": 539
+     "day": 34,
+     "minute": 1260
     },
     "precision": "range",
     "label": "2020-08-22 18:00；学园都市（旧约3·超电磁炮妹妹篇）；文中：8月22日",
@@ -75408,8 +75408,8 @@
      "minute": 540
     },
     "latest": {
-     "day": 37,
-     "minute": 539
+     "day": 36,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-08-24 09:00；学园都市（八月下旬至九月上旬）；文中：8月24日",
@@ -75586,8 +75586,8 @@
      "minute": 570
     },
     "latest": {
-     "day": 38,
-     "minute": 539
+     "day": 37,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-08-25 09:30；学园都市（八月下旬至九月上旬）；文中：8月25日",
@@ -75764,8 +75764,8 @@
      "minute": 1080
     },
     "latest": {
-     "day": 39,
-     "minute": 479
+     "day": 38,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-08-26 18:00；学园都市（八月下旬至九月上旬）；文中：8月26日",
@@ -87822,7 +87822,7 @@
     },
     "latest": {
      "day": 48,
-     "minute": 1259
+     "minute": 570
     },
     "precision": "range",
     "label": "2020-09-05 07:30；学园都市外·学艺都市（广域社会参观期间）",
@@ -88632,8 +88632,8 @@
      "minute": 600
     },
     "latest": {
-     "day": 50,
-     "minute": 539
+     "day": 49,
+     "minute": 840
     },
     "precision": "range",
     "label": "2020-09-06 10:00；学园都市外·学艺都市（广域社会参观期间）；文中：9月6日",
@@ -89874,8 +89874,8 @@
      "minute": 570
     },
     "latest": {
-     "day": 57,
-     "minute": 570
+     "day": 56,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-09-13 09:30；文中：some time later",
@@ -90214,8 +90214,8 @@
      "minute": 630
     },
     "latest": {
-     "day": 51,
-     "minute": 479
+     "day": 50,
+     "minute": 810
     },
     "precision": "range",
     "label": "约2020-09-07 10:30（学园都市时间，编辑推定）；文中：伦敦某日清晨，史提尔与萝拉·斯图亚特交谈",
@@ -93470,8 +93470,8 @@
      "minute": 75
     },
     "latest": {
-     "day": 54,
-     "minute": 75
+     "day": 53,
+     "minute": 255
     },
     "precision": "range",
     "label": "约2020-09-10 01:15（学园都市时间，编辑推定）；英国伦敦（旧约第8卷时期）",
@@ -94134,8 +94134,8 @@
      "minute": 340
     },
     "latest": {
-     "day": 56,
-     "minute": 340
+     "day": 55,
+     "minute": 520
     },
     "precision": "range",
     "label": "约2020-09-12 05:40（学园都市时间，编辑推定）；英国伦敦（旧约第8卷时期）；文中：清晨",
@@ -97007,8 +97007,8 @@
      "minute": 540
     },
     "latest": {
-     "day": 60,
-     "minute": 479
+     "day": 59,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-09-16 09:00；学园都市与宇宙天梯恩底弥翁（剧场版原创）；文中：9月16日",
@@ -97102,7 +97102,7 @@
     },
     "latest": {
      "day": 60,
-     "minute": 1259
+     "minute": 720
     },
     "precision": "range",
     "label": "2020-09-17 08:00；学园都市与宇宙天梯恩底弥翁（剧场版原创）；文中：9月17日早上",
@@ -98439,8 +98439,8 @@
      "minute": 750
     },
     "latest": {
-     "day": 62,
-     "minute": 479
+     "day": 61,
+     "minute": 870
     },
     "precision": "range",
     "label": "2020-09-18 12:30；学园都市与宇宙天梯恩底弥翁（剧场版原创）；文中：9月18日",
@@ -104076,7 +104076,7 @@
     },
     "latest": {
      "day": 64,
-     "minute": 1320
+     "minute": 0
     },
     "precision": "range",
     "label": "2020-09-20 22:00；学园都市·大霸星祭（九月）",
@@ -106375,8 +106375,8 @@
      "minute": 1080
     },
     "latest": {
-     "day": 69,
-     "minute": 899
+     "day": 68,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-09-25 18:00；学园都市·大霸星祭（九月）；文中：9月25日夜晚",
@@ -110725,8 +110725,8 @@
      "minute": 1260
     },
     "latest": {
-     "day": 79,
-     "minute": 1260
+     "day": 78,
+     "minute": 1380
     },
     "precision": "range",
     "label": "2020-10-05 21:00；文中：10月5日",
@@ -113519,8 +113519,8 @@
      "minute": 600
     },
     "latest": {
-     "day": 73,
-     "minute": 319
+     "day": 72,
+     "minute": 720
     },
     "precision": "range",
     "label": "2020-09-29 10:00",
@@ -113804,8 +113804,8 @@
      "minute": 570
     },
     "latest": {
-     "day": 75,
-     "minute": 539
+     "day": 74,
+     "minute": 690
     },
     "precision": "range",
     "label": "2020-10-01 09:30",
@@ -118679,8 +118679,8 @@
      "minute": 508
     },
     "latest": {
-     "day": 82,
-     "minute": 479
+     "day": 81,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-10-08 08:28；文中：第8天",
@@ -118913,8 +118913,8 @@
      "minute": 1080
     },
     "latest": {
-     "day": 84,
-     "minute": 479
+     "day": 83,
+     "minute": 1260
     },
     "precision": "range",
     "label": "2020-10-10 18:00；文中：第10天放学后",
@@ -132059,7 +132059,7 @@
     },
     "latest": {
      "day": 83,
-     "minute": 899
+     "minute": 120
     },
     "precision": "range",
     "label": "2020-10-10 00:00；学园都市（旧约15 暗部大战篇）",
@@ -135629,8 +135629,8 @@
      "minute": 930
     },
     "latest": {
-     "day": 89,
-     "minute": 930
+     "day": 88,
+     "minute": 1050
     },
     "precision": "range",
     "label": "2020-10-15 15:30",
@@ -136865,8 +136865,8 @@
      "minute": 1320
     },
     "latest": {
-     "day": 92,
-     "minute": 1320
+     "day": 91,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-10-18 22:00；文中：10月Y+2日",
@@ -146624,8 +146624,8 @@
      "minute": 570
     },
     "latest": {
-     "day": 105,
-     "minute": 570
+     "day": 104,
+     "minute": 1439
     },
     "precision": "range",
     "label": "约2020-10-31 09:30（学园都市时间，编辑推定）",
@@ -153133,8 +153133,8 @@
      "minute": 540
     },
     "latest": {
-     "day": 111,
-     "minute": 540
+     "day": 110,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-11-06 09:00；学园都市与英国清教（新约2）",
@@ -156575,8 +156575,8 @@
      "minute": 1260
     },
     "latest": {
-     "day": 115,
-     "minute": 1260
+     "day": 114,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-11-10 21:00；文中：所有骚动结束之后",
@@ -159100,8 +159100,8 @@
      "minute": 1200
     },
     "latest": {
-     "day": 118,
-     "minute": 539
+     "day": 117,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-11-13 20:00",
@@ -172895,8 +172895,8 @@
      "minute": 790
     },
     "latest": {
-     "day": 122,
-     "minute": 479
+     "day": 121,
+     "minute": 1439
     },
     "precision": "range",
     "label": "约2020-11-17 13:10（学园都市时间，编辑推定）；学园都市（新约7·人力资源计划）",
@@ -175021,8 +175021,8 @@
      "minute": 810
     },
     "latest": {
-     "day": 123,
-     "minute": 539
+     "day": 122,
+     "minute": 930
     },
     "precision": "range",
     "label": "2020-11-18 13:30",
@@ -178710,8 +178710,8 @@
      "minute": 870
     },
     "latest": {
-     "day": 125,
-     "minute": 539
+     "day": 124,
+     "minute": 990
     },
     "precision": "range",
     "label": "2020-11-20 14:30",
@@ -183396,7 +183396,7 @@
     },
     "latest": {
      "day": 127,
-     "minute": 783
+     "minute": 178
     },
     "precision": "range",
     "label": "约2020-11-22 20:58（学园都市时间，编辑推定）；学园都市（新约11）；文中：11月底某日深夜",
@@ -186280,8 +186280,8 @@
      "minute": 0
     },
     "latest": {
-     "day": 137,
-     "minute": 0
+     "day": 136,
+     "minute": 120
     },
     "precision": "range",
     "label": "2020-12-02 00:00",
@@ -195231,8 +195231,8 @@
      "minute": 480
     },
     "latest": {
-     "day": 141,
-     "minute": 480
+     "day": 140,
+     "minute": 600
     },
     "precision": "range",
     "label": "2020-12-06 08:00；文中：12月6日早上",
@@ -203519,7 +203519,7 @@
     },
     "latest": {
      "day": 146,
-     "minute": 1259
+     "minute": 300
     },
     "precision": "range",
     "label": "2020-12-12 03:00；文中：3:00",
@@ -207745,8 +207745,8 @@
      "minute": 690
     },
     "latest": {
-     "day": 149,
-     "minute": 690
+     "day": 148,
+     "minute": 810
     },
     "precision": "range",
     "label": "2020-12-14 11:30",
@@ -209231,8 +209231,8 @@
      "minute": 720
     },
     "latest": {
-     "day": 156,
-     "minute": 539
+     "day": 155,
+     "minute": 960
     },
     "precision": "range",
     "label": "2020-12-21 12:00；文中：12月12日学园都市停机与疏散后正在恢复",
@@ -209500,8 +209500,8 @@
      "minute": 540
     },
     "latest": {
-     "day": 157,
-     "minute": 539
+     "day": 156,
+     "minute": 1439
     },
     "precision": "range",
     "label": "2020-12-22 09:00",
@@ -219494,7 +219494,7 @@
     },
     "latest": {
      "day": 162,
-     "minute": 1350
+     "minute": 30
     },
     "precision": "range",
     "label": "2020-12-27 22:30",
@@ -222717,8 +222717,8 @@
      "minute": 0
     },
     "latest": {
-     "day": 165,
-     "minute": 0
+     "day": 164,
+     "minute": 180
     },
     "precision": "range",
     "label": "2020-12-30 00:00；文中：12月29日夜晚",
@@ -224142,8 +224142,8 @@
      "minute": 480
     },
     "latest": {
-     "day": 167,
-     "minute": 480
+     "day": 166,
+     "minute": 660
     },
     "precision": "range",
     "label": "2021-01-01 08:00；文中：次年1月1日8:00，美琴来到第12学区新年参拜",
@@ -225004,7 +225004,7 @@
     },
     "latest": {
      "day": 169,
-     "minute": 1259
+     "minute": 660
     },
     "precision": "range",
     "label": "2021-01-04 08:00；文中：次年1月4日清晨，姆特在第6学区吃年糕",
@@ -226469,7 +226469,7 @@
     },
     "latest": {
      "day": 171,
-     "minute": 1259
+     "minute": 120
     },
     "precision": "range",
     "label": "2021-01-06 00:00；文中：次年1月6日0:00，茵蒂克丝与欧提努斯寻找被击飞的CRC，遇到爱丽丝与H.T.特利斯墨吉斯忒斯",
@@ -232871,8 +232871,8 @@
      "minute": 951
     },
     "latest": {
-     "day": 180,
-     "minute": 538
+     "day": 179,
+     "minute": 1140
     },
     "precision": "range",
     "label": "约2021-01-14 15:51（学园都市时间，编辑推定）；学园都市·第三学期（创约16）；文中：放学后~19:00前",

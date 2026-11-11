@@ -748,6 +748,7 @@ def build(project, out_path=None, raw=False):
 
     clock0 = timeline.Clock(project.get('timeline', {}).get('origin_date', '2000-01-01'))
     dated = set()
+    loose = set()
     if project.get('arcs'):
         # each chapter has dates of its own (the sources' chronology): a beat with a date sits there, the ones between
         # follow their cues; chapters running at the same time interleave (live: 超电磁炮 and 禁书目录 in one July)
@@ -755,7 +756,7 @@ def build(project, out_path=None, raw=False):
         origin = dt.date.fromisoformat(project['timeline']['origin_date'])
         pos = {}
         for ch in chapters:
-            for bid, (s, e, d) in timeline.place_arc(origin, arc_of[ch['id']], beats_by_ch[ch['id']]).items():
+            for bid, (s, e, d) in timeline.place_arc(origin, arc_of[ch['id']], beats_by_ch[ch['id']], loose).items():
                 pos[bid] = {'start': s, 'end': e}
                 if d:
                     dated.add(bid)
@@ -776,7 +777,8 @@ def build(project, out_path=None, raw=False):
     else:
         pos, chrep, clock = timeline.compute(project, chapters, beats_by_ch, stated_anchors(project, chapters, beats_by_ch, units, unit_of, clock0))
         order = [b['id'] for ch in chapters for b in beats_by_ch[ch['id']]]
-    win = timeline.windows(order, pos)
+    win = timeline.windows(order, pos, {b['id']: b['time'] for bs in beats_by_ch.values() for b in bs}, loose,
+                           {b['id']: chid for chid, bs in beats_by_ch.items() for b in bs})
 
     # places: every place entity, so location ids can be checked
     place_ids = {e['id'] for e in ents if e['kind'] == 'place'}

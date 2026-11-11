@@ -140,6 +140,33 @@ class TimelineTest(unittest.TestCase):
         for x, y in zip(order, order[1:]):
             self.assertLess(w[x][1], w[y][0])                                        # windows never touch
 
+    def test_window_is_the_beats_own_time(self):
+        D = timeline.DAY
+        tight = {'after_previous': 'continuous', 'time_of_day': 'unknown', 'clock': '', 'stated': ''}
+        pos = {'a': {'start': 61 * D + 720, 'end': 61 * D + 750}, 'b': {'start': 61 * D + 750, 'end': 61 * D + 780}, 'c': {'start': 62 * D + 480, 'end': 62 * D + 540}}
+        w = timeline.windows(['a', 'b', 'c'], pos, {'a': tight, 'b': tight, 'c': tight})
+        self.assertEqual(w['a'], (61 * D + 720, 61 * D + 749))                      # up to the next beat, no further
+        self.assertEqual(w['b'], (61 * D + 750, 61 * D + 750 + timeline.SLACK))     # the last of a story: its own time, not until the next story
+        self.assertEqual(w['c'], (62 * D + 480, 62 * D + 480 + timeline.SLACK))
+        long = {'a': {'start': 10 * D + 540, 'end': 12 * D + 540}}                  # a beat that lasts two days keeps them
+        self.assertEqual(timeline.windows(['a'], long, {'a': tight})['a'], (10 * D + 540, 12 * D + 540))
+        dayonly = {'after_previous': 'days', 'days': 3, 'time_of_day': 'unknown', 'clock': '', 'stated': '7月10日'}
+        p2 = {'a': {'start': 9 * D + 540, 'end': 9 * D + 600}, 'b': {'start': 15 * D + 540, 'end': 15 * D + 600}}
+        self.assertEqual(timeline.windows(['a', 'b'], p2, {'a': dayonly})['a'], (9 * D + 540, 10 * D - 1))   # only the day known: that day
+        self.assertEqual(timeline.windows(['a', 'b'], p2, {'a': {**dayonly, 'stated': '7月10日21:00'}})['a'], (9 * D + 540, 9 * D + 540 + timeline.SLACK))
+        self.assertEqual(timeline.windows(['a', 'b'], p2, {}, loose={'a'})['a'], (9 * D + 540, 10 * D - 1))           # placed at a day without a time
+        night = {'after_previous': 'unknown', 'time_of_day': 'night', 'clock': '', 'stated': '6月30日深夜'}
+        p3 = {'a': {'start': 9 * D + 1260, 'end': 9 * D + 1320}, 'b': {'start': 15 * D + 540, 'end': 15 * D + 600}}
+        self.assertEqual(timeline.windows(['a', 'b'], p3, {'a': night})['a'], (9 * D + 1260, 10 * D + 180))   # a part of the day: to its end
+        p5 = {'a': {'start': 10 * D + 15, 'end': 10 * D + 75}, 'b': {'start': 15 * D + 540, 'end': 15 * D + 600}}
+        self.assertEqual(timeline.windows(['a', 'b'], p5, {'a': night})['a'], (10 * D + 15, 10 * D + 180))     # past midnight: this morning
+        evening = {'after_previous': 'same_day', 'time_of_day': 'evening', 'clock': '', 'stated': ''}
+        self.assertEqual(timeline.windows(['a', 'b'], p5, {'a': evening})['a'], (10 * D + 15, 10 * D + 15 + timeline.SLACK))  # pushed out of its part of the day
+        # another story's beat does not end it; its own story's next beat does
+        p4 = {'a': {'start': 10 * D + 540, 'end': 13 * D + 540}, 'x': {'start': 11 * D + 540, 'end': 11 * D + 600}, 'b': {'start': 14 * D + 540, 'end': 14 * D + 600}}
+        w4 = timeline.windows(['a', 'x', 'b'], p4, {}, chapter_of={'a': 'one', 'x': 'two', 'b': 'one'})
+        self.assertEqual(w4['a'], (10 * D + 540, 13 * D + 540))
+
 
     def test_spread_between_anchors(self):
         class P:
