@@ -5,7 +5,7 @@ import type { ChatMsg, DraftInfo, DraftRequest, ModelPort, TaskName, TokenUsage 
 export interface Connection { baseUrl: string; apiKey: string; model: string; temperature: number; maxTokens: number; extraBody: string }
 export const PROVIDERS: { id: string; label: string; baseUrl: string; model: string }[] = [
   { id: 'venice', label: 'Venice', baseUrl: 'https://api.venice.ai/api/v1', model: 'deepseek-v4-1-flash' },
-  { id: 'deepseek', label: 'DeepSeek', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat' },
+  { id: 'deepseek', label: 'DeepSeek', baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash' },
   { id: 'openrouter', label: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'deepseek/deepseek-chat' },
 ];
 
