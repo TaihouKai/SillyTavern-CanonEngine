@@ -117,6 +117,16 @@ describe('the clock does not run ahead of the story', () => {
     for (const t of ['13:51', '13点51分', '下午三点整', '第二天早上', '到了傍晚', '傍晚时分', '天已经黑了', 'two hours later', 'that evening']) expect(statedTime(t).anchored).toBe(true);
   });
 
+  it('CK8 a time that is spoken of is not a time that is reached: appointments, plans, other days and quoted speech leave the cap', () => {
+    const none = { anchored: false, minutes: 0 };
+    for (const t of ['「明天八点见。」她说完就走了。', '"See you at 8:00 tomorrow," she says, and leaves.', '“我们睡觉吧。”', '「等我十分钟。」', '两人约好三点在校门口集合。', '明天八点见', '她说下午三点要到车站。', '他提醒你，截止时间是17:00。', 'They agreed to meet at 8 pm.', 'She will be back at 10:30.', '昨晚十点的事，谁也没再提。', '八点前必须赶到。'])
+      expect(statedTime(t), t).toEqual(none);
+    for (const t of ['我在这里等到8点，并见到了B君。', '等到八点，她终于来了。', '八点整，钟声响起。', 'By 8:00 the square is full.', '「都已经八点了！」她跳了起来。', '"It\'s already 8:30," she says.', '一觉睡到天亮。'])
+      expect(statedTime(t).anchored, t).toBe(true);
+    expect(statedTime('「等我十分钟。」你们又走了五分钟。')).toEqual({ anchored: false, minutes: 5 });
+    expect(statedTime('「走吧。」两小时后，雨停了。')).toEqual({ anchored: false, minutes: 120 });
+  });
+
   it('CK7 the cap allows the stated durations on top of 20 minutes, and nothing for dialogue time words', async () => {
     expect(await run('我们走吧。', '「明天再说，今晚先盯住他。」三人走了十分钟，到了仓库。 [CK7]', at(1, 11, 0))).toBe(tick(1, 10, 0));
     expect(await run('走。', '「上午那事你还记得吗？」两人沿着街道走去。 [CK8]', at(1, 10, 30))).toBe(tick(1, 9, 50));

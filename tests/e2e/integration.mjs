@@ -628,7 +628,7 @@ try {
     if (hasCancel) await hasCancel.click();
     await waitIdle(page, 30000).catch(() => {});
     let st = await engineState(page);
-    check(results, 'T02 a background reconcile can be cancelled from the status bar', !!hasCancel && st.recovery.status === 'error' && /cancel/i.test(`${st.recovery.errorKind} ${st.recovery.reason}`), JSON.stringify(st.recovery));
+    check(results, 'T02 a background reconcile can be cancelled from the status bar, and stopping it is no error (what is left is read by the next rebuild or turn)', !!hasCancel && st.recovery.status === 'ok', JSON.stringify(st.recovery));
     // Per-call timeout: one hung call fails fast with a clear message; the next turn is not blocked.
     await page.evaluate(() => { window.CanonEngine.engine.settings.taskTimeoutMs = 2000; });
     await mock('/control', { taskDelayMs: 6000, clearLogs: true });

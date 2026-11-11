@@ -269,10 +269,16 @@ describe('clock, conditions, reducer', () => {
     expect(factAt(s, 'mira', 'alive').value).toBe(true);
   });
 
-  it('bootstrap marks events inside the start interval as pending', () => {
-    const L = load(demoRaw());
-    const b = buildBootstrap(L, T(1, 10));
-    expect(b.pending).toContain('medic-ambush');
+  it('bootstrap: an event under way at the start point is pending; one whose window is over by then is history', () => {
+    const raw = demoRaw() as any;
+    const ev = raw.events.find((e: any) => e.id === 'medic-ambush');
+    ev.when.latest = { day: 1, minute: 660 }; ev.when.precision = 'range';
+    const L = load(raw);
+    expect(buildBootstrap(L, T(1, 10)).pending).toContain('medic-ambush');
+    expect(buildBootstrap(L, T(1, 10, 59)).pending).toContain('medic-ambush');
+    // the window's last minute is the start point: over, as the gate and the offscreen adjudication count it (isDue)
+    expect(buildBootstrap(L, T(1, 11)).pending).not.toContain('medic-ambush');
+    expect(buildBootstrap(load(demoRaw()), T(1, 10)).pending).not.toContain('medic-ambush');
     expect(hashObject(1)).toHaveLength(64);
   });
 });

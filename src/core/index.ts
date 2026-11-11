@@ -6,7 +6,7 @@
 export { CanonEngine, DEFAULT_SETTINGS, labelForError, formatUsd, type EngineSettings } from './runtime/engine';
 export type { HostPort, Persona, PublishRequest, LorePort, SceneTrackerPort, SceneTrackerStatus } from './runtime/host';
 export { TASK_TAG, isTransient, type ChatMsg, type DraftRequest, type ModelPort, type TaskName, type TokenUsage, type DraftInfo } from './runtime/model';
-export { ENGINE_RELEASE, ENGINE_VERSION, type CampaignData, type Interpretation, type OpType, type SourceEntry } from './runtime/types';
+export { ENGINE_RELEASE, type CampaignData, type Interpretation, type OpType, type SourceEntry } from './runtime/types';
 export type { LoreEntry } from './runtime/lore';
 export { textHash, type WorldAddition, type WorldOverride } from './runtime/worldset';
 export { VOICE_KINDS, playerVoice } from './runtime/voice';

@@ -8,7 +8,7 @@ import { factAt } from '../domain/reducer';
 import { applyChange, deltaMeets, deltaText, outcomeDelta } from '../domain/delta';
 import type { WorldIndex } from '../domain/world-query';
 import { toTick, formatTick, clockReadings, readingTick } from '../domain/time';
-import { pendingHard } from '../domain/schedule';
+import { isDue, pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
 import type { ClaimInput, Retrieval } from './context';
 import { opportunityBy, reached } from './integration';
@@ -443,7 +443,7 @@ export function runGate(g: GateInput): GateResult {
   // HARD deadlines crossed by this reply must be realized (onscreen or by staged offscreen adjudication).
   for (const [id, c] of pendingHardMap) {
     if (hardFulfilled.includes(id) || g.stagedHard.has(id)) continue;
-    if (c.hi <= sceneEnd.lo || c.hi <= g.clockTick) {
+    if (isDue(c, sceneEnd.lo) || isDue(c, g.clockTick)) {
       violations.push(`HARD "${c.event.title}" is due by ${formatTick(c.hi)} and this reply reaches ${formatTick(Math.max(sceneEnd.lo, g.clockTick))}, but the event is not realized: ${c.event.required_description}`);
     } else if (!flashback && c.hi <= sceneEnd.hi) {
       // The end time's range reaches a HARD checkpoint the reply does not depict. lo is the least time the depicted events

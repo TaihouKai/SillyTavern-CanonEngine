@@ -5,7 +5,7 @@ import type { Persona } from './host';
 import type { Id, LedgerRecord, MindProfile, NatureVersion, StoryTime } from '../domain/types';
 import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { normalizeName, valuesEqual } from '../domain/pack';
-import { buildBootstrap, causeOf, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
+import { buildBootstrap, causeOf, isDue, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
 import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { WorldIndex } from '../domain/world-query';
@@ -17,7 +17,7 @@ import type { HostPort } from './host';
 import { callStructured, taskDefaults } from './model';
 import { checkLeapPlan, leapBatches, leapChapters, mergeLeapPlans, leapEventInput, leapEvents, leapNotes, leapProblem, leapRecord, leapSection, leapText, parseLeap, LEAP_VOICE, type CheckedLeapPlan, type LeapPlanOut } from './leap';
 import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, EVAL_GROUPS_NOTE, EVAL_CHANCE_NOTE, EVAL_LEAP_NOTE, EXTRACT_GROUPS_NOTE, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
-import { baseKey, earliestChange, fingerprintPrefix, interpretationEntities, interpretationsFor, replay, stateHash, type ReplayResult } from './replay';
+import { baseKey, earliestChange, fingerprintPrefix, interpretationsFor, replay, sameBasis, scopeOf, stateHash, type ReplayResult } from './replay';
 import { buildPacket, DELIBERATION_TEXT, MIND_FIELDS, MIND_PLAN_MAX, mindPeople, mindsSection, retrieve, sceneFrameOf, type ClaimInput, type MindOut, type RefInput, type Retrieval } from './context';
 import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
 import { CLOCK_READING_SLACK, matchScope, runGate, type EvalOutput, type GateInput, type GateResult } from './gate';
@@ -27,7 +27,7 @@ import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
 import { answeredBy, contactDecision, playedProfile, playerOrgs, nameIn, isIn, companionEvents, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, voiceTurnNote, type PlayerVoice } from './voice';
-import { ENGINE_RELEASE, ENGINE_VERSION, STORAGE_VERSION } from './types';
+import { ENGINE_RELEASE, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
 import { membershipView, natureView, type MembershipView, type NatureViewData } from './views';
 
@@ -109,9 +109,12 @@ export interface StatusInfo {
 
 /** Most a reply may advance the clock beyond the durations its text states. */
 const UNTIMED_ADVANCE_MAX = 20;
-/** A clock time or a jump in time: the reviewer's estimate is used as it is. Words that only mention another time
- *  ("明天见", "今晚有空吗", "上午的事") are not here (live finding: dialogue full of them lifted the cap, and two
- *  walking scenes took +45 and +65 minutes). "一点" alone is "a little", not 1 o'clock. */
+/** A clock time or a jump in time. Where the narrative REACHES one ("等到八点，见到了她", "两小时后雨停了") the
+ *  reviewer's estimate is used as it is; where one is only MENTIONED (an appointment, a plan, another day: "明天八点见",
+ *  "约好三点集合", anything inside quoted speech) it says nothing about how long the reply takes: see statedTime.
+ *  Words that only mention another time ("明天见", "今晚有空吗", "上午的事") are not here (live finding: dialogue
+ *  full of them lifted the cap, and two walking scenes took +45 and +65 minutes). "一点" alone is "a little", not
+ *  1 o'clock. */
 const TIME_ANCHOR = new RegExp([
   String.raw`\d{1,2}\s*[:：]\s*\d{2}`,
   String.raw`(?:\d{1,2}|[两三四五六七八九十]|十[一二])\s*点(?:\s*(?:\d{1,2}|[一二三四五六七八九十]+)\s*分|钟|整|半)?(?![点头多])`,
@@ -122,7 +125,23 @@ const TIME_ANCHOR = new RegExp([
   String.raw`睡觉|睡着|入睡|睡下|睡到|\b(?:sleep|sleeps|slept|nap|naps|napped)\b`,
   String.raw`\b(?:until|till|by) (?:the next |next )?(?:morning|noon|afternoon|evening|night|nightfall|dawn|dusk|midnight)\b|\bovernight\b|\b(?:time|hours|days|weeks|the (?:hours|days)) (?:pass|passes|passed|go by|went by)\b|\b(?:noon|night|morning|evening|dawn|dusk) (?:comes|came|falls|fell|breaks|broke|arrives|arrived)\b`,
   String.raw`\b(?:(?:an?|one|two|three|four|five|six|several|a few|\d+) (?:hours?|minutes?|days?) later|later that|next (?:day|morning)|the following (?:day|morning)|that (?:evening|night|afternoon)|at (?:dawn|dusk|noon|midnight)|\d{1,2} ?(?:am|pm|o'clock))\b`,
-].join('|'), 'i');
+].join('|'), 'gi');
+/** Quoted speech: what someone says, not what the narrative tells as happening (an unclosed quote runs to the end of its line). */
+const SPEECH = /「[^」\n]*(?:」|$)|『[^』\n]*(?:』|$)|“[^”\n]*(?:”|$)|"[^"\n]*(?:"|$)/gm;
+/** Another day or part of the day than the one being told ("明天八点", "昨晚十点", "at 8 tomorrow"): a time spoken of. */
+const ELSEWHEN = /明天|明日|后天|明早|明晚|今晚|今夜|下周|下星期|下个?月|下次|改天|昨天|昨日|昨晚|昨夜|前天|今早|今天(?:早上|上午)|上周|上次|刚才|\b(?:tomorrow|tonight|this evening|next (?:week|month|time)|yesterday|last (?:night|week|time)|this morning|ago)\b/i;
+/** Before a time, in its sentence: it is arranged, intended or due, not arrived at. */
+const PLANNED_BEFORE = /约好|约定|约在|约了|说好|定在|定于|定好|打算|准备|计划|预定|预计|安排在|将在|将于|会在|要在|得在|必须在|记得|别忘|提醒|截止|期限|\b(?:agreed|arranged|scheduled|planned|plans?|will|going to|supposed to|due|deadline|remind\w*|see you|meet (?:me|us|you|him|her|them)|be (?:here|there|back))\b|'ll\b/i;
+/** Right after a time: "八点要到", "八点前", "八点在校门口见" (not "八点见到了她"). */
+const PLANNED_AFTER = /^\s*(?:要|得|就得|再|前|之前|以前|[^，。,；;]{0,8}?(?:见面|见|集合|碰头|会合)(?![面到了过着]))/;
+/** Is the time at [at, at + length) of `narration` reached by the narrative, rather than spoken of? */
+function reached(narration: string, at: number, length: number): boolean {
+  const head = narration.slice(0, at);
+  const start = Math.max(head.search(/[^。！？!?；;\n□]*$/), 0);
+  const sentence = head.slice(start);
+  const after = narration.slice(at + length, at + length + 16).split(/[。！？!?\n□]/)[0];
+  return !ELSEWHEN.test(sentence) && !ELSEWHEN.test(after) && !PLANNED_BEFORE.test(sentence.slice(-40)) && !PLANNED_AFTER.test(after);
+}
 const CN_NUM: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10, 半: 0.5, 几: 3 };
 const cnNumber = (t: string): number => {
   if (/^\d+$/.test(t)) return Number(t);
@@ -132,11 +151,17 @@ const cnNumber = (t: string): number => {
 const DURATION = /(\d+|[一二两三四五六七八九十半几]+)\s*(?:个)?(半)?(分钟|小时|钟头|天|周|星期|月)(半)?(?!前|以前|之前)|半(小时)(?!前)|\b(\d+|an?|one|two|three|four|five|ten|twenty|thirty|several|a few) (minutes?|hours?|days?)\b(?! ago)|\b(half an hour)\b/gi;
 const EN_NUM: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, ten: 10, twenty: 20, thirty: 30, several: 3, 'a few': 3 };
 const UNIT_MIN: Record<string, number> = { 分钟: 1, 小时: 60, 钟头: 60, 天: 1440, 周: 10080, 星期: 10080, 月: 43200, minute: 1, hour: 60, day: 1440 };
-/** What the text says about elapsed time: a clock time / jump (anchored), else the minutes its durations add up to. */
+/** What the text says about the time it takes: a clock time or a jump the narrative reaches (anchored), else the
+ *  minutes the durations it tells add up to. A time that is only spoken of — in quoted speech, as an appointment or a
+ *  plan, on another day — is neither ("明天八点见" against "等到八点，见到了她"); a clock read as the time now ("都已经
+ *  八点了") is reached wherever it stands. */
 export function statedTime(text: string): { anchored: boolean; minutes: number } {
-  if (TIME_ANCHOR.test(text)) return { anchored: true, minutes: 0 };
+  if (clockReadings(text).length) return { anchored: true, minutes: 0 };
+  const narration = text.replace(SPEECH, ' □ ');
+  for (const m of narration.matchAll(TIME_ANCHOR)) if (reached(narration, m.index!, m[0].length)) return { anchored: true, minutes: 0 };
   let minutes = 0;
-  for (const m of text.matchAll(DURATION)) {
+  for (const m of narration.matchAll(DURATION)) {
+    if (!reached(narration, m.index!, m[0].length)) continue;
     if (m[3]) { if (m[1] !== '半' || m[3] !== '天') minutes += (cnNumber(m[1]) + (m[2] || m[4] ? 0.5 : 0)) * UNIT_MIN[m[3]]; } // "这半天" is "all this while"
     else if (m[5] || m[8]) minutes += 30;
     else if (m[7]) minutes += (/^\d+$/.test(m[6]) ? Number(m[6]) : EN_NUM[m[6].toLowerCase()] ?? 1) * UNIT_MIN[m[7].toLowerCase().replace(/s$/, '')];
@@ -273,7 +298,6 @@ export class CanonEngine {
   traces: OperationTrace[] = [];
   /** Debug mode: readable report of the last turn, committed or not — why each draft was sent back, with the drafts. */
   lastReport: string | null = null;
-  lastFailedOp: { op: OpType; prior?: unknown } | null = null;
   notices: { level: 'info' | 'warn' | 'error'; text: string; at: number }[] = [];
   readonly instanceId = newId('inst');
 
@@ -386,7 +410,8 @@ export class CanonEngine {
     return !!c && !c.packSnapshot && this.packCache?.hash !== c.packHash;
   }
 
-  async relinkPack(text: string): Promise<void> {
+  async relinkPack(text: string): Promise<void> { return this.change(() => this.relinkPackNow(text)); }
+  private async relinkPackNow(text: string): Promise<void> {
     const c = this.campaign();
     if (!c) throw new EngineError('invalid_pack', 'no campaign');
     const r = validatePackText(text);
@@ -397,7 +422,7 @@ export class CanonEngine {
     if (this.host.packStore) { c.packRef = await this.storePack(r.loaded, text); delete c.packSnapshot; }
     else c.packSnapshot = deepClone(r.loaded.pack);
     await this.host.save();
-    await this.reconcile('pack_relinked');
+    await this.reconcileInner('pack_relinked', {});
   }
 
   /** Title and id of the chat's pack (from the reference or the copy in the chat). */
@@ -415,6 +440,22 @@ export class CanonEngine {
     await prev;
     try { return await fn(); } finally { release(); }
   }
+
+  /** A change to the campaign from outside a turn (its pack, the chat under it, the player's identity, the world's
+   *  settings, a backup): never while a reply is being made, and only after the rebuild that is running has ended
+   *  (it is cancelled: what it would work out is for the campaign as it was; rebuilds already waiting run without
+   *  the model). The change does its own rebuild inside, with reconcileInner. */
+  private async change<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
+    return this.changeNow(fn);
+  }
+  private async changeNow<T>(fn: () => Promise<T>): Promise<T> {
+    this.reconcileAbort?.abort();
+    this.changing++;
+    let entered = false;
+    try { return await this.exclusive(() => { entered = true; this.changing--; return fn(); }); } finally { if (!entered) this.changing--; }
+  }
+  private changing = 0;
 
   // ---------------------------------------------------------------------------------------------
   // Binding
@@ -444,6 +485,9 @@ export class CanonEngine {
 
   /** Create the chat's binding: pinned snapshot + bootstrap seed. Existing chats are interpreted afterwards by reconcile(). */
   async bind(packText: string, opts: { startTick: number; originDate?: { y: number; m: number; d: number } | null; startLabel?: string; mode: 'new' | 'existing' }): Promise<{ unresolved: string[]; pending: string[]; examined: number }> {
+    return this.change(() => this.bindNow(packText, opts));
+  }
+  private async bindNow(packText: string, opts: { startTick: number; originDate?: { y: number; m: number; d: number } | null; startLabel?: string; mode: 'new' | 'existing' }): Promise<{ unresolved: string[]; pending: string[]; examined: number }> {
     if (!this.host.chatId()) throw new EngineError('incompatible_adapter', 'No chat is open. Open a character chat first, then enable Canon Engine for it.');
     if (this.host.isGroup()) throw new EngineError('incompatible_adapter', 'Group chats are not supported yet (no validated designated-GM adapter). Canon Engine was not activated.');
     const r = validatePackText(packText);
@@ -455,7 +499,7 @@ export class CanonEngine {
     const prev = this.campaign();
     const data: CampaignData = {
       storageVersion: STORAGE_VERSION,
-      engineVersion: ENGINE_VERSION,
+      engineVersion: ENGINE_RELEASE,
       enabled: true,
       sessionId: prev?.sessionId || newId('ses'),
       branchId: newId('br'),
@@ -494,12 +538,14 @@ export class CanonEngine {
   }
 
   async setEnabled(enabled: boolean) {
-    const c = this.campaign();
-    if (!c) return;
-    c.enabled = enabled;
-    c.configRevisions.push({ at: this.host.now(), summary: enabled ? 'enabled' : 'disabled for this chat' });
-    await this.host.save();
-    this.setStatus(enabled ? 'idle' : 'disabled');
+    return this.change(async () => {
+      const c = this.campaign();
+      if (!c) return;
+      c.enabled = enabled;
+      c.configRevisions.push({ at: this.host.now(), summary: enabled ? 'enabled' : 'disabled for this chat' });
+      await this.host.save();
+      this.setStatus(enabled ? 'idle' : 'disabled');
+    });
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -507,8 +553,15 @@ export class CanonEngine {
 
   /** Detect rename vs branch vs import when the chat id/integrity differs from the stored binding. */
   async onChatLoaded(): Promise<void> {
+    // another chat is under the engine: whatever is running was for the one before, and ends before this one is read
+    this.opActive?.abort.abort();
+    return this.changeNow(() => this.chatLoadedNow());
+  }
+  private async chatLoadedNow(): Promise<void> {
     const c = this.campaign();
     this.current = null;
+    // the dates shown are this chat's from here on (not the last chat's, also when this one has no game)
+    WorldIndex.displayOrigin = c?.binding.originDate || null;
     if (!c) { this.setStatus('idle'); return; }
     if (this.host.isGroup()) { this.setStatus('disabled', 'group chats unsupported'); return; }
     const chatId = this.host.chatId() || '';
@@ -527,7 +580,7 @@ export class CanonEngine {
       // Plans and banners from another branch never carry over; manifests are revalidated by reconcile.
       c.planRevisions = c.planRevisions.map((p) => ({ ...p, status: 'stale' as const }));
     }
-    await this.reconcile('chat_loaded');
+    await this.reconcileInner('chat_loaded', {});
   }
 
   /** A native source mutation (edit/delete/swipe) happened. Abort any in-flight op (fences also guard). */
@@ -544,7 +597,7 @@ export class CanonEngine {
   // Reconciliation
 
   async reconcile(reason: string, opts: { allowModel?: boolean; signal?: AbortSignal; excludeLastAssistant?: boolean } = {}): Promise<ReplayResult | null> {
-    return this.exclusive(() => this.reconcileInner(reason, opts));
+    return this.exclusive(() => this.reconcileInner(reason, this.changing ? { ...opts, allowModel: false } : opts));
   }
 
   private transcriptFor(opts: { excludeLastAssistant?: boolean }): SourceEntry[] {
@@ -580,17 +633,16 @@ export class CanonEngine {
       if (e instanceof EngineError && e.kind === 'pack_missing') { this.current = null; this.setStatus('error', e.message, { errorKind: 'pack_missing' } as Partial<StatusInfo>); }
       throw e;
     }
-    await this.recoverPending(c);
+    this.recoverPending(c);
     let entries = this.transcriptFor(opts);
     const changedFrom = earliestChange(c.manifest, entries);
-    const affected = this.affectedEntities(c, entries, changedFrom);
     const prevPhase = this.status.phase;
     if (!this.opActive) this.setStatus('reconciling', reason);
     let r: ReplayResult;
     let guard = 0;
     try {
       for (;;) {
-        r = replay({ pack, branchId: c.branchId, bootstrap: c.bootstrapRecords, manual: c.manualRecords, entries, store: c.interpretations, affectedEntities: affected, changedFrom });
+        r = replay({ pack, branchId: c.branchId, bootstrap: c.bootstrapRecords, manual: c.manualRecords, entries, store: c.interpretations });
         if (!r.issue || r.issue.status === 'conflict') break;
         if (!allowModel) break;
         if (++guard > entries.length * 2 + 4) throw new EngineError('conflicting_transcript', 'reconciliation did not converge');
@@ -601,7 +653,9 @@ export class CanonEngine {
         const interp = issue.status === 'missing'
           ? await this.interpretMessage(issue.entry, issue.index, entries, r, opts.signal, null)
           : await this.interpretMessage(issue.entry, issue.index, entries, r, opts.signal, issue.reasons);
-        const list = interpretationsFor(c.interpretations, interp.key).filter((x) => x.basisStateHash !== interp.basisStateHash);
+        // the chat changed while the model was working: what is under the host now is another chat's conversation
+        if (this.host.chatId() !== chatAtStart || this.campaign() !== c) throw new EngineError('stale_response', 'chat changed during reconciliation');
+        const list = interpretationsFor(c.interpretations, interp.key).filter((x) => !sameBasis(x, interp));
         list.push(interp);
         c.interpretations[interp.key] = list.slice(-6);
         // Fences: abort if the source moved meanwhile.
@@ -614,6 +668,12 @@ export class CanonEngine {
       this.progressBase = '';
       this.examiningInput = false;
       const err = e as EngineError;
+      // stopped by the player, or overtaken by a change of the conversation: nothing failed (what is still to be
+      // read is read by the next rebuild or turn)
+      if (err.kind === 'cancelled' || err.kind === 'stale_response') {
+        if (!this.opActive) this.setStatus(c.recoveryState.status === 'ok' ? 'idle' : prevPhase, c.recoveryState.status === 'ok' ? 'Cancelled.' : this.status.message);
+        throw e;
+      }
       c.recoveryState = { status: 'error', errorKind: err.kind || 'provider_failure', reason: err.message, at: this.host.now() };
       this.setStatus('error', err.message, { errorKind: err.kind, canRetry: true });
       try { await this.host.save(); } catch { /* reported below */ }
@@ -633,7 +693,13 @@ export class CanonEngine {
     // keep the full manifest for change detection when not blocked
     if (!issue) c.manifest = entries.map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
     c.transcriptFingerprint = issue ? result.prefixHashes[issue.index - 1] || 'root' : result.fingerprint;
-    if (issue && issue.status !== 'conflict' && !allowModel) {
+    if (issue && issue.status === 'missing' && !allowModel && issue.index === entries.length - 1 && issue.entry.role === 'user') {
+      // The player's newest message, not read yet (a turn was stopped or failed before it): nothing is wrong with
+      // the state; the next turn reads it. An error of the failed turn stays as it is.
+      if (c.recoveryState.status === 'conflict') c.recoveryState = { status: 'ok' };
+      if (c.recoveryState.status === 'ok') { if (!this.opActive) this.setStatus('idle'); }
+      else if (c.recoveryState.status === 'error' && !this.opActive) this.setStatus('error', c.recoveryState.reason || '', { errorKind: c.recoveryState.errorKind, canRetry: true });
+    } else if (issue && issue.status !== 'conflict' && !allowModel) {
       // Pending interpretation work (e.g. after a provider failure): not an editorial conflict.
       if (c.recoveryState.status === 'ok') c.recoveryState = { status: 'error', errorKind: 'provider_failure', reason: `message #${issue.index} still needs interpretation; use Retry`, at: this.host.now() };
       this.setStatus('error', c.recoveryState.reason || '', { errorKind: c.recoveryState.errorKind, canRetry: true });
@@ -675,25 +741,6 @@ export class CanonEngine {
     }
     this.emit();
     return result;
-  }
-
-  /** Entities touched by the old and new interpretations of changed/removed messages. */
-  private affectedEntities(c: CampaignData, entries: SourceEntry[], changedFrom: number): Set<string> {
-    const out = new Set<string>();
-    if (changedFrom < 0) return out;
-    const newKeys = new Set(entries.map((e) => baseKey(e)));
-    for (const m of c.manifest.slice(changedFrom)) {
-      const k = baseKey(m);
-      if (newKeys.has(k)) continue;
-      for (const i of interpretationsFor(c.interpretations, k)) for (const x of interpretationEntities(i)) out.add(x);
-    }
-    for (const e of entries.slice(changedFrom)) {
-      const k = baseKey(e);
-      if (c.manifest.some((m) => baseKey(m) === k)) continue;
-      // the new content's entities are added once it is interpreted (scan names now)
-      if (this.current) for (const m of this.current.index.scanEntities(e.text)) out.add(m.id);
-    }
-    return out;
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -777,7 +824,7 @@ export class CanonEngine {
     const warnings: string[] = [];
     let timeJumpTo: number | undefined;
     const st: StoryTime = { lo: tick, hi: tick, precision: 'minute' };
-    const due = pendingHard(pack, index.state).filter((h) => h.hi <= tick);
+    const due = pendingHard(pack, index.state).filter((h) => isDue(h, tick));
     for (const s of out.statements) {
       if (!quoteInText(s.quote, entry.text)) { warnings.push(`statement ignored (quote not found): ${s.summary}`); continue; }
       // an OOC direction ("if C, then D") is not something the player character does or says, and never an intent
@@ -831,13 +878,21 @@ export class CanonEngine {
     return interp;
   }
 
+  /** What an interpretation was validated against: the state before its message, and what the earlier messages had
+   *  told about the entities it is about (replay.ts: the fast path and scopeHolds). */
+  private stampBasis(interp: Interpretation, index: WorldIndex, text: string) {
+    const named = uniq(index.scanEntities(text).map((m) => m.id)).filter((x) => !interp.sceneEntities.includes(x));
+    if (named.length) interp.named = named;
+    interp.basisStateHash = stateHash(index.state);
+    interp.basisScope = scopeOf(index.state, interp);
+  }
+
   private async interpretMessage(entry: SourceEntry, idx: number, entries: SourceEntry[], r: ReplayResult, signal: AbortSignal | undefined, reevalReasons: string[] | null): Promise<Interpretation> {
     const pack = this.pack();
     const index = new WorldIndex(pack, r.state);
-    const basis = stateHash(r.state);
     if (entry.role === 'user') {
       const i = await this.extractUser(entry, index, signal);
-      i.basisStateHash = basis;
+      this.stampBasis(i, index, entry.text);
       return i;
     }
     // GM message: retained/extracted review against the current prefix.
@@ -862,7 +917,17 @@ export class CanonEngine {
     if (unauthorized) gate.violations.unshift(`Narrated player action "${unauthorized.quote}" is not authorized by the edited user message, and no separate cause is described.`);
     const conflict = review.evaluation.decision === 'conflict' || gate.violations.length > 0;
     const interp = this.interpretationFromGate(entry.messageId, entry.variantId, entry.contentHash, gate, review, rIndex, userEntry, r.state.clock.lo, 'retained_reeval', newId('cmt'));
-    interp.basisStateHash = basis;
+    this.stampBasis(interp, index, entry.text);
+    // The plan the reply is settled with is the one of its own time: the one it was written under where that is
+    // known and still kept; for the newest reply the plan in force; for an older one none (the plan in force now was
+    // made for the story after it, and its steps are not what happened then).
+    const c = this.campaign()!;
+    // (by the message and variant: an edit of its text leaves it the same reply)
+    const writtenUnder = Object.keys(c.interpretations).filter((k) => k.startsWith(`${entry.messageId}:${entry.variantId}:`))
+      .flatMap((k) => interpretationsFor(c.interpretations, k)).filter((x) => x.planId).sort((p, q) => p.createdAt - q.createdAt).pop()?.planId;
+    const newest = !entries.slice(idx + 1).some((e) => e.role === 'gm');
+    const plan = (writtenUnder ? c.planRevisions.find((p) => p.planId === writtenUnder) : null) || (newest && !writtenUnder ? this.activePlan() : null);
+    if (plan) interp.planId = plan.planId;
     if (!reevalReasons) interp.origin = 'extraction';
     if (conflict) {
       interp.conflict = { reason: (gate.violations[0] || 'The message cannot follow the edited prefix and describes no separate credible cause.').slice(0, 500), quote: undefined };
@@ -871,7 +936,7 @@ export class CanonEngine {
       // GM time advance: adjudicate crossed events (deterministic/model) committed with this message.
       const adj = await adjudicateInterval({
         pack, state: this.overlay(rIndex.state, interp.records), fromExclusive: r.state.clock.lo, toInclusive: interp.sceneEnd.lo,
-        exclude: new Set(interp.records.map((x) => x.packEventId).filter(Boolean) as string[]), port: this.host.model, plan: this.activePlan(), forcedAllowed: true,
+        exclude: new Set(interp.records.map((x) => x.packEventId).filter(Boolean) as string[]), port: this.host.model, plan, forcedAllowed: true,
         signal, operationId: 'reconcile', facts: review.facts, log: (l) => this.debugLog('task', l),
       });
       mergeClosingBeats(interp.records, adj.records, r.state);
@@ -1112,7 +1177,7 @@ export class CanonEngine {
       records, intents: [], stateClaims: gate.stateClaims,
       playerActions: gate.playerActions.map((a) => ({ quote: a.quote, authorizedBy: a.authorizedBy && userEntry ? { messageId: userEntry.messageId, quote: a.authorizedBy.quote } : null })),
       dependsOn: userEntry ? [{ messageId: userEntry.messageId, contentHash: userEntry.contentHash }] : [],
-      sceneEnd: gate.sceneEnd && gate.sceneEnd.lo >= clock ? gate.sceneEnd : gate.sceneEnd, flashback: gate.flashback,
+      sceneEnd: gate.sceneEnd, flashback: gate.flashback,
       // Who/what is in the scene after this reply: the reviewer's scene list plus what the reply itself names.
       // Not everything the review looked up (causal/parent pulls, last turn's seeds): stored scene entities
       // seed the next turn's retrieval, so including lookups made the set snowball to its cap.
@@ -1230,7 +1295,8 @@ export class CanonEngine {
     // An overestimate is permanent (the clock never goes back) while an underestimate is corrected by the Horae
     // floor next turn: a reply whose text and player message say nothing about time advances at most
     // UNTIMED_ADVANCE_MAX (live finding: 12:10 -> 14:43 over 11 short continuous replies, +20–40 min each);
-    // a reply stating durations ("走了十分钟") may add those on top. A clock time or a time jump lifts the cap.
+    // a reply telling durations ("走了十分钟") may add those on top. A clock time or a time jump the narrative reaches
+    // lifts the cap; one that is only spoken of (an appointment, a plan, quoted speech) does not (statedTime).
     const stated = statedTime(`${a.text}\n${this.ooc(a.userEntry?.text).story}`);
     if (evaluation.scene_end && !evaluation.flashback && !stated.anchored && !a.leapTo) {
       const lo = toTick(evaluation.scene_end.lo), cap = tick + stated.minutes + UNTIMED_ADVANCE_MAX;
@@ -1468,6 +1534,7 @@ export class CanonEngine {
     if (this.host.isWriter && !this.host.isWriter()) { this.notice('error', 'Another tab is the active writer for this campaign; generation is blocked here.'); return false; }
     const operationId = newId('op');
     const abort = new AbortController();
+    const opChat = this.host.chatId() || '';
     this.opActive = { operationId, abort, fences: null, op };
     this.stepTimes = [];
     this.rejects = [];
@@ -1519,12 +1586,21 @@ export class CanonEngine {
         const userInterp = userEntry ? interpretationsFor(c.interpretations, baseKey(userEntry)).find((x) => x.role === 'user') || null : null;
         if (userInterp?.configRequests?.length) for (const n of userInterp.configRequests) this.notice('warn', n);
 
-        // Prefix for a continuation excludes the partial reply being revised from the "world" view.
+        // A continuation replaces the reply it continues: the joined text is examined from the state before that reply
+        // (the prefix), with what its first part settled outside its text kept as it is: the events adjudicated
+        // offscreen for the time it crossed, a leap's events, and the time it reached. (Its text is read again as part
+        // of the joined reply; only the time after the first part is adjudicated now.)
+        let carried: RecordDraft[] = [];
+        let continuedInterp: Interpretation | null = null;
+        let carriedIndex: WorldIndex | null = null;
         if (continuing) {
           const prefixEntries = entries.slice(0, -1);
           const rr = replay({ pack, branchId: c.branchId, bootstrap: c.bootstrapRecords, manual: c.manualRecords, entries: prefixEntries, store: c.interpretations });
           if (rr.issue) throw new EngineError('conflicting_transcript', 'cannot rebuild the prefix of the continued reply');
           index = new WorldIndex(pack, rr.state);
+          continuedInterp = this.current!.replay.applied.find((a) => a.index === entries.length - 1)?.interp || null;
+          carried = deepClone((continuedInterp?.records || []).filter((r) => r.triggerCommitId || r.kind === 'time_advance'));
+          if (carried.length) carriedIndex = new WorldIndex(pack, this.overlay(rr.state, carried));
         }
 
         // Planning (rolling, bounded) and, in parallel, how the world reacts to the player (separate goals).
@@ -1553,7 +1629,7 @@ export class CanonEngine {
         if (leapTo) this.setStatus('planning', 'Planning the time leap…');
         const lp = leapTo ? await this.stageLeap(index, userEntry!, leapTo, userInterp?.leapFinal ?? null, abort.signal, operationId) : null;
         if (lp) this.checkFences(fences, excludeLast);
-        const rIndex = lp ? lp.index : index;
+        const rIndex = lp ? lp.index : carriedIndex || index;
         const cp = leapTo ?? ctxClock;
         const eng = engagementView(index.state, pack);
         const busy = [...index.state.occurrences.values()].some((o) => o.inProgressOf && !index.state.dispositions.has(o.inProgressOf));
@@ -1742,6 +1818,7 @@ export class CanonEngine {
         const variantId = newId('var');
         const contentHash = this.host.hashAssistant(candidate);
         const interp = this.interpretationFromGate(messageId, variantId, contentHash, accepted.review.gate, accepted.review, index, userEntry, clock, 'engine_commit', commitId);
+        if (plan) interp.planId = plan.planId;
         if (accepted.adj) {
           mergeClosingBeats(interp.records, accepted.adj.records, rIndex.state);
           for (const r of accepted.adj.records) r.triggerCommitId = commitId;
@@ -1750,18 +1827,33 @@ export class CanonEngine {
         }
         // the leap's settled events come first (they are earlier than everything the reply records)
         if (lp) { for (const r of lp.records) r.triggerCommitId = commitId; interp.records.unshift(...lp.records); }
-        if (interp.sceneEnd && !interp.flashback && interp.sceneEnd.lo > clock) interp.records.push(this.timeAdvance(interp.sceneEnd, commitId));
-        interp.basisStateHash = stateHash(index.state);
         if (continuing && continuedEntry) {
+          // the first part's settled events and time, first (they are earlier than what the continuation adds)
+          for (const r of carried) if (r.triggerCommitId) r.triggerCommitId = commitId;
+          interp.records.unshift(...carried);
+          if (continuedInterp?.offscreenBasis?.length) interp.offscreenBasis = [...continuedInterp.offscreenBasis, ...(interp.offscreenBasis || [])];
+          // the reply never ends before its first part did
+          if (continuedInterp?.sceneEnd && !continuedInterp.flashback && (!interp.sceneEnd || interp.sceneEnd.lo < continuedInterp.sceneEnd.lo)) interp.sceneEnd = continuedInterp.sceneEnd;
           // the revised message replaces the old logical reply; its old effects are not counted twice
           interp.dependsOn = interp.dependsOn.filter((d) => d.messageId !== continuedEntry.messageId);
         }
+        if (interp.sceneEnd && !interp.flashback && interp.sceneEnd.lo > clock) interp.records.push(this.timeAdvance(interp.sceneEnd, commitId));
+        this.stampBasis(interp, index, candidate);
         // Only the accepted candidate's coverage manifest is retained (rejected drafts stay out of storage).
         if (accepted.review.manifest) { c.manifests[accepted.review.manifest.manifestId] = accepted.review.manifest; trimManifests(c); }
         const info = this.host.model.lastDraftInfo?.() || null;
         this.lastReply = { chars: replyChars(continuing ? draft : candidate), ...(info || {}) };
-        await this.commit(c, { op, interp, fences, candidate, commitId, messageId, variantId, contentHash, prior, excludeLast });
+        const done = await this.commit(c, { op, interp, fences, candidate, commitId, messageId, variantId, contentHash });
+        // from here the reply is in the conversation and the world state includes it
         committed = true;
+        if (!done.saved) {
+          // never reported as a success: the reply is there, but a reload would not have it (Retry saves again)
+          const msg = `The reply is in the chat, but saving it failed (${c.recoveryState.reason || 'unknown error'}). Use Retry to save again.`;
+          trace.error = msg;
+          this.setStatus('error', msg, { errorKind: 'persistence_failure', canRetry: true });
+          this.notice('error', `${labelForError('persistence_failure')}: ${msg}`);
+          return false;
+        }
         if (info?.finish === 'length') {
           const zhNote = [info.maxTokens ? `上限 ${info.maxTokens} token` : '', info.reasoningTokens ? `思考用了 ${info.reasoningTokens}` : ''].filter(Boolean).join('；');
           const enNote = [info.maxTokens ? `limit ${info.maxTokens} tokens` : '', info.reasoningTokens ? `thinking used ${info.reasoningTokens}` : ''].filter(Boolean).join('; ');
@@ -1770,7 +1862,6 @@ export class CanonEngine {
         }
         trace.outcome = 'committed';
         { const cc = this.campaign(); if (cc && cc.recoveryState.status === 'error') { cc.recoveryState = { status: 'ok' }; } }
-        this.lastFailedOp = null;
         // Post-commit impact (best effort; never blocks the accepted reply)
         try { await this.postCommitImpact(interp, abort.signal, operationId); } catch (e) { this.host.log('warn', 'impact assessment failed: ' + (e as Error).message); }
         this.setStatus('idle', 'Ready');
@@ -1781,7 +1872,11 @@ export class CanonEngine {
       const kind = err.kind || 'provider_failure';
       trace.outcome = kind === 'cancelled' ? 'cancelled' : kind === 'stale_response' ? 'stale' : 'failed';
       trace.error = err.message;
-      if (!committed) {
+      // the chat was changed under the operation: the conversation and the campaign the host has now are another
+      // chat's, and nothing of this operation is written there (not the reply it replaced, not its failure)
+      const elsewhere = (this.host.chatId() || '') !== opChat;
+      if (elsewhere) trace.outcome = 'stale';
+      if (!committed && !elsewhere) {
         if (prior && (op === 'regenerate' || op === 'swipe')) {
           try { await this.host.restorePrior(op, prior); } catch (re) { this.host.log('error', 'failed to restore prior reply: ' + (re as Error).message); }
         }
@@ -1789,9 +1884,12 @@ export class CanonEngine {
           this.setStatus('idle', kind === 'stale_response' ? 'Discarded a stale result after the transcript changed.' : 'Cancelled.');
           if (kind === 'stale_response') this.notice('info', 'The transcript changed while the reply was being prepared; the stale result was discarded.');
         } else {
-          this.lastFailedOp = { op, prior: undefined };
+          // what failed is kept with the game (Retry runs the same operation again, also after a reload)
           const c = this.campaign();
-          if (c && kind !== 'conflicting_transcript' && c.recoveryState.status !== 'unsaved') c.recoveryState = { status: 'error', errorKind: kind, reason: err.message, at: this.host.now() };
+          if (c && kind !== 'conflicting_transcript') {
+            if (c.recoveryState.status === 'unsaved') c.recoveryState.op = op;
+            else c.recoveryState = { status: 'error', errorKind: kind, reason: err.message, at: this.host.now(), op };
+          }
           this.setStatus(kind === 'conflicting_transcript' ? 'conflict' : 'error', err.message, { errorKind: kind, canRetry: kind !== 'conflicting_transcript' });
           this.notice('error', `${labelForError(kind)}: ${err.message}`);
         }
@@ -1800,7 +1898,8 @@ export class CanonEngine {
     } finally {
       const agg = new Map<string, { ms: number; count: number; retries: number }>();
       for (const s of this.stepTimes) { const a = agg.get(s.step) || { ms: 0, count: 0, retries: 0 }; a.ms += s.ms; a.count++; if (s.retry) a.retries++; agg.set(s.step, a); }
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, repairs: trace.attempts.filter((a) => a.violations.length).map((a) => a.violations), ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null };
+      const ok = trace.outcome === 'committed';
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: ok ? this.lastReply : null, repairs: trace.attempts.filter((a) => a.violations.length).map((a) => a.violations), ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null };
       if (!committed && trace.outcome === 'failed') {
         // Keep the whole story of a failed turn where the user can read it later (saved with the chat).
         const c = this.campaign();
@@ -1815,101 +1914,105 @@ export class CanonEngine {
     }
   }
 
-  private async commit(c: CampaignData, a: { op: OpType; interp: Interpretation; fences: Fences; candidate: string; commitId: string; messageId: string; variantId: string; contentHash: string; prior?: unknown; excludeLast: boolean }) {
+  /** The accepted reply into the conversation and the world state. One rule decides everything after the host was
+   *  asked to publish: is the reply in the conversation (found by its variant id) or not.
+   *  - Not there: nothing happened (throws; the caller puts a replaced reply back).
+   *  - There: its interpretation is applied and the state rebuilt, whatever else failed; `saved: false` when the
+   *    host could not store it (recoveryState `unsaved`, cleared by the next save that succeeds).
+   *  The journal (pendingTransaction) is written with the reply by the host's publish and covers a crash between the
+   *  two: recoverPending applies the same rule after a reload. */
+  private async commit(c: CampaignData, a: { op: OpType; interp: Interpretation; fences: Fences; candidate: string; commitId: string; messageId: string; variantId: string; contentHash: string }): Promise<{ saved: boolean }> {
     c.pendingTransaction = {
       commitId: a.commitId, operationId: a.fences.operationId, predecessorRevision: c.revision, sourceFingerprint: a.fences.sourcePrefixHash, targetHash: a.contentHash,
-      opType: a.op, interpretation: a.interp, priorReply: a.prior, phase: 'prepared',
+      opType: a.op, interpretation: a.interp,
     };
+    let failure: Error | null = null;
     this.publishing = true;
     try {
       // Native publication (saveReply + lifecycle events) and a durable save of chat + journal.
       await this.host.publish({ op: a.op, text: a.candidate, commitId: a.commitId, messageId: a.messageId, variantId: a.variantId, contentHash: a.contentHash }, a.interp);
     } catch (e) {
-      c.recoveryState = { status: 'unsaved', reason: (e as Error).message, at: this.host.now() };
-      throw new EngineError('persistence_failure', 'Publishing/saving the accepted reply failed: ' + (e as Error).message);
+      failure = e as Error;
     } finally {
       this.publishing = false;
     }
-    // Bind the interpretation to the exact landed content (the host may normalize whitespace).
-    const landed = this.host.readTranscript().find((e) => e.role === 'gm' && e.variantId === a.variantId);
-    if (!landed) throw new EngineError('persistence_failure', 'the accepted reply did not land in the transcript');
-    if (landed.contentHash !== a.interp.contentHash || landed.messageId !== a.interp.messageId) {
-      a.interp.contentHash = landed.contentHash;
-      a.interp.messageId = landed.messageId;
-      a.interp.key = baseKey(landed);
-    }
-    // Apply the engine delta.
-    const list = interpretationsFor(c.interpretations, a.interp.key);
-    list.push(a.interp);
-    c.interpretations[a.interp.key] = list;
     c.pendingTransaction = null;
-    c.acceptedHead = a.commitId;
-    try {
-      await this.host.save();
-    } catch (e) {
-      // The journal is still durable from the publish save; recovery finalizes it on reload.
-      c.pendingTransaction = { commitId: a.commitId, operationId: a.fences.operationId, predecessorRevision: c.revision, sourceFingerprint: a.fences.sourcePrefixHash, targetHash: a.contentHash, opType: a.op, interpretation: a.interp, phase: 'published' };
-      c.recoveryState = { status: 'unsaved', reason: (e as Error).message, at: this.host.now() };
-      throw new EngineError('persistence_failure', 'The reply was published but saving the engine state failed. Use Retry to save again; the journal will be recovered on reload.');
+    if (!this.applyLanded(c, a.interp, a.commitId)) {
+      throw new EngineError('persistence_failure', failure ? 'Publishing the accepted reply failed: ' + failure.message : 'the accepted reply did not land in the transcript');
     }
     // Deterministic rebuild with the new interpretation (no model calls).
-    const c2 = this.campaign()!;
     const entries = this.host.readTranscript();
     const pack = this.pack();
-    const r = replay({ pack, branchId: c2.branchId, bootstrap: c2.bootstrapRecords, manual: c2.manualRecords, entries, store: c2.interpretations });
+    const r = replay({ pack, branchId: c.branchId, bootstrap: c.bootstrapRecords, manual: c.manualRecords, entries, store: c.interpretations });
     if (r.issue) this.host.log('warn', 'post-commit replay issue: ' + r.issue.reasons.join('; '));
     this.current = { replay: r, index: new WorldIndex(pack, r.state) };
-    if (!r.issue) { this.pruneFocus(c2, pack, r.state); this.prunePreferred(c2, pack, r.state); }
-    c2.ledgerRecords = r.ledger;
-    c2.manifest = entries.map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
-    c2.transcriptFingerprint = r.fingerprint;
-    c2.revision++;
+    if (!r.issue) { this.pruneFocus(c, pack, r.state); this.prunePreferred(c, pack, r.state); }
+    c.ledgerRecords = r.ledger;
+    c.manifest = entries.map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
+    c.transcriptFingerprint = r.fingerprint;
+    c.revision++;
     // plan step readiness follows enacted steps
     const plan = this.activePlan();
     if (plan) {
       const { plan: p2 } = refreshPlan(plan, r.state, r.state.clock.lo, this.settings.readyWindowMinutes);
-      c2.planRevisions = c2.planRevisions.map((x) => (x.planId === p2.planId ? p2 : x));
+      c.planRevisions = c.planRevisions.map((x) => (x.planId === p2.planId ? p2 : x));
     }
-    await this.host.save();
+    try {
+      await this.host.save();
+    } catch (e) {
+      c.recoveryState = { status: 'unsaved', reason: (e as Error).message, at: this.host.now() };
+      return { saved: false };
+    }
+    if (c.recoveryState.status === 'unsaved') c.recoveryState = { status: 'ok' };
+    return { saved: true };
   }
 
-  /** Journal recovery after reload/crash: finalize a published commit or discard an unpublished one. */
-  private async recoverPending(c: CampaignData) {
+  /** Bind a published reply's interpretation to the reply as it is in the conversation (found by its variant id; the
+   *  host may have changed the text on the way in — whitespace, its own text rules) and add it to the store. False
+   *  when no such reply is there. */
+  private applyLanded(c: CampaignData, interp: Interpretation, commitId: string): boolean {
+    const landed = this.host.readTranscript().find((e) => e.role === 'gm' && e.variantId === interp.variantId);
+    if (!landed) return false;
+    if (landed.contentHash !== interp.contentHash || landed.messageId !== interp.messageId) {
+      for (const r of interp.records) for (const ref of r.sourceRefs) if (ref.messageId === interp.messageId && ref.variantId === interp.variantId) { ref.messageId = landed.messageId; ref.contentHash = landed.contentHash; }
+      interp.contentHash = landed.contentHash;
+      interp.messageId = landed.messageId;
+      interp.key = baseKey(landed);
+    }
+    const list = interpretationsFor(c.interpretations, interp.key);
+    if (!list.some((x) => x.commitId === commitId)) list.push(interp);
+    c.interpretations[interp.key] = list;
+    c.acceptedHead = commitId;
+    return true;
+  }
+
+  /** Journal recovery after reload/crash: a reply that was published is finalized, anything else is dropped. */
+  private recoverPending(c: CampaignData) {
     const j = c.pendingTransaction;
     if (!j) return;
-    const entries = this.host.readTranscript();
-    const landed = entries.find((e) => e.role === 'gm' && e.contentHash === j.targetHash && e.variantId === j.interpretation.variantId);
-    if (landed) {
-      const list = interpretationsFor(c.interpretations, j.interpretation.key);
-      if (!list.some((x) => x.commitId === j.commitId)) list.push(j.interpretation);
-      c.interpretations[j.interpretation.key] = list;
-      c.acceptedHead = j.commitId;
-      this.host.log('info', `recovered journaled commit ${j.commitId}`);
-    } else {
-      if (j.priorReply && j.opType === 'regenerate') {
-        try { await this.host.restorePrior('regenerate', j.priorReply); } catch { /* best effort */ }
-      }
-      this.host.log('info', `discarded unpublished journal ${j.commitId}`);
-    }
     c.pendingTransaction = null;
+    this.host.log('info', this.applyLanded(c, j.interpretation, j.commitId) ? `recovered journaled commit ${j.commitId}` : `discarded unpublished journal ${j.commitId}`);
   }
 
-  /** Retry: save again after a persistence failure, or rerun the failed operation. */
+  /** Retry: save again after a persistence failure, then run the failed operation again (the same kind). */
   async retry(): Promise<void> {
     const c = this.campaign();
-    if (!c) return;
+    if (!c || this.opActive) return;
+    const failed = c.recoveryState.op;
     if (c.recoveryState.status === 'unsaved') {
+      const before = c.recoveryState;
+      // saved as settled: a reload after this save must not ask for it again
+      c.recoveryState = { status: 'ok' };
       try {
-        await this.host.save();
-        c.recoveryState = { status: 'ok' };
         await this.host.save();
         this.setStatus('idle', 'Saved');
       } catch (e) {
+        c.recoveryState = { ...before, reason: (e as Error).message, at: this.host.now() };
         this.setStatus('error', 'Save failed again: ' + (e as Error).message, { errorKind: 'persistence_failure', canRetry: true });
+        return;
       }
-      return;
+      if (!failed) return;
     }
-    c.recoveryState = { status: 'ok' };
     // A stored conflict is replayed as-is; on Retry, drop it so the message is checked again by the current code
     // (live finding: a conflict stored before a gate fix kept the replay stopped after the update).
     const issue = this.current?.replay.issue;
@@ -1917,15 +2020,30 @@ export class CanonEngine {
       const key = baseKey(issue.entry);
       const keep = interpretationsFor(c.interpretations, key).filter((i) => !(i as Interpretation & { conflict?: unknown }).conflict);
       if (keep.length) c.interpretations[key] = keep; else delete c.interpretations[key];
-      await this.reconcile('retry');
+      await this.reconcile('retry').catch(() => undefined);
       return;
     }
-    const op = this.lastFailedOp?.op;
-    if (op && op !== 'rebuild') {
-      const last = this.host.readTranscript().slice(-1)[0];
-      await this.runOperation(last?.role === 'user' ? 'normal' : op === 'continue' ? 'continue' : 'normal');
-    } else {
-      await this.reconcile('retry');
+    const last = this.host.readTranscript().slice(-1)[0];
+    if (failed && failed !== 'rebuild') {
+      // the same operation on the conversation as it is now: a reply to the player's message when that is last;
+      // otherwise the last reply continued, or written anew
+      if (!last || last.role !== 'gm') { await this.runOperation('normal'); return; }
+      if (failed === 'regenerate' && this.host.removeLastReply) {
+        const prior = await this.host.removeLastReply();
+        await this.runOperation(prior ? 'regenerate' : 'normal', prior ?? undefined);
+        return;
+      }
+      await this.runOperation(failed === 'regenerate' ? 'swipe' : failed);
+      return;
+    }
+    // no operation failed: what is left is reading the conversation (the error is over when that goes through)
+    const r = await this.reconcile('retry').catch(() => null);
+    const cc = this.campaign();
+    if (r && !r.issue && cc && cc.recoveryState.status === 'error') {
+      cc.recoveryState = { status: 'ok' };
+      this.setStatus('idle');
+      await this.host.save().catch((e) => { cc.recoveryState = { status: 'unsaved', reason: (e as Error).message, at: this.host.now() }; });
+      this.emit();
     }
   }
 
@@ -2107,10 +2225,11 @@ export class CanonEngine {
 
   /** 重新检查 (panel): check again with the changes as they are now. */
   async recheckWorld(): Promise<void> {
-    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
-    await this.checkWorld(undefined, 'world');
-    await this.host.save();
-    await this.reconcile('world_settings', { allowModel: false });
+    return this.change(async () => {
+      await this.checkWorld(undefined, 'world');
+      await this.host.save();
+      await this.reconcileInner('world_settings', { allowModel: false });
+    });
   }
 
   /** The user's own changes (panel): replaced as a whole; checked again with 重新检查. */
@@ -2122,7 +2241,8 @@ export class CanonEngine {
   }
 
   /** Edit (content; empty disables) or remove (null) one override or addition by hand. */
-  async editWorld(id: string, content: string | null): Promise<void> {
+  async editWorld(id: string, content: string | null): Promise<void> { return this.change(() => this.editWorldNow(id, content)); }
+  private async editWorldNow(id: string, content: string | null): Promise<void> {
     const ws = this.campaign()?.worldSettings;
     if (!ws) return;
     if (content === null) { ws.overrides = ws.overrides.filter((o) => o.id !== id); ws.additions = ws.additions.filter((a) => a.id !== id); }
@@ -2134,7 +2254,7 @@ export class CanonEngine {
     }
     this.overlayCache = null;
     await this.host.save();
-    await this.reconcile('world_settings', { allowModel: false });
+    await this.reconcileInner('world_settings', { allowModel: false });
   }
 
   /** What the host's lore scan does in this chat: entries replaced or disabled by book and uid (only while the
@@ -2229,8 +2349,8 @@ export class CanonEngine {
 
   /** 更新本局身份: read the active Persona as a new profile revision, in effect from after the current last message
    *  (earlier messages keep the identity they were written with). */
-  async updateIdentity(): Promise<void> {
-    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
+  async updateIdentity(): Promise<void> { return this.change(() => this.updateIdentityNow()); }
+  private async updateIdentityNow(): Promise<void> {
     const c = this.campaign();
     if (!c) return;
     c.integration ||= { since: ENGINE_RELEASE };
@@ -2247,7 +2367,7 @@ export class CanonEngine {
     c.configRevisions.push({ at: this.host.now(), summary: `player identity updated from the Persona "${persona.name}" (revision ${rev})` });
     await this.checkWorld(undefined, 'identity');
     await this.host.save();
-    await this.reconcile('identity_updated');
+    await this.reconcileInner('identity_updated', {});
   }
 
   /** 重新评估 (尚未发生的可能接触): ask the world-reaction step again now, ignoring the cached result. Suggestions
@@ -2400,9 +2520,7 @@ export class CanonEngine {
     if (opts.force) needs = true;
     if (!needs) return { plan, forced: plan!.mode === 'FORCED_CONVERGENCE' };
     const facts = this.stateFacts(index, [...pack.entities.keys(), ...state.runtimeEntities.keys()], clock);
-    let res: Awaited<ReturnType<typeof runPlanning>>;
-    try {
-      res = await runPlanning({
+    const res = await runPlanning({
       port: this.host.model, pack, index, state, clockTick: clock, worldRevision: c.revision, prefixHash: this.current?.replay.fingerprint || '',
       affected: (c as CampaignData & { _affectedAnchors?: Id[] })._affectedAnchors || [], maxOrdinary: this.settings.maxOrdinaryPlanner, allowForcedAttempt: this.settings.forcedPlannerAttempt,
       signal, operationId, readyWindow: this.settings.readyWindowMinutes, facts, player, log: (l) => this.debugLog('task', l),
@@ -2411,20 +2529,10 @@ export class CanonEngine {
       // HARD planner only plans world obligations.
       interests: c.integration ? [] : focusedLive(pack, state, c.focusEvents || [], clock).filter((f) => !engagementView(state, pack).blockedBy({ eventId: f.event.id }, clock)).map((f) => ({ id: f.event.id, title: f.event.title, window: `${formatTick(f.lo)} – ${formatTick(f.hi)}`, original_route: f.event.summary })),
       impactForced: !!(c as CampaignData & { _impactForced?: boolean })._impactForced,
-      });
-    } catch (e) {
-      // A model that cannot produce a valid plan (malformed/truncated JSON) is treated like "no valid
-      // plan": the reply proceeds and HARD obligations stay enforced at their deadlines. Provider
-      // failures and cancellation remain operational errors (C15).
-      if (!(e instanceof EngineError) || e.kind !== 'invalid_model_json') throw e;
-      res = { plan: null, forced: false, errors: [(e as Error).message] } as unknown as Awaited<ReturnType<typeof runPlanning>>;
-    }
-    if (!res.plan) {
-      // No valid plan: HARD obligations are still enforced at their checkpoints by the gate and adjudicator.
-      if (plan) plan.status = 'stale';
-      this.notice('warn', `Planner could not produce a valid plan (${res.errors.slice(-2).join(' | ') || 'no output'}). Hard obligations remain enforced at their deadlines.`);
-      return { plan: plan && plan.status === 'active' ? plan : null, forced: false };
-    }
+    });
+    // While HARD events are ahead, a turn never goes on without a plan for them: no valid plan (or no valid JSON,
+    // thrown by the call itself) fails the turn, and Retry plans again.
+    if (!res.plan) throw new EngineError('narrative_validation_failure', `The planner produced no valid plan (${res.errors.slice(-2).join(' | ') || 'no output'}). The turn does not go on without one; use Retry.`);
     for (const p of c.planRevisions) if (p.status === 'active' || p.status === 'stale') p.status = 'superseded';
     res.plan.preconditionSignature = preconditionSignature(pack, state, res.plan.protectedAnchorIds, clock);
     res.plan.playerContextHash = pHash;
@@ -2513,10 +2621,11 @@ export class CanonEngine {
   exportBackup(): string {
     const c = this.campaign();
     if (!c) throw new EngineError('invalid_pack', 'no campaign');
-    return JSON.stringify({ format: 'canon-engine-backup', version: STORAGE_VERSION, engineVersion: ENGINE_VERSION, exportedChatId: this.host.chatId(), campaign: { ...c, packSnapshot: c.packSnapshot || this.pack().pack }, transcriptManifest: this.host.readTranscript().map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role })) }, null, 1);
+    return JSON.stringify({ format: 'canon-engine-backup', version: STORAGE_VERSION, engineVersion: ENGINE_RELEASE, exportedChatId: this.host.chatId(), campaign: { ...c, packSnapshot: c.packSnapshot || this.pack().pack }, transcriptManifest: this.host.readTranscript().map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role })) }, null, 1);
   }
 
-  async importBackup(text: string): Promise<{ matchedMessages: number; total: number }> {
+  async importBackup(text: string): Promise<{ matchedMessages: number; total: number }> { return this.change(() => this.importBackupNow(text)); }
+  private async importBackupNow(text: string): Promise<{ matchedMessages: number; total: number }> {
     let data: { format?: string; version?: number; campaign?: CampaignData };
     try { data = JSON.parse(text); } catch { throw new EngineError('invalid_pack', 'backup is not valid JSON'); }
     if (data.format !== 'canon-engine-backup' || !data.campaign) throw new EngineError('invalid_pack', 'not a Canon Engine backup file');
@@ -2533,7 +2642,7 @@ export class CanonEngine {
     this.packCache = null;
     const entries = this.host.readTranscript();
     const matched = entries.filter((e) => camp.manifest.some((m) => m.messageId === e.messageId && m.contentHash === e.contentHash)).length;
-    await this.reconcile('backup_import');
+    await this.reconcileInner('backup_import', {});
     return { matchedMessages: matched, total: entries.length };
   }
 
@@ -2558,7 +2667,8 @@ export class CanonEngine {
   }
 
   /** Apply a reviewed pack update as a new binding revision (caller ensures a backup was exported). */
-  async applyPackUpdate(newText: string): Promise<void> {
+  async applyPackUpdate(newText: string): Promise<void> { return this.change(() => this.applyPackUpdateNow(newText)); }
+  private async applyPackUpdateNow(newText: string): Promise<void> {
     const c = this.campaign();
     if (!c) return;
     const r = validatePackText(newText);
@@ -2575,7 +2685,7 @@ export class CanonEngine {
     // themselves did not change, so the manifest is kept: clearing it would mark every message as
     // new and force a model re-examination of every reply that names a pack entity.
     this.packCache = null;
-    await this.reconcile('pack_update');
+    await this.reconcileInner('pack_update', {});
   }
 
   /** "强制完成": the player marks a canon event as completed. It is recorded along its original route

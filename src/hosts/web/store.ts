@@ -19,12 +19,22 @@ export interface Save {
 const DB = 'canon-engine-play', VERSION = 1;
 let dbp: Promise<IDBDatabase> | null = null;
 function db(): Promise<IDBDatabase> {
-  return (dbp ||= new Promise((res, rej) => {
+  if (dbp) return dbp;
+  const p = new Promise<IDBDatabase>((res, rej) => {
     const r = indexedDB.open(DB, VERSION);
     r.onupgradeneeded = () => { r.result.createObjectStore('saves', { keyPath: 'id' }); r.result.createObjectStore('packs'); };
-    r.onsuccess = () => res(r.result);
+    r.onsuccess = () => {
+      // closed under us (another tab upgrading, the browser clearing site data): the next call opens it again
+      r.result.onclose = r.result.onversionchange = () => { r.result.close(); if (dbp === p) dbp = null; };
+      res(r.result);
+    };
     r.onerror = () => rej(r.error);
-  }));
+    r.onblocked = () => rej(new Error('The saved games are held open by another tab of this page.'));
+  });
+  dbp = p;
+  // an open that failed is not kept: the next save tries again (it used to fail for good until the page was reloaded)
+  p.catch(() => { if (dbp === p) dbp = null; });
+  return p;
 }
 async function tx<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   const d = await db();

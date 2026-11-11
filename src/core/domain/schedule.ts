@@ -28,9 +28,15 @@ export function crossedCandidates(pack: LoadedPack, state: WorldState, fromExclu
   return out;
 }
 
+/** Is an event's window over at `tick`? The one answer for the bootstrap (history up to the start point), the gate
+ *  (a HARD deadline reached) and the player's messages: the window's last minute counts as reached. */
+export function isDue(window: { hi: number }, tick: number): boolean {
+  return window.hi <= tick;
+}
+
 /** HARD events whose latest bound is reached by `toInclusive` and which have not occurred. */
 export function hardDeadlinesReached(pack: LoadedPack, state: WorldState, toInclusive: number): Candidate[] {
-  return crossedCandidates(pack, state, -Infinity, toInclusive).filter((c) => c.event.classification === 'HARD' && c.hi <= toInclusive);
+  return crossedCandidates(pack, state, -Infinity, toInclusive).filter((c) => c.event.classification === 'HARD' && isDue(c, toInclusive));
 }
 
 /** Pending HARD obligations ordered by deadline (compact register). */
@@ -297,7 +303,7 @@ export function buildBootstrap(pack: LoadedPack, startTick: number): { records: 
   let seq = records.length;
   for (const t of pack.timeIndex) {
     const ev = pack.events.get(t.id)!;
-    if (t.hi < startTick) {
+    if (isDue(t, startTick)) {
       const when: StoryTime = { lo: t.lo, hi: t.hi, precision: t.lo === t.hi ? 'minute' : 'range' };
       const p = adjudicateDefault(pack, scratch, { event: ev, lo: t.lo, hi: t.hi }, when, 'bootstrap');
       let rec = p.record;
@@ -309,8 +315,8 @@ export function buildBootstrap(pack: LoadedPack, startTick: number): { records: 
           recordId: newId('rec'), kind: 'canon_occurrence', storyTime: when, sourceRefs: [], factsSetOrUnset: deltas,
           eventOccurrenceIds: [occId],
           occurrences: [{ occurrenceId: occId, title: ev.title, account: ev.summary, actors: ev.entity_ids, affected: ev.entity_ids, locations: ev.location_ids, time: when, outcome: deltas, causes: [], refPhrases: [ev.title], packEventId: ev.id, origin: 'bootstrap', visibility: ev.visibility }],
-          visibility: ev.visibility, summary: `${ev.title}: HARD baseline occurrence before start`, evidenceKind: 'bootstrap', packEventId: ev.id, disposition: 'occurred',
-          dispositionReason: 'HARD event before the binding start point (bootstrap assumption)',
+          visibility: ev.visibility, summary: `${ev.title}: HARD baseline occurrence by the start`, evidenceKind: 'bootstrap', packEventId: ev.id, disposition: 'occurred',
+          dispositionReason: 'HARD event due by the binding start point (bootstrap assumption)',
         };
       }
       if (!rec) {
@@ -322,6 +328,7 @@ export function buildBootstrap(pack: LoadedPack, startTick: number): { records: 
       records.push(rec);
       applyRecord(scratch, { ...rec, sequence: ++seq, branchId: 'bootstrap', commitId: 'bootstrap' });
     } else if (t.lo <= startTick) {
+      // under way at the start point
       pending.push(ev.id);
     }
   }

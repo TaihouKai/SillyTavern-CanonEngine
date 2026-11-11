@@ -5,7 +5,7 @@ import type { StHost } from './st';
 import { ctx, NS, gen } from './st';
 import { HoraeAdapter } from './horae';
 import type { StSettings } from './settings';
-import type { WriterLock } from './lock';
+import type { WriterLock } from '../browser/lock';
 import { primeNotifications, systemNotificationsAvailable } from './notify';
 import { listLibrary, saveToLibrary, loadFromLibrary, removeFromLibrary, type LibraryEntry } from './library';
 

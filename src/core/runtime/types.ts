@@ -2,9 +2,9 @@
 import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, NatureVersion, StoryTime } from '../domain/types';
 
 export const STORAGE_VERSION = 1;
-export const ENGINE_VERSION = '1.3.4';
-/** Release version shown to users (kept equal to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.31.0';
+/** Release version: shown to users, and written into campaigns and backups as the version that made them (kept equal
+ *  to package.json/manifest.json by a unit test). */
+export const ENGINE_RELEASE = '1.32.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -62,6 +62,15 @@ export interface Interpretation {
   configRequests?: string[];
   /** Hash of the prefix state this interpretation was validated against. */
   basisStateHash?: string;
+  /** What the earlier messages had told about this message's entities when it was examined (entity -> the state's
+   *  `told` digest; '' when nothing had). A reply stays valid only while these are the same: the same chat gives the
+   *  same answer, whatever was rebuilt, failed or cancelled in between. Absent: written without it (nothing known). */
+  basisScope?: Record<Id, string>;
+  /** Entities the message's text names (names and aliases), beside the ones its interpretation is about. */
+  named?: Id[];
+  /** GM reply: the plan it was written and settled under (the offscreen events of the time it crosses were decided
+   *  with this plan's steps). Examined again, it is settled with the same plan, not the one in force by then. */
+  planId?: string;
   /** Set when this message cannot follow its (new) prefix: an editorial conflict, not a diegetic event. */
   conflict?: { reason: string; quote?: string };
   /** Participation opportunities declined (event ids) - mirrored in records. */
@@ -147,6 +156,8 @@ export interface RecoveryState {
   at?: number;
   /** Full plain-text report of the failed turn (every attempt's problems, resent calls, timing). */
   details?: string;
+  /** The operation that failed (Retry runs the same kind again). */
+  op?: OpType;
 }
 
 export interface PendingTransaction {
@@ -156,10 +167,8 @@ export interface PendingTransaction {
   sourceFingerprint: string;
   targetHash: string;
   opType: string;
-  /** Interpretation for the new GM variant (applied on recovery if the message landed). */
+  /** Interpretation for the new GM variant (applied on recovery if a reply with its variant id is in the chat). */
   interpretation: Interpretation;
-  priorReply?: unknown;
-  phase: 'prepared' | 'published';
 }
 
 export interface Binding {

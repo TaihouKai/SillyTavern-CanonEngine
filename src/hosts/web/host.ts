@@ -16,7 +16,12 @@ export class WebHost implements HostPort {
     load: async (ref) => (await packs.get(ref.file || ref.hash)) ?? (await packs.get(ref.hash)) ?? null,
   };
 
+  /** Does this tab hold the open game? (app.ts: one tab plays a saved game at a time.) */
+  writerCheck: (() => boolean) | null = null;
+
   constructor(model: WebModel) { this.model = model; }
+
+  isWriter(): boolean { return this.writerCheck ? this.writerCheck() : true; }
 
   chatId(): string | null { return this.game?.id ?? null; }
   isGroup(): boolean { return false; }
@@ -26,9 +31,13 @@ export class WebHost implements HostPort {
   }
   hashAssistant(text: string): string { return hashOf('gm', text); }
   getCampaign(): CampaignData | null { return (this.game?.campaign as CampaignData) ?? null; }
-  setCampaign(data: CampaignData | null): void { if (this.game) this.game.campaign = data; }
+  setCampaign(data: CampaignData | null): void {
+    if (!this.game) { if (data) throw new Error('No game is open: there is nothing to keep this in.'); return; }
+    this.game.campaign = data;
+  }
   async save(): Promise<void> {
-    if (!this.game) return;
+    // never "saved" when nothing was written: the engine takes a save that returns as durable
+    if (!this.game) throw new Error('No game is open: nothing was saved.');
     this.game.updatedAt = Date.now();
     // a copy: the engine keeps working on its own objects while this is written
     await saves.put(deepClone(this.game));

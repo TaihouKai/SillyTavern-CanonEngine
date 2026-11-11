@@ -14,6 +14,9 @@ export interface Transition {
   value?: FactValue;
   recordId: string;
   kind: LedgerRecord['kind'];
+  /** An add/remove as it was given. Its value is the fact as it stands before it with this applied, and is worked
+   *  out again when a change is put in at an earlier time (a record's time can lie before changes already there). */
+  change?: { op: 'add' | 'remove'; value: FactValue };
 }
 
 export interface OccurrenceEntry extends Occurrence {
@@ -41,6 +44,9 @@ export interface TieEntry extends TieInfo { recordId: string; seq: number; tick:
 export interface WorldState {
   packHash: string;
   facts: Map<string, Transition[]>;
+  /** add/remove changes that change nothing where they stand (not part of a fact's history; one may come to change
+   *  something when an earlier change is put in before it). */
+  idleChanges: Map<string, Transition[]>;
   occurrences: Map<string, OccurrenceEntry>;
   dispositions: Map<Id, Disposition>;
   declines: Map<Id, string>;
@@ -54,6 +60,9 @@ export interface WorldState {
   clock: StoryTime;
   /** The time frame the scene is in (scene_frame records; null: the main frame, never changed). */
   sceneFrame: { frameId: Id; since: number; recordId: string } | null;
+  /** Per entity: a running digest of the messages so far that are about it (their text, in order). Kept by the
+   *  replay; a later message about the entity is valid only for the digest it was examined with. */
+  told: Map<Id, string>;
   records: LedgerRecord[];
   recordById: Map<string, LedgerRecord>;
   lastSeq: number;
@@ -66,6 +75,7 @@ export function emptyState(pack: LoadedPack): WorldState {
   return {
     packHash: pack.hash,
     facts: new Map(),
+    idleChanges: new Map(),
     occurrences: new Map(),
     dispositions: new Map(),
     declines: new Map(),
@@ -76,6 +86,7 @@ export function emptyState(pack: LoadedPack): WorldState {
     enactedSteps: new Map(),
     clock: { lo: pack.coverage.start, hi: pack.coverage.start, precision: 'minute' },
     sceneFrame: null,
+    told: new Map(),
     records: [],
     recordById: new Map(),
     lastSeq: 0,
@@ -128,29 +139,36 @@ export function applyRecord(state: WorldState, rec: LedgerRecord): void {
 
 function applyDelta(state: WorldState, d: FactDelta, rec: LedgerRecord, tick: number) {
   const k = factKey(d.entity_id, d.predicate);
-  // add/remove apply to the fact as it stands at the record's time
-  let op: 'set' | 'unset' = d.op === 'unset' ? 'unset' : 'set';
-  let value: FactValue | undefined = d.op === 'unset' ? undefined : d.value;
-  if (d.op === 'add' || d.op === 'remove') {
-    const f = factAt(state, d.entity_id, d.predicate, { tick });
-    const r = applyChange(f.known ? f.value : undefined, d);
-    if (r === 'same') return;
-    op = r.value === undefined ? 'unset' : 'set';
-    value = r.value;
-  }
-  const list = state.facts.get(k) || [];
-  list.push({
+  const t: Transition = {
     tick,
     tickHi: rec.storyTime.hi,
     seq: rec.sequence,
-    op,
-    value: op === 'set' ? normalizeValue(value!) : undefined,
+    op: d.op === 'unset' ? 'unset' : 'set',
+    value: d.op === 'set' ? normalizeValue(d.value) : undefined,
     recordId: rec.recordId,
     kind: rec.kind,
-  });
-  // keep ordered by (tick, seq)
-  list.sort((a, b) => a.tick - b.tick || a.seq - b.seq);
-  state.facts.set(k, list);
+  };
+  if (d.op === 'add' || d.op === 'remove') t.change = { op: d.op, value: d.value };
+  // ordered by (tick, seq), with the changes that change nothing in their places
+  const all = [...(state.facts.get(k) || []), ...(state.idleChanges.get(k) || []), t].sort((a, b) => a.tick - b.tick || a.seq - b.seq);
+  // add/remove apply to the fact as it stands at their time: this one, and those after it up to the next set/unset
+  // (which stands on nothing before it)
+  const list: Transition[] = [], idle: Transition[] = [];
+  let at = all.indexOf(t), settled = false;
+  for (let i = 0; i < all.length; i++) {
+    const x = all[i];
+    if (i > at && !x.change) settled = true;
+    if (x.change && i >= at && !settled) {
+      const cur = list[list.length - 1];
+      const r = applyChange(cur && cur.op === 'set' ? cur.value : undefined, { ...x.change, entity_id: d.entity_id, predicate: d.predicate });
+      if (r === 'same') { idle.push(x); continue; }
+      x.op = r.value === undefined ? 'unset' : 'set';
+      x.value = r.value === undefined ? undefined : normalizeValue(r.value);
+    } else if (x.change && (state.idleChanges.get(k) || []).includes(x)) { idle.push(x); continue; }
+    list.push(x);
+  }
+  if (list.length) state.facts.set(k, list); else state.facts.delete(k);
+  if (idle.length) state.idleChanges.set(k, idle); else state.idleChanges.delete(k);
 }
 
 export function reduce(pack: LoadedPack, records: LedgerRecord[]): WorldState {

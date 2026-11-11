@@ -25,7 +25,7 @@ Nothing else is written. Unrelated metadata and other extensions' fields are pre
 | `chatId`, `integrity` | Last seen ST chat file name and integrity slug (rename/branch detection) |
 | `packRef`, `packHash`, `packVersion` | The pinned pack: `packRef` `{ packId, version, title, file }` points at its copy in the pack library (ST user files); `packHash` (SHA-256 of normalized canonical JSON, entity sets sorted) is checked whenever it is loaded, so editing or replacing the file never changes a running campaign — a different file is refused and reported as missing. Chats bound before 1.16.0 (and hosts without a pack store) carry `packSnapshot`, the whole pack; it moves to the library the first time the chat is opened. Backups always carry `packSnapshot` |
 | `binding` | `startTick`, optional display `originDate` for day 0, `startLabel`, `examinedMessages`, `unresolved`, `mode` (`new`/`existing`) |
-| `bootstrapRecords` | Pre-transcript seed: baseline facts + canonical history adjudicated up to the start point + start clock. The first message's rebuild falls back to this, never to an old first-message snapshot |
+| `bootstrapRecords` | Pre-transcript seed: baseline facts + canonical history adjudicated up to and including the start minute (an event whose window ends at the start minute is settled here, as the gate would call it due) + start clock. The first message's rebuild falls back to this, never to an old first-message snapshot |
 | `revision` | Increments on every accepted source change / commit |
 | `acceptedHead` | Last accepted commit id |
 | `transcriptFingerprint`, `manifest` | Ordered source manifest `[{messageId, variantId, contentHash, role}]` and its chained hash. Compared on every event, reload, chat change and before generation/commit |
@@ -59,6 +59,8 @@ Story time is an integer tick `day * 1440 + minute` (signed day). `StoryTime = {
 | `dependsOn` | Source dependencies `{messageId, contentHash}` (e.g. the user message a reply answered) |
 | `sceneEnd`, `flashback`, `sceneEntities` | Scene end time, flashback framing, depicted entities (next turn's scene scope) |
 | `offscreenBasis` | Crossed canonical events adjudicated with this reply and the precondition truth value they assumed |
+| `basisScope`, `named` | What it was examined against beside the state hash: per entity it is about or names, the digest of what earlier messages had told about that entity (`WorldState.told`). Valid only while both are the same |
+| `planId` | GM reply: the plan it was written and settled under. Examined again later, its offscreen events are settled with that plan (the newest reply without one: the plan in force; an older one: none) |
 | `banner` | Spoiler-free major-deviation banner bound to this variant/commit |
 | `basisStateHash` | Hash of the prefix state it was validated against (fast replay path; dependencies are still re-checked) |
 | `conflict` | Present when the message cannot follow its (edited) prefix: an editorial conflict, never a diegetic event |
@@ -86,7 +88,11 @@ The reducer is pure and idempotent (a record id applies once). Occurrences are k
 
 ## 6. Commit journal (`pendingTransaction`)
 
-`{ commitId, operationId, predecessorRevision, sourceFingerprint, targetHash, opType, interpretation, priorReply?, phase }`. Written before native publication; the publish save persists chat + journal atomically (one ST chat file). After the engine delta is saved the journal is cleared. On reload/next reconcile: if a message with the journaled variant id exists, the commit is finalized; otherwise it is discarded (and a regenerate's prior reply is restored). A failed save never reports success; `recoveryState: unsaved` stays until a save succeeds (Retry).
+`{ commitId, operationId, predecessorRevision, sourceFingerprint, targetHash, opType, interpretation, priorReply?, phase }`. Written before native publication; the publish save persists chat + journal atomically (one ST chat file). After the engine delta is saved the journal is cleared. On reload/next reconcile: if a message with the journaled variant id exists, the commit is finalized; otherwise it is discarded (and a regenerate's prior reply is restored). A failed save never reports success; `recoveryState: unsaved` stays until a save succeeds (Retry). A reply that was published but whose save failed is in the conversation and in the journal: Retry (and the next rebuild) saves it, it is never written a second time; when the journal itself was lost, the reply is read as a message of the conversation. An operation whose chat was changed under it writes nothing into the other chat (not the reply it replaced, not its failure).
+
+Changes from outside a turn (pack update or relink, binding, enable/disable, backup import, identity update, 本局设定 edits, a chat being loaded) are refused while a reply is being made, cancel the rebuild that is running and wait for it to end; they never run across one.
+
+A turn never goes on without what it needs from the models: while HARD events are ahead, no valid plan fails the turn (`narrative_validation_failure`, Retry plans again); an offscreen event that is not HARD and gets no valid adjudication fails the turn (`invalid_model_json`) instead of being written as omitted.
 
 ## 7. Coverage manifest
 
@@ -98,7 +104,7 @@ Every model call belongs to an operation with fences `{ sessionId, branchId, rev
 
 ## 9. Internal model task contracts (`schemas/runtime/*.schema.json`)
 
-All tasks: one JSON object, `additionalProperties: false` everywhere (extra mutation fields are rejected), at most 2 attempts with the validation error fed back, then an actionable `invalid_model_json` error. Inputs are JSON data marked as untrusted fiction; prompts are in `src/runtime/prompts.ts`. Fixtures: `tests/fixtures/model/`.
+All tasks: one JSON object, `additionalProperties: false` everywhere (extra mutation fields are rejected), at most 3 attempts with the validation error fed back, then an actionable `invalid_model_json` error. Inputs are JSON data marked as untrusted fiction; prompts are in `src/runtime/prompts.ts`. Fixtures: `tests/fixtures/model/`.
 
 | Task | Output (summary) |
 | --- | --- |

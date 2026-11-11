@@ -319,6 +319,17 @@ export class StHost implements HostPort {
     m.extra[NS] = { mid: this.pendingStamp.messageId, vid: this.pendingStamp.variantId, commitId: this.pendingStamp.commitId };
   }
 
+  /** The last reply out of the chat, as SillyTavern's own Regenerate does before it generates. */
+  async removeLastReply(): Promise<unknown | null> {
+    const c = ctx();
+    const chat: any[] = c.chat;
+    const last = chat[chat.length - 1];
+    if (!last || last.is_user || last.is_system || typeof c.deleteLastMessage !== 'function') return null;
+    const prior = { message: structuredClone(last) };
+    await c.deleteLastMessage();
+    return prior;
+  }
+
   async restorePrior(op: OpType, prior: any): Promise<void> {
     const c = ctx();
     const mod = await loadStModule();

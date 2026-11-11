@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.32.0 — 2026-11-11
+
+An audit of the whole engine (report first, then the fixes the user agreed to). Every finding has a test that failed before.
+
+- **Continue kept only its own part.** Continuing a reply threw away what the first part had settled outside its text: the time it reached and the offscreen events adjudicated for the time it crossed. The continued reply now replaces the first as a whole and carries those over.
+- **Publishing and saving.** A reply that was published but whose save failed is never written a second time: Retry and the next rebuild save it from the journal; a lost journal reads it as a message of the conversation. A cancelled or failed re-roll restores the reply it replaced exactly once. A failure after the reply is in the conversation no longer reports the turn as not made.
+- **Which earlier replies are looked at again after an edit** is decided by what the earlier messages tell about each entity (`WorldState.told`, `Interpretation.basisScope`), not by the last rebuild that happened to run: the same chat gives the same answer after a cancelled, failed or model-less rebuild.
+- **A game that starts on the minute a HARD event is due** has that event settled at the start (`isDue`, one rule for the bootstrap and the gate) instead of a first turn that could not pass.
+- **No turn on missing model answers.** While HARD events are ahead, a planner that gives no valid plan fails the turn (Retry plans again) — the turn no longer went on with no plan. An offscreen event that is not HARD and gets no valid adjudication fails the turn instead of being written down as omitted.
+- **A time that is spoken of is not a time that is reached.** "明天八点见", "约好三点集合", anything in quoted speech, a plan or another day no longer lifts the limit on how far an untimed reply may move the clock; "等到八点，见到了她" and a clock read as the time now still do (`statedTime`).
+- **Changes from outside a turn** (pack update or relink, binding, enable/disable, backup import, identity update, 本局设定 edits, loading a chat) are refused while a reply is being made, cancel the running rebuild and wait for it; a chat changed under an operation or a rebuild gets nothing of it (not the reply a re-roll replaced, not its failure, not the other chat's messages).
+- **Facts changed by what joins or leaves them** (`add`/`remove`) are worked out again when a record lands at an earlier story time than changes already there (an event recorded at the start of its window): someone who joined earlier is no longer lost at the later change.
+- **An older reply examined again** has the offscreen events of its time settled with the plan it was written under (`Interpretation.planId`), not the plan in force by then.
+- **Writer lock** (`src/hosts/browser/lock.ts`, both browser hosts): Web Locks decide where the browser has them (two tabs starting in the same instant can no longer both own a campaign); the heartbeat remains the fallback. Canon Engine Play takes the lock per saved game: a game open in another tab is not opened or deleted here.
+- **Canon Engine Play**: a save with no game open throws instead of returning as if written; a database that failed to open once is opened again by the next save; the game is not left or reopened while a reply is being made, and leaving ends the engine's work for it first.
+- SillyTavern settings: a task timeout of 180000 or a context budget of 24000 chosen by the user is kept (they were reset on every read). `engineVersion` in campaigns and backups is the release (`ENGINE_VERSION` 1.3.4 is gone). Docs: model tasks get at most 3 attempts.
+- Setting-neutral examples in the GM context, the 本局设定 check and the decisions tooltip.
+- Looked at and left: one tab per chat (intended); HARD events always happen (intended); `readTranscript` giving a native copy its own identity (checked in a real SillyTavern: the copy stands after the original, which keeps its identity).
+- Tests: unit 516 (audit-ops, audit-replay, audit-time, audit-model, audit-host; host-contract runs one contract over FakeHost and WebHost, and the reading part over StHost).
+
 ## 1.31.0 — 2026-11-11
 
 - **Canon Engine Play: the engine without SillyTavern.** A second host, `src/hosts/web`, a page of its own on the website (`/play/`): a history pack (the example chronicle, a small demo or the player's own), a start point from the pack's arcs, the player's character and world notes, any OpenAI-compatible API with the player's key (Venice, DeepSeek, OpenRouter, a local server). The whole turn pipeline, the timeline window and the inspector run as in SillyTavern; messages can be edited or deleted (the world is rebuilt), a reply re-rolled (the earlier kept as an alternative) or continued; games are saved in the browser (IndexedDB). The GM's standing instructions are a general game-master text after the user's GM preset (editable); a work's own rules go in the game's world notes.

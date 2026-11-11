@@ -104,7 +104,7 @@ describe('player presence (Persona -> profile)', () => {
     const ctx = lastCtx(x);
     expect(ctx).toMatch(/PLAYER IN THIS WORLD[\s\S]*Vera \[rt\.player\.[^\]]+\] \(the player character\)/);
     expect(ctx).toMatch(/who knows: the Council knows the organization exists [(]not that the player is in it[)] — a smuggling ring/);
-    expect(ctx).toMatch(/the public identity is what anyone may know — famous things \(an esper's level and ability, a reputation\) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed/);
+    expect(ctx).toMatch(/the public identity is what anyone may know — famous things \(a rank or title, a known ability, a reputation\) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed/);
     // not marked secret = public; secret by nature (a hidden organization) stays secret
     expect(PROMPTS.profile).toMatch(/public_identity: everything about the player that is public\. Public by default is whatever the Persona does not mark as secret[^]*their skills or powers if they have any[^]*Secret even when not marked is what is secret by nature in this world: membership in a hidden organization/);
   });

@@ -310,7 +310,7 @@ describe('races, persistence and recovery', () => {
     // (b) crash before the reply landed: journal discarded, no partial state
     const y = await setup();
     y.host.addUser('I look.');
-    y.engine.campaign()!.pendingTransaction = { commitId: 'cmt_x', operationId: 'op', predecessorRevision: 1, sourceFingerprint: 'f', targetHash: 'h', opType: 'normal', interpretation: { key: 'm:v:h', messageId: 'm', variantId: 'var_never', contentHash: 'h', role: 'gm', commitId: 'cmt_x', createdAt: 0, origin: 'engine_commit', records: [], intents: [], stateClaims: [], playerActions: [], dependsOn: [], sceneEnd: null, flashback: false, sceneEntities: [], offscreenBasis: [], warnings: [] }, phase: 'prepared' };
+    y.engine.campaign()!.pendingTransaction = { commitId: 'cmt_x', operationId: 'op', predecessorRevision: 1, sourceFingerprint: 'f', targetHash: 'h', opType: 'normal', interpretation: { key: 'm:v:h', messageId: 'm', variantId: 'var_never', contentHash: 'h', role: 'gm', commitId: 'cmt_x', createdAt: 0, origin: 'engine_commit', records: [], intents: [], stateClaims: [], playerActions: [], dependsOn: [], sceneEnd: null, flashback: false, sceneEntities: [], offscreenBasis: [], warnings: [] } };
     await y.engine.reconcile('reload');
     expect(y.engine.campaign()!.pendingTransaction).toBeNull();
     expect(y.engine.campaign()!.acceptedHead).not.toBe('cmt_x');

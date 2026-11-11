@@ -5,7 +5,7 @@ import { claimComparable, claimMatches, valuesEqual, coerceClaimValue } from '..
 import type { LedgerRecord } from '../domain/types';
 import type { WorldState } from '../domain/reducer';
 import { applyRecord, emptyState, evalCondition, factAt, triLabel } from '../domain/reducer';
-import { hashObject, quoteInText, sha256 } from '../domain/util';
+import { hashObject, quickHash, quoteInText, sha256, stableStringify } from '../domain/util';
 import type { Interpretation, ManualRecord, RecordDraft, SourceEntry } from './types';
 
 export const baseKey = (e: { messageId: string; variantId: string; contentHash: string }) => `${e.messageId}:${e.variantId}:${e.contentHash}`;
@@ -82,22 +82,39 @@ export interface ReplayInput {
   bootstrap: RecordDraft[];
   entries: SourceEntry[];
   store: Record<string, unknown>;
-  /** Entities whose source changed in this rebuild; later messages touching them need re-evaluation. */
-  affectedEntities?: Set<string>;
-  /** First index at which the source changed relative to the accepted manifest (or -1). */
-  changedFrom?: number;
   /** Records the player added by hand, applied after their anchor message (or at the end). */
   manual?: ManualRecord[];
 }
 
 export function interpretationEntities(i: Interpretation): Set<string> {
-  const s = new Set<string>(i.sceneEntities);
+  const s = new Set<string>([...i.sceneEntities, ...(i.named || [])]);
   for (const c of i.stateClaims) s.add(c.entity_id);
   for (const r of i.records) {
     for (const d of r.factsSetOrUnset) s.add(d.entity_id);
     for (const o of r.occurrences || []) [...o.actors, ...o.affected, ...o.locations].forEach((x) => s.add(x));
   }
   return s;
+}
+
+/** What the messages so far have told about an interpretation's entities (see Interpretation.basisScope). */
+export function scopeOf(state: WorldState, i: Interpretation): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const e of [...interpretationEntities(i)].sort()) out[e] = state.told.get(e) || '';
+  return out;
+}
+
+/** Is the history of the interpretation's entities, as the earlier messages tell it, the one it was examined with?
+ *  Decided from the chat and the stored interpretations alone (not from what changed since the last rebuild). A
+ *  player message is read by itself: this applies to replies. */
+export function scopeHolds(state: WorldState, i: Interpretation): boolean {
+  if (i.role !== 'gm' || !i.basisScope) return true;
+  for (const e in i.basisScope) if ((state.told.get(e) || '') !== i.basisScope[e]) return false;
+  return true;
+}
+
+/** The same basis: validated against the same prefix state and the same history of its entities. */
+export function sameBasis(a: Interpretation, b: Interpretation): boolean {
+  return a.basisStateHash === b.basisStateHash && stableStringify(a.basisScope || null) === stableStringify(b.basisScope || null);
 }
 
 /** Source-dependency check (provenance + agency authorization); never skipped, even on the fast path. */
@@ -191,21 +208,18 @@ export function replay(input: ReplayInput): ReplayResult {
     if (!cands.length) {
       return finish({ index: i, entry: e, status: 'missing', reasons: ['no interpretation for this message variant'], candidates: [] });
     }
-    // Fast path: an interpretation validated against exactly this prefix state.
-    let chosen = cands.find((c) => c.basisStateHash === sh && !validateDependencies(c, entries, i).length);
+    // Fast path: an interpretation validated against exactly this prefix state and this history of its entities.
+    let chosen = cands.find((c) => c.basisStateHash === sh && scopeHolds(state, c) && !validateDependencies(c, entries, i).length);
     if (chosen && chosen.conflict) {
       return finish({ index: i, entry: e, status: 'conflict', reasons: [(chosen as unknown as { conflict: { reason: string } }).conflict.reason], candidates: cands });
     }
     if (!chosen) {
       const reasons: string[] = [];
-      const affected = input.affectedEntities;
       for (const c of cands) {
         if ((c as Interpretation & { conflict?: unknown }).conflict) continue;
         const r = validateAgainstPrefix(c, state, pack, entries, i);
-        const touchesAffected = affected && input.changedFrom !== undefined && input.changedFrom >= 0 && i > input.changedFrom && c.role === 'gm'
-          && [...interpretationEntities(c)].some((x) => affected.has(x));
-        if (!r.length && !touchesAffected) { chosen = c; break; }
-        if (touchesAffected) r.push('references entities whose history changed earlier in the transcript');
+        if (!scopeHolds(state, c)) r.push('references entities whose history changed earlier in the transcript');
+        if (!r.length) { chosen = c; break; }
         reasons.push(...r);
       }
       if (!chosen) return finish({ index: i, entry: e, status: 'needs_reeval', reasons: [...new Set(reasons)], candidates: cands });
@@ -216,6 +230,10 @@ export function replay(input: ReplayInput): ReplayResult {
       applyRecord(state, rec);
       ledger.push(rec);
     }
+    // written without a scope (an older version, an import): nothing is known of what it was examined with; from
+    // now on it is this
+    if (chosen.role === 'gm' && !chosen.basisScope) chosen.basisScope = scopeOf(state, chosen);
+    for (const x of interpretationEntities(chosen)) state.told.set(x, quickHash((state.told.get(x) || '') + '\n' + e.contentHash));
     applied.push({ index: i, key, interp: chosen });
     applyManual((m) => m.afterMessageId === e.messageId);
   }

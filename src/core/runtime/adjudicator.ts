@@ -129,16 +129,9 @@ export async function adjudicateInterval(args: {
     }
     if (!result) {
       if (c.event.classification === 'HARD') throw new EngineError('narrative_validation_failure', `Could not produce a valid adjudication for HARD "${c.event.title}" at ${formatTick(c.hi)}. The deadline cannot be skipped; retry or adjust the scene.`);
-      // non-HARD fallback: omitted with an explicit reason (never silently ignored)
-      const r: RecordDraft = {
-        recordId: newId('rec'), kind: 'canon_disposition', storyTime: when, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
-        visibility: c.event.visibility, summary: `${c.event.title}: not applied (adjudication unresolved)`, evidenceKind: 'adjudication', packEventId: c.event.id,
-        disposition: 'omitted', dispositionReason: `actual preconditions ${p.precondition}: ${p.explanation.join('; ')}; model adjudication unavailable/invalid`,
-      };
-      records.push(r);
-      basis.push({ eventId: c.event.id, precondition: p.precondition, mode: 'model' });
-      applyRecord(scratch, { ...r, sequence: ++seq, branchId: 'stage', commitId: 'stage' });
-      continue;
+      // No valid answer decides nothing: "the model did not answer" is not "the event did not happen". The turn
+      // fails and can be retried; the event stays open.
+      throw new EngineError('invalid_model_json', `The model gave no valid adjudication for "${c.event.title}" (${formatTick(c.lo)}); whether it happens is not decided without one. Use Retry.`);
     }
     if (result.postponed) { notes.push(`${c.event.title}: postponed within its bounds`); continue; }
     records.push(result.record);
@@ -268,7 +261,12 @@ async function modelAdjudicate(
     return null;
   }
   const a = out.adjudications.find((x) => x.event_id === ev.id);
-  if (!a || !a.account?.trim()) return null;
+  if (!a) return null;
+  // a non-HARD event the model would put off, in a window that cannot be put off (not SOFT, or closing now): by the
+  // model's own judgement it does not happen in its window
+  if (a.decision === 'postponed' && ev.classification !== 'HARD' && (ev.classification !== 'SOFT' || c.hi <= args.toInclusive)) a.decision = 'omitted';
+  // an event that does not happen has a reason, not an account
+  if (!a.account?.trim() && !(a.decision === 'omitted' && ev.classification !== 'HARD' && a.reason?.trim())) return null;
   const effects: FactDelta[] = [];
   // One bad effect no longer voids the whole judgement (live finding: "nana" for a character created in play,
   // whose id is rt.entity.…): an entity given by name is resolved; an effect that still does not fit is dropped.

@@ -1,10 +1,10 @@
 // Canon Engine — SillyTavern extension entry point.
-import { CanonEngine, DEFAULT_SETTINGS, ENGINE_RELEASE, deepClone, storyOnly, type OpType } from '../../core';
+import { CanonEngine, ENGINE_RELEASE, deepClone, storyOnly, type OpType } from '../../core';
 import { migrateSettings, ST_DEFAULTS, type StSettings } from './settings';
 import { StHost, StModel, ctx, gen, promptReadyFirst, promptReadyLast, loadStModule, NS } from './st';
 import { publicClock, installClockEvents } from './api';
 import { HoraeAdapter } from './horae';
-import { WriterLock } from './lock';
+import { WriterLock } from '../browser/lock';
 import { CHAT_PROFILE, mountUi, refreshUi, renderMessageDecorations, t } from './ui';
 import { notifyDone, primeNotifications } from './notify';
 import { listLibrary, loadFromLibrary, libraryPackStore } from './library';
@@ -23,10 +23,6 @@ export function globalSettings(): StSettings {
   const es = ctx().extensionSettings;
   if (es[SETTINGS_KEY]) migrateSettings(es[SETTINGS_KEY]);
   es[SETTINGS_KEY] = { ...ST_DEFAULTS, ...(es[SETTINGS_KEY] || {}) };
-  // 1.3.1 measured timeouts per call; the old whole-check default (180 s) is too short for that.
-  if (es[SETTINGS_KEY].taskTimeoutMs === 180000) es[SETTINGS_KEY].taskTimeoutMs = DEFAULT_SETTINGS.taskTimeoutMs;
-  // 1.3.5: the old 24000-char packet budget was too small for large packs (e.g. a full light-novel arc).
-  if (es[SETTINGS_KEY].budgetChars === 24000) es[SETTINGS_KEY].budgetChars = DEFAULT_SETTINGS.budgetChars;
   return es[SETTINGS_KEY];
 }
 

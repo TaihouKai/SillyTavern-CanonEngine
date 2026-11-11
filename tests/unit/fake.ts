@@ -78,6 +78,12 @@ export class FakeHost implements HostPort {
   async restorePrior(op: OpType, prior: any) {
     if (op === 'regenerate' && prior?.message) this.chat.push(prior.message);
   }
+  async removeLastReply() {
+    const last = this.chat[this.chat.length - 1];
+    if (!last || last.role !== 'gm') return null;
+    this.chat.pop();
+    return { message: last };
+  }
   persona() { return { name: 'Traveler', description: 'a wandering cartographer' }; }
   now() { return 1_000_000; }
   log(level: string, msg: string) { this.logs.push(`${level}: ${msg}`); }

@@ -927,7 +927,7 @@ export function integrationKey(index: WorldIndex, profile: PlayerProfile, candid
 
 export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick: number): string {
   profile = playedProfile(index, profile);
-  const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play — the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know — famous things (an esper's level and ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
+  const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play — the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know — famous things (a rank or title, a known ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
   lines.push(`- ${profile.personaName} [${profile.playerId}] (the player character): ${profile.summary || '(no summary)'}${profile.publicIdentity ? ` Public identity: ${profile.publicIdentity}` : ''}${factsLine(index, profile.playerId, tick)}`);
   for (const o of playerOrgs(index, profile, tick)) lines.push(`- organization: ${o.name} [${o.id}] — now ${STANDING[o.standing]}${o.leads ? ', its leader' : ''}${o.role ? `; the Persona's words at the start: ${o.role}` : ''} (${o.secrecy})${factsLine(index, o.id, tick)}`);
   for (const p of profile.places) lines.push(`- place: ${nameIn(index, p.entityId, p.name)} [${p.entityId}] — ${p.use}${factsLine(index, p.entityId, tick)}`);

@@ -111,7 +111,7 @@ describe('what the GM may write for the player character', () => {
     x.model.draft('The bolts miss. Mira survives. [V7a]');
     x.model.on('evaluate', (i) => String(i.candidate).includes('[V7a]'), { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush of Mira', 'Mira survives', { pack_event_id: 'medic-ambush', disposition: 'diverged', origin: 'player', actors: ['mira'] })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira survives', occurrence_ref: 'o1' }] });
     expect(await x.engine.runOperation('normal')).toBe(true);
-    x.model.on('adjudicate', (i) => JSON.stringify(i).includes('conflict-begins'), { adjudications: [{ event_id: 'conflict-begins', decision: 'occurred', time: at(2, 9), account: 'Council militias attack Union docks.', actors: ['council', 'union'], causes: [], effects: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true }], plan_step_ids: [], reason: 'alternate cause', extraordinary: false }] });
+    x.model.on('adjudicate', (i) => i.candidate?.id === 'conflict-begins', { adjudications: [{ event_id: 'conflict-begins', decision: 'occurred', time: at(2, 9), account: 'Council militias attack Union docks.', actors: ['council', 'union'], causes: [], effects: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true }], plan_step_ids: [], reason: 'alternate cause', extraordinary: false }] });
     x.host.addUser('I sleep until the next afternoon.');
     x.model.draft('Cannon fire wakes you. "Not again," you mutter. [V7b]');
     x.model.on('evaluate', (i) => String(i.candidate).includes('[V7b]'), { scene_end: at(2, 14), player_actions: [act('"Not again," you mutter', 'dialogue')] });

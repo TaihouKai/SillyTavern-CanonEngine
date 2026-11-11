@@ -8,6 +8,7 @@ import { WebHost } from './host';
 import { PROVIDERS, WebModel, type Connection } from './model';
 import { GM_PROMPT_EN, GM_PROMPT_ZH } from './gm';
 import { saves, type Save } from './store';
+import { WriterLock } from '../browser/lock';
 
 // ------------------------------------------------------------------------------------------------ texts
 const TEXT = {
@@ -23,6 +24,7 @@ const TEXT = {
     story: 'Story model', tasks: 'Analysis model', sameAsStory: 'Same as the story model', provider: 'Provider', custom: 'Custom', baseUrl: 'API base URL', apiKey: 'API key', model: 'Model',
     temperature: 'Temperature', maxTokens: 'Max reply tokens', extraBody: 'Extra request parameters (JSON)', replyLength: 'Reply length (e.g. “about 800 words”)', language: 'Language', gmPrompt: 'GM instructions',
     keyNote: 'Your key and games stay in this browser; requests go straight from this page to the provider.', close: 'Close', cost: 'This turn', ready: 'Ready',
+    openElsewhere: 'This game is open in another tab. Close it there first.',
   },
   zh: {
     brand: '游玩', newGame: '新游戏', games: '存档', noGames: '还没有存档。', continue: '继续', del: '删除', delAsk: '删除这个存档？无法恢复。',
@@ -36,6 +38,7 @@ const TEXT = {
     story: '剧情模型', tasks: '分析模型', sameAsStory: '与剧情模型相同', provider: '服务商', custom: '自定义', baseUrl: 'API 地址', apiKey: 'API key', model: '模型',
     temperature: '温度', maxTokens: '回复最大 token', extraBody: '额外请求参数（JSON）', replyLength: '回复长度（例如「正文约800~1200字」）', language: '语言', gmPrompt: 'GM 指令',
     keyNote: 'key 和存档只保存在这个浏览器里；请求从本页直接发往服务商。', close: '关闭', cost: '本回合', ready: '就绪',
+    openElsewhere: '这个存档正在另一个标签页里打开，先在那边关掉。',
   },
 };
 type Key = keyof typeof TEXT.en;
@@ -71,6 +74,9 @@ const model = new WebModel(() => settings.story, () => settings.tasks, () => ({
 }));
 const host = new WebHost(model);
 const engine = new CanonEngine(host, { ...DEFAULT_SETTINGS, ...settings.engine });
+// one tab plays a saved game at a time: two would each write the whole save over the other's
+const lock = new WriterLock(crypto.randomUUID());
+host.writerCheck = () => lock.isOwner();
 (globalThis as any).CanonPlay = { engine, host, model };
 
 // ------------------------------------------------------------------------------------------------ toasts
@@ -181,27 +187,50 @@ async function renderTitle() {
     $('#gostatus').textContent = L('starting');
     try {
       host.game = game;
+      lock.setCampaign(game.id);
       await host.save();
       const origin = parseOriginLabel(p.summary!.originLabel);
       await engine.bind(packText, { startTick: Number(startSel.value), originDate: origin, mode: 'new' });
       await engine.reconcile('binding');
       await openGame(game.id);
     } catch (e) {
-      host.game = null;
+      await leaveGame();
       await saves.delete(game.id);
       $('#gostatus').textContent = (e as Error).message;
       go.disabled = false;
     }
   });
   for (const b of document.querySelectorAll<HTMLElement>('[data-open]')) b.addEventListener('click', () => openGame(b.dataset.open!));
-  for (const b of document.querySelectorAll<HTMLElement>('[data-del]')) b.addEventListener('click', async () => { if (confirm(L('delAsk'))) { await saves.delete(b.dataset.del!); renderTitle(); } });
+  for (const b of document.querySelectorAll<HTMLElement>('[data-del]')) b.addEventListener('click', async () => {
+    if (!confirm(L('delAsk'))) return;
+    const id = b.dataset.del!;
+    // not from under the tab that is playing it (its next save would bring it back)
+    if (!(await lock.acquire(id))) { lock.setCampaign(null); toast('warning', L('openElsewhere')); return; }
+    await saves.delete(id);
+    lock.setCampaign(null);
+    renderTitle();
+  });
   renderTop();
+}
+
+/** Back to no game: what the engine was doing for the game ends first, then the game is let go for other tabs. */
+async function leaveGame() {
+  host.game = null;
+  engine.sourceChanged('chat_changed');
+  try { await engine.onChatLoaded(); } catch { /* nothing is open */ }
+  lock.setCampaign(null);
 }
 
 // ------------------------------------------------------------------------------------------------ the game
 async function openGame(id: string) {
+  if (!(await lock.acquire(id))) {
+    lock.setCampaign(null);
+    toast('warning', L('openElsewhere'));
+    if (host.game) await leaveGame();
+    return renderTitle();
+  }
   const g = await saves.get(id);
-  if (!g) return renderTitle();
+  if (!g) { await leaveGame(); return renderTitle(); }
   host.game = g;
   $('#app').innerHTML = `
     <section class="play">
@@ -251,10 +280,13 @@ async function run(op: 'normal' | 'swipe' | 'continue') {
   render();
 }
 async function changed(reason: string) {
-  await host.save();
-  renderChat();
-  engine.sourceChanged(reason);
-  try { await engine.reconcile(reason); } catch (e) { toast('error', (e as Error).message); }
+  const game = host.game;
+  try {
+    await host.save();
+    renderChat();
+    engine.sourceChanged(reason);
+    await engine.reconcile(reason);
+  } catch (e) { if (host.game === game) toast('error', (e as Error).message); } // not for a game that was left meanwhile
   render();
 }
 
@@ -309,10 +341,11 @@ function renderStatus() {
     : '';
   $('#retry')?.addEventListener('click', async () => { await engine.retry(); render(); });
   const stop = $('#stop'); if (stop) stop.hidden = !busy;
-  for (const id of ['send', 'reroll', 'cont']) { const b = $<HTMLButtonElement>('#' + id); if (b) b.disabled = busy; }
+  // while a reply is being made the game is not left and not opened again (both would take it from under the turn)
+  for (const id of ['send', 'reroll', 'cont', 'home', 'lang']) { const b = $<HTMLButtonElement>('#' + id); if (b) b.disabled = busy; }
 }
 
-function render() { renderChat(); renderStatus(); renderTop(); document.body.classList.toggle('insp-open', !!host.game && settings.inspectorOpen); }
+function render() { renderChat(); renderTop(); renderStatus(); document.body.classList.toggle('insp-open', !!host.game && settings.inspectorOpen); }
 
 // ------------------------------------------------------------------------------------------------ top bar and settings
 function renderTop() {
@@ -327,9 +360,15 @@ function renderTop() {
     </nav>`;
   $('#tl')?.addEventListener('click', () => graph.toggle());
   $('#insp')?.addEventListener('click', () => { settings.inspectorOpen = !settings.inspectorOpen; saveSettings(); inspector.toggle(settings.inspectorOpen); render(); });
-  $('#home')?.addEventListener('click', () => { graph.toggle(false); inspector.toggle(false); host.game = null; chatSig = ''; document.body.classList.remove('insp-open'); void renderTitle(); });
+  $('#home')?.addEventListener('click', async () => {
+    if (engine.isBusy()) return;
+    graph.toggle(false); inspector.toggle(false); chatSig = ''; document.body.classList.remove('insp-open');
+    await leaveGame();
+    void renderTitle();
+  });
   $('#set').addEventListener('click', openSettings);
   $('#lang').addEventListener('click', () => {
+    if (engine.isBusy()) return;
     lang = lang === 'zh' ? 'en' : 'zh'; settings.lang = lang; saveSettings(); setLang(lang);
     if (host.game && $('#chat')) { chatSig = ''; void openGame(host.game.id); } else void renderTitle();
   });

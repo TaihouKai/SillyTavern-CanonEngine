@@ -30,13 +30,21 @@ const st = (x: ReturnType<typeof makeEngine>) => x.engine.current!.replay.state;
 const rescue = { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush of Mira', 'Mira survives', { pack_event_id: 'medic-ambush', disposition: 'diverged', origin: 'player', actors: ['mira'] })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira survives', occurrence_ref: 'o1' }] };
 
 describe('convergence', () => {
-  it('a failing planner does not block the GM reply (real-model finding)', async () => {
+  it('no turn without a plan while HARD events are ahead: a failing planner fails the turn, and Retry plans again', async () => {
     const x = await setup();
     (x.model as any).rules.unshift({ task: 'plan', raw: '{"rationale":"truncated by max tokens", "steps":[{"step_id":"s1",', once: false });
-    expect(await turn(x, 'I look around the harbor.', 'Gulls circle the quiet harbor. [P1]', { scene_end: at(1, 9, 45) })).toBe(true);
+    expect(await turn(x, 'I look around the harbor.', 'Gulls circle the quiet harbor. [P1]', { scene_end: at(1, 9, 45) })).toBe(false);
+    expect(x.host.chat.slice(-1)[0].role).toBe('user');
+    expect(x.model.tasks('draft').length).toBe(0); // nothing was written for the GM
+    expect(x.engine.status).toMatchObject({ phase: 'error', canRetry: true });
+    const asked = x.model.tasks('plan').length;
+    expect(asked).toBeGreaterThan(0);
+    (x.model as any).rules = (x.model as any).rules.filter((r: any) => r.task !== 'plan');
+    await x.engine.retry();
     expect(x.host.chat.slice(-1)[0].text).toContain('[P1]');
-    expect(x.model.tasks('plan').length).toBeGreaterThan(0);
-    expect(x.engine.notices.some((n) => /Planner could not produce a valid plan/.test(n.text))).toBe(true);
+    expect(x.model.tasks('plan').length).toBeGreaterThan(asked);
+    expect(x.engine.activePlan()).toBeTruthy();
+    expect(x.engine.campaign()!.recoveryState.status).toBe('ok');
   });
 
   it('C02/C03 rescue diverges FREE death; broadcast omitted; HARD begins via an alternate adjudicated route', async () => {
@@ -45,8 +53,10 @@ describe('convergence', () => {
     expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('diverged');
     // planner was asked to protect both HARD anchors
     expect(x.model.tasks('plan')[0].input.protected_hard_detailed.map((h: any) => h.id)).toEqual(['conflict-begins', 'conflict-ends']);
+    // the broadcast announced Mira's death: the model judges that it does not happen
+    x.model.on('adjudicate', (i: any) => i.candidate?.id === 'council-broadcast', { adjudications: [{ event_id: 'council-broadcast', decision: 'omitted', time: null, account: '', actors: [], causes: [], effects: [], plan_step_ids: [], reason: 'Mira is alive; there is no death to announce.' }] });
     // alternate cause for the HARD begin: the model adjudicates it (original preconditions FALSE)
-    x.model.on('adjudicate', has('conflict-begins'), { adjudications: [{ event_id: 'conflict-begins', decision: 'occurred', time: at(2, 9), account: 'Enraged by the failed ambush, Council militias attack Union docks; the armed conflict begins.', actors: ['council', 'union'], causes: [], effects: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true }], plan_step_ids: [], reason: 'alternate cause', extraordinary: false }] });
+    x.model.on('adjudicate', (i: any) => i.candidate?.id === 'conflict-begins', { adjudications: [{ event_id: 'conflict-begins', decision: 'occurred', time: at(2, 9), account: 'Enraged by the failed ambush, Council militias attack Union docks; the armed conflict begins.', actors: ['council', 'union'], causes: [], effects: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: true }], plan_step_ids: [], reason: 'alternate cause', extraordinary: false }] });
     expect(await turn(x, 'I sleep until the next afternoon.', 'You sleep long; cannon fire wakes you. [T1]', { scene_end: at(2, 14) })).toBe(true);
     const s = st(x);
     expect(s.dispositions.get('council-broadcast')?.disposition).toBe('omitted');

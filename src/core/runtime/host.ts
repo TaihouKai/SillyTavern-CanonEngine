@@ -71,6 +71,10 @@ export interface HostPort {
   publish(req: PublishRequest, interp: Interpretation): Promise<void>;
   /** Restore the host's prior reply captured before a failed/cancelled regenerate/alternative. */
   restorePrior(op: OpType, prior: unknown): Promise<void>;
+  /** Take the last reply out of the conversation so that it can be written anew (Retry after a failed regeneration);
+   *  returns what restorePrior('regenerate', …) puts back, or null when the last message is not a reply. Without it
+   *  the engine writes the new reply as an alternative to the last one. */
+  removeLastReply?(): Promise<unknown | null>;
   /** False when another instance (SillyTavern: another tab of this browser profile) owns the campaign (read-only here). */
   isWriter?(): boolean;
   /** Wait until the host's own UI transitions (e.g. an alternative-reply animation or revert) have settled. */

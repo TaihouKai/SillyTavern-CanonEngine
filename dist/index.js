@@ -19477,6 +19477,17 @@ function sha256(input) {
 function hashObject(value) {
   return sha256(stableStringify(value));
 }
+function quickHash(str) {
+  let h1 = 3735928559, h2 = 1103547991;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ h1 >>> 16, 2246822507) ^ Math.imul(h2 ^ h2 >>> 13, 3266489909);
+  h2 = Math.imul(h2 ^ h2 >>> 16, 2246822507) ^ Math.imul(h1 ^ h1 >>> 13, 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
+}
 function newId(prefix) {
   const bytes = new Uint8Array(12);
   globalThis.crypto.getRandomValues(bytes);
@@ -20143,6 +20154,7 @@ function emptyState(pack2) {
   return {
     packHash: pack2.hash,
     facts: /* @__PURE__ */ new Map(),
+    idleChanges: /* @__PURE__ */ new Map(),
     occurrences: /* @__PURE__ */ new Map(),
     dispositions: /* @__PURE__ */ new Map(),
     declines: /* @__PURE__ */ new Map(),
@@ -20153,6 +20165,7 @@ function emptyState(pack2) {
     enactedSteps: /* @__PURE__ */ new Map(),
     clock: { lo: pack2.coverage.start, hi: pack2.coverage.start, precision: "minute" },
     sceneFrame: null,
+    told: /* @__PURE__ */ new Map(),
     records: [],
     recordById: /* @__PURE__ */ new Map(),
     lastSeq: 0
@@ -20199,27 +20212,41 @@ function applyRecord(state, rec) {
 }
 function applyDelta(state, d, rec, tick) {
   const k = factKey(d.entity_id, d.predicate);
-  let op = d.op === "unset" ? "unset" : "set";
-  let value = d.op === "unset" ? void 0 : d.value;
-  if (d.op === "add" || d.op === "remove") {
-    const f = factAt(state, d.entity_id, d.predicate, { tick });
-    const r = applyChange(f.known ? f.value : void 0, d);
-    if (r === "same") return;
-    op = r.value === void 0 ? "unset" : "set";
-    value = r.value;
-  }
-  const list = state.facts.get(k) || [];
-  list.push({
+  const t2 = {
     tick,
     tickHi: rec.storyTime.hi,
     seq: rec.sequence,
-    op,
-    value: op === "set" ? normalizeValue(value) : void 0,
+    op: d.op === "unset" ? "unset" : "set",
+    value: d.op === "set" ? normalizeValue(d.value) : void 0,
     recordId: rec.recordId,
     kind: rec.kind
-  });
-  list.sort((a, b) => a.tick - b.tick || a.seq - b.seq);
-  state.facts.set(k, list);
+  };
+  if (d.op === "add" || d.op === "remove") t2.change = { op: d.op, value: d.value };
+  const all = [...state.facts.get(k) || [], ...state.idleChanges.get(k) || [], t2].sort((a, b) => a.tick - b.tick || a.seq - b.seq);
+  const list = [], idle = [];
+  let at = all.indexOf(t2), settled = false;
+  for (let i = 0; i < all.length; i++) {
+    const x = all[i];
+    if (i > at && !x.change) settled = true;
+    if (x.change && i >= at && !settled) {
+      const cur = list[list.length - 1];
+      const r = applyChange(cur && cur.op === "set" ? cur.value : void 0, { ...x.change, entity_id: d.entity_id, predicate: d.predicate });
+      if (r === "same") {
+        idle.push(x);
+        continue;
+      }
+      x.op = r.value === void 0 ? "unset" : "set";
+      x.value = r.value === void 0 ? void 0 : normalizeValue(r.value);
+    } else if (x.change && (state.idleChanges.get(k) || []).includes(x)) {
+      idle.push(x);
+      continue;
+    }
+    list.push(x);
+  }
+  if (list.length) state.facts.set(k, list);
+  else state.facts.delete(k);
+  if (idle.length) state.idleChanges.set(k, idle);
+  else state.idleChanges.delete(k);
 }
 function reduce(pack2, records) {
   const s = emptyState(pack2);
@@ -20298,6 +20325,9 @@ function crossedCandidates(pack2, state, fromExclusive, toInclusive) {
     out.push({ event: pack2.events.get(t2.id), lo: t2.lo, hi: t2.hi });
   }
   return out;
+}
+function isDue(window2, tick) {
+  return window2.hi <= tick;
 }
 function pendingHard(pack2, state) {
   return pack2.timeIndex.filter((t2) => pack2.events.get(t2.id).classification === "HARD" && state.dispositions.get(t2.id)?.disposition !== "occurred").map((t2) => ({ event: pack2.events.get(t2.id), lo: t2.lo, hi: t2.hi }));
@@ -20537,7 +20567,7 @@ function buildBootstrap(pack2, startTick) {
   let seq = records.length;
   for (const t2 of pack2.timeIndex) {
     const ev = pack2.events.get(t2.id);
-    if (t2.hi < startTick) {
+    if (isDue(t2, startTick)) {
       const when2 = { lo: t2.lo, hi: t2.hi, precision: t2.lo === t2.hi ? "minute" : "range" };
       const p = adjudicateDefault(pack2, scratch, { event: ev, lo: t2.lo, hi: t2.hi }, when2, "bootstrap");
       let rec = p.record;
@@ -20553,11 +20583,11 @@ function buildBootstrap(pack2, startTick) {
           eventOccurrenceIds: [occId],
           occurrences: [{ occurrenceId: occId, title: ev.title, account: ev.summary, actors: ev.entity_ids, affected: ev.entity_ids, locations: ev.location_ids, time: when2, outcome: deltas, causes: [], refPhrases: [ev.title], packEventId: ev.id, origin: "bootstrap", visibility: ev.visibility }],
           visibility: ev.visibility,
-          summary: `${ev.title}: HARD baseline occurrence before start`,
+          summary: `${ev.title}: HARD baseline occurrence by the start`,
           evidenceKind: "bootstrap",
           packEventId: ev.id,
           disposition: "occurred",
-          dispositionReason: "HARD event before the binding start point (bootstrap assumption)"
+          dispositionReason: "HARD event due by the binding start point (bootstrap assumption)"
         };
       }
       if (!rec) {
@@ -24565,8 +24595,7 @@ function voiceInput(v) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_VERSION = "1.3.4";
-var ENGINE_RELEASE = "1.31.0";
+var ENGINE_RELEASE = "1.32.0";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -25428,7 +25457,7 @@ function integrationKey(index, profile2, candidates, focus, jumpTo, quiet = fals
 }
 function presenceSection(index, profile2, tick) {
   profile2 = playedProfile(index, profile2);
-  const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play \u2014 the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know \u2014 famous things (an esper's level and ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
+  const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play \u2014 the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know \u2014 famous things (a rank or title, a known ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
   lines.push(`- ${profile2.personaName} [${profile2.playerId}] (the player character): ${profile2.summary || "(no summary)"}${profile2.publicIdentity ? ` Public identity: ${profile2.publicIdentity}` : ""}${factsLine(index, profile2.playerId, tick)}`);
   for (const o of playerOrgs(index, profile2, tick)) lines.push(`- organization: ${o.name} [${o.id}] \u2014 now ${STANDING[o.standing]}${o.leads ? ", its leader" : ""}${o.role ? `; the Persona's words at the start: ${o.role}` : ""} (${o.secrecy})${factsLine(index, o.id, tick)}`);
   for (const p of profile2.places) lines.push(`- place: ${nameIn(index, p.entityId, p.name)} [${p.entityId}] \u2014 ${p.use}${factsLine(index, p.entityId, tick)}`);
@@ -25986,7 +26015,7 @@ TASK: This game's world differs from the original setting by the changes listed 
 - keep: nothing in it contradicts a change (most items). Not mentioning the player or the change is no contradiction.
 - replace: it states something a change makes untrue \u2014 a count or ranking, who holds a post or belongs somewhere, who exists, what happened. untrue: the exact words of the item (verbatim, short) that the change makes untrue. content: the WHOLE item rewritten with the least change that makes it agree: only the sentences holding the untrue words change; every other sentence stays word for word; no sentence is added or removed (same language and style; nothing added about the player beyond what the change requires). A rewrite that changes anything else is refused.
 - disable: the whole item is about something that does not exist in this game.
-name (only for "pack: who or what it is" items, with replace): its name in this game when the name itself states something a change makes untrue (a count or ranking in the name: "\u4E03\u540D\u8D85\u80FD\u529B\u8005" with an eighth \u2192 "\u516B\u540D\u8D85\u80FD\u529B\u8005"); otherwise leave it out. A rename alone is a replace with content the text as it stands (or rewritten as needed).
+name (only for "pack: who or what it is" items, with replace): its name in this game when the name itself states something a change makes untrue (a count or ranking in the name: "the Seven Elders" with an eighth \u2192 "the Eight Elders"); otherwise leave it out. A rename alone is a replace with content the text as it stands (or rewritten as needed).
 Time: the changes describe the world as it is at game_start. An event item gives its time and whether it comes before or after game_start.
 - before the game starts: change it only where a change makes what it said untrue at its own time (something that already held then \u2014 e.g. how many there were, if the change's fact already held). Never write the player's present situation (a post, a transfer, a plan, something decided or about to happen at game_start) into an earlier event.
 - after the game starts: write it as it will go in this game.
@@ -26128,13 +26157,26 @@ function fingerprintPrefix(entries) {
   return out;
 }
 function interpretationEntities(i) {
-  const s = new Set(i.sceneEntities);
+  const s = /* @__PURE__ */ new Set([...i.sceneEntities, ...i.named || []]);
   for (const c of i.stateClaims) s.add(c.entity_id);
   for (const r of i.records) {
     for (const d of r.factsSetOrUnset) s.add(d.entity_id);
     for (const o of r.occurrences || []) [...o.actors, ...o.affected, ...o.locations].forEach((x) => s.add(x));
   }
   return s;
+}
+function scopeOf(state, i) {
+  const out = {};
+  for (const e of [...interpretationEntities(i)].sort()) out[e] = state.told.get(e) || "";
+  return out;
+}
+function scopeHolds(state, i) {
+  if (i.role !== "gm" || !i.basisScope) return true;
+  for (const e in i.basisScope) if ((state.told.get(e) || "") !== i.basisScope[e]) return false;
+  return true;
+}
+function sameBasis(a, b) {
+  return a.basisStateHash === b.basisStateHash && stableStringify(a.basisScope || null) === stableStringify(b.basisScope || null);
 }
 function validateDependencies(interp, entries, uptoIndex) {
   const reasons = [];
@@ -26225,22 +26267,20 @@ function replay(input) {
     if (!cands.length) {
       return finish({ index: i, entry: e, status: "missing", reasons: ["no interpretation for this message variant"], candidates: [] });
     }
-    let chosen = cands.find((c) => c.basisStateHash === sh && !validateDependencies(c, entries, i).length);
+    let chosen = cands.find((c) => c.basisStateHash === sh && scopeHolds(state, c) && !validateDependencies(c, entries, i).length);
     if (chosen && chosen.conflict) {
       return finish({ index: i, entry: e, status: "conflict", reasons: [chosen.conflict.reason], candidates: cands });
     }
     if (!chosen) {
       const reasons = [];
-      const affected = input.affectedEntities;
       for (const c of cands) {
         if (c.conflict) continue;
         const r = validateAgainstPrefix(c, state, pack2, entries, i);
-        const touchesAffected = affected && input.changedFrom !== void 0 && input.changedFrom >= 0 && i > input.changedFrom && c.role === "gm" && [...interpretationEntities(c)].some((x) => affected.has(x));
-        if (!r.length && !touchesAffected) {
+        if (!scopeHolds(state, c)) r.push("references entities whose history changed earlier in the transcript");
+        if (!r.length) {
           chosen = c;
           break;
         }
-        if (touchesAffected) r.push("references entities whose history changed earlier in the transcript");
         reasons.push(...r);
       }
       if (!chosen) return finish({ index: i, entry: e, status: "needs_reeval", reasons: [...new Set(reasons)], candidates: cands });
@@ -26251,6 +26291,8 @@ function replay(input) {
       applyRecord(state, rec);
       ledger.push(rec);
     }
+    if (chosen.role === "gm" && !chosen.basisScope) chosen.basisScope = scopeOf(state, chosen);
+    for (const x of interpretationEntities(chosen)) state.told.set(x, quickHash((state.told.get(x) || "") + "\n" + e.contentHash));
     applied.push({ index: i, key, interp: chosen });
     applyManual((m) => m.afterMessageId === e.messageId);
   }
@@ -26980,7 +27022,7 @@ function runGate(g) {
   }
   for (const [id, c] of pendingHardMap) {
     if (hardFulfilled.includes(id) || g.stagedHard.has(id)) continue;
-    if (c.hi <= sceneEnd.lo || c.hi <= g.clockTick) {
+    if (isDue(c, sceneEnd.lo) || isDue(c, g.clockTick)) {
       violations.push(`HARD "${c.event.title}" is due by ${formatTick(c.hi)} and this reply reaches ${formatTick(Math.max(sceneEnd.lo, g.clockTick))}, but the event is not realized: ${c.event.required_description}`);
     } else if (!flashback && c.hi <= sceneEnd.hi) {
       warnings.push(`scene end ${formatTick(sceneEnd.lo)}\u2013${formatTick(sceneEnd.hi)} reaches the HARD checkpoint "${c.event.title}" at ${formatTick(c.hi)} without depicting it: taken as ending before it`);
@@ -27408,24 +27450,7 @@ async function adjudicateInterval(args) {
     }
     if (!result) {
       if (c.event.classification === "HARD") throw new EngineError("narrative_validation_failure", `Could not produce a valid adjudication for HARD "${c.event.title}" at ${formatTick(c.hi)}. The deadline cannot be skipped; retry or adjust the scene.`);
-      const r = {
-        recordId: newId("rec"),
-        kind: "canon_disposition",
-        storyTime: when2,
-        sourceRefs: [],
-        factsSetOrUnset: [],
-        eventOccurrenceIds: [],
-        visibility: c.event.visibility,
-        summary: `${c.event.title}: not applied (adjudication unresolved)`,
-        evidenceKind: "adjudication",
-        packEventId: c.event.id,
-        disposition: "omitted",
-        dispositionReason: `actual preconditions ${p.precondition}: ${p.explanation.join("; ")}; model adjudication unavailable/invalid`
-      };
-      records.push(r);
-      basis.push({ eventId: c.event.id, precondition: p.precondition, mode: "model" });
-      applyRecord(scratch, { ...r, sequence: ++seq, branchId: "stage", commitId: "stage" });
-      continue;
+      throw new EngineError("invalid_model_json", `The model gave no valid adjudication for "${c.event.title}" (${formatTick(c.lo)}); whether it happens is not decided without one. Use Retry.`);
     }
     if (result.postponed) {
       notes.push(`${c.event.title}: postponed within its bounds`);
@@ -27544,7 +27569,9 @@ async function modelAdjudicate(args, scratch, c, when2, pre, explanation, forced
     return null;
   }
   const a = out.adjudications.find((x) => x.event_id === ev.id);
-  if (!a || !a.account?.trim()) return null;
+  if (!a) return null;
+  if (a.decision === "postponed" && ev.classification !== "HARD" && (ev.classification !== "SOFT" || c.hi <= args.toInclusive)) a.decision = "omitted";
+  if (!a.account?.trim() && !(a.decision === "omitted" && ev.classification !== "HARD" && a.reason?.trim())) return null;
   const effects = [];
   const idx = new WorldIndex(pack2, scratch);
   const known = (id) => pack2.entities.has(id) || scratch.runtimeEntities.has(id);
@@ -28059,7 +28086,18 @@ var TIME_ANCHOR = new RegExp([
   String.raw`睡觉|睡着|入睡|睡下|睡到|\b(?:sleep|sleeps|slept|nap|naps|napped)\b`,
   String.raw`\b(?:until|till|by) (?:the next |next )?(?:morning|noon|afternoon|evening|night|nightfall|dawn|dusk|midnight)\b|\bovernight\b|\b(?:time|hours|days|weeks|the (?:hours|days)) (?:pass|passes|passed|go by|went by)\b|\b(?:noon|night|morning|evening|dawn|dusk) (?:comes|came|falls|fell|breaks|broke|arrives|arrived)\b`,
   String.raw`\b(?:(?:an?|one|two|three|four|five|six|several|a few|\d+) (?:hours?|minutes?|days?) later|later that|next (?:day|morning)|the following (?:day|morning)|that (?:evening|night|afternoon)|at (?:dawn|dusk|noon|midnight)|\d{1,2} ?(?:am|pm|o'clock))\b`
-].join("|"), "i");
+].join("|"), "gi");
+var SPEECH = /「[^」\n]*(?:」|$)|『[^』\n]*(?:』|$)|“[^”\n]*(?:”|$)|"[^"\n]*(?:"|$)/gm;
+var ELSEWHEN = /明天|明日|后天|明早|明晚|今晚|今夜|下周|下星期|下个?月|下次|改天|昨天|昨日|昨晚|昨夜|前天|今早|今天(?:早上|上午)|上周|上次|刚才|\b(?:tomorrow|tonight|this evening|next (?:week|month|time)|yesterday|last (?:night|week|time)|this morning|ago)\b/i;
+var PLANNED_BEFORE = /约好|约定|约在|约了|说好|定在|定于|定好|打算|准备|计划|预定|预计|安排在|将在|将于|会在|要在|得在|必须在|记得|别忘|提醒|截止|期限|\b(?:agreed|arranged|scheduled|planned|plans?|will|going to|supposed to|due|deadline|remind\w*|see you|meet (?:me|us|you|him|her|them)|be (?:here|there|back))\b|'ll\b/i;
+var PLANNED_AFTER = /^\s*(?:要|得|就得|再|前|之前|以前|[^，。,；;]{0,8}?(?:见面|见|集合|碰头|会合)(?![面到了过着]))/;
+function reached2(narration, at, length) {
+  const head = narration.slice(0, at);
+  const start = Math.max(head.search(/[^。！？!?；;\n□]*$/), 0);
+  const sentence = head.slice(start);
+  const after = narration.slice(at + length, at + length + 16).split(/[。！？!?\n□]/)[0];
+  return !ELSEWHEN.test(sentence) && !ELSEWHEN.test(after) && !PLANNED_BEFORE.test(sentence.slice(-40)) && !PLANNED_AFTER.test(after);
+}
 var CN_NUM = { \u4E00: 1, \u4E8C: 2, \u4E24: 2, \u4E09: 3, \u56DB: 4, \u4E94: 5, \u516D: 6, \u4E03: 7, \u516B: 8, \u4E5D: 9, \u5341: 10, \u534A: 0.5, \u51E0: 3 };
 var cnNumber2 = (t2) => {
   if (/^\d+$/.test(t2)) return Number(t2);
@@ -28073,9 +28111,12 @@ var DURATION = /(\d+|[一二两三四五六七八九十半几]+)\s*(?:个)?(半)
 var EN_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, ten: 10, twenty: 20, thirty: 30, several: 3, "a few": 3 };
 var UNIT_MIN = { \u5206\u949F: 1, \u5C0F\u65F6: 60, \u949F\u5934: 60, \u5929: 1440, \u5468: 10080, \u661F\u671F: 10080, \u6708: 43200, minute: 1, hour: 60, day: 1440 };
 function statedTime(text) {
-  if (TIME_ANCHOR.test(text)) return { anchored: true, minutes: 0 };
+  if (clockReadings(text).length) return { anchored: true, minutes: 0 };
+  const narration = text.replace(SPEECH, " \u25A1 ");
+  for (const m of narration.matchAll(TIME_ANCHOR)) if (reached2(narration, m.index, m[0].length)) return { anchored: true, minutes: 0 };
   let minutes = 0;
-  for (const m of text.matchAll(DURATION)) {
+  for (const m of narration.matchAll(DURATION)) {
+    if (!reached2(narration, m.index, m[0].length)) continue;
     if (m[3]) {
       if (m[1] !== "\u534A" || m[3] !== "\u5929") minutes += (cnNumber2(m[1]) + (m[2] || m[4] ? 0.5 : 0)) * UNIT_MIN[m[3]];
     } else if (m[5] || m[8]) minutes += 30;
@@ -28185,7 +28226,6 @@ var CanonEngine = class {
   traces = [];
   /** Debug mode: readable report of the last turn, committed or not — why each draft was sent back, with the drafts. */
   lastReport = null;
-  lastFailedOp = null;
   notices = [];
   instanceId = newId("inst");
   constructor(host2, settings = {}) {
@@ -28297,6 +28337,9 @@ var CanonEngine = class {
     return !!c && !c.packSnapshot && this.packCache?.hash !== c.packHash;
   }
   async relinkPack(text) {
+    return this.change(() => this.relinkPackNow(text));
+  }
+  async relinkPackNow(text) {
     const c = this.campaign();
     if (!c) throw new EngineError("invalid_pack", "no campaign");
     const r = validatePackText(text);
@@ -28311,7 +28354,7 @@ var CanonEngine = class {
       delete c.packSnapshot;
     } else c.packSnapshot = deepClone(r.loaded.pack);
     await this.host.save();
-    await this.reconcile("pack_relinked");
+    await this.reconcileInner("pack_relinked", {});
   }
   /** Title and id of the chat's pack (from the reference or the copy in the chat). */
   packInfo() {
@@ -28331,6 +28374,29 @@ var CanonEngine = class {
       release();
     }
   }
+  /** A change to the campaign from outside a turn (its pack, the chat under it, the player's identity, the world's
+   *  settings, a backup): never while a reply is being made, and only after the rebuild that is running has ended
+   *  (it is cancelled: what it would work out is for the campaign as it was; rebuilds already waiting run without
+   *  the model). The change does its own rebuild inside, with reconcileInner. */
+  async change(fn) {
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; try again when it is done.");
+    return this.changeNow(fn);
+  }
+  async changeNow(fn) {
+    this.reconcileAbort?.abort();
+    this.changing++;
+    let entered = false;
+    try {
+      return await this.exclusive(() => {
+        entered = true;
+        this.changing--;
+        return fn();
+      });
+    } finally {
+      if (!entered) this.changing--;
+    }
+  }
+  changing = 0;
   // ---------------------------------------------------------------------------------------------
   // Binding
   previewPack(text) {
@@ -28367,6 +28433,9 @@ var CanonEngine = class {
   }
   /** Create the chat's binding: pinned snapshot + bootstrap seed. Existing chats are interpreted afterwards by reconcile(). */
   async bind(packText, opts) {
+    return this.change(() => this.bindNow(packText, opts));
+  }
+  async bindNow(packText, opts) {
     if (!this.host.chatId()) throw new EngineError("incompatible_adapter", "No chat is open. Open a character chat first, then enable Canon Engine for it.");
     if (this.host.isGroup()) throw new EngineError("incompatible_adapter", "Group chats are not supported yet (no validated designated-GM adapter). Canon Engine was not activated.");
     const r = validatePackText(packText);
@@ -28378,7 +28447,7 @@ var CanonEngine = class {
     const prev = this.campaign();
     const data = {
       storageVersion: STORAGE_VERSION,
-      engineVersion: ENGINE_VERSION,
+      engineVersion: ENGINE_RELEASE,
       enabled: true,
       sessionId: prev?.sessionId || newId("ses"),
       branchId: newId("br"),
@@ -28421,19 +28490,26 @@ var CanonEngine = class {
     return { unresolved: data.binding.unresolved, pending: boot.pending, examined: entries.length };
   }
   async setEnabled(enabled) {
-    const c = this.campaign();
-    if (!c) return;
-    c.enabled = enabled;
-    c.configRevisions.push({ at: this.host.now(), summary: enabled ? "enabled" : "disabled for this chat" });
-    await this.host.save();
-    this.setStatus(enabled ? "idle" : "disabled");
+    return this.change(async () => {
+      const c = this.campaign();
+      if (!c) return;
+      c.enabled = enabled;
+      c.configRevisions.push({ at: this.host.now(), summary: enabled ? "enabled" : "disabled for this chat" });
+      await this.host.save();
+      this.setStatus(enabled ? "idle" : "disabled");
+    });
   }
   // ---------------------------------------------------------------------------------------------
   // Identity & branch detection on chat load
   /** Detect rename vs branch vs import when the chat id/integrity differs from the stored binding. */
   async onChatLoaded() {
+    this.opActive?.abort.abort();
+    return this.changeNow(() => this.chatLoadedNow());
+  }
+  async chatLoadedNow() {
     const c = this.campaign();
     this.current = null;
+    WorldIndex.displayOrigin = c?.binding.originDate || null;
     if (!c) {
       this.setStatus("idle");
       return;
@@ -28456,7 +28532,7 @@ var CanonEngine = class {
       c.integrity = integ;
       c.planRevisions = c.planRevisions.map((p) => ({ ...p, status: "stale" }));
     }
-    await this.reconcile("chat_loaded");
+    await this.reconcileInner("chat_loaded", {});
   }
   /** A native source mutation (edit/delete/swipe) happened. Abort any in-flight op (fences also guard). */
   sourceChanged(reason) {
@@ -28470,7 +28546,7 @@ var CanonEngine = class {
   // ---------------------------------------------------------------------------------------------
   // Reconciliation
   async reconcile(reason, opts = {}) {
-    return this.exclusive(() => this.reconcileInner(reason, opts));
+    return this.exclusive(() => this.reconcileInner(reason, this.changing ? { ...opts, allowModel: false } : opts));
   }
   transcriptFor(opts) {
     const all = this.host.readTranscript();
@@ -28518,17 +28594,16 @@ var CanonEngine = class {
       }
       throw e;
     }
-    await this.recoverPending(c);
+    this.recoverPending(c);
     let entries = this.transcriptFor(opts);
     const changedFrom = earliestChange(c.manifest, entries);
-    const affected = this.affectedEntities(c, entries, changedFrom);
     const prevPhase = this.status.phase;
     if (!this.opActive) this.setStatus("reconciling", reason);
     let r;
     let guard = 0;
     try {
       for (; ; ) {
-        r = replay({ pack: pack2, branchId: c.branchId, bootstrap: c.bootstrapRecords, manual: c.manualRecords, entries, store: c.interpretations, affectedEntities: affected, changedFrom });
+        r = replay({ pack: pack2, branchId: c.branchId, bootstrap: c.bootstrapRecords, manual: c.manualRecords, entries, store: c.interpretations });
         if (!r.issue || r.issue.status === "conflict") break;
         if (!allowModel) break;
         if (++guard > entries.length * 2 + 4) throw new EngineError("conflicting_transcript", "reconciliation did not converge");
@@ -28537,7 +28612,8 @@ var CanonEngine = class {
         this.setStatus("reconciling", this.progressBase);
         this.examiningInput = !!this.opActive && issue2.index === entries.length - 1 && issue2.entry.role === "user";
         const interp = issue2.status === "missing" ? await this.interpretMessage(issue2.entry, issue2.index, entries, r, opts.signal, null) : await this.interpretMessage(issue2.entry, issue2.index, entries, r, opts.signal, issue2.reasons);
-        const list = interpretationsFor(c.interpretations, interp.key).filter((x) => x.basisStateHash !== interp.basisStateHash);
+        if (this.host.chatId() !== chatAtStart || this.campaign() !== c) throw new EngineError("stale_response", "chat changed during reconciliation");
+        const list = interpretationsFor(c.interpretations, interp.key).filter((x) => !sameBasis(x, interp));
         list.push(interp);
         c.interpretations[interp.key] = list.slice(-6);
         const now = this.transcriptFor(opts);
@@ -28551,6 +28627,10 @@ var CanonEngine = class {
       this.progressBase = "";
       this.examiningInput = false;
       const err = e;
+      if (err.kind === "cancelled" || err.kind === "stale_response") {
+        if (!this.opActive) this.setStatus(c.recoveryState.status === "ok" ? "idle" : prevPhase, c.recoveryState.status === "ok" ? "Cancelled." : this.status.message);
+        throw e;
+      }
       c.recoveryState = { status: "error", errorKind: err.kind || "provider_failure", reason: err.message, at: this.host.now() };
       this.setStatus("error", err.message, { errorKind: err.kind, canRetry: true });
       try {
@@ -28574,7 +28654,12 @@ var CanonEngine = class {
     c.manifest = entries.slice(0, issue ? issue.index : entries.length).map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
     if (!issue) c.manifest = entries.map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
     c.transcriptFingerprint = issue ? result.prefixHashes[issue.index - 1] || "root" : result.fingerprint;
-    if (issue && issue.status !== "conflict" && !allowModel) {
+    if (issue && issue.status === "missing" && !allowModel && issue.index === entries.length - 1 && issue.entry.role === "user") {
+      if (c.recoveryState.status === "conflict") c.recoveryState = { status: "ok" };
+      if (c.recoveryState.status === "ok") {
+        if (!this.opActive) this.setStatus("idle");
+      } else if (c.recoveryState.status === "error" && !this.opActive) this.setStatus("error", c.recoveryState.reason || "", { errorKind: c.recoveryState.errorKind, canRetry: true });
+    } else if (issue && issue.status !== "conflict" && !allowModel) {
       if (c.recoveryState.status === "ok") c.recoveryState = { status: "error", errorKind: "provider_failure", reason: `message #${issue.index} still needs interpretation; use Retry`, at: this.host.now() };
       this.setStatus("error", c.recoveryState.reason || "", { errorKind: c.recoveryState.errorKind, canRetry: true });
     } else if (issue && (issue.status === "conflict" || issue.status === "needs_reeval" || issue.status === "missing")) {
@@ -28617,23 +28702,6 @@ var CanonEngine = class {
     }
     this.emit();
     return result;
-  }
-  /** Entities touched by the old and new interpretations of changed/removed messages. */
-  affectedEntities(c, entries, changedFrom) {
-    const out = /* @__PURE__ */ new Set();
-    if (changedFrom < 0) return out;
-    const newKeys = new Set(entries.map((e) => baseKey(e)));
-    for (const m of c.manifest.slice(changedFrom)) {
-      const k = baseKey(m);
-      if (newKeys.has(k)) continue;
-      for (const i of interpretationsFor(c.interpretations, k)) for (const x of interpretationEntities(i)) out.add(x);
-    }
-    for (const e of entries.slice(changedFrom)) {
-      const k = baseKey(e);
-      if (c.manifest.some((m) => baseKey(m) === k)) continue;
-      if (this.current) for (const m of this.current.index.scanEntities(e.text)) out.add(m.id);
-    }
-    return out;
   }
   // ---------------------------------------------------------------------------------------------
   // Message interpretation (extraction for user messages; review/extraction for GM messages)
@@ -28712,7 +28780,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
     const warnings = [];
     let timeJumpTo;
     const st = { lo: tick, hi: tick, precision: "minute" };
-    const due = pendingHard(pack2, index.state).filter((h) => h.hi <= tick);
+    const due = pendingHard(pack2, index.state).filter((h) => isDue(h, tick));
     for (const s of out.statements) {
       if (!quoteInText(s.quote, entry.text)) {
         warnings.push(`statement ignored (quote not found): ${s.summary}`);
@@ -28781,13 +28849,20 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
     interp.refs = refs;
     return interp;
   }
+  /** What an interpretation was validated against: the state before its message, and what the earlier messages had
+   *  told about the entities it is about (replay.ts: the fast path and scopeHolds). */
+  stampBasis(interp, index, text) {
+    const named = uniq(index.scanEntities(text).map((m) => m.id)).filter((x) => !interp.sceneEntities.includes(x));
+    if (named.length) interp.named = named;
+    interp.basisStateHash = stateHash(index.state);
+    interp.basisScope = scopeOf(index.state, interp);
+  }
   async interpretMessage(entry, idx, entries, r, signal, reevalReasons) {
     const pack2 = this.pack();
     const index = new WorldIndex(pack2, r.state);
-    const basis = stateHash(r.state);
     if (entry.role === "user") {
       const i = await this.extractUser(entry, index, signal);
-      i.basisStateHash = basis;
+      this.stampBasis(i, index, entry.text);
       return i;
     }
     let userEntry = null;
@@ -28824,7 +28899,12 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
     if (unauthorized) gate.violations.unshift(`Narrated player action "${unauthorized.quote}" is not authorized by the edited user message, and no separate cause is described.`);
     const conflict = review.evaluation.decision === "conflict" || gate.violations.length > 0;
     const interp = this.interpretationFromGate(entry.messageId, entry.variantId, entry.contentHash, gate, review, rIndex, userEntry, r.state.clock.lo, "retained_reeval", newId("cmt"));
-    interp.basisStateHash = basis;
+    this.stampBasis(interp, index, entry.text);
+    const c = this.campaign();
+    const writtenUnder = Object.keys(c.interpretations).filter((k) => k.startsWith(`${entry.messageId}:${entry.variantId}:`)).flatMap((k) => interpretationsFor(c.interpretations, k)).filter((x) => x.planId).sort((p, q) => p.createdAt - q.createdAt).pop()?.planId;
+    const newest = !entries.slice(idx + 1).some((e) => e.role === "gm");
+    const plan2 = (writtenUnder ? c.planRevisions.find((p) => p.planId === writtenUnder) : null) || (newest && !writtenUnder ? this.activePlan() : null);
+    if (plan2) interp.planId = plan2.planId;
     if (!reevalReasons) interp.origin = "extraction";
     if (conflict) {
       interp.conflict = { reason: (gate.violations[0] || "The message cannot follow the edited prefix and describes no separate credible cause.").slice(0, 500), quote: void 0 };
@@ -28837,7 +28917,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
         toInclusive: interp.sceneEnd.lo,
         exclude: new Set(interp.records.map((x) => x.packEventId).filter(Boolean)),
         port: this.host.model,
-        plan: this.activePlan(),
+        plan: plan2,
         forcedAllowed: true,
         signal,
         operationId: "reconcile",
@@ -29102,7 +29182,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
       stateClaims: gate.stateClaims,
       playerActions: gate.playerActions.map((a) => ({ quote: a.quote, authorizedBy: a.authorizedBy && userEntry ? { messageId: userEntry.messageId, quote: a.authorizedBy.quote } : null })),
       dependsOn: userEntry ? [{ messageId: userEntry.messageId, contentHash: userEntry.contentHash }] : [],
-      sceneEnd: gate.sceneEnd && gate.sceneEnd.lo >= clock ? gate.sceneEnd : gate.sceneEnd,
+      sceneEnd: gate.sceneEnd,
       flashback: gate.flashback,
       // Who/what is in the scene after this reply: the reviewer's scene list plus what the reply itself names.
       // Not everything the review looked up (causal/parent pulls, last turn's seeds): stored scene entities
@@ -29497,6 +29577,7 @@ ${this.ooc(a.userEntry?.text).story}`);
     }
     const operationId = newId("op");
     const abort = new AbortController();
+    const opChat = this.host.chatId() || "";
     this.opActive = { operationId, abort, fences: null, op };
     this.stepTimes = [];
     this.rejects = [];
@@ -29547,11 +29628,17 @@ ${this.ooc(a.userEntry?.text).story}`);
         const continuedEntry = continuing ? entries[entries.length - 1] : null;
         const userInterp = userEntry ? interpretationsFor(c.interpretations, baseKey(userEntry)).find((x) => x.role === "user") || null : null;
         if (userInterp?.configRequests?.length) for (const n of userInterp.configRequests) this.notice("warn", n);
+        let carried = [];
+        let continuedInterp = null;
+        let carriedIndex = null;
         if (continuing) {
           const prefixEntries = entries.slice(0, -1);
           const rr = replay({ pack: pack2, branchId: c.branchId, bootstrap: c.bootstrapRecords, manual: c.manualRecords, entries: prefixEntries, store: c.interpretations });
           if (rr.issue) throw new EngineError("conflicting_transcript", "cannot rebuild the prefix of the continued reply");
           index = new WorldIndex(pack2, rr.state);
+          continuedInterp = this.current.replay.applied.find((a) => a.index === entries.length - 1)?.interp || null;
+          carried = deepClone((continuedInterp?.records || []).filter((r) => r.triggerCommitId || r.kind === "time_advance"));
+          if (carried.length) carriedIndex = new WorldIndex(pack2, this.overlay(rr.state, carried));
         }
         this.setStatus("planning", "Planning\u2026");
         const fresh = !!userEntry && (lastIsUser || op === "regenerate" || op === "swipe");
@@ -29572,7 +29659,7 @@ ${this.ooc(a.userEntry?.text).story}`);
         if (leapTo) this.setStatus("planning", "Planning the time leap\u2026");
         const lp = leapTo ? await this.stageLeap(index, userEntry, leapTo, userInterp?.leapFinal ?? null, abort.signal, operationId) : null;
         if (lp) this.checkFences(fences, excludeLast);
-        const rIndex = lp ? lp.index : index;
+        const rIndex = lp ? lp.index : carriedIndex || index;
         const cp = leapTo ?? ctxClock;
         const eng = engagementView(index.state, pack2);
         const busy = [...index.state.occurrences.values()].some((o) => o.inProgressOf && !index.state.dispositions.has(o.inProgressOf));
@@ -29799,6 +29886,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         const variantId = newId("var");
         const contentHash = this.host.hashAssistant(candidate);
         const interp = this.interpretationFromGate(messageId, variantId, contentHash, accepted.review.gate, accepted.review, index, userEntry, clock, "engine_commit", commitId);
+        if (plan2) interp.planId = plan2.planId;
         if (accepted.adj) {
           mergeClosingBeats(interp.records, accepted.adj.records, rIndex.state);
           for (const r of accepted.adj.records) r.triggerCommitId = commitId;
@@ -29809,19 +29897,30 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
           for (const r of lp.records) r.triggerCommitId = commitId;
           interp.records.unshift(...lp.records);
         }
-        if (interp.sceneEnd && !interp.flashback && interp.sceneEnd.lo > clock) interp.records.push(this.timeAdvance(interp.sceneEnd, commitId));
-        interp.basisStateHash = stateHash(index.state);
         if (continuing && continuedEntry) {
+          for (const r of carried) if (r.triggerCommitId) r.triggerCommitId = commitId;
+          interp.records.unshift(...carried);
+          if (continuedInterp?.offscreenBasis?.length) interp.offscreenBasis = [...continuedInterp.offscreenBasis, ...interp.offscreenBasis || []];
+          if (continuedInterp?.sceneEnd && !continuedInterp.flashback && (!interp.sceneEnd || interp.sceneEnd.lo < continuedInterp.sceneEnd.lo)) interp.sceneEnd = continuedInterp.sceneEnd;
           interp.dependsOn = interp.dependsOn.filter((d) => d.messageId !== continuedEntry.messageId);
         }
+        if (interp.sceneEnd && !interp.flashback && interp.sceneEnd.lo > clock) interp.records.push(this.timeAdvance(interp.sceneEnd, commitId));
+        this.stampBasis(interp, index, candidate);
         if (accepted.review.manifest) {
           c.manifests[accepted.review.manifest.manifestId] = accepted.review.manifest;
           trimManifests(c);
         }
         const info = this.host.model.lastDraftInfo?.() || null;
         this.lastReply = { chars: replyChars(continuing ? draft : candidate), ...info || {} };
-        await this.commit(c, { op, interp, fences, candidate, commitId, messageId, variantId, contentHash, prior, excludeLast });
+        const done = await this.commit(c, { op, interp, fences, candidate, commitId, messageId, variantId, contentHash });
         committed = true;
+        if (!done.saved) {
+          const msg = `The reply is in the chat, but saving it failed (${c.recoveryState.reason || "unknown error"}). Use Retry to save again.`;
+          trace.error = msg;
+          this.setStatus("error", msg, { errorKind: "persistence_failure", canRetry: true });
+          this.notice("error", `${labelForError("persistence_failure")}: ${msg}`);
+          return false;
+        }
         if (info?.finish === "length") {
           const zhNote = [info.maxTokens ? `\u4E0A\u9650 ${info.maxTokens} token` : "", info.reasoningTokens ? `\u601D\u8003\u7528\u4E86 ${info.reasoningTokens}` : ""].filter(Boolean).join("\uFF1B");
           const enNote = [info.maxTokens ? `limit ${info.maxTokens} tokens` : "", info.reasoningTokens ? `thinking used ${info.reasoningTokens}` : ""].filter(Boolean).join("; ");
@@ -29837,7 +29936,6 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
             cc.recoveryState = { status: "ok" };
           }
         }
-        this.lastFailedOp = null;
         try {
           await this.postCommitImpact(interp, abort.signal, operationId);
         } catch (e) {
@@ -29851,7 +29949,9 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
       const kind = err.kind || "provider_failure";
       trace.outcome = kind === "cancelled" ? "cancelled" : kind === "stale_response" ? "stale" : "failed";
       trace.error = err.message;
-      if (!committed) {
+      const elsewhere = (this.host.chatId() || "") !== opChat;
+      if (elsewhere) trace.outcome = "stale";
+      if (!committed && !elsewhere) {
         if (prior && (op === "regenerate" || op === "swipe")) {
           try {
             await this.host.restorePrior(op, prior);
@@ -29863,9 +29963,11 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
           this.setStatus("idle", kind === "stale_response" ? "Discarded a stale result after the transcript changed." : "Cancelled.");
           if (kind === "stale_response") this.notice("info", "The transcript changed while the reply was being prepared; the stale result was discarded.");
         } else {
-          this.lastFailedOp = { op, prior: void 0 };
           const c = this.campaign();
-          if (c && kind !== "conflicting_transcript" && c.recoveryState.status !== "unsaved") c.recoveryState = { status: "error", errorKind: kind, reason: err.message, at: this.host.now() };
+          if (c && kind !== "conflicting_transcript") {
+            if (c.recoveryState.status === "unsaved") c.recoveryState.op = op;
+            else c.recoveryState = { status: "error", errorKind: kind, reason: err.message, at: this.host.now(), op };
+          }
           this.setStatus(kind === "conflicting_transcript" ? "conflict" : "error", err.message, { errorKind: kind, canRetry: kind !== "conflicting_transcript" });
           this.notice("error", `${labelForError(kind)}: ${err.message}`);
         }
@@ -29880,7 +29982,8 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         if (s.retry) a.retries++;
         agg.set(s.step, a);
       }
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok: committed, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: committed ? this.lastReply : null, repairs: trace.attempts.filter((a) => a.violations.length).map((a) => a.violations), ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null };
+      const ok = trace.outcome === "committed";
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: ok ? this.lastReply : null, repairs: trace.attempts.filter((a) => a.violations.length).map((a) => a.violations), ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null };
       if (!committed && trace.outcome === "failed") {
         const c = this.campaign();
         if (c && c.recoveryState.status === "error") {
@@ -29896,6 +29999,13 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
       if (!committed) void this.reconcile("post_operation", { allowModel: false }).catch(() => void 0);
     }
   }
+  /** The accepted reply into the conversation and the world state. One rule decides everything after the host was
+   *  asked to publish: is the reply in the conversation (found by its variant id) or not.
+   *  - Not there: nothing happened (throws; the caller puts a replaced reply back).
+   *  - There: its interpretation is applied and the state rebuilt, whatever else failed; `saved: false` when the
+   *    host could not store it (recoveryState `unsaved`, cleared by the next save that succeeds).
+   *  The journal (pendingTransaction) is written with the reply by the host's publish and covers a crash between the
+   *  two: recoverPending applies the same rule after a reload. */
   async commit(c, a) {
     c.pendingTransaction = {
       commitId: a.commitId,
@@ -29904,113 +30014,126 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
       sourceFingerprint: a.fences.sourcePrefixHash,
       targetHash: a.contentHash,
       opType: a.op,
-      interpretation: a.interp,
-      priorReply: a.prior,
-      phase: "prepared"
+      interpretation: a.interp
     };
+    let failure = null;
     this.publishing = true;
     try {
       await this.host.publish({ op: a.op, text: a.candidate, commitId: a.commitId, messageId: a.messageId, variantId: a.variantId, contentHash: a.contentHash }, a.interp);
     } catch (e) {
-      c.recoveryState = { status: "unsaved", reason: e.message, at: this.host.now() };
-      throw new EngineError("persistence_failure", "Publishing/saving the accepted reply failed: " + e.message);
+      failure = e;
     } finally {
       this.publishing = false;
     }
-    const landed = this.host.readTranscript().find((e) => e.role === "gm" && e.variantId === a.variantId);
-    if (!landed) throw new EngineError("persistence_failure", "the accepted reply did not land in the transcript");
-    if (landed.contentHash !== a.interp.contentHash || landed.messageId !== a.interp.messageId) {
-      a.interp.contentHash = landed.contentHash;
-      a.interp.messageId = landed.messageId;
-      a.interp.key = baseKey(landed);
-    }
-    const list = interpretationsFor(c.interpretations, a.interp.key);
-    list.push(a.interp);
-    c.interpretations[a.interp.key] = list;
     c.pendingTransaction = null;
-    c.acceptedHead = a.commitId;
-    try {
-      await this.host.save();
-    } catch (e) {
-      c.pendingTransaction = { commitId: a.commitId, operationId: a.fences.operationId, predecessorRevision: c.revision, sourceFingerprint: a.fences.sourcePrefixHash, targetHash: a.contentHash, opType: a.op, interpretation: a.interp, phase: "published" };
-      c.recoveryState = { status: "unsaved", reason: e.message, at: this.host.now() };
-      throw new EngineError("persistence_failure", "The reply was published but saving the engine state failed. Use Retry to save again; the journal will be recovered on reload.");
+    if (!this.applyLanded(c, a.interp, a.commitId)) {
+      throw new EngineError("persistence_failure", failure ? "Publishing the accepted reply failed: " + failure.message : "the accepted reply did not land in the transcript");
     }
-    const c2 = this.campaign();
     const entries = this.host.readTranscript();
     const pack2 = this.pack();
-    const r = replay({ pack: pack2, branchId: c2.branchId, bootstrap: c2.bootstrapRecords, manual: c2.manualRecords, entries, store: c2.interpretations });
+    const r = replay({ pack: pack2, branchId: c.branchId, bootstrap: c.bootstrapRecords, manual: c.manualRecords, entries, store: c.interpretations });
     if (r.issue) this.host.log("warn", "post-commit replay issue: " + r.issue.reasons.join("; "));
     this.current = { replay: r, index: new WorldIndex(pack2, r.state) };
     if (!r.issue) {
-      this.pruneFocus(c2, pack2, r.state);
-      this.prunePreferred(c2, pack2, r.state);
+      this.pruneFocus(c, pack2, r.state);
+      this.prunePreferred(c, pack2, r.state);
     }
-    c2.ledgerRecords = r.ledger;
-    c2.manifest = entries.map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
-    c2.transcriptFingerprint = r.fingerprint;
-    c2.revision++;
+    c.ledgerRecords = r.ledger;
+    c.manifest = entries.map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role }));
+    c.transcriptFingerprint = r.fingerprint;
+    c.revision++;
     const plan2 = this.activePlan();
     if (plan2) {
       const { plan: p2 } = refreshPlan(plan2, r.state, r.state.clock.lo, this.settings.readyWindowMinutes);
-      c2.planRevisions = c2.planRevisions.map((x) => x.planId === p2.planId ? p2 : x);
+      c.planRevisions = c.planRevisions.map((x) => x.planId === p2.planId ? p2 : x);
     }
-    await this.host.save();
+    try {
+      await this.host.save();
+    } catch (e) {
+      c.recoveryState = { status: "unsaved", reason: e.message, at: this.host.now() };
+      return { saved: false };
+    }
+    if (c.recoveryState.status === "unsaved") c.recoveryState = { status: "ok" };
+    return { saved: true };
   }
-  /** Journal recovery after reload/crash: finalize a published commit or discard an unpublished one. */
-  async recoverPending(c) {
+  /** Bind a published reply's interpretation to the reply as it is in the conversation (found by its variant id; the
+   *  host may have changed the text on the way in — whitespace, its own text rules) and add it to the store. False
+   *  when no such reply is there. */
+  applyLanded(c, interp, commitId) {
+    const landed = this.host.readTranscript().find((e) => e.role === "gm" && e.variantId === interp.variantId);
+    if (!landed) return false;
+    if (landed.contentHash !== interp.contentHash || landed.messageId !== interp.messageId) {
+      for (const r of interp.records) for (const ref of r.sourceRefs) if (ref.messageId === interp.messageId && ref.variantId === interp.variantId) {
+        ref.messageId = landed.messageId;
+        ref.contentHash = landed.contentHash;
+      }
+      interp.contentHash = landed.contentHash;
+      interp.messageId = landed.messageId;
+      interp.key = baseKey(landed);
+    }
+    const list = interpretationsFor(c.interpretations, interp.key);
+    if (!list.some((x) => x.commitId === commitId)) list.push(interp);
+    c.interpretations[interp.key] = list;
+    c.acceptedHead = commitId;
+    return true;
+  }
+  /** Journal recovery after reload/crash: a reply that was published is finalized, anything else is dropped. */
+  recoverPending(c) {
     const j = c.pendingTransaction;
     if (!j) return;
-    const entries = this.host.readTranscript();
-    const landed = entries.find((e) => e.role === "gm" && e.contentHash === j.targetHash && e.variantId === j.interpretation.variantId);
-    if (landed) {
-      const list = interpretationsFor(c.interpretations, j.interpretation.key);
-      if (!list.some((x) => x.commitId === j.commitId)) list.push(j.interpretation);
-      c.interpretations[j.interpretation.key] = list;
-      c.acceptedHead = j.commitId;
-      this.host.log("info", `recovered journaled commit ${j.commitId}`);
-    } else {
-      if (j.priorReply && j.opType === "regenerate") {
-        try {
-          await this.host.restorePrior("regenerate", j.priorReply);
-        } catch {
-        }
-      }
-      this.host.log("info", `discarded unpublished journal ${j.commitId}`);
-    }
     c.pendingTransaction = null;
+    this.host.log("info", this.applyLanded(c, j.interpretation, j.commitId) ? `recovered journaled commit ${j.commitId}` : `discarded unpublished journal ${j.commitId}`);
   }
-  /** Retry: save again after a persistence failure, or rerun the failed operation. */
+  /** Retry: save again after a persistence failure, then run the failed operation again (the same kind). */
   async retry() {
     const c = this.campaign();
-    if (!c) return;
+    if (!c || this.opActive) return;
+    const failed = c.recoveryState.op;
     if (c.recoveryState.status === "unsaved") {
+      const before = c.recoveryState;
+      c.recoveryState = { status: "ok" };
       try {
-        await this.host.save();
-        c.recoveryState = { status: "ok" };
         await this.host.save();
         this.setStatus("idle", "Saved");
       } catch (e) {
+        c.recoveryState = { ...before, reason: e.message, at: this.host.now() };
         this.setStatus("error", "Save failed again: " + e.message, { errorKind: "persistence_failure", canRetry: true });
+        return;
       }
-      return;
+      if (!failed) return;
     }
-    c.recoveryState = { status: "ok" };
     const issue = this.current?.replay.issue;
     if (issue?.status === "conflict" && issue.entry) {
       const key = baseKey(issue.entry);
       const keep = interpretationsFor(c.interpretations, key).filter((i) => !i.conflict);
       if (keep.length) c.interpretations[key] = keep;
       else delete c.interpretations[key];
-      await this.reconcile("retry");
+      await this.reconcile("retry").catch(() => void 0);
       return;
     }
-    const op = this.lastFailedOp?.op;
-    if (op && op !== "rebuild") {
-      const last2 = this.host.readTranscript().slice(-1)[0];
-      await this.runOperation(last2?.role === "user" ? "normal" : op === "continue" ? "continue" : "normal");
-    } else {
-      await this.reconcile("retry");
+    const last2 = this.host.readTranscript().slice(-1)[0];
+    if (failed && failed !== "rebuild") {
+      if (!last2 || last2.role !== "gm") {
+        await this.runOperation("normal");
+        return;
+      }
+      if (failed === "regenerate" && this.host.removeLastReply) {
+        const prior = await this.host.removeLastReply();
+        await this.runOperation(prior ? "regenerate" : "normal", prior ?? void 0);
+        return;
+      }
+      await this.runOperation(failed === "regenerate" ? "swipe" : failed);
+      return;
+    }
+    const r = await this.reconcile("retry").catch(() => null);
+    const cc = this.campaign();
+    if (r && !r.issue && cc && cc.recoveryState.status === "error") {
+      cc.recoveryState = { status: "ok" };
+      this.setStatus("idle");
+      await this.host.save().catch((e) => {
+        cc.recoveryState = { status: "unsaved", reason: e.message, at: this.host.now() };
+      });
+      this.emit();
     }
   }
   // ---------------------------------------------------------------------------------------------
@@ -30218,10 +30341,11 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
   }
   /** 重新检查 (panel): check again with the changes as they are now. */
   async recheckWorld() {
-    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; try again when it is done.");
-    await this.checkWorld(void 0, "world");
-    await this.host.save();
-    await this.reconcile("world_settings", { allowModel: false });
+    return this.change(async () => {
+      await this.checkWorld(void 0, "world");
+      await this.host.save();
+      await this.reconcileInner("world_settings", { allowModel: false });
+    });
   }
   /** The user's own changes (panel): replaced as a whole; checked again with 重新检查. */
   async setWorldManual(texts) {
@@ -30232,6 +30356,9 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
   }
   /** Edit (content; empty disables) or remove (null) one override or addition by hand. */
   async editWorld(id, content) {
+    return this.change(() => this.editWorldNow(id, content));
+  }
+  async editWorldNow(id, content) {
     const ws = this.campaign()?.worldSettings;
     if (!ws) return;
     if (content === null) {
@@ -30245,7 +30372,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     }
     this.overlayCache = null;
     await this.host.save();
-    await this.reconcile("world_settings", { allowModel: false });
+    await this.reconcileInner("world_settings", { allowModel: false });
   }
   /** What the host's lore scan does in this chat: entries replaced or disabled by book and uid (only while the
    *  original is the text they were written from) and entries added. Nothing when the engine is off here. */
@@ -30341,7 +30468,9 @@ ${lines.join("\n")}`;
   /** 更新本局身份: read the active Persona as a new profile revision, in effect from after the current last message
    *  (earlier messages keep the identity they were written with). */
   async updateIdentity() {
-    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; try again when it is done.");
+    return this.change(() => this.updateIdentityNow());
+  }
+  async updateIdentityNow() {
     const c = this.campaign();
     if (!c) return;
     c.integration ||= { since: ENGINE_RELEASE };
@@ -30358,7 +30487,7 @@ ${lines.join("\n")}`;
     c.configRevisions.push({ at: this.host.now(), summary: `player identity updated from the Persona "${persona.name}" (revision ${rev})` });
     await this.checkWorld(void 0, "identity");
     await this.host.save();
-    await this.reconcile("identity_updated");
+    await this.reconcileInner("identity_updated", {});
   }
   /** 重新评估 (尚未发生的可能接触): ask the world-reaction step again now, ignoring the cached result. Suggestions
    *  only — nothing is recorded; the next turn offers the GM one of the new ones. */
@@ -30504,40 +30633,30 @@ ${lines.join("\n")}`;
     if (opts.force) needs = true;
     if (!needs) return { plan: plan2, forced: plan2.mode === "FORCED_CONVERGENCE" };
     const facts = this.stateFacts(index, [...pack2.entities.keys(), ...state.runtimeEntities.keys()], clock);
-    let res;
-    try {
-      res = await runPlanning({
-        port: this.host.model,
-        pack: pack2,
-        index,
-        state,
-        clockTick: clock,
-        worldRevision: c.revision,
-        prefixHash: this.current?.replay.fingerprint || "",
-        affected: c._affectedAnchors || [],
-        maxOrdinary: this.settings.maxOrdinaryPlanner,
-        allowForcedAttempt: this.settings.forcedPlannerAttempt,
-        signal,
-        operationId,
-        readyWindow: this.settings.readyWindowMinutes,
-        facts,
-        player,
-        log: (l) => this.debugLog("task", l),
-        situation: opts.situation ?? this.recentSituation(index),
-        // With narrative integration, 关注 contacts come from the integrate task (one policy for every way in); the
-        // HARD planner only plans world obligations.
-        interests: c.integration ? [] : focusedLive(pack2, state, c.focusEvents || [], clock).filter((f) => !engagementView(state, pack2).blockedBy({ eventId: f.event.id }, clock)).map((f) => ({ id: f.event.id, title: f.event.title, window: `${formatTick(f.lo)} \u2013 ${formatTick(f.hi)}`, original_route: f.event.summary })),
-        impactForced: !!c._impactForced
-      });
-    } catch (e) {
-      if (!(e instanceof EngineError) || e.kind !== "invalid_model_json") throw e;
-      res = { plan: null, forced: false, errors: [e.message] };
-    }
-    if (!res.plan) {
-      if (plan2) plan2.status = "stale";
-      this.notice("warn", `Planner could not produce a valid plan (${res.errors.slice(-2).join(" | ") || "no output"}). Hard obligations remain enforced at their deadlines.`);
-      return { plan: plan2 && plan2.status === "active" ? plan2 : null, forced: false };
-    }
+    const res = await runPlanning({
+      port: this.host.model,
+      pack: pack2,
+      index,
+      state,
+      clockTick: clock,
+      worldRevision: c.revision,
+      prefixHash: this.current?.replay.fingerprint || "",
+      affected: c._affectedAnchors || [],
+      maxOrdinary: this.settings.maxOrdinaryPlanner,
+      allowForcedAttempt: this.settings.forcedPlannerAttempt,
+      signal,
+      operationId,
+      readyWindow: this.settings.readyWindowMinutes,
+      facts,
+      player,
+      log: (l) => this.debugLog("task", l),
+      situation: opts.situation ?? this.recentSituation(index),
+      // With narrative integration, 关注 contacts come from the integrate task (one policy for every way in); the
+      // HARD planner only plans world obligations.
+      interests: c.integration ? [] : focusedLive(pack2, state, c.focusEvents || [], clock).filter((f) => !engagementView(state, pack2).blockedBy({ eventId: f.event.id }, clock)).map((f) => ({ id: f.event.id, title: f.event.title, window: `${formatTick(f.lo)} \u2013 ${formatTick(f.hi)}`, original_route: f.event.summary })),
+      impactForced: !!c._impactForced
+    });
+    if (!res.plan) throw new EngineError("narrative_validation_failure", `The planner produced no valid plan (${res.errors.slice(-2).join(" | ") || "no output"}). The turn does not go on without one; use Retry.`);
     for (const p of c.planRevisions) if (p.status === "active" || p.status === "stale") p.status = "superseded";
     res.plan.preconditionSignature = preconditionSignature(pack2, state, res.plan.protectedAnchorIds, clock);
     res.plan.playerContextHash = pHash;
@@ -30625,9 +30744,12 @@ ${lines.join("\n")}`;
   exportBackup() {
     const c = this.campaign();
     if (!c) throw new EngineError("invalid_pack", "no campaign");
-    return JSON.stringify({ format: "canon-engine-backup", version: STORAGE_VERSION, engineVersion: ENGINE_VERSION, exportedChatId: this.host.chatId(), campaign: { ...c, packSnapshot: c.packSnapshot || this.pack().pack }, transcriptManifest: this.host.readTranscript().map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role })) }, null, 1);
+    return JSON.stringify({ format: "canon-engine-backup", version: STORAGE_VERSION, engineVersion: ENGINE_RELEASE, exportedChatId: this.host.chatId(), campaign: { ...c, packSnapshot: c.packSnapshot || this.pack().pack }, transcriptManifest: this.host.readTranscript().map((e) => ({ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, role: e.role })) }, null, 1);
   }
   async importBackup(text) {
+    return this.change(() => this.importBackupNow(text));
+  }
+  async importBackupNow(text) {
     let data;
     try {
       data = JSON.parse(text);
@@ -30651,7 +30773,7 @@ ${lines.join("\n")}`;
     this.packCache = null;
     const entries = this.host.readTranscript();
     const matched = entries.filter((e) => camp.manifest.some((m) => m.messageId === e.messageId && m.contentHash === e.contentHash)).length;
-    await this.reconcile("backup_import");
+    await this.reconcileInner("backup_import", {});
     return { matchedMessages: matched, total: entries.length };
   }
   // ---------------------------------------------------------------------------------------------
@@ -30678,6 +30800,9 @@ ${lines.join("\n")}`;
   }
   /** Apply a reviewed pack update as a new binding revision (caller ensures a backup was exported). */
   async applyPackUpdate(newText) {
+    return this.change(() => this.applyPackUpdateNow(newText));
+  }
+  async applyPackUpdateNow(newText) {
     const c = this.campaign();
     if (!c) return;
     const r = validatePackText(newText);
@@ -30692,7 +30817,7 @@ ${lines.join("\n")}`;
     c.configRevisions.push({ at: this.host.now(), summary: `pack updated to ${r.loaded.pack.pack_id}@${r.loaded.pack.pack_version}` });
     c.planRevisions.forEach((p) => p.status = "stale");
     this.packCache = null;
-    await this.reconcile("pack_update");
+    await this.reconcileInner("pack_update", {});
   }
   /** "强制完成": the player marks a canon event as completed. It is recorded along its original route
    *  (effects, HARD outcomes, downstream preconditions), anchored after the current last message. */
@@ -31770,7 +31895,7 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niStrongTip: { zh: "\u628A\u8FD9\u6761\u62D2\u7EDD\u8BBE\u4E3A\u5F3A\u5236\uFF1AGM \u7684\u56DE\u590D\u5982\u679C\u628A\u4F60\u5F80\u8FD9\u4EF6\u4E8B\u4E0A\u62C9\uFF08\u4EFB\u4F55\u4EBA\u3001\u4EFB\u4F55\u6E20\u9053\uFF09\uFF0C\u4F1A\u88AB\u9000\u56DE\u91CD\u5199\u3002", en: "Make this refusal binding: a reply that pulls you toward it (through anyone or anything) is sent back and rewritten." },
   niWeak: { zh: "\u53D6\u6D88\u5F3A\u70C8", en: "Make it a wish" },
   niWeakTip: { zh: "\u6539\u56DE\u5EFA\u8BAE\uFF1AGM \u4ECD\u4F1A\u5C0A\u91CD\u5B83\uFF0C\u4F46\u4E0D\u4F1A\u56E0\u6B64\u9000\u56DE\u56DE\u590D\u3002", en: "Back to a wish: the GM still respects it, but replies are not sent back over it." },
-  niDecisionsTip: { zh: "\u4F60\u5728\u5267\u60C5\u91CC\u8868\u8FBE\u7684\u53C2\u4E0E\u610F\u613F\uFF08\u7531\u5F15\u64CE\u4ECE\u4F60\u7684\u6D88\u606F\u91CC\u8BFB\u51FA\uFF09\u3002\n\u62D2\u7EDD\u3001\u6682\u7F13\u9ED8\u8BA4\u53EA\u662F\u300C\u5EFA\u8BAE\u300D\uFF1AGM \u4F1A\u5C3D\u91CF\u4E0D\u628A\u4F60\u5377\u8FDB\u53BB\uFF0C\u4E0D\u4F1A\u5B89\u6392\u4EBA\u6765\u62C9\u4F60\uFF0C\u4F46\u8EAB\u8FB9\u4EBA\u7684\u5BFB\u5E38\u95F2\u804A\u3001\u6258\u4F60\u5E26\u53E5\u8BDD\u4E4B\u7C7B\u4E0D\u7B97\u8FDD\u89C4\uFF0C\u56DE\u590D\u4E0D\u4F1A\u56E0\u6B64\u88AB\u9000\u56DE\u3002\n\u70B9\u300C\u5F3A\u70C8\u62D2\u7EDD\u300D\u624D\u53D8\u6210\u5F3A\u5236\uFF1A\u56DE\u590D\u53EA\u8981\u628A\u4F60\u5F80\u8FD9\u4EF6\u4E8B\u4E0A\u62C9\uFF0C\u5C31\u4F1A\u88AB\u9000\u56DE\u91CD\u5199\u3002\u518D\u70B9\u300C\u53D6\u6D88\u5F3A\u70C8\u300D\u6539\u56DE\u5EFA\u8BAE\u3002\n\nOOC\uFF08\u620F\u5916\uFF09\u6307\u4EE4\uFF1A\u5728\u6D88\u606F\u91CC\u8DF3\u51FA\u89D2\u8272\u3001\u76F4\u63A5\u5BF9 GM/\u5F15\u64CE\u8BF4\u8BDD\uFF0C\u4F8B\u5982\uFF1A\n\uFF08OOC\uFF1A\u522B\u518D\u628A\u6697\u90E8\u7684\u5267\u60C5\u5F80\u6211\u8EAB\u4E0A\u5F15\u4E86\uFF09\n\u5F15\u64CE\u4F1A\u628A\u5B83\u8BB0\u4E3A\u300COOC \u505C\u6B62\u8FD9\u6761\u7EBF\u300D\uFF0C\u81EA\u52A8\u5F3A\u5236\uFF0C\u4E0D\u9700\u8981\u518D\u70B9\u6309\u94AE\u3002\u7528\u8BBE\u7F6E\u91CC\u7684\u300COOC \u5173\u952E\u8BCD\u300D\uFF08\u9ED8\u8BA4 OOC\uFF09\u6807\u51FA\u7684\u90E8\u5206\uFF0C\u5F15\u64CE\u4E00\u5B9A\u5F53\u4F5C\u620F\u5916\uFF1B\u6CA1\u5199\u5173\u952E\u8BCD\u65F6\uFF0C\u7531\u5206\u6790\u6A21\u578B\u5224\u65AD\u8FD9\u53E5\u8BDD\u662F\u5426\u5728\u620F\u5916\u3002\n\n\u300C\u5141\u8BB8\u518D\u6B21\u63A5\u89E6\u300D\u64A4\u9500\u4E00\u6761\u62D2\u7EDD\u3002", en: 'Your stance on being drawn into things, read from your messages.\nDeclining or deferring is a wish by default: the GM avoids drawing you in and arranges no one to pull you back, but everyday remarks and small favours from people around you are fine, and replies are not sent back over it.\n"Make binding" enforces it: a reply that pulls you toward it is sent back and rewritten. "Make it a wish" undoes that.\n\nOut-of-character (OOC) instructions: step outside your character and speak to the GM/engine directly, e.g. "(OOC: stop steering the dark-side storyline onto me)". The engine records it as "OOC: stop this line", which is always binding. Parts marked with the OOC keyword from settings (default OOC) are always treated as out of character; without the keyword, the analysis model judges whether a sentence is.\n\n"Allow contact again" lifts a refusal.' },
+  niDecisionsTip: { zh: "\u4F60\u5728\u5267\u60C5\u91CC\u8868\u8FBE\u7684\u53C2\u4E0E\u610F\u613F\uFF08\u7531\u5F15\u64CE\u4ECE\u4F60\u7684\u6D88\u606F\u91CC\u8BFB\u51FA\uFF09\u3002\n\u62D2\u7EDD\u3001\u6682\u7F13\u9ED8\u8BA4\u53EA\u662F\u300C\u5EFA\u8BAE\u300D\uFF1AGM \u4F1A\u5C3D\u91CF\u4E0D\u628A\u4F60\u5377\u8FDB\u53BB\uFF0C\u4E0D\u4F1A\u5B89\u6392\u4EBA\u6765\u62C9\u4F60\uFF0C\u4F46\u8EAB\u8FB9\u4EBA\u7684\u5BFB\u5E38\u95F2\u804A\u3001\u6258\u4F60\u5E26\u53E5\u8BDD\u4E4B\u7C7B\u4E0D\u7B97\u8FDD\u89C4\uFF0C\u56DE\u590D\u4E0D\u4F1A\u56E0\u6B64\u88AB\u9000\u56DE\u3002\n\u70B9\u300C\u5F3A\u70C8\u62D2\u7EDD\u300D\u624D\u53D8\u6210\u5F3A\u5236\uFF1A\u56DE\u590D\u53EA\u8981\u628A\u4F60\u5F80\u8FD9\u4EF6\u4E8B\u4E0A\u62C9\uFF0C\u5C31\u4F1A\u88AB\u9000\u56DE\u91CD\u5199\u3002\u518D\u70B9\u300C\u53D6\u6D88\u5F3A\u70C8\u300D\u6539\u56DE\u5EFA\u8BAE\u3002\n\nOOC\uFF08\u620F\u5916\uFF09\u6307\u4EE4\uFF1A\u5728\u6D88\u606F\u91CC\u8DF3\u51FA\u89D2\u8272\u3001\u76F4\u63A5\u5BF9 GM/\u5F15\u64CE\u8BF4\u8BDD\uFF0C\u4F8B\u5982\uFF1A\n\uFF08OOC\uFF1A\u522B\u518D\u628A\u8FD9\u6761\u5267\u60C5\u5F80\u6211\u8EAB\u4E0A\u5F15\u4E86\uFF09\n\u5F15\u64CE\u4F1A\u628A\u5B83\u8BB0\u4E3A\u300COOC \u505C\u6B62\u8FD9\u6761\u7EBF\u300D\uFF0C\u81EA\u52A8\u5F3A\u5236\uFF0C\u4E0D\u9700\u8981\u518D\u70B9\u6309\u94AE\u3002\u7528\u8BBE\u7F6E\u91CC\u7684\u300COOC \u5173\u952E\u8BCD\u300D\uFF08\u9ED8\u8BA4 OOC\uFF09\u6807\u51FA\u7684\u90E8\u5206\uFF0C\u5F15\u64CE\u4E00\u5B9A\u5F53\u4F5C\u620F\u5916\uFF1B\u6CA1\u5199\u5173\u952E\u8BCD\u65F6\uFF0C\u7531\u5206\u6790\u6A21\u578B\u5224\u65AD\u8FD9\u53E5\u8BDD\u662F\u5426\u5728\u620F\u5916\u3002\n\n\u300C\u5141\u8BB8\u518D\u6B21\u63A5\u89E6\u300D\u64A4\u9500\u4E00\u6761\u62D2\u7EDD\u3002", en: 'Your stance on being drawn into things, read from your messages.\nDeclining or deferring is a wish by default: the GM avoids drawing you in and arranges no one to pull you back, but everyday remarks and small favours from people around you are fine, and replies are not sent back over it.\n"Make binding" enforces it: a reply that pulls you toward it is sent back and rewritten. "Make it a wish" undoes that.\n\nOut-of-character (OOC) instructions: step outside your character and speak to the GM/engine directly, e.g. "(OOC: stop steering this storyline onto me)". The engine records it as "OOC: stop this line", which is always binding. Parts marked with the OOC keyword from settings (default OOC) are always treated as out of character; without the keyword, the analysis model judges whether a sentence is.\n\n"Allow contact again" lifts a refusal.' },
   niStance_declined: { zh: "\u62D2\u7EDD", en: "declined" },
   niStance_deferred: { zh: "\u6682\u7F13", en: "not now" },
   niStance_accepted: { zh: "\u63A5\u53D7", en: "accepted" },
@@ -33682,6 +33807,16 @@ var StHost = class {
     m.extra = m.extra || {};
     m.extra[NS] = { mid: this.pendingStamp.messageId, vid: this.pendingStamp.variantId, commitId: this.pendingStamp.commitId };
   }
+  /** The last reply out of the chat, as SillyTavern's own Regenerate does before it generates. */
+  async removeLastReply() {
+    const c = ctx();
+    const chat = c.chat;
+    const last2 = chat[chat.length - 1];
+    if (!last2 || last2.is_user || last2.is_system || typeof c.deleteLastMessage !== "function") return null;
+    const prior = { message: structuredClone(last2) };
+    await c.deleteLastMessage();
+    return prior;
+  }
   async restorePrior(op, prior) {
     const c = ctx();
     const mod = await loadStModule();
@@ -34267,14 +34402,22 @@ function installClockEvents(engine2) {
   });
 }
 
-// src/hosts/sillytavern/lock.ts
+// src/hosts/browser/lock.ts
 var PREFIX = "canonEngine.writer.";
 var STALE_MS = 6e3;
+var lockManager = () => typeof navigator !== "undefined" && navigator.locks || null;
 var WriterLock = class {
   instanceId;
   sessionId = null;
   timer = null;
+  /** The heartbeat's answer. */
   owner = true;
+  /** The Web Lock's answer: held here, held by another context, or none yet (also: no Web Locks). */
+  held = null;
+  letGo = null;
+  asking = null;
+  /** Changes with the campaign: an answer for an earlier one is dropped. */
+  epoch = 0;
   constructor(instanceId) {
     this.instanceId = instanceId;
     if (typeof window !== "undefined") window.addEventListener("beforeunload", () => this.release());
@@ -34287,10 +34430,42 @@ var WriterLock = class {
       return null;
     }
   }
+  /** Ask for the campaign's Web Lock (kept until release); told at once when another context holds it. */
+  ask() {
+    const locks = lockManager();
+    if (!locks || !this.sessionId || this.held) return Promise.resolve();
+    if (this.asking) return this.asking;
+    const epoch = this.epoch;
+    const asking = new Promise((answered) => {
+      locks.request(PREFIX + this.sessionId, { ifAvailable: true }, (lock2) => {
+        if (epoch !== this.epoch) {
+          answered();
+          return void 0;
+        }
+        this.held = !!lock2;
+        answered();
+        return lock2 ? new Promise((release) => {
+          this.letGo = release;
+        }) : void 0;
+      }).catch(() => {
+        if (epoch === this.epoch) this.held = null;
+        answered();
+      });
+    }).then(() => {
+      if (this.asking === asking) this.asking = null;
+    });
+    this.asking = asking;
+    return asking;
+  }
   beat() {
     if (!this.sessionId) return;
+    if (this.held !== true) void this.ask();
+    if (this.held === false) {
+      this.owner = false;
+      return;
+    }
     const cur = this.read();
-    if (!cur || cur.id === this.instanceId || Date.now() - cur.ts > STALE_MS) {
+    if (!cur || cur.id === this.instanceId || this.held === true || Date.now() - cur.ts > STALE_MS) {
       try {
         localStorage.setItem(PREFIX + this.sessionId, JSON.stringify({ id: this.instanceId, ts: Date.now() }));
       } catch {
@@ -34311,14 +34486,25 @@ var WriterLock = class {
     this.beat();
     this.timer = setInterval(() => this.beat(), 2e3);
   }
+  /** setCampaign, and the answer once it is known (the Web Lock's where there is one). */
+  async acquire(sessionId) {
+    this.setCampaign(sessionId);
+    await this.ask();
+    return this.isOwner();
+  }
   isOwner() {
     if (!this.sessionId) return true;
     this.beat();
-    return this.owner;
+    return this.held ?? this.owner;
   }
   release() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    this.epoch++;
+    this.letGo?.();
+    this.letGo = null;
+    this.held = null;
+    this.asking = null;
     if (this.sessionId) {
       const cur = this.read();
       if (cur?.id === this.instanceId) try {
@@ -34326,6 +34512,7 @@ var WriterLock = class {
       } catch {
       }
     }
+    this.sessionId = null;
   }
 };
 
@@ -35381,8 +35568,6 @@ function globalSettings() {
   const es = ctx().extensionSettings;
   if (es[SETTINGS_KEY]) migrateSettings(es[SETTINGS_KEY]);
   es[SETTINGS_KEY] = { ...ST_DEFAULTS, ...es[SETTINGS_KEY] || {} };
-  if (es[SETTINGS_KEY].taskTimeoutMs === 18e4) es[SETTINGS_KEY].taskTimeoutMs = DEFAULT_SETTINGS.taskTimeoutMs;
-  if (es[SETTINGS_KEY].budgetChars === 24e3) es[SETTINGS_KEY].budgetChars = DEFAULT_SETTINGS.budgetChars;
   return es[SETTINGS_KEY];
 }
 function getEngine() {
