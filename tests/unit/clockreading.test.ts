@@ -20,6 +20,10 @@ describe('clock readings in a reply', () => {
     expect(clockReadings(text)).toEqual([{ hour: 11, minute: 0, nearly: true, quote: '都快十一点了' }]);
     expect(clockReadings('已经三点半了')).toMatchObject([{ hour: 3, minute: 30, nearly: false }]);
     expect(clockReadings('现在十点二十')).toMatchObject([{ hour: 10, minute: 20 }]);
+    // live: a reading off a wall clock, before and after the look (the clock stayed at 08:15 while the scene said 08:27)
+    expect(clockReadings('白井抬头看了眼墙上的挂钟：“八点二十七。”')).toMatchObject([{ hour: 8, minute: 27 }]);
+    expect(clockReadings('“八点二十七。”白井抬头看了眼墙上的挂钟，语气不咸不淡。')).toMatchObject([{ hour: 8, minute: 27 }]);
+    expect(clockReadings('“她说八点一刻到。”白井看了眼通道口。')).toEqual([]);
     expect(clockReadings("It's already 11:30 and she is late.")).toMatchObject([{ hour: 11, minute: 30 }]);
     expect(clockReadings('我们约在八点见面，九点开会。')).toEqual([]);
     // a time read off a clock, or said as "…出头", is the time now (live: 08:50 recorded for a reply whose phone said

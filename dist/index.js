@@ -19260,14 +19260,15 @@ function cnNumber(s) {
   if (!m[2]) return m[1] && !m[3] ? CN_DIGIT[m[1]] : null;
   return (m[1] ? CN_DIGIT[m[1]] : 1) * 10 + (m[3] ? CN_DIGIT[m[3]] : 0);
 }
-var LOOKED_AT_CLOCK = /(?:看|瞥|瞄)[了一眼下看]{0,3}(?:手机|手表|腕表|表|时钟|钟|时间|屏幕)[^。！？]{0,4}[。，：:\s]*$|(?:手机|手表|屏幕|时钟|钟)[^。！？]{0,4}(?:显示|跳到|指着|指向|写着)[^。！？]{0,3}$/;
+var LOOKED_AT_CLOCK = /(?:看|瞥|瞄)[了一眼下看]{0,3}[^。！？“”「」]{0,6}?(?:手机|手表|腕表|表|时钟|挂钟|钟|时间|屏幕)[^。！？]{0,4}[。，：:\s“「『]*$|(?:手机|手表|屏幕|时钟|钟)[^。！？]{0,4}(?:显示|跳到|指着|指向|写着)[^。！？]{0,3}$/;
+var LOOKS_AT_CLOCK_AFTER = /^[。！？…\s]*[”」』][^。！？“「]{0,8}(?:看|瞥|瞄)[了一眼下看]{0,3}[^。！？“”「」]{0,6}?(?:手机|手表|腕表|表|时钟|挂钟|钟|时间|屏幕)/;
 function clockReadings(text) {
   const out = [];
   const N = "[\u96F6\u3007\u4E00\u4E8C\u4E24\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u53410-9]{1,3}";
   const zh = new RegExp(`(\u90FD|\u5DF2\u7ECF|\u5DF2|\u73B0\u5728|\u8FD9\u90FD|\u773C\u770B)?(\u5FEB|\u5FEB\u8981|\u5C06\u8FD1|\u5DEE\u4E0D\u591A|\u5C31\u8981)?(${N})\u70B9(?:(\u534A)|(\u4E00\u523B)|(\u4E09\u523B)|\u96F6?(${N})\u5206?)?(\u51FA\u5934|\u591A|\u5DE6\u53F3|\u949F)?(\u4E86)?`, "g");
   for (const m of String(text).matchAll(zh)) {
     const plan2 = /^(?:要|得|就|才|再|开始|开|见|集合|出发|前|之前|以前)/.test(String(text).slice(m.index + m[0].length, m.index + m[0].length + 2));
-    const read = m[8] === "\u51FA\u5934" || !plan2 && LOOKED_AT_CLOCK.test(String(text).slice(Math.max(0, m.index - 14), m.index));
+    const read = m[8] === "\u51FA\u5934" || !plan2 && (LOOKED_AT_CLOCK.test(String(text).slice(Math.max(0, m.index - 20), m.index)) || LOOKS_AT_CLOCK_AFTER.test(String(text).slice(m.index + m[0].length, m.index + m[0].length + 30)));
     if (!read) {
       if (!m[9] && m[1] !== "\u73B0\u5728") continue;
       if (!m[1] && !m[2]) continue;
@@ -24595,7 +24596,7 @@ function voiceInput(v) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.32.0";
+var ENGINE_RELEASE = "1.32.1";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;

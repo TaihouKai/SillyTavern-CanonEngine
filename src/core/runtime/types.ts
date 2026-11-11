@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, NatureVersion, 
 export const STORAGE_VERSION = 1;
 /** Release version: shown to users, and written into campaigns and backups as the version that made them (kept equal
  *  to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.32.0';
+export const ENGINE_RELEASE = '1.32.1';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
