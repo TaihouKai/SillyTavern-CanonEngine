@@ -40,11 +40,13 @@ for (const el of document.querySelectorAll('.reveal')) revObs.observe(el);
 const glow = document.querySelector('.cursor-glow');
 addEventListener('pointermove', (e) => { glow.style.setProperty('--mx', e.clientX + 'px'); glow.style.setProperty('--my', e.clientY + 'px'); }, { passive: true });
 
-// counters, once the pack is loaded
+// counters
 const countUp = (el, to) => {
+  if (!Number.isFinite(to)) return;
   const t0 = performance.now(), dur = reduced ? 0 : 1800;
   const step = (now) => {
-    const k = dur ? Math.min(1, (now - t0) / dur) : 1;
+    // a frame's time can be a little earlier than t0
+    const k = dur ? Math.min(1, Math.max(0, (now - t0) / dur)) : 1;
     el.textContent = Math.round(to * (1 - Math.pow(1 - k, 4))).toLocaleString('en-US');
     if (k < 1) requestAnimationFrame(step);
   };
@@ -99,22 +101,35 @@ import('./hero.js').then((m) => lazy('.hero', (el) => m.startHero(el.querySelect
 lazy('.worldlines', (el) => startAnchors(el.querySelector('canvas'), reduced));
 lazy('.reactor', (el) => startTurn(el, reduced));
 lazy('.orbit', (el) => startOrbit(el.querySelector('canvas'), reduced));
-lazy('#builder', (el) => startBuilder(el, () => demo?.stats, reduced));
+// the example pack's numbers (site/data/stats.json, computed by the engine at build time): at once
+let stats = null;
+fetch('data/stats.json').then((r) => r.json()).then((s) => {
+  stats = s;
+  vars.events = s.events.toLocaleString('en-US'); vars.arcs = s.arcs;
+  apply(lang(), vars);
+  for (const el of document.querySelectorAll('[data-count]')) countUp(el, s[el.dataset.count]);
+}).catch((e) => console.warn('stats', e));
+lazy('#builder', (el) => startBuilder(el, () => stats || demo?.stats, reduced));
 
-// the engine and the example pack
-import('./engine-demo.js')
-  .then((m) => m.startDemo('data/toaru-index.canon.json', document.getElementById('engine-demo'), document.getElementById('demo-controls'), lang()))
-  .then((d) => {
-    demo = d;
-    document.querySelector('.demo-loading')?.remove();
-    vars.events = d.stats.events.toLocaleString('en-US'); vars.arcs = d.stats.arcs;
-    apply(lang(), vars);
-    for (const el of document.querySelectorAll('[data-count]')) countUp(el, d.stats[el.dataset.count]);
-    renderMinds(document.getElementById('mind-deck'), d.nature, d.label);
-    document.addEventListener('langchange', () => renderMinds(document.getElementById('mind-deck'), d.nature, d.label));
-  })
-  .catch((e) => {
-    console.error('demo', e);
-    const el = document.querySelector('.demo-loading');
-    if (el) el.textContent = t('chron.failed');
-  });
+// the engine and the example pack (7 MB): loaded when the visitor nears the minds or the chronicle
+let demoStarted = false;
+const startDemo = () => {
+  if (demoStarted) return;
+  demoStarted = true;
+  import('./engine-demo.js')
+    .then((m) => m.startDemo('data/toaru-index.canon.json', document.getElementById('engine-demo'), document.getElementById('demo-controls'), lang()))
+    .then((d) => {
+      demo = d;
+      document.querySelector('.demo-loading')?.remove();
+      if (!stats) { vars.events = d.stats.events.toLocaleString('en-US'); vars.arcs = d.stats.arcs; apply(lang(), vars); for (const el of document.querySelectorAll('[data-count]')) countUp(el, d.stats[el.dataset.count]); }
+      renderMinds(document.getElementById('mind-deck'), d.nature, d.label);
+      document.addEventListener('langchange', () => renderMinds(document.getElementById('mind-deck'), d.nature, d.label));
+    })
+    .catch((e) => {
+      console.error('demo', e);
+      const el = document.querySelector('.demo-loading');
+      if (el) el.textContent = t('chron.failed');
+    });
+};
+const demoObs = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { demoObs.disconnect(); startDemo(); } }, { rootMargin: '1200px 0px' });
+for (const id of ['minds', 'chronicle']) demoObs.observe(document.getElementById(id));

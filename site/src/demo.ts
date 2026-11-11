@@ -2,9 +2,10 @@
 // validated and loaded as the engine loads it, its canon is replayed up to the story time the visitor picks (the
 // bootstrap a new game runs), and the timeline window — the extension's own — shows the result, with its 组织成员
 // and 常态 views. Nothing here reads the pack's format by itself, so the site follows the engine when packs change.
+import { statsOf, type PackStats } from './stats';
 import { validatePackText, buildBootstrap, reduce, WorldIndex, parseOriginLabel, formatTick, GraphPanel, packGraph, currentGraph, setLang, t, membershipView, natureView, type LoadedPack, type WorldState, type LedgerRecord, type NatureViewData } from '../../src/core';
 
-export interface DemoStats { events: number; entities: number; people: number; orgs: number; arcs: number; hard: number; natures: number; minds: number; title: string; errors: number; warnings: number }
+export type DemoStats = PackStats;
 export interface Demo {
   stats: DemoStats;
   /** Everyone with a way of thinking or a nature, as the timeline's 常态 view lists them (spoilers on). */
@@ -72,14 +73,8 @@ export async function startDemo(url: string, host: HTMLElement, controls: HTMLEl
   });
 
   const all = natureView(worldAt(hi).idx, true);
-  const ents = [...L.entities.values()];
   return {
-    stats: {
-      title: L.pack.title, events: L.events.size, entities: L.entities.size, people: ents.filter((e) => e.kind === 'person').length,
-      orgs: ents.filter((e) => e.kind === 'organization').length, arcs: L.pack.arcs.length, hard: L.hardEvents.length,
-      natures: ents.filter((e) => e.nature?.length).length, minds: ents.filter((e) => e.mind).length,
-      errors: r.errors.length, warnings: r.warnings.length,
-    },
+    stats: statsOf(r),
     nature: all,
     setLang(l) { setLang(l); label(); panel.refreshIfChanged(`${tick}|${l}`); },
     label: (key) => t(key),
