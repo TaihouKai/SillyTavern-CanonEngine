@@ -8,8 +8,45 @@ compressed to fit, so the anchor holds. Everything except the anchors is an edit
 import datetime as dt
 import re
 
-HOUR = {'dawn': 5, 'morning': 8, 'noon': 12, 'afternoon': 15, 'evening': 18, 'night': 21}
+HOUR = {'small_hours': 2, 'dawn': 5, 'morning': 8, 'day': 10, 'noon': 12, 'afternoon': 15, 'evening': 18, 'night': 21, 'late': 23}
 DAY = 1440
+# the part of the day the text's own words name, before the summary's time_of_day (live: "9月20日凌晨" coded "night"
+# sat at 21:00 that evening, after the day it began, and the morning's beats were pushed after it)
+PART_WORDS = [('凌晨', 'small_hours'), ('天亮前', 'small_hours'), ('清晨', 'dawn'), ('早上', 'morning'), ('早晨', 'morning'), ('上午', 'morning'),
+              ('正午', 'noon'), ('中午', 'noon'), ('白天', 'day'), ('下午', 'afternoon'), ('傍晚', 'evening'), ('黄昏', 'evening'),
+              ('日落', 'evening'), ('深夜', 'late'), ('半夜', 'late'), ('夜晚', 'night'), ('晚上', 'night'), ('夜里', 'night')]
+
+
+def part_of(time):
+    """The part of the day of a beat: the first the stated words name, else the summary's time_of_day."""
+    said = (time or {}).get('stated') or ''
+    if 'UTC' in said:
+        # another place's clock: only what is said before it ("中午（即深夜 UTC+0）"); a time given only there is not ours
+        said = said.split('（')[0] if '（' in said and 'UTC' not in said.split('（')[0] else ''
+    # the end of a span ("补习至黄昏结束") is not when the beat is
+    hits = [(i, p) for w, p in PART_WORDS for i in [m.start() for m in re.finditer(w, said)] if not re.search(r'[至到~～]\s*$', said[max(0, i - 2):i])]
+    if hits:
+        return min(hits)[1]
+    return (time or {}).get('time_of_day')
+
+
+def year_of(stated, origin_year):
+    """The year a text gives without a date ("829年", "1519-1521年", "公元4世纪", "20世纪70年代", "2年前"), else None."""
+    s = stated or ''
+    m = re.search(r'(?<!\d)(\d{3,4})(?:\s*[-–~～]\s*(\d{3,4}))?年(?!前|后|代|\s*\d{1,2}月)', s)
+    if m:
+        a, b = int(m.group(1)), int(m.group(2) or m.group(1))
+        return (a + b) // 2
+    m = re.search(r'(\d{1,2})世纪(\d)0年代', s)
+    if m:
+        return (int(m.group(1)) - 1) * 100 + int(m.group(2)) * 10 + 5
+    m = re.search(r'公元(\d{1,2})世纪', s)
+    if m:
+        return (int(m.group(1)) - 1) * 100 + 50
+    m = re.search(r'(?<![\d年月])(\d{1,2})年前', s)
+    if m and not re.search(r'\d月|\d日', s):
+        return origin_year - int(m.group(1))
+    return None
 
 
 def parse_dt(s):
@@ -46,23 +83,43 @@ TIME_RX = re.compile(r'(上午|下午|晚上|夜里|凌晨|AM|PM|午前|午後)?
 
 def time_of(text):
     """Minute of the day a text states ("16 时 30 分", "PM9:30", "下午3点"), else None."""
-    m = TIME_RX.search(text or '')
-    if not m:
-        return None
-    h, mi = int(m.group(2)), int(m.group(3) or 0)
-    if m.group(1) in ('下午', '晚上', 'PM', '午後') and h < 12:
-        h += 12
-    return h * 60 + mi if 0 <= h < 24 and 0 <= mi < 60 else None
+    text = text or ''
+    for m in TIME_RX.finditer(text):
+        # the end of a span or a deadline ("放学后~19:00前") is not when the beat is
+        if re.search(r'[~～至到]\s*$', text[:m.start()]):
+            continue
+        before = re.match(r'\s*分?\s*(?:之前|以前|前(?!往|进|来|去|后))', text[m.end():])
+        h, mi = int(m.group(2)), int(m.group(3) or 0)
+        if m.group(1) in ('下午', '晚上', 'PM', '午後') and h < 12:
+            h += 12
+        if m.group(1) == '凌晨' and h == 12:
+            h = 0
+        if not (0 <= h < 24 and 0 <= mi < 60):
+            return None
+        # a deadline ("2:00前"): a little before it
+        return (h * 60 + mi - 30) % DAY if before else h * 60 + mi
+    return None
 
 
 def place_beat(cursor, time):
     """Start of a beat given the previous beat's end (cursor) and its time cues."""
-    after, tod = time['after_previous'], time['time_of_day']
+    after, tod = time['after_previous'], part_of(time)
     h = HOUR.get(tod)
-    said = time_of(time.get('stated'))
+    said = _clock(time.get('clock'))
+    if said is None:
+        said = time_of(time.get('stated'))
+    small = cursor % DAY < 6 * 60   # past midnight: still the night before, "the next day" is today
+    if tod in ('night', 'late') and small:
+        h = None                        # a night beat after midnight is still in that night (not the next evening)
+    if said is not None and after == 'next_day' and small:
+        # "the next day, 4:00" after a night past midnight: today; when the beats before ran past it, right after them
+        return max((cursor // DAY) * DAY + said, cursor)
     if said is not None and after in ('continuous', 'same_day', 'unknown'):
         at = (cursor // DAY) * DAY + said      # a clock time the text states: that time today, or tomorrow
         return at if at >= cursor else at + DAY
+    if after == 'next_day' and small:
+        # the morning after a night that ran past midnight: this calendar day
+        return max(_at_hour(cursor, h if h is not None else 8), cursor)
     if after == 'continuous':
         start = cursor
         if h is not None and _at_hour(cursor, h) > cursor and _at_hour(cursor, h) - cursor < 6 * 60:
@@ -201,7 +258,7 @@ def compute(project, chapters, beats_by_chapter, beat_anchors=None):
 
 SLACK = 120
 # the end of a part of the day, in minutes from the start of its day (night runs into the next day)
-PART_END = {'dawn': 8 * 60, 'morning': 12 * 60, 'noon': 14 * 60, 'afternoon': 18 * 60, 'evening': 21 * 60, 'night': DAY + 3 * 60}
+PART_END = {'small_hours': 6 * 60, 'day': 18 * 60, 'late': DAY + 3 * 60, 'dawn': 8 * 60, 'morning': 12 * 60, 'noon': 14 * 60, 'afternoon': 18 * 60, 'evening': 21 * 60, 'night': DAY + 3 * 60}
 
 
 def _clocked(time):
@@ -210,7 +267,7 @@ def _clocked(time):
 
 def day_only(time):
     """Do the sources give only the day of the beat? (no clock, no part of the day, not tied to the beat before it)"""
-    if not time or _clocked(time) or time.get('time_of_day') in HOUR:
+    if not time or _clocked(time) or part_of(time) in HOUR:
         return False
     return time.get('after_previous') not in ('continuous', 'same_day', 'parallel')
 
@@ -233,9 +290,9 @@ def windows(order, pos, times=None, loose=(), chapter_of=None):
         t = times.get(bid) or {}
         if bid in loose or day_only(t):
             hi = max(hi, (s // DAY + 1) * DAY - 1)
-        elif t.get('time_of_day') in PART_END and not _clocked(t):
-            tod, m = t['time_of_day'], s % DAY
-            if tod == 'night' and m < 12 * 60:
+        elif part_of(t) in PART_END and not _clocked(t):
+            tod, m = part_of(t), s % DAY
+            if tod in ('night', 'late') and m < 12 * 60:
                 m += DAY  # a night that has passed midnight
             # only when the beat starts in that part of the day (one pushed out of it by the beats before keeps its own length)
             if HOUR[tod] * 60 - 60 <= m <= PART_END[tod]:
@@ -266,8 +323,13 @@ def place_arc(origin, arc, beats, loose=None):
     s0, e0 = _day(origin, arc['start']), _day(origin, arc['end'])
     lo, hi = s0 * DAY + 8 * 60, e0 * DAY + 22 * 60
     fixed, past = {}, {}
+    yearly = set()
     for i, b in enumerate(beats):
         t = b['time']
+        if not t.get('date') and year_of(t.get('stated'), origin.year) is not None:
+            # a year the text gives (the day in it is not known: an estimate, not a date of the sources)
+            t = {**t, 'date': f'{year_of(t.get("stated"), origin.year):04d}-01-01'}
+            yearly.add(b['id'])
         if t.get('date'):
             try:
                 d = _day(origin, t['date'])
@@ -290,8 +352,8 @@ def place_arc(origin, arc, beats, loose=None):
                 c = _clock(t.get('clock'))
                 if c is None:
                     c = time_of(t.get('stated'))
-                if c is None and t.get('time_of_day') in HOUR:
-                    c = HOUR[t['time_of_day']] * 60
+                if c is None and part_of(t) in HOUR:
+                    c = HOUR[part_of(t)] * 60
                 prev = fixed[max(fixed)] if fixed else None
                 if c is None:
                     # no time of day: after the previous dated beat of that day, else the morning (the day is all
@@ -316,7 +378,7 @@ def place_arc(origin, arc, beats, loose=None):
         rest = [b for b in beats if b['id'] not in past]
         keep = {b['id']: j for j, b in enumerate(rest)}
         out = place_arc(origin, arc, rest, loose) if rest else {}
-        return {**out, **past}
+        return {**out, **{k: (v[0], v[1], v[2] and k not in yearly) for k, v in past.items()}}
     # segments between dated beats (the arc's start and end bound the first and the last)
     out = {}
     idx = sorted(fixed)
@@ -350,4 +412,4 @@ def place_arc(origin, arc, beats, loose=None):
             rel = [(ta + int((s - ta) * f), ta + max(int((e - ta) * f), int((s - ta) * f) + 1)) for s, e in rel]
         for i, (s, e) in zip(seg, rel):
             out[i] = (s, e, False)
-    return {beats[i]['id']: out[i] for i in range(len(beats))}
+    return {beats[i]['id']: (out[i][0], out[i][1], out[i][2] and beats[i]['id'] not in yearly) for i in range(len(beats))}

@@ -155,7 +155,7 @@ class TimelineTest(unittest.TestCase):
         self.assertEqual(timeline.windows(['a', 'b'], p2, {'a': dayonly})['a'], (9 * D + 540, 10 * D - 1))   # only the day known: that day
         self.assertEqual(timeline.windows(['a', 'b'], p2, {'a': {**dayonly, 'stated': '7月10日21:00'}})['a'], (9 * D + 540, 9 * D + 540 + timeline.SLACK))
         self.assertEqual(timeline.windows(['a', 'b'], p2, {}, loose={'a'})['a'], (9 * D + 540, 10 * D - 1))           # placed at a day without a time
-        night = {'after_previous': 'unknown', 'time_of_day': 'night', 'clock': '', 'stated': '6月30日深夜'}
+        night = {'after_previous': 'unknown', 'time_of_day': 'night', 'clock': '', 'stated': '6月30日夜里'}
         p3 = {'a': {'start': 9 * D + 1260, 'end': 9 * D + 1320}, 'b': {'start': 15 * D + 540, 'end': 15 * D + 600}}
         self.assertEqual(timeline.windows(['a', 'b'], p3, {'a': night})['a'], (9 * D + 1260, 10 * D + 180))   # a part of the day: to its end
         p5 = {'a': {'start': 10 * D + 15, 'end': 10 * D + 75}, 'b': {'start': 15 * D + 540, 'end': 15 * D + 600}}
@@ -166,6 +166,38 @@ class TimelineTest(unittest.TestCase):
         p4 = {'a': {'start': 10 * D + 540, 'end': 13 * D + 540}, 'x': {'start': 11 * D + 540, 'end': 11 * D + 600}, 'b': {'start': 14 * D + 540, 'end': 14 * D + 600}}
         w4 = timeline.windows(['a', 'x', 'b'], p4, {}, chapter_of={'a': 'one', 'x': 'two', 'b': 'one'})
         self.assertEqual(w4['a'], (10 * D + 540, 13 * D + 540))
+
+    def test_the_texts_own_words(self):
+        self.assertEqual(timeline.part_of({'stated': '一年前9月20日凌晨', 'time_of_day': 'night'}), 'small_hours')   # not 21:00 that evening
+        self.assertEqual(timeline.part_of({'stated': '9月19日中午（即9月19日深夜 UTC+0）', 'time_of_day': 'night'}), 'noon')
+        self.assertEqual(timeline.part_of({'stated': '', 'time_of_day': 'evening'}), 'evening')
+        self.assertEqual(timeline.year_of('公元9世纪；829年制造完成', 2020), 829)
+        self.assertEqual(timeline.year_of('1519-1521年', 2020), 1520)
+        self.assertEqual(timeline.year_of('20世纪70年代', 2020), 1975)
+        self.assertEqual(timeline.year_of('公元4世纪', 2020), 350)
+        self.assertEqual(timeline.year_of('2年前', 2020), 2018)
+        self.assertIsNone(timeline.year_of('距今至少约4000年前', 2020))
+        self.assertIsNone(timeline.year_of('1年前7月31日', 2020))
+        self.assertIsNone(timeline.year_of('1900年4月', 2020))
+
+    def test_clock_words(self):
+        self.assertIsNone(timeline.time_of('放学后~19:00前'))
+        self.assertEqual(timeline.time_of('12月5日2:00前'), 90)                      # a deadline: a little before it
+        self.assertEqual(timeline.part_of({'stated': '12月29日（补习至黄昏结束）', 'time_of_day': 'morning'}), 'morning')
+        self.assertEqual(timeline.part_of({'stated': '10月初某日夜晚 UTC+1', 'time_of_day': 'morning'}), 'morning')
+        self.assertEqual(timeline.time_of('晚上7点'), 19 * 60)
+        self.assertEqual(timeline.time_of('凌晨12点'), 0)
+        self.assertEqual(timeline.time_of('16:00前往，17:00抵达'), 16 * 60)
+        self.assertEqual(timeline.time_of('八点前 / 10:00开始'), 10 * 60)
+
+    def test_a_night_past_midnight(self):
+        D = timeline.DAY
+        cur = 3 * D + 50                                                              # 00:50, the night of day 2
+        night = {'after_previous': 'same_day', 'days': 0, 'time_of_day': 'night', 'stated': '某日夜晚'}
+        self.assertEqual(timeline.place_beat(cur, night), cur + 90)                   # still that night, not the next evening
+        nxt = {'after_previous': 'next_day', 'days': 0, 'time_of_day': 'dawn', 'clock': '04:00', 'stated': '某日的次日4:00'}
+        self.assertEqual(timeline.place_beat(cur, nxt), 3 * D + 240)                  # "the next day" of that night is today
+        self.assertEqual(timeline.place_beat(18 * 60, {'after_previous': 'continuous', 'days': 0, 'time_of_day': 'evening', 'clock': '19:00', 'stated': ''}), 19 * 60)
 
 
     def test_spread_between_anchors(self):
