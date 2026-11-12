@@ -722,6 +722,30 @@ def stated_anchors(project, chapters, beats_by_ch, units, unit_of, clock):
     return out
 
 
+def spelled(project, pack):
+    """The pack with the project's spelling ("spelling": {"沉利": "沈利"}) in every text: the names as the user's
+    lorebooks write them, kept on every rebuild (the sources and the models write the other form)."""
+    sp = project.get('spelling') or {}
+    if not sp:
+        return pack
+
+    def fix(x):
+        if isinstance(x, str):
+            for a, b in sp.items():
+                x = x.replace(a, b)
+            return x
+        if isinstance(x, list):
+            return [fix(v) for v in x]
+        if isinstance(x, dict):
+            return {fix(k): fix(v) for k, v in x.items()}
+        return x
+    return fix(pack)
+
+
+def write_pack(project, path, pack):
+    write_json(path, spelled(project, pack), indent=1)
+
+
 def build(project, out_path=None, raw=False):
     """raw: without the steps that read a built pack and are applied to it (开局状态, deaths), for those steps."""
     c = corpus(project)
@@ -1158,5 +1182,6 @@ def build(project, out_path=None, raw=False):
     for k, n in dropped.most_common():
         rep.add('unresolved', f'{k} ×{n}')
     out_path = out_path or project.p('out', f'{pack["pack_id"]}.canon.json')
+    pack = spelled(project, pack)
     write_json(out_path, pack, indent=1)
     return pack, rep, chrep, clock, out_path

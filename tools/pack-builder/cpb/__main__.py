@@ -139,7 +139,7 @@ def main(argv=None):
             return 2
         n = lasting.apply(pk, project.p('lasting.json'))
         out = args.out or src_path
-        write_json(out, pk, indent=1)
+        assemble.write_pack(project, out, pk)
         res = report.lint(gcfg, out)
         log(f'lasting: {n} passing statuses taken out — pack: {out}' + (f' — canon-lint: {"OK" if res.get("ok") else "ERRORS"}, {len(res.get("errors", []))} errors' if res else ''))
     if cmd == 'mind':
@@ -158,7 +158,7 @@ def main(argv=None):
             return 2
         n = mind.attach(pk, project.p('mind'))
         out = args.out or src_path
-        write_json(out, pk, indent=1)
+        assemble.write_pack(project, out, pk)
         res = report.lint(gcfg, out)
         log(f'mind: {n} people with a 思考方式 — pack: {out}' + (f' — canon-lint: {"OK" if res.get("ok") else "ERRORS"}, {len(res.get("errors", []))} errors' if res else ''))
     if cmd == 'nature':
@@ -178,7 +178,7 @@ def main(argv=None):
             return 2
         n = nature.attach(pk, project.p('nature'))
         out = args.out or src_path
-        write_json(out, pk, indent=1)
+        assemble.write_pack(project, out, pk)
         res = report.lint(gcfg, out)
         log(f'nature: {n} people with a 常态 — pack: {out}' + (f' — canon-lint: {"OK" if res.get("ok") else "ERRORS"}, {len(res.get("errors", []))} errors' if res else ''))
     if cmd == 'deaths':
@@ -205,17 +205,17 @@ def main(argv=None):
         if os.path.isdir(project.p('nature')):   # 常态 generated before is kept on a rebuild
             pk = read_json(path)
             n = nature.attach(pk, project.p('nature'))
-            write_json(path, pk, indent=1)
+            assemble.write_pack(project, path, pk)
             log(f'nature: {n} people with a 常态')
         if os.path.isfile(project.p('lasting.json')):   # passing statuses sorted out before stay out
             pk = read_json(path)
             n = lasting.apply(pk, project.p('lasting.json'))
-            write_json(path, pk, indent=1)
+            assemble.write_pack(project, path, pk)
             log(f'lasting: {n} passing statuses taken out')
         if os.path.isdir(project.p('mind')):   # and 思考方式
             pk = read_json(path)
             n = mind.attach(pk, project.p('mind'))
-            write_json(path, pk, indent=1)
+            assemble.write_pack(project, path, pk)
             log(f'mind: {n} people with a 思考方式')
         res = report.lint(gcfg, path)
         report.write(project, read_json(path) or pack, rep, chrep, clock, path, res, cl.ledger if cl else None)
