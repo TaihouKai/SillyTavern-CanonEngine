@@ -34859,7 +34859,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "hasekura-reiri",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -37961,6 +37967,11 @@
       "predicate": "alive",
       "value": false
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "hanano-choubi",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -40991,6 +41002,11 @@
       "predicate": "alive",
       "value": false
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "lss-researcher",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -41876,6 +41892,16 @@
       "predicate": "holder",
       "value": "gokusai-amazora"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "gokusai-rikuri",
+     "predicate": "status"
+    },
+    {
+     "op": "unset",
+     "entity_id": "gokusai-amazora",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -42336,7 +42362,23 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "kumokawa-seria",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "gokusai-kaibi",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -43653,6 +43695,11 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "mitsuari-ayu",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -44112,6 +44159,11 @@
       "predicate": "status",
       "value": "投湖自尽未遂，存活"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "mitsuari-ayu",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -46094,6 +46146,11 @@
       "predicate": "knows",
       "value": "鲇鱼女的手段与将麦野称为「失败作」的原因"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "item",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -46249,6 +46306,11 @@
       "predicate": "alive",
       "value": false
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "ainame-caroline",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -50253,6 +50315,11 @@
       "predicate": "knows",
       "value": "幕后是麦野本家，但具体下令者不明"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "frenda-seivelun",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -52548,6 +52615,16 @@
       "predicate": "status",
       "value": "重新掌控本家"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "frenda-seivelun",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "mugino-shizuri",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -56452,6 +56529,11 @@
       "predicate": "status",
       "value": "回归「明面」日常"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "suzume-shirato",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -59278,7 +59360,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "hamazura-shiage",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -60223,6 +60311,11 @@
       "predicate": "holder",
       "value": "hattori-hanzou"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "hattori-hanzou",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -60491,6 +60584,11 @@
       "predicate": "status",
       "value": "完成对学园都市的警告"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "ollerus",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -63589,6 +63687,11 @@
       "predicate": "status",
       "value": "符文卡包围网布设完成"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "index",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -65317,6 +65420,11 @@
       "predicate": "status",
       "value": "警备员、风纪委员与MAR建立应对乱杂开放的联合体制"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "yomikawa-aiho",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -65902,6 +66010,11 @@
       "predicate": "condition",
       "value": "毁坏"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "haruue-erii",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -66619,6 +66732,11 @@
       "predicate": "knows",
       "value": "乱杂开放是木山尝试唤醒学生时其AIM扩散力场共鸣所致，木原幻生是元凶"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kiyama-harumi",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -66830,7 +66948,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "haruue-erii",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -70238,6 +70362,11 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "index",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -71924,6 +72053,11 @@
       "predicate": "injury",
       "value": "身体被扭曲成「人肉天体观测馆」状态"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "aureolus-izzard",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -72314,6 +72448,11 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "index",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -75339,6 +75478,11 @@
       "predicate": "holder",
       "value": "febrie"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "nunotaba-shinobu",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -78097,6 +78241,11 @@
       "predicate": "status",
       "value": "计划失败"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "misaka-mikoto",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -78371,6 +78520,11 @@
       "predicate": "whereabouts",
       "value": "学园都市外"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "misaka-mikoto",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -78969,7 +79123,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -80449,6 +80609,11 @@
       "predicate": "injury",
       "value": "排斥反应重伤倒地"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "gabriel",
+     "predicate": "form"
     }
    ],
    "visibility": {
@@ -80663,7 +80828,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -82508,6 +82679,21 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "yamisaka-ouma",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "index",
+     "predicate": "status"
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -85938,6 +86124,11 @@
       "predicate": "alive",
       "value": false
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "index",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -86684,6 +86875,11 @@
       "predicate": "knows",
       "value": "杠林檎的过去"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "yuzuriha-ringo",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -87958,6 +88154,11 @@
       "predicate": "injury",
       "value": "伤势恶化倒下"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "saten-ruiko",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -89499,6 +89700,11 @@
       "predicate": "status",
       "value": "被DA掳为人质"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "esther-rosenthal",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -92286,7 +92492,18 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "index",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "tatemiya-saiji",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -92616,6 +92833,11 @@
       "orsola-aquinas"
      ],
      "op": "add"
+    },
+    {
+     "op": "unset",
+     "entity_id": "orsola-aquinas",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -98362,6 +98584,11 @@
       "predicate": "injury",
       "value": "失血过多而力竭"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "shutaura-sequenzia",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -98453,7 +98680,8 @@
     "ladylee-tangleroad",
     "kamijou-touma",
     "endymion",
-    "orion-bracelet"
+    "orion-bracelet",
+    "index"
    ],
    "location_ids": [
     "endymion-stage"
@@ -98517,6 +98745,21 @@
       "predicate": "status",
       "value": "消失"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "ladylee-tangleroad",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "index",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -102414,6 +102657,11 @@
       "predicate": "status",
       "value": "关于御坂美琴的记忆被抹去"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "misaka-mikoto",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -102573,6 +102821,11 @@
       "predicate": "knows",
       "value": "御坂美琴有一个妹妹（御坂10032号）失踪，食蜂操祈洗去了美琴朋友们关于美琴的记忆"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "misaka-10032",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -104112,6 +104365,11 @@
       "predicate": "knows",
       "value": "警策看取的真实目的是御坂美琴"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "form"
     }
    ],
    "visibility": {
@@ -104760,6 +105018,11 @@
       "predicate": "whereabouts",
       "value": "重新出现"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "keitz-nokleben",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -106440,6 +106703,16 @@
       "predicate": "status",
       "value": "关于御坂美琴的记忆恢复"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "shokuhou-misaki",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "misaka-mikoto",
+     "predicate": "form"
     }
    ],
    "visibility": {
@@ -106545,7 +106818,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "misaka-10032",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -107307,6 +107586,11 @@
       "predicate": "knows",
       "value": "亚得里亚海女王在旗舰发动，刻限的十字架需要雅妮丝本人"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -108357,6 +108641,11 @@
       "agnese-sanctis"
      ],
      "op": "add"
+    },
+    {
+     "op": "unset",
+     "entity_id": "orsola-aquinas",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -108680,7 +108969,21 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "set",
+     "fact": {
+      "entity_id": "shirai-kuroko",
+      "predicate": "injury",
+      "value": "已恢复（编辑推定：之后的章节中正常行动）"
+     }
+    },
+    {
+     "op": "unset",
+     "entity_id": "shirai-kuroko",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -110878,7 +111181,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "saten-ruiko",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -111113,6 +111422,11 @@
       "predicate": "knows",
       "value": "操齿凉子进行了把自己一分为二的分身实验，实验附带目的是制造灵魂"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kouzaku-mitori",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -112036,6 +112350,11 @@
       "predicate": "status",
       "value": "摆脱束缚并重组身体"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "doppelganger",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -117234,7 +117553,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "misaka-sisters",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -118072,7 +118397,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "vento-of-the-front",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "secret",
     "knower_ids": [
@@ -118302,6 +118633,21 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "index",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "last-order",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "accelerator",
+     "predicate": "form"
     }
    ],
    "visibility": {
@@ -121385,7 +121731,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "sakubou",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -122005,6 +122357,11 @@
       "predicate": "status",
       "value": "落选"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kihara-yuiitsu",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -122394,6 +122751,11 @@
       "predicate": "whereabouts",
       "value": "重新出现"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "etzali",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -122485,7 +122847,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "komaba-ritoku",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "secret",
     "knower_ids": [
@@ -125406,7 +125774,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "stiyl-magnus",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -126594,7 +126968,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "tsuchimikado-motoharu",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -127373,6 +127753,16 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "terra-of-the-left",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -128132,6 +128522,11 @@
       "predicate": "alive",
       "value": false
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "talent-dispatch",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -128743,6 +129138,11 @@
       "predicate": "injury",
       "value": "手指被炸飞、昏厥，无法使用能力"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "etzali",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -130480,6 +130880,11 @@
       "predicate": "condition",
       "value": "毁坏"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "sunazara-chimitsu",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -131253,6 +131658,11 @@
       "predicate": "injury",
       "value": "已痊愈"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "last-order",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -131997,6 +132407,11 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "etzali",
+     "predicate": "form"
     }
    ],
    "visibility": {
@@ -132768,7 +133183,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -134593,7 +135014,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "acqua-of-the-back",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "secret",
     "knower_ids": [
@@ -135416,7 +135843,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "uiharu-kazari",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -136245,7 +136678,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "aohoshi-suzuran",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "secret",
     "knower_ids": [
@@ -136938,6 +137377,11 @@
       "predicate": "status",
       "value": "已痊愈"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "saten-ruiko",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -137630,6 +138074,11 @@
       "predicate": "whereabouts",
       "value": "福克斯通"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "villian",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -137868,6 +138317,11 @@
       "predicate": "holder",
       "value": "knight-leader"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -138928,6 +139382,11 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "villian",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -139107,6 +139566,16 @@
       "predicate": "knows",
       "value": "右方之火是隧道爆炸的幕后黑手并已前往俄罗斯"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "index",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "index",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -139251,6 +139720,11 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -142424,6 +142898,11 @@
       "predicate": "knows",
       "value": "莎夏·克洛伊洁芙是右方之火计划所需的目标"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "lessar",
+     "predicate": "injury"
     }
    ],
    "visibility": {
@@ -144941,6 +145420,11 @@
       "predicate": "status",
       "value": "被欧雷尔斯与席薇娅救走并藏匿"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "ollerus",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -145631,6 +146115,11 @@
       "predicate": "injury",
       "value": "被「一扫」砸倒，身受重伤"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "accelerator",
+     "predicate": "form"
     }
    ],
    "visibility": {
@@ -145770,6 +146259,11 @@
       "predicate": "status",
       "value": "被削弱约50%力量"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "fiamma-of-the-right",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -146073,6 +146567,11 @@
       "predicate": "whereabouts",
       "value": "重新出现"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "misaka-mikoto",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -146225,6 +146724,16 @@
       "predicate": "knows",
       "value": "学园都市理事长亚雷斯塔·克劳利仍然存活"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "fiamma-of-the-right",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "fiamma-of-the-right",
+     "predicate": "form"
     }
    ],
    "visibility": {
@@ -146502,7 +147011,18 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "sasha-kreutzev",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "sasha-kreutzev",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -147023,6 +147543,16 @@
       "predicate": "status",
       "value": "被后方之水解除威胁"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "hamazura-shiage",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "takitsubo-rikou",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -147225,7 +147755,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "accelerator",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -149591,6 +150127,11 @@
       "predicate": "whereabouts",
       "value": "已消灭（乘犰狳驱动铠离开，此后未再出现）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "fremea-seivelun",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -151285,7 +151826,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "lessar",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -153299,6 +153846,11 @@
       "predicate": "status",
       "value": "操纵了若干政府与军方人员"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "gremlin",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -158657,6 +159209,26 @@
       "predicate": "whereabouts",
       "value": "重新出现"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "ollerus",
+     "predicate": "status"
+    },
+    {
+     "op": "unset",
+     "entity_id": "fiamma-of-the-right",
+     "predicate": "status"
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "status"
+    },
+    {
+     "op": "unset",
+     "entity_id": "ollerus",
+     "predicate": "form"
     }
    ],
    "visibility": {
@@ -159852,6 +160424,11 @@
       "predicate": "form",
       "value": "以缩小尺寸的人形身体重组"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "cendrillon",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -165903,7 +166480,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -166274,6 +166857,16 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "silvia",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "brunhild-eiktobel",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -169069,6 +169662,11 @@
       "predicate": "knows",
       "value": "「明王之坛」是假情报，自己被土御门元春关进了学舍之园"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -170081,6 +170679,11 @@
       "predicate": "holder",
       "value": "kamijou-touma"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -170722,6 +171325,11 @@
       "predicate": "holder",
       "value": "kamijou-touma"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -171247,7 +171855,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "fremea-seivelun",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -171400,6 +172014,11 @@
       "predicate": "knows",
       "value": "芙蕾梅亚在「避雷针」"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -172736,6 +173355,11 @@
       "predicate": "injury",
       "value": "缠绷带但可出院"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -172830,7 +173454,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "fremea-seivelun",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -172918,7 +173548,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "tsuchimikado-maika",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -174621,7 +175257,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "kumokawa-maria",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -175372,6 +176014,16 @@
       "predicate": "alive",
       "value": false
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "leivinia-birdway",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "lessar",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -176281,6 +176933,11 @@
       "predicate": "whereabouts",
       "value": "重新出现"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kumokawa-maria",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -177240,6 +177897,16 @@
       "predicate": "whereabouts",
       "value": "重新出现"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "status"
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -177921,7 +178588,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -178490,6 +179163,16 @@
       "predicate": "holder",
       "value": "othinus"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "thor",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "othinus",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -179170,6 +179853,11 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -182737,6 +183425,11 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -183713,6 +184406,11 @@
       "predicate": "knows",
       "value": "幕后黑手自称是食蜂操祈本人"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "shokuhou-misaki",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -191563,6 +192261,16 @@
       "predicate": "alive",
       "value": false
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "patricia-birdway",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "leivinia-birdway",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -193060,6 +193768,11 @@
       "predicate": "holder",
       "value": "kamijou-touma"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kihara-yuiitsu",
+     "predicate": "form"
     }
    ],
    "visibility": {
@@ -194172,6 +194885,11 @@
       "sawai-olivia",
       "toyama-luca"
      ]
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamisato-faction",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -194872,6 +195590,11 @@
       "predicate": "status",
       "value": "能使用理想放逐"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamisato-kakeru",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -196832,6 +197555,11 @@
       "predicate": "injury",
       "value": "缝合的右手被破坏，拳头满是鲜血"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -197690,6 +198418,11 @@
       "predicate": "injury",
       "value": "被魔神围殴的伤在混战中被护住，午夜更新后复原"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamisato-kakeru",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -203690,6 +204423,16 @@
       "predicate": "status",
       "value": "对亚雷斯塔持观望态度"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "hamazura-shiage",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -204235,7 +204978,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -208969,6 +209718,11 @@
       "predicate": "status",
       "value": "被击败"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "rimea",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -211344,7 +212098,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "misaka-mikoto",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -211467,6 +212227,11 @@
       "predicate": "status",
       "value": "选择留在了一方通行身边"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "accelerator",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -212154,7 +212919,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "mitsuari-ayu",
+     "predicate": "status"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -213459,6 +214230,11 @@
       "predicate": "status",
       "value": "圣日耳曼病毒已解除"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -218251,6 +219027,16 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "hamazura-shiage",
+     "predicate": "status"
+    },
+    {
+     "op": "unset",
+     "entity_id": "takitsubo-rikou",
+     "predicate": "status"
     }
    ],
    "visibility": {
@@ -219259,6 +220045,11 @@
       "predicate": "knows",
       "value": "「深空之约」被R&C超自然公司收购，位于长滩"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -224094,6 +224885,11 @@
       "predicate": "knows",
       "value": "还可以使用电子支付"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -225889,6 +226685,11 @@
       "predicate": "whereabouts",
       "value": "指定避难所"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "accelerator",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -227474,7 +228275,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "anna-kingsford",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "secret",
     "knower_ids": [
@@ -229752,7 +230559,13 @@
     "all": []
    },
    "outcomes": [],
-   "canonical_effects": [],
+   "canonical_effects": [
+    {
+     "op": "unset",
+     "entity_id": "index",
+     "predicate": "whereabouts"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -230655,6 +231468,11 @@
       "predicate": "injury",
       "value": "从魔法性昏迷中醒来"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "last-order",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -231008,6 +231826,11 @@
       "predicate": "injury",
       "value": "已恢复（编辑推定：之后的章节中正常行动）"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "coronzon",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -231932,6 +232755,16 @@
       "predicate": "status",
       "value": "被确认生还并返校"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "kamijou-touma",
+     "predicate": "whereabouts"
+    },
+    {
+     "op": "unset",
+     "entity_id": "aogami-pierce",
+     "predicate": "whereabouts"
     }
    ],
    "visibility": {
@@ -232640,6 +233473,11 @@
       "predicate": "whereabouts",
       "value": "乘大蜻蜓飞向宇宙"
      }
+    },
+    {
+     "op": "unset",
+     "entity_id": "hamazura-shiage",
+     "predicate": "status"
     }
    ],
    "visibility": {

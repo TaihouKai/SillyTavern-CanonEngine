@@ -495,6 +495,14 @@ def eids_add(i, eids):
 ORG_KINDS = {'organization', 'world', 'other'}
 # a lasting injury (a lost limb, an artificial eye) is a settled state; being knocked out is over within the scene
 INJURY_LASTING = r'失去(?:了)?(?:一条|一只|双|左|右|两)?(?:手|臂|腿|眼|足|脚)|截肢|义肢|义眼|残疾|瘫痪'
+# facts of a moment, not of a person's life: where they went (not a home), a captivity or a hiding, a disguise or a
+# transformation of a fight (live: 上条当麻 stayed 「恩底弥翁内部」 into the next day's 大霸星祭, and a reviewer sent a
+# reply back for saying he was at the games)
+WHERE_HOME = r'^(?!离开|前往|乘|登上|被)(?:.*宿舍(?!之外)|.*公寓$)|的家$|^家$|^学园都市$|回到学园都市|返回学园都市|爱穗处$|基地$|^重新出现$|^再次现界|^已消灭'
+STATUS_MOMENT = r'逮捕|控制(?!权)|拘留|拘押|俘虏|关押(?!于)|绑架|掳走|带走|擒获|被[^，。]{0,6}束缚|看管|藏匿|伪装|潜伏|行踪不明|无法行动|被制服|收押|准备自首|与[^，。]{1,8}同行'
+STATUS_LASTING = r'监狱|处刑塔|牢房|终身|永久'
+STATUS_RELEASE = r'获释|离开拘留所|脱离[^，。；]*|释放|解除|放弃带走|恢复'
+FORM_MOMENT = r'外貌|外形|伪装|黑翼|白翼|光环|八条龙|强制进化|实体化|借用'
 INJURY_PASSING = r'^(?:被[^，。；]{0,12})?(?:击倒|打倒|击飞|昏迷|昏倒|晕倒|晕厥|失去意识|昏过去|倒地|倒下|失神|被吹飞)[^，。；]{0,8}$'
 CONDITION_WORDS = ((('毁', '塌', '炸', '摧', '烧尽', '沉没', '坠毁', '消失', '覆灭'), '毁坏'), (('修复', '重建', '复原', '恢复原状'), '完好'),
                    (('损', '破', '裂', '坏', '烧', '洞'), '受损'))
@@ -1041,6 +1049,52 @@ def build(project, out_path=None, raw=False):
                     st.settled_where.add(back)
                     rep.add('healed', f'{who}：{w[3]} 的去向“{w[2]}”在 {e["id"]}（{e["title"]}）再出场时结束')
                     del open_w[who]
+    # facts of a moment end with the person's part in that story (their last event in it), or, when they have none
+    # after it, at their next event in another story (editorial; the next set of the same fact ends it anyway)
+    if project.get('end_moments', True):
+        at = lambda x: x['when']['earliest']['day'] * 1440 + x['when']['earliest']['minute']  # noqa: E731
+        chrono = sorted(events, key=at)
+
+        def momentary(pr, v):
+            if not isinstance(v, str):
+                return False
+            if pr == 'whereabouts':
+                return not re.search(WHERE_HOME, v)
+            if pr == 'status':
+                return bool(re.search(STATUS_MOMENT, re.sub(STATUS_RELEASE, '', v))) and not re.search(STATUS_LASTING, v)
+            if pr == 'form':
+                return bool(re.search(FORM_MOMENT, v))
+            return False
+
+        def sets(e, who, pr):
+            return any((o.get('fact') or o).get('entity_id') == who and (o.get('fact') or o).get('predicate') == pr for o in e['canonical_effects'])
+
+        ended = 0
+        for i, e in enumerate(chrono):
+            for o in list(e['canonical_effects']):
+                f = o.get('fact')
+                if not f or o.get('op', 'set') != 'set' or not momentary(f['predicate'], f['value']):
+                    continue
+                who, pr = f['entity_id'], f['predicate']
+                mine = [x for x in e['canonical_effects'] if (x.get('fact') or x).get('entity_id') == who and (x.get('fact') or x).get('predicate') == pr]
+                if mine[-1] is not o:
+                    continue    # the event itself goes on to another value
+                later = []
+                for x in chrono[i + 1:]:
+                    if sets(x, who, pr):
+                        break
+                    if who in x['entity_ids'] and at(x) > at(e):
+                        later.append(x)
+                if not later:
+                    continue
+                # the first time they are seen again in another story or a day later; in another story, their
+                # last event in this one before it when there is one
+                first = next((x for x in later if x['arc_id'] != e['arc_id'] or at(x) >= at(e) + 1440), None)
+                in_arc = [x for x in later if x['arc_id'] == e['arc_id'] and (first is None or at(x) < at(first))]
+                end = first if first is not None and first['arc_id'] == e['arc_id'] else (in_arc[-1] if in_arc else first)
+                end['canonical_effects'].append({'op': 'unset', 'entity_id': who, 'predicate': pr})
+                ended += 1
+                rep.add('healed', f'{who}：{e["id"]} 的{pr}“{f["value"]}”在 {end["id"]}（{end["title"]}）结束')
     # time frames: a place used only by the events of one frame belongs to it (the engine then knows a scene there is in
     # that frame); places also used at home or in several frames stay in the main frame
     place_frames = collections.defaultdict(set)
