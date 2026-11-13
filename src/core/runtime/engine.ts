@@ -1635,9 +1635,9 @@ export class CanonEngine {
         const busy = [...index.state.occurrences.values()].some((o) => o.inProgressOf && !index.state.dispositions.has(o.inProgressOf));
         // after a time jump the scene happens where the jump lands (live: news possible from 08:00 was never offered
         // on the turn that slept until 08:00, measured from 23:15)
-        const offered: Opportunity | null = prof && !leapTo ? selectOpportunity(integ, index, jumpTo ?? clock, busy, new Set(c.preferredScopes || [])) : null;
+        const offered: Opportunity | null = prof && !leapTo ? selectOpportunity(integ, index, jumpTo ?? clock, busy, new Set(c.preferredScopes || []), new Set(c.avoidedScopes || [])) : null;
         // what the player's own position binds them to reaches them in this reply, busy or not
-        const required: Opportunity[] = prof && !leapTo ? dueRequired(integ, index, clock, jumpTo) : [];
+        const required: Opportunity[] = prof && !leapTo ? dueRequired(integ, index, clock, jumpTo, new Set(c.avoidedScopes || [])) : [];
 
         // Pre-generation retrieval: user references + scene + causal seeds + semantic expansion
         const prevGm = (() => { for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === 'gm') return entries[k]; return null; })();
@@ -2463,6 +2463,7 @@ export class CanonEngine {
       recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote, ...(jobLapsed(index.state, k, tick) ? { lapsed: true } : {}) })),
       focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f)!.title })),
       ...(c.preferredScopes?.length ? { preferred: c.preferredScopes } : {}),
+      ...(c.avoidedScopes?.length ? { avoided: c.avoidedScopes } : {}),
       ...(quiet ? { quiet_day: true, ...(recentJobs.length ? { recent_jobs: recentJobs } : {}) } : {}),
       ...(kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {}),
       registry: this.registry(index, `${userEntry?.text || ''} ${candidates.map((x) => x.event.title).join(' ')}`, [...withIds, ...playedProfile(index, profile).relationships.map((r) => r.entityId).filter(Boolean) as Id[]], { notes: true }),
@@ -2950,9 +2951,9 @@ export class CanonEngine {
 
   /** A preferred event that has been settled or whose window has passed is no longer preferred. */
   private prunePreferred(c: CampaignData, pack: LoadedPack, state: WorldState) {
-    if (!c.preferredScopes?.length) return;
-    const keep = c.preferredScopes.filter((k) => { if (!k.startsWith('event:')) return true; const id = k.slice(6); const t = pack.timeIndex.find((x) => x.id === id); return !state.dispositions.has(id) && (!t || t.hi >= state.clock.lo); });
-    if (keep.length !== c.preferredScopes.length) c.preferredScopes = keep;
+    const live = (k: string) => { if (!k.startsWith('event:')) return true; const id = k.slice(6); const t = pack.timeIndex.find((x) => x.id === id); return !state.dispositions.has(id) && (!t || t.hi >= state.clock.lo); };
+    if (c.preferredScopes?.length) { const keep = c.preferredScopes.filter(live); if (keep.length !== c.preferredScopes.length) c.preferredScopes = keep; }
+    if (c.avoidedScopes?.length) { const keep = c.avoidedScopes.filter(live); if (keep.length !== c.avoidedScopes.length) c.avoidedScopes = keep; }
   }
 
   focusEvents(): Set<Id> { return new Set(this.campaign()?.focusEvents || []); }
@@ -2965,7 +2966,23 @@ export class CanonEngine {
     const on = !cur.has(scope);
     if (on) cur.add(scope); else cur.delete(scope);
     c.preferredScopes = [...cur];
+    if (on && c.avoidedScopes?.includes(scope)) c.avoidedScopes = c.avoidedScopes.filter((x) => x !== scope);
     await this.host.save();
+    return on;
+  }
+
+  /** 避免: the world does not bring this matter to the player (no contact about it is offered; harm that already has
+   *  an actual cause still reaches them). Ends by itself when the matter is settled or its time has passed. */
+  async toggleAvoided(scope: string): Promise<boolean> {
+    const c = this.campaign();
+    if (!c) return false;
+    const cur = new Set(c.avoidedScopes || []);
+    const on = !cur.has(scope);
+    if (on) cur.add(scope); else cur.delete(scope);
+    c.avoidedScopes = [...cur];
+    if (on && c.preferredScopes?.includes(scope)) c.preferredScopes = c.preferredScopes.filter((x) => x !== scope);
+    await this.host.save();
+    this.emit();
     return on;
   }
 
@@ -3146,7 +3163,7 @@ export class CanonEngine {
       // with the player's answer to the matter (a decision, or taken up in play) for the 接受/拒绝/完成 buttons
       contacts: s.contacts.map((k) => ({ ...k, answer: contactDecision(s, k)?.stance ?? null, inPlay: answeredBy(s, k) === 'play', ...(k.scopeKind === 'storyline' ? (() => { const m = matchScope(idx.pack, s.contacts, k.scopeLabel); return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {}; })() : {}) })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin), answer: k.answer, inPlay: k.inPlay, ...(k.sideJob ? { sideJob: true, lapsed: jobLapsed(s, k, s.clock.lo) } : {}) })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
-      suggestions: spoilers || this.settings.debug ? liveSuggestions(c.integrationCache || null, idx, s.clock.lo, new Set(c.preferredScopes || [])).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: o.current, preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: opportunityBy(idx, o), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
+      suggestions: spoilers || this.settings.debug ? liveSuggestions(c.integrationCache || null, idx, s.clock.lo, new Set(c.preferredScopes || [])).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: o.current, preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), avoided: (c.avoidedScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: opportunityBy(idx, o), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null,
     };
   }

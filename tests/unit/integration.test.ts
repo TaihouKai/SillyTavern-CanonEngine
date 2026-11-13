@@ -648,6 +648,28 @@ describe('preferred matters', () => {
     await turn(x, 'I wait.', 'Silence. [P4]');
     expect(lastCtx(x)).not.toMatch(/the Union invites Vera/);
   });
+  it('NI-43b 避免: a matter the player marked is not brought to them (offered or required), preferred and avoided exclude each other, and the analysis is told', async () => {
+    expect(PROMPTS.integrate).toMatch(/avoided lists matters[^]*propose no contact about them/);
+    const x = await setup({ integrate: { assessments: [], opportunities: [
+      OPP({ ref: 'u', kind: 'invitation', target_event_id: null, scope_kind: 'faction', scope_ref: 'union', actors: ['union'], contact: 'the Union invites Vera to a meeting', priority: 1 }),
+      OPP({ ref: 'c', kind: 'information', target_event_id: null, scope_kind: 'faction', scope_ref: 'council', actors: ['council'], contact: 'a Council herald posts a notice', priority: 2 }),
+    ] } });
+    await turn(x, 'I watch the street.', 'Rain on the harbor. [V1]');
+    expect(lastCtx(x)).toMatch(/the Union invites Vera to a meeting/);
+    expect(await x.engine.togglePreferred('faction:union')).toBe(true);
+    expect(await x.engine.toggleAvoided('faction:union')).toBe(true);
+    const c = x.engine.campaign()!;
+    expect([c.preferredScopes, c.avoidedScopes]).toEqual([[], ['faction:union']]);
+    const s = x.engine.integrationView(true)!.suggestions!.find((v) => v.scope === 'faction:union')!;
+    expect([s.avoided, s.preferred]).toEqual([true, false]); // still listed, so it can be undone
+    await turn(x, 'I keep watching.', 'More rain. [V2]');
+    expect(lastCtx(x)).not.toMatch(/the Union invites Vera/);
+    expect(lastCtx(x)).toMatch(/a Council herald posts a notice/);
+    await x.engine.refreshIntegration();
+    expect(x.model.tasks('integrate').slice(-1)[0].input.avoided).toEqual(['faction:union']);
+    expect(await x.engine.togglePreferred('faction:union')).toBe(true);
+    expect(c.avoidedScopes).toEqual([]);
+  });
   it('NI-44 重新评估 keeps the entries about the event under way and preferred matters as they are; only the rest is re-evaluated', async () => {
     expect(PROMPTS.integrate).toMatch(/already_kept, when given[^]*propose nothing about those matters/);
     const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'medic-ambush').when, { latest: { day: 1, minute: 720 }, precision: 'range' });

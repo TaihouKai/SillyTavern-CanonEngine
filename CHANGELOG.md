@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.32.2 — 2026-11-13
+
+- **避免, the opposite of 优先**, on the possible contacts not yet made (spoilers): the world does not bring that matter to the player — no contact about it is offered, required ones neither, and the analysis is told to propose none. It is not a refusal: the player can still go to it, and harm that already has an actual cause still reaches them. An avoided matter stays in the list (to undo it); 优先 and 避免 exclude each other; both end by themselves when the matter is settled or its time has passed. Test NI-43b.
+
 ## 1.32.1 — 2026-11-12
 
 - **A clock read off a wall clock is a reading.** "白井抬头看了眼墙上的挂钟：“八点二十七。”" and "“八点二十七。”白井抬头看了眼墙上的挂钟" were not taken as the time now (only a look straight at 表/手机/钟 before the time was), so the reply was held to the +20 minutes of an untimed reply. Live: the scene said 08:27 while the clock stood at 08:15, and the next draft had "她说八点一刻到……还有几分钟" at 08:27. A look at a clock with a few words between (墙上的挂钟), a quote mark before the time, or a look right after a time said aloud now count.

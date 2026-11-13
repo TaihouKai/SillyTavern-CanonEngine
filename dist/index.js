@@ -24596,7 +24596,7 @@ function voiceInput(v) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.32.1";
+var ENGINE_RELEASE = "1.32.2";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -25382,12 +25382,13 @@ function liveSuggestions(cache, index, tick, preferred = /* @__PURE__ */ new Set
 function reached(st, o, contacts = st.contacts) {
   return contacts.some((x) => x.scopeKind === o.scopeKind && x.scopeRef === o.scopeRef || !!o.targetEventId && x.scopeKind === "event" && x.scopeRef === o.targetEventId || x.scopeKind === "faction" && o.actors.includes(x.scopeRef));
 }
-function dueRequired(cache, index, tick, jumpTo = null) {
+function dueRequired(cache, index, tick, jumpTo = null, avoided = /* @__PURE__ */ new Set()) {
   if (!cache) return [];
   const eng = engagementView(index.state, index.pack);
   const until = Math.max(tick + INTEGRATION_LEAD_MINUTES, jumpTo ?? 0);
   return cache.opportunities.filter((o) => {
     if (!o.required) return false;
+    if (avoided.has(`${o.scopeKind}:${o.scopeRef}`)) return false;
     if (o.latest !== null && o.latest < tick) return false;
     if (o.targetEventId && index.state.dispositions.has(o.targetEventId)) return false;
     const t2 = o.targetEventId ? index.pack.timeIndex.find((x) => x.id === o.targetEventId) : null;
@@ -25415,12 +25416,13 @@ function aboutUnderWay(o, index, underWay) {
   if (o.scopeKind === "arc") return [...underWay].some((id) => index.pack.events.get(id)?.arc_id === o.scopeRef);
   return false;
 }
-function selectOpportunity(cache, index, tick, busy, preferred = /* @__PURE__ */ new Set()) {
+function selectOpportunity(cache, index, tick, busy, preferred = /* @__PURE__ */ new Set(), avoided = /* @__PURE__ */ new Set()) {
   if (!cache) return null;
   const eng = engagementView(index.state, index.pack);
   const pending = unanswered(index.state, tick);
   const ok = cache.opportunities.filter((o) => {
     if (o.required) return false;
+    if (avoided.has(`${o.scopeKind}:${o.scopeRef}`) && !(o.directImpact && (o.kind === "hostile" || o.kind === "consequence") && o.basisRefs.some((b) => index.state.occurrences.has(b)))) return false;
     if (o.latest !== null && o.latest < tick) return false;
     if (o.earliest !== null && o.earliest > tick + OFFER_SOON_MINUTES) return false;
     if (busy && !o.directImpact && !preferred.has(`${o.scopeKind}:${o.scopeRef}`)) return false;
@@ -25981,6 +25983,7 @@ Favor involvement: prefer the development that gives the player a part to play; 
 - focus events are ones the player wants to experience: give them a plausible way in first;
 - already_kept, when given, lists contacts kept exactly as they are (about the event under way and matters the player prefers): propose nothing about those matters; propose only for other matters;
 - preferred lists matters ("event:id", "arc:id", "faction:id"...) the player lets the world bring to them even while busy with another event: keep a plausible contact for each in the list when one exists;
+- avoided lists matters the player does not want the world to bring to them: propose no contact about them (harm that already has an actual cause in history may still reach them);
 - HARD events happen regardless; the player may or may not be part of them.
 - required: true when the player's own position binds them to the matter so that it certainly reaches them before it begins, wherever they are \u2014 an event their own organization takes part in (candidate player_org), a duty of their role (their post, their team, their family's emergency), a threat aimed at them; give required_basis (which part of who they are makes it theirs). A candidate with player_org always gets a required contact from that organization through its usual channel (its people in the event, its leader, its handler). Never for something the player declined; never for a small job.
 - quiet_day, when true: no canon event happens at all today, and it is daytime (the matter must be over by 20:00 today). Then your opportunities MUST include one small matter for the player, with side_job=true, whatever the current scene (the GM brings it in only at a natural pause, possibly later today; this is the one exception to proposing nothing). It comes out of the player's own life as player.roles gives it: one of their roles, a kind of matter that role brings them, from the kind of person who brings it, suited to how they handle things; it never asks for a kind of task in player.not_suited or beyond their capabilities \u2014 an ordinary person gets an ordinary matter (a classmate, a neighbour, a shop, a family member), someone with dangerous work gets that work. Without player.roles, judge from the player summary, affiliations and places. It is brought by someone who plausibly would: a person in player.relationships or player.knowers, someone from a group they belong to through its usual channel (naming no superior the profile does not give), or a new minor person from their everyday surroundings (give their name or a short description in actors and put them in establishes). It is small and self-contained and changes no history: its targets and places are minor or newly introduced (put them in establishes); it never involves a canonical event (target_event_id null), never harms, kills or changes the status of a named canon character or place, and touches nothing the canon events depend on. Existing characters take part only as fits their current state and whereabouts. The player decides whether to take it. recent_jobs lists small matters already brought to the player: a new one differs from them \u2014 another of the player's roles when they have several, or within the same role another person, place, stake and complication (if the last was a lost item to find, not another lost item) \u2014 never a kind of matter the player would not get, just to be different. Make it specific, not generic: who exactly (a named or clearly described minor person or group with something that sets them apart), where exactly, why it needs doing now and why this player, what exactly is asked, and one detail or complication that makes it worth playing (the target is not what it seems, a rival wants the same thing, it touches someone the player knows); put the new people and places in establishes. The contact text itself states these specifics in one or two sentences \u2014 no alternatives ("in person or by phone"), no placeholders ("explains the situation"). Never generic ("someone needs a hand with something").
@@ -29664,8 +29667,8 @@ ${this.ooc(a.userEntry?.text).story}`);
         const cp = leapTo ?? ctxClock;
         const eng = engagementView(index.state, pack2);
         const busy = [...index.state.occurrences.values()].some((o) => o.inProgressOf && !index.state.dispositions.has(o.inProgressOf));
-        const offered = prof && !leapTo ? selectOpportunity(integ, index, jumpTo ?? clock, busy, new Set(c.preferredScopes || [])) : null;
-        const required = prof && !leapTo ? dueRequired(integ, index, clock, jumpTo) : [];
+        const offered = prof && !leapTo ? selectOpportunity(integ, index, jumpTo ?? clock, busy, new Set(c.preferredScopes || []), new Set(c.avoidedScopes || [])) : null;
+        const required = prof && !leapTo ? dueRequired(integ, index, clock, jumpTo, new Set(c.avoidedScopes || [])) : [];
         const prevGm = (() => {
           for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === "gm") return entries[k];
           return null;
@@ -30578,6 +30581,7 @@ ${lines.join("\n")}`;
       recent_contacts: index.state.contacts.slice(-8).map((k) => ({ id: k.recordId, time: formatTick(k.tick), kind: k.contactKind, about: k.scopeLabel, scope: `${k.scopeKind}:${k.scopeRef}`, by: k.actors.map((a) => index.entityName(a)), quote: k.quote, ...jobLapsed(index.state, k, tick) ? { lapsed: true } : {} })),
       focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f).title })),
       ...c.preferredScopes?.length ? { preferred: c.preferredScopes } : {},
+      ...c.avoidedScopes?.length ? { avoided: c.avoidedScopes } : {},
       ...quiet ? { quiet_day: true, ...recentJobs.length ? { recent_jobs: recentJobs } : {} } : {},
       ...kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {},
       registry: this.registry(index, `${userEntry?.text || ""} ${candidates.map((x) => x.event.title).join(" ")}`, [...withIds, ...playedProfile(index, profile2).relationships.map((r) => r.entityId).filter(Boolean)], { notes: true })
@@ -31102,14 +31106,20 @@ ${lines.join("\n")}`;
   }
   /** A preferred event that has been settled or whose window has passed is no longer preferred. */
   prunePreferred(c, pack2, state) {
-    if (!c.preferredScopes?.length) return;
-    const keep = c.preferredScopes.filter((k) => {
+    const live = (k) => {
       if (!k.startsWith("event:")) return true;
       const id = k.slice(6);
       const t2 = pack2.timeIndex.find((x) => x.id === id);
       return !state.dispositions.has(id) && (!t2 || t2.hi >= state.clock.lo);
-    });
-    if (keep.length !== c.preferredScopes.length) c.preferredScopes = keep;
+    };
+    if (c.preferredScopes?.length) {
+      const keep = c.preferredScopes.filter(live);
+      if (keep.length !== c.preferredScopes.length) c.preferredScopes = keep;
+    }
+    if (c.avoidedScopes?.length) {
+      const keep = c.avoidedScopes.filter(live);
+      if (keep.length !== c.avoidedScopes.length) c.avoidedScopes = keep;
+    }
   }
   focusEvents() {
     return new Set(this.campaign()?.focusEvents || []);
@@ -31123,7 +31133,23 @@ ${lines.join("\n")}`;
     if (on) cur.add(scope);
     else cur.delete(scope);
     c.preferredScopes = [...cur];
+    if (on && c.avoidedScopes?.includes(scope)) c.avoidedScopes = c.avoidedScopes.filter((x) => x !== scope);
     await this.host.save();
+    return on;
+  }
+  /** 避免: the world does not bring this matter to the player (no contact about it is offered; harm that already has
+   *  an actual cause still reaches them). Ends by itself when the matter is settled or its time has passed. */
+  async toggleAvoided(scope) {
+    const c = this.campaign();
+    if (!c) return false;
+    const cur = new Set(c.avoidedScopes || []);
+    const on = !cur.has(scope);
+    if (on) cur.add(scope);
+    else cur.delete(scope);
+    c.avoidedScopes = [...cur];
+    if (on && c.preferredScopes?.includes(scope)) c.preferredScopes = c.preferredScopes.filter((x) => x !== scope);
+    await this.host.save();
+    this.emit();
     return on;
   }
   /** 整理本局事件: the analysis model groups the player's events (not canon events) into episodes for the
@@ -31298,7 +31324,7 @@ ${lines.join("\n")}`;
         return m ? { scopeKind: m.scopeKind, scopeRef: m.scopeRef, scopeLabel: m.label } : {};
       })() : {} })).map((k) => ({ recordId: k.recordId, scope: `${k.scopeKind}:${k.scopeRef}`, label: lab(k.scopeKind, k.scopeLabel), kind: k.contactKind, by: k.actors.map((a) => idx.entityName(a)), quote: k.quote, time: formatTick(k.tick, origin), answer: k.answer, inPlay: k.inPlay, ...k.sideJob ? { sideJob: true, lapsed: jobLapsed(s, k, s.clock.lo) } : {} })),
       unanswered: unanswered(s, s.clock.lo).map((k) => k.recordId),
-      suggestions: spoilers || this.settings.debug ? liveSuggestions(c.integrationCache || null, idx, s.clock.lo, new Set(c.preferredScopes || [])).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: o.current, preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: opportunityBy(idx, o), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
+      suggestions: spoilers || this.settings.debug ? liveSuggestions(c.integrationCache || null, idx, s.clock.lo, new Set(c.preferredScopes || [])).map((o) => ({ id: o.id, scope: `${o.scopeKind}:${o.scopeRef}`, current: o.current, preferred: (c.preferredScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), avoided: (c.avoidedScopes || []).includes(`${o.scopeKind}:${o.scopeRef}`), about: o.scopeLabel, kind: o.kind, by: opportunityBy(idx, o), contact: o.contact, direct: o.directImpact, sideJob: !!o.sideJob })) : null,
       dropped: this.settings.debug ? c.integrationCache?.dropped || [] : null
     };
   }
@@ -31880,6 +31906,11 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niPrefer: { zh: "\u4F18\u5148", en: "Prefer" },
   niUnprefer: { zh: "\u53D6\u6D88\u4F18\u5148", en: "Unprefer" },
   niPreferred: { zh: "\u5DF2\u4F18\u5148", en: "preferred" },
+  niAvoid: { zh: "\u907F\u514D", en: "Avoid" },
+  niUnavoid: { zh: "\u53D6\u6D88\u907F\u514D", en: "Stop avoiding" },
+  niAvoided: { zh: "\u5DF2\u907F\u514D", en: "avoided" },
+  niAvoidTip: { zh: "\u4E0D\u8BA9\u4E16\u754C\u628A\u8FD9\u4EF6\u4E8B\u5E26\u5230\u4F60\u9762\u524D\uFF1A\u4E0D\u518D\u5B89\u6392\u4EFB\u4F55\u4EBA\u4E3A\u8FD9\u4EF6\u4E8B\u6765\u63A5\u89E6\u4F60\uFF08\u5305\u62EC\u5FC5\u987B\u63A5\u89E6\u7684\uFF09\u3002\n\u53EA\u7BA1\u300C\u4E16\u754C\u4E3B\u52A8\u6765\u627E\u4F60\u300D\uFF0C\u4E0D\u662F\u62D2\u7EDD\uFF1A\u4F60\u81EA\u5DF1\u627E\u4E0A\u95E8\u3001\u5DF2\u7ECF\u6709\u5B9E\u9645\u8D77\u56E0\u7684\u4F24\u5BB3\uFF08\u6BD4\u5982\u654C\u4EBA\u65E9\u5DF2\u76EF\u4E0A\u4F60\uFF09\u7167\u6837\u4F1A\u53D1\u751F\u3002\u60F3\u5728\u5267\u60C5\u91CC\u660E\u786E\u62D2\u7EDD\uFF0C\u5C31\u5728\u56DE\u590D\u91CC\u62D2\u7EDD\uFF0C\u6216\u7528 OOC\u3002\n\u8FD9\u4EF6\u4E8B\u7ED3\u675F\u6216\u65F6\u95F4\u8FC7\u53BB\u540E\u81EA\u52A8\u53D6\u6D88\u3002", en: "Keep this from being brought to you: nobody is sent to contact you about it (required contacts included).\nIt only stops the world reaching out; it is not a refusal: you can still go to it yourself, and harm that already has an actual cause still reaches you. To refuse it in the story, say so in your message or use OOC.\nEnds by itself when the matter is settled or its time has passed." },
+  niUnavoidTip: { zh: "\u53D6\u6D88\uFF1A\u4E16\u754C\u53C8\u53EF\u4EE5\u628A\u8FD9\u4EF6\u4E8B\u5E26\u5230\u4F60\u9762\u524D\u3002", en: "Undo: the world may bring this to you again." },
   niPreferTip: { zh: "\u5141\u8BB8\u4E16\u754C\u628A\u8FD9\u4EF6\u4E8B\u5E26\u5230\u4F60\u9762\u524D\uFF0C\u5373\u4F7F\u4F60\u6B63\u8EAB\u5904\u53E6\u4E00\u4EF6\u8FDB\u884C\u4E2D\u7684\u4E8B\u4EF6\uFF08\u6BD4\u5982\u6253\u6597\u4E2D\u9014\uFF09\u3002\n\u53EA\u662F\u5141\u8BB8\uFF0C\u4E0D\u662F\u8981\u6C42\uFF1AGM \u53EF\u4EE5\u5B89\u6392\uFF0C\u4E5F\u53EF\u4EE5\u4E0D\u5B89\u6392\u3002\n\u8FD9\u4EF6\u4E8B\u7ED3\u675F\u6216\u65F6\u95F4\u8FC7\u53BB\u540E\u81EA\u52A8\u53D6\u6D88\u3002", en: "Let the world bring this to you even while another event is under way (e.g. mid-fight).\nAllowed, not required: the GM may bring it in or leave it.\nCleared automatically when it is over or its time has passed." },
   niUnpreferTip: { zh: "\u53D6\u6D88\uFF1A\u8FDB\u884C\u4E2D\u7684\u4E8B\u4EF6\u7ED3\u675F\u524D\uFF0CGM \u4E0D\u518D\u7528\u8FD9\u4EF6\u4E8B\u6765\u63A5\u89E6\u4F60\u3002", en: "Undo: while an event is under way, the GM no longer brings this to you." },
   niRefreshTip: { zh: "\u73B0\u5728\u8BA9\u5206\u6790\u6A21\u578B\u91CD\u65B0\u60F3\u4E00\u904D\uFF1A\u4E16\u754C\u63A5\u4E0B\u6765\u53EF\u80FD\u600E\u6837\u63A5\u89E6\u4F60\u3002\u300C\u8FDB\u884C\u4E2D\u300D\u548C\u300C\u5DF2\u4F18\u5148\u300D\u7684\u6761\u76EE\u539F\u6837\u4FDD\u7559\uFF0C\u53EA\u91CD\u65B0\u8BC4\u4F30\u5176\u4F59\u7684\u3002\u53EA\u662F\u5EFA\u8BAE\uFF0C\u4E0D\u4F1A\u5199\u8FDB\u5386\u53F2\uFF1B\u4E0B\u4E00\u56DE\u5408 GM \u4F1A\u4ECE\u65B0\u7684\u7ED3\u679C\u91CC\u6311\u4E00\u4E2A\u3002\u4F1A\u8C03\u7528\u4E00\u6B21\u5206\u6790\u6A21\u578B\u3002", en: "Ask the analysis model again now how the world may reach you next. Entries about the event under way and preferred matters are kept as they are; only the rest is re-evaluated. Suggestions only, nothing is recorded; the next turn offers the GM one of the new ones. One analysis call." },
@@ -33030,7 +33061,8 @@ function createInspector(d) {
       const sg = /* @__PURE__ */ new Map();
       for (const s of ni.suggestions) sg.set(s.scope, [...sg.get(s.scope) || [], s]);
       const sLine = (s) => `<div>${s.sideJob ? chip(t("niSideJob")) : ""}${esc2(s.by.join(", "))}: ${esc2(s.contact)} <span class="ci-meta">${esc2(s.kind)}${s.direct ? " \xB7 direct" : ""}</span></div>`;
-      const pref = (s) => s.current ? chip(t("niCurrent"), "accent") : `${s.preferred ? chip(t("niPreferred"), "ok") : ""}<span class="ci-sp"></span>${btn(t(s.preferred ? "niUnprefer" : "niPrefer"), `data-act="ni-prefer" data-scope="${esc2(s.scope)}" title="${esc2(t(s.preferred ? "niUnpreferTip" : "niPreferTip"))}"`)}`;
+      const avoid = (s) => btn(t(s.avoided ? "niUnavoid" : "niAvoid"), `data-act="ni-avoid" data-scope="${esc2(s.scope)}" title="${esc2(t(s.avoided ? "niUnavoidTip" : "niAvoidTip"))}"`);
+      const pref = (s) => (s.current ? chip(t("niCurrent"), "accent") : `${s.preferred ? chip(t("niPreferred"), "ok") : ""}${s.avoided ? chip(t("niAvoided"), "warn") : ""}<span class="ci-sp"></span>${s.avoided ? "" : btn(t(s.preferred ? "niUnprefer" : "niPrefer"), `data-act="ni-prefer" data-scope="${esc2(s.scope)}" title="${esc2(t(s.preferred ? "niUnpreferTip" : "niPreferTip"))}"`)}`) + avoid(s);
       html += sec(
         "sugg",
         t("niSuggestions"),
@@ -33343,6 +33375,7 @@ function createInspector(d) {
       if (act === "spoilers" || act === "ni-jobs") return;
       if (b.tagName === "BUTTON") b.disabled = true;
       if (act === "ni-prefer") run(E0.togglePreferred(b.dataset.scope || ""));
+      if (act === "ni-avoid") run(E0.toggleAvoided(b.dataset.scope || ""));
       else if (act === "ni-refresh") {
         b.textContent = t("niBusy");
         run(E0.refreshIntegration().then((n) => d.toast("info", t("niRefreshDone").replace("{n}", String(n)))));

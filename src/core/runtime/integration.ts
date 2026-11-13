@@ -839,12 +839,13 @@ export function reached(st: WorldState, o: Pick<Opportunity, 'scopeKind' | 'scop
 /** The required contacts this reply must make: not made yet (no contact about the matter since it was suggested), its
  *  event not settled, not turned down since, and due — its event begins within INTEGRATION_LEAD_MINUTES (or the time
  *  jump crosses it). */
-export function dueRequired(cache: IntegrationCache | null, index: WorldIndex, tick: number, jumpTo: number | null = null): Opportunity[] {
+export function dueRequired(cache: IntegrationCache | null, index: WorldIndex, tick: number, jumpTo: number | null = null, avoided: Set<string> = new Set()): Opportunity[] {
   if (!cache) return [];
   const eng = engagementView(index.state, index.pack);
   const until = Math.max(tick + INTEGRATION_LEAD_MINUTES, jumpTo ?? 0);
   return cache.opportunities.filter((o) => {
     if (!o.required) return false;
+    if (avoided.has(`${o.scopeKind}:${o.scopeRef}`)) return false;
     if (o.latest !== null && o.latest < tick) return false;
     if (o.targetEventId && index.state.dispositions.has(o.targetEventId)) return false;
     const t = o.targetEventId ? index.pack.timeIndex.find((x) => x.id === o.targetEventId) : null;
@@ -882,12 +883,14 @@ export function aboutUnderWay(o: Pick<Opportunity, 'targetEventId' | 'scopeKind'
   return false;
 }
 
-export function selectOpportunity(cache: IntegrationCache | null, index: WorldIndex, tick: number, busy: boolean, preferred: Set<string> = new Set()): Opportunity | null {
+export function selectOpportunity(cache: IntegrationCache | null, index: WorldIndex, tick: number, busy: boolean, preferred: Set<string> = new Set(), avoided: Set<string> = new Set()): Opportunity | null {
   if (!cache) return null;
   const eng = engagementView(index.state, index.pack);
   const pending = unanswered(index.state, tick);
   const ok = cache.opportunities.filter((o) => {
     if (o.required) return false;
+    // a matter the player marked 避免 is not brought to them, except harm that already has an actual cause
+    if (avoided.has(`${o.scopeKind}:${o.scopeRef}`) && !(o.directImpact && (o.kind === 'hostile' || o.kind === 'consequence') && o.basisRefs.some((b) => index.state.occurrences.has(b)))) return false;
     if (o.latest !== null && o.latest < tick) return false;
     if (o.earliest !== null && o.earliest > tick + OFFER_SOON_MINUTES) return false;
     // in the middle of an event only what already reaches the player — or a matter the player marked 优先

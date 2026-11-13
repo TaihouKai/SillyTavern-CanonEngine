@@ -152,8 +152,9 @@ export function createInspector(d: InspectorDeps) {
       const sg = new Map<string, NonNullable<Ni['suggestions']>>();
       for (const s of ni.suggestions) sg.set(s.scope, [...(sg.get(s.scope) || []), s]);
       const sLine = (s: NonNullable<Ni['suggestions']>[number]) => `<div>${s.sideJob ? chip(t('niSideJob')) : ''}${esc(s.by.join(', '))}: ${esc(s.contact)} <span class="ci-meta">${esc(s.kind)}${s.direct ? ' · direct' : ''}</span></div>`;
-      const pref = (s: NonNullable<Ni['suggestions']>[number]) => s.current ? chip(t('niCurrent'), 'accent')
-        : `${s.preferred ? chip(t('niPreferred'), 'ok') : ''}<span class="ci-sp"></span>${btn(t(s.preferred ? 'niUnprefer' : 'niPrefer'), `data-act="ni-prefer" data-scope="${esc(s.scope)}" title="${esc(t(s.preferred ? 'niUnpreferTip' : 'niPreferTip'))}"`)}`;
+      const avoid = (s: NonNullable<Ni['suggestions']>[number]) => btn(t(s.avoided ? 'niUnavoid' : 'niAvoid'), `data-act="ni-avoid" data-scope="${esc(s.scope)}" title="${esc(t(s.avoided ? 'niUnavoidTip' : 'niAvoidTip'))}"`);
+      const pref = (s: NonNullable<Ni['suggestions']>[number]) => (s.current ? chip(t('niCurrent'), 'accent')
+        : `${s.preferred ? chip(t('niPreferred'), 'ok') : ''}${s.avoided ? chip(t('niAvoided'), 'warn') : ''}<span class="ci-sp"></span>${s.avoided ? '' : btn(t(s.preferred ? 'niUnprefer' : 'niPrefer'), `data-act="ni-prefer" data-scope="${esc(s.scope)}" title="${esc(t(s.preferred ? 'niUnpreferTip' : 'niPreferTip'))}"`)}`) + avoid(s);
       html += sec('sugg', t('niSuggestions'), [...sg.values()].map(([s, ...more]) => item(`s-${s.scope}`, `<span class="ci-title">${esc(s.about)}</span>${pref(s)}`, sLine(s), more.length ? fold(`s-more-${s.scope}`, t('niMoreSuggestions').replace('{n}', String(more.length)), more.map(sLine).join('')) : '')).join('') || empty(),
         btn(t('niRefresh'), `data-act="ni-refresh" title="${esc(t('niRefreshTip'))}"`));
       secs.push({ id: 'sugg', label: t('ciSugg') });
@@ -406,6 +407,7 @@ export function createInspector(d: InspectorDeps) {
       if (act === 'spoilers' || act === 'ni-jobs') return;
       if (b.tagName === 'BUTTON') (b as HTMLButtonElement).disabled = true;
       if (act === 'ni-prefer') run(E0.togglePreferred(b.dataset.scope || ''));
+      if (act === 'ni-avoid') run(E0.toggleAvoided(b.dataset.scope || ''));
       else if (act === 'ni-refresh') { b.textContent = t('niBusy'); run(E0.refreshIntegration().then((n) => d.toast('info', t('niRefreshDone').replace('{n}', String(n))))); }
       else if (act === 'ws-recheck' || act === 'ws-manual' || act === 'ws-save' || act === 'ws-del') {
         if (act === 'ws-recheck') b.textContent = t('wsBusy');
