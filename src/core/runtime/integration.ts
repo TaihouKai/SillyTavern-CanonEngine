@@ -1067,8 +1067,17 @@ export function groupNames(groups: RecognitionGroup[], ids: string[] | null): st
 // without warning (a chance encounter) happens to them and the player together, unless the player declined it.
 
 export const COMPANION_HORIZON_MINUTES = 180;
+/** A window longer than this does not give the event's time, only the part of the day or the day it falls in (a
+ *  source that gives only the date): a chance event then has no moment to be shown at — it is owed only when the
+ *  person is still with the player as its window ends (live: 「美琴入侵书库被初春阻止」, dated 9月20日 only, sent a
+ *  reply at 12:00 back because 白井 was with the player past "09:00", the placeholder start of the day). */
+export const COMPANION_EXACT_MINUTES = 180;
 
 export interface CompanionEvent { personId: Id; event: PackEvent; lo: number; hi: number; declined: boolean }
+
+/** When a chance event of a companion is owed: at its start when the window gives its time, else by its end. */
+export const companionDue = (c: Pick<CompanionEvent, 'lo' | 'hi'>): { at: number; loose: boolean } =>
+  c.hi - c.lo > COMPANION_EXACT_MINUTES ? { at: c.hi, loose: true } : { at: c.lo, loose: false };
 
 /** Canon events starting within the horizon (or open now and not begun) that people in the scene take part in. */
 export function companionEvents(index: WorldIndex, sceneIds: Id[], playerId: Id | null, tick: number): CompanionEvent[] {
@@ -1100,11 +1109,15 @@ export function companionSection(index: WorldIndex, list: CompanionEvent[], know
   const lines = list.map((c) => {
     const who = index.entityName(c.personId);
     const k = known[foreknowKey(c)];
-    const when = c.lo > tick ? `starts ${formatTick(c.lo, origin)} (in ${Math.max(1, Math.round((c.lo - tick) / 60 * 10) / 10)} h)` : `can start now (until ${formatTick(c.hi, origin)})`;
+    const loose = companionDue(c).loose;
+    const when = loose ? `some time ${c.lo > tick ? `between ${formatTick(c.lo, origin)} and` : 'from now until'} ${formatTick(c.hi, origin)} (its exact time is not known)`
+      : c.lo > tick ? `starts ${formatTick(c.lo, origin)} (in ${Math.max(1, Math.round((c.lo - tick) / 60 * 10) / 10)} h)` : `can start now (until ${formatTick(c.hi, origin)})`;
     const head = `- ${who} — 「${c.event.title}」 [${c.event.id}] (${c.event.classification}) ${when}: ${causeOf(c.event)}`;
     const hard = c.event.classification === 'HARD' ? ' It must happen (HARD).' : '';
     if (c.declined) return `${head}\n  The player declined to take part in it: ${who} leaves at a natural moment before it, or it happens to ${who} after they part; do not pull the player in.${hard}`;
     if (k?.knows) return `${head}\n  ${who} knows this in advance (${k.how || 'planned'}): before it starts, ${who} brings it up in character — has to go, or asks the player to come along. Whether the player goes is the player's choice; if the player keeps ${who} with them, that is their choice too.${hard}`;
+    if (k && !k.knows && loose) return `${head}
+  ${who} does NOT know this in advance (${k.how || 'comes without warning'}): it can happen to ${who} at any moment of that time — while ${who} is with the player it happens to both of them together, where they are (its people come to them); ${who} may part from the player for their own reasons as anyone would, and then it happens to ${who} elsewhere.${hard}`;
     if (k && !k.knows) return `${head}\n  ${who} does NOT know this in advance (${k.how || 'comes without warning'}): ${who} stays with the player — no leaving or wandering off without a reason, nothing foreshadows it — and when the time comes it happens to both of them together, where they are (its people come to them).${hard}`;
     return `${head}\n  If ${who} would know it in advance, ${who} brings it up before it starts (has to go, or asks the player along — the player decides); if it comes without warning, ${who} stays with the player and it happens to both of them together, where they are.${hard}`;
   });

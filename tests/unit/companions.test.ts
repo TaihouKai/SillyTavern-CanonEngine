@@ -90,6 +90,28 @@ describe("companions' next events", () => {
     expect(x.host.chat.slice(-1)[0].text).toContain('[CP6c]');
   });
 
+  it('CP7 a chance event known only to its day (a long window) is owed only when the person is still with the player as its window ends', async () => {
+    // live: 「美琴入侵书库被初春阻止」, dated 9月20日 only (09:00–23:59), sent a 12:00 reply back because 白井 was with the player past 09:00
+    const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'medic-ambush').when, { earliest: { day: 1, minute: 540 }, latest: { day: 1, minute: 1200 }, precision: 'range' });
+    const x = makeEngine();
+    x.model.on('foreknow', null, { judgements: [{ id: 'k1', knows: false, how: 'chance' }] });
+    await x.engine.bind(JSON.stringify(wide), { startTick: tick(1, 8, 30), mode: 'new' });
+    await x.engine.reconcile('test');
+    await turn(x, 'I walk with Mira.', 'Mira walks beside me. [CP7a]', { scene_entities: ['mira'] });
+    x.host.addUser('We walk on until noon.');
+    x.model.draft('It is 12:00 when Mira and I reach the square. [CP7b]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[CP7b]'), { scene_end: at(1, 12, 0), scene_entities: ['mira'] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.engine.lastTrace!.attempts.map((a) => a.violations)).toEqual([[]]);
+    expect(section(x)).toMatch(/some time between .*09:00 and .*20:00 \(its exact time is not known\)[^]*Mira may part from the player for their own reasons/);
+    x.host.addUser('We walk on into the night.');
+    x.model.draft('It is 21:00 when Mira and I stop walking. [CP7c]', 'At 19:00 crossbow bolts fly at Mira and me. [CP7d]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[CP7c]'), { scene_end: at(1, 21, 0), scene_entities: ['mira'] });
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[CP7d]'), { scene_end: at(1, 19, 0), scene_entities: ['mira'], occurrences: [occ('o1', 'Ambush on the road', 'crossbow bolts fly at Mira and me', { pack_event_id: 'medic-ambush', disposition: 'ongoing', actors: ['mira'] })] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/comes to Mira without warning by .*20:00 \(its exact time is not known\), and Mira is still with the player/);
+  });
+
   it('CP4 nobody with the player: no section', async () => {
     const x = await setup(false);
     await turn(x, 'I walk alone.', 'Quiet road. [CP4a]');

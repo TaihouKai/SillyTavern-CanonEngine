@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.32.4 — 2026-11-14
+
+- **A companion's chance event whose time is not known is not owed at a placeholder hour.** An event the sources date only to the day has a window over the whole day starting at 09:00; with someone in it beside the player, a reply going past 09:00 was sent back for not showing it (live: 「美琴入侵书库被初春阻止」, 白井 with the player at 12:00; the repair had 初春 phone in). A window longer than three hours now gives no moment: the event is owed only when the person is still with the player as the window ends, the GM is told it can come at any moment of that time and that the person may part from the player as anyone would. Events with a known time are owed at their start as before. Test CP7.
+
 ## 1.32.3 — 2026-11-14
 
 - **The player character no longer meets every tease with 嘴硬.** Whatever the Persona, teasing, being caught and flirting got the same stubborn denial. A probe with the live story model (DeepSeek 4.1 flash; Personas that give only a background; teased about a crush, caught after a prank, flirted with, teased about dating): 27 of 32 replies denied — and 24 of 32 with no Canon rules at all, so mostly the model's own habit, which the rules leaned into (a dodge or a cover story offered for any question, "their front slipping"). The GM is now told that how they take such things comes from who they are and the moment (owning up, laughing along, saying sorry, plainly pleased or flustered, annoyed, playing along, turning it back, serious), denial being one way for a character who would, never the default; owning up, saying sorry or admitting what is true (how they feel, when asked) is dialogue, not a decision; everyday things (a prank, who they like, a slip-up) are not secrets unless the Persona makes them one. Same probe: 11 of 32 denials; Personas written to be stubborn (a proud 大小姐) still deny (5 of 6); no reply decided for the player.

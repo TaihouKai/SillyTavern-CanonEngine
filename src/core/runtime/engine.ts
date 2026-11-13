@@ -25,7 +25,7 @@ import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './a
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { answeredBy, contactDecision, playedProfile, playerOrgs, nameIn, isIn, companionEvents, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { answeredBy, contactDecision, playedProfile, playerOrgs, nameIn, isIn, companionEvents, companionDue, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, voiceTurnNote, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
@@ -1287,7 +1287,7 @@ export class CanonEngine {
       ...(a.leapTo ? { time_leap: { from: formatTick(tick), to: formatTick(a.leapTo) } } : {}),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
       ...(groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who, level: g.level, knows: g.about })) } : {}),
-      ...(a.chance?.length ? { chance_events_with_companion: a.chance.map((x) => ({ event_id: x.eventId, title: x.title, comes_to: x.who, starts: formatTick(x.lo), what: (pack.events.get(x.eventId)?.summary || '').slice(0, 400) })) } : {}),
+      ...(a.chance?.length ? { chance_events_with_companion: a.chance.map((x) => ({ event_id: x.eventId, title: x.title, comes_to: x.who, ...(x.loose ? { by: formatTick(x.lo) } : { starts: formatTick(x.lo) }), what: (pack.events.get(x.eventId)?.summary || '').slice(0, 400) })) } : {}),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
     // Horae tracks story time every turn; its time at the end of the previous reply is where this reply
@@ -1660,7 +1660,7 @@ export class CanonEngine {
         const companions = leapTo ? [] : companionEvents(index, uniq([...sceneSeeds, ...horaeSceneIds]), prof?.profile.playerId ?? null, ctxClock);
         await this.judgeForeknowledge(companions, abort.signal, operationId);
         const chance: GateInput['chanceCompanions'] = companions.filter((x) => !x.declined && c.foreknowledge?.[foreknowKey(x)]?.knows === false)
-          .map((x) => ({ eventId: x.event.id, personId: x.personId, lo: x.lo, title: x.event.title, who: index.entityName(x.personId) }));
+          .map((x) => ({ eventId: x.event.id, personId: x.personId, lo: companionDue(x).at, loose: companionDue(x).loose, title: x.event.title, who: index.entityName(x.personId) }));
         const opps = legacy ? this.opportunities(index, clock).filter((o) => !eng.blockedBy({ eventId: o.id }, clock)) : [];
         const sceneLabel = [horaeScene?.location ? `Location (${this.host.sceneTracker!.name}, supporting): ${horaeScene.location}.` : '', horaeScene?.characters?.length ? `Present: ${horaeScene.characters.join(', ')}.` : '', horaeNote].filter(Boolean).join(' ');
         const packetArgs = {
