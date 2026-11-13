@@ -8,7 +8,7 @@ import { makeEngine, tick, at, occ, legacyCampaign } from './fake';
 import { ROOT } from './helpers';
 import { engagementView, isBinding, engagementRecord } from '../../src/core/runtime/integration';
 import { PROMPTS, gmRulesFor, GM_INTEGRATION_RULES } from '../../src/core/runtime/prompts';
-import { DEFAULT_PLAYER_VOICE, voiceRule, LIVELY, REACT_NOT_DECIDE, ANSWER_IN_SCENE } from '../../src/core/runtime/voice';
+import { DEFAULT_PLAYER_VOICE, voiceRule, LIVELY, REACT_NOT_DECIDE, ANSWER_IN_SCENE, voiceTurnNote } from '../../src/core/runtime/voice';
 import { ENGINE_RELEASE } from '../../src/core/runtime/types';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
@@ -896,7 +896,12 @@ describe('preferred matters', () => {
     expect(def).toContain(ANSWER_IN_SCENE);
     expect(none).not.toContain(ANSWER_IN_SCENE);
     expect(def).toMatch(/keeping them is not: dodging, joking, denying or a cover story[^]*is dialogue/);
-    expect(def).toMatch(/answering a question, giving an opinion or an excuse, teasing back or explaining themselves is dialogue/);
+    expect(def).toMatch(/answering a question, giving an opinion or an excuse, teasing back, explaining themselves, owning up, saying sorry or admitting what is true \(how they feel included, when asked\) is dialogue/);
+    // live: whatever the Persona, teasing, being caught and flirting got the same stubborn denial (嘴硬)
+    expect(def).toMatch(/Denial and a stubborn front \(嘴硬\) are one way among these, for a character who would — never the default/);
+    expect(def).toMatch(/Everyday things \(a prank they played, who they like, a slip-up\) are not secrets unless the Persona makes them one/);
+    expect(def).not.toMatch(/front slipping/);
+    expect(voiceTurnNote(DEFAULT_PLAYER_VOICE)).toMatch(/not a denial by habit[^]*a dodge or a cover story is for a secret they keep/);
     expect(PROMPTS.evaluate).toMatch(/secrets is only revealing one — denying, dodging or a cover story that keeps it is dialogue/);
     // the reviewer: a reaction to an offer is dialogue
     expect(PROMPTS.evaluate).toMatch(/reacting to an offer or question without saying yes or no[^]*is dialogue, not decisions/);

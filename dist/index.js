@@ -24563,8 +24563,8 @@ var VOICE_TEXT = {
   items: "items \u2014 using, giving away, taking or buying things that matter (equipment, valuables, key items, notable money); trivial everyday matters are their own kind",
   skills: "abilities \u2014 using skills, powers or magic",
   combat: "combat \u2014 attacking, fighting, hurting or killing someone",
-  decisions: "decisions \u2014 accepting or refusing requests, promises, agreements, consent that commit the character (a task, a plan, a promise, joining something); small yeses of the moment are trivial everyday matters, and answering a question, giving an opinion or an excuse, teasing back or explaining themselves is dialogue",
-  secrets: "secrets \u2014 revealing the player character's secrets or hidden identity; keeping them is not: dodging, joking, denying or a cover story in keeping with the Persona is dialogue; someone learning one through their own power (reading the player character's mind) is the world finding out, not the player character revealing it"
+  decisions: "decisions \u2014 accepting or refusing requests, promises, agreements, consent that commit the character (a task, a plan, a promise, joining something); small yeses of the moment are trivial everyday matters, and answering a question, giving an opinion or an excuse, teasing back, explaining themselves, owning up, saying sorry or admitting what is true (how they feel included, when asked) is dialogue",
+  secrets: "secrets \u2014 revealing the secrets or the hidden identity the Persona gives the player character; keeping them is not: dodging, joking, denying or a cover story in keeping with the Persona is dialogue; someone learning one through their own power (reading the player character's mind) is the world finding out, not the player character revealing it. Everyday things (a prank they played, who they like, a slip-up) are not secrets unless the Persona makes them one"
 };
 var INTERVENTION = "intervention";
 var INTERVENTION_TEXT = "intervention \u2014 the player character interrupting, stopping, preventing, exposing or redirecting a canonical event or another character's significant action, even by a single line of dialogue or a reaction aimed at it";
@@ -24576,7 +24576,8 @@ function playerVoice(v) {
 }
 var voiceAllows = (v, kind) => !!kind && VOICE_KINDS.includes(kind) && v[kind];
 var LIVELY = "Write the player character as vividly as anyone else in the scene: their lines and reactions carry their whole personality as the Persona gives it (how they come across and talk, in PLAYER IN THIS WORLD) \u2014 opinions, feelings, humour, their own questions, the way they put things. Never reduce them to short, flat, noncommittal replies.";
-var REACT_NOT_DECIDE = 'When someone asks them to decide (an invitation, a request, a "will you\u2026?"), still write their honest reaction \u2014 what they think of it, a complaint, a joke, a question back, their front slipping \u2014 as long as it neither accepts nor refuses; leave the yes or no itself to the player. Do not have them dodge every question with an empty non-answer, and do not have characters pile up several questions waiting on the player in one reply: one open question at the end is enough, and only one asking for such a decision.';
+var REACT_NOT_DECIDE = 'When someone asks them to decide (an invitation, a request, a "will you\u2026?"), still write their honest reaction \u2014 what they think of it, a complaint, a joke, a question back \u2014 as long as it neither accepts nor refuses; leave the yes or no itself to the player. Do not have them dodge every question with an empty non-answer, and do not have characters pile up several questions waiting on the player in one reply: one open question at the end is enough, and only one asking for such a decision.';
+var TAKE_IT_AS_THEY_WOULD = "How they take teasing, a question, being caught or flirting comes from who they are and the moment, not from a habit: they may own up, laugh along, say sorry, be plainly pleased or flustered and say so, get properly annoyed, play along, turn it back, or answer seriously. Denial and a stubborn front (\u5634\u786C) are one way among these, for a character who would \u2014 never the default: when the Persona does not say how they take such things, let them admit what is plainly true about as often as not (asked whether they like someone they do like, they may say yes, laugh and not deny it, or go red and say so), and vary it from one exchange to the next.";
 var ANSWER_IN_SCENE = 'A reply is a whole exchange, not one line from the others: when characters speak to the player character \u2014 tease, question or accuse them \u2014 the player character answers out loud in the same reply, as the Persona would, and the talk goes on between them; thoughts and looks alone are not an answer. Do not stop the reply on something the player character would simply answer ("where were you last night?", "say something!"): write their answer and go on. Stop where only the player can go on \u2014 a decision of the kinds left to the player, or a new turn in the scene.';
 function voiceRule(v, leap2 = false) {
   const may = VOICE_KINDS.filter((k) => v[k]);
@@ -24584,11 +24585,11 @@ function voiceRule(v, leap2 = false) {
   const own = "Actions the player wrote are theirs: carry them out with their natural steps and immediate details.";
   const always = leap2 ? " During this time leap the player character also steps into events as the TIME LEAP section says." : ` Always leave to the player, whatever else you may write for them: ${INTERVENTION_TEXT}. When a canonical event or another character's significant act happens in front of the player character, let it go on as it would; you may show what the player character notices or suspects, but any interference is the player's to write (they can still act in their next message).`;
   if (!may.length) return `${own} Do not supply new voluntary player actions, decisions, dialogue, consent, or equipment/skill use.${always}`;
-  return `THE PLAYER CHARACTER: the player wants you to write these for their character, in character with their Persona and the scene \u2014 do it naturally, as part of the scene: ${may.map((k) => VOICE_TEXT[k]).join("; ")}. ` + (v.dialogue || v.reactions ? `${LIVELY} ` : "") + (v.dialogue ? `${ANSWER_IN_SCENE} ` : "") + (not.length ? `Leave these to the player (do not write them unless the player's message does): ${not.map((k) => VOICE_TEXT[k]).join("; ")}. ` : "") + (v.dialogue && !v.decisions ? `${REACT_NOT_DECIDE} ` : "") + own + always;
+  return `THE PLAYER CHARACTER: the player wants you to write these for their character, in character with their Persona and the scene \u2014 do it naturally, as part of the scene: ${may.map((k) => VOICE_TEXT[k]).join("; ")}. ` + (v.dialogue || v.reactions ? `${LIVELY} ${TAKE_IT_AS_THEY_WOULD} ` : "") + (v.dialogue ? `${ANSWER_IN_SCENE} ` : "") + (not.length ? `Leave these to the player (do not write them unless the player's message does): ${not.map((k) => VOICE_TEXT[k]).join("; ")}. ` : "") + (v.dialogue && !v.decisions ? `${REACT_NOT_DECIDE} ` : "") + own + always;
 }
 function voiceTurnNote(v) {
   if (!v.dialogue) return "";
-  return "The player character in this reply: they answer out loud whatever is said to them, in their own voice (the Persona is what the player wants; their message need not ask for it), and the talk goes on \u2014 keeping a secret with a joke, a dodge or a cover story is theirs to say too." + (v.decisions ? "" : " Stop only at a decision the player must make.");
+  return "The player character in this reply: they answer out loud whatever is said to them, in their own voice (the Persona is what the player wants; their message need not ask for it), and the talk goes on \u2014 in the way they would take it: owning up, laughing along, a sincere answer or a joke back; not a denial by habit \u2014 unless that is who they are, what is plainly true they may simply admit (a dodge or a cover story is for a secret they keep)." + (v.decisions ? "" : " Stop only at a decision the player must make.");
 }
 function voiceInput(v) {
   return { gm_may_write: VOICE_KINDS.filter((k) => v[k]), player_only: [...VOICE_KINDS.filter((k) => !v[k]), INTERVENTION] };
@@ -24596,7 +24597,7 @@ function voiceInput(v) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.32.2";
+var ENGINE_RELEASE = "1.32.3";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
