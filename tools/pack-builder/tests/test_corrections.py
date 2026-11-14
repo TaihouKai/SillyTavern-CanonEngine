@@ -169,6 +169,30 @@ class BuilderTest(unittest.TestCase):
             self.assertEqual(evs[1]['canonical_effects'], [])
             self.assertEqual(init, [])
 
+    def test_an_organization_is_in_the_story_from_its_first_mention(self):
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, 'start'))
+            for name, r in {'club.json': {'id': 'club', 'members': ['ann-old'], 'leader': 'ann-old'},
+                            'cat.json': {'id': 'cat', 'members': ['bo']}}.items():
+                with open(os.path.join(d, 'start', name), 'w', encoding='utf-8') as f:
+                    json.dump(r, f)
+
+            class P:
+                def p(self, *a):
+                    return os.path.join(d, *a)
+            by_id = {x['id']: x for x in PEOPLE}
+            # 社团 is named in b2 and linked only in b4; ann is there in b2 and b4; "大社团" is another name
+            evs = [ev('b1', 1, [], ents=['ann'], course='大社团的人来了。'), ev('b2', 2, [], ents=['ann'], course='安妮带领社团出发。'),
+                   ev('b3', 3, [], ents=['bo']), ev('b4', 4, [], ents=['club', 'ann'])]
+            by_id['big'] = {'id': 'big', 'name': '大社团', 'kind': 'organization'}
+            start.place(P(), by_id, evs, {}, {'ann-old': 'ann'})
+            # the list made before a merge names ann-old: it is ann; she leads it from b2, not from b4 (nor b1: another name)
+            self.assertEqual(sorted((x['predicate'], str(x['value'])) for x in evs[1]['canonical_effects']), [('leader', 'ann'), ('members', "['ann']")])
+            self.assertEqual(evs[3]['canonical_effects'], [])
+            self.assertEqual(evs[0]['canonical_effects'], [])
+            # a cat has no members, whatever list was kept for it
+            self.assertEqual(evs[2]['canonical_effects'], [])
+
 
 if __name__ == '__main__':
     unittest.main()

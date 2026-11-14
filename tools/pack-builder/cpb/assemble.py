@@ -1255,6 +1255,15 @@ def build(project, out_path=None, raw=False):
             same = (old['precision'], old['lo'], old['hi']) == (x['precision'], lo, hi)
             cert[bid] = {'precision': x['precision'], 'lo': lo, 'hi': hi, 'review': None, 'checked': True,
                          'part': old.get('part') if same else None, 'note': '' if same else x.get('note', '')}
+    at_first = {x: i for i, x in enumerate(order)}
+    # an event told twice goes into the one kept (review `duplicates`): its links are of that one, at its time
+    kept = {}
+    for k, d in (rv.get('duplicates') or {}).items():
+        a, b = k.split('|')
+        if d.get('same') and d.get('keep') in (a, b):
+            kept[b if d['keep'] == a else a] = d['keep']
+    t_of = lambda x: cert[kept.get(x, x)]['lo'] if kept.get(x, x) in cert else pos[kept.get(x, x)]['start'] if kept.get(x, x) in pos else pos[x]['start']  # noqa: E731
+    final_rank = {x: i for i, x in enumerate(sorted(order, key=lambda x: (t_of(x), at_first[kept.get(x, x)] if kept.get(x, x) in at_first else at_first[x])))}
     win = timeline.windows(order, pos, {b['id']: b['time'] for bs in beats_by_ch.values() for b in bs}, loose,
                            {b['id']: chid for chid, bs in beats_by_ch.items() for b in bs})
 
@@ -1263,9 +1272,11 @@ def build(project, out_path=None, raw=False):
     titles = collections.Counter(b['title'] for ch in chapters for b in beats_by_ch[ch['id']])
     frames = {}
     events, arcs, edges = [], [], []
+    after_dropped, after_miss = set(), []
     st = FactState(by_id, rep, spirits)
     used_titles = set()
     dropped = collections.Counter()
+    dropped_at = collections.defaultdict(set)      # the events a name comes from: the report lists them, for a person to look
     ends = chapter_ends(edits, R, beats_by_ch)
 
     for ch in chapters:
@@ -1311,6 +1322,7 @@ def build(project, out_path=None, raw=False):
                     eids.extend(ids_)
                 else:
                     dropped[p['name']] += 1
+                    dropped_at[p['name']].add(bid)
             motives = []
             for m in b['motives']:
                 mid = R(m['who'])
@@ -1342,6 +1354,7 @@ def build(project, out_path=None, raw=False):
                 subs = uniq([i for i in (R(n) for n in names.expand(x['subject'])) if i])
                 if not subs:
                     dropped[f'{x["subject"]}（{x["kind"]}）'] += 1
+                    dropped_at[f'{x["subject"]}（{x["kind"]}）'].add(bid)
                     continue
                 for sid in subs:
                     eids.append(sid)
@@ -1358,6 +1371,7 @@ def build(project, out_path=None, raw=False):
                         eids.append(fact[0])
                     else:
                         dropped[f'HARD结果 {o["subject"]}.{o["predicate"]}={o["value"]}'] += 1
+                        dropped_at[f'HARD结果 {o["subject"]}.{o["predicate"]}={o["value"]}'].add(bid)
                 for oid, pr, val in hard_outs:
                     if pr == 'alive':
                         st.alive_changed.add(oid)
@@ -1451,11 +1465,16 @@ def build(project, out_path=None, raw=False):
             marks_of[bid] = marks
             arc_events.append(bid)
             prev_title = title
-        # links inside the chapter, in time order only
-        rank = {x: i for i, x in enumerate(order)}
+        # links inside the chapter, in time order only: the order of the final times (a person's checked window over
+        # the first placement; live 2026-11-15: 三年级毕业 → 白井入学 was dropped as "backwards" by the placement
+        # that the checked dates had corrected)
+        rank = final_rank
         for l in ed.get('links', []):
             a, z = l['from'], l['to']
             if a not in rank or z not in rank:
+                continue
+            if a in ((rv.get('events') or {}).get(z) or {}).get('after_drop', []):
+                after_dropped.add((a, z))      # a person found the link wrong (review events.<to>.after_drop)
                 continue
             if l['relation'] in ('enables', 'precedes', 'motivates') and rank[a] >= rank[z]:
                 rep.add('link_dropped', f'{a} → {z}（{l["relation"]}）方向与时间顺序相反，已舍弃')
@@ -1464,6 +1483,10 @@ def build(project, out_path=None, raw=False):
         recaps = [s['recap'] for s in sums if s['chapter'] == cid and s['recap']]
         arcs.append({'id': arc_id, 'title': ch['title'], 'summary': ed.get('summary') or ' '.join(recaps)[:600] or ch['title'], 'event_ids': arc_events})
 
+    for z, fix in (rv.get('events') or {}).items():
+        for a in fix.get('after_drop') or []:
+            if (a, z) not in after_dropped:
+                after_miss.append(f'events.{z}.after_drop：{a} → {z} 这条先后关系不在摘要里')
     end_before_dependents(events, edges, cert)
     narrow_by_order(events, edges, dt.datetime.combine(dt.date.fromisoformat(project['timeline']['origin_date']), dt.time()) if project.get('timeline') else None)
 
@@ -1489,7 +1512,7 @@ def build(project, out_path=None, raw=False):
     start = (first // 1440 - 1) * 1440
     end = (last // 1440 + 1) * 1440 + 1439
     init_facts = [{'fact': {'entity_id': i, 'predicate': 'alive', 'value': True}, 'source_refs': ['source-scripts'], 'note': '基线'}
-                  for i in sorted(st.alive_changed) if by_id.get(i, {}).get('kind') == 'person'] + (start_state.place(project, by_id, events, rv.get('start')) if not raw else [])
+                  for i in sorted(st.alive_changed) if by_id.get(i, {}).get('kind') == 'person']
     src = c['source']
     tl = project.get('timeline', {})
     pack = {
@@ -1523,7 +1546,7 @@ def build(project, out_path=None, raw=False):
         'edges': edges,
     }
     for k, n in dropped.most_common():
-        rep.add('unresolved', f'{k} ×{n}')
+        rep.add('unresolved', f'{k} ×{n}（{", ".join(sorted(dropped_at[k]))}）')
     # what an event changes beyond itself that its summary tells and its effects missed: a person's checked list
     # (the review file), else the model's proposal (impacts.json), marked until a person checks it
     pack = spelled(project, pack)
@@ -1544,8 +1567,15 @@ def build(project, out_path=None, raw=False):
         rep.add('plain_text', f'{n_plain} 处正文把做包用的说法（事件编号、beat、arc）换成了标题与中文')
     # a person's corrections of what the summaries and models got wrong (cpb/corrections.py), over the plain text
     if not raw:
-        corrections.write_misses(project, corrections.apply(pack, rv, rep))
-    pack['events'] = org_changes.complete(pack['events'], init_facts)
+        corrections.write_misses(project, after_miss + corrections.apply(pack, rv, rep))
+        # 开局状态 over the corrected pack: who is who (merged, recast), who is linked where and who is dead are a
+        # person's by now (live 2026-11-14: 海原理事长, recast into the event where she calls, still joined in December)
+        merged_into = {a: c['merge_into'] for a, c in (rv.get('entities') or {}).items() if c.get('merge_into')}
+        for a in merged_into:
+            while merged_into[a] in merged_into:
+                merged_into[a] = merged_into[merged_into[a]]
+        pack['initial_state']['facts'] += start_state.place(project, {x['id']: x for x in pack['entities']}, pack['events'], rv.get('start'), merged_into)
+    pack['events'] = org_changes.complete(pack['events'], pack['initial_state']['facts'])
     for e in pack['events']:
         for o in e['canonical_effects']:
             if o.get('op') in ('add', 'remove'):

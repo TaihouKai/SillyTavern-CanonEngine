@@ -1,5 +1,15 @@
 # Changelog
 
+## Toaru pack 4.6.0 — 2026-11-15
+
+- **Every list the builder leaves for a person was read, item by item** (six review lists of the checks, about 155 items, and the report's lists of unmatched names, merges, alias collisions, death judgements and the 456 doubts the summaries noted). What they showed is fixed, each kind in the builder:
+  - **An organization's members joined only where the organization was linked**, and many were named long before that: 蕾薇妮雅 led 黎明晨光 from 2021-01-16 (named from 10-05), 统括理事会 had no member before December, the students of 上条's school entered it on 12-04. An organization now counts from the event that first names it, not just from one that links it (a name inside a longer name does not count: 格雷姆林 in 真·格雷姆林). Where the person was in the story before the organization was named, a person decided (students and teachers from their first scene, the board's members from 2019, 一方通行 on the board only from his inauguration, 黑鸦部队 only after the 2017 crash, 上条势力 from 夏威夷篇).
+  - **The starting members are placed after a person's corrections**, so a merge, a recast or a death a person decided counts (布洛德薇德's list named the id she was merged from and was lost; 海原理事长 joined in December because the event where she calls had another 海原 in it). A list kept for 斯芬克斯, the cat, no longer gives it members.
+  - **A link between events was dropped as "backwards" by the builder's first placement**, not by the checked times: 80 of the 89 links in the report were valid (三年级毕业 → 白井入学). Links are now checked against the final times, with an event told twice counting as the one kept. The 9 left found real errors: 洛杉矶篇's ending had 亚雷斯塔 kill R&C's leaders at 17:05, after the noon dinner where 史提尔 reports their HQ "handled"; 世界人民的裁决 came before the battle whose footage it broadcasts; a hijack overlapped the meeting it precedes; and so on (7 windows). A person can now remove a link the summary got wrong (review `events.<id>.after_drop`).
+  - **Dates**: 天体观测图篇 on 10-05/06 (the arc's own window; it was on 10-16 with no reason), 死灵术师篇's climax on 9-02 night (it was 9-13, after the arc that follows it), 越狱风暴篇 on 10-14–10-17 (it ran to 10-22, past the "before 10-20 6:00" its sources set), 美琴 learning of 上条's lost memory during the call in the fight (it was placed after the fight), the 圣日耳曼篇 epilogue on 12-01 night, 心理掌握篇 at the end of November as its sources say.
+  - **奈芙蒂斯 did not die** on 12-03 (she is in the 新世界 on 12-09 and fights 一方通行 on 12-14); 亲船素甘, BLAU and 木原平均 had wrong or empty descriptions; 14 events got the people, organizations and places their text names.
+- The report lists every item now (it cut lists at 150) and says which events an unmatched name comes from. canon-lint 0 errors, 0 warnings; checks 0 problems.
+
 ## Toaru pack 4.5.0 — 2026-11-14
 
 - **A person read the whole pack, event by event, entity by entity and every 常态 and 思考方式, and about 190 things were wrong.** Each is fixed in the review file, and each *kind* got a check in the builder first (verified on the 4.4 pack, which it flags), so it cannot come back:

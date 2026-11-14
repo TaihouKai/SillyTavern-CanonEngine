@@ -72,9 +72,7 @@ def write(project, pack, rep, chrep, clock, pack_path, lint_res, ledger=None):
     for k, title in names.items():
         items = rep.items.get(k)
         if items:
-            L += ['', f'## {title}（{len(items)}）', ''] + [f'- {x}' for x in items[:150]]
-            if len(items) > 150:
-                L.append(f'- ……另有 {len(items) - 150} 条')
+            L += ['', f'## {title}（{len(items)}）', ''] + [f'- {x}' for x in items]     # all of them: these are for a person to read
     # open questions from the summaries
     qs = []
     for ch in project_chapters(project):
@@ -83,7 +81,7 @@ def write(project, pack, rep, chrep, clock, pack_path, lint_res, ledger=None):
             for q in (s or {}).get('open_questions', []):
                 qs.append(f'{s["unit"]} {s["title"]}：{q}')
     if qs:
-        L += ['', f'## 摘要里的存疑之处（{len(qs)}）', ''] + [f'- {q}' for q in qs[:200]]
+        L += ['', f'## 摘要里的存疑之处（{len(qs)}）', ''] + [f'- {q}' for q in qs]
     if ledger:
         L += ['', f'模型用量（本次运行）：{ledger.summary()}']
     path = project.p('out', 'report.md')

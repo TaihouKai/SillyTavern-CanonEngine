@@ -136,14 +136,15 @@ def dead_at(events):
     return {w: [(a, b if b is not None else float('inf')) for a, b in s] for w, s in out.items()}
 
 
-def place(project, by_id, events, fixes=None):
+def place(project, by_id, events, fixes=None, rename=None):
     """The organizations' starting members and leaders, each from when they enter the story: a member joins the record
     at the first event (from their own first appearance and the organization's) that involves them or the
     organization, or before they are seen leaving it; one in no event is in the initial state (not at the beginning of
     time: 格雷姆林 had members in 2019, before it was formed). Nobody joins while dead (live 2026-11-14: 统括理事会 got
     药味久子 a month after her death, at the first event that named the council). A person's decisions (review file
     `start`, `fixes`): {org: {"drop": [ids the model put in it wrongly: a former member, one it only met], "at": {id:
-    event where they enter}}}. Returns the initial-state facts; events change in place."""
+    event where they enter}}}. `rename`: {id: the id it was merged into} (a person's merges, review `entities`), since
+    the lists were made before them. Returns the initial-state facts; events change in place."""
     d = project.p('start')
     out = []
     if not os.path.isdir(d):
@@ -158,6 +159,23 @@ def place(project, by_id, events, fixes=None):
     for e in timed:
         for i in e.get('entity_ids') or []:
             seen.setdefault(i, at(e))
+    # an organization is in the story from the first event that names it, linked or not (live 2026-11-14: 黎明晨光 was
+    # named from 10-05 on and linked only on 1-16, so 蕾薇妮雅 led it from January); a name inside a longer name of
+    # another organization is not it (格雷姆林 in 真·格雷姆林)
+    org_names = {i: [n for n in [x.get('name') or ''] + list(x.get('aliases') or []) if len(n) >= 2]
+                 for i, x in by_id.items() if x.get('kind') == 'organization'}
+    longer = {i: [n2 for j, ns in org_names.items() if j != i for n2 in ns if any(n in n2 and n != n2 for n in org_names[i])] for i in org_names}
+    named = {}
+    for e in timed:
+        text = e.get('title', '') + ' ' + ' '.join(str(v) for v in (e.get('summary') or {}).values())
+        for i, ns in org_names.items():
+            if i in named:
+                continue
+            t = text
+            for n2 in sorted(longer[i], key=len, reverse=True):
+                t = t.replace(n2, '')
+            if any(n in t for n in ns):
+                named[i] = at(e)
     eff = lambda e, oid: [(x.get('fact') or x) | {'op': x.get('op', 'set')} for x in e.get('canonical_effects') or [] if (x.get('fact') or x).get('entity_id') == oid]  # noqa: E731
     touches = lambda e, oid: oid in (e.get('entity_ids') or []) or bool(eff(e, oid))  # noqa: E731
     vals = lambda v: [v] if isinstance(v, str) else list(v or [])  # noqa: E731
@@ -176,9 +194,11 @@ def place(project, by_id, events, fixes=None):
 
     for f in sorted(os.listdir(d)):
         r = read_json(os.path.join(d, f)) or {}
+        ren = lambda i: (rename or {}).get(i, i)  # noqa: E731
+        r = dict(r, id=ren(r.get('id')), members=[ren(m) for m in r.get('members') or []], leader=ren(r.get('leader')) if r.get('leader') else None)
         oid = r.get('id')
-        if oid not in by_id or r.get('none'):
-            continue
+        if oid not in by_id or r.get('none') or by_id[oid].get('kind') != 'organization':
+            continue        # only an organization has members (a list kept for 斯芬克斯, the cat, is not one)
         fx = fixes.get(oid) or {}
         wrong = set(fx.get('drop') or [])
         ms = sorted({m for m in r.get('members') or [] if by_id.get(m, {}).get('kind') == 'person' and m not in wrong})
@@ -186,7 +206,7 @@ def place(project, by_id, events, fixes=None):
         why = r.get('why') or '按组织页面'
         if re.search(r'[A-Za-z]{3,}', why):
             why = '按组织页面'      # the model's reason in English: not a text for the pack
-        org_seen = seen.get(oid)
+        org_seen = min((x for x in (seen.get(oid), named.get(oid)) if x is not None), default=None)
         plan = {}
         for pred, who in [('members', m) for m in ms] + ([('leader', leader)] if leader else []):
             if (fx.get('at') or {}).get(who) == 'start':

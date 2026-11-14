@@ -11,6 +11,9 @@ person, and stays fixed on a rebuild.
                          "knowers_drop": [entity ids],    not among those who know its secret
                          "recast": {"from id": "to id"},  one entity read as another: every reference moves
                          "texts": [{"old", "new"}],       text of this event (title, summary, hook, roles, required)
+                         "after_drop": [event ids],       a link "that one leads to this" the summary got wrong
+                                                          (applied where links become edges, before the windows
+                                                          are narrowed by them: cpb/assemble.py)
                          "note": why}
   entities: entity id -> {"merge_into": id}               the same thing as another entity: references move there,
                                                           its name and aliases become aliases there

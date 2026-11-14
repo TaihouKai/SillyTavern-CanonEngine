@@ -447,6 +447,17 @@ class PipelineTest(unittest.TestCase):
         self.assertTrue(all('until' in o for e in pack['events'] for o in e['canonical_effects'] if o.get('op', 'set') != 'unset'))
         res = report.lint(gcfg, path)
         self.assertTrue(res['ok'], res.get('errors'))
+        # a link a person found wrong (review events.<to>.after_drop) is not an edge; one that no longer is in the
+        # summaries is listed with the other corrections that match nothing
+        self.assertTrue(pack['edges'])
+        ed = pack['edges'][0]
+        rv = review.load(self.project)
+        rv['events'] = {ed['to']: {'after_drop': [ed['from']], 'note': 'wrong'}, pack['events'][0]['id']: {'after_drop': ['nowhere'], 'note': 'stale'}}
+        review.save(self.project, rv)
+        pack, rep, chrep, clock, path = assemble.build(self.project)
+        self.assertFalse(any((x['from'], x['to']) == (ed['from'], ed['to']) for x in pack['edges']))
+        from cpb import corrections
+        self.assertEqual(corrections.read_misses(self.project), [f'events.{pack["events"][0]["id"]}.after_drop：nowhere → {pack["events"][0]["id"]} 这条先后关系不在摘要里'])
 
     def test_pipeline_long_chapters_in_parts(self):
         self.project.data['chapter'] = {'max_beats': 2}           # 4 beats per chapter -> 2 parts each

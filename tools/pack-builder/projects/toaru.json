@@ -60,7 +60,7 @@
  },
  "pack": {
   "pack_id": "toaru-index-chronicle",
-  "pack_version": "4.5.0",
+  "pack_version": "4.6.0",
   "release": "../../examples/toaru-index.canon.json",
   "title": "魔法禁书目录 编年史（旧约·新约·创约及外传）",
   "language": "zh-CN",
@@ -999,8 +999,8 @@
   {
    "id": "mental-out",
    "title": "新约11 心理掌握篇",
-   "start": "2020-11-22",
-   "end": "2020-11-23",
+   "start": "2020-11-27",
+   "end": "2020-11-28",
    "huiji": [
     "心理掌握篇"
    ],
