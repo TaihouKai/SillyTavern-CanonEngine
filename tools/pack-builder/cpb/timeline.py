@@ -548,7 +548,15 @@ def certainty(origin, arc, beats, pos, dated, squeezed):
             nxt = (first.replace(year=first.year + 1, month=1) if first.month == 12 else first.replace(month=first.month + 1))
             out[b['id']] = {'precision': 'month', 'lo': (first - origin).days * DAY, 'hi': (nxt - origin).days * DAY - 1, 'review': review}
         elif clock is not None:
-            out[b['id']] = {'precision': 'range', 'lo': s, 'hi': s + max(dur, 30), 'review': review}
+            # the time the sources state, not where the order put the beat (live: "17:00" placed at 17:01 behind the
+            # beat before it, "19:00" at 19:10); its end is not stated: its own length, cut back where a beat that
+            # follows from it begins (assemble.end_before_dependents)
+            at = (s // DAY) * DAY + clock
+            if at - s > DAY // 2:
+                at -= DAY
+            elif s - at > DAY // 2:
+                at += DAY
+            out[b['id']] = {'precision': 'range', 'lo': at, 'hi': at + max(dur, 30), 'review': review}
         elif part in PART_SPAN:
             d = s // DAY
             if part in ('night', 'late') and s % DAY < 6 * 60:

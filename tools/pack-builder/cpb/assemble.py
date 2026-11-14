@@ -853,6 +853,28 @@ def apply_ends(events, rv, proposals, marks_of, by_id):
             marks_of.setdefault(ev['id'], []).append(f'{undecided} 项状态还没有结束方式（运行 ends）')
 
 
+def end_before_dependents(events, edges, cert):
+    """An event with a known time whose end the sources do not state is over when an event that follows from it
+    (enables / precedes) begins: its window ends just before that start (live: 病毒提前启动 20:00–20:30 and 头部中枪
+    at 20:12, which it enables). Windows a person set (the review file) are theirs and are not touched."""
+    by_id = {e['id']: e for e in events}
+    tick = lambda w: w['day'] * 1440 + w['minute']  # noqa: E731
+    for ed in edges:
+        if ed['relation'] not in ('enables', 'precedes'):
+            continue
+        a, z = by_id.get(ed['from']), by_id.get(ed['to'])
+        if not a or not z or (cert.get(a['id']) or {}).get('checked'):
+            continue
+        if a['when']['precision'] not in ('minute', 'range') or z['when']['precision'] not in ('minute', 'range'):
+            continue
+        lo, hi, start = tick(a['when']['earliest']), tick(a['when']['latest']), tick(z['when']['earliest'])
+        if lo <= start < hi:
+            end = max(lo, start - 1) if start > lo else lo
+            a['when']['latest'] = {'day': end // 1440, 'minute': end % 1440}
+            if end == lo:
+                a['when']['precision'] = 'minute'
+
+
 def when_label(clock, cx, dated):
     """An event's time as people read it: the time when the sources give it, else what they give (a part of a day, a
     day, a month, years), never a made-up hour."""
@@ -1191,6 +1213,8 @@ def build(project, out_path=None, raw=False):
             edges.append({'id': f'edge.{len(edges) + 1}', 'from': a, 'to': z, 'relation': l['relation'], 'basis': 'inferred', 'source_refs': ['source-scripts'], 'note': l['note']})
         recaps = [s['recap'] for s in sums if s['chapter'] == cid and s['recap']]
         arcs.append({'id': arc_id, 'title': ch['title'], 'summary': ed.get('summary') or ' '.join(recaps)[:600] or ch['title'], 'event_ids': arc_events})
+
+    end_before_dependents(events, edges, cert)
 
     # deaths that do not hold (cpb/deaths.py: decided by the model, applied here)
     back, n_back = deaths.apply(events, project.p('deaths.json'), rep, ents) if not raw else (set(), 0)

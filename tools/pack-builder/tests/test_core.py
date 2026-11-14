@@ -189,6 +189,30 @@ class TimelineTest(unittest.TestCase):
         self.assertEqual(timeline.time_of('凌晨12点'), 0)
         self.assertEqual(timeline.time_of('16:00前往，17:00抵达'), 16 * 60)
         self.assertEqual(timeline.time_of('八点前 / 10:00开始'), 10 * 60)
+        self.assertEqual(timeline.time_of('深夜十二点三十分'), 30)
+        self.assertEqual(timeline.time_of('早上八点半'), 8 * 60 + 30)
+
+    def test_a_stated_time_is_the_start_and_ends_before_what_follows(self):
+        # live: "17:00" placed at 17:01 behind the beat before it; 病毒提前启动 20:00–20:30 and 头部中枪 at 20:12, which it enables
+        import datetime as dt
+        D = timeline.DAY
+        origin = dt.date(2020, 1, 1)
+        arc = {'start': '2020-01-01', 'end': '2020-01-01'}
+        beats = [{'id': 'a', 'time': {'stated': '1月1日17:00', 'duration_minutes': 40, 'after_previous': 'unknown'}},
+                 {'id': 'b', 'time': {'stated': '17:25', 'duration_minutes': 30, 'after_previous': 'continuous'}},
+                 {'id': 'c', 'time': {'stated': '', 'clock': '17:30', 'time_of_day': 'evening', 'after_previous': 'continuous'}}]
+        cx = timeline.certainty(origin, arc, beats, {'a': (17 * 60 + 1, 17 * 60 + 41), 'b': (17 * 60 + 41, 18 * 60 + 11), 'c': (18 * 60 + 11, 18 * 60 + 41)}, {'a'}, set())
+        self.assertEqual((cx['a']['precision'], cx['a']['lo']), ('range', 17 * 60))     # the stated time, not the order's 17:01
+        self.assertEqual(cx['b']['lo'], 17 * 60 + 25)
+        self.assertEqual(cx['c']['precision'], 'part_of_day')                           # a clock no source states is no time
+        when = lambda c: {'earliest': {'day': c['lo'] // D, 'minute': c['lo'] % D}, 'latest': {'day': c['hi'] // D, 'minute': c['hi'] % D}, 'precision': c['precision']}  # noqa: E731
+        events = [{'id': k, 'when': when(cx[k])} for k in ('a', 'b')]
+        assemble.end_before_dependents(events, [{'from': 'a', 'to': 'b', 'relation': 'enables'}], cx)
+        self.assertEqual(events[0]['when']['latest'], {'day': 0, 'minute': 17 * 60 + 24})  # over before b begins
+        cx['a']['checked'] = True                                                          # a person's window stays as it is
+        events = [{'id': k, 'when': when(cx[k])} for k in ('a', 'b')]
+        assemble.end_before_dependents(events, [{'from': 'a', 'to': 'b', 'relation': 'enables'}], cx)
+        self.assertEqual(events[0]['when']['latest'], {'day': 0, 'minute': 17 * 60 + 40})
 
     def test_a_night_past_midnight(self):
         D = timeline.DAY

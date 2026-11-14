@@ -1,5 +1,9 @@
 # Changelog
 
+## Toaru pack 4.1.0 — 2026-11-14
+
+- **An event with a stated time starts at that time and is over when what follows from it begins.** The builder put a stated "17:00" at 17:01 (or "19:00" at 19:10) behind the beat before it, gave every stated time an invented length of 30 minutes or more, and took a clock the summary filled in from "中午" or from the beat before as a stated time; 14 events then overlapped the events they enable or precede (病毒提前启动 20:00–20:30, 头部中枪 at 20:12). Now: the stated time is the start; an end the sources do not give ends just before an event that follows from it begins; a clock no source states is the part of the day. 66 windows changed, each checked against its source (six set by hand: an English "7:0x" that is the evening, a span "20:00之前…23:00", a battle before "0:00 当麻醒来", a meeting at 18:00 after "16:00前往", "16:00（前）", "0:00~0:15"). The pack lints with no error and no warning.
+
 ## 1.34.0 — 2026-11-14
 
 - **What play records says when it ends, like the pack.** A state a reply shows (美琴 knocked out, 白井 in hospital, the two of you at the fair), how an offscreen event turned out, and a state the player asserts were kept until some later reply happened to change them — a knock-out could last the rest of the game. The analysis now must give each value it sets its end ("lasting", minutes, or until a canon event is over); the engine ends it itself and the fact is again what it was before. A result of a canon event that is that event's own effect holds as the pack says, whatever the analysis guessed.
