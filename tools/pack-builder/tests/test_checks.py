@@ -25,6 +25,20 @@ def st(ent, pred, val, op='set'):
 
 
 class ChecksTest(unittest.TestCase):
+    def test_windows_against_their_source_and_lint_warnings(self):
+        # live 2026-11-14: 40 windows "as the sources give them" did not start at the stated time; 14 lint warnings were left
+        import datetime as dt
+        def e(i, stated, lo, hi, p='range'):
+            return {'id': i, 'title': i, 'when': {'earliest': {'day': lo // 1440, 'minute': lo % 1440}, 'latest': {'day': hi // 1440, 'minute': hi % 1440}, 'precision': p, 'label': f'x；文中：{stated}'}}
+        pack = {'events': [e('a', '1月1日17:00', 17 * 60 + 1, 17 * 60 + 31), e('b', '1月1日17:00', 17 * 60, 17 * 60 + 30), e('c', '1月2日', 0, 1439, 'day'),
+                           e('d', '1月1日傍晚', 8 * 60, 9 * 60, 'part_of_day'), e('f', '10月18日0:00（UTC+0）', 9 * 60, 9 * 60 + 30), e('g', '1年前1月1日13:00', 12 * 60, 15 * 60)]}
+        out = checks.source_mismatches(pack, dt.date(2020, 1, 1), {})
+        self.assertEqual(sorted(x.split(' ')[0] for x in out), ['a', 'c', 'd', 'g'])        # f: another time zone, converted by a person
+        self.assertEqual(checks.source_mismatches(pack, dt.date(2020, 1, 1), {'a': '17:00 后紧接前一件事', 'c': '核对：按资料'})[0].split(' ')[0], 'c')
+        lint = {'warnings': [{'path': '/events/1/when', 'message': '"x" depends on "y" but its window overlaps'}]}
+        self.assertEqual(len(checks.lint_findings(lint, {})), 1)
+        self.assertEqual(checks.lint_findings(lint, {'"x" depends on "y"': 'they run in parallel in the source'}), [])
+
     def test_version_follows_content(self):
         # live: six rebuilds of the Toaru pack, one in a new format, all went out as 3.0.0
         import json

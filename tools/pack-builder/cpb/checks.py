@@ -221,9 +221,15 @@ def run(project, pack):
     return out, snaps
 
 
-def section(project, pack):
+def section(project, pack, lint_res=None):
     """The report's lines for the checks, and a one-line summary."""
     res, snaps = run(project, pack)
+    from . import review as reviews
+    rv = reviews.load(project) if hasattr(project, 'path') else {'times': {}, 'warnings': {}}
+    origin = dt.date.fromisoformat((project.get('timeline') or {}).get('origin_date', '2000-01-01'))
+    res.append(('problem', '时间和文中不符', '窗口的开始、日期或时段与事件自己的文中时间对不上（核对文件里写明理由的除外）',
+                source_mismatches(pack, origin, {k: v.get('note', '') for k, v in rv['times'].items()})))
+    res.append(('problem', 'canon-lint 警告未处理', '每条警告都要改掉，或在核对文件 warnings 里写明为什么接受', lint_findings(lint_res, rv.get('warnings') or {})))
     probs = [(t, ls) for k, t, _, ls in res if k == 'problem' and ls]
     L = ['## 质量检查', '', '每次 `build` 自动跑（代码检查，不调用模型）。「问题」应为 0；「复核」是各步骤的判断结果，供人过目。', '',
          '| 检查 | 类别 | 数量 |', '|---|---|---|']
@@ -236,3 +242,64 @@ def section(project, pack):
         L += ['', f'### 组织一览：{d}（{len(rows)}）', ''] + [f'- {r}' for r in rows]
     summary = f'checks: {sum(len(ls) for _, ls in probs)} problems in {len(probs)} kinds' + (f' ({"; ".join(f"{t} {len(ls)}" for t, ls in probs)})' if probs else '')
     return L, summary
+
+
+# ---- what the pack says against what the sources say (code, every build) ------------------------------------------
+# live 2026-11-14: a whole-pack review accepted 1421 windows "as the sources give them" while 40 of them did not start at
+# the time the sources state (17:00 placed at 17:01, 19:00 at 19:10) and 14 overlapped the events they enable — the
+# lint said so in warnings nobody acted on. A principle without a check is a wish: each kind is compared here.
+
+def _stated(e):
+    lab = e['when'].get('label') or ''
+    return lab.split('文中：', 1)[1] if '文中：' in lab else ''
+
+
+def source_mismatches(pack, origin, notes):
+    """[line] for every event whose window does not agree with the time its own source text states: the clock time it
+    starts at, the day it is on, the part of the day it is in. A window a person set with a note saying why (the
+    review file: a time zone converted, a span read) is theirs and not compared; one taken over "as the sources give
+    it" is."""
+    from . import timeline
+    out = []
+    for e in pack['events']:
+        note = notes.get(e['id']) or ''
+        if note and not note.startswith('核对'):
+            continue
+        st = _stated(e)
+        if not st or 'UTC' in st or e.get('frame_id'):
+            continue
+        w = e['when']
+        lo = w['earliest']['day'] * DAY + w['earliest']['minute']
+        hi = w['latest']['day'] * DAY + w['latest']['minute']
+        p = w['precision']
+        clock = timeline.time_of(st)
+        if clock is not None and p in ('minute', 'range', 'part_of_day', 'day'):
+            if p not in ('minute', 'range'):
+                out.append(f'{e["id"]} {e["title"]}：文中有时刻（{st[:30]}），时间却只记到{ {"part_of_day": "时段", "day": "天"}[p] }')
+            elif lo % DAY != clock:
+                out.append(f'{e["id"]} {e["title"]}：文中 {st[:30]}，开始却是 {lo % DAY // 60:02d}:{lo % 60:02d}')
+        part = timeline.part_of({'stated': st}) if clock is None else None
+        if part in timeline.PART_SPAN and p in ('part_of_day', 'range', 'minute'):
+            a, z = timeline.PART_SPAN[part]
+            d = lo // DAY - (1 if part in ('night', 'late') and lo % DAY < 6 * 60 else 0)
+            if not (d * DAY + a <= lo and hi <= d * DAY + z):
+                out.append(f'{e["id"]} {e["title"]}：文中说{timeline.PART_ZH[part]}（{st[:30]}），窗口不在这个时段里')
+        m = re.search(r'(?<![0-9年])([0-9]{1,2})月([0-9]{1,2})日', st)
+        if m and not re.search(r'[0-9]+日\s*[前后]|之前|之后|以前|以后', st[m.end():m.end() + 3]) and p not in ('month', 'year'):
+            mo, dd = int(m.group(1)), int(m.group(2))
+            day_of = lambda t: (origin + dt.timedelta(days=t // DAY))  # noqa: E731
+            ds = {(x.month, x.day) for x in (day_of(t) for t in range(lo - lo % DAY, hi + 1, DAY))}
+            if (mo, dd) not in ds:
+                out.append(f'{e["id"]} {e["title"]}：文中 {mo}月{dd}日，窗口却在 {day_of(lo).isoformat()}' + (f' 至 {day_of(hi).isoformat()}' if hi // DAY != lo // DAY else ''))
+    return out
+
+
+def lint_findings(lint_res, accepted):
+    """Every canon-lint warning is a problem until the review file accepts it with a reason (`warnings`: message ->
+    why): a warning is how the lint reports data that is likely wrong, and a pack is not handed over with it unread."""
+    out = []
+    for x in (lint_res or {}).get('warnings', []):
+        msg = f'{x.get("path", "")} {x.get("message", "")}'.strip()
+        if not any(k in msg for k in accepted):
+            out.append(msg[:240])
+    return out

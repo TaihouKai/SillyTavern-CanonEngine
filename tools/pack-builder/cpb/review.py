@@ -10,6 +10,8 @@ through.
            the state is wrong (the summary misread the source) and leaves the event
   impacts: event id -> {"effects": [{"entity": id, "predicate": ..., "value": ..., "op": "set"|"add"|"remove", "until": ...}], "note": ...}
            what the event changes beyond itself that its summary tells and its effects did not have, checked
+  warnings: a canon-lint warning (a part of its text) -> why it is accepted; every other warning is a problem of the
+           build's checks
 """
 import datetime as dt
 import os
@@ -25,13 +27,13 @@ def path(project):
 
 def load(project):
     d = read_json(path(project), {}) or {}
-    for k in ('times', 'ends', 'impacts'):
+    for k in ('times', 'ends', 'impacts', 'warnings'):
         d.setdefault(k, {})
     return d
 
 
 def save(project, data):
-    write_json(path(project), {k: dict(sorted(data[k].items())) for k in ('times', 'ends', 'impacts')}, indent=1)
+    write_json(path(project), {k: dict(sorted(data.get(k, {}).items())) for k in ('times', 'ends', 'impacts', 'warnings')}, indent=1)
 
 
 def to_tick(origin, s):

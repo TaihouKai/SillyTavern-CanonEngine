@@ -49,7 +49,7 @@ def write(project, pack, rep, chrep, clock, pack_path, lint_res, ledger=None):
                 L.append(f'- {_msg(x)}')
         L.append('')
     from . import checks
-    cl, summary = checks.section(project, pack)
+    cl, summary = checks.section(project, pack, lint_res)
     L += cl + ['']
     from .util import write_json
     write_json(project.p('out', 'entities-last.json'), {e['id']: e['name'] for e in pack['entities']})

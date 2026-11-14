@@ -1,5 +1,9 @@
 # Changelog
 
+## Toaru pack 4.2.0 — 2026-11-14
+
+- **The builder's checks compare every window with its own source text, and every lint warning is a problem.** The 4.0 review took 1421 windows over "as the sources give them" while 40 did not start at the stated time, and 14 lint warnings were left as harmless; neither was checked by code. Now each build compares the window of every event the sources date with what they state (the clock time it starts at, the day, the part of the day; a window a person set with a reason in the review file is theirs), and a canon-lint warning counts as a problem until it is fixed or accepted with a reason (review file `warnings`). On the 4.0 pack the comparison finds those 40; on this one two: 唯一取得修格斯样本 ("12月3日夜~12月4日8点前", was only the morning of the 4th; fixed) and 统括理事会会议 (its "12月12日" is the day of the shutdown, not of the meeting; the reason is recorded).
+
 ## Toaru pack 4.1.0 — 2026-11-14
 
 - **An event with a stated time starts at that time and is over when what follows from it begins.** The builder put a stated "17:00" at 17:01 (or "19:00" at 19:10) behind the beat before it, gave every stated time an invented length of 30 minutes or more, and took a clock the summary filled in from "中午" or from the beat before as a stated time; 14 events then overlapped the events they enable or precede (病毒提前启动 20:00–20:30, 头部中枪 at 20:12). Now: the stated time is the start; an end the sources do not give ends just before an event that follows from it begins; a clock no source states is the part of the day. 66 windows changed, each checked against its source (six set by hand: an English "7:0x" that is the evening, a span "20:00之前…23:00", a battle before "0:00 当麻醒来", a meeting at 18:00 after "16:00前往", "16:00（前）", "0:00~0:15"). The pack lints with no error and no warning.

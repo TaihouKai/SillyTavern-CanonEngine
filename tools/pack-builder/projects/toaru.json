@@ -60,7 +60,7 @@
  },
  "pack": {
   "pack_id": "toaru-index-chronicle",
-  "pack_version": "4.1.0",
+  "pack_version": "4.2.0",
   "release": "../../examples/toaru-index.canon.json",
   "title": "魔法禁书目录 编年史（旧约·新约·创约及外传）",
   "language": "zh-CN",
