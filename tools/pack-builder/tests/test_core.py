@@ -208,6 +208,27 @@ class TimelineTest(unittest.TestCase):
         self.assertTrue(ev[1]['when']['label'].endswith('；文中：下午'))                 # the source text stays last
         self.assertIn('按先后在', ev[1]['when']['label'])
 
+    def test_shared_windows_are_marked_until_each_has_its_time(self):
+        # live: 上条乘滑翔机升空 and 上条与莎特奥拉对决 shown (and played) as one moment, "1~8/8" of one evening
+        w = lambda lo, hi, p='part_of_day': {'earliest': {'day': 0, 'minute': lo}, 'latest': {'day': 0, 'minute': hi}, 'precision': p}  # noqa: E731
+        ev = [{'id': 'a', 'arc_id': 's', 'when': w(1080, 1259)}, {'id': 'b', 'arc_id': 's', 'when': w(1080, 1259)},
+              {'id': 'c', 'arc_id': 's', 'when': w(1080, 1110, 'range')},                     # a known time shares nothing
+              {'id': 'd', 'arc_id': 't', 'when': w(1080, 1259)},                              # another story's evening
+              {'id': 'e', 'arc_id': 's', 'when': w(1080, 1260)}]                              # a window of its own
+        marks = {}
+        assemble.mark_shared_windows(ev, {}, marks)
+        self.assertEqual(sorted(marks), ['a', 'b'])
+        self.assertIn('第 1/2 件', marks['a'][0])
+        self.assertIn('第 2/2 件', marks['b'][0])
+
+    def test_a_given_time_is_labelled_short(self):
+        # live: the GM's list of required events read "2021-01-13 14:00（编辑推定（原文没有确切时刻……；原窗口：……））"
+        class Clock:
+            label = staticmethod(lambda t: f'D{t // 1440} {t % 1440 // 60:02d}:{t % 60:02d}')
+        cx = {'precision': 'range', 'lo': 19 * 60, 'hi': 19 * 60 + 30}
+        self.assertEqual(assemble.when_label(Clock, dict(cx, note='编辑推定（原文没有确切时刻，按先后排定）：很长的理由'), False), '约D0 19:00（编辑推定）')
+        self.assertEqual(assemble.when_label(Clock, dict(cx, note='9月8日晚上'), False), 'D0 19:00（9月8日晚上）')   # a person's words on the time stay
+
     def test_a_stated_time_is_the_start_and_ends_before_what_follows(self):
         # live: "17:00" placed at 17:01 behind the beat before it; 病毒提前启动 20:00–20:30 and 头部中枪 at 20:12, which it enables
         import datetime as dt

@@ -35,6 +35,10 @@ class ChecksTest(unittest.TestCase):
         out = checks.source_mismatches(pack, dt.date(2020, 1, 1), {})
         self.assertEqual(sorted(x.split(' ')[0] for x in out), ['a', 'c', 'd', 'g'])        # f: another time zone, converted by a person
         self.assertEqual(checks.source_mismatches(pack, dt.date(2020, 1, 1), {'a': '17:00 后紧接前一件事', 'c': '核对：按资料'})[0].split(' ')[0], 'c')
+        # a person's reason takes it out of the problems but not out of sight
+        noted = checks.source_mismatches(pack, dt.date(2020, 1, 1), {'a': '17:00 后紧接前一件事', 'c': '核对：按资料'}, noted=True)
+        self.assertEqual(len(noted), 1)
+        self.assertTrue(noted[0].startswith('a ') and noted[0].endswith('（理由：17:00 后紧接前一件事）'))
         # an exact time no source states (a clock the summary filled in) and windows that do not hold the order
         pack2 = {'events': [e('h', '9月2日中午', 12 * 60, 12 * 60 + 30), e('i', '', 13 * 60, 13 * 60 + 30), e('j', '下午', 12 * 60, 17 * 60 + 59, 'part_of_day'),
                             e('k', '下午', 12 * 60, 17 * 60 + 59, 'part_of_day')],

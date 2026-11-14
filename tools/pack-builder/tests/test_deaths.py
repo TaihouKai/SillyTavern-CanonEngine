@@ -29,9 +29,12 @@ class DeathsTest(unittest.TestCase):
             settled, n = deaths.apply(events, path)
         self.assertEqual(n, 2)
         later = events[3]['canonical_effects']
-        self.assertIn({'op': 'set', 'fact': {'entity_id': 'b', 'predicate': 'alive', 'value': True}}, later)
-        self.assertIn({'op': 'set', 'fact': {'entity_id': 'c', 'predicate': 'whereabouts', 'value': deaths.BACK}}, later)
-        self.assertEqual(events[2]['canonical_effects'], [{'op': 'set', 'fact': {'entity_id': 'c', 'predicate': 'whereabouts', 'value': deaths.MISSING}}])
+        # what the code adds carries its end (live 2026-11-14: a 重新出现 moved to another event when its times were
+        # set and was left with no end): back holds on; missing lasts until that first later appearance
+        self.assertIn({'op': 'set', 'fact': {'entity_id': 'b', 'predicate': 'alive', 'value': True}, 'until': 'lasting'}, later)
+        self.assertIn({'op': 'set', 'fact': {'entity_id': 'c', 'predicate': 'whereabouts', 'value': deaths.BACK}, 'until': 'lasting'}, later)
+        self.assertEqual(events[2]['canonical_effects'], [{'op': 'set', 'fact': {'entity_id': 'c', 'predicate': 'whereabouts', 'value': deaths.MISSING},
+                                                           'until': {'event': 'later'}}])
         self.assertEqual(events[0]['canonical_effects'], [dies('a')])
         self.assertEqual(settled, {deaths.BACK})
 

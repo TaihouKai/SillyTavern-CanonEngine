@@ -931,12 +931,35 @@ def narrow_by_order(events, edges, origin=None):
     return bad
 
 
+def mark_shared_windows(events, rv, marks_of):
+    """Events of one story that share a window whose time is not known happen one after another, but nothing tells
+    which part of it each one takes; a game needs each its own time (user: "原作没给精确时间，你可以手动加…反正这玩意是游戏").
+    Each such event is marked until a person gives it its own time in the review file (then the window is no longer
+    shared); a shared window set by hand is still shared."""
+    tick = lambda w: w['day'] * 1440 + w['minute']  # noqa: E731
+    groups = collections.defaultdict(list)
+    for e in events:
+        w = e['when']
+        if w['precision'] in ('minute', 'range') or not w.get('earliest'):
+            continue
+        groups[(e.get('arc_id'), tick(w['earliest']), tick(w['latest']))].append(e)
+    for evs in groups.values():
+        if len(evs) < 2:
+            continue
+        for k, e in enumerate(evs, 1):
+            marks_of.setdefault(e['id'], []).append(f'时间：与同一窗口的 {len(evs)} 件事共用时间（第 {k}/{len(evs)} 件），需要分配各自的时间')
+
+
 def when_label(clock, cx, dated):
     """An event's time as people read it: the time when the sources give it, else what they give (a part of a day, a
     day, a month, years), never a made-up hour."""
     p, lo, hi = cx['precision'], cx['lo'], cx['hi']
     day = lambda t: clock.label(t).split(' ')[0]  # noqa: E731
     note = cx.get('note') or ''
+    if note.startswith('编辑推定') and p in ('minute', 'range'):
+        # a time a person gave an event the sources do not time: shown as the builder shows its own estimates; the
+        # reasons stay in the review file, they are no words for the GM or the timeline
+        return f'约{clock.label(lo)}（编辑推定）'
     if note and not note.startswith('核对'):
         # a person set this window: their words say what is known of the time
         if p in ('minute', 'range'):
@@ -1344,6 +1367,7 @@ def build(project, out_path=None, raw=False):
         for o in e['canonical_effects']:
             if o.get('op') in ('add', 'remove'):
                 o.setdefault('until', 'lasting')
+    mark_shared_windows(pack['events'], rv, marks_of)
     for e in pack['events']:
         if marks_of.get(e['id']):
             e['review'] = '；'.join(marks_of[e['id']])

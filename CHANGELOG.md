@@ -1,5 +1,12 @@
 # Changelog
 
+## Toaru pack 4.4.0 — 2026-11-14
+
+- **Events of one story no longer share one vague window.** 231 groups of events (1295 in 92 stories) had the same "some time that evening" window — 上条乘滑翔机升空 and 上条与莎特奥拉对决 both "one of 8" of the same evening — so the timeline drew them as one moment and the GM had nothing that said which came first. The original gives no clock for them, so each now has its own time, one after another inside the old window and between the events with stated times around it (labelled "约 …（编辑推定）"; the reasons are in the review file). The builder marks every event that still shares a window with others of its story; lint refuses the pack until each has its own time.
+- Placing them showed what the shared windows had hidden: four states set to end at an event told *earlier* in their story (蜜蚁 "at the villa" until she is taken there; 最后之作 "missing" until she asks 上条 for help — before she goes missing), one end pointing back across the 第三次世界大战 chunks, two windows that disagree with their own source (奥索拉教堂之战 starting at 1:10 while the text says 1:00; a 洛杉矶 morning written as Japanese "27日深夜"), all corrected.
+- **What the builder adds says when it ends.** A death that does not hold makes the person "missing" until their next appearance and "back" there; these had no end of their own and relied on a hand entry that went stale when the order changed. They now carry it.
+- **A reason no longer hides a time from sight.** A person's note takes a window out of the "时间和文中不符" problems; such windows are now listed for review ("人定时间与文中不同", 18 in this pack, each with its reason), since a note written without reading the source silenced 7 wrong times during this work.
+
 ## 1.35.1 — 2026-11-14
 
 - **The timeline stacks events of the same time in the order they come in.** Boxes with the same window were ordered by title, so "其中第 5/8 件" was drawn above 4/8, 3/8 and 6/8 and the order of a day's events was lost on screen; this only showed once the windows stopped carrying made-up minutes. Every other place that orders events by time already kept the story's order for ties (checked). Test ON1.

@@ -147,7 +147,8 @@ def apply(events, path, rep=None, ents=None):
         first = later[0]
         if d == 'survived':
             same = lambda o: (o.get('fact') or o).get('entity_id') == who and (o.get('fact') or o).get('predicate') in ('alive', 'whereabouts')  # noqa: E731
-            e['canonical_effects'] = [o for o in e['canonical_effects'] if not same(o)] + [{'op': 'set', 'fact': {'entity_id': who, 'predicate': 'whereabouts', 'value': MISSING}}]
+            e['canonical_effects'] = [o for o in e['canonical_effects'] if not same(o)] + [{'op': 'set', 'fact': {'entity_id': who, 'predicate': 'whereabouts', 'value': MISSING},
+                                                                                             'until': {'event': first['id']}}]
             e['outcomes'] = [o for o in e.get('outcomes') or [] if not same(o)] + ([{'entity_id': who, 'predicate': 'whereabouts', 'value': MISSING}] if e.get('classification') != 'HARD' else [])
             fact = {'entity_id': who, 'predicate': 'whereabouts', 'value': BACK}
         else:
@@ -155,7 +156,8 @@ def apply(events, path, rep=None, ents=None):
         if any((o.get('fact') or o).get('entity_id') == who and (o.get('fact') or o).get('predicate') == fact['predicate'] for o in first['canonical_effects']):
             n += 1
             continue        # the appearance itself says where they are (or that they live)
-        first['canonical_effects'].append({'op': 'set', 'fact': fact})
+        # what the code adds carries its own end: being back (or alive) holds until a later event says otherwise
+        first['canonical_effects'].append({'op': 'set', 'fact': fact, 'until': 'lasting'})
         if first.get('classification') != 'HARD':
             first.setdefault('outcomes', []).append(dict(fact))
         if rep:

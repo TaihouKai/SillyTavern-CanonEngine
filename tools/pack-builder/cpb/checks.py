@@ -230,6 +230,7 @@ def section(project, pack, lint_res=None):
     res.append(('problem', '时间和文中不符', '窗口的开始、日期或时段与事件自己的文中时间对不上（核对文件里写明理由的除外）',
                 source_mismatches(pack, origin, {k: v.get('note', '') for k, v in rv['times'].items()})))
     notes = {k: v.get('note', '') for k, v in rv['times'].items()}
+    res.append(('review', '人定时间与文中不同', '核对文件里写明了理由；理由要说得通', source_mismatches(pack, origin, notes, noted=True)))
     res.append(('problem', '窗口与先后关系不符', '后一件事不能比前一件开始得早，前一件不能比后一件结束得晚', order_mismatches(pack)))
     res.append(('problem', '没有出处的确切时间', '记为确切时间（minute/range）的，文中必须有时刻，或核对文件里写明来由', invented_precision(pack, notes)))
     res.append(('problem', 'canon-lint 警告未处理', '每条警告都要改掉，或在核对文件 warnings 里写明为什么接受', lint_findings(lint_res, rv.get('warnings') or {})))
@@ -257,17 +258,20 @@ def _stated(e):
     return lab.split('文中：', 1)[1] if '文中：' in lab else ''
 
 
-def source_mismatches(pack, origin, notes):
+def source_mismatches(pack, origin, notes, noted=False):
     """[line] for every event whose window does not agree with the time its own source text states: the clock time it
     starts at, the day it is on, the part of the day it is in. A window a person set with a note saying why (the
-    review file: a time zone converted, a span read) is theirs and not compared; one taken over "as the sources give
-    it" is."""
+    review file: a time zone converted, a span read) is theirs and no problem; one taken over "as the sources give
+    it" is. noted=True lists the person's ones instead, with their reason, to be looked over: a note silences the
+    check, so a note written without reading the source would hide a wrong time (live 2026-11-14: 1295 placed times
+    under one note, 7 of them against their source)."""
     from . import timeline
     out = []
     for e in pack['events']:
         note = notes.get(e['id']) or ''
-        if note and not note.startswith('核对'):
+        if (bool(note) and not note.startswith('核对')) != noted:
             continue
+        n0 = len(out)
         st = _stated(e)
         if not st or 'UTC' in st or e.get('frame_id'):
             continue
@@ -294,6 +298,8 @@ def source_mismatches(pack, origin, notes):
             ds = {(x.month, x.day) for x in (day_of(t) for t in range(lo - lo % DAY, hi + 1, DAY))}
             if (mo, dd) not in ds:
                 out.append(f'{e["id"]} {e["title"]}：文中 {mo}月{dd}日，窗口却在 {day_of(lo).isoformat()}' + (f' 至 {day_of(hi).isoformat()}' if hi // DAY != lo // DAY else ''))
+        if noted:
+            out[n0:] = [f'{x}（理由：{note}）' for x in out[n0:]]
     return out
 
 
