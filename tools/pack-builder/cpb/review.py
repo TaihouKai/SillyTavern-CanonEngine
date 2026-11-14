@@ -27,13 +27,13 @@ def path(project):
 
 def load(project):
     d = read_json(path(project), {}) or {}
-    for k in ('times', 'ends', 'impacts', 'warnings'):
+    for k in ('times', 'ends', 'impacts', 'warnings', 'duplicates'):
         d.setdefault(k, {})
     return d
 
 
 def save(project, data):
-    write_json(path(project), {k: dict(sorted(data.get(k, {}).items())) for k in ('times', 'ends', 'impacts', 'warnings')}, indent=1)
+    write_json(path(project), {k: dict(sorted(data.get(k, {}).items())) for k in ('times', 'ends', 'impacts', 'warnings', 'duplicates')}, indent=1)
 
 
 def to_tick(origin, s):

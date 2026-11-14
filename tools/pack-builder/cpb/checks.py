@@ -233,6 +233,7 @@ def section(project, pack, lint_res=None):
     res.append(('review', '人定时间与文中不同', '核对文件里写明了理由；理由要说得通', source_mismatches(pack, origin, notes, noted=True)))
     res.append(('problem', '窗口与先后关系不符', '后一件事不能比前一件开始得早，前一件不能比后一件结束得晚', order_mismatches(pack)))
     res.append(('problem', '没有出处的确切时间', '记为确切时间（minute/range）的，文中必须有时刻，或核对文件里写明来由', invented_precision(pack, notes)))
+    res.append(('problem', '疑似同一件事记了两次', '时间相近、人物相同、标题或经过相似；在核对文件 duplicates 里决定：同一件（合并）或不是', undecided_duplicates(pack, rv.get('duplicates') or {})))
     res.append(('problem', 'canon-lint 警告未处理', '每条警告都要改掉，或在核对文件 warnings 里写明为什么接受', lint_findings(lint_res, rv.get('warnings') or {})))
     probs = [(t, ls) for k, t, _, ls in res if k == 'problem' and ls]
     L = ['## 质量检查', '', '每次 `build` 自动跑（代码检查，不调用模型）。「问题」应为 0；「复核」是各步骤的判断结果，供人过目。', '',
@@ -350,3 +351,64 @@ def invented_precision(pack, notes):
         if timeline.time_of(st) is None and not re.search(r'UTC', st):
             out.append(f'{e["id"]} {e["title"]}：记为确切时间，文中却没有时刻（{st[:30] or "无文中时间"}）')
     return out
+
+
+# ---- the same event told twice (code, every build) ------------------------------------------------------------------
+# live 2026-11-14: once every event had its own time, pairs of events of one story turned up at the very same minute —
+# 「药味久子的下场」/「药味久子被击碎」, 「上条与托尔的最后一战」/「上条当麻与托尔的决战」: a chapter told again in a
+# later part of its story (or in another story) became a second event, and the GM saw it happen twice. Pairs close in
+# time, with the same people and alike in title or course, are listed until a person decides them (review file
+# `duplicates`: the same → merged into the one kept; or not the same).
+
+def _grams(s):
+    s = re.sub(r'[「」『』，。、·（）()\s]|vs\.?', '', s or '')
+    return {s[i:i + 2] for i in range(len(s) - 1)} or ({s} if s else set())
+
+
+def _course(e):
+    s = e.get('summary')
+    return s.get('course', '') if isinstance(s, dict) else str(s or '')
+
+
+def duplicate_score(a, b):
+    """How alike two events are: who is in them, the title, the course (0..1)."""
+    ents = lambda e: set(e.get('entity_ids') or []) | {c['entity_id'] for c in e.get('cast') or []}  # noqa: E731
+    ea, eb = ents(a), ents(b)
+    if not ea or not eb:
+        return 0.0
+    sim = lambda x, y: len(x & y) / max(1, min(len(x), len(y)))  # noqa: E731
+    return 0.4 * sim(ea, eb) + 0.3 * sim(_grams(a['title']), _grams(b['title'])) + 0.3 * sim(_grams(_course(a)), _grams(_course(b)))
+
+
+DUPLICATE_AT = 0.45
+DUPLICATE_GAP = 12 * 60
+
+
+def duplicate_candidates(pack, at=DUPLICATE_AT):
+    """[(score, a, b)] pairs of events within half a day of each other that are alike enough to be one. Only events of
+    different parts (chunks) are compared: one part tells its beats once, the neighbours in it share their people by
+    nature; a retelling is in another part or another story."""
+    T = lambda w: w['day'] * DAY + w['minute']  # noqa: E731
+    evs = sorted(pack['events'], key=lambda e: T(e['when']['earliest']))
+    part = lambda e: e['id'].rsplit('.', 1)[0]  # noqa: E731
+    out = []
+    for i, a in enumerate(evs):
+        a_hi = T(a['when'].get('latest') or a['when']['earliest'])
+        for b in evs[i + 1:]:
+            if T(b['when']['earliest']) - a_hi > DUPLICATE_GAP:
+                break
+            if part(a) == part(b):
+                continue
+            s = duplicate_score(a, b)
+            if s >= at:
+                out.append((s, *sorted((a['id'], b['id']))))
+    return sorted(out, reverse=True)
+
+
+def duplicate_key(a, b):
+    return '|'.join(sorted((a, b)))
+
+
+def undecided_duplicates(pack, decided):
+    titles = {e['id']: e['title'] for e in pack['events']}
+    return [f'{a} {titles[a]} ⇄ {b} {titles[b]}（相似 {s:.2f}）' for s, a, b in duplicate_candidates(pack) if duplicate_key(a, b) not in decided]

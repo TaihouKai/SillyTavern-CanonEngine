@@ -50,6 +50,20 @@ class ChecksTest(unittest.TestCase):
         self.assertEqual(len(checks.lint_findings(lint, {})), 1)
         self.assertEqual(checks.lint_findings(lint, {'"x" depends on "y"': 'they run in parallel in the source'}), [])
 
+    def test_the_same_event_told_twice(self):
+        # live 2026-11-14: 「上条与托尔的最后一战」(ichihanaran.001) and 「上条当麻与托尔的决战」(ichihanaran.003), one fight
+        def e(i, title, course, lo, ents=('kamijou', 'thor')):
+            return {'id': i, 'title': title, 'summary': {'course': course}, 'entity_ids': list(ents), 'cast': [],
+                    'when': {'earliest': {'day': 0, 'minute': lo}, 'latest': {'day': 0, 'minute': lo + 30}}}
+        fight = '托尔以电弧刀劈开货柜，上条以拳头弹开刀刃，最终上条倒地'
+        pack = {'events': [e('s.001.b45', '上条与托尔的最后一战', fight, 960), e('s.003.b7', '上条当麻与托尔的决战', fight + '，托尔讲述雷神传说', 960),
+                           e('s.001.b46', '上条与托尔的余波', fight, 990),                                   # the same part: its beats share people by nature
+                           e('s.003.b8', '茵蒂克丝做饭', '茵蒂克丝在宿舍做饭', 980, ('index',)),
+                           e('s.003.b9', '上条与托尔的最后一战', fight, 960 + 3 * 1440)]}                     # days later: not the same
+        got = checks.duplicate_candidates(pack)
+        self.assertEqual(sorted((a, b) for _, a, b in got), [('s.001.b45', 's.003.b7'), ('s.001.b46', 's.003.b7')])
+        self.assertEqual(len(checks.undecided_duplicates(pack, {'s.001.b45|s.003.b7': {'same': True, 'keep': 's.003.b7'}})), 1)
+
     def test_version_follows_content(self):
         # live: six rebuilds of the Toaru pack, one in a new format, all went out as 3.0.0
         import json

@@ -853,6 +853,73 @@ def apply_ends(events, rv, proposals, marks_of, by_id):
             marks_of.setdefault(ev['id'], []).append(f'{undecided} 项状态还没有结束方式（运行 ends）')
 
 
+def merge_duplicates(pack, rv, marks_of):
+    """One event told twice (a chapter retold in a later part of its story, or in another story) is one event: a
+    person decided it (review file `duplicates`: {"a|b": {"same": true, "keep": id, "carry": true}}); the other one goes,
+    and what it adds is kept on the one that stays: its people and places, its links and the ends that pointed at it,
+    and the states it sets that the kept one does not ("carry", the default; false when a person found them wrong).
+    Returns {gone: kept}."""
+    by_id = {e['id']: e for e in pack['events']}
+    into, carry = {}, {}
+    for k, d in sorted((rv.get('duplicates') or {}).items()):
+        a, b = k.split('|')
+        if not d.get('same') or a not in by_id or b not in by_id:
+            continue
+        keep = d.get('keep')
+        if keep not in (a, b):
+            marks_of.setdefault(a, []).append(f'重复：{k} 没写保留哪一个')
+            continue
+        into[b if keep == a else a] = keep
+        carry[b if keep == a else a] = d.get('carry', True)
+    def root(x):
+        seen = set()
+        while x in into and x not in seen:
+            seen.add(x)
+            x = into[x]
+        return x
+    into = {x: root(x) for x in into}
+    into = {x: k for x, k in into.items() if x != k}
+    target = lambda o: ((o.get('fact') or o)['entity_id'], (o.get('fact') or o)['predicate'], o.get('op', 'set'))  # noqa: E731
+    for x, k in into.items():
+        g, e = by_id[x], by_id[k]
+        if g.get('classification') == 'HARD' and e.get('classification') != 'HARD':
+            marks_of.setdefault(k, []).append(f'重复：合并掉的 {x} 是 HARD，保留的不是')
+        for f in ('entity_ids', 'location_ids'):
+            e[f] = list(dict.fromkeys((e.get(f) or []) + (g.get(f) or [])))
+        have = {c['entity_id'] for c in e.get('cast') or []}
+        extra = [dict(c, at=dict(e['when']['earliest'])) for c in g.get('cast') or [] if c['entity_id'] not in have]
+        if extra:
+            e['cast'] = (e.get('cast') or []) + extra
+        mine = {target(o) for o in e['canonical_effects']}
+        # "carry": false when what the other telling writes is wrong (a person read both)
+        add = [o for o in g['canonical_effects'] if target(o) not in mine] if carry.get(x, True) else []
+        e['canonical_effects'] += add
+        if e.get('classification') != 'HARD':
+            e['outcomes'] = (e.get('outcomes') or []) + [dict(o['fact']) if o.get('op', 'set') == 'set' else {q: o[q] for q in ('entity_id', 'predicate', 'value', 'op')} for o in add if o.get('op', 'set') != 'unset']
+        e['author_note'] = (e.get('author_note') or '') + f'。同一件事在 {x}（{g["title"]}）又讲了一遍，已并入此处'
+    if not into:
+        return into
+    for e in pack['events']:
+        for o in e['canonical_effects']:
+            u = o.get('until')
+            if isinstance(u, dict) and u.get('event') in into:
+                o['until'] = {'event': into[u['event']]} if into[u['event']] != e['id'] else 'lasting'
+    edges, seen = [], set()
+    for ed in pack.get('edges') or []:
+        a, z = into.get(ed['from'], ed['from']), into.get(ed['to'], ed['to'])
+        if a == z or (a, z, ed['relation']) in seen:
+            continue
+        seen.add((a, z, ed['relation']))
+        edges.append(dict(ed, **{'from': a, 'to': z}))
+    pack['edges'] = edges
+    for arc in pack.get('arcs') or []:
+        arc['event_ids'] = [i for i in arc['event_ids'] if i not in into]
+    pack['events'] = [e for e in pack['events'] if e['id'] not in into]
+    for x in into:
+        marks_of.pop(x, None)
+    return into
+
+
 def end_before_dependents(events, edges, cert):
     """An event with a known time whose end the sources do not state is over when an event that follows from it
     (enables / precedes) begins: its window ends just before that start (live: 病毒提前启动 20:00–20:30 and 头部中枪
@@ -932,10 +999,11 @@ def narrow_by_order(events, edges, origin=None):
 
 
 def mark_shared_windows(events, rv, marks_of):
-    """Events of one story that share a window whose time is not known happen one after another, but nothing tells
-    which part of it each one takes; a game needs each its own time (user: "原作没给精确时间，你可以手动加…反正这玩意是游戏").
-    Each such event is marked until a person gives it its own time in the review file (then the window is no longer
-    shared); a shared window set by hand is still shared."""
+    """Every event gets a time of its own. One whose sources give no clock has a window ("some time that evening"), and
+    a game needs a moment: the timeline drew events of one story that share a window as one moment, and a lone window
+    leaves the GM to guess (user: "原作没给精确时间，你可以手动加…反正这玩意是游戏"; then: do the lone ones too). Each
+    is marked until a person gives it its own time in the review file; events of a story that share a window are told
+    apart (第 k/n 件), as they happen one after another."""
     tick = lambda w: w['day'] * 1440 + w['minute']  # noqa: E731
     groups = collections.defaultdict(list)
     for e in events:
@@ -944,10 +1012,9 @@ def mark_shared_windows(events, rv, marks_of):
             continue
         groups[(e.get('arc_id'), tick(w['earliest']), tick(w['latest']))].append(e)
     for evs in groups.values():
-        if len(evs) < 2:
-            continue
         for k, e in enumerate(evs, 1):
-            marks_of.setdefault(e['id'], []).append(f'时间：与同一窗口的 {len(evs)} 件事共用时间（第 {k}/{len(evs)} 件），需要分配各自的时间')
+            marks_of.setdefault(e['id'], []).append(f'时间：与同一窗口的 {len(evs)} 件事共用时间（第 {k}/{len(evs)} 件），需要分配各自的时间' if len(evs) > 1
+                                                    else '时间：原文没有钟点，需要分配一个时间')
 
 
 def when_label(clock, cx, dated):
@@ -1362,6 +1429,9 @@ def build(project, out_path=None, raw=False):
     apply_ends(pack['events'], rv, read_json(project.p('ends.json'), {}) or {}, marks_of, by_id)
     # who leaves with a death or a dissolution, a leader handed over: over the effects as they finally are (the
     # checked impacts among them); what this adds is a change of who belongs, which lasts
+    merged = merge_duplicates(pack, rv, marks_of)
+    if merged:
+        rep.add('events_merged', f'{len(merged)} 个重复事件并入另一处：' + '，'.join(f'{x}→{k}' for x, k in merged.items()))
     pack['events'] = org_changes.complete(pack['events'], init_facts)
     for e in pack['events']:
         for o in e['canonical_effects']:

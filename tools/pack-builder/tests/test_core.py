@@ -208,7 +208,7 @@ class TimelineTest(unittest.TestCase):
         self.assertTrue(ev[1]['when']['label'].endswith('；文中：下午'))                 # the source text stays last
         self.assertIn('按先后在', ev[1]['when']['label'])
 
-    def test_shared_windows_are_marked_until_each_has_its_time(self):
+    def test_windows_are_marked_until_each_has_its_time(self):
         # live: 上条乘滑翔机升空 and 上条与莎特奥拉对决 shown (and played) as one moment, "1~8/8" of one evening
         w = lambda lo, hi, p='part_of_day': {'earliest': {'day': 0, 'minute': lo}, 'latest': {'day': 0, 'minute': hi}, 'precision': p}  # noqa: E731
         ev = [{'id': 'a', 'arc_id': 's', 'when': w(1080, 1259)}, {'id': 'b', 'arc_id': 's', 'when': w(1080, 1259)},
@@ -217,9 +217,31 @@ class TimelineTest(unittest.TestCase):
               {'id': 'e', 'arc_id': 's', 'when': w(1080, 1260)}]                              # a window of its own
         marks = {}
         assemble.mark_shared_windows(ev, {}, marks)
-        self.assertEqual(sorted(marks), ['a', 'b'])
+        self.assertEqual(sorted(marks), ['a', 'b', 'd', 'e'])
+        self.assertIn('需要分配一个时间', marks['d'][0])                                   # a lone window needs its moment too
         self.assertIn('第 1/2 件', marks['a'][0])
         self.assertIn('第 2/2 件', marks['b'][0])
+
+    def test_one_event_told_twice_is_merged(self):
+        # live: 药味久子的下场 (agitate.001) and 药味久子被击碎 (agitate.003), the same scene in two parts of a story
+        w = {'earliest': {'day': 0, 'minute': 600}, 'latest': {'day': 0, 'minute': 630}, 'precision': 'range'}
+        st = lambda ent, v, u='lasting': {'op': 'set', 'fact': {'entity_id': ent, 'predicate': 'status', 'value': v}, 'until': u}  # noqa: E731
+        ev = lambda i, effs, cls='SOFT', ents=('a',): {'id': i, 'title': i, 'classification': cls, 'when': dict(w), 'entity_ids': list(ents), 'location_ids': [],  # noqa: E731
+                                                       'cast': [], 'canonical_effects': effs, 'outcomes': [], 'author_note': ''}
+        pack = {'events': [ev('k', [st('a', '倒下')]), ev('g', [st('a', '别的说法'), st('b', '旁观')], ents=('a', 'b')), ev('h', [st('c', '错的')]),
+                           ev('later', [st('d', 'x', {'event': 'g'})])],
+                'edges': [{'from': 'g', 'to': 'later', 'relation': 'enables'}, {'from': 'k', 'to': 'later', 'relation': 'enables'}],
+                'arcs': [{'id': 's', 'event_ids': ['k', 'g', 'h', 'later']}]}
+        rv = {'duplicates': {'g|k': {'same': True, 'keep': 'k'}, 'h|k': {'same': True, 'keep': 'k', 'carry': False}, 'k|later': {'same': False}}}
+        marks = {}
+        self.assertEqual(assemble.merge_duplicates(pack, rv, marks), {'g': 'k', 'h': 'k'})
+        k = pack['events'][0]
+        self.assertEqual([e['id'] for e in pack['events']], ['k', 'later'])
+        self.assertEqual([o['fact']['value'] for o in k['canonical_effects']], ['倒下', '旁观'])   # the kept one's own, plus what only the other said
+        self.assertEqual(k['entity_ids'], ['a', 'b'])
+        self.assertEqual(pack['events'][1]['canonical_effects'][0]['until'], {'event': 'k'})       # an end that pointed at the gone one
+        self.assertEqual(len(pack['edges']), 1)                                                     # two links became one
+        self.assertEqual(pack['arcs'][0]['event_ids'], ['k', 'later'])
 
     def test_a_given_time_is_labelled_short(self):
         # live: the GM's list of required events read "2021-01-13 14:00（编辑推定（原文没有确切时刻……；原窗口：……））"
