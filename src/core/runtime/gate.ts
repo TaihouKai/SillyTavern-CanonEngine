@@ -1,16 +1,17 @@
 // Deterministic gate over evaluator output: evidence, references, time, Hard invariants,
 // player agency, plan transitions, state contradictions, containment and coverage.
 // The evaluator's own verdicts never bypass these checks.
-import type { ContactInfo, FactDelta, FactValue, Id, Occurrence, RuntimeEntity, ScopeKind, StoryTime } from '../domain/types';
+import type { ContactInfo, FactDelta, FactValue, Id, Occurrence, RuntimeEntity, ScopeKind, StoryTime, Until } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { claimComparable, claimMatches, valuesEqual, coerceClaimValue } from '../domain/pack';
 import { factAt } from '../domain/reducer';
-import { applyChange, deltaMeets, deltaText, outcomeDelta } from '../domain/delta';
+import { applyChange, deltaMeets, deltaText, outcomeDelta, withPackEnd } from '../domain/delta';
 import type { WorldIndex } from '../domain/world-query';
 import { toTick, formatTick, clockReadings, readingTick } from '../domain/time';
 import { isDue, pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
 import type { ClaimInput, Retrieval } from './context';
+import { withUntil } from './ends';
 import { opportunityBy, reached } from './integration';
 import { voiceAllows, type PlayerVoice } from './voice';
 import { MAIN_FRAME } from '../domain/frames';
@@ -22,7 +23,8 @@ export interface EvalOutput {
   scene_end: { lo: { day: number; minute: number }; hi: { day: number; minute: number }; precision: StoryTime['precision'] } | null;
   flashback?: boolean;
   claim_checks: { claim_id: string; verdict: string; record_ids?: string[]; note?: string }[];
-  transitions: { op: 'set' | 'unset'; entity_id: string; predicate: string; value?: FactValue; quote?: string; occurrence_ref?: string | null }[];
+  /** until: how long a set value holds — the analysis's answer, read into an Until by the engine before the gate (ends.ts) */
+  transitions: { op: 'set' | 'unset'; entity_id: string; predicate: string; value?: FactValue; quote?: string; occurrence_ref?: string | null; until?: unknown }[];
   occurrences: {
     ref: string; title: string; account: string; actors: string[]; affected?: string[]; locations?: string[];
     time?: EvalOutput['scene_end']; causes?: string[]; quote: string; pack_event_id?: string | null; disposition?: 'occurred' | 'diverged' | 'ongoing' | null;
@@ -194,7 +196,7 @@ export function runGate(g: GateInput): GateResult {
   /** A model's fact change, typed. An entity set changes by who joins (add) or leaves (remove); a whole list the
    *  model gives is read as that difference from the list as it stands, so nobody it forgot is dropped silently
    *  only when the list really omits them (the difference is reported). */
-  const checkDelta = (d: { op: 'set' | 'unset' | 'add' | 'remove'; entity_id: string; predicate: string; value?: FactValue }, where: string): FactDelta[] | null => {
+  const checkDelta = (d: { op: 'set' | 'unset' | 'add' | 'remove'; entity_id: string; predicate: string; value?: FactValue; until?: unknown }, where: string): FactDelta[] | null => {
     const eid = resolveId(d.entity_id);
     if (!eid || !entityKnown(eid)) { warnings.push(`${where}: unknown entity "${d.entity_id}" (kept as narrative detail only)`); return null; }
     const p = pack.predicates.get(d.predicate);
@@ -220,8 +222,10 @@ export function runGate(g: GateInput): GateResult {
     if (!okType) { warnings.push(`${where}: value ${JSON.stringify(v)} has the wrong type for ${p.id}`); return null; }
     if (p.value_type === 'entity_ref') { const r = resolveId(String(v)); if (!r) { warnings.push(`${where}: unknown entity value ${v}`); return null; } v = r; }
     if (p.allowed_values && !p.allowed_values.some((a) => valuesEqual(a, v))) { warnings.push(`${where}: ${JSON.stringify(v)} not allowed for ${p.id}`); return null; }
-    // add/remove of a single value: filled when vacant / emptied when it holds that value
-    return [{ op: d.op, entity_id: eid, predicate: p.id, value: v }];
+    // add/remove of a single value: filled when vacant / emptied when it holds that value; a set value holds as long
+    // as its until says (read by the engine before the gate; anything else here is no end)
+    const u = d.until;
+    return [withUntil({ op: d.op, entity_id: eid, predicate: p.id, value: v }, u === 'lasting' || (u && typeof u === 'object' && ('minutes' in u || 'event' in u)) ? u as Until : null)];
   };
 
   // ---- time --------------------------------------------------------------------------------
@@ -363,6 +367,8 @@ export function runGate(g: GateInput): GateResult {
         occ.packEventId = pe.id;
         disposition = o.disposition === 'diverged' ? 'diverged' : 'occurred';
         kind = 'canon_occurrence';
+        // a result that is the event's own effect holds as the pack says, whatever the analysis guessed
+        deltas.forEach((d, i) => { deltas[i] = withPackEnd(pe, d); });
         const st = pack.timeIndex.find((x) => x.id === pe.id);
         if (st) {
           // clamp to the authored bounds; outside them is a violation for HARD
@@ -392,7 +398,7 @@ export function runGate(g: GateInput): GateResult {
           // still a violation.
           const hc0 = ev.hard_checks.find((h) => h.event_id === pe.id);
           if (missing.length && !wrong.length && disposition === 'occurred' && hc0?.status === 'fulfilled') {
-            for (const m of missing) deltas.push(outcomeDelta(m));
+            for (const m of missing) deltas.push(withPackEnd(pe, outcomeDelta(m)));
             warnings.push(`HARD "${pe.title}": required outcome ${missing.map((m) => `${m.entity_id}.${m.predicate}`).join(', ')} taken from the pack (the reviewer confirmed it depicted)`);
             missing = [];
           }

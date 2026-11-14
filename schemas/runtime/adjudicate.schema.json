@@ -148,6 +148,9 @@
           "string",
           "null"
          ]
+        },
+        "until": {
+         "description": "how long the new value holds: \"lasting\", {\"minutes\": n} or {\"event\": id} (read by code; a missing or unreadable one is asked again)"
         }
        },
        "required": [

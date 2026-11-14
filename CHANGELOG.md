@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.34.0 — 2026-11-14
+
+- **What play records says when it ends, like the pack.** A state a reply shows (美琴 knocked out, 白井 in hospital, the two of you at the fair), how an offscreen event turned out, and a state the player asserts were kept until some later reply happened to change them — a knock-out could last the rest of the game. The analysis now must give each value it sets its end ("lasting", minutes, or until a canon event is over); the engine ends it itself and the fact is again what it was before. A result of a canon event that is that event's own effect holds as the pack says, whatever the analysis guessed.
+- **A missing end never redoes the analysis.** The end is not a required field of the task's shape (a reply without it is not sent back); code finds the facts without a readable end and asks only for those, of the same model in the same conversation (it knows the scene and what it recorded); answers are kept round by round and only the rest is asked again. Only a model that still cannot say after three rounds fails the turn (Retry) — play does not go on with states that would never end. Tests RE1–RE10.
+- Live, the user's analysis model (DeepSeek 4.1 flash) on the Toaru pack, 10 scenes twice: every value it set came with its end (no follow-up was needed); knocked out 30 min, hospital 3 days, asleep 2 h, a wrecked shop 30 days, a death and a learned secret lasting, the fair 3 h (it said "lasting" before the rule that a place one went to holds until one would leave).
+
 ## 1.33.0 — 2026-11-14
 
 A history pack can no longer leave a state hanging or claim a time it does not know. Instead of fixing each leftover state and each wrong hour as it showed up in play, the pack format now has to say both, and nothing reaches a pack without a person having decided it.

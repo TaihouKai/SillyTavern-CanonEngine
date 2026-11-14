@@ -53,6 +53,16 @@ export function deltaText(d: FactDelta, name: (id: Id) => string = (x) => x): st
 }
 
 /** The deltas with every outcome they do not bring about yet added. */
+/** A change that is one of an event's own effects (the same fact, the same value) holds as long as that effect: what
+ *  the pack decided for it, not what a model guessed. Anything else is returned as it is. */
+export function withPackEnd(ev: { canonical_effects: Effect[] }, d: FactDelta): FactDelta {
+  if (d.op !== 'set') return d;
+  const e = ev.canonical_effects.find((x) => x.op === 'set' && x.fact.entity_id === d.entity_id && x.fact.predicate === d.predicate && valuesEqual(x.fact.value, d.value));
+  if (!e || e.op !== 'set') return d;
+  const { until: _given, ...rest } = d;
+  return e.until && e.until !== 'lasting' ? { ...rest, until: e.until } : rest;
+}
+
 export function withOutcomes(deltas: FactDelta[], outcomes: Outcome[]): FactDelta[] {
   for (const o of outcomes) if (!deltas.some((d) => deltaMeets(d, o))) deltas.push(outcomeDelta(o));
   return deltas;

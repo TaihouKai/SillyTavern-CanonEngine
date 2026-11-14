@@ -1,0 +1,34 @@
+{
+ "type": "object",
+ "properties": {
+  "ends": {
+   "type": "array",
+   "maxItems": 200,
+   "items": {
+    "type": "object",
+    "properties": {
+     "n": {
+      "type": "integer"
+     },
+     "until": {},
+     "why": {
+      "type": "string",
+      "maxLength": 300
+     }
+    },
+    "required": [
+     "n",
+     "until"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "ends"
+ ],
+ "additionalProperties": false,
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:canon-engine:task:ends",
+ "title": "Canon Engine task output: ends"
+}

@@ -114,7 +114,10 @@ export class ScriptedModel implements ModelPort {
   draft(...t: (string | (() => Promise<string>))[]) { this.drafts.push(...t); return this; }
 
   async runTask(task: TaskName, messages: ChatMsg[]): Promise<string> {
-    const input = JSON.parse(messages[1].content.replace(/^INPUT[^\n]*\n/, ''));
+    // a follow-up (ends.ts) asks in the task's own conversation: its input is the question's numbered items
+    const last = messages[messages.length - 1].content;
+    const input = task === 'ends' ? { question: last, items: [...last.matchAll(/^(\d+)\. (.*)$/gm)].map((m) => ({ n: Number(m[1]), text: m[2] })), conversation: messages }
+      : JSON.parse(messages[1].content.replace(/^INPUT[^\n]*\n/, ''));
     this.calls.push({ task, input, messages });
     logPrompt(task, messages);
     if (this.taskGate[task]) await this.taskGate[task]!();
@@ -170,6 +173,7 @@ export function defaultTask(task: TaskName, input: any): any {
     case 'world_check': return { items: [], additions: [] };
     case 'mind': return { minds: [] };
     case 'affiliations': return { organizations: [] };
+    case 'ends': return { ends: (input.items || []).map((x: any) => ({ n: x.n, until: 'lasting', why: 'scripted' })) };
     case 'impact': return { changed: [], affected_anchors: [], affected_steps: [], scope: 'local', severity: 'none', replan: false, explanation: 'scripted' };
     case 'plan': {
       const now = input.now?.tick ?? 0;

@@ -2,7 +2,7 @@
 // commit), journal recovery, backup. Host-independent (see host.ts).
 import { loreFor, type LoreBackground, type LoreEntry } from './lore';
 import type { Persona } from './host';
-import type { Id, LedgerRecord, MindProfile, NatureVersion, StoryTime } from '../domain/types';
+import type { Id, LedgerRecord, MindProfile, NatureVersion, StoryTime, Until } from '../domain/types';
 import { loadPinnedPack, validatePack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { normalizeName, valuesEqual } from '../domain/pack';
 import { buildBootstrap, causeOf, isDue, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
@@ -14,7 +14,8 @@ import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, d
 import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
 import type { HostPort } from './host';
-import { callStructured, taskDefaults } from './model';
+import { callStructured, taskDefaults, taskMessages, type ChatMsg, type TaskName } from './model';
+import { askEnds, needsUntil, readUntil, withUntil, type EndAsk } from './ends';
 import { checkLeapPlan, leapBatches, leapChapters, mergeLeapPlans, leapEventInput, leapEvents, leapNotes, leapProblem, leapRecord, leapSection, leapText, parseLeap, LEAP_VOICE, type CheckedLeapPlan, type LeapPlanOut } from './leap';
 import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, EVAL_GROUPS_NOTE, EVAL_CHANCE_NOTE, EVAL_LEAP_NOTE, EXTRACT_GROUPS_NOTE, gmRulesFor, HARD_LAST_RESORT_INSTRUCTION, PROMPTS, REPAIR_INSTRUCTION, replyLengthNote } from './prompts';
 import { baseKey, earliestChange, fingerprintPrefix, interpretationsFor, replay, sameBasis, scopeOf, stateHash, type ReplayResult } from './replay';
@@ -175,7 +176,7 @@ const MAX_TIME_JUMP_MINUTES = 7 * 1440;
 
 export interface ExtractUserOut {
   statements: {
-    kind: string; quote: string; summary: string; entities?: string[]; facts?: { entity_id: string; predicate: string; value: never }[]; event_id?: string | null; time?: { day: number; minute: number } | null; ambiguous?: boolean;
+    kind: string; quote: string; summary: string; entities?: string[]; facts?: { entity_id: string; predicate: string; value: never; until?: unknown }[]; event_id?: string | null; time?: { day: number; minute: number } | null; ambiguous?: boolean;
     stance?: string | null; scope_kind?: string | null; scope_ref?: string | null; scope_label?: string | null; until?: { day: number; minute: number } | null;
   }[];
   references: { phrase: string; quote: string; kind: 'entity' | 'event'; mode?: string; candidates?: string[] }[];
@@ -444,6 +445,24 @@ export class CanonEngine {
     const c = this.campaign();
     if (!c) return null;
     return { title: c.packRef?.title || c.packSnapshot?.title || '?', packId: c.packRef?.packId || c.packSnapshot?.pack_id || '?', version: c.packVersion };
+  }
+
+  /** Every fact a model task records with op "set" says how long it holds (src/core/runtime/ends.ts): what the task
+   *  gave is read by code; what is missing or unreadable is asked again of the same model in that task's conversation,
+   *  only those facts. A model that cannot answer after a few rounds fails the turn (EngineError). */
+  private async settleEnds(task: TaskName, system: string, input: unknown, answer: unknown, items: { get: () => unknown; set: (u: Until) => void; text: string }[],
+    pack: LoadedPack, index: WorldIndex, signal: AbortSignal | undefined, operationId: string | undefined, what: string): Promise<void> {
+    if (!items.length) return;
+    const now = index.state.clock.lo;
+    const isOpen = (id: Id) => !index.state.dispositions.has(id) && (pack.timeIndex.find((t) => t.id === id)?.hi ?? -Infinity) >= now;
+    const read = (raw: unknown) => readUntil(raw, pack, isOpen);
+    const asks: EndAsk[] = [];
+    items.forEach((x, i) => { const u = read(x.get()); if (u) x.set(u); else asks.push({ n: i + 1, text: x.text }); });
+    if (!asks.length) return;
+    this.debugLog('task', { kind: 'ends_asked', task, missing: asks.length, of: items.length });
+    const conversation: ChatMsg[] = [...taskMessages(task, system, input), { role: 'assistant', content: JSON.stringify(answer) }];
+    const got = await askEnds(this.host.model, conversation, asks, read, { signal, operationId, log: (l) => this.debugLog('task', l), what: `how long the facts of ${what} hold` });
+    for (const [n, u] of got) items[n - 1].set(u);
   }
 
   /** Serialize engine work (reconcile/ops/commits). */
@@ -819,7 +838,8 @@ export class CanonEngine {
     const leapWhy = leap ? leapProblem(leap, tick, origin) : null;
     if (leapWhy) throw new EngineError('invalid_input', leapWhy);
     const groups = prof ? recognitionGroups(index, prof.profile) : [];
-    const out = await this.withTimeout(callStructured<ExtractUserOut>(this.host.model, 'extract_user', groups.length ? `${PROMPTS.extract_user}\n${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user, {
+    const extractPrompt = groups.length ? `${PROMPTS.extract_user}\n${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
+    const extractInput = {
       message: entry.text,
       ...(oocParts.length ? { ooc_parts: oocParts } : {}),
       persona,
@@ -830,7 +850,14 @@ export class CanonEngine {
       opportunities,
       ...(prof ? { engagement_context: this.engagementContext(index, prof.profile, tick) } : {}),
       ...(groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who })) } : {}),
-    }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(entry.text) }), this.settings.taskTimeoutMs * 4, signal);
+    };
+    const out = await this.withTimeout(callStructured<ExtractUserOut>(this.host.model, 'extract_user', extractPrompt, extractInput,
+      { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(entry.text) }), this.settings.taskTimeoutMs * 4, signal);
+    // how long each fact the player asserts holds (ends.ts): only the facts that become records
+    const asserted = out.statements.filter((s) => s.kind === 'asserted_fact' && !s.ambiguous && quoteInText(s.quote, entry.text)).flatMap((s) => s.facts || [])
+      .filter((f) => pack.predicates.get(f.predicate) && pack.predicates.get(f.predicate)!.value_type !== 'entity_set' && index.entityExists(f.entity_id));
+    await this.settleEnds('extract_user', extractPrompt, extractInput, out, asserted.map((f) => ({ get: () => f.until, set: (u: Until) => { f.until = u; }, text: `${f.entity_id}.${f.predicate} = ${JSON.stringify(f.value)}` })),
+      pack, index, signal, operationId, 'the player message');
     const records: RecordDraft[] = [];
     const intents: Interpretation['intents'] = [];
     const configRequests: string[] = [];
@@ -857,7 +884,8 @@ export class CanonEngine {
             continue;
           }
           // an entity set: what the player asserts joins it
-          deltas.push({ op: p.value_type === 'entity_set' ? 'add' as const : 'set' as const, entity_id: f.entity_id, predicate: f.predicate, value: f.value });
+          deltas.push(p.value_type === 'entity_set' ? { op: 'add' as const, entity_id: f.entity_id, predicate: f.predicate, value: f.value }
+            : withUntil({ op: 'set' as const, entity_id: f.entity_id, predicate: f.predicate, value: f.value }, f.until as Until | undefined));
         }
         if (deltas.length) records.push({ recordId: newId('rec'), kind: 'user_assertion', storyTime: st, sourceRefs: src, factsSetOrUnset: deltas, eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] }, summary: `User asserted: ${s.summary}`, evidenceKind: 'direct' });
         else intents.push({ quote: s.quote, summary: s.summary });
@@ -1275,7 +1303,7 @@ export class CanonEngine {
     const due = pendingHard(pack, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
     const groups = prof ? recognitionGroups(index, prof.profile) : [];
     const evalPrompt = [PROMPTS.evaluate, pack.frames.frames.size ? EVAL_FRAMES_NOTE : '', groups.length ? EVAL_GROUPS_NOTE : '', a.chance?.length ? EVAL_CHANCE_NOTE : '', a.leapTo ? EVAL_LEAP_NOTE : ''].filter(Boolean).join('\n');
-    const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', evalPrompt, {
+    const evalInput = {
       mode: a.mode,
       candidate: a.text,
       player_action_scope: a.userEntry ? this.ooc(a.userEntry.text).story : '',
@@ -1302,7 +1330,19 @@ export class CanonEngine {
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
       ...(groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who, level: g.level, knows: g.about })) } : {}),
       ...(a.chance?.length ? { chance_events_with_companion: a.chance.map((x) => ({ event_id: x.eventId, title: x.title, comes_to: x.who, ...(x.loose ? { by: formatTick(x.lo) } : { starts: formatTick(x.lo) }), what: (pack.events.get(x.eventId)?.summary || '').slice(0, 400) })) } : {}),
-    }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
+    };
+    const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', evalPrompt, evalInput,
+      { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal);
+    // how long each fact the reply sets holds: a result of a canon event it shows that is that event's own effect holds
+    // as the pack says (nothing asked); the rest as the analysis gave it, else asked of it again (src/core/runtime/ends.ts)
+    for (const t of evaluation.transitions) {
+      const pe = t.op === 'set' && t.occurrence_ref ? pack.events.get(evaluation.occurrences.find((o) => o.ref === t.occurrence_ref)?.pack_event_id || '') : undefined;
+      const own = pe?.canonical_effects.find((e) => e.op === 'set' && e.fact.entity_id === t.entity_id && e.fact.predicate === t.predicate && valuesEqual(e.fact.value, t.value as never));
+      if (own && own.op === 'set') t.until = own.until ?? 'lasting';
+    }
+    await this.settleEnds('evaluate', evalPrompt, evalInput, evaluation, evaluation.transitions.filter((t) => needsUntil(t.op))
+      .map((t) => ({ get: () => t.until, set: (u: Until) => { t.until = u; }, text: `${t.entity_id}.${t.predicate} = ${JSON.stringify(t.value)}${t.quote ? ` ("${String(t.quote).slice(0, 60)}")` : ''}` })),
+      pack, index, a.signal, a.operationId, 'this reply');
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
     // Horae tracks story time every turn; its time at the end of the previous reply is where this reply
     // starts at the earliest. The engine's own estimate only fills in the time this reply itself takes.

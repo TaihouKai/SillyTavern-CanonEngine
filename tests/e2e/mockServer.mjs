@@ -16,7 +16,8 @@ let state = fresh();
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const isAux = (messages) => messages.some((m) => typeof m.content === 'string' && (m.content.includes('【Horae 后台状态分析器】') || m.content.includes('[Horae Background State Analyzer]')));
-const taskOf = (messages) => { for (const m of messages) { const x = typeof m.content === 'string' && m.content.match(/\[CANON_ENGINE_TASK:([a-z_]+)\]/); if (x) return x[1]; } return null; };
+// the last tagged message names the task: a follow-up (ends) is asked in another task's conversation
+const taskOf = (messages) => { for (const m of [...messages].reverse()) { const x = typeof m.content === 'string' && m.content.match(/\[CANON_ENGINE_TASK:([a-z_]+)\]/); if (x) return x[1]; } return null; };
 const storyOf = (messages) => { const t = messages.map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n'); const m = t.match(/<story>\n?([\s\S]*?)\n?<\/story>/); return m ? m[1] : ''; };
 const lastUser = (messages) => { for (let i = messages.length - 1; i >= 0; i--) if (messages[i].role === 'user') return String(messages[i].content || ''); return ''; };
 
@@ -53,6 +54,7 @@ function defaultTask(task, input) {
     case 'leap': return { events: [], mention: [], impossible: [], life: [], landing: '' };
     case 'foreknow': return { judgements: [] };
     case 'world_check': return { items: [], additions: [] };
+    case 'ends': return { ends: [...String(input.question || '').matchAll(/^(\d+)\. /gm)].map((m) => ({ n: Number(m[1]), until: 'lasting', why: 'mock' })) };
     case 'affiliations': return { organizations: (input.organizations || []).filter((o) => o.read).map((o) => ({ ref: o.ref, status: o.read.status })) };
     case 'mind': return { minds: (input.people || []).map((p) => ({ id: p.id, reads: [{ what: 'mock read', surface: 'show' }], wants: 'mock want', move: 'mock move' })) };
     case 'plan': {
@@ -154,7 +156,7 @@ const server = http.createServer(async (req, res) => {
     }
     const task = taskOf(messages);
     if (task) {
-      const input = taskInput(messages);
+      const input = task === 'ends' ? { question: lastUser(messages) } : taskInput(messages);
       const text = JSON.stringify(input);
       const entry = { type: 'task', task, at: Date.now(), messages, input, model: body.model, temperature: body.temperature, stream: !!body.stream, includeUsage: !!body.stream_options?.include_usage, venice: body.venice_parameters };
       state.logs.push(entry);

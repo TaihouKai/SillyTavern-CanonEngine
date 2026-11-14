@@ -1,7 +1,7 @@
 // Interval adjudication for story-time advances: every crossed finite-time canonical event is
 // adjudicated against actual state in chronological order (deterministic default, model when the
 // actual state requires it). Results stay staged until the triggering reply is accepted.
-import type { FactDelta, Id, Occurrence, StoryTime } from '../domain/types';
+import type { FactDelta, FactValue, Id, Occurrence, StoryTime } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { coerceClaimValue, valuesEqual } from '../domain/pack';
 import { WorldIndex } from '../domain/world-query';
@@ -11,7 +11,8 @@ import { deltaMeets } from '../domain/delta';
 import { adjudicateDefault, crossedCandidates, occurrenceWindow, type Candidate } from '../domain/schedule';
 import { formatTick, toTick } from '../domain/time';
 import { EngineError, newId } from '../domain/util';
-import { callStructured, type ModelPort } from './model';
+import { callStructured, taskMessages, type ModelPort } from './model';
+import { askEnds, needsUntil, readUntil, withUntil } from './ends';
 import { PROMPTS } from './prompts';
 import type { PlanRevision, RecordDraft } from './types';
 import { toStoryTime } from './gate';
@@ -26,7 +27,7 @@ export interface AdjudicationResult {
 
 interface ModelAdj {
   event_id: string; decision: 'occurred' | 'diverged' | 'omitted' | 'postponed'; time?: { lo: { day: number; minute: number }; hi: { day: number; minute: number }; precision: StoryTime['precision'] } | null;
-  account: string; actors?: string[]; causes?: string[]; effects: { op: 'set' | 'unset' | 'add' | 'remove'; entity_id: string; predicate: string; value?: never }[];
+  account: string; actors?: string[]; causes?: string[]; effects: { op: 'set' | 'unset' | 'add' | 'remove'; entity_id: string; predicate: string; value?: never; until?: unknown }[];
   plan_step_ids?: string[]; reason: string; extraordinary?: boolean;
 }
 
@@ -268,6 +269,7 @@ async function modelAdjudicate(
   // an event that does not happen has a reason, not an account
   if (!a.account?.trim() && !(a.decision === 'omitted' && ev.classification !== 'HARD' && a.reason?.trim())) return null;
   const effects: FactDelta[] = [];
+  const asked = new Map<FactDelta, unknown>();
   // One bad effect no longer voids the whole judgement (live finding: "nana" for a character created in play,
   // whose id is rt.entity.…): an entity given by name is resolved; an effect that still does not fit is dropped.
   const idx = new WorldIndex(pack, scratch);
@@ -298,10 +300,31 @@ async function modelAdjudicate(
       if (leaves.length) effects.push({ op: 'remove', entity_id: eid, predicate: p.id, value: leaves });
       continue;
     }
-    effects.push({ op: e.op, entity_id: eid, predicate: e.predicate, value: v as never });
+    const d = { op: e.op, entity_id: eid, predicate: e.predicate, value: v as never } as FactDelta;
+    if (needsUntil(d.op)) asked.set(d, e.until);
+    effects.push(d);
   }
   let time = toStoryTime(a.time) || when;
   if (time.lo < c.lo || time.hi > c.hi) time = when;
+  // how long each value it sets holds: the original effect's own end when it is that effect, else the model's (asked
+  // again in its conversation when missing; a model that cannot say fails the turn — ends.ts)
+  if (asked.size && (a.decision === 'occurred' || a.decision === 'diverged')) {
+    const isOpen = (id: string) => !scratch.dispositions.has(id) && id !== ev.id && (pack.timeIndex.find((t) => t.id === id)?.hi ?? -Infinity) >= time.lo;
+    const read = (raw: unknown) => readUntil(raw, pack, isOpen);
+    const own = (d: FactDelta) => ev.canonical_effects.find((x) => x.op === 'set' && x.fact.entity_id === d.entity_id && x.fact.predicate === d.predicate && valuesEqual(x.fact.value, (d as { value: FactValue }).value));
+    const items = [...asked].map(([d, raw]) => {
+      const o = own(d);
+      const u = o && o.op === 'set' ? (o.until ?? 'lasting') : read(raw);
+      return { d, u, text: `${d.entity_id}.${d.predicate} = ${JSON.stringify((d as { value: unknown }).value)}` };
+    });
+    const asks = items.map((x, i) => ({ n: i + 1, text: x.text })).filter((x) => !items[x.n - 1].u);
+    if (asks.length) {
+      const got = await askEnds(args.port!, [...taskMessages('adjudicate', PROMPTS.adjudicate, input), { role: 'assistant', content: JSON.stringify(out) }], asks, read,
+        { signal: args.signal, operationId: args.operationId, log: args.log, what: `how long the results of "${ev.title}" hold` });
+      for (const [n, u] of got) items[n - 1].u = u;
+    }
+    for (const x of items) { const i = effects.indexOf(x.d); if (i >= 0) effects[i] = withUntil(x.d, x.u); }
+  }
   if (ev.classification === 'HARD') {
     if (a.decision !== 'occurred') return null;
     for (const o of ev.outcomes) if (!effects.some((d) => deltaMeets(d, o))) return null;
