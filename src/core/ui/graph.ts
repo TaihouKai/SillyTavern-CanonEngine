@@ -83,6 +83,17 @@ export function packGraph(L: LoadedPack, origin: { y: number; m: number; d: numb
       ],
     });
   }
+  // a time that is not known is "some time then": events of one afternoon share its window and are shown with it, and
+  // with their place in the original order (live: five 大霸星祭 beats all "12:00–17:59" read as at the same time)
+  const same = new Map<string, GNode[]>();
+  for (const n of nodes) {
+    const ti = L.timeIndex.find((x) => x.id === n.id);
+    if (!ti || ti.exact) continue;
+    n.short = `${n.short}${t('g_someTime')}`;
+    const k = `${ti.lo}|${ti.hi}`;
+    same.set(k, [...(same.get(k) || []), n]);
+  }
+  for (const ns of same.values()) if (ns.length > 1) ns.forEach((n, i) => { n.short = `${n.short} · ${tf('g_nth', { n: i + 1, of: ns.length })}`; });
   const edges: GEdge[] = L.pack.edges.map((e) => ({ from: e.from, to: e.to, kind: e.relation, note: e.note }));
   return { nodes, edges, nowTick: null, arcs: L.pack.arcs.map((a) => ({ id: a.id, title: a.title })), origin, ...(frameList.length ? { frames: { list: frameList } } : {}) };
 }

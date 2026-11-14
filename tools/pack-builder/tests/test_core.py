@@ -192,6 +192,22 @@ class TimelineTest(unittest.TestCase):
         self.assertEqual(timeline.time_of('深夜十二点三十分'), 30)
         self.assertEqual(timeline.time_of('早上八点半'), 8 * 60 + 30)
 
+    def test_unknown_times_narrowed_by_the_order(self):
+        # live: five beats of one afternoon between an event at 13:00 and one of 中午 they lead to were each 12:00–17:59
+        w = lambda lo, hi, p='part_of_day': {'earliest': {'day': 0, 'minute': lo}, 'latest': {'day': 0, 'minute': hi}, 'precision': p, 'label': 'x；文中：下午'}  # noqa: E731
+        ev = [{'id': 'meet', 'when': w(780, 810, 'range')}, {'id': 'b1', 'when': w(720, 1079)}, {'id': 'b2', 'when': w(720, 1079)}, {'id': 'noon', 'when': w(660, 839)}]
+        edges = [{'from': 'meet', 'to': 'b1', 'relation': 'enables'}, {'from': 'b1', 'to': 'b2', 'relation': 'precedes'}, {'from': 'b2', 'to': 'noon', 'relation': 'enables'}]
+        import datetime as dt
+        bad = assemble.narrow_by_order(ev, edges, dt.datetime(2020, 1, 1))
+        self.assertEqual(bad, [])
+        got = {e['id']: (e['when']['earliest']['minute'], e['when']['latest']['minute']) for e in ev}
+        self.assertEqual(got['b1'], (780, 839))
+        self.assertEqual(got['b2'], (780, 839))
+        self.assertEqual(got['noon'], (780, 839))
+        self.assertEqual(got['meet'], (780, 810))                                       # a known time is not changed
+        self.assertTrue(ev[1]['when']['label'].endswith('；文中：下午'))                 # the source text stays last
+        self.assertIn('按先后在', ev[1]['when']['label'])
+
     def test_a_stated_time_is_the_start_and_ends_before_what_follows(self):
         # live: "17:00" placed at 17:01 behind the beat before it; 病毒提前启动 20:00–20:30 and 头部中枪 at 20:12, which it enables
         import datetime as dt

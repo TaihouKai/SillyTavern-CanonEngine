@@ -35,6 +35,13 @@ class ChecksTest(unittest.TestCase):
         out = checks.source_mismatches(pack, dt.date(2020, 1, 1), {})
         self.assertEqual(sorted(x.split(' ')[0] for x in out), ['a', 'c', 'd', 'g'])        # f: another time zone, converted by a person
         self.assertEqual(checks.source_mismatches(pack, dt.date(2020, 1, 1), {'a': '17:00 后紧接前一件事', 'c': '核对：按资料'})[0].split(' ')[0], 'c')
+        # an exact time no source states (a clock the summary filled in) and windows that do not hold the order
+        pack2 = {'events': [e('h', '9月2日中午', 12 * 60, 12 * 60 + 30), e('i', '', 13 * 60, 13 * 60 + 30), e('j', '下午', 12 * 60, 17 * 60 + 59, 'part_of_day'),
+                            e('k', '下午', 12 * 60, 17 * 60 + 59, 'part_of_day')],
+                 'edges': [{'from': 'i', 'to': 'j', 'relation': 'enables'}, {'from': 'j', 'to': 'k', 'relation': 'precedes'}]}
+        self.assertEqual(sorted(x.split(' ')[0] for x in checks.invented_precision(pack2, {})), ['h', 'i'])
+        self.assertEqual(checks.invented_precision(pack2, {'h': '中午，送别时刻据番外推定'}), [checks.invented_precision(pack2, {})[1]])
+        self.assertEqual([x.split(' ')[0] for x in checks.order_mismatches(pack2)], ['i'])   # j may open before i does
         lint = {'warnings': [{'path': '/events/1/when', 'message': '"x" depends on "y" but its window overlaps'}]}
         self.assertEqual(len(checks.lint_findings(lint, {})), 1)
         self.assertEqual(checks.lint_findings(lint, {'"x" depends on "y"': 'they run in parallel in the source'}), [])

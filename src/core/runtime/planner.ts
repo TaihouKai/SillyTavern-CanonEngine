@@ -10,6 +10,7 @@ import { newId } from '../domain/util';
 import type { WorldIndex } from '../domain/world-query';
 import { callStructured, type ModelPort } from './model';
 import { PROMPTS } from './prompts';
+import { afterNote } from './context';
 import type { PlanRevision, PlanStep } from './types';
 
 export interface PlanOutput {
@@ -227,7 +228,7 @@ export async function runPlanning(args: {
       actual_world: args.facts,
       recent_situation: args.situation || '',
       player_interests: args.interests || [],
-      others_original_situation: route.map((u) => ({ id: u.event.id, at: eventTimeText({ ...u, exact: pack.timeIndex.find((t) => t.id === u.event.id)?.exact ?? true }), situation: causeOf(u.event) })),
+      others_original_situation: route.map((u) => ({ id: u.event.id, at: eventTimeText({ ...u, exact: pack.timeIndex.find((t) => t.id === u.event.id)?.exact ?? true }) + afterNote(pack, state, u.event.id), situation: causeOf(u.event) })),
       deviations: [...state.dispositions].filter(([, d]) => d.disposition !== 'occurred').map(([id, d]) => ({ id, disposition: d.disposition, reason: d.reason })),
       entities: [...pack.entities.values(), ...state.runtimeEntities.values()].map(entityLine),
       predicates: [...pack.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values })),

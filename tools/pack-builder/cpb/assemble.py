@@ -875,6 +875,62 @@ def end_before_dependents(events, edges, cert):
                 a['when']['precision'] = 'minute'
 
 
+def narrow_by_order(events, edges, origin=None):
+    """A window that only says "some time then" is narrowed by what the order of events already settles: an event
+    that follows another (enables / precedes) is not earlier than that one's earliest time, and the other is not later
+    than its latest (live: five 大霸星祭 beats known only as "下午", between 初遇欧莉安娜 at 13:00 and an event of
+    中午 they lead to, were each shown as 12:00–17:59). Nothing is invented: only bounds the stated times and the order
+    give. A known time (minute/range) is not changed here. Returns [(edge, why)] where the order cannot hold: a
+    window would close before it opens (the order or a window is wrong; a check lists it)."""
+    by_id = {e['id']: e for e in events}
+    tick = lambda w: w['day'] * 1440 + w['minute']  # noqa: E731
+    exact = lambda e: e['when']['precision'] in ('minute', 'range')  # noqa: E731
+    order = [ed for ed in edges if ed['relation'] in ('enables', 'precedes') and ed['from'] in by_id and ed['to'] in by_id]
+    lo = {i: tick(e['when']['earliest']) for i, e in by_id.items() if e['when'].get('earliest')}
+    hi = {i: tick(e['when']['latest']) for i, e in by_id.items() if e['when'].get('latest')}
+    first = dict(lo), dict(hi)
+    bad = []
+    for _ in range(50):
+        moved = False
+        for ed in order:
+            a, z = ed['from'], ed['to']
+            if a not in lo or z not in lo:
+                continue
+            if not exact(by_id[z]) and lo[z] < lo[a] <= hi[z]:
+                lo[z], moved = lo[a], True
+            if not exact(by_id[a]) and hi[a] > hi[z] >= lo[a]:
+                hi[a], moved = hi[z], True
+        if not moved:
+            break
+    for ed in order:
+        a, z = ed['from'], ed['to']
+        if a in lo and z in lo and (lo[z] < lo[a] and hi[z] < lo[a]):
+            bad.append((ed, '后一件的窗口在前一件开始之前就结束了'))
+    for i, e in by_id.items():
+        if i not in lo or (lo[i], hi[i]) == (first[0][i], first[1][i]):
+            continue
+        w = e['when']
+        w['earliest'], w['latest'] = {'day': lo[i] // 1440, 'minute': lo[i] % 1440}, {'day': hi[i] // 1440, 'minute': hi[i] % 1440}
+        span = hi[i] - lo[i]
+        if w['precision'] in ('days', 'month', 'year') and lo[i] // 1440 == hi[i] // 1440:
+            w['precision'] = 'day' if (lo[i] % 1440, hi[i] % 1440) == (0, 1439) else 'part_of_day'
+        elif w['precision'] in ('month', 'year') and span < 27 * 1440:
+            w['precision'] = 'days'
+        elif w['precision'] == 'day' and (lo[i] % 1440, hi[i] % 1440) != (0, 1439):
+            w['precision'] = 'part_of_day'
+        if origin is not None:
+            f = lambda t: (origin + dt.timedelta(minutes=t)).strftime('%m-%d %H:%M')  # noqa: E731
+            note = f'按先后在 {f(lo[i])} 至 {f(hi[i])} 之间'
+            head, sep, said = w['label'].partition('；文中：')
+            w['label'] = f'{head}；{note}{sep}{said}'
+        # the people's own times in it stay inside it
+        for c in e.get('cast') or []:
+            if isinstance(c.get('at'), dict):
+                t = min(max(tick(c['at']), lo[i]), hi[i])
+                c['at'] = {'day': t // 1440, 'minute': t % 1440}
+    return bad
+
+
 def when_label(clock, cx, dated):
     """An event's time as people read it: the time when the sources give it, else what they give (a part of a day, a
     day, a month, years), never a made-up hour."""
@@ -1215,6 +1271,7 @@ def build(project, out_path=None, raw=False):
         arcs.append({'id': arc_id, 'title': ch['title'], 'summary': ed.get('summary') or ' '.join(recaps)[:600] or ch['title'], 'event_ids': arc_events})
 
     end_before_dependents(events, edges, cert)
+    narrow_by_order(events, edges, dt.datetime.combine(dt.date.fromisoformat(project['timeline']['origin_date']), dt.time()) if project.get('timeline') else None)
 
     # deaths that do not hold (cpb/deaths.py: decided by the model, applied here)
     back, n_back = deaths.apply(events, project.p('deaths.json'), rep, ents) if not raw else (set(), 0)

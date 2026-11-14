@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.35.0 and Toaru pack 4.3.0 — 2026-11-14
+
+- **Events whose time is not known keep their order.** Several beats of one afternoon all showed "12:00–17:59" in the timeline and read as at the same time. The builder now narrows such a window by what the stated times and the order already settle — an event that follows another is not earlier than that one's earliest time, and the other is not later than its latest — without inventing a time (96 windows; the five 大霸星祭 beats between 初遇欧莉安娜 at 13:00 and the noon event they lead to: 13:00–13:59). The timeline shows an unknown time as such ("之间某时") with each event's place among those that share it ("其中第 2/5 件"), and the GM is told the events it comes after (`afterNote`: in the canon events starting, the HARD obligations, the open events and the planner's view). Tests ON1, builder.
+- **Two more rules have their check** (pack-builder `checks`): windows hold the order of their links (on the 4.2.0 pack it lists the 72 that were not narrowed), and an exact time needs a source — a clock in the text, or a person's note (on the 4.0.0 pack it lists the 16 clocks the summary had made up). The builder README now lists every rule of a pack with the check that holds it.
+
 ## Toaru pack 4.2.0 — 2026-11-14
 
 - **The builder's checks compare every window with its own source text, and every lint warning is a problem.** The 4.0 review took 1421 windows over "as the sources give them" while 40 did not start at the stated time, and 14 lint warnings were left as harmless; neither was checked by code. Now each build compares the window of every event the sources date with what they state (the clock time it starts at, the day, the part of the day; a window a person set with a reason in the review file is theirs), and a canon-lint warning counts as a problem until it is fixed or accepted with a reason (review file `warnings`). On the 4.0 pack the comparison finds those 40; on this one two: 唯一取得修格斯样本 ("12月3日夜~12月4日8点前", was only the morning of the 4th; fixed) and 统括理事会会议 (its "12月12日" is the day of the shutdown, not of the meeting; the reason is recorded).

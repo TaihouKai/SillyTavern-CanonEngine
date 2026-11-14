@@ -229,6 +229,9 @@ def section(project, pack, lint_res=None):
     origin = dt.date.fromisoformat((project.get('timeline') or {}).get('origin_date', '2000-01-01'))
     res.append(('problem', '时间和文中不符', '窗口的开始、日期或时段与事件自己的文中时间对不上（核对文件里写明理由的除外）',
                 source_mismatches(pack, origin, {k: v.get('note', '') for k, v in rv['times'].items()})))
+    notes = {k: v.get('note', '') for k, v in rv['times'].items()}
+    res.append(('problem', '窗口与先后关系不符', '后一件事不能比前一件开始得早，前一件不能比后一件结束得晚', order_mismatches(pack)))
+    res.append(('problem', '没有出处的确切时间', '记为确切时间（minute/range）的，文中必须有时刻，或核对文件里写明来由', invented_precision(pack, notes)))
     res.append(('problem', 'canon-lint 警告未处理', '每条警告都要改掉，或在核对文件 warnings 里写明为什么接受', lint_findings(lint_res, rv.get('warnings') or {})))
     probs = [(t, ls) for k, t, _, ls in res if k == 'problem' and ls]
     L = ['## 质量检查', '', '每次 `build` 自动跑（代码检查，不调用模型）。「问题」应为 0；「复核」是各步骤的判断结果，供人过目。', '',
@@ -302,4 +305,42 @@ def lint_findings(lint_res, accepted):
         msg = f'{x.get("path", "")} {x.get("message", "")}'.strip()
         if not any(k in msg for k in accepted):
             out.append(msg[:240])
+    return out
+
+
+def order_mismatches(pack):
+    """[line] for every enables / precedes link whose windows do not hold the order: the later event may begin before
+    the earlier one could (its window opens first), the earlier may end after the later one must have (its window
+    closes last), or the later one is over before the earlier begins. The builder narrows windows by the order
+    (assemble.narrow_by_order); a link left like this is a window or a link that is wrong."""
+    by_id = {e['id']: e for e in pack['events']}
+    tick = lambda w: w['day'] * DAY + w['minute']  # noqa: E731
+    out = []
+    for ed in pack.get('edges') or []:
+        if ed.get('relation') not in ('enables', 'precedes'):
+            continue
+        a, z = by_id.get(ed['from']), by_id.get(ed['to'])
+        if not a or not z or not a['when'].get('earliest') or not z['when'].get('earliest'):
+            continue
+        alo, ahi, zlo, zhi = tick(a['when']['earliest']), tick(a['when']['latest']), tick(z['when']['earliest']), tick(z['when']['latest'])
+        why = '后一件在前一件开始之前就结束了' if zhi < alo else '后一件的窗口比前一件开得早' if zlo < alo else '前一件的窗口比后一件关得晚' if ahi > zhi else ''
+        if why:
+            out.append(f'{a["id"]} {a["title"]} → {z["id"]} {z["title"]}（{ed["relation"]}）：{why}')
+    return out
+
+
+def invented_precision(pack, notes):
+    """[line] for every event given a known time (minute / range) that its source text does not state as a clock time
+    and no person explained in the review file: a time no one stated is "some time then", never an exact one."""
+    from . import timeline
+    out = []
+    for e in pack['events']:
+        if e['when'].get('precision') not in ('minute', 'range') or e.get('frame_id'):
+            continue
+        note = notes.get(e['id']) or ''
+        if note and not note.startswith('核对'):
+            continue
+        st = _stated(e)
+        if timeline.time_of(st) is None and not re.search(r'UTC', st):
+            out.append(f'{e["id"]} {e["title"]}：记为确切时间，文中却没有时刻（{st[:30] or "无文中时间"}）')
     return out

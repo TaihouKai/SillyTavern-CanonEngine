@@ -25296,7 +25296,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.34.0";
+var ENGINE_RELEASE = "1.35.0";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -26788,6 +26788,11 @@ function earliestChange(oldM, newM) {
 
 // src/core/runtime/context.ts
 var exactOf = (pack2, id) => pack2.timeIndex.find((t2) => t2.id === id)?.exact ?? true;
+var afterNote = (pack2, state, id) => {
+  if (exactOf(pack2, id)) return "";
+  const prev = (pack2.edgesTo.get(id) || []).filter((e) => (e.relation === "enables" || e.relation === "precedes") && !state.dispositions.has(e.from)).map((e) => pack2.events.get(e.from)?.title).filter(Boolean);
+  return prev.length ? ` (after ${prev.map((t2) => `"${t2}"`).join(", ")})` : "";
+};
 function add(m, k, t2) {
   if (!m.has(k)) m.set(k, /* @__PURE__ */ new Set());
   m.get(k).add(t2);
@@ -27093,7 +27098,7 @@ function buildPacket(inp, compact = false) {
   if (starting.length && !inp.review) {
     const head = jump > START_SOON_MINUTES ? `CANON EVENTS ABOUT TO START \u2014 the player's message jumps story time to ${formatTick(inp.timeJumpTo, inp.origin)}; these start before then (NOT happened yet). Each begins at its time during the jump \u2014 the world does not wait: reflect the ones the player character would witness, be woken or interrupted by, or plausibly hear about; the others happen out of sight and you do not mention them. Keep the jump the player asked for: do not cut it short or stretch it to reach or avoid an event; how far their original routes bind depends on their class (rule below)` : `CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then \u2014 the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; how far its original route binds depends on its class (rule below)`;
     required.push(`${head}:
-` + starting.map((u) => `- ${u.event.title} [${u.event.id}] (${u.event.classification}) ${startsText({ ...u, exact: exactOf(pack2, u.event.id) }, inp.origin)}${eventFrameTag(pack2, u.event.id, u.lo)}${exactOf(pack2, u.event.id) ? ` (in ${minutesAway(u.lo - checkpointTick)})` : ""}: ${causeOf(u.event)}${castLine(u.event, index, checkpointTick, inp.origin)}`).join("\n"));
+` + starting.map((u) => `- ${u.event.title} [${u.event.id}] (${u.event.classification}) ${startsText({ ...u, exact: exactOf(pack2, u.event.id) }, inp.origin)}${afterNote(pack2, index.state, u.event.id)}${eventFrameTag(pack2, u.event.id, u.lo)}${exactOf(pack2, u.event.id) ? ` (in ${minutesAway(u.lo - checkpointTick)})` : ""}: ${causeOf(u.event)}${castLine(u.event, index, checkpointTick, inp.origin)}`).join("\n"));
   }
   const underWay = underWayEvents2(index, checkpointTick);
   if (underWay.length) required.push("CANON EVENTS UNDER WAY in this branch (started in the story, result NOT settled yet; continue from where they stand; how far the original route binds depends on the class \u2014 rule below):\n" + underWay.map((u) => `- ${u.title} [${u.id}] (${u.cls}; window ${formatTick(u.lo, inp.origin)} \u2013 ${formatTick(u.hi, inp.origin)}${eventFrameTag(pack2, u.id, checkpointTick)}): so far \u2014 ${u.beats.join(" \u2192 ")}. ${routeLabel(u.cls)}:${routeText(index.pack.events.get(u.id), u.summary, presentAt(index, u.id, checkpointTick), /^zh/i.test(index.pack.pack.language))}${whyLine(index.pack.events.get(u.id), index)}${castLine(index.pack.events.get(u.id), index, checkpointTick, inp.origin)}`).join("\n"));
@@ -27103,7 +27108,7 @@ function buildPacket(inp, compact = false) {
   const horizonEnd = checkpointTick + inp.horizon;
   const dueSoon = hard.filter((h) => h.lo <= horizonEnd);
   const later = hard.filter((h) => h.lo > horizonEnd);
-  const hardLines = dueSoon.map((h) => `- [${h.event.id}] ${formatTick(h.lo, inp.origin)}${h.hi !== h.lo ? " \u2013 " + formatTick(h.hi, inp.origin) : ""}${exactOf(pack2, h.event.id) ? "" : " (some time in this span; its exact time is not known)"}${eventFrameTag(pack2, h.event.id, h.lo)}: ${h.event.required_description} REQUIRED OUTCOMES: ${h.event.outcomes.map((o) => `${o.entity_id}.${o.predicate}=${JSON.stringify(o.value)}`).join(", ")}${h.hi <= checkpointTick ? " **DUE NOW**" : ""}${castLine(h.event, index, checkpointTick, inp.origin)}`);
+  const hardLines = dueSoon.map((h) => `- [${h.event.id}] ${formatTick(h.lo, inp.origin)}${h.hi !== h.lo ? " \u2013 " + formatTick(h.hi, inp.origin) : ""}${exactOf(pack2, h.event.id) ? "" : " (some time in this span; its exact time is not known)"}${afterNote(pack2, index.state, h.event.id)}${eventFrameTag(pack2, h.event.id, h.lo)}: ${h.event.required_description} REQUIRED OUTCOMES: ${h.event.outcomes.map((o) => `${o.entity_id}.${o.predicate}=${JSON.stringify(o.value)}`).join(", ")}${h.hi <= checkpointTick ? " **DUE NOW**" : ""}${castLine(h.event, index, checkpointTick, inp.origin)}`);
   if (!inp.review) required.push("FUTURE OBLIGATIONS (HARD; fixed content/outcome/time; route may change):\n" + (hardLines.length ? hardLines.join("\n") : "- none within the current horizon") + (later.length ? `
 - later HARD obligations exist (${later.length}); do not contradict them.` : ""));
   if (inp.forced) required.push("MODE: FORCED CONVERGENCE authorized by the controller \u2014 extraordinary world intervention may be depicted as a new event. It cannot erase history or choose the player's actions.");
@@ -27126,9 +27131,9 @@ function buildPacket(inp, compact = false) {
   const openEvents = pack2.timeIndex.filter((t2) => t2.lo <= checkpointTick && t2.hi > checkpointTick && !index.state.dispositions.has(t2.id) && pack2.events.get(t2.id)?.classification !== "HARD" && !underWay.some((u) => u.id === t2.id) && triLabel(evalCondition(pack2.events.get(t2.id).canonical_preconditions, index.state, pack2, { tick: checkpointTick })) !== "FALSE").slice(0, 4);
   const open = openEvents.map((t2) => {
     const e = pack2.events.get(t2.id);
-    return `- ${e.title} (${e.classification}; ${formatTick(t2.lo, inp.origin)} \u2013 ${formatTick(t2.hi, inp.origin)}${eventFrameTag(pack2, e.id, checkpointTick)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + "\u2026" : e.summary}${whyLine(e, index)}${castLine(e, index, checkpointTick, inp.origin)}`;
+    return `- ${e.title} (${e.classification}; ${formatTick(t2.lo, inp.origin)} \u2013 ${formatTick(t2.hi, inp.origin)}${afterNote(pack2, index.state, e.id)}${eventFrameTag(pack2, e.id, checkpointTick)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + "\u2026" : e.summary}${whyLine(e, index)}${castLine(e, index, checkpointTick, inp.origin)}`;
   });
-  const soon = upcomingRoute(pack2, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${eventTimeText({ ...u, exact: exactOf(pack2, u.event.id) }, inp.origin)}${eventFrameTag(pack2, u.event.id, u.lo)} ${u.event.title}: ${causeOf(u.event)}`);
+  const soon = upcomingRoute(pack2, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${eventTimeText({ ...u, exact: exactOf(pack2, u.event.id) }, inp.origin)}${afterNote(pack2, index.state, u.event.id)}${eventFrameTag(pack2, u.event.id, u.lo)} ${u.event.title}: ${causeOf(u.event)}`);
   if (soon.length) optional.push("WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing \u2014 NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them (a WORLD REACTION given above is the one way the world may reach the player, and the COMPANIONS section says how the people with the player handle theirs); the player may change them, and actual play wins over this:\n" + soon.join("\n"));
   const openCast = openEvents.some((t2) => pack2.events.get(t2.id).cast?.length);
   if (open.length) (openCast && !inp.review ? required : optional).push("CANON EVENTS WITHIN THEIR WINDOW (not happened yet in this branch; if the story does not reach them they are settled offscreen when the window ends; NOT facts; how far the original route binds depends on the class \u2014 rule below):\n" + open.join("\n"));
@@ -28354,7 +28359,7 @@ async function runPlanning(args) {
       actual_world: args.facts,
       recent_situation: args.situation || "",
       player_interests: args.interests || [],
-      others_original_situation: route.map((u) => ({ id: u.event.id, at: eventTimeText({ ...u, exact: pack2.timeIndex.find((t2) => t2.id === u.event.id)?.exact ?? true }), situation: causeOf(u.event) })),
+      others_original_situation: route.map((u) => ({ id: u.event.id, at: eventTimeText({ ...u, exact: pack2.timeIndex.find((t2) => t2.id === u.event.id)?.exact ?? true }) + afterNote(pack2, state, u.event.id), situation: causeOf(u.event) })),
       deviations: [...state.dispositions].filter(([, d]) => d.disposition !== "occurred").map(([id, d]) => ({ id, disposition: d.disposition, reason: d.reason })),
       entities: [...pack2.entities.values(), ...state.runtimeEntities.values()].map(entityLine),
       predicates: [...pack2.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values })),
@@ -32641,6 +32646,8 @@ Also [OOC \u2026], \u3010OOC\uFF1A\u2026\u3011, or a line starting with "OOC:".
   // the history graph (graph.ts)
   g_frame: { zh: "\u65F6\u7A7A\uFF1A{name}\uFF08\u5F53\u5730 {local}{until}\uFF09", en: "Frame: {name} (local {local}{until})" },
   g_frameUntil: { zh: " \u8D77\uFF0C\u81F3 {t}", en: " to {t}" },
+  g_someTime: { zh: " \u4E4B\u95F4\u67D0\u65F6", en: " (some time)" },
+  g_nth: { zh: "\u5176\u4E2D\u7B2C {n}/{of} \u4EF6", en: "{n} of {of} in order" },
   g_canonOutcome: { zh: "\u539F\u4F5C\u7ED3\u679C\uFF1A", en: "Original outcome: " },
   g_note: { zh: "\u6CE8\uFF1A", en: "Note: " },
   g_actualOutcome: { zh: "\u672C\u5C40\u7ED3\u679C\uFF1A", en: "Outcome in this playthrough: " },
@@ -32728,6 +32735,17 @@ function packGraph(L, origin) {
       ]
     });
   }
+  const same = /* @__PURE__ */ new Map();
+  for (const n of nodes) {
+    const ti = L.timeIndex.find((x) => x.id === n.id);
+    if (!ti || ti.exact) continue;
+    n.short = `${n.short}${t("g_someTime")}`;
+    const k = `${ti.lo}|${ti.hi}`;
+    same.set(k, [...same.get(k) || [], n]);
+  }
+  for (const ns of same.values()) if (ns.length > 1) ns.forEach((n, i) => {
+    n.short = `${n.short} \xB7 ${tf("g_nth", { n: i + 1, of: ns.length })}`;
+  });
   const edges = L.pack.edges.map((e) => ({ from: e.from, to: e.to, kind: e.relation, note: e.note }));
   return { nodes, edges, nowTick: null, arcs: L.pack.arcs.map((a) => ({ id: a.id, title: a.title })), origin, ...frameList.length ? { frames: { list: frameList } } : {} };
 }

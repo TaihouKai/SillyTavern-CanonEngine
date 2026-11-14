@@ -551,6 +551,8 @@ const D: Record<string, { zh: string; en: string }> = {
   // the history graph (graph.ts)
   g_frame: { zh: '时空：{name}（当地 {local}{until}）', en: 'Frame: {name} (local {local}{until})' },
   g_frameUntil: { zh: ' 起，至 {t}', en: ' to {t}' },
+  g_someTime: { zh: ' 之间某时', en: ' (some time)' },
+  g_nth: { zh: '其中第 {n}/{of} 件', en: '{n} of {of} in order' },
   g_canonOutcome: { zh: '原作结果：', en: 'Original outcome: ' },
   g_note: { zh: '注：', en: 'Note: ' },
   g_actualOutcome: { zh: '本局结果：', en: 'Outcome in this playthrough: ' },

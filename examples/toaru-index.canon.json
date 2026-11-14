@@ -1,7 +1,7 @@
 {
  "schema_version": "1.0.0",
  "pack_id": "toaru-index-chronicle",
- "pack_version": "4.2.0",
+ "pack_version": "4.3.0",
  "title": "魔法禁书目录 编年史（旧约·新约·创约及外传）",
  "language": "zh-CN",
  "description": "《魔法禁书目录》系列（含超电磁炮、一方通行、未元物质、心理掌握、暗部少女共栖、幽幻姐妹等外传）的历史事件包。2.0 起由 canon-pack-builder 依据魔禁维基（灰机wiki）的篇章、时间线与考据页，以及英文 Toaru Wiki（fandom）的篇章页与人物经历逐篇细化；日期依考据页。HARD为主线关键节点，SOFT为可被玩家改变的重要事件（如角色死亡），FREE为背景与日常。恋爱关系一律不强制。",
@@ -38642,10 +38642,10 @@
     },
     "latest": {
      "day": -355,
-     "minute": 1439
+     "minute": 1079
     },
-    "precision": "day",
-    "label": "2019-07-30（当天，具体时间不详）；学园都市（一年前，7月末至8月初）；文中：7月30日",
+    "precision": "part_of_day",
+    "label": "2019-07-30（当天，具体时间不详）；学园都市（一年前，7月末至8月初）；按先后在 07-30 00:00 至 07-30 17:59 之间；文中：7月30日",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -38780,10 +38780,10 @@
     },
     "latest": {
      "day": -355,
-     "minute": 1439
+     "minute": 1079
     },
-    "precision": "day",
-    "label": "2019-07-30（当天，具体时间不详）；学园都市（一年前，7月末至8月初）",
+    "precision": "part_of_day",
+    "label": "2019-07-30（当天，具体时间不详）；学园都市（一年前，7月末至8月初）；按先后在 07-30 00:00 至 07-30 17:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -39662,14 +39662,14 @@
    "when": {
     "earliest": {
      "day": -355,
-     "minute": 0
+     "minute": 720
     },
     "latest": {
      "day": -355,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2019-07-30（当天，具体时间不详）；学园都市（一年前，7月末至8月初）",
+    "precision": "part_of_day",
+    "label": "2019-07-30（当天，具体时间不详）；学园都市（一年前，7月末至8月初）；按先后在 07-30 12:00 至 07-30 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -39719,7 +39719,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": -355,
-      "minute": 0
+      "minute": 720
      },
      "role": "担忧者"
     },
@@ -39727,7 +39727,7 @@
      "entity_id": "kumokawa-seria",
      "at": {
       "day": -355,
-      "minute": 0
+      "minute": 720
      },
      "role": "分析者"
     }
@@ -39761,10 +39761,10 @@
     },
     "latest": {
      "day": -355,
-     "minute": 1439
+     "minute": 1259
     },
-    "precision": "day",
-    "label": "2019-07-30（当天，具体时间不详）；学园都市（一年前，7月末至8月初）",
+    "precision": "part_of_day",
+    "label": "2019-07-30（当天，具体时间不详）；学园都市（一年前，7月末至8月初）；按先后在 07-30 00:00 至 07-30 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -42181,14 +42181,14 @@
    "when": {
     "earliest": {
      "day": -354,
-     "minute": 0
+     "minute": 360
     },
     "latest": {
      "day": -354,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2019-07-31（当天，具体时间不详）；学园都市（一年前，7月末至8月初）",
+    "precision": "part_of_day",
+    "label": "2019-07-31（当天，具体时间不详）；学园都市（一年前，7月末至8月初）；按先后在 07-31 06:00 至 07-31 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -42283,7 +42283,7 @@
      "entity_id": "kumokawa-seria",
      "at": {
       "day": -354,
-      "minute": 0
+      "minute": 360
      },
      "role": "交涉者"
     },
@@ -42291,7 +42291,7 @@
      "entity_id": "gokusai-kaibi",
      "at": {
       "day": -354,
-      "minute": 0
+      "minute": 360
      },
      "role": "回答情报者"
     },
@@ -42299,7 +42299,7 @@
      "entity_id": "gokusai-rikuri",
      "at": {
       "day": -354,
-      "minute": 0
+      "minute": 360
      },
      "role": "同行者"
     },
@@ -42307,7 +42307,7 @@
      "entity_id": "gokusai-amazora",
      "at": {
       "day": -354,
-      "minute": 0
+      "minute": 360
      },
      "role": "同行者"
     },
@@ -42315,7 +42315,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": -354,
-      "minute": 0
+      "minute": 360
      },
      "role": "在地面会合者"
     }
@@ -45266,10 +45266,10 @@
     },
     "latest": {
      "day": -349,
-     "minute": 1439
+     "minute": 1079
     },
-    "precision": "day",
-    "label": "2019-08-05（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2019-08-05（当天，具体时间不详）；按先后在 08-05 00:00 至 08-05 17:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -46732,14 +46732,14 @@
    "when": {
     "earliest": {
      "day": -348,
-     "minute": 1080
+     "minute": 1380
     },
     "latest": {
      "day": -347,
-     "minute": 179
+     "minute": 30
     },
     "precision": "part_of_day",
-    "label": "2019-08-06 晚上（具体时间不详）",
+    "label": "2019-08-06 晚上（具体时间不详）；按先后在 08-06 23:00 至 08-07 00:30 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -46793,7 +46793,7 @@
      "entity_id": "takitsubo-rikou",
      "at": {
       "day": -348,
-      "minute": 1080
+      "minute": 1380
      },
      "role": "ITEM成员"
     },
@@ -46801,7 +46801,7 @@
      "entity_id": "frenda-seivelun",
      "at": {
       "day": -348,
-      "minute": 1080
+      "minute": 1380
      },
      "role": "昏迷的ITEM成员"
     },
@@ -46809,7 +46809,7 @@
      "entity_id": "kinuhata-saiai",
      "at": {
       "day": -348,
-      "minute": 1080
+      "minute": 1380
      },
      "role": "昏迷的ITEM成员"
     }
@@ -47810,10 +47810,10 @@
     },
     "latest": {
      "day": -325,
-     "minute": 719
+     "minute": 690
     },
     "precision": "part_of_day",
-    "label": "2019-08-29 上午（具体时间不详）",
+    "label": "2019-08-29 上午（具体时间不详）；按先后在 08-29 06:00 至 08-29 11:30 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -48170,14 +48170,14 @@
    "when": {
     "earliest": {
      "day": -324,
-     "minute": 240
+     "minute": 270
     },
     "latest": {
      "day": -324,
-     "minute": 479
+     "minute": 359
     },
     "precision": "part_of_day",
-    "label": "2019-08-30 清晨（具体时间不详）",
+    "label": "2019-08-30 清晨（具体时间不详）；按先后在 08-30 04:30 至 08-30 05:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -48246,7 +48246,7 @@
      "entity_id": "mugino-shizuri",
      "at": {
       "day": -324,
-      "minute": 240
+      "minute": 270
      },
      "role": "识破并杀人"
     },
@@ -48254,7 +48254,7 @@
      "entity_id": "takitsubo-rikou",
      "at": {
       "day": -324,
-      "minute": 240
+      "minute": 270
      },
      "role": "找到凶器并推断"
     },
@@ -48262,7 +48262,7 @@
      "entity_id": "kakeyama-sasuke",
      "at": {
       "day": -324,
-      "minute": 240
+      "minute": 270
      },
      "role": "被杀的「自由人」成员"
     },
@@ -48270,7 +48270,7 @@
      "entity_id": "saezawa-merusin",
      "at": {
       "day": -324,
-      "minute": 240
+      "minute": 270
      },
      "role": "被杀的「自由人」成员"
     }
@@ -48301,14 +48301,14 @@
    "when": {
     "earliest": {
      "day": -324,
-     "minute": 0
+     "minute": 270
     },
     "latest": {
      "day": -324,
      "minute": 359
     },
     "precision": "part_of_day",
-    "label": "2019-08-30 凌晨（具体时间不详）；文中：1年前8月30日凌晨",
+    "label": "2019-08-30 凌晨（具体时间不详）；按先后在 08-30 04:30 至 08-30 05:59 之间；文中：1年前8月30日凌晨",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -48362,7 +48362,7 @@
      "entity_id": "shiratori-okibi",
      "at": {
       "day": -324,
-      "minute": 0
+      "minute": 270
      },
      "role": "自称侦探的暗部成员"
     },
@@ -48370,7 +48370,7 @@
      "entity_id": "mugino-shizuri",
      "at": {
       "day": -324,
-      "minute": 0
+      "minute": 270
      },
      "role": "「ITEM」首领"
     },
@@ -48378,7 +48378,7 @@
      "entity_id": "takitsubo-rikou",
      "at": {
       "day": -324,
-      "minute": 0
+      "minute": 270
      },
      "role": "「ITEM」成员"
     },
@@ -48386,7 +48386,7 @@
      "entity_id": "amakawa-souseki",
      "at": {
       "day": -324,
-      "minute": 0
+      "minute": 270
      },
      "role": "「自由人」第三人，已死"
     }
@@ -49140,14 +49140,14 @@
    "when": {
     "earliest": {
      "day": -324,
-     "minute": 1080
+     "minute": 1380
     },
     "latest": {
      "day": -323,
      "minute": 179
     },
     "precision": "part_of_day",
-    "label": "2019-08-30 晚上（具体时间不详）",
+    "label": "2019-08-30 晚上（具体时间不详）；按先后在 08-30 23:00 至 08-31 02:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -49239,7 +49239,7 @@
      "entity_id": "shiratori-okibi",
      "at": {
       "day": -324,
-      "minute": 1080
+      "minute": 1380
      },
      "role": "濒死的侦探"
     },
@@ -49247,7 +49247,7 @@
      "entity_id": "rangyaku",
      "at": {
       "day": -324,
-      "minute": 1080
+      "minute": 1380
      },
      "role": "被允许离去"
     },
@@ -49255,7 +49255,7 @@
      "entity_id": "mugino-shizuri",
      "at": {
       "day": -324,
-      "minute": 1080
+      "minute": 1380
      },
      "role": "接受闪存"
     }
@@ -50236,10 +50236,10 @@
     },
     "latest": {
      "day": -313,
-     "minute": 719
+     "minute": 570
     },
     "precision": "part_of_day",
-    "label": "2019-09-10 上午（具体时间不详）；文中：一年前9月10日早上",
+    "label": "2019-09-10 上午（具体时间不详）；按先后在 09-10 06:00 至 09-10 09:30 之间；文中：一年前9月10日早上",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -51350,14 +51350,14 @@
    "when": {
     "earliest": {
      "day": -312,
-     "minute": 240
+     "minute": 270
     },
     "latest": {
      "day": -312,
      "minute": 479
     },
     "precision": "part_of_day",
-    "label": "2019-09-11 清晨（具体时间不详）；文中：一年前9月11日",
+    "label": "2019-09-11 清晨（具体时间不详）；按先后在 09-11 04:30 至 09-11 07:59 之间；文中：一年前9月11日",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -51410,7 +51410,7 @@
      "entity_id": "frenda-seivelun",
      "at": {
       "day": -312,
-      "minute": 240
+      "minute": 270
      },
      "role": "取证者"
     },
@@ -51418,7 +51418,7 @@
      "entity_id": "mugino-sakuya",
      "at": {
       "day": -312,
-      "minute": 240
+      "minute": 270
      },
      "role": "政变主谋"
     },
@@ -51426,7 +51426,7 @@
      "entity_id": "mujinayama",
      "at": {
       "day": -312,
-      "minute": 240
+      "minute": 270
      },
      "role": "炸夜部下"
     }
@@ -53329,14 +53329,14 @@
    "when": {
     "earliest": {
      "day": -312,
-     "minute": 0
+     "minute": 360
     },
     "latest": {
      "day": -312,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2019-09-11（当天，具体时间不详）；文中：一年前9月11日",
+    "precision": "part_of_day",
+    "label": "2019-09-11（当天，具体时间不详）；按先后在 09-11 06:00 至 09-11 23:59 之间；文中：一年前9月11日",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -53420,7 +53420,7 @@
      "entity_id": "mugino-shizuri",
      "at": {
       "day": -312,
-      "minute": 0
+      "minute": 360
      },
      "role": "「ITEM」首领"
     },
@@ -53428,7 +53428,7 @@
      "entity_id": "takitsubo-rikou",
      "at": {
       "day": -312,
-      "minute": 0
+      "minute": 360
      },
      "role": "「ITEM」成员"
     },
@@ -53436,7 +53436,7 @@
      "entity_id": "kinuhata-saiai",
      "at": {
       "day": -312,
-      "minute": 0
+      "minute": 360
      },
      "role": "「ITEM」成员"
     },
@@ -53444,7 +53444,7 @@
      "entity_id": "frenda-seivelun",
      "at": {
       "day": -312,
-      "minute": 0
+      "minute": 360
      },
      "role": "「ITEM」成员"
     }
@@ -55868,14 +55868,14 @@
    "when": {
     "earliest": {
      "day": -303,
-     "minute": 960
+     "minute": 1020
     },
     "latest": {
      "day": -303,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2019-09-20 傍晚（具体时间不详）；学园都市·大霸星祭（一年前）；文中：一年前9月20日日落",
+    "label": "2019-09-20 傍晚（具体时间不详）；学园都市·大霸星祭（一年前）；按先后在 09-20 17:00 至 09-20 20:59 之间；文中：一年前9月20日日落",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -55912,7 +55912,7 @@
      "entity_id": "frenda-seivelun",
      "at": {
       "day": -303,
-      "minute": 960
+      "minute": 1020
      },
      "role": "拆弹者"
     },
@@ -55920,7 +55920,7 @@
      "entity_id": "takitsubo-rikou",
      "at": {
       "day": -303,
-      "minute": 960
+      "minute": 1020
      },
      "role": "调度者"
     },
@@ -55928,7 +55928,7 @@
      "entity_id": "mugino-shizuri",
      "at": {
       "day": -303,
-      "minute": 960
+      "minute": 1020
      },
      "role": "迎敌者"
     },
@@ -55936,7 +55936,7 @@
      "entity_id": "kinuhata-saiai",
      "at": {
       "day": -303,
-      "minute": 960
+      "minute": 1020
      },
      "role": "迎敌者"
     }
@@ -55973,14 +55973,14 @@
    "when": {
     "earliest": {
      "day": -303,
-     "minute": 960
+     "minute": 1020
     },
     "latest": {
      "day": -303,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2019-09-20 傍晚（具体时间不详）；学园都市·大霸星祭（一年前）；文中：一年前9月20日日落",
+    "label": "2019-09-20 傍晚（具体时间不详）；学园都市·大霸星祭（一年前）；按先后在 09-20 17:00 至 09-20 20:59 之间；文中：一年前9月20日日落",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -56045,7 +56045,7 @@
      "entity_id": "frenda-seivelun",
      "at": {
       "day": -303,
-      "minute": 960
+      "minute": 1020
      },
      "role": "拆弹者"
     },
@@ -56053,7 +56053,7 @@
      "entity_id": "c-ko",
      "at": {
       "day": -303,
-      "minute": 960
+      "minute": 1020
      },
      "role": "上级实验室成员"
     }
@@ -65285,10 +65285,10 @@
     },
     "latest": {
      "day": 9,
-     "minute": 179
+     "minute": 15
     },
     "precision": "part_of_day",
-    "label": "2020-07-27 晚上（具体时间不详）；文中：7月27日",
+    "label": "2020-07-27 晚上（具体时间不详）；按先后在 07-27 18:00 至 07-28 00:15 之间；文中：7月27日",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -72119,7 +72119,8 @@
    },
    "entity_ids": [
     "stiyl-magnus",
-    "kamijou-touma"
+    "kamijou-touma",
+    "sphynx"
    ],
    "location_ids": [
     "academy-city-streets"
@@ -72128,8 +72129,27 @@
    "canonical_preconditions": {
     "all": []
    },
-   "outcomes": [],
-   "canonical_effects": [],
+   "outcomes": [
+    {
+     "op": "add",
+     "entity_id": "sphynx",
+     "predicate": "members",
+     "value": [
+      "kamijou-touma"
+     ]
+    }
+   ],
+   "canonical_effects": [
+    {
+     "op": "add",
+     "entity_id": "sphynx",
+     "predicate": "members",
+     "value": [
+      "kamijou-touma"
+     ],
+     "until": "lasting"
+    }
+   ],
    "visibility": {
     "mode": "secret",
     "knower_ids": [
@@ -72194,14 +72214,14 @@
    "when": {
     "earliest": {
      "day": 20,
-     "minute": 960
+     "minute": 1020
     },
     "latest": {
      "day": 20,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）",
+    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）；按先后在 08-08 17:00 至 08-08 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -72224,8 +72244,7 @@
      "entity_id": "sphynx",
      "predicate": "members",
      "value": [
-      "index",
-      "kamijou-touma"
+      "index"
      ]
     },
     {
@@ -72240,8 +72259,7 @@
      "entity_id": "sphynx",
      "predicate": "members",
      "value": [
-      "index",
-      "kamijou-touma"
+      "index"
      ],
      "until": "lasting"
     },
@@ -72272,7 +72290,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1020
      },
      "role": "护送者"
     },
@@ -72280,7 +72298,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1020
      },
      "role": "布结界者"
     },
@@ -72288,7 +72306,7 @@
      "entity_id": "index",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1020
      },
      "role": "被保护者"
     }
@@ -72317,14 +72335,14 @@
    "when": {
     "earliest": {
      "day": 20,
-     "minute": 960
+     "minute": 1020
     },
     "latest": {
      "day": 20,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）",
+    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）；按先后在 08-08 17:00 至 08-08 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -72375,7 +72393,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1020
      },
      "role": "入侵者"
     },
@@ -72383,7 +72401,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1020
      },
      "role": "入侵者"
     },
@@ -72391,7 +72409,7 @@
      "entity_id": "percival",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1020
      },
      "role": "已死的骑士"
     }
@@ -72427,14 +72445,14 @@
    "when": {
     "earliest": {
      "day": 20,
-     "minute": 960
+     "minute": 1020
     },
     "latest": {
      "day": 20,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）",
+    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）；按先后在 08-08 17:00 至 08-08 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -72469,7 +72487,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1020
      },
      "role": "被当作诱饵者"
     },
@@ -72477,7 +72495,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1020
      },
      "role": "施术者"
     }
@@ -72505,14 +72523,14 @@
    "when": {
     "earliest": {
      "day": 20,
-     "minute": 960
+     "minute": 1020
     },
     "latest": {
      "day": 20,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）",
+    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）；按先后在 08-08 17:00 至 08-08 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -72547,7 +72565,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1020
      },
      "role": "救人者"
     },
@@ -72555,7 +72573,7 @@
      "entity_id": "himegami-aisa",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1020
      },
      "role": "出现者"
     }
@@ -73325,14 +73343,14 @@
    "when": {
     "earliest": {
      "day": 20,
-     "minute": 960
+     "minute": 1110
     },
     "latest": {
      "day": 20,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）",
+    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）；按先后在 08-08 18:30 至 08-08 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -73367,7 +73385,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1110
      },
      "role": "劝阻者"
     },
@@ -73375,7 +73393,7 @@
      "entity_id": "vittorio-cassera",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1110
      },
      "role": "骑士团指挥者"
     }
@@ -73403,14 +73421,14 @@
    "when": {
     "earliest": {
      "day": 20,
-     "minute": 960
+     "minute": 1110
     },
     "latest": {
      "day": 20,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）",
+    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）；按先后在 08-08 18:30 至 08-08 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -73469,7 +73487,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1110
      },
      "role": "打醒者"
     },
@@ -73477,7 +73495,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1110
      },
      "role": "被恢复记忆者"
     }
@@ -73512,14 +73530,14 @@
    "when": {
     "earliest": {
      "day": 20,
-     "minute": 960
+     "minute": 1110
     },
     "latest": {
      "day": 20,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）",
+    "label": "2020-08-08 傍晚（具体时间不详）；学园都市（八月上旬）；按先后在 08-08 18:30 至 08-08 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -73571,7 +73589,7 @@
      "entity_id": "aureolus-izzard",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1110
      },
      "role": "计划者"
     },
@@ -73579,7 +73597,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1110
      },
      "role": "对峙者"
     },
@@ -73587,7 +73605,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1110
      },
      "role": "揭明者"
     },
@@ -73595,7 +73613,7 @@
      "entity_id": "index",
      "at": {
       "day": 20,
-      "minute": 960
+      "minute": 1110
      },
      "role": "被提及的拯救对象"
     }
@@ -76510,14 +76528,14 @@
    "when": {
     "earliest": {
      "day": 33,
-     "minute": 1080
+     "minute": 1230
     },
     "latest": {
      "day": 34,
      "minute": 179
     },
     "precision": "part_of_day",
-    "label": "2020-08-21 晚上（具体时间不详）；学园都市（旧约3·超电磁炮妹妹篇）；文中：8月21日晚上",
+    "label": "2020-08-21 晚上（具体时间不详）；学园都市（旧约3·超电磁炮妹妹篇）；按先后在 08-21 20:30 至 08-22 02:59 之间；文中：8月21日晚上",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -76556,7 +76574,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 33,
-      "minute": 1080
+      "minute": 1230
      },
      "role": "挑战者"
     },
@@ -76564,7 +76582,7 @@
      "entity_id": "accelerator",
      "at": {
       "day": 33,
-      "minute": 1080
+      "minute": 1230
      },
      "role": "学园都市最强"
     }
@@ -81367,14 +81385,14 @@
    "when": {
     "earliest": {
      "day": 40,
-     "minute": 1080
+     "minute": 1320
     },
     "latest": {
      "day": 41,
      "minute": 179
     },
     "precision": "part_of_day",
-    "label": "2020-08-28 晚上（具体时间不详）；文中：8月28日夜晚",
+    "label": "2020-08-28 晚上（具体时间不详）；按先后在 08-28 22:00 至 08-29 02:59 之间；文中：8月28日夜晚",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -81426,7 +81444,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 40,
-      "minute": 1080
+      "minute": 1320
      },
      "role": "被盘问者"
     },
@@ -81434,7 +81452,7 @@
      "entity_id": "gabriel",
      "at": {
       "day": 40,
-      "minute": 1080
+      "minute": 1320
      },
      "role": "盘问者"
     },
@@ -81442,7 +81460,7 @@
      "entity_id": "kanzaki-kaori",
      "at": {
       "day": 40,
-      "minute": 1080
+      "minute": 1320
      },
      "role": "调停者"
     },
@@ -81450,7 +81468,7 @@
      "entity_id": "maou",
      "at": {
       "day": 40,
-      "minute": 1080
+      "minute": 1320
      },
      "role": "目击者"
     }
@@ -81582,10 +81600,10 @@
     },
     "latest": {
      "day": 41,
-     "minute": 839
+     "minute": 800
     },
     "precision": "part_of_day",
-    "label": "2020-08-29 中午（具体时间不详）；文中：8月29日中午",
+    "label": "2020-08-29 中午（具体时间不详）；按先后在 08-29 11:00 至 08-29 13:20 之间；文中：8月29日中午",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -83295,14 +83313,14 @@
    "when": {
     "earliest": {
      "day": 43,
-     "minute": 720
+     "minute": 784
     },
     "latest": {
      "day": 43,
      "minute": 1079
     },
     "precision": "part_of_day",
-    "label": "2020-08-31 下午（具体时间不详）；学园都市·8月31日（暑假最后一天）",
+    "label": "2020-08-31 下午（具体时间不详）；学园都市·8月31日（暑假最后一天）；按先后在 08-31 13:04 至 08-31 17:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -83367,7 +83385,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 43,
-      "minute": 720
+      "minute": 784
      },
      "role": "约定守护美琴的人"
     },
@@ -83375,7 +83393,7 @@
      "entity_id": "etzali",
      "at": {
       "day": 43,
-      "minute": 720
+      "minute": 784
      },
      "role": "被击败的魔法师"
     },
@@ -83383,7 +83401,7 @@
      "entity_id": "misaka-mikoto",
      "at": {
       "day": 43,
-      "minute": 720
+      "minute": 784
      },
      "role": "暗中旁听并救下上条"
     }
@@ -84272,10 +84290,10 @@
     },
     "latest": {
      "day": 43,
-     "minute": 1259
+     "minute": 1256
     },
     "precision": "part_of_day",
-    "label": "2020-08-31 傍晚（具体时间不详）；学园都市·8月31日（暑假最后一天）",
+    "label": "2020-08-31 傍晚（具体时间不详）；学园都市·8月31日（暑假最后一天）；按先后在 08-31 16:00 至 08-31 20:56 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -84617,14 +84635,14 @@
    "when": {
     "earliest": {
      "day": 43,
-     "minute": 1080
+     "minute": 1400
     },
     "latest": {
      "day": 44,
-     "minute": 179
+     "minute": 60
     },
     "precision": "part_of_day",
-    "label": "2020-08-31 晚上（具体时间不详）；学园都市·8月31日（暑假最后一天）",
+    "label": "2020-08-31 晚上（具体时间不详）；学园都市·8月31日（暑假最后一天）；按先后在 08-31 23:20 至 09-01 01:00 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -84703,7 +84721,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 43,
-      "minute": 1080
+      "minute": 1400
      },
      "role": "说服者"
     },
@@ -84711,7 +84729,7 @@
      "entity_id": "yamisaka-ouma",
      "at": {
       "day": 43,
-      "minute": 1080
+      "minute": 1400
      },
      "role": "被击败后同意合作"
     },
@@ -84719,7 +84737,7 @@
      "entity_id": "index",
      "at": {
       "day": 43,
-      "minute": 1080
+      "minute": 1400
      },
      "role": "被救下"
     }
@@ -88854,14 +88872,14 @@
    "when": {
     "earliest": {
      "day": 45,
-     "minute": 0
+     "minute": 360
     },
     "latest": {
      "day": 45,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-09-02（当天，具体时间不详）；学园都市（暗部SCHOOL时期）",
+    "precision": "part_of_day",
+    "label": "2020-09-02（当天，具体时间不详）；学园都市（暗部SCHOOL时期）；按先后在 09-02 06:00 至 09-02 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -88896,7 +88914,7 @@
      "entity_id": "kuroyoru-umidori",
      "at": {
       "day": 45,
-      "minute": 0
+      "minute": 360
      },
      "role": "引诱者"
     },
@@ -88904,7 +88922,7 @@
      "entity_id": "kakine-teitoku",
      "at": {
       "day": 45,
-      "minute": 0
+      "minute": 360
      },
      "role": "被引诱者"
     },
@@ -88912,7 +88930,7 @@
      "entity_id": "yuzuriha-ringo",
      "at": {
       "day": 45,
-      "minute": 0
+      "minute": 360
      },
      "role": "能力暴走者"
     }
@@ -88941,14 +88959,14 @@
    "when": {
     "earliest": {
      "day": 45,
-     "minute": 0
+     "minute": 360
     },
     "latest": {
      "day": 45,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-09-02（当天，具体时间不详）；学园都市（暗部SCHOOL时期）",
+    "precision": "part_of_day",
+    "label": "2020-09-02（当天，具体时间不详）；学园都市（暗部SCHOOL时期）；按先后在 09-02 06:00 至 09-02 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -88999,7 +89017,7 @@
      "entity_id": "kakine-teitoku",
      "at": {
       "day": 45,
-      "minute": 0
+      "minute": 360
      },
      "role": "破坏者"
     },
@@ -89007,7 +89025,7 @@
      "entity_id": "yuzuriha-ringo",
      "at": {
       "day": 45,
-      "minute": 0
+      "minute": 360
      },
      "role": "被带出者"
     }
@@ -90269,14 +90287,14 @@
    "when": {
     "earliest": {
      "day": 48,
-     "minute": 0
+     "minute": 420
     },
     "latest": {
      "day": 48,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-09-05（当天，具体时间不详）；学园都市外·学艺都市（广域社会参观期间）",
+    "precision": "part_of_day",
+    "label": "2020-09-05（当天，具体时间不详）；学园都市外·学艺都市（广域社会参观期间）；按先后在 09-05 07:00 至 09-05 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -90347,7 +90365,7 @@
      "entity_id": "xochitl",
      "at": {
       "day": 48,
-      "minute": 0
+      "minute": 420
      },
      "role": "救下佐天的有翼者归来成员"
     },
@@ -90355,7 +90373,7 @@
      "entity_id": "saten-ruiko",
      "at": {
       "day": 48,
-      "minute": 0
+      "minute": 420
      },
      "role": "被救者"
     },
@@ -90363,7 +90381,7 @@
      "entity_id": "olive-holiday",
      "at": {
       "day": 48,
-      "minute": 0
+      "minute": 420
      },
      "role": "施害者"
     },
@@ -90371,7 +90389,7 @@
      "entity_id": "tochtli",
      "at": {
       "day": 48,
-      "minute": 0
+      "minute": 420
      },
      "role": "与索绮特一同行动的成员"
     }
@@ -91103,14 +91121,14 @@
    "when": {
     "earliest": {
      "day": 49,
-     "minute": 0
+     "minute": 360
     },
     "latest": {
      "day": 49,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-09-06（当天，具体时间不详）；学园都市外·学艺都市（广域社会参观期间）；文中：9月6日",
+    "precision": "part_of_day",
+    "label": "2020-09-06（当天，具体时间不详）；学园都市外·学艺都市（广域社会参观期间）；按先后在 09-06 06:00 至 09-06 23:59 之间；文中：9月6日",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -91179,7 +91197,7 @@
      "entity_id": "misaka-mikoto",
      "at": {
       "day": 49,
-      "minute": 0
+      "minute": 360
      },
      "role": "返程学生"
     },
@@ -91187,7 +91205,7 @@
      "entity_id": "shirai-kuroko",
      "at": {
       "day": 49,
-      "minute": 0
+      "minute": 360
      },
      "role": "返程学生"
     },
@@ -91195,7 +91213,7 @@
      "entity_id": "uiharu-kazari",
      "at": {
       "day": 49,
-      "minute": 0
+      "minute": 360
      },
      "role": "返程学生"
     },
@@ -91203,7 +91221,7 @@
      "entity_id": "saten-ruiko",
      "at": {
       "day": 49,
-      "minute": 0
+      "minute": 360
      },
      "role": "返程学生"
     }
@@ -92108,14 +92126,14 @@
    "when": {
     "earliest": {
      "day": 45,
-     "minute": 0
+     "minute": 960
     },
     "latest": {
      "day": 45,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-09-02（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2020-09-02（当天，具体时间不详）；按先后在 09-02 16:00 至 09-02 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -92161,7 +92179,7 @@
      "entity_id": "scavenger",
      "at": {
       "day": 45,
-      "minute": 0
+      "minute": 960
      },
      "role": "袭击者"
     }
@@ -98158,14 +98176,14 @@
    "when": {
     "earliest": {
      "day": 57,
-     "minute": 960
+     "minute": 1170
     },
     "latest": {
      "day": 57,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-09-14 傍晚（具体时间不详）；学园都市（九月上旬）",
+    "label": "2020-09-14 傍晚（具体时间不详）；学园都市（九月上旬）；按先后在 09-14 19:30 至 09-14 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -98216,7 +98234,7 @@
      "entity_id": "shirai-kuroko",
      "at": {
       "day": 57,
-      "minute": 960
+      "minute": 1170
      },
      "role": "风纪委员"
     }
@@ -98254,14 +98272,14 @@
    "when": {
     "earliest": {
      "day": 57,
-     "minute": 960
+     "minute": 1170
     },
     "latest": {
      "day": 57,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-09-14 傍晚（具体时间不详）；学园都市（九月上旬）",
+    "label": "2020-09-14 傍晚（具体时间不详）；学园都市（九月上旬）；按先后在 09-14 19:30 至 09-14 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -98340,7 +98358,7 @@
      "entity_id": "shirai-kuroko",
      "at": {
       "day": 57,
-      "minute": 960
+      "minute": 1170
      },
      "role": "风纪委员，被袭击"
     },
@@ -98348,7 +98366,7 @@
      "entity_id": "musujime-awaki",
      "at": {
       "day": 57,
-      "minute": 960
+      "minute": 1170
      },
      "role": "空间移动能力者，袭击者"
     }
@@ -98955,14 +98973,14 @@
    "when": {
     "earliest": {
      "day": 57,
-     "minute": 1080
+     "minute": 1260
     },
     "latest": {
      "day": 58,
      "minute": 179
     },
     "precision": "part_of_day",
-    "label": "2020-09-14 晚上（具体时间不详）；学园都市（九月上旬）",
+    "label": "2020-09-14 晚上（具体时间不详）；学园都市（九月上旬）；按先后在 09-14 21:00 至 09-15 02:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -99026,7 +99044,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 57,
-      "minute": 1080
+      "minute": 1260
      },
      "role": "救援者"
     },
@@ -99034,7 +99052,7 @@
      "entity_id": "misaka-mikoto",
      "at": {
       "day": 57,
-      "minute": 1080
+      "minute": 1260
      },
      "role": "救援者"
     },
@@ -99042,7 +99060,7 @@
      "entity_id": "shirai-kuroko",
      "at": {
       "day": 57,
-      "minute": 1080
+      "minute": 1260
      },
      "role": "被救者"
     }
@@ -101821,14 +101839,14 @@
    "when": {
     "earliest": {
      "day": 62,
-     "minute": 360
+     "minute": 540
     },
     "latest": {
      "day": 62,
      "minute": 719
     },
     "precision": "part_of_day",
-    "label": "2020-09-19 上午（具体时间不详）",
+    "label": "2020-09-19 上午（具体时间不详）；按先后在 09-19 09:00 至 09-19 11:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -101895,7 +101913,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 62,
-      "minute": 360
+      "minute": 540
      },
      "role": "被卷入者"
     },
@@ -101903,7 +101921,7 @@
      "entity_id": "tsuchimikado-motoharu",
      "at": {
       "day": 62,
-      "minute": 360
+      "minute": 540
      },
      "role": "英国清教成员、上条邻居"
     },
@@ -101911,7 +101929,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 62,
-      "minute": 360
+      "minute": 540
      },
      "role": "英国清教魔法师"
     }
@@ -102177,14 +102195,14 @@
    "when": {
     "earliest": {
      "day": 62,
-     "minute": 720
+     "minute": 780
     },
     "latest": {
      "day": 62,
-     "minute": 1079
+     "minute": 839
     },
     "precision": "part_of_day",
-    "label": "2020-09-19 下午（具体时间不详）",
+    "label": "2020-09-19 下午（具体时间不详）；按先后在 09-19 13:00 至 09-19 13:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -102218,7 +102236,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "追击者"
     },
@@ -102226,7 +102244,7 @@
      "entity_id": "tsuchimikado-motoharu",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "术式发动者"
     },
@@ -102234,7 +102252,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "追击者"
     },
@@ -102242,7 +102260,7 @@
      "entity_id": "oriana-thomson",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "逃跑者"
     }
@@ -102273,14 +102291,14 @@
    "when": {
     "earliest": {
      "day": 62,
-     "minute": 720
+     "minute": 780
     },
     "latest": {
      "day": 62,
-     "minute": 1079
+     "minute": 839
     },
     "precision": "part_of_day",
-    "label": "2020-09-19 下午（具体时间不详）",
+    "label": "2020-09-19 下午（具体时间不详）；按先后在 09-19 13:00 至 09-19 13:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -102332,7 +102350,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "被反击者"
     },
@@ -102340,7 +102358,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "消除术式"
     },
@@ -102348,7 +102366,7 @@
      "entity_id": "tsuchimikado-motoharu",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "定位者"
     }
@@ -102384,14 +102402,14 @@
    "when": {
     "earliest": {
      "day": 62,
-     "minute": 720
+     "minute": 780
     },
     "latest": {
      "day": 62,
-     "minute": 1079
+     "minute": 839
     },
     "precision": "part_of_day",
-    "label": "2020-09-19 下午（具体时间不详）",
+    "label": "2020-09-19 下午（具体时间不详）；按先后在 09-19 13:00 至 09-19 13:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -102477,7 +102495,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "潜入者"
     },
@@ -102485,7 +102503,7 @@
      "entity_id": "tsuchimikado-motoharu",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "潜入者"
     },
@@ -102493,7 +102511,7 @@
      "entity_id": "misaka-mikoto",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "参赛者"
     },
@@ -102501,7 +102519,7 @@
      "entity_id": "fukiyose-seiri",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "被原典击倒的运营委员"
     }
@@ -102536,14 +102554,14 @@
    "when": {
     "earliest": {
      "day": 62,
-     "minute": 720
+     "minute": 780
     },
     "latest": {
      "day": 62,
-     "minute": 1079
+     "minute": 839
     },
     "precision": "part_of_day",
-    "label": "2020-09-19 下午（具体时间不详）",
+    "label": "2020-09-19 下午（具体时间不详）；按先后在 09-19 13:00 至 09-19 13:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -102598,7 +102616,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "追击者"
     },
@@ -102606,7 +102624,7 @@
      "entity_id": "tsuchimikado-motoharu",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "被术式击倒"
     },
@@ -102614,7 +102632,7 @@
      "entity_id": "oriana-thomson",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "逃跑者"
     }
@@ -102659,14 +102677,14 @@
    "when": {
     "earliest": {
      "day": 62,
-     "minute": 720
+     "minute": 780
     },
     "latest": {
      "day": 62,
-     "minute": 1079
+     "minute": 839
     },
     "precision": "part_of_day",
-    "label": "2020-09-19 下午（具体时间不详）",
+    "label": "2020-09-19 下午（具体时间不详）；按先后在 09-19 13:00 至 09-19 13:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -102753,7 +102771,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "战斗者"
     },
@@ -102761,7 +102779,7 @@
      "entity_id": "oriana-thomson",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "战斗者"
     },
@@ -102769,7 +102787,7 @@
      "entity_id": "tsuchimikado-motoharu",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "昏迷中"
     },
@@ -102777,7 +102795,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 62,
-      "minute": 720
+      "minute": 780
      },
      "role": "战斗者"
     }
@@ -102815,14 +102833,14 @@
    "when": {
     "earliest": {
      "day": 62,
-     "minute": 660
+     "minute": 780
     },
     "latest": {
      "day": 62,
      "minute": 839
     },
     "precision": "part_of_day",
-    "label": "2020-09-19 中午（具体时间不详）；文中：9月19日中午（即9月19日深夜 UTC+0），萝拉发现「刺突杭剑」实为「使徒十字」",
+    "label": "2020-09-19 中午（具体时间不详）；按先后在 09-19 13:00 至 09-19 13:59 之间；文中：9月19日中午（即9月19日深夜 UTC+0），萝拉发现「刺突杭剑」实为「使徒十字」",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -102913,7 +102931,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 62,
-      "minute": 660
+      "minute": 780
      },
      "role": "发现看板者"
     },
@@ -102921,7 +102939,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 62,
-      "minute": 660
+      "minute": 780
      },
      "role": "在场"
     },
@@ -102929,7 +102947,7 @@
      "entity_id": "tsuchimikado-motoharu",
      "at": {
       "day": 62,
-      "minute": 660
+      "minute": 780
      },
      "role": "在场"
     }
@@ -103434,10 +103452,10 @@
     },
     "latest": {
      "day": 62,
-     "minute": 1079
+     "minute": 1044
     },
     "precision": "part_of_day",
-    "label": "2020-09-19 下午（具体时间不详）",
+    "label": "2020-09-19 下午（具体时间不详）；按先后在 09-19 12:00 至 09-19 17:24 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -103816,14 +103834,14 @@
    "when": {
     "earliest": {
      "day": 62,
-     "minute": 960
+     "minute": 1045
     },
     "latest": {
      "day": 62,
-     "minute": 1259
+     "minute": 1140
     },
     "precision": "part_of_day",
-    "label": "2020-09-19 傍晚（具体时间不详）",
+    "label": "2020-09-19 傍晚（具体时间不详）；按先后在 09-19 17:25 至 09-19 19:00 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -103877,7 +103895,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 62,
-      "minute": 960
+      "minute": 1045
      },
      "role": "听取宣告"
     },
@@ -103885,7 +103903,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 62,
-      "minute": 960
+      "minute": 1045
      },
      "role": "听取宣告"
     },
@@ -103893,7 +103911,7 @@
      "entity_id": "oriana-thomson",
      "at": {
       "day": 62,
-      "minute": 960
+      "minute": 1045
      },
      "role": "昏迷的诱饵"
     }
@@ -104173,14 +104191,14 @@
    "when": {
     "earliest": {
      "day": 62,
-     "minute": 1080
+     "minute": 1110
     },
     "latest": {
      "day": 63,
      "minute": 179
     },
     "precision": "part_of_day",
-    "label": "2020-09-19 晚上（具体时间不详）",
+    "label": "2020-09-19 晚上（具体时间不详）；按先后在 09-19 18:30 至 09-20 02:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -104253,7 +104271,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 62,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "伤者"
     },
@@ -104261,7 +104279,7 @@
      "entity_id": "index",
      "at": {
       "day": 62,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "探望者"
     },
@@ -104269,7 +104287,7 @@
      "entity_id": "misaka-mikoto",
      "at": {
       "day": 62,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "探望者"
     },
@@ -104277,7 +104295,7 @@
      "entity_id": "shirai-kuroko",
      "at": {
       "day": 62,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "探望者"
     },
@@ -104285,7 +104303,7 @@
      "entity_id": "himegami-aisa",
      "at": {
       "day": 62,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "康复中的伤者"
     },
@@ -104293,7 +104311,7 @@
      "entity_id": "fukiyose-seiri",
      "at": {
       "day": 62,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "康复的伤者"
     },
@@ -104301,7 +104319,7 @@
      "entity_id": "kamijou-touya",
      "at": {
       "day": 62,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "上条之父"
     },
@@ -104309,7 +104327,7 @@
      "entity_id": "kamijou-shiina",
      "at": {
       "day": 62,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "上条之母"
     },
@@ -104317,7 +104335,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 62,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "伤者"
     },
@@ -104325,7 +104343,7 @@
      "entity_id": "tsuchimikado-motoharu",
      "at": {
       "day": 62,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "伤者"
     },
@@ -104333,7 +104351,7 @@
      "entity_id": "oriana-thomson",
      "at": {
       "day": 62,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "被拘束的俘虏"
     }
@@ -112576,14 +112594,14 @@
    "when": {
     "earliest": {
      "day": 70,
-     "minute": 960
+     "minute": 964
     },
     "latest": {
      "day": 70,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-09-27 傍晚（具体时间不详）；文中：9月27日",
+    "label": "2020-09-27 傍晚（具体时间不详）；按先后在 09-27 16:04 至 09-27 20:59 之间；文中：9月27日",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -112662,7 +112680,7 @@
      "entity_id": "miyama-shaei",
      "at": {
       "day": 70,
-      "minute": 960
+      "minute": 964
      },
      "role": "预知能力者"
     },
@@ -112670,7 +112688,7 @@
      "entity_id": "shirai-kuroko",
      "at": {
       "day": 70,
-      "minute": 960
+      "minute": 964
      },
      "role": "风纪委员"
     },
@@ -112678,7 +112696,7 @@
      "entity_id": "uiharu-kazari",
      "at": {
       "day": 70,
-      "minute": 960
+      "minute": 964
      },
      "role": "风纪委员"
     }
@@ -142822,10 +142840,10 @@
     },
     "latest": {
      "day": 91,
-     "minute": 930
+     "minute": 690
     },
     "precision": "part_of_day",
-    "label": "不列颠万圣夜（伦敦10月18日凌晨，主时钟上午至午后）（具体时间不详）",
+    "label": "不列颠万圣夜（伦敦10月18日凌晨，主时钟上午至午后）（具体时间不详）；按先后在 10-18 10:00 至 10-18 11:30 之间",
     "basis": "documented",
     "notes": "不列颠万圣夜（伦敦10月18日凌晨，主时钟上午至午后）"
    },
@@ -143261,14 +143279,14 @@
    "when": {
     "earliest": {
      "day": 91,
-     "minute": 600
+     "minute": 720
     },
     "latest": {
      "day": 91,
      "minute": 930
     },
     "precision": "part_of_day",
-    "label": "不列颠万圣夜（伦敦10月18日凌晨，主时钟上午至午后）（具体时间不详）",
+    "label": "不列颠万圣夜（伦敦10月18日凌晨，主时钟上午至午后）（具体时间不详）；按先后在 10-18 12:00 至 10-18 15:30 之间",
     "basis": "documented",
     "notes": "不列颠万圣夜（伦敦10月18日凌晨，主时钟上午至午后）"
    },
@@ -143401,7 +143419,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 91,
-      "minute": 600
+      "minute": 720
      },
      "role": "击碎卡提纳正统者"
     },
@@ -143409,7 +143427,7 @@
      "entity_id": "carissa",
      "at": {
       "day": 91,
-      "minute": 600
+      "minute": 720
      },
      "role": "政变主谋，败者"
     },
@@ -143417,7 +143435,7 @@
      "entity_id": "villian",
      "at": {
       "day": 91,
-      "minute": 600
+      "minute": 720
      },
      "role": "被救者，劝说者"
     },
@@ -143425,7 +143443,7 @@
      "entity_id": "kanzaki-kaori",
      "at": {
       "day": 91,
-      "minute": 600
+      "minute": 720
      },
      "role": "参战者"
     },
@@ -143433,7 +143451,7 @@
      "entity_id": "index",
      "at": {
       "day": 91,
-      "minute": 600
+      "minute": 720
      },
      "role": "解析并以强制咏唱干扰"
     },
@@ -143441,7 +143459,7 @@
      "entity_id": "acqua-of-the-back",
      "at": {
       "day": 91,
-      "minute": 600
+      "minute": 720
      },
      "role": "破坏电塔，甩出当麻"
     },
@@ -143449,7 +143467,7 @@
      "entity_id": "knight-leader",
      "at": {
       "day": 91,
-      "minute": 600
+      "minute": 720
      },
      "role": "倒戈的骑士派领袖"
     },
@@ -143457,7 +143475,7 @@
      "entity_id": "elizard",
      "at": {
       "day": 91,
-      "minute": 600
+      "minute": 720
      },
      "role": "发动联合的意义"
     }
@@ -143495,14 +143513,14 @@
    "when": {
     "earliest": {
      "day": 91,
-     "minute": 600
+     "minute": 720
     },
     "latest": {
      "day": 91,
      "minute": 930
     },
     "precision": "part_of_day",
-    "label": "不列颠万圣夜（伦敦10月18日凌晨，主时钟上午至午后）（具体时间不详）",
+    "label": "不列颠万圣夜（伦敦10月18日凌晨，主时钟上午至午后）（具体时间不详）；按先后在 10-18 12:00 至 10-18 15:30 之间",
     "basis": "documented",
     "notes": "不列颠万圣夜（伦敦10月18日凌晨，主时钟上午至午后）"
    },
@@ -143585,7 +143603,7 @@
      "entity_id": "fiamma-of-the-right",
      "at": {
       "day": 91,
-      "minute": 600
+      "minute": 720
      },
      "role": "夺宝者"
     },
@@ -143593,7 +143611,7 @@
      "entity_id": "carissa",
      "at": {
       "day": 91,
-      "minute": 600
+      "minute": 720
      },
      "role": "被袭击者"
     },
@@ -143601,7 +143619,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 91,
-      "minute": 600
+      "minute": 720
      },
      "role": "阻止者"
     },
@@ -143609,7 +143627,7 @@
      "entity_id": "index",
      "at": {
       "day": 91,
-      "minute": 600
+      "minute": 720
      },
      "role": "被强制发动约翰的笔"
     }
@@ -156820,10 +156838,10 @@
     },
     "latest": {
      "day": 109,
-     "minute": 1439
+     "minute": 1170
     },
-    "precision": "day",
-    "label": "2020-11-05（当天，具体时间不详）；学园都市与英国清教（新约2）",
+    "precision": "part_of_day",
+    "label": "2020-11-05（当天，具体时间不详）；学园都市与英国清教（新约2）；按先后在 11-05 00:00 至 11-05 19:30 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -174255,14 +174273,14 @@
    "when": {
     "earliest": {
      "day": 120,
-     "minute": 0
+     "minute": 900
     },
     "latest": {
      "day": 120,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-11-16（当天，具体时间不详）；学园都市（新约7·人力资源计划）",
+    "precision": "part_of_day",
+    "label": "2020-11-16（当天，具体时间不详）；学园都市（新约7·人力资源计划）；按先后在 11-16 15:00 至 11-16 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -179305,14 +179323,14 @@
    "when": {
     "earliest": {
      "day": 122,
-     "minute": 0
+     "minute": 360
     },
     "latest": {
      "day": 122,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-11-18（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2020-11-18（当天，具体时间不详）；按先后在 11-18 06:00 至 11-18 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -179386,7 +179404,7 @@
      "entity_id": "kumokawa-maria",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "木原加群的学生、同行者"
     },
@@ -179394,7 +179412,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "被询问者"
     },
@@ -179402,7 +179420,7 @@
      "entity_id": "leivinia-birdway",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "接到方位情报者"
     },
@@ -179410,7 +179428,7 @@
      "entity_id": "lessar",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "安排座位者"
     },
@@ -179418,7 +179436,7 @@
      "entity_id": "index",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "同行者"
     },
@@ -179426,7 +179444,7 @@
      "entity_id": "misaka-mikoto",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "同行者"
     }
@@ -179462,14 +179480,14 @@
    "when": {
     "earliest": {
      "day": 122,
-     "minute": 0
+     "minute": 360
     },
     "latest": {
      "day": 122,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-11-18（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2020-11-18（当天，具体时间不详）；按先后在 11-18 06:00 至 11-18 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -179576,7 +179594,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "坠落者"
     },
@@ -179584,7 +179602,7 @@
      "entity_id": "index",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "坠落者"
     },
@@ -179592,7 +179610,7 @@
      "entity_id": "misaka-mikoto",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "坠落者"
     },
@@ -179600,7 +179618,7 @@
      "entity_id": "lessar",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "坠落者"
     },
@@ -179608,7 +179626,7 @@
      "entity_id": "leivinia-birdway",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "坠落者"
     },
@@ -179616,7 +179634,7 @@
      "entity_id": "kumokawa-maria",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "坠落者"
     },
@@ -179624,7 +179642,7 @@
      "entity_id": "nidhogg",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "击落客机的龙"
     }
@@ -179772,14 +179790,14 @@
    "when": {
     "earliest": {
      "day": 122,
-     "minute": 0
+     "minute": 360
     },
     "latest": {
      "day": 122,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-11-18（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2020-11-18（当天，具体时间不详）；按先后在 11-18 06:00 至 11-18 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -179844,14 +179862,14 @@
    "when": {
     "earliest": {
      "day": 122,
-     "minute": 0
+     "minute": 360
     },
     "latest": {
      "day": 122,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-11-18（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2020-11-18（当天，具体时间不详）；按先后在 11-18 06:00 至 11-18 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -179912,7 +179930,7 @@
      "entity_id": "misaka-mikoto",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "护送者"
     },
@@ -179920,7 +179938,7 @@
      "entity_id": "index",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "被护送者"
     },
@@ -179928,7 +179946,7 @@
      "entity_id": "hraesvelgr",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "格雷姆林的怪鸟"
     }
@@ -179962,14 +179980,14 @@
    "when": {
     "earliest": {
      "day": 122,
-     "minute": 0
+     "minute": 360
     },
     "latest": {
      "day": 122,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-11-18（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2020-11-18（当天，具体时间不详）；按先后在 11-18 06:00 至 11-18 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -180040,7 +180058,7 @@
      "entity_id": "leivinia-birdway",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "术式使用者"
     },
@@ -180048,7 +180066,7 @@
      "entity_id": "lessar",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "树剪使用者"
     },
@@ -180056,7 +180074,7 @@
      "entity_id": "kumokawa-maria",
      "at": {
       "day": 122,
-      "minute": 0
+      "minute": 360
      },
      "role": "同行者"
     }
@@ -181028,10 +181046,10 @@
     },
     "latest": {
      "day": 123,
-     "minute": 1439
+     "minute": 1259
     },
-    "precision": "day",
-    "label": "2020-11-19（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2020-11-19（当天，具体时间不详）；按先后在 11-19 00:00 至 11-19 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -181170,10 +181188,10 @@
     },
     "latest": {
      "day": 123,
-     "minute": 1439
+     "minute": 1259
     },
-    "precision": "day",
-    "label": "2020-11-19（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2020-11-19（当天，具体时间不详）；按先后在 11-19 00:00 至 11-19 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -181282,10 +181300,10 @@
     },
     "latest": {
      "day": 123,
-     "minute": 1439
+     "minute": 1259
     },
-    "precision": "day",
-    "label": "2020-11-19（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2020-11-19（当天，具体时间不详）；按先后在 11-19 00:00 至 11-19 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -181529,14 +181547,14 @@
    "when": {
     "earliest": {
      "day": 123,
-     "minute": 0
+     "minute": 960
     },
     "latest": {
      "day": 123,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-11-19（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2020-11-19（当天，具体时间不详）；按先后在 11-19 16:00 至 11-19 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -181584,7 +181602,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "被反复折磨者"
     },
@@ -181592,7 +181610,7 @@
      "entity_id": "othinus",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "相位制造者"
     }
@@ -181622,14 +181640,14 @@
    "when": {
     "earliest": {
      "day": 123,
-     "minute": 0
+     "minute": 960
     },
     "latest": {
      "day": 123,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2020-11-19（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2020-11-19（当天，具体时间不详）；按先后在 11-19 16:00 至 11-19 23:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -181679,7 +181697,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "被要求自杀者"
     },
@@ -181687,7 +181705,7 @@
      "entity_id": "othinus",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "相位制造者"
     },
@@ -181695,7 +181713,7 @@
      "entity_id": "index",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中的同伴"
     },
@@ -181703,7 +181721,7 @@
      "entity_id": "sherry-cromwell",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中与艾利丝同游"
     },
@@ -181711,7 +181729,7 @@
      "entity_id": "ellis",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中复活的雪莉挚友"
     },
@@ -181719,7 +181737,7 @@
      "entity_id": "agnese-sanctis",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中与双亲野餐"
     },
@@ -181727,7 +181745,7 @@
      "entity_id": "vento-of-the-front",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中与弟弟散步"
     },
@@ -181735,7 +181753,7 @@
      "entity_id": "terra-of-the-left",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中与神之右席同席"
     },
@@ -181743,7 +181761,7 @@
      "entity_id": "oriana-thomson",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中与孩童老人玩耍"
     },
@@ -181751,7 +181769,7 @@
      "entity_id": "kumokawa-maria",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中与木原加群重逢"
     },
@@ -181759,7 +181777,7 @@
      "entity_id": "kihara-kagun",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中复活"
     },
@@ -181767,7 +181785,7 @@
      "entity_id": "misaka-mikoto",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中与一方通行和解"
     },
@@ -181775,7 +181793,7 @@
      "entity_id": "accelerator",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中与美琴和解"
     },
@@ -181783,7 +181801,7 @@
      "entity_id": "misaka-sisters",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中两万人完好"
     },
@@ -181791,7 +181809,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中茵蒂克丝的旧同伴"
     },
@@ -181799,7 +181817,7 @@
      "entity_id": "kanzaki-kaori",
      "at": {
       "day": 123,
-      "minute": 0
+      "minute": 960
      },
      "role": "ω世界中茵蒂克丝的旧同伴"
     }
@@ -196671,14 +196689,14 @@
    "when": {
     "earliest": {
      "day": 137,
-     "minute": 1080
+     "minute": 1320
     },
     "latest": {
      "day": 138,
      "minute": 179
     },
     "precision": "part_of_day",
-    "label": "2020-12-03 晚上（具体时间不详）；文中：12月3日夜晚",
+    "label": "2020-12-03 晚上（具体时间不详）；按先后在 12-03 22:00 至 12-04 02:59 之间；文中：12月3日夜晚",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -196730,7 +196748,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 137,
-      "minute": 1080
+      "minute": 1320
      },
      "role": "谈判者，反驳者"
     },
@@ -196738,7 +196756,7 @@
      "entity_id": "kamisato-kakeru",
      "at": {
       "day": 137,
-      "minute": 1080
+      "minute": 1320
      },
      "role": "谈判者，复仇者"
     },
@@ -196746,7 +196764,7 @@
      "entity_id": "tazuma-claire",
      "at": {
       "day": 137,
-      "minute": 1080
+      "minute": 1320
      },
      "role": "袭击上条"
     },
@@ -196754,7 +196772,7 @@
      "entity_id": "elza",
      "at": {
       "day": 137,
-      "minute": 1080
+      "minute": 1320
      },
      "role": "上里势力成员"
     }
@@ -197753,10 +197771,10 @@
     },
     "latest": {
      "day": 138,
-     "minute": 480
+     "minute": 479
     },
     "precision": "part_of_day",
-    "label": "12月3日夜至4日8点前（考据）（具体时间不详）；文中：12月某日深夜（考据定为12月3日夜至4日8点前）",
+    "label": "12月3日夜至4日8点前（考据）（具体时间不详）；按先后在 12-03 18:00 至 12-04 07:59 之间；文中：12月某日深夜（考据定为12月3日夜至4日8点前）",
     "basis": "documented",
     "notes": "12月3日夜至4日8点前（考据）"
    },
@@ -202000,10 +202018,10 @@
     },
     "latest": {
      "day": 142,
-     "minute": 1259
+     "minute": 1110
     },
     "precision": "part_of_day",
-    "label": "2020-12-08 傍晚（具体时间不详）；学园都市·大热浪（新约16）；文中：12月8日傍晚",
+    "label": "2020-12-08 傍晚（具体时间不详）；学园都市·大热浪（新约16）；按先后在 12-08 16:00 至 12-08 18:30 之间；文中：12月8日傍晚",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -203751,14 +203769,14 @@
    "when": {
     "earliest": {
      "day": 143,
-     "minute": 240
+     "minute": 300
     },
     "latest": {
      "day": 143,
      "minute": 479
     },
     "precision": "part_of_day",
-    "label": "2020-12-09 清晨（具体时间不详）",
+    "label": "2020-12-09 清晨（具体时间不详）；按先后在 12-09 05:00 至 12-09 07:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -203796,7 +203814,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 143,
-      "minute": 240
+      "minute": 300
      },
      "role": "同行者"
     },
@@ -203804,7 +203822,7 @@
      "entity_id": "karasuma-fran",
      "at": {
       "day": 143,
-      "minute": 240
+      "minute": 300
      },
      "role": "同行者"
     }
@@ -205804,14 +205822,14 @@
    "when": {
     "earliest": {
      "day": 144,
-     "minute": 960
+     "minute": 1020
     },
     "latest": {
      "day": 144,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-12-10 傍晚（具体时间不详）",
+    "label": "2020-12-10 傍晚（具体时间不详）；按先后在 12-10 17:00 至 12-10 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -205880,7 +205898,7 @@
      "entity_id": "karasuma-fran",
      "at": {
       "day": 144,
-      "minute": 960
+      "minute": 1020
      },
      "role": "暴露者"
     },
@@ -205888,7 +205906,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 144,
-      "minute": 960
+      "minute": 1020
      },
      "role": "知情者"
     },
@@ -205896,7 +205914,7 @@
      "entity_id": "toyama-luca",
      "at": {
       "day": 144,
-      "minute": 960
+      "minute": 1020
      },
      "role": "知情者"
     }
@@ -208469,14 +208487,14 @@
    "when": {
     "earliest": {
      "day": 145,
-     "minute": 1080
+     "minute": 1160
     },
     "latest": {
      "day": 146,
      "minute": 179
     },
     "precision": "part_of_day",
-    "label": "2020-12-11 晚上（具体时间不详）；文中：夜晚",
+    "label": "2020-12-11 晚上（具体时间不详）；按先后在 12-11 19:20 至 12-12 02:59 之间；文中：夜晚",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -208529,7 +208547,7 @@
      "entity_id": "ao-francisca",
      "at": {
       "day": 145,
-      "minute": 1080
+      "minute": 1160
      },
      "role": "袭击者"
     },
@@ -208537,7 +208555,7 @@
      "entity_id": "hamazura-shiage",
      "at": {
       "day": 145,
-      "minute": 1080
+      "minute": 1160
      },
      "role": "被押送者"
     }
@@ -208927,14 +208945,14 @@
    "when": {
     "earliest": {
      "day": 145,
-     "minute": 1260
+     "minute": 1290
     },
     "latest": {
      "day": 146,
      "minute": 179
     },
     "precision": "part_of_day",
-    "label": "2020-12-11 深夜（具体时间不详）；文中：深夜",
+    "label": "2020-12-11 深夜（具体时间不详）；按先后在 12-11 21:30 至 12-12 02:59 之间；文中：深夜",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -208997,7 +209015,7 @@
      "entity_id": "lilith",
      "at": {
       "day": 145,
-      "minute": 1260
+      "minute": 1290
      },
      "role": "发烧的婴儿"
     },
@@ -209005,7 +209023,7 @@
      "entity_id": "takitsubo-rikou",
      "at": {
       "day": 145,
-      "minute": 1260
+      "minute": 1290
      },
      "role": "照顾者"
     },
@@ -209013,7 +209031,7 @@
      "entity_id": "ao-francisca",
      "at": {
       "day": 145,
-      "minute": 1260
+      "minute": 1290
      },
      "role": "袭击者"
     }
@@ -209093,14 +209111,14 @@
    "when": {
     "earliest": {
      "day": 145,
-     "minute": 1260
+     "minute": 1290
     },
     "latest": {
      "day": 146,
      "minute": 179
     },
     "precision": "part_of_day",
-    "label": "2020-12-11 深夜（具体时间不详）；文中：深夜",
+    "label": "2020-12-11 深夜（具体时间不详）；按先后在 12-11 21:30 至 12-12 02:59 之间；文中：深夜",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -209154,14 +209172,14 @@
    "when": {
     "earliest": {
      "day": 145,
-     "minute": 1260
+     "minute": 1290
     },
     "latest": {
      "day": 146,
      "minute": 179
     },
     "precision": "part_of_day",
-    "label": "2020-12-11 深夜（具体时间不详）；文中：深夜",
+    "label": "2020-12-11 深夜（具体时间不详）；按先后在 12-11 21:30 至 12-12 02:59 之间；文中：深夜",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -209212,7 +209230,7 @@
      "entity_id": "hamazura-shiage",
      "at": {
       "day": 145,
-      "minute": 1260
+      "minute": 1290
      },
      "role": "汇合者"
     },
@@ -209220,7 +209238,7 @@
      "entity_id": "kinuhata-saiai",
      "at": {
       "day": 145,
-      "minute": 1260
+      "minute": 1290
      },
      "role": "汇合者"
     },
@@ -209228,7 +209246,7 @@
      "entity_id": "mugino-shizuri",
      "at": {
       "day": 145,
-      "minute": 1260
+      "minute": 1290
      },
      "role": "汇合者"
     }
@@ -220160,14 +220178,14 @@
    "when": {
     "earliest": {
      "day": 159,
-     "minute": 720
+     "minute": 900
     },
     "latest": {
      "day": 159,
-     "minute": 1079
+     "minute": 1000
     },
     "precision": "part_of_day",
-    "label": "2020-12-25 下午（具体时间不详）",
+    "label": "2020-12-25 下午（具体时间不详）；按先后在 12-25 15:00 至 12-25 16:40 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -220177,8 +220195,7 @@
     "shirai-kuroko",
     "hamazura-shiage",
     "hattori-hanzou",
-    "kuruwa",
-    "anti-skill"
+    "kuruwa"
    ],
    "location_ids": [
     "district-7"
@@ -220189,29 +220206,12 @@
    },
    "outcomes": [
     {
-     "op": "add",
-     "entity_id": "anti-skill",
-     "predicate": "members",
-     "value": [
-      "rakuoka-houfu"
-     ]
-    },
-    {
      "entity_id": "aomi-karei",
      "predicate": "alive",
      "value": false
     }
    ],
    "canonical_effects": [
-    {
-     "op": "add",
-     "entity_id": "anti-skill",
-     "predicate": "members",
-     "value": [
-      "rakuoka-houfu"
-     ],
-     "until": "lasting"
-    },
     {
      "op": "set",
      "fact": {
@@ -220239,7 +220239,7 @@
      "entity_id": "aomi-karei",
      "at": {
       "day": 159,
-      "minute": 720
+      "minute": 900
      },
      "role": "恶宠饲养家，目标"
     },
@@ -220247,7 +220247,7 @@
      "entity_id": "rakuoka-houfu",
      "at": {
       "day": 159,
-      "minute": 720
+      "minute": 900
      },
      "role": "警备员"
     },
@@ -220255,7 +220255,7 @@
      "entity_id": "shirai-kuroko",
      "at": {
       "day": 159,
-      "minute": 720
+      "minute": 900
      },
      "role": "风纪委员"
     },
@@ -220263,7 +220263,7 @@
      "entity_id": "hamazura-shiage",
      "at": {
       "day": 159,
-      "minute": 720
+      "minute": 900
      },
      "role": "目击者，逃亡者"
     }
@@ -220516,7 +220516,8 @@
    "entity_ids": [
     "shirai-kuroko",
     "rakuoka-houfu",
-    "hamazura-shiage"
+    "hamazura-shiage",
+    "anti-skill"
    ],
    "location_ids": [
     "district-7"
@@ -220527,12 +220528,29 @@
    },
    "outcomes": [
     {
+     "op": "add",
+     "entity_id": "anti-skill",
+     "predicate": "members",
+     "value": [
+      "rakuoka-houfu"
+     ]
+    },
+    {
      "entity_id": "hamazura-shiage",
      "predicate": "status",
      "value": "被收押于第7学区南部综合站所"
     }
    ],
    "canonical_effects": [
+    {
+     "op": "add",
+     "entity_id": "anti-skill",
+     "predicate": "members",
+     "value": [
+      "rakuoka-houfu"
+     ],
+     "until": "lasting"
+    },
     {
      "op": "set",
      "fact": {
@@ -220752,14 +220770,14 @@
    "when": {
     "earliest": {
      "day": 159,
-     "minute": 960
+     "minute": 970
     },
     "latest": {
      "day": 159,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-12-25 傍晚（具体时间不详）",
+    "label": "2020-12-25 傍晚（具体时间不详）；按先后在 12-25 16:10 至 12-25 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -220767,8 +220785,7 @@
     "hamazura-shiage",
     "takitsubo-rikou",
     "yomikawa-aiho",
-    "namino",
-    "anti-skill"
+    "namino"
    ],
    "location_ids": [
     "district-7"
@@ -220777,27 +220794,8 @@
    "canonical_preconditions": {
     "all": []
    },
-   "outcomes": [
-    {
-     "op": "add",
-     "entity_id": "anti-skill",
-     "predicate": "members",
-     "value": [
-      "namino"
-     ]
-    }
-   ],
-   "canonical_effects": [
-    {
-     "op": "add",
-     "entity_id": "anti-skill",
-     "predicate": "members",
-     "value": [
-      "namino"
-     ],
-     "until": "lasting"
-    }
-   ],
+   "outcomes": [],
+   "canonical_effects": [],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -220815,7 +220813,7 @@
      "entity_id": "hamazura-shiage",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 970
      },
      "role": "逃亡者"
     },
@@ -220823,7 +220821,7 @@
      "entity_id": "takitsubo-rikou",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 970
      },
      "role": "同行者"
     },
@@ -220831,7 +220829,7 @@
      "entity_id": "yomikawa-aiho",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 970
      },
      "role": "警备员"
     },
@@ -220839,7 +220837,7 @@
      "entity_id": "namino",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 970
      },
      "role": "警备员，开枪者"
     }
@@ -220868,14 +220866,14 @@
    "when": {
     "earliest": {
      "day": 159,
-     "minute": 960
+     "minute": 1020
     },
     "latest": {
      "day": 159,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-12-25 傍晚（具体时间不详）",
+    "label": "2020-12-25 傍晚（具体时间不详）；按先后在 12-25 17:00 至 12-25 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -220927,7 +220925,7 @@
      "entity_id": "shirai-kuroko",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1020
      },
      "role": "风纪委员"
     },
@@ -220935,7 +220933,7 @@
      "entity_id": "rakuoka-houfu",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1020
      },
      "role": "警备员"
     },
@@ -220943,7 +220941,7 @@
      "entity_id": "yomikawa-aiho",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1020
      },
      "role": "警备员"
     },
@@ -220951,7 +220949,7 @@
      "entity_id": "namino",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1020
      },
      "role": "警备员"
     }
@@ -221098,8 +221096,27 @@
    "canonical_preconditions": {
     "all": []
    },
-   "outcomes": [],
-   "canonical_effects": [],
+   "outcomes": [
+    {
+     "op": "add",
+     "entity_id": "anti-skill",
+     "predicate": "members",
+     "value": [
+      "namino"
+     ]
+    }
+   ],
+   "canonical_effects": [
+    {
+     "op": "add",
+     "entity_id": "anti-skill",
+     "predicate": "members",
+     "value": [
+      "namino"
+     ],
+     "until": "lasting"
+    }
+   ],
    "visibility": {
     "mode": "public",
     "knower_ids": []
@@ -221298,10 +221315,10 @@
     },
     "latest": {
      "day": 159,
-     "minute": 1259
+     "minute": 1140
     },
     "precision": "part_of_day",
-    "label": "2020-12-25 傍晚（具体时间不详）",
+    "label": "2020-12-25 傍晚（具体时间不详）；按先后在 12-25 16:00 至 12-25 19:00 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -221762,14 +221779,14 @@
    "when": {
     "earliest": {
      "day": 159,
-     "minute": 960
+     "minute": 1110
     },
     "latest": {
      "day": 159,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-12-25 傍晚（具体时间不详）",
+    "label": "2020-12-25 傍晚（具体时间不详）；按先后在 12-25 18:30 至 12-25 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -221852,7 +221869,7 @@
      "entity_id": "hamazura-shiage",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1110
      },
      "role": "被卷入者"
     },
@@ -221860,7 +221877,7 @@
      "entity_id": "takitsubo-rikou",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1110
      },
      "role": "被电击者"
     },
@@ -221868,7 +221885,7 @@
      "entity_id": "benizome-jellyfish",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1110
      },
      "role": "摄影师，狙击者"
     },
@@ -221876,7 +221893,7 @@
      "entity_id": "ladybird",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1110
      },
      "role": "仿生人"
     },
@@ -221884,7 +221901,7 @@
      "entity_id": "frillsand-g",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1110
      },
      "role": "助战者"
     },
@@ -221892,7 +221909,7 @@
      "entity_id": "drencher-kihara-repatri",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1110
      },
      "role": "弗里尔桑德＃G的制造者"
     },
@@ -221900,7 +221917,7 @@
      "entity_id": "katawara-souta",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1110
      },
      "role": "伪造工匠，被狙杀"
     }
@@ -222382,14 +222399,14 @@
    "when": {
     "earliest": {
      "day": 159,
-     "minute": 960
+     "minute": 1110
     },
     "latest": {
      "day": 159,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-12-25 傍晚（具体时间不详）",
+    "label": "2020-12-25 傍晚（具体时间不详）；按先后在 12-25 18:30 至 12-25 20:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -222442,7 +222459,7 @@
      "entity_id": "hamazura-shiage",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1110
      },
      "role": "搜查者"
     },
@@ -222450,7 +222467,7 @@
      "entity_id": "takitsubo-rikou",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1110
      },
      "role": "被治疗者"
     },
@@ -222458,7 +222475,7 @@
      "entity_id": "vivana-oniguma",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1110
      },
      "role": "艾灸治疗者"
     },
@@ -222466,7 +222483,7 @@
      "entity_id": "drencher-kihara-repatri",
      "at": {
       "day": 159,
-      "minute": 960
+      "minute": 1110
      },
      "role": "指路者"
     }
@@ -222963,14 +222980,14 @@
    "when": {
     "earliest": {
      "day": 159,
-     "minute": 1080
+     "minute": 1110
     },
     "latest": {
      "day": 160,
      "minute": 179
     },
     "precision": "part_of_day",
-    "label": "2020-12-25 晚上（具体时间不详）",
+    "label": "2020-12-25 晚上（具体时间不详）；按先后在 12-25 18:30 至 12-26 02:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -223060,7 +223077,7 @@
      "entity_id": "hamazura-shiage",
      "at": {
       "day": 159,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "解盘者"
     },
@@ -223068,7 +223085,7 @@
      "entity_id": "takitsubo-rikou",
      "at": {
       "day": 159,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "同行者"
     },
@@ -223076,7 +223093,7 @@
      "entity_id": "vivana-oniguma",
      "at": {
       "day": 159,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "掩护者，战死者"
     },
@@ -223084,7 +223101,7 @@
      "entity_id": "kihara-hasuu",
      "at": {
       "day": 159,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "木原"
     },
@@ -223092,7 +223109,7 @@
      "entity_id": "ladybird",
      "at": {
       "day": 159,
-      "minute": 1080
+      "minute": 1110
      },
      "role": "仿生人"
     }
@@ -225165,14 +225182,14 @@
    "when": {
     "earliest": {
      "day": 160,
-     "minute": 1080
+     "minute": 1200
     },
     "latest": {
      "day": 161,
      "minute": 179
     },
     "precision": "part_of_day",
-    "label": "2020-12-26 晚上（具体时间不详）",
+    "label": "2020-12-26 晚上（具体时间不详）；按先后在 12-26 20:00 至 12-27 02:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -225240,7 +225257,7 @@
      "entity_id": "kanzaki-kaori",
      "at": {
       "day": 160,
-      "minute": 1080
+      "minute": 1200
      },
      "role": "充当诱饵的圣人"
     },
@@ -225248,7 +225265,7 @@
      "entity_id": "stiyl-magnus",
      "at": {
       "day": 160,
-      "minute": 1080
+      "minute": 1200
      },
      "role": "同行探索"
     }
@@ -225904,10 +225921,10 @@
     },
     "latest": {
      "day": 161,
-     "minute": 719
+     "minute": 660
     },
     "precision": "part_of_day",
-    "label": "2020-12-27 上午（具体时间不详）",
+    "label": "2020-12-27 上午（具体时间不详）；按先后在 12-27 06:00 至 12-27 11:00 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -226156,10 +226173,10 @@
     },
     "latest": {
      "day": 161,
-     "minute": 1439
+     "minute": 839
     },
-    "precision": "day",
-    "label": "2020-12-27（当天，具体时间不详）",
+    "precision": "part_of_day",
+    "label": "2020-12-27（当天，具体时间不详）；按先后在 12-27 00:00 至 12-27 13:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -226267,10 +226284,10 @@
     },
     "latest": {
      "day": 161,
-     "minute": 1079
+     "minute": 839
     },
     "precision": "part_of_day",
-    "label": "2020-12-27 下午（具体时间不详）",
+    "label": "2020-12-27 下午（具体时间不详）；按先后在 12-27 12:00 至 12-27 13:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -226386,10 +226403,10 @@
     },
     "latest": {
      "day": 161,
-     "minute": 1079
+     "minute": 839
     },
     "precision": "part_of_day",
-    "label": "2020-12-27 下午（具体时间不详）",
+    "label": "2020-12-27 下午（具体时间不详）；按先后在 12-27 12:00 至 12-27 13:59 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -226589,14 +226606,14 @@
    "when": {
     "earliest": {
      "day": 161,
-     "minute": 660
+     "minute": 720
     },
     "latest": {
      "day": 161,
      "minute": 839
     },
     "precision": "part_of_day",
-    "label": "2020-12-27 中午（具体时间不详）；文中：12月27日中午（即12月26日晚上 UTC-8）",
+    "label": "2020-12-27 中午（具体时间不详）；按先后在 12-27 12:00 至 12-27 13:59 之间；文中：12月27日中午（即12月26日晚上 UTC-8）",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -226635,7 +226652,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 161,
-      "minute": 660
+      "minute": 720
      },
      "role": "接电话者"
     },
@@ -226643,7 +226660,7 @@
      "entity_id": "index",
      "at": {
       "day": 161,
-      "minute": 660
+      "minute": 720
      },
      "role": "同行"
     },
@@ -226651,7 +226668,7 @@
      "entity_id": "misaka-sisters",
      "at": {
       "day": 161,
-      "minute": 660
+      "minute": 720
      },
      "role": "聚餐"
     },
@@ -226659,7 +226676,7 @@
      "entity_id": "melzabeth-grocery",
      "at": {
       "day": 161,
-      "minute": 660
+      "minute": 720
      },
      "role": "聚餐"
     },
@@ -226667,7 +226684,7 @@
      "entity_id": "helcalia-grocery",
      "at": {
       "day": 161,
-      "minute": 660
+      "minute": 720
      },
      "role": "聚餐"
     }
@@ -227736,14 +227753,14 @@
    "when": {
     "earliest": {
      "day": 163,
-     "minute": 960
+     "minute": 1020
     },
     "latest": {
      "day": 163,
      "minute": 1259
     },
     "precision": "part_of_day",
-    "label": "2020-12-29 傍晚（具体时间不详）；文中：12月29日傍晚",
+    "label": "2020-12-29 傍晚（具体时间不详）；按先后在 12-29 17:00 至 12-29 20:59 之间；文中：12月29日傍晚",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -227845,7 +227862,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 163,
-      "minute": 960
+      "minute": 1020
      },
      "role": "被卷入撞车的乘客"
     },
@@ -227853,7 +227870,7 @@
      "entity_id": "alice-anotherbible",
      "at": {
       "day": 163,
-      "minute": 960
+      "minute": 1020
      },
      "role": "同车少女"
     },
@@ -227861,7 +227878,7 @@
      "entity_id": "shirai-kuroko",
      "at": {
       "day": 163,
-      "minute": 960
+      "minute": 1020
      },
      "role": "救援的警备员"
     },
@@ -227869,7 +227886,7 @@
      "entity_id": "hanatsuyu-yoen",
      "at": {
       "day": 163,
-      "minute": 960
+      "minute": 1020
      },
      "role": "越狱犯"
     },
@@ -227877,7 +227894,7 @@
      "entity_id": "benizome-jellyfish",
      "at": {
       "day": 163,
-      "minute": 960
+      "minute": 1020
      },
      "role": "越狱犯"
     },
@@ -227885,7 +227902,7 @@
      "entity_id": "rakuoka-houfu",
      "at": {
       "day": 163,
-      "minute": 960
+      "minute": 1020
      },
      "role": "越狱犯"
     },
@@ -227893,7 +227910,7 @@
      "entity_id": "matsuri-ba",
      "at": {
       "day": 163,
-      "minute": 960
+      "minute": 1020
      },
      "role": "押送列车负责人"
     }
@@ -230334,10 +230351,10 @@
     },
     "latest": {
      "day": 166,
-     "minute": 179
+     "minute": 30
     },
     "precision": "part_of_day",
-    "label": "2020-12-31 晚上（具体时间不详）；文中：12月31日夜晚，当麻看穿阿拉蒂娅的术式",
+    "label": "2020-12-31 晚上（具体时间不详）；按先后在 12-31 18:00 至 01-01 00:30 之间；文中：12月31日夜晚，当麻看穿阿拉蒂娅的术式",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -230420,10 +230437,10 @@
     },
     "latest": {
      "day": 166,
-     "minute": 179
+     "minute": 30
     },
     "precision": "part_of_day",
-    "label": "2020-12-31 晚上（具体时间不详）；文中：12月31日夜晚，事件告一段落，即将迎来新年",
+    "label": "2020-12-31 晚上（具体时间不详）；按先后在 12-31 18:00 至 01-01 00:30 之间；文中：12月31日夜晚，事件告一段落，即将迎来新年",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -231021,14 +231038,14 @@
    "when": {
     "earliest": {
      "day": 168,
-     "minute": 360
+     "minute": 540
     },
     "latest": {
      "day": 168,
      "minute": 719
     },
     "precision": "part_of_day",
-    "label": "2021-01-03 上午（具体时间不详）；文中：次年1月3日上午，阿拉蒂娅遇到亚雷斯塔等人，当麻带阿拉蒂娅和施普伦格尔逃跑",
+    "label": "2021-01-03 上午（具体时间不详）；按先后在 01-03 09:00 至 01-03 11:59 之间；文中：次年1月3日上午，阿拉蒂娅遇到亚雷斯塔等人，当麻带阿拉蒂娅和施普伦格尔逃跑",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -231119,7 +231136,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 168,
-      "minute": 360
+      "minute": 540
      },
      "role": "解救者"
     },
@@ -231127,7 +231144,7 @@
      "entity_id": "anna-sprengel",
      "at": {
       "day": 168,
-      "minute": 360
+      "minute": 540
      },
      "role": "被解救者"
     },
@@ -231135,7 +231152,7 @@
      "entity_id": "aradia",
      "at": {
       "day": 168,
-      "minute": 360
+      "minute": 540
      },
      "role": "同行者"
     },
@@ -231143,7 +231160,7 @@
      "entity_id": "aleister-crowley",
      "at": {
       "day": 168,
-      "minute": 360
+      "minute": 540
      },
      "role": "目击者"
     },
@@ -231151,7 +231168,7 @@
      "entity_id": "anna-kingsford",
      "at": {
       "day": 168,
-      "minute": 360
+      "minute": 540
      },
      "role": "交战者"
     },
@@ -231159,7 +231176,7 @@
      "entity_id": "aiwass",
      "at": {
       "day": 168,
-      "minute": 360
+      "minute": 540
      },
      "role": "被召唤者"
     },
@@ -231167,7 +231184,7 @@
      "entity_id": "kihara-noukan",
      "at": {
       "day": 168,
-      "minute": 360
+      "minute": 540
      },
      "role": "同行者"
     }
@@ -232588,11 +232605,11 @@
      "minute": 1080
     },
     "latest": {
-     "day": 171,
-     "minute": 179
+     "day": 170,
+     "minute": 1410
     },
     "precision": "part_of_day",
-    "label": "2021-01-05 晚上（具体时间不详）；文中：次年1月5日夜晚，CRC突破第一防线，当麻等人退守第23学区",
+    "label": "2021-01-05 晚上（具体时间不详）；按先后在 01-05 18:00 至 01-05 23:30 之间；文中：次年1月5日夜晚，CRC突破第一防线，当麻等人退守第23学区",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -233196,10 +233213,10 @@
     },
     "latest": {
      "day": 172,
-     "minute": 179
+     "minute": 28
     },
     "precision": "part_of_day",
-    "label": "2021-01-06 晚上（具体时间不详）",
+    "label": "2021-01-06 晚上（具体时间不详）；按先后在 01-06 18:00 至 01-07 00:28 之间",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -234173,14 +234190,14 @@
    "when": {
     "earliest": {
      "day": 173,
-     "minute": 360
+     "minute": 480
     },
     "latest": {
      "day": 173,
      "minute": 719
     },
     "precision": "part_of_day",
-    "label": "2021-01-08 上午（具体时间不详）；文中：次年1月8日上午",
+    "label": "2021-01-08 上午（具体时间不详）；按先后在 01-08 08:00 至 01-08 11:59 之间；文中：次年1月8日上午",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -234276,7 +234293,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 173,
-      "minute": 360
+      "minute": 480
      },
      "role": "复活的死者"
     },
@@ -234284,7 +234301,7 @@
      "entity_id": "fukiyose-seiri",
      "at": {
       "day": 173,
-      "minute": 360
+      "minute": 480
      },
      "role": "目击者"
     },
@@ -234292,7 +234309,7 @@
      "entity_id": "himegami-aisa",
      "at": {
       "day": 173,
-      "minute": 360
+      "minute": 480
      },
      "role": "目击者"
     },
@@ -234300,7 +234317,7 @@
      "entity_id": "aogami-pierce",
      "at": {
       "day": 173,
-      "minute": 360
+      "minute": 480
      },
      "role": "目击者"
     },
@@ -234308,7 +234325,7 @@
      "entity_id": "headband-girl",
      "at": {
       "day": 173,
-      "minute": 360
+      "minute": 480
      },
      "role": "目击者"
     },
@@ -234316,7 +234333,7 @@
      "entity_id": "tsukuyomi-komoe",
      "at": {
       "day": 173,
-      "minute": 360
+      "minute": 480
      },
      "role": "目击者"
     }
@@ -234612,14 +234629,14 @@
    "when": {
     "earliest": {
      "day": 173,
-     "minute": 0
+     "minute": 480
     },
     "latest": {
      "day": 173,
      "minute": 1439
     },
-    "precision": "day",
-    "label": "2021-01-08（当天，具体时间不详）；文中：次年1月8日",
+    "precision": "part_of_day",
+    "label": "2021-01-08（当天，具体时间不详）；按先后在 01-08 08:00 至 01-08 23:59 之间；文中：次年1月8日",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -234688,7 +234705,7 @@
      "entity_id": "coronzon",
      "at": {
       "day": 173,
-      "minute": 0
+      "minute": 480
      },
      "role": "夺回身体的恶魔"
     },
@@ -234696,7 +234713,7 @@
      "entity_id": "aleister-crowley",
      "at": {
       "day": 173,
-      "minute": 0
+      "minute": 480
      },
      "role": "被夺走身体控制权者"
     },
@@ -234704,7 +234721,7 @@
      "entity_id": "kamijou-touma",
      "at": {
       "day": 173,
-      "minute": 0
+      "minute": 480
      },
      "role": "逃亡者"
     },
@@ -234712,7 +234729,7 @@
      "entity_id": "alice-anotherbible",
      "at": {
       "day": 173,
-      "minute": 0
+      "minute": 480
      },
      "role": "逃亡者"
     },
@@ -234720,7 +234737,7 @@
      "entity_id": "vidhatri",
      "at": {
       "day": 173,
-      "minute": 0
+      "minute": 480
      },
      "role": "被带走的昏迷者"
     }
@@ -234913,10 +234930,10 @@
     },
     "latest": {
      "day": 173,
-     "minute": 1439
+     "minute": 1199
     },
-    "precision": "day",
-    "label": "2021-01-08（当天，具体时间不详）；文中：次年1月8日",
+    "precision": "part_of_day",
+    "label": "2021-01-08（当天，具体时间不详）；按先后在 01-08 00:00 至 01-08 19:59 之间；文中：次年1月8日",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
@@ -236656,10 +236673,10 @@
     },
     "latest": {
      "day": 174,
-     "minute": 359
+     "minute": 300
     },
     "precision": "part_of_day",
-    "label": "2021-01-09 凌晨（具体时间不详）；文中：1月9日凌晨",
+    "label": "2021-01-09 凌晨（具体时间不详）；按先后在 01-09 00:00 至 01-09 05:00 之间；文中：1月9日凌晨",
     "basis": "documented",
     "notes": "日期出自资料。"
    },
