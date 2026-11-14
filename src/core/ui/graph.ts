@@ -252,8 +252,11 @@ export function timeScale(ticks: number[], x0: number): { x: (t: number) => numb
   return { x: at, end: xs.length ? xs[xs.length - 1] : x0 };
 }
 
-function layout(g: GraphData): { placed: Placed[]; width: number; height: number; laneY: Record<string, [number, number]>; ticks: { x: number; label: string; major: boolean }[]; nowX: number | null; axisStart: number } {
-  const sorted = [...g.nodes].sort((a, b) => a.tick - b.tick || (a.tickHi ?? a.tick) - (b.tickHi ?? b.tick) || LANES.indexOf(a.lane) - LANES.indexOf(b.lane) || a.title.localeCompare(b.title));
+export function layout(g: GraphData): { placed: Placed[]; width: number; height: number; laneY: Record<string, [number, number]>; ticks: { x: number; label: string; major: boolean }[]; nowX: number | null; axisStart: number } {
+  // events at the same time (several of one day whose order alone is known) are stacked in the order they come in —
+  // the pack's order, which the nodes keep — never by title (live: "其中第 5/8 件" drawn above 4/8, 3/8, 6/8 …)
+  const seq = new Map(g.nodes.map((n, i) => [n.id, i]));
+  const sorted = [...g.nodes].sort((a, b) => a.tick - b.tick || (a.tickHi ?? a.tick) - (b.tickHi ?? b.tick) || LANES.indexOf(a.lane) - LANES.indexOf(b.lane) || seq.get(a.id)! - seq.get(b.id)!);
   const unknown = sorted.filter((n) => !Number.isFinite(n.tick));
   // undated background events sit in their own column left of the axis
   const unkRows = Math.max(...LANES.map((l) => unknown.filter((n) => n.lane === l).length), 0);

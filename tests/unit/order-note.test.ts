@@ -7,7 +7,7 @@ import { ROOT } from './helpers';
 import { validatePackText } from '../../src/core/domain/pack';
 import { emptyState } from '../../src/core/domain/reducer';
 import { afterNote } from '../../src/core/runtime/context';
-import { packGraph } from '../../src/core/ui/graph';
+import { layout, packGraph } from '../../src/core/ui/graph';
 
 describe('order of events that share a window', () => {
   it('ON1 an event of unknown time names the events it follows that have not happened yet; a known time needs none', () => {
@@ -34,5 +34,10 @@ describe('order of events that share a window', () => {
     expect(short('council-broadcast')).toMatch(/(some time|某时).*1.*2/);
     expect(short('harbor-festival')).toMatch(/(some time|某时).*2.*2/);
     expect(short('conflict-begins')).not.toMatch(/some time|某时/);
+    // drawn in that order: the first above the second, whatever their titles
+    const both = { ...g, nodes: g.nodes.filter((n) => n.id === 'council-broadcast' || n.id === 'harbor-festival').map((n) => ({ ...n, lane: 'SOFT' as const })) };
+    both.nodes[0].title = 'Zz last by title';
+    const y = (id: string) => layout(both).placed.find((p) => p.id === id)!.y;
+    expect(y('council-broadcast')).toBeLessThan(y('harbor-festival'));
   });
 });

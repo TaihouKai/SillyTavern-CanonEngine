@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.35.1 — 2026-11-14
+
+- **The timeline stacks events of the same time in the order they come in.** Boxes with the same window were ordered by title, so "其中第 5/8 件" was drawn above 4/8, 3/8 and 6/8 and the order of a day's events was lost on screen; this only showed once the windows stopped carrying made-up minutes. Every other place that orders events by time already kept the story's order for ties (checked). Test ON1.
+
 ## 1.35.0 and Toaru pack 4.3.0 — 2026-11-14
 
 - **Events whose time is not known keep their order.** Several beats of one afternoon all showed "12:00–17:59" in the timeline and read as at the same time. The builder now narrows such a window by what the stated times and the order already settle — an event that follows another is not earlier than that one's earliest time, and the other is not later than its latest — without inventing a time (96 windows; the five 大霸星祭 beats between 初遇欧莉安娜 at 13:00 and the noon event they lead to: 13:00–13:59). The timeline shows an unknown time as such ("之间某时") with each event's place among those that share it ("其中第 2/5 件"), and the GM is told the events it comes after (`afterNote`: in the canon events starting, the HARD obligations, the open events and the planner's view). Tests ON1, builder.

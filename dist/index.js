@@ -25296,7 +25296,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.35.0";
+var ENGINE_RELEASE = "1.35.1";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -32906,7 +32906,8 @@ function timeScale(ticks, x0) {
   return { x: at, end: xs.length ? xs[xs.length - 1] : x0 };
 }
 function layout(g) {
-  const sorted = [...g.nodes].sort((a, b) => a.tick - b.tick || (a.tickHi ?? a.tick) - (b.tickHi ?? b.tick) || LANES.indexOf(a.lane) - LANES.indexOf(b.lane) || a.title.localeCompare(b.title));
+  const seq = new Map(g.nodes.map((n, i) => [n.id, i]));
+  const sorted = [...g.nodes].sort((a, b) => a.tick - b.tick || (a.tickHi ?? a.tick) - (b.tickHi ?? b.tick) || LANES.indexOf(a.lane) - LANES.indexOf(b.lane) || seq.get(a.id) - seq.get(b.id));
   const unknown = sorted.filter((n) => !Number.isFinite(n.tick));
   const unkRows = Math.max(...LANES.map((l) => unknown.filter((n) => n.lane === l).length), 0);
   const axisStart = LEFT + (unknown.length ? UNK_W + 40 : 0);
