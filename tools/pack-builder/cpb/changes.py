@@ -2,7 +2,7 @@
 as members, and a leader handed over as "remove" of the old one and "add" of the new one. The engine applies them to
 the fact as it stands in the game, so whatever play made of it is kept (the player in a canon organization, a leader
 the Persona made). This pass walks all events in time order and completes what a single beat cannot know: a new
-leader whose predecessor is named elsewhere, and a death that takes the person out of every organization."""
+leader whose predecessor is named elsewhere, and a death that takes the person out of every organization (and every office), a return that brings them back."""
 import re
 
 SETS = ('members',)
@@ -90,7 +90,11 @@ def complete(events, initial_facts):
                 dead.add(ent)
             elif pred == 'alive' and val is True and out_by_death.get(ent):
                 for (org, p_) in out_by_death.pop(ent):
-                    if (org, p_) in sets and ent not in sets[(org, p_)]:
+                    if p_ in SLOTS:
+                        if slots.get((org, p_)) is None:     # the office back, when nobody took it meanwhile
+                            slots[(org, p_)] = ent
+                            added.append(change('add', org, p_, ent))
+                    elif (org, p_) in sets and ent not in sets[(org, p_)]:
                         sets[(org, p_)].add(ent)
                         added.append(change('add', org, p_, [ent]))
             elif pred == 'status' and op == 'set':
@@ -119,6 +123,15 @@ def complete(events, initial_facts):
             cur -= set(gone)
             if org not in ev['entity_ids']:
                 ev['entity_ids'].append(org)
+        # a dead leader leads nothing (live 2026-11-14: 爱丽丝 dead and still 桥架结社's leader); a return gives it back
+        for (org, p_), holder in list(slots.items()):
+            if holder in dead:
+                out_by_death.setdefault(holder, []).append((org, p_))
+                if not any(effect_key(x) == (org, p_, 'remove') for x in ev['canonical_effects'] + added):
+                    added.append(change('remove', org, p_, holder))
+                slots.pop((org, p_))
+                if org not in ev['entity_ids']:
+                    ev['entity_ids'].append(org)
         for ef in added:
             ev['canonical_effects'].append(ef)
             if ev['classification'] != 'HARD' and ef['op'] != 'unset':     # an outcome states a value

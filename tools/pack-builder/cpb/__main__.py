@@ -4,7 +4,7 @@ import sys
 
 import os
 
-from . import adapters, assemble, deaths, dedupe, ends, impacts, llm, mind, nature, report, review, skeleton, start, steps
+from . import adapters, assemble, corrections, deaths, dedupe, ends, impacts, llm, mind, nature, report, review, skeleton, start, steps
 from . import prompts as P
 from .config import Project, load_global
 from .util import ROOT, log, read_json, write_json
@@ -199,16 +199,23 @@ def main(argv=None):
             return 2
     if cmd in ('build', 'run', 'start', 'deaths'):
         pack, rep, chrep, clock, path = assemble.build(project)
+        rv = review.load(project)
+        also = corrections.merged_from(rv)
         if os.path.isdir(project.p('nature')):   # 常态 generated before is kept on a rebuild
             pk = read_json(path)
-            n = nature.attach(pk, project.p('nature'))
+            n = nature.attach(pk, project.p('nature'), also)
             assemble.write_pack(project, path, pk)
             log(f'nature: {n} people with a 常态')
         if os.path.isdir(project.p('mind')):   # and 思考方式
             pk = read_json(path)
-            n = mind.attach(pk, project.p('mind'))
+            n = mind.attach(pk, project.p('mind'), also)
             assemble.write_pack(project, path, pk)
             log(f'mind: {n} people with a 思考方式')
+        # a person's fixes of what the generated 常态 and 思考方式 got wrong, and the wordings fixed everywhere
+        pk = read_json(path)
+        miss = corrections.apply_people(pk, rv) + corrections.apply(pk, {'texts': rv.get('texts') or []}, people=True)
+        corrections.write_misses(project, corrections.read_misses(project) + miss)
+        assemble.write_pack(project, path, pk)
         res = report.lint(gcfg, path)
         report.write(project, read_json(path) or pack, rep, chrep, clock, path, res, cl.ledger if cl else None)
         if res is not None:

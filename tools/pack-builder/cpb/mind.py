@@ -105,12 +105,16 @@ def generate(project, client, pack, wiki, lang='Simplified Chinese', out_dir=Non
     return n
 
 
-def attach(pack, mind_dir):
-    """Puts the generated 思考方式 on the pack's people (entity "mind"); returns how many got one."""
+def attach(pack, mind_dir, also=None):
+    """Puts the generated 思考方式 on the pack's people (entity "mind"); `also`: {id: [ids merged into it]}, whose files
+    serve it when it has none. Returns how many got one."""
     n = 0
     for e in pack['entities']:
         e.pop('mind', None)
         d = read_json(f'{mind_dir}/{e["id"]}.json') if os.path.isdir(mind_dir) else None
+        for o in (also or {}).get(e['id'], []):
+            if (not d or d.get('none')) and os.path.isdir(mind_dir):
+                d = read_json(f'{mind_dir}/{o}.json')
         if e.get('kind') != 'person' or not d or d.get('none') or d.get('deliberation') not in DELIBERATION or d.get('sharpness') not in SHARPNESS:
             continue
         m = {'deliberation': d['deliberation'], 'sharpness': d['sharpness']}

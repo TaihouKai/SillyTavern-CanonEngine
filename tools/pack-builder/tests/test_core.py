@@ -222,6 +222,21 @@ class TimelineTest(unittest.TestCase):
         self.assertIn('第 1/2 件', marks['a'][0])
         self.assertIn('第 2/2 件', marks['b'][0])
 
+    def test_a_recovery_ends_the_state_before_it(self):
+        # live: biohacker.b44 recorded 上条 as "injury 已痊愈" (the malaria before) while he was burnt in that very event
+        w = lambda t: {'earliest': {'day': 0, 'minute': t}, 'latest': {'day': 0, 'minute': t + 10}}  # noqa: E731
+        st = lambda ent, p, v, u='lasting': {'op': 'set', 'fact': {'entity_id': ent, 'predicate': p, 'value': v}, 'until': u}  # noqa: E731
+        ev = [{'id': 'hurt', 'when': w(0), 'canonical_effects': [st('k', 'injury', '高烧')], 'outcomes': []},
+              {'id': 'other', 'when': w(30), 'canonical_effects': [st('k', 'status', '恢复真实身份')], 'outcomes': []},
+              {'id': 'heal', 'when': w(60), 'canonical_effects': [st('k', 'injury', '已痊愈'), st('k', 'status', '恢复中')], 'outcomes': [{'entity_id': 'k', 'predicate': 'injury', 'value': '已痊愈'}]},
+              {'id': 'woke', 'when': w(90), 'canonical_effects': [st('m', 'status', '已苏醒')], 'outcomes': []}]
+        self.assertEqual(assemble.end_recoveries(ev), 2)
+        self.assertEqual(ev[0]['canonical_effects'][0]['until'], {'event': 'heal'})      # the fever ends where he is well
+        self.assertEqual([o['fact']['value'] for o in ev[2]['canonical_effects']], ['恢复中'])   # a state that is no end stays
+        self.assertEqual(ev[2]['outcomes'], [])
+        self.assertEqual(ev[3]['canonical_effects'], [])                                  # nothing before it to end
+        self.assertEqual(ev[1]['canonical_effects'][0]['fact']['value'], '恢复真实身份')    # a real state that starts with 恢复
+
     def test_one_event_told_twice_is_merged(self):
         # live: 药味久子的下场 (agitate.001) and 药味久子被击碎 (agitate.003), the same scene in two parts of a story
         w = {'earliest': {'day': 0, 'minute': 600}, 'latest': {'day': 0, 'minute': 630}, 'precision': 'range'}

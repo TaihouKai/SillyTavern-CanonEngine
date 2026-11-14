@@ -234,6 +234,8 @@ def section(project, pack, lint_res=None):
     res.append(('problem', '窗口与先后关系不符', '后一件事不能比前一件开始得早，前一件不能比后一件结束得晚', order_mismatches(pack)))
     res.append(('problem', '没有出处的确切时间', '记为确切时间（minute/range）的，文中必须有时刻，或核对文件里写明来由', invented_precision(pack, notes)))
     res.append(('problem', '疑似同一件事记了两次', '时间相近、人物相同、标题或经过相似；在核对文件 duplicates 里决定：同一件（合并）或不是', undecided_duplicates(pack, rv.get('duplicates') or {})))
+    from . import corrections
+    res += text_problems(pack, corrections.read_misses(project))
     res.append(('problem', 'canon-lint 警告未处理', '每条警告都要改掉，或在核对文件 warnings 里写明为什么接受', lint_findings(lint_res, rv.get('warnings') or {})))
     probs = [(t, ls) for k, t, _, ls in res if k == 'problem' and ls]
     L = ['## 质量检查', '', '每次 `build` 自动跑（代码检查，不调用模型）。「问题」应为 0；「复核」是各步骤的判断结果，供人过目。', '',
@@ -412,3 +414,171 @@ def duplicate_key(a, b):
 def undecided_duplicates(pack, decided):
     titles = {e['id']: e['title'] for e in pack['events']}
     return [f'{a} {titles[a]} ⇄ {b} {titles[b]}（相似 {s:.2f}）' for s, a, b in duplicate_candidates(pack) if duplicate_key(a, b) not in decided]
+
+
+# ---- what a whole-pack read found (2026-11-14), each kind a check -------------------------------------------------
+# A person read the pack event by event: states on the wrong kind of entity (members on a cat, holder on a person),
+# a revival of someone never dead, an end before its own beginning, research notes and English words in the text, texts
+# cut off mid-sentence, names with half a quote mark, empty descriptions. Each is listed here until it is fixed in the
+# review file (cpb/corrections.py) — a principle without a check is a wish.
+
+RESEARCH = re.compile(r'open_questions|维基|[Ww]iki|英文资料|中文资料|资料(?:里|中)?(?:写|称|说)|考据|可能指|待核|需(?:要)?[^，。；]{0,10}核对|与英文|原文为英文')
+# words a text may keep in Latin letters: terms of the setting written so (the pack's own names add theirs), units and
+# abbreviations
+LATIN_OK = {'AIM', 'Level', 'LEVEL', 'UFO', 'DNA', 'GPS', 'LED', 'CEO', 'SNS', 'VR', 'UTC', 'ID', 'IC', 'USB', 'PDA', 'AED',
+            'MAR', 'RV', 'SOS', 'BREAK', 'Five', 'Over', 'FIVE', 'Modelcase', 'ModelCase', 'OS', 'RAILGUN', 'MELTDOWNER',
+            'ACCELERATOR', 'MENTAL', 'OUT', 'Out', 'Sider', 'Secret', 'SECRET', 'Hula', 'Hoop', 'LAShTAL', 'HsAFH',
+            'Licht', 'Liebe', 'Leben', 'PM', 'AM', 'App', 'KM', 'km', 'kg', 'cm', 'mm', 'MSR', 'HMLa', 'RPG',
+            'LSS', 'STUDY', 'ITEM', 'SCHOOL', 'GROUP', 'BLOCK', 'MEMBER', 'DA', 'BLAU', 'Green', 'Mart', 'Seventh', 'Mist',
+            'Fifteen', 'Bells', 'Sunny', 'Watcher', 'Human', 'DIY', 'Au', 'GHz', 'MHz', 'CD', 'DVD', 'TV', 'PC', 'AI',
+            # the setting's own terms, written so in the translations too
+            'SYSTEM', 'UAV', 'SDI', 'HsMLR', 'HsAAT', 'HsB', 'HsF', 'HsPS', 'Angelica', 'Gekota', 'fps', 'ATM', 'Ars', 'Magna',
+            'Fortis', 'Innocentius', 'Keter', 'RSPK', 'Capacity', 'Down', 'Limen', 'Honos', 'Auribus', 'oculi',
+            'fideliores', 'sunt', 'Shadow', 'Metal', 'APP', 'Ideal', 'Testament', 'telesma', 'Persona', 'Superiore', 'Dio',
+            'Friulian', 'VIP', 'CIA', 'ANGEL', 'Nu-AD', 'VTOL', 'Ex', 'Voto', 'Welcome', 'back', 'hero', 'cp', 'ICU',
+            'Clairpharm', 'NPC', 'Agitate', 'Halation', 'Game', "Designers'", 'Gel', 'DEADLOCK', 'Outsider', 'Model',
+            'case', 'AAA', 'P-Phone', 'Dianoid', 'Anti-Art', 'Attachment', 'Sphere', 'Live', 'House', 'La', 'skiðblaðnir',
+            'Counter', 'Stop'}
+TREATED_AS_INJURY = re.compile(r'(?:已|经[^，。；]{0,10})(?:包扎|缝合|处理|治疗|稳定)|得到(?:处理|治疗|救治)|无碍|可正常|靠[^，。；]{0,8}恢复')
+VACUOUS = re.compile(r'^(?:（无描述）|故事中(?:登场|出现)的(?:人物|角色)|在故事中登场的(?:人物|角色))|(?:故事中登场的|在[^，。]{0,12}(?:章节|篇章|篇)中登场的)(?:人物|角色)。?$'
+                     r'|与相关事件有(?:关|所牵连)。?$|^与[^，。]{1,16}相关的(?:人物|角色|英国人物)。?$|以[^，。]{1,10}为名的组织。?$|^名为[^，。]{1,12}的(?:场所|地点)|^故事中的一处(?:地点|场所)')
+HALF_QUOTE = re.compile(r'^[^「]*」|「[^」]*$|^[^“]*”|“[^”]*$')
+CUT_OFF = re.compile(r'[；，、：]$')
+DANGLING = re.compile(r'^(?:同时(?:因为|也|又|，)|则|而且|并且|另外|但)')
+NATURE_FIELDS = ('habits', 'uses', 'others', 'limits')
+
+
+def _texts_of_event(e):
+    s = e.get('summary') or {}
+    out = [('标题', e.get('title') or '')] + [(f, s.get(f) or '') for f in ('background', 'trigger', 'course', 'result', 'aftermath', 'impact', 'note')]
+    out += [('动机', m.get('motive') or '') for m in s.get('motives') or []]
+    out += [('要求', e.get('required_description') or ''), ('hook', (e.get('participation') or {}).get('hook') or ''), ('时间', (e.get('when') or {}).get('label') or '')]
+    out += [('角色', c.get('role') or '') for c in e.get('cast') or []]
+    out += [('作者注', e.get('author_note') or '')]
+    out += [(f'效果 {(_f(x)).get("predicate")}', (_f(x)).get('value')) for x in e.get('canonical_effects') or []
+            if isinstance((_f(x)).get('value'), str) and (_f(x)).get('predicate') not in ('members', 'leader', 'holder', 'ally')]
+    return [(k, t) for k, t in out if t]
+
+
+def _texts_of_entity(x):
+    out = [('描述', x.get('static_description') or '')]
+    out += [(f'思考方式.{k}', v) for k, v in (x.get('mind') or {}).items() if isinstance(v, str) and k not in ('deliberation', 'sharpness')]
+    for v in x.get('nature') or []:
+        out += [(f'常态({v.get("from_event") or "开局"}).{k}', v.get(k) or '') for k in ('why', *NATURE_FIELDS)]
+    return [(k, t) for k, t in out if t]
+
+
+def latin_words(text, ok):
+    """Words in Latin letters a Chinese text should not have (inside 「」 『』 quotes and 【】 a term may keep its own
+    spelling)."""
+    bare = re.sub(r'「[^」]*」|『[^』]*』|“[^”]*”|"[^"]*"|【[^】]*】|[a-z][a-z0-9-]*\.\d{3}\.b\d+', '', text)
+    return [w for w in re.findall(r"[A-Za-z][A-Za-z']*(?:-[A-Za-z]+)*", bare) if len(w) >= 3 and w not in ok and w.upper() not in ok]
+
+
+def text_problems(pack, misses=()):
+    """[(kind, title, what, lines)] of the whole-pack read's kinds."""
+    E = {e['id']: e for e in pack['entities']}
+    N = lambda i: E.get(i, {}).get('name', i)  # noqa: E731
+    kind = lambda i: E.get(i, {}).get('kind')  # noqa: E731
+    evs = sorted(pack['events'], key=_at)
+    at = {e['id']: _at(e) for e in evs}
+    ok = set(LATIN_OK)
+    for x in pack['entities']:
+        for n in [x['name'], *(x.get('aliases') or [])]:
+            ok.update(re.findall(r"[A-Za-z][A-Za-z']*(?:-[A-Za-z]+)*", n or ''))
+    out = []
+    wrong_kind, revive, early_end, treated, dead_join = [], [], [], [], []
+    dead = {}
+    for f in pack['initial_state']['facts']:
+        if f['fact']['predicate'] == 'alive' and f['fact']['value'] is False:
+            dead[f['fact']['entity_id']] = '开局'
+    seen = set()
+    for e in evs:
+        where = f'{e["id"]} {e["title"]}'
+        # one coming back in this event is alive when they rejoin in it; one born in it is no revival
+        for x in e['canonical_effects']:
+            f = _f(x)
+            if f.get('predicate') == 'alive' and x.get('op', 'set') == 'set' and f.get('value') is True:
+                ent = f.get('entity_id')
+                if not dead.get(ent) and ent in seen:
+                    revive.append(f'{where}：{N(ent)}.alive=True，此前并没有死')
+                dead[ent] = None
+        seen.update(e.get('entity_ids') or [])
+        for x in e['canonical_effects']:
+            f, op = _f(x), x.get('op', 'set')
+            ent, pred, v = f.get('entity_id'), f.get('predicate'), f.get('value')
+            if pred in ('members', 'leader') and kind(ent) != 'organization':
+                wrong_kind.append(f'{where}：{N(ent)}（{kind(ent)}）.{pred}——成员与首领只属于组织')
+            if pred == 'members' and op != 'set':
+                for m in v if isinstance(v, list) else [v]:
+                    if kind(m) not in ('person', 'organization'):
+                        wrong_kind.append(f'{where}：{N(ent)}.members 里的 {N(m)} 是 {kind(m)}')
+                    if op == 'add' and dead.get(m):
+                        dead_join.append(f'{where}：{N(m)} 已死（{dead[m]}），却加入 {N(ent)}')
+            if pred == 'leader' and isinstance(v, str) and kind(v) != 'person':
+                wrong_kind.append(f'{where}：{N(ent)}.leader 是 {N(v)}（{kind(v)}）')
+            if pred == 'holder' and (kind(ent) == 'person' or v == ent):
+                wrong_kind.append(f'{where}：{N(ent)}.holder={N(v)}——持有者写在物上，且不能是自己')
+            if pred in ('alive', 'injury') and kind(ent) != 'person':
+                wrong_kind.append(f'{where}：{N(ent)}（{kind(ent)}）.{pred}——只属于人物')
+            if pred == 'condition' and kind(ent) == 'person':
+                wrong_kind.append(f'{where}：{N(ent)}.condition——人物的状态不是物的完好与否')
+            if pred == 'injury' and op == 'set' and TREATED_AS_INJURY.search(str(v or '')):
+                treated.append(f'{where}：{N(ent)}.injury=「{v}」')
+            u = x.get('until')
+            if isinstance(u, dict) and u.get('event') in at and at[u['event']] <= at[e['id']]:
+                early_end.append(f'{where}：{N(ent)}.{pred} 结束于 {u["event"]}，它不在本事件之后')
+        # the event's deaths count after its own joins (one dying in it was alive when it began)
+        for x in e['canonical_effects']:
+            f = _f(x)
+            if f.get('predicate') == 'alive' and x.get('op', 'set') == 'set' and f.get('value') is False:
+                dead[f.get('entity_id')] = e['id']
+    out.append(('problem', '谓词与实体种类不符', '成员、首领只在组织上；持有者在物上；生死与伤只在人物上；物的完好与否不写在人身上', wrong_kind))
+    out.append(('problem', '没死过的人「复活」', 'alive=True 只用于此前死去、后来复生的人', revive))
+    out.append(('problem', '死人加入组织', '加入时此人已死（开局名单或事件里的加入）', dead_join))
+    out.append(('problem', '状态的结束事件不在它之后', 'until 指向的事件必须晚于写下状态的事件', early_end))
+    out.append(('problem', '把治疗写成了伤', '「已包扎」「经…处理」「已稳定」是旧伤的结束或伤后情况，不是新的伤', treated))
+    research, latin, cut = [], [], []
+
+    def scan(label, t):
+        m = RESEARCH.search(t)
+        if m:
+            research.append(f'{label}：{m.group(0)}——{t[:60]}')
+        w = latin_words(t, ok)
+        if w:
+            latin.append(f'{label}：{"、".join(dict.fromkeys(w))}——{t[:50]}')
+    for e in evs:
+        for k, t in _texts_of_event(e):
+            scan(f'{e["id"]} {k}', t)
+    for a in pack.get('arcs') or []:
+        for k in ('title', 'summary'):
+            scan(f'{a["id"]} {k}', a.get(k) or '')
+    for f in pack['initial_state']['facts']:
+        scan(f'开局 {f["fact"]["entity_id"]}.{f["fact"]["predicate"]}', f.get('note') or '')
+    for x in pack['entities']:
+        texts = _texts_of_entity(x)
+        for k, t in texts:
+            scan(f'{x["id"]} {x["name"]} {k}', t)
+        for k, t in texts:
+            if k != '描述' and (CUT_OFF.search(t.strip()) or DANGLING.match(t.strip())):
+                cut.append(f'{x["id"]} {x["name"]} {k}：…{t.strip()[-24:]}')
+        for v in x.get('nature') or []:
+            filled = [k for k in NATURE_FIELDS if (v.get(k) or '').strip()]
+            empty = [k for k in NATURE_FIELDS if not (v.get(k) or '').strip()]
+            if filled and empty:
+                cut.append(f'{x["id"]} {x["name"]} 常态({v.get("from_event") or "开局"})：{"、".join(empty)} 是空的')
+    out.append(('problem', '正文里有研究过程的话', '待核对、见维基、考据……是做包时的笔记，GM 读到会当成剧情；改成定论或删去', research))
+    out.append(('problem', '中文正文里夹着英文词', '英文资料的原词没译出来；设定里本就写作英文的名称（实体名里有的）不算', latin))
+    out.append(('problem', '常态、思考方式的文字残缺', '空着的一项、以「；」收尾的半句、缺了前半句（「同时…」「则…」）', cut))
+    half, vac = [], []
+    for x in pack['entities']:
+        for n in [x['name'], *(x.get('aliases') or [])]:
+            if n and HALF_QUOTE.search(n):
+                half.append(f'{x["id"]}：「{n}」')
+        d = (x.get('static_description') or '').strip()
+        if not d or VACUOUS.search(d):
+            vac.append(f'{x["id"]} {x["name"]}：{d or "（空）"}')
+    out.append(('problem', '名字、别名里的引号不成对', '「GROUP」联络人 一类：名字被从引号中间截断了', half))
+    out.append(('problem', '空洞的实体描述', '「故事中登场的人物」「与相关事件有关」说不出是谁；按事件写一句', vac))
+    out.append(('problem', '核对文件里的更正没有对上', '改的文字、事件或实体已经不在了：删掉这条，或改成对得上的', list(misses)))
+    return out

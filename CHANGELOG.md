@@ -1,5 +1,16 @@
 # Changelog
 
+## Toaru pack 4.5.0 — 2026-11-14
+
+- **A person read the whole pack, event by event, entity by entity and every 常态 and 思考方式, and about 190 things were wrong.** Each is fixed in the review file, and each *kind* got a check in the builder first (verified on the 4.4 pack, which it flags), so it cannot come back:
+  - **States on the wrong kind of entity** (21 on 4.4): members of a cat (斯芬克斯), a person who "leads" herself, a blueprint that holds itself, organizations that "die" or are "injured" — the domain of every predicate is checked.
+  - **Revivals of people who never died** (18): 上条 "alive" after every fight, 亚雷斯塔 "revived" twice; a birth is not a revival. **Dead people joining organizations** (统括理事会 got 药味久子 a month after her death): the start lists no longer put the dead in, and a dead leader leaves office and comes back with a revival (爱丽丝 stayed 桥架结社's leader while dead).
+  - **Times in the wrong order**: 143 windows moved — 意大利 night of the 亚得里亚海女王 (it ran 9-28 evening JST, after the event's own end), the 欧提努斯 day (all on 11-18, the Denmark days a day earlier), 归乡篇's landing after its own battles, 第三学期's "实验第2天" (1-16, not 1-11), the 科隆尊 day in London, 撞车 after the rescue it caused, and others; each with its reason.
+  - **One event told twice** (14 more merged), **one thing as two entities** (83 merged: 恋查 ×5, 垣根的内脏 ×3, 六翼 ×3, 统括理事会 ×2, 硲舎/硲舍, places like 第23学区/第二十三学区), **one entity read as another** (the 垣根帝督 of 一端览祭 is 独角仙05; the 「上条当麻」 at the Windsor banquet is the impostor; the 「玛丽」 who jumps at 当麻 is 芽李).
+  - **Wrong starting members** (固法 in 武装无能力集团, a terrorist in 警备员, 格雷姆林 members in 2017, 神之右席 joined only when it was dissolved), **wrong states** (貉山 shot and "dead" while still in hospital later; a fireworks show "destroyed" that went ahead; treatment written as a new injury).
+  - **Text**: research notes left in the summaries ("见open_questions", "需与英文资料核对", "中文维基…"), untranslated English ("stakes", "reluctantly", "frustration", "late in August"), the builder's own words ("此 beat", event ids in the prose, "在 handcuffs 章节中"), wrong names (御坂多嘉 for 御坂旅挂, 白井 called 警备员, three spellings of 布洛德薇德), names cut inside a quote mark (31), empty descriptions (29) and 常态 cut off or left empty (30).
+- The builder: corrections of events, entities, wordings, start lists and 常态 in the review file (`cpb/corrections.py`); every correction must still find what it corrects; `whereabouts` "再次现界" is now only for summoned beings (anyone else's return is "复活"); sources name pages, not scripts, for a wiki project. 1803 events, 1549 entities; canon-lint 0 errors, 0 warnings; checks 0 problems.
+
 ## Toaru pack 4.4.0 — 2026-11-14
 
 - **Events of one story no longer share one vague window.** 231 groups of events (1295 in 92 stories) had the same "some time that evening" window — 上条乘滑翔机升空 and 上条与莎特奥拉对决 both "one of 8" of the same evening — so the timeline drew them as one moment and the GM had nothing that said which came first. The original gives no clock for them, so each now has its own time, one after another inside the old window and between the events with stated times around it (labelled "约 …（编辑推定）"; the reasons are in the review file). The builder marks every event that still shares a window with others of its story; lint refuses the pack until each has its own time.

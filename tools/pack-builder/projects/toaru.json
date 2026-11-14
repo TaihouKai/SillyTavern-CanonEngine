@@ -60,7 +60,7 @@
  },
  "pack": {
   "pack_id": "toaru-index-chronicle",
-  "pack_version": "4.4.0",
+  "pack_version": "4.5.0",
   "release": "../../examples/toaru-index.canon.json",
   "title": "魔法禁书目录 编年史（旧约·新约·创约及外传）",
   "language": "zh-CN",
@@ -1438,6 +1438,8 @@
   }
  ],
  "source_title": "魔禁维基（灰机wiki）篇章页、时间线与考据页；英文 Toaru Wiki（fandom）篇章页与人物经历",
+ "source_unit_label": "来源",
+ "source_notes": "每个事件的 author_note 写明它所依据的篇章页。摘要由模型根据维基页面撰写，经代码整理与人工通读核对。",
  "source_locator": "https://toaru.huijiwiki.com/ ；https://toarumajutsunoindex.fandom.com/ （本地快照）",
  "groups": [
   {

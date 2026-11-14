@@ -351,14 +351,18 @@ def generate(project, client, pack, entity_ids, wiki, lang='Simplified Chinese',
 PACK_FIELDS = ('from_event', 'until_event', 'why', *FIELDS, 'perceives')
 
 
-def attach(pack, nature_dir):
+def attach(pack, nature_dir, also=None):
     """Puts the generated 常态 on the pack's people (entity "nature"), in the pack's own format: the version fields only,
-    versions at events the pack does not have dropped, empty ones left out. Returns how many people got one."""
+    versions at events the pack does not have dropped, empty ones left out. `also`: {id: [ids merged into it]}, whose
+    files serve it when it has none. Returns how many people got one."""
     evs = {e['id'] for e in pack['events']}
     n = 0
     for e in pack['entities']:
         e.pop('nature', None)
         d = read_json(f'{nature_dir}/{e["id"]}.json')
+        for o in (also or {}).get(e['id'], []):
+            if not d or d.get('none') or not d.get('versions'):
+                d = read_json(f'{nature_dir}/{o}.json')
         if e.get('kind') != 'person' or not d or d.get('none') or not d.get('versions'):
             continue
         vs = []

@@ -12,6 +12,10 @@ through.
            what the event changes beyond itself that its summary tells and its effects did not have, checked
   warnings: a canon-lint warning (a part of its text) -> why it is accepted; every other warning is a problem of the
            build's checks
+  duplicates: "a|b" -> {"same": bool, "keep": id, "carry": bool}: one event told twice (merged), or not
+  events, entities, texts, minds: corrections of what the summaries and models got wrong (cpb/corrections.py)
+  start:   organization id -> {"drop": [ids], "at": {id: event id}}: who the start model put in it wrongly (a former
+           member, one it only met), or when someone enters it (cpb/start.py)
 """
 import datetime as dt
 import os
@@ -25,15 +29,21 @@ def path(project):
     return os.path.splitext(project.path)[0] + '.review.json'
 
 
+SECTIONS = ('times', 'ends', 'impacts', 'warnings', 'duplicates', 'events', 'entities', 'minds', 'start')
+
+
 def load(project):
     d = read_json(path(project), {}) or {}
-    for k in ('times', 'ends', 'impacts', 'warnings', 'duplicates'):
+    for k in SECTIONS:
         d.setdefault(k, {})
+    d.setdefault('texts', [])
     return d
 
 
 def save(project, data):
-    write_json(path(project), {k: dict(sorted(data.get(k, {}).items())) for k in ('times', 'ends', 'impacts', 'warnings', 'duplicates')}, indent=1)
+    out = {k: dict(sorted(data.get(k, {}).items())) for k in SECTIONS}
+    out['texts'] = list(data.get('texts') or [])
+    write_json(path(project), out, indent=1)
 
 
 def to_tick(origin, s):

@@ -6,6 +6,7 @@ before the first of them, from the pack's people only (code checks the ids).
 Kept in <work>/start/<organization id>.json; `build` adds them when the organization first appears in the story
 with its people (not at the beginning of time: 格雷姆林 had members in 2019, before it was formed)."""
 import os
+import re
 
 from .llm import LLMError
 from .mind import page_of
@@ -116,17 +117,43 @@ def generate(project, client, pack, wiki):
     return n
 
 
-def place(project, by_id, events):
+def dead_at(events):
+    """person -> [(from, to)]: when they are dead (an alive false until the next alive true), in pack minutes."""
+    at = lambda e: e['when']['earliest']['day'] * 1440 + e['when']['earliest']['minute']  # noqa: E731
+    marks = []
+    for e in events:
+        for x in e.get('canonical_effects') or []:
+            f = x.get('fact') or x
+            if f.get('predicate') == 'alive' and x.get('op', 'set') == 'set':
+                marks.append((at(e), f['entity_id'], f['value']))
+    out = {}
+    for t, who, alive in sorted(marks, key=lambda m: m[0]):
+        spans = out.setdefault(who, [])
+        if alive is False and not (spans and spans[-1][1] is None):
+            spans.append([t, None])
+        elif alive is True and spans and spans[-1][1] is None:
+            spans[-1][1] = t
+    return {w: [(a, b if b is not None else float('inf')) for a, b in s] for w, s in out.items()}
+
+
+def place(project, by_id, events, fixes=None):
     """The organizations' starting members and leaders, each from when they enter the story: a member joins the record
     at the first event (from their own first appearance and the organization's) that involves them or the
     organization, or before they are seen leaving it; one in no event is in the initial state (not at the beginning of
-    time: 格雷姆林 had members in 2019, before it was formed). Returns the initial-state facts; events change in place."""
+    time: 格雷姆林 had members in 2019, before it was formed). Nobody joins while dead (live 2026-11-14: 统括理事会 got
+    药味久子 a month after her death, at the first event that named the council). A person's decisions (review file
+    `start`, `fixes`): {org: {"drop": [ids the model put in it wrongly: a former member, one it only met], "at": {id:
+    event where they enter}}}. Returns the initial-state facts; events change in place."""
     d = project.p('start')
     out = []
     if not os.path.isdir(d):
         return out
+    fixes = fixes or {}
     at = lambda e: e['when']['earliest']['day'] * 1440 + e['when']['earliest']['minute']  # noqa: E731
     timed = sorted(events, key=at)
+    by_ev = {e['id']: e for e in events}
+    dead = dead_at(events)
+    is_dead = lambda who, t: any(a <= t < b for a, b in dead.get(who, []))  # noqa: E731
     seen = {}
     for e in timed:
         for i in e.get('entity_ids') or []:
@@ -152,18 +179,32 @@ def place(project, by_id, events):
         oid = r.get('id')
         if oid not in by_id or r.get('none'):
             continue
-        ms = sorted({m for m in r.get('members') or [] if by_id.get(m, {}).get('kind') == 'person'})
-        leader = r.get('leader') if r.get('leader') in by_id else None
+        fx = fixes.get(oid) or {}
+        wrong = set(fx.get('drop') or [])
+        ms = sorted({m for m in r.get('members') or [] if by_id.get(m, {}).get('kind') == 'person' and m not in wrong})
+        leader = r.get('leader') if r.get('leader') in by_id and r.get('leader') not in wrong else None
         why = r.get('why') or '按组织页面'
+        if re.search(r'[A-Za-z]{3,}', why):
+            why = '按组织页面'      # the model's reason in English: not a text for the pack
         org_seen = seen.get(oid)
         plan = {}
         for pred, who in [('members', m) for m in ms] + ([('leader', leader)] if leader else []):
+            if (fx.get('at') or {}).get(who) == 'start':
+                # in it from before the story's events (a Level 5 for years): the initial state
+                out.append({'fact': {'entity_id': oid, 'predicate': pred, 'value': [who] if pred == 'members' else who}, 'source_refs': ['source-scripts'], 'note': f'开局状态（人工核对：{why}）'})
+                continue
+            if (fx.get('at') or {}).get(who) in by_ev:
+                ev = by_ev[fx['at'][who]]
+                plan.setdefault((ev['id'], pred), (ev, []))[1].append(who)
+                continue
             t = max(x for x in (seen.get(who), org_seen) if x is not None) if (seen.get(who) is not None or org_seen is not None) else None
             ev = None if t is None else next((e for e in timed if at(e) >= t and (who in (e.get('entity_ids') or []) or touches(e, oid))), None)
             # seen leaving it (or handing over) before that: they were in it then
             gone = next((e for e in timed if any(x['predicate'] == pred and x['op'] == 'remove' and who in vals(x.get('value')) for x in eff(e, oid))), None)
             if gone is not None and (ev is None or at(gone) < at(ev)):
                 ev = gone
+            if ev is not None and is_dead(who, at(ev)):
+                continue        # dead by the time the organization is seen: not in it then
             if ev is None:
                 out.append({'fact': {'entity_id': oid, 'predicate': pred, 'value': [who] if pred == 'members' else who}, 'source_refs': ['source-scripts'], 'note': f'开局状态（编辑推定：{why}）'})
                 continue

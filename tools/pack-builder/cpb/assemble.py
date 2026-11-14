@@ -4,7 +4,7 @@ import datetime as dt
 import os
 import re
 
-from . import changes as org_changes, dates, deaths, names, review as reviews, start as start_state, timeline
+from . import changes as org_changes, corrections, dates, deaths, names, review as reviews, start as start_state, timeline
 from .skeleton import corpus, unit_text
 from .steps import all_summaries
 from .util import ROOT, read_json, write_json, uniq
@@ -20,7 +20,7 @@ GENERIC_ALIASES = {'士兵', '市民', '村民', '医生', '少女', '少年', '
 
 PREDICATES = [
     {'id': 'alive', 'description': '人物是否在世（尚未出生者视为“未发生死亡”）。', 'value_type': 'boolean'},
-    {'id': 'whereabouts', 'description': '人物当前的去向/所在；被消灭、退场的从者写明已消灭。', 'value_type': 'string'},
+    {'id': 'whereabouts', 'description': '人物当前的去向/所在；被消灭的写明已消灭。', 'value_type': 'string'},
     {'id': 'injury', 'description': '人物持续性的伤势或身体状况。', 'value_type': 'string'},
     {'id': 'status', 'description': '人物、组织或存在的当前处境（被捕、被解放、与御主缔结契约等）。', 'value_type': 'string'},
     {'id': 'condition', 'description': '地点、建筑或物体的物理状况。', 'value_type': 'string', 'allowed_values': ['完好', '受损', '毁坏']},
@@ -594,9 +594,15 @@ class FactState:
         elif k == 'vanish':
             put(sid, 'whereabouts', f'已消灭（{v}）' if v else '已消灭')
         elif k == 'revive':
-            w = f'再次现界（{v}）' if v else '再次现界'
-            put(sid, 'whereabouts', w)
-            self.settled_where.add(w)
+            if sid in self.spirits:
+                # a summoned being is summoned again (FGO's 再次现界)
+                w = f'再次现界（{v}）' if v else '再次现界'
+                put(sid, 'whereabouts', w)
+                self.settled_where.add(w)
+            else:
+                # anyone else comes back: that is what happened to them, not a place (live 2026-11-14: 神之子
+                # 「再次现界」, a term of one setting written into another)
+                put(sid, 'status', f'复活（{v}）' if v else '复活')
         elif k == 'injury':
             if re.search(INJURY_PASSING, v or ''):
                 return      # knocked out, fainted: over within the scene, not a lasting injury
@@ -827,14 +833,18 @@ def apply_ends(events, rv, proposals, marks_of, by_id):
             if op == 'unset':
                 continue
             ent, pred = _target(o)
+            key = reviews.end_key(ev['id'], ent, pred) if op == 'set' else None
+            r = rv['ends'].get(key) if key else None
+            if r and r.get('value') == o['fact']['value'] and pred in LASTING_PREDICATES and r.get('until') not in (None, 'drop'):
+                # a holding or an alliance that the story ends (加纳 throws the shield away): a person says when
+                o['until'] = _until(r['until'], events, ev)
+                continue
             if pred in LASTING_PREDICATES or op != 'set':
                 o['until'] = 'lasting'
                 continue
             if 'until' in o:        # a checked impact brings its own
                 continue
-            key = reviews.end_key(ev['id'], ent, pred)
             val = o['fact']['value']
-            r = rv['ends'].get(key)
             if r and r.get('value') == val:
                 o['until'] = _until(r['until'], events, ev)
             elif (proposals.get(key) or {}).get('value') == val:
@@ -851,6 +861,98 @@ def apply_ends(events, rv, proposals, marks_of, by_id):
             marks_of.setdefault(ev['id'], []).append(f'{unchecked} 项状态的持续时间未经人工核对')
         if undecided:
             marks_of.setdefault(ev['id'], []).append(f'{undecided} 项状态还没有结束方式（运行 ends）')
+
+
+RECOVERED = re.compile(r'^已?(痊愈|康复|恢复|苏醒)(?:$|[，,。；（(])')
+
+
+def end_recoveries(events):
+    """A recovery is the end of a state, not a state: "injury 已痊愈" written as a lasting fact said nothing the end of
+    the injury did not, and it took the place of what else the event did to the same person (live 2026-11-14:
+    biohacker.b44, 上条 burnt in the event, recorded only as "已痊愈" from the malaria before). The earlier state of
+    the same person and predicate now ends at this event (when it did not end earlier), and the recovery goes.
+    Returns how many were turned into ends."""
+    T = lambda e: e['when']['earliest']['day'] * 1440 + e['when']['earliest']['minute']  # noqa: E731
+    at = {e['id']: T(e) for e in events}
+    n = 0
+    for e in sorted(events, key=T):
+        keep = []
+        for o in e['canonical_effects']:
+            f = o.get('fact') or {}
+            if o.get('op', 'set') != 'set' or f.get('predicate') not in ('injury', 'status') or not RECOVERED.match(str(f.get('value') or '')):
+                keep.append(o)
+                continue
+            n += 1
+            # the latest earlier state of that person and predicate that still holds now
+            prev = None
+            for g in events:
+                if at[g['id']] >= at[e['id']] or g is e:
+                    continue
+                for q in g['canonical_effects']:
+                    qf = q.get('fact') or {}
+                    if q.get('op', 'set') == 'set' and qf.get('entity_id') == f['entity_id'] and qf.get('predicate') == f['predicate'] and not RECOVERED.match(str(qf.get('value') or '')):
+                        if prev is None or at[g['id']] > at[prev[0]['id']]:
+                            prev = (g, q)
+            if prev:
+                u = prev[1].get('until')
+                ends = (at.get(u['event'], 10 ** 12) if isinstance(u, dict) and 'event' in u else
+                        at[prev[0]['id']] + u['minutes'] if isinstance(u, dict) and 'minutes' in u else 10 ** 12)
+                if ends > at[e['id']]:
+                    prev[1]['until'] = {'event': e['id']}
+        if len(keep) != len(e['canonical_effects']):
+            gone = {(o.get('fact') or {}).get('entity_id', '') + '|' + (o.get('fact') or {}).get('predicate', '') for o in e['canonical_effects'] if o not in keep}
+            e['canonical_effects'] = keep
+            e['outcomes'] = [o for o in e.get('outcomes') or [] if f"{o.get('entity_id')}|{o.get('predicate')}" not in gone or not RECOVERED.match(str(o.get('value') or ''))]
+    return n
+
+
+EVENT_ID = re.compile(r'(?<![A-Za-z0-9])([a-z][a-z0-9-]*\.\d{3}\.b\d+)(?![A-Za-z0-9])')
+BUILDER_WORDS = ((re.compile(r'\s*(?<![A-Za-z])beats?(?![A-Za-z])\s*'), '事件'), (re.compile(r'\s*(?<![A-Za-z])arc(?![A-Za-z])\s*'), '篇章'))
+
+
+def plain_text(pack):
+    """What the models wrote for the builder, not for the game, said in the game's words: an event id in a text is the
+    event's title, the builder's "beat" and "arc" are 事件 and 篇章, a story's id in a description is its title
+    (live 2026-11-14: 「为itsuwa.001.b8她赶到巨石阵…」, 「此 beat 揭示…」, 「在 handcuffs 章节中作为场景出现」).
+    Returns how many texts changed."""
+    titles = {e['id']: e['title'] for e in pack['events']}
+    arcs = {a['id'].split('.', 1)[-1]: a['title'] for a in pack.get('arcs') or []}
+    n = 0
+
+    def fix(t):
+        u = EVENT_ID.sub(lambda m: f'「{titles[m.group(1)]}」' if m.group(1) in titles else m.group(0), t)
+        for rx, w in BUILDER_WORDS:
+            u = rx.sub(w, u)
+        u = re.sub(r'在\s*([a-z][a-z0-9-]*)\s*(?:章节|篇章)中', lambda m: f'在{arcs[m.group(1)]}中' if m.group(1) in arcs else m.group(0), u)
+        return u
+    for e in pack['events']:
+        s = e.get('summary') or {}
+        for k in ('background', 'trigger', 'course', 'result', 'aftermath', 'impact', 'note'):
+            if isinstance(s.get(k), str):
+                u = fix(s[k])
+                n += u != s[k]
+                s[k] = u
+        for m in s.get('motives') or []:
+            u = fix(m.get('motive') or '')
+            n += u != (m.get('motive') or '')
+            m['motive'] = u
+        p = e.get('participation') or {}
+        if p.get('hook'):
+            u = fix(p['hook'])
+            n += u != p['hook']
+            p['hook'] = u
+        if e.get('author_note'):
+            u = e['author_note']
+            for rx, w in BUILDER_WORDS:
+                u = rx.sub(w, u)
+            n += u != e['author_note']
+            e['author_note'] = u
+    for x in pack['entities']:
+        if x.get('static_description'):
+            u = fix(x['static_description'])
+            n += u != x['static_description']
+            x['static_description'] = u
+    return n
 
 
 def merge_duplicates(pack, rv, marks_of):
@@ -1337,7 +1439,9 @@ def build(project, out_path=None, raw=False):
                 'canonical_preconditions': {'all': []}, 'outcomes': outcomes, 'canonical_effects': effects, 'visibility': vis,
                 'participation': {'offer': 'when_relevant', 'hook': ev.get('hook') or DEFAULT_HOOK},
                 'source_refs': ['source-scripts'],
-                'author_note': f'来源脚本：{", ".join(units[unit_of[bid]]["scripts"])}（{units[unit_of[bid]]["title"]}）' + (f'。分类理由：{ev["why"]}' if ev.get('why') else ''),
+                'author_note': (f'{project.get("source_unit_label", "来源脚本")}：{", ".join(units[unit_of[bid]]["scripts"])}（{units[unit_of[bid]]["title"]}）'
+                                if units[unit_of[bid]]['scripts'] else f'{project.get("source_unit_label", "来源")}：{units[unit_of[bid]]["title"]}')
+                               + (f'。分类理由：{ev["why"]}' if ev.get('why') else ''),
             }
             if cast:
                 event['cast'] = cast
@@ -1385,7 +1489,7 @@ def build(project, out_path=None, raw=False):
     start = (first // 1440 - 1) * 1440
     end = (last // 1440 + 1) * 1440 + 1439
     init_facts = [{'fact': {'entity_id': i, 'predicate': 'alive', 'value': True}, 'source_refs': ['source-scripts'], 'note': '基线'}
-                  for i in sorted(st.alive_changed) if by_id.get(i, {}).get('kind') == 'person'] + (start_state.place(project, by_id, events) if not raw else [])
+                  for i in sorted(st.alive_changed) if by_id.get(i, {}).get('kind') == 'person'] + (start_state.place(project, by_id, events, rv.get('start')) if not raw else [])
     src = c['source']
     tl = project.get('timeline', {})
     pack = {
@@ -1410,7 +1514,7 @@ def build(project, out_path=None, raw=False):
                      'notes': f'覆盖 {chapters[0]["title"]} 至 {chapters[-1]["title"]}。'},
         'sources': [{'id': 'source-scripts', 'title': project.get('source_title', '剧情脚本（Atlas Academy 数据）'),
                      'locator': project.get('source_locator', f'https://static.atlasacademy.io/{src.get("region")}/Script/'), 'kind': 'primary',
-                     'notes': '每个事件的 author_note 列出它所依据的脚本编号。摘要由模型根据脚本撰写，经代码整理。'}],
+                     'notes': project.get('source_notes', '每个事件的 author_note 列出它所依据的脚本编号。摘要由模型根据脚本撰写，经代码整理。')}],
         'predicates': preds,
         'entities': ents,
         'initial_state': {'at': {'day': start // 1440, 'minute': 0}, 'facts': init_facts},
@@ -1429,9 +1533,18 @@ def build(project, out_path=None, raw=False):
     apply_ends(pack['events'], rv, read_json(project.p('ends.json'), {}) or {}, marks_of, by_id)
     # who leaves with a death or a dissolution, a leader handed over: over the effects as they finally are (the
     # checked impacts among them); what this adds is a change of who belongs, which lasts
+    n_rec = end_recoveries(pack['events'])
+    if n_rec:
+        rep.add('healed', f'{n_rec} 项「已痊愈／已苏醒」改为前一状态在此结束')
     merged = merge_duplicates(pack, rv, marks_of)
     if merged:
         rep.add('events_merged', f'{len(merged)} 个重复事件并入另一处：' + '，'.join(f'{x}→{k}' for x, k in merged.items()))
+    n_plain = plain_text(pack)
+    if n_plain:
+        rep.add('plain_text', f'{n_plain} 处正文把做包用的说法（事件编号、beat、arc）换成了标题与中文')
+    # a person's corrections of what the summaries and models got wrong (cpb/corrections.py), over the plain text
+    if not raw:
+        corrections.write_misses(project, corrections.apply(pack, rv, rep))
     pack['events'] = org_changes.complete(pack['events'], init_facts)
     for e in pack['events']:
         for o in e['canonical_effects']:
