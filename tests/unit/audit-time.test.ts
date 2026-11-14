@@ -44,7 +44,7 @@ describe('audit: a change put in at an earlier time than changes already there (
     factsSetOrUnset: [{ entity_id: 'g', predicate: 'members', ...d }], eventOccurrenceIds: [], visibility: { mode: 'public' }, summary: '', evidenceKind: 'narrated',
   });
   const members = (s: any, tick: number) => factAt(s, 'g', 'members', { tick }).value;
-  const state = (...records: any[]) => { const s = emptyState({ hash: 'h', coverage: { start: 0, end: 100 } } as any); for (const r of records) applyRecord(s, r); return s; };
+  const state = (...records: any[]) => { const s = emptyState({ hash: 'h', coverage: { start: 0, end: 100 }, timeIndex: [] } as any); for (const r of records) applyRecord(s, r); return s; };
 
   it('S6a: someone who joined earlier is still there after a later change that was recorded first', () => {
     const s = state(rec(1, 0, { op: 'set', value: ['a'] }), rec(2, 50, { op: 'add', value: ['b'] }), rec(3, 30, { op: 'add', value: ['c'] }));

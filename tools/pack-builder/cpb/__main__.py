@@ -4,7 +4,7 @@ import sys
 
 import os
 
-from . import adapters, assemble, deaths, dedupe, lasting, llm, mind, nature, report, skeleton, start, steps
+from . import adapters, assemble, deaths, dedupe, ends, impacts, llm, mind, nature, report, review, skeleton, start, steps
 from . import prompts as P
 from .config import Project, load_global
 from .util import ROOT, log, read_json, write_json
@@ -72,7 +72,7 @@ def main(argv=None):
         except (AttributeError, ValueError):
             pass
     ap = argparse.ArgumentParser(prog='python -m cpb', description='Build a Canon Engine history pack from a story source.')
-    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'lasting', 'start', 'deaths', 'run', 'status'])
+    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'ends', 'impacts', 'start', 'deaths', 'run', 'status'])
     ap.add_argument('-p', '--project', default='fgo-cn', help='project name under projects/ or a path to a project file')
     ap.add_argument('--config', help='global config file (default: config.json)')
     ap.add_argument('--chapters', help='only these chapter ids, comma separated (e.g. w100,w101)')
@@ -80,8 +80,8 @@ def main(argv=None):
     ap.add_argument('--mock', action='store_true', help='use the stand-in model (free; for testing the pipeline)')
     ap.add_argument('--refresh', action='store_true', help='download the source again')
     ap.add_argument('--yes', action='store_true', help='run: do not ask before the model steps')
-    ap.add_argument('--pack', help='nature, mind, lasting: the pack to give 常态 / 思考方式 to or to sort the statuses of (default: the built pack of the project)')
-    ap.add_argument('--out', help='nature, mind, lasting: where to write the pack (default: over --pack)')
+    ap.add_argument('--pack', help='nature, mind, ends, impacts: the pack to give 常态 / 思考方式 to or to propose ends and impacts for (default: the built pack of the project)')
+    ap.add_argument('--out', help='nature, mind: where to write the pack (default: over --pack)')
     ap.add_argument('--offpeak', action='store_true', help='make model calls only at the off-peak price; stop when peak hours begin')
     args = ap.parse_args(argv)
     gcfg = load_global(args.config)
@@ -123,25 +123,22 @@ def main(argv=None):
         log(str(e))
         log('run the same command again to continue (finished results are kept)')
         return 2
-    if cmd == 'lasting':
-        # which statuses of organizations, places and things last; the passing ones leave the pack's states
+    if cmd in ('ends', 'impacts'):
+        # proposals for what a person then checks into the review file: how long each state holds (ends), what an
+        # event changes beyond itself that its effects miss (impacts)
         src_path = args.pack or project.p('out', project.get('pack', {}).get('file') or f'{project.get("pack", {}).get("pack_id", project.name)}.canon.json')
         pk = read_json(src_path)
         if not pk:
-            log(f'lasting: no pack at {src_path} (build first, or give --pack)')
+            log(f'{cmd}: no pack at {src_path} (build first, or give --pack)')
             return 2
         cl = client(gcfg, project, args)
         try:
-            lasting.generate(project, cl, pk)
+            (ends if cmd == 'ends' else impacts).generate(project, cl, pk)
         except llm.BudgetExceeded as e:
             log(str(e))
             log('run the same command again to continue (finished results are kept)')
             return 2
-        n = lasting.apply(pk, project.p('lasting.json'))
-        out = args.out or src_path
-        assemble.write_pack(project, out, pk)
-        res = report.lint(gcfg, out)
-        log(f'lasting: {n} passing statuses taken out — pack: {out}' + (f' — canon-lint: {"OK" if res.get("ok") else "ERRORS"}, {len(res.get("errors", []))} errors' if res else ''))
+        log(f'{cmd}: proposals written; build again to apply them (marked until checked into {os.path.basename(review.path(project))})')
     if cmd == 'mind':
         # 思考方式 for the people of a built pack who have a page of their own, written into it
         src_path = args.pack or project.p('out', project.get('pack', {}).get('file') or f'{project.get("pack", {}).get("pack_id", project.name)}.canon.json')
@@ -207,11 +204,6 @@ def main(argv=None):
             n = nature.attach(pk, project.p('nature'))
             assemble.write_pack(project, path, pk)
             log(f'nature: {n} people with a 常态')
-        if os.path.isfile(project.p('lasting.json')):   # passing statuses sorted out before stay out
-            pk = read_json(path)
-            n = lasting.apply(pk, project.p('lasting.json'))
-            assemble.write_pack(project, path, pk)
-            log(f'lasting: {n} passing statuses taken out')
         if os.path.isdir(project.p('mind')):   # and 思考方式
             pk = read_json(path)
             n = mind.attach(pk, project.p('mind'))

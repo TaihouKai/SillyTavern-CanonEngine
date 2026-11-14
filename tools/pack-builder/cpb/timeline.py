@@ -78,27 +78,53 @@ def _at_hour(t, hour):
     return (t // DAY) * DAY + hour * 60
 
 
-TIME_RX = re.compile(r'(上午|下午|晚上|夜里|凌晨|AM|PM|午前|午後)?\s*(\d{1,2})\s*[时時:：点]\s*(\d{1,2})?')
+TIME_RX = re.compile(r'(上午|下午|晚上|夜里|深夜|半夜|凌晨|早上|AM|PM|午前|午後)?\s*(\d{1,2})\s*[时時:：点]\s*(\d{1,2}|半)?')
+CN_DIGIT = {'零': 0, '〇': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9}
+
+
+def _cn_small(s):
+    """0–59 in Chinese numerals ("十二", "三十", "四十五"), else None."""
+    if not s:
+        return None
+    if '十' not in s:
+        return CN_DIGIT.get(s) if len(s) == 1 else None
+    a, _, b = s.partition('十')
+    tens = CN_DIGIT.get(a, None) if a else 1
+    ones = CN_DIGIT.get(b, None) if b else 0
+    return None if tens is None or ones is None else tens * 10 + ones
+
+
+def _cn_clock(text):
+    """A clock time written in Chinese numerals in digits ("十二点三十分" -> "12点30", "八点半" -> "8点半")."""
+    def h(m):
+        v = _cn_small(m.group(1))
+        return m.group(0) if v is None else f'{v}{m.group(2)}'
+    text = re.sub(r'([零〇一二两三四五六七八九十]{1,3})([点时時])', h, text)
+    return re.sub(r'([点时時])([零〇一二三四五六七八九十]{1,3})分', lambda m: f'{m.group(1)}{_cn_small(m.group(2)) if _cn_small(m.group(2)) is not None else m.group(2)}分', text)
 
 
 def time_of(text):
-    """Minute of the day a text states ("16 时 30 分", "PM9:30", "下午3点"), else None."""
-    text = text or ''
+    """Minute of the day a text states ("16 时 30 分", "PM9:30", "下午3点", "深夜十二点三十分"), else None."""
+    text = _cn_clock(text or '')
+    deadline = None
     for m in TIME_RX.finditer(text):
         # the end of a span or a deadline ("放学后~19:00前") is not when the beat is
         if re.search(r'[~～至到]\s*$', text[:m.start()]):
             continue
         before = re.match(r'\s*分?\s*(?:之前|以前|前(?!往|进|来|去|后))', text[m.end():])
-        h, mi = int(m.group(2)), int(m.group(3) or 0)
+        h, mi = int(m.group(2)), (30 if m.group(3) == '半' else int(m.group(3) or 0))
         if m.group(1) in ('下午', '晚上', 'PM', '午後') and h < 12:
             h += 12
-        if m.group(1) == '凌晨' and h == 12:
+        if m.group(1) in ('凌晨', '深夜', '半夜') and h == 12:
             h = 0
         if not (0 <= h < 24 and 0 <= mi < 60):
             return None
-        # a deadline ("2:00前"): a little before it
-        return (h * 60 + mi - 30) % DAY if before else h * 60 + mi
-    return None
+        if not before:
+            return h * 60 + mi
+        # a deadline ("2:00前"): a little before it, unless the text also says when the beat is ("八点前 / 10:00开始")
+        if deadline is None:
+            deadline = (h * 60 + mi - 30) % DAY
+    return deadline
 
 
 def place_beat(cursor, time):
@@ -317,7 +343,7 @@ def _clock(s):
     return h * 60 + mi if h < 24 and mi < 60 else None
 
 
-def place_arc(origin, arc, beats, loose=None):
+def place_arc(origin, arc, beats, loose=None, squeezed=None):
     """{beat id: (start, end, dated)} for an arc's beats, in the pack's minutes. `loose` (a set) gets the beats placed
     at a day the sources give without any time of it."""
     s0, e0 = _day(origin, arc['start']), _day(origin, arc['end'])
@@ -377,7 +403,7 @@ def place_arc(origin, arc, beats, loose=None):
     if past:
         rest = [b for b in beats if b['id'] not in past]
         keep = {b['id']: j for j, b in enumerate(rest)}
-        out = place_arc(origin, arc, rest, loose) if rest else {}
+        out = place_arc(origin, arc, rest, loose, squeezed) if rest else {}
         return {**out, **{k: (v[0], v[1], v[2] and k not in yearly) for k, v in past.items()}}
     # segments between dated beats (the arc's start and end bound the first and the last)
     out = {}
@@ -410,6 +436,132 @@ def place_arc(origin, arc, beats, loose=None):
             span = last - ta
             f = max(0.01, (room - 1) / span) if span > 0 else 1.0
             rel = [(ta + int((s - ta) * f), ta + max(int((e - ta) * f), int((s - ta) * f) + 1)) for s, e in rel]
+            if squeezed is not None:
+                squeezed.update(beats[i]['id'] for i in seg)
         for i, (s, e) in zip(seg, rel):
             out[i] = (s, e, False)
     return {beats[i]['id']: (out[i][0], out[i][1], out[i][2] and beats[i]['id'] not in yearly) for i in range(len(beats))}
+
+
+# ---- how well an event's time is known (the pack's `when.precision`): a window covers exactly that much, never a
+# made-up moment (live, again and again: a beat dated only to the day put at "09:00" with a two-hour window; a
+# film's climax at 12:30 running until 07:59 the next morning). What the sources do not settle is marked for review.
+
+# the span of a part of the day, in minutes from the start of its day (night runs into the next day)
+PART_SPAN = {'small_hours': (0, 6 * 60 - 1), 'dawn': (4 * 60, 8 * 60 - 1), 'morning': (6 * 60, 12 * 60 - 1), 'noon': (11 * 60, 14 * 60 - 1),
+             'day': (6 * 60, 18 * 60 - 1), 'afternoon': (12 * 60, 18 * 60 - 1), 'evening': (16 * 60, 21 * 60 - 1),
+             'night': (18 * 60, DAY + 3 * 60 - 1), 'late': (21 * 60, DAY + 3 * 60 - 1)}
+PART_ZH = {'small_hours': '凌晨', 'dawn': '清晨', 'morning': '上午', 'noon': '中午', 'day': '白天', 'afternoon': '下午', 'evening': '傍晚', 'night': '晚上', 'late': '深夜'}
+# relations to the beat before that keep its day known
+KNOWN_STEP = {'continuous', 'same_day', 'next_day', 'days', 'parallel'}
+
+
+def year_span(stated, origin_year):
+    """(first, last) year a text gives without a date ("1519-1521年", "公元4世纪", "20世纪70年代", "2年前"), else None."""
+    s = stated or ''
+    m = re.search(r'(?<!\d)(\d{3,4})(?:\s*[-–~～]\s*(\d{3,4}))?年(?!前|后|代|\s*\d{1,2}月)', s)
+    if m:
+        return int(m.group(1)), int(m.group(2) or m.group(1))
+    m = re.search(r'(\d{1,2})世纪(\d)0年代', s)
+    if m:
+        y = (int(m.group(1)) - 1) * 100 + int(m.group(2)) * 10
+        return y, y + 9
+    m = re.search(r'公元(\d{1,2})世纪', s)
+    if m:
+        c = int(m.group(1))
+        return (c - 1) * 100 + 1, c * 100
+    m = re.search(r'(?<![\d年月])(\d{1,2}|[一二两三四五六七八九十]{1,3})年前', s)
+    if m and not re.search(r'\d月|\d日|[一二三四五六七八九十]月', s):
+        n = int(m.group(1)) if m.group(1).isdigit() else _cn(m.group(1))
+        if n:
+            return origin_year - n, origin_year - n
+    return None
+
+
+def _cn(s):
+    d = {'一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9}
+    if s == '十':
+        return 10
+    if '十' in s:
+        a, _, b = s.partition('十')
+        return (d.get(a, 1) if a else 1) * 10 + (d.get(b, 0) if b else 0)
+    return d.get(s)
+
+
+def month_only(stated):
+    """Whether a text gives the month but not the day ("一年前5月某日", "3月")."""
+    s = stated or ''
+    if re.search(r'某日|某天|某一天', s):
+        return True
+    return bool(re.search(r'\d{1,2}\s*月', s)) and not re.search(r'\d{1,2}\s*[日号]', s)
+
+
+def _tick_of(origin, y, m, d):
+    return (dt.date(y, m, d) - origin).days * DAY
+
+
+def certainty(origin, arc, beats, pos, dated, squeezed):
+    """{beat id: {precision, lo, hi, review (or None), part (part_of_day)}} for one arc's beats placed by place_arc (pos: id -> (start,
+    end)): the window is what the sources settle — a time, a part of a day, a day, a month, years — and a beat
+    whose day they do not settle (only its order is known), or whose time is in another zone, is marked."""
+    out = {}
+
+    def day_known(i):
+        if beats[i]['id'] in dated:
+            return True
+        if beats[i]['id'] in squeezed:
+            return False
+        j = i
+        while j > 0:
+            if beats[j]['time'].get('after_previous') not in KNOWN_STEP:
+                return False
+            j -= 1
+            if beats[j]['id'] in dated:
+                return True
+            if beats[j]['id'] in squeezed:
+                return False
+        return arc['start'] == arc['end']      # the first beats of a one-day story: that day
+
+    for i, b in enumerate(beats):
+        t = b['time']
+        stated = t.get('stated') or ''
+        s, e = pos[b['id']]
+        dur = max(int(t.get('duration_minutes') or 0), 0)
+        review = None
+        if 'UTC' in stated:
+            review = '文中的时间是另一时区的，需要换算成主时钟'
+        ys = year_span(stated, origin.year) if not t.get('date') else None
+        if ys:
+            lo, hi = _tick_of(origin, max(1, ys[0]), 1, 1), _tick_of(origin, max(1, ys[1]), 12, 31) + DAY - 1
+            out[b['id']] = {'precision': 'year', 'lo': lo, 'hi': hi, 'review': review}
+            continue
+        if not day_known(i):
+            out[b['id']] = {'precision': 'range', 'lo': s, 'hi': max(e, s + 30), 'review': review or '资料没有给出日期，只知道先后顺序'}
+            continue
+        # a time of day only as the sources state it: a clock the summary filled in from "中午" or from the beat before
+        # is no stated time (the beat is placed by it, but its window is the part of the day or the day)
+        clock = time_of(stated)
+        part = part_of(t)
+        if b['id'] in dated and month_only(stated):
+            d = origin + dt.timedelta(days=s // DAY)
+            first = d.replace(day=1)
+            nxt = (first.replace(year=first.year + 1, month=1) if first.month == 12 else first.replace(month=first.month + 1))
+            out[b['id']] = {'precision': 'month', 'lo': (first - origin).days * DAY, 'hi': (nxt - origin).days * DAY - 1, 'review': review}
+        elif clock is not None:
+            out[b['id']] = {'precision': 'range', 'lo': s, 'hi': s + max(dur, 30), 'review': review}
+        elif part in PART_SPAN:
+            d = s // DAY
+            if part in ('night', 'late') and s % DAY < 6 * 60:
+                d -= 1
+            a, z = PART_SPAN[part]
+            lo, hi = d * DAY + a, d * DAY + z
+            if not lo <= s <= hi:
+                review = review or f'文中说是{PART_ZH[part]}，但按先后顺序排在 {s // DAY} 日 {s % DAY // 60:02d}:{s % 60:02d}'
+            out[b['id']] = {'precision': 'part_of_day', 'lo': lo, 'hi': hi, 'review': review, 'part': PART_ZH[part]}
+        elif dur > DAY:
+            d = s // DAY
+            out[b['id']] = {'precision': 'days', 'lo': d * DAY, 'hi': (d + -(-dur // DAY)) * DAY - 1, 'review': review}
+        else:
+            d = s // DAY
+            out[b['id']] = {'precision': 'day', 'lo': d * DAY, 'hi': d * DAY + DAY - 1, 'review': review}
+    return out

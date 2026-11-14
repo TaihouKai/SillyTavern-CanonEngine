@@ -45,7 +45,7 @@ describe('edits and deletions of both roles', () => {
 
   it('E02 deleting the user rescue leaves no phantom rescue and exposes the retained GM text', async () => {
     const x = await setup();
-    await turn(x, 'I pull Mira out of the ambush.', 'You drag Mira clear; she lives. [E2a]', { scene_end: at(1, 10, 5), player_actions: [{ quote: 'You drag Mira clear', authorized_by_quote: 'I pull Mira out of the ambush' }], occurrences: [occ('o1', 'Ambush of Mira', 'You drag Mira clear', { pack_event_id: 'medic-ambush', disposition: 'diverged', origin: 'player' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'she lives', occurrence_ref: 'o1' }] });
+    await turn(x, 'I pull Mira out of the ambush.', 'You drag Mira clear; she lives. [E2a]', { scene_end: at(1, 10, 5), player_actions: [{ quote: 'You drag Mira clear', authorized_by_quote: 'I pull Mira out of the ambush' }], occurrences: [occ('o1', 'Ambush of Mira', 'You drag Mira clear', { pack_event_id: 'medic-ambush', disposition: 'diverged', origin: 'player' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'she lives', occurrence_ref: 'o1' , until: 'lasting' }] });
     x.host.remove(1);
     x.model.on('evaluate', (i) => i.mode === 'retained', { decision: 'conflict', violations: [{ code: 'agency', quote: 'You drag Mira clear', detail: 'no authorizing user action remains' }] });
     await x.engine.reconcile('delete');
@@ -56,10 +56,10 @@ describe('edits and deletions of both roles', () => {
 
   it('E03 editing an old GM reply to remove a death removes the death and dependent facts', async () => {
     const x = await setup();
-    await turn(x, 'I watch.', 'A bolt strikes Mira; she dies. [E3a]', { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush of Mira', 'she dies', { pack_event_id: 'medic-ambush', disposition: 'occurred' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: false, quote: 'she dies', occurrence_ref: 'o1' }] });
+    await turn(x, 'I watch.', 'A bolt strikes Mira; she dies. [E3a]', { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush of Mira', 'she dies', { pack_event_id: 'medic-ambush', disposition: 'occurred' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: false, quote: 'she dies', occurrence_ref: 'o1' , until: 'lasting' }] });
     expect(factAt(st(x), 'mira', 'alive').value).toBe(false);
     x.host.edit(2, 'A bolt misses Mira; she runs away unhurt. [E3b]');
-    x.model.on('evaluate', (i) => String(i.candidate).includes('[E3b]'), { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush of Mira', 'she runs away unhurt', { pack_event_id: 'medic-ambush', disposition: 'diverged' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'she runs away unhurt', occurrence_ref: 'o1' }] });
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[E3b]'), { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush of Mira', 'she runs away unhurt', { pack_event_id: 'medic-ambush', disposition: 'diverged' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'she runs away unhurt', occurrence_ref: 'o1' , until: 'lasting' }] });
     await x.engine.reconcile('edit');
     expect(factAt(st(x), 'mira', 'alive').value).toBe(true);
     expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('diverged');
@@ -134,7 +134,7 @@ describe('edits and deletions of both roles', () => {
 
   it('E12/E13 contradictory suffix is preserved and located; editing the identified reply clears recovery', async () => {
     const x = await setup();
-    await turn(x, 'I save Mira.', 'You save Mira. [C1]', { scene_end: at(1, 10, 5), player_actions: [{ quote: 'You save Mira', authorized_by_quote: 'I save Mira' }], occurrences: [occ('o1', 'Ambush of Mira', 'You save Mira', { pack_event_id: 'medic-ambush', disposition: 'diverged', origin: 'player' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'You save Mira', occurrence_ref: 'o1' }] });
+    await turn(x, 'I save Mira.', 'You save Mira. [C1]', { scene_end: at(1, 10, 5), player_actions: [{ quote: 'You save Mira', authorized_by_quote: 'I save Mira' }], occurrences: [occ('o1', 'Ambush of Mira', 'You save Mira', { pack_event_id: 'medic-ambush', disposition: 'diverged', origin: 'player' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'You save Mira', occurrence_ref: 'o1' , until: 'lasting' }] });
     x.host.edit(1, 'I leave.');
     x.model.on('evaluate', (i) => i.mode === 'retained' && String(i.candidate).includes('[C1]'), { decision: 'conflict', violations: [{ code: 'agency', quote: 'You save Mira', detail: 'unauthorized rescue' }] });
     await x.engine.reconcile('edit');
@@ -151,7 +151,7 @@ describe('edits and deletions of both roles', () => {
 
   it('E12b agency loss after an edit is a deterministic conflict even if the reviewer says "retain"', async () => {
     const x = await setup();
-    await turn(x, 'I save Mira.', 'You pull Mira to safety. [AG1]', { scene_end: at(1, 10, 5), player_actions: [{ quote: 'You pull Mira to safety', authorized_by_quote: 'I save Mira' }], occurrences: [occ('o1', 'Ambush of Mira', 'You pull Mira to safety', { pack_event_id: 'medic-ambush', disposition: 'diverged', origin: 'player' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'You pull Mira to safety', occurrence_ref: 'o1' }] });
+    await turn(x, 'I save Mira.', 'You pull Mira to safety. [AG1]', { scene_end: at(1, 10, 5), player_actions: [{ quote: 'You pull Mira to safety', authorized_by_quote: 'I save Mira' }], occurrences: [occ('o1', 'Ambush of Mira', 'You pull Mira to safety', { pack_event_id: 'medic-ambush', disposition: 'diverged', origin: 'player' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'You pull Mira to safety', occurrence_ref: 'o1' , until: 'lasting' }] });
     x.host.edit(1, 'I walk away.');
     // the reviewer (wrongly) keeps the reply and still cites the old authorization
     x.model.on('evaluate', (i) => i.mode === 'retained' && String(i.candidate).includes('[AG1]'), { decision: 'retain', player_actions: [{ quote: 'You pull Mira to safety', authorized_by_quote: 'I save Mira' }] });
@@ -175,8 +175,8 @@ describe('edits and deletions of both roles', () => {
 
   it('R04 deleting a swipe then generating another at the same index does not transfer its effects', async () => {
     const x = await setup();
-    const evA = { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush of Mira', 'Mira survives', { pack_event_id: 'medic-ambush', disposition: 'diverged' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira survives', occurrence_ref: 'o1' }] };
-    const evB = { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush of Mira', 'Mira dies', { pack_event_id: 'medic-ambush', disposition: 'occurred' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: false, quote: 'Mira dies', occurrence_ref: 'o1' }] };
+    const evA = { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush of Mira', 'Mira survives', { pack_event_id: 'medic-ambush', disposition: 'diverged' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira survives', occurrence_ref: 'o1' , until: 'lasting' }] };
+    const evB = { scene_end: at(1, 10, 5), occurrences: [occ('o1', 'Ambush of Mira', 'Mira dies', { pack_event_id: 'medic-ambush', disposition: 'occurred' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: false, quote: 'Mira dies', occurrence_ref: 'o1' , until: 'lasting' }] };
     await turn(x, 'I watch the ambush.', 'Mira survives. [SA]', evA);
     x.model.draft('Mira dies. [SB]');
     x.model.on('evaluate', (i) => String(i.candidate).includes('[SB]'), evB);
@@ -191,7 +191,7 @@ describe('edits and deletions of both roles', () => {
     expect(factAt(st(x), 'mira', 'alive').value).toBe(true);
     // a new swipe C at the same numeric index 1 starts clean
     x.model.draft('The bolt misses; Mira hides. [SC]');
-    x.model.on('evaluate', (i) => String(i.candidate).includes('[SC]'), { ...evA, occurrences: [occ('o1', 'Ambush of Mira', 'Mira hides', { pack_event_id: 'medic-ambush', disposition: 'diverged' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira hides', occurrence_ref: 'o1' }] });
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[SC]'), { ...evA, occurrences: [occ('o1', 'Ambush of Mira', 'Mira hides', { pack_event_id: 'medic-ambush', disposition: 'diverged' })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira hides', occurrence_ref: 'o1' , until: 'lasting' }] });
     expect(await x.engine.runOperation('swipe')).toBe(true);
     expect(x.host.chat[2].swipes!.length).toBe(2);
     expect(factAt(st(x), 'mira', 'alive').value).toBe(true);
@@ -387,7 +387,7 @@ describe('races, persistence and recovery', () => {
     const changed = JSON.parse(demo);
     // retime the backstory event (changes the binding seed, like a real pack revision)
     changed.events[0].when = { ...changed.events[0].when, earliest: { day: 1, minute: 620 }, latest: { day: 1, minute: 620 } };
-    changed.events[0].canonical_effects.push({ op: 'set', fact: { entity_id: 'harbor', predicate: 'exists', value: true } });
+    changed.events[0].canonical_effects.push({ op: 'set', fact: { entity_id: 'harbor', predicate: 'exists', value: true } , until: 'lasting' });
     changed.pack_version = '1.1.0';
     const calls = x.model.calls.length;
     await x.engine.applyPackUpdate(JSON.stringify(changed));

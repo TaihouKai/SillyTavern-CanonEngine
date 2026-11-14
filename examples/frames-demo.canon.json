@@ -81,11 +81,7 @@
     {
       "id": "whereabouts",
       "description": "现在在哪里（地点或年代）。",
-      "value_type": "string",
-      "transient": true,
-      "settled_values": [
-        "时序管理局本部"
-      ]
+      "value_type": "string"
     },
     {
       "id": "holder",
@@ -547,7 +543,8 @@
             "entity_id": "zhou-mo",
             "predicate": "whereabouts",
             "value": "1600年港城"
-          }
+          },
+          "until": "lasting"
         },
         {
           "op": "set",
@@ -555,7 +552,8 @@
             "entity_id": "ada",
             "predicate": "whereabouts",
             "value": "1600年港城"
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {
@@ -693,7 +691,8 @@
             "entity_id": "hourglass",
             "predicate": "holder",
             "value": "lord-victor"
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {
@@ -830,7 +829,8 @@
             "entity_id": "hourglass",
             "predicate": "holder",
             "value": "zhou-mo"
-          }
+          },
+          "until": "lasting"
         },
         {
           "op": "set",
@@ -838,7 +838,8 @@
             "entity_id": "hourglass",
             "predicate": "sealed",
             "value": true
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {
@@ -909,7 +910,8 @@
             "entity_id": "zhou-mo",
             "predicate": "whereabouts",
             "value": "时序管理局本部"
-          }
+          },
+          "until": "lasting"
         },
         {
           "op": "set",
@@ -917,7 +919,8 @@
             "entity_id": "ada",
             "predicate": "whereabouts",
             "value": "时序管理局本部"
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {
@@ -1100,7 +1103,8 @@
             "entity_id": "hourglass",
             "predicate": "holder",
             "value": "lin-lan"
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {

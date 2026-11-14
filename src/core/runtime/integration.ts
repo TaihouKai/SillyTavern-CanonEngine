@@ -415,9 +415,8 @@ export function playerContextHash(index: WorldIndex, profile: PlayerProfile | nu
   const facts: [string, unknown][] = [];
   for (const id of playerIds(profile)) for (const [k, list] of index.state.facts) {
     if (!k.startsWith(id + '|')) continue;
-    const pred = index.pack.predicates.get(k.slice(id.length + 1));
-    if (pred?.transient) continue;
     const last = list[list.length - 1];
+    if (last?.end !== undefined || last?.untilEvent) continue; // a state of a while, not a lasting one
     facts.push([k, last?.op === 'set' ? last.value : null]);
   }
   return hashObject({ p: profile.personaHash, ids: playerIds(profile), facts: facts.sort(), e: index.state.engagements.filter((e) => e.stance !== 'answered' && e.stance !== 'refused').map((e) => `${e.scopeKind}:${e.scopeRef}:${e.stance}`) });
@@ -1067,17 +1066,14 @@ export function groupNames(groups: RecognitionGroup[], ids: string[] | null): st
 // without warning (a chance encounter) happens to them and the player together, unless the player declined it.
 
 export const COMPANION_HORIZON_MINUTES = 180;
-/** A window longer than this does not give the event's time, only the part of the day or the day it falls in (a
- *  source that gives only the date): a chance event then has no moment to be shown at — it is owed only when the
- *  person is still with the player as its window ends (live: 「美琴入侵书库被初春阻止」, dated 9月20日 only, sent a
- *  reply at 12:00 back because 白井 was with the player past "09:00", the placeholder start of the day). */
-export const COMPANION_EXACT_MINUTES = 180;
+export interface CompanionEvent { personId: Id; event: PackEvent; lo: number; hi: number; exact: boolean; declined: boolean }
 
-export interface CompanionEvent { personId: Id; event: PackEvent; lo: number; hi: number; declined: boolean }
-
-/** When a chance event of a companion is owed: at its start when the window gives its time, else by its end. */
-export const companionDue = (c: Pick<CompanionEvent, 'lo' | 'hi'>): { at: number; loose: boolean } =>
-  c.hi - c.lo > COMPANION_EXACT_MINUTES ? { at: c.hi, loose: true } : { at: c.lo, loose: false };
+/** When a chance event of a companion is owed: at its start when the pack gives its time; when it gives only when it
+ *  falls (a day, a part of the day), there is no moment to show it at — it is owed only when the person is still with
+ *  the player as its window ends (live: 「美琴入侵书库被初春阻止」, dated 9月20日 only, sent a reply at 12:00 back
+ *  because 白井 was with the player past "09:00", a start the builder had made up). */
+export const companionDue = (c: Pick<CompanionEvent, 'lo' | 'hi' | 'exact'>): { at: number; loose: boolean } =>
+  c.exact ? { at: c.lo, loose: false } : { at: c.hi, loose: true };
 
 /** Canon events starting within the horizon (or open now and not begun) that people in the scene take part in. */
 export function companionEvents(index: WorldIndex, sceneIds: Id[], playerId: Id | null, tick: number): CompanionEvent[] {
@@ -1095,7 +1091,7 @@ export function companionEvents(index: WorldIndex, sceneIds: Id[], playerId: Id 
     if (triLabel(evalCondition(ev.canonical_preconditions, st, pack, { tick: Math.max(t.lo, tick) })) === 'FALSE') continue;
     for (const p of people) {
       if (!ev.entity_ids.includes(p)) continue;
-      out.push({ personId: p, event: ev, lo: t.lo, hi: t.hi, declined: !!eng.blockedBy({ eventId: ev.id }, tick) });
+      out.push({ personId: p, event: ev, lo: t.lo, hi: t.hi, exact: t.exact, declined: !!eng.blockedBy({ eventId: ev.id }, tick) });
     }
     if (out.length >= 6) break;
   }

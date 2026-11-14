@@ -5,7 +5,7 @@ import { valuesEqual } from '../domain/pack';
 import type { WorldState } from '../domain/reducer';
 import { evalCondition, factAt, triLabel } from '../domain/reducer';
 import { causeOf, pendingHard, explainCondition, upcomingRoute } from '../domain/schedule';
-import { formatTick, toTick } from '../domain/time';
+import { eventTimeText, formatTick, toTick } from '../domain/time';
 import { newId } from '../domain/util';
 import type { WorldIndex } from '../domain/world-query';
 import { callStructured, type ModelPort } from './model';
@@ -227,7 +227,7 @@ export async function runPlanning(args: {
       actual_world: args.facts,
       recent_situation: args.situation || '',
       player_interests: args.interests || [],
-      others_original_situation: route.map((u) => ({ id: u.event.id, at: formatTick(u.lo), situation: causeOf(u.event) })),
+      others_original_situation: route.map((u) => ({ id: u.event.id, at: eventTimeText({ ...u, exact: pack.timeIndex.find((t) => t.id === u.event.id)?.exact ?? true }), situation: causeOf(u.event) })),
       deviations: [...state.dispositions].filter(([, d]) => d.disposition !== 'occurred').map(([id, d]) => ({ id, disposition: d.disposition, reason: d.reason })),
       entities: [...pack.entities.values(), ...state.runtimeEntities.values()].map(entityLine),
       predicates: [...pack.predicates.values()].map((p) => ({ id: p.id, type: p.value_type, allowed: p.allowed_values })),

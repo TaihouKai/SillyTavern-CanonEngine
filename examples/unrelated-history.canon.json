@@ -352,7 +352,8 @@
             "entity_id": "mira",
             "predicate": "alive",
             "value": false
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {
@@ -424,7 +425,8 @@
             "entity_id": "council",
             "predicate": "broadcast",
             "value": true
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {
@@ -501,7 +503,8 @@
             "entity_id": "conflict",
             "predicate": "active",
             "value": true
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {
@@ -569,7 +572,8 @@
             "entity_id": "harbor",
             "predicate": "festival_held",
             "value": true
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {
@@ -647,7 +651,8 @@
             "entity_id": "conflict",
             "predicate": "active",
             "value": false
-          }
+          },
+          "until": "lasting"
         },
         {
           "op": "set",
@@ -655,7 +660,8 @@
             "entity_id": "conflict",
             "predicate": "victor",
             "value": "union"
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {
@@ -732,7 +738,8 @@
             "entity_id": "archive-key",
             "predicate": "holder",
             "value": "courier"
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {
@@ -805,7 +812,8 @@
             "entity_id": "archive-key",
             "predicate": "holder",
             "value": "archivist"
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {
@@ -880,7 +888,8 @@
             "entity_id": "old-market",
             "predicate": "condition",
             "value": "destroyed"
-          }
+          },
+          "until": "lasting"
         }
       ],
       "visibility": {

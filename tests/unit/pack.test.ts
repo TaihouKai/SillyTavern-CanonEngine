@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { validatePack, validatePackText, valuesEqual, normalizeValue, WORLD_INFO_ERROR } from '../../src/core/domain/pack';
 import { reduce, evalCondition, factAt, triLabel, applyRecord } from '../../src/core/domain/reducer';
 import { buildBootstrap, crossedCandidates, adjudicateDefault, occurrenceWindow, hardDeadlinesReached } from '../../src/core/domain/schedule';
-import { formatTick, toTick, parseDateLabel, parseOriginLabel } from '../../src/core/domain/time';
+import { formatTick, toTick, parseDateLabel, parseOriginLabel, whenToStoryTime } from '../../src/core/domain/time';
+import { effectToDelta } from '../../src/core/domain/delta';
 import { hashObject } from '../../src/core/domain/util';
 import type { LedgerRecord } from '../../src/core/domain/types';
 import { demoRaw, unrelatedRaw, load, T } from './helpers';
@@ -68,7 +69,7 @@ describe('pack validation', () => {
     expect(errs(a)).toMatch(/expects boolean/);
     const b = demoRaw();
     b.events[4].outcomes[1].value = 'nobody';
-    b.events[4].canonical_effects[1] = { op: 'set', fact: { entity_id: 'conflict', predicate: 'victor', value: 'nobody' } };
+    b.events[4].canonical_effects[1] = { op: 'set', fact: { entity_id: 'conflict', predicate: 'victor', value: 'nobody' } , until: 'lasting' };
     expect(errs(b)).toMatch(/unknown entity "nobody"/);
   });
 
@@ -111,27 +112,38 @@ describe('pack validation', () => {
     expect(errs(c)).toMatch(/within coverage/);
   });
 
-  it('TC01 a temporary condition no later event ends is flagged when the entity takes part in later events', () => {
-    const warns = (raw: any) => { const r = validatePack(raw); expect(r.errors).toEqual([]); return r.warnings.map((w) => `${w.path} ${w.message}`).join('\n'); };
-    const withInjury = (pred: object) => {
+  it('TC01 every effect says how long it holds; a state of a while is over at its end and the fact is again what lasts; an event marked for review is refused', () => {
+    const errsOf = (raw: any) => validatePack(raw).errors.map((e) => `${e.path} ${e.message}`).join('\n');
+    const withInjury = (until: unknown) => {
       const a = demoRaw();
-      a.predicates.push({ id: 'injury', description: 'current injury', value_type: 'string', ...pred });
-      // council-broadcast (day 1) wounds the council; it takes part in conflict-begins (day 2) and conflict-ends (day 4)
-      a.events[1].canonical_effects.push({ op: 'set', fact: { entity_id: 'council', predicate: 'injury', value: 'wounded' } });
+      a.predicates.push({ id: 'injury', description: 'current injury', value_type: 'string' });
+      const ef: any = { op: 'set', fact: { entity_id: 'council', predicate: 'injury', value: 'wounded' } };
+      if (until !== undefined) ef.until = until;
+      a.events[1].canonical_effects.push(ef);
       return a;
     };
-    const a = withInjury({ transient: true });
-    expect(warns(a)).toMatch(/\/events\/1\/canonical_effects\/1 temporary condition council\.injury = "wounded" is never ended by a later event, but council takes part in later events: conflict-begins, conflict-ends/);
-    // ended by the next event the council is in: no warning, and the settled value is not flagged either
-    const b = withInjury({ transient: true, settled_values: ['healed'] });
-    b.events[2].canonical_effects.push({ op: 'set', fact: { entity_id: 'council', predicate: 'injury', value: 'healed' } });
-    expect(warns(b)).not.toMatch(/temporary condition/);
-    // a value listed as settled lasts; a predicate not marked transient is never checked
-    expect(warns(withInjury({ transient: true, settled_values: ['wounded'] }))).not.toMatch(/temporary condition/);
-    expect(warns(withInjury({}))).not.toMatch(/temporary condition/);
-    // settled_values need a transient predicate, and must match its value type
-    expect(warns(withInjury({ settled_values: ['healed'] }))).toMatch(/settled_values only apply to a transient predicate/);
-    expect(errs(withInjury({ transient: true, settled_values: [3] }))).toMatch(/settled_values\/0/);
+    expect(errsOf(withInjury(undefined))).toMatch(/\/events\/1\/canonical_effects\/1\/until an effect must say how long it holds/);
+    expect(errsOf(withInjury('lasting'))).toBe('');
+    expect(errsOf(withInjury({ minutes: 120 }))).toBe('');
+    expect(errsOf(withInjury({ minutes: 0 }))).toMatch(/canonical_effects\/1\/until/);
+    expect(errsOf(withInjury({ event: 'conflict-ends' }))).toBe('');
+    expect(errsOf(withInjury({ event: 'nope' }))).toMatch(/unknown event "nope"/);
+    expect(errsOf(withInjury({ event: 'medic-ambush' }))).toMatch(/is over before this event begins/);
+    const add = demoRaw();
+    add.events[1].canonical_effects.push({ op: 'add', entity_id: 'council', predicate: 'members', value: ['mira'], until: { minutes: 30 } });
+    expect(errsOf(add)).toMatch(/a change of who belongs \(add\/remove\) lasts/);
+    const rev = demoRaw();
+    rev.events[1].review = 'time: only the month is given';
+    expect(errsOf(rev)).toMatch(/\/events\/1\/review needs review: time: only the month is given/);
+    // in the world: wounded until conflict-ends is over, then what lasted before (healthy) again
+    const b = withInjury({ event: 'conflict-ends' });
+    b.events[0].canonical_effects.push({ op: 'set', fact: { entity_id: 'council', predicate: 'injury', value: 'healthy' }, until: 'lasting' });
+    const L = validatePack(b).loaded!;
+    const recs = [b.events[0], b.events[1]].map((ev: any, i: number) => ({ recordId: `r${i}`, commitId: 'c', branchId: 'b', sequence: i + 1, kind: 'canon_occurrence', storyTime: whenToStoryTime(ev.when), sourceRefs: [], factsSetOrUnset: ev.canonical_effects.map(effectToDelta), eventOccurrenceIds: [], visibility: { mode: 'public' }, summary: '', evidenceKind: 'adjudication' }));
+    const st = reduce(L, recs as any);
+    const end = L.timeIndex.find((t) => t.id === 'conflict-ends')!.hi;
+    expect(factAt(st, 'council', 'injury', { tick: end - 1 })).toMatchObject({ known: true, value: 'wounded', endsAt: end });
+    expect(factAt(st, 'council', 'injury', { tick: end })).toMatchObject({ known: true, value: 'healthy' });
   });
 
   it('DP1 an event that depends on another may not overlap it; events without a dependency may', () => {
@@ -220,7 +232,7 @@ describe('clock, conditions, reducer', () => {
     const L = load(demoRaw());
     const s = reduce(L, boot(L, T(2, 10)));
     expect(s.dispositions.get('conflict-begins')?.disposition).toBe('occurred');
-    applyRecord(s, { recordId: 'r-x', commitId: 'c', branchId: 'b', sequence: 999, kind: 'world_event', storyTime: { lo: T(2, 11), hi: T(2, 11), precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: false }], eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] }, summary: 'ceasefire', evidenceKind: 'direct' });
+    applyRecord(s, { recordId: 'r-x', commitId: 'c', branchId: 'b', sequence: 999, kind: 'world_event', storyTime: { lo: T(2, 11), hi: T(2, 11), precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: false , until: 'lasting' }], eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] }, summary: 'ceasefire', evidenceKind: 'direct' });
     expect(s.dispositions.get('conflict-begins')?.disposition).toBe('occurred');
     expect(factAt(s, 'conflict', 'active').value).toBe(false);
     expect(factAt(s, 'conflict', 'active').supportRecordId).toBe('r-x');
@@ -255,7 +267,7 @@ describe('clock, conditions, reducer', () => {
   it('C02 a validated rescue keeps Mira alive and the ambush is not re-run later', () => {
     const L = load(demoRaw());
     const s = reduce(L, boot(L, T(0, 9)));
-    applyRecord(s, { recordId: 'resc', commitId: 'c1', branchId: 'b', sequence: 100, kind: 'canon_occurrence', storyTime: { lo: T(1, 10), hi: T(1, 10), precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true }], eventOccurrenceIds: ['o1'], occurrences: [{ occurrenceId: 'o1', title: 'Ambush of Mira', account: 'The player shields Mira; she survives.', actors: ['mira'], affected: ['mira'], locations: ['harbor'], time: { lo: T(1, 10), hi: T(1, 10), precision: 'minute' }, outcome: [], causes: [], refPhrases: ['ambush'], packEventId: 'medic-ambush', origin: 'player', visibility: { mode: 'public', knower_ids: [] } }], visibility: { mode: 'public', knower_ids: [] }, summary: 'rescue', evidenceKind: 'direct', packEventId: 'medic-ambush', disposition: 'diverged' });
+    applyRecord(s, { recordId: 'resc', commitId: 'c1', branchId: 'b', sequence: 100, kind: 'canon_occurrence', storyTime: { lo: T(1, 10), hi: T(1, 10), precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true , until: 'lasting' }], eventOccurrenceIds: ['o1'], occurrences: [{ occurrenceId: 'o1', title: 'Ambush of Mira', account: 'The player shields Mira; she survives.', actors: ['mira'], affected: ['mira'], locations: ['harbor'], time: { lo: T(1, 10), hi: T(1, 10), precision: 'minute' }, outcome: [], causes: [], refPhrases: ['ambush'], packEventId: 'medic-ambush', origin: 'player', visibility: { mode: 'public', knower_ids: [] } }], visibility: { mode: 'public', knower_ids: [] }, summary: 'rescue', evidenceKind: 'direct', packEventId: 'medic-ambush', disposition: 'diverged' });
     expect(crossedCandidates(L, s, T(1, 10), T(5, 0)).map((c) => c.event.id)).not.toContain('medic-ambush');
     // the ambush happened differently: whether the broadcast that depends on it still follows is judged on
     // the actual state by the model (neither the original route nor an automatic omission)

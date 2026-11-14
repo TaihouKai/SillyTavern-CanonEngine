@@ -4,7 +4,7 @@ import datetime as dt
 import os
 import re
 
-from . import changes as org_changes, dates, deaths, names, start as start_state, timeline
+from . import changes as org_changes, dates, deaths, names, review as reviews, start as start_state, timeline
 from .skeleton import corpus, unit_text
 from .steps import all_summaries
 from .util import ROOT, read_json, write_json, uniq
@@ -20,8 +20,8 @@ GENERIC_ALIASES = {'士兵', '市民', '村民', '医生', '少女', '少年', '
 
 PREDICATES = [
     {'id': 'alive', 'description': '人物是否在世（尚未出生者视为“未发生死亡”）。', 'value_type': 'boolean'},
-    {'id': 'whereabouts', 'description': '人物当前的去向/所在；被消灭、退场的从者写明已消灭。', 'value_type': 'string', 'transient': True},
-    {'id': 'injury', 'description': '人物持续性的伤势或身体状况。', 'value_type': 'string', 'transient': True},
+    {'id': 'whereabouts', 'description': '人物当前的去向/所在；被消灭、退场的从者写明已消灭。', 'value_type': 'string'},
+    {'id': 'injury', 'description': '人物持续性的伤势或身体状况。', 'value_type': 'string'},
     {'id': 'status', 'description': '人物、组织或存在的当前处境（被捕、被解放、与御主缔结契约等）。', 'value_type': 'string'},
     {'id': 'condition', 'description': '地点、建筑或物体的物理状况。', 'value_type': 'string', 'allowed_values': ['完好', '受损', '毁坏']},
     {'id': 'knows', 'description': '人物掌握的重要秘密或真相（写在知情者身上）。', 'value_type': 'string'},
@@ -722,6 +722,163 @@ def stated_anchors(project, chapters, beats_by_ch, units, unit_of, clock):
     return out
 
 
+LASTING_PREDICATES = {'alive', 'members', 'leader', 'ally', 'holder', 'knows'}
+
+
+def _target(o):
+    f = o.get('fact') or o
+    return f['entity_id'], f['predicate']
+
+
+def _story_end(events, ev):
+    """The last event of an event's story (by time)."""
+    at = lambda x: x['when']['earliest']['day'] * 1440 + x['when']['earliest']['minute']  # noqa: E731
+    mine = [x for x in events if x.get('arc_id') == ev.get('arc_id')]
+    return max(mine, key=at)['id'] if mine else None
+
+
+def _until(u, events, ev):
+    """A review or proposal "until" as the pack writes it ("story_end": the last event of the story)."""
+    if u == 'story_end':
+        last = _story_end(events, ev)
+        return {'event': last} if last and last != ev['id'] else 'lasting'
+    return u
+
+
+def apply_impacts(events, rv, proposals, marks_of, by_id):
+    """Adds what an event changes beyond itself (checked in the review file, else proposed, marked)."""
+    lookup = {}
+    for e in by_id.values():
+        for n in [e.get('name')] + list(e.get('aliases') or []):
+            if n:
+                lookup.setdefault(n, e['id'])
+    for ev in events:
+        r = rv['impacts'].get(ev['id'])
+        adds = r['effects'] if r else [dict(a, entity=lookup.get(a.get('entity'), a.get('entity'))) for a in (proposals.get(ev['id']) or {}).get('add', [])]
+        if not r:
+            marks_of.setdefault(ev['id'], []).append('影响未经人工核对' if ev['id'] in proposals else '影响尚未分析（运行 impacts）')
+        for a in adds:
+            ent = a.get('entity')
+            if ent not in by_id:
+                marks_of.setdefault(ev['id'], []).append(f'影响里的“{ent}”不是包里的实体')
+                continue
+            op = a.get('op') or 'set'
+            val = a.get('value')
+            if a['predicate'] == 'alive' and not isinstance(val, bool):
+                val = str(val).strip().lower() not in ('false', '死亡', '死', '已死亡', 'dead', '0')
+            if a['predicate'] in ('members', 'leader', 'holder', 'ally') and isinstance(val, (str, list)):
+                vals = val if isinstance(val, list) else [val]
+                ids = [lookup.get(v, v) for v in vals]
+                if any(i not in by_id for i in ids):
+                    marks_of.setdefault(ev['id'], []).append(f'影响里的“{"、".join(str(v) for v in vals)}”不是包里的实体')
+                    continue
+                val = ids if a['predicate'] == 'members' else ids[0]
+            pred = a['predicate']
+            if pred == 'condition':
+                pred, val = physical(pred, val)
+            eff = {'op': op, 'fact': {'entity_id': ent, 'predicate': pred, 'value': val}} if op == 'set' else {'op': op, 'entity_id': ent, 'predicate': pred, 'value': val}
+            eff['until'] = _until(a.get('until', 'lasting'), events, ev)
+            same = [o for o in ev['canonical_effects'] if _target(o) == (ent, pred)]
+            if same and not a.get('replace'):
+                # the event already writes this fact: a checked impact says replace to change it
+                marks_of.setdefault(ev['id'], []).append(f'影响 {ent}.{pred} 与事件已有的效果重叠') if not r else None
+                continue
+            if same:
+                ev['canonical_effects'] = [o for o in ev['canonical_effects'] if o not in same]
+                for o in ev.get('outcomes') or []:
+                    if (o['entity_id'], o['predicate']) == (ent, pred) and o.get('op', 'set') == op:
+                        o['value'] = val
+            ev['canonical_effects'].append(eff)
+            if ent not in ev['entity_ids']:
+                ev['entity_ids'].append(ent)
+
+
+def apply_ends(events, rv, proposals, marks_of, by_id):
+    """Gives every effect its "until": lasting by its nature, else the review file's decision for that value, else the
+    model's proposal (marked), else lasting (marked)."""
+    ids = {e['id'] for e in events}
+    for ev in events:
+        unchecked = undecided = 0
+        # a state a person found wrong (the summary misread the source): out, with its outcome
+        def decided(o):
+            k = reviews.end_key(ev['id'], *_target(o))
+            r = rv['ends'].get(k)
+            if r and r.get('value') == o['fact']['value']:
+                return r, True
+            p = proposals.get(k)
+            return (p, False) if p and p.get('value') == o['fact']['value'] else (None, False)
+        drop = [o for o in ev['canonical_effects'] if o.get('op', 'set') == 'set' and (decided(o)[0] or {}).get('until') == 'drop']
+        proposed_drops = sum(1 for o in drop if not decided(o)[1])
+        if proposed_drops:
+            marks_of.setdefault(ev['id'], []).append(f'{proposed_drops} 项状态被提议删去，未经人工核对')
+        if drop:
+            gone = {_target(o) for o in drop}
+            ev['canonical_effects'] = [o for o in ev['canonical_effects'] if o not in drop]
+            ev['outcomes'] = [o for o in ev.get('outcomes') or [] if (o['entity_id'], o['predicate']) not in gone]
+            # a HARD event whose required results were all wrong locks what it still writes (as one that names none);
+            # one that writes nothing more requires nothing: it is no contract, so not HARD
+            if ev.get('classification') == 'HARD' and not ev['outcomes']:
+                ev['outcomes'] = [dict(o['fact']) if o.get('op', 'set') == 'set' else {k: o[k] for k in ('entity_id', 'predicate', 'value', 'op')}
+                                  for o in ev['canonical_effects'] if o.get('op', 'set') != 'unset']
+                if not ev['outcomes']:
+                    ev['classification'], ev['required_description'] = 'SOFT', None
+        for o in ev['canonical_effects']:
+            op = o.get('op', 'set')
+            if op == 'unset':
+                continue
+            ent, pred = _target(o)
+            if pred in LASTING_PREDICATES or op != 'set':
+                o['until'] = 'lasting'
+                continue
+            if 'until' in o:        # a checked impact brings its own
+                continue
+            key = reviews.end_key(ev['id'], ent, pred)
+            val = o['fact']['value']
+            r = rv['ends'].get(key)
+            if r and r.get('value') == val:
+                o['until'] = _until(r['until'], events, ev)
+            elif (proposals.get(key) or {}).get('value') == val:
+                o['until'] = _until(proposals[key]['until'], events, ev)
+                unchecked += 1
+            else:
+                o['until'] = 'lasting'
+                undecided += 1
+            u = o['until']
+            if isinstance(u, dict) and 'event' in u and (u['event'] not in ids or u['event'] == ev['id']):
+                o['until'] = 'lasting'
+                marks_of.setdefault(ev['id'], []).append(f'{ent}.{pred} 的结束事件 {u["event"]} 不可用')
+        if unchecked:
+            marks_of.setdefault(ev['id'], []).append(f'{unchecked} 项状态的持续时间未经人工核对')
+        if undecided:
+            marks_of.setdefault(ev['id'], []).append(f'{undecided} 项状态还没有结束方式（运行 ends）')
+
+
+def when_label(clock, cx, dated):
+    """An event's time as people read it: the time when the sources give it, else what they give (a part of a day, a
+    day, a month, years), never a made-up hour."""
+    p, lo, hi = cx['precision'], cx['lo'], cx['hi']
+    day = lambda t: clock.label(t).split(' ')[0]  # noqa: E731
+    note = cx.get('note') or ''
+    if note and not note.startswith('核对'):
+        # a person set this window: their words say what is known of the time
+        if p in ('minute', 'range'):
+            return f'{clock.label(lo)}（{note}）'
+        return note if '不详' in note else f'{note}（具体时间不详）'
+    if p in ('minute', 'range'):
+        lab = clock.label(lo)
+    elif p == 'part_of_day':
+        lab = f'{day(lo)} {cx.get("part") or ""}（具体时间不详）'
+    elif p == 'day':
+        lab = f'{day(lo)}（当天，具体时间不详）'
+    elif p == 'days':
+        lab = f'{day(lo)} 至 {day(hi)}（具体时间不详）'
+    elif p == 'month':
+        lab = f'{day(lo)[:7]}（具体日期不详）'
+    else:
+        lab = f'{day(lo)[:4]}–{day(hi)[:4]}年间（具体日期不详）' if day(lo)[:4] != day(hi)[:4] else f'{day(lo)[:4]}年（具体日期不详）'
+    return lab if dated or cx.get('checked') or p not in ('minute', 'range') else f'约{lab}（编辑推定）'
+
+
 def spelled(project, pack):
     """The pack with the project's spelling ("spelling": {"沉利": "沈利"}) in every text: the names as the user's
     lorebooks write them, kept on every rebuild (the sources and the models write the other form)."""
@@ -781,6 +938,9 @@ def build(project, out_path=None, raw=False):
     clock0 = timeline.Clock(project.get('timeline', {}).get('origin_date', '2000-01-01'))
     dated = set()
     loose = set()
+    squeezed = set()
+    rv = reviews.load(project)
+    marks_of = {}
     if project.get('arcs'):
         # each chapter has dates of its own (the sources' chronology): a beat with a date sits there, the ones between
         # follow their cues; chapters running at the same time interleave (live: 超电磁炮 and 禁书目录 in one July)
@@ -788,7 +948,7 @@ def build(project, out_path=None, raw=False):
         origin = dt.date.fromisoformat(project['timeline']['origin_date'])
         pos = {}
         for ch in chapters:
-            for bid, (s, e, d) in timeline.place_arc(origin, arc_of[ch['id']], beats_by_ch[ch['id']], loose).items():
+            for bid, (s, e, d) in timeline.place_arc(origin, arc_of[ch['id']], beats_by_ch[ch['id']], loose, squeezed).items():
                 pos[bid] = {'start': s, 'end': e}
                 if d:
                     dated.add(bid)
@@ -809,6 +969,22 @@ def build(project, out_path=None, raw=False):
     else:
         pos, chrep, clock = timeline.compute(project, chapters, beats_by_ch, stated_anchors(project, chapters, beats_by_ch, units, unit_of, clock0))
         order = [b['id'] for ch in chapters for b in beats_by_ch[ch['id']]]
+    # how well each event's time is known: its window covers that much (see timeline.certainty); a person's checked
+    # window (the review file) over it
+    if project.get('arcs'):
+        cert = {}
+        for ch in chapters:
+            cert.update(timeline.certainty(origin, arc_of[ch['id']], beats_by_ch[ch['id']], {b['id']: (pos[b['id']]['start'], pos[b['id']]['end']) for b in beats_by_ch[ch['id']]}, dated, squeezed))
+    else:
+        cert = {bid: {'precision': 'range', 'lo': p_['start'], 'hi': max(p_['end'], p_['start'] + 30), 'review': '资料没有给出日期，只知道先后顺序'} for bid, p_ in pos.items()}
+    origin_d = dt.date.fromisoformat(project['timeline']['origin_date'])
+    for bid, x in rv['times'].items():
+        if bid in cert:
+            old = cert[bid]
+            lo, hi = reviews.to_tick(origin_d, x['from']), reviews.to_tick(origin_d, x['to'])
+            same = (old['precision'], old['lo'], old['hi']) == (x['precision'], lo, hi)
+            cert[bid] = {'precision': x['precision'], 'lo': lo, 'hi': hi, 'review': None, 'checked': True,
+                         'part': old.get('part') if same else None, 'note': '' if same else x.get('note', '')}
     win = timeline.windows(order, pos, {b['id']: b['time'] for bs in beats_by_ch.values() for b in bs}, loose,
                            {b['id']: chid for chid, bs in beats_by_ch.items() for b in bs})
 
@@ -938,8 +1114,9 @@ def build(project, out_path=None, raw=False):
             else:
                 outcomes = all_facts
             # time
-            s, e = win[bid]
-            lab = clock.label(s) if bid in dated else f'约{clock.label(s)}（{project.get("frames", {}).get("default", "主线")}时间，编辑推定）'
+            cx = cert[bid]
+            s, e = cx['lo'], cx['hi']
+            lab = when_label(clock, cx, bid in dated)
             # an event in the chapter's frame gets its local era from the frame; other labels stay in the text
             in_frame = bool(frame) and not b.get('home')
             if frame_label and not b.get('home') and not in_frame:
@@ -947,8 +1124,12 @@ def build(project, out_path=None, raw=False):
             if b['time']['stated']:
                 lab += f'；文中：{b["time"]["stated"]}'
             when = {'earliest': {'day': s // 1440, 'minute': s % 1440}, 'latest': {'day': e // 1440, 'minute': e % 1440},
-                    'precision': 'minute' if s == e else 'range', 'label': lab, 'basis': 'documented' if bid in dated else 'editorial',
-                    'notes': '日期出自资料。' if bid in dated else '按剧情先后与文中的时间提示推定（先后顺序可靠，具体时刻为估计）。'}
+                    'precision': 'minute' if s == e and cx['precision'] == 'range' else cx['precision'], 'label': lab,
+                    'basis': 'documented' if bid in dated or cx.get('checked') else 'editorial',
+                    'notes': cx.get('note') or ('日期出自资料。' if bid in dated else '按剧情先后与文中的时间提示推定。')}
+            marks = [f'时间：{cx["review"]}'] if cx.get('review') else []
+            if not cx.get('checked'):
+                marks.append('时间未经人工核对')
             # summary
             summ = {}
             for f in ('background', 'trigger'):
@@ -995,6 +1176,7 @@ def build(project, out_path=None, raw=False):
             if in_frame:
                 event['frame_id'] = frame['id']
             events.append(event)
+            marks_of[bid] = marks
             arc_events.append(bid)
             prev_title = title
         # links inside the chapter, in time order only
@@ -1013,112 +1195,6 @@ def build(project, out_path=None, raw=False):
     # deaths that do not hold (cpb/deaths.py: decided by the model, applied here)
     back, n_back = deaths.apply(events, project.p('deaths.json'), rep, ents) if not raw else (set(), 0)
     by_id.update({e['id']: e for e in ents if e['id'] not in by_id})
-    if n_back:
-        st.settled_where |= back
-    # an injury still open when the person takes part in a later chapter, a day later, or for the last time in its
-    # chapter ended in between (editorial): the model usually records the recovery, but not always, and a "near
-    # death" that never ends misleads every later turn
-    if project.get('heal_between_chapters', True):
-        at = lambda x: x['when']['earliest']['day'] * 1440 + x['when']['earliest']['minute']  # noqa: E731
-        chrono = sorted(events, key=at)
-        settled = set(st.recovery_values) | {f['value'] for e in events for o in e['canonical_effects'] for f in [o.get('fact')]
-                                             if f and f['predicate'] == 'injury' and isinstance(f['value'], str) and re.search(INJURY_LASTING, f['value'])}
-        st.recovery_values |= settled
-        last_in_arc = {}
-        for e in chrono:
-            for ent in e['entity_ids']:
-                last_in_arc[(ent, e['arc_id'])] = e['id']
-        open_inj = {}
-        healed = '已恢复（编辑推定：之后的章节中正常行动）'
-        for e in chrono:
-            ch_ = e['arc_id']
-            for o in e['canonical_effects']:
-                f = o.get('fact')
-                if f and f['predicate'] == 'injury':
-                    if f['value'] in settled:
-                        open_inj.pop(f['entity_id'], None)
-                    else:
-                        open_inj[f['entity_id']] = (ch_, e['id'], f['value'], at(e))
-            for ent in list(open_inj):
-                ich, iev, val, t0 = open_inj[ent]
-                later = at(e) >= t0 + 1440 or ich != ch_ or (last_in_arc.get((ent, ch_)) == e['id'] and e['id'] != iev)
-                if later and at(e) > t0 and ent in e['entity_ids'] and not any(o.get('fact', {}).get('entity_id') == ent and o.get('fact', {}).get('predicate') == 'injury' for o in e['canonical_effects']):
-                    fact = {'entity_id': ent, 'predicate': 'injury', 'value': healed}
-                    e['canonical_effects'].append({'op': 'set', 'fact': fact})
-                    if e['classification'] != 'HARD':
-                        e['outcomes'].append(dict(fact))
-                    st.recovery_values.add(healed)
-                    rep.add('healed', f'{ent}：{iev} 的伤势“{val}”在 {e["id"]}（{e["title"]}）之前未见结束，按已恢复处理')
-                    del open_inj[ent]
-    # a whereabouts of the moment (missing, carried off, vanished) ends when the person is there again (live: 神裂火织 「已消灭（被龙卷风吞噬而消失）」, 奥提努斯 dissolved into light, both back in
-    # later events)
-    if project.get('end_whereabouts', True):
-        at = lambda x: x['when']['earliest']['day'] * 1440 + x['when']['earliest']['minute']  # noqa: E731
-        open_w = {}
-        back = '重新出现'
-        for e in sorted(events, key=at):
-            for o in e['canonical_effects']:
-                f = o.get('fact')
-                if f and f['predicate'] == 'whereabouts' and o.get('op', 'set') == 'set':
-                    open_w[f['entity_id']] = (e['arc_id'], at(e), f['value'], e['id'])
-            for who in list(e['entity_ids']):
-                w = open_w.get(who)
-                if not w or w[3] == e['id'] or w[2] in st.settled_where:
-                    continue
-                if at(e) > w[1] and not any((o.get('fact') or {}).get('entity_id') == who and (o.get('fact') or {}).get('predicate') in ('whereabouts', 'alive') for o in e['canonical_effects']):
-                    fact = {'entity_id': who, 'predicate': 'whereabouts', 'value': back}
-                    e['canonical_effects'].append({'op': 'set', 'fact': fact})
-                    if e['classification'] != 'HARD':
-                        e['outcomes'].append(dict(fact))
-                    st.settled_where.add(back)
-                    rep.add('healed', f'{who}：{w[3]} 的去向“{w[2]}”在 {e["id"]}（{e["title"]}）再出场时结束')
-                    del open_w[who]
-    # facts of a moment end with the person's part in that story (their last event in it), or, when they have none
-    # after it, at their next event in another story (editorial; the next set of the same fact ends it anyway)
-    if project.get('end_moments', True):
-        at = lambda x: x['when']['earliest']['day'] * 1440 + x['when']['earliest']['minute']  # noqa: E731
-        chrono = sorted(events, key=at)
-
-        def momentary(pr, v):
-            if not isinstance(v, str):
-                return False
-            if pr == 'whereabouts':
-                return not re.search(WHERE_HOME, v)
-            if pr == 'status':
-                return bool(re.search(STATUS_MOMENT, re.sub(STATUS_RELEASE, '', v))) and not re.search(STATUS_LASTING, v)
-            if pr == 'form':
-                return bool(re.search(FORM_MOMENT, v))
-            return False
-
-        def sets(e, who, pr):
-            return any((o.get('fact') or o).get('entity_id') == who and (o.get('fact') or o).get('predicate') == pr for o in e['canonical_effects'])
-
-        ended = 0
-        for i, e in enumerate(chrono):
-            for o in list(e['canonical_effects']):
-                f = o.get('fact')
-                if not f or o.get('op', 'set') != 'set' or not momentary(f['predicate'], f['value']):
-                    continue
-                who, pr = f['entity_id'], f['predicate']
-                mine = [x for x in e['canonical_effects'] if (x.get('fact') or x).get('entity_id') == who and (x.get('fact') or x).get('predicate') == pr]
-                if mine[-1] is not o:
-                    continue    # the event itself goes on to another value
-                later = []
-                for x in chrono[i + 1:]:
-                    if sets(x, who, pr):
-                        break
-                    if who in x['entity_ids'] and at(x) > at(e):
-                        later.append(x)
-                if not later:
-                    continue
-                # the first time they are seen again in another story or a day later; in another story, their
-                # last event in this one before it when there is one
-                first = next((x for x in later if x['arc_id'] != e['arc_id'] or at(x) >= at(e) + 1440), None)
-                in_arc = [x for x in later if x['arc_id'] == e['arc_id'] and (first is None or at(x) < at(first))]
-                end = first if first is not None and first['arc_id'] == e['arc_id'] else (in_arc[-1] if in_arc else first)
-                end['canonical_effects'].append({'op': 'unset', 'entity_id': who, 'predicate': pr})
-                ended += 1
-                rep.add('healed', f'{who}：{e["id"]} 的{pr}“{f["value"]}”在 {end["id"]}（{end["title"]}）结束')
     # time frames: a place used only by the events of one frame belongs to it (the engine then knows a scene there is in
     # that frame); places also used at home or in several frames stay in the main frame
     place_frames = collections.defaultdict(set)
@@ -1132,15 +1208,7 @@ def build(project, out_path=None, raw=False):
     used_frames = {e.get('frame_id') for e in events}
     frame_list = [f for f in frames.values() if f['id'] in used_frames]
 
-    # predicates with their settled values
-    preds = []
-    for p in PREDICATES:
-        p = dict(p)
-        if p['id'] == 'injury' and st.recovery_values:
-            p['settled_values'] = sorted(st.recovery_values)
-        if p['id'] == 'whereabouts' and st.settled_where:
-            p['settled_values'] = sorted(st.settled_where)
-        preds.append(p)
+    preds = [dict(p) for p in PREDICATES]
     first = min(win[b][0] for b in order)
     last = max(win[b][1] for b in order)
     start = (first // 1440 - 1) * 1440
@@ -1176,11 +1244,28 @@ def build(project, out_path=None, raw=False):
         'entities': ents,
         'initial_state': {'at': {'day': start // 1440, 'minute': 0}, 'facts': init_facts},
         'arcs': arcs,
-        'events': org_changes.complete(events, init_facts),
+        'events': events,
         'edges': edges,
     }
     for k, n in dropped.most_common():
         rep.add('unresolved', f'{k} ×{n}')
+    # what an event changes beyond itself that its summary tells and its effects missed: a person's checked list
+    # (the review file), else the model's proposal (impacts.json), marked until a person checks it
+    pack = spelled(project, pack)
+    apply_impacts(pack['events'], rv, read_json(project.p('impacts.json'), {}) or {}, marks_of, by_id)
+    # every effect says how long it holds (the pack lint refuses one that does not): lasting by its nature, else a
+    # person's decision (the review file), else the model's proposal (ends.json), marked until a person checks it
+    apply_ends(pack['events'], rv, read_json(project.p('ends.json'), {}) or {}, marks_of, by_id)
+    # who leaves with a death or a dissolution, a leader handed over: over the effects as they finally are (the
+    # checked impacts among them); what this adds is a change of who belongs, which lasts
+    pack['events'] = org_changes.complete(pack['events'], init_facts)
+    for e in pack['events']:
+        for o in e['canonical_effects']:
+            if o.get('op') in ('add', 'remove'):
+                o.setdefault('until', 'lasting')
+    for e in pack['events']:
+        if marks_of.get(e['id']):
+            e['review'] = '；'.join(marks_of[e['id']])
     out_path = out_path or project.p('out', f'{pack["pack_id"]}.canon.json')
     pack = spelled(project, pack)
     write_json(out_path, pack, indent=1)

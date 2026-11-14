@@ -17,6 +17,10 @@ export interface Transition {
   /** An add/remove as it was given. Its value is the fact as it stands before it with this applied, and is worked
    *  out again when a change is put in at an earlier time (a record's time can lie before changes already there). */
   change?: { op: 'add' | 'remove'; value: FactValue };
+  /** Over from this tick on (its effect said for how long, or until when); then the fact is what it was before. */
+  end?: number;
+  /** Over once this event is settled, if that comes before `end` (its window end). */
+  untilEvent?: Id;
 }
 
 export interface OccurrenceEntry extends Occurrence {
@@ -63,6 +67,8 @@ export interface WorldState {
   /** Per entity: a running digest of the messages so far that are about it (their text, in order). Kept by the
    *  replay; a later message about the entity is valid only for the digest it was examined with. */
   told: Map<Id, string>;
+  /** The latest time of each event of the pack: an effect that holds until an event is over by then. */
+  eventEnds: Map<Id, number>;
   records: LedgerRecord[];
   recordById: Map<string, LedgerRecord>;
   lastSeq: number;
@@ -87,6 +93,7 @@ export function emptyState(pack: LoadedPack): WorldState {
     clock: { lo: pack.coverage.start, hi: pack.coverage.start, precision: 'minute' },
     sceneFrame: null,
     told: new Map(),
+    eventEnds: new Map(pack.timeIndex.map((t) => [t.id, t.hi])),
     records: [],
     recordById: new Map(),
     lastSeq: 0,
@@ -149,6 +156,10 @@ function applyDelta(state: WorldState, d: FactDelta, rec: LedgerRecord, tick: nu
     kind: rec.kind,
   };
   if (d.op === 'add' || d.op === 'remove') t.change = { op: d.op, value: d.value };
+  if (d.op !== 'unset' && d.until && d.until !== 'lasting') {
+    if ('minutes' in d.until) t.end = tick + Math.max(1, Math.round(d.until.minutes));
+    else { t.untilEvent = d.until.event; t.end = state.eventEnds.get(d.until.event); }
+  }
   // ordered by (tick, seq), with the changes that change nothing in their places
   const all = [...(state.facts.get(k) || []), ...(state.idleChanges.get(k) || []), t].sort((a, b) => a.tick - b.tick || a.seq - b.seq);
   // add/remove apply to the fact as it stands at their time: this one, and those after it up to the next set/unset
@@ -184,14 +195,26 @@ export interface FactAt {
   known: boolean;
   value?: FactValue;
   validFrom?: number;
+  /** When what holds now is over (it was set for a while); absent: until it is changed. */
+  endsAt?: number;
   supportRecordId?: string;
   /** Transitions whose uncertain time overlaps the checkpoint (reported, never silently resolved). */
   uncertain: Transition[];
 }
 
 /** Value of a fact at a checkpoint (tick, optional sequence bound). */
+/** Whether a transition is over at a time: its end has come, or the event it lasted until is settled by then. */
+export function transitionOver(state: WorldState, t: Transition, tick: number): boolean {
+  if (t.end !== undefined && tick >= t.end) return true;
+  const d = t.untilEvent ? state.dispositions.get(t.untilEvent) : undefined;
+  return !!d && d.tick <= tick && d.tick >= t.tick;
+}
+
+/** Value of a fact at a checkpoint (tick, optional sequence bound; none: the current clock). A change that held only
+ *  for a while is over at its end: the fact is then what the last change still holding made it. */
 export function factAt(state: WorldState, entity: Id, predicate: Id, cp?: Checkpoint): FactAt {
   const list = state.facts.get(factKey(entity, predicate)) || [];
+  const now = cp ? cp.tick : state.clock.lo;
   let cur: Transition | undefined;
   const uncertain: Transition[] = [];
   for (const t of list) {
@@ -200,10 +223,12 @@ export function factAt(state: WorldState, entity: Id, predicate: Id, cp?: Checkp
       if (t.tick > cp.tick) continue;
       if (t.tickHi > cp.tick && t.tick < cp.tick) uncertain.push(t);
     }
+    if (transitionOver(state, t, now)) continue;
     cur = t;
   }
   if (!cur || cur.op === 'unset') return { known: false, uncertain, supportRecordId: cur?.recordId };
-  return { known: true, value: cur.value, validFrom: cur.tick, supportRecordId: cur.recordId, uncertain };
+  const endsAt = cur.end !== undefined ? cur.end : undefined;
+  return { known: true, value: cur.value, validFrom: cur.tick, supportRecordId: cur.recordId, uncertain, ...(endsAt !== undefined ? { endsAt } : {}) };
 }
 
 export function currentFacts(state: WorldState, cp?: Checkpoint): Map<string, FactAt> {

@@ -8,9 +8,10 @@ export const effectTarget = (ef: Effect): { entity_id: Id; predicate: Id } =>
   ef.op === 'set' ? { entity_id: ef.fact.entity_id, predicate: ef.fact.predicate } : { entity_id: ef.entity_id, predicate: ef.predicate };
 
 export function effectToDelta(e: Effect): FactDelta {
-  if (e.op === 'set') return { op: 'set', entity_id: e.fact.entity_id, predicate: e.fact.predicate, value: e.fact.value };
+  const until = e.op !== 'unset' && e.until && e.until !== 'lasting' ? { until: e.until } : {};
+  if (e.op === 'set') return { op: 'set', entity_id: e.fact.entity_id, predicate: e.fact.predicate, value: e.fact.value, ...until };
   if (e.op === 'unset') return { op: 'unset', entity_id: e.entity_id, predicate: e.predicate };
-  return { op: e.op, entity_id: e.entity_id, predicate: e.predicate, value: e.value };
+  return { op: e.op, entity_id: e.entity_id, predicate: e.predicate, value: e.value, ...until };
 }
 
 export const outcomeDelta = (o: Outcome): FactDelta => ({ op: o.op || 'set', entity_id: o.entity_id, predicate: o.predicate, value: o.value });

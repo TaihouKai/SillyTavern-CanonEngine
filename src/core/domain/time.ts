@@ -55,6 +55,18 @@ export function agoLabel(then: number, now: number): string {
   return y === 1 ? 'about a year ago' : `about ${y} years ago`;
 }
 
+/** When an event happens, for a model or a reader: the time the pack gives, or — when it gives only when the event
+ *  falls (a day, a part of it) — that span, never its start as if that were the time. */
+export function eventTimeText(t: { lo: number; hi: number; exact: boolean }, origin?: { y: number; m: number; d: number } | null): string {
+  if (!t.exact) return `some time between ${formatTick(t.lo, origin)} and ${formatTick(t.hi, origin)} (its exact time is not known)`;
+  return t.lo === t.hi ? formatTick(t.lo, origin) : `${formatTick(t.lo, origin)} – ${formatTick(t.hi, origin)}`;
+}
+
+/** "starts <time>" for an event with a known time, else when it falls. */
+export function startsText(t: { lo: number; hi: number; exact: boolean }, origin?: { y: number; m: number; d: number } | null): string {
+  return t.exact ? `starts ${formatTick(t.lo, origin)}` : eventTimeText(t, origin);
+}
+
 export function formatStoryTime(st: StoryTime | null | undefined, origin?: { y: number; m: number; d: number } | null): string {
   if (!st) return '?';
   if (st.lo === st.hi) return formatTick(st.lo, origin);

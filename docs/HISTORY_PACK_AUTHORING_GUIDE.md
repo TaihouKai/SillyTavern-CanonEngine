@@ -80,10 +80,16 @@ Every event has:
 
 | `precision` | Required meaning |
 | --- | --- |
-| `minute` | Equal earliest/latest coordinates |
-| `day` | One day, minute 0 through 1439 |
-| `range` | A finite ordered interval wider than one minute; used for genuine bounded uncertainty or an explicit authored timing choice |
+| `minute` | Equal earliest/latest coordinates — the sources give the minute |
+| `range` | A finite ordered interval wider than one minute: the sources give the time (a clock time, a span between two stated times) |
+| `part_of_day` | Inside one day (shorter than a day): the sources give only a part of it (清晨, 下午, 夜晚) |
+| `day` | One day, minute 0 through 1439: the sources give the day but no time |
+| `days` | A day or more: the sources give only a span of days ("10月初某日", "第三次世界大战期间") |
+| `month` | A whole month (at least 27 days): only the month |
+| `year` | Years: only the year or an era |
 | `unknown` | Both bounds are null; background reference only; cannot be HARD or automatically scheduled |
+
+**The window says how well the time is known — never more.** Only `minute` and `range` are a known time. Every other precision means "some time in this window": the engine and the GM treat the event as happening at an unknown moment inside it (an upcoming event is shown as a span, not a start time; a companion's chance event is owed only once its window has ended), and a dependency between two such events is not held to their windows. Do not write a guessed hour as `range`: an event whose sources give only its order, or a part of the day, gets the window of what is known (the part of the day, the day, the days between its neighbours), however wide.
 
 `basis` is `documented`, `editorial`, or `unknown`. `documented` means the author attributes the bounds to the corrected reference material. `editorial` marks a deliberate authored choice; explain it in `notes`. Unknown bounds use `basis: "unknown"`. The runtime does not widen these bounds on its own.
 
@@ -181,15 +187,21 @@ Runtime-created NPCs and interventions are stored under separate runtime IDs wit
 
 ## 6. Predicates and facts
 
-Declare every predicate once. A predicate has `id`, `description`, `value_type`, and optionally `allowed_values`, `transient` and `settled_values`.
+Declare every predicate once. A predicate has `id`, `description`, `value_type`, and optionally `allowed_values`.
 
-**Temporary conditions.** A fact holds until an event changes it. An injury, a hospital stay, being held prisoner or a current whereabouts that no later event ends therefore stays true for the rest of the timeline, and the GM is told that a character is "hospitalized" while canon has her fighting a week later. Mark such predicates `"transient": true`. `canon-lint` then warns when an event sets one and no later event ever ends it, although the character takes part in later events. End it with a later event or effect (for example `injury: "healed"`), and list values that are a settled state — healed, back home, a lasting disability — in `settled_values` so they are not flagged themselves:
+**Every effect says how long it holds (`until`).** Each `set`, `add` and `remove` in `canonical_effects` carries `until`, and `canon-lint` refuses a pack where one does not:
+
+- `"lasting"` — until a later change of the same fact, however long: where someone lives, a death, a lasting injury or disability, a new identity, imprisonment, a post, a dissolution, a place destroyed. Who joins and who leaves (`add`/`remove`) is always `"lasting"`.
+- `{"minutes": n}` — over by itself after n minutes, whatever happens: knocked out, a short stay at a scene, exhaustion, a passing phenomenon.
+- `{"event": "<id>"}` — over once that event is over (settled, or its window passed): in hospital until the event that has them out again, inside a place until the end of the story there, held captive until the rescue. It must be another event of the pack that does not end before this one begins.
+
+When a state is over, the fact is again what it was before that state (a person knocked out is again as they were; an injury that ends at the hospital stay's end leaves the earlier value), so a moment's condition never becomes the rest of the timeline (live: 上条 "inside the floating tower" a day after the film ended). Do not write a recovery as a state of its own ("已痊愈", "获救", "已苏醒" as lasting values): end the earlier state where it ends. An absent fact is UNKNOWN to the engine ("do not assume normality"), not "healthy".
 
 ```json
-{"id": "injury", "description": "Current injury or physical condition.", "value_type": "string", "transient": true, "settled_values": ["healed"]}
+{"op": "set", "fact": {"entity_id": "touma", "predicate": "whereabouts", "value": "医院"}, "until": {"event": "touma-leaves-hospital"}}
 ```
 
-Prefer a recovered value over `unset`: an absent fact is UNKNOWN to the engine ("do not assume normality"), not "healthy".
+**Everything an event changes beyond itself is in its effects.** The engine knows only what `canonical_effects` write: an aftermath told only in the summary (someone locked up afterwards, gone for good, a place destroyed, a thing passing to someone) never reaches the game. Write each such change as an effect of the event that causes it, with its `until`.
 
 **Who belongs to an organization.** Record membership as facts, so that every part of the engine knows it at any point of the timeline. A lorebook can describe an organization, but the engine's analysis steps do not read it, and it cannot change when someone joins, leaves or dies. Use a predicate `members` (`entity_set`) on the organization, and `leader` (`entity_ref`) for whoever runs it:
 
@@ -415,12 +427,14 @@ Release-blocking checks:
 3. Correct time shapes/precision/basis; ordered finite bounds; coverage and baseline consistency; unknown events excluded from the scheduler and HARD.
 4. HARD required description present, outcomes nonempty, agreement between contract/outcomes/effects, no automatic relaxation field.
 5. No conflicting writes within an event; each canonical outcome matched by a final canonical set effect; no self-satisfying event prerequisite; unresolved forward dependency in an alleged original route flagged for review.
+5a. Every `set`/`add`/`remove` effect has its `until` (§6); `add`/`remove` are `"lasting"`; `{"minutes": n}` is a positive whole number; an `{"event": id}` names another event that is not over before this one begins.
+5b. No event carries `review`: a builder marks there what a person has not decided yet (a time the sources leave open, how long a state holds, an aftermath the effects miss), and a pack with any mark is not finished.
 6. Acyclic explicit precedence; time/order feasibility. Overlapping intervals or shared entities are not by themselves contradictions. Two same-minute transitions can be ordered if their checkpoint semantics are explicit; do not assume concurrency from the timestamp alone.
 7. Arc membership consistent in both directions, with an event in at most its declared single arc. An event with `arc_id: null` need not belong to an arc.
 8. A meaningful baseline for dependency-critical state; missing optional facts remain unknown. A referenced source object exists even if its external locator cannot be fetched.
 9. Demonstrated Hard contradictions reported precisely. Do not claim a general proof of narrative satisfiability from a few graph checks.
 
-Warnings requiring author review: generic aliases, missing evidence detail, many unknown-time events, large unexplained time gaps, mixed time zones, circular motivational chains, temporal claims in static descriptions, duplicate events, incidental details overconstrained as Hard, promising coverage without relevant events, temporary conditions (`transient` predicates) that no later event ends, people who die while an organization's `members` set still lists them, and dependent events whose window overlaps their prerequisite's (a precondition `occurred`, or an `enables`/`precedes` link: the dependent event should start when its prerequisite is over; simultaneous events without a dependency may overlap, and events that run in parallel should be linked as `related`). These are review prompts, not excuses for the runtime to rewrite the source.
+Warnings requiring author review: generic aliases, missing evidence detail, many unknown-time events, large unexplained time gaps, mixed time zones, circular motivational chains, temporal claims in static descriptions, duplicate events, incidental details overconstrained as Hard, promising coverage without relevant events, people who die while an organization's `members` set still lists them, and dependent events with known times (`minute`/`range`) whose window overlaps their prerequisite's (a precondition `occurred`, or an `enables`/`precedes` link: the dependent event should start when its prerequisite is over; simultaneous events without a dependency may overlap, and events that run in parallel should be linked as `related`; a window whose time is not known cannot be narrowed and is not held to it). These are review prompts, not excuses for the runtime to rewrite the source.
 
 For the author's existing franchise references, validate internal consistency against the corrected source supplied for this task. Research new facts only under a separate request. Keep ambiguity explicit instead of inventing dates or asserting certainty.
 
@@ -486,7 +500,7 @@ Before handing off an authored pack, check:
 
 ## Appendix — implementation tooling
 
-The shipped implementation keeps this guide and `schemas/canon-pack.schema.json` unchanged (pack schema `1.0.0`; the only additions are the optional predicate fields `transient` and `settled_values`, engine 1.3.50). Validate a pack exactly as the extension does — JSON Schema plus every release-blocking semantic check in §10, with author-review warnings — without SillyTavern:
+The shipped implementation keeps this guide and `schemas/canon-pack.schema.json` unchanged (pack schema `1.0.0`; additions: every effect's `until` and an event's `review` mark, and the precisions `part_of_day`, `days`, `month`, `year`, engine 1.33.0). Validate a pack exactly as the extension does — JSON Schema plus every release-blocking semantic check in §10, with author-review warnings — without SillyTavern:
 
 ```
 node dist/canon-lint.mjs my-world.canon.json          # human-readable report, exit code 1 on errors

@@ -274,6 +274,7 @@ function renderSettings() {
     chat.push(`<div class="canon-pack"><b>${esc(E.packInfo()?.title || '')}</b> <span>v${esc(camp.packVersion)}</span>${camp.enabled ? '' : ` <span class="canon-tag">${t('phase_disabled')}</span>`}</div>`);
     if (!profileOk) chat.push(`<div class="canon-note warn">${t('needProfileTurns')}</div>`);
     if (E.packMissing()) chat.push(`<div class="canon-note err">${t('packMissing')}</div><div class="canon-btns"><button class="menu_button" data-act="update">${t('packRelink')}</button></div>`);
+    else if (E.packOutdated()) chat.push(`<div class="canon-note err">${t('packOutdated')}</div><div class="canon-btns"><button class="menu_button" data-act="update">${t('updatePack')}</button></div>`);
     const btn = (act: string, label: string, tipKey: string, cls = '') => `<button class="menu_button ${cls}" data-act="${act}" title="${esc(t(tipKey))}">${label}</button>`;
     chat.push(`<div class="canon-btns">
       ${btn('inspect', t('inspect'), 'inspectTip')}${btn('retry', t('retry'), 'retryTip')}${btn('rebuild', t('rebuild'), 'rebuildTip')}</div>

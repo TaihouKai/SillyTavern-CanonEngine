@@ -67,6 +67,7 @@ const D: Record<string, { zh: string; en: string }> = {
   frameNow: { zh: '当前时空', en: 'Scene frame' },
   packMissing: { zh: '这个对话用的历史包在历史包库里找不到了（文件被删除或移走）。请重新选择同一个历史包文件，对话会原样接上；在此之前 Canon Engine 无法工作。', en: 'The history pack of this chat is no longer in the pack library (the file was deleted or moved). Choose the same pack file again and the chat reconnects as it was; until then Canon Engine cannot work.' },
   packRelink: { zh: '选择历史包文件', en: 'Choose the pack file' },
+  packOutdated: { zh: '这个对话的历史包是旧格式，这一版 Canon Engine 读不了。请用「更换历史包」换成新版历史包（会先导出备份）；对话里的消息都不变，换包后按新包重新检查。在此之前 Canon Engine 无法工作。', en: 'The history pack of this chat is in an older format this version of Canon Engine does not read. Use Update pack to change to a current pack (a backup is exported first); the messages stay as they are and are checked again against the new pack. Until then Canon Engine cannot work.' },
   packRelinked: { zh: '历史包已重新接上', en: 'History pack reconnected' },
   packSame: { zh: '这就是本对话正在用的历史包，无需更新', en: 'This is the pack the chat already uses; nothing to update' },
   packMissingOther: { zh: '这不是本对话原来的历史包。请先选择原来的那个包把对话接上，再用「更新历史包」换版本。', en: 'This is not the pack the chat was bound to. Reconnect the original pack first, then use Update pack for another version.' },

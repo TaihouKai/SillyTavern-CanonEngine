@@ -124,6 +124,32 @@ describe('pack kept by reference', () => {
     expect(x.engine.pack().pack.pack_version).toBe('1.0.1');
   });
 
+  it('PR9 a pack this version does not read (an older format) is not "missing": 更换历史包 moves the chat on to a current pack', async () => {
+    const x = await bound();
+    await turn(x, 'I walk to the harbor.', 'Gulls cry. [PR9a]');
+    await x.host.save();
+    // the stored copy in an older format: effects without their "until" (live: the user's game after 1.33.0)
+    const file = x.engine.campaign()!.packRef!.file;
+    const old = JSON.parse(x.st.files.get(file)!);
+    for (const e of old.events) for (const f of e.canonical_effects) delete f.until;
+    x.st.files.set(file, JSON.stringify(old));
+    x.host.reload();
+    const y = new CanonEngine(x.host, { taskTimeoutMs: 5000, draftTimeoutMs: 5000 });
+    await expect(y.reconcile('chat_changed')).rejects.toMatchObject({ kind: 'pack_outdated' });
+    expect(y.packOutdated()).toMatch(/until/);
+    expect(y.packMissing()).toBe(false);           // not "choose the same pack again": that one cannot be read
+    const p = JSON.parse(demo);
+    p.pack_version = '1.1.0';
+    const d = y.diffPack(JSON.stringify(p));       // nothing to compare with: every event is new to the chat
+    expect(d.ok).toBe(true);
+    expect(d.added.length).toBe(p.events.length);
+    await y.applyPackUpdate(JSON.stringify(p));
+    expect(y.packOutdated()).toBeNull();
+    expect(y.campaign()!.packVersion).toBe('1.1.0');
+    expect(y.current?.replay.issue ?? null).toBeNull();
+    expect(y.current!.replay.state.occurrences.size).toBe(x.engine.current!.replay.state.occurrences.size);
+  });
+
   it('PR7 without a pack store (other hosts) the pack stays in the chat as before', async () => {
     const x = await bound(false);
     expect(x.engine.campaign()!.packSnapshot).toBeTruthy();

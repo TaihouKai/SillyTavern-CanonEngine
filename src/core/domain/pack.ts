@@ -1,6 +1,7 @@
 // Pack loading: JSON Schema validation, semantic lint, immutable Graph A with indexes.
 import * as V from '../generated/validators.js';
 import type { CanonPack, Condition, Effect, Fact, FactValue, Id, PackEvent, PackPredicate } from './types';
+import { EXACT_PRECISIONS } from './types';
 import { applyChange, effectTarget, effectToDelta } from './delta';
 import { toTick, whenToStoryTime } from './time';
 import { SUMMARY_LABELS, renderSummary, type EventSummary } from './summary';
@@ -16,7 +17,8 @@ export interface LoadedPack {
   entities: Map<Id, CanonPack['entities'][number]>;
   events: Map<Id, PackEvent>;
   /** Events with finite bounds sorted by (lo, hi, id). Unknown-time events are excluded. */
-  timeIndex: { id: Id; lo: number; hi: number }[];
+  /** exact: the window gives the event's time ("minute"/"range"); otherwise only when it falls (some time then). */
+  timeIndex: { id: Id; lo: number; hi: number; exact: boolean }[];
   unknownTimeEvents: Id[];
   hardEvents: Id[];
   edgesFrom: Map<Id, CanonPack['edges']>;
@@ -206,8 +208,6 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
         checkValue(tmp, v, `/predicates/${i}/allowed_values/${j}`);
       });
     }
-    (p.settled_values || []).forEach((v, j) => checkValue(p, v, `/predicates/${i}/settled_values/${j}`));
-    if (p.settled_values && !p.transient) warn(`/predicates/${i}/settled_values`, `settled_values only apply to a transient predicate; set "transient": true or remove them`);
   });
 
   // entities
@@ -318,6 +318,23 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
         checkEntity(ef.entity_id, `${P}/canonical_effects/${j}/entity_id`);
         if (!predicates.has(ef.predicate)) err(`${P}/canonical_effects/${j}/predicate`, `unknown predicate "${ef.predicate}"`);
       } else checkChange(ef.op, ef, `${P}/canonical_effects/${j}`);
+      // every effect says how long what it writes holds (no state of a moment left over for good)
+      if (ef.op !== 'unset') {
+        const u = ef.until;
+        if (u === undefined) err(`${P}/canonical_effects/${j}/until`, 'an effect must say how long it holds: "lasting", {"minutes": n} or {"event": id}');
+        else if (u !== 'lasting') {
+          if (ef.op !== 'set') err(`${P}/canonical_effects/${j}/until`, 'a change of who belongs (add/remove) lasts: "lasting"');
+          else if ('minutes' in u) { if (!(Number.isInteger(u.minutes) && u.minutes > 0)) err(`${P}/canonical_effects/${j}/until/minutes`, 'minutes must be a positive whole number'); }
+          else if ('event' in u) {
+            if (!pack.events.some((x) => x.id === u.event)) err(`${P}/canonical_effects/${j}/until/event`, `unknown event "${u.event}"`);
+            else if (u.event === ev.id) err(`${P}/canonical_effects/${j}/until/event`, 'an effect cannot last until its own event');
+            else {
+              const a = whenToStoryTime(ev.when), b = whenToStoryTime(pack.events.find((x) => x.id === u.event)!.when);
+              if (a && b && b.hi < a.lo) err(`${P}/canonical_effects/${j}/until/event`, `"${u.event}" is over before this event begins`);
+            }
+          } else err(`${P}/canonical_effects/${j}/until`, 'until must be "lasting", {"minutes": n} or {"event": id}');
+        }
+      }
       const clash = writes.has(key) || writes.has(`${t.entity_id}|${t.predicate}|set`) || (ef.op === 'set' && [...writes.keys()].some((k) => k.startsWith(`${t.entity_id}|${t.predicate}|`)));
       if (clash) err(`${P}/canonical_effects/${j}`, `multiple writes to ${t.entity_id}|${t.predicate} within one event`);
       writes.set(key, ef);
@@ -329,6 +346,7 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
       const ok = v !== undefined && (o.op ? list(o.value).every((x) => list(v).some((y) => valuesEqual(x, y))) : valuesEqual(v, o.value));
       if (!ok) err(`${P}/outcomes/${j}`, `outcome ${o.entity_id}.${o.predicate}${o.op ? ` ${o.op} ` : '='}${JSON.stringify(o.value)} has no matching canonical effect`);
     });
+    if (ev.review !== undefined) err(`${P}/review`, `needs review: ${ev.review}`);
     // time
     const w = ev.when;
     if (w.precision === 'unknown') {
@@ -343,6 +361,10 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
         if (hi < lo) err(`${P}/when`, 'latest precedes earliest (reversed interval)');
         if (w.precision === 'minute' && lo !== hi) err(`${P}/when`, 'minute precision requires equal earliest/latest');
         if (w.precision === 'day' && (w.earliest.day !== w.latest.day || w.earliest.minute !== 0 || w.latest.minute !== 1439)) err(`${P}/when`, 'day precision must span one day from minute 0 through 1439');
+        if (w.precision === 'part_of_day' && !(hi > lo && hi - lo < 1440)) err(`${P}/when`, 'part_of_day precision spans part of one day');
+        if (w.precision === 'days' && !(hi - lo >= 1440)) err(`${P}/when`, 'days precision spans more than a day');
+        if (w.precision === 'month' && !(hi - lo >= 27 * 1440)) err(`${P}/when`, 'month precision spans a month');
+        if (w.precision === 'year' && !(hi - lo >= 364 * 1440)) err(`${P}/when`, 'year precision spans a year');
         if (w.precision === 'range' && !(hi > lo)) err(`${P}/when`, 'range precision requires an interval wider than one minute');
         if (w.basis === 'unknown') err(`${P}/when/basis`, 'finite bounds cannot use basis "unknown"');
         if (lo <= covStart || hi > covEnd) err(`${P}/when`, `event bounds must lie within coverage and strictly after the initial baseline checkpoint`);
@@ -416,32 +438,15 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
       const ea = events.get(a), eb = events.get(b);
       const ta = ea ? whenToStoryTime(ea.when) : null, tb = eb ? whenToStoryTime(eb.when) : null;
       if (!ta || !tb || tb.lo >= ta.hi) continue;
+      // a window whose time is not known says only "some time then": it cannot be narrowed, and the order can hold
+      // inside it (a dependency that cannot hold at all is the precedence error above), so only two known times are held to it
+      if (!EXACT_PRECISIONS.includes(ea!.when.precision) || !EXACT_PRECISIONS.includes(eb!.when.precision)) continue;
       const i = pack.events.indexOf(eb!);
       warn(`/events/${i}/when`, `"${b}" depends on "${a}" (${[...how].join('/')}) but its window ${tb.lo < ta.lo || tb.hi < ta.hi ? 'can begin or end before' : 'overlaps'} that event's window; a dependent event should start when its prerequisite is over (narrow one of the windows, or use a "related" link for events that run in parallel)`);
     }
   }
 
-  // Temporary conditions nothing ends (review flag): an event sets a transient predicate (an injury, being
-  // held, a whereabouts) and the entity takes part in later events while no event changes it again, so the
-  // GM sees e.g. "hospitalized" for the rest of the timeline (live finding: 白井黑子 still 住院 when canon
-  // has her fighting six days later).
   const timed = pack.events.map((ev, i) => ({ ev, i, t: whenToStoryTime(ev.when) })).filter((x) => x.t).sort((a, b) => a.t!.lo - b.t!.lo);
-  const touches = (ef: Effect, ent: Id, pred: Id) => { const t = effectTarget(ef); return t.entity_id === ent && t.predicate === pred; };
-  for (const a of timed) {
-    a.ev.canonical_effects.forEach((ef, j) => {
-      if (ef.op !== 'set') return;
-      const p = predicates.get(ef.fact.predicate);
-      if (!p?.transient || (p.settled_values || []).some((v) => valuesEqual(v, ef.fact.value))) return;
-      const ent = ef.fact.entity_id;
-      // A condition that a later event ends may rightly hold while the entity takes part in between
-      // (someone ill during an escape); only one nothing ever ends is reported.
-      const after = timed.filter((b) => b !== a && b.t!.lo > a.t!.lo);
-      if (after.some((b) => b.ev.canonical_effects.some((x) => touches(x, ent, ef.fact.predicate)))) return;
-      const later = after.filter((b) => b.t!.lo > a.t!.hi && b.ev.entity_ids.includes(ent)).map((b) => b.ev.id);
-      if (later.length) warn(`/events/${a.i}/canonical_effects/${j}`, `temporary condition ${ent}.${ef.fact.predicate} = ${JSON.stringify(ef.fact.value)} is never ended by a later event, but ${ent} takes part in later events: ${later.slice(0, 5).join(', ')}${later.length > 5 ? ` (+${later.length - 5} more)` : ''}. Add an event or effect that ends it, or list the value in the predicate's settled_values if it lasts`);
-    });
-  }
-
   // Organization members who die (review flag): an event records a death, but a `members` set still lists that
   // person after it (the initial set with every change up to that event applied), so the death event (or a later
   // one) should remove them.
@@ -535,10 +540,13 @@ function buildLoaded(pack: CanonPack, warnings: LintIssue[]): LoadedPack {
   const unknownTimeEvents: Id[] = [];
   for (const ev of pack.events) {
     const st = whenToStoryTime(ev.when);
-    if (st) timeIndex.push({ id: ev.id, lo: st.lo, hi: st.hi });
+    if (st) timeIndex.push({ id: ev.id, lo: st.lo, hi: st.hi, exact: EXACT_PRECISIONS.includes(ev.when.precision) });
     else unknownTimeEvents.push(ev.id);
   }
-  timeIndex.sort((a, b) => a.lo - b.lo || a.hi - b.hi || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  // same start: the pack's own order (a builder writes a story's events in the order they happen; events of one day
+  // whose time is not known all start at the day's beginning)
+  const order = new Map(pack.events.map((e, i) => [e.id, i]));
+  timeIndex.sort((a, b) => a.lo - b.lo || order.get(a.id)! - order.get(b.id)!);
   const edgesFrom = new Map<Id, CanonPack['edges']>();
   const edgesTo = new Map<Id, CanonPack['edges']>();
   for (const e of pack.edges) {
@@ -590,6 +598,11 @@ function buildLoaded(pack: CanonPack, warnings: LintIssue[]): LoadedPack {
 }
 
 /** Reload a pinned snapshot (already validated at bind time). Throws if it no longer validates. */
+/** An event's window as the time index has it (with whether it gives the time); null for one without a time. */
+export function eventTime(pack: LoadedPack, id: Id): { lo: number; hi: number; exact: boolean } | null {
+  return pack.timeIndex.find((t) => t.id === id) || null;
+}
+
 export function loadPinnedPack(pack: CanonPack): LoadedPack {
   const r = validatePack(pack);
   if (!r.ok || !r.loaded) throw new Error('Pinned pack snapshot failed validation: ' + r.errors.map((e) => `${e.path} ${e.message}`).join('; '));

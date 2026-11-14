@@ -10,7 +10,13 @@ export interface Fact { entity_id: Id; predicate: Id; value: FactValue }
  *  loses those ids (an organization's members); a single value is filled when vacant (add) or emptied when it is that
  *  value (remove) — so a canon change keeps whatever play made of the fact (the player in a canon organization, a
  *  member who left in play, a leader the Persona made). */
-export type Effect = { op: 'set'; fact: Fact } | { op: 'unset'; entity_id: Id; predicate: Id } | { op: 'add' | 'remove'; entity_id: Id; predicate: Id; value: FactValue };
+export type Effect = { op: 'set'; fact: Fact; until?: Until } | { op: 'unset'; entity_id: Id; predicate: Id } | { op: 'add' | 'remove'; entity_id: Id; predicate: Id; value: FactValue; until?: Until };
+/** How long what an effect writes holds. Every effect of a pack says it (the pack lint refuses one that does not):
+ *  "lasting" — until a later change of the same fact (a death, joining, a post, knowing something, a lasting injury);
+ *  {minutes} — for that long after it happens (being knocked out, a fight's transformation, a short stay somewhere);
+ *  {event} — until that event is settled, or its window is over (in hospital until the event that discharges them,
+ *  inside a place until the story there ends). When it is over, the fact is what it was before (what lasts). */
+export type Until = 'lasting' | { minutes: number } | { event: Id };
 /** An outcome is a fact the event results in; op add/remove: those ids join or leave an entity set. */
 export interface Outcome extends Fact { op?: 'add' | 'remove' }
 export type Condition =
@@ -20,10 +26,17 @@ export type Condition =
   | { fact: Fact }
   | { occurred: Id };
 
+/** How well the time of an event is known; the window [earliest, latest] covers exactly that much. "minute": at a
+ *  known moment; "range": during a known span; "part_of_day": some time in that part of one day (morning, night);
+ *  "day": some time that day; "days": some time within those days; "month", "year": some time within it; "unknown":
+ *  no time. Only "minute" and "range" give a time: the others never stand for a moment in the window (the engine
+ *  treats them as "some time then"). */
+export type WhenPrecision = 'minute' | 'range' | 'part_of_day' | 'day' | 'days' | 'month' | 'year' | 'unknown';
+export const EXACT_PRECISIONS: readonly WhenPrecision[] = ['minute', 'range'];
 export interface PackWhen {
   earliest: PackTime | null;
   latest: PackTime | null;
-  precision: 'minute' | 'day' | 'range' | 'unknown';
+  precision: WhenPrecision;
   label: string;
   basis: 'documented' | 'editorial' | 'unknown';
   notes: string;
@@ -47,6 +60,9 @@ export interface PackEvent {
   cast?: CastMember[];
   /** The time frame it happens in (default: the frame of its places, else the main frame). */
   frame_id?: Id;
+  /** Set by a builder when something about the event needs a person's decision (its time, an effect's end, an
+   *  impact it could not express): the pack lint refuses a pack while any event carries one. */
+  review?: string;
 }
 export interface CastMember { entity_id: Id; at: PackTime; role: string }
 export interface PackEntity {
@@ -83,10 +99,6 @@ export interface PackPredicate {
   id: Id; description: string;
   value_type: 'boolean' | 'number' | 'string' | 'entity_ref' | 'entity_set';
   allowed_values?: FactValue[];
-  /** A temporary condition (injury, being held, current whereabouts): lint expects a later event to end it. */
-  transient?: boolean;
-  /** Values of a transient predicate that are a settled state (healed, back home, a lasting disability). */
-  settled_values?: FactValue[];
 }
 export interface PackEdge { id: Id; from: Id; to: Id; relation: 'enables' | 'motivates' | 'precedes' | 'related'; basis: string; source_refs: Id[]; note: string }
 /** A part of the world that keeps its own local time. The story clock is always the main clock; a frame says how
@@ -132,9 +144,9 @@ export interface SourceRef {
 export type EvidenceKind = 'direct' | 'attempt' | 'quote' | 'hypothetical' | 'dream' | 'belief' | 'outcome' | 'adjudication' | 'bootstrap';
 
 export type FactDelta =
-  | { op: 'set'; entity_id: Id; predicate: Id; value: FactValue }
+  | { op: 'set'; entity_id: Id; predicate: Id; value: FactValue; until?: Until }
   | { op: 'unset'; entity_id: Id; predicate: Id }
-  | { op: 'add' | 'remove'; entity_id: Id; predicate: Id; value: FactValue };
+  | { op: 'add' | 'remove'; entity_id: Id; predicate: Id; value: FactValue; until?: Until };
 
 export type RecordKind =
   | 'initial_bootstrap'

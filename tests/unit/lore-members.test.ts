@@ -31,8 +31,8 @@ function membersPack(opts: { deathWithoutUpdate?: boolean } = {}) {
   const base = p.events.find((e: any) => e.id === 'harbor-festival');
   const ev = (id: string, day: number, ents: string[], effects: unknown[]) => ({ ...JSON.parse(JSON.stringify(base)), id, title: id, summary: id, classification: 'FREE', when: { earliest: { day, minute: 600 }, latest: { day, minute: 660 }, precision: 'range', label: id, basis: 'documented', notes: '' }, entity_ids: ents, location_ids: [], arc_id: null, outcomes: [], canonical_effects: effects, cast: undefined });
   p.events.push(ev('ren-errand', 2, ['ren'], []));
-  p.events.push(ev('council-falls', 4, ['council'], [{ op: 'remove', entity_id: 'council', predicate: 'members', value: ['sol', 'ren'] }]));
-  if (opts.deathWithoutUpdate) p.events.push(ev('ren-dies', 3, ['ren'], [{ op: 'set', fact: { entity_id: 'ren', predicate: 'alive', value: false } }]));
+  p.events.push(ev('council-falls', 4, ['council'], [{ op: 'remove', entity_id: 'council', predicate: 'members', value: ['sol', 'ren'] , until: 'lasting' }]));
+  if (opts.deathWithoutUpdate) p.events.push(ev('ren-dies', 3, ['ren'], [{ op: 'set', fact: { entity_id: 'ren', predicate: 'alive', value: false } , until: 'lasting' }]));
   for (const a of p.arcs || []) a.event_ids = (a.event_ids || []).filter((x: string) => p.events.some((e: any) => e.id === x));
   return JSON.stringify(p);
 }

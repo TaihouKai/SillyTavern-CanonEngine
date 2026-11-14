@@ -3,13 +3,13 @@
 import { loreFor, type LoreBackground, type LoreEntry } from './lore';
 import type { Persona } from './host';
 import type { Id, LedgerRecord, MindProfile, NatureVersion, StoryTime } from '../domain/types';
-import { loadPinnedPack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
+import { loadPinnedPack, validatePack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { normalizeName, valuesEqual } from '../domain/pack';
 import { buildBootstrap, causeOf, isDue, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
 import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { WorldIndex } from '../domain/world-query';
-import { agoLabel, clockReadings, formatTick, formatStoryTime, fromTick, occurrenceTime, parseDateLabel, readingTick, toTick } from '../domain/time';
+import { agoLabel, clockReadings, eventTimeText, formatTick, formatStoryTime, fromTick, occurrenceTime, parseDateLabel, readingTick, toTick } from '../domain/time';
 import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
 import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
@@ -355,7 +355,9 @@ export class CanonEngine {
     if (!c) throw new EngineError('invalid_pack', 'no pack bound');
     if (!this.packCache || this.packCache.hash !== c.packHash) {
       if (!c.packSnapshot) throw new EngineError('pack_missing', this.packMissingMessage(c));
-      const loaded = loadPinnedPack(c.packSnapshot);
+      const r = validatePack(c.packSnapshot);
+      if (!r.ok || !r.loaded) throw this.outdated(c, r.errors);
+      const loaded = r.loaded;
       if (loaded.hash !== c.packHash) throw new EngineError('invalid_pack', 'pinned pack snapshot hash mismatch');
       this.packCache = { hash: loaded.hash, loaded };
     }
@@ -380,9 +382,21 @@ export class CanonEngine {
     const text = this.host.packStore ? await this.host.packStore.load({ hash: c.packHash, file: c.packRef?.file }).catch(() => null) : null;
     if (!text) throw new EngineError('pack_missing', this.packMissingMessage(c));
     const r = validatePackText(text);
-    if (!r.ok || !r.loaded || r.loaded.hash !== c.packHash) throw new EngineError('pack_missing', this.packMissingMessage(c));
+    if (!r.ok || !r.loaded) throw this.outdated(c, r.errors);
+    if (r.loaded.hash !== c.packHash) throw new EngineError('pack_missing', this.packMissingMessage(c));
     this.packCache = { hash: r.loaded.hash, loaded: r.loaded };
     return this.overlaid(r.loaded);
+  }
+
+  /** The chat's pack is there, but this version of the engine does not read it (a pack in an older format): nothing
+   *  can run on it, and the way on is 更新历史包 to a pack it reads — which needs nothing of the old one. */
+  private packUnreadable: string | null = null;
+  packOutdated(): string | null { return this.packUnreadable; }
+  private outdated(c: CampaignData, errors: LintIssue[]): EngineError {
+    this.packUnreadable = errors.slice(0, 3).map((e) => `${e.path} ${e.message}`).join('; ');
+    const what = `${c.packRef?.title || c.packRef?.packId || c.packSnapshot?.title || '?'} v${c.packVersion}`;
+    return new EngineError('pack_outdated', this.tr(`本对话的历史包（${what}）是旧格式，这一版 Canon Engine 读不了（${this.packUnreadable}）。请用「更换历史包」换成新版历史包（会先导出备份）；对话里的消息都不变，换包后按新包重新检查。`,
+      `The history pack of this chat (${what}) is in an older format this version of Canon Engine does not read (${this.packUnreadable}). Use Update pack to change to a current pack (a backup is exported first); the chat's messages stay as they are and are checked again against the new pack.`));
   }
 
   /** Store a pack and check the stored copy; returns its reference. */
@@ -407,7 +421,7 @@ export class CanonEngine {
   /** The chat's pack is not in the store any more: the same pack (same hash) chosen again reconnects it. */
   packMissing(): boolean {
     const c = this.campaign();
-    return !!c && !c.packSnapshot && this.packCache?.hash !== c.packHash;
+    return !!c && !c.packSnapshot && this.packCache?.hash !== c.packHash && !this.packUnreadable;
   }
 
   async relinkPack(text: string): Promise<void> { return this.change(() => this.relinkPackNow(text)); }
@@ -630,7 +644,7 @@ export class CanonEngine {
     const chatAtStart = this.host.chatId();
     let pack: LoadedPack;
     try { pack = await this.ensurePack(c, !readOnly); } catch (e) {
-      if (e instanceof EngineError && e.kind === 'pack_missing') { this.current = null; this.setStatus('error', e.message, { errorKind: 'pack_missing' } as Partial<StatusInfo>); }
+      if (e instanceof EngineError && (e.kind === 'pack_missing' || e.kind === 'pack_outdated')) { this.current = null; this.setStatus('error', e.message, { errorKind: e.kind } as Partial<StatusInfo>); }
       throw e;
     }
     this.recoverPending(c);
@@ -1471,7 +1485,7 @@ export class CanonEngine {
       if (t.hi < tick) continue;
       const ev = pack.events.get(t.id)!;
       if (ev.participation.offer !== 'when_relevant' || index.state.dispositions.has(ev.id) || index.state.declines.has(ev.id)) continue;
-      out.push({ id: ev.id, title: ev.title, hook: ev.participation.hook, when: formatTick(t.lo) });
+      out.push({ id: ev.id, title: ev.title, hook: ev.participation.hook, when: eventTimeText(t) });
     }
     return out;
   }
@@ -2654,6 +2668,8 @@ export class CanonEngine {
     const c = this.campaign();
     const r = validatePackText(newText);
     if (!r.ok || !r.loaded || !c) return { ok: false, errors: r.errors, changed: [], deleted: [], added: [], hardChanged: [] };
+    // an old pack this version does not read cannot be compared: every event of the new one is new to the chat
+    if (this.packUnreadable) return { ok: true, errors: [], changed: [], deleted: [], added: r.loaded.pack.events.map((e) => e.id), hardChanged: [...r.loaded.hardEvents] };
     const oldEv = new Map(this.pack().pack.events.map((e) => [e.id, e]));
     const newEv = new Map(r.loaded.pack.events.map((e) => [e.id, e]));
     const changed: string[] = [], deleted: string[] = [], added: string[] = [], hardChanged: string[] = [];
@@ -2681,6 +2697,7 @@ export class CanonEngine {
     c.bootstrapRecords = buildBootstrap(r.loaded, c.binding.startTick).records;
     c.configRevisions.push({ at: this.host.now(), summary: `pack updated to ${r.loaded.pack.pack_id}@${r.loaded.pack.pack_version}` });
     c.planRevisions.forEach((p) => (p.status = 'stale'));
+    this.packUnreadable = null;
     // Interpretations reference ids of the old pack; keep them and revalidate them deterministically
     // against the new bootstrap (replay checks every one whose basis state changed). The messages
     // themselves did not change, so the manifest is kept: clearing it would mark every message as
@@ -3302,7 +3319,7 @@ export function joinContinuation(prefix: string, cont: string): string {
 
 export function labelForError(kind: string): string {
   const m: Record<string, string> = {
-    invalid_pack: 'Invalid pack', unresolved_start_time: 'Unresolved starting time', conflicting_transcript: 'Conflicting retained transcript', provider_failure: 'Provider failure',
+    invalid_pack: 'Invalid pack', pack_missing: 'Pack missing', pack_outdated: 'Pack in an older format', unresolved_start_time: 'Unresolved starting time', conflicting_transcript: 'Conflicting retained transcript', provider_failure: 'Provider failure',
     invalid_model_json: 'Invalid model JSON', narrative_validation_failure: 'Narrative validation failure', stale_response: 'Stale response', incompatible_adapter: 'Incompatible adapter',
     stale_memory: 'Stale memory', persistence_failure: 'Persistence failure', capacity: 'Context capacity', cancelled: 'Cancelled', configuration_conflict: 'Configuration conflict', busy: 'Busy', invalid_input: 'Message sent back',
   };

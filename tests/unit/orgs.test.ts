@@ -32,7 +32,7 @@ function orgPack(over: (p: any) => void = () => {}) {
   p.events.push({ ...JSON.parse(JSON.stringify(base)), id: 'council-reshuffle', title: 'Council reshuffle', summary: 'reshuffle', classification: 'SOFT',
     when: { earliest: { day: 3, minute: 600 }, latest: { day: 3, minute: 660 }, precision: 'range', label: 'x', basis: 'documented', notes: '' }, entity_ids: ['council', 'ren', 'sol'], location_ids: [], arc_id: null,
     outcomes: [{ op: 'remove', entity_id: 'council', predicate: 'members', value: ['ren'] }],
-    canonical_effects: [{ op: 'remove', entity_id: 'council', predicate: 'members', value: ['ren'] }, { op: 'remove', entity_id: 'council', predicate: 'leader', value: 'sol' }, { op: 'add', entity_id: 'council', predicate: 'leader', value: 'ren' }] });
+    canonical_effects: [{ op: 'remove', entity_id: 'council', predicate: 'members', value: ['ren'] , until: 'lasting' }, { op: 'remove', entity_id: 'council', predicate: 'leader', value: 'sol' , until: 'lasting' }, { op: 'add', entity_id: 'council', predicate: 'leader', value: 'ren' , until: 'lasting' }] });
   over(p);
   return JSON.stringify(p);
 }
@@ -59,7 +59,7 @@ const ctx = (x: X, i = -1) => String(x.model.tasks('draft').slice(i)[0].input.en
 describe('who joins and who leaves', () => {
   it('OR1 an event writes an entity set only by who joins and leaves; outcomes say the same; a whole list is an error', () => {
     expect(validatePackText(orgPack()).ok).toBe(true);
-    const whole = validatePackText(orgPack((p) => { p.events.at(-1).canonical_effects[0] = { op: 'set', fact: { entity_id: 'council', predicate: 'members', value: ['sol'] } }; p.events.at(-1).outcomes = []; }));
+    const whole = validatePackText(orgPack((p) => { p.events.at(-1).canonical_effects[0] = { op: 'set', fact: { entity_id: 'council', predicate: 'members', value: ['sol'] } , until: 'lasting' }; p.events.at(-1).outcomes = []; }));
     expect(whole.errors.map((e) => e.message).join('\n')).toMatch(/council\.members is an entity set: an event writes who joins \(op "add"\) and who leaves \(op "remove"\)/);
     const unmatched = validatePackText(orgPack((p) => { p.events.at(-1).outcomes = [{ op: 'remove', entity_id: 'council', predicate: 'members', value: ['sol'] }]; }));
     expect(unmatched.errors.map((e) => e.message).join('\n')).toMatch(/outcome council\.members remove \["sol"\] has no matching canonical effect/);
@@ -100,7 +100,7 @@ describe('who joins and who leaves', () => {
   });
 
   it('OR4b an organization\'s status says since when it holds (live: a blackout of the first night shown as the city\'s status months on)', async () => {
-    const x = await setup(orgPack((p) => { p.predicates.push({ id: 'status', description: 'standing', value_type: 'string' }); p.events.at(-1).canonical_effects.push({ op: 'set', fact: { entity_id: 'council', predicate: 'status', value: 'in recess' } }); }), PROFILE([]));
+    const x = await setup(orgPack((p) => { p.predicates.push({ id: 'status', description: 'standing', value_type: 'string' }); p.events.at(-1).canonical_effects.push({ op: 'set', fact: { entity_id: 'council', predicate: 'status', value: 'in recess' } , until: 'lasting' }); }), PROFILE([]));
     x.model.on('evaluate', (i) => String(i.candidate).includes('[O4b]'), { scene_end: at(5, 9, 0) });
     expect(await turn(x, 'I sleep until the fifth day.', 'Days pass. [O4b]')).toBe(true);
     expect(x.engine.membershipView(false)!.now.find((o) => o.id === 'council')).toMatchObject({ status: 'in recess', statusSince: expect.stringMatching(/^D3 10:00, 2 days ago$/) });
@@ -178,7 +178,7 @@ describe('the Persona is the start; play goes on from it', () => {
     const me = player(x);
     x.host.addUser('I sign on with the Union.');
     x.model.draft('The dockmaster writes your name in the Union book. [J1]');
-    x.model.on('evaluate', (i) => String(i.candidate).includes('[J1]'), { occurrences: [occ('o1', 'Ash joins the Union', 'writes your name in the Union book', { actors: ['union'], origin: 'player' })], transitions: [{ op: 'add', entity_id: 'union', predicate: 'members', value: [me], quote: 'writes your name in the Union book', occurrence_ref: 'o1' }] });
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[J1]'), { occurrences: [occ('o1', 'Ash joins the Union', 'writes your name in the Union book', { actors: ['union'], origin: 'player' })], transitions: [{ op: 'add', entity_id: 'union', predicate: 'members', value: [me], quote: 'writes your name in the Union book', occurrence_ref: 'o1' , until: 'lasting' }] });
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect(factAt(st(x), 'union', 'members', { tick: st(x).clock.lo }).value).toContain(me);
     x.host.addUser('I wait at the piers.');
@@ -202,7 +202,7 @@ describe('the Persona is the start; play goes on from it', () => {
     expect(factAt(st(x), 'council', 'leader', { tick: st(x).clock.lo }).value).toBe('sol');
     x.host.addUser('I quit the Union.');
     x.model.draft('You hand back your Union badge. [J4]');
-    x.model.on('evaluate', (i) => String(i.candidate).includes('[J4]'), { occurrences: [occ('o1', 'Ash quits the Union', 'hand back your Union badge', { actors: ['union'], origin: 'player' })], transitions: [{ op: 'remove', entity_id: 'union', predicate: 'members', value: [me], quote: 'hand back your Union badge', occurrence_ref: 'o1' }] });
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[J4]'), { occurrences: [occ('o1', 'Ash quits the Union', 'hand back your Union badge', { actors: ['union'], origin: 'player' })], transitions: [{ op: 'remove', entity_id: 'union', predicate: 'members', value: [me], quote: 'hand back your Union badge', occurrence_ref: 'o1' , until: 'lasting' }] });
     expect(await x.engine.runOperation('normal')).toBe(true);
     await turn(x, 'I walk home.', 'You walk home. [J5]');
     expect(ctx(x)).toMatch(/organization: The Union \[union\] — now NOT a member any more \(left in play\)/);

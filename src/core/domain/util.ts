@@ -115,6 +115,7 @@ export function uniq<T>(arr: Iterable<T>): T[] {
 export type EngineErrorKind =
   | 'invalid_pack'
   | 'pack_missing'
+  | 'pack_outdated'
   | 'unresolved_start_time'
   | 'conflicting_transcript'
   | 'provider_failure'

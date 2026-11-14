@@ -33,7 +33,7 @@ function fixture() {
   ev.when = { ...ev.when, earliest: { day: 1, minute: 960 }, latest: { day: 1, minute: 960 }, label: 'Day 1, 16:00' };
   ev.canonical_preconditions = { all: [{ fact: { entity_id: 'east-bridge', predicate: 'condition', value: 'intact' } }] };
   ev.outcomes = [{ entity_id: 'east-bridge', predicate: 'condition', value: 'destroyed' }];
-  ev.canonical_effects = [{ op: 'set', fact: { entity_id: 'east-bridge', predicate: 'condition', value: 'destroyed' } }];
+  ev.canonical_effects = [{ op: 'set', fact: { entity_id: 'east-bridge', predicate: 'condition', value: 'destroyed' } , until: 'lasting' }];
   p.events.push(ev);
   return JSON.stringify(p);
 }
@@ -85,7 +85,7 @@ describe('W: actual history and world state', () => {
   it('W01 causal retrieval without mention — player, GM/NPC and adjudicated-canon origins (+ semantic expansion)', async () => {
     const x = await setup();
     // player-caused runtime event
-    await turn(x, 'I secretly take the key from the desk.', 'You pocket the key. [P1]', { '[P1]': { new_entities: [{ ref: 'pl', name: 'Traveler', kind: 'person', description: 'the player', quote: 'You pocket the key' }], occurrences: [occ('o1', 'Player took the archive key', 'You pocket the key', { origin: 'player', actors: ['pl'], affected: ['archive-key', 'archivist'], visibility: 'secret', knowers: ['pl'] })], transitions: [{ op: 'set', entity_id: 'archive-key', predicate: 'holder', value: 'pl', quote: 'You pocket the key', occurrence_ref: 'o1' }], scene_entities: ['archive-key'] } });
+    await turn(x, 'I secretly take the key from the desk.', 'You pocket the key. [P1]', { '[P1]': { new_entities: [{ ref: 'pl', name: 'Traveler', kind: 'person', description: 'the player', quote: 'You pocket the key' }], occurrences: [occ('o1', 'Player took the archive key', 'You pocket the key', { origin: 'player', actors: ['pl'], affected: ['archive-key', 'archivist'], visibility: 'secret', knowers: ['pl'] })], transitions: [{ op: 'set', entity_id: 'archive-key', predicate: 'holder', value: 'pl', quote: 'You pocket the key', occurrence_ref: 'o1' , until: 'lasting' }], scene_entities: ['archive-key'] } });
     await turn(x, 'I go back to the archive door.', 'The archivist searches his drawers. [P2]', {}, { scene_entities: ['archive-key'] });
     expect(HIST(lastDraftCtx(x))).toContain('Player took the archive key');
     // GM/NPC-caused event
@@ -135,8 +135,8 @@ describe('W: actual history and world state', () => {
     expect(h).toMatch(/later changes: .*holder -> "archivist"/);
     expect(factAt(st(x), 'archive-key', 'holder').value).toBe('archivist');
     // player theft then return
-    await turn(x, 'I steal the key.', 'You take the key. [L2]', { '[L2]': { new_entities: [{ ref: 'pl', name: 'Traveler', kind: 'person', description: 'player', quote: 'You take the key' }], occurrences: [occ('o1', 'Player stole the archive key', 'You take the key', { origin: 'player', actors: ['pl'], affected: ['archive-key'] })], transitions: [{ op: 'set', entity_id: 'archive-key', predicate: 'holder', value: 'pl', quote: 'You take the key', occurrence_ref: 'o1' }] } });
-    await turn(x, 'I return the key.', 'You hand it back. [L3]', { '[L3]': { occurrences: [occ('o1', 'Player returned the archive key', 'You hand it back', { origin: 'player', affected: ['archive-key', 'archivist'] })], transitions: [{ op: 'set', entity_id: 'archive-key', predicate: 'holder', value: 'archivist', quote: 'You hand it back', occurrence_ref: 'o1' }] } });
+    await turn(x, 'I steal the key.', 'You take the key. [L2]', { '[L2]': { new_entities: [{ ref: 'pl', name: 'Traveler', kind: 'person', description: 'player', quote: 'You take the key' }], occurrences: [occ('o1', 'Player stole the archive key', 'You take the key', { origin: 'player', actors: ['pl'], affected: ['archive-key'] })], transitions: [{ op: 'set', entity_id: 'archive-key', predicate: 'holder', value: 'pl', quote: 'You take the key', occurrence_ref: 'o1' , until: 'lasting' }] } });
+    await turn(x, 'I return the key.', 'You hand it back. [L3]', { '[L3]': { occurrences: [occ('o1', 'Player returned the archive key', 'You hand it back', { origin: 'player', affected: ['archive-key', 'archivist'] })], transitions: [{ op: 'set', entity_id: 'archive-key', predicate: 'holder', value: 'archivist', quote: 'You hand it back', occurrence_ref: 'o1' , until: 'lasting' }] } });
     // the extractor maps the paraphrase ("theft" vs "stole") to an id from the offered catalogue
     await turn(x, 'Someone asks about my theft of the key.', 'Silence. [L4]', {}, (i: any) => ({ references: [ref('my theft of the key', 'event', { candidates: i.occurrences.filter((o: any) => /stole/.test(o.title)).map((o: any) => o.id) })] }));
     const h2 = HIST(lastDraftCtx(x));
@@ -199,7 +199,7 @@ describe('W: actual history and world state', () => {
 
   it('W10 implicit contradictions: dead NPC greeting, using a missing key, a dissolved organization operating; established exceptions remain possible', async () => {
     const x = await setup();
-    await turn(x, 'I watch the square.', 'A falling beam kills Mira. [D0]', { '[D0]': { occurrences: [occ('o1', 'Mira killed by a falling beam', 'kills Mira', { affected: ['mira'] })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: false, quote: 'kills Mira', occurrence_ref: 'o1' }] } });
+    await turn(x, 'I watch the square.', 'A falling beam kills Mira. [D0]', { '[D0]': { occurrences: [occ('o1', 'Mira killed by a falling beam', 'kills Mira', { affected: ['mira'] })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: false, quote: 'kills Mira', occurrence_ref: 'o1' , until: 'lasting' }] } });
     x.model.on('extract_user', (i) => i.message.includes('dissolved'), { statements: [{ kind: 'asserted_fact', quote: 'The Council was dissolved', summary: 'council dissolved', entities: ['council'], facts: [{ entity_id: 'council', predicate: 'status', value: 'dissolved' }], event_id: null, time: null, ambiguous: false }] });
     await turn(x, 'The Council was dissolved last night.', 'Noted. [D1]');
     for (const [marker, claim] of [['[G1]', { entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira greets you warmly' }], ['[K1]', { entity_id: 'archive-key', predicate: 'holder', value: 'courier', quote: 'The courier unlocks the archive with his key' }], ['[O1]', { entity_id: 'council', predicate: 'status', value: 'active', quote: 'Council clerks stamp your petition' }]] as const) {
@@ -215,7 +215,7 @@ describe('W: actual history and world state', () => {
     // a genuine established exception: the reply itself depicts a supported change with its own occurrence
     x.host.addUser('I use the resurrection relic on Mira.');
     x.model.draft('The relic flares; Mira breathes again and greets you. [X1]');
-    x.model.on('evaluate', (i) => String(i.candidate).includes('[X1]'), { occurrences: [occ('o1', 'Mira resurrected by the relic', 'Mira breathes again', { origin: 'player', affected: ['mira'] })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira breathes again', occurrence_ref: 'o1' }], state_claims: [{ entity_id: 'mira', predicate: 'alive', value: true, quote: 'greets you' }], player_actions: [{ quote: 'The relic flares', authorized_by_quote: 'I use the resurrection relic on Mira' }] });
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[X1]'), { occurrences: [occ('o1', 'Mira resurrected by the relic', 'Mira breathes again', { origin: 'player', affected: ['mira'] })], transitions: [{ op: 'set', entity_id: 'mira', predicate: 'alive', value: true, quote: 'Mira breathes again', occurrence_ref: 'o1' , until: 'lasting' }], state_claims: [{ entity_id: 'mira', predicate: 'alive', value: true, quote: 'greets you' }], player_actions: [{ quote: 'The relic flares', authorized_by_quote: 'I use the resurrection relic on Mira' }] });
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect([...st(x).occurrences.values()].some((o) => o.title === 'Mira killed by a falling beam')).toBe(true);
   });
@@ -225,7 +225,7 @@ describe('W: actual history and world state', () => {
     expect(await turn(x, 'I remember yesterday.', 'Yesterday morning the market bustled with traders. [F1]', { '[F1]': { flashback: true, state_claims: [{ entity_id: 'old-market', predicate: 'condition', value: 'intact', quote: 'Yesterday morning the market bustled', at: D(1, 9) }] } })).toBe(true);
     x.host.addUser('I look at the market now.');
     x.model.draft('The market bustles today. [F2]', 'The market bustles today. [F2]', 'The market bustles today. [F2]');
-    x.model.on('evaluate', (i) => String(i.candidate).includes('[F2]'), { state_claims: [{ entity_id: 'old-market', predicate: 'condition', value: 'intact', quote: 'The market bustles today', at: null }], transitions: [{ op: 'set', entity_id: 'old-market', predicate: 'condition', value: 'intact', quote: 'The market bustles today', occurrence_ref: null }] });
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[F2]'), { state_claims: [{ entity_id: 'old-market', predicate: 'condition', value: 'intact', quote: 'The market bustles today', at: null }], transitions: [{ op: 'set', entity_id: 'old-market', predicate: 'condition', value: 'intact', quote: 'The market bustles today', occurrence_ref: null , until: 'lasting' }] });
     expect(await x.engine.runOperation('normal')).toBe(false); // a bare claimed restoration cannot establish itself
   });
 
@@ -241,7 +241,7 @@ describe('W: actual history and world state', () => {
 
   it('W13 after a supported restoration, current state is restored while history returns destruction AND restoration', async () => {
     const x = await setup();
-    await turn(x, 'I fund the rebuilding.', 'Masons rebuild the market by evening. [Z1]', { '[Z1]': { scene_end: at(2, 20), occurrences: [occ('o1', 'Old Market rebuilt', 'Masons rebuild the market', { origin: 'player', affected: ['old-market'], locations: ['old-market'] })], transitions: [{ op: 'set', entity_id: 'old-market', predicate: 'condition', value: 'intact', quote: 'Masons rebuild the market', occurrence_ref: 'o1' }], player_actions: [{ quote: 'Masons rebuild', authorized_by_quote: 'I fund the rebuilding' }] } });
+    await turn(x, 'I fund the rebuilding.', 'Masons rebuild the market by evening. [Z1]', { '[Z1]': { scene_end: at(2, 20), occurrences: [occ('o1', 'Old Market rebuilt', 'Masons rebuild the market', { origin: 'player', affected: ['old-market'], locations: ['old-market'] })], transitions: [{ op: 'set', entity_id: 'old-market', predicate: 'condition', value: 'intact', quote: 'Masons rebuild the market', occurrence_ref: 'o1' , until: 'lasting' }], player_actions: [{ quote: 'Masons rebuild', authorized_by_quote: 'I fund the rebuilding' }] } });
     await turn(x, 'People talk about the old explosion at the market.', 'They remember. [Z2]', {}, { references: [ref('the old explosion at the market', 'event')] });
     const ctx = lastDraftCtx(x);
     expect(HIST(ctx)).toContain('Old Market explosion');
@@ -258,7 +258,7 @@ describe('W: actual history and world state', () => {
         x.model.draft('Smoke rises in the east. [Y0]');
         await x.engine.runOperation('normal');
       } else {
-        await turn(x, 'I look north.', 'Raiders torch the North District. [Y0]', { '[Y0]': { occurrences: [occ('o1', 'Raiders torched the North District', 'Raiders torch the North District', { affected: ['north-district'] })], transitions: [{ op: 'set', entity_id: 'north-district', predicate: 'condition', value: 'damaged', quote: 'Raiders torch the North District', occurrence_ref: 'o1' }] } });
+        await turn(x, 'I look north.', 'Raiders torch the North District. [Y0]', { '[Y0]': { occurrences: [occ('o1', 'Raiders torched the North District', 'Raiders torch the North District', { affected: ['north-district'] })], transitions: [{ op: 'set', entity_id: 'north-district', predicate: 'condition', value: 'damaged', quote: 'Raiders torch the North District', occurrence_ref: 'o1' , until: 'lasting' }] } });
       }
       await turn(x, 'I mourn the district.', 'You stare at the charred district. [Y1]', { '[Y1]': { state_claims: [{ entity_id: 'north-district', predicate: 'condition', value: 'damaged', quote: 'charred district' }] } });
       const srcIdx = role === 'user' ? 1 : 2;
@@ -335,10 +335,10 @@ describe('W: actual history and world state', () => {
     expect(await bad('[H1]', { entity_id: 'spice-shop', predicate: 'condition', value: 'intact', quote: 'The Spice Shop is open as usual' })).toBe(false);
     expect(x.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/inside Old Market/);
     // partial damage of a parent does not imply every building was destroyed
-    await turn(x, 'I go north.', 'Part of the north district is damaged. [H2]', { '[H2]': { occurrences: [occ('o1', 'North district partly damaged', 'Part of the north district is damaged', { affected: ['north-district'] })], transitions: [{ op: 'set', entity_id: 'north-district', predicate: 'condition', value: 'damaged', quote: 'Part of the north district is damaged', occurrence_ref: 'o1' }] } });
+    await turn(x, 'I go north.', 'Part of the north district is damaged. [H2]', { '[H2]': { occurrences: [occ('o1', 'North district partly damaged', 'Part of the north district is damaged', { affected: ['north-district'] })], transitions: [{ op: 'set', entity_id: 'north-district', predicate: 'condition', value: 'damaged', quote: 'Part of the north district is damaged', occurrence_ref: 'o1' , until: 'lasting' }] } });
     expect(await bad('[H3]', { entity_id: 'lantern-stall', predicate: 'condition', value: 'intact', quote: 'The Lantern Stall still sells lamps' })).toBe(true);
     // explicit supported exception inside the destroyed market
-    await turn(x, 'I check the spice shop.', 'Against all odds the Spice Shop survived intact. [H4]', { '[H4]': { occurrences: [occ('o1', 'Spice Shop found intact', 'the Spice Shop survived intact', { affected: ['spice-shop'] })], transitions: [{ op: 'set', entity_id: 'spice-shop', predicate: 'condition', value: 'intact', quote: 'the Spice Shop survived intact', occurrence_ref: 'o1' }] } });
+    await turn(x, 'I check the spice shop.', 'Against all odds the Spice Shop survived intact. [H4]', { '[H4]': { occurrences: [occ('o1', 'Spice Shop found intact', 'the Spice Shop survived intact', { affected: ['spice-shop'] })], transitions: [{ op: 'set', entity_id: 'spice-shop', predicate: 'condition', value: 'intact', quote: 'the Spice Shop survived intact', occurrence_ref: 'o1' , until: 'lasting' }] } });
     expect(await bad('[H5]', { entity_id: 'spice-shop', predicate: 'condition', value: 'intact', quote: 'The Spice Shop owner greets you' })).toBe(true);
   });
 

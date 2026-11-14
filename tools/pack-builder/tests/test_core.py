@@ -325,6 +325,29 @@ class PipelineTest(unittest.TestCase):
         res = report.lint(gcfg, path)
         if res is None:
             self.skipTest('canon-lint not available')
+        # nothing a person has not checked passes: every event is marked, and the lint refuses the pack
+        self.assertFalse(res['ok'])
+        self.assertTrue(all(e['path'].endswith('/review') for e in res['errors']), res['errors'])
+        self.assertTrue(all('时间未经人工核对' in e['review'] for e in pack['events']))
+        # a person checks each event's time, the end of each state and its impacts: the next build applies them
+        import datetime as dt_
+        from cpb import review
+        origin = dt_.date.fromisoformat(self.project['timeline']['origin_date'])
+        rv = review.load(self.project)
+        for e in pack['events']:
+            lo = e['when']['earliest']['day'] * 1440 + e['when']['earliest']['minute']
+            hi = e['when']['latest']['day'] * 1440 + e['when']['latest']['minute']
+            rv['times'][e['id']] = {'from': review.from_tick(origin, lo), 'to': review.from_tick(origin, hi), 'precision': 'range' if hi > lo else 'minute', 'note': 'checked'}
+            rv['impacts'][e['id']] = {'effects': [], 'note': 'nothing beyond the event'}
+            for o in e['canonical_effects']:
+                f = o.get('fact')
+                if f and f['predicate'] not in ('alive', 'members', 'leader', 'ally', 'holder', 'knows'):
+                    rv['ends'][review.end_key(e['id'], f['entity_id'], f['predicate'])] = {'value': f['value'], 'until': {'minutes': 60}}
+        review.save(self.project, rv)
+        pack, rep, chrep, clock, path = assemble.build(self.project)
+        self.assertFalse(any('review' in e for e in pack['events']))
+        self.assertTrue(all('until' in o for e in pack['events'] for o in e['canonical_effects'] if o.get('op', 'set') != 'unset'))
+        res = report.lint(gcfg, path)
         self.assertTrue(res['ok'], res.get('errors'))
 
     def test_pipeline_long_chapters_in_parts(self):

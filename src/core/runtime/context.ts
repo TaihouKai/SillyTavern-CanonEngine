@@ -3,7 +3,7 @@
 import type { Id, MindProfile, NatureVersion, PackEvent, PerceiveKind } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { WorldIndex, type HistoryRecordView, type EntityStateView, type CanonStatusView } from '../domain/world-query';
-import { formatStoryTime, formatTick, toTick } from '../domain/time';
+import { eventTimeText, formatStoryTime, formatTick, startsText, toTick } from '../domain/time';
 import { causeOf, pendingHard, upcomingRoute } from '../domain/schedule';
 import { summaryLines } from '../domain/summary';
 import { evalCondition, triLabel } from '../domain/reducer';
@@ -11,6 +11,9 @@ import { EngineError, sceneRoot, sha256 } from '../domain/util';
 import type { CoverageEntry, PlanRevision } from './types';
 import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
 import type { WorldState } from '../domain/reducer';
+
+/** Whether the pack gives an event's time (not only the day or part of the day it falls in). */
+const exactOf = (pack: LoadedPack, id: Id) => pack.timeIndex.find((t) => t.id === id)?.exact ?? true;
 
 export interface RefInput {
   id: string;
@@ -469,7 +472,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
     const head = jump > START_SOON_MINUTES
       ? `CANON EVENTS ABOUT TO START — the player's message jumps story time to ${formatTick(inp.timeJumpTo!, inp.origin)}; these start before then (NOT happened yet). Each begins at its time during the jump — the world does not wait: reflect the ones the player character would witness, be woken or interrupted by, or plausibly hear about; the others happen out of sight and you do not mention them. Keep the jump the player asked for: do not cut it short or stretch it to reach or avoid an event; how far their original routes bind depends on their class (rule below)`
       : `CANON EVENTS ABOUT TO START (within ${START_SOON_MINUTES / 60} hours of story time; NOT happened yet). If the story time of your reply reaches an event's start, it begins then — the world does not wait: show its start where the player character is present or would plausibly notice; otherwise it begins out of sight and you do not mention it. Do not speed up or slow down time to reach or avoid it; how far its original route binds depends on its class (rule below)`;
-    required.push(`${head}:\n` + starting.map((u) => `- ${u.event.title} [${u.event.id}] (${u.event.classification}) starts ${formatTick(u.lo, inp.origin)}${eventFrameTag(pack, u.event.id, u.lo)} (in ${minutesAway(u.lo - checkpointTick)}): ${causeOf(u.event)}${castLine(u.event, index, checkpointTick, inp.origin)}`).join('\n'));
+    required.push(`${head}:\n` + starting.map((u) => `- ${u.event.title} [${u.event.id}] (${u.event.classification}) ${startsText({ ...u, exact: exactOf(pack, u.event.id) }, inp.origin)}${eventFrameTag(pack, u.event.id, u.lo)}${exactOf(pack, u.event.id) ? ` (in ${minutesAway(u.lo - checkpointTick)})` : ''}: ${causeOf(u.event)}${castLine(u.event, index, checkpointTick, inp.origin)}`).join('\n'));
   }
   // Canon events the story has started but not finished: always shown, whether or not the latest messages name them.
   const underWay = underWayEvents(index, checkpointTick);
@@ -482,7 +485,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   const horizonEnd = checkpointTick + inp.horizon;
   const dueSoon = hard.filter((h) => h.lo <= horizonEnd);
   const later = hard.filter((h) => h.lo > horizonEnd);
-  const hardLines = dueSoon.map((h) => `- [${h.event.id}] ${formatTick(h.lo, inp.origin)}${h.hi !== h.lo ? ' – ' + formatTick(h.hi, inp.origin) : ''}${eventFrameTag(pack, h.event.id, h.lo)}: ${h.event.required_description} REQUIRED OUTCOMES: ${h.event.outcomes.map((o) => `${o.entity_id}.${o.predicate}=${JSON.stringify(o.value)}`).join(', ')}${h.hi <= checkpointTick ? ' **DUE NOW**' : ''}${castLine(h.event, index, checkpointTick, inp.origin)}`);
+  const hardLines = dueSoon.map((h) => `- [${h.event.id}] ${formatTick(h.lo, inp.origin)}${h.hi !== h.lo ? ' – ' + formatTick(h.hi, inp.origin) : ''}${exactOf(pack, h.event.id) ? '' : ' (some time in this span; its exact time is not known)'}${eventFrameTag(pack, h.event.id, h.lo)}: ${h.event.required_description} REQUIRED OUTCOMES: ${h.event.outcomes.map((o) => `${o.entity_id}.${o.predicate}=${JSON.stringify(o.value)}`).join(', ')}${h.hi <= checkpointTick ? ' **DUE NOW**' : ''}${castLine(h.event, index, checkpointTick, inp.origin)}`);
   if (!inp.review) required.push('FUTURE OBLIGATIONS (HARD; fixed content/outcome/time; route may change):\n' + (hardLines.length ? hardLines.join('\n') : '- none within the current horizon') + (later.length ? `\n- later HARD obligations exist (${later.length}); do not contradict them.` : ''));
   if (inp.forced) required.push('MODE: FORCED CONVERGENCE authorized by the controller — extraordinary world intervention may be depicted as a new event. It cannot erase history or choose the player\'s actions.');
   // Plan
@@ -511,7 +514,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
       && triLabel(evalCondition(pack.events.get(t.id)!.canonical_preconditions, index.state, pack, { tick: checkpointTick })) !== 'FALSE')
     .slice(0, 4);
   const open = openEvents.map((t) => { const e = pack.events.get(t.id)!; return `- ${e.title} (${e.classification}; ${formatTick(t.lo, inp.origin)} – ${formatTick(t.hi, inp.origin)}${eventFrameTag(pack, e.id, checkpointTick)}): ${e.summary.length > 160 ? e.summary.slice(0, 157) + '…' : e.summary}${whyLine(e, index)}${castLine(e, index, checkpointTick, inp.origin)}`; });
-  const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${formatTick(u.lo, inp.origin)}${eventFrameTag(pack, u.event.id, u.lo)} ${u.event.title}: ${causeOf(u.event)}`);
+  const soon = upcomingRoute(pack, index.state, checkpointTick, 24 * 60).filter((u) => !starting.some((x) => x.event.id === u.event.id)).map((u) => `- ${eventTimeText({ ...u, exact: exactOf(pack, u.event.id) }, inp.origin)}${eventFrameTag(pack, u.event.id, u.lo)} ${u.event.title}: ${causeOf(u.event)}`);
   if (soon.length) optional.push('WHERE OTHER CHARACTERS STAND (background only; from the original story of the next 24 hours; what these characters currently know, want and are doing — NOT what must happen). Use it only so that characters act on their own knowledge and motives: nobody notices, learns or pursues something earlier than this implies. Do not steer toward these events or foreshadow them (a WORLD REACTION given above is the one way the world may reach the player, and the COMPANIONS section says how the people with the player handle theirs); the player may change them, and actual play wins over this:\n' + soon.join('\n'));
   // An event in its window with a cast says who is there right now: never dropped for budget.
   const openCast = openEvents.some((t) => pack.events.get(t.id)!.cast?.length);

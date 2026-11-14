@@ -81,6 +81,8 @@ Required fields: `recordId`, `commitId`, `branchId`, `sequence`, `kind`, `storyT
 
 The reducer is pure and idempotent (a record id applies once). Occurrences are kept separate from fluent facts; a later reversal changes state but never deletes the occurrence. Missing facts are UNKNOWN.
 
+A `FactDelta` `set`/`add`/`remove` may carry `until` (a pack effect always does; `"lasting"` is the same as none): `{ minutes }` gives its transition an `end` tick, `{ event }` an `untilEvent` (the end is that event's settlement, or the end of its window when it is never settled). A fact is read as the latest transition at that time that is not over; when one is over, the one before it holds again (`factAt`, `transitionOver`). Facts that end by themselves do not count as the player's lasting state (`playerContextHash`).
+
 ## 5. Plans
 
 `PlanRevision`: `planId`, `worldRevision`, `sourcePrefixHash`, `mode` (`NORMAL`/`FORCED_CONVERGENCE`), `protectedAnchorIds`, `assumptions` (with optional fact references), `rationale`, `risks`, `steps`, `inadequacyNote`, `status` (`active`/`stale`/`superseded`), `preconditionSignature` (truth values of protected anchors' original prerequisites; a change forces replanning), `playerContextHash` (profile revision, the player's decisions and the lasting state of the player's own entities; a change forces replanning).

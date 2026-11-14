@@ -267,6 +267,9 @@
             },
             "fact": {
               "$ref": "#/$defs/fact"
+            },
+            "until": {
+              "$ref": "#/$defs/until"
             }
           },
           "required": [
@@ -312,6 +315,9 @@
             },
             "value": {
               "$ref": "#/$defs/value"
+            },
+            "until": {
+              "$ref": "#/$defs/until"
             }
           },
           "required": [
@@ -450,17 +456,6 @@
           ]
         },
         "allowed_values": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/value"
-          },
-          "minItems": 1,
-          "uniqueItems": true
-        },
-        "transient": {
-          "type": "boolean"
-        },
-        "settled_values": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/value"
@@ -682,8 +677,12 @@
         "precision": {
           "enum": [
             "minute",
-            "day",
             "range",
+            "part_of_day",
+            "day",
+            "days",
+            "month",
+            "year",
             "unknown"
           ]
         },
@@ -940,6 +939,10 @@
         },
         "frame_id": {
           "$ref": "#/$defs/id"
+        },
+        "review": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -991,11 +994,7 @@
                     "$ref": "#/$defs/time"
                   },
                   "precision": {
-                    "enum": [
-                      "minute",
-                      "day",
-                      "range"
-                    ]
+                    "enum": ["minute", "range", "part_of_day", "day", "days", "month", "year"]
                   },
                   "basis": {
                     "enum": [
@@ -1194,6 +1193,38 @@
         "clock"
       ],
       "additionalProperties": false
+    },
+    "until": {
+      "oneOf": [
+        {
+          "const": "lasting"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "minutes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "minutes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "event"
+          ],
+          "additionalProperties": false
+        }
+      ]
     }
   }
 }

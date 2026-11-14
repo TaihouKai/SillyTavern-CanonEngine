@@ -47,9 +47,11 @@ def mock(task, user):
         return {'entities': out}
     if task.startswith('dedupe'):   # nothing is a duplicate (both the group listing and the pair check)
         return {'groups': [], 'same': False, 'why': '模拟'}
-    if task == 'lasting':   # a status that names an attack is passing, the rest lasts
-        items = re.findall(r'^(\d+)\. .*? — status: (.*)$', user, re.M)
-        return {'items': [{'n': int(n), 'is': 'passing' if '袭击' in v else 'lasting'} for n, v in items]}
+    if task == 'ends':   # a state that names an attack is over within the hour, the rest lasts
+        items = re.findall(r'^(\d+)\. .*? — \w+: (.*)$', user, re.M)
+        return {'items': [{'n': int(n), 'until': 'minutes', 'minutes': 60} if '袭击' in v else {'n': int(n), 'until': 'lasting'} for n, v in items]}
+    if task == 'impacts':   # nothing beyond the events
+        return {'items': [{'n': int(n), 'add': []} for n in re.findall(r'^(\d+)\. ', user, re.M)]}
     if task == 'deaths':   # whoever is present later came back
         return {'items': [{'n': int(n), 'is': 'returned'} for n in re.findall(r'^(\d+)\. ', user, re.M)]}
     if task == 'start':   # the first candidate is a member

@@ -8,10 +8,12 @@ import datetime as dt
 import os
 import re
 
-from .lasting import MOMENT
+from .changes import DISSOLVED, NOT_WHOLE
 from .util import ROOT, read_json
 
 DAY = 1440
+# a person's status that is a moment's (knocked out, fighting, on the way): one hanging for weeks is a leftover
+MOMENT = re.compile(r'被击倒|昏迷|昏倒|晕倒|正在|中$|对峙|交战|逃跑|追击|战斗|待命|赶往|前往')
 
 
 def _at(e):
@@ -26,15 +28,20 @@ def _f(x):
 class _Replay:
     """The pack's facts as the events change them, in time order."""
 
-    def __init__(self, pack):
+    def __init__(self, pack, end_of=None):
         self.facts = {(f['fact']['entity_id'], f['fact']['predicate']): f['fact']['value'] for f in pack['initial_state']['facts']}
+        self.ends = {}
+        self.end_of = end_of or (lambda x, at: float('inf'))
 
-    def apply(self, x):
+    def apply(self, x, at=None):
         f, op = _f(x), x.get('op', 'set')
         k = (f.get('entity_id'), f.get('predicate'))
         v = f.get('value')
+        self.ends.pop(k, None)
         if op == 'set':
             self.facts[k] = v
+            if at is not None:
+                self.ends[k] = self.end_of(x, at)
         elif op == 'unset':
             self.facts.pop(k, None)
         elif op == 'add':
@@ -45,7 +52,10 @@ class _Replay:
             elif self.facts.get(k) == v:
                 self.facts.pop(k, None)
 
-    def get(self, ent, pred):
+    def get(self, ent, pred, at=None):
+        """The fact as it stands; at a time (`at`), none once its own end has passed (an effect's "until")."""
+        if at is not None and self.ends.get((ent, pred), float('inf')) < at:
+            return None
         return self.facts.get((ent, pred))
 
 
@@ -88,7 +98,16 @@ def run(project, pack):
         add('problem', '没有事件的篇章', '资料有这一篇，包里却没有一件事', [a['title'] for k, a in arcs.items() if not any(e.get('arc_id') == k for e in evs)])
 
     # replay: the dead, organizations, statuses
-    rp = _Replay(pack)
+    ends_at = {e['id']: e['when']['latest']['day'] * DAY + e['when']['latest']['minute'] for e in pack['events'] if e['when'].get('latest')}
+
+    def _end(x, at):
+        u = x.get('until')
+        if isinstance(u, dict) and 'minutes' in u:
+            return at + u['minutes']
+        if isinstance(u, dict) and 'event' in u:
+            return ends_at.get(u['event'], float('inf'))
+        return float('inf')
+    rp = _Replay(pack, _end)
     dead_cast, org_long, person_long, early, after_gone = [], [], [], [], []
     status_at = {}
     seen = {}
@@ -124,17 +143,19 @@ def run(project, pack):
             if pred == 'status' and x.get('op', 'set') == 'set':
                 prev = status_at.get(ent)
                 if prev:
-                    days = (_at(e) - prev[1]) // DAY
+                    # a status holds until the next one, or until its own end ("until") when that comes first
+                    days = (min(_at(e), prev[2]) - prev[1]) // DAY
                     if E.get(ent, {}).get('kind') == 'person' and days > 21 and MOMENT.search(str(prev[0])):
                         person_long.append(f'{N(ent)}：「{prev[0]}」从 {date(prev[1])} 起挂了 {days} 天')
                     elif E.get(ent, {}).get('kind') not in (None, 'person') and days > 60:
                         org_long.append(f'{N(ent)}：「{prev[0]}」从 {date(prev[1])} 起挂了 {days} 天')
-                status_at[ent] = (f.get('value'), _at(e))
+                status_at[ent] = (f.get('value'), _at(e), _end(x, _at(e)))
             if pred == 'members' and x.get('op') == 'add' and _at(e) < seen.get(ent, _at(e)):
                 early.append(f'{N(ent)}：{e["id"]} 在它出场之前加入成员')
-            rp.apply(x)
+            rp.apply(x, _at(e))
         for o in pack['entities']:
-            if o['kind'] == 'organization' and re.search(r'瓦解|覆灭|解散|解体|灭亡', str(rp.get(o['id'], 'status') or '')) and rp.get(o['id'], 'members'):
+            st = rp.get(o['id'], 'status', _at(e))
+            if o['kind'] == 'organization' and DISSOLVED.search(str(st or '')) and not NOT_WHOLE.search(str(st or '')) and rp.get(o['id'], 'members'):
                 after_gone.append(f'{o["name"]}：状态「{rp.get(o["id"], "status")}」时还有成员（{e["id"]}）')
     while mi < len(marks):
         snap(marks[mi][0])

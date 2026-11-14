@@ -92,7 +92,7 @@ describe("companions' next events", () => {
 
   it('CP7 a chance event known only to its day (a long window) is owed only when the person is still with the player as its window ends', async () => {
     // live: 「美琴入侵书库被初春阻止」, dated 9月20日 only (09:00–23:59), sent a 12:00 reply back because 白井 was with the player past 09:00
-    const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'medic-ambush').when, { earliest: { day: 1, minute: 540 }, latest: { day: 1, minute: 1200 }, precision: 'range' });
+    const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'medic-ambush').when, { earliest: { day: 1, minute: 540 }, latest: { day: 1, minute: 1200 }, precision: 'part_of_day' });
     const x = makeEngine();
     x.model.on('foreknow', null, { judgements: [{ id: 'k1', knows: false, how: 'chance' }] });
     await x.engine.bind(JSON.stringify(wide), { startTick: tick(1, 8, 30), mode: 'new' });
