@@ -25,6 +25,24 @@ def st(ent, pred, val, op='set'):
 
 
 class ChecksTest(unittest.TestCase):
+    def test_version_follows_content(self):
+        # live: six rebuilds of the Toaru pack, one in a new format, all went out as 3.0.0
+        import json
+        import tempfile
+        base = {'pack_version': '3.0.0', 'entities': [], 'initial_state': {'facts': []}, 'events': [], 'description': 'a'}
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8') as f:
+            json.dump(base, f)
+        try:
+            def problems(pack):
+                res, _ = checks.run(Project(pack={'release': f.name}), pack)
+                return {t: ls for _, t, _, ls in res}['历史包变了，版本号没变']
+            self.assertEqual(problems(dict(base)), [])                                        # the released pack itself
+            self.assertEqual(len(problems(dict(base, description='b'))), 1)                    # changed, same version
+            self.assertEqual(problems(dict(base, description='b', pack_version='4.0.0')), [])  # changed, raised
+            self.assertEqual(len(problems(dict(base, pack_version='2.9.0'))), 1)               # lower than released
+        finally:
+            os.unlink(f.name)
+
     def test_each_kind(self):
         ents = [{'id': 'a', 'name': '甲某人', 'aliases': [], 'kind': 'person'}, {'id': 'b', 'name': '乙', 'aliases': ['甲某人'], 'kind': 'person'},
                 {'id': 'o', 'name': '会', 'aliases': [], 'kind': 'organization'}, {'id': 'x', 'name': '甲某人与乙', 'aliases': [], 'kind': 'person'}]

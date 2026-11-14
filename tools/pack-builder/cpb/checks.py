@@ -204,6 +204,20 @@ def run(project, pack):
     add('problem', '同一天同标题的事件', '多半是同一件事记了两次', [f'{t}（{d}）：{", ".join(ids)}' for (t, d), ids in by_title.items() if len(ids) > 1])
     add('problem', 'HARD 事件缺少要求或结果', '', [f'{e["id"]} {e["title"]}' for e in evs if e['classification'] == 'HARD' and (not e.get('required_description') or not e.get('outcomes'))])
     add('review', '没有任何相关实体的事件', '背景历史可以如此；故事内的事件不该', [f'{e["id"]} {e["title"]}' for e in evs if not e['entity_ids']])
+
+    # the version: a pack that differs from the one released (project pack.release) has a higher version — set by
+    # hand in pack.pack_version (major: a format an older engine does not read, or a change of meaning; minor: content)
+    rel = (project.get('pack') or {}).get('release')
+    released = read_json(os.path.join(ROOT, rel), None) if rel else None
+    if released:
+        ver = lambda p: tuple(int(x) for x in re.findall(r'\d+', str(p.get('pack_version', '0')))[:3])  # noqa: E731
+        strip = lambda p: {k: v for k, v in p.items() if k != 'pack_version'}  # noqa: E731
+        bad = []
+        if ver(pack) < ver(released):
+            bad.append(f'版本 {pack.get("pack_version")} 低于已发布的 {released.get("pack_version")}')
+        elif ver(pack) == ver(released) and strip(pack) != strip(released):
+            bad.append(f'内容和已发布的 {released.get("pack_version")}（{rel}）不同，版本号却没变：提高 pack.pack_version')
+        add('problem', '历史包变了，版本号没变', '游戏里换包、看版本都靠它', bad)
     return out, snaps
 
 
