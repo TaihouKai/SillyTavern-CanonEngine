@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, NatureVersion, 
 export const STORAGE_VERSION = 1;
 /** Release version: shown to users, and written into campaigns and backups as the version that made them (kept equal
  *  to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.36.1';
+export const ENGINE_RELEASE = '1.36.2';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -50,6 +50,8 @@ export interface Interpretation {
   flashback: boolean;
   /** Ids of scene entities depicted (for the next turn's scene scope). */
   sceneEntities: Id[];
+  /** The people physically with the player character where a reply ends (missing: not known). */
+  present?: Id[];
   /** Groups who know about the player (recognition groups, by name) present in the scene: for a reply, at its end;
    *  for a player message, where the scene goes (null: the message does not move the scene). */
   sceneGroups?: string[] | null;

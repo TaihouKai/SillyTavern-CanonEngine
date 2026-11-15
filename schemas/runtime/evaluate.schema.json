@@ -744,6 +744,14 @@
     "additionalProperties": false
    }
   },
+  "present": {
+   "type": "array",
+   "maxItems": 30,
+   "items": {
+    "type": "string",
+    "maxLength": 200
+   }
+  },
   "player_knowers": {
    "type": "array",
    "maxItems": 12,

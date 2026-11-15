@@ -62,22 +62,52 @@ class RelationsTest(unittest.TestCase):
         self.assertIn('挡下一击', relations.mentions(PAGE_BO, ['安妮']))
         del ents
 
-    def test_the_reply_is_checked_and_turned_into_the_pack_format(self):
-        chk = relations.check_relation(['e1', 'e2'], ('安妮', '博文'))
-        ok = {'known_before_start': True, 'known_how': '邻居', 'stages': [{'from_event': None, 'bond': '青梅竹马', 'views': [{'who': '安妮', 'calls': '阿博', 'sees': '依赖他'}], 'together': '斗嘴'},
-                         {'from_event': 'e2', 'why': '他救了她', 'bond': '恋人', 'views': [{'who': '安妮', 'sees': '信任'}, {'who': '博文', 'sees': '守护'}]}]}
+    def test_facts_are_dated_stages_get_only_the_facts_true_when_they_start_and_the_writing_is_checked(self):
+        ids = ['e1', 'e2', 'e3']
+        chk = relations.check_facts(ids)
+        facts = [{'at': 'before', 'fact': '青梅竹马'}, {'at': 'e1', 'fact': '一起上学'}, {'at': 'e2', 'fact': '他救了她'}, {'at': 'e3', 'fact': '后来才有的事'}]
+        ok = {'known_before_start': True, 'known_how': '邻居', 'facts': facts, 'stages': [{'from_event': None, 'why': ''}, {'from_event': 'e2', 'why': '他救了她'}]}
         self.assertEqual(chk(ok), [])
         self.assertEqual(chk({'none': True}), [])
         self.assertIn('known_before_start true goes with stage 1 from_event null', '\n'.join(chk({**ok, 'known_before_start': False})))
+        self.assertIn('"before" only when they knew each other', '\n'.join(chk({**ok, 'known_before_start': False, 'stages': [{'from_event': 'e1'}]})))
         self.assertIn('known_how is empty', '\n'.join(chk({**ok, 'known_how': ''})))
-        self.assertIn('they share no event', '\n'.join(relations.check_relation([], ('安妮', '博文'))({'known_before_start': False, 'stages': [{'from_event': 'x', 'bond': 'b', 'views': [{'who': '安妮', 'sees': 's'}]}]})))
-        bad = {'known_before_start': False, 'stages': [{'from_event': 'e2', 'bond': 'x', 'views': [{'who': '安妮', 'sees': 'a'}]}, {'from_event': 'e1', 'bond': '', 'views': [{'who': 'A', 'sees': 'a'}]},
-                          {'from_event': None, 'bond': 'y', 'views': [{'who': '博文', 'sees': ''}]}, {'from_event': 'zz', 'bond': 'y', 'views': []}, {'from_event': 'e2', 'bond': 'y', 'views': [{'who': '博文', 'sees': 'b'}]}, {'from_event': 'e2', 'bond': 'y', 'views': [{'who': '博文', 'sees': 'b'}]}]}
+        self.assertIn('they share no event', '\n'.join(relations.check_facts([])({'known_before_start': False, 'facts': [{'at': 'x', 'fact': 'f'}], 'stages': [{'from_event': 'x'}]})))
+        bad = {'known_before_start': True, 'known_how': 'x', 'facts': [{'at': 'zz', 'fact': 'f'}, {'at': 'e1', 'fact': ''}], 'stages': [{'from_event': None}, {'from_event': 'e3'}, {'from_event': 'e1'}, {'from_event': None}, {'from_event': 'e2'}, {'from_event': 'e3'}]}
         out = '\n'.join(chk(bad))
-        for m in ('at most 5 stages', 'comes before the stage above', 'bond is empty', 'one of the two names', 'a later stage starts at a listed shared event', 'a view without sees', '"zz" is not one of the listed'):
+        for m in ('at most 5 stages', 'comes before the stage above', 'a later stage starts at a listed shared event', 'fact 2 is empty', 'at "zz" is not', 'no fact is dated at its event "e3"'):
             self.assertIn(m, out)
-        rel = relations.to_pack(ok, 'ann', 'bo', ('安妮', '博文'))
-        self.assertEqual(rel['stages'][0], {'from_event': None, 'bond': '青梅竹马', 'views': [{'who': 'ann', 'calls': '阿博', 'sees': '依赖他'}], 'why': '邻居', 'together': '斗嘴'})   # how they knew each other before
+        # a stage shows only what is true when it starts: never a later fact (a fact between two starts waits)
+        per = relations.stage_facts(facts, [None, 'e2'], ids)
+        self.assertEqual([(f['fact'], new) for f, new in per[0]], [('青梅竹马', False)])
+        self.assertEqual([(f['fact'], new) for f, new in per[1]], [('青梅竹马', False), ('一起上学', False), ('他救了她', True)])
+        self.assertEqual([f['fact'] for f in relations.unshown(facts, [None, 'e2'], ids)], ['后来才有的事'])
+        # the writing: one stage per start, a bond that is a state, each side one of the two
+        w = relations.check_write([None, 'e2'], ('安妮', '博文'))
+        good = {'stages': [{'bond': '青梅竹马，斗嘴不断却离不开', 'views': [{'who': '安妮', 'calls': '阿博', 'sees': '依赖他'}], 'together': '斗嘴'},
+                           {'bond': '恋人', 'views': [{'who': '安妮', 'sees': '信任'}, {'who': '博文', 'sees': '守护'}], 'together': '形影不离'}]}
+        self.assertEqual(w(good), [])
+        out = '\n'.join(w({'stages': [{'bond': '从敌对转为战友', 'views': [{'who': 'A', 'sees': ''}]}]}))
+        self.assertIn('write both sides', chr(10).join(w({'stages': [good['stages'][0], {**good['stages'][1], 'views': good['stages'][1]['views'][:1]}]})))
+        self.assertIn('together is empty', chr(10).join(w({'stages': [good['stages'][0], {**good['stages'][1], 'together': ''}]})))
+        for m in ('write exactly 2 stages', 'not a transition', 'one of the two names', 'a view without sees'):
+            self.assertIn(m, out)
+        # calls are names only; a side the facts do not tell is left out, not written as "the facts do not say"
+        for c in ('「阿博」', '“老大”或“博文”', '以名字直呼博文', '老大（昔日称呼）'):
+            self.assertIn('calls is only the names', '\n'.join(w({'stages': [{**good['stages'][0], 'views': [{'who': '安妮', 'calls': c, 'sees': '依赖他'}]}, good['stages'][1]]})))
+        self.assertEqual(w({'stages': [{**good['stages'][0], 'views': [{'who': '安妮', 'calls': '阿博、博文', 'sees': '依赖他'}]}, good['stages'][1]]}), [])
+        self.assertIn('a view about missing facts', '\n'.join(w({'stages': [good['stages'][0], {**good['stages'][1], 'views': [good['stages'][1]['views'][0], {'who': '博文', 'sees': '（此阶段事实未给出他的态度。）'}]}]})))
+        # a fact told "before" that names a date after the story's start is a later fact
+        st = (2020, 7, 19)
+        self.assertEqual(relations.story_dates_in('9月未吹参加交流会；12月4日买礼物', st), ['9月', '12月4日'])
+        self.assertEqual(relations.story_dates_in('一年前8月1日帮她保释；2019年10月相识；7月16日认识', st), [])
+        cb = relations.check_facts(ids, start=st)
+        self.assertIn('is after its start', '\n'.join(cb({**ok, 'facts': [{'at': 'before', 'fact': '9月两人一起开茶话会'}, *facts[1:]]})))
+        self.assertEqual(cb(ok), [])
+        # stage 1 at an event starts where they first deal with each other: a fact is dated there
+        self.assertIn('stage 1: no fact is dated at its event "e1"', '\n'.join(chk({'known_before_start': False, 'facts': [{'at': 'e2', 'fact': '他救了她'}], 'stages': [{'from_event': 'e1'}, {'from_event': 'e2'}]})))
+        rel = relations.to_pack({'known_before_start': True, 'known_how': '邻居', 'stages': [{**good['stages'][0], 'from_event': None}, {**good['stages'][1], 'from_event': 'e2', 'why': '他救了她'}]}, 'ann', 'bo', ('安妮', '博文'))
+        self.assertEqual(rel['stages'][0], {'from_event': None, 'bond': '青梅竹马，斗嘴不断却离不开', 'views': [{'who': 'ann', 'calls': '阿博', 'sees': '依赖他'}], 'why': '邻居', 'together': '斗嘴'})   # how they knew each other before
         self.assertEqual(rel['stages'][1]['views'], [{'who': 'ann', 'sees': '信任'}, {'who': 'bo', 'sees': '守护'}])
         self.assertEqual(rel['stages'][1]['why'], '他救了她')
         self.assertIsNone(relations.to_pack({'none': True}, 'ann', 'bo', ('安妮', '博文')))
@@ -113,6 +143,12 @@ class RelationsTest(unittest.TestCase):
         self.assertEqual(p['relations'][0]['stages'][0], {'from_event': None, 'bond': '青梅竹马', 'views': [{'who': 'ann', 'sees': '信赖他'}]})
         self.assertEqual(p['relations'][1]['source_refs'], ['src'])
         self.assertEqual(miss, ['relations.bo|ann.edit.e9：没有这一阶段', 'relations.cy|dee：包里没有这对人物的关系'])
+        # a stage taken out (the first: they meet where the next starts), a phrase changed across the relation
+        p = fresh()
+        p['relations'][0]['stages'].append({'from_event': 'e2', 'bond': '朋友兼搭档', 'views': [{'who': 'ann', 'sees': '依赖他'}]})
+        miss = corrections.apply_relations(p, {'relations': {'ann|bo': {'drop_stages': ['start'], 'replace': {'依赖': '信赖', '没有的话': 'x'}}, 'bo|dee': {'drop_stages': ['start']}}})
+        self.assertEqual(p['relations'][0]['stages'], [{'from_event': 'e2', 'bond': '朋友兼搭档', 'views': [{'who': 'ann', 'sees': '信赖他'}]}])
+        self.assertEqual(miss, ['relations.ann|bo.replace：找不到「没有的话」', 'relations.bo|dee.drop_stages.start：只剩这一阶段（整对去掉用 drop）'])
         # a wording fixed everywhere reaches the relations too (people texts)
         p = fresh()
         self.assertEqual(corrections.apply({'events': [], 'entities': [], 'initial_state': {'facts': []}, **p}, {'texts': [{'old': '依赖', 'new': '信赖', 'people': True}]}, people=True), [])

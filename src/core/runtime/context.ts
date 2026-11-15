@@ -186,6 +186,8 @@ export interface PacketInput {
    *  Persona says shields them; player: the player character's id (their own 常态 comes in HOW THEY ARE). Absent
    *  without a player profile. */
   perception?: { open: boolean; defenses?: string; player?: Id };
+  /** The people with the player character as the last reply ended (the reviewer's present); missing: not known. */
+  present?: Id[];
   /** 角色盘算: this turn's moves of the people here who think before they act (GM only). */
   minds?: string;
   /** Who in the scene knows about the player (GM only; the reviewer gets the groups as input). */
@@ -353,13 +355,15 @@ export const RELATION_MAX = 12;
 // Only the pairs that matter right now are given: someone in the scene with someone else in it or mentioned. The
 // player character is one of the people here like anyone (user: the Persona is a person of the world like the
 // original's characters).
-const RELATION_HEAD = 'RELATIONSHIPS (how the people here stand with each other now, in this branch: the original story as far as this branch has reached it, and as the Persona and play have changed it since). Play them toward each other by it — how they address each other, what they think of each other and how they are together shows in what they say and do, not explained. It is how they are, not story to bring up. The player character\'s own side is what the Persona and play established: never decide the player character\'s feelings or words from it. Two people with no line here have no established relationship.';
+const RELATION_HEAD = 'RELATIONSHIPS (how the people here stand with each other now, in this branch: the original story as far as this branch has reached it, and as the Persona and play have changed it since). Play them toward each other by it — how they address each other, what they think of each other and how they are together shows in what they say and do, not explained. A relationship has several sides at once (rivals who trust each other still needle each other): play all of them, not only the first words of the line. It is how they are, not story to bring up. The player character\'s own side is what the Persona and play established: never decide the player character\'s feelings or words from it. Two people with no line here have no established relationship.';
 /** The relations among the people here (in the scene, the player character included, or named in the text), as
  *  WorldIndex.relationNow has them: pairs both in the scene first (those without the player first: the player has
  *  their own lines too), then in the scene with one named, then two named. */
-export function relationSection(index: WorldIndex, retrieval: Retrieval, origin: PacketInput['origin'], player?: Id, playerText = ''): string {
+export function relationSection(index: WorldIndex, retrieval: Retrieval, origin: PacketInput['origin'], player?: Id, playerText = '', present?: Id[]): string {
   const isPerson = (id: Id) => index.entityKind(id) === 'person';
-  const scene = [...new Set([...(player ? [player] : []), ...[...retrieval.entities].filter(([id, t]) => t.has('scene') && isPerson(id)).map(([id]) => id)])];
+  // who is with the player: the last reply's present when known (live: the scene list of a reply named 24 entities —
+  // everyone it mentioned — and filled the list with people elsewhere), else the retrieval's scene
+  const scene = [...new Set([...(player ? [player] : []), ...(present ? present.filter(isPerson) : [...retrieval.entities].filter(([id, t]) => t.has('scene') && isPerson(id)).map(([id]) => id))])];
   // named here: by the player's own words, or a reference that resolved to one person. Not everyone a vague phrase
   // could be (live: 狱彩 sisters, 支仓, 洁斋 filled the list from candidates of "常盘台的女生" and the like).
   const named = new Set([...index.scanEntities(playerText).map((m) => m.id), ...retrieval.entries.filter((e) => e.resolved.entityIds.length === 1).map((e) => e.resolved.entityIds[0])]);
@@ -503,7 +507,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops; no other supported change through ${cpLabel}; a property not listed for an entity is UNKNOWN — not established, do not assume normality):\n` + (states.length ? states.join('\n') : '- (no referenced entities)'));
   const nature = natureSection(index, retrieval, inp.perception);
   if (nature) required.push(nature);
-  const relations = relationSection(index, retrieval, inp.origin, inp.perception?.player, inp.playerScope.join(' '));
+  const relations = relationSection(index, retrieval, inp.origin, inp.perception?.player, inp.playerScope.join(' '), inp.present);
   if (relations) required.push(relations);
   const mind = inp.review ? '' : mindSection(index, retrieval);
   if (mind) required.push(mind);

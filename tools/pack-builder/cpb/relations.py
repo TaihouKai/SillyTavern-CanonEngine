@@ -9,6 +9,7 @@ and writes the relation in stages that begin at those events (the engine shows t
 
 The pack's `relations`: [{people: [a, b], stages: [{from_event, why?, bond, views: [{who, calls?, sees}], together?}],
 source_refs}]."""
+import json
 import os
 import re
 
@@ -16,35 +17,59 @@ from .llm import LLMError
 from .nature import clean_wikitext
 from .util import log, read_json, warn, write_json
 
-RELATION_VERSION = 'relation-4'
+RELATION_VERSION = 'relation-9'
+WRITE_VERSION = 'relation-write-3'   # the writing step alone (its facts stay cached)
 MIN_SHARED = 8          # pairs no page lists: this many shared events make one
 MAX_EVENTS = 60         # shared events shown per pair (the first, the last, and an even spread)
 MENTION_CHARS = 2500    # lines of each page that mention the other
 MAX_STAGES = 5
+# read-through: calls written as 「「海原美月」」, “首领”或“支仓同学”, 以名字或姓氏直呼天乃绫音, 首领（昔日称呼…）
+CALLS_NOT_NAME = re.compile(r'[「」『』“”"\'（）()]|或|直呼|称呼|一类|叫法')
+# read-through: a view that says the facts do not tell it (（此阶段事实未给出…）) instead of leaving the side out
+NO_FACTS = re.compile(r'事实(?:中)?(?:未|没有|并未)|未给出|未提供|未记载|没有特别记载')
 
-RELATION_SYSTEM = """You write how two people of a story world stand with each other, for a game master who plays them in new scenes with a player. Problem this solves: the game master knows each person alone and plays every pair the same — polite acquaintances — so a devoted junior talks to her idol like a stranger and two rivals chat like friends. Write their relationship as the sources show it, in {lang}.
+FACTS_SYSTEM = """You prepare how two people of a story world stand with each other, for a game master who plays them in new scenes with a player. The game master otherwise plays every pair as polite acquaintances. Here you do not write the relationship yet: you list its facts, each with the moment it becomes true, and choose where its stages begin. A writer will then write each stage from the facts true by then — so a fact dated too early leaks the future into a scene where it has not happened. In {lang}.
 
-KNOWN BEFORE THE STORY STARTS? Decide this first; it decides stage 1. known_before_start is true only when the sources say or clearly imply that they knew each other before the story began: family, old friends, classmates, colleagues or members of the same group from before, or a meeting among the background events. Then stage 1 has from_event null, and known_how says how they knew each other, in a few words. Otherwise known_before_start is false: they meet during the story. Stage 1 then starts at the listed shared event where they first meet or first deal with each other (usually the first one listed), and before it they do not know each other. A wiki entry that describes their relationship as a whole does not mean it existed before the story: check the dates.
+KNOWN BEFORE THE STORY STARTS? known_before_start is true only when the sources say or clearly imply that they knew each other before the story began: family, old friends, classmates, colleagues or members of the same group from before, or a meeting among the background events; then known_how says how, in a few words. Otherwise false: they meet during the story. A wiki entry that describes their relationship as a whole does not mean it existed before the story: check the dates.
 
-STAGES. A relationship changes over the story; the game master sees only the stage the playthrough has reached, so each stage is read alone and written in full (never "同上" or a reference to another stage).
-TIME. A stage is how they stand from its event until the next stage starts, and nothing later: check every sentence of a stage against that span. What only happens or becomes true after it — a later rescue, alliance, confession, shared holiday, title, injury or death, a nickname used only later — does not belong in it, however well the sources know it; if it changes how they stand for long, it starts a later stage. Right after two people first clash they are not yet friends, even if they become friends months later.
-- A later stage starts at a listed shared event where the relationship itself changes for a long time: hostility ends or begins, they become friends, allies, a couple or enemies, a betrayal, one learns who the other really is, the way one addresses the other changes, one loses their memory of the other. Not a passing mood, a single quarrel, or a plot event that leaves how they stand unchanged. Most pairs have one or two stages; never more than {max_stages}.
-- from_event: an event id from the list of shared events, exactly as given.
+FACTS. Everything lasting that the sources show about how the two stand with each other: what they are to each other; how each feels about and treats the other (mixed feelings as they are — admiration and irritation, trust and rivalry, a crush and pride); how each addresses or refers to the other; what each would or would not do for the other, would never admit, keeps from the other; their usual dynamic when together and what is touchy between them; a shared past that matters. One sentence each, as patterns, not plot retelling. Many facts, all sides — 8 to 30 for a pair the sources say much about.
+- at: when it first becomes true — "before" (only when known_before_start: true before the story starts), or the id of the listed shared event where it first happens or first shows. Date it by the event dates and what the pages say; when a page tells something without a date, find the listed event it belongs to. A fact that becomes true only later is dated later, however central it is to the relationship.
+- A fact that stops being true at some point (a hostility that ends, a name no longer used) is still listed with its start; the change gets its own fact at the event where it changes ("不再敌视他").
 
-Each stage, concrete and brief:
-- bond: what they are to each other, one short phrase (室友兼学姐学妹 / 互相看不顺眼的同校超能力者 / 父女).
-- views: one entry per side that knows the other; who: that person's name exactly as given above. Each entry is that person's own side, about the other one:
-  - calls: how they address or refer to the other in speech, as the sources show it (a nickname, a title, given name, surname with an honorific); "" if the sources do not show it.
-  - sees: one or two sentences: how they regard and treat the other in this stage — feelings, attitude, typical behaviour toward them, what they would or would not do for them.
-  Someone who does not know the other (yet) — the other watches them from afar, or knows of them without ever having met — gets no entry.
-- together: one sentence: how the two are when together — their usual dynamic, banter, roles, what is touchy between them; "" if nothing particular.
-- why (later stages only): what changed, one sentence.
+STAGES. A stage begins where the relationship itself changes for a long time: hostility ends or begins, they become friends, allies, a couple or enemies, a betrayal, one learns who the other really is, the way one addresses the other changes, one loses their memory of the other. Not a passing mood, a single quarrel, or a plot event that leaves how they stand unchanged. Stage 1 starts at null when known_before_start, else at the listed shared event where they first meet or first deal with each other. A later stage starts at a listed shared event at which at least one fact is dated. A stage shows only the facts dated at or before its own start, from then until the next stage: a fact dated after the last stage's start is never shown, and one dated between two starts only shows from the next start on — so put a stage where a lasting change happens, not before it. Most pairs have one to three stages; never more than {max_stages}. why: what changes there, one sentence (stage 1: "" or how they meet).
 
-PATTERNS, NOT A RETELLING. These are standing attitudes the game master plays in new scenes the original never had. Their shared past may be named in a few words where it is the reason ("曾被对方从实验中救下"), but do not retell plot, fights or lines.
 TRUTH. Only what the sources support. If the sources show no real relationship — they only appear in the same events and never deal with each other, or one of them is a name in the other's story — answer {{"none": true}}.
 
 Reply with a JSON object only:
-{{"none": false, "known_before_start": false, "known_how": "", "stages": [{{"from_event": "<the shared event where they first meet; null when known_before_start>", "bond": "", "views": [{{"who": "<name>", "calls": "", "sees": ""}}, {{"who": "<the other name>", "calls": "", "sees": ""}}], "together": ""}}, {{"from_event": "<event id>", "why": "", "bond": "", "views": [...], "together": ""}}]}}"""
+{{"none": false, "known_before_start": false, "known_how": "", "facts": [{{"at": "<event id or before>", "fact": ""}}], "stages": [{{"from_event": "<event id, or null when known_before_start>", "why": ""}}]}}"""
+
+WRITE_SYSTEM = """You write how two people of a story world stand with each other, stage by stage, for a game master who plays them in new scenes with a player. Problem this solves: the game master knows each person alone and plays every pair the same — polite acquaintances — so a devoted junior talks to her idol like a stranger and two rivals chat like friends. In {lang}.
+
+You get, for each stage, the facts that are true when it starts (the ones marked ★ become true at its start). Write each stage from its own facts only: nothing from a later stage's facts, nothing the facts do not say — the game master sees only the stage the playthrough has reached, and anything later tells the future. Each stage is read alone, so write it in full (never "同上" or a reference to another stage).
+
+MANY-SIDED, NOT A LABEL. A relationship is rarely one thing, and a game master who gets one label plays a caricature: the pair turns into that word in every scene. Write all the sides its facts show at once — the warmth and the friction, the respect and the rivalry, what each would and would not admit, what stays touchy. A later stage describes the whole relationship as it now stands: the new facts are added to what continues, never put in its place (two rivals who learn to trust each other are still rivals who bicker and needle each other; a girl who comes to like a boy still snaps at him).
+
+Each stage:
+- from_event: exactly as given.
+- bond: what they are to each other now, one phrase naming its main sides, not a single label (室友兼学姐学妹，一个仰慕到失控、一个嫌烦又护着 / 互相看不顺眼、嘴上从不认输，关键时刻却信得过对方的同校超能力者 / 父女). A state, never a transition ("从…转为…" is not a bond).
+- views: one entry per side that knows the other; who: that person's name exactly as given. Each entry is that person's own side, about the other:
+  - calls: how they address or refer to the other, as the facts show it; "" if they do not.
+  - sees: two or three sentences, no more: how they regard and treat the other — feelings (mixed ones as mixed), attitude, typical behaviour, what they would or would not do for them, what they would never say to them.
+  Someone who does not know the other (yet) gets no entry — only possible in stage 1: by a later stage both know each other, so both sides are written.
+- together: one or two sentences: their usual dynamic when together, banter, roles, and what is touchy between them (when both sides are written, never empty).
+
+IN {lang} ONLY: not a single English word (no "touchy", "rivalry"); the names of things as the facts write them.
+
+PATTERNS, NOT A RETELLING. Standing attitudes the game master plays in new scenes the original never had. The facts are often episodes: turn each into what it shows about the two (not "她把对方丢在天台" but "会拿对方开过火的玩笑"), never list them; a game master given episodes brings them up again and again. The shared past may be named in a few words where it is the reason for how they stand ("曾被对方从实验中救下"), at most once or twice a stage.
+
+Reply with a JSON object only: {{"stages": [{{"from_event": "", "bond": "", "views": [{{"who": "<name>", "calls": "", "sees": ""}}], "together": ""}}]}}"""
+
+WRITE_USER = """Work: {work}
+
+{a_name}{a_aliases} — {a_desc}
+{b_name}{b_aliases} — {b_desc}
+{known}
+{stages}"""
 
 RELATION_USER = """Work: {work}
 
@@ -208,46 +233,116 @@ def spread(evs, n):
 
 # ---- the model's reply ---------------------------------------------------------------------------------
 
-def check_relation(ids, names, max_stages=MAX_STAGES):
-    """ids: the shared events from the story's start, in story order; names: the two people's names."""
+TRANSITION = re.compile(r'从.{0,20}(?:转为|变为|变成|转变为)|^(?:转为|变为)')
+
+
+FACT_DATE = re.compile(r'(?:(\d{4})年)?(?<!\d)(\d{1,2})月(?:(\d{1,2})日)?')
+NOT_THIS_YEAR = re.compile(r'(?:年前|去年|前年|当年|那年)$')
+
+
+def story_dates_in(text, start):
+    """The dates in a fact's text that fall on or after the story's start (start: (year, month, day)): a fact told
+    "before" that names one is a later fact. A date with no year is taken in the start's year unless the words just
+    before it say otherwise (一年前8月1日)."""
+    out = []
+    for m in FACT_DATE.finditer(text or ''):
+        y, mo, d = m.group(1), int(m.group(2)), m.group(3)
+        if not 1 <= mo <= 12 or (not y and NOT_THIS_YEAR.search(text[max(0, m.start() - 4):m.start()])):
+            continue
+        when = (int(y) if y else start[0], mo, int(d) if d else 31)   # a bare month: any day of it
+        if when >= start:
+            out.append(m.group(0))
+    return out
+
+
+def check_facts(ids, max_stages=MAX_STAGES, start=None):
+    """The first reply: dated facts and where the stages start. ids: the shared events from the story's start, in
+    story order; start: the story's first day (year, month, day), when known."""
     order = {x: i for i, x in enumerate(ids)}
     def check(obj):
         if not isinstance(obj, dict):
             return ['reply must be a JSON object']
         if obj.get('none') is True:
             return []
-        st = obj.get('stages')
-        if not isinstance(st, list) or not st:
-            return ['stages must be a non-empty list (or answer {"none": true})']
         out = []
         kb = obj.get('known_before_start')
         if not isinstance(kb, bool):
             out.append('known_before_start must be true or false')
-        elif isinstance(st[0], dict) and kb != (st[0].get('from_event') is None):
-            out.append('known_before_start true goes with stage 1 from_event null; false with stage 1 starting at the shared event where they first meet')
         if kb is True and not str(obj.get('known_how') or '').strip():
             out.append('known_how is empty: say how they knew each other before the story')
         if kb is False and not ids:
             out.append("they share no event from the story's start: they can only have a relation if they knew each other before (known_before_start true), or answer {\"none\": true}")
+        facts = obj.get('facts')
+        if not isinstance(facts, list) or not facts:
+            out.append('facts must be a non-empty list')
+            facts = []
+        dated = set()
+        for j, f in enumerate(facts):
+            at = f.get('at') if isinstance(f, dict) else None
+            if not isinstance(f, dict) or not str(f.get('fact') or '').strip():
+                out.append(f'fact {j + 1} is empty')
+            elif at == 'before':
+                if kb is not True:
+                    out.append(f'fact {j + 1}: "before" only when they knew each other before the story (known_before_start)')
+                elif start and story_dates_in(f['fact'], start):
+                    # read-through: pairs whose only shared event is in the past got their whole story told "before"
+                    # (大霸星祭, 9月…) — the opening stage then knew months ahead
+                    out.append(f'fact {j + 1}: "before" is only what is true before the story starts, and "{story_dates_in(f["fact"], start)[0]}" is after its start — date it at the listed shared event where it happens; if none of them is it, leave the fact out')
+            elif at not in order:
+                out.append(f'fact {j + 1}: at "{at}" is not "before" or one of the listed shared events from the story\'s start')
+            else:
+                dated.add(at)
+        st = obj.get('stages')
+        if not isinstance(st, list) or not st:
+            return out + ['stages must be a non-empty list']
         if len(st) > max_stages:
             out.append(f'at most {max_stages} stages')
         last = -1
         for i, s in enumerate(st):
-            if not isinstance(s, dict):
-                out.append(f'stage {i + 1} must be an object')
-                continue
-            f = s.get('from_event')
-            if i and f is None:
+            f = s.get('from_event') if isinstance(s, dict) else None
+            if i == 0:
+                if isinstance(kb, bool) and kb != (f is None):
+                    out.append('known_before_start true goes with stage 1 from_event null; false with stage 1 starting at the shared event where they first meet')
+                if f is None:
+                    continue
+            elif f is None:
                 out.append(f'stage {i + 1}: a later stage starts at a listed shared event (from_event)')
-            if f is not None:
-                if f not in order:
-                    out.append(f'stage {i + 1}: from_event "{f}" is not one of the listed shared events from the story\'s start')
-                elif order[f] <= last:
-                    out.append(f'stage {i + 1}: from_event "{f}" comes before the stage above it — stages go in story order')
-                else:
-                    last = order[f]
+                continue
+            if f not in order:
+                out.append(f'stage {i + 1}: from_event "{f}" is not one of the listed shared events from the story\'s start')
+            elif order[f] <= last:
+                out.append(f'stage {i + 1}: from_event "{f}" comes before the stage above it — stages go in story order')
+            else:
+                last = order[f]
+                if i and f not in dated:
+                    out.append(f'stage {i + 1}: no fact is dated at its event "{f}" — a stage starts where something becomes true')
+                elif not i and f not in dated:
+                    # read-through: first stages at an event where both "did not notice each other" (same tournament,
+                    # same mall fight) — strangers written as a relation, and a GM told they know each other
+                    out.append(f'stage 1: no fact is dated at its event "{f}" — stage 1 starts where they first meet or deal with each other (being at the same event without dealing with each other is not meeting)')
+        return out
+    return check
+
+
+def check_write(starts, names, ok_words=()):
+    """The second reply: one stage per given start, in order, each written in full, in the pack's language (ok_words:
+    terms the setting itself writes in Latin letters)."""
+    from .checks import LATIN_OK, latin_words
+    ok = set(LATIN_OK) | set(ok_words)
+    def check(obj):
+        st = obj.get('stages') if isinstance(obj, dict) else None
+        if not isinstance(st, list):
+            return ['reply must be a JSON object with stages']
+        out = []
+        if len(st) != len(starts):
+            out.append(f'write exactly {len(starts)} stages, one per stage given, in order')
+        for i, s in enumerate(st):
+            if not isinstance(s, dict):
+                continue
             if not str(s.get('bond') or '').strip():
                 out.append(f'stage {i + 1}: bond is empty')
+            elif TRANSITION.search(str(s.get('bond'))):
+                out.append(f'stage {i + 1}: bond is how they stand now, not a transition ("从…转为…")')
             vs = s.get('views')
             if not isinstance(vs, list) or not vs:
                 out.append(f'stage {i + 1}: views must list at least the side that knows the other')
@@ -257,8 +352,44 @@ def check_relation(ids, names, max_stages=MAX_STAGES):
                 out.append(f'stage {i + 1}: the who of each view is one of the two names exactly ({" / ".join(names)}), once')
             if any(isinstance(v, dict) and not str(v.get('sees') or '').strip() for v in vs):
                 out.append(f'stage {i + 1}: a view without sees')
+            for v in vs:
+                c = str(v.get('calls') or '').strip() if isinstance(v, dict) else ''
+                if c and CALLS_NOT_NAME.search(c):
+                    out.append(f'stage {i + 1}: calls "{c}" — calls is only the names or forms of address themselves, several separated by 、, no brackets, quotes, "或" or explanation')
+                if isinstance(v, dict) and NO_FACTS.search(str(v.get('sees') or '')):
+                    out.append(f'stage {i + 1}: a view about missing facts — a side the facts say nothing about gets no entry')
+            # live read: later stages with one side only although both had long known each other
+            if i and len(vs) < 2:
+                out.append(f'stage {i + 1}: by a later stage both know each other: write both sides')
+            if len(vs) == 2 and not str(s.get('together') or '').strip():
+                out.append(f'stage {i + 1}: together is empty: say how the two are when together')
+            text = ' '.join([str(s.get('bond') or ''), str(s.get('together') or '')] + [str(v.get(k) or '') for v in vs if isinstance(v, dict) for k in ('calls', 'sees')])
+            en = latin_words(text, ok)
+            if en:
+                out.append(f'stage {i + 1}: English words ({", ".join(dict.fromkeys(en))}): write everything in the language of the story')
         return out
     return check
+
+
+def stage_facts(facts, starts, ids):
+    """For each stage (its start: None or an event id), the facts true when it starts — dated at or before its event —
+    with whether each became true at that event. Code decides it, by date: the writer never sees a later fact, and a
+    stage shows from its start on, so a fact dated between two starts waits for the next one (late, never early).
+    A live run showed the other way round: a stage from 12-05 told of London (12-13) and Christmas."""
+    order = {x: i for i, x in enumerate(ids)}
+    pos = lambda at: -1 if at == 'before' else order.get(at, 10 ** 6)  # noqa: E731
+    out = []
+    for s in starts:
+        lo = -1 if s is None else order[s]
+        out.append([(f, s is not None and pos(f['at']) == lo) for f in facts if pos(f['at']) <= lo])
+    return out
+
+
+def unshown(facts, starts, ids):
+    """The facts no stage shows (dated after the last stage's start)."""
+    order = {x: i for i, x in enumerate(ids)}
+    last = max([-1] + [order[s] for s in starts if s is not None])
+    return [f for f in facts if f.get('at') != 'before' and order.get(f.get('at'), 10 ** 6) > last]
 
 
 def to_pack(r, a, b, names):
@@ -284,12 +415,20 @@ def to_pack(r, a, b, names):
 
 
 def generate(project, client, pack, wiki, lang='Simplified Chinese', out_dir=None, min_shared=MIN_SHARED):
-    """Writes <out_dir>/<a>__<b>.json per candidate pair; returns how many have a relation."""
+    """Writes <out_dir>/<a>__<b>.json per candidate pair (its dated facts and its stages); returns how many have a
+    relation. Two calls per pair: the facts with when each becomes true and where the stages start, then the stages
+    written from the facts each one may know."""
     out_dir = out_dir or project.p('relations')
     ents = {e['id']: e for e in pack['entities']}
+    evs_by = {e['id']: e for e in pack['events']}
     origin = (pack.get('calendar') or {}).get('origin_label') or 'day 0'
-    system = RELATION_SYSTEM.format(lang=lang, max_stages=MAX_STAGES)
+    m = re.search(r'(\d{4})-(\d{2})-(\d{2})', origin)
+    start = tuple(int(x) for x in m.groups()) if m else None   # day 0's date, for facts told "before"
+    fsys = FACTS_SYSTEM.format(lang=lang, max_stages=MAX_STAGES)
+    wsys = WRITE_SYSTEM.format(lang=lang)
     cands = candidates(project, pack, wiki, min_shared)
+    ok_words = {w for e in pack['entities'] for n in [e['name'], *(e.get('aliases') or [])] for w in re.findall(r"[A-Za-z][A-Za-z']*(?:-[A-Za-z]+)*", n or '')}
+    when = lambda i: ((evs_by[i].get('when') or {}).get('label') or '').split('；')[0]  # noqa: E731
     jobs = []
     for k, c in sorted(cands.items()):
         a, b = c['people']
@@ -298,10 +437,10 @@ def generate(project, client, pack, wiki, lang='Simplified Chinese', out_dir=Non
         before = [e for e in evs if _start_day(e)[0] < 0]
         after = spread([e for e in evs if _start_day(e)[0] >= 0], MAX_EVENTS)
         pa, pb = page_of(project, ea, wiki), page_of(project, eb, wiki)
-        al = lambda e: f'（{"、".join(e["aliases"][:6])}）' if e.get('aliases') else ''
+        al = lambda e: f'（{"、".join(e["aliases"][:6])}）' if e.get('aliases') else ''  # noqa: E731
         user = RELATION_USER.format(
             work=pack.get('title', project.name), start=origin,
-            first=(f'{(after[0].get("when") or {}).get("label", "").split("；")[0]} — {after[0]["title"]}' if after else '(none)'),
+            first=(f'{when(after[0]["id"])} — {after[0]["title"]}' if after else '(none)'),
             a_name=ea['name'], a_aliases=al(ea), a_desc=ea.get('static_description') or '',
             b_name=eb['name'], b_aliases=al(eb), b_desc=eb.get('static_description') or '',
             a_on_b=c['entries'].get(a) or '(none)', b_on_a=c['entries'].get(b) or '(none)',
@@ -312,12 +451,31 @@ def generate(project, client, pack, wiki, lang='Simplified Chinese', out_dir=Non
         ids = [e['id'] for e in after]
         names = (ea['name'], eb['name'])
 
-        def one(user=user, ids=ids, names=names):
+        def one(user=user, ids=ids, names=names, ea=ea, eb=eb, al=al):
             try:
-                return client.call('relation', RELATION_VERSION, system, user, check_relation(ids, names), max_tokens=3000)
+                r1 = client.call('relation_facts', RELATION_VERSION, fsys, user, check_facts(ids, start=start), max_tokens=6000, recheck=True)
             except LLMError as err:
-                warn(f'relation: {err}')
+                warn(f'relation facts: {err}')
                 return None
+            if r1.get('none'):
+                return r1
+            starts = [s.get('from_event') for s in r1['stages']]
+            per = stage_facts(r1['facts'], starts, ids)
+            blocks = []
+            for i, (s, fs) in enumerate(zip(r1['stages'], per)):
+                nxt = starts[i + 1] if i + 1 < len(starts) else None
+                head = f'Stage {i + 1} — from_event: {json.dumps(s.get("from_event"))} ({"the story start" if s.get("from_event") is None else when(s["from_event"]) + " " + evs_by[s["from_event"]]["title"]}) until {"the end of the story" if nxt is None else when(nxt) + " " + evs_by[nxt]["title"]}' + (f'; what changes: {s["why"]}' if s.get('why') else '')
+                blocks.append(head + '\nFacts true when it starts:\n' + '\n'.join(f'- {"★ " if new else ""}{f["fact"]}' for f, new in fs))
+            wuser = WRITE_USER.format(work=pack.get('title', project.name), a_name=ea['name'], a_aliases=al(ea), a_desc=ea.get('static_description') or '',
+                                      b_name=eb['name'], b_aliases=al(eb), b_desc=eb.get('static_description') or '',
+                                      known=(f'They knew each other before the story: {r1.get("known_how")}\n' if r1.get('known_before_start') else ''), stages='\n\n'.join(blocks))
+            try:
+                r2 = client.call('relation_write', WRITE_VERSION, wsys, wuser, check_write(starts, names, ok_words), max_tokens=6000, recheck=True)
+            except LLMError as err:
+                warn(f'relation write: {err}')
+                return None
+            stages = [{**w, 'from_event': s.get('from_event'), **({'why': s['why']} if i and str(s.get('why') or '').strip() else {})} for i, (s, w) in enumerate(zip(r1['stages'], r2['stages']))]
+            return {'none': False, 'known_before_start': r1.get('known_before_start'), 'known_how': r1.get('known_how', ''), 'facts': r1['facts'], 'unshown': unshown(r1['facts'], starts, ids), 'stages': stages}
         jobs.append((k, one))
     res = client.run_many(jobs, 'relation')
     n = 0

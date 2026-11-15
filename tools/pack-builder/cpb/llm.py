@@ -136,10 +136,14 @@ class Client:
         with urllib.request.urlopen(req, timeout=self.cfg.get('timeout_s', 300)) as r:
             return json.loads(r.read().decode('utf8'))
 
-    def call(self, task, version, system, user, check=None, max_tokens=None, json_mode=True):
-        """One structured call. check(obj) returns a list of problems (empty = fine). Returns the object."""
+    def call(self, task, version, system, user, check=None, max_tokens=None, json_mode=True, recheck=False):
+        """One structured call. check(obj) returns a list of problems (empty = fine). Returns the object.
+        recheck: a cached reply is checked again, and one that fails today's check is asked again (a check made stricter
+        reaches the replies it would have rejected, and only those — no version bump re-asking every call)."""
         messages = [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}]
         key, hit = self.cached(task, version, messages)
+        if hit is not None and recheck and check and check(hit['result']):
+            hit = None
         if hit is not None:
             with self.ledger.lock:
                 self.ledger.cached += 1

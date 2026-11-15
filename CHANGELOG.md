@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.36.2 and Toaru pack 5.1.0 — 2026-11-15
+
+- **RELATIONSHIPS pairs the people who are actually there.**
+  - In a live game the scene list of one reply named 24 people: everyone it mentioned, including people elsewhere in the city. The section then paired people who were not together.
+  - The review now also reports `present`: the people physically with the player character where the reply ends (in the same place, or on the phone or a video call). People only talked about, remembered or watched on a screen are left out.
+  - The next turn pairs the player with those people. The scene list is used only when the last reply reported no one.
+- **A relationship has several sides.** The section's head tells the GM to play all the sides a pair has (warmth and friction, respect and rivalry), not one label.
+- **Toaru pack 5.1.0: 486 pairs, 927 stages, all rewritten.**
+  - Relations were thin: 美琴 and 黑子 read as plain comrades-in-arms. Each stage now names a relationship's main sides, and a later stage adds what changed to what still holds instead of replacing it.
+  - The builder writes each relation in two calls:
+    - The first call lists the facts between the two, each dated at the event where it starts, and chooses where the stages begin.
+    - Code then gives each stage only the facts dated at or before its start, so a stage cannot tell what happens later. Before this, a stage from 12-05 mentioned London (12-13) and Christmas.
+    - The second call writes the stages from those facts.
+  - New checks of what the model returns:
+    - a first stage must start at an event where the two actually deal with each other;
+    - a fact filed under "before the story" must not name a date after the start;
+    - `calls` holds only the forms of address;
+    - no side may be written as "the facts do not say";
+    - later stages give both sides, `together` is not empty, no English words, and a bond is a state, not a change.
+  - A stricter check now also re-checks cached replies, so only the replies it rejects are asked again.
+  - A person read all the relations again; 35 are fixed in the review file, including:
+    - pairs that met later than the story start;
+    - stages in Othinus's illusory worlds read as real reconciliations;
+    - empty stages of people who never noticed each other;
+    - an opening stage that told Dolly's revival;
+    - 姬神 written as living with 茵蒂克丝.
+  - New review operations:
+    - `drop_stages` removes chosen stages;
+    - `replace` changes a phrase in every text of a relation.
+
+## 1.36.1 — 2026-11-15
+
+- RELATIONSHIPS pairs everyone in the scene. On the first turn, two people named in the player's message had been left out. It still pairs only people in the scene or named, not every candidate a vague phrase could mean.
+- The Persona read accepts a side's `calls` or `sees` as null.
+
 ## 1.36.0 and Toaru pack 5.0.0 — 2026-11-15
 
 - **How people stand with each other.** The GM knew each person alone and played every pair the same way, as polite acquaintances (御坂美琴 and 白井黑子, 美琴 and 食蜂操祈). It now gets a RELATIONSHIPS section for the pairs that matter in a scene: someone in the scene with someone else in it, or with someone the text mentions. The pairs both in the scene come first, at most 12. Each pair says:

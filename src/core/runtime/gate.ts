@@ -45,6 +45,8 @@ export interface EvalOutput {
   contacts?: { quote: string; actors?: string[]; kind: ContactInfo['contactKind']; scope_kind: ScopeKind; scope_ref: string; scope_label?: string; opportunity_id?: string | null }[];
   /** Relations between two people (the player character like anyone) that this reply begins, changes or ends. */
   relations?: { people: string[]; bond: string; views?: { who: string; calls?: string; sees: string }[]; together?: string; ended?: boolean; quote: string }[];
+  /** The people physically with the player character where the reply ends. */
+  present?: string[];
   /** Narrative integration: what people know about the player character, changed. */
   player_knowers?: { who: string; existing_id?: string | null; level?: 'exists' | 'identity' | 'secrets'; about?: string; quote: string }[];
 }
@@ -126,6 +128,8 @@ export interface GateResult {
   sceneEnd: StoryTime | null;
   flashback: boolean;
   sceneEntities: Id[];
+  /** The people with the player character where the reply ends (the reviewer's present). */
+  present: Id[];
   /** The frame the scene moved to in this reply (a known frame id or MAIN_FRAME), or null when it stays. */
   sceneFrame: Id | null;
   enactedSteps: string[];
@@ -760,6 +764,7 @@ export function runGate(g: GateInput): GateResult {
     }
   }
   const sceneEntities = uniq((ev.scene_entities || []).map(resolveId).filter(Boolean) as Id[]);
+  const present = uniq((ev.present || []).map((x) => resolveId(String(x || '').trim())).filter((x): x is Id => !!x && (index.entityExists(x) ? index.entityKind(x) === 'person' : runtimeEntities.some((r) => r.id === x && r.kind === 'person'))));
   // live: 佐天 walked with the player from 08:35 to 09:20 and the reply went past 索绮特's 09:00 chance encounter
   // without it; it was then settled offscreen as if she had been elsewhere.
   if (g.mode === 'draft' && !flashback) {
@@ -788,7 +793,7 @@ export function runGate(g: GateInput): GateResult {
       visibility: { mode: 'public', knower_ids: [] }, summary: `The scene is now in ${sceneFrame === MAIN_FRAME ? 'the main frame' : g.pack.frames.frames.get(sceneFrame)!.name}`, evidenceKind: 'direct', frameId: sceneFrame,
     });
   }
-  return { violations: uniq(violations), warnings, records, stateClaims, playerActions, sceneEnd, flashback, sceneEntities, sceneFrame: sceneFrame && sceneFrame !== frameNow ? sceneFrame : null, enactedSteps, hardFulfilled, coverage, coverageGaps, runtimeEntities };
+  return { violations: uniq(violations), warnings, records, stateClaims, playerActions, sceneEnd, flashback, sceneEntities, present, sceneFrame: sceneFrame && sceneFrame !== frameNow ? sceneFrame : null, enactedSteps, hardFulfilled, coverage, coverageGaps, runtimeEntities };
 }
 
 /** A frame named by a model: its id, MAIN_FRAME, or its name (also the main frame's name); null for anything else. */

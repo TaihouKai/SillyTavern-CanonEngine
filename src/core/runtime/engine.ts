@@ -1224,6 +1224,7 @@ export class CanonEngine {
       // Not everything the review looked up (causal/parent pulls, last turn's seeds): stored scene entities
       // seed the next turn's retrieval, so including lookups made the set snowball to its cap.
       sceneEntities: uniq([...gate.sceneEntities, ...review.retrieval.entries.flatMap((e) => e.resolved.entityIds)].filter((x) => index.entityExists(x) || gate.runtimeEntities.some((r) => r.id === x))).slice(0, 24),
+      ...(gate.present.length ? { present: gate.present } : {}),
       ...this.sceneGroupsOf(index, userEntry, review.evaluation.scene_groups || []),
       offscreenBasis: [], warnings: gate.warnings.slice(0, 20), manifestId: review.manifest?.manifestId,
     };
@@ -1725,6 +1726,7 @@ export class CanonEngine {
           leap: lp?.section,
           presence: prof ? presenceSection(rIndex, prof.profile, cp) : undefined,
           perception: prof ? { open: this.settings.secretsReadable !== false, defenses: prof.profile.defenses, player: prof.profile.playerId } : undefined,
+          present: prevGmInterp?.present || (horaeSceneIds.length ? horaeSceneIds : undefined),
           // where the scene goes: the player's message when it moves the scene, else where the last reply ended
           // (a message that moves the scene leaves the last scene's people and places behind)
           recognition: prof ? recognitionSection(presentGroups(rIndex, prof.profile, cp,

@@ -377,7 +377,9 @@ def apply_relations(pack, rv):
     """The review file's fixes of the generated relations ("relations": {"<a id>|<b id>": fix}), attached after the
     build: {"drop": true} takes the pair out; {"stages": [...]} gives the whole relation (also for a pair the builder
     has none for); {"edit": {"<from_event or start>": {"bond"/"why"/"together": text, "views": {"<id>": {"calls",
-    "sees"} or null}}}} changes one stage ("" removes a field, null a side). Returns the ones that matched nothing."""
+    "sees"} or null}}}} changes one stage ("" removes a field, null a side); {"drop_stages": ["<from_event or start>"]}
+    takes stages out (the first one gone: they first deal with each other where the next starts); {"replace": {old:
+    new}} changes a phrase in every text of the relation. Returns the ones that matched nothing."""
     miss = []
     rels = {'|'.join(sorted(r['people'])): r for r in pack.get('relations') or []}
     src = (pack.get('sources') or [{}])[0].get('id')
@@ -428,6 +430,21 @@ def apply_relations(pack, rv):
                     st[f] = v
                 else:
                     st.pop(f, None)
+        for when in c.get('drop_stages') or []:
+            st = next((s for s in r['stages'] if (s.get('from_event') or 'start') == when), None)
+            if st is None or len(r['stages']) < 2:
+                miss.append(f'relations.{key}.drop_stages.{when}：{"没有这一阶段" if st is None else "只剩这一阶段（整对去掉用 drop）"}')
+            else:
+                r['stages'].remove(st)      # a first stage dropped: they first deal with each other where the next starts
+        for old, new in (c.get('replace') or {}).items():
+            n = 0
+            for st in r['stages']:
+                for obj, f in [(st, 'bond'), (st, 'why'), (st, 'together')] + [(v, f) for v in st['views'] for f in ('calls', 'sees')]:
+                    if old in str(obj.get(f) or ''):
+                        obj[f] = obj[f].replace(old, new)
+                        n += 1
+            if not n:
+                miss.append(f'relations.{key}.replace：找不到「{old}」')
     return miss
 
 
