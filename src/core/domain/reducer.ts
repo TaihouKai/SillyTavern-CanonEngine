@@ -1,6 +1,6 @@
 // Pure history replay: baseline + ordered validated ledger records -> world state.
 // Occurrences are kept separate from fluent state; a later reversal never erases an occurrence.
-import type { Condition, ContactInfo, EngagementInfo, TieInfo, FactDelta, FactValue, Id, LedgerRecord, Occurrence, RuntimeEntity, StoryTime, Tri } from './types';
+import type { Condition, ContactInfo, EngagementInfo, RelationChange, TieInfo, FactDelta, FactValue, Id, LedgerRecord, Occurrence, RuntimeEntity, StoryTime, Tri } from './types';
 import { UNKNOWN } from './types';
 import type { LoadedPack } from './pack';
 import { normalizeValue, valuesEqual } from './pack';
@@ -44,6 +44,7 @@ export interface Disposition {
 export interface EngagementEntry extends EngagementInfo { recordId: string; seq: number; tick: number }
 export interface ContactEntry extends ContactInfo { recordId: string; seq: number; tick: number }
 export interface TieEntry extends TieInfo { recordId: string; seq: number; tick: number }
+export interface RelationEntry extends RelationChange { recordId: string; seq: number; tick: number }
 
 export interface WorldState {
   packHash: string;
@@ -57,8 +58,10 @@ export interface WorldState {
   /** Narrative integration: the player's decisions and the contacts that reached them, in record order. */
   engagements: EngagementEntry[];
   contacts: ContactEntry[];
-  /** The player's relationships and who knows what about them, as play changed them (record order). */
+  /** Who knows what about the player, as play changed it (record order). */
   ties: TieEntry[];
+  /** Relations between two people as the Persona and play set them (record order; see WorldIndex.relationNow). */
+  relations: RelationEntry[];
   runtimeEntities: Map<Id, RuntimeEntity & { recordId: string }>;
   enactedSteps: Map<string, string>;
   clock: StoryTime;
@@ -88,6 +91,7 @@ export function emptyState(pack: LoadedPack): WorldState {
     engagements: [],
     contacts: [],
     ties: [],
+    relations: [],
     runtimeEntities: new Map(),
     enactedSteps: new Map(),
     clock: { lo: pack.coverage.start, hi: pack.coverage.start, precision: 'minute' },
@@ -133,6 +137,7 @@ export function applyRecord(state: WorldState, rec: LedgerRecord): void {
   if (rec.engagement) state.engagements.push({ ...rec.engagement, recordId: rec.recordId, seq: rec.sequence, tick });
   if (rec.contact) state.contacts.push({ ...rec.contact, recordId: rec.recordId, seq: rec.sequence, tick });
   if (rec.tie) state.ties.push({ ...rec.tie, recordId: rec.recordId, seq: rec.sequence, tick });
+  for (const r of rec.relations || []) state.relations.push({ ...r, recordId: rec.recordId, seq: rec.sequence, tick });
   // a later Persona read describes the player (and the Persona's own people, groups, places) anew: it wins
   for (const re of rec.runtimeEntities || []) if (!state.runtimeEntities.has(re.id) || rec.kind === 'persona_seed') state.runtimeEntities.set(re.id, { ...re, recordId: rec.recordId });
   for (const s of rec.enactedStepIds || []) if (!state.enactedSteps.has(s)) state.enactedSteps.set(s, rec.recordId);

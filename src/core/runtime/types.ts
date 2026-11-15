@@ -1,10 +1,10 @@
 // Runtime persistent types. Documented in docs/RUNTIME_SCHEMAS.md.
-import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, NatureVersion, StoryTime } from '../domain/types';
+import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, NatureVersion, RelationView, StoryTime } from '../domain/types';
 
 export const STORAGE_VERSION = 1;
 /** Release version: shown to users, and written into campaigns and backups as the version that made them (kept equal
  *  to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.35.1';
+export const ENGINE_RELEASE = '1.36.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -291,8 +291,10 @@ export interface PlayerProfile {
   /** 本局设定: how this game's world differs from the original setting, as the Persona states it (marked lines always). */
   worldChanges?: { text: string; terms: string[]; marked: boolean }[];
   /** The player's relationships. Read from the Persona they are the start; playedProfile() gives them as play has
-   *  changed them since (basis "play"/"ui" for a new one, `changed` for one play or the user changed). */
-  relationships: { entityId: Id | null; name: string; relation: string; basis: TieBasis; ended?: boolean; changed?: TieChange }[];
+   *  changed them since (basis "play"/"ui" for a new one, `changed` for one play or the user changed). person: the other
+   *  side is a person — then it is a relation of the world like anyone's (persona_seed starts it, relation records
+   *  change it); views: each side as the Persona (or play) gives it. */
+  relationships: { entityId: Id | null; name: string; relation: string; basis: TieBasis; person?: boolean; views?: RelationView[]; ended?: boolean; changed?: TieChange }[];
   /** Who plausibly knows about the player, at which level: that an organization exists, the player's identity or
    *  role, or specific secrets (the Persona's start; as play changed it in playedProfile()). */
   knowers: { who: string; entityId: Id | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: TieBasis; places?: Id[]; changed?: TieChange }[];

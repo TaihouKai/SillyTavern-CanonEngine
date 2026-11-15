@@ -1,12 +1,18 @@
 // Actual-history retrieval (causal OR mentioned) and independent entity/scene state queries.
 // Lookups never traverse the Hard graph and never depend on anchor relevance.
-import type { FactValue, Id, MindProfile, NatureVersion, Occurrence, StoryTime } from './types';
+import type { FactValue, Id, MindProfile, NatureVersion, Occurrence, RelationView, StoryTime } from './types';
 import type { LoadedPack } from './pack';
-import { normalizeName } from './pack';
+import { normalizeName, pairKey } from './pack';
 import type { Checkpoint, OccurrenceEntry, WorldState } from './reducer';
 import { factAt, factKey, factHistory } from './reducer';
 import { formatStoryTime, formatTick, occurrenceTime } from './time';
 import { deltaText } from './delta';
+
+/** A relation in force (WorldIndex.relationNow). before: the pack stage a change of play replaced. */
+export interface RelationNow {
+  people: [Id, Id]; bond: string; views: RelationView[]; together?: string; why?: string; ended?: boolean;
+  since: number | null; source: 'pack' | 'persona' | 'play' | 'ui'; until?: Id | null; before?: string;
+}
 
 export interface ResolvedRef {
   phrase: string;
@@ -151,6 +157,41 @@ export class WorldIndex {
     let index = 0;
     vs.forEach((v, i) => { if (i > 0 && occurred(v.from_event) && !occurred(v.until_event)) index = i; });
     return { version: vs[index], index };
+  }
+
+  /** The relation in force between two people in this branch: the latest change the Persona, play or the user made
+   *  for the pair, unless a stage of the pack's relation started later (its from_event occurred after it); else the
+   *  pack's stage in force — the last whose from_event has occurred (the first, from_event null, from the start),
+   *  while its until_event has not. null: they do not know each other (no stage reached yet, or the change removed
+   *  it). since: the story time it holds from (null: the story start). */
+  relationNow(a: Id, b: Id): RelationNow | null {
+    const k = pairKey(a, b);
+    const disp = (e?: Id | null) => (e ? this.state.dispositions.get(e) : undefined);
+    const occurred = (e?: Id | null) => disp(e)?.disposition === 'occurred';
+    let stage: RelationNow | null = null;
+    const r = this.pack.relations.get(k);
+    if (r) {
+      r.stages.forEach((s, i) => {
+        if (s.from_event === null ? i === 0 : occurred(s.from_event)) stage = { people: r.people, bond: s.bond, views: s.views, ...(s.together ? { together: s.together } : {}), ...(s.why ? { why: s.why } : {}), since: s.from_event ? disp(s.from_event)!.tick : null, source: 'pack', until: s.until_event ?? null };
+      });
+      if (stage && occurred((stage as RelationNow).until)) stage = null;
+    }
+    let change: (typeof this.state.relations)[number] | undefined;
+    for (const c of this.state.relations) if (pairKey(c.people[0], c.people[1]) === k) change = c;
+    const st = stage as RelationNow | null;
+    if (change && (!st || st.since === null || change.tick >= st.since)) {
+      if (change.removed) return null;
+      return { people: change.people, bond: change.bond, views: change.views, ...(change.together ? { together: change.together } : {}), ...(change.ended ? { ended: true } : {}), since: change.tick, source: change.source, ...(st ? { before: st.bond } : {}) };
+    }
+    return st;
+  }
+
+  /** Everyone someone has a relation with now (pack pairs and the changes play made), by id. */
+  relationsOf(id: Id): { other: Id; rel: RelationNow }[] {
+    const others = new Set<Id>();
+    for (const k of this.pack.relationsOf.get(id) || []) { const [x, y] = k.split('|'); others.add(x === id ? y : x); }
+    for (const c of this.state.relations) if (c.people.includes(id)) others.add(c.people[0] === id ? c.people[1] : c.people[0]);
+    return [...others].map((other) => ({ other, rel: this.relationNow(id, other) })).filter((x): x is { other: Id; rel: RelationNow } => !!x.rel);
   }
 
   /** 思考方式 of a pack person (null for others and for people the story added). */

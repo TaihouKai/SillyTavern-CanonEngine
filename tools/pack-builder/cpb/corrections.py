@@ -20,7 +20,7 @@ person, and stays fixed on a rebuild.
                        | {"drop": true}                   no entity at all (a place "茵蒂克丝（地点）")
                        | {"name", "kind", "description", "aliases_drop": [...], "aliases_add": [...]}
   texts:    [{"old", "new", "in"?: [event or entity ids], "people"?: true}]  a wording fixed wherever it is (events,
-                                                          arcs, entity descriptions; "people": in 常态 and 思考方式,
+                                                          arcs, entity descriptions; "people": in 常态, 思考方式 and 关系,
                                                           which are attached after the build)
   minds:    entity id -> {"mind": {field: text}, "nature": {"<from_event or 'start'>": {field: text}}}
 
@@ -85,6 +85,19 @@ def _entity_texts(ent):
         per = ver.get('perceives')
         if isinstance(per, dict) and per.get('how'):
             out.append(((lambda per=per: per['how']), (lambda v, per=per: per.__setitem__('how', v))))
+    return out
+
+
+def _relation_texts(r):
+    out = []
+    for s in r['stages']:
+        for k in ('bond', 'why', 'together'):
+            if isinstance(s.get(k), str):
+                out.append(((lambda s=s, k=k: s[k]), (lambda v, s=s, k=k: s.__setitem__(k, v))))
+        for x in s.get('views') or []:
+            for k in ('calls', 'sees'):
+                if isinstance(x.get(k), str):
+                    out.append(((lambda x=x, k=k: x[k]), (lambda v, x=x, k=k: x.__setitem__(k, v))))
     return out
 
 
@@ -320,6 +333,10 @@ def apply(pack, rv, rep=None, people=False):
         for ent in pack['entities']:
             if not scope or ent['id'] in scope:
                 n += _replace(_entity_texts(ent), t['old'], t['new'])
+        if people:
+            for r in pack.get('relations') or []:
+                if not scope or scope & set(r['people']):
+                    n += _replace(_relation_texts(r), t['old'], t['new'])
         if not n:
             miss.append(f'texts：「{t["old"]}」没找到')
     if rep is not None:
@@ -353,6 +370,64 @@ def apply_people(pack, rv):
                 continue
             for k, v in fields.items():
                 ver[k] = v
+    return miss
+
+
+def apply_relations(pack, rv):
+    """The review file's fixes of the generated relations ("relations": {"<a id>|<b id>": fix}), attached after the
+    build: {"drop": true} takes the pair out; {"stages": [...]} gives the whole relation (also for a pair the builder
+    has none for); {"edit": {"<from_event or start>": {"bond"/"why"/"together": text, "views": {"<id>": {"calls",
+    "sees"} or null}}}} changes one stage ("" removes a field, null a side). Returns the ones that matched nothing."""
+    miss = []
+    rels = {'|'.join(sorted(r['people'])): r for r in pack.get('relations') or []}
+    src = (pack.get('sources') or [{}])[0].get('id')
+    for key, c in sorted((rv.get('relations') or {}).items()):
+        k = '|'.join(sorted(key.split('|')))
+        r = rels.get(k)
+        if c.get('drop'):
+            if r is None:
+                miss.append(f'relations.{key}：包里没有这对人物的关系')
+            else:
+                pack['relations'].remove(r)
+                rels.pop(k)
+            continue
+        if c.get('stages'):
+            new = {'people': key.split('|'), 'stages': c['stages'], 'source_refs': r['source_refs'] if r else ([src] if src else [])}
+            if r is None:
+                pack.setdefault('relations', []).append(new)
+            else:
+                pack['relations'][pack['relations'].index(r)] = new
+            rels[k] = new
+            continue
+        if r is None:
+            miss.append(f'relations.{key}：包里没有这对人物的关系')
+            continue
+        for when, fields in (c.get('edit') or {}).items():
+            st = next((s for s in r['stages'] if (s.get('from_event') or 'start') == when), None)
+            if st is None:
+                miss.append(f'relations.{key}.edit.{when}：没有这一阶段')
+                continue
+            for f, v in fields.items():
+                if f == 'views':
+                    for who, view in v.items():
+                        old = next((x for x in st['views'] if x['who'] == who), None)
+                        if view is None:
+                            if old is None:
+                                miss.append(f'relations.{key}.edit.{when}.views.{who}：没有这一方')
+                            else:
+                                st['views'].remove(old)
+                        elif old is None:
+                            st['views'].append({'who': who, **{a: b for a, b in view.items() if b}})
+                        else:
+                            for a, b in view.items():
+                                if b:
+                                    old[a] = b
+                                else:
+                                    old.pop(a, None)
+                elif v:
+                    st[f] = v
+                else:
+                    st.pop(f, None)
     return miss
 
 

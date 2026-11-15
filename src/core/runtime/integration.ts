@@ -4,10 +4,11 @@
 // - Engagement policy: the player's decisions (declined, deferred, joined, ...) and the contacts that reached them,
 //   both replayable records; one filter for every way the world may pull the player in.
 // - Candidate retrieval and the checked, disposable suggestions of the integrate task (never history).
-import type { ContactInfo, EngagementInfo, FactDelta, Id, PackEvent, RuntimeEntity, ScopeKind } from '../domain/types';
+import type { ContactInfo, EngagementInfo, FactDelta, Id, PackEvent, RelationChange, RelationView, RuntimeEntity, ScopeKind } from '../domain/types';
 import { PERCEIVE_KINDS } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
-import type { ContactEntry, EngagementEntry, TieEntry, WorldState } from '../domain/reducer';
+import type { ContactEntry, EngagementEntry, RelationEntry, TieEntry, WorldState } from '../domain/reducer';
+import { pairKey } from '../domain/pack';
 import { evalCondition, factAt, triLabel } from '../domain/reducer';
 import { agoLabel, formatTick, toTick } from '../domain/time';
 import { hashObject, newId, sha256, uniq } from '../domain/util';
@@ -46,7 +47,7 @@ export interface ProfileOut {
   voice?: string;
   nature?: Partial<PlayerNature>;
   defenses?: string;
-  relationships: { name: string; existing_id?: string | null; relation?: string; basis?: 'persona_stated' | 'implied' }[];
+  relationships: { name: string; existing_id?: string | null; relation?: string; basis?: 'persona_stated' | 'implied'; they?: { calls?: string; sees?: string } | null; player?: { calls?: string; sees?: string } | null }[];
   knowers: { who: string; existing_id?: string | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: 'persona_stated' | 'implied'; places?: string[] }[];
   recognized_by?: { who: string; existing_id?: string | null; places?: string[]; everywhere?: boolean; as: string }[];
   world_changes?: { text: string; terms?: string[] }[];
@@ -124,7 +125,14 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
       id = prev?.relationships.find((x) => x.name === r.name.trim())?.entityId || `rt.person.${slug(r.name)}.${newId('e').slice(2, 8)}`;
       runtimeEntities.push({ id, name: r.name.trim(), aliases: [], kind: 'person', description: `${r.relation || ''} (from the Persona of ${name})`.slice(0, 600) });
     }
-    relationships.push({ entityId: id, name: r.name.trim(), relation: (r.relation || '').slice(0, 400), basis });
+    // what the Persona says about each side (how they address and see each other) when the other is a person
+    const person = !!id && (kindOf(id) === 'person' || runtimeEntities.some((x) => x.id === id && x.kind === 'person'));
+    const side = (who: Id, s: { calls?: string; sees?: string } | null | undefined): RelationView[] => {
+      const sees = String(s?.sees || '').trim().slice(0, 400), calls = String(s?.calls || '').trim().slice(0, 100);
+      return sees ? [{ who, ...(calls ? { calls } : {}), sees }] : [];
+    };
+    const views = person && basis === 'persona_stated' ? [...side(id!, r.they), ...side(playerId, r.player)] : [];
+    relationships.push({ entityId: id, name: r.name.trim(), relation: (r.relation || '').slice(0, 400), basis, ...(person ? { person: true } : {}), ...(views.length ? { views } : {}) });
   }
   // the other people the Persona puts in an organization: the Persona's own people read above, or this world's
   out.affiliations?.forEach((a) => {
@@ -205,9 +213,15 @@ export function seedRecord(profile: PlayerProfile, runtimeEntities: RuntimeEntit
     deltas.push({ op: 'add', entity_id: a.entityId, predicate: 'members', value: [profile.playerId, ...(a.memberIds || [])] });
     if (a.leads) deltas.push({ op: 'set', entity_id: a.entityId, predicate: 'leader', value: profile.playerId });
   }
+  // the player's relations with people start here, like anyone's: a later revision takes out the ones it no longer has
+  const relations: RelationChange[] = personaRelations(profile);
+  for (const r of prev ? personaRelations(prev) : []) {
+    if (!relations.some((x) => pairKey(x.people[0], x.people[1]) === pairKey(r.people[0], r.people[1]))) relations.push({ ...r, views: [], removed: true });
+  }
   return {
     recordId: newId('rec'), kind: 'persona_seed', storyTime: { lo: tick, hi: tick, precision: 'minute' }, sourceRefs: [], factsSetOrUnset: deltas, eventOccurrenceIds: [],
     visibility: { mode: 'public', knower_ids: [] }, summary: `Player presence from the Persona (revision ${rev}): ${profile.personaName}`, evidenceKind: 'bootstrap', runtimeEntities,
+    ...(relations.length ? { relations } : {}),
   };
 }
 
@@ -225,37 +239,45 @@ export function profileAt(revs: ProfileRevision[] | undefined, entries: SourceEn
   return best;
 }
 
-/** The profile with the player's relationships and who knows what about them as play has changed them: the Persona
- *  gives the start, every player_tie record (the analysis of an accepted reply, or the user in the panel) changes it
- *  from there, in record order — a relationship is replaced by how it stands now (or ended), a knower knows more
- *  (only the user can make it less), a tie the user removed is gone. Decided by the code, so the GM and the analysis
- *  see one current list, not the Persona's words next to a story that has moved on. */
+/** The player's relations with people the Persona gives (a person on the other side): the start of their relations. */
+export function personaRelations(p: PlayerProfile): RelationChange[] {
+  return p.relationships.filter((r) => r.person && r.entityId && r.basis === 'persona_stated' && r.entityId !== p.playerId)
+    .map((r) => ({ people: [p.playerId, r.entityId!] as [Id, Id], bond: r.relation || '(no description)', views: r.views || [], quote: '', source: 'persona' as const }));
+}
+
+/** The profile with the player's relationships and who knows what about them as play has changed them. Relations with
+ *  people are the player's relations in the world, read like anyone's (WorldIndex.relationNow: the Persona's start, then
+ *  every relation change of play or the panel); the Persona's other ties (a group, an organization) stay as it gave
+ *  them. Who knows about the player: the Persona gives the start, every player_tie record changes it from there, in
+ *  record order — a knower knows more (only the user can make it less), one the user removed is gone. Decided by the
+ *  code, so the GM and the analysis see one current list, not the Persona's words next to a story that has moved on. */
 export function playedProfile(index: WorldIndex, profile: PlayerProfile): PlayerProfile {
-  const ties = index.state.ties;
-  if (!ties?.length) return profile;
+  const me = profile.playerId;
+  const latest = new Map<string, RelationEntry>();
+  for (const c of index.state.relations) if (c.people.includes(me)) latest.set(pairKey(c.people[0], c.people[1]), c);
+  const start = new Map(personaRelations(profile).map((r) => [r.people[1], r.bond]));
+  let relationships: PlayerProfile['relationships'] = index.relationsOf(me).map(({ other, rel }) => {
+    const c = latest.get(pairKey(me, other));
+    const by = rel.source === 'play' || rel.source === 'ui' ? rel.source : null;
+    return {
+      entityId: other, name: index.entityName(other), relation: rel.bond, basis: start.has(other) ? 'persona_stated' : by || 'play', person: true,
+      ...(rel.views.length ? { views: rel.views } : {}), ...(rel.ended ? { ended: true } : {}),
+      ...(by && c ? { changed: { since: c.tick, by, start: start.get(other) ?? null, quote: c.quote } } : {}),
+    };
+  });
+  relationships = [...relationships, ...profile.relationships.filter((r) => !r.person)].slice(-40);
   const n = (s: string) => String(s || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
   const same = (id: Id | null, name: string, t: TieEntry) => (t.who && id ? t.who === id : n(name) === n(t.name));
   const rank = { exists: 0, identity: 1, secrets: 2 } as const;
-  let relationships = profile.relationships.map((r) => ({ ...r }));
   let knowers = profile.knowers.map((k) => ({ ...k }));
-  for (const t of ties) {
-    const change = (start: string | null, prevChange?: TieChange): TieChange => ({ since: t.tick, by: t.source, start: prevChange ? prevChange.start : start, quote: t.quote });
-    if (t.kind === 'relation') {
-      const i = relationships.findIndex((r) => same(r.entityId, r.name, t));
-      if (t.removed) { if (i >= 0) relationships.splice(i, 1); continue; }
-      if (i < 0) { relationships.push({ entityId: t.who, name: t.name, relation: t.relation || '', basis: t.source, ...(t.ended ? { ended: true } : {}), changed: change(null) }); continue; }
-      const r = relationships[i];
-      relationships[i] = { ...r, entityId: r.entityId || t.who, relation: t.relation || r.relation, ended: !!t.ended, changed: change(r.basis === 'play' || r.basis === 'ui' ? null : r.relation, r.changed) };
-    } else {
-      const i = knowers.findIndex((k) => same(k.entityId, k.who, t));
-      if (t.removed) { if (i >= 0) knowers.splice(i, 1); continue; }
-      const level = t.level || 'identity';
-      if (i < 0) { knowers.push({ who: t.name, entityId: t.who, level, about: t.about || '', basis: t.source, changed: change(null) }); continue; }
-      const k = knowers[i];
-      knowers[i] = { ...k, entityId: k.entityId || t.who, level: t.source === 'ui' || rank[level] > rank[k.level] ? level : k.level, about: t.about || k.about, changed: change(k.basis === 'play' || k.basis === 'ui' ? null : `${k.level}: ${k.about}`, k.changed) };
-    }
+  for (const t of index.state.ties) {
+    const i = knowers.findIndex((k) => same(k.entityId, k.who, t));
+    if (t.removed) { if (i >= 0) knowers.splice(i, 1); continue; }
+    const change = (startText: string | null, prev?: TieChange): TieChange => ({ since: t.tick, by: t.source, start: prev ? prev.start : startText, quote: t.quote });
+    if (i < 0) { knowers.push({ who: t.name, entityId: t.who, level: t.level, about: t.about, basis: t.source, changed: change(null) }); continue; }
+    const k = knowers[i];
+    knowers[i] = { ...k, entityId: k.entityId || t.who, level: t.source === 'ui' || rank[t.level] > rank[k.level] ? t.level : k.level, about: t.about || k.about, changed: change(k.basis === 'play' || k.basis === 'ui' ? null : `${k.level}: ${k.about}`, k.changed) };
   }
-  relationships = relationships.slice(-40);
   knowers = knowers.slice(-40);
   return { ...profile, relationships, knowers };
 }
@@ -916,7 +938,7 @@ export function integrationKey(index: WorldIndex, profile: PlayerProfile, candid
     return all.some((x) => mine.has(x)) && (all.some((x) => people.has(x)) || o.packEventId);
   }).map((o) => o.occurrenceId).sort();
   return hashObject({
-    v: 1, p: profile.personaHash, ids: [...mine], t: index.state.ties.map((x) => x.recordId),
+    v: 1, p: profile.personaHash, ids: [...mine], t: index.state.ties.map((x) => x.recordId), r: index.state.relations.filter((x) => x.people.some((q) => mine.has(q))).map((x) => x.recordId),
     c: candidates.map((c) => `${c.event.id}:${c.status}:${index.inProgressBeats(c.event.id).length}`),
     e: index.state.engagements.map((e) => e.recordId), k: index.state.contacts.map((c) => c.recordId),
     f: [...focus].sort(), j: jumpTo ?? null, o: linkOccs, ...(quiet ? { q: Math.floor(index.state.clock.lo / 1440) } : {}),

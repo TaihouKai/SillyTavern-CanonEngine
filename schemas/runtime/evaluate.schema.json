@@ -679,18 +679,77 @@
     "additionalProperties": false
    }
   },
-  "player_ties": {
+  "relations": {
    "type": "array",
    "maxItems": 12,
    "items": {
     "type": "object",
     "properties": {
-     "tie": {
-      "enum": [
-       "relation",
-       "knows"
-      ]
+     "people": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "maxLength": 200
+      },
+      "minItems": 2,
+      "maxItems": 2
      },
+     "bond": {
+      "type": "string",
+      "maxLength": 400
+     },
+     "views": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+       "type": "object",
+       "properties": {
+        "who": {
+         "type": "string",
+         "maxLength": 200
+        },
+        "calls": {
+         "type": "string",
+         "maxLength": 100
+        },
+        "sees": {
+         "type": "string",
+         "maxLength": 400
+        }
+       },
+       "required": [
+        "who",
+        "sees"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "together": {
+      "type": "string",
+      "maxLength": 400
+     },
+     "ended": {
+      "type": "boolean"
+     },
+     "quote": {
+      "type": "string",
+      "maxLength": 600
+     }
+    },
+    "required": [
+     "people",
+     "bond",
+     "quote"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "player_knowers": {
+   "type": "array",
+   "maxItems": 12,
+   "items": {
+    "type": "object",
+    "properties": {
      "who": {
       "type": "string",
       "maxLength": 200
@@ -701,13 +760,6 @@
        "null"
       ],
       "maxLength": 200
-     },
-     "relation": {
-      "type": "string",
-      "maxLength": 400
-     },
-     "ended": {
-      "type": "boolean"
      },
      "level": {
       "enum": [
@@ -726,8 +778,8 @@
      }
     },
     "required": [
-     "tie",
      "who",
+     "level",
      "quote"
     ],
     "additionalProperties": false

@@ -970,7 +970,7 @@ describe('preferred matters', () => {
     expect(z.engine.playerProfile()!.profile.defenses).toBe('her mind cannot be read');
     expect(lastCtx(z)).toMatch(/The Persona shields the player character: her mind cannot be read — that holds against these powers/);
     // the reviewer counts learning by power as someone coming to know; the GM's voice rule says it is not revealing
-    expect(PROMPTS.evaluate).toMatch(/tie "knows": someone learns about the player more than they knew \(also through their own power: reading the player character's mind or memories\)/);
+    expect(PROMPTS.evaluate).toMatch(/player_knowers: .*someone learns about the player more than they knew \(also through their own power: reading the player character's mind or memories\)/);
     expect(voiceRule(DEFAULT_PLAYER_VOICE)).toMatch(/someone learning one through their own power \(reading the player character's mind\) is the world finding out, not the player character revealing it/);
   });
 

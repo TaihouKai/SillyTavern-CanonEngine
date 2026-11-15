@@ -2,6 +2,7 @@
 // bounded GM context packet. The model receives record CONTENT, never bare ids.
 import type { Id, MindProfile, NatureVersion, PackEvent, PerceiveKind } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
+import { pairKey } from '../domain/pack';
 import { WorldIndex, type HistoryRecordView, type EntityStateView, type CanonStatusView } from '../domain/world-query';
 import { eventTimeText, formatStoryTime, formatTick, startsText, toTick } from '../domain/time';
 import { causeOf, pendingHard, upcomingRoute } from '../domain/schedule';
@@ -346,6 +347,39 @@ const PC_NATURE = 'signs that show by themselves may be written like a reaction;
 /** The player character's own power that perceives reaches other people's secrets as anyone's does. */
 const PC_PERCEIVES = 'THE PLAYER CHARACTER PERCEIVES: what their power reaches is not hidden from them — other people\'s secrets included, whatever KNOWLEDGE BOUNDARIES say about who knows — whenever the scene puts someone within its conditions: show it as what they perceive (what comes by itself as a sign, what the player has them look for when they use it), never as a decision or conclusion of theirs. A shield or a power against it in someone\'s 常态 holds as it says.';
 
+/** At most this many pairs in RELATIONSHIPS: pairs of people both in the scene first, the player's first among them. */
+export const RELATION_MAX = 12;
+// User: the GM did not understand how characters stand with each other (御坂美琴 and 白井黑子, 御坂美琴 and 食蜂操祈).
+// Only the pairs that matter right now are given: someone in the scene with someone else in it or mentioned. The
+// player character is one of the people here like anyone (user: the Persona is a person of the world like the
+// original's characters).
+const RELATION_HEAD = 'RELATIONSHIPS (how the people here stand with each other now, in this branch: the original story as far as this branch has reached it, and as the Persona and play have changed it since). Play them toward each other by it — how they address each other, what they think of each other and how they are together shows in what they say and do, not explained. It is how they are, not story to bring up. The player character\'s own side is what the Persona and play established: never decide the player character\'s feelings or words from it. Two people with no line here have no established relationship.';
+/** The relations among the people here: someone in the scene (the player character included) with another in the scene
+ *  or one the text mentions, as WorldIndex.relationNow has them. */
+export function relationSection(index: WorldIndex, retrieval: Retrieval, origin: PacketInput['origin'], player?: Id): string {
+  const isPerson = (id: Id) => index.entityKind(id) === 'person';
+  const scene = [...new Set([...(player ? [player] : []), ...[...retrieval.entities].filter(([id, t]) => t.has('scene') && isPerson(id)).map(([id]) => id)])];
+  const mentioned = [...retrieval.entities].filter(([id, t]) => !t.has('scene') && t.has('mentioned') && isPerson(id) && id !== player).map(([id]) => id);
+  const seen = new Set<string>();
+  const pairs: { a: Id; b: Id; both: boolean; mine: boolean; rel: NonNullable<ReturnType<WorldIndex['relationNow']>> }[] = [];
+  for (const a of scene) for (const b of [...scene, ...mentioned]) {
+    const k = pairKey(a, b);
+    if (a === b || seen.has(k)) continue;
+    seen.add(k);
+    const rel = index.relationNow(a, b);
+    if (rel) pairs.push({ a, b, both: scene.includes(b), mine: a === player || b === player, rel });
+  }
+  if (!pairs.length) return '';
+  pairs.sort((x, y) => Number(y.both) - Number(x.both) || Number(y.mine) - Number(x.mine));
+  const name = (id: Id) => index.entityName(id);
+  return RELATION_HEAD + '\n' + pairs.slice(0, RELATION_MAX).map(({ rel }) => {
+    const [a, b] = rel.people;
+    const from = rel.source === 'play' || rel.source === 'ui' ? ` (as it stands since ${formatTick(rel.since!, origin)} in play${rel.before ? `; in the original story before that: ${rel.before}` : ''})` : rel.source === 'persona' ? ' (from the Persona)' : '';
+    const views = rel.views.map((v) => `${name(v.who)} → ${name(v.who === a ? b : a)}: ${v.calls ? `calls them "${v.calls}"; ` : ''}${v.sees}`);
+    return `- ${name(a)} [${a}] ↔ ${name(b)} [${b}]: ${rel.ended ? 'ENDED: ' : ''}${rel.bond}${from}${views.length ? ' | ' + views.join(' | ') : ''}${rel.together ? ` | together: ${rel.together}` : ''}`;
+  }).join('\n');
+}
+
 /** People here with a 思考方式, the people in the scene first, then those the text mentions. */
 export function mindPeople(index: WorldIndex, retrieval: Retrieval): { id: Id; mind: MindProfile }[] {
   const rank = (t: Set<string>) => (t.has('scene') ? 0 : t.has('mentioned') ? 1 : 2);
@@ -461,6 +495,8 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   required.push(`ENTITY / SCENE STATE at checkpoint ${cpLabel} (applies to every depicted entity, including incidental route stops; no other supported change through ${cpLabel}; a property not listed for an entity is UNKNOWN — not established, do not assume normality):\n` + (states.length ? states.join('\n') : '- (no referenced entities)'));
   const nature = natureSection(index, retrieval, inp.perception);
   if (nature) required.push(nature);
+  const relations = relationSection(index, retrieval, inp.origin, inp.perception?.player);
+  if (relations) required.push(relations);
   const mind = inp.review ? '' : mindSection(index, retrieval);
   if (mind) required.push(mind);
   if (inp.minds && !inp.review) required.push(inp.minds);

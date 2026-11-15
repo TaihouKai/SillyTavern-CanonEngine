@@ -169,6 +169,8 @@ const server = http.createServer(async (req, res) => {
       if (rule?.raw !== undefined) out = rule.raw;
       else if (rule?.response) out = JSON.stringify(typeof rule.response === 'function' ? rule.response(input) : rule.response);
       else out = JSON.stringify(rule?.patch ? deepMerge(defaultTask(task, input), rule.patch) : defaultTask(task, input));
+      // a patch can name the player character as "$player" (the analysis gets its id as player_entity)
+      if (input?.player_entity?.id) out = out.split('"$player"').join(JSON.stringify(input.player_entity.id));
       entry.response = out;
       entry.rule = rule?.name || null;
       return reply(res, body, out);

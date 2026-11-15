@@ -4,7 +4,7 @@ import sys
 
 import os
 
-from . import adapters, assemble, corrections, deaths, dedupe, ends, impacts, llm, mind, nature, report, review, skeleton, start, steps
+from . import adapters, assemble, corrections, deaths, dedupe, ends, impacts, llm, mind, nature, relations, report, review, skeleton, start, steps
 from . import prompts as P
 from .config import Project, load_global
 from .util import ROOT, log, read_json, write_json
@@ -72,7 +72,7 @@ def main(argv=None):
         except (AttributeError, ValueError):
             pass
     ap = argparse.ArgumentParser(prog='python -m cpb', description='Build a Canon Engine history pack from a story source.')
-    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'ends', 'impacts', 'start', 'deaths', 'run', 'status'])
+    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'relations', 'ends', 'impacts', 'start', 'deaths', 'run', 'status'])
     ap.add_argument('-p', '--project', default='fgo-cn', help='project name under projects/ or a path to a project file')
     ap.add_argument('--config', help='global config file (default: config.json)')
     ap.add_argument('--chapters', help='only these chapter ids, comma separated (e.g. w100,w101)')
@@ -158,6 +158,22 @@ def main(argv=None):
         assemble.write_pack(project, out, pk)
         res = report.lint(gcfg, out)
         log(f'mind: {n} people with a 思考方式 — pack: {out}' + (f' — canon-lint: {"OK" if res.get("ok") else "ERRORS"}, {len(res.get("errors", []))} errors' if res else ''))
+    if cmd == 'relations':
+        # how the pairs of people stand with each other, for a built pack (the pairs its pages list or that share many
+        # events); kept in work/<project>/relations and attached on every build
+        src_path = args.pack or project.p('out', project.get('pack', {}).get('file') or f'{project.get("pack", {}).get("pack_id", project.name)}.canon.json')
+        pk = read_json(src_path)
+        if not pk:
+            log(f'relations: no pack at {src_path} (build first, or give --pack)')
+            return 2
+        cl = client(gcfg, project, args)
+        try:
+            relations.generate(project, cl, pk, nature.wiki_pages(project), lang=steps.lang_name(project))
+        except llm.BudgetExceeded as e:
+            log(str(e))
+            log('run the same command again to continue (finished results are kept)')
+            return 2
+        log('relations: written; build again to attach them')
     if cmd == 'nature':
         # 常态 for the people of a built pack, written into it (a separate command: it needs the built pack's events)
         src_path = args.pack or project.p('out', project.get('pack', {}).get('file') or f'{project.get("pack", {}).get("pack_id", project.name)}.canon.json')
@@ -211,9 +227,15 @@ def main(argv=None):
             n = mind.attach(pk, project.p('mind'), also)
             assemble.write_pack(project, path, pk)
             log(f'mind: {n} people with a 思考方式')
-        # a person's fixes of what the generated 常态 and 思考方式 got wrong, and the wordings fixed everywhere
+        if os.path.isdir(project.p('relations')):   # and 关系
+            pk = read_json(path)
+            n, rmiss = relations.attach(pk, project.p('relations'), {m: k for k, ms in also.items() for m in ms})
+            assemble.write_pack(project, path, pk)
+            corrections.write_misses(project, corrections.read_misses(project) + rmiss)
+            log(f'relations: {n} pairs')
+        # a person's fixes of what the generated 常态, 思考方式 and 关系 got wrong, and the wordings fixed everywhere
         pk = read_json(path)
-        miss = corrections.apply_people(pk, rv) + corrections.apply(pk, {'texts': rv.get('texts') or []}, people=True)
+        miss = corrections.apply_people(pk, rv) + corrections.apply_relations(pk, rv) + corrections.apply(pk, {'texts': rv.get('texts') or []}, people=True)
         corrections.write_misses(project, corrections.read_misses(project) + miss)
         assemble.write_pack(project, path, pk)
         res = report.lint(gcfg, path)

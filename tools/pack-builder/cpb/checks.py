@@ -205,6 +205,20 @@ def run(project, pack):
     add('problem', 'HARD 事件缺少要求或结果', '', [f'{e["id"]} {e["title"]}' for e in evs if e['classification'] == 'HARD' and (not e.get('required_description') or not e.get('outcomes'))])
     add('review', '没有任何相关实体的事件', '背景历史可以如此；故事内的事件不该', [f'{e["id"]} {e["title"]}' for e in evs if not e['entity_ids']])
 
+    # relations: each stage starts at an event both take part in; the pairs that share many events and have none
+    shared = collections.Counter()
+    for e in evs:
+        ps = sorted({i for i in e['entity_ids'] if E.get(i, {}).get('kind') == 'person'})
+        for x, a in enumerate(ps):
+            for b in ps[x + 1:]:
+                shared[(a, b)] += 1
+    by_ev = {e['id']: set(e['entity_ids']) for e in evs}
+    rels = {tuple(sorted(r['people'])): r for r in pack.get('relations') or []}
+    off = [f'{N(a)}–{N(b)}：{s["from_event"]} 里没有{"、".join(N(x) for x in (a, b) if x not in by_ev.get(s["from_event"], set()))}'
+           for (a, b), r in rels.items() for s in r['stages'] if s.get('from_event') and not {a, b} <= by_ev.get(s['from_event'], set())]
+    add('problem', '关系的阶段不在两人共同的事件上', '阶段从两人都在的事件开始（关系变的那件事）', off)
+    add('review', '共同事件很多却没有关系的人物对', '共同出现 15 件以上：模型判断没有真正的往来（或没生成）；看一眼', [f'{N(a)}–{N(b)}：{n} 件' for (a, b), n in shared.most_common() if n >= 15 and (a, b) not in rels])
+
     # the version: a pack that differs from the one released (project pack.release) has a higher version — set by
     # hand in pack.pack_version (major: a format an older engine does not read, or a change of meaning; minor: content)
     rel = (project.get('pack') or {}).get('release')
@@ -422,7 +436,7 @@ def undecided_duplicates(pack, decided):
 # cut off mid-sentence, names with half a quote mark, empty descriptions. Each is listed here until it is fixed in the
 # review file (cpb/corrections.py) — a principle without a check is a wish.
 
-RESEARCH = re.compile(r'open_questions|维基|[Ww]iki|英文资料|中文资料|资料(?:里|中)?(?:写|称|说)|考据|可能指|待核|需(?:要)?[^，。；]{0,10}核对|与英文|原文为英文')
+RESEARCH = re.compile(r'open_questions|维基|[Ww]iki|英文资料|中文资料|资料(?:里|中)?(?:写|称|说)|资料(?:里|中)?(?:未|没有|并未)(?:显示|提及|提到|说明|写)|考据|可能指|待核|需(?:要)?[^，。；]{0,10}核对|与英文|原文为英文')
 # words a text may keep in Latin letters: terms of the setting written so (the pack's own names add theirs), units and
 # abbreviations
 LATIN_OK = {'AIM', 'Level', 'LEVEL', 'UFO', 'DNA', 'GPS', 'LED', 'CEO', 'SNS', 'VR', 'UTC', 'ID', 'IC', 'USB', 'PDA', 'AED',
@@ -466,6 +480,13 @@ def _texts_of_entity(x):
     for v in x.get('nature') or []:
         out += [(f'常态({v.get("from_event") or "开局"}).{k}', v.get(k) or '') for k in ('why', *NATURE_FIELDS)]
     return [(k, t) for k, t in out if t]
+
+
+def relation_texts(s, N=lambda i: i):
+    """[(field, text)] of one stage of a relation."""
+    out = [(k, s.get(k) or '') for k in ('bond', 'why', 'together')]
+    out += [(f'{N(v["who"])}.{k}', v.get(k) or '') for v in s.get('views') or [] for k in ('calls', 'sees')]
+    return [(k, x) for k, x in out if x]
 
 
 def latin_words(text, ok):
@@ -567,9 +588,17 @@ def text_problems(pack, misses=()):
             empty = [k for k in NATURE_FIELDS if not (v.get(k) or '').strip()]
             if filled and empty:
                 cut.append(f'{x["id"]} {x["name"]} 常态({v.get("from_event") or "开局"})：{"、".join(empty)} 是空的')
+    for r in pack.get('relations') or []:
+        tag = f'关系 {N(r["people"][0])}–{N(r["people"][1])}'
+        for s in r['stages']:
+            w = s.get('from_event') or '开局'
+            for k, x in relation_texts(s, N):
+                scan(f'{tag}({w}).{k}', x)
+                if k != 'calls' and (CUT_OFF.search(x.strip()) or DANGLING.match(x.strip())):
+                    cut.append(f'{tag}({w}).{k}：…{x.strip()[-24:]}')
     out.append(('problem', '正文里有研究过程的话', '待核对、见维基、考据……是做包时的笔记，GM 读到会当成剧情；改成定论或删去', research))
     out.append(('problem', '中文正文里夹着英文词', '英文资料的原词没译出来；设定里本就写作英文的名称（实体名里有的）不算', latin))
-    out.append(('problem', '常态、思考方式的文字残缺', '空着的一项、以「；」收尾的半句、缺了前半句（「同时…」「则…」）', cut))
+    out.append(('problem', '常态、思考方式、关系的文字残缺', '空着的一项、以「；」收尾的半句、缺了前半句（「同时…」「则…」）', cut))
     half, vac = [], []
     for x in pack['entities']:
         for n in [x['name'], *(x.get('aliases') or [])]:

@@ -43,8 +43,10 @@ export interface EvalOutput {
   summary?: string;
   /** Narrative integration: contacts from the world that reached the player in this reply. */
   contacts?: { quote: string; actors?: string[]; kind: ContactInfo['contactKind']; scope_kind: ScopeKind; scope_ref: string; scope_label?: string; opportunity_id?: string | null }[];
-  /** Narrative integration: changes of the player's relationships and of what people know about them. */
-  player_ties?: { tie: 'relation' | 'knows'; who: string; existing_id?: string | null; relation?: string; ended?: boolean; level?: 'exists' | 'identity' | 'secrets'; about?: string; quote: string }[];
+  /** Relations between two people (the player character like anyone) that this reply begins, changes or ends. */
+  relations?: { people: string[]; bond: string; views?: { who: string; calls?: string; sees: string }[]; together?: string; ended?: boolean; quote: string }[];
+  /** Narrative integration: what people know about the player character, changed. */
+  player_knowers?: { who: string; existing_id?: string | null; level?: 'exists' | 'identity' | 'secrets'; about?: string; quote: string }[];
 }
 
 /** A quote that is a line of speech: a quoted span (“…” 「…」 『…』 "…" ‘…’) with at most a short attribution around it. */
@@ -97,6 +99,8 @@ export interface GateInput {
   forced: boolean;
   /** Narrative integration: the player character's entity and the suggestion offered to the GM this turn. */
   playerId?: Id | null;
+  /** The player's Persona name (the analysis may name the player character by it). */
+  personaName?: string;
   offered?: Opportunity | null;
   /** Contacts this reply must make (the player's own position binds them to the matter): a draft without one is
    *  sent back. */
@@ -683,22 +687,66 @@ export function runGate(g: GateInput): GateResult {
       contact: { scopeKind, scopeRef, scopeLabel: label.slice(0, 300), opportunityId: opp ?? (job ? g.offered!.id : null), contactKind: k.kind, actors, quote: k.quote.slice(0, 300), ...(job ? { sideJob: true, expires: Math.floor(sceneEnd.lo / 1440) * 1440 + 1440, job: g.offered!.contact.slice(0, 300) } : {}) },
     });
   }
-  // ---- the player's relationships and who knows what about them, as this reply changes them --------------
+  // ---- relations between two people (the player character like anyone), as this reply changes them --------------
+  const evidence = (q?: string | null) => hasQuote(q) || quoteInText(q || '', g.userText || '');
+  const relationDrafts: RecordDraft[] = [];
+  // an id, a new_entities ref, or a name as written (a looser match would tie someone new to a known person)
+  const relationRef = (x: string): Id | null => {
+    if (refToId.has(x) || index.entityExists(x) || runtimeEntities.some((r) => r.id === x)) return resolveId(x);
+    // the player character by any of their names (the Persona's, the name the Persona gives them): never a new person
+    if (g.playerId && [...index.allNames(g.playerId), g.personaName || ''].some((n) => n && normalizeName(n) === normalizeName(x))) return g.playerId;
+    const hit = index.resolveEntity(x).ids.filter((id) => index.allNames(id).some((n) => normalizeName(n) === normalizeName(x)));
+    return hit.length === 1 ? hit[0] : null;
+  };
+  const isPerson = (id: Id) => (index.entityExists(id) ? index.entityKind(id) : runtimeEntities.find((r) => r.id === id)?.kind) === 'person';
+  for (const r of ev.relations || []) {
+    const bond = String(r.bond || '').trim().slice(0, 400);
+    const label = (r.people || []).join(' / ');
+    if (!bond || (r.people || []).length !== 2) continue;
+    if (!evidence(r.quote)) { warnings.push(`relation "${label}" ignored: evidence not found in text`); continue; }
+    // someone who now has a relation that matters becomes a person of the chat (like the Persona's own people)
+    const ids = r.people.map((x) => {
+      const id = relationRef(String(x || '').trim());
+      if (id || !String(x || '').trim() || /^rt\.|^[a-z][a-z0-9_.-]*$/.test(String(x).trim())) return id;
+      const nid = `rt.person.${slug(String(x).trim())}.${newId('e').slice(2, 8)}`;
+      runtimeEntities.push({ id: nid, name: String(x).trim().slice(0, 100), aliases: [], kind: 'person', description: bond });
+      refToId.set(String(x).trim(), nid);
+      return nid;
+    });
+    if (!ids[0] || !ids[1] || ids[0] === ids[1] || !ids.every((id) => isPerson(id!))) { warnings.push(`relation "${label}" ignored: not two known people`); continue; }
+    const people = ids as [Id, Id];
+    const views = (r.views || []).map((v) => ({ who: relationRef(String(v.who || '').trim()), calls: String(v.calls || '').trim().slice(0, 100), sees: String(v.sees || '').trim().slice(0, 400) }))
+      .filter((v): v is { who: Id; calls: string; sees: string } => !!v.who && people.includes(v.who) && !!v.sees)
+      .filter((v, i, all) => all.findIndex((x) => x.who === v.who) === i)
+      .map((v) => ({ who: v.who, ...(v.calls ? { calls: v.calls } : {}), sees: v.sees }));
+    const together = String(r.together || '').trim().slice(0, 400);
+    const name = (id: Id) => (index.entityExists(id) ? index.entityName(id) : runtimeEntities.find((x) => x.id === id)?.name || id);
+    relationDrafts.push({
+      recordId: newId('rec'), kind: 'relation', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+      visibility: { mode: 'public', knower_ids: [] }, summary: `Relation: ${name(people[0])} – ${name(people[1])}: ${r.ended ? 'ENDED: ' : ''}${bond}`.slice(0, 300), evidenceKind: 'direct',
+      relations: [{ people, bond, views, ...(together ? { together } : {}), ...(r.ended ? { ended: true } : {}), quote: String(r.quote).slice(0, 300), source: 'play' }],
+    });
+  }
+  // people first met here: introduced before their relations (when no other new entity made the record above)
+  if (runtimeEntities.length && !records.some((r) => r.kind === 'runtime_entity')) records.push({
+    recordId: newId('rec'), kind: 'runtime_entity', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+    visibility: { mode: 'public', knower_ids: [] }, summary: `Introduced: ${runtimeEntities.map((r) => r.name).join(', ')}`, evidenceKind: 'direct', runtimeEntities,
+  });
+  records.push(...relationDrafts);
+  // ---- what people know about the player character, as this reply changes it --------------
   if (g.playerId) {
-    for (const t of ev.player_ties || []) {
+    for (const t of ev.player_knowers || []) {
       const name = String(t.who || '').trim();
-      if (!name || !(hasQuote(t.quote) || quoteInText(t.quote || '', g.userText || ''))) { warnings.push(`tie "${name || (t.quote || '').slice(0, 40)}" ignored: evidence not found in text`); continue; }
+      if (!name || !evidence(t.quote)) { warnings.push(`knower "${name || (t.quote || '').slice(0, 40)}" ignored: evidence not found in text`); continue; }
       const id = (t.existing_id ? resolveId(t.existing_id) : null) || resolveId(name);
       if (id === g.playerId) continue;
-      const relation = String(t.relation || '').trim().slice(0, 400), about = String(t.about || '').trim().slice(0, 400);
-      if (t.tie === 'relation' ? !relation : !about && !t.level) continue;
+      const about = String(t.about || '').trim().slice(0, 400);
+      if (!about && !t.level) continue;
       const label = (id && index.entityExists(id) ? index.entityName(id) : runtimeEntities.find((r) => r.id === id)?.name) || name;
       records.push({
         recordId: newId('rec'), kind: 'player_tie', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
-        visibility: { mode: 'public', knower_ids: [] }, summary: `${t.tie === 'relation' ? 'Relationship' : 'Who knows'}: ${label} — ${t.tie === 'relation' ? relation : about}`.slice(0, 300), evidenceKind: 'direct',
-        tie: t.tie === 'relation'
-          ? { kind: 'relation', who: id, name: label, relation, ...(t.ended ? { ended: true } : {}), quote: t.quote.slice(0, 300), source: 'play' }
-          : { kind: 'knows', who: id, name: label, level: t.level || 'identity', about, quote: t.quote.slice(0, 300), source: 'play' },
+        visibility: { mode: 'public', knower_ids: [] }, summary: `Who knows: ${label} — ${about}`.slice(0, 300), evidenceKind: 'direct',
+        tie: { who: id, name: label, level: t.level || 'identity', about, quote: t.quote.slice(0, 300), source: 'play' },
       });
     }
   }

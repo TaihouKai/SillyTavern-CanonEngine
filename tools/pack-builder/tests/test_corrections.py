@@ -122,7 +122,7 @@ class ChecksTest(unittest.TestCase):
         self.assertEqual(len(out['把治疗写成了伤']), 1)
         self.assertEqual(len(out['正文里有研究过程的话']), 1)
         self.assertTrue(any('reluctantly' in x and 'beat' in x for x in out['中文正文里夹着英文词']))
-        self.assertEqual(len(out['常态、思考方式的文字残缺']), 3)    # cut off, starts mid-sentence, empty
+        self.assertEqual(len(out['常态、思考方式、关系的文字残缺']), 3)    # cut off, starts mid-sentence, empty
         self.assertEqual(len(out['名字、别名里的引号不成对']), 2)
         self.assertEqual(len(out['空洞的实体描述']), 1)
         self.assertEqual(out['核对文件里的更正没有对上'], ['texts：「x」没找到'])

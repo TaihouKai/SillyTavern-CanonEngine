@@ -23,10 +23,10 @@ try {
     mainQueue: ['米拉看完账本，明白了你夜里真正在做什么。她转身离开，这段友谊到此为止。TI_A', '码头上很安静。TI_B'],
     taskRules: [
       { task: 'profile', patch: { relationships: [{ name: 'Mira', existing_id: 'mira', relation: '青梅竹马的好友', basis: 'persona_stated' }] } },
-      { task: 'evaluate', match: 'TI_A', patch: { player_ties: [
-        { tie: 'relation', who: 'Mira', existing_id: 'mira', relation: '因账本一事绝交的旧友', quote: '这段友谊到此为止' },
-        { tie: 'knows', who: 'Mira', existing_id: 'mira', level: 'secrets', about: 'Ash夜里替走私船干活', quote: '明白了你夜里真正在做什么' },
-      ] } },
+      { task: 'evaluate', match: 'TI_A', patch: {
+        relations: [{ people: ['mira', '$player'], bond: '因账本一事绝交的旧友', views: [{ who: 'mira', sees: '不再理会Ash' }], quote: '这段友谊到此为止' }],
+        player_knowers: [{ who: 'Mira', existing_id: 'mira', level: 'secrets', about: 'Ash夜里替走私船干活', quote: '明白了你夜里真正在做什么' }],
+      } },
       { task: 'evaluate', match: 'TI_B', patch: { contacts: [{ quote: '码头上很安静', actors: ['mira'], kind: 'request', scope_kind: 'storyline', scope_ref: '', scope_label: '码头的活', opportunity_id: null }] } },
     ],
     clearLogs: true,
@@ -35,8 +35,8 @@ try {
   await send(page, '我把账本给米拉看。');
   await waitIdle(page);
   const c1 = await campaign(page);
-  const ties = await page.evaluate(() => window.CanonEngine.engine.current.replay.state.ties.map((t) => [t.kind, t.name, t.relation || t.about]));
-  check('TI01 the reply\'s changes are recorded with their quote', ties.length === 2 && ties[0][2] === '因账本一事绝交的旧友', JSON.stringify(ties) + (c1 ? '' : ' (no campaign)'));
+  const ties = await page.evaluate(() => { const s = window.CanonEngine.engine.current.replay.state; return [...s.relations.filter((r) => r.source === 'play').map((r) => r.bond), ...s.ties.map((t) => t.about)]; });
+  check('TI01 the reply\'s changes are recorded with their quote', ties.length === 2 && ties[0] === '因账本一事绝交的旧友', JSON.stringify(ties) + (c1 ? '' : ' (no campaign)'));
   await send(page, '我回到码头。');
   await waitIdle(page);
   const main = (await logs()).filter((l) => l.type === 'main').map((l) => (l.messages || []).map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n'));

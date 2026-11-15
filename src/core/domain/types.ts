@@ -125,7 +125,16 @@ export interface CanonPack {
   arcs: PackArc[];
   events: PackEvent[];
   edges: PackEdge[];
+  /** How two people stand with each other, in stages (see PackRelation). */
+  relations?: PackRelation[];
 }
+/** How two people of the story stand with each other. The stages are in story order; one holds once its from_event has
+ *  occurred in the branch (null: from the story start) until the next one does or its until_event has. Before the first
+ *  holds they do not know each other. Play changes a relation from there (RelationChange), for anyone, the player too. */
+export interface PackRelation { people: [Id, Id]; stages: RelationStage[]; source_refs: Id[] }
+export interface RelationStage { from_event: Id | null; until_event?: Id | null; why?: string; bond: string; views: RelationView[]; together?: string }
+/** One side of a relation: how `who` addresses the other (calls) and regards and treats them (sees). */
+export interface RelationView { who: Id; calls?: string; sees: string }
 
 // ---------------------------------------------------------------------------------------------
 // Runtime
@@ -164,6 +173,7 @@ export type RecordKind =
   | 'engagement'
   | 'world_contact'
   | 'player_tie'
+  | 'relation'
   | 'scene_frame';
 
 /** What a player decision or a contact is about. event/arc: pack ids; faction: an organization entity id;
@@ -206,23 +216,35 @@ export interface ContactInfo {
   job?: string;
 }
 
-/** A change of the player character's ties made in play (or by the user in the panel): a relationship with someone,
- *  or what someone knows about the player. The Persona gives the start; these change it from there. */
+/** What someone knows about the player, changed in play (or by the user in the panel). The Persona gives the start;
+ *  these change it from there. */
 export interface TieInfo {
-  kind: 'relation' | 'knows';
-  /** An entity id when they are known to this world, else null (matched by name). */
+  /** An entity id when they are known to this world, else null (matched by name: a group). */
   who: Id | null;
   name: string;
-  /** relation: the whole relationship as it stands now; ended: it is over (dead, broken off for good). */
-  relation?: string;
-  ended?: boolean;
-  /** knows: how much they know now and what. */
-  level?: 'exists' | 'identity' | 'secrets';
-  about?: string;
+  /** How much they know now and what. */
+  level: 'exists' | 'identity' | 'secrets';
+  about: string;
   quote: string;
   source: 'play' | 'ui';
-  /** ui: the tie is taken out altogether. */
+  /** ui: the knower is taken out altogether. */
   removed?: boolean;
+}
+
+/** A relation between two people as it stands from now on, the whole of it (not only what changed): from the Persona
+ *  (the player's start), from play (the analysis of an accepted reply) or from the user in the panel. The latest change
+ *  of a pair, or the pack stage that started later, is the relation in force. */
+export interface RelationChange {
+  people: [Id, Id];
+  bond: string;
+  views: RelationView[];
+  together?: string;
+  /** It is over (one of them dead, broken off for good). */
+  ended?: boolean;
+  /** The relation is taken out altogether (the user in the panel, a Persona revision that no longer has it). */
+  removed?: boolean;
+  quote: string;
+  source: 'persona' | 'play' | 'ui';
 }
 
 /** An actual occurrence (something that happened in this branch). */
@@ -289,8 +311,11 @@ export interface LedgerRecord {
   engagement?: EngagementInfo;
   /** kind world_contact: a contact that reached the player. */
   contact?: ContactInfo;
-  /** kind player_tie: a relationship or what someone knows about the player, changed. */
+  /** kind player_tie: what someone knows about the player, changed. */
   tie?: TieInfo;
+  /** Relations as they stand from this record on (kind relation from play or the panel; persona_seed: the player's
+   *  relations the Persona gives). */
+  relations?: RelationChange[];
   /** kind scene_frame: the time frame the scene is in from now on (MAIN_FRAME for the main frame). */
   frameId?: Id;
 }

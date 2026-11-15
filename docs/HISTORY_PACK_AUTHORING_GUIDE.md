@@ -32,6 +32,7 @@ The runtime engine is general-purpose. No Toaru-specific dates, characters, even
 | `arcs` | Optional grouping of events; use an empty array when unnecessary |
 | `events` | Actual canonical event descriptions and their structured fields |
 | `edges` | Typed relations between events; use an empty array when unnecessary |
+| `relations` | Optional: how two people stand with each other, in stages that begin at events (see 关系) |
 
 Unknown fields are rejected rather than silently interpreted. Arrays have no inherent chronological meaning. IDs, time bounds, and relations determine order. Keep all IDs stable when rearranging or revising a pack. IDs use lowercase ASCII letters, digits, dot, underscore and hyphen, starting with a letter. Names and prose can be Chinese, Japanese, English, or another language.
 
@@ -166,6 +167,44 @@ Any person, with or without a power, can carry `mind`: how much effort they put 
 - The GM gets it for the people in the scene. Those whose `deliberation` is not `rarely` also get their moves for the reply worked out first in a call of their own (角色盘算, a setting, on by default): what they read from the moment, what they want, their move, and for each read whether they say it, show it or keep it to themselves.
 - Patterns, never story, as with 常态: no names, no episodes. An ordinary person gets an ordinary description.
 - canon-pack-builder writes it with `python -m cpb mind -p <project>` for the people with a page of their own in the sources.
+
+### 关系 (how two people stand with each other)
+
+The top-level `relations` list says how pairs of people stand with each other. Without it the GM knows each person alone and plays every pair the same way, as polite acquaintances: a devoted junior talks to her idol like a stranger, and two rivals chat like friends.
+
+```json
+"relations": [{
+  "people": ["misaka-mikoto", "shirai-kuroko"],
+  "stages": [
+    {"from_event": null, "bond": "室友兼学姐学妹",
+     "views": [{"who": "shirai-kuroko", "calls": "姐姐大人", "sees": "…"}, {"who": "misaka-mikoto", "calls": "黑子", "sees": "…"}],
+     "together": "…"},
+    {"from_event": "<event id>", "why": "…", "bond": "…", "views": […]}
+  ],
+  "source_refs": ["…"]
+}]
+```
+
+- **Stages and timing.** Stages go in story order.
+  - A first stage with `from_event` null holds from the story start.
+  - A stage with a `from_event` holds once that event has occurred in the branch, until a later stage starts or its `until_event` occurs.
+  - Before the first stage holds, the two do not know each other. A first stage can therefore start at the event where they meet.
+  - Use a new stage only where the relationship itself changes for a long time: hostility ends, they become friends, someone is betrayed, the way one addresses the other changes. A passing quarrel is not a new stage.
+- **Each stage.**
+  - `bond`: what they are to each other, in one phrase.
+  - `views`: one entry per side that knows the other. `who` is the person whose side it is; `calls` is how they address or refer to the other; `sees` is how they regard and treat the other.
+  - `together`: how the two are when together, and what is touchy between them.
+  - Write standing attitudes, not a retelling of the plot. Each stage is read on its own, so write it in full.
+- **What the GM sees.** The GM gets the pair's current stage when someone in the scene is with another person in the scene or one the text mentions.
+- **The player character is treated like anyone.**
+  - The relations the Persona gives are the player's starting relations.
+  - Play changes any pair, the player's included: the review of an accepted reply records the relation as it stands from then on, with its quote. The user can also change the player's relations in the panel.
+  - The latest change of a pair wins. The exception is a pack stage whose event occurs after that change: the story has reached that stage, so it applies.
+- **Lint checks.**
+  - Each relation has two people of the pack, and each pair appears once.
+  - Only the first stage has `from_event` null, and every event a stage refers to exists.
+  - Each view belongs to one of the two people. A stage that starts before the stage above it is a warning.
+- **Building.** canon-pack-builder writes relations with `python -m cpb relations -p <project>`. It covers the pairs the sources' pages list for each other, plus the pairs that share many events.
 
 ## 4. Sources and provenance
 

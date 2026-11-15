@@ -1,6 +1,6 @@
 // Pack loading: JSON Schema validation, semantic lint, immutable Graph A with indexes.
 import * as V from '../generated/validators.js';
-import type { CanonPack, Condition, Effect, Fact, FactValue, Id, PackEvent, PackPredicate } from './types';
+import type { CanonPack, Condition, Effect, Fact, FactValue, Id, PackEvent, PackPredicate, PackRelation } from './types';
 import { EXACT_PRECISIONS } from './types';
 import { applyChange, effectTarget, effectToDelta } from './delta';
 import { toTick, whenToStoryTime } from './time';
@@ -30,8 +30,14 @@ export interface LoadedPack {
   coverage: { start: number; end: number };
   /** Time frames (empty for a pack without them). */
   frames: FrameIndex;
+  /** The pack's relations by pair (pairKey), and the pairs of each person. */
+  relations: Map<string, PackRelation>;
+  relationsOf: Map<Id, string[]>;
   warnings: LintIssue[];
 }
+
+/** One key for a pair of people, whichever comes first. */
+export const pairKey = (a: Id, b: Id) => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
 export function normalizeName(s: string): string {
   return String(s).normalize('NFKC').toLowerCase().replace(/[\s·・._\-'"“”‘’「」『』]+/g, '');
@@ -489,6 +495,7 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
   if (!pack.events.some((e) => e.when.earliest)) warn('/coverage', 'coverage promises scheduled play but no finite-time events exist');
   lintFrames(pack, entities, err, warn);
   lintNature(pack, err, warn);
+  lintRelations(pack, err, warn);
   return { errors: dedupeIssues(errors), warnings: dedupeIssues(warnings) };
 }
 
@@ -505,6 +512,36 @@ function lintNature(pack: CanonPack, err: (p: string, m: string) => void, warn: 
       if (j === 0 && v.from_event !== null) err(`${at}/from_event`, 'the first version holds at the story start: from_event must be null');
       if (j > 0 && v.from_event === null) err(`${at}/from_event`, 'a later version starts at an event: from_event is missing');
       for (const k of ['from_event', 'until_event'] as const) if (v[k] && !evs.has(v[k]!)) err(`${at}/${k}`, `unknown event "${v[k]}"`);
+    });
+  });
+}
+
+/** Relations: two people of the pack, one entry per pair, stages at known events in story order, each side one of
+ *  the two. */
+function lintRelations(pack: CanonPack, err: (p: string, m: string) => void, warn: (p: string, m: string) => void) {
+  const ents = new Map(pack.entities.map((e) => [e.id, e]));
+  const evs = new Map(pack.events.map((e) => [e.id, e]));
+  const seen = new Set<string>();
+  (pack.relations || []).forEach((r, i) => {
+    const at = `/relations/${i}`;
+    for (const id of r.people) {
+      if (!ents.has(id)) err(`${at}/people`, `unknown entity "${id}"`);
+      else if (ents.get(id)!.kind !== 'person') warn(`${at}/people`, `"${id}" is a ${ents.get(id)!.kind}: relations are between people`);
+    }
+    const k = pairKey(r.people[0], r.people[1]);
+    if (seen.has(k)) err(`${at}/people`, `a second relation for ${r.people.join(' and ')}: one entry per pair`);
+    seen.add(k);
+    let last = -Infinity;
+    r.stages.forEach((s, j) => {
+      const sp = `${at}/stages/${j}`;
+      if (j > 0 && s.from_event === null) err(`${sp}/from_event`, 'only the first stage can hold from the story start (from_event null)');
+      for (const key of ['from_event', 'until_event'] as const) if (s[key] && !evs.has(s[key]!)) err(`${sp}/${key}`, `unknown event "${s[key]}"`);
+      const ev = s.from_event ? evs.get(s.from_event) : undefined;
+      const lo = ev?.when.earliest ? toTick(ev.when.earliest) : null;
+      if (lo !== null) { if (lo < last) warn(`${sp}/from_event`, `starts at "${s.from_event}", before the stage above it: stages go in story order`); last = lo; }
+      const who = s.views.map((v) => v.who);
+      if (who.some((w) => !r.people.includes(w))) err(`${sp}/views`, `a view of someone not in this pair (${who.filter((w) => !r.people.includes(w)).join(', ')})`);
+      if (new Set(who).size < who.length) err(`${sp}/views`, 'two views of the same side');
     });
   });
 }
@@ -593,8 +630,20 @@ function buildLoaded(pack: CanonPack, warnings: LintIssue[]): LoadedPack {
     eventTitleIndex,
     coverage: { start: toTick(pack.coverage.start), end: toTick(pack.coverage.end) },
     frames: indexFrames(pack),
+    ...indexRelations(pack),
     warnings,
   };
+}
+
+function indexRelations(pack: CanonPack): Pick<LoadedPack, 'relations' | 'relationsOf'> {
+  const relations = new Map<string, PackRelation>();
+  const relationsOf = new Map<Id, string[]>();
+  for (const r of pack.relations || []) {
+    const k = pairKey(r.people[0], r.people[1]);
+    relations.set(k, r);
+    for (const id of r.people) relationsOf.set(id, [...(relationsOf.get(id) || []), k]);
+  }
+  return { relations, relationsOf };
 }
 
 /** Reload a pinned snapshot (already validated at bind time). Throws if it no longer validates. */

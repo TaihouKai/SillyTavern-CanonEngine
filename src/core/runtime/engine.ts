@@ -1372,7 +1372,7 @@ export class CanonEngine {
     const gate = runGate({
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: eng.binding(tick).length + eng.answers(tick).length, hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
-      playerId: prof?.profile.playerId || null, offered: a.offered || null, required: a.required || [], chanceCompanions: a.chance || [], chanceBlocking: (a.attempt ?? 0) === 0, leap: !!a.leapTo,
+      playerId: prof?.profile.playerId || null, personaName: prof?.profile.personaName, offered: a.offered || null, required: a.required || [], chanceCompanions: a.chance || [], chanceBlocking: (a.attempt ?? 0) === 0, leap: !!a.leapTo,
     });
     const c = this.campaign();
     const manifest: CoverageManifest | null = c ? {
@@ -1806,7 +1806,7 @@ export class CanonEngine {
             // Gate HARD crossing with staged offscreen occurrences against the committed clock
             review.gate = runGate({
               pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
-              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: (() => { const e = engagementView(stagedIndex.state, pack), t = stagedIndex.state.clock.lo; return e.binding(t).length + e.answers(t).length; })(), hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, offered, required, chanceCompanions: chance, chanceBlocking: attempt === 0, leap: !!leapTo,
+              evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: (() => { const e = engagementView(stagedIndex.state, pack), t = stagedIndex.state.clock.lo; return e.binding(t).length + e.answers(t).length; })(), hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, personaName: prof?.profile.personaName, offered, required, chanceCompanions: chance, chanceBlocking: attempt === 0, leap: !!leapTo,
             });
             this.checkFences(fences, excludeLast);
           }
@@ -3128,7 +3128,7 @@ export class CanonEngine {
   /** 常态 of the people, as the timeline window shows them (see views.natureView). */
   natureView(spoilers: boolean): NatureViewData | null {
     if (!this.campaign() || !this.current) return null;
-    return natureView(this.current.index, spoilers, this.playerProfile()?.profile.playerId);
+    return natureView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign()!.binding.originDate);
   }
 
   inspector(spoilers: boolean) {
@@ -3293,7 +3293,9 @@ export class CanonEngine {
   }
 
   /** The user's own change of a relationship or of what someone knows about the player (叙事融入 panel): kept as a
-   *  player_tie record after the current last message, replayed like the ones play made (null removes the tie). */
+   *  record after the current last message, replayed like the ones play made (null removes it). A relationship is a
+   *  relation of the world between the player character and a person (someone not known yet becomes a person of the
+   *  chat); the text the user writes is the whole of it. */
   async editTie(kind: 'relation' | 'knows', who: Id | null, name: string, patch: { relation?: string; ended?: boolean; level?: 'exists' | 'identity' | 'secrets'; about?: string } | null): Promise<void> {
     if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
     const c = this.campaign();
@@ -3302,12 +3304,32 @@ export class CanonEngine {
     if (patch && kind === 'relation' && !patch.relation?.trim()) return;
     const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
     const tick = this.current?.replay.state.clock.lo ?? c.binding.startTick;
-    const id = who || (this.current ? this.current.index.resolveEntity(name).ids.find((x) => this.current!.index.entityKind(x) !== 'place') : undefined) || null;
-    const rec: RecordDraft = {
-      recordId: newId('rec'), kind: 'player_tie', storyTime: { lo: tick, hi: tick, precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
-      visibility: { mode: 'public', knower_ids: [] }, summary: `${kind === 'relation' ? 'Relationship' : 'Who knows'}: ${name} ${patch ? 'set' : 'removed'} (Canon Engine panel)`, evidenceKind: 'direct',
-      tie: { kind, who: id, name, quote: '', source: 'ui', ...(patch ? { ...(kind === 'relation' ? { relation: patch.relation!.trim().slice(0, 400), ...(patch.ended ? { ended: true } : {}) } : { level: patch.level || 'identity', about: String(patch.about || '').trim().slice(0, 400) }) } : { removed: true }) },
-    };
+    const idx = this.current?.index;
+    const base = { recordId: newId('rec'), storyTime: { lo: tick, hi: tick, precision: 'minute' as const }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public' as const, knower_ids: [] }, evidenceKind: 'direct' as const };
+    let rec: RecordDraft;
+    if (kind === 'relation') {
+      const me = this.playerProfile()?.profile.playerId;
+      if (!me) return;
+      // the name as written (not a looser match: "Old Tomas" is not Tomas)
+      const exact = (x: Id) => idx!.allNames(x).some((n) => normalizeName(n) === normalizeName(name));
+      let id = (who && idx?.entityKind(who) === 'person' ? who : null) || idx?.resolveEntity(name).ids.find((x) => idx.entityKind(x) === 'person' && exact(x)) || null;
+      const made: import('../domain/types').RuntimeEntity[] = [];
+      if (!id) {
+        if (!patch) return;
+        id = `rt.person.${name.normalize('NFKC').toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, '-').replace(/^-|-$/g, '').slice(0, 20) || 'x'}.${newId('e').slice(2, 8)}`;
+        made.push({ id, name, aliases: [], kind: 'person', description: patch.relation!.trim().slice(0, 600) });
+      }
+      rec = {
+        ...base, kind: 'relation', summary: `Relationship: ${name} ${patch ? 'set' : 'removed'} (Canon Engine panel)`, ...(made.length ? { runtimeEntities: made } : {}),
+        relations: [{ people: [me, id], bond: patch ? patch.relation!.trim().slice(0, 400) : '', views: [], ...(patch?.ended ? { ended: true } : {}), ...(patch ? {} : { removed: true }), quote: '', source: 'ui' }],
+      };
+    } else {
+      const id = who || (idx ? idx.resolveEntity(name).ids.find((x) => idx.entityKind(x) !== 'place') : undefined) || null;
+      rec = {
+        ...base, kind: 'player_tie', summary: `Who knows: ${name} ${patch ? 'set' : 'removed'} (Canon Engine panel)`,
+        tie: { who: id, name, level: patch?.level || 'identity', about: String(patch?.about || '').trim().slice(0, 400), quote: '', source: 'ui', ...(patch ? {} : { removed: true }) },
+      };
+    }
     c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
     c.configRevisions.push({ at: this.host.now(), summary: rec.summary });
     await this.host.save();

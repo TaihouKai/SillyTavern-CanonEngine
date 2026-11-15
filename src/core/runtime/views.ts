@@ -13,8 +13,10 @@ export interface MembershipView {
   changes: { when: string; event: string; org: string; what: 'members' | 'leader'; op: 'set' | 'unset' | 'add' | 'remove'; names: string[]; state: 'occurred' | 'diverged' | 'pending' | 'future' }[];
   hidden: number;
 }
+/** A relation in force, as a person's 常态 view lists it: with whom, what they are, each side, since when. */
+export interface RelationLine { other: string; bond: string; ended?: boolean; views: { who: string; calls?: string; sees: string }[]; together?: string; since: string | null; source: 'pack' | 'persona' | 'play' | 'ui' }
 export interface NatureViewData {
-  people: { id: Id; name: string; player?: boolean; mind?: MindProfile; versions: (NatureVersion & { from: string | null; until: string | null; state: 'now' | 'ended' | 'later' })[] }[];
+  people: { id: Id; name: string; player?: boolean; mind?: MindProfile; versions: (NatureVersion & { from: string | null; until: string | null; state: 'now' | 'ended' | 'later' })[]; relations?: RelationLine[] }[];
   hidden: number;
 }
 
@@ -51,19 +53,25 @@ export function membershipView(idx: WorldIndex, tick: number, origin: Origin, sp
 
 /** 常态 of the people: each version with how it stands (in force now, ended, or not reached). A version not reached
  *  starts at an event still to come: a canon spoiler, shown only with spoilers on. The people the story brought in
- *  (the player character first) are listed like the pack's. */
-export function natureView(idx: WorldIndex, spoilers: boolean, player?: Id | null): NatureViewData {
+ *  (the player character first) are listed like the pack's. With them, their relations in force in this game (the
+ *  ones still to come are not shown: they are spoilers and change with play). */
+export function natureView(idx: WorldIndex, spoilers: boolean, player?: Id | null, origin: Origin = null): NatureViewData {
   const s = idx.state;
   const title = (e?: Id | null) => (e ? idx.pack.events.get(e)?.title || e : null);
   const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
   let hidden = 0;
   const all = [...[...s.runtimeEntities.values()].sort((a, b) => Number(b.id === player) - Number(a.id === player)), ...idx.pack.entities.values()] as { id: Id; name: string; nature?: NatureVersion[]; mind?: MindProfile }[];
-  const people: NatureViewData['people'] = all.filter((e) => e.nature?.length || e.mind).map((e) => {
+  const rels = (id: Id): RelationLine[] => idx.relationsOf(id).map(({ other, rel }) => ({
+    other: idx.entityName(other), bond: rel.bond, ...(rel.ended ? { ended: true } : {}), views: rel.views.map((v) => ({ who: idx.entityName(v.who), ...(v.calls ? { calls: v.calls } : {}), sees: v.sees })),
+    ...(rel.together ? { together: rel.together } : {}), since: rel.since === null ? null : formatTick(rel.since, origin), source: rel.source,
+  }));
+  const people: NatureViewData['people'] = all.filter((e) => e.nature?.length || e.mind || idx.relationsOf(e.id).length).map((e) => {
     const nowAt = idx.natureNow(e.id)?.index ?? -1;
     const versions = (e.nature || []).map((v, i) => ({ ...v, from: title(v.from_event), until: title(v.until_event),
       state: (i === nowAt ? 'now' : i === 0 || occurred(v.from_event) ? 'ended' : 'later') as 'now' | 'ended' | 'later' }))
       .filter((v) => { if (v.state === 'later' && !spoilers) { hidden++; return false; } return true; });
-    return { id: e.id, name: e.name, ...(e.id === player ? { player: true } : {}), ...(e.mind ? { mind: e.mind } : {}), versions };
+    const r = rels(e.id);
+    return { id: e.id, name: e.name, ...(e.id === player ? { player: true } : {}), ...(e.mind ? { mind: e.mind } : {}), versions, ...(r.length ? { relations: r } : {}) };
   });
   return { people, hidden };
 }

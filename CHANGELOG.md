@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.36.0 and Toaru pack 5.0.0 — 2026-11-15
+
+- **How people stand with each other.** The GM knew each person alone and played every pair the same way, as polite acquaintances (御坂美琴 and 白井黑子, 美琴 and 食蜂操祈). It now gets a RELATIONSHIPS section for the pairs that matter in a scene: someone in the scene with someone else in it, or with someone the text mentions. The pairs both in the scene come first, at most 12. Each pair says:
+  - what the two are to each other;
+  - for each side, how they address the other (「姐姐大人」, 「哔哩哔哩」) and how they regard and treat the other;
+  - how they are together.
+
+  Character plans and the reviewer read the section too.
+- **The player character is a person of the world like any other.**
+  - A relation is between any two people. The Persona gives the player's starting relations, including each side when the Persona states it.
+  - The review of an accepted reply records how play begins, changes or ends a relation, for any pair (the player's or two original characters'), always with its quote. Someone who now matters becomes a person of the chat.
+  - The user can change the player's relations in the panel.
+  - The latest change of a pair wins. The exception is a pack stage whose event occurs after that change: the story has reached that stage, so it applies.
+  - Who knows what about the player stays separate (`player_knowers`).
+  - The analysis naming the player character by name gives the player's relation, never a second person with that name.
+  - No compatibility with relationships recorded by earlier versions.
+- **Packs can carry `relations`.**
+  - Each relation is a pair of people with stages that begin at events.
+  - Before the first stage holds, the two do not know each other, so a pair can start at the event where they meet.
+  - The lint checks: two people of the pack, one entry per pair, only the first stage from the story start, known events, each view one of the two. A stage that starts before the stage above it is a warning.
+  - The 常态 panel lists each person's relations in force in this game.
+- **Toaru pack 5.0.0: 474 pairs, 795 stages.** The pack uses the new field, so earlier engines refuse it.
+  - The builder chose the pairs, not a model: those that one person's wiki page lists for the other (its 人际关系 entries or a sub-heading per person), plus those sharing 8 or more events.
+  - For each pair the model read both pages' entries about the other, the lines that mention the other, and their shared events in order.
+  - A person read every relation. That reading found three systematic errors, and each is now a rule the builder checks:
+    - **Sides confused.** With sides labelled A/B, the model wrote one person's view under the other's name. Sides are now the people's names.
+    - **People made to know each other from the start.** 250 pairs were written as acquainted when the story begins, though they first meet in it (上条 and 白井 meet on 8-20, 番外个体 does not exist before October). Whether they knew each other before the story is now a stated, checked decision, given with how they knew each other, and the prompt states the date of their first shared event.
+    - **Stages that tell the future.** A stage from 8-21 already called 一方通行 and 上条 close friends. Every sentence of a stage must now hold from its event until the next stage.
+  - 26 relations are fixed in the review file:
+    - 13 more first meetings;
+    - stages that only hold later (一方通行 with the sisters, with 木原数多, with 芳川);
+    - 亲船素甘, a teacher, written as a student;
+    - research notes left in the text;
+    - three that were not relations at all, dropped.
+  - New checks:
+    - a stage that starts at an event the two do not both take part in;
+    - pairs with many shared events and no relation (review list);
+    - relations' texts read like the rest of the pack (untranslated words, cut-off sentences, notes such as 「资料未显示」).
+  - canon-lint 0 errors, 0 warnings; checks 0 problems. The relations step cost about US$0.21 on DeepSeek.
+
 ## Toaru pack 4.6.0 — 2026-11-15
 
 - **Every list the builder leaves for a person was read, item by item** (six review lists of the checks, about 155 items, and the report's lists of unmatched names, merges, alias collisions, death judgements and the 456 doubts the summaries noted). What they showed is fixed, each kind in the builder:

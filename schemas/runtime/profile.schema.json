@@ -177,6 +177,48 @@
        "persona_stated",
        "implied"
       ]
+     },
+     "they": {
+      "anyOf": [
+       {
+        "type": "object",
+        "properties": {
+         "calls": {
+          "type": "string",
+          "maxLength": 100
+         },
+         "sees": {
+          "type": "string",
+          "maxLength": 400
+         }
+        },
+        "additionalProperties": false
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "player": {
+      "anyOf": [
+       {
+        "type": "object",
+        "properties": {
+         "calls": {
+          "type": "string",
+          "maxLength": 100
+         },
+         "sees": {
+          "type": "string",
+          "maxLength": 400
+         }
+        },
+        "additionalProperties": false
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "required": [
