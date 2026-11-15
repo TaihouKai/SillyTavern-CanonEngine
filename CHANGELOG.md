@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.36.4 — 2026-11-15
+
+- **A relation the reply shows as already different is recorded.** In a live game, play had brought 美琴 and 10032号 together an hour before their canon bonding. 10032号 said her sister buys her ice cream and is good to her, while RELATIONSHIPS still gave the 8-21 stage (distant, repelled), and the review recorded nothing. The review is now told that a pair the reply shows standing differently from their RELATIONSHIPS line counts as a change, even when it is shown as already so.
+
 ## 1.36.3 — 2026-11-15
 
 - **Someone who left and is named again is paired again.** In a live game 美琴 walked off at the end of a reply, so the reply reported only the player and 黑子 as present. The next message followed 美琴 and named her, but RELATIONSHIPS left out her pairs: the retrieval still listed her in the old scene, and that list had been replaced by `present`. People named in the player's message now count on their own, whatever the scene list says.
