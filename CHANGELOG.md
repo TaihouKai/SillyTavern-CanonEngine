@@ -1,5 +1,9 @@
 # Changelog
 
+## Toaru pack 5.1.1 — 2026-11-15
+
+- 茵蒂克丝–欧提努斯: the stage in which they live together starts on 11-20, when 欧提努斯 stays with 上条 as a 15 cm remnant, not on 12-01.
+
 ## 1.36.6 — 2026-11-15
 
 - **A change of play no longer thins a pair.** In a live game the review recorded 黑子–美琴 as one line a side (「仰慕与嫌烦并存」, 黑子 jealous of the new sister). The latest change wins, so that line replaced the pack stage, which gives all their sides: the clingy junior who also nags and covers for her, the senior who zaps her and still looks out for her. RELATIONSHIPS now shows the stage play replaced in full under the change, as still so where play has not changed it.
