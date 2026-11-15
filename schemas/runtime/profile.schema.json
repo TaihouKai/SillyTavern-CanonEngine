@@ -184,11 +184,17 @@
         "type": "object",
         "properties": {
          "calls": {
-          "type": "string",
+          "type": [
+           "string",
+           "null"
+          ],
           "maxLength": 100
          },
          "sees": {
-          "type": "string",
+          "type": [
+           "string",
+           "null"
+          ],
           "maxLength": 400
          }
         },
@@ -205,11 +211,17 @@
         "type": "object",
         "properties": {
          "calls": {
-          "type": "string",
+          "type": [
+           "string",
+           "null"
+          ],
           "maxLength": 100
          },
          "sees": {
-          "type": "string",
+          "type": [
+           "string",
+           "null"
+          ],
           "maxLength": 400
          }
         },

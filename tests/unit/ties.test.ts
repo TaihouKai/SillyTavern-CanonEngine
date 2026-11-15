@@ -188,6 +188,13 @@ describe('relations between people, the player character like anyone', () => {
     expect(x.engine.current!.index.relationNow(me(x), 'mira')).toMatchObject({ bond: 'friends again', source: 'play' });
   });
 
+  it('RL10 two people the player\'s message names, not yet in the scene, get their pair too (live: 美琴 and 白井 on the first turn)', async () => {
+    const x = await setup();
+    await turn(x, 'At the café I see Mira and Tomas arguing over cake.', 'They argue. [N2]', { scene_end: at(1, 6, 30) });
+    const rel = section(ctx(x), 'RELATIONSHIPS');
+    expect(rel).toMatch(/Mira \[mira\] ↔ Tomas \[tomas\]: neighbours on the harbor road/);
+  });
+
   it('RL8 a Persona revision without a relation takes it out', async () => {
     const x = await setup();
     expect(played(x).relationships.map((r) => r.name)).toEqual(['Mira']);
