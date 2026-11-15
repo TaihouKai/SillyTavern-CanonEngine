@@ -213,6 +213,22 @@ describe('relations between people, the player character like anyone', () => {
     expect(rel2).toMatch(/Mira \[mira\] ↔ Tomas \[tomas\]|Tomas \[tomas\] ↔ Mira \[mira\]/);
   });
 
+  it('RL12 the timeline window lists the relations as table rows: in force now, and the stages to come only with spoilers', async () => {
+    const x = await setup();
+    const v = x.engine.relationsView(false)!;
+    expect(v.rows.map((r) => [r.a, r.b, r.state, r.bond])).toEqual([
+      ['Ash', 'Mira', 'now', 'close friend since childhood'],
+      ['Mira', 'Tomas', 'now', 'neighbours on the harbor road'],
+    ]);
+    expect(v.rows[0]).toMatchObject({ player: true, source: 'persona', ba: { calls: 'Ash', sees: 'teases Ash like a brother' } });
+    expect(v.rows[1]).toMatchObject({ when: null, source: 'pack', ba: { calls: 'the medic', sees: 'keeps a polite distance from her' } });
+    expect(v.hidden).toBe(1);
+    const s = x.engine.relationsView(true)!;
+    expect(s.rows.find((r) => r.state === 'later')).toMatchObject({ a: 'Mira', b: 'Tomas', bond: 'close friends since the ambush', together: 'easy silences; he fusses over her wounds' });
+    // the 常态 view no longer carries relations
+    expect(JSON.stringify(x.engine.natureView(true))).not.toMatch(/close friend since childhood/);
+  });
+
   it('RL8 a Persona revision without a relation takes it out', async () => {
     const x = await setup();
     expect(played(x).relationships.map((r) => r.name)).toEqual(['Mira']);

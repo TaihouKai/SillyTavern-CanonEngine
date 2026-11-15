@@ -30,7 +30,7 @@ import { answeredBy, contactDecision, playedProfile, playerOrgs, nameIn, isIn, c
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, voiceTurnNote, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
-import { membershipView, natureView, type MembershipView, type NatureViewData } from './views';
+import { membershipView, natureView, relationsView, type MembershipView, type NatureViewData, type RelationsViewData } from './views';
 
 export interface EngineSettings {
   maxOrdinaryPlanner: number;
@@ -3131,6 +3131,12 @@ export class CanonEngine {
   natureView(spoilers: boolean): NatureViewData | null {
     if (!this.campaign() || !this.current) return null;
     return natureView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign()!.binding.originDate);
+  }
+
+  /** 角色关系: every pair this game knows of, as the timeline window shows them (see views.relationsView). */
+  relationsView(spoilers: boolean): RelationsViewData | null {
+    if (!this.campaign() || !this.current) return null;
+    return relationsView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign()!.binding.originDate);
   }
 
   inspector(spoilers: boolean) {

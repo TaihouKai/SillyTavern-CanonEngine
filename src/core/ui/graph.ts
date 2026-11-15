@@ -441,8 +441,14 @@ export interface MembersView {
 
 /** 常态 of the pack's people as the timeline shows them (see CanonEngine.natureView). */
 export interface NatureView {
-  people: { id: string; name: string; player?: boolean; mind?: { deliberation: string; sharpness: string; approach: string; thinks_hard_about?: string; pushed?: string; notices?: string; blind?: string; speaks?: string }; versions: { from: string | null; until: string | null; why?: string; habits: string; uses: string; others: string; limits: string; perceives?: { kinds: string[]; how?: string }; state: 'now' | 'ended' | 'later' }[];
-    relations?: { other: string; bond: string; ended?: boolean; views: { who: string; calls?: string; sees: string }[]; together?: string; since: string | null; source: string }[] }[];
+  people: { id: string; name: string; player?: boolean; mind?: { deliberation: string; sharpness: string; approach: string; thinks_hard_about?: string; pushed?: string; notices?: string; blind?: string; speaks?: string }; versions: { from: string | null; until: string | null; why?: string; habits: string; uses: string; others: string; limits: string; perceives?: { kinds: string[]; how?: string }; state: 'now' | 'ended' | 'later' }[]; }[];
+  hidden: number;
+}
+
+/** 角色关系 as the timeline shows them (see CanonEngine.relationsView). */
+type RelSide = { calls?: string; sees: string };
+export interface RelationsView {
+  rows: { a: string; b: string; player?: boolean; state: 'now' | 'later'; when: string | null; source?: string; bond: string; ended?: boolean; ab?: RelSide; ba?: RelSide; together?: string }[];
   hidden: number;
 }
 
@@ -475,9 +481,12 @@ export class GraphPanel {
   private getMembers: (spoilers: boolean) => MembersView | null;
   private showNature = false;
   private getNature: (spoilers: boolean) => NatureView | null;
+  private showRelations = false;
+  private getRelations: (spoilers: boolean) => RelationsView | null;
 
-  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined, linkCandidates: GraphPanel['linkCandidates'] = () => [], getMembers: GraphPanel['getMembers'] = () => null, getNature: GraphPanel['getNature'] = () => null) {
+  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined, linkCandidates: GraphPanel['linkCandidates'] = () => [], getMembers: GraphPanel['getMembers'] = () => null, getNature: GraphPanel['getNature'] = () => null, getRelations: GraphPanel['getRelations'] = () => null) {
     this.getData = getData;
+    this.getRelations = getRelations;
     this.getMembers = getMembers;
     this.getNature = getNature;
     this.setSpoilers = setSpoilers;
@@ -506,12 +515,12 @@ export class GraphPanel {
     this.data = { pack: d.pack, current: d.current };
     this.preview = !!d.preview;
     // a library pack seen without a world: only its canon reference view
-    if (d.preview && !d.current) { this.mode = 'pack'; this.showMembers = false; this.showNature = false; }
+    if (d.preview && !d.current) { this.mode = 'pack'; this.showMembers = false; this.showNature = false; this.showRelations = false; }
     if (!d.current && this.mode === 'current') this.mode = 'pack';
     const g0 = this.mode === 'pack' ? d.pack : d.current;
     const g = g0 ? this.applyFilter(g0) : null;
     // lay out and draw first: the legend lists the frames near the view
-    const canvasHtml = this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t('graphNoData')}</div>` : this.firstSvg(g);
+    const canvasHtml = this.showRelations ? this.relationsHtml(d.spoilers) : this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t('graphNoData')}</div>` : this.firstSvg(g);
     const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc(a.id)}" ${a.id === this.filter.arc ? 'selected' : ''}>${esc(a.title)}</option>`).join('');
     this.el.innerHTML = `
       <div class="cg-head">
@@ -528,13 +537,14 @@ export class GraphPanel {
         ${this.mode === 'current' && d.current?.frames?.now ? this.frameSelect(d.current) : ''}
         ${d.preview && !d.current ? '' : `<button class="menu_button ${this.showMembers ? 'active' : ''}" data-act="members" title="${esc(t('membersTip'))}">${t('members')}</button>`}
         ${d.preview && !d.current ? '' : `<button class="menu_button cg-nature-btn ${this.showNature ? 'active' : ''}" data-act="nature" title="${esc(t('natureTip'))}">${t('nature')}</button>`}
+        ${d.preview && !d.current ? '' : `<button class="menu_button cg-relations-btn ${this.showRelations ? 'active' : ''}" data-act="relations" title="${esc(t('relationsTip'))}">${t('relations')}</button>`}
         <button class="menu_button" data-act="fit">${t('graphFit')}</button>
         <button class="menu_button" data-act="close">✕</button>
       </div>
       <div class="cg-legend">${this.legend()}<span class="cg-flegend">${this.frameLegend()}</span><span class="cg-hint">${this.mode === 'pack' ? t('graphPackNote') : t('graphCurrentNote')}</span></div>
       <div class="cg-body">
         <div class="cg-canvas">${canvasHtml}</div>
-        <div class="cg-detail"${this.showMembers || this.showNature ? ' style="display:none"' : ''}><div class="cg-empty">${t('graphPick')}</div></div>
+        <div class="cg-detail"${this.showMembers || this.showNature || this.showRelations ? ' style="display:none"' : ''}><div class="cg-empty">${t('graphPick')}</div></div>
       </div>`;
     this.bindCanvas();
     if (this.selected) this.select(this.selected);
@@ -575,9 +585,23 @@ export class GraphPanel {
       return `<div class="cg-nver cg-nver-${x.state}"><div class="cg-nhead">${esc(head)} <span class="cg-key cg-nstate-${x.state}">${t('natureState_' + x.state)}</span>${x.why ? `<span class="cg-nwhy">${esc(x.why)}</span>` : ''}</div>${field('habits', x.habits)}${field('uses', x.uses)}${field('others', x.others)}${field('limits', x.limits)}${x.perceives?.kinds.length ? field('perceives', x.perceives.kinds.map((k) => t('perceive_' + k)).join('、') + (x.perceives.how ? `（${x.perceives.how}）` : '')) : ''}</div>`;
     };
     const mind = (m: NonNullable<NatureView['people'][number]['mind']>) => `<div class="cg-nver cg-nmind"><div class="cg-nhead">${t('mindTitle')} <span class="cg-key">${t('mindDelib_' + m.deliberation)} · ${t('mindSharp_' + m.sharpness)}</span></div>${(['approach', 'thinks_hard_about', 'pushed', 'notices', 'blind', 'speaks'] as const).map((k) => field('mind_' + k, m[k] || '')).join('')}</div>`;
-    const rel = (r: NonNullable<NatureView['people'][number]['relations']>[number]) => `<div class="cg-nfield"><b>${esc(r.other)}</b>${r.ended ? `${t('relEnded')} ` : ''}${esc(r.bond)} <span class="cg-hint">${esc(r.since ? t('relSince').replace('{t}', r.since) : t('relStart'))}${r.source === 'play' || r.source === 'ui' || r.source === 'persona' ? ` · ${t('relSource_' + r.source)}` : ''}</span>${r.views.map((x) => `<div class="cg-hint">${esc(x.who)}${x.calls ? `（${t('relCalls').replace('{c}', x.calls)}）` : ''}：${esc(x.sees)}</div>`).join('')}${r.together ? `<div class="cg-hint">${t('relTogether')}${esc(r.together)}</div>` : ''}</div>`;
-    const rels = (rs: NonNullable<NatureView['people'][number]['relations']>) => `<div class="cg-nver cg-nmind"><div class="cg-nhead">${t('relTitle')} <span class="cg-key">${rs.length}</span></div>${rs.map(rel).join('')}</div>`;
-    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t('natureNote').replace('{n}', String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? ' open' : ''}><summary>${esc(p.name)}${p.player ? ` <span class="cg-hint">${t('naturePlayer')}</span>` : ''}${p.versions.length > 1 ? ` <span class="cg-hint">${t('natureVersions').replace('{n}', String(p.versions.length))}</span>` : ''}</summary>${p.versions.map((x) => ver(x, !!p.player)).join('')}${p.mind ? mind(p.mind) : ''}${p.relations?.length ? rels(p.relations) : ''}</details>`).join('')}${v.hidden ? `<div class="cg-hint">${t('natureHidden').replace('{n}', String(v.hidden))}</div>` : ''}</div>`;
+    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t('natureNote').replace('{n}', String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? ' open' : ''}><summary>${esc(p.name)}${p.player ? ` <span class="cg-hint">${t('naturePlayer')}</span>` : ''}${p.versions.length > 1 ? ` <span class="cg-hint">${t('natureVersions').replace('{n}', String(p.versions.length))}</span>` : ''}</summary>${p.versions.map((x) => ver(x, !!p.player)).join('')}${p.mind ? mind(p.mind) : ''}</details>`).join('')}${v.hidden ? `<div class="cg-hint">${t('natureHidden').replace('{n}', String(v.hidden))}</div>` : ''}</div>`;
+  }
+
+  /** 角色关系: a table, one row a relation — in force in this game now, or (spoilers) a pack stage still to come; the
+   *  search box filters by name. */
+  private relationsHtml(spoilers: boolean): string {
+    const v = this.getRelations(spoilers);
+    if (!v) return `<div class="cg-empty">${t('graphNoData')}</div>`;
+    if (!v.rows.length) return `<div class="cg-empty">${t('relationsNone')}</div>`;
+    const q = this.filter.q.trim().toLowerCase();
+    const rows = v.rows.filter((r) => !q || r.a.toLowerCase().includes(q) || r.b.toLowerCase().includes(q));
+    const side = (x?: RelSide) => (x ? `${x.calls ? `<span class="cg-hint">${esc(t('relCalls').replace('{c}', x.calls))}</span><br>` : ''}${esc(x.sees)}` : '');
+    const when = (r: RelationsView['rows'][number]) => r.state === 'later'
+      ? `<span class="cg-key cg-nstate-later">${t('natureState_later')}</span><br>${esc(r.when ? t('natureFrom').replace('{e}', r.when) : t('natureStart'))}`
+      : `<span class="cg-key cg-nstate-now">${t(r.ended ? 'relationsEnded' : 'natureState_now')}</span><br>${esc(r.when ? t('relSince').replace('{t}', r.when) : t('relStart'))}${r.source === 'play' || r.source === 'ui' || r.source === 'persona' ? `<br>${t('relSource_' + r.source)}` : ''}`;
+    const body = rows.map((r) => `<tr class="cg-mstate-${r.state}"><td>${esc(r.a)}${r.player ? ` <span class="cg-hint">${t('naturePlayer')}</span>` : ''}</td><td>${esc(r.b)}</td><td>${when(r)}</td><td>${esc(r.bond)}</td><td>${side(r.ab)}</td><td>${side(r.ba)}</td><td>${esc(r.together || '')}</td></tr>`).join('');
+    return `<div class="cg-memberswrap"><div class="cg-hint">${t('relationsNote').replace('{n}', String(rows.length))}</div><table class="canon-table cg-members cg-relations"><tr><th>${t('relationsA')}</th><th>${t('relationsB')}</th><th>${t('relationsWhen')}</th><th>${t('relationsBond')}</th><th>${t('relationsAB')}</th><th>${t('relationsBA')}</th><th>${t('relationsTogether')}</th></tr>${body}</table>${v.hidden ? `<div class="cg-hint">${t('relationsHidden').replace('{n}', String(v.hidden))}</div>` : ''}</div>`;
   }
 
   /** 当前时空: the scene's time frame, changeable by hand when the reviewer missed a move between frames. */
@@ -700,8 +724,9 @@ export class GraphPanel {
     if (b?.dataset.mode) { this.mode = b.dataset.mode as 'pack' | 'current'; this.selected = null; this.refresh(); return; }
     if (b?.dataset.act === 'close') { this.toggle(false); return; }
     if (b?.dataset.act === 'preview-exit') { this.onPreviewEnd?.(); this.selected = null; this.keepView = false; this.refresh(); return; }
-    if (b?.dataset.act === 'members') { this.showMembers = !this.showMembers; this.showNature = false; this.keepView = true; this.refresh(); return; }
-    if (b?.dataset.act === 'nature') { this.showNature = !this.showNature; this.showMembers = false; this.keepView = true; this.refresh(); return; }
+    if (b?.dataset.act === 'members') { this.showMembers = !this.showMembers; this.showNature = false; this.showRelations = false; this.keepView = true; this.refresh(); return; }
+    if (b?.dataset.act === 'nature') { this.showNature = !this.showNature; this.showMembers = false; this.showRelations = false; this.keepView = true; this.refresh(); return; }
+    if (b?.dataset.act === 'relations') { this.showRelations = !this.showRelations; this.showMembers = false; this.showNature = false; this.keepView = true; this.refresh(); return; }
     if (b?.dataset.act === 'fit') { (this as unknown as { fit?: () => void }).fit?.(); return; }
     if (b?.dataset.act === 'digest' || b?.dataset.act === 'undigest') {
       (b as HTMLButtonElement).disabled = true;

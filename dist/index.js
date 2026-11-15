@@ -26626,7 +26626,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.36.6";
+var ENGINE_RELEASE = "1.36.7";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -29972,16 +29972,7 @@ function natureView(idx, spoilers, player, origin = null) {
   const occurred = (e) => !!e && s.dispositions.get(e)?.disposition === "occurred";
   let hidden = 0;
   const all = [...[...s.runtimeEntities.values()].sort((a, b) => Number(b.id === player) - Number(a.id === player)), ...idx.pack.entities.values()];
-  const rels = (id) => idx.relationsOf(id).map(({ other, rel }) => ({
-    other: idx.entityName(other),
-    bond: rel.bond,
-    ...rel.ended ? { ended: true } : {},
-    views: rel.views.map((v) => ({ who: idx.entityName(v.who), ...v.calls ? { calls: v.calls } : {}, sees: v.sees })),
-    ...rel.together ? { together: rel.together } : {},
-    since: rel.since === null ? null : formatTick(rel.since, origin),
-    source: rel.source
-  }));
-  const people = all.filter((e) => e.nature?.length || e.mind || idx.relationsOf(e.id).length).map((e) => {
+  const people = all.filter((e) => e.nature?.length || e.mind).map((e) => {
     const nowAt = idx.natureNow(e.id)?.index ?? -1;
     const versions = (e.nature || []).map((v, i) => ({
       ...v,
@@ -29995,10 +29986,40 @@ function natureView(idx, spoilers, player, origin = null) {
       }
       return true;
     });
-    const r = rels(e.id);
-    return { id: e.id, name: e.name, ...e.id === player ? { player: true } : {}, ...e.mind ? { mind: e.mind } : {}, versions, ...r.length ? { relations: r } : {} };
+    return { id: e.id, name: e.name, ...e.id === player ? { player: true } : {}, ...e.mind ? { mind: e.mind } : {}, versions };
   });
   return { people, hidden };
+}
+function relationsView(idx, spoilers, player, origin = null) {
+  const s = idx.state;
+  const occurred = (e) => !!e && s.dispositions.get(e)?.disposition === "occurred";
+  const title = (e) => e ? idx.pack.events.get(e)?.title || e : null;
+  const keys = /* @__PURE__ */ new Map();
+  for (const [k, r] of idx.pack.relations) keys.set(k, r.people);
+  for (const c of s.relations) keys.set(pairKey(c.people[0], c.people[1]), c.people);
+  const sides = (a, vs) => {
+    const one = (v) => v ? { ...v.calls ? { calls: v.calls } : {}, sees: v.sees } : void 0;
+    const ab = one(vs.find((v) => v.who === a)), ba = one(vs.find((v) => v.who !== a));
+    return { ...ab ? { ab } : {}, ...ba ? { ba } : {} };
+  };
+  let hidden = 0;
+  const rows = [];
+  for (const [k, [a, b]] of keys) {
+    const base = { a: idx.entityName(a), b: idx.entityName(b), ...a === player || b === player ? { player: true } : {} };
+    const rel = idx.relationNow(a, b);
+    if (rel) rows.push({ ...base, state: "now", when: rel.since === null ? null : formatTick(rel.since, origin), source: rel.source, bond: rel.bond, ...rel.ended ? { ended: true } : {}, ...sides(a, rel.views), ...rel.together ? { together: rel.together } : {} });
+    (idx.pack.relations.get(k)?.stages || []).forEach((st, i) => {
+      if (st.from_event === null ? i === 0 : occurred(st.from_event)) return;
+      if (!spoilers) {
+        hidden++;
+        return;
+      }
+      rows.push({ ...base, state: "later", when: title(st.from_event), bond: st.bond, ...sides(a, st.views), ...st.together ? { together: st.together } : {} });
+    });
+  }
+  const rank = (r) => Number(!r.player) * 2 + Number(r.state === "later");
+  rows.sort((x, y) => Number(!x.player) - Number(!y.player) || (x.a + x.b).localeCompare(y.a + y.b, "zh") || rank(x) - rank(y));
+  return { rows, hidden };
 }
 
 // src/core/runtime/engine.ts
@@ -33269,6 +33290,11 @@ ${lines.join("\n")}`;
     if (!this.campaign() || !this.current) return null;
     return natureView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign().binding.originDate);
   }
+  /** 角色关系: every pair this game knows of, as the timeline window shows them (see views.relationsView). */
+  relationsView(spoilers) {
+    if (!this.campaign() || !this.current) return null;
+    return relationsView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign().binding.originDate);
+  }
   inspector(spoilers) {
     const c = this.campaign();
     if (!c || !this.current) return null;
@@ -33648,13 +33674,25 @@ var D = {
   membersHidden: { zh: "\u53E6\u6709 {n} \u9879\u5C1A\u672A\u53D1\u751F\u7684\u6210\u5458\u53D8\u5316\uFF08\u5267\u900F\uFF0C\u52FE\u9009\u201C\u5267\u900F\u201D\u663E\u793A\uFF09\u3002", en: "{n} upcoming membership changes hidden (spoilers; tick Spoilers to show)." },
   nature: { zh: "\u89D2\u8272\u5E38\u6001", en: "Natures" },
   natureTip: { zh: "\u67E5\u770B\u5267\u672C\u91CC\u5404\u89D2\u8272\u7684\u5E38\u6001\uFF08\u80FD\u529B\u3001\u4F53\u8D28\u6216\u975E\u4EBA\u4E4B\u8EAB\u5728\u65E5\u5E38\u91CC\u7684\u6837\u5B50\uFF09\u548C\u601D\u8003\u65B9\u5F0F\uFF08\u9047\u4E8B\u613F\u610F\u82B1\u591A\u5C11\u5FC3\u601D\u60F3\u3001\u60F3\u5F97\u591A\u597D\u3001\u600E\u4E48\u89E3\u51B3\u95EE\u9898\uFF09\u3002GM \u53EA\u62FF\u5230\u5728\u573A\u89D2\u8272\u5F53\u524D\u751F\u6548\u7684\u90A3\u4E00\u7248\u3002\u5C1A\u672A\u5230\u6765\u7684\u7248\u672C\u5C5E\u4E8E\u5267\u900F\uFF0C\u52FE\u9009\u201C\u5267\u900F\u201D\u624D\u663E\u793A\u3002\u518D\u70B9\u4E00\u6B21\u56DE\u5230\u65F6\u95F4\u7EBF\u3002", en: "How each person's power, condition or body shows in everyday scenes, and how they think. The GM gets the version in force for the people in the scene. Versions still to come are spoilers, shown only with spoilers on. Click again to return to the timeline." },
-  natureNote: { zh: "\u5267\u672C\u4E2D\u6709\u5E38\u6001\u3001\u601D\u8003\u65B9\u5F0F\u6216\u5173\u7CFB\u7684\u89D2\u8272\uFF1A{n} \u4EBA\u3002\u53EF\u7528\u4E0A\u65B9\u641C\u7D22\u6846\u6309\u540D\u5B57\u7B5B\u9009\uFF08\u56DE\u8F66\u751F\u6548\uFF09\u3002", en: "{n} people with a nature, a way of thinking or relations in this pack. Filter by name with the search box (Enter)." },
+  natureNote: { zh: "\u5267\u672C\u4E2D\u6709\u5E38\u6001\u6216\u601D\u8003\u65B9\u5F0F\u7684\u89D2\u8272\uFF1A{n} \u4EBA\u3002\u53EF\u7528\u4E0A\u65B9\u641C\u7D22\u6846\u6309\u540D\u5B57\u7B5B\u9009\uFF08\u56DE\u8F66\u751F\u6548\uFF09\u3002", en: "{n} people with a nature or a way of thinking in this pack. Filter by name with the search box (Enter)." },
   natureNone: { zh: "\u8FD9\u4E2A\u5267\u672C\u6CA1\u6709\u5199\u89D2\u8272\u5E38\u6001\uFF08\u9700\u8981\u5267\u672C\u91CC\u4EBA\u7269\u7684 nature \u5B57\u6BB5\uFF09\u3002", en: "This pack gives no natures (it needs the nature field on people)." },
   natureHidden: { zh: "\u53E6\u6709 {n} \u4E2A\u5C1A\u672A\u5230\u6765\u7684\u5E38\u6001\u7248\u672C\uFF08\u5267\u900F\uFF0C\u52FE\u9009\u201C\u5267\u900F\u201D\u663E\u793A\uFF09\u3002", en: "{n} versions still to come hidden (spoilers; tick Spoilers to show)." },
   natureVersions: { zh: "{n} \u4E2A\u7248\u672C", en: "{n} versions" },
   natureStart: { zh: "\u5267\u672C\u5F00\u59CB\u65F6", en: "At the story start" },
   naturePlayer: { zh: "\uFF08\u4F60\u7684\u89D2\u8272\uFF0C\u8BFB\u81EA Persona\uFF09", en: "(your character, from the Persona)" },
-  relTitle: { zh: "\u5173\u7CFB\uFF08\u672C\u5C40\u6B64\u523B\uFF09", en: "Relations (in this game, now)" },
+  relations: { zh: "\u89D2\u8272\u5173\u7CFB", en: "Relations" },
+  relationsTip: { zh: "\u5217\u51FA\u89D2\u8272\u4E24\u4E24\u4E4B\u95F4\u7684\u5173\u7CFB\uFF1A\u672C\u5C40\u6B64\u523B\u751F\u6548\u7684\u90A3\u4E00\u6BB5\uFF08\u6E38\u620F\u91CC\u6539\u53D8\u7684\u3001Persona \u7ED9\u7684\u4E5F\u5728\u5185\uFF09\u3002GM \u53EA\u62FF\u5230\u5728\u573A\u7684\u4EBA\u4E4B\u95F4\u6B64\u523B\u7684\u5173\u7CFB\u3002\u5267\u672C\u91CC\u5C1A\u672A\u5230\u6765\u7684\u9636\u6BB5\u548C\u5C1A\u672A\u76F8\u8BC6\u7684\u4EBA\u5C5E\u4E8E\u5267\u900F\uFF0C\u52FE\u9009\u201C\u5267\u900F\u201D\u624D\u663E\u793A\u3002\u518D\u70B9\u4E00\u6B21\u56DE\u5230\u65F6\u95F4\u7EBF\u3002", en: "How the people stand with each other: the relation in force in this game now, including what play or the Persona changed. The GM gets the pairs in the scene. The pack's stages still to come and the people who have not met yet are spoilers, shown only with spoilers on. Click again to return to the timeline." },
+  relationsNote: { zh: "\u5171 {n} \u884C\u3002\u53EF\u7528\u4E0A\u65B9\u641C\u7D22\u6846\u6309\u540D\u5B57\u7B5B\u9009\uFF08\u56DE\u8F66\u751F\u6548\uFF09\u3002", en: "{n} rows. Filter by name with the search box (Enter)." },
+  relationsNone: { zh: "\u8FD9\u4E00\u5C40\u8FD8\u6CA1\u6709\u4EBA\u7269\u5173\u7CFB\u3002", en: "No relations in this game yet." },
+  relationsHidden: { zh: "\u53E6\u6709 {n} \u4E2A\u5C1A\u672A\u5230\u6765\u7684\u5173\u7CFB\u9636\u6BB5\uFF08\u5267\u900F\uFF0C\u52FE\u9009\u201C\u5267\u900F\u201D\u663E\u793A\uFF09\u3002", en: "{n} stages still to come hidden (spoilers; tick Spoilers to show)." },
+  relationsA: { zh: "\u4EBA\u7269", en: "Person" },
+  relationsB: { zh: "\u4EBA\u7269", en: "Person" },
+  relationsWhen: { zh: "\u72B6\u6001", en: "State" },
+  relationsBond: { zh: "\u5173\u7CFB", en: "Relation" },
+  relationsAB: { zh: "\u524D\u8005\u5BF9\u540E\u8005", en: "First toward second" },
+  relationsBA: { zh: "\u540E\u8005\u5BF9\u524D\u8005", en: "Second toward first" },
+  relationsTogether: { zh: "\u76F8\u5904", en: "Together" },
+  relationsEnded: { zh: "\u5DF2\u7ED3\u675F", en: "Ended" },
   relSince: { zh: "\u81EA {t}", en: "since {t}" },
   relStart: { zh: "\u5F00\u5C40\u5373\u6709", en: "from the start" },
   relEnded: { zh: "\uFF08\u5DF2\u7ED3\u675F\uFF09", en: "(ended)" },
@@ -34570,8 +34608,11 @@ var GraphPanel = class {
   getMembers;
   showNature = false;
   getNature;
-  constructor(getData, setSpoilers, onEventAction = async () => void 0, linkCandidates = () => [], getMembers = () => null, getNature = () => null) {
+  showRelations = false;
+  getRelations;
+  constructor(getData, setSpoilers, onEventAction = async () => void 0, linkCandidates = () => [], getMembers = () => null, getNature = () => null, getRelations = () => null) {
     this.getData = getData;
+    this.getRelations = getRelations;
     this.getMembers = getMembers;
     this.getNature = getNature;
     this.setSpoilers = setSpoilers;
@@ -34604,11 +34645,12 @@ var GraphPanel = class {
       this.mode = "pack";
       this.showMembers = false;
       this.showNature = false;
+      this.showRelations = false;
     }
     if (!d.current && this.mode === "current") this.mode = "pack";
     const g0 = this.mode === "pack" ? d.pack : d.current;
     const g = g0 ? this.applyFilter(g0) : null;
-    const canvasHtml = this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t("graphNoData")}</div>` : this.firstSvg(g);
+    const canvasHtml = this.showRelations ? this.relationsHtml(d.spoilers) : this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t("graphNoData")}</div>` : this.firstSvg(g);
     const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc(a.id)}" ${a.id === this.filter.arc ? "selected" : ""}>${esc(a.title)}</option>`).join("");
     this.el.innerHTML = `
       <div class="cg-head">
@@ -34625,13 +34667,14 @@ var GraphPanel = class {
         ${this.mode === "current" && d.current?.frames?.now ? this.frameSelect(d.current) : ""}
         ${d.preview && !d.current ? "" : `<button class="menu_button ${this.showMembers ? "active" : ""}" data-act="members" title="${esc(t("membersTip"))}">${t("members")}</button>`}
         ${d.preview && !d.current ? "" : `<button class="menu_button cg-nature-btn ${this.showNature ? "active" : ""}" data-act="nature" title="${esc(t("natureTip"))}">${t("nature")}</button>`}
+        ${d.preview && !d.current ? "" : `<button class="menu_button cg-relations-btn ${this.showRelations ? "active" : ""}" data-act="relations" title="${esc(t("relationsTip"))}">${t("relations")}</button>`}
         <button class="menu_button" data-act="fit">${t("graphFit")}</button>
         <button class="menu_button" data-act="close">\u2715</button>
       </div>
       <div class="cg-legend">${this.legend()}<span class="cg-flegend">${this.frameLegend()}</span><span class="cg-hint">${this.mode === "pack" ? t("graphPackNote") : t("graphCurrentNote")}</span></div>
       <div class="cg-body">
         <div class="cg-canvas">${canvasHtml}</div>
-        <div class="cg-detail"${this.showMembers || this.showNature ? ' style="display:none"' : ""}><div class="cg-empty">${t("graphPick")}</div></div>
+        <div class="cg-detail"${this.showMembers || this.showNature || this.showRelations ? ' style="display:none"' : ""}><div class="cg-empty">${t("graphPick")}</div></div>
       </div>`;
     this.bindCanvas();
     if (this.selected) this.select(this.selected);
@@ -34665,9 +34708,20 @@ var GraphPanel = class {
       return `<div class="cg-nver cg-nver-${x.state}"><div class="cg-nhead">${esc(head)} <span class="cg-key cg-nstate-${x.state}">${t("natureState_" + x.state)}</span>${x.why ? `<span class="cg-nwhy">${esc(x.why)}</span>` : ""}</div>${field2("habits", x.habits)}${field2("uses", x.uses)}${field2("others", x.others)}${field2("limits", x.limits)}${x.perceives?.kinds.length ? field2("perceives", x.perceives.kinds.map((k) => t("perceive_" + k)).join("\u3001") + (x.perceives.how ? `\uFF08${x.perceives.how}\uFF09` : "")) : ""}</div>`;
     };
     const mind2 = (m) => `<div class="cg-nver cg-nmind"><div class="cg-nhead">${t("mindTitle")} <span class="cg-key">${t("mindDelib_" + m.deliberation)} \xB7 ${t("mindSharp_" + m.sharpness)}</span></div>${["approach", "thinks_hard_about", "pushed", "notices", "blind", "speaks"].map((k) => field2("mind_" + k, m[k] || "")).join("")}</div>`;
-    const rel = (r) => `<div class="cg-nfield"><b>${esc(r.other)}</b>${r.ended ? `${t("relEnded")} ` : ""}${esc(r.bond)} <span class="cg-hint">${esc(r.since ? t("relSince").replace("{t}", r.since) : t("relStart"))}${r.source === "play" || r.source === "ui" || r.source === "persona" ? ` \xB7 ${t("relSource_" + r.source)}` : ""}</span>${r.views.map((x) => `<div class="cg-hint">${esc(x.who)}${x.calls ? `\uFF08${t("relCalls").replace("{c}", x.calls)}\uFF09` : ""}\uFF1A${esc(x.sees)}</div>`).join("")}${r.together ? `<div class="cg-hint">${t("relTogether")}${esc(r.together)}</div>` : ""}</div>`;
-    const rels = (rs) => `<div class="cg-nver cg-nmind"><div class="cg-nhead">${t("relTitle")} <span class="cg-key">${rs.length}</span></div>${rs.map(rel).join("")}</div>`;
-    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t("natureNote").replace("{n}", String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? " open" : ""}><summary>${esc(p.name)}${p.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}${p.versions.length > 1 ? ` <span class="cg-hint">${t("natureVersions").replace("{n}", String(p.versions.length))}</span>` : ""}</summary>${p.versions.map((x) => ver(x, !!p.player)).join("")}${p.mind ? mind2(p.mind) : ""}${p.relations?.length ? rels(p.relations) : ""}</details>`).join("")}${v.hidden ? `<div class="cg-hint">${t("natureHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
+    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t("natureNote").replace("{n}", String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? " open" : ""}><summary>${esc(p.name)}${p.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}${p.versions.length > 1 ? ` <span class="cg-hint">${t("natureVersions").replace("{n}", String(p.versions.length))}</span>` : ""}</summary>${p.versions.map((x) => ver(x, !!p.player)).join("")}${p.mind ? mind2(p.mind) : ""}</details>`).join("")}${v.hidden ? `<div class="cg-hint">${t("natureHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
+  }
+  /** 角色关系: a table, one row a relation — in force in this game now, or (spoilers) a pack stage still to come; the
+   *  search box filters by name. */
+  relationsHtml(spoilers) {
+    const v = this.getRelations(spoilers);
+    if (!v) return `<div class="cg-empty">${t("graphNoData")}</div>`;
+    if (!v.rows.length) return `<div class="cg-empty">${t("relationsNone")}</div>`;
+    const q = this.filter.q.trim().toLowerCase();
+    const rows = v.rows.filter((r) => !q || r.a.toLowerCase().includes(q) || r.b.toLowerCase().includes(q));
+    const side = (x) => x ? `${x.calls ? `<span class="cg-hint">${esc(t("relCalls").replace("{c}", x.calls))}</span><br>` : ""}${esc(x.sees)}` : "";
+    const when2 = (r) => r.state === "later" ? `<span class="cg-key cg-nstate-later">${t("natureState_later")}</span><br>${esc(r.when ? t("natureFrom").replace("{e}", r.when) : t("natureStart"))}` : `<span class="cg-key cg-nstate-now">${t(r.ended ? "relationsEnded" : "natureState_now")}</span><br>${esc(r.when ? t("relSince").replace("{t}", r.when) : t("relStart"))}${r.source === "play" || r.source === "ui" || r.source === "persona" ? `<br>${t("relSource_" + r.source)}` : ""}`;
+    const body = rows.map((r) => `<tr class="cg-mstate-${r.state}"><td>${esc(r.a)}${r.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}</td><td>${esc(r.b)}</td><td>${when2(r)}</td><td>${esc(r.bond)}</td><td>${side(r.ab)}</td><td>${side(r.ba)}</td><td>${esc(r.together || "")}</td></tr>`).join("");
+    return `<div class="cg-memberswrap"><div class="cg-hint">${t("relationsNote").replace("{n}", String(rows.length))}</div><table class="canon-table cg-members cg-relations"><tr><th>${t("relationsA")}</th><th>${t("relationsB")}</th><th>${t("relationsWhen")}</th><th>${t("relationsBond")}</th><th>${t("relationsAB")}</th><th>${t("relationsBA")}</th><th>${t("relationsTogether")}</th></tr>${body}</table>${v.hidden ? `<div class="cg-hint">${t("relationsHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
   }
   /** 当前时空: the scene's time frame, changeable by hand when the reviewer missed a move between frames. */
   frameSelect(g) {
@@ -34841,6 +34895,7 @@ var GraphPanel = class {
     if (b?.dataset.act === "members") {
       this.showMembers = !this.showMembers;
       this.showNature = false;
+      this.showRelations = false;
       this.keepView = true;
       this.refresh();
       return;
@@ -34848,6 +34903,15 @@ var GraphPanel = class {
     if (b?.dataset.act === "nature") {
       this.showNature = !this.showNature;
       this.showMembers = false;
+      this.showRelations = false;
+      this.keepView = true;
+      this.refresh();
+      return;
+    }
+    if (b?.dataset.act === "relations") {
+      this.showRelations = !this.showRelations;
+      this.showMembers = false;
+      this.showNature = false;
       this.keepView = true;
       this.refresh();
       return;
@@ -36866,6 +36930,12 @@ function mountTopButton() {
   }, () => {
     try {
       return E.natureView(!!E.campaign()?.uiPreferences.spoilers);
+    } catch {
+      return null;
+    }
+  }, () => {
+    try {
+      return E.relationsView(!!E.campaign()?.uiPreferences.spoilers);
     } catch {
       return null;
     }

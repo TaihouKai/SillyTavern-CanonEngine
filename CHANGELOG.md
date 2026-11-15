@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.36.7 — 2026-11-15
+
+- **角色关系 has its own button** in the timeline window's toolbar, next to 组织成员 and 角色常态. It shows a table, one row per relation, with columns for the two people, the state and since when, the relation, each side toward the other, and how they are together.
+  - Rows are the relations in force in this game, including those play or the Persona changed; the player's come first.
+  - With 剧透 on, it also shows the pack's stages still to come and the pairs who have not met yet.
+  - The search box filters by name.
+- Relations are no longer listed in the 角色常态 panel.
+
 ## pack-builder: the verified relations are the source — 2026-11-15
 
 - The builder is no longer trusted for relations. What a person has read and fixed is kept in `projects/<project>.relations.json`, and every build puts exactly that into the pack: no correction or wording rule runs over it. The Toaru file has 486 pairs. Each carries a note on what was checked or changed, and the pairs found to be no relation are listed as `rejected`.

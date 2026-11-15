@@ -6,6 +6,7 @@ import { factAt } from '../domain/reducer';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { agoLabel, formatTick } from '../domain/time';
 import { memberships } from './integration';
+import { pairKey } from '../domain/pack';
 
 type Origin = { y: number; m: number; d: number } | null;
 export interface MembershipView {
@@ -14,9 +15,8 @@ export interface MembershipView {
   hidden: number;
 }
 /** A relation in force, as a person's 常态 view lists it: with whom, what they are, each side, since when. */
-export interface RelationLine { other: string; bond: string; ended?: boolean; views: { who: string; calls?: string; sees: string }[]; together?: string; since: string | null; source: 'pack' | 'persona' | 'play' | 'ui' }
 export interface NatureViewData {
-  people: { id: Id; name: string; player?: boolean; mind?: MindProfile; versions: (NatureVersion & { from: string | null; until: string | null; state: 'now' | 'ended' | 'later' })[]; relations?: RelationLine[] }[];
+  people: { id: Id; name: string; player?: boolean; mind?: MindProfile; versions: (NatureVersion & { from: string | null; until: string | null; state: 'now' | 'ended' | 'later' })[] }[];
   hidden: number;
 }
 
@@ -61,17 +61,49 @@ export function natureView(idx: WorldIndex, spoilers: boolean, player?: Id | nul
   const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
   let hidden = 0;
   const all = [...[...s.runtimeEntities.values()].sort((a, b) => Number(b.id === player) - Number(a.id === player)), ...idx.pack.entities.values()] as { id: Id; name: string; nature?: NatureVersion[]; mind?: MindProfile }[];
-  const rels = (id: Id): RelationLine[] => idx.relationsOf(id).map(({ other, rel }) => ({
-    other: idx.entityName(other), bond: rel.bond, ...(rel.ended ? { ended: true } : {}), views: rel.views.map((v) => ({ who: idx.entityName(v.who), ...(v.calls ? { calls: v.calls } : {}), sees: v.sees })),
-    ...(rel.together ? { together: rel.together } : {}), since: rel.since === null ? null : formatTick(rel.since, origin), source: rel.source,
-  }));
-  const people: NatureViewData['people'] = all.filter((e) => e.nature?.length || e.mind || idx.relationsOf(e.id).length).map((e) => {
+  const people: NatureViewData['people'] = all.filter((e) => e.nature?.length || e.mind).map((e) => {
     const nowAt = idx.natureNow(e.id)?.index ?? -1;
     const versions = (e.nature || []).map((v, i) => ({ ...v, from: title(v.from_event), until: title(v.until_event),
       state: (i === nowAt ? 'now' : i === 0 || occurred(v.from_event) ? 'ended' : 'later') as 'now' | 'ended' | 'later' }))
       .filter((v) => { if (v.state === 'later' && !spoilers) { hidden++; return false; } return true; });
-    const r = rels(e.id);
-    return { id: e.id, name: e.name, ...(e.id === player ? { player: true } : {}), ...(e.mind ? { mind: e.mind } : {}), versions, ...(r.length ? { relations: r } : {}) };
+    return { id: e.id, name: e.name, ...(e.id === player ? { player: true } : {}), ...(e.mind ? { mind: e.mind } : {}), versions };
   });
   return { people, hidden };
+}
+
+/** 角色关系 as the timeline window shows them, one row a relation: every pair this game knows of (the pack's and those
+ *  play or the Persona made) with the relation in force now; with spoilers also the pack's stages still to come, and the
+ *  pairs who have not met yet. */
+export interface RelationSide { calls?: string; sees: string }
+export interface RelationsViewData {
+  rows: { a: string; b: string; player?: boolean; state: 'now' | 'later'; when: string | null; source?: 'pack' | 'persona' | 'play' | 'ui'; bond: string; ended?: boolean; ab?: RelationSide; ba?: RelationSide; together?: string }[];
+  hidden: number;
+}
+export function relationsView(idx: WorldIndex, spoilers: boolean, player?: Id | null, origin: Origin = null): RelationsViewData {
+  const s = idx.state;
+  const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
+  const title = (e?: Id | null) => (e ? idx.pack.events.get(e)?.title || e : null);
+  const keys = new Map<string, [Id, Id]>();
+  for (const [k, r] of idx.pack.relations) keys.set(k, r.people);
+  for (const c of s.relations) keys.set(pairKey(c.people[0], c.people[1]), c.people);
+  const sides = (a: Id, vs: { who: Id; calls?: string; sees: string }[]) => {
+    const one = (v?: { calls?: string; sees: string }) => (v ? { ...(v.calls ? { calls: v.calls } : {}), sees: v.sees } : undefined);
+    const ab = one(vs.find((v) => v.who === a)), ba = one(vs.find((v) => v.who !== a));
+    return { ...(ab ? { ab } : {}), ...(ba ? { ba } : {}) };
+  };
+  let hidden = 0;
+  const rows: RelationsViewData['rows'] = [];
+  for (const [k, [a, b]] of keys) {
+    const base = { a: idx.entityName(a), b: idx.entityName(b), ...(a === player || b === player ? { player: true } : {}) };
+    const rel = idx.relationNow(a, b);
+    if (rel) rows.push({ ...base, state: 'now', when: rel.since === null ? null : formatTick(rel.since, origin), source: rel.source, bond: rel.bond, ...(rel.ended ? { ended: true } : {}), ...sides(a, rel.views), ...(rel.together ? { together: rel.together } : {}) });
+    (idx.pack.relations.get(k)?.stages || []).forEach((st, i) => {
+      if (st.from_event === null ? i === 0 : occurred(st.from_event)) return;
+      if (!spoilers) { hidden++; return; }
+      rows.push({ ...base, state: 'later', when: title(st.from_event), bond: st.bond, ...sides(a, st.views), ...(st.together ? { together: st.together } : {}) });
+    });
+  }
+  const rank = (r: RelationsViewData['rows'][number]) => Number(!r.player) * 2 + Number(r.state === 'later');
+  rows.sort((x, y) => Number(!x.player) - Number(!y.player) || (x.a + x.b).localeCompare(y.a + y.b, 'zh') || rank(x) - rank(y));
+  return { rows, hidden };
 }
