@@ -72,7 +72,7 @@ def main(argv=None):
         except (AttributeError, ValueError):
             pass
     ap = argparse.ArgumentParser(prog='python -m cpb', description='Build a Canon Engine history pack from a story source.')
-    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'relations', 'ends', 'impacts', 'start', 'deaths', 'run', 'status'])
+    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'relations', 'golden', 'ends', 'impacts', 'start', 'deaths', 'run', 'status'])
     ap.add_argument('-p', '--project', default='fgo-cn', help='project name under projects/ or a path to a project file')
     ap.add_argument('--config', help='global config file (default: config.json)')
     ap.add_argument('--chapters', help='only these chapter ids, comma separated (e.g. w100,w101)')
@@ -82,6 +82,8 @@ def main(argv=None):
     ap.add_argument('--yes', action='store_true', help='run: do not ask before the model steps')
     ap.add_argument('--pack', help='nature, mind, ends, impacts: the pack to give 常态 / 思考方式 to or to propose ends and impacts for (default: the built pack of the project)')
     ap.add_argument('--out', help='nature, mind: where to write the pack (default: over --pack)')
+    ap.add_argument('--adopt', help='golden: pairs (a|b, comma separated) read in the builder output, copied into the verified relations')
+    ap.add_argument('--note', help='golden --adopt: what the person checked')
     ap.add_argument('--offpeak', action='store_true', help='make model calls only at the off-peak price; stop when peak hours begin')
     args = ap.parse_args(argv)
     gcfg = load_global(args.config)
@@ -173,7 +175,37 @@ def main(argv=None):
             log(str(e))
             log('run the same command again to continue (finished results are kept)')
             return 2
-        log('relations: written; build again to attach them')
+        log('relations: written')
+        g = relations.load_golden(project)
+        if g is not None:   # the verified relations stay what the pack gets; the run only proposes
+            cmp = relations.compare(g, relations.generated(pk, project.p('relations'), {m: k for k, ms in corrections.merged_from(review.load(project)).items() for m in ms}))
+            write_json(project.p('out', 'relations-compare.json'), cmp)
+            fixed = cmp['fixed']
+            log(f"relations: against the verified ones — {len(cmp['only_builder'])} new pairs to read, {len(cmp['only_golden'])} the builder no longer has, {len(cmp['starts_differ'])} with other stage starts, {len(cmp['text_differs'])} worded otherwise; of {len(fixed)} fixed by hand, {sum(1 for v in fixed.values() if v == 'same stage starts')} get the same stage starts — {project.p('out', 'relations-compare.json')}")
+        else:
+            log('relations: build again to attach them')
+    if cmd == 'golden':
+        # the verified relations (projects/<name>.relations.json): made once from the pack a person has read through,
+        # then only pairs a person has read are added
+        g = relations.load_golden(project)
+        pk = read_json(project.p('out', project.get('pack', {}).get('file') or f'{project.get("pack", {}).get("pack_id", project.name)}.canon.json'))
+        if g is None:
+            if not pk or not pk.get('relations'):
+                log('golden: no built pack with relations to start from')
+                return 2
+            relations.save_golden(project, {'pairs': {'|'.join(sorted(r['people'])): {'people': r['people'], 'stages': r['stages']} for r in pk['relations']}})
+            log(f"golden: {len(pk['relations'])} pairs written to {relations.golden_path(project)}")
+        elif args.adopt:
+            gen = relations.generated(pk, project.p('relations'), {m: k for k, ms in corrections.merged_from(review.load(project)).items() for m in ms})
+            keys = ['|'.join(sorted(k.split('|'))) for k in args.adopt.split(',')]
+            missing = [k for k in keys if k not in gen]
+            if missing or not args.note:
+                log(f"golden: {'not in the builder output: ' + ', '.join(missing) if missing else 'say what you checked (--note)'}")
+                return 2
+            relations.save_golden(project, relations.adopt(g, gen, keys, args.note))
+            log(f'golden: adopted {len(keys)} pairs')
+        else:
+            log('golden: the verified relations exist already; edit them, or --adopt pairs you have read')
     if cmd == 'nature':
         # 常态 for the people of a built pack, written into it (a separate command: it needs the built pack's events)
         src_path = args.pack or project.p('out', project.get('pack', {}).get('file') or f'{project.get("pack", {}).get("pack_id", project.name)}.canon.json')
@@ -227,7 +259,8 @@ def main(argv=None):
             n = mind.attach(pk, project.p('mind'), also)
             assemble.write_pack(project, path, pk)
             log(f'mind: {n} people with a 思考方式')
-        if os.path.isdir(project.p('relations')):   # and 关系
+        golden = relations.load_golden(project)
+        if golden is None and os.path.isdir(project.p('relations')):   # and 关系, until a person has verified them
             pk = read_json(path)
             n, rmiss = relations.attach(pk, project.p('relations'), {m: k for k, ms in also.items() for m in ms})
             assemble.write_pack(project, path, pk)
@@ -235,7 +268,11 @@ def main(argv=None):
             log(f'relations: {n} pairs')
         # a person's fixes of what the generated 常态, 思考方式 and 关系 got wrong, and the wordings fixed everywhere
         pk = read_json(path)
-        miss = corrections.apply_people(pk, rv) + corrections.apply_relations(pk, rv) + corrections.apply(pk, {'texts': rv.get('texts') or []}, people=True)
+        miss = corrections.apply_people(pk, rv) + corrections.apply(pk, {'texts': rv.get('texts') or []}, people=True)
+        if golden is not None:   # the verified relations, last: no fix or wording runs over them
+            n, gmiss = relations.attach_golden(pk, golden, {m: k for k, ms in also.items() for m in ms})
+            miss += gmiss
+            log(f'relations: {n} verified pairs')
         corrections.write_misses(project, corrections.read_misses(project) + miss)
         assemble.write_pack(project, path, pk)
         res = report.lint(gcfg, path)

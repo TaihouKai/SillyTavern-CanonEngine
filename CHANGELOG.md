@@ -1,5 +1,18 @@
 # Changelog
 
+## pack-builder: the verified relations are the source — 2026-11-15
+
+- The builder is no longer trusted for relations. What a person has read and fixed is kept in `projects/<project>.relations.json`, and every build puts exactly that into the pack: no correction or wording rule runs over it. The Toaru file has 486 pairs. Each carries a note on what was checked or changed, and the pairs found to be no relation are listed as `rejected`.
+- `cpb relations` now only proposes. It writes `relations-compare.json` against the verified file: new pairs to read, pairs it no longer has, other stage starts, other wording, and how the pairs fixed by hand came out. A pair enters the verified file only after it has been read: `cpb golden --adopt a|b --note "…"`.
+- The review file's `relations` section and its operations are gone; fixes are made in the verified file.
+- The builder learned the kinds of errors the read-through found:
+  - no fact or stage in a world that is not real;
+  - no story-time facts filed under "before";
+  - being at the same event is not meeting;
+  - `known_how` must name no date after the start;
+  - a side that changes completely is written anew.
+- A full rerun with these rules ($0.55) reproduced 11 of the 36 hand decisions. The rest came back wrong again, among them six pairs again known before the story, stranger stages, Dolly's revival told early, and in two pairs an invented first meeting. The builder stays a proposal, and the pack stays the verified file.
+
 ## Toaru pack 5.1.1 — 2026-11-15
 
 - 茵蒂克丝–欧提努斯: the stage in which they live together starts on 11-20, when 欧提努斯 stays with 上条 as a 15 cm remnant, not on 12-01.

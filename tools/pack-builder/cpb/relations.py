@@ -17,8 +17,8 @@ from .llm import LLMError
 from .nature import clean_wikitext
 from .util import log, read_json, warn, write_json
 
-RELATION_VERSION = 'relation-9'
-WRITE_VERSION = 'relation-write-3'   # the writing step alone (its facts stay cached)
+RELATION_VERSION = 'relation-10'
+WRITE_VERSION = 'relation-write-4'   # the writing step alone (its facts stay cached)
 MIN_SHARED = 8          # pairs no page lists: this many shared events make one
 MAX_EVENTS = 60         # shared events shown per pair (the first, the last, and an even spread)
 MENTION_CHARS = 2500    # lines of each page that mention the other
@@ -30,13 +30,15 @@ NO_FACTS = re.compile(r'事实(?:中)?(?:未|没有|并未)|未给出|未提供|
 
 FACTS_SYSTEM = """You prepare how two people of a story world stand with each other, for a game master who plays them in new scenes with a player. The game master otherwise plays every pair as polite acquaintances. Here you do not write the relationship yet: you list its facts, each with the moment it becomes true, and choose where its stages begin. A writer will then write each stage from the facts true by then — so a fact dated too early leaks the future into a scene where it has not happened. In {lang}.
 
-KNOWN BEFORE THE STORY STARTS? known_before_start is true only when the sources say or clearly imply that they knew each other before the story began: family, old friends, classmates, colleagues or members of the same group from before, or a meeting among the background events; then known_how says how, in a few words. Otherwise false: they meet during the story. A wiki entry that describes their relationship as a whole does not mean it existed before the story: check the dates.
+KNOWN BEFORE THE STORY STARTS? known_before_start is true only when the sources say or clearly imply that they knew each other before the story began: family, old friends, classmates, colleagues or members of the same group from before, or a meeting among the background events; then known_how says how, in a few words, from before the story (never an event of the story itself). Otherwise false: they meet during the story. A wiki entry that describes their relationship as a whole does not mean it existed before the story: check the dates.
 
 FACTS. Everything lasting that the sources show about how the two stand with each other: what they are to each other; how each feels about and treats the other (mixed feelings as they are — admiration and irritation, trust and rivalry, a crush and pride); how each addresses or refers to the other; what each would or would not do for the other, would never admit, keeps from the other; their usual dynamic when together and what is touchy between them; a shared past that matters. One sentence each, as patterns, not plot retelling. Many facts, all sides — 8 to 30 for a pair the sources say much about.
 - at: when it first becomes true — "before" (only when known_before_start: true before the story starts), or the id of the listed shared event where it first happens or first shows. Date it by the event dates and what the pages say; when a page tells something without a date, find the listed event it belongs to. A fact that becomes true only later is dated later, however central it is to the relationship.
 - A fact that stops being true at some point (a hostility that ends, a name no longer used) is still listed with its start; the change gets its own fact at the event where it changes ("不再敌视他").
+- A fact that becomes true during the story but at none of the listed shared events cannot be dated: leave it out. Never file it under "before" — "before" is only what holds when the story starts (a pair whose only shared event is in the past otherwise gets their whole story told at its start).
+- An event in a world that is not real — an illusion, a dream, a world someone made and then undid, as the event's own text says — changes no relationship: date no fact there and start no stage there (a reconciliation in such a world never happened between the two).
 
-STAGES. A stage begins where the relationship itself changes for a long time: hostility ends or begins, they become friends, allies, a couple or enemies, a betrayal, one learns who the other really is, the way one addresses the other changes, one loses their memory of the other. Not a passing mood, a single quarrel, or a plot event that leaves how they stand unchanged. Stage 1 starts at null when known_before_start, else at the listed shared event where they first meet or first deal with each other. A later stage starts at a listed shared event at which at least one fact is dated. A stage shows only the facts dated at or before its own start, from then until the next stage: a fact dated after the last stage's start is never shown, and one dated between two starts only shows from the next start on — so put a stage where a lasting change happens, not before it. Most pairs have one to three stages; never more than {max_stages}. why: what changes there, one sentence (stage 1: "" or how they meet).
+STAGES. A stage begins where the relationship itself changes for a long time: hostility ends or begins, they become friends, allies, a couple or enemies, a betrayal, one learns who the other really is, the way one addresses the other changes, one loses their memory of the other. Not a passing mood, a single quarrel, or a plot event that leaves how they stand unchanged. Stage 1 starts at null when known_before_start, else at the listed shared event where they first meet or first deal with each other — speak to, fight, help or clearly notice each other. Being at the same event without that (the same crowd, a tournament's opening, the same battle against different enemies, a table they happen to share) is not meeting; if they never deal with each other, answer {{"none": true}}. A later stage starts at a listed shared event at which at least one fact is dated. A stage shows only the facts dated at or before its own start, from then until the next stage: a fact dated after the last stage's start is never shown, and one dated between two starts only shows from the next start on — so put a stage where a lasting change happens, not before it. Most pairs have one to three stages; never more than {max_stages}. why: what changes there, one sentence (stage 1: "" or how they meet).
 
 TRUTH. Only what the sources support. If the sources show no real relationship — they only appear in the same events and never deal with each other, or one of them is a name in the other's story — answer {{"none": true}}.
 
@@ -56,6 +58,7 @@ Each stage:
   - calls: how they address or refer to the other, as the facts show it; "" if they do not.
   - sees: two or three sentences, no more: how they regard and treat the other — feelings (mixed ones as mixed), attitude, typical behaviour, what they would or would not do for them, what they would never say to them.
   Someone who does not know the other (yet) gets no entry — only possible in stage 1: by a later stage both know each other, so both sides are written.
+- A side whose new facts change it completely (one loses their memory of the other, learns who the other really is, dies) is written from those facts, not carried over from the stage before.
 - together: one or two sentences: their usual dynamic when together, banter, roles, and what is touchy between them (when both sides are written, never empty).
 
 IN {lang} ONLY: not a single English word (no "touchy", "rivalry"); the names of things as the facts write them.
@@ -270,6 +273,9 @@ def check_facts(ids, max_stages=MAX_STAGES, start=None):
             out.append('known_before_start must be true or false')
         if kb is True and not str(obj.get('known_how') or '').strip():
             out.append('known_how is empty: say how they knew each other before the story')
+        elif kb is True and start and story_dates_in(str(obj.get('known_how')), start):
+            # read-through: 婚后–初春 "known before" by 9-15, an event of the story
+            out.append(f'known_how names {story_dates_in(str(obj.get("known_how")), start)[0]}, after the story starts: they did not know each other before it (known_before_start false), or say how they knew each other before')
         if kb is False and not ids:
             out.append("they share no event from the story's start: they can only have a relation if they knew each other before (known_before_start true), or answer {\"none\": true}")
         facts = obj.get('facts')
@@ -525,3 +531,92 @@ def attach(pack, rel_dir, rename=None, source=None):
             out.append({'people': [a, b], 'stages': rel['stages'], 'source_refs': [src] if src else []})
     pack['relations'] = out
     return len(out), miss
+
+
+# The golden source. A person reads every relation the builder writes and fixes what is wrong; what they verified is
+# kept in projects/<name>.relations.json and is what every build puts into the pack. The builder's output is never
+# trusted on its own: a later run only proposes (compare), and a pair goes into the golden file when a person has read
+# it (adopt). User, 2026-11-15: the pack's earlier bugs came from trusting the builder.
+
+def golden_path(project):
+    return os.path.splitext(project.path)[0] + '.relations.json'
+
+
+def load_golden(project):
+    """{"pairs": {"<a>|<b>": {people, stages, notes?}}, "rejected": {"<a>|<b>": why}} or None when the project has
+    none. rejected: pairs the builder proposed that a person found no relation in."""
+    return read_json(golden_path(project))
+
+
+def save_golden(project, golden):
+    path = golden_path(project)
+    with open(path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(json.dumps(golden, ensure_ascii=False, indent=1) + '\n')
+
+
+def attach_golden(pack, golden, rename=None, source=None):
+    """Puts the verified relations into the pack. rename: {merged id: kept id}. A pair whose people are no longer in
+    the pack, or a stage at an event the pack no longer has, is not guessed at: it is left out and listed. Returns
+    (how many, [what was left out and why])."""
+    rename = rename or {}
+    people = {e['id'] for e in pack['entities'] if e.get('kind') == 'person'}
+    evs = {e['id'] for e in pack['events']}
+    src = source or (pack.get('sources') or [{}])[0].get('id')
+    out, seen, miss = [], set(), []
+    for key, g in (golden.get('pairs') or {}).items():   # in the file's order (a rebuild gives the same pack)
+        a, b = (rename.get(x, x) for x in g['people'])
+        k = '|'.join(sorted((a, b)))
+        if a == b or k in seen:
+            miss.append(f'relations（核对过的）：{key} 合并后成了同一个人或重复的一对')
+            continue
+        if a not in people or b not in people:
+            miss.append(f'relations（核对过的）：{key} 的人物不在包里')
+            continue
+        gone = [s['from_event'] for s in g['stages'] if s.get('from_event') is not None and s['from_event'] not in evs]
+        if gone:
+            miss.append(f'relations（核对过的）：{key} 的阶段起点 {"、".join(gone)} 不在包里（在核对过的关系里改）')
+            continue
+        stages = json.loads(json.dumps(g['stages']))
+        for s in stages:
+            for v in s['views']:
+                v['who'] = rename.get(v['who'], v['who'])
+        seen.add(k)
+        out.append({'people': [a, b], 'stages': stages, 'source_refs': [src] if src else []})
+    pack['relations'] = out
+    return len(out), miss
+
+
+def generated(pack, rel_dir, rename=None):
+    """The builder's current relations, in the pack's format, by pair key (what a run proposes)."""
+    tmp = {'entities': pack['entities'], 'events': pack['events'], 'sources': pack.get('sources')}
+    attach(tmp, rel_dir, rename)
+    return {'|'.join(sorted(r['people'])): r for r in tmp['relations']}
+
+
+def compare(golden, gen):
+    """What a builder run proposes against the verified relations: pairs only it has (to read, then adopt), pairs it
+    no longer has, and verified pairs whose stages start elsewhere or read otherwise. For the pairs a person fixed
+    (notes), whether the builder now gets the same stage starts."""
+    gp = golden.get('pairs') or {}
+    starts = lambda r: [s.get('from_event') for s in r['stages']]  # noqa: E731
+    rejected = golden.get('rejected') or {}   # pairs a person read and found no relation in
+    out = {'only_builder': sorted(set(gen) - set(gp) - set(rejected)), 'only_golden': sorted(set(gp) - set(gen)), 'starts_differ': [], 'text_differs': [], 'fixed': {}}
+    for k in sorted(set(gp) & set(gen)):
+        same_starts = starts(gp[k]) == starts(gen[k])
+        if not same_starts:
+            out['starts_differ'].append({'pair': k, 'golden': starts(gp[k]), 'builder': starts(gen[k])})
+        elif json.dumps(gp[k]['stages'], ensure_ascii=False, sort_keys=True) != json.dumps(gen[k]['stages'], ensure_ascii=False, sort_keys=True):
+            out['text_differs'].append(k)
+    for k, g in sorted(gp.items()):
+        if g.get('notes'):
+            out['fixed'][k] = 'builder drops the pair' if k not in gen else ('same stage starts' if starts(g) == starts(gen[k]) else f'starts {starts(gen[k])} (verified {starts(g)})')
+    return out
+
+
+def adopt(golden, gen, keys, note):
+    """Copies pairs a person has read from the builder's output into the verified relations."""
+    gp = golden.setdefault('pairs', {})
+    for k in keys:
+        r = gen[k]
+        gp[k] = {'people': r['people'], 'stages': r['stages'], 'notes': [note]}
+    return golden

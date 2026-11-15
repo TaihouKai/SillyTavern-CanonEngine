@@ -104,6 +104,7 @@ class RelationsTest(unittest.TestCase):
         cb = relations.check_facts(ids, start=st)
         self.assertIn('is after its start', '\n'.join(cb({**ok, 'facts': [{'at': 'before', 'fact': '9月两人一起开茶话会'}, *facts[1:]]})))
         self.assertEqual(cb(ok), [])
+        self.assertIn('after the story starts', chr(10).join(cb({**ok, 'known_how': '9月15日一起探望过黑子'})))
         # stage 1 at an event starts where they first deal with each other: a fact is dated there
         self.assertIn('stage 1: no fact is dated at its event "e1"', '\n'.join(chk({'known_before_start': False, 'facts': [{'at': 'e2', 'fact': '他救了她'}], 'stages': [{'from_event': 'e1'}, {'from_event': 'e2'}]})))
         rel = relations.to_pack({'known_before_start': True, 'known_how': '邻居', 'stages': [{**good['stages'][0], 'from_event': None}, {**good['stages'][1], 'from_event': 'e2', 'why': '他救了她'}]}, 'ann', 'bo', ('安妮', '博文'))
@@ -127,31 +128,29 @@ class RelationsTest(unittest.TestCase):
         self.assertIn('gone', miss[0])
         self.assertIn('旧版（relation-0）', miss[1])   # a file of an older prompt is never used
 
-    def test_the_review_file_fixes_relations(self):
-        def fresh():
-            return {'sources': [{'id': 'src'}], 'relations': [
-                {'people': ['ann', 'bo'], 'stages': [{'from_event': None, 'bond': '朋友', 'views': [{'who': 'ann', 'calls': '阿博', 'sees': '依赖他'}, {'who': 'bo', 'sees': '照顾她'}], 'together': '斗嘴'}], 'source_refs': ['src']},
-                {'people': ['bo', 'dee'], 'stages': [{'from_event': None, 'bond': '同事', 'views': [{'who': 'bo', 'sees': 'x'}]}], 'source_refs': ['src']}]}
-        p = fresh()
-        miss = corrections.apply_relations(p, {'relations': {
-            'dee|bo': {'drop': True},
-            'bo|ann': {'edit': {'start': {'bond': '青梅竹马', 'together': '', 'views': {'ann': {'calls': '', 'sees': '信赖他'}, 'bo': None}}, 'e9': {'bond': 'x'}}},
-            'ann|cy': {'stages': [{'from_event': None, 'bond': '上下级', 'views': [{'who': 'ann', 'sees': '怕她'}]}]},
-            'cy|dee': {'drop': True},
-        }})
-        self.assertEqual([r['people'] for r in p['relations']], [['ann', 'bo'], ['ann', 'cy']])
-        self.assertEqual(p['relations'][0]['stages'][0], {'from_event': None, 'bond': '青梅竹马', 'views': [{'who': 'ann', 'sees': '信赖他'}]})
-        self.assertEqual(p['relations'][1]['source_refs'], ['src'])
-        self.assertEqual(miss, ['relations.bo|ann.edit.e9：没有这一阶段', 'relations.cy|dee：包里没有这对人物的关系'])
-        # a stage taken out (the first: they meet where the next starts), a phrase changed across the relation
-        p = fresh()
-        p['relations'][0]['stages'].append({'from_event': 'e2', 'bond': '朋友兼搭档', 'views': [{'who': 'ann', 'sees': '依赖他'}]})
-        miss = corrections.apply_relations(p, {'relations': {'ann|bo': {'drop_stages': ['start'], 'replace': {'依赖': '信赖', '没有的话': 'x'}}, 'bo|dee': {'drop_stages': ['start']}}})
-        self.assertEqual(p['relations'][0]['stages'], [{'from_event': 'e2', 'bond': '朋友兼搭档', 'views': [{'who': 'ann', 'sees': '信赖他'}]}])
-        self.assertEqual(miss, ['relations.ann|bo.replace：找不到「没有的话」', 'relations.bo|dee.drop_stages.start：只剩这一阶段（整对去掉用 drop）'])
-        # a wording fixed everywhere reaches the relations too (people texts)
-        p = fresh()
-        self.assertEqual(corrections.apply({'events': [], 'entities': [], 'initial_state': {'facts': []}, **p}, {'texts': [{'old': '依赖', 'new': '信赖', 'people': True}]}, people=True), [])
+    def test_the_verified_relations_are_what_the_pack_gets_and_a_builder_run_only_proposes(self):
+        golden = {'pairs': {
+            'ann|bo': {'people': ['ann', 'bo'], 'stages': [{'from_event': None, 'bond': '青梅竹马', 'views': [{'who': 'old', 'sees': '信赖她'}]}], 'notes': ['开局时就认识']},
+            'ann|cy': {'people': ['ann', 'cy'], 'stages': [{'from_event': 'gone', 'bond': '上下级', 'views': [{'who': 'ann', 'sees': '怕她'}]}]}},
+            'rejected': {'bo|dee': '只是同场'}}
+        pack = {'entities': PEOPLE, 'events': [ev('e1', 1, ['ann', 'bo'])], 'sources': [{'id': 'src'}]}
+        n, miss = relations.attach_golden(pack, golden, {'old': 'bo'})
+        self.assertEqual(pack['relations'], [{'people': ['ann', 'bo'], 'stages': [{'from_event': None, 'bond': '青梅竹马', 'views': [{'who': 'bo', 'sees': '信赖她'}]}], 'source_refs': ['src']}])
+        self.assertEqual((n, len(miss)), (1, 1))
+        self.assertIn('gone', miss[0])                       # never guessed at
+        self.assertEqual(golden['pairs']['ann|bo']['stages'][0]['views'][0]['who'], 'old')   # the golden file is not touched
+        # a run proposes: new pairs to read (not the rejected ones), pairs whose stages start elsewhere, and how the
+        # pairs fixed by hand came out
+        gen = {'ann|bo': {'people': ['ann', 'bo'], 'stages': [{'from_event': 'e1', 'bond': '朋友', 'views': []}]},
+               'bo|dee': {'people': ['bo', 'dee'], 'stages': [{'from_event': None, 'bond': '同事', 'views': []}]},
+               'cy|dee': {'people': ['cy', 'dee'], 'stages': [{'from_event': None, 'bond': '邻居', 'views': []}]}}
+        cmp = relations.compare(golden, gen)
+        self.assertEqual(cmp['only_builder'], ['cy|dee'])
+        self.assertEqual(cmp['only_golden'], ['ann|cy'])
+        self.assertEqual(cmp['starts_differ'], [{'pair': 'ann|bo', 'golden': [None], 'builder': ['e1']}])
+        self.assertEqual(cmp['fixed'], {'ann|bo': "starts ['e1'] (verified [None])"})
+        relations.adopt(golden, gen, ['cy|dee'], '读过：邻居')
+        self.assertEqual(golden['pairs']['cy|dee']['notes'], ['读过：邻居'])
 
     def test_checks_list_a_stage_neither_takes_part_in_and_pairs_with_many_events_and_none(self):
         evs = [ev(f'e{i}', i, ['ann', 'bo']) for i in range(16)] + [ev('solo', 20, ['ann'])]
