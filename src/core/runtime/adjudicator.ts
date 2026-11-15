@@ -41,6 +41,9 @@ export async function adjudicateInterval(args: {
   /** Time leap: events the leap plan decided (their record, built on the state so far), settled in time order with
    *  the rest; the other events are not re-judged from recent play (the plan already weighed the player's part). */
   leap?: { decided: Map<Id, (s: WorldState) => RecordDraft> };
+  /** The people with the player character for the whole reply that crosses this interval (with them at its start and
+   *  at its end): they were not anywhere else in it, whatever the reply recorded as beats. */
+  companions?: Id[];
 }): Promise<AdjudicationResult> {
   const { pack } = args;
   const scratch = cloneState(pack, args.state);
@@ -88,17 +91,24 @@ export async function adjudicateInterval(args: {
       // no valid judgement: the ordinary handling of a closed window below
     }
     const p = adjudicateDefault(pack, scratch, c, when);
+    // live: the player kept 美琴 with them the whole afternoon, and 美琴与食蜂同车前往会场 (14:00) was settled as in the
+    // original story — the reply recorded no beat of the afternoon, so nothing ruled it out. Who was with the player
+    // at the start and at the end of the reply was with them in between: an event that needs one of them in that time
+    // cannot go as the original story has it (a HARD event finds its own way: the gate and the forced route).
+    const inReply = c.lo > args.fromExclusive && c.hi <= args.toInclusive;
+    const kept = inReply && c.event.classification !== 'HARD' && !args.leap ? c.event.entity_ids.filter((id) => args.companions?.includes(id)) : [];
+    const keptNote = kept.length ? [`${kept.map((id) => new WorldIndex(pack, scratch).entityName(id)).join(', ')} stayed with the player character the whole time from ${formatTick(args.fromExclusive)} to ${formatTick(args.toInclusive)} (with them at the start and at the end of the story's latest reply), so not at this event as the original story has it: it went otherwise without them, or did not happen.`] : [];
     // The original route assumes the original situation. When actual play has recently involved this
     // event's characters, what they know or do may no longer fit it: let the model judge from actual play
     // (falling back to the original route if it cannot).
-    const play = p.mode === 'deterministic' && p.record?.disposition === 'occurred' && c.event.classification !== 'HARD' && args.port && !args.leap ? recentPlay(pack, scratch, c) : [];
+    const play = (p.mode === 'deterministic' && p.record?.disposition === 'occurred' || kept.length) && c.event.classification !== 'HARD' && args.port && !args.leap ? [...keptNote, ...recentPlay(pack, scratch, c)] : [];
     if (play.length) {
       let judged = await modelAdjudicate(args, scratch, c, when, p.precondition, p.explanation, false, play);
       // live: 索绮特接受首个任务 was dropped because 佐天 "was at the track with 御坂" — she had been with them the
       // night before, and nothing in play put her anywhere at 09:00. The preconditions hold, so the event happens
       // offscreen unless an actual record rules it out: a participant shown busy during its window, or a lasting
-      // change to one of its people (dead, injured, captured, moved). Otherwise the original route stands.
-      if (judged?.record?.disposition === 'omitted' && !rulesOut(pack, scratch, c, judged.cited || [])) {
+      // change to one of its people (dead, injured, captured, moved), or one of its people with the player all along.
+      if (judged?.record?.disposition === 'omitted' && !kept.length && !rulesOut(pack, scratch, c, judged.cited || [])) {
         notes.push(`${c.event.title}: omission not backed by an actual record (${judged.record.dispositionReason || 'no reason'}) — original route kept`);
         judged = null;
       }

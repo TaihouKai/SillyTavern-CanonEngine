@@ -27018,7 +27018,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.37.0";
+var ENGINE_RELEASE = "1.37.1";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -29716,10 +29716,13 @@ async function adjudicateInterval(args) {
       }
     }
     const p = adjudicateDefault(pack2, scratch, c, when2);
-    const play = p.mode === "deterministic" && p.record?.disposition === "occurred" && c.event.classification !== "HARD" && args.port && !args.leap ? recentPlay(pack2, scratch, c) : [];
+    const inReply = c.lo > args.fromExclusive && c.hi <= args.toInclusive;
+    const kept = inReply && c.event.classification !== "HARD" && !args.leap ? c.event.entity_ids.filter((id) => args.companions?.includes(id)) : [];
+    const keptNote = kept.length ? [`${kept.map((id) => new WorldIndex(pack2, scratch).entityName(id)).join(", ")} stayed with the player character the whole time from ${formatTick(args.fromExclusive)} to ${formatTick(args.toInclusive)} (with them at the start and at the end of the story's latest reply), so not at this event as the original story has it: it went otherwise without them, or did not happen.`] : [];
+    const play = (p.mode === "deterministic" && p.record?.disposition === "occurred" || kept.length) && c.event.classification !== "HARD" && args.port && !args.leap ? [...keptNote, ...recentPlay(pack2, scratch, c)] : [];
     if (play.length) {
       let judged = await modelAdjudicate(args, scratch, c, when2, p.precondition, p.explanation, false, play);
-      if (judged?.record?.disposition === "omitted" && !rulesOut(pack2, scratch, c, judged.cited || [])) {
+      if (judged?.record?.disposition === "omitted" && !kept.length && !rulesOut(pack2, scratch, c, judged.cited || [])) {
         notes.push(`${c.event.title}: omission not backed by an actual record (${judged.record.dispositionReason || "no reason"}) \u2014 original route kept`);
         judged = null;
       }
@@ -31353,6 +31356,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       for (let k = idx - 1; k >= 0; k--) if (entries[k].role === "gm") return entries[k];
       return null;
     })();
+    const prevPresent = prevGm ? interpretationsFor(this.campaign().interpretations, baseKey(prevGm))[0]?.present || [] : [];
     const uInterp = userEntry ? interpretationsFor(this.campaign().interpretations, baseKey(userEntry)).find((x) => x.role === "user") : null;
     const leapTo = uInterp?.leapTo && uInterp.leapTo > r.state.clock.lo && entries[idx - 1]?.role === "user" ? uInterp.leapTo : null;
     const lp = leapTo ? await this.stageLeap(index, userEntry, leapTo, uInterp?.leapFinal ?? null, signal, "reconcile") : null;
@@ -31401,7 +31405,8 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
         signal,
         operationId: "reconcile",
         facts: review.facts,
-        log: (l) => this.debugLog("task", l)
+        log: (l) => this.debugLog("task", l),
+        companions: prevPresent.filter((id) => gate.present.includes(id))
       });
       mergeClosingBeats(interp.records, adj.records, r.state);
       for (const ar of adj.records) ar.triggerCommitId = interp.commitId;
@@ -32303,7 +32308,8 @@ ${this.ooc(a.userEntry?.text).story}`);
               signal: abort.signal,
               operationId,
               facts: review.facts,
-              log: (l) => this.debugLog("task", l)
+              log: (l) => this.debugLog("task", l),
+              companions: (prevGmInterp?.present || []).filter((id) => review.gate.present.includes(id))
             });
             adjTo = end.lo;
             this.checkFences(fences, excludeLast);

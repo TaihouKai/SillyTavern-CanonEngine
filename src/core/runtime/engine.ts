@@ -942,6 +942,7 @@ export class CanonEngine {
     let userEntry: SourceEntry | null = null;
     for (let k = idx - 1; k >= 0; k--) if (entries[k].role === 'user') { userEntry = entries[k]; break; }
     const prevGm = (() => { for (let k = idx - 1; k >= 0; k--) if (entries[k].role === 'gm') return entries[k]; return null; })();
+    const prevPresent = prevGm ? interpretationsFor(this.campaign()!.interpretations, baseKey(prevGm))[0]?.present || [] : [];
     // the reply to a time leap is checked with the leap staged again (its plan and the canon events it crosses)
     const uInterp = userEntry ? interpretationsFor(this.campaign()!.interpretations, baseKey(userEntry)).find((x) => x.role === 'user') : null;
     const leapTo = uInterp?.leapTo && uInterp.leapTo > r.state.clock.lo && entries[idx - 1]?.role === 'user' ? uInterp.leapTo : null;
@@ -980,7 +981,7 @@ export class CanonEngine {
       const adj = await adjudicateInterval({
         pack, state: this.overlay(rIndex.state, interp.records), fromExclusive: r.state.clock.lo, toInclusive: interp.sceneEnd.lo,
         exclude: new Set(interp.records.map((x) => x.packEventId).filter(Boolean) as string[]), port: this.host.model, plan, forcedAllowed: true,
-        signal, operationId: 'reconcile', facts: review.facts, log: (l) => this.debugLog('task', l),
+        signal, operationId: 'reconcile', facts: review.facts, log: (l) => this.debugLog('task', l), companions: prevPresent.filter((id) => gate.present.includes(id)),
       });
       mergeClosingBeats(interp.records, adj.records, r.state);
       for (const ar of adj.records) ar.triggerCommitId = interp.commitId;
@@ -1812,7 +1813,7 @@ export class CanonEngine {
               pack, state: this.overlay(rIndex.state, [...review.gate.records, ...(adj?.records || [])]), fromExclusive: clock, toInclusive: end.lo,
               exclude: new Set(review.gate.records.map((r) => r.packEventId).filter(Boolean) as string[]),
               port: this.host.model, plan, forcedAllowed: planInfo.forced || this.settings.forcedPlannerAttempt, signal: abort.signal, operationId, facts: review.facts,
-              log: (l) => this.debugLog('task', l),
+              log: (l) => this.debugLog('task', l), companions: (prevGmInterp?.present || []).filter((id) => review.gate.present.includes(id)),
             });
             adjTo = end.lo;
             this.checkFences(fences, excludeLast);

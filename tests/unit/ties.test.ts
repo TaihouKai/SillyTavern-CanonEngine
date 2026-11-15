@@ -281,6 +281,20 @@ describe('relations between people, the player character like anyone', () => {
     expect(JSON.stringify(x.engine.natureView(true))).not.toMatch(/close friend since childhood/);
   });
 
+  it('RL16 someone the player keeps with them through an event\'s time is not at it: the event does not go as in the original story', async () => {
+    // live: the player kept 美琴 the whole afternoon; the reply recorded no beat of it, and 美琴与食蜂同车前往会场 was
+    // settled offscreen as in the original story — with 美琴–食蜂 switched to the stage it starts
+    const x = await setup();
+    await turn(x, 'I find Mira at dawn.', 'Mira joins you on the pier. [K1]', { scene_end: at(1, 6, 30), scene_entities: ['mira'], present: ['mira'] });
+    x.model.on('adjudicate', (i: any) => i.candidate?.id === 'medic-ambush', { adjudications: [{ event_id: 'medic-ambush', decision: 'omitted', time: null, account: '', actors: [], causes: [], effects: [], plan_step_ids: [], reason: 'Mira was with Ash all morning, nowhere near the road.' }] });
+    await turn(x, 'I keep Mira with me all morning, mending nets on the pier.', 'You and Mira mend nets until noon. [K2]', { scene_end: at(1, 12, 0), scene_entities: ['mira'], present: ['mira'] });
+    const asked = x.model.tasks('adjudicate').find((c) => c.input.candidate?.id === 'medic-ambush')!.input;
+    expect(asked.recent_actual_play_with_these_characters[0]).toMatch(/^Mira stayed with the player character the whole time from D1 06:30 to D1 12:00/);
+    // the omission stands (no beat had to rule it out), and the pair stays as it was
+    expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('omitted');
+    expect(x.engine.current!.index.relationNow('mira', 'tomas')).toMatchObject({ bond: 'neighbours on the harbor road', source: 'pack' });
+  });
+
   it('RL8 a Persona revision without a relation takes it out', async () => {
     const x = await setup();
     expect(played(x).relationships.map((r) => r.name)).toEqual(['Mira']);

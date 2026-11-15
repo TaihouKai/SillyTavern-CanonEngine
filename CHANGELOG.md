@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.37.1 — 2026-11-16
+
+- **Someone the player keeps with them is not at a canon event in the meantime.** Live: the player kept 美琴 with them all afternoon, away from 食蜂. The reply recorded no beat of the afternoon, so nothing ruled out 「美琴与食蜂同车前往会场」 (14:00): offscreen adjudication settled it as in the original story, and 美琴–食蜂 took the stage it starts. Now the people with the player at both the start and the end of a reply count as with them throughout. A non-HARD canon event inside the reply's time that needs one of them goes to the model with that fact, and its omission stands without a recorded beat. A HARD event still finds its own way.
+
 ## 1.37.0 — 2026-11-16
 
 - **A relation is now a state of the game.** Until now the original story's stages were switches: once a stage's event occurred, the pair switched to that stage, even if play had changed the pair before. Making 美琴 and 黑子 fall out on one day was undone when the original story's next stage for them came. The same mistake once let a pack event overwrite the organization member lists.
