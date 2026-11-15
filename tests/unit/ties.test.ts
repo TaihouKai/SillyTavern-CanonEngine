@@ -111,7 +111,9 @@ describe('relations between people, the player character like anyone', () => {
     expect(st(x).relations.find((r) => r.source === 'play' && r.people.includes('tomas'))!.views.find((v) => v.who === 'tomas')!.calls).toBe('that woman、Mira');
     await turn(x, 'I follow them.', 'The piers. [R3b]', { scene_end: at(1, 7, 10), scene_entities: ['mira', 'tomas'] });
     const rel = section(ctx(x), 'RELATIONSHIPS');
-    expect(rel).toMatch(/Mira \[mira\] ↔ Tomas \[tomas\]: estranged neighbours \(as it stands since [^;]+ in play; in the original story before that: neighbours on the harbor road\) \| Mira → Tomas: refuses to speak to him/);
+    expect(rel).toMatch(/Mira \[mira\] ↔ Tomas \[tomas\]: estranged neighbours \(as it stands since [^)]+ in play\) \| Mira → Tomas: refuses to speak to him/);
+    // the stage play replaced stays in full under it (live: a one-line change would have thinned 黑子–美琴)
+    expect(rel).toMatch(/\|\| in the original story before that \(still so where play has not changed it\): neighbours on the harbor road \| Tomas → Mira: calls them "the medic"; keeps a polite distance/);
     expect(rel).toMatch(/Mira \[mira\] ↔ Ash \[[^\]]+\]: estranged friend after a quarrel \(as it stands since/);
     // PLAYER IN THIS WORLD has the player's connections, with the Persona's start
     expect(ctx(x)).toMatch(/connection: Mira \[mira\] — estranged friend after a quarrel \(as it stands since [^;]+ in play; Persona at the start: close friend since childhood\)/);

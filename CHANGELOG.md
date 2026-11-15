@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.36.6 — 2026-11-15
+
+- **A change of play no longer thins a pair.** In a live game the review recorded 黑子–美琴 as one line a side (「仰慕与嫌烦并存」, 黑子 jealous of the new sister). The latest change wins, so that line replaced the pack stage, which gives all their sides: the clingy junior who also nags and covers for her, the senior who zaps her and still looks out for her. RELATIONSHIPS now shows the stage play replaced in full under the change, as still so where play has not changed it.
+
 ## 1.36.5 — 2026-11-15
 
 - **Forms of address are only the names.** The review wrote how 美琴 and 10032号 address each other with their own brackets (「姐姐」), and RELATIONSHIPS showed them doubled (「「姐姐」」). Code now strips the brackets and quotes around each form of address, in the review and in the Persona read.

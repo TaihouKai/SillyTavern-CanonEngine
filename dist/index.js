@@ -22400,7 +22400,7 @@ var WorldIndex = class _WorldIndex {
     const st = stage;
     if (change && (!st || st.since === null || change.tick >= st.since)) {
       if (change.removed) return null;
-      return { people: change.people, bond: change.bond, views: change.views, ...change.together ? { together: change.together } : {}, ...change.ended ? { ended: true } : {}, since: change.tick, source: change.source, ...st ? { before: st.bond } : {} };
+      return { people: change.people, bond: change.bond, views: change.views, ...change.together ? { together: change.together } : {}, ...change.ended ? { ended: true } : {}, since: change.tick, source: change.source, ...st ? { before: st.bond, beforeStage: { bond: st.bond, views: st.views, ...st.together ? { together: st.together } : {} } } : {} };
     }
     return st;
   }
@@ -26626,7 +26626,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.36.5";
+var ENGINE_RELEASE = "1.36.6";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -28359,9 +28359,12 @@ function relationSection(index, retrieval, origin, player, playerText = "", pres
   const name2 = (id) => index.entityName(id);
   return RELATION_HEAD + "\n" + pairs.slice(0, RELATION_MAX).map(({ rel }) => {
     const [a, b] = rel.people;
-    const from = rel.source === "play" || rel.source === "ui" ? ` (as it stands since ${formatTick(rel.since, origin)} in play${rel.before ? `; in the original story before that: ${rel.before}` : ""})` : rel.source === "persona" ? " (from the Persona)" : "";
-    const views = rel.views.map((v) => `${name2(v.who)} \u2192 ${name2(v.who === a ? b : a)}: ${v.calls ? `calls them "${v.calls}"; ` : ""}${v.sees}`);
-    return `- ${name2(a)} [${a}] \u2194 ${name2(b)} [${b}]: ${rel.ended ? "ENDED: " : ""}${rel.bond}${from}${views.length ? " | " + views.join(" | ") : ""}${rel.together ? ` | together: ${rel.together}` : ""}`;
+    const from = rel.source === "play" || rel.source === "ui" ? ` (as it stands since ${formatTick(rel.since, origin)} in play)` : rel.source === "persona" ? " (from the Persona)" : "";
+    const viewsOf = (vs) => vs.map((v) => `${name2(v.who)} \u2192 ${name2(v.who === a ? b : a)}: ${v.calls ? `calls them "${v.calls}"; ` : ""}${v.sees}`);
+    const views = viewsOf(rel.views);
+    const s = rel.beforeStage;
+    const before = s ? ` || in the original story before that (still so where play has not changed it): ${s.bond}${s.views.length ? " | " + viewsOf(s.views).join(" | ") : ""}${s.together ? ` | together: ${s.together}` : ""}` : "";
+    return `- ${name2(a)} [${a}] \u2194 ${name2(b)} [${b}]: ${rel.ended ? "ENDED: " : ""}${rel.bond}${from}${views.length ? " | " + views.join(" | ") : ""}${rel.together ? ` | together: ${rel.together}` : ""}${before}`;
   }).join("\n");
 }
 function mindPeople(index, retrieval) {

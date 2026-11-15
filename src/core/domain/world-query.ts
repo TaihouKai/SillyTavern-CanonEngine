@@ -8,10 +8,12 @@ import { factAt, factKey, factHistory } from './reducer';
 import { formatStoryTime, formatTick, occurrenceTime } from './time';
 import { deltaText } from './delta';
 
-/** A relation in force (WorldIndex.relationNow). before: the pack stage a change of play replaced. */
+/** A relation in force (WorldIndex.relationNow). before: the pack stage a change of play replaced (its bond), and
+ *  beforeStage the whole of it: a change of play is one sentence a side, the stage it replaced has all its sides. */
 export interface RelationNow {
   people: [Id, Id]; bond: string; views: RelationView[]; together?: string; why?: string; ended?: boolean;
   since: number | null; source: 'pack' | 'persona' | 'play' | 'ui'; until?: Id | null; before?: string;
+  beforeStage?: { bond: string; views: RelationView[]; together?: string };
 }
 
 export interface ResolvedRef {
@@ -181,7 +183,7 @@ export class WorldIndex {
     const st = stage as RelationNow | null;
     if (change && (!st || st.since === null || change.tick >= st.since)) {
       if (change.removed) return null;
-      return { people: change.people, bond: change.bond, views: change.views, ...(change.together ? { together: change.together } : {}), ...(change.ended ? { ended: true } : {}), since: change.tick, source: change.source, ...(st ? { before: st.bond } : {}) };
+      return { people: change.people, bond: change.bond, views: change.views, ...(change.together ? { together: change.together } : {}), ...(change.ended ? { ended: true } : {}), since: change.tick, source: change.source, ...(st ? { before: st.bond, beforeStage: { bond: st.bond, views: st.views, ...(st.together ? { together: st.together } : {}) } } : {}) };
     }
     return st;
   }

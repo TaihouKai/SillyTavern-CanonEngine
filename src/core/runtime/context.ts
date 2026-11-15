@@ -1,6 +1,6 @@
 // Controller-owned retrieval (causal OR mentioned, plus scene/entity constraints) and the
 // bounded GM context packet. The model receives record CONTENT, never bare ids.
-import type { Id, MindProfile, NatureVersion, PackEvent, PerceiveKind } from '../domain/types';
+import type { Id, MindProfile, NatureVersion, PackEvent, PerceiveKind, RelationView } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { pairKey } from '../domain/pack';
 import { WorldIndex, type HistoryRecordView, type EntityStateView, type CanonStatusView } from '../domain/world-query';
@@ -388,9 +388,14 @@ export function relationSection(index: WorldIndex, retrieval: Retrieval, origin:
   const name = (id: Id) => index.entityName(id);
   return RELATION_HEAD + '\n' + pairs.slice(0, RELATION_MAX).map(({ rel }) => {
     const [a, b] = rel.people;
-    const from = rel.source === 'play' || rel.source === 'ui' ? ` (as it stands since ${formatTick(rel.since!, origin)} in play${rel.before ? `; in the original story before that: ${rel.before}` : ''})` : rel.source === 'persona' ? ' (from the Persona)' : '';
-    const views = rel.views.map((v) => `${name(v.who)} → ${name(v.who === a ? b : a)}: ${v.calls ? `calls them "${v.calls}"; ` : ''}${v.sees}`);
-    return `- ${name(a)} [${a}] ↔ ${name(b)} [${b}]: ${rel.ended ? 'ENDED: ' : ''}${rel.bond}${from}${views.length ? ' | ' + views.join(' | ') : ''}${rel.together ? ` | together: ${rel.together}` : ''}`;
+    const from = rel.source === 'play' || rel.source === 'ui' ? ` (as it stands since ${formatTick(rel.since!, origin)} in play)` : rel.source === 'persona' ? ' (from the Persona)' : '';
+    const viewsOf = (vs: RelationView[]) => vs.map((v) => `${name(v.who)} → ${name(v.who === a ? b : a)}: ${v.calls ? `calls them "${v.calls}"; ` : ''}${v.sees}`);
+    const views = viewsOf(rel.views);
+    // live: play recorded 黑子–美琴 as one line a side (「仰慕与嫌烦并存」), which replaced the pack stage with all its
+    // sides — the GM would play a thinner pair than the story's. The stage stays, under what play changed.
+    const s = rel.beforeStage;
+    const before = s ? ` || in the original story before that (still so where play has not changed it): ${s.bond}${s.views.length ? ' | ' + viewsOf(s.views).join(' | ') : ''}${s.together ? ` | together: ${s.together}` : ''}` : '';
+    return `- ${name(a)} [${a}] ↔ ${name(b)} [${b}]: ${rel.ended ? 'ENDED: ' : ''}${rel.bond}${from}${views.length ? ' | ' + views.join(' | ') : ''}${rel.together ? ` | together: ${rel.together}` : ''}${before}`;
   }).join('\n');
 }
 
