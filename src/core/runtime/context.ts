@@ -355,7 +355,7 @@ export const RELATION_MAX = 12;
 // Only the pairs that matter right now are given: someone in the scene with someone else in it or mentioned. The
 // player character is one of the people here like anyone (user: the Persona is a person of the world like the
 // original's characters).
-const RELATION_HEAD = 'RELATIONSHIPS (how the people here stand with each other now, in this branch: the original story as far as this branch has reached it, and as the Persona and play have changed it since). Play them toward each other by it — how they address each other, what they think of each other and how they are together shows in what they say and do, not explained. A relationship has several sides at once (rivals who trust each other still needle each other): play all of them, not only the first words of the line. It is how they are, not story to bring up. The player character\'s own side is what the Persona and play established: never decide the player character\'s feelings or words from it. Two people with no line here have no established relationship.';
+const RELATION_HEAD = 'RELATIONSHIPS (how the people here stand with each other now, in this game: each line is the whole relation as it stands, with everything the Persona and play changed in it). Play them toward each other by it — how they address each other, what they think of each other and how they are together shows in what they say and do, not explained. A relationship has several sides at once (rivals who trust each other still needle each other): play all of them, not only the first words of the line. It is how they are, not story to bring up. The player character\'s own side is what the Persona and play established: never decide the player character\'s feelings or words from it. Two people with no line here have no established relationship.';
 /** The relations among the people here (in the scene, the player character included, or named in the text), as
  *  WorldIndex.relationNow has them: pairs both in the scene first (those without the player first: the player has
  *  their own lines too), then in the scene with one named, then two named. */
@@ -388,14 +388,10 @@ export function relationSection(index: WorldIndex, retrieval: Retrieval, origin:
   const name = (id: Id) => index.entityName(id);
   return RELATION_HEAD + '\n' + pairs.slice(0, RELATION_MAX).map(({ rel }) => {
     const [a, b] = rel.people;
-    const from = rel.source === 'play' || rel.source === 'ui' ? ` (as it stands since ${formatTick(rel.since!, origin)} in play)` : rel.source === 'persona' ? ' (from the Persona)' : '';
-    const viewsOf = (vs: RelationView[]) => vs.map((v) => `${name(v.who)} → ${name(v.who === a ? b : a)}: ${v.calls ? `calls them "${v.calls}"; ` : ''}${v.sees}`);
-    const views = viewsOf(rel.views);
-    // live: play recorded 黑子–美琴 as one line a side (「仰慕与嫌烦并存」), which replaced the pack stage with all its
-    // sides — the GM would play a thinner pair than the story's. The stage stays, under what play changed.
-    const s = rel.beforeStage;
-    const before = s ? ` || in the original story before that (still so where play has not changed it): ${s.bond}${s.views.length ? ' | ' + viewsOf(s.views).join(' | ') : ''}${s.together ? ` | together: ${s.together}` : ''}` : '';
-    return `- ${name(a)} [${a}] ↔ ${name(b)} [${b}]: ${rel.ended ? 'ENDED: ' : ''}${rel.bond}${from}${views.length ? ' | ' + views.join(' | ') : ''}${rel.together ? ` | together: ${rel.together}` : ''}${before}`;
+    const from = rel.source === 'pack' ? '' : rel.source === 'persona' ? ' (from the Persona)' : ` (changed in this game, ${formatTick(rel.since!, origin)})`;
+    // (one whole line: what play changed is merged into the relation it changed — WorldIndex.relationNow)
+    const views = rel.views.map((v) => `${name(v.who)} → ${name(v.who === a ? b : a)}: ${v.calls ? `calls them "${v.calls}"; ` : ''}${v.sees}`);
+    return `- ${name(a)} [${a}] ↔ ${name(b)} [${b}]: ${rel.ended ? 'ENDED: ' : ''}${rel.bond}${from}${views.length ? ' | ' + views.join(' | ') : ''}${rel.together ? ` | together: ${rel.together}` : ''}`;
   }).join('\n');
 }
 

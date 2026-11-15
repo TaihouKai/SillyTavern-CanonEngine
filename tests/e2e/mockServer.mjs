@@ -56,6 +56,7 @@ function defaultTask(task, input) {
     case 'world_check': return { items: [], additions: [] };
     case 'ends': return { ends: [...String(input.question || '').matchAll(/^(\d+)\. /gm)].map((m) => ({ n: Number(m[1]), until: 'lasting', why: 'mock' })) };
     case 'affiliations': return { organizations: (input.organizations || []).filter((o) => o.read).map((o) => ({ ref: o.ref, status: o.read.status })) };
+    case 'relate': return { pairs: (input.pairs || []).map((p) => ({ n: p.n, changed: false })) };
     case 'mind': return { minds: (input.people || []).map((p) => ({ id: p.id, reads: [{ what: 'mock read', surface: 'show' }], wants: 'mock want', move: 'mock move' })) };
     case 'plan': {
       const now = input.now?.tick ?? 0;

@@ -187,19 +187,23 @@ The top-level `relations` list says how pairs of people stand with each other. W
 
 - **Stages and timing.** Stages go in story order.
   - A first stage with `from_event` null holds from the story start.
-  - A stage with a `from_event` holds once that event has occurred in the branch, until a later stage starts or its `until_event` occurs.
+  - A stage with a `from_event` holds once that event has occurred in the branch, until a later stage starts.
   - Before the first stage holds, the two do not know each other. A first stage can therefore start at the event where they meet.
   - Use a new stage only where the relationship itself changes for a long time: hostility ends, they become friends, someone is betrayed, the way one addresses the other changes. A passing quarrel is not a new stage.
 - **Each stage.**
   - `bond`: what they are to each other, in one phrase.
   - `views`: one entry per side that knows the other. `who` is the person whose side it is; `calls` is how they address or refer to the other; `sees` is how they regard and treat the other.
   - `together`: how the two are when together, and what is touchy between them.
-  - Write standing attitudes, not a retelling of the plot. Each stage is read on its own, so write it in full.
-- **What the GM sees.** The GM gets the pair's current stage when someone in the scene is with another person in the scene or one the text mentions.
-- **The player character is treated like anyone.**
-  - The relations the Persona gives are the player's starting relations.
-  - Play changes any pair, the player's included: the review of an accepted reply records the relation as it stands from then on, with its quote. The user can also change the player's relations in the panel.
-  - The latest change of a pair wins. The exception is a pack stage whose event occurs after that change: the story has reached that stage, so it applies.
+  - `why`: for the first stage, how they came to know each other. For a later stage, what changes there and why, written as a change ("从互相敌视转为暂时联手"). The lint warns about a later stage without it.
+  - Write standing attitudes, not a retelling of the plot. Each stage is the whole relation at that time, because a game can start at any point of the story, so write it in full.
+- **What the GM sees.** The GM gets the pair's current relation when someone in the scene is with another person in the scene or one the text mentions.
+- **A relation is a state of the game.** The stages are where it starts and how the original story changes it, not switches.
+  - At the start, a pair stands as the stage in force then. The Persona gives the player's starting relations: the player character is treated like anyone.
+  - While nothing in the game has changed a pair, each later stage holds once its event occurs as in the original story.
+  - Play changes any pair, the player's included: the review of an accepted reply records what changes, with its quote. The user can also change the player's relations in the panel. A change is merged into the relation part by part: what it gives replaces that part, and the rest (the other side, the forms of address, how they are together) stays.
+  - Once a pair no longer follows the original story, its later stages no longer apply by themselves. This happens when the game changed the pair, or when an earlier stage's event went otherwise. When such a stage's event settles, the analysis model applies the stage's `why` to the relation the game has, by what actually happened, and that change is merged in like any other.
+  - An event that goes otherwise has the same effect for a pair that still followed the original story: what it does to the pair is worked out from what happened, and its stage does not come. An event that does not happen changes nothing.
+  - The GM always gets one whole line for a pair: the relation as the game has it now.
 - **Lint checks.**
   - Each relation has two people of the pack, and each pair appears once.
   - Only the first stage has `from_event` null, and every event a stage refers to exists.

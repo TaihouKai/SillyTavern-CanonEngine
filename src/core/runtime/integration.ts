@@ -258,7 +258,7 @@ export function playedProfile(index: WorldIndex, profile: PlayerProfile): Player
   const start = new Map(personaRelations(profile).map((r) => [r.people[1], r.bond]));
   let relationships: PlayerProfile['relationships'] = index.relationsOf(me).map(({ other, rel }) => {
     const c = latest.get(pairKey(me, other));
-    const by = rel.source === 'play' || rel.source === 'ui' ? rel.source : null;
+    const by = rel.source === 'ui' ? 'ui' : rel.source === 'play' || rel.source === 'event' ? 'play' : null;
     return {
       entityId: other, name: index.entityName(other), relation: rel.bond, basis: start.has(other) ? 'persona_stated' : by || 'play', person: true,
       ...(rel.views.length ? { views: rel.views } : {}), ...(rel.ended ? { ended: true } : {}),

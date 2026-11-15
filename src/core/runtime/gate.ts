@@ -720,7 +720,8 @@ export function runGate(g: GateInput): GateResult {
     if (!ids[0] || !ids[1] || ids[0] === ids[1] || !ids.every((id) => isPerson(id!))) { warnings.push(`relation "${label}" ignored: not two known people`); continue; }
     const people = ids as [Id, Id];
     const views = (r.views || []).map((v) => ({ who: relationRef(String(v.who || '').trim()), calls: cleanCalls(v.calls), sees: String(v.sees || '').trim().slice(0, 400) }))
-      .filter((v): v is { who: Id; calls: string; sees: string } => !!v.who && people.includes(v.who) && !!v.sees)
+      // (a side whose form of address alone changes gives calls only: merged into the relation, the rest stays)
+      .filter((v): v is { who: Id; calls: string; sees: string } => !!v.who && people.includes(v.who) && !!(v.sees || v.calls))
       .filter((v, i, all) => all.findIndex((x) => x.who === v.who) === i)
       .map((v) => ({ who: v.who, ...(v.calls ? { calls: v.calls } : {}), sees: v.sees }));
     const together = String(r.together || '').trim().slice(0, 400);

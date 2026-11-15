@@ -128,11 +128,14 @@ export interface CanonPack {
   /** How two people stand with each other, in stages (see PackRelation). */
   relations?: PackRelation[];
 }
-/** How two people of the story stand with each other. The stages are in story order; one holds once its from_event has
- *  occurred in the branch (null: from the story start) until the next one does or its until_event has. Before the first
- *  holds they do not know each other. Play changes a relation from there (RelationChange), for anyone, the player too. */
+/** How two people of the story stand with each other in the original story. The stages are in story order; one holds
+ *  once its from_event has occurred in the branch (null: from the story start) until the next one does. Before the
+ *  first holds they do not know each other. Each stage is the whole relation then (a game can start at any time) and,
+ *  after the first, says what changed there (why): in a game where the pair already went otherwise, that change is
+ *  applied to the relation the game has instead (WorldIndex.relationsDue). Play changes a relation from there
+ *  (RelationChange), for anyone, the player too. */
 export interface PackRelation { people: [Id, Id]; stages: RelationStage[]; source_refs: Id[] }
-export interface RelationStage { from_event: Id | null; until_event?: Id | null; why?: string; bond: string; views: RelationView[]; together?: string }
+export interface RelationStage { from_event: Id | null; why?: string; bond: string; views: RelationView[]; together?: string }
 /** One side of a relation: how `who` addresses the other (calls) and regards and treats them (sees). */
 export interface RelationView { who: Id; calls?: string; sees: string }
 
@@ -231,11 +234,13 @@ export interface TieInfo {
   removed?: boolean;
 }
 
-/** A relation between two people as it stands from now on, the whole of it (not only what changed): from the Persona
- *  (the player's start), from play (the analysis of an accepted reply) or from the user in the panel. The latest change
- *  of a pair, or the pack stage that started later, is the relation in force. */
+/** A change of a relation between two people: from the Persona (the player's start: the whole relation), from play
+ *  (the analysis of an accepted reply), from a settled event of the pack the game worked out (event) or from the user
+ *  in the panel. Merged into the relation as it stands, part by part (mergeRelation): the parts it gives replace those
+ *  parts, the rest stays. */
 export interface RelationChange {
   people: [Id, Id];
+  /** What they are to each other now ('' : unchanged). */
   bond: string;
   views: RelationView[];
   together?: string;
@@ -244,7 +249,11 @@ export interface RelationChange {
   /** The relation is taken out altogether (the user in the panel, a Persona revision that no longer has it). */
   removed?: boolean;
   quote: string;
-  source: 'persona' | 'play' | 'ui';
+  source: 'persona' | 'play' | 'ui' | 'event';
+  /** source event: the pack event whose result this works out, and the record that settled it (a change for a result
+   *  since replaced no longer counts). */
+  event?: Id;
+  eventRecord?: string;
 }
 
 /** An actual occurrence (something that happened in this branch). */

@@ -23,6 +23,7 @@ import { buildPacket, DELIBERATION_TEXT, MIND_FIELDS, MIND_PLAN_MAX, mindPeople,
 import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
 import { CLOCK_READING_SLACK, matchScope, runGate, type EvalOutput, type GateInput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
+import { settleRelations } from './relate';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
@@ -67,7 +68,7 @@ export interface EngineSettings {
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
 const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + String(text || '').length * 4));
 
-const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan' };
+const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change' };
 
 /** Length and provider stats of the published reply, shown after the turn timings. */
 export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
@@ -988,7 +989,24 @@ export class CanonEngine {
       if (lp) { for (const x of lp.records) x.triggerCommitId = interp.commitId; interp.records.unshift(...lp.records); }
       interp.records.push(this.timeAdvance(interp.sceneEnd, interp.commitId));
     }
+    if (!interp.conflict) for (const x of await this.relationRecords(r.state, interp.records, signal, 'reconcile')) { x.triggerCommitId = interp.commitId; interp.records.push(x); }
     return interp;
+  }
+
+  /** The relation changes that the events these records settle make and this game has to work out (relate.ts), as
+   *  records to go with them; none (and no model call) while every pair concerned still follows the original story. */
+  private async relationRecords(state: WorldState, records: RecordDraft[], signal: AbortSignal | undefined, operationId: string): Promise<RecordDraft[]> {
+    const settled = records.filter((r) => r.packEventId && r.disposition).map((r) => r.packEventId!);
+    if (!settled.length) return [];
+    const pack = this.pack();
+    return settleRelations(this.host.model, pack, new WorldIndex(pack, this.overlay(state, records)), settled, { signal, operationId, log: (l) => this.debugLog('task', l) });
+  }
+
+  /** A result recorded by hand (强制完成, 结束事件, 关联本局事件, 重新分析 with an after story) carries what it does to the
+   *  relations this game has to work out (undone with it). */
+  private async withRelations(rec: RecordDraft, operationId: string): Promise<RecordDraft> {
+    const changes = (await this.relationRecords(this.current!.replay.state, [rec], undefined, operationId)).flatMap((r) => r.relations || []);
+    return changes.length ? { ...rec, relations: [...(rec.relations || []), ...changes] } : rec;
   }
 
   /** Horae's story time at the end of the previous reply as a tick, when it is usable: a new reply (not a
@@ -1894,6 +1912,9 @@ export class CanonEngine {
           interp.dependsOn = interp.dependsOn.filter((d) => d.messageId !== continuedEntry.messageId);
         }
         if (interp.sceneEnd && !interp.flashback && interp.sceneEnd.lo > clock) interp.records.push(this.timeAdvance(interp.sceneEnd, commitId));
+        // what the events this reply settles do to the relations this game has to work out (carried with a continuation)
+        for (const r of await this.relationRecords(index.state, interp.records, abort.signal, operationId)) { r.triggerCommitId = commitId; interp.records.push(r); }
+        this.checkFences(fences, excludeLast);
         this.stampBasis(interp, index, candidate);
         // Only the accepted candidate's coverage manifest is retained (rejected drafts stay out of storage).
         if (accepted.review.manifest) { c.manifests[accepted.review.manifest.manifestId] = accepted.review.manifest; trimManifests(c); }
@@ -2755,11 +2776,13 @@ export class CanonEngine {
     if (!c || !this.current) throw new EngineError('incompatible_adapter', 'engine state unavailable');
     if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; wait or cancel it first.');
     this.assertReplayComplete();
+    const state0 = this.current.replay.state;
+    if (state0.dispositions.get(eventId)?.disposition === 'occurred') return;
+    const forced = await this.withRelations(forcedCompletion(this.pack(), state0, eventId, state0.clock.lo), 'force_complete');
     await this.exclusive(async () => {
-      const pack = this.pack();
       const state = this.current!.replay.state;
       if (state.dispositions.get(eventId)?.disposition === 'occurred') return;
-      const rec = forcedCompletion(pack, state, eventId, state.clock.lo);
+      const rec = state === state0 ? forced : forcedCompletion(this.pack(), state, eventId, state.clock.lo);
       const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
       c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `forced to complete: ${eventId}` });
@@ -2841,7 +2864,7 @@ export class CanonEngine {
     } finally { if (!this.opActive) this.setStatus('idle'); }
     if (!res) throw new EngineError('provider_failure', this.tr('分析模型没能给这个事件定结果；请再试一次，或使用「关联本局事件」/「强制完成」。', 'The analysis model could not conclude this event; try again, or use Link story events / Force complete.'));
     if ('stillUnderWay' in res) return 'ongoing';
-    const rec = res.record;
+    const rec = await this.withRelations(res.record, 'conclude');
     await this.exclusive(async () => {
       const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
       c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
@@ -2877,8 +2900,9 @@ export class CanonEngine {
     if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; wait or cancel it first.');
     this.assertReplayComplete();
     if (!occurrenceIds.length) throw new EngineError('incompatible_adapter', 'Choose at least one story event to link.');
+    const linked = await this.withRelations(linkedCompletion(this.pack(), this.current.replay.state, eventId, occurrenceIds, disposition), 'link_event');
     await this.exclusive(async () => {
-      const rec = linkedCompletion(this.pack(), this.current!.replay.state, eventId, occurrenceIds, disposition);
+      const rec = linked;
       const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
       c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `linked ${eventId} (${disposition}) to ${occurrenceIds.length} story event(s)` });
@@ -2971,7 +2995,7 @@ export class CanonEngine {
       res = await rejudgeWithAfterStory({ pack, state, fromExclusive: state.clock.lo, toInclusive: state.clock.lo, exclude: new Set(), port: this.host.model, plan: this.activePlan(), forcedAllowed: false, operationId: 'reanalyze_after_story', facts, log: (l) => this.debugLog('task', l) }, eventId);
     } finally { if (!this.opActive) this.setStatus('idle'); }
     if (!res) throw new EngineError('provider_failure', 'The analysis model could not re-judge this event; try again.');
-    const rec = res.record;
+    const rec = await this.withRelations(res.record, 'reanalyze_after_story');
     await this.exclusive(async () => {
       const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
       c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];

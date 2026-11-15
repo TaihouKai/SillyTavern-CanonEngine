@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.37.0 — 2026-11-16
+
+- **A relation is now a state of the game.** Until now the original story's stages were switches: once a stage's event occurred, the pair switched to that stage, even if play had changed the pair before. Making 美琴 and 黑子 fall out on one day was undone when the original story's next stage for them came. The same mistake once let a pack event overwrite the organization member lists.
+  - A pair starts as the original story has it at the game's start; the Persona gives the player's start.
+  - While nothing in the game has changed a pair, each of its later stages holds once the stage's event occurs as in the original story, exactly as written.
+  - Once a pair no longer follows the original story, its later stages no longer apply by themselves. This is when the game changed the pair, or an earlier stage's event went otherwise. When such a stage's event settles, the analysis model gets the stage's change (`why`), the relation the game has and what actually happened, and works out the change, if any. This is the new `relate` task: one call when needed, none otherwise. An event that goes otherwise is worked out the same way for any pair; an event that does not happen changes nothing.
+  - It runs wherever events settle: the reply's review, offscreen adjudication, a time leap, and 强制完成 / 结束事件 / 关联本局事件 / 重新分析. A result given by hand carries its relation changes, and undoing it takes them back.
+- **Every change is merged into the relation, part by part.** What a change gives (the bond, one side's form of address or regard, how they are together) replaces that part; the rest stays. The review is told this, and to give anew every part a change makes untrue. A side whose form of address alone changes may give only that.
+- **The GM gets one whole line a pair**: the relation as the game has it now. The original story's line under a changed pair (1.36.6) is gone, and so is its token cost.
+- 角色关系 table: a stage whose event went otherwise or did not happen is no longer listed as to come; a change worked out from an event shows as 因剧情事件改变.
+- Pack format: a relation stage has no `until_event` (no pack used it). The lint warns about a later stage without `why`. The Toaru pack's 441 later stages all have one; each was read and states a change.
+
 ## 1.36.7 — 2026-11-15
 
 - **角色关系 has its own button** in the timeline window's toolbar, next to 组织成员 and 角色常态. It shows a table, one row per relation, with columns for the two people, the state and since when, the relation, each side toward the other, and how they are together.

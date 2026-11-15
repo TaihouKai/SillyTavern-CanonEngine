@@ -13,4 +13,5 @@ export declare const leap: { (data: unknown): boolean; errors?: { instancePath: 
 export declare const mind: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
 export declare const plan: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
 export declare const profile: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
+export declare const relate: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
 export declare const world_check: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };

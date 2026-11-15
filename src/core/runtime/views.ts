@@ -72,16 +72,15 @@ export function natureView(idx: WorldIndex, spoilers: boolean, player?: Id | nul
 }
 
 /** 角色关系 as the timeline window shows them, one row a relation: every pair this game knows of (the pack's and those
- *  play or the Persona made) with the relation in force now; with spoilers also the pack's stages still to come, and the
- *  pairs who have not met yet. */
+ *  play or the Persona made) with the relation in force now; with spoilers also the original story's stages whose
+ *  events are still to come, and the pairs who have not met yet. */
 export interface RelationSide { calls?: string; sees: string }
 export interface RelationsViewData {
-  rows: { a: string; b: string; player?: boolean; state: 'now' | 'later'; when: string | null; source?: 'pack' | 'persona' | 'play' | 'ui'; bond: string; ended?: boolean; ab?: RelationSide; ba?: RelationSide; together?: string }[];
+  rows: { a: string; b: string; player?: boolean; state: 'now' | 'later'; when: string | null; source?: 'pack' | 'persona' | 'play' | 'ui' | 'event'; bond: string; ended?: boolean; ab?: RelationSide; ba?: RelationSide; together?: string }[];
   hidden: number;
 }
 export function relationsView(idx: WorldIndex, spoilers: boolean, player?: Id | null, origin: Origin = null): RelationsViewData {
   const s = idx.state;
-  const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
   const title = (e?: Id | null) => (e ? idx.pack.events.get(e)?.title || e : null);
   const keys = new Map<string, [Id, Id]>();
   for (const [k, r] of idx.pack.relations) keys.set(k, r.people);
@@ -98,7 +97,8 @@ export function relationsView(idx: WorldIndex, spoilers: boolean, player?: Id | 
     const rel = idx.relationNow(a, b);
     if (rel) rows.push({ ...base, state: 'now', when: rel.since === null ? null : formatTick(rel.since, origin), source: rel.source, bond: rel.bond, ...(rel.ended ? { ended: true } : {}), ...sides(a, rel.views), ...(rel.together ? { together: rel.together } : {}) });
     (idx.pack.relations.get(k)?.stages || []).forEach((st, i) => {
-      if (st.from_event === null ? i === 0 : occurred(st.from_event)) return;
+      // (an event that went otherwise or did not happen brings no stage of the original story: it is not to come)
+      if (st.from_event === null ? i === 0 : s.dispositions.has(st.from_event)) return;
       if (!spoilers) { hidden++; return; }
       rows.push({ ...base, state: 'later', when: title(st.from_event), bond: st.bond, ...sides(a, st.views), ...(st.together ? { together: st.together } : {}) });
     });

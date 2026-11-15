@@ -1,6 +1,6 @@
 // Actual-history retrieval (causal OR mentioned) and independent entity/scene state queries.
 // Lookups never traverse the Hard graph and never depend on anchor relevance.
-import type { FactValue, Id, MindProfile, NatureVersion, Occurrence, RelationView, StoryTime } from './types';
+import type { FactValue, Id, MindProfile, NatureVersion, Occurrence, RelationChange, RelationView, StoryTime } from './types';
 import type { LoadedPack } from './pack';
 import { normalizeName, pairKey } from './pack';
 import type { Checkpoint, OccurrenceEntry, WorldState } from './reducer';
@@ -8,13 +8,36 @@ import { factAt, factKey, factHistory } from './reducer';
 import { formatStoryTime, formatTick, occurrenceTime } from './time';
 import { deltaText } from './delta';
 
-/** A relation in force (WorldIndex.relationNow). before: the pack stage a change of play replaced (its bond), and
- *  beforeStage the whole of it: a change of play is one sentence a side, the stage it replaced has all its sides. */
+/** A relation in force (WorldIndex.relationNow): the whole of it, as this game has it now. source: where its last
+ *  change came from (pack: the original story's own stage, nothing in this game changed the pair). */
 export interface RelationNow {
-  people: [Id, Id]; bond: string; views: RelationView[]; together?: string; why?: string; ended?: boolean;
-  since: number | null; source: 'pack' | 'persona' | 'play' | 'ui'; until?: Id | null; before?: string;
-  beforeStage?: { bond: string; views: RelationView[]; together?: string };
+  people: [Id, Id]; bond: string; views: RelationView[]; together?: string; ended?: boolean;
+  since: number | null; source: 'pack' | RelationChange['source'];
 }
+
+/** A relation as it stands: what the changes are merged into. */
+export interface RelationBody { bond: string; views: RelationView[]; together?: string; ended?: boolean }
+
+/** A change merged into the relation it changes, part by part: what the change gives replaces that part, what it
+ *  leaves out stays (the other side, the forms of address, how they are together). The Persona says the whole of the
+ *  player's relation (replaces it); removed takes the relation out. */
+export function mergeRelation(base: RelationBody | null, c: Pick<RelationChange, 'bond' | 'views' | 'together' | 'ended' | 'removed' | 'source'>): RelationBody | null {
+  if (c.removed) return null;
+  if (c.source === 'persona' || !base) return { bond: c.bond, views: c.views.map((v) => ({ ...v })), ...(c.together ? { together: c.together } : {}), ...(c.ended ? { ended: true } : {}) };
+  const views = base.views.map((v) => ({ ...v }));
+  for (const v of c.views) {
+    const i = views.findIndex((x) => x.who === v.who);
+    const merged = { who: v.who, ...((v.calls || views[i]?.calls) ? { calls: v.calls || views[i]?.calls } : {}), sees: v.sees || views[i]?.sees || '' };
+    if (i < 0) views.push(merged); else views[i] = merged;
+  }
+  const together = c.together || base.together;
+  return { bond: c.bond || base.bond, views, ...(together ? { together } : {}), ...(c.ended ? { ended: true } : {}) };
+}
+
+/** A pair whose relation a settled event of the pack changes and the game has to work out (the original story's
+ *  stage does not simply follow): the event went differently, or this game had already changed the pair, or an
+ *  earlier change of the original story did not come about. change: what the original story changes there. */
+export interface RelationDue { people: [Id, Id]; eventId: Id; eventRecordId: string; change: string; now: RelationBody | null }
 
 export interface ResolvedRef {
   phrase: string;
@@ -161,31 +184,75 @@ export class WorldIndex {
     return { version: vs[index], index };
   }
 
-  /** The relation in force between two people in this branch: the latest change the Persona, play or the user made
-   *  for the pair, unless a stage of the pack's relation started later (its from_event occurred after it); else the
-   *  pack's stage in force — the last whose from_event has occurred (the first, from_event null, from the start),
-   *  while its until_event has not. null: they do not know each other (no stage reached yet, or the change removed
-   *  it). since: the story time it holds from (null: the story start). */
+  /** How far a pair follows the original story's stages in this branch (records before sequence `beforeSeq` only;
+   *  none: all): the stages in order, each once its from_event has occurred (the first, from_event null, from the
+   *  start). An event of a stage that went differently or did not happen breaks the line: the original stages after
+   *  it no longer simply follow (broken). index -1: no stage reached. */
+  private canonLine(k: string, beforeSeq = Infinity): { index: number; since: number | null; broken: boolean } {
+    const r = this.pack.relations.get(k);
+    let index = -1, since: number | null = null;
+    if (!r) return { index, since, broken: false };
+    for (let i = 0; i < r.stages.length; i++) {
+      const s = r.stages[i];
+      if (s.from_event === null) { if (i === 0) index = 0; continue; }
+      const d = this.state.dispositions.get(s.from_event);
+      if (!d || d.seq >= beforeSeq) continue;
+      if (d.disposition !== 'occurred') return { index, since, broken: true };
+      index = i; since = d.tick;
+    }
+    return { index, since, broken: false };
+  }
+
+  /** This game's changes of a pair, in record order (one that answered an event whose result was since replaced is
+   *  no longer one). */
+  private relationChanges(k: string) {
+    return this.state.relations.filter((c) => pairKey(c.people[0], c.people[1]) === k
+      && (!c.event || this.state.dispositions.get(c.event)?.recordId === c.eventRecord));
+  }
+
+  /** The relation in force between two people in this branch. It starts as the original story has it (the pack's
+   *  stages, as far as they follow here: canonLine) and, from this game's first change of the pair on, is that stage
+   *  with each change merged into it (mergeRelation) — the original stages after that no longer apply by themselves
+   *  (what an event of theirs does to the pair is worked out then: relationsDue). null: they do not know each other.
+   *  since: the story time of the last change (null: the story start). */
   relationNow(a: Id, b: Id): RelationNow | null {
     const k = pairKey(a, b);
-    const disp = (e?: Id | null) => (e ? this.state.dispositions.get(e) : undefined);
-    const occurred = (e?: Id | null) => disp(e)?.disposition === 'occurred';
-    let stage: RelationNow | null = null;
     const r = this.pack.relations.get(k);
-    if (r) {
-      r.stages.forEach((s, i) => {
-        if (s.from_event === null ? i === 0 : occurred(s.from_event)) stage = { people: r.people, bond: s.bond, views: s.views, ...(s.together ? { together: s.together } : {}), ...(s.why ? { why: s.why } : {}), since: s.from_event ? disp(s.from_event)!.tick : null, source: 'pack', until: s.until_event ?? null };
-      });
-      if (stage && occurred((stage as RelationNow).until)) stage = null;
+    const stage = (i: number): RelationBody | null => (r && i >= 0 ? { bond: r.stages[i].bond, views: r.stages[i].views, ...(r.stages[i].together ? { together: r.stages[i].together } : {}) } : null);
+    const changes = this.relationChanges(k);
+    if (!changes.length) {
+      const line = this.canonLine(k);
+      const body = stage(line.index);
+      return body ? { people: r!.people, ...body, since: line.since, source: 'pack' } : null;
     }
-    let change: (typeof this.state.relations)[number] | undefined;
-    for (const c of this.state.relations) if (pairKey(c.people[0], c.people[1]) === k) change = c;
-    const st = stage as RelationNow | null;
-    if (change && (!st || st.since === null || change.tick >= st.since)) {
-      if (change.removed) return null;
-      return { people: change.people, bond: change.bond, views: change.views, ...(change.together ? { together: change.together } : {}), ...(change.ended ? { ended: true } : {}), since: change.tick, source: change.source, ...(st ? { before: st.bond, beforeStage: { bond: st.bond, views: st.views, ...(st.together ? { together: st.together } : {}) } } : {}) };
+    const line = this.canonLine(k, changes[0].seq);
+    let body = stage(line.index);
+    for (const c of changes) body = mergeRelation(body, c);
+    const last = changes[changes.length - 1];
+    return body ? { people: r?.people || last.people, ...body, since: last.tick, source: last.source } : null;
+  }
+
+  /** The pairs whose relation these settled events of the pack change in a way this game has to work out: an event
+   *  where a pair's original stage starts went differently, or it happened but the pair no longer follows the original
+   *  stages (this game changed them, or an earlier stage's event went otherwise). Where the pair still follows them,
+   *  the stage simply holds (relationNow); an event that did not happen changes nothing. */
+  relationsDue(eventIds: Iterable<Id>): RelationDue[] {
+    const out: RelationDue[] = [];
+    for (const e of new Set(eventIds)) {
+      const d = this.state.dispositions.get(e);
+      if (!d || d.disposition === 'omitted') continue;
+      for (const k of this.pack.relationsAt.get(e) || []) {
+        const r = this.pack.relations.get(k)!;
+        const i = r.stages.findIndex((s) => s.from_event === e);
+        const changes = this.relationChanges(k);
+        if (changes.some((c) => c.event === e)) continue;
+        if (d.disposition === 'occurred' && !changes.length && !this.canonLine(k).broken) continue;
+        const now = this.relationNow(r.people[0], r.people[1]);
+        const s = r.stages[i];
+        out.push({ people: r.people, eventId: e, eventRecordId: d.recordId, change: s.why?.trim() || `they come to know each other: ${s.bond}`, now: now ? { bond: now.bond, views: now.views, ...(now.together ? { together: now.together } : {}), ...(now.ended ? { ended: true } : {}) } : null });
+      }
     }
-    return st;
+    return out;
   }
 
   /** Everyone someone has a relation with now (pack pairs and the changes play made), by id. */

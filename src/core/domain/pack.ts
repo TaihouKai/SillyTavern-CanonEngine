@@ -30,9 +30,11 @@ export interface LoadedPack {
   coverage: { start: number; end: number };
   /** Time frames (empty for a pack without them). */
   frames: FrameIndex;
-  /** The pack's relations by pair (pairKey), and the pairs of each person. */
+  /** The pack's relations by pair (pairKey), the pairs of each person, and the pairs with a stage starting at each
+   *  event. */
   relations: Map<string, PackRelation>;
   relationsOf: Map<Id, string[]>;
+  relationsAt: Map<Id, string[]>;
   warnings: LintIssue[];
 }
 
@@ -539,7 +541,8 @@ function lintRelations(pack: CanonPack, err: (p: string, m: string) => void, war
     r.stages.forEach((s, j) => {
       const sp = `${at}/stages/${j}`;
       if (j > 0 && s.from_event === null) err(`${sp}/from_event`, 'only the first stage can hold from the story start (from_event null)');
-      for (const key of ['from_event', 'until_event'] as const) if (s[key] && !evs.has(s[key]!)) err(`${sp}/${key}`, `unknown event "${s[key]}"`);
+      if (s.from_event && !evs.has(s.from_event)) err(`${sp}/from_event`, `unknown event "${s.from_event}"`);
+      if (j > 0 && !s.why?.trim()) warn(`${sp}/why`, 'a later stage says what changes there (why): a game where this pair already went otherwise applies that change to the relation it has');
       const ev = s.from_event ? evs.get(s.from_event) : undefined;
       const lo = ev?.when.earliest ? toTick(ev.when.earliest) : null;
       if (lo !== null) { if (lo < last) warn(`${sp}/from_event`, `starts at "${s.from_event}", before the stage above it: stages go in story order`); last = lo; }
@@ -639,15 +642,17 @@ function buildLoaded(pack: CanonPack, warnings: LintIssue[]): LoadedPack {
   };
 }
 
-function indexRelations(pack: CanonPack): Pick<LoadedPack, 'relations' | 'relationsOf'> {
+function indexRelations(pack: CanonPack): Pick<LoadedPack, 'relations' | 'relationsOf' | 'relationsAt'> {
   const relations = new Map<string, PackRelation>();
   const relationsOf = new Map<Id, string[]>();
+  const relationsAt = new Map<Id, string[]>();
   for (const r of pack.relations || []) {
     const k = pairKey(r.people[0], r.people[1]);
     relations.set(k, r);
     for (const id of r.people) relationsOf.set(id, [...(relationsOf.get(id) || []), k]);
+    for (const s of r.stages) if (s.from_event) relationsAt.set(s.from_event, [...(relationsAt.get(s.from_event) || []), k]);
   }
-  return { relations, relationsOf };
+  return { relations, relationsOf, relationsAt };
 }
 
 /** Reload a pinned snapshot (already validated at bind time). Throws if it no longer validates. */

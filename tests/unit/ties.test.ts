@@ -1,8 +1,9 @@
 // TI: relations between people and who knows what about the player. A relation is between any two people — the
 // player character like the pack's characters (user, 2026-11-15: the Persona is a person of the world like the
-// original's characters). The pack gives the original characters' relations in stages that begin at events; the
-// Persona gives the player's start; the review of an accepted reply records how play changes any of them (with the
-// quote); the user can change the player's in the panel; the GM sees the pairs of the people in the scene.
+// original's characters). A relation is a state of the game (user, 2026-11-16): it starts as the original story has
+// it (the pack's stages, as far as the branch follows them), the Persona gives the player's start, and every change —
+// the review of an accepted reply (with the quote), an event of the original story worked out for a pair that no
+// longer follows it, the user in the panel — is merged into it part by part. The GM sees one whole line a pair.
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -111,19 +112,70 @@ describe('relations between people, the player character like anyone', () => {
     expect(st(x).relations.find((r) => r.source === 'play' && r.people.includes('tomas'))!.views.find((v) => v.who === 'tomas')!.calls).toBe('that woman、Mira');
     await turn(x, 'I follow them.', 'The piers. [R3b]', { scene_end: at(1, 7, 10), scene_entities: ['mira', 'tomas'] });
     const rel = section(ctx(x), 'RELATIONSHIPS');
-    expect(rel).toMatch(/Mira \[mira\] ↔ Tomas \[tomas\]: estranged neighbours \(as it stands since [^)]+ in play\) \| Mira → Tomas: refuses to speak to him/);
-    // the stage play replaced stays in full under it (live: a one-line change would have thinned 黑子–美琴)
-    expect(rel).toMatch(/\|\| in the original story before that \(still so where play has not changed it\): neighbours on the harbor road \| Tomas → Mira: calls them "the medic"; keeps a polite distance/);
-    expect(rel).toMatch(/Mira \[mira\] ↔ Ash \[[^\]]+\]: estranged friend after a quarrel \(as it stands since/);
+    // one whole line: the change merged into the relation it changed, no line of the original story beside it
+    expect(rel).toMatch(/Mira \[mira\] ↔ Tomas \[tomas\]: estranged neighbours \(changed in this game, [^)]+\) \| Tomas → Mira: calls them "that woman、Mira"; pretends not to care \| Mira → Tomas: refuses to speak to him/);
+    expect(rel).not.toMatch(/original story|neighbours on the harbor road|the medic/);
+    expect(rel).toMatch(/Mira \[mira\] ↔ Ash \[[^\]]+\]: estranged friend after a quarrel \(changed in this game, [^)]+\) \| Mira → Ash: calls them "Ash"; avoids Ash/);
     // PLAYER IN THIS WORLD has the player's connections, with the Persona's start
     expect(ctx(x)).toMatch(/connection: Mira \[mira\] — estranged friend after a quarrel \(as it stands since [^;]+ in play; Persona at the start: close friend since childhood\)/);
     const r = x.engine.integrationView(true)!.profile!.relationships[0];
     expect(r).toMatchObject({ name: 'Mira', text: 'estranged friend after a quarrel', basis: 'persona_stated', start: 'close friend since childhood', quote: 'the friendship is over for now' });
     expect(PROMPTS.evaluate).toMatch(/relations: how this reply[^\n]*the player character \(player_entity\) and anyone else alike/);
-    // a stage of the pack that starts later than the change wins again (the story reached it)
-    const ambush = { scene_end: at(1, 10, 30), occurrences: [occ('o1', 'Ambush on the road', 'Tomas drags Mira into his shed', { pack_event_id: 'medic-ambush', disposition: 'occurred', actors: ['mira', 'tomas'] })] };
+    // the original story's next stage does not overwrite what this game did to the pair: the event happens, and what
+    // it changes (the stage's why) is worked out for the relation the game has
+    const ambush = { scene_end: at(1, 10, 30), occurrences: [occ('o1', 'Ambush on the road', 'Tomas drags Mira into his shed', { pack_event_id: 'medic-ambush', disposition: 'occurred', actors: ['mira', 'tomas'], account: 'Tomas drags Mira into his shed' })] };
+    x.model.on('relate', null, { pairs: [{ n: 1, changed: true, bond: 'estranged neighbours; she owes him her life', views: [{ who: 'mira', sees: 'grateful, still cold to him' }] }] });
     await turn(x, 'I wait.', 'At 10:00 bolts fly; Tomas drags Mira into his shed. [R3c]', ambush);
-    expect(x.engine.current!.index.relationNow('mira', 'tomas')).toMatchObject({ bond: 'close friends since the ambush', source: 'pack' });
+    const asked = x.model.tasks('relate').at(-1)!.input;
+    expect(asked.pairs).toEqual([expect.objectContaining({ event: 'medic-ambush', change: 'he hid her after the ambush', now: expect.objectContaining({ bond: 'estranged neighbours' }) })]);
+    expect(asked.events[0]).toMatchObject({ id: 'medic-ambush', actual: expect.stringMatching(/^as in the original story: Tomas drags Mira/) });
+    expect(JSON.stringify(asked)).not.toMatch(/close friends since the ambush/);
+    expect(x.engine.current!.index.relationNow('mira', 'tomas')).toMatchObject({
+      bond: 'estranged neighbours; she owes him her life', source: 'event',
+      views: [{ who: 'tomas', calls: 'that woman、Mira', sees: 'pretends not to care' }, { who: 'mira', sees: 'grateful, still cold to him' }],
+    });
+  });
+
+  it('RL13 a change gives only what changes: the rest of the relation stays (the other side, the forms of address, together)', async () => {
+    const x = await setup();
+    const ambush = { scene_end: at(1, 10, 30), scene_entities: ['mira', 'tomas'], occurrences: [occ('o1', 'Ambush on the road', 'Tomas drags Mira into his shed', { pack_event_id: 'medic-ambush', disposition: 'occurred', actors: ['mira', 'tomas'] })] };
+    await turn(x, 'I wait.', 'At 10:00 bolts fly; Tomas drags Mira into his shed. [M1]', ambush);
+    // the pair followed the original story: its stage simply holds, nothing to work out
+    expect(x.model.tasks('relate')).toHaveLength(0);
+    await turn(x, 'I watch them.', 'Mira snaps at Tomas for fussing; she calls him "mother hen" now. [M2]', {
+      scene_end: at(1, 10, 40), scene_entities: ['mira', 'tomas'],
+      relations: [{ people: ['mira', 'tomas'], bond: 'close friends who bicker', views: [{ who: 'mira', calls: 'mother hen', sees: '' }], quote: 'she calls him "mother hen" now' }],
+    });
+    expect(x.engine.current!.index.relationNow('mira', 'tomas')).toMatchObject({
+      bond: 'close friends who bicker', source: 'play', together: 'easy silences; he fusses over her wounds',
+      views: [{ who: 'mira', calls: 'mother hen', sees: 'trusts him with her life' }, { who: 'tomas', calls: 'Mira', sees: 'looks out for her' }],
+    });
+    expect(PROMPTS.evaluate).toMatch(/a part you leave out stays as it is — so give anew every part this change makes untrue/);
+  });
+
+  it('RL14 an event that goes otherwise: the original stage does not come; what it does to the pair is worked out (here: nothing)', async () => {
+    const x = await setup();
+    x.model.on('relate', null, { pairs: [{ n: 1, changed: false }] });
+    const ambush = { scene_end: at(1, 10, 30), occurrences: [occ('o1', 'Ambush on the road', 'Mira escapes alone; Tomas never sees it', { pack_event_id: 'medic-ambush', disposition: 'diverged', actors: ['mira'], account: 'Mira escapes alone; Tomas never sees it' })] };
+    await turn(x, 'I pull Mira away before the bolts.', 'Mira escapes alone; Tomas never sees it. [D1]', ambush);
+    expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('diverged');
+    expect(x.model.tasks('relate').at(-1)!.input.events[0].actual).toMatch(/^otherwise: Mira escapes alone/);
+    expect(x.engine.current!.index.relationNow('mira', 'tomas')).toMatchObject({ bond: 'neighbours on the harbor road', source: 'pack' });
+    // the stage of that event is no longer to come (not even with spoilers)
+    expect(x.engine.relationsView(true)!.rows.filter((r) => r.state === 'later')).toEqual([]);
+  });
+
+  it('RL15 a result given by hand carries what it does to a changed pair, and undoing it takes that back', async () => {
+    const x = await setup();
+    await turn(x, 'I tell Mira that Tomas sold her out.', 'Mira will not speak to Tomas again. [H1]', {
+      scene_end: at(1, 7, 0), scene_entities: ['mira', 'tomas'],
+      relations: [{ people: ['mira', 'tomas'], bond: 'estranged neighbours', views: [{ who: 'mira', sees: 'refuses to speak to him' }], quote: 'Mira will not speak to Tomas again' }],
+    });
+    x.model.on('relate', null, { pairs: [{ n: 1, changed: true, bond: 'estranged, but he saved her', views: [] }] });
+    await x.engine.forceComplete('medic-ambush');
+    expect(x.engine.current!.index.relationNow('mira', 'tomas')).toMatchObject({ bond: 'estranged, but he saved her', source: 'event', views: [{ who: 'tomas', calls: 'the medic' }, { who: 'mira', sees: 'refuses to speak to him' }] });
+    await x.engine.undoForce('medic-ambush');
+    expect(x.engine.current!.index.relationNow('mira', 'tomas')).toMatchObject({ bond: 'estranged neighbours', source: 'play' });
   });
 
   it('RL4 someone learns the player\'s secret: they are a knower from then on (recognition too); knowing only grows', async () => {

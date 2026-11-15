@@ -122,6 +122,7 @@ const D: Record<string, { zh: string; en: string }> = {
   relSource_play: { zh: '游戏中改变', en: 'changed in play' },
   relSource_ui: { zh: '你在面板里改的', en: 'set by you in the panel' },
   relSource_persona: { zh: '读自 Persona', en: 'from the Persona' },
+  relSource_event: { zh: '因剧情事件改变', en: 'changed by a story event' },
   naturePersona: { zh: '读自 Persona（改了 Persona 后点「更新本局身份」重读）', en: 'From the Persona (after changing it, use “Update this game\'s identity” to read it again)' },
   natureFrom: { zh: '从「{e}」起', en: 'From "{e}"' },
   natureUntil: { zh: '，到「{e}」为止', en: ', until "{e}"' },

@@ -1,0 +1,68 @@
+{
+ "type": "object",
+ "properties": {
+  "pairs": {
+   "type": "array",
+   "maxItems": 60,
+   "items": {
+    "type": "object",
+    "properties": {
+     "n": {
+      "type": "integer"
+     },
+     "changed": {
+      "type": "boolean"
+     },
+     "bond": {
+      "type": "string",
+      "maxLength": 400
+     },
+     "views": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+       "type": "object",
+       "properties": {
+        "who": {
+         "type": "string",
+         "maxLength": 120
+        },
+        "calls": {
+         "type": "string",
+         "maxLength": 200
+        },
+        "sees": {
+         "type": "string",
+         "maxLength": 600
+        }
+       },
+       "required": [
+        "who"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "together": {
+      "type": "string",
+      "maxLength": 600
+     },
+     "ended": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "n",
+     "changed"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "pairs"
+ ],
+ "additionalProperties": false,
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:canon-engine:task:relate",
+ "title": "Canon Engine task output: relate"
+}
