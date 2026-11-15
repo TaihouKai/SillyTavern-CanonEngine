@@ -367,7 +367,9 @@ export function relationSection(index: WorldIndex, retrieval: Retrieval, origin:
   // named here: by the player's own words, or a reference that resolved to one person. Not everyone a vague phrase
   // could be (live: 狱彩 sisters, 支仓, 洁斋 filled the list from candidates of "常盘台的女生" and the like).
   const named = new Set([...index.scanEntities(playerText).map((m) => m.id), ...retrieval.entries.filter((e) => e.resolved.entityIds.length === 1).map((e) => e.resolved.entityIds[0])]);
-  const mentioned = [...retrieval.entities].filter(([id, t]) => !t.has('scene') && t.has('mentioned') && named.has(id) && isPerson(id) && id !== player).map(([id]) => id);
+  // live: 美琴 left at the end of one reply (present: the player and 黑子); the next message followed her, naming her —
+  // tagged "scene" by the retrieval, she was taken for one of the scene and dropped with it. Named counts on its own.
+  const mentioned = [...named].filter((id) => isPerson(id) && id !== player && !scene.includes(id));
   // live (first turn): 美琴 and 白井 were named in the player's message, not yet "in the scene", and their pair was left
   // out while the player's pairs with each were in. Everyone here counts; the pairs in the scene come first.
   const here = [...scene, ...mentioned];

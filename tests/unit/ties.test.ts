@@ -198,11 +198,15 @@ describe('relations between people, the player character like anyone', () => {
   it('RL11 the people with the player are the last reply\'s present, not everyone it mentioned', async () => {
     const x = await setup();
     await turn(x, 'I meet Mira at the pier.', 'Mira waves; she says Tomas is mending nets far up the road. [N3]', { scene_end: at(1, 6, 30), scene_entities: ['mira', 'tomas'], present: ['mira'] });
-    await turn(x, 'I ask how she is.', 'Fine, she says. [N4]', { scene_end: at(1, 6, 40) });
+    await turn(x, 'I ask how she is.', 'Fine, she says; Tomas is still up the road. [N4]', { scene_end: at(1, 6, 40), scene_entities: ['mira', 'tomas'], present: ['mira'] });
     const rel = section(ctx(x), 'RELATIONSHIPS');
     expect(rel).toMatch(/Mira \[mira\] ↔ Ash|Ash \[[^\]]+\] ↔ Mira/);
     expect(rel).not.toMatch(/Tomas/);
     expect(PROMPTS.evaluate).toMatch(/present: the people physically with the player character where the reply ends/);
+    // live: someone who left at the end of a reply and whom the next message names again is paired again
+    await turn(x, 'I follow Tomas up the road to his nets.', 'Tomas looks up from the nets. [N5]', { scene_end: at(1, 7, 0) });
+    const rel2 = section(ctx(x), 'RELATIONSHIPS');
+    expect(rel2).toMatch(/Mira \[mira\] ↔ Tomas \[tomas\]|Tomas \[tomas\] ↔ Mira \[mira\]/);
   });
 
   it('RL8 a Persona revision without a relation takes it out', async () => {

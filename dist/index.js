@@ -26625,7 +26625,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.36.2";
+var ENGINE_RELEASE = "1.36.3";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -28341,7 +28341,7 @@ function relationSection(index, retrieval, origin, player, playerText = "", pres
   const isPerson = (id) => index.entityKind(id) === "person";
   const scene = [.../* @__PURE__ */ new Set([...player ? [player] : [], ...present ? present.filter(isPerson) : [...retrieval.entities].filter(([id, t2]) => t2.has("scene") && isPerson(id)).map(([id]) => id)])];
   const named = /* @__PURE__ */ new Set([...index.scanEntities(playerText).map((m) => m.id), ...retrieval.entries.filter((e) => e.resolved.entityIds.length === 1).map((e) => e.resolved.entityIds[0])]);
-  const mentioned = [...retrieval.entities].filter(([id, t2]) => !t2.has("scene") && t2.has("mentioned") && named.has(id) && isPerson(id) && id !== player).map(([id]) => id);
+  const mentioned = [...named].filter((id) => isPerson(id) && id !== player && !scene.includes(id));
   const here = [...scene, ...mentioned];
   const seen = /* @__PURE__ */ new Set();
   const pairs = [];

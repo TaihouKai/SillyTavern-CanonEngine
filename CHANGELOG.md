@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.36.3 — 2026-11-15
+
+- **Someone who left and is named again is paired again.** In a live game 美琴 walked off at the end of a reply, so the reply reported only the player and 黑子 as present. The next message followed 美琴 and named her, but RELATIONSHIPS left out her pairs: the retrieval still listed her in the old scene, and that list had been replaced by `present`. People named in the player's message now count on their own, whatever the scene list says.
+
 ## 1.36.2 and Toaru pack 5.1.0 — 2026-11-15
 
 - **RELATIONSHIPS pairs the people who are actually there.**
