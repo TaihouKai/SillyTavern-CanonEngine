@@ -208,5 +208,24 @@ describe('the Persona is the start; play goes on from it', () => {
     expect(ctx(x)).toMatch(/organization: The Union \[union\] — now NOT a member any more \(left in play\)/);
     expect(ctx(x)).toMatch(/organization: The Council \[council\] — now NOT a member \(a former member\)/);
   });
+
+  it('OR12 narration naming members by name agrees with the members by id (live: 食蜂派阀 named as people failed a reply)', async () => {
+    const x = await setup(orgPack(), PROFILE([]));
+    x.host.addUser('I watch the council steps.');
+    x.model.draft('Sol and Ren of the Council argue on the steps. [OM1]');
+    x.model.on('evaluate', (i: any) => String(i.candidate).includes('[OM1]'), { state_claims: [
+      { entity_id: 'council', predicate: 'members', value: ['Sol', 'Ren'], quote: 'Sol and Ren of the Council' },
+      { entity_id: 'council', predicate: 'members', value: ['Ren'], quote: 'Ren of the Council' },
+      { entity_id: 'council', predicate: 'leader', value: 'Sol', quote: 'Sol and Ren of the Council' },
+    ] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.engine.lastTrace!.attempts.flatMap((a) => a.violations)).toEqual([]);
+    // a known person who is not a member still contradicts the members
+    x.host.addUser('And Mira?');
+    x.model.draft('Mira, of the Council, waves. [OM3]', 'Mira waves. [OM3b]');
+    x.model.on('evaluate', (i: any) => String(i.candidate).includes('[OM3]'), { state_claims: [{ entity_id: 'council', predicate: 'members', value: ['Mira'], quote: 'Mira, of the Council, waves' }] });
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.engine.lastTrace!.attempts[0].violations.join('\n')).toMatch(/presupposes The Council\.members=\["mira"\]/);
+  });
 });
 

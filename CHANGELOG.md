@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.37.2 — 2026-11-16
+
+- **A claim naming people by name is checked against them.** Live: the review read 「帆风润子正踮着脚东张西望，旁边跟着口囃子早鸟」 as presupposing 食蜂派阀's members `["帆风润子","口囃子早鸟","食蜂操祈"]`, compared that with the state's `["hokaze-junko","kobayashi-satori","shokuhou-misaki"]`, and refused the reply as a contradiction; with the two other refusals that turn failed. Names in a claimed person or member list are now read as those people. A claimed list agrees when everyone it names is a member, because narration that names some members does not say there are no others. A name that is no known person is not checked.
+
 ## 1.37.1 — 2026-11-16
 
 - **Someone the player keeps with them is not at a canon event in the meantime.** Live: the player kept 美琴 with them all afternoon, away from 食蜂. The reply recorded no beat of the afternoon, so nothing ruled out 「美琴与食蜂同车前往会场」 (14:00): offscreen adjudication settled it as in the original story, and 美琴–食蜂 took the stage it starts. Now the people with the player at both the start and the end of a reply count as with them throughout. A non-HARD canon event inside the reply's time that needs one of them goes to the model with that fact, and its omission stands without a recorded beat. A HARD event still finds its own way.

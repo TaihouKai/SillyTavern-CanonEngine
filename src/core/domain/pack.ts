@@ -684,10 +684,12 @@ export function coerceClaimValue(pack: LoadedPack, predicate: Id, value: FactVal
   return value;
 }
 
-/** A claimed value agrees with the actual one: equal, or the same free-text value with a detail added
- *  (claim "受损", actual "受损（公园被火雨砸出坑）"). */
+/** A claimed value agrees with the actual one: equal, the same free-text value with a detail added
+ *  (claim "受损", actual "受损（公园被火雨砸出坑）"), or for a set, everyone the claim names is in it (narration that
+ *  names some members does not say there are no others). */
 export function claimMatches(actual: FactValue, claimed: FactValue): boolean {
   if (valuesEqual(actual, claimed)) return true;
+  if (Array.isArray(actual) && Array.isArray(claimed)) return claimed.every((x) => actual.some((y) => valuesEqual(y as FactValue, x as FactValue)));
   if (typeof actual !== 'string' || typeof claimed !== 'string') return false;
   const base = (s: string) => s.replace(/[（(][^）)]*[）)]/g, '').split(/[，,；;：:]/)[0].trim();
   return base(actual) !== '' && base(actual) === base(claimed);

@@ -542,13 +542,25 @@ export function runGate(g: GateInput): GateResult {
       }
     }
   };
+  // the people or things a claimed value names are those entities, by id or by name (live: 食蜂派阀.members claimed as
+  // ["帆风润子","口囃子早鸟","食蜂操祈"] against the state's ["hokaze-junko","kobayashi-satori","shokuhou-misaki"] failed a
+  // reply); null: one of them is no known entity (nothing to compare)
+  const claimValue = (pred: Id, v: FactValue): FactValue | null => {
+    const type = pack.predicates.get(pred)?.value_type;
+    const one = (x: unknown) => (typeof x === 'string' && x.trim() ? resolveId(x.trim()) : null);
+    if (type === 'entity_ref') return one(v);
+    if (type === 'entity_set') { const ids = (Array.isArray(v) ? v : [v]).map(one); return ids.length && ids.every(Boolean) ? [...new Set(ids as Id[])] : null; }
+    return v;
+  };
   for (const c of ev.state_claims) {
     if (!hasQuote(c.quote)) continue;
     const eid = resolveId(c.entity_id);
     if (!eid || !pack.predicates.has(c.predicate)) continue;
-    stateClaims.push({ entity_id: eid, predicate: c.predicate, value: c.value, quote: c.quote });
+    const value = claimValue(c.predicate, c.value);
+    if (value === null) { warnings.push(`state claim "${c.quote.slice(0, 60)}" on ${index.entityName(eid)}.${c.predicate} not checked: ${JSON.stringify(c.value)} names no known entity`); continue; }
+    stateClaims.push({ entity_id: eid, predicate: c.predicate, value, quote: c.quote });
     if (flashback && !c.at) continue; // a flashback claim without its time cannot be checked against the present
-    checkClaim(eid, c.predicate, c.value, c.quote, c.at ? 'Flashback' : 'Narration', c.at ? toTick(c.at) : undefined);
+    checkClaim(eid, c.predicate, value, c.quote, c.at ? 'Flashback' : 'Narration', c.at ? toTick(c.at) : undefined);
   }
   // discovery "expected" facts on narrator-asserted claims are checked deterministically too
   for (const c of g.claims) {
@@ -556,7 +568,8 @@ export function runGate(g: GateInput): GateResult {
     if (!quoteInText(c.quote, text)) continue;
     const eid = resolveId(c.expected.entity_id);
     if (!eid || !pack.predicates.has(c.expected.predicate)) continue;
-    checkClaim(eid, c.expected.predicate, c.expected.value as FactValue, c.quote, 'Claim');
+    const value = claimValue(c.expected.predicate, c.expected.value as FactValue);
+    if (value !== null) checkClaim(eid, c.expected.predicate, value, c.quote, 'Claim');
   }
 
   // ---- coverage: every discovered claim needs a verdict; contradictions block --------------------

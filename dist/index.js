@@ -21896,6 +21896,7 @@ function coerceClaimValue(pack2, predicate, value) {
 }
 function claimMatches(actual, claimed) {
   if (valuesEqual(actual, claimed)) return true;
+  if (Array.isArray(actual) && Array.isArray(claimed)) return claimed.every((x) => actual.some((y) => valuesEqual(y, x)));
   if (typeof actual !== "string" || typeof claimed !== "string") return false;
   const base = (s) => s.replace(/[（(][^）)]*[）)]/g, "").split(/[，,；;：:]/)[0].trim();
   return base(actual) !== "" && base(actual) === base(claimed);
@@ -27018,7 +27019,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.37.1";
+var ENGINE_RELEASE = "1.37.2";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -29329,20 +29330,36 @@ function runGate(g) {
       }
     }
   };
+  const claimValue = (pred, v) => {
+    const type = pack2.predicates.get(pred)?.value_type;
+    const one = (x) => typeof x === "string" && x.trim() ? resolveId(x.trim()) : null;
+    if (type === "entity_ref") return one(v);
+    if (type === "entity_set") {
+      const ids = (Array.isArray(v) ? v : [v]).map(one);
+      return ids.length && ids.every(Boolean) ? [...new Set(ids)] : null;
+    }
+    return v;
+  };
   for (const c of ev.state_claims) {
     if (!hasQuote(c.quote)) continue;
     const eid = resolveId(c.entity_id);
     if (!eid || !pack2.predicates.has(c.predicate)) continue;
-    stateClaims.push({ entity_id: eid, predicate: c.predicate, value: c.value, quote: c.quote });
+    const value = claimValue(c.predicate, c.value);
+    if (value === null) {
+      warnings.push(`state claim "${c.quote.slice(0, 60)}" on ${index.entityName(eid)}.${c.predicate} not checked: ${JSON.stringify(c.value)} names no known entity`);
+      continue;
+    }
+    stateClaims.push({ entity_id: eid, predicate: c.predicate, value, quote: c.quote });
     if (flashback && !c.at) continue;
-    checkClaim(eid, c.predicate, c.value, c.quote, c.at ? "Flashback" : "Narration", c.at ? toTick(c.at) : void 0);
+    checkClaim(eid, c.predicate, value, c.quote, c.at ? "Flashback" : "Narration", c.at ? toTick(c.at) : void 0);
   }
   for (const c of g.claims) {
     if (!c.expected || !["narrator", "new_event"].includes(c.assertion) || flashback) continue;
     if (!quoteInText(c.quote, text)) continue;
     const eid = resolveId(c.expected.entity_id);
     if (!eid || !pack2.predicates.has(c.expected.predicate)) continue;
-    checkClaim(eid, c.expected.predicate, c.expected.value, c.quote, "Claim");
+    const value = claimValue(c.expected.predicate, c.expected.value);
+    if (value !== null) checkClaim(eid, c.expected.predicate, value, c.quote, "Claim");
   }
   const coverage = g.retrieval.entries.map((e) => ({ ...e }));
   const coverageGaps = [];
