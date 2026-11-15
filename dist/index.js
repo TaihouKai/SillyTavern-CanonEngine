@@ -21053,6 +21053,7 @@ function frameName(fx, id, fallback) {
 
 // src/core/domain/pack.ts
 var pairKey = (a, b) => a < b ? `${a}|${b}` : `${b}|${a}`;
+var cleanCalls = (s) => String(s || "").split(/[、，,／/]/).map((x) => x.trim().replace(/^[「『“"'‘（(]+|[」』”"'’）)]+$/g, "").trim()).filter(Boolean).join("\u3001").slice(0, 100);
 function normalizeName(s) {
   return String(s).normalize("NFKC").toLowerCase().replace(/[\s·・._\-'"“”‘’「」『』]+/g, "");
 }
@@ -26625,7 +26626,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.36.4";
+var ENGINE_RELEASE = "1.36.5";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -26698,7 +26699,7 @@ function buildProfile(out, pack2, index, persona, prev) {
     }
     const person = !!id && (kindOf(id) === "person" || runtimeEntities.some((x) => x.id === id && x.kind === "person"));
     const side = (who, s) => {
-      const sees = String(s?.sees || "").trim().slice(0, 400), calls = String(s?.calls || "").trim().slice(0, 100);
+      const sees = String(s?.sees || "").trim().slice(0, 400), calls = cleanCalls(s?.calls);
       return sees ? [{ who, ...calls ? { calls } : {}, sees }] : [];
     };
     const views = person && basis === "persona_stated" ? [...side(id, r.they), ...side(playerId, r.player)] : [];
@@ -29174,7 +29175,7 @@ function runGate(g) {
       continue;
     }
     const people = ids;
-    const views = (r.views || []).map((v) => ({ who: relationRef(String(v.who || "").trim()), calls: String(v.calls || "").trim().slice(0, 100), sees: String(v.sees || "").trim().slice(0, 400) })).filter((v) => !!v.who && people.includes(v.who) && !!v.sees).filter((v, i, all) => all.findIndex((x) => x.who === v.who) === i).map((v) => ({ who: v.who, ...v.calls ? { calls: v.calls } : {}, sees: v.sees }));
+    const views = (r.views || []).map((v) => ({ who: relationRef(String(v.who || "").trim()), calls: cleanCalls(v.calls), sees: String(v.sees || "").trim().slice(0, 400) })).filter((v) => !!v.who && people.includes(v.who) && !!v.sees).filter((v, i, all) => all.findIndex((x) => x.who === v.who) === i).map((v) => ({ who: v.who, ...v.calls ? { calls: v.calls } : {}, sees: v.sees }));
     const together = String(r.together || "").trim().slice(0, 400);
     const name2 = (id) => index.entityExists(id) ? index.entityName(id) : runtimeEntities.find((x) => x.id === id)?.name || id;
     relationDrafts.push({

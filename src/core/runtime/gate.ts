@@ -3,7 +3,7 @@
 // The evaluator's own verdicts never bypass these checks.
 import type { ContactInfo, FactDelta, FactValue, Id, Occurrence, RuntimeEntity, ScopeKind, StoryTime, Until } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
-import { claimComparable, claimMatches, valuesEqual, coerceClaimValue } from '../domain/pack';
+import { claimComparable, claimMatches, cleanCalls, valuesEqual, coerceClaimValue } from '../domain/pack';
 import { factAt } from '../domain/reducer';
 import { applyChange, deltaMeets, deltaText, outcomeDelta, withPackEnd } from '../domain/delta';
 import type { WorldIndex } from '../domain/world-query';
@@ -719,7 +719,7 @@ export function runGate(g: GateInput): GateResult {
     });
     if (!ids[0] || !ids[1] || ids[0] === ids[1] || !ids.every((id) => isPerson(id!))) { warnings.push(`relation "${label}" ignored: not two known people`); continue; }
     const people = ids as [Id, Id];
-    const views = (r.views || []).map((v) => ({ who: relationRef(String(v.who || '').trim()), calls: String(v.calls || '').trim().slice(0, 100), sees: String(v.sees || '').trim().slice(0, 400) }))
+    const views = (r.views || []).map((v) => ({ who: relationRef(String(v.who || '').trim()), calls: cleanCalls(v.calls), sees: String(v.sees || '').trim().slice(0, 400) }))
       .filter((v): v is { who: Id; calls: string; sees: string } => !!v.who && people.includes(v.who) && !!v.sees)
       .filter((v, i, all) => all.findIndex((x) => x.who === v.who) === i)
       .map((v) => ({ who: v.who, ...(v.calls ? { calls: v.calls } : {}), sees: v.sees }));

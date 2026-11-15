@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.36.5 — 2026-11-15
+
+- **Forms of address are only the names.** The review wrote how 美琴 and 10032号 address each other with their own brackets (「姐姐」), and RELATIONSHIPS showed them doubled (「「姐姐」」). Code now strips the brackets and quotes around each form of address, in the review and in the Persona read.
+
 ## 1.36.4 — 2026-11-15
 
 - **A relation the reply shows as already different is recorded.** In a live game, play had brought 美琴 and 10032号 together an hour before their canon bonding. 10032号 said her sister buys her ice cream and is good to her, while RELATIONSHIPS still gave the 8-21 stage (distant, repelled), and the review recorded nothing. The review is now told that a pair the reply shows standing differently from their RELATIONSHIPS line counts as a change, even when it is shown as already so.

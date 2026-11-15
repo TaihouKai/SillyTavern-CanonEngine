@@ -38,6 +38,10 @@ export interface LoadedPack {
 
 /** One key for a pair of people, whichever comes first. */
 export const pairKey = (a: Id, b: Id) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+/** How one side calls the other, as written by a model: the forms of address only (live: 「「姐姐」」 — the model put
+ *  the brackets the section adds itself), several joined by 、. */
+export const cleanCalls = (s: unknown) => String(s || '').split(/[、，,／/]/)
+  .map((x) => x.trim().replace(/^[「『“"'‘（(]+|[」』”"'’）)]+$/g, '').trim()).filter(Boolean).join('、').slice(0, 100);
 
 export function normalizeName(s: string): string {
   return String(s).normalize('NFKC').toLowerCase().replace(/[\s·・._\-'"“”‘’「」『』]+/g, '');

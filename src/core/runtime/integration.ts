@@ -8,7 +8,7 @@ import type { ContactInfo, EngagementInfo, FactDelta, Id, PackEvent, RelationCha
 import { PERCEIVE_KINDS } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import type { ContactEntry, EngagementEntry, RelationEntry, TieEntry, WorldState } from '../domain/reducer';
-import { pairKey } from '../domain/pack';
+import { cleanCalls, pairKey } from '../domain/pack';
 import { evalCondition, factAt, triLabel } from '../domain/reducer';
 import { agoLabel, formatTick, toTick } from '../domain/time';
 import { hashObject, newId, sha256, uniq } from '../domain/util';
@@ -128,7 +128,7 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
     // what the Persona says about each side (how they address and see each other) when the other is a person
     const person = !!id && (kindOf(id) === 'person' || runtimeEntities.some((x) => x.id === id && x.kind === 'person'));
     const side = (who: Id, s: { calls?: string; sees?: string } | null | undefined): RelationView[] => {
-      const sees = String(s?.sees || '').trim().slice(0, 400), calls = String(s?.calls || '').trim().slice(0, 100);
+      const sees = String(s?.sees || '').trim().slice(0, 400), calls = cleanCalls(s?.calls);
       return sees ? [{ who, ...(calls ? { calls } : {}), sees }] : [];
     };
     const views = person && basis === 'persona_stated' ? [...side(id!, r.they), ...side(playerId, r.player)] : [];

@@ -102,11 +102,13 @@ describe('relations between people, the player character like anyone', () => {
     await turn(x, 'I tell Mira that Tomas sold her out.', 'Mira slaps Tomas and walks off; she will not speak to him again. Mira turns away from you too; the friendship is over for now. [R3a]', {
       scene_end: at(1, 7, 0), scene_entities: ['mira', 'tomas'],
       relations: [
-        { people: ['mira', 'tomas'], bond: 'estranged neighbours', views: [{ who: 'mira', sees: 'refuses to speak to him' }], quote: 'she will not speak to him again' },
+        { people: ['mira', 'tomas'], bond: 'estranged neighbours', views: [{ who: 'mira', sees: 'refuses to speak to him' }, { who: 'tomas', calls: '「that woman」、“Mira”', sees: 'pretends not to care' }], quote: 'she will not speak to him again' },
         { people: ['mira', me(x)], bond: 'estranged friend after a quarrel', views: [{ who: 'mira', sees: 'avoids Ash' }], quote: 'the friendship is over for now' },
       ],
     });
     expect(st(x).relations.filter((r) => r.source === 'play')).toHaveLength(2);
+    // the forms of address only (live: the model wrote 「「姐姐」」 — the brackets the section adds itself)
+    expect(st(x).relations.find((r) => r.source === 'play' && r.people.includes('tomas'))!.views.find((v) => v.who === 'tomas')!.calls).toBe('that woman、Mira');
     await turn(x, 'I follow them.', 'The piers. [R3b]', { scene_end: at(1, 7, 10), scene_entities: ['mira', 'tomas'] });
     const rel = section(ctx(x), 'RELATIONSHIPS');
     expect(rel).toMatch(/Mira \[mira\] ↔ Tomas \[tomas\]: estranged neighbours \(as it stands since [^;]+ in play; in the original story before that: neighbours on the harbor road\) \| Mira → Tomas: refuses to speak to him/);
