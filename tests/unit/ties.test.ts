@@ -371,6 +371,9 @@ describe('relations between people, the player character like anyone', () => {
     expect(rel.views.find((v) => v.who === 'mira')!.address).toEqual([{ term: 'Ashy', use: 'usually' }, { term: 'kiddo', use: 'sometimes', when: 'when teasing' }, { term: 'Ace', use: 'usually' }]);
     expect(PROMPTS.evaluate).toMatch(/a form of address taken up or given up \(a nickname offered and then used[^)]*— a change of its own, even in a light exchange/);
     expect(PROMPTS.evaluate).toMatch(/small talk \(a form of address someone takes up is not small talk\)/);
+    // live: the bond became 「色鬼同好，刚互定「小黑」「小光」的称呼」 and the player's own 小黑 was left out
+    expect(PROMPTS.evaluate).toMatch(/never forms of address — they go in address\./);
+    expect(PROMPTS.evaluate).toMatch(/the player calling someone by a new name in their message \("小黑，早！"\) is one/);
     // two with no relation yet still need what they are to each other
     await turn(x, 'I nod to Tomas.', 'Tomas nods back: "Morning, Ash." [P3]', {
       scene_end: at(1, 6, 50), scene_entities: ['tomas'],
