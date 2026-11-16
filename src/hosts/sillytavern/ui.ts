@@ -649,7 +649,7 @@ export function renderMessageDecorations() {
         const b = document.createElement('div');
         b.className = 'mes_button canon-picture fa-solid fa-image';
         b.title = t('pictureButton');
-        b.addEventListener('click', () => void showPicture(e.messageId));
+        b.addEventListener('click', () => showPicture(e.messageId));
         extra.prepend(b);
       }
       const interp = interpretationsFor(camp.interpretations as any, baseKey(e)).find((x) => x.banner);
@@ -670,11 +670,23 @@ export function renderMessageDecorations() {
   void chat;
 }
 
-/** 画面: the picture prompt of a reply, to copy into an image service (no image service is connected yet). */
-async function showPicture(messageId: string) {
+/** 画面: the picture prompt of a reply, to copy into an image service (no image service is connected yet). The player
+ *  may first say in their own words what to draw. */
+function showPicture(messageId: string) {
+  const ask = modal(`<h3>${t('pictureTitle')}</h3>
+    <label>${t('pictureFocus')}<textarea rows="3" class="text_pole canon-picture-focus" placeholder="${esc(t('pictureFocusHint'))}"></textarea></label>
+    <div class="canon-row"><div class="menu_button canon-picture-go">${t('pictureGo')}</div><div class="menu_button" data-close>${t('pictureClose')}</div></div>`);
+  ask.querySelector('.canon-picture-go')!.addEventListener('click', () => {
+    const focus = (ask.querySelector('.canon-picture-focus') as HTMLTextAreaElement).value;
+    ask.remove();
+    void writePicture(messageId, focus);
+  });
+}
+
+async function writePicture(messageId: string, focus: string) {
   toast('info', t('pictureWorking'));
   let r: Awaited<ReturnType<CanonEngine['picture']>>;
-  try { r = await E.picture(messageId); } catch (e) { toast('error', (e as Error).message); return; }
+  try { r = await E.picture(messageId, focus); } catch (e) { toast('error', (e as Error).message); return; }
   const box = (label: string, text: string, rows = 3) => text
     ? `<label>${esc(label)}<textarea readonly rows="${rows}" class="text_pole">${esc(text)}</textarea></label><div class="canon-row"><div class="menu_button canon-copy">${t('pictureCopy')}</div></div>`
     : '';

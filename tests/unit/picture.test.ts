@@ -72,10 +72,11 @@ describe('picture (画面)', () => {
 
   it('PC6 the input: part of the day from the story time, the Persona longer than a pack description', () => {
     expect([2 * 60, 6 * 60, 9 * 60, 12 * 60, 15 * 60, 18 * 60, 22 * 60].map(partOfDay)).toEqual(['night', 'dawn', 'morning', 'midday', 'afternoon', 'evening', 'night']);
-    const input = pictureInput({ work: 'W', reply: 'r', playerMessage: '', time: 'day 3', tick: 3 * 1440 + 15 * 60, people: [{ id: 'p', name: 'P', description: 'x'.repeat(3000), player: true }, { id: 'a', name: 'A', description: 'y'.repeat(3000) }] });
+    const input = pictureInput({ work: 'W', reply: 'r', focus: '', playerMessage: '', time: 'day 3', tick: 3 * 1440 + 15 * 60, people: [{ id: 'p', name: 'P', description: 'x'.repeat(3000), player: true }, { id: 'a', name: 'A', description: 'y'.repeat(3000) }] });
     expect(input.part_of_day).toBe('afternoon');
     expect(input.people.map((p) => p.description.length)).toEqual([2000, 600]);
-    expect(pictureInput({ work: 'W', reply: 'r', playerMessage: '', time: '', tick: null, people: [] }).part_of_day).toBe('');
+    expect(pictureInput({ work: 'W', reply: 'r', focus: '', playerMessage: '', time: '', tick: null, people: [] }).part_of_day).toBe('');
+    expect(pictureInput({ work: 'W', reply: 'r', focus: '  她躲开光炮的一刻 ', playerMessage: '', time: '', tick: null, people: [] }).focus).toBe('她躲开光炮的一刻');
   });
 
   it('PC7 the image services are not connected yet: both backends refuse', async () => {
@@ -87,5 +88,7 @@ describe('picture (画面)', () => {
     expect(PROMPTS.picture).toContain('"body":"girl|boy|other"');
     expect(PROMPTS.picture).toContain('"framing":"close-up|portrait|upper body|cowboy shot|full body|wide shot"');
     expect(PROMPTS.picture).toContain('nothing sexual');
+    expect(PROMPTS.picture).toContain('with a focus, the moment it describes');
+    expect(PROMPTS.picture).toContain('an image model knows none it was not trained on');
   });
 });

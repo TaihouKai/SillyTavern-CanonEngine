@@ -27,9 +27,12 @@ try {
   check('PI01 a reply has the picture button among its message buttons', !!(await page.$(button)));
   check('PI02 a player message has none', !(await page.$(`#chat .mes[mesid="${last - 1}"] .canon-picture`)));
   await page.evaluate((sel) => document.querySelector(sel).click(), button);
-  await page.waitForSelector('.canon-modal textarea', { timeout: 30000 });
+  await page.waitForSelector('.canon-modal .canon-picture-focus', { timeout: 10000 });
+  await page.fill('.canon-modal .canon-picture-focus', '米拉挥手的那一刻');
+  await page.click('.canon-modal .canon-picture-go');
+  await page.waitForSelector('.canon-modal .canon-copy', { timeout: 30000 });
   const input = JSON.parse((await taskLogs('picture')).at(-1)?.messages.at(-1).content.replace(/^INPUT[^\n]*\n/, '') || '{}');
-  check('PI03 the task reads the reply and has the Persona as the player character', input.reply?.includes('PI_A') && input.people?.[0]?.player === true && input.people[0].description.includes('black hair'), JSON.stringify(input).slice(0, 300));
+  check('PI03 the task reads the reply, the player\'s words for what to draw, and has the Persona as the player character', input.reply?.includes('PI_A') && input.focus === '米拉挥手的那一刻' && input.people?.[0]?.player === true && input.people[0].description.includes('black hair'), JSON.stringify(input).slice(0, 300));
   const boxes = await page.evaluate(() => [...document.querySelectorAll('.canon-modal label')].map((l) => [l.firstChild.textContent, l.querySelector('textarea').value]));
   const text = Object.fromEntries(boxes);
   check('PI04 the popup has the NovelAI base prompt, a prompt per character with its place, and the single prompt',

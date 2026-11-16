@@ -28619,8 +28619,8 @@ TASK: Events of the original story have just settled in this game. In the origin
 SHAPE: {"pairs":[{"n":1,"changed":false,"bond":"","views":[{"who":"","sees":"","address":[{"term":"","use":"usually","when":""}]}],"together":"","ended":false}]}`,
   // 画面 (picture.ts): one moment of a reply as image-board tags in parts; code assembles them for an image service.
   picture: `${COMMON}
-TASK: Describe ONE moment of a story reply as a picture, for an anime-style image model that reads image-board (Danbooru) tags. Inputs: work (the story's world), reply (the text to draw from), player_message (what the player character just said and did: context only), time and part_of_day (when the scene happens), people (the people known to be in this scene: id, name, description; player: true marks the player character, described by the player's own Persona).
-- moment: choose the moment of the reply a reader would most want to see \u2014 the height of an action, a reveal, the striking image of the reply; for a quiet reply, the scene as it stands. Say which in a few words, in the reply's language. Everything else describes that one instant: who is visible then, where, doing what. Nothing from before or after it.
+TASK: Describe ONE moment of a story reply as a picture, for an anime-style image model that reads image-board (Danbooru) tags. Inputs: work (the story's world), reply (the text to draw from), focus (the player's own words for what to draw, or ""), player_message (what the player character just said and did: context only), time and part_of_day (when the scene happens), people (the people known to be in this scene: id, name, description; player: true marks the player character, described by the player's own Persona).
+- moment: with a focus, the moment it describes, drawn as it says \u2014 it is what the player pictures, and the reply fills in the rest. Without one, choose the moment of the reply a reader would most want to see \u2014 the height of an action, a reveal, the striking image of the reply; for a quiet reply, the scene as it stands. Say which in a few words, in the reply's language. Everything else describes that one instant: who is visible then, where, doing what. Nothing from before or after it.
 - characters: those visible at that instant, the most important first, at most 6 (a crowd is a place or effect tag, not characters). The player character is in the picture when they are part of the moment. who: their id from people, "" for someone not in people.
 - tag: the character's Danbooru tag, as Danbooru writes it (romanized name in Danbooru's order, with Danbooru's parenthesized qualifier when it has one) \u2014 only for a character of a published work whom image boards know, and only when you know the tag. Never for the player character or anyone invented: "". copyright: the work's Danbooru copyright tag for a character with a tag, else "".
 - body: girl (any female), boy (any male), other.
@@ -28629,6 +28629,7 @@ TASK: Describe ONE moment of a story reply as a picture, for an anime-style imag
 - expression: their face. action: pose and what they do alone (holding, running, raising a hand, using a power) \u2014 one act per tag.
 - x, y: where they are in the picture; no two characters at the same x and y.
 - interactions: an act of one character directed at another, as one tag (hug, head biting, hand on another's shoulder, pointing at another, punching, carrying, electrocution) \u2014 written here only, not again in either's action. from and to are positions in characters (1 = first); mutual true for acts both do together (holding hands, eye contact, fist bump).
+- Powers and what they do are the heart of an action picture, and an image model knows none it was not trained on (the player character's own, anything invented): draw them from what they look like at that instant \u2014 the power itself (energy beam, laser, lightning, light wings, magic circle, aura), its colour (white beam, orange beam), and what it does (melting, molten metal, explosion, crater, shattered glass, collapsing building) \u2014 on the character who uses it (action) and in effects.
 - place: where (setting, buildings, indoors or outdoors, what is around). time: time of day and light, by part_of_day unless the reply shows otherwise (night, sunset, sunlight, dim lighting). effects: weather and what fills the air (rain, snow, electricity, explosion, sparks, smoke, magic circle, crowd).
 - framing: by what matters \u2014 a face or a feeling: close-up or portrait; people talking: upper body or cowboy shot; action or a striking place: full body or wide shot. angle: camera angle tags when they help (from above, from below, from side, dutch angle, pov), else [].
 - caption: the picture in one or two plain sentences IN ENGLISH, whatever the reply's language \u2014 names romanized, what happens, where \u2014 for image models that read sentences.
@@ -31907,6 +31908,7 @@ function pictureInput(a) {
   return {
     work: a.work,
     reply: a.reply.slice(-REPLY_MAX),
+    focus: a.focus.trim().slice(0, 1e3),
     player_message: a.playerMessage.slice(-2e3),
     time: a.time,
     part_of_day: a.tick === null ? "" : partOfDay(a.tick),
@@ -35553,9 +35555,9 @@ ${lines.join("\n")}`;
     return this.current?.replay.state.dispositions.get(eventId)?.disposition || "pending";
   }
   /** 画面: a moment of a reply (by message id; default the last reply) as a picture in parts (picture.ts), with the
-   *  prompts for the image services. The people are those the engine has in the reply's scene (present at its end and
+   *  prompts for the image services. focus: the player's own words for what to draw ('' : the model chooses). The people are those the engine has in the reply's scene (present at its end and
    *  named in it) and the player character, described by the Persona. */
-  async picture(messageId, signal) {
+  async picture(messageId, focus = "", signal) {
     const c = this.campaign();
     if (!c || !this.current) throw new EngineError("incompatible_adapter", "engine state unavailable");
     const entries = this.host.readTranscript();
@@ -35573,6 +35575,7 @@ ${lines.join("\n")}`;
     const out = await callStructured(this.host.model, "picture", PROMPTS.picture, pictureInput({
       work: index.pack.pack.title,
       reply: entry.text,
+      focus,
       playerMessage: user ? this.ooc(user.text).story : "",
       time: interp?.sceneEnd ? formatStoryTime(interp.sceneEnd, this.campaign()?.binding.originDate || null) : "",
       tick,
@@ -36550,6 +36553,9 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niBusy: { zh: "\u6B63\u5728\u8BFB\u53D6 Persona\u2026", en: "Reading the Persona\u2026" },
   backupWarning: { zh: "\u5907\u4EFD\u5305\u542B\u5B8C\u6574\u7684\u5386\u53F2\u5305\u4E0E\u672C\u6218\u5F79\u7684\u9690\u85CF\u4FE1\u606F\uFF08\u5267\u900F\uFF09\uFF0C\u8BF7\u52FF\u968F\u610F\u5206\u4EAB\u3002", en: "The backup contains the full pack and hidden campaign data (spoilers)." },
   pictureButton: { zh: "\u753B\u9762\u63D0\u793A\u8BCD\uFF1A\u628A\u8FD9\u6761\u56DE\u590D\u7684\u4E00\u4E2A\u573A\u9762\u5199\u6210\u751F\u56FE\u63D0\u793A\u8BCD", en: "Picture prompt: this reply's moment as an image prompt" },
+  pictureFocus: { zh: "\u60F3\u753B\u54EA\u4E00\u523B\uFF08\u53EF\u4E0D\u586B\uFF09", en: "What to draw (optional)" },
+  pictureFocusHint: { zh: "\u7528\u81EA\u5DF1\u7684\u8BDD\u5199\u4F60\u8111\u4E2D\u7684\u753B\u9762\uFF0C\u6BD4\u5982\u300C\u7F8E\u7434\u504F\u5934\u8EB2\u5F00\u5149\u70AE\uFF0C\u8EAB\u540E\u7684\u5927\u697C\u88AB\u6253\u4E2D\u540E\u7194\u5316\u300D\u3002\u4E0D\u586B\u5C31\u7531\u5F15\u64CE\u6311\u8FD9\u6761\u56DE\u590D\u91CC\u6700\u6709\u770B\u5934\u7684\u4E00\u523B\u3002", en: "The picture in your head, in your own words. Leave empty to let the engine choose the most striking moment of the reply." },
+  pictureGo: { zh: "\u5199\u63D0\u793A\u8BCD", en: "Write the prompt" },
   pictureWorking: { zh: "\u6B63\u5728\u5199\u753B\u9762\u63D0\u793A\u8BCD\u2026", en: "Writing the picture prompt\u2026" },
   pictureTitle: { zh: "\u753B\u9762\u63D0\u793A\u8BCD", en: "Picture prompt" },
   pictureMoment: { zh: "\u753B\u7684\u662F", en: "Moment" },
@@ -40096,7 +40102,7 @@ function renderMessageDecorations() {
         const b = document.createElement("div");
         b.className = "mes_button canon-picture fa-solid fa-image";
         b.title = t("pictureButton");
-        b.addEventListener("click", () => void showPicture(e.messageId));
+        b.addEventListener("click", () => showPicture(e.messageId));
         extra.prepend(b);
       }
       const interp = interpretationsFor(camp.interpretations, baseKey(e)).find((x) => x.banner);
@@ -40116,11 +40122,21 @@ function renderMessageDecorations() {
   }
   void chat;
 }
-async function showPicture(messageId) {
+function showPicture(messageId) {
+  const ask = modal(`<h3>${t("pictureTitle")}</h3>
+    <label>${t("pictureFocus")}<textarea rows="3" class="text_pole canon-picture-focus" placeholder="${esc3(t("pictureFocusHint"))}"></textarea></label>
+    <div class="canon-row"><div class="menu_button canon-picture-go">${t("pictureGo")}</div><div class="menu_button" data-close>${t("pictureClose")}</div></div>`);
+  ask.querySelector(".canon-picture-go").addEventListener("click", () => {
+    const focus = ask.querySelector(".canon-picture-focus").value;
+    ask.remove();
+    void writePicture(messageId, focus);
+  });
+}
+async function writePicture(messageId, focus) {
   toast("info", t("pictureWorking"));
   let r;
   try {
-    r = await E.picture(messageId);
+    r = await E.picture(messageId, focus);
   } catch (e) {
     toast("error", e.message);
     return;

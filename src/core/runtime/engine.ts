@@ -3011,9 +3011,9 @@ export class CanonEngine {
   }
 
   /** 画面: a moment of a reply (by message id; default the last reply) as a picture in parts (picture.ts), with the
-   *  prompts for the image services. The people are those the engine has in the reply's scene (present at its end and
+   *  prompts for the image services. focus: the player's own words for what to draw ('' : the model chooses). The people are those the engine has in the reply's scene (present at its end and
    *  named in it) and the player character, described by the Persona. */
-  async picture(messageId?: string, signal?: AbortSignal): Promise<{ picture: Picture; dropped: string[]; novelai: NovelAIPrompt; plain: PlainPrompt }> {
+  async picture(messageId?: string, focus = '', signal?: AbortSignal): Promise<{ picture: Picture; dropped: string[]; novelai: NovelAIPrompt; plain: PlainPrompt }> {
     const c = this.campaign();
     if (!c || !this.current) throw new EngineError('incompatible_adapter', 'engine state unavailable');
     const entries = this.host.readTranscript();
@@ -3033,6 +3033,7 @@ export class CanonEngine {
     const out = await callStructured<Picture>(this.host.model, 'picture', PROMPTS.picture, pictureInput({
       work: index.pack.pack.title,
       reply: entry.text,
+      focus,
       playerMessage: user ? this.ooc(user.text).story : '',
       time: interp?.sceneEnd ? formatStoryTime(interp.sceneEnd, this.campaign()?.binding.originDate || null) : '',
       tick,

@@ -52,6 +52,8 @@ export interface PicturePerson { id: Id; name: string; description: string; play
 export interface PictureInput {
   work: string;
   reply: string;
+  /** The player's own words for what to draw ('' : the model chooses the moment). */
+  focus: string;
   player_message: string;
   time: string;
   part_of_day: string;
@@ -76,10 +78,11 @@ export function partOfDay(tick: number): string {
 
 /** The task input. people: the people the engine knows in the reply's scene, the player character among them
  *  (player: true, described by the Persona). */
-export function pictureInput(a: { work: string; reply: string; playerMessage: string; time: string; tick: number | null; people: PicturePerson[] }): PictureInput {
+export function pictureInput(a: { work: string; reply: string; focus: string; playerMessage: string; time: string; tick: number | null; people: PicturePerson[] }): PictureInput {
   return {
     work: a.work,
     reply: a.reply.slice(-REPLY_MAX),
+    focus: a.focus.trim().slice(0, 1000),
     player_message: a.playerMessage.slice(-2000),
     time: a.time,
     part_of_day: a.tick === null ? '' : partOfDay(a.tick),
