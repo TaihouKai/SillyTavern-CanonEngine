@@ -4,6 +4,19 @@
 
 - **The player character's forms of address come from the player, never from the reply.** The user's case: the GM once had the player call 美琴 姐姐大人, which is 黑子's form for her. The settings let the GM write the player character's lines, so such a line passed, and the review could then record 姐姐大人 as how the player addresses 美琴: the GM's slip would have become a fact the GM reads back every turn after. Now a form of address on the player character's side is recorded only when the player's own message has it. Otherwise it is left out, with a note. The Persona and the panel set the player's forms as before.
 - **A form is the person's own.** The GM is told that a form listed is that person's, not everyone's who knows the same one, and that with none listed the player character uses the name too. The review sends back a reply that has anyone use a distinctive form that is another person's for someone (御坂美琴 called 姐姐大人 by anyone but 白井黑子), unless the player's message has it. It records a new form only when the reply makes it how they address the other from now on, never a form used once or one that is another's.
+- **A form of address taken up is recorded on its own.** These turns were tested live in the user's Tavern.
+  - **Falling-out:** the player betrayed 美琴, and the falling-out was recorded (what they are now, 美琴's view, how they are together). No form changed, which was right: the reply had nobody change how they address the player for good.
+  - **Nickname taken up:** 黑子 took up the nickname 小光 that the player offered, and the review recorded nothing. The exchange was light, and the review counted it as small talk.
+  - **Bond in the forms:** once a form was recorded, the bond said 「刚互定「小黑」「小光」的称呼」, the forms written back into the relation text.
+  - **Player's own form:** the player's 小黑 in their own message was left out.
+
+  Fixes:
+  - A form taken up or given up is a relation change of its own, even in a light exchange and when nothing else changes; a form someone takes up is not small talk.
+  - A change of another part only, such as a nickname, may leave the bond empty and keeps the bond the relation has. Only two people with no relation yet must give one.
+  - A bond never carries forms of address.
+  - The player calling someone by a new name in their own message is the player's form for them.
+
+  Live after the fixes: 黑子→爱丽丝「小光」 and the player's own 「电电」 for 美琴 were recorded, with the bond left as it was.
 
 ## 1.38.1 — 2026-11-16
 
