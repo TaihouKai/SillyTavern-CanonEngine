@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.38.2 — 2026-11-16
+
+- **The player character's forms of address come from the player, never from the reply.** The user's case: the GM once had the player call 美琴 姐姐大人, which is 黑子's form for her. The settings let the GM write the player character's lines, so such a line passed, and the review could then record 姐姐大人 as how the player addresses 美琴: the GM's slip would have become a fact the GM reads back every turn after. Now a form of address on the player character's side is recorded only when the player's own message has it. Otherwise it is left out, with a note. The Persona and the panel set the player's forms as before.
+- **A form is the person's own.** The GM is told that a form listed is that person's, not everyone's who knows the same one, and that with none listed the player character uses the name too. The review sends back a reply that has anyone use a distinctive form that is another person's for someone (御坂美琴 called 姐姐大人 by anyone but 白井黑子), unless the player's message has it. It records a new form only when the reply makes it how they address the other from now on, never a form used once or one that is another's.
+
 ## 1.38.1 — 2026-11-16
 
 - **A relation change changes the forms of address with it.** The review of a reply and `relate` were told to give anew every part a change makes untrue, but their example named only each side's regard and how they are together. A falling-out could then keep the old pet name. Both now name the forms of address: one that no longer fits is dropped (a pet name after a falling-out, with a cold surname or an insult in its place), and a new one is given (the name they use once they grow close). A pair that still follows the original story takes each stage's forms with the stage, as before.

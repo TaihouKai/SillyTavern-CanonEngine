@@ -347,6 +347,31 @@ describe('relations between people, the player character like anyone', () => {
     expect(PROMPTS.evaluate).toMatch(/Form of address \(code "wrong_address", blocking\)/);
   });
 
+  it('RL18 the player character\'s forms of address come from the player\'s own words, never from the reply', async () => {
+    // user: the GM once had the player call 美琴 姐姐大人 (黑子's form) — that must not become how the player addresses her
+    const x = await setup();
+    (x.engine.settings as any).debug = true;   // (the review's warnings in the trace)
+    await turn(x, 'I walk Mira home.', '"Thanks, Big Sis," Ash says to Mira. [P1]', {
+      scene_end: at(1, 6, 30), scene_entities: ['mira'],
+      relations: [{ people: [me(x), 'mira'], bond: 'close friend since childhood', views: [{ who: me(x), address: [{ term: 'Big Sis', use: 'usually' }], sees: '' }, { who: 'mira', address: [{ term: 'kiddo', use: 'sometimes', when: 'when teasing' }], sees: '' }], quote: 'Thanks, Big Sis' }],
+    });
+    let rel = x.engine.current!.index.relationNow(me(x), 'mira')!;
+    expect(rel.views.find((v) => v.who === me(x))).toBeUndefined();
+    expect(rel.views.find((v) => v.who === 'mira')!.address).toEqual([{ term: 'Ashy', use: 'usually' }, { term: 'kiddo', use: 'sometimes', when: 'when teasing' }]);
+    expect(x.engine.lastTrace!.attempts.at(-1)!.warnings.join('\n')).toMatch(/the player character's form of address 「Big Sis」 \(usually\) ignored: the player's message does not have it/);
+    // the player's own words make it theirs
+    await turn(x, 'From now on I call her "Mimi".', 'Mira laughs at the new name. [P2]', {
+      scene_end: at(1, 6, 40), scene_entities: ['mira'],
+      relations: [{ people: [me(x), 'mira'], bond: 'close friend since childhood', views: [{ who: me(x), address: [{ term: 'Mimi', use: 'usually' }], sees: '' }], quote: 'From now on I call her "Mimi"' }],
+    });
+    rel = x.engine.current!.index.relationNow(me(x), 'mira')!;
+    expect(rel.views.find((v) => v.who === me(x))!.address).toEqual([{ term: 'Mimi', use: 'usually' }]);
+    // the GM and the review are told: a form is that person's own, the player's come from the Persona and the player
+    expect(forms(x)).toMatch(/a form listed is that person's own, not the others' who know the same one\. The player character's forms are the Persona's and the player's own words/);
+    expect(PROMPTS.evaluate).toMatch(/using for someone a distinctive form that FORMS OF ADDRESS gives as another person's for them/);
+    expect(PROMPTS.evaluate).toMatch(/never a form that is another person's for that one[^;]*; the player character's forms only when the player's own message gives them/);
+  });
+
   it('RL8 a Persona revision without a relation takes it out', async () => {
     const x = await setup();
     expect(played(x).relationships.map((r) => r.name)).toEqual(['Mira']);

@@ -734,7 +734,16 @@ export function runGate(g: GateInput): GateResult {
     if (!ids[0] || !ids[1] || ids[0] === ids[1] || !ids.every((id) => isPerson(id!))) { warnings.push(`relation "${label}" ignored: not two known people`); continue; }
     const people = ids as [Id, Id];
     // (a side whose forms of address alone change gives those only: merged into the relation, the rest stays)
-    const views = cleanViews(r.views, people, relationRef);
+    const views = cleanViews(r.views, people, relationRef).map((v) => {
+      // The player character's forms of address are the player's own words, never the reply's (user: the GM once had
+      // the player call 美琴 姐姐大人 — 黑子's form — and must not make that a fact): a form of theirs is recorded only
+      // when the player's message has it.
+      if (v.who !== g.playerId || !v.address?.length) return v;
+      const said = (t: string) => normalizeName(g.userText || '').includes(normalizeName(t));
+      const kept = v.address.filter((f) => said(f.term));
+      for (const f of v.address.filter((f) => !said(f.term))) warnings.push(`relation "${label}": the player character's form of address 「${f.term}」 (${f.use}) ignored: the player's message does not have it`);
+      return { ...v, address: kept };
+    }).filter((v) => v.sees || v.address?.length);
     const together = String(r.together || '').trim().slice(0, 400);
     const name = (id: Id) => (index.entityExists(id) ? index.entityName(id) : runtimeEntities.find((x) => x.id === id)?.name || id);
     relationDrafts.push({
