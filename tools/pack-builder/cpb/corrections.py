@@ -95,9 +95,12 @@ def _relation_texts(r):
             if isinstance(s.get(k), str):
                 out.append(((lambda s=s, k=k: s[k]), (lambda v, s=s, k=k: s.__setitem__(k, v))))
         for x in s.get('views') or []:
-            for k in ('calls', 'sees'):
-                if isinstance(x.get(k), str):
-                    out.append(((lambda x=x, k=k: x[k]), (lambda v, x=x, k=k: x.__setitem__(k, v))))
+            if isinstance(x.get('sees'), str):
+                out.append(((lambda x=x: x['sees']), (lambda v, x=x: x.__setitem__('sees', v))))
+            for f in x.get('address') or []:   # the forms of address and when each is used
+                for k in ('term', 'when'):
+                    if isinstance(f.get(k), str):
+                        out.append(((lambda f=f, k=k: f[k]), (lambda v, f=f, k=k: f.__setitem__(k, v))))
     return out
 
 

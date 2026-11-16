@@ -446,10 +446,15 @@ export interface NatureView {
 }
 
 /** 角色关系 as the timeline shows them (see CanonEngine.relationsView). */
-type RelSide = { calls?: string; sees: string };
+type RelSide = { address?: { term: string; use: string; when?: string }[]; sees: string };
 export interface RelationsView {
   rows: { a: string; b: string; player?: boolean; state: 'now' | 'later'; when: string | null; source?: string; bond: string; ended?: boolean; ab?: RelSide; ba?: RelSide; together?: string }[];
   hidden: number;
+}
+
+/** Forms of address as the panels show them: 「姐姐大人」（总是）；「那个笨蛋」（有时：跟别人提起他时）. */
+export function addressText(list: { term: string; use: string; when?: string }[]): string {
+  return list.map((f) => `「${f.term}」（${t('addrUse_' + f.use)}${f.when ? `：${f.when}` : ''}）`).join('；');
 }
 
 export class GraphPanel {
@@ -596,7 +601,7 @@ export class GraphPanel {
     if (!v.rows.length) return `<div class="cg-empty">${t('relationsNone')}</div>`;
     const q = this.filter.q.trim().toLowerCase();
     const rows = v.rows.filter((r) => !q || r.a.toLowerCase().includes(q) || r.b.toLowerCase().includes(q));
-    const side = (x?: RelSide) => (x ? `${x.calls ? `<span class="cg-hint">${esc(t('relCalls').replace('{c}', x.calls))}</span><br>` : ''}${esc(x.sees)}` : '');
+    const side = (x?: RelSide) => (x ? `${x.address?.length ? `<span class="cg-hint">${esc(t('relAddress'))}${esc(addressText(x.address))}</span><br>` : ''}${esc(x.sees)}` : '');
     const when = (r: RelationsView['rows'][number]) => r.state === 'later'
       ? `<span class="cg-key cg-nstate-later">${t('natureState_later')}</span><br>${esc(r.when ? t('natureFrom').replace('{e}', r.when) : t('natureStart'))}`
       : `<span class="cg-key cg-nstate-now">${t(r.ended ? 'relationsEnded' : 'natureState_now')}</span><br>${esc(r.when ? t('relSince').replace('{t}', r.when) : t('relStart'))}${r.source && r.source !== 'pack' ? `<br>${t('relSource_' + r.source)}` : ''}`;

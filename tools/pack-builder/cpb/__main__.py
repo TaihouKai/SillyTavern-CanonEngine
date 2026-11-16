@@ -4,7 +4,7 @@ import sys
 
 import os
 
-from . import adapters, assemble, corrections, deaths, dedupe, ends, impacts, llm, mind, nature, relations, report, review, skeleton, start, steps
+from . import adapters, address, assemble, corrections, deaths, dedupe, ends, impacts, llm, mind, nature, relations, report, review, skeleton, start, steps
 from . import prompts as P
 from .config import Project, load_global
 from .util import ROOT, log, read_json, write_json
@@ -72,7 +72,7 @@ def main(argv=None):
         except (AttributeError, ValueError):
             pass
     ap = argparse.ArgumentParser(prog='python -m cpb', description='Build a Canon Engine history pack from a story source.')
-    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'relations', 'golden', 'ends', 'impacts', 'start', 'deaths', 'run', 'status'])
+    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'relations', 'golden', 'address', 'ends', 'impacts', 'start', 'deaths', 'run', 'status'])
     ap.add_argument('-p', '--project', default='fgo-cn', help='project name under projects/ or a path to a project file')
     ap.add_argument('--config', help='global config file (default: config.json)')
     ap.add_argument('--chapters', help='only these chapter ids, comma separated (e.g. w100,w101)')
@@ -84,6 +84,7 @@ def main(argv=None):
     ap.add_argument('--out', help='nature, mind: where to write the pack (default: over --pack)')
     ap.add_argument('--adopt', help='golden: pairs (a|b, comma separated) read in the builder output, copied into the verified relations')
     ap.add_argument('--note', help='golden --adopt: what the person checked')
+    ap.add_argument('--apply', action='store_true', help='address: put the proposals (read first: work/<project>/out/address-review.txt) into the verified relations')
     ap.add_argument('--offpeak', action='store_true', help='make model calls only at the off-peak price; stop when peak hours begin')
     args = ap.parse_args(argv)
     gcfg = load_global(args.config)
@@ -206,6 +207,27 @@ def main(argv=None):
             log(f'golden: adopted {len(keys)} pairs')
         else:
             log('golden: the verified relations exist already; edit them, or --adopt pairs you have read')
+    if cmd == 'address':
+        # 称呼: the forms of address of the verified relations, proposed by the model per stage and side; a person reads
+        # them all (address-review.txt), then --apply puts them into projects/<name>.relations.json
+        pk = read_json(args.pack or project.p('out', project.get('pack', {}).get('file') or f'{project.get("pack", {}).get("pack_id", project.name)}.canon.json'))
+        if not pk:
+            log('address: no built pack (build first, or give --pack)')
+            return 2
+        if args.apply:
+            log(f'address: {address.apply(project, pk)} pairs with a proposal put into {relations.golden_path(project)} — build again')
+        else:
+            cl = client(gcfg, project, args)
+            try:
+                address.generate(project, cl, pk, nature.wiki_pages(project), lang=steps.lang_name(project))
+            except llm.BudgetExceeded as e:
+                log(str(e))
+                log('run the same command again to continue (finished results are kept)')
+                return 2
+            path = project.p('out', 'address-review.txt')
+            with open(path, 'w', encoding='utf-8', newline='\n') as f:
+                f.write(address.review_text(project, pk))
+            log(f'address: proposals to read — {path}; then address --apply')
     if cmd == 'nature':
         # 常态 for the people of a built pack, written into it (a separate command: it needs the built pack's events)
         src_path = args.pack or project.p('out', project.get('pack', {}).get('file') or f'{project.get("pack", {}).get("pack_id", project.name)}.canon.json')

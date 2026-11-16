@@ -177,7 +177,8 @@ The top-level `relations` list says how pairs of people stand with each other. W
   "people": ["misaka-mikoto", "shirai-kuroko"],
   "stages": [
     {"from_event": null, "bond": "室友兼学姐学妹",
-     "views": [{"who": "shirai-kuroko", "calls": "姐姐大人", "sees": "…"}, {"who": "misaka-mikoto", "calls": "黑子", "sees": "…"}],
+     "views": [{"who": "shirai-kuroko", "address": [{"term": "姐姐大人", "use": "always"}], "sees": "…"},
+               {"who": "misaka-mikoto", "address": [{"term": "黑子", "use": "usually"}], "sees": "…"}],
      "together": "…"},
     {"from_event": "<event id>", "why": "…", "bond": "…", "views": […]}
   ],
@@ -192,23 +193,31 @@ The top-level `relations` list says how pairs of people stand with each other. W
   - Use a new stage only where the relationship itself changes for a long time: hostility ends, they become friends, someone is betrayed, the way one addresses the other changes. A passing quarrel is not a new stage.
 - **Each stage.**
   - `bond`: what they are to each other, in one phrase.
-  - `views`: one entry per side that knows the other. `who` is the person whose side it is; `calls` is how they address or refer to the other; `sees` is how they regard and treat the other.
+  - `views`: one entry per side that knows the other. `who` is the person whose side it is; `sees` is how they regard and treat the other; `address` is how they address or refer to the other (below).
   - `together`: how the two are when together, and what is touchy between them.
   - `why`: for the first stage, how they came to know each other. For a later stage, what changes there and why, written as a change ("从互相敌视转为暂时联手"). The lint warns about a later stage without it.
   - Write standing attitudes, not a retelling of the plot. Each stage is the whole relation at that time, because a game can start at any point of the story, so write it in full.
-- **What the GM sees.** The GM gets the pair's current relation when someone in the scene is with another person in the scene or one the text mentions.
+- **Forms of address (`address`).** GMs get forms of address wrong more than anything else about a pair, so they are a list of their own, and only where there is something to give.
+  - Give a form only when a reader could not guess it from the other's full name: a nickname, a title or rank, an honorific form (御坂同学), an insult, an endearment, a kinship word, or the surname or the given name alone. Never the plain full name, and never a bare pronoun. With no forms, the GM uses the name as the story would. Many sides have none.
+  - Each form has `term` (the form itself, as the story's language writes it: no brackets or explanation), `use` and, where it matters, `when`.
+  - `use`: `always` means it is the only form this side uses for the other (白井黑子's 姐姐大人), so it stands alone. `usually` is their common form. `sometimes` is now and then, and needs `when`: the situation, such as when teasing, when angry, or when speaking of the other to someone else.
+  - Someone who speaks to the other one way and of them another way has both forms, each with its `when`.
+  - A stage has the forms in use from its start. A form that starts later belongs to the stage where it starts.
+- **What the GM sees.** The GM gets the pair's current relation when someone in the scene is with another person in the scene or one the text mentions. The forms of address of those pairs follow in a list of their own, and the review sends back a reply that gives someone another form where their form is `always`, or uses a `sometimes` form outside its situation.
 - **A relation is a state of the game.** The stages are where it starts and how the original story changes it, not switches.
   - At the start, a pair stands as the stage in force then. The Persona gives the player's starting relations: the player character is treated like anyone.
   - While nothing in the game has changed a pair, each later stage holds once its event occurs as in the original story.
-  - Play changes any pair, the player's included: the review of an accepted reply records what changes, with its quote. The user can also change the player's relations in the panel. A change is merged into the relation part by part: what it gives replaces that part, and the rest (the other side, the forms of address, how they are together) stays.
-  - Once a pair no longer follows the original story, its later stages no longer apply by themselves. This happens when the game changed the pair, or when an earlier stage's event went otherwise. When such a stage's event settles, the analysis model applies the stage's `why` to the relation the game has, by what actually happened, and that change is merged in like any other.
+  - Play changes any pair, the player's included: the review of an accepted reply records what changes, with its quote. A change is merged into the relation part by part: what it gives replaces that part, and the rest (the other side, how they are together) stays. Forms of address are merged form by form: a form given is added or replaces the same term, a form can be dropped, and a form that becomes `always` is then the only one.
+  - The user can change every part of the player's relations in the panel: what they are to each other, each side's view and forms of address, and how they are together. What the panel saves is the whole relation.
+  - Once a pair no longer follows the original story, its later stages no longer apply by themselves. This happens when the game changed the pair, or when an earlier stage's event went otherwise. When such a stage's event settles, the analysis model applies the stage's `why` to the relation the game has, by what actually happened, and that change is merged in like any other. The engine also gives it how the original story's forms of address change at that stage (worked out from the two stages), to take as far as it fits.
   - An event that goes otherwise has the same effect for a pair that still followed the original story: what it does to the pair is worked out from what happened, and its stage does not come. An event that does not happen changes nothing.
   - The GM always gets one whole line for a pair: the relation as the game has it now.
 - **Lint checks.**
   - Each relation has two people of the pack, and each pair appears once.
   - Only the first stage has `from_event` null, and every event a stage refers to exists.
   - Each view belongs to one of the two people. A stage that starts before the stage above it is a warning.
-- **Building.** canon-pack-builder writes relations with `python -m cpb relations -p <project>`. It covers the pairs the sources' pages list for each other, plus the pairs that share many events.
+  - In a side's forms of address, a term appears once, and `always` stands alone (errors). A term with brackets or several forms in one, a term that is the other's full name, and a `sometimes` form without `when` are warnings.
+- **Building.** canon-pack-builder writes relations with `python -m cpb relations -p <project>`. It covers the pairs the sources' pages list for each other, plus the pairs that share many events. `python -m cpb address -p <project>` proposes the forms of address of the verified relations, stage by stage. A person reads every proposal, and `address --apply` puts them into the verified relations.
 
 ## 4. Sources and provenance
 

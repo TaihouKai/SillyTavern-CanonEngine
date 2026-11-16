@@ -2,9 +2,10 @@
 // commit), journal recovery, backup. Host-independent (see host.ts).
 import { loreFor, type LoreBackground, type LoreEntry } from './lore';
 import type { Persona } from './host';
-import type { Id, LedgerRecord, MindProfile, NatureVersion, StoryTime, Until } from '../domain/types';
+import type { AddressForm, Id, LedgerRecord, MindProfile, NatureVersion, StoryTime, Until } from '../domain/types';
 import { loadPinnedPack, validatePack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { normalizeName, valuesEqual } from '../domain/pack';
+import { cleanViews } from '../domain/address';
 import { buildBootstrap, causeOf, isDue, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
 import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
@@ -3239,7 +3240,14 @@ export class CanonEngine {
         defenses: prof.profile.defenses || '',
         nature: prof.profile.nature ? [...(['habits', 'uses', 'others', 'limits'] as const).filter((k) => prof.profile.nature![k]).map((k) => `${{ habits: zh ? '平时' : 'Habits', uses: zh ? '使用' : 'Uses', others: zh ? '旁人' : 'Others', limits: zh ? '限制' : 'Limits' }[k]}：${prof.profile.nature![k]}`),
           ...(prof.profile.nature.perceives ? [`${zh ? '能得知' : 'Perceives'}：${prof.profile.nature.perceives.kinds.join(', ')}${prof.profile.nature.perceives.how ? `（${prof.profile.nature.perceives.how}）` : ''}`] : [])] : [],
-        relationships: played!.relationships.map((r) => ({ who: r.entityId, name: r.name, text: r.relation, ended: !!r.ended, basis: r.basis, by: r.changed?.by ?? r.basis, since: r.changed ? formatTick(r.changed.since, origin) : null, start: r.changed?.start ?? null, quote: r.changed?.quote || '', org: orgNow(r.entityId) })),
+        relationships: played!.relationships.map((r) => {
+          // each side of a relation with a person, the whole of it (the panel edits it all: editTie)
+          const side = (who: Id | null) => { const v = r.views?.find((x) => x.who === who); return v ? { address: v.address || [], sees: v.sees } : null; };
+          return {
+            who: r.entityId, name: r.name, text: r.relation, ended: !!r.ended, basis: r.basis, by: r.changed?.by ?? r.basis, since: r.changed ? formatTick(r.changed.since, origin) : null, start: r.changed?.start ?? null, quote: r.changed?.quote || '', org: orgNow(r.entityId),
+            person: !!r.person, they: side(r.entityId), me: side(prof.profile.playerId), together: r.together || '',
+          };
+        }),
         recognized: (prof.profile.recognizedBy || []).map((r) => `${r.who}${r.everywhere ? (zh ? '（到处）' : ' (everywhere)') : ''}: ${r.as}${r.places.length ? ` (${r.places.map((p) => idx.entityName(p)).join(zh ? '、' : ', ')})` : ''}`),
         knowers: played!.knowers.map((k) => ({ who: k.entityId, name: k.who, level: k.level, text: k.about, basis: k.basis, by: k.changed?.by ?? k.basis, since: k.changed ? formatTick(k.changed.since, origin) : null, start: k.changed?.start ?? null, quote: k.changed?.quote || '' })),
         notes: prof.profile.notes,
@@ -3328,8 +3336,9 @@ export class CanonEngine {
   /** The user's own change of a relationship or of what someone knows about the player (叙事融入 panel): kept as a
    *  record after the current last message, replayed like the ones play made (null removes it). A relationship is a
    *  relation of the world between the player character and a person (someone not known yet becomes a person of the
-   *  chat); the text the user writes is the whole of it. */
-  async editTie(kind: 'relation' | 'knows', who: Id | null, name: string, patch: { relation?: string; ended?: boolean; level?: 'exists' | 'identity' | 'secrets'; about?: string } | null): Promise<void> {
+   *  chat); what the user gives is the whole of it — what they are to each other, each side (how they see and address
+   *  the other) and how they are together — and replaces the relation there. */
+  async editTie(kind: 'relation' | 'knows', who: Id | null, name: string, patch: TiePatch | null): Promise<void> {
     if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
     const c = this.campaign();
     name = String(name || '').trim();
@@ -3354,7 +3363,13 @@ export class CanonEngine {
       }
       rec = {
         ...base, kind: 'relation', summary: `Relationship: ${name} ${patch ? 'set' : 'removed'} (Canon Engine panel)`, ...(made.length ? { runtimeEntities: made } : {}),
-        relations: [{ people: [me, id], bond: patch ? patch.relation!.trim().slice(0, 400) : '', views: [], ...(patch?.ended ? { ended: true } : {}), ...(patch ? {} : { removed: true }), quote: '', source: 'ui' }],
+        relations: [{
+          people: [me, id], bond: patch ? patch.relation!.trim().slice(0, 400) : '',
+          // (forms of address as a whole list: the same term once, "always" only alone — cleanViews)
+          views: patch ? cleanViews([...(patch.they ? [{ who: id, ...patch.they }] : []), ...(patch.me ? [{ who: me, ...patch.me }] : [])], [me, id], undefined, false) : [],
+          ...(patch?.together?.trim() ? { together: patch.together.trim().slice(0, 400) } : {}),
+          ...(patch?.ended ? { ended: true } : {}), ...(patch ? {} : { removed: true }), quote: '', source: 'ui',
+        }],
       };
     } else {
       const id = who || (idx ? idx.resolveEntity(name).ids.find((x) => idx.entityKind(x) !== 'place') : undefined) || null;
@@ -3368,6 +3383,14 @@ export class CanonEngine {
     await this.host.save();
     await this.reconcile('tie_edited');
   }
+}
+
+/** What the 叙事融入 panel saves: a relationship whole (relation: what they are to each other; they / me: the other's
+ *  side and the player character's), or what someone knows about the player (level, about). */
+export interface TiePatch {
+  relation?: string; ended?: boolean; together?: string;
+  they?: { address: AddressForm[]; sees: string }; me?: { address: AddressForm[]; sees: string };
+  level?: 'exists' | 'identity' | 'secrets'; about?: string;
 }
 
 export interface ReviewResult {

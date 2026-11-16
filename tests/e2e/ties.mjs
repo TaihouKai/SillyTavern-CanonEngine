@@ -59,6 +59,42 @@ try {
   await page.waitForTimeout(1500);
   const added = await page.evaluate(() => window.CanonEngine.engine.integrationView(true).profile.relationships.map((r) => [r.name, r.text, r.basis]));
   check('TI05 a relationship added in the panel is kept as the user\'s own', added.some((r) => r[0] === '老托马斯' && r[2] === 'ui'), JSON.stringify(added));
+  // every part of a relation is edited in its form: each side's regard and forms of address (a row added), together
+  await page.evaluate(() => {
+    const root = document.querySelector('#canon-inspector');
+    const det = root.querySelector('details[data-key="rel-edit-Mira"]');
+    det.open = true;
+    const form = det.querySelector('.ci-relform');
+    form.querySelector('.canon-tie-text').value = '和好了的青梅竹马';
+    const they = form.querySelector('.ci-side[data-side="they"]');
+    they.querySelector('.ci-side-sees').value = '嘴上不饶人，其实最信任Ash';
+    they.querySelector('[data-act="addr-add"]').click();
+    they.querySelector('[data-act="addr-add"]').click();
+    const rows = they.querySelectorAll('.ci-addr-row');
+    rows[0].querySelector('.ci-addr-term').value = '笨蛋阿什';
+    rows[0].querySelector('.ci-addr-use').value = 'sometimes';
+    rows[0].querySelector('.ci-addr-when').value = '斗嘴时';
+    rows[1].querySelector('[data-act="addr-del"]').click();
+    const me = form.querySelector('.ci-side[data-side="me"]');
+    me.querySelector('.ci-side-sees').value = '把她当家人';
+    me.querySelector('[data-act="addr-add"]').click();
+    me.querySelector('.ci-addr-row .ci-addr-term').value = '小米';
+    form.querySelector('.ci-rel-together').value = '见面就斗嘴';
+    form.querySelector('[data-act="tie-save"]').click();
+  });
+  await page.waitForTimeout(1500);
+  const edited = await page.evaluate(() => { const e = window.CanonEngine.engine; const me = e.playerProfile().profile.playerId; return e.current.index.relationNow(me, 'mira'); });
+  const shown2 = await page.evaluate(() => document.querySelector('#canon-inspector')?.textContent || '');
+  check('TI07 the panel edits every part of a relation (each side\'s regard and forms of address, together)', edited?.bond === '和好了的青梅竹马' && edited.source === 'ui' && edited.together === '见面就斗嘴'
+    && JSON.stringify(edited.views.find((v) => v.who === 'mira')) === JSON.stringify({ who: 'mira', address: [{ term: '笨蛋阿什', use: 'sometimes', when: '斗嘴时' }], sees: '嘴上不饶人，其实最信任Ash' })
+    && edited.views.some((v) => v.who !== 'mira' && v.sees === '把她当家人' && v.address?.[0]?.term === '小米' && v.address[0].use === 'usually')
+    && shown2.includes('「笨蛋阿什」（有时：斗嘴时）'), JSON.stringify(edited));
+  // (TIES_FORM_SHOT=<png>: a picture of the relation's edit form, opened, to look at its layout)
+  if (process.env.TIES_FORM_SHOT) {
+    await page.evaluate(() => { const det = document.querySelector('#canon-inspector details[data-key="rel-edit-Mira"]'); det.open = true; det.scrollIntoView(); });
+    await page.waitForTimeout(300);
+    await page.locator('#canon-inspector').screenshot({ path: process.env.TIES_FORM_SHOT });
+  }
   // a contact answered by hand: 接受 → 完成
   const answer = () => page.evaluate(() => window.CanonEngine.engine.integrationView(true).contacts.map((k) => k.answer));
   const click = async (sel) => { await page.evaluate((sel) => document.querySelector(`#canon-inspector ${sel}`)?.click(), sel); await page.waitForTimeout(1500); };

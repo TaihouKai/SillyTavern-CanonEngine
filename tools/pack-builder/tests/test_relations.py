@@ -84,7 +84,7 @@ class RelationsTest(unittest.TestCase):
         self.assertEqual([f['fact'] for f in relations.unshown(facts, [None, 'e2'], ids)], ['后来才有的事'])
         # the writing: one stage per start, a bond that is a state, each side one of the two
         w = relations.check_write([None, 'e2'], ('安妮', '博文'))
-        good = {'stages': [{'bond': '青梅竹马，斗嘴不断却离不开', 'views': [{'who': '安妮', 'calls': '阿博', 'sees': '依赖他'}], 'together': '斗嘴'},
+        good = {'stages': [{'bond': '青梅竹马，斗嘴不断却离不开', 'views': [{'who': '安妮', 'sees': '依赖他'}], 'together': '斗嘴'},
                            {'bond': '恋人', 'views': [{'who': '安妮', 'sees': '信任'}, {'who': '博文', 'sees': '守护'}], 'together': '形影不离'}]}
         self.assertEqual(w(good), [])
         out = '\n'.join(w({'stages': [{'bond': '从敌对转为战友', 'views': [{'who': 'A', 'sees': ''}]}]}))
@@ -92,10 +92,7 @@ class RelationsTest(unittest.TestCase):
         self.assertIn('together is empty', chr(10).join(w({'stages': [good['stages'][0], {**good['stages'][1], 'together': ''}]})))
         for m in ('write exactly 2 stages', 'not a transition', 'one of the two names', 'a view without sees'):
             self.assertIn(m, out)
-        # calls are names only; a side the facts do not tell is left out, not written as "the facts do not say"
-        for c in ('「阿博」', '“老大”或“博文”', '以名字直呼博文', '老大（昔日称呼）'):
-            self.assertIn('calls is only the names', '\n'.join(w({'stages': [{**good['stages'][0], 'views': [{'who': '安妮', 'calls': c, 'sees': '依赖他'}]}, good['stages'][1]]})))
-        self.assertEqual(w({'stages': [{**good['stages'][0], 'views': [{'who': '安妮', 'calls': '阿博、博文', 'sees': '依赖他'}]}, good['stages'][1]]}), [])
+        # a side the facts do not tell is left out, not written as "the facts do not say"
         self.assertIn('a view about missing facts', '\n'.join(w({'stages': [good['stages'][0], {**good['stages'][1], 'views': [good['stages'][1]['views'][0], {'who': '博文', 'sees': '（此阶段事实未给出他的态度。）'}]}]})))
         # a fact told "before" that names a date after the story's start is a later fact
         st = (2020, 7, 19)
@@ -108,10 +105,30 @@ class RelationsTest(unittest.TestCase):
         # stage 1 at an event starts where they first deal with each other: a fact is dated there
         self.assertIn('stage 1: no fact is dated at its event "e1"', '\n'.join(chk({'known_before_start': False, 'facts': [{'at': 'e2', 'fact': '他救了她'}], 'stages': [{'from_event': 'e1'}, {'from_event': 'e2'}]})))
         rel = relations.to_pack({'known_before_start': True, 'known_how': '邻居', 'stages': [{**good['stages'][0], 'from_event': None}, {**good['stages'][1], 'from_event': 'e2', 'why': '他救了她'}]}, 'ann', 'bo', ('安妮', '博文'))
-        self.assertEqual(rel['stages'][0], {'from_event': None, 'bond': '青梅竹马，斗嘴不断却离不开', 'views': [{'who': 'ann', 'calls': '阿博', 'sees': '依赖他'}], 'why': '邻居', 'together': '斗嘴'})   # how they knew each other before
+        self.assertEqual(rel['stages'][0], {'from_event': None, 'bond': '青梅竹马，斗嘴不断却离不开', 'views': [{'who': 'ann', 'sees': '依赖他'}], 'why': '邻居', 'together': '斗嘴'})   # how they knew each other before
         self.assertEqual(rel['stages'][1]['views'], [{'who': 'ann', 'sees': '信任'}, {'who': 'bo', 'sees': '守护'}])
         self.assertEqual(rel['stages'][1]['why'], '他救了她')
         self.assertIsNone(relations.to_pack({'none': True}, 'ann', 'bo', ('安妮', '博文')))
+
+    def test_address_forms_are_checked_and_dated_by_the_verified_stages(self):
+        from cpb import address
+        # a fact shows from the first verified stage at or after its event (the stages may start elsewhere than those
+        # the facts were written for)
+        evs = {'e1': {'when': {'earliest': {'day': 1}}}, 'e2': {'when': {'earliest': {'day': 5}}}, 'e3': {'when': {'earliest': {'day': 9}}}}
+        facts = [{'at': 'before', 'fact': '邻居'}, {'at': 'e2', 'fact': '改口叫阿博'}, {'at': 'e3', 'fact': '后来的事'}]
+        self.assertEqual(address.stage_facts(facts, [{'from_event': None}, {'from_event': 'e2'}], evs), [['邻居'], ['邻居', '改口叫阿博']])
+        chk = address.check([['安妮'], ['安妮', '博文']], {'安妮': '博文', '博文': '安妮'})
+        ok = {'stages': [{'n': 1, 'views': [{'who': '安妮', 'address': []}]}, {'n': 2, 'views': [{'who': '安妮', 'address': [{'term': '阿博', 'use': 'usually', 'when': ''}, {'term': '笨蛋', 'use': 'sometimes', 'when': '生气时'}]}, {'who': '博文', 'address': []}]}]}
+        self.assertEqual(chk(ok), [])
+        bad = lambda f: '\n'.join(chk({'stages': [ok['stages'][0], {'n': 2, 'views': [{'who': '安妮', 'address': f}]}]}))  # noqa: E731
+        for term in ('「阿博」', '“老大”或“博文”', '以名字直呼博文', '老大（昔日称呼）', '阿博、博文'):
+            self.assertIn('only the form itself', bad([{'term': term, 'use': 'usually'}]))
+        self.assertIn('Japanese kana', bad([{'term': '博文さん', 'use': 'usually'}]))
+        self.assertIn('plain full name', bad([{'term': '博文', 'use': 'usually'}]))
+        self.assertIn('say when', bad([{'term': '阿博', 'use': 'sometimes', 'when': ''}]))
+        self.assertIn('is always, so it is their only form', bad([{'term': '阿博', 'use': 'always'}, {'term': '笨蛋', 'use': 'sometimes', 'when': '生气时'}]))
+        self.assertIn('not one of the sides listed', '\n'.join(chk({'stages': [{'n': 1, 'views': [{'who': '博文', 'address': []}]}, ok['stages'][1]]})))
+        self.assertIn('give exactly 2 stages', '\n'.join(chk({'stages': ok['stages'][:1]})))
 
     def test_attach_follows_merges_and_lists_a_stage_whose_event_is_gone(self):
         with tempfile.TemporaryDirectory() as d:

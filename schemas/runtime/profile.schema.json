@@ -183,12 +183,36 @@
        {
         "type": "object",
         "properties": {
-         "calls": {
+         "address": {
           "type": [
-           "string",
+           "array",
            "null"
           ],
-          "maxLength": 100
+          "items": {
+           "type": "object",
+           "properties": {
+            "term": {
+             "type": "string",
+             "maxLength": 60
+            },
+            "use": {
+             "enum": [
+              "always",
+              "usually",
+              "sometimes"
+             ]
+            },
+            "when": {
+             "type": "string",
+             "maxLength": 200
+            }
+           },
+           "required": [
+            "term",
+            "use"
+           ],
+           "additionalProperties": false
+          }
          },
          "sees": {
           "type": [
@@ -210,12 +234,36 @@
        {
         "type": "object",
         "properties": {
-         "calls": {
+         "address": {
           "type": [
-           "string",
+           "array",
            "null"
           ],
-          "maxLength": 100
+          "items": {
+           "type": "object",
+           "properties": {
+            "term": {
+             "type": "string",
+             "maxLength": 60
+            },
+            "use": {
+             "enum": [
+              "always",
+              "usually",
+              "sometimes"
+             ]
+            },
+            "when": {
+             "type": "string",
+             "maxLength": 200
+            }
+           },
+           "required": [
+            "term",
+            "use"
+           ],
+           "additionalProperties": false
+          }
          },
          "sees": {
           "type": [

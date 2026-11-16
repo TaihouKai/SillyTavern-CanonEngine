@@ -3,7 +3,8 @@
 // The evaluator's own verdicts never bypass these checks.
 import type { ContactInfo, FactDelta, FactValue, Id, Occurrence, RuntimeEntity, ScopeKind, StoryTime, Until } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
-import { claimComparable, claimMatches, cleanCalls, valuesEqual, coerceClaimValue } from '../domain/pack';
+import { claimComparable, claimMatches, valuesEqual, coerceClaimValue } from '../domain/pack';
+import { cleanViews } from '../domain/address';
 import { factAt } from '../domain/reducer';
 import { applyChange, deltaMeets, deltaText, outcomeDelta, withPackEnd } from '../domain/delta';
 import type { WorldIndex } from '../domain/world-query';
@@ -44,7 +45,7 @@ export interface EvalOutput {
   /** Narrative integration: contacts from the world that reached the player in this reply. */
   contacts?: { quote: string; actors?: string[]; kind: ContactInfo['contactKind']; scope_kind: ScopeKind; scope_ref: string; scope_label?: string; opportunity_id?: string | null }[];
   /** Relations between two people (the player character like anyone) that this reply begins, changes or ends. */
-  relations?: { people: string[]; bond: string; views?: { who: string; calls?: string; sees: string }[]; together?: string; ended?: boolean; quote: string }[];
+  relations?: { people: string[]; bond: string; views?: { who: string; address?: { term: string; use: string; when?: string }[]; sees: string }[]; together?: string; ended?: boolean; quote: string }[];
   /** The people physically with the player character where the reply ends. */
   present?: string[];
   /** Narrative integration: what people know about the player character, changed. */
@@ -732,11 +733,8 @@ export function runGate(g: GateInput): GateResult {
     });
     if (!ids[0] || !ids[1] || ids[0] === ids[1] || !ids.every((id) => isPerson(id!))) { warnings.push(`relation "${label}" ignored: not two known people`); continue; }
     const people = ids as [Id, Id];
-    const views = (r.views || []).map((v) => ({ who: relationRef(String(v.who || '').trim()), calls: cleanCalls(v.calls), sees: String(v.sees || '').trim().slice(0, 400) }))
-      // (a side whose form of address alone changes gives calls only: merged into the relation, the rest stays)
-      .filter((v): v is { who: Id; calls: string; sees: string } => !!v.who && people.includes(v.who) && !!(v.sees || v.calls))
-      .filter((v, i, all) => all.findIndex((x) => x.who === v.who) === i)
-      .map((v) => ({ who: v.who, ...(v.calls ? { calls: v.calls } : {}), sees: v.sees }));
+    // (a side whose forms of address alone change gives those only: merged into the relation, the rest stays)
+    const views = cleanViews(r.views, people, relationRef);
     const together = String(r.together || '').trim().slice(0, 400);
     const name = (id: Id) => (index.entityExists(id) ? index.entityName(id) : runtimeEntities.find((x) => x.id === id)?.name || id);
     relationDrafts.push({

@@ -485,7 +485,8 @@ def _texts_of_entity(x):
 def relation_texts(s, N=lambda i: i):
     """[(field, text)] of one stage of a relation."""
     out = [(k, s.get(k) or '') for k in ('bond', 'why', 'together')]
-    out += [(f'{N(v["who"])}.{k}', v.get(k) or '') for v in s.get('views') or [] for k in ('calls', 'sees')]
+    out += [(f'{N(v["who"])}.sees', v.get('sees') or '') for v in s.get('views') or []]
+    out += [(f'{N(v["who"])}.address', '；'.join(f.get('term', '') + (f'（{f["when"]}）' if f.get('when') else '') for f in v.get('address') or [])) for v in s.get('views') or []]
     return [(k, x) for k, x in out if x]
 
 
@@ -594,7 +595,7 @@ def text_problems(pack, misses=()):
             w = s.get('from_event') or '开局'
             for k, x in relation_texts(s, N):
                 scan(f'{tag}({w}).{k}', x)
-                if k != 'calls' and (CUT_OFF.search(x.strip()) or DANGLING.match(x.strip())):
+                if not k.endswith('.address') and (CUT_OFF.search(x.strip()) or DANGLING.match(x.strip())):
                     cut.append(f'{tag}({w}).{k}：…{x.strip()[-24:]}')
     out.append(('problem', '正文里有研究过程的话', '待核对、见维基、考据……是做包时的笔记，GM 读到会当成剧情；改成定论或删去', research))
     out.append(('problem', '中文正文里夹着英文词', '英文资料的原词没译出来；设定里本就写作英文的名称（实体名里有的）不算', latin))

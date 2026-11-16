@@ -1,12 +1,13 @@
 // Actual-history retrieval (causal OR mentioned) and independent entity/scene state queries.
 // Lookups never traverse the Hard graph and never depend on anchor relevance.
-import type { FactValue, Id, MindProfile, NatureVersion, Occurrence, RelationChange, RelationView, StoryTime } from './types';
+import type { AddressChange, FactValue, Id, MindProfile, NatureVersion, Occurrence, RelationChange, RelationStage, RelationView, StoryTime } from './types';
 import type { LoadedPack } from './pack';
 import { normalizeName, pairKey } from './pack';
 import type { Checkpoint, OccurrenceEntry, WorldState } from './reducer';
 import { factAt, factKey, factHistory } from './reducer';
 import { formatStoryTime, formatTick, occurrenceTime } from './time';
 import { deltaText } from './delta';
+import { mergeAddress } from './address';
 
 /** A relation in force (WorldIndex.relationNow): the whole of it, as this game has it now. source: where its last
  *  change came from (pack: the original story's own stage, nothing in this game changed the pair). */
@@ -19,15 +20,20 @@ export interface RelationNow {
 export interface RelationBody { bond: string; views: RelationView[]; together?: string; ended?: boolean }
 
 /** A change merged into the relation it changes, part by part: what the change gives replaces that part, what it
- *  leaves out stays (the other side, the forms of address, how they are together). The Persona says the whole of the
- *  player's relation (replaces it); removed takes the relation out. */
+ *  leaves out stays (the other side, how they are together); the forms of address are merged form by form
+ *  (mergeAddress). The Persona and the user in the panel say the whole relation (it replaces the one there); removed
+ *  takes the relation out. */
 export function mergeRelation(base: RelationBody | null, c: Pick<RelationChange, 'bond' | 'views' | 'together' | 'ended' | 'removed' | 'source'>): RelationBody | null {
   if (c.removed) return null;
-  if (c.source === 'persona' || !base) return { bond: c.bond, views: c.views.map((v) => ({ ...v })), ...(c.together ? { together: c.together } : {}), ...(c.ended ? { ended: true } : {}) };
-  const views = base.views.map((v) => ({ ...v }));
+  if (c.source === 'persona' || c.source === 'ui' || !base) {
+    const views = c.views.map((v) => { const address = mergeAddress([], v.address); return { who: v.who, ...(address.length ? { address } : {}), sees: v.sees }; });
+    return { bond: c.bond, views, ...(c.together ? { together: c.together } : {}), ...(c.ended ? { ended: true } : {}) };
+  }
+  const views: RelationView[] = base.views.map((v) => ({ ...v }));
   for (const v of c.views) {
     const i = views.findIndex((x) => x.who === v.who);
-    const merged = { who: v.who, ...((v.calls || views[i]?.calls) ? { calls: v.calls || views[i]?.calls } : {}), sees: v.sees || views[i]?.sees || '' };
+    const address = mergeAddress(views[i]?.address, v.address);
+    const merged = { who: v.who, ...(address.length ? { address } : {}), sees: v.sees || views[i]?.sees || '' };
     if (i < 0) views.push(merged); else views[i] = merged;
   }
   const together = c.together || base.together;
@@ -36,8 +42,22 @@ export function mergeRelation(base: RelationBody | null, c: Pick<RelationChange,
 
 /** A pair whose relation a settled event of the pack changes and the game has to work out (the original story's
  *  stage does not simply follow): the event went differently, or this game had already changed the pair, or an
- *  earlier change of the original story did not come about. change: what the original story changes there. */
-export interface RelationDue { people: [Id, Id]; eventId: Id; eventRecordId: string; change: string; now: RelationBody | null }
+ *  earlier change of the original story did not come about. change: what the original story changes there; address:
+ *  how its forms of address change there (addressDelta). */
+export interface RelationDue { people: [Id, Id]; eventId: Id; eventRecordId: string; change: string; address: { who: Id; address: AddressChange[] }[]; now: RelationBody | null }
+
+/** How the forms of address change from one stage of the original story to the next (prev null: they meet — every
+ *  form of the stage): each side's forms that are new or used otherwise, and the ones no longer used (dropped). */
+export function addressDelta(prev: RelationStage | null, next: RelationStage): { who: Id; address: AddressChange[] }[] {
+  const k = (t: string) => normalizeName(t);
+  return next.views.map((v) => {
+    const old = prev?.views.find((x) => x.who === v.who)?.address || [];
+    const now = v.address || [];
+    const changed: AddressChange[] = now.filter((f) => !old.some((o) => k(o.term) === k(f.term) && o.use === f.use && (o.when || '') === (f.when || '')));
+    const dropped: AddressChange[] = old.filter((o) => !now.some((f) => k(f.term) === k(o.term))).map((o) => ({ term: o.term, use: 'dropped' }));
+    return { who: v.who, address: [...changed, ...dropped] };
+  }).filter((x) => x.address.length);
+}
 
 export interface ResolvedRef {
   phrase: string;
@@ -249,7 +269,7 @@ export class WorldIndex {
         if (d.disposition === 'occurred' && !changes.length && !this.canonLine(k).broken) continue;
         const now = this.relationNow(r.people[0], r.people[1]);
         const s = r.stages[i];
-        out.push({ people: r.people, eventId: e, eventRecordId: d.recordId, change: s.why?.trim() || `they come to know each other: ${s.bond}`, now: now ? { bond: now.bond, views: now.views, ...(now.together ? { together: now.together } : {}), ...(now.ended ? { ended: true } : {}) } : null });
+        out.push({ people: r.people, eventId: e, eventRecordId: d.recordId, change: s.why?.trim() || `they come to know each other: ${s.bond}`, address: addressDelta(i > 0 ? r.stages[i - 1] : null, s), now: now ? { bond: now.bond, views: now.views, ...(now.together ? { together: now.together } : {}), ...(now.ended ? { ended: true } : {}) } : null });
       }
     }
     return out;

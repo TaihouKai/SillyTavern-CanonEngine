@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.38.0 — 2026-11-16
+
+- **Forms of address are their own part of a relation.** The user found the GM often gets wrong how people address each other. Until now each side had one `calls` string, and in the Toaru pack 590 of 1,778 were simply the other's full name. One word could not say that 上条 mostly calls 美琴 御坂 and teases her as 哔哩哔哩, or that 美琴 says 你这家伙 to his face and 那个笨蛋 when she speaks of him.
+  - Each side now has `address`: a list of forms, each with `term`, `use` and, where needed, `when`.
+  - `use` is one of: always (the only form they use for the other, so it stands alone), usually, or sometimes (with `when`, the situation).
+  - Only forms a reader could not guess from the other's full name are given. These are a nickname, a title, an honorific form, an insult, an endearment, a kinship word, or the surname or given name alone. Never the plain full name, and never a bare pronoun. With no forms, people use the name as the story would.
+- **The GM gets them as a list of their own**, FORMS OF ADDRESS, after the relationships of the people here: one line per side that has forms, e.g. `白井黑子 → 御坂美琴: 「姐姐大人」 (always)`. The relationship lines no longer carry them.
+- **The review holds replies to them** (`wrong_address`, blocking): another form where a side's form is always, or a form used sometimes outside its situation. A person toward someone with no forms listed is free to use the name.
+- **Changes merge form by form.** The review of a reply, a worked-out event (`relate`) and the Persona read give forms as a list. A form given is added or replaces the same term, a form can be dropped (`use: dropped`), and a form that becomes always is then the only one; beside other forms, always is read as usually. The terms are cleaned by code: brackets taken off, and several forms written as one split into one form each.
+- **`relate` gets the original story's change of forms** at that stage, worked out by code from the two stages, to take as far as it fits what actually happened.
+- **The player's relations can be edited whole in the 叙事融入 panel** (user: only the relation itself could be changed). Each relation with a person has a form with:
+  - what they are to each other;
+  - for each side, how they see and treat the other and their forms of address (term, how often, when; rows added and removed);
+  - how they are together;
+  - ended.
+
+  The card shows all of it. What the panel saves replaces the relation there, as the Persona's does. A tie to a group or organization from the Persona is changed in the Persona.
+- 角色关系 table: each side shows its forms of address with how often and when.
+- Pack format: a relation view has `address` instead of `calls`. The lint errors on a term given twice or an always beside other forms. It warns about a term that is the other's full name or carries brackets or several forms, and about a sometimes form without `when`.
+- **Toaru pack 6.0.0.** Every verified relation has its forms of address. The builder proposed them, and each of the 486 pairs was then read by hand: 469 stage sides were set by hand, and 206 sides have forms. Plain surnames and short names were taken out, along with one-off jibes, pronouns and forms the work does not use, and known forms were added (黑子→上条 类人猿, 茵蒂克丝→美琴 短发, 土御门→上条 阿上, 小萌→students …酱, 一方通行→最后之作 臭小鬼, the sisters' 姐姐大人). Lint 0/0, checks 0.
+
+## pack-builder: forms of address — 2026-11-16
+
+- New step `cpb address`: proposes the forms of address of the verified relations, stage by stage and side by side. Its sources are the verified stages, the dated facts of `relations` (given to each stage by code, by its start), and the lines of both wiki pages about how one calls the other.
+- Code checks each term: the form alone, no kana, not the other's full name, `when` for sometimes, always alone. The proposals are written to `work/<project>/out/address-review.txt` to read, and `address --apply` puts them into the verified relations. Toaru: 486 pairs, about $0.25.
+- `relations` no longer writes `calls` (the write step's version is bumped; its cached facts stay).
+- Corrections (spelling) and the text checks reach the forms of address.
+
 ## 1.37.2 — 2026-11-16
 
 - **A claim naming people by name is checked against them.** Live: the review read 「帆风润子正踮着脚东张西望，旁边跟着口囃子早鸟」 as presupposing 食蜂派阀's members `["帆风润子","口囃子早鸟","食蜂操祈"]`, compared that with the state's `["hokaze-junko","kobayashi-satori","shokuhou-misaki"]`, and refused the reply as a contradiction; with the two other refusals that turn failed. Names in a claimed person or member list are now read as those people. A claimed list agrees when everyone it names is a member, because narration that names some members does not say there are no others. A name that is no known person is not checked.

@@ -1,5 +1,5 @@
 """关系: how two people of the story stand with each other, so the game master plays them toward each other as the
-original does — how they address each other, what they think of each other, how they are together. Game masters
+original does — what they think of each other, how they are together (how they address each other: address.py). Game masters
 otherwise know each person alone and make every pair polite acquaintances.
 
 Which pairs: the people a person's wiki page lists under 人际关系 (resolved to the pack's people), and the pairs who
@@ -7,8 +7,8 @@ share many events of the pack. A pair is decided by structure, never by a model.
 pages' entries about the other, the lines of each page that mention the other, and their shared events in story order,
 and writes the relation in stages that begin at those events (the engine shows the stage the branch has reached).
 
-The pack's `relations`: [{people: [a, b], stages: [{from_event, why?, bond, views: [{who, calls?, sees}], together?}],
-source_refs}]."""
+The pack's `relations`: [{people: [a, b], stages: [{from_event, why?, bond, views: [{who, address?, sees}], together?}],
+source_refs}] (address: the forms of address, proposed by `address` for the verified relations)."""
 import json
 import os
 import re
@@ -18,13 +18,11 @@ from .nature import clean_wikitext
 from .util import log, read_json, warn, write_json
 
 RELATION_VERSION = 'relation-10'
-WRITE_VERSION = 'relation-write-4'   # the writing step alone (its facts stay cached)
+WRITE_VERSION = 'relation-write-5'   # the writing step alone (its facts stay cached)
 MIN_SHARED = 8          # pairs no page lists: this many shared events make one
 MAX_EVENTS = 60         # shared events shown per pair (the first, the last, and an even spread)
 MENTION_CHARS = 2500    # lines of each page that mention the other
 MAX_STAGES = 5
-# read-through: calls written as 「「海原美月」」, “首领”或“支仓同学”, 以名字或姓氏直呼天乃绫音, 首领（昔日称呼…）
-CALLS_NOT_NAME = re.compile(r'[「」『』“”"\'（）()]|或|直呼|称呼|一类|叫法')
 # read-through: a view that says the facts do not tell it (（此阶段事实未给出…）) instead of leaving the side out
 NO_FACTS = re.compile(r'事实(?:中)?(?:未|没有|并未)|未给出|未提供|未记载|没有特别记载')
 
@@ -55,7 +53,6 @@ Each stage:
 - from_event: exactly as given.
 - bond: what they are to each other now, one phrase naming its main sides, not a single label (室友兼学姐学妹，一个仰慕到失控、一个嫌烦又护着 / 互相看不顺眼、嘴上从不认输，关键时刻却信得过对方的同校超能力者 / 父女). A state, never a transition ("从…转为…" is not a bond).
 - views: one entry per side that knows the other; who: that person's name exactly as given. Each entry is that person's own side, about the other:
-  - calls: how they address or refer to the other, as the facts show it; "" if they do not.
   - sees: two or three sentences, no more: how they regard and treat the other — feelings (mixed ones as mixed), attitude, typical behaviour, what they would or would not do for them, what they would never say to them.
   Someone who does not know the other (yet) gets no entry — only possible in stage 1: by a later stage both know each other, so both sides are written.
 - A side whose new facts change it completely (one loses their memory of the other, learns who the other really is, dies) is written from those facts, not carried over from the stage before.
@@ -65,7 +62,7 @@ IN {lang} ONLY: not a single English word (no "touchy", "rivalry"); the names of
 
 PATTERNS, NOT A RETELLING. Standing attitudes the game master plays in new scenes the original never had. The facts are often episodes: turn each into what it shows about the two (not "她把对方丢在天台" but "会拿对方开过火的玩笑"), never list them; a game master given episodes brings them up again and again. The shared past may be named in a few words where it is the reason for how they stand ("曾被对方从实验中救下"), at most once or twice a stage.
 
-Reply with a JSON object only: {{"stages": [{{"from_event": "", "bond": "", "views": [{{"who": "<name>", "calls": "", "sees": ""}}], "together": ""}}]}}"""
+Reply with a JSON object only: {{"stages": [{{"from_event": "", "bond": "", "views": [{{"who": "<name>", "sees": ""}}], "together": ""}}]}}"""
 
 WRITE_USER = """Work: {work}
 
@@ -359,9 +356,6 @@ def check_write(starts, names, ok_words=()):
             if any(isinstance(v, dict) and not str(v.get('sees') or '').strip() for v in vs):
                 out.append(f'stage {i + 1}: a view without sees')
             for v in vs:
-                c = str(v.get('calls') or '').strip() if isinstance(v, dict) else ''
-                if c and CALLS_NOT_NAME.search(c):
-                    out.append(f'stage {i + 1}: calls "{c}" — calls is only the names or forms of address themselves, several separated by 、, no brackets, quotes, "或" or explanation')
                 if isinstance(v, dict) and NO_FACTS.search(str(v.get('sees') or '')):
                     out.append(f'stage {i + 1}: a view about missing facts — a side the facts say nothing about gets no entry')
             # live read: later stages with one side only although both had long known each other
@@ -369,7 +363,7 @@ def check_write(starts, names, ok_words=()):
                 out.append(f'stage {i + 1}: by a later stage both know each other: write both sides')
             if len(vs) == 2 and not str(s.get('together') or '').strip():
                 out.append(f'stage {i + 1}: together is empty: say how the two are when together')
-            text = ' '.join([str(s.get('bond') or ''), str(s.get('together') or '')] + [str(v.get(k) or '') for v in vs if isinstance(v, dict) for k in ('calls', 'sees')])
+            text = ' '.join([str(s.get('bond') or ''), str(s.get('together') or '')] + [str(v.get('sees') or '') for v in vs if isinstance(v, dict)])
             en = latin_words(text, ok)
             if en:
                 out.append(f'stage {i + 1}: English words ({", ".join(dict.fromkeys(en))}): write everything in the language of the story')
@@ -408,7 +402,7 @@ def to_pack(r, a, b, names):
         views = []
         for v in s.get('views') or []:
             if v.get('who') in side and str(v.get('sees') or '').strip():
-                views.append({'who': side[v['who']], **({'calls': v['calls'].strip()} if str(v.get('calls') or '').strip() else {}), 'sees': v['sees'].strip()})
+                views.append({'who': side[v['who']], 'sees': v['sees'].strip()})
         st = {'from_event': s.get('from_event') if i else s.get('from_event'), 'bond': str(s.get('bond') or '').strip(), 'views': views}
         if i and str(s.get('why') or '').strip():
             st['why'] = s['why'].strip()

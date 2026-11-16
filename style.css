@@ -284,6 +284,16 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .ci-add { border:1px dashed var(--ci-line); border-radius:8px; padding:6px 10px; margin:0 0 6px; }
 .ci-add > summary { opacity:.85; }
 .ci-check { display:flex; align-items:center; gap:6px; margin:0; }
+.ci-relform { display:flex; flex-direction:column; gap:6px; }
+.ci-lbl { font-size:.85em; opacity:.75; margin:2px 0 -2px; }
+.ci-side { border:1px solid var(--ci-line); border-radius:6px; padding:4px 8px 8px; margin:0; display:flex; flex-direction:column; gap:6px; min-width:0; }
+.ci-side > legend { font-size:.9em; font-weight:600; padding:0 4px; }
+.ci-addr { display:flex; flex-direction:column; gap:4px; }
+.ci-addr-row { display:flex; gap:4px; align-items:center; }
+.ci-fold-in .ci-addr-row .ci-addr-term { flex:2 1 0; width:auto; min-width:0; }
+.ci-fold-in .ci-addr-row .ci-addr-use { flex:0 0 auto; width:auto; }
+.ci-fold-in .ci-addr-row .ci-addr-when { flex:3 1 0; width:auto; min-width:0; }
+.ci-addr-row .ci-btn { flex:0 0 auto; margin:0; }
 .ci-hr { border:0; border-top:1px solid var(--ci-line); margin:6px 0; }
 .ci-bar { display:flex; align-items:center; gap:6px; margin:10px 0; }
 .ci-banner { border:1px solid var(--ci-line); border-left-width:3px; border-radius:6px; padding:8px 10px; margin:10px 0; display:flex; flex-direction:column; gap:6px; }

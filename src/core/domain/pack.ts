@@ -7,6 +7,7 @@ import { toTick, whenToStoryTime } from './time';
 import { SUMMARY_LABELS, renderSummary, type EventSummary } from './summary';
 import { deepClone, hashObject, stableStringify } from './util';
 import { MAIN_FRAME, indexFrames, parseLocal, type FrameIndex } from './frames';
+import { ADDRESS_USES, cleanAddress } from './address';
 
 export interface LintIssue { level: 'error' | 'warning'; path: string; message: string }
 
@@ -40,10 +41,6 @@ export interface LoadedPack {
 
 /** One key for a pair of people, whichever comes first. */
 export const pairKey = (a: Id, b: Id) => (a < b ? `${a}|${b}` : `${b}|${a}`);
-/** How one side calls the other, as written by a model: the forms of address only (live: 「「姐姐」」 — the model put
- *  the brackets the section adds itself), several joined by 、. */
-export const cleanCalls = (s: unknown) => String(s || '').split(/[、，,／/]/)
-  .map((x) => x.trim().replace(/^[「『“"'‘（(]+|[」』”"'’）)]+$/g, '').trim()).filter(Boolean).join('、').slice(0, 100);
 
 export function normalizeName(s: string): string {
   return String(s).normalize('NFKC').toLowerCase().replace(/[\s·・._\-'"“”‘’「」『』]+/g, '');
@@ -549,6 +546,18 @@ function lintRelations(pack: CanonPack, err: (p: string, m: string) => void, war
       const who = s.views.map((v) => v.who);
       if (who.some((w) => !r.people.includes(w))) err(`${sp}/views`, `a view of someone not in this pair (${who.filter((w) => !r.people.includes(w)).join(', ')})`);
       if (new Set(who).size < who.length) err(`${sp}/views`, 'two views of the same side');
+      s.views.forEach((v, n) => {
+        const forms = v.address || [];
+        const other = ents.get(r.people.find((x) => x !== v.who) || '');
+        const terms = forms.map((f) => normalizeName(f.term));
+        if (new Set(terms).size < terms.length) err(`${sp}/views/${n}/address`, 'the same term twice: one form a term');
+        if (forms.length > 1 && forms.some((f) => f.use === 'always')) err(`${sp}/views/${n}/address`, '"always" is the only form a side uses: beside other forms it is "usually"');
+        forms.forEach((f, m) => {
+          if (f.term !== cleanAddress([f], ADDRESS_USES)[0]?.term) warn(`${sp}/views/${n}/address/${m}/term`, `"${f.term}": the term alone, one a form (no brackets, quotes or "或")`);
+          if (other && normalizeName(f.term) === normalizeName(other.name)) warn(`${sp}/views/${n}/address/${m}/term`, `"${f.term}" is the other's full name: the plain name is not a form of address to give`);
+          if (f.use === 'sometimes' && !f.when?.trim()) warn(`${sp}/views/${n}/address/${m}/when`, 'a form used sometimes says when (in what situation)');
+        });
+      });
     });
   });
 }

@@ -708,9 +708,34 @@
          "type": "string",
          "maxLength": 200
         },
-        "calls": {
-         "type": "string",
-         "maxLength": 100
+        "address": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "properties": {
+           "term": {
+            "type": "string",
+            "maxLength": 60
+           },
+           "use": {
+            "enum": [
+             "always",
+             "usually",
+             "sometimes",
+             "dropped"
+            ]
+           },
+           "when": {
+            "type": "string",
+            "maxLength": 200
+           }
+          },
+          "required": [
+           "term",
+           "use"
+          ],
+          "additionalProperties": false
+         }
         },
         "sees": {
          "type": "string",

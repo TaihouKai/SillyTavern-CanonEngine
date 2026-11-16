@@ -261,9 +261,37 @@
         "who": {
           "$ref": "#/$defs/id"
         },
-        "calls": {
-          "description": "How they address or refer to the other.",
-          "type": "string"
+        "address": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "term": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40,
+                "description": "The form itself, as the story's language writes it (姐姐大人, 那个笨蛋): no brackets or explanation."
+              },
+              "use": {
+                "enum": [
+                  "always",
+                  "usually",
+                  "sometimes"
+                ],
+                "description": "always: the only form this side uses for the other; usually: the common one; sometimes: now and then, in the situation `when` says."
+              },
+              "when": {
+                "type": "string",
+                "description": "In what situation the form is used (to their face, speaking of them to others, when teasing...). Needed for sometimes."
+              }
+            },
+            "required": [
+              "term",
+              "use"
+            ],
+            "additionalProperties": false
+          },
+          "description": "The forms by which this side addresses or refers to the other that a reader could not guess from the other's full name (a nickname, a title, an honorific, an insult, an endearment, the surname or given name alone). Never the plain full name; none: people use the name as the story would. 'always' only as the one form."
         },
         "sees": {
           "description": "How they regard the other and act toward them.",
@@ -1098,7 +1126,15 @@
                     "$ref": "#/$defs/time"
                   },
                   "precision": {
-                    "enum": ["minute", "range", "part_of_day", "day", "days", "month", "year"]
+                    "enum": [
+                      "minute",
+                      "range",
+                      "part_of_day",
+                      "day",
+                      "days",
+                      "month",
+                      "year"
+                    ]
                   },
                   "basis": {
                     "enum": [

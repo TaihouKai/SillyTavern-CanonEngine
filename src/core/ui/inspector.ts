@@ -5,6 +5,7 @@
 // it jumped to the top and closed what the user had opened).
 import type { CanonEngine } from '../runtime/engine';
 import { t } from './i18n';
+import { addressText } from './graph';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface InspectorDeps {
@@ -29,6 +30,15 @@ const item = (key: string, head: string, body = '', foot = '') => `<div class="c
 const fold = (key: string, label: string, inner: string, cls = '') => `<details class="ci-fold${cls ? ` ${cls}` : ''}" data-key="${esc(key)}"><summary>${esc(label)}</summary><div class="ci-fold-in">${inner}</div></details>`;
 const muted = (s: string) => `<div class="ci-muted">${s}</div>`;
 const empty = () => `<div class="ci-empty">${esc(t('ciNone'))}</div>`;
+/** One form of address in a relation being edited: the term, how often, and when (needed for sometimes). */
+const addrRow = (f: { term: string; use: string; when?: string } | null) => `<div class="ci-addr-row"><input class="text_pole ci-addr-term" placeholder="${esc(t('tieAddrTerm'))}" value="${esc(f?.term || '')}">`
+  + `<select class="text_pole ci-addr-use">${['always', 'usually', 'sometimes'].map((u) => `<option value="${u}" ${(f?.use || 'usually') === u ? 'selected' : ''}>${esc(t('addrUse_' + u))}</option>`).join('')}</select>`
+  + `<input class="text_pole ci-addr-when" placeholder="${esc(t('tieAddrWhen'))}" value="${esc(f?.when || '')}"><button class="menu_button ci-btn" data-act="addr-del" title="${esc(t('wsDelete'))}">✕</button></div>`;
+/** One side of a relation being edited: how they see and treat the other, and how they address them. */
+const sideForm = (key: 'they' | 'me', label: string, s: { address: { term: string; use: string; when?: string }[]; sees: string } | null) => `<fieldset class="ci-side" data-side="${key}"><legend>${esc(label)}</legend>`
+  + `<label class="ci-lbl">${esc(t('tieSees'))}</label><textarea class="text_pole ci-side-sees" rows="2">${esc(s?.sees || '')}</textarea>`
+  + `<label class="ci-lbl">${esc(t('tieAddress'))}</label><div class="ci-addr">${(s?.address || []).map(addrRow).join('')}</div>`
+  + `${btn(t('tieAddrAdd'), 'data-act="addr-add"')}</fieldset>`;
 
 export function createInspector(d: InspectorDeps) {
   let el: HTMLElement | null = null;
@@ -101,11 +111,26 @@ export function createInspector(d: InspectorDeps) {
     const ids = (kind: string, x: { who: string | null; name: string }, i: number) => `data-kind="${kind}" data-i="${i}" data-who="${esc(x.who || '')}" data-name="${esc(x.name)}"`;
     const levels = (cur: string, attr: string) => `<select class="text_pole canon-tie-level" ${attr}>${['exists', 'identity', 'secrets'].map((l) => `<option value="${l}" ${l === cur ? 'selected' : ''}>${esc(t(`tieLevel_${l}`))}</option>`).join('')}</select>`;
     const saveDel = (attr: string) => `<div class="ci-actions">${btn(t('wsSave'), `data-act="tie-save" ${attr}`, 'primary')}${btn(t('wsDelete'), `data-act="tie-del" ${attr}`, 'danger')}</div>`;
+    type Rel = NonNullable<Ni['profile']>['relationships'][number];
+    type Side = Rel['they'];
+    // the whole relation, as the panel saves it (editTie replaces the relation there with it)
+    const relForm = (a: string, r: Rel | null) => `<div class="ci-relform" ${a}>`
+      + (r ? '' : `<input class="text_pole canon-tie-name" ${a} placeholder="${esc(t('tieName'))}">`)
+      + `<label class="ci-lbl">${esc(t('tieBond'))}</label><textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc(t('tieRelText'))}">${esc(r?.text || '')}</textarea>`
+      + sideForm('they', r ? t('tieTheySide').replace('{n}', r.name) : t('tieTheySideNew'), r?.they || null)
+      + sideForm('me', r ? t('tieMeSide').replace('{n}', r.name) : t('tieMeSideNew'), r?.me || null)
+      + `<label class="ci-lbl">${esc(t('tieTogether'))}</label><textarea class="text_pole ci-rel-together" rows="2">${esc(r?.together || '')}</textarea>`
+      + `<label class="checkbox_label ci-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r?.ended ? 'checked' : ''}><span>${esc(t('tieEnded'))}</span></label>`
+      + (r ? saveDel(a) : `<div class="ci-actions">${btn(t('wsSave'), `data-act="tie-save" ${a}`, 'primary')}</div>`) + '</div>';
+    const sideText = (label: string, s: Side) => (s && (s.sees || s.address.length) ? `<div class="ci-meta"><b>${esc(label)}：</b>${s.address.length ? `${esc(t('relAddress'))}${esc(addressText(s.address))}${s.sees ? '；' : ''}` : ''}${esc(s.sees)}</div>` : '');
     const rel = p.relationships.map((r, i) => {
       const a = ids('relation', r, i);
-      return item(`rel-${r.name}`, `<span class="ci-title">${esc(r.name)}</span>${r.ended ? chip(t('tieEnded'), 'muted') : ''}${src(r)}`,
-        `${esc(r.text)}${r.org ? `<span class="ci-meta">${esc(r.org)}</span>` : ''}${extra(r)}`,
-        fold(`rel-edit-${r.name}`, t('tieEdit'), `<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc(r.text)}</textarea><label class="checkbox_label ci-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r.ended ? 'checked' : ''}><span>${esc(t('tieEnded'))}</span></label>${saveDel(a)}`, 'ci-edit'));
+      const body = `${esc(r.text)}${r.org ? `<span class="ci-meta">${esc(r.org)}</span>` : ''}`
+        + sideText(t('tieTheySide').replace('{n}', r.name), r.they) + sideText(t('tieMeSide').replace('{n}', r.name), r.me)
+        + (r.together ? `<div class="ci-meta"><b>${esc(t('tieTogether'))}：</b>${esc(r.together)}</div>` : '') + extra(r);
+      // a tie to a group or an organization is the Persona's: it is changed there, not here
+      return item(`rel-${r.name}`, `<span class="ci-title">${esc(r.name)}</span>${r.ended ? chip(t('tieEnded'), 'muted') : ''}${src(r)}`, body,
+        r.person ? fold(`rel-edit-${r.name}`, t('tieEdit'), relForm(a, r), 'ci-edit') : muted(esc(t('tieNotPerson'))));
     });
     const kn = p.knowers.map((k, i) => {
       const a = ids('knows', k, i);
@@ -115,8 +140,9 @@ export function createInspector(d: InspectorDeps) {
     });
     const add = (kind: 'relation' | 'knows') => {
       const a = `data-kind="${kind}" data-i="new"`;
-      return fold(`add-${kind}`, t(kind === 'relation' ? 'tieAddRel' : 'tieAddKnower'), `<input class="text_pole canon-tie-name" ${a} placeholder="${esc(t('tieName'))}">${kind === 'knows' ? levels('identity', a) : ''}`
-        + `<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc(t(kind === 'relation' ? 'tieRelText' : 'tieKnowsText'))}"></textarea><div class="ci-actions">${btn(t('wsSave'), `data-act="tie-save" ${a}`, 'primary')}</div>`, 'ci-add');
+      if (kind === 'relation') return fold('add-relation', t('tieAddRel'), relForm(a, null), 'ci-add');
+      return fold('add-knows', t('tieAddKnower'), `<input class="text_pole canon-tie-name" ${a} placeholder="${esc(t('tieName'))}">${levels('identity', a)}`
+        + `<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc(t('tieKnowsText'))}"></textarea><div class="ci-actions">${btn(t('wsSave'), `data-act="tie-save" ${a}`, 'primary')}</div>`, 'ci-add');
     };
     return {
       html: sec('rel', t('niConnections'), (rel.join('') || empty()) + add('relation'), '', d.tip('tieTip')) + sec('knows', t('niWho'), (kn.join('') || empty()) + add('knows')),
@@ -404,6 +430,9 @@ export function createInspector(d: InspectorDeps) {
       const act = b.dataset.act;
       const E0 = E();
       if (act === 'close') return toggle(false);
+      // a form of address more or less in a relation being edited (saved with the relation)
+      if (act === 'addr-add') { b.closest('.ci-side')?.querySelector('.ci-addr')?.insertAdjacentHTML('beforeend', addrRow(null)); return; }
+      if (act === 'addr-del') { b.closest('.ci-addr-row')?.remove(); return; }
       if (act === 'spoilers' || act === 'ni-jobs') return;
       if (b.tagName === 'BUTTON') (b as HTMLButtonElement).disabled = true;
       if (act === 'ni-prefer') run(E0.togglePreferred(b.dataset.scope || ''));
@@ -424,7 +453,19 @@ export function createInspector(d: InspectorDeps) {
         const name = isNew ? (sel('canon-tie-name')?.value || '') : (b.dataset.name || '');
         const text = sel('canon-tie-text')?.value.trim() || '';
         if (act === 'tie-save' && (!name.trim() || (kind === 'relation' && !text))) { (b as HTMLButtonElement).disabled = false; d.toast('warning', t('tieNeedText')); return; }
-        const patch = act === 'tie-del' ? null : kind === 'relation' ? { relation: text, ended: !!sel('canon-tie-ended')?.checked } : { level: (sel('canon-tie-level')?.value || 'identity') as 'exists' | 'identity' | 'secrets', about: text };
+        const form = b.closest('.ci-relform');
+        const side = (key: string) => {
+          const f = form?.querySelector(`.ci-side[data-side="${key}"]`);
+          const address = [...(f?.querySelectorAll('.ci-addr-row') || [])].map((row) => ({
+            term: (row.querySelector('.ci-addr-term') as HTMLInputElement).value.trim(),
+            use: (row.querySelector('.ci-addr-use') as HTMLSelectElement).value as 'always' | 'usually' | 'sometimes',
+            when: (row.querySelector('.ci-addr-when') as HTMLInputElement).value.trim(),
+          })).filter((x) => x.term);
+          return { address, sees: (f?.querySelector('.ci-side-sees') as HTMLTextAreaElement | null)?.value.trim() || '' };
+        };
+        const patch = act === 'tie-del' ? null : kind === 'relation'
+          ? { relation: text, ended: !!sel('canon-tie-ended')?.checked, together: (form?.querySelector('.ci-rel-together') as HTMLTextAreaElement | null)?.value.trim() || '', they: side('they'), me: side('me') }
+          : { level: (sel('canon-tie-level')?.value || 'identity') as 'exists' | 'identity' | 'secrets', about: text };
         // a saved edit closes its form
         run(E0.editTie(kind, isNew ? null : b.dataset.who || null, name, patch), () => { const det = b.closest('details[data-key]') as HTMLElement | null; if (det) opened.delete(`${tab}|${det.dataset.key}`); });
       } else if (act === 'ni-answer') run(E0.answerContact(b.dataset.rec || '', b.dataset.stance as 'accepted' | 'declined' | 'done'));

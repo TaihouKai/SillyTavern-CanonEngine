@@ -8,7 +8,8 @@ import type { ContactInfo, EngagementInfo, FactDelta, Id, PackEvent, RelationCha
 import { PERCEIVE_KINDS } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import type { ContactEntry, EngagementEntry, RelationEntry, TieEntry, WorldState } from '../domain/reducer';
-import { cleanCalls, pairKey } from '../domain/pack';
+import { pairKey } from '../domain/pack';
+import { cleanViews } from '../domain/address';
 import { evalCondition, factAt, triLabel } from '../domain/reducer';
 import { agoLabel, formatTick, toTick } from '../domain/time';
 import { hashObject, newId, sha256, uniq } from '../domain/util';
@@ -47,7 +48,7 @@ export interface ProfileOut {
   voice?: string;
   nature?: Partial<PlayerNature>;
   defenses?: string;
-  relationships: { name: string; existing_id?: string | null; relation?: string; basis?: 'persona_stated' | 'implied'; they?: { calls?: string; sees?: string } | null; player?: { calls?: string; sees?: string } | null }[];
+  relationships: { name: string; existing_id?: string | null; relation?: string; basis?: 'persona_stated' | 'implied'; they?: { address?: unknown; sees?: string } | null; player?: { address?: unknown; sees?: string } | null }[];
   knowers: { who: string; existing_id?: string | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: 'persona_stated' | 'implied'; places?: string[] }[];
   recognized_by?: { who: string; existing_id?: string | null; places?: string[]; everywhere?: boolean; as: string }[];
   world_changes?: { text: string; terms?: string[] }[];
@@ -127,10 +128,8 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
     }
     // what the Persona says about each side (how they address and see each other) when the other is a person
     const person = !!id && (kindOf(id) === 'person' || runtimeEntities.some((x) => x.id === id && x.kind === 'person'));
-    const side = (who: Id, s: { calls?: string; sees?: string } | null | undefined): RelationView[] => {
-      const sees = String(s?.sees || '').trim().slice(0, 400), calls = cleanCalls(s?.calls);
-      return sees ? [{ who, ...(calls ? { calls } : {}), sees }] : [];
-    };
+    // (a whole side as the Persona gives it: its forms of address are a list as it stands, not changes)
+    const side = (who: Id, s: { address?: unknown; sees?: string } | null | undefined) => cleanViews(s ? [{ ...s, who }] : [], [who], undefined, false) as RelationView[];
     const views = person && basis === 'persona_stated' ? [...side(id!, r.they), ...side(playerId, r.player)] : [];
     relationships.push({ entityId: id, name: r.name.trim(), relation: (r.relation || '').slice(0, 400), basis, ...(person ? { person: true } : {}), ...(views.length ? { views } : {}) });
   }
@@ -261,7 +260,7 @@ export function playedProfile(index: WorldIndex, profile: PlayerProfile): Player
     const by = rel.source === 'ui' ? 'ui' : rel.source === 'play' || rel.source === 'event' ? 'play' : null;
     return {
       entityId: other, name: index.entityName(other), relation: rel.bond, basis: start.has(other) ? 'persona_stated' : by || 'play', person: true,
-      ...(rel.views.length ? { views: rel.views } : {}), ...(rel.ended ? { ended: true } : {}),
+      ...(rel.views.length ? { views: rel.views } : {}), ...(rel.together ? { together: rel.together } : {}), ...(rel.ended ? { ended: true } : {}),
       ...(by && c ? { changed: { since: c.tick, by, start: start.get(other) ?? null, quote: c.quote } } : {}),
     };
   });

@@ -3,6 +3,7 @@
 import type { Id, MindProfile, NatureVersion, PackEvent, PerceiveKind, RelationView } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { pairKey } from '../domain/pack';
+import { addressLine } from '../domain/address';
 import { WorldIndex, type HistoryRecordView, type EntityStateView, type CanonStatusView } from '../domain/world-query';
 import { eventTimeText, formatStoryTime, formatTick, startsText, toTick } from '../domain/time';
 import { causeOf, pendingHard, upcomingRoute } from '../domain/schedule';
@@ -355,7 +356,10 @@ export const RELATION_MAX = 12;
 // Only the pairs that matter right now are given: someone in the scene with someone else in it or mentioned. The
 // player character is one of the people here like anyone (user: the Persona is a person of the world like the
 // original's characters).
-const RELATION_HEAD = 'RELATIONSHIPS (how the people here stand with each other now, in this game: each line is the whole relation as it stands, with everything the Persona and play changed in it). Play them toward each other by it — how they address each other, what they think of each other and how they are together shows in what they say and do, not explained. A relationship has several sides at once (rivals who trust each other still needle each other): play all of them, not only the first words of the line. It is how they are, not story to bring up. The player character\'s own side is what the Persona and play established: never decide the player character\'s feelings or words from it. Two people with no line here have no established relationship.';
+const RELATION_HEAD = 'RELATIONSHIPS (how the people here stand with each other now, in this game: each line is the whole relation as it stands, with everything the Persona and play changed in it). Play them toward each other by it — what they think of each other and how they are together shows in what they say and do, not explained. A relationship has several sides at once (rivals who trust each other still needle each other): play all of them, not only the first words of the line. It is how they are, not story to bring up. The player character\'s own side is what the Persona and play established: never decide the player character\'s feelings or words from it. Two people with no line here have no established relationship.';
+// User: the GM often gets wrong how people address each other. Only the forms that are not simply the name are given,
+// each with how often and when it is used, apart from the rest of the relation so they are not lost in it.
+const ADDRESS_HEAD = 'FORMS OF ADDRESS (how one person here addresses or refers to another where it is not simply by name; use them in what they say, and think, about that person: always — the only form they use for them, never another; usually — their common form; sometimes — only in the situation given. Toward anyone not listed here, people use the name as the story would.)';
 /** The relations among the people here (in the scene, the player character included, or named in the text), as
  *  WorldIndex.relationNow has them: pairs both in the scene first (those without the player first: the player has
  *  their own lines too), then in the scene with one named, then two named. */
@@ -386,13 +390,16 @@ export function relationSection(index: WorldIndex, retrieval: Retrieval, origin:
   if (!pairs.length) return '';
   pairs.sort((x, y) => x.tier - y.tier);
   const name = (id: Id) => index.entityName(id);
-  return RELATION_HEAD + '\n' + pairs.slice(0, RELATION_MAX).map(({ rel }) => {
+  const shown = pairs.slice(0, RELATION_MAX);
+  const address = shown.flatMap(({ rel }) => (rel.ended ? [] : rel.views.filter((v) => v.address?.length)
+    .map((v) => `- ${name(v.who)} → ${name(rel.people.find((x) => x !== v.who)!)}: ${addressLine(v.address)}`)));
+  return RELATION_HEAD + '\n' + shown.map(({ rel }) => {
     const [a, b] = rel.people;
     const from = rel.source === 'pack' ? '' : rel.source === 'persona' ? ' (from the Persona)' : ` (changed in this game, ${formatTick(rel.since!, origin)})`;
     // (one whole line: what play changed is merged into the relation it changed — WorldIndex.relationNow)
-    const views = rel.views.map((v) => `${name(v.who)} → ${name(v.who === a ? b : a)}: ${v.calls ? `calls them "${v.calls}"; ` : ''}${v.sees}`);
+    const views = rel.views.filter((v) => v.sees).map((v) => `${name(v.who)} → ${name(v.who === a ? b : a)}: ${v.sees}`);
     return `- ${name(a)} [${a}] ↔ ${name(b)} [${b}]: ${rel.ended ? 'ENDED: ' : ''}${rel.bond}${from}${views.length ? ' | ' + views.join(' | ') : ''}${rel.together ? ` | together: ${rel.together}` : ''}`;
-  }).join('\n');
+  }).join('\n') + (address.length ? `\n\n${ADDRESS_HEAD}\n${address.join('\n')}` : '');
 }
 
 /** People here with a 思考方式, the people in the scene first, then those the text mentions. */

@@ -136,8 +136,20 @@ export interface CanonPack {
  *  (RelationChange), for anyone, the player too. */
 export interface PackRelation { people: [Id, Id]; stages: RelationStage[]; source_refs: Id[] }
 export interface RelationStage { from_event: Id | null; why?: string; bond: string; views: RelationView[]; together?: string }
-/** One side of a relation: how `who` addresses the other (calls) and regards and treats them (sees). */
-export interface RelationView { who: Id; calls?: string; sees: string }
+/** One side of a relation: how `who` addresses the other (address) and regards and treats them (sees). */
+export interface RelationView { who: Id; address?: AddressForm[]; sees: string }
+/** How often a form of address is used: always — the only one they use for the other; usually — the common one;
+ *  sometimes — now and then, in the situation `when` says. */
+export type AddressUse = 'always' | 'usually' | 'sometimes';
+/** A form by which one side addresses or refers to the other that a reader could not guess from the other's full
+ *  name (a nickname, a title, an honorific, an insult, an endearment, the surname or the given name alone). The plain
+ *  full name is never one: with no form given, people use the name as the story would. */
+export interface AddressForm { term: string; use: AddressUse; when?: string }
+/** A change of the forms of address, merged form by form (mergeAddress): a form given replaces the one with the same
+ *  term or is added; dropped: the side no longer uses it. */
+export interface AddressChange { term: string; use: AddressUse | 'dropped'; when?: string }
+/** A change of one side: sees '' leaves it as it is. */
+export interface RelationViewChange { who: Id; address?: AddressChange[]; sees: string }
 
 // ---------------------------------------------------------------------------------------------
 // Runtime
@@ -234,15 +246,15 @@ export interface TieInfo {
   removed?: boolean;
 }
 
-/** A change of a relation between two people: from the Persona (the player's start: the whole relation), from play
- *  (the analysis of an accepted reply), from a settled event of the pack the game worked out (event) or from the user
- *  in the panel. Merged into the relation as it stands, part by part (mergeRelation): the parts it gives replace those
- *  parts, the rest stays. */
+/** A change of a relation between two people: from the Persona (the player's start), from play (the analysis of an
+ *  accepted reply), from a settled event of the pack the game worked out (event) or from the user in the panel. The
+ *  Persona and the panel give the whole relation; play and events are merged into the relation as it stands, part by
+ *  part (mergeRelation): the parts they give replace those parts, the rest stays. */
 export interface RelationChange {
   people: [Id, Id];
   /** What they are to each other now ('' : unchanged). */
   bond: string;
-  views: RelationView[];
+  views: RelationViewChange[];
   together?: string;
   /** It is over (one of them dead, broken off for good). */
   ended?: boolean;

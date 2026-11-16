@@ -5,14 +5,14 @@
 // relation part by part) and is recorded with the turn or action that settled the event.
 import type { Id, RelationChange } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
-import { cleanCalls } from '../domain/pack';
+import { cleanViews } from '../domain/address';
 import type { RelationDue, WorldIndex } from '../domain/world-query';
 import { newId } from '../domain/util';
 import { callStructured, type ModelPort } from './model';
 import { PROMPTS } from './prompts';
 import type { RecordDraft } from './types';
 
-interface RelateOut { pairs: { n: number; changed: boolean; bond?: string; views?: { who: string; calls?: string; sees?: string }[]; together?: string; ended?: boolean }[] }
+interface RelateOut { pairs: { n: number; changed: boolean; bond?: string; views?: unknown[]; together?: string; ended?: boolean }[] }
 
 const BATCH = 30;
 
@@ -37,7 +37,8 @@ export async function settleRelations(port: ModelPort, pack: LoadedPack, index: 
         n: j + 1, event: p.eventId,
         people: p.people.map((id) => ({ id, name: name(id) })),
         change: p.change,
-        now: p.now ? { bond: p.now.bond, views: p.now.views.map((v) => ({ who: v.who, name: name(v.who), ...(v.calls ? { calls: v.calls } : {}), sees: v.sees })), ...(p.now.together ? { together: p.now.together } : {}), ...(p.now.ended ? { ended: true } : {}) } : null,
+        ...(p.address.length ? { address_change: p.address.map((x) => ({ who: x.who, name: name(x.who), address: x.address })) } : {}),
+        now: p.now ? { bond: p.now.bond, views: p.now.views.map((v) => ({ who: v.who, name: name(v.who), address: v.address || [], sees: v.sees })), ...(p.now.together ? { together: p.now.together } : {}), ...(p.now.ended ? { ended: true } : {}) } : null,
       })),
     }, { signal: opts.signal, operationId: opts.operationId, log: opts.log });
     for (const a of out.pairs || []) if (part[a.n - 1]) answers.set(part[a.n - 1], a);
@@ -62,10 +63,7 @@ export async function settleRelations(port: ModelPort, pack: LoadedPack, index: 
 /** One answer as a change of the pair (null: it says nothing that changes). */
 function toChange(p: RelationDue, a: RelateOut['pairs'][number]): RelationChange | null {
   const bond = String(a.bond || '').trim().slice(0, 400);
-  const views = (a.views || []).map((v) => ({ who: String(v.who || '').trim(), calls: cleanCalls(v.calls), sees: String(v.sees || '').trim().slice(0, 400) }))
-    .filter((v) => p.people.includes(v.who) && (v.sees || v.calls))
-    .filter((v, i, all) => all.findIndex((x) => x.who === v.who) === i)
-    .map((v) => ({ who: v.who, ...(v.calls ? { calls: v.calls } : {}), sees: v.sees }));
+  const views = cleanViews(a.views, p.people);
   const together = String(a.together || '').trim().slice(0, 400);
   // a pair that did not know each other gets a relation only with a bond
   if (!p.now && !bond) return null;

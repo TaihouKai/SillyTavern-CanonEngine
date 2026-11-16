@@ -1,6 +1,6 @@
 // What the timeline window's 组织成员 and 常态 views show, worked out from a world index and the story time. The engine
 // calls these for the game in play; anything else holding a world (a pack's canon replayed to a time) calls them too.
-import type { Id, MindProfile, NatureVersion } from '../domain/types';
+import type { AddressForm, Id, MindProfile, NatureVersion, RelationView } from '../domain/types';
 import type { WorldIndex } from '../domain/world-query';
 import { factAt } from '../domain/reducer';
 import { effectTarget, effectToDelta } from '../domain/delta';
@@ -74,7 +74,7 @@ export function natureView(idx: WorldIndex, spoilers: boolean, player?: Id | nul
 /** 角色关系 as the timeline window shows them, one row a relation: every pair this game knows of (the pack's and those
  *  play or the Persona made) with the relation in force now; with spoilers also the original story's stages whose
  *  events are still to come, and the pairs who have not met yet. */
-export interface RelationSide { calls?: string; sees: string }
+export interface RelationSide { address?: AddressForm[]; sees: string }
 export interface RelationsViewData {
   rows: { a: string; b: string; player?: boolean; state: 'now' | 'later'; when: string | null; source?: 'pack' | 'persona' | 'play' | 'ui' | 'event'; bond: string; ended?: boolean; ab?: RelationSide; ba?: RelationSide; together?: string }[];
   hidden: number;
@@ -85,8 +85,8 @@ export function relationsView(idx: WorldIndex, spoilers: boolean, player?: Id | 
   const keys = new Map<string, [Id, Id]>();
   for (const [k, r] of idx.pack.relations) keys.set(k, r.people);
   for (const c of s.relations) keys.set(pairKey(c.people[0], c.people[1]), c.people);
-  const sides = (a: Id, vs: { who: Id; calls?: string; sees: string }[]) => {
-    const one = (v?: { calls?: string; sees: string }) => (v ? { ...(v.calls ? { calls: v.calls } : {}), sees: v.sees } : undefined);
+  const sides = (a: Id, vs: RelationView[]) => {
+    const one = (v?: RelationView) => (v ? { ...(v.address?.length ? { address: v.address } : {}), sees: v.sees } : undefined);
     const ab = one(vs.find((v) => v.who === a)), ba = one(vs.find((v) => v.who !== a));
     return { ...(ab ? { ab } : {}), ...(ba ? { ba } : {}) };
   };
