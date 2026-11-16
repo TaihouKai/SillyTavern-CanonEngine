@@ -1,6 +1,6 @@
 // Small persistent UI: status pill near the composer, settings drawer, binding wizard,
 // on-demand inspector (spoilers behind a toggle), per-variant banners and conflict markers.
-import { VOICE_KINDS, playerVoice, labelForError, formatUsd, interpretationsFor, baseKey, parseTickLabel, parseDateLabel, parseOriginLabel, formatTick, parseLeapTime, t, setLang, GraphPanel, packGraph, currentGraph, createInspector, validatePackText, type CanonEngine, type EngineSettings, type LoadedPack, timelineData } from '../../core';
+import { VOICE_KINDS, playerVoice, labelForError, formatUsd, interpretationsFor, baseKey, parseTickLabel, parseDateLabel, parseOriginLabel, formatTick, parseLeapTime, novelaiCell, t, setLang, GraphPanel, packGraph, currentGraph, createInspector, validatePackText, type CanonEngine, type EngineSettings, type LoadedPack, timelineData } from '../../core';
 import type { StHost } from './st';
 import { ctx, NS, gen } from './st';
 import { HoraeAdapter } from './horae';
@@ -635,7 +635,7 @@ function renderInspector() { inspector?.render(); }
 // ---------------------------------------------------------------------------------------------
 /** Banners/conflict markers keyed to the message variant's accepted commit (plugin UI, not prose). */
 export function renderMessageDecorations() {
-  document.querySelectorAll('.canon-banner, .canon-conflict').forEach((n) => n.remove());
+  document.querySelectorAll('.canon-banner, .canon-conflict, .canon-picture').forEach((n) => n.remove());
   const camp = E?.campaign();
   if (!camp || !camp.enabled) return;
   const chat: any[] = ctx().chat || [];
@@ -644,6 +644,14 @@ export function renderMessageDecorations() {
     const el = document.querySelector(`#chat .mes[mesid="${e.index}"] .mes_block`);
     if (!el) continue;
     if (e.role === 'gm') {
+      const extra = document.querySelector(`#chat .mes[mesid="${e.index}"] .extraMesButtons`);
+      if (extra) {
+        const b = document.createElement('div');
+        b.className = 'mes_button canon-picture fa-solid fa-image';
+        b.title = t('pictureButton');
+        b.addEventListener('click', () => void showPicture(e.messageId));
+        extra.prepend(b);
+      }
       const interp = interpretationsFor(camp.interpretations as any, baseKey(e)).find((x) => x.banner);
       if (interp?.banner) {
         const b = document.createElement('div');
@@ -660,6 +668,32 @@ export function renderMessageDecorations() {
     }
   }
   void chat;
+}
+
+/** 画面: the picture prompt of a reply, to copy into an image service (no image service is connected yet). */
+async function showPicture(messageId: string) {
+  toast('info', t('pictureWorking'));
+  let r: Awaited<ReturnType<CanonEngine['picture']>>;
+  try { r = await E.picture(messageId); } catch (e) { toast('error', (e as Error).message); return; }
+  const box = (label: string, text: string, rows = 3) => text
+    ? `<label>${esc(label)}<textarea readonly rows="${rows}" class="text_pole">${esc(text)}</textarea></label><div class="canon-row"><div class="menu_button canon-copy">${t('pictureCopy')}</div></div>`
+    : '';
+  const el = modal(`<h3>${t('pictureTitle')}</h3>
+    <div><b>${t('pictureMoment')}</b>：${esc(r.picture.moment)}</div>
+    <h4>${t('pictureNovelAI')}</h4>
+    ${box(t('pictureBase'), r.novelai.prompt)}
+    ${r.novelai.characters.map((c, i) => box(t('pictureChar').replace('{n}', String(i + 1)).replace('{cell}', novelaiCell(c.center)), c.prompt)).join('')}
+    ${box(t('pictureNegative'), r.novelai.negative, 1)}
+    <h4>${t('picturePlain')}</h4>
+    ${box(t('picturePrompt'), r.plain.prompt, 5)}
+    ${box(t('pictureCaption'), r.plain.caption, 3)}
+    ${r.dropped.length ? `<div class="canon-note">${t('pictureDropped')}${esc(r.dropped.join(' | '))}</div>` : ''}
+    <div class="canon-row"><div class="menu_button" data-close>${t('pictureClose')}</div></div>`);
+  el.querySelectorAll('.canon-copy').forEach((btn) => btn.addEventListener('click', async () => {
+    const area = btn.parentElement!.previousElementSibling!.querySelector('textarea')!;
+    await navigator.clipboard.writeText(area.value);
+    btn.textContent = t('pictureCopied');
+  }));
 }
 
 function gotoConflict() {

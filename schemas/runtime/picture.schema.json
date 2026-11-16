@@ -1,0 +1,190 @@
+{
+ "type": "object",
+ "properties": {
+  "moment": {
+   "type": "string",
+   "maxLength": 300
+  },
+  "caption": {
+   "type": "string",
+   "maxLength": 600
+  },
+  "characters": {
+   "type": "array",
+   "maxItems": 6,
+   "items": {
+    "type": "object",
+    "properties": {
+     "who": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "tag": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "copyright": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "body": {
+      "enum": [
+       "girl",
+       "boy",
+       "other"
+      ]
+     },
+     "look": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+       "type": "string",
+       "maxLength": 80
+      }
+     },
+     "outfit": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+       "type": "string",
+       "maxLength": 80
+      }
+     },
+     "expression": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+       "type": "string",
+       "maxLength": 80
+      }
+     },
+     "action": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+       "type": "string",
+       "maxLength": 80
+      }
+     },
+     "x": {
+      "enum": [
+       "left",
+       "center-left",
+       "center",
+       "center-right",
+       "right"
+      ]
+     },
+     "y": {
+      "enum": [
+       "upper",
+       "middle",
+       "lower"
+      ]
+     }
+    },
+    "required": [
+     "who",
+     "name",
+     "tag",
+     "copyright",
+     "body",
+     "look",
+     "outfit",
+     "expression",
+     "action",
+     "x",
+     "y"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "interactions": {
+   "type": "array",
+   "maxItems": 10,
+   "items": {
+    "type": "object",
+    "properties": {
+     "from": {
+      "type": "integer"
+     },
+     "to": {
+      "type": "integer"
+     },
+     "act": {
+      "type": "string",
+      "maxLength": 80
+     },
+     "mutual": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "from",
+     "to",
+     "act",
+     "mutual"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "place": {
+   "type": "array",
+   "maxItems": 12,
+   "items": {
+    "type": "string",
+    "maxLength": 80
+   }
+  },
+  "time": {
+   "type": "array",
+   "maxItems": 6,
+   "items": {
+    "type": "string",
+    "maxLength": 80
+   }
+  },
+  "effects": {
+   "type": "array",
+   "maxItems": 10,
+   "items": {
+    "type": "string",
+    "maxLength": 80
+   }
+  },
+  "framing": {
+   "enum": [
+    "close-up",
+    "portrait",
+    "upper body",
+    "cowboy shot",
+    "full body",
+    "wide shot"
+   ]
+  },
+  "angle": {
+   "type": "array",
+   "maxItems": 4,
+   "items": {
+    "type": "string",
+    "maxLength": 80
+   }
+  }
+ },
+ "required": [
+  "moment",
+  "caption",
+  "characters",
+  "interactions",
+  "place",
+  "time",
+  "effects",
+  "framing",
+  "angle"
+ ],
+ "additionalProperties": false
+}

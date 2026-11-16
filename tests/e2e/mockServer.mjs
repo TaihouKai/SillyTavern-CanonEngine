@@ -57,6 +57,15 @@ function defaultTask(task, input) {
     case 'ends': return { ends: [...String(input.question || '').matchAll(/^(\d+)\. /gm)].map((m) => ({ n: Number(m[1]), until: 'lasting', why: 'mock' })) };
     case 'affiliations': return { organizations: (input.organizations || []).filter((o) => o.read).map((o) => ({ ref: o.ref, status: o.read.status })) };
     case 'relate': return { pairs: (input.pairs || []).map((p) => ({ n: p.n, changed: false })) };
+    case 'picture': return {
+      moment: 'mock moment', caption: 'A mock picture.',
+      characters: [
+        { who: (input.people || [])[1]?.id || '', name: (input.people || [])[1]?.name || 'someone', tag: 'mock character', copyright: 'mock work', body: 'girl', look: [], outfit: ['school uniform'], expression: ['smile'], action: ['waving'], x: 'left', y: 'middle' },
+        { who: (input.people || [])[0]?.id || '', name: (input.people || [])[0]?.name || 'player', tag: '', copyright: '', body: 'boy', look: ['black hair', '短发'], outfit: ['hoodie'], expression: ['surprised'], action: ['standing'], x: 'right', y: 'middle' },
+      ],
+      interactions: [{ from: 1, to: 2, act: 'pointing at another', mutual: false }],
+      place: ['street'], time: ['evening'], effects: [], framing: 'cowboy shot', angle: [],
+    };
     case 'mind': return { minds: (input.people || []).map((p) => ({ id: p.id, reads: [{ what: 'mock read', surface: 'show' }], wants: 'mock want', move: 'mock move' })) };
     case 'plan': {
       const now = input.now?.tick ?? 0;

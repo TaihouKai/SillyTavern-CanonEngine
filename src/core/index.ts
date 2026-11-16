@@ -14,6 +14,7 @@ export { storyOnly } from './runtime/ooc';
 export { parseLeapTime } from './runtime/leap';
 export { interpretationsFor, baseKey } from './runtime/replay';
 export { membershipView, natureView, type MembershipView, type NatureViewData } from './runtime/views';
+export { novelaiCell, generateNovelAI, generateComfy, type Picture, type NovelAIPrompt, type PlainPrompt } from './runtime/picture';
 
 // history packs and the world
 export { validatePackText, lintPack, type LoadedPack, type LintIssue, type PackValidationResult } from './domain/pack';

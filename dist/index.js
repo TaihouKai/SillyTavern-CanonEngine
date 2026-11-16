@@ -16767,13 +16767,958 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
   return errors === 0;
 }
 validate74.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var plan = validate75;
-var schema112 = { "type": "object", "properties": { "rationale": { "type": "string" }, "protected_anchor_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "assumptions": { "type": "array", "items": { "type": "object", "properties": { "text": { "type": "string" }, "fact": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }] } }, "required": ["text", "fact"], "additionalProperties": false }, "maxItems": 200 }, "risks": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "mode": { "enum": ["NORMAL", "FORCED_CONVERGENCE"] }, "steps": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "targets": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "earliest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "latest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "prerequisites": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "action": { "type": "string" }, "intended_effects": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "depends_on": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "means": { "enum": ["ordinary", "extraordinary"] }, "serves_anchor": { "type": ["string", "null"] }, "requires_player_consent": { "type": "boolean" } }, "required": ["step_id", "actors", "earliest", "latest", "action", "intended_effects", "means", "serves_anchor", "requires_player_consent"], "additionalProperties": false }, "maxItems": 40 }, "inadequacy_note": { "type": "string" } }, "required": ["rationale", "protected_anchor_ids", "assumptions", "risks", "mode", "steps"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:plan", "title": "Canon Engine task output: plan" };
+var picture = validate75;
+var schema112 = { "type": "object", "properties": { "moment": { "type": "string", "maxLength": 300 }, "caption": { "type": "string", "maxLength": 600 }, "characters": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 120 }, "name": { "type": "string", "maxLength": 120 }, "tag": { "type": "string", "maxLength": 120 }, "copyright": { "type": "string", "maxLength": 120 }, "body": { "enum": ["girl", "boy", "other"] }, "look": { "type": "array", "maxItems": 16, "items": { "type": "string", "maxLength": 80 } }, "outfit": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 80 } }, "expression": { "type": "array", "maxItems": 6, "items": { "type": "string", "maxLength": 80 } }, "action": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 80 } }, "x": { "enum": ["left", "center-left", "center", "center-right", "right"] }, "y": { "enum": ["upper", "middle", "lower"] } }, "required": ["who", "name", "tag", "copyright", "body", "look", "outfit", "expression", "action", "x", "y"], "additionalProperties": false } }, "interactions": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "from": { "type": "integer" }, "to": { "type": "integer" }, "act": { "type": "string", "maxLength": 80 }, "mutual": { "type": "boolean" } }, "required": ["from", "to", "act", "mutual"], "additionalProperties": false } }, "place": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 80 } }, "time": { "type": "array", "maxItems": 6, "items": { "type": "string", "maxLength": 80 } }, "effects": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 80 } }, "framing": { "enum": ["close-up", "portrait", "upper body", "cowboy shot", "full body", "wide shot"] }, "angle": { "type": "array", "maxItems": 4, "items": { "type": "string", "maxLength": 80 } } }, "required": ["moment", "caption", "characters", "interactions", "place", "time", "effects", "framing", "angle"], "additionalProperties": false, "$id": "urn:canon-engine:picture" };
 function validate75(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
   const evaluated0 = validate75.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.moment === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "moment" }, message: "must have required property 'moment'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.caption === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "caption" }, message: "must have required property 'caption'" };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.characters === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "characters" }, message: "must have required property 'characters'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    if (data.interactions === void 0) {
+      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "interactions" }, message: "must have required property 'interactions'" };
+      if (vErrors === null) {
+        vErrors = [err3];
+      } else {
+        vErrors.push(err3);
+      }
+      errors++;
+    }
+    if (data.place === void 0) {
+      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "place" }, message: "must have required property 'place'" };
+      if (vErrors === null) {
+        vErrors = [err4];
+      } else {
+        vErrors.push(err4);
+      }
+      errors++;
+    }
+    if (data.time === void 0) {
+      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "time" }, message: "must have required property 'time'" };
+      if (vErrors === null) {
+        vErrors = [err5];
+      } else {
+        vErrors.push(err5);
+      }
+      errors++;
+    }
+    if (data.effects === void 0) {
+      const err6 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "effects" }, message: "must have required property 'effects'" };
+      if (vErrors === null) {
+        vErrors = [err6];
+      } else {
+        vErrors.push(err6);
+      }
+      errors++;
+    }
+    if (data.framing === void 0) {
+      const err7 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "framing" }, message: "must have required property 'framing'" };
+      if (vErrors === null) {
+        vErrors = [err7];
+      } else {
+        vErrors.push(err7);
+      }
+      errors++;
+    }
+    if (data.angle === void 0) {
+      const err8 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "angle" }, message: "must have required property 'angle'" };
+      if (vErrors === null) {
+        vErrors = [err8];
+      } else {
+        vErrors.push(err8);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!func1.call(schema112.properties, key0)) {
+        const err9 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err9];
+        } else {
+          vErrors.push(err9);
+        }
+        errors++;
+      }
+    }
+    if (data.moment !== void 0) {
+      let data0 = data.moment;
+      if (typeof data0 === "string") {
+        if (func2(data0) > 300) {
+          const err10 = { instancePath: instancePath + "/moment", schemaPath: "#/properties/moment/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
+          if (vErrors === null) {
+            vErrors = [err10];
+          } else {
+            vErrors.push(err10);
+          }
+          errors++;
+        }
+      } else {
+        const err11 = { instancePath: instancePath + "/moment", schemaPath: "#/properties/moment/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err11];
+        } else {
+          vErrors.push(err11);
+        }
+        errors++;
+      }
+    }
+    if (data.caption !== void 0) {
+      let data1 = data.caption;
+      if (typeof data1 === "string") {
+        if (func2(data1) > 600) {
+          const err12 = { instancePath: instancePath + "/caption", schemaPath: "#/properties/caption/maxLength", keyword: "maxLength", params: { limit: 600 }, message: "must NOT have more than 600 characters" };
+          if (vErrors === null) {
+            vErrors = [err12];
+          } else {
+            vErrors.push(err12);
+          }
+          errors++;
+        }
+      } else {
+        const err13 = { instancePath: instancePath + "/caption", schemaPath: "#/properties/caption/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err13];
+        } else {
+          vErrors.push(err13);
+        }
+        errors++;
+      }
+    }
+    if (data.characters !== void 0) {
+      let data2 = data.characters;
+      if (Array.isArray(data2)) {
+        if (data2.length > 6) {
+          const err14 = { instancePath: instancePath + "/characters", schemaPath: "#/properties/characters/maxItems", keyword: "maxItems", params: { limit: 6 }, message: "must NOT have more than 6 items" };
+          if (vErrors === null) {
+            vErrors = [err14];
+          } else {
+            vErrors.push(err14);
+          }
+          errors++;
+        }
+        const len0 = data2.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          let data3 = data2[i0];
+          if (data3 && typeof data3 == "object" && !Array.isArray(data3)) {
+            if (data3.who === void 0) {
+              const err15 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/required", keyword: "required", params: { missingProperty: "who" }, message: "must have required property 'who'" };
+              if (vErrors === null) {
+                vErrors = [err15];
+              } else {
+                vErrors.push(err15);
+              }
+              errors++;
+            }
+            if (data3.name === void 0) {
+              const err16 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/required", keyword: "required", params: { missingProperty: "name" }, message: "must have required property 'name'" };
+              if (vErrors === null) {
+                vErrors = [err16];
+              } else {
+                vErrors.push(err16);
+              }
+              errors++;
+            }
+            if (data3.tag === void 0) {
+              const err17 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/required", keyword: "required", params: { missingProperty: "tag" }, message: "must have required property 'tag'" };
+              if (vErrors === null) {
+                vErrors = [err17];
+              } else {
+                vErrors.push(err17);
+              }
+              errors++;
+            }
+            if (data3.copyright === void 0) {
+              const err18 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/required", keyword: "required", params: { missingProperty: "copyright" }, message: "must have required property 'copyright'" };
+              if (vErrors === null) {
+                vErrors = [err18];
+              } else {
+                vErrors.push(err18);
+              }
+              errors++;
+            }
+            if (data3.body === void 0) {
+              const err19 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/required", keyword: "required", params: { missingProperty: "body" }, message: "must have required property 'body'" };
+              if (vErrors === null) {
+                vErrors = [err19];
+              } else {
+                vErrors.push(err19);
+              }
+              errors++;
+            }
+            if (data3.look === void 0) {
+              const err20 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/required", keyword: "required", params: { missingProperty: "look" }, message: "must have required property 'look'" };
+              if (vErrors === null) {
+                vErrors = [err20];
+              } else {
+                vErrors.push(err20);
+              }
+              errors++;
+            }
+            if (data3.outfit === void 0) {
+              const err21 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/required", keyword: "required", params: { missingProperty: "outfit" }, message: "must have required property 'outfit'" };
+              if (vErrors === null) {
+                vErrors = [err21];
+              } else {
+                vErrors.push(err21);
+              }
+              errors++;
+            }
+            if (data3.expression === void 0) {
+              const err22 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/required", keyword: "required", params: { missingProperty: "expression" }, message: "must have required property 'expression'" };
+              if (vErrors === null) {
+                vErrors = [err22];
+              } else {
+                vErrors.push(err22);
+              }
+              errors++;
+            }
+            if (data3.action === void 0) {
+              const err23 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/required", keyword: "required", params: { missingProperty: "action" }, message: "must have required property 'action'" };
+              if (vErrors === null) {
+                vErrors = [err23];
+              } else {
+                vErrors.push(err23);
+              }
+              errors++;
+            }
+            if (data3.x === void 0) {
+              const err24 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/required", keyword: "required", params: { missingProperty: "x" }, message: "must have required property 'x'" };
+              if (vErrors === null) {
+                vErrors = [err24];
+              } else {
+                vErrors.push(err24);
+              }
+              errors++;
+            }
+            if (data3.y === void 0) {
+              const err25 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/required", keyword: "required", params: { missingProperty: "y" }, message: "must have required property 'y'" };
+              if (vErrors === null) {
+                vErrors = [err25];
+              } else {
+                vErrors.push(err25);
+              }
+              errors++;
+            }
+            for (const key1 in data3) {
+              if (!func1.call(schema112.properties.characters.items.properties, key1)) {
+                const err26 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
+                if (vErrors === null) {
+                  vErrors = [err26];
+                } else {
+                  vErrors.push(err26);
+                }
+                errors++;
+              }
+            }
+            if (data3.who !== void 0) {
+              let data4 = data3.who;
+              if (typeof data4 === "string") {
+                if (func2(data4) > 120) {
+                  const err27 = { instancePath: instancePath + "/characters/" + i0 + "/who", schemaPath: "#/properties/characters/items/properties/who/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err27];
+                  } else {
+                    vErrors.push(err27);
+                  }
+                  errors++;
+                }
+              } else {
+                const err28 = { instancePath: instancePath + "/characters/" + i0 + "/who", schemaPath: "#/properties/characters/items/properties/who/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err28];
+                } else {
+                  vErrors.push(err28);
+                }
+                errors++;
+              }
+            }
+            if (data3.name !== void 0) {
+              let data5 = data3.name;
+              if (typeof data5 === "string") {
+                if (func2(data5) > 120) {
+                  const err29 = { instancePath: instancePath + "/characters/" + i0 + "/name", schemaPath: "#/properties/characters/items/properties/name/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err29];
+                  } else {
+                    vErrors.push(err29);
+                  }
+                  errors++;
+                }
+              } else {
+                const err30 = { instancePath: instancePath + "/characters/" + i0 + "/name", schemaPath: "#/properties/characters/items/properties/name/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err30];
+                } else {
+                  vErrors.push(err30);
+                }
+                errors++;
+              }
+            }
+            if (data3.tag !== void 0) {
+              let data6 = data3.tag;
+              if (typeof data6 === "string") {
+                if (func2(data6) > 120) {
+                  const err31 = { instancePath: instancePath + "/characters/" + i0 + "/tag", schemaPath: "#/properties/characters/items/properties/tag/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err31];
+                  } else {
+                    vErrors.push(err31);
+                  }
+                  errors++;
+                }
+              } else {
+                const err32 = { instancePath: instancePath + "/characters/" + i0 + "/tag", schemaPath: "#/properties/characters/items/properties/tag/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err32];
+                } else {
+                  vErrors.push(err32);
+                }
+                errors++;
+              }
+            }
+            if (data3.copyright !== void 0) {
+              let data7 = data3.copyright;
+              if (typeof data7 === "string") {
+                if (func2(data7) > 120) {
+                  const err33 = { instancePath: instancePath + "/characters/" + i0 + "/copyright", schemaPath: "#/properties/characters/items/properties/copyright/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err33];
+                  } else {
+                    vErrors.push(err33);
+                  }
+                  errors++;
+                }
+              } else {
+                const err34 = { instancePath: instancePath + "/characters/" + i0 + "/copyright", schemaPath: "#/properties/characters/items/properties/copyright/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err34];
+                } else {
+                  vErrors.push(err34);
+                }
+                errors++;
+              }
+            }
+            if (data3.body !== void 0) {
+              let data8 = data3.body;
+              if (!(data8 === "girl" || data8 === "boy" || data8 === "other")) {
+                const err35 = { instancePath: instancePath + "/characters/" + i0 + "/body", schemaPath: "#/properties/characters/items/properties/body/enum", keyword: "enum", params: { allowedValues: schema112.properties.characters.items.properties.body.enum }, message: "must be equal to one of the allowed values" };
+                if (vErrors === null) {
+                  vErrors = [err35];
+                } else {
+                  vErrors.push(err35);
+                }
+                errors++;
+              }
+            }
+            if (data3.look !== void 0) {
+              let data9 = data3.look;
+              if (Array.isArray(data9)) {
+                if (data9.length > 16) {
+                  const err36 = { instancePath: instancePath + "/characters/" + i0 + "/look", schemaPath: "#/properties/characters/items/properties/look/maxItems", keyword: "maxItems", params: { limit: 16 }, message: "must NOT have more than 16 items" };
+                  if (vErrors === null) {
+                    vErrors = [err36];
+                  } else {
+                    vErrors.push(err36);
+                  }
+                  errors++;
+                }
+                const len1 = data9.length;
+                for (let i1 = 0; i1 < len1; i1++) {
+                  let data10 = data9[i1];
+                  if (typeof data10 === "string") {
+                    if (func2(data10) > 80) {
+                      const err37 = { instancePath: instancePath + "/characters/" + i0 + "/look/" + i1, schemaPath: "#/properties/characters/items/properties/look/items/maxLength", keyword: "maxLength", params: { limit: 80 }, message: "must NOT have more than 80 characters" };
+                      if (vErrors === null) {
+                        vErrors = [err37];
+                      } else {
+                        vErrors.push(err37);
+                      }
+                      errors++;
+                    }
+                  } else {
+                    const err38 = { instancePath: instancePath + "/characters/" + i0 + "/look/" + i1, schemaPath: "#/properties/characters/items/properties/look/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err38];
+                    } else {
+                      vErrors.push(err38);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err39 = { instancePath: instancePath + "/characters/" + i0 + "/look", schemaPath: "#/properties/characters/items/properties/look/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err39];
+                } else {
+                  vErrors.push(err39);
+                }
+                errors++;
+              }
+            }
+            if (data3.outfit !== void 0) {
+              let data11 = data3.outfit;
+              if (Array.isArray(data11)) {
+                if (data11.length > 12) {
+                  const err40 = { instancePath: instancePath + "/characters/" + i0 + "/outfit", schemaPath: "#/properties/characters/items/properties/outfit/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
+                  if (vErrors === null) {
+                    vErrors = [err40];
+                  } else {
+                    vErrors.push(err40);
+                  }
+                  errors++;
+                }
+                const len2 = data11.length;
+                for (let i2 = 0; i2 < len2; i2++) {
+                  let data12 = data11[i2];
+                  if (typeof data12 === "string") {
+                    if (func2(data12) > 80) {
+                      const err41 = { instancePath: instancePath + "/characters/" + i0 + "/outfit/" + i2, schemaPath: "#/properties/characters/items/properties/outfit/items/maxLength", keyword: "maxLength", params: { limit: 80 }, message: "must NOT have more than 80 characters" };
+                      if (vErrors === null) {
+                        vErrors = [err41];
+                      } else {
+                        vErrors.push(err41);
+                      }
+                      errors++;
+                    }
+                  } else {
+                    const err42 = { instancePath: instancePath + "/characters/" + i0 + "/outfit/" + i2, schemaPath: "#/properties/characters/items/properties/outfit/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err42];
+                    } else {
+                      vErrors.push(err42);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err43 = { instancePath: instancePath + "/characters/" + i0 + "/outfit", schemaPath: "#/properties/characters/items/properties/outfit/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err43];
+                } else {
+                  vErrors.push(err43);
+                }
+                errors++;
+              }
+            }
+            if (data3.expression !== void 0) {
+              let data13 = data3.expression;
+              if (Array.isArray(data13)) {
+                if (data13.length > 6) {
+                  const err44 = { instancePath: instancePath + "/characters/" + i0 + "/expression", schemaPath: "#/properties/characters/items/properties/expression/maxItems", keyword: "maxItems", params: { limit: 6 }, message: "must NOT have more than 6 items" };
+                  if (vErrors === null) {
+                    vErrors = [err44];
+                  } else {
+                    vErrors.push(err44);
+                  }
+                  errors++;
+                }
+                const len3 = data13.length;
+                for (let i3 = 0; i3 < len3; i3++) {
+                  let data14 = data13[i3];
+                  if (typeof data14 === "string") {
+                    if (func2(data14) > 80) {
+                      const err45 = { instancePath: instancePath + "/characters/" + i0 + "/expression/" + i3, schemaPath: "#/properties/characters/items/properties/expression/items/maxLength", keyword: "maxLength", params: { limit: 80 }, message: "must NOT have more than 80 characters" };
+                      if (vErrors === null) {
+                        vErrors = [err45];
+                      } else {
+                        vErrors.push(err45);
+                      }
+                      errors++;
+                    }
+                  } else {
+                    const err46 = { instancePath: instancePath + "/characters/" + i0 + "/expression/" + i3, schemaPath: "#/properties/characters/items/properties/expression/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err46];
+                    } else {
+                      vErrors.push(err46);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err47 = { instancePath: instancePath + "/characters/" + i0 + "/expression", schemaPath: "#/properties/characters/items/properties/expression/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err47];
+                } else {
+                  vErrors.push(err47);
+                }
+                errors++;
+              }
+            }
+            if (data3.action !== void 0) {
+              let data15 = data3.action;
+              if (Array.isArray(data15)) {
+                if (data15.length > 10) {
+                  const err48 = { instancePath: instancePath + "/characters/" + i0 + "/action", schemaPath: "#/properties/characters/items/properties/action/maxItems", keyword: "maxItems", params: { limit: 10 }, message: "must NOT have more than 10 items" };
+                  if (vErrors === null) {
+                    vErrors = [err48];
+                  } else {
+                    vErrors.push(err48);
+                  }
+                  errors++;
+                }
+                const len4 = data15.length;
+                for (let i4 = 0; i4 < len4; i4++) {
+                  let data16 = data15[i4];
+                  if (typeof data16 === "string") {
+                    if (func2(data16) > 80) {
+                      const err49 = { instancePath: instancePath + "/characters/" + i0 + "/action/" + i4, schemaPath: "#/properties/characters/items/properties/action/items/maxLength", keyword: "maxLength", params: { limit: 80 }, message: "must NOT have more than 80 characters" };
+                      if (vErrors === null) {
+                        vErrors = [err49];
+                      } else {
+                        vErrors.push(err49);
+                      }
+                      errors++;
+                    }
+                  } else {
+                    const err50 = { instancePath: instancePath + "/characters/" + i0 + "/action/" + i4, schemaPath: "#/properties/characters/items/properties/action/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err50];
+                    } else {
+                      vErrors.push(err50);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err51 = { instancePath: instancePath + "/characters/" + i0 + "/action", schemaPath: "#/properties/characters/items/properties/action/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err51];
+                } else {
+                  vErrors.push(err51);
+                }
+                errors++;
+              }
+            }
+            if (data3.x !== void 0) {
+              let data17 = data3.x;
+              if (!(data17 === "left" || data17 === "center-left" || data17 === "center" || data17 === "center-right" || data17 === "right")) {
+                const err52 = { instancePath: instancePath + "/characters/" + i0 + "/x", schemaPath: "#/properties/characters/items/properties/x/enum", keyword: "enum", params: { allowedValues: schema112.properties.characters.items.properties.x.enum }, message: "must be equal to one of the allowed values" };
+                if (vErrors === null) {
+                  vErrors = [err52];
+                } else {
+                  vErrors.push(err52);
+                }
+                errors++;
+              }
+            }
+            if (data3.y !== void 0) {
+              let data18 = data3.y;
+              if (!(data18 === "upper" || data18 === "middle" || data18 === "lower")) {
+                const err53 = { instancePath: instancePath + "/characters/" + i0 + "/y", schemaPath: "#/properties/characters/items/properties/y/enum", keyword: "enum", params: { allowedValues: schema112.properties.characters.items.properties.y.enum }, message: "must be equal to one of the allowed values" };
+                if (vErrors === null) {
+                  vErrors = [err53];
+                } else {
+                  vErrors.push(err53);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err54 = { instancePath: instancePath + "/characters/" + i0, schemaPath: "#/properties/characters/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            if (vErrors === null) {
+              vErrors = [err54];
+            } else {
+              vErrors.push(err54);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err55 = { instancePath: instancePath + "/characters", schemaPath: "#/properties/characters/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err55];
+        } else {
+          vErrors.push(err55);
+        }
+        errors++;
+      }
+    }
+    if (data.interactions !== void 0) {
+      let data19 = data.interactions;
+      if (Array.isArray(data19)) {
+        if (data19.length > 10) {
+          const err56 = { instancePath: instancePath + "/interactions", schemaPath: "#/properties/interactions/maxItems", keyword: "maxItems", params: { limit: 10 }, message: "must NOT have more than 10 items" };
+          if (vErrors === null) {
+            vErrors = [err56];
+          } else {
+            vErrors.push(err56);
+          }
+          errors++;
+        }
+        const len5 = data19.length;
+        for (let i5 = 0; i5 < len5; i5++) {
+          let data20 = data19[i5];
+          if (data20 && typeof data20 == "object" && !Array.isArray(data20)) {
+            if (data20.from === void 0) {
+              const err57 = { instancePath: instancePath + "/interactions/" + i5, schemaPath: "#/properties/interactions/items/required", keyword: "required", params: { missingProperty: "from" }, message: "must have required property 'from'" };
+              if (vErrors === null) {
+                vErrors = [err57];
+              } else {
+                vErrors.push(err57);
+              }
+              errors++;
+            }
+            if (data20.to === void 0) {
+              const err58 = { instancePath: instancePath + "/interactions/" + i5, schemaPath: "#/properties/interactions/items/required", keyword: "required", params: { missingProperty: "to" }, message: "must have required property 'to'" };
+              if (vErrors === null) {
+                vErrors = [err58];
+              } else {
+                vErrors.push(err58);
+              }
+              errors++;
+            }
+            if (data20.act === void 0) {
+              const err59 = { instancePath: instancePath + "/interactions/" + i5, schemaPath: "#/properties/interactions/items/required", keyword: "required", params: { missingProperty: "act" }, message: "must have required property 'act'" };
+              if (vErrors === null) {
+                vErrors = [err59];
+              } else {
+                vErrors.push(err59);
+              }
+              errors++;
+            }
+            if (data20.mutual === void 0) {
+              const err60 = { instancePath: instancePath + "/interactions/" + i5, schemaPath: "#/properties/interactions/items/required", keyword: "required", params: { missingProperty: "mutual" }, message: "must have required property 'mutual'" };
+              if (vErrors === null) {
+                vErrors = [err60];
+              } else {
+                vErrors.push(err60);
+              }
+              errors++;
+            }
+            for (const key2 in data20) {
+              if (!(key2 === "from" || key2 === "to" || key2 === "act" || key2 === "mutual")) {
+                const err61 = { instancePath: instancePath + "/interactions/" + i5, schemaPath: "#/properties/interactions/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key2 }, message: "must NOT have additional properties" };
+                if (vErrors === null) {
+                  vErrors = [err61];
+                } else {
+                  vErrors.push(err61);
+                }
+                errors++;
+              }
+            }
+            if (data20.from !== void 0) {
+              let data21 = data20.from;
+              if (!(typeof data21 == "number" && (!(data21 % 1) && !isNaN(data21)))) {
+                const err62 = { instancePath: instancePath + "/interactions/" + i5 + "/from", schemaPath: "#/properties/interactions/items/properties/from/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
+                if (vErrors === null) {
+                  vErrors = [err62];
+                } else {
+                  vErrors.push(err62);
+                }
+                errors++;
+              }
+            }
+            if (data20.to !== void 0) {
+              let data22 = data20.to;
+              if (!(typeof data22 == "number" && (!(data22 % 1) && !isNaN(data22)))) {
+                const err63 = { instancePath: instancePath + "/interactions/" + i5 + "/to", schemaPath: "#/properties/interactions/items/properties/to/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
+                if (vErrors === null) {
+                  vErrors = [err63];
+                } else {
+                  vErrors.push(err63);
+                }
+                errors++;
+              }
+            }
+            if (data20.act !== void 0) {
+              let data23 = data20.act;
+              if (typeof data23 === "string") {
+                if (func2(data23) > 80) {
+                  const err64 = { instancePath: instancePath + "/interactions/" + i5 + "/act", schemaPath: "#/properties/interactions/items/properties/act/maxLength", keyword: "maxLength", params: { limit: 80 }, message: "must NOT have more than 80 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err64];
+                  } else {
+                    vErrors.push(err64);
+                  }
+                  errors++;
+                }
+              } else {
+                const err65 = { instancePath: instancePath + "/interactions/" + i5 + "/act", schemaPath: "#/properties/interactions/items/properties/act/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err65];
+                } else {
+                  vErrors.push(err65);
+                }
+                errors++;
+              }
+            }
+            if (data20.mutual !== void 0) {
+              if (typeof data20.mutual !== "boolean") {
+                const err66 = { instancePath: instancePath + "/interactions/" + i5 + "/mutual", schemaPath: "#/properties/interactions/items/properties/mutual/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err66];
+                } else {
+                  vErrors.push(err66);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err67 = { instancePath: instancePath + "/interactions/" + i5, schemaPath: "#/properties/interactions/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            if (vErrors === null) {
+              vErrors = [err67];
+            } else {
+              vErrors.push(err67);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err68 = { instancePath: instancePath + "/interactions", schemaPath: "#/properties/interactions/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err68];
+        } else {
+          vErrors.push(err68);
+        }
+        errors++;
+      }
+    }
+    if (data.place !== void 0) {
+      let data25 = data.place;
+      if (Array.isArray(data25)) {
+        if (data25.length > 12) {
+          const err69 = { instancePath: instancePath + "/place", schemaPath: "#/properties/place/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
+          if (vErrors === null) {
+            vErrors = [err69];
+          } else {
+            vErrors.push(err69);
+          }
+          errors++;
+        }
+        const len6 = data25.length;
+        for (let i6 = 0; i6 < len6; i6++) {
+          let data26 = data25[i6];
+          if (typeof data26 === "string") {
+            if (func2(data26) > 80) {
+              const err70 = { instancePath: instancePath + "/place/" + i6, schemaPath: "#/properties/place/items/maxLength", keyword: "maxLength", params: { limit: 80 }, message: "must NOT have more than 80 characters" };
+              if (vErrors === null) {
+                vErrors = [err70];
+              } else {
+                vErrors.push(err70);
+              }
+              errors++;
+            }
+          } else {
+            const err71 = { instancePath: instancePath + "/place/" + i6, schemaPath: "#/properties/place/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err71];
+            } else {
+              vErrors.push(err71);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err72 = { instancePath: instancePath + "/place", schemaPath: "#/properties/place/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err72];
+        } else {
+          vErrors.push(err72);
+        }
+        errors++;
+      }
+    }
+    if (data.time !== void 0) {
+      let data27 = data.time;
+      if (Array.isArray(data27)) {
+        if (data27.length > 6) {
+          const err73 = { instancePath: instancePath + "/time", schemaPath: "#/properties/time/maxItems", keyword: "maxItems", params: { limit: 6 }, message: "must NOT have more than 6 items" };
+          if (vErrors === null) {
+            vErrors = [err73];
+          } else {
+            vErrors.push(err73);
+          }
+          errors++;
+        }
+        const len7 = data27.length;
+        for (let i7 = 0; i7 < len7; i7++) {
+          let data28 = data27[i7];
+          if (typeof data28 === "string") {
+            if (func2(data28) > 80) {
+              const err74 = { instancePath: instancePath + "/time/" + i7, schemaPath: "#/properties/time/items/maxLength", keyword: "maxLength", params: { limit: 80 }, message: "must NOT have more than 80 characters" };
+              if (vErrors === null) {
+                vErrors = [err74];
+              } else {
+                vErrors.push(err74);
+              }
+              errors++;
+            }
+          } else {
+            const err75 = { instancePath: instancePath + "/time/" + i7, schemaPath: "#/properties/time/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err75];
+            } else {
+              vErrors.push(err75);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err76 = { instancePath: instancePath + "/time", schemaPath: "#/properties/time/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err76];
+        } else {
+          vErrors.push(err76);
+        }
+        errors++;
+      }
+    }
+    if (data.effects !== void 0) {
+      let data29 = data.effects;
+      if (Array.isArray(data29)) {
+        if (data29.length > 10) {
+          const err77 = { instancePath: instancePath + "/effects", schemaPath: "#/properties/effects/maxItems", keyword: "maxItems", params: { limit: 10 }, message: "must NOT have more than 10 items" };
+          if (vErrors === null) {
+            vErrors = [err77];
+          } else {
+            vErrors.push(err77);
+          }
+          errors++;
+        }
+        const len8 = data29.length;
+        for (let i8 = 0; i8 < len8; i8++) {
+          let data30 = data29[i8];
+          if (typeof data30 === "string") {
+            if (func2(data30) > 80) {
+              const err78 = { instancePath: instancePath + "/effects/" + i8, schemaPath: "#/properties/effects/items/maxLength", keyword: "maxLength", params: { limit: 80 }, message: "must NOT have more than 80 characters" };
+              if (vErrors === null) {
+                vErrors = [err78];
+              } else {
+                vErrors.push(err78);
+              }
+              errors++;
+            }
+          } else {
+            const err79 = { instancePath: instancePath + "/effects/" + i8, schemaPath: "#/properties/effects/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err79];
+            } else {
+              vErrors.push(err79);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err80 = { instancePath: instancePath + "/effects", schemaPath: "#/properties/effects/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err80];
+        } else {
+          vErrors.push(err80);
+        }
+        errors++;
+      }
+    }
+    if (data.framing !== void 0) {
+      let data31 = data.framing;
+      if (!(data31 === "close-up" || data31 === "portrait" || data31 === "upper body" || data31 === "cowboy shot" || data31 === "full body" || data31 === "wide shot")) {
+        const err81 = { instancePath: instancePath + "/framing", schemaPath: "#/properties/framing/enum", keyword: "enum", params: { allowedValues: schema112.properties.framing.enum }, message: "must be equal to one of the allowed values" };
+        if (vErrors === null) {
+          vErrors = [err81];
+        } else {
+          vErrors.push(err81);
+        }
+        errors++;
+      }
+    }
+    if (data.angle !== void 0) {
+      let data32 = data.angle;
+      if (Array.isArray(data32)) {
+        if (data32.length > 4) {
+          const err82 = { instancePath: instancePath + "/angle", schemaPath: "#/properties/angle/maxItems", keyword: "maxItems", params: { limit: 4 }, message: "must NOT have more than 4 items" };
+          if (vErrors === null) {
+            vErrors = [err82];
+          } else {
+            vErrors.push(err82);
+          }
+          errors++;
+        }
+        const len9 = data32.length;
+        for (let i9 = 0; i9 < len9; i9++) {
+          let data33 = data32[i9];
+          if (typeof data33 === "string") {
+            if (func2(data33) > 80) {
+              const err83 = { instancePath: instancePath + "/angle/" + i9, schemaPath: "#/properties/angle/items/maxLength", keyword: "maxLength", params: { limit: 80 }, message: "must NOT have more than 80 characters" };
+              if (vErrors === null) {
+                vErrors = [err83];
+              } else {
+                vErrors.push(err83);
+              }
+              errors++;
+            }
+          } else {
+            const err84 = { instancePath: instancePath + "/angle/" + i9, schemaPath: "#/properties/angle/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err84];
+            } else {
+              vErrors.push(err84);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err85 = { instancePath: instancePath + "/angle", schemaPath: "#/properties/angle/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err85];
+        } else {
+          vErrors.push(err85);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err86 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err86];
+    } else {
+      vErrors.push(err86);
+    }
+    errors++;
+  }
+  validate75.errors = vErrors;
+  return errors === 0;
+}
+validate75.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var plan = validate76;
+var schema113 = { "type": "object", "properties": { "rationale": { "type": "string" }, "protected_anchor_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "assumptions": { "type": "array", "items": { "type": "object", "properties": { "text": { "type": "string" }, "fact": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }] } }, "required": ["text", "fact"], "additionalProperties": false }, "maxItems": 200 }, "risks": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "mode": { "enum": ["NORMAL", "FORCED_CONVERGENCE"] }, "steps": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "targets": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "earliest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "latest": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "prerequisites": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "action": { "type": "string" }, "intended_effects": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "depends_on": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "means": { "enum": ["ordinary", "extraordinary"] }, "serves_anchor": { "type": ["string", "null"] }, "requires_player_consent": { "type": "boolean" } }, "required": ["step_id", "actors", "earliest", "latest", "action", "intended_effects", "means", "serves_anchor", "requires_player_consent"], "additionalProperties": false }, "maxItems": 40 }, "inadequacy_note": { "type": "string" } }, "required": ["rationale", "protected_anchor_ids", "assumptions", "risks", "mode", "steps"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:plan", "title": "Canon Engine task output: plan" };
+function validate76(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  ;
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate76.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -17276,7 +18221,7 @@ function validate75(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.mode !== void 0) {
       let data13 = data.mode;
       if (!(data13 === "NORMAL" || data13 === "FORCED_CONVERGENCE")) {
-        const err40 = { instancePath: instancePath + "/mode", schemaPath: "#/properties/mode/enum", keyword: "enum", params: { allowedValues: schema112.properties.mode.enum }, message: "must be equal to one of the allowed values" };
+        const err40 = { instancePath: instancePath + "/mode", schemaPath: "#/properties/mode/enum", keyword: "enum", params: { allowedValues: schema113.properties.mode.enum }, message: "must be equal to one of the allowed values" };
         if (vErrors === null) {
           vErrors = [err40];
         } else {
@@ -17383,7 +18328,7 @@ function validate75(data, { instancePath = "", parentData, parentDataProperty, r
               errors++;
             }
             for (const key3 in data15) {
-              if (!func1.call(schema112.properties.steps.items.properties, key3)) {
+              if (!func1.call(schema113.properties.steps.items.properties, key3)) {
                 const err51 = { instancePath: instancePath + "/steps/" + i4, schemaPath: "#/properties/steps/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
                   vErrors = [err51];
@@ -17960,7 +18905,7 @@ function validate75(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.visibility !== void 0) {
               let data36 = data15.visibility;
               if (!(data36 === "public" || data36 === "restricted" || data36 === "secret")) {
-                const err100 = { instancePath: instancePath + "/steps/" + i4 + "/visibility", schemaPath: "#/properties/steps/items/properties/visibility/enum", keyword: "enum", params: { allowedValues: schema112.properties.steps.items.properties.visibility.enum }, message: "must be equal to one of the allowed values" };
+                const err100 = { instancePath: instancePath + "/steps/" + i4 + "/visibility", schemaPath: "#/properties/steps/items/properties/visibility/enum", keyword: "enum", params: { allowedValues: schema113.properties.steps.items.properties.visibility.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err100];
                 } else {
@@ -18040,7 +18985,7 @@ function validate75(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.means !== void 0) {
               let data41 = data15.means;
               if (!(data41 === "ordinary" || data41 === "extraordinary")) {
-                const err107 = { instancePath: instancePath + "/steps/" + i4 + "/means", schemaPath: "#/properties/steps/items/properties/means/enum", keyword: "enum", params: { allowedValues: schema112.properties.steps.items.properties.means.enum }, message: "must be equal to one of the allowed values" };
+                const err107 = { instancePath: instancePath + "/steps/" + i4 + "/means", schemaPath: "#/properties/steps/items/properties/means/enum", keyword: "enum", params: { allowedValues: schema113.properties.steps.items.properties.means.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err107];
                 } else {
@@ -18052,7 +18997,7 @@ function validate75(data, { instancePath = "", parentData, parentDataProperty, r
             if (data15.serves_anchor !== void 0) {
               let data42 = data15.serves_anchor;
               if (typeof data42 !== "string" && data42 !== null) {
-                const err108 = { instancePath: instancePath + "/steps/" + i4 + "/serves_anchor", schemaPath: "#/properties/steps/items/properties/serves_anchor/type", keyword: "type", params: { type: schema112.properties.steps.items.properties.serves_anchor.type }, message: "must be string,null" };
+                const err108 = { instancePath: instancePath + "/steps/" + i4 + "/serves_anchor", schemaPath: "#/properties/steps/items/properties/serves_anchor/type", keyword: "type", params: { type: schema113.properties.steps.items.properties.serves_anchor.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err108];
                 } else {
@@ -18112,17 +19057,17 @@ function validate75(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate75.errors = vErrors;
+  validate76.errors = vErrors;
   return errors === 0;
 }
-validate75.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var profile = validate76;
-var schema113 = { "type": "object", "properties": { "player": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "aliases": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 10 }, "summary": { "type": "string", "maxLength": 1500 }, "public_identity": { "type": "string", "maxLength": 800 } }, "required": ["name", "summary"], "additionalProperties": false }, "affiliations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "kind": { "enum": ["organization", "other"] }, "role": { "type": "string", "maxLength": 400 }, "status": { "enum": ["member", "joining", "former"] }, "leads": { "type": "boolean" }, "members": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } }, "secrecy": { "enum": ["public", "restricted", "secret"] }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name", "status"], "additionalProperties": false } }, "places": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "use": { "type": "string", "maxLength": 400 }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "capabilities": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "resources": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "goals": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 12 }, "relationships": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "they": { "anyOf": [{ "type": "object", "properties": { "address": { "type": ["array", "null"], "items": { "type": "object", "properties": { "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes"] }, "when": { "type": "string", "maxLength": 200 } }, "required": ["term", "use"], "additionalProperties": false } }, "sees": { "type": ["string", "null"], "maxLength": 400 } }, "additionalProperties": false }, { "type": "null" }] }, "player": { "anyOf": [{ "type": "object", "properties": { "address": { "type": ["array", "null"], "items": { "type": "object", "properties": { "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes"] }, "when": { "type": "string", "maxLength": 200 } }, "required": ["term", "use"], "additionalProperties": false } }, "sees": { "type": ["string", "null"], "maxLength": 400 } }, "additionalProperties": false }, { "type": "null" }] } }, "required": ["name"], "additionalProperties": false } }, "knowers": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 } }, "required": ["who", "level", "about", "basis"], "additionalProperties": false } }, "uncertain": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "roles": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["role"], "additionalProperties": false, "properties": { "role": { "type": "string", "maxLength": 200 }, "brings": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "from": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 8 }, "style": { "type": "string", "maxLength": 300 } } } }, "not_suited": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "voice": { "type": "string", "maxLength": 600 }, "world_changes": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "text": { "type": "string", "maxLength": 600 }, "terms": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 60 } } }, "required": ["text"], "additionalProperties": false } }, "recognized_by": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 }, "everywhere": { "type": "boolean" }, "as": { "type": "string", "maxLength": 400 } }, "required": ["who", "as"], "additionalProperties": false } }, "nature": { "type": "object", "properties": { "habits": { "type": "string", "maxLength": 500 }, "uses": { "type": "string", "maxLength": 500 }, "others": { "type": "string", "maxLength": 500 }, "limits": { "type": "string", "maxLength": 500 }, "perceives": { "type": ["object", "null"], "properties": { "kinds": { "type": "array", "uniqueItems": true, "items": { "enum": ["thoughts", "memories", "emotions", "hidden", "whereabouts", "lies", "past"] } }, "how": { "type": "string", "maxLength": 300 } }, "additionalProperties": false } }, "additionalProperties": false }, "defenses": { "type": "string", "maxLength": 500 } }, "required": ["player", "affiliations", "relationships", "knowers"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:profile", "title": "Canon Engine task output: profile" };
-function validate76(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+validate76.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var profile = validate77;
+var schema114 = { "type": "object", "properties": { "player": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "aliases": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 10 }, "summary": { "type": "string", "maxLength": 1500 }, "public_identity": { "type": "string", "maxLength": 800 } }, "required": ["name", "summary"], "additionalProperties": false }, "affiliations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "kind": { "enum": ["organization", "other"] }, "role": { "type": "string", "maxLength": 400 }, "status": { "enum": ["member", "joining", "former"] }, "leads": { "type": "boolean" }, "members": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } }, "secrecy": { "enum": ["public", "restricted", "secret"] }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name", "status"], "additionalProperties": false } }, "places": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "use": { "type": "string", "maxLength": 400 }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "capabilities": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "resources": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "goals": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 12 }, "relationships": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "they": { "anyOf": [{ "type": "object", "properties": { "address": { "type": ["array", "null"], "items": { "type": "object", "properties": { "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes"] }, "when": { "type": "string", "maxLength": 200 } }, "required": ["term", "use"], "additionalProperties": false } }, "sees": { "type": ["string", "null"], "maxLength": 400 } }, "additionalProperties": false }, { "type": "null" }] }, "player": { "anyOf": [{ "type": "object", "properties": { "address": { "type": ["array", "null"], "items": { "type": "object", "properties": { "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes"] }, "when": { "type": "string", "maxLength": 200 } }, "required": ["term", "use"], "additionalProperties": false } }, "sees": { "type": ["string", "null"], "maxLength": 400 } }, "additionalProperties": false }, { "type": "null" }] } }, "required": ["name"], "additionalProperties": false } }, "knowers": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 } }, "required": ["who", "level", "about", "basis"], "additionalProperties": false } }, "uncertain": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "roles": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["role"], "additionalProperties": false, "properties": { "role": { "type": "string", "maxLength": 200 }, "brings": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "from": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 8 }, "style": { "type": "string", "maxLength": 300 } } } }, "not_suited": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "voice": { "type": "string", "maxLength": 600 }, "world_changes": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "text": { "type": "string", "maxLength": 600 }, "terms": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 60 } } }, "required": ["text"], "additionalProperties": false } }, "recognized_by": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 }, "everywhere": { "type": "boolean" }, "as": { "type": "string", "maxLength": 400 } }, "required": ["who", "as"], "additionalProperties": false } }, "nature": { "type": "object", "properties": { "habits": { "type": "string", "maxLength": 500 }, "uses": { "type": "string", "maxLength": 500 }, "others": { "type": "string", "maxLength": 500 }, "limits": { "type": "string", "maxLength": 500 }, "perceives": { "type": ["object", "null"], "properties": { "kinds": { "type": "array", "uniqueItems": true, "items": { "enum": ["thoughts", "memories", "emotions", "hidden", "whereabouts", "lies", "past"] } }, "how": { "type": "string", "maxLength": 300 } }, "additionalProperties": false } }, "additionalProperties": false }, "defenses": { "type": "string", "maxLength": 500 } }, "required": ["player", "affiliations", "relationships", "knowers"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:profile", "title": "Canon Engine task output: profile" };
+function validate77(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate76.evaluated;
+  const evaluated0 = validate77.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -18167,7 +19112,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
       errors++;
     }
     for (const key0 in data) {
-      if (!func1.call(schema113.properties, key0)) {
+      if (!func1.call(schema114.properties, key0)) {
         const err4 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
           vErrors = [err4];
@@ -18365,7 +19310,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
               errors++;
             }
             for (const key2 in data7) {
-              if (!func1.call(schema113.properties.affiliations.items.properties, key2)) {
+              if (!func1.call(schema114.properties.affiliations.items.properties, key2)) {
                 const err22 = { instancePath: instancePath + "/affiliations/" + i1, schemaPath: "#/properties/affiliations/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key2 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
                   vErrors = [err22];
@@ -18400,7 +19345,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
             if (data7.existing_id !== void 0) {
               let data9 = data7.existing_id;
               if (typeof data9 !== "string" && data9 !== null) {
-                const err25 = { instancePath: instancePath + "/affiliations/" + i1 + "/existing_id", schemaPath: "#/properties/affiliations/items/properties/existing_id/type", keyword: "type", params: { type: schema113.properties.affiliations.items.properties.existing_id.type }, message: "must be string,null" };
+                const err25 = { instancePath: instancePath + "/affiliations/" + i1 + "/existing_id", schemaPath: "#/properties/affiliations/items/properties/existing_id/type", keyword: "type", params: { type: schema114.properties.affiliations.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err25];
                 } else {
@@ -18423,7 +19368,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
             if (data7.kind !== void 0) {
               let data10 = data7.kind;
               if (!(data10 === "organization" || data10 === "other")) {
-                const err27 = { instancePath: instancePath + "/affiliations/" + i1 + "/kind", schemaPath: "#/properties/affiliations/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema113.properties.affiliations.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+                const err27 = { instancePath: instancePath + "/affiliations/" + i1 + "/kind", schemaPath: "#/properties/affiliations/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema114.properties.affiliations.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err27];
                 } else {
@@ -18457,7 +19402,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
             if (data7.status !== void 0) {
               let data12 = data7.status;
               if (!(data12 === "member" || data12 === "joining" || data12 === "former")) {
-                const err30 = { instancePath: instancePath + "/affiliations/" + i1 + "/status", schemaPath: "#/properties/affiliations/items/properties/status/enum", keyword: "enum", params: { allowedValues: schema113.properties.affiliations.items.properties.status.enum }, message: "must be equal to one of the allowed values" };
+                const err30 = { instancePath: instancePath + "/affiliations/" + i1 + "/status", schemaPath: "#/properties/affiliations/items/properties/status/enum", keyword: "enum", params: { allowedValues: schema114.properties.affiliations.items.properties.status.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err30];
                 } else {
@@ -18525,7 +19470,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
             if (data7.secrecy !== void 0) {
               let data16 = data7.secrecy;
               if (!(data16 === "public" || data16 === "restricted" || data16 === "secret")) {
-                const err36 = { instancePath: instancePath + "/affiliations/" + i1 + "/secrecy", schemaPath: "#/properties/affiliations/items/properties/secrecy/enum", keyword: "enum", params: { allowedValues: schema113.properties.affiliations.items.properties.secrecy.enum }, message: "must be equal to one of the allowed values" };
+                const err36 = { instancePath: instancePath + "/affiliations/" + i1 + "/secrecy", schemaPath: "#/properties/affiliations/items/properties/secrecy/enum", keyword: "enum", params: { allowedValues: schema114.properties.affiliations.items.properties.secrecy.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err36];
                 } else {
@@ -18637,7 +19582,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
             if (data19.existing_id !== void 0) {
               let data21 = data19.existing_id;
               if (typeof data21 !== "string" && data21 !== null) {
-                const err46 = { instancePath: instancePath + "/places/" + i3 + "/existing_id", schemaPath: "#/properties/places/items/properties/existing_id/type", keyword: "type", params: { type: schema113.properties.places.items.properties.existing_id.type }, message: "must be string,null" };
+                const err46 = { instancePath: instancePath + "/places/" + i3 + "/existing_id", schemaPath: "#/properties/places/items/properties/existing_id/type", keyword: "type", params: { type: schema114.properties.places.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err46];
                 } else {
@@ -18917,7 +19862,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
             if (data31.existing_id !== void 0) {
               let data33 = data31.existing_id;
               if (typeof data33 !== "string" && data33 !== null) {
-                const err71 = { instancePath: instancePath + "/relationships/" + i7 + "/existing_id", schemaPath: "#/properties/relationships/items/properties/existing_id/type", keyword: "type", params: { type: schema113.properties.relationships.items.properties.existing_id.type }, message: "must be string,null" };
+                const err71 = { instancePath: instancePath + "/relationships/" + i7 + "/existing_id", schemaPath: "#/properties/relationships/items/properties/existing_id/type", keyword: "type", params: { type: schema114.properties.relationships.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err71];
                 } else {
@@ -18962,7 +19907,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
             if (data31.basis !== void 0) {
               let data35 = data31.basis;
               if (!(data35 === "persona_stated" || data35 === "implied")) {
-                const err75 = { instancePath: instancePath + "/relationships/" + i7 + "/basis", schemaPath: "#/properties/relationships/items/properties/basis/enum", keyword: "enum", params: { allowedValues: schema113.properties.relationships.items.properties.basis.enum }, message: "must be equal to one of the allowed values" };
+                const err75 = { instancePath: instancePath + "/relationships/" + i7 + "/basis", schemaPath: "#/properties/relationships/items/properties/basis/enum", keyword: "enum", params: { allowedValues: schema114.properties.relationships.items.properties.basis.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err75];
                 } else {
@@ -18991,7 +19936,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
                 if (data36.address !== void 0) {
                   let data37 = data36.address;
                   if (!Array.isArray(data37) && data37 !== null) {
-                    const err77 = { instancePath: instancePath + "/relationships/" + i7 + "/they/address", schemaPath: "#/properties/relationships/items/properties/they/anyOf/0/properties/address/type", keyword: "type", params: { type: schema113.properties.relationships.items.properties.they.anyOf[0].properties.address.type }, message: "must be array,null" };
+                    const err77 = { instancePath: instancePath + "/relationships/" + i7 + "/they/address", schemaPath: "#/properties/relationships/items/properties/they/anyOf/0/properties/address/type", keyword: "type", params: { type: schema114.properties.relationships.items.properties.they.anyOf[0].properties.address.type }, message: "must be array,null" };
                     if (vErrors === null) {
                       vErrors = [err77];
                     } else {
@@ -19058,7 +20003,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
                         if (data38.use !== void 0) {
                           let data40 = data38.use;
                           if (!(data40 === "always" || data40 === "usually" || data40 === "sometimes")) {
-                            const err83 = { instancePath: instancePath + "/relationships/" + i7 + "/they/address/" + i8 + "/use", schemaPath: "#/properties/relationships/items/properties/they/anyOf/0/properties/address/items/properties/use/enum", keyword: "enum", params: { allowedValues: schema113.properties.relationships.items.properties.they.anyOf[0].properties.address.items.properties.use.enum }, message: "must be equal to one of the allowed values" };
+                            const err83 = { instancePath: instancePath + "/relationships/" + i7 + "/they/address/" + i8 + "/use", schemaPath: "#/properties/relationships/items/properties/they/anyOf/0/properties/address/items/properties/use/enum", keyword: "enum", params: { allowedValues: schema114.properties.relationships.items.properties.they.anyOf[0].properties.address.items.properties.use.enum }, message: "must be equal to one of the allowed values" };
                             if (vErrors === null) {
                               vErrors = [err83];
                             } else {
@@ -19104,7 +20049,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
                 if (data36.sees !== void 0) {
                   let data42 = data36.sees;
                   if (typeof data42 !== "string" && data42 !== null) {
-                    const err87 = { instancePath: instancePath + "/relationships/" + i7 + "/they/sees", schemaPath: "#/properties/relationships/items/properties/they/anyOf/0/properties/sees/type", keyword: "type", params: { type: schema113.properties.relationships.items.properties.they.anyOf[0].properties.sees.type }, message: "must be string,null" };
+                    const err87 = { instancePath: instancePath + "/relationships/" + i7 + "/they/sees", schemaPath: "#/properties/relationships/items/properties/they/anyOf/0/properties/sees/type", keyword: "type", params: { type: schema114.properties.relationships.items.properties.they.anyOf[0].properties.sees.type }, message: "must be string,null" };
                     if (vErrors === null) {
                       vErrors = [err87];
                     } else {
@@ -19186,7 +20131,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
                 if (data43.address !== void 0) {
                   let data44 = data43.address;
                   if (!Array.isArray(data44) && data44 !== null) {
-                    const err93 = { instancePath: instancePath + "/relationships/" + i7 + "/player/address", schemaPath: "#/properties/relationships/items/properties/player/anyOf/0/properties/address/type", keyword: "type", params: { type: schema113.properties.relationships.items.properties.player.anyOf[0].properties.address.type }, message: "must be array,null" };
+                    const err93 = { instancePath: instancePath + "/relationships/" + i7 + "/player/address", schemaPath: "#/properties/relationships/items/properties/player/anyOf/0/properties/address/type", keyword: "type", params: { type: schema114.properties.relationships.items.properties.player.anyOf[0].properties.address.type }, message: "must be array,null" };
                     if (vErrors === null) {
                       vErrors = [err93];
                     } else {
@@ -19253,7 +20198,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
                         if (data45.use !== void 0) {
                           let data47 = data45.use;
                           if (!(data47 === "always" || data47 === "usually" || data47 === "sometimes")) {
-                            const err99 = { instancePath: instancePath + "/relationships/" + i7 + "/player/address/" + i9 + "/use", schemaPath: "#/properties/relationships/items/properties/player/anyOf/0/properties/address/items/properties/use/enum", keyword: "enum", params: { allowedValues: schema113.properties.relationships.items.properties.player.anyOf[0].properties.address.items.properties.use.enum }, message: "must be equal to one of the allowed values" };
+                            const err99 = { instancePath: instancePath + "/relationships/" + i7 + "/player/address/" + i9 + "/use", schemaPath: "#/properties/relationships/items/properties/player/anyOf/0/properties/address/items/properties/use/enum", keyword: "enum", params: { allowedValues: schema114.properties.relationships.items.properties.player.anyOf[0].properties.address.items.properties.use.enum }, message: "must be equal to one of the allowed values" };
                             if (vErrors === null) {
                               vErrors = [err99];
                             } else {
@@ -19299,7 +20244,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
                 if (data43.sees !== void 0) {
                   let data49 = data43.sees;
                   if (typeof data49 !== "string" && data49 !== null) {
-                    const err103 = { instancePath: instancePath + "/relationships/" + i7 + "/player/sees", schemaPath: "#/properties/relationships/items/properties/player/anyOf/0/properties/sees/type", keyword: "type", params: { type: schema113.properties.relationships.items.properties.player.anyOf[0].properties.sees.type }, message: "must be string,null" };
+                    const err103 = { instancePath: instancePath + "/relationships/" + i7 + "/player/sees", schemaPath: "#/properties/relationships/items/properties/player/anyOf/0/properties/sees/type", keyword: "type", params: { type: schema114.properties.relationships.items.properties.player.anyOf[0].properties.sees.type }, message: "must be string,null" };
                     if (vErrors === null) {
                       vErrors = [err103];
                     } else {
@@ -19469,7 +20414,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
             if (data51.existing_id !== void 0) {
               let data53 = data51.existing_id;
               if (typeof data53 !== "string" && data53 !== null) {
-                const err118 = { instancePath: instancePath + "/knowers/" + i10 + "/existing_id", schemaPath: "#/properties/knowers/items/properties/existing_id/type", keyword: "type", params: { type: schema113.properties.knowers.items.properties.existing_id.type }, message: "must be string,null" };
+                const err118 = { instancePath: instancePath + "/knowers/" + i10 + "/existing_id", schemaPath: "#/properties/knowers/items/properties/existing_id/type", keyword: "type", params: { type: schema114.properties.knowers.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err118];
                 } else {
@@ -19492,7 +20437,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
             if (data51.level !== void 0) {
               let data54 = data51.level;
               if (!(data54 === "exists" || data54 === "identity" || data54 === "secrets")) {
-                const err120 = { instancePath: instancePath + "/knowers/" + i10 + "/level", schemaPath: "#/properties/knowers/items/properties/level/enum", keyword: "enum", params: { allowedValues: schema113.properties.knowers.items.properties.level.enum }, message: "must be equal to one of the allowed values" };
+                const err120 = { instancePath: instancePath + "/knowers/" + i10 + "/level", schemaPath: "#/properties/knowers/items/properties/level/enum", keyword: "enum", params: { allowedValues: schema114.properties.knowers.items.properties.level.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err120];
                 } else {
@@ -19526,7 +20471,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
             if (data51.basis !== void 0) {
               let data56 = data51.basis;
               if (!(data56 === "persona_stated" || data56 === "implied")) {
-                const err123 = { instancePath: instancePath + "/knowers/" + i10 + "/basis", schemaPath: "#/properties/knowers/items/properties/basis/enum", keyword: "enum", params: { allowedValues: schema113.properties.knowers.items.properties.basis.enum }, message: "must be equal to one of the allowed values" };
+                const err123 = { instancePath: instancePath + "/knowers/" + i10 + "/basis", schemaPath: "#/properties/knowers/items/properties/basis/enum", keyword: "enum", params: { allowedValues: schema114.properties.knowers.items.properties.basis.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err123];
                 } else {
@@ -20095,7 +21040,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
             if (data78.existing_id !== void 0) {
               let data80 = data78.existing_id;
               if (typeof data80 !== "string" && data80 !== null) {
-                const err174 = { instancePath: instancePath + "/recognized_by/" + i19 + "/existing_id", schemaPath: "#/properties/recognized_by/items/properties/existing_id/type", keyword: "type", params: { type: schema113.properties.recognized_by.items.properties.existing_id.type }, message: "must be string,null" };
+                const err174 = { instancePath: instancePath + "/recognized_by/" + i19 + "/existing_id", schemaPath: "#/properties/recognized_by/items/properties/existing_id/type", keyword: "type", params: { type: schema114.properties.recognized_by.items.properties.existing_id.type }, message: "must be string,null" };
                 if (vErrors === null) {
                   vErrors = [err174];
                 } else {
@@ -20318,7 +21263,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
         if (data85.perceives !== void 0) {
           let data90 = data85.perceives;
           if (!(data90 && typeof data90 == "object" && !Array.isArray(data90)) && data90 !== null) {
-            const err194 = { instancePath: instancePath + "/nature/perceives", schemaPath: "#/properties/nature/properties/perceives/type", keyword: "type", params: { type: schema113.properties.nature.properties.perceives.type }, message: "must be object,null" };
+            const err194 = { instancePath: instancePath + "/nature/perceives", schemaPath: "#/properties/nature/properties/perceives/type", keyword: "type", params: { type: schema114.properties.nature.properties.perceives.type }, message: "must be object,null" };
             if (vErrors === null) {
               vErrors = [err194];
             } else {
@@ -20345,7 +21290,7 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
                 for (let i21 = 0; i21 < len21; i21++) {
                   let data92 = data91[i21];
                   if (!(data92 === "thoughts" || data92 === "memories" || data92 === "emotions" || data92 === "hidden" || data92 === "whereabouts" || data92 === "lies" || data92 === "past")) {
-                    const err196 = { instancePath: instancePath + "/nature/perceives/kinds/" + i21, schemaPath: "#/properties/nature/properties/perceives/properties/kinds/items/enum", keyword: "enum", params: { allowedValues: schema113.properties.nature.properties.perceives.properties.kinds.items.enum }, message: "must be equal to one of the allowed values" };
+                    const err196 = { instancePath: instancePath + "/nature/perceives/kinds/" + i21, schemaPath: "#/properties/nature/properties/perceives/properties/kinds/items/enum", keyword: "enum", params: { allowedValues: schema114.properties.nature.properties.perceives.properties.kinds.items.enum }, message: "must be equal to one of the allowed values" };
                     if (vErrors === null) {
                       vErrors = [err196];
                     } else {
@@ -20447,17 +21392,17 @@ function validate76(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate76.errors = vErrors;
+  validate77.errors = vErrors;
   return errors === 0;
 }
-validate76.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var relate = validate77;
-var schema114 = { "type": "object", "properties": { "pairs": { "type": "array", "maxItems": 60, "items": { "type": "object", "properties": { "n": { "type": "integer" }, "changed": { "type": "boolean" }, "bond": { "type": "string", "maxLength": 400 }, "views": { "type": "array", "maxItems": 2, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 120 }, "address": { "type": "array", "items": { "type": "object", "properties": { "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes", "dropped"] }, "when": { "type": "string", "maxLength": 200 } }, "required": ["term", "use"], "additionalProperties": false } }, "sees": { "type": "string", "maxLength": 600 } }, "required": ["who"], "additionalProperties": false } }, "together": { "type": "string", "maxLength": 600 }, "ended": { "type": "boolean" } }, "required": ["n", "changed"], "additionalProperties": false } } }, "required": ["pairs"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:relate", "title": "Canon Engine task output: relate" };
-function validate77(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+validate77.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var relate = validate78;
+var schema115 = { "type": "object", "properties": { "pairs": { "type": "array", "maxItems": 60, "items": { "type": "object", "properties": { "n": { "type": "integer" }, "changed": { "type": "boolean" }, "bond": { "type": "string", "maxLength": 400 }, "views": { "type": "array", "maxItems": 2, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 120 }, "address": { "type": "array", "items": { "type": "object", "properties": { "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes", "dropped"] }, "when": { "type": "string", "maxLength": 200 } }, "required": ["term", "use"], "additionalProperties": false } }, "sees": { "type": "string", "maxLength": 600 } }, "required": ["who"], "additionalProperties": false } }, "together": { "type": "string", "maxLength": 600 }, "ended": { "type": "boolean" } }, "required": ["n", "changed"], "additionalProperties": false } } }, "required": ["pairs"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:relate", "title": "Canon Engine task output: relate" };
+function validate78(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate77.evaluated;
+  const evaluated0 = validate78.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -20694,7 +21639,7 @@ function validate77(data, { instancePath = "", parentData, parentDataProperty, r
                             if (data9.use !== void 0) {
                               let data11 = data9.use;
                               if (!(data11 === "always" || data11 === "usually" || data11 === "sometimes" || data11 === "dropped")) {
-                                const err20 = { instancePath: instancePath + "/pairs/" + i0 + "/views/" + i1 + "/address/" + i2 + "/use", schemaPath: "#/properties/pairs/items/properties/views/items/properties/address/items/properties/use/enum", keyword: "enum", params: { allowedValues: schema114.properties.pairs.items.properties.views.items.properties.address.items.properties.use.enum }, message: "must be equal to one of the allowed values" };
+                                const err20 = { instancePath: instancePath + "/pairs/" + i0 + "/views/" + i1 + "/address/" + i2 + "/use", schemaPath: "#/properties/pairs/items/properties/views/items/properties/address/items/properties/use/enum", keyword: "enum", params: { allowedValues: schema115.properties.pairs.items.properties.views.items.properties.address.items.properties.use.enum }, message: "must be equal to one of the allowed values" };
                                 if (vErrors === null) {
                                   vErrors = [err20];
                                 } else {
@@ -20849,17 +21794,17 @@ function validate77(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate77.errors = vErrors;
+  validate78.errors = vErrors;
   return errors === 0;
 }
-validate77.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var world_check = validate78;
-var schema115 = { "type": "object", "properties": { "items": { "type": "array", "maxItems": 80, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 40 }, "action": { "type": "string", "enum": ["keep", "replace", "disable"] }, "content": { "type": "string", "maxLength": 2e4 }, "name": { "type": "string", "maxLength": 200 }, "untrue": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 200 } }, "reason": { "type": "string", "maxLength": 600 } }, "required": ["ref", "action"], "additionalProperties": false } }, "additions": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "title": { "type": "string", "maxLength": 200 }, "keys": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 100 } }, "content": { "type": "string", "maxLength": 4e3 }, "reason": { "type": "string", "maxLength": 600 } }, "required": ["title", "keys", "content"], "additionalProperties": false } } }, "required": ["items"], "additionalProperties": false, "$id": "urn:canon-engine:world_check" };
-function validate78(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+validate78.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var world_check = validate79;
+var schema116 = { "type": "object", "properties": { "items": { "type": "array", "maxItems": 80, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 40 }, "action": { "type": "string", "enum": ["keep", "replace", "disable"] }, "content": { "type": "string", "maxLength": 2e4 }, "name": { "type": "string", "maxLength": 200 }, "untrue": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 200 } }, "reason": { "type": "string", "maxLength": 600 } }, "required": ["ref", "action"], "additionalProperties": false } }, "additions": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "title": { "type": "string", "maxLength": 200 }, "keys": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 100 } }, "content": { "type": "string", "maxLength": 4e3 }, "reason": { "type": "string", "maxLength": 600 } }, "required": ["title", "keys", "content"], "additionalProperties": false } } }, "required": ["items"], "additionalProperties": false, "$id": "urn:canon-engine:world_check" };
+function validate79(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate78.evaluated;
+  const evaluated0 = validate79.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -20966,7 +21911,7 @@ function validate78(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
               if (!(data3 === "keep" || data3 === "replace" || data3 === "disable")) {
-                const err9 = { instancePath: instancePath + "/items/" + i0 + "/action", schemaPath: "#/properties/items/items/properties/action/enum", keyword: "enum", params: { allowedValues: schema115.properties.items.items.properties.action.enum }, message: "must be equal to one of the allowed values" };
+                const err9 = { instancePath: instancePath + "/items/" + i0 + "/action", schemaPath: "#/properties/items/items/properties/action/enum", keyword: "enum", params: { allowedValues: schema116.properties.items.items.properties.action.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err9];
                 } else {
@@ -21300,10 +22245,10 @@ function validate78(data, { instancePath = "", parentData, parentDataProperty, r
     }
     errors++;
   }
-  validate78.errors = vErrors;
+  validate79.errors = vErrors;
   return errors === 0;
 }
-validate78.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+validate79.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 
 // src/core/domain/types.ts
 var EXACT_PRECISIONS = ["minute", "range"];
@@ -26788,6 +27733,198 @@ var relate_schema_default = {
   title: "Canon Engine task output: relate"
 };
 
+// schemas/runtime/picture.schema.json
+var picture_schema_default = {
+  type: "object",
+  properties: {
+    moment: {
+      type: "string",
+      maxLength: 300
+    },
+    caption: {
+      type: "string",
+      maxLength: 600
+    },
+    characters: {
+      type: "array",
+      maxItems: 6,
+      items: {
+        type: "object",
+        properties: {
+          who: {
+            type: "string",
+            maxLength: 120
+          },
+          name: {
+            type: "string",
+            maxLength: 120
+          },
+          tag: {
+            type: "string",
+            maxLength: 120
+          },
+          copyright: {
+            type: "string",
+            maxLength: 120
+          },
+          body: {
+            enum: [
+              "girl",
+              "boy",
+              "other"
+            ]
+          },
+          look: {
+            type: "array",
+            maxItems: 16,
+            items: {
+              type: "string",
+              maxLength: 80
+            }
+          },
+          outfit: {
+            type: "array",
+            maxItems: 12,
+            items: {
+              type: "string",
+              maxLength: 80
+            }
+          },
+          expression: {
+            type: "array",
+            maxItems: 6,
+            items: {
+              type: "string",
+              maxLength: 80
+            }
+          },
+          action: {
+            type: "array",
+            maxItems: 10,
+            items: {
+              type: "string",
+              maxLength: 80
+            }
+          },
+          x: {
+            enum: [
+              "left",
+              "center-left",
+              "center",
+              "center-right",
+              "right"
+            ]
+          },
+          y: {
+            enum: [
+              "upper",
+              "middle",
+              "lower"
+            ]
+          }
+        },
+        required: [
+          "who",
+          "name",
+          "tag",
+          "copyright",
+          "body",
+          "look",
+          "outfit",
+          "expression",
+          "action",
+          "x",
+          "y"
+        ],
+        additionalProperties: false
+      }
+    },
+    interactions: {
+      type: "array",
+      maxItems: 10,
+      items: {
+        type: "object",
+        properties: {
+          from: {
+            type: "integer"
+          },
+          to: {
+            type: "integer"
+          },
+          act: {
+            type: "string",
+            maxLength: 80
+          },
+          mutual: {
+            type: "boolean"
+          }
+        },
+        required: [
+          "from",
+          "to",
+          "act",
+          "mutual"
+        ],
+        additionalProperties: false
+      }
+    },
+    place: {
+      type: "array",
+      maxItems: 12,
+      items: {
+        type: "string",
+        maxLength: 80
+      }
+    },
+    time: {
+      type: "array",
+      maxItems: 6,
+      items: {
+        type: "string",
+        maxLength: 80
+      }
+    },
+    effects: {
+      type: "array",
+      maxItems: 10,
+      items: {
+        type: "string",
+        maxLength: 80
+      }
+    },
+    framing: {
+      enum: [
+        "close-up",
+        "portrait",
+        "upper body",
+        "cowboy shot",
+        "full body",
+        "wide shot"
+      ]
+    },
+    angle: {
+      type: "array",
+      maxItems: 4,
+      items: {
+        type: "string",
+        maxLength: 80
+      }
+    }
+  },
+  required: [
+    "moment",
+    "caption",
+    "characters",
+    "interactions",
+    "place",
+    "time",
+    "effects",
+    "framing",
+    "angle"
+  ],
+  additionalProperties: false
+};
+
 // src/core/runtime/model.ts
 var TASK_SCHEMAS = {
   extract_user: extract_user_schema_default,
@@ -26805,7 +27942,8 @@ var TASK_SCHEMAS = {
   mind: mind_schema_default,
   affiliations: affiliations_schema_default,
   ends: ends_schema_default,
-  relate: relate_schema_default
+  relate: relate_schema_default,
+  picture: picture_schema_default
 };
 var TASK_TAG = (t2) => `[CANON_ENGINE_TASK:${t2}]`;
 var validators = {
@@ -26824,7 +27962,8 @@ var validators = {
   mind,
   affiliations,
   ends,
-  relate
+  relate,
+  picture
 };
 function extractJson(text) {
   const s = String(text ?? "").replace(/^﻿/, "");
@@ -27478,6 +28617,24 @@ SHAPE: {"judgements":[{"id":"k1","knows":true,"how":""}]}`,
   relate: `${COMMON}
 TASK: Events of the original story have just settled in this game. In the original story each changes the relationship of the pairs listed with it as "change" says. In this game the pair stands as "now" says (null: they do not know each other yet) \u2014 which may already differ from the original story \u2014 and the event went as "actual" says (as in the original story, or otherwise). For EACH pair work out how the two stand after the event in this game: the original change where its premise holds here; in part, otherwise or not at all where it does not (they already fell out, one of them was not there, the event went differently); by what actually happened when the event went otherwise. changed: false when it leaves them as they stand (also when they never deal with each other in it as it went). Otherwise the change, merged into "now": a part you give replaces that part, a part you leave out stays \u2014 so give anew every part the change makes untrue, the forms of address included (a form that no longer fits is dropped, a new one given). bond: what they are to each other now, one short phrase, the whole of it. views: each side that changes \u2014 who (one of the two ids), sees (how they regard and treat the other now, one sentence; "" when unchanged), address (only the forms of address that change, from "now": a new form, one used otherwise, or one no longer used \u2014 term: the form itself; use: always (the only form they use for the other now), usually, sometimes (with when: in what situation) or dropped; [] when none changes). address_change, when given, is how the original story's forms change at this event: take a change only as far as it fits what actually happened and the relation "now". together: how they are when together, when that changes ("" when unchanged). ended: true only when the relationship is over for good (one of them died, broken off for good). Never decide the player character's feelings or words: for them only what actual says. Write in the language of the inputs; nothing beyond what the event and their relationship make plain.
 SHAPE: {"pairs":[{"n":1,"changed":false,"bond":"","views":[{"who":"","sees":"","address":[{"term":"","use":"usually","when":""}]}],"together":"","ended":false}]}`,
+  // 画面 (picture.ts): one moment of a reply as image-board tags in parts; code assembles them for an image service.
+  picture: `${COMMON}
+TASK: Describe ONE moment of a story reply as a picture, for an anime-style image model that reads image-board (Danbooru) tags. Inputs: work (the story's world), reply (the text to draw from), player_message (what the player character just said and did: context only), time and part_of_day (when the scene happens), people (the people known to be in this scene: id, name, description; player: true marks the player character, described by the player's own Persona).
+- moment: choose the moment of the reply a reader would most want to see \u2014 the height of an action, a reveal, the striking image of the reply; for a quiet reply, the scene as it stands. Say which in a few words, in the reply's language. Everything else describes that one instant: who is visible then, where, doing what. Nothing from before or after it.
+- characters: those visible at that instant, the most important first, at most 6 (a crowd is a place or effect tag, not characters). The player character is in the picture when they are part of the moment. who: their id from people, "" for someone not in people.
+- tag: the character's Danbooru tag, as Danbooru writes it (romanized name in Danbooru's order, with Danbooru's parenthesized qualifier when it has one) \u2014 only for a character of a published work whom image boards know, and only when you know the tag. Never for the player character or anyone invented: "". copyright: the work's Danbooru copyright tag for a character with a tag, else "".
+- body: girl (any female), boy (any male), other.
+- look: for a character with a tag, the image model knows their usual look: give only what differs at this moment (hair let down, injured, soaked, older than usual). For a character without a tag, the whole look \u2014 hair colour, length and style, eye colour, build, apparent age as a tag (child, teenage, mature female, old man), anything distinctive \u2014 from their description and the reply; never against what they say; plain choices where nothing is said.
+- outfit: what they wear at that instant \u2014 as the reply says, else their usual clothes (by the work, or by their description).
+- expression: their face. action: pose and what they do alone (holding, running, raising a hand, using a power) \u2014 one act per tag.
+- x, y: where they are in the picture; no two characters at the same x and y.
+- interactions: an act of one character directed at another, as one tag (hug, head biting, hand on another's shoulder, pointing at another, punching, carrying, electrocution) \u2014 written here only, not again in either's action. from and to are positions in characters (1 = first); mutual true for acts both do together (holding hands, eye contact, fist bump).
+- place: where (setting, buildings, indoors or outdoors, what is around). time: time of day and light, by part_of_day unless the reply shows otherwise (night, sunset, sunlight, dim lighting). effects: weather and what fills the air (rain, snow, electricity, explosion, sparks, smoke, magic circle, crowd).
+- framing: by what matters \u2014 a face or a feeling: close-up or portrait; people talking: upper body or cowboy shot; action or a striking place: full body or wide shot. angle: camera angle tags when they help (from above, from below, from side, dutch angle, pov), else [].
+- caption: the picture in one or two plain sentences IN ENGLISH, whatever the reply's language \u2014 names romanized, what happens, where \u2014 for image models that read sentences.
+- Tags: English Danbooru tags as image boards use them \u2014 one to three words, lower case, spaces instead of underscores, one thing per tag; never a phrase or sentence, a number, a measurement or a clock time (not "17 years old", "178 cm", "2 am", "sliding a photo across the counter"); a tag once only per character. No weights or brackets; no quality, style or artist tags (masterpiece, best quality, anime style): the image service adds its own.
+- A picture anyone may see: nothing sexual \u2014 if the reply is, draw a moment of it that is not; violence without gore.
+SHAPE: {"moment":"","caption":"","characters":[{"who":"","name":"","tag":"","copyright":"","body":"girl","look":[""],"outfit":[""],"expression":[""],"action":[""],"x":"center","y":"middle"}],"interactions":[{"from":1,"to":2,"act":"","mutual":false}],"place":[""],"time":[""],"effects":[""],"framing":"full body","angle":[]}`,
   // User: smart characters only sounded clever and said what anyone would say; the GM writes every person in one pass
   // with the same effort. Here the people who think before they act get a pass of their own, before the reply.
   mind: `${COMMON}
@@ -27567,7 +28724,8 @@ var SCHEMAS = {
   world_check: world_check_schema_default,
   mind: mind_schema_default,
   affiliations: affiliations_schema_default,
-  relate: relate_schema_default
+  relate: relate_schema_default,
+  picture: picture_schema_default
 };
 var EVAL_FRAMES_NOTE = `7. TIME FRAMES (this pack has them; see time_frames): also return "scene_frame" in the reply object: the id of the frame the scene is in at the END of the reply \u2014 where the player character is \u2014 when the reply shows them arriving in another frame or coming back (time travel, crossing into another world, entering or waking from a dream); "main" for the main frame; null when they stay in scene_frame_now. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame's conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).`;
 var PROMPTS = Object.fromEntries(Object.entries(RAW_PROMPTS).map(([k, v]) => [k, annotateShape(v, SCHEMAS[k])]));
@@ -28639,19 +29797,19 @@ function recognitionGroups(index, profile2) {
   return out.filter((g) => !seen.has(g.key) && !!seen.add(g.key)).slice(0, 20);
 }
 function presentGroups(index, profile2, tick, sceneIds, reported) {
-  const scene = new Set(sceneIds.filter((x) => x !== profile2.playerId));
+  const scene2 = new Set(sceneIds.filter((x) => x !== profile2.playerId));
   const members = memberships(index, tick);
   const out = [];
   for (const g of recognitionGroups(index, profile2)) {
     const why = [];
     if (g.everywhere) why.push("known everywhere \u2014 strangers too, wherever the scene has people");
-    if (g.personId && scene.has(g.personId)) why.push("present");
+    if (g.personId && scene2.has(g.personId)) why.push("present");
     if (g.orgId) {
-      const ms = (members.get(g.orgId) || []).filter((m) => scene.has(m));
+      const ms = (members.get(g.orgId) || []).filter((m) => scene2.has(m));
       if (ms.length) why.push(`${ms.map((m) => index.entityName(m)).join(", ")} ${ms.length > 1 ? "are" : "is"} one of them`);
-      else if (scene.has(g.orgId)) why.push("their organization is in the scene");
+      else if (scene2.has(g.orgId)) why.push("their organization is in the scene");
     }
-    const at = g.places.filter((p) => scene.has(p));
+    const at = g.places.filter((p) => scene2.has(p));
     if (at.length) why.push(`at ${at.map((p) => index.entityName(p)).join(", ")}`);
     if (!why.length && reported.includes(g.key)) why.push("in the scene");
     if (why.length) out.push({ g, why });
@@ -29380,10 +30538,10 @@ var RELATION_HEAD = "RELATIONSHIPS (how the people here stand with each other no
 var ADDRESS_HEAD = "FORMS OF ADDRESS (how one person here addresses or refers to another where it is not simply by name; use them in what they say, and think, about that person: always \u2014 the only form they use for them, never another; usually \u2014 their common form; sometimes \u2014 only in the situation given. Toward anyone not listed here, people use the name as the story would; a form listed is that person's own, not the others' who know the same one. The player character's forms are the Persona's and the player's own words: with none listed, they too use the name.)";
 function relationSection(index, retrieval, origin, player, playerText = "", present) {
   const isPerson = (id) => index.entityKind(id) === "person";
-  const scene = [.../* @__PURE__ */ new Set([...player ? [player] : [], ...present ? present.filter(isPerson) : [...retrieval.entities].filter(([id, t2]) => t2.has("scene") && isPerson(id)).map(([id]) => id)])];
+  const scene2 = [.../* @__PURE__ */ new Set([...player ? [player] : [], ...present ? present.filter(isPerson) : [...retrieval.entities].filter(([id, t2]) => t2.has("scene") && isPerson(id)).map(([id]) => id)])];
   const named = /* @__PURE__ */ new Set([...index.scanEntities(playerText).map((m) => m.id), ...retrieval.entries.filter((e) => e.resolved.entityIds.length === 1).map((e) => e.resolved.entityIds[0])]);
-  const mentioned = [...named].filter((id) => isPerson(id) && id !== player && !scene.includes(id));
-  const here = [...scene, ...mentioned];
+  const mentioned = [...named].filter((id) => isPerson(id) && id !== player && !scene2.includes(id));
+  const here = [...scene2, ...mentioned];
   const seen = /* @__PURE__ */ new Set();
   const pairs = [];
   here.forEach((a, i) => here.slice(i + 1).forEach((b) => {
@@ -29391,7 +30549,7 @@ function relationSection(index, retrieval, origin, player, playerText = "", pres
     if (seen.has(k)) return;
     seen.add(k);
     const rel = index.relationNow(a, b);
-    const inScene = (x) => scene.includes(x);
+    const inScene = (x) => scene2.includes(x);
     if (rel) pairs.push({ tier: inScene(a) && inScene(b) ? a === player || b === player ? 1 : 0 : inScene(a) || inScene(b) ? 2 : 3, rel });
   }));
   if (!pairs.length) return "";
@@ -30729,6 +31887,106 @@ function toChange(p, a) {
   if (!p.now && !bond) return null;
   if (!bond && !views.length && !together && !a.ended) return null;
   return { people: p.people, bond, views, ...together ? { together } : {}, ...a.ended ? { ended: true } : {}, quote: "", source: "event", event: p.eventId, eventRecord: p.eventRecordId };
+}
+
+// src/core/runtime/picture.ts
+var REPLY_MAX = 8e3;
+var DESCRIPTION_MAX = 600;
+var PERSONA_MAX = 2e3;
+function partOfDay(tick) {
+  const m = fromTick(tick).minute;
+  if (m < 300) return "night";
+  if (m < 420) return "dawn";
+  if (m < 690) return "morning";
+  if (m < 840) return "midday";
+  if (m < 1020) return "afternoon";
+  if (m < 1140) return "evening";
+  return "night";
+}
+function pictureInput(a) {
+  return {
+    work: a.work,
+    reply: a.reply.slice(-REPLY_MAX),
+    player_message: a.playerMessage.slice(-2e3),
+    time: a.time,
+    part_of_day: a.tick === null ? "" : partOfDay(a.tick),
+    people: a.people.map((p) => ({ ...p, description: p.description.slice(0, p.player ? PERSONA_MAX : DESCRIPTION_MAX) }))
+  };
+}
+function cleanTag(raw) {
+  const t2 = String(raw).toLowerCase().replace(/_/g, " ").replace(/[{}[\]]/g, "").replace(/::/g, "").replace(/\s+/g, " ").trim();
+  return /^[\x20-\x7e]+$/.test(t2) ? t2 : "";
+}
+function cleanTags(list, dropped) {
+  const out = [];
+  for (const raw of list) for (const part of String(raw).split(",")) {
+    const t2 = cleanTag(part);
+    if (t2 && !out.includes(t2)) out.push(t2);
+    else if (!t2 && part.trim()) dropped.push(part.trim());
+  }
+  return out;
+}
+function cleanPicture(p) {
+  const dropped = [];
+  const characters = p.characters.map((c) => ({
+    ...c,
+    who: c.who.trim(),
+    name: c.name.trim(),
+    tag: cleanTag(c.tag),
+    copyright: cleanTag(c.copyright),
+    look: cleanTags(c.look, dropped),
+    outfit: cleanTags(c.outfit, dropped),
+    expression: cleanTags(c.expression, dropped),
+    action: cleanTags(c.action, dropped)
+  }));
+  const n = characters.length;
+  const interactions = p.interactions.map((i) => ({ ...i, act: cleanTag(i.act) })).filter((i) => i.act && i.from >= 1 && i.from <= n && i.to >= 1 && i.to <= n && i.from !== i.to);
+  const caption = p.caption.trim();
+  const english = /^[\x20-\x7e‘-”–—]*$/.test(caption);
+  if (!english) dropped.push(caption);
+  return {
+    picture: { ...p, moment: p.moment.trim(), caption: english ? caption : "", characters, interactions, place: cleanTags(p.place, dropped), time: cleanTags(p.time, dropped), effects: cleanTags(p.effects, dropped), angle: cleanTags(p.angle, dropped) },
+    dropped
+  };
+}
+function countTags(characters) {
+  if (!characters.length) return ["no humans"];
+  const count = (body, one, many) => {
+    const k = characters.filter((c) => c.body === body).length;
+    return k === 0 ? [] : [k === 1 ? `1${one}` : k >= 6 ? `6+${many}` : `${k}${many}`];
+  };
+  return [...count("girl", "girl", "girls"), ...count("boy", "boy", "boys"), ...count("other", "other", "others")];
+}
+var PICTURE_NEGATIVE = ["nsfw"];
+var X_AT = { left: 0.1, "center-left": 0.3, center: 0.5, "center-right": 0.7, right: 0.9 };
+var Y_AT = { upper: 0.3, middle: 0.5, lower: 0.7 };
+var join = (tags) => [...new Set(tags.filter(Boolean))].join(", ");
+var copyrights = (p) => p.characters.map((c) => c.copyright);
+var scene = (p) => [...p.place, ...p.time, ...p.effects, p.framing, ...p.angle];
+function novelaiPrompt(p) {
+  const acts = (n) => p.interactions.flatMap((i) => i.mutual ? i.from === n || i.to === n ? [`mutual#${i.act}`] : [] : i.from === n ? [`source#${i.act}`] : i.to === n ? [`target#${i.act}`] : []);
+  return {
+    prompt: join([...countTags(p.characters), ...copyrights(p), ...scene(p)]),
+    characters: p.characters.map((c, i) => ({
+      prompt: join([c.body, c.tag, ...c.look, ...c.outfit, ...c.expression, ...c.action, ...acts(i + 1)]),
+      center: { x: X_AT[c.x], y: Y_AT[c.y] }
+    })),
+    negative: PICTURE_NEGATIVE.join(", ")
+  };
+}
+function novelaiCell(center) {
+  return "ABCDE"[Math.round((center.x - 0.1) / 0.2)] + String(Math.round((center.y - 0.1) / 0.2) + 1);
+}
+function plainPrompt(p) {
+  const escape2 = (t2) => t2.replace(/[()]/g, (ch) => `\\${ch}`);
+  const tags = [
+    ...countTags(p.characters),
+    ...copyrights(p),
+    ...p.characters.flatMap((c) => [c.tag, ...c.look, ...c.outfit, ...c.expression, ...c.action]),
+    ...p.interactions.map((i) => i.act),
+    ...scene(p)
+  ];
+  return { prompt: join(tags.map(escape2)), negative: PICTURE_NEGATIVE.join(", "), caption: p.caption };
 }
 
 // src/core/runtime/planner.ts
@@ -34294,6 +35552,35 @@ ${lines.join("\n")}`;
     await this.host.save();
     return this.current?.replay.state.dispositions.get(eventId)?.disposition || "pending";
   }
+  /** 画面: a moment of a reply (by message id; default the last reply) as a picture in parts (picture.ts), with the
+   *  prompts for the image services. The people are those the engine has in the reply's scene (present at its end and
+   *  named in it) and the player character, described by the Persona. */
+  async picture(messageId, signal) {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError("incompatible_adapter", "engine state unavailable");
+    const entries = this.host.readTranscript();
+    const at = messageId ? entries.findIndex((e) => e.messageId === messageId) : entries.map((e) => e.role).lastIndexOf("gm");
+    const entry = entries[at];
+    if (!entry || entry.role !== "gm") throw new EngineError("incompatible_adapter", this.tr("\u6CA1\u6709\u53EF\u4EE5\u753B\u7684\u56DE\u590D\u3002", "There is no reply to draw."));
+    const index = this.current.index;
+    const interp = interpretationsFor(c.interpretations, baseKey(entry)).find((x) => x.role === "gm");
+    const prof = c.integration ? this.profileFor(entry) : null;
+    const persona = this.host.persona();
+    const playerId = prof?.profile.playerId;
+    const people = uniq([...interp?.present || [], ...interp?.named || []]).filter((id) => id !== playerId && index.entityKind(id) === "person").map((id) => ({ id, name: index.entityName(id), description: index.pack.entities.get(id)?.static_description || "" }));
+    const user = entries.slice(0, at).reverse().find((e) => e.role === "user");
+    const tick = interp?.sceneEnd?.lo ?? null;
+    const out = await callStructured(this.host.model, "picture", PROMPTS.picture, pictureInput({
+      work: index.pack.pack.title,
+      reply: entry.text,
+      playerMessage: user ? this.ooc(user.text).story : "",
+      time: interp?.sceneEnd ? formatStoryTime(interp.sceneEnd, this.campaign()?.binding.originDate || null) : "",
+      tick,
+      people: [{ id: playerId || "player", name: persona.name, description: persona.description, player: true }, ...people]
+    }), { signal, operationId: "picture", log: (l) => this.debugLog("task", l), maxTokens: 4e3 });
+    const { picture: picture2, dropped } = cleanPicture(out);
+    return { picture: picture2, dropped, novelai: novelaiPrompt(picture2), plain: plainPrompt(picture2) };
+  }
   /** 关注: mark/unmark an event the player wants to experience. */
   async toggleFocus(eventId) {
     const c = this.campaign();
@@ -35262,6 +36549,21 @@ Affects later reads only: in a started chat, use "Update this game's identity" o
   niAcceptAgain: { zh: "\u91CD\u65B0\u63A5\u53D7", en: "Accept again" },
   niBusy: { zh: "\u6B63\u5728\u8BFB\u53D6 Persona\u2026", en: "Reading the Persona\u2026" },
   backupWarning: { zh: "\u5907\u4EFD\u5305\u542B\u5B8C\u6574\u7684\u5386\u53F2\u5305\u4E0E\u672C\u6218\u5F79\u7684\u9690\u85CF\u4FE1\u606F\uFF08\u5267\u900F\uFF09\uFF0C\u8BF7\u52FF\u968F\u610F\u5206\u4EAB\u3002", en: "The backup contains the full pack and hidden campaign data (spoilers)." },
+  pictureButton: { zh: "\u753B\u9762\u63D0\u793A\u8BCD\uFF1A\u628A\u8FD9\u6761\u56DE\u590D\u7684\u4E00\u4E2A\u573A\u9762\u5199\u6210\u751F\u56FE\u63D0\u793A\u8BCD", en: "Picture prompt: this reply's moment as an image prompt" },
+  pictureWorking: { zh: "\u6B63\u5728\u5199\u753B\u9762\u63D0\u793A\u8BCD\u2026", en: "Writing the picture prompt\u2026" },
+  pictureTitle: { zh: "\u753B\u9762\u63D0\u793A\u8BCD", en: "Picture prompt" },
+  pictureMoment: { zh: "\u753B\u7684\u662F", en: "Moment" },
+  pictureNovelAI: { zh: "NovelAI\uFF08V4 \u53CA\u4EE5\u540E\uFF0C\u591A\u89D2\u8272\uFF09", en: "NovelAI (V4 and later, multi-character)" },
+  pictureBase: { zh: "\u57FA\u7840\u63D0\u793A\u8BCD\uFF08Base Prompt\uFF09", en: "Base prompt" },
+  pictureChar: { zh: "\u89D2\u8272 {n}\uFF08\u4F4D\u7F6E {cell}\uFF09", en: "Character {n} (position {cell})" },
+  pictureNegative: { zh: "\u8D1F\u9762\u63D0\u793A\u8BCD\uFF08Undesired Content\uFF09", en: "Undesired content" },
+  picturePlain: { zh: "\u5355\u6BB5\u63D0\u793A\u8BCD\uFF08ComfyUI / Stable Diffusion\uFF09", en: "Single prompt (ComfyUI / Stable Diffusion)" },
+  picturePrompt: { zh: "\u63D0\u793A\u8BCD", en: "Prompt" },
+  pictureCaption: { zh: "\u82F1\u6587\u63CF\u8FF0\uFF08\u8BFB\u53E5\u5B50\u7684\u6A21\u578B\u7528\uFF09", en: "Caption (for models that read sentences)" },
+  pictureCopy: { zh: "\u590D\u5236", en: "Copy" },
+  pictureCopied: { zh: "\u5DF2\u590D\u5236", en: "Copied" },
+  pictureDropped: { zh: "\u6CA1\u7528\u4E0A\u7684\uFF08\u4E0D\u662F\u82F1\u6587\u6807\u7B7E\uFF09\uFF1A", en: "Left out (not English tags): " },
+  pictureClose: { zh: "\u5173\u95ED", en: "Close" },
   conflictMarker: { zh: "\u4E0E\u4FEE\u6539\u540E\u7684\u524D\u6587\u51B2\u7A81\uFF1A\u8BF7\u4FEE\u6539\u6B64\u6D88\u606F\uFF0C\u6216\u4ECE\u6B64\u5904\u5206\u652F\u540E\u91CD\u65B0\u751F\u6210\u3002", en: "Conflicts with the edited history: edit this message or branch and regenerate from here." },
   editIt: { zh: "\u5B9A\u4F4D\u6B64\u6D88\u606F", en: "Go to message" },
   branchRegen: { zh: "\u4ECE\u6B64\u5904\u5206\u652F\u5E76\u91CD\u65B0\u751F\u6210", en: "Branch here and regenerate" },
@@ -36891,14 +38193,14 @@ var HoraeAdapter = class _HoraeAdapter {
         if (st === "outdated" || st === "failed") staleIndexes.push(i);
       }
     }
-    let scene = null;
+    let scene2 = null;
     try {
       const s = api.getLatestState?.();
-      if (s) scene = { date: s.timestamp?.story_date, time: s.timestamp?.story_time, location: s.scene?.location, characters: s.scene?.characters_present || [] };
-      if (scene) Object.assign(scene, _HoraeAdapter.latestTime(api.getChat?.() || SillyTavern.getContext().chat || []));
+      if (s) scene2 = { date: s.timestamp?.story_date, time: s.timestamp?.story_time, location: s.scene?.location, characters: s.scene?.characters_present || [] };
+      if (scene2) Object.assign(scene2, _HoraeAdapter.latestTime(api.getChat?.() || SillyTavern.getContext().chat || []));
     } catch {
     }
-    return { available: d.ok, version: d.version, mode: d.mode, staleIndexes, busy, scene };
+    return { available: d.ok, version: d.version, mode: d.mode, staleIndexes, busy, scene: scene2 };
   }
   /** Story date and time from the latest message that records either — both from that one message.
    *  getLatestState() carries each field forward on its own, so a reply with a date but no clock time
@@ -38780,7 +40082,7 @@ function renderInspector() {
   inspector?.render();
 }
 function renderMessageDecorations() {
-  document.querySelectorAll(".canon-banner, .canon-conflict").forEach((n) => n.remove());
+  document.querySelectorAll(".canon-banner, .canon-conflict, .canon-picture").forEach((n) => n.remove());
   const camp = E?.campaign();
   if (!camp || !camp.enabled) return;
   const chat = ctx().chat || [];
@@ -38789,6 +40091,14 @@ function renderMessageDecorations() {
     const el = document.querySelector(`#chat .mes[mesid="${e.index}"] .mes_block`);
     if (!el) continue;
     if (e.role === "gm") {
+      const extra = document.querySelector(`#chat .mes[mesid="${e.index}"] .extraMesButtons`);
+      if (extra) {
+        const b = document.createElement("div");
+        b.className = "mes_button canon-picture fa-solid fa-image";
+        b.title = t("pictureButton");
+        b.addEventListener("click", () => void showPicture(e.messageId));
+        extra.prepend(b);
+      }
       const interp = interpretationsFor(camp.interpretations, baseKey(e)).find((x) => x.banner);
       if (interp?.banner) {
         const b = document.createElement("div");
@@ -38805,6 +40115,33 @@ function renderMessageDecorations() {
     }
   }
   void chat;
+}
+async function showPicture(messageId) {
+  toast("info", t("pictureWorking"));
+  let r;
+  try {
+    r = await E.picture(messageId);
+  } catch (e) {
+    toast("error", e.message);
+    return;
+  }
+  const box = (label, text, rows = 3) => text ? `<label>${esc3(label)}<textarea readonly rows="${rows}" class="text_pole">${esc3(text)}</textarea></label><div class="canon-row"><div class="menu_button canon-copy">${t("pictureCopy")}</div></div>` : "";
+  const el = modal(`<h3>${t("pictureTitle")}</h3>
+    <div><b>${t("pictureMoment")}</b>\uFF1A${esc3(r.picture.moment)}</div>
+    <h4>${t("pictureNovelAI")}</h4>
+    ${box(t("pictureBase"), r.novelai.prompt)}
+    ${r.novelai.characters.map((c, i) => box(t("pictureChar").replace("{n}", String(i + 1)).replace("{cell}", novelaiCell(c.center)), c.prompt)).join("")}
+    ${box(t("pictureNegative"), r.novelai.negative, 1)}
+    <h4>${t("picturePlain")}</h4>
+    ${box(t("picturePrompt"), r.plain.prompt, 5)}
+    ${box(t("pictureCaption"), r.plain.caption, 3)}
+    ${r.dropped.length ? `<div class="canon-note">${t("pictureDropped")}${esc3(r.dropped.join(" | "))}</div>` : ""}
+    <div class="canon-row"><div class="menu_button" data-close>${t("pictureClose")}</div></div>`);
+  el.querySelectorAll(".canon-copy").forEach((btn2) => btn2.addEventListener("click", async () => {
+    const area = btn2.parentElement.previousElementSibling.querySelector("textarea");
+    await navigator.clipboard.writeText(area.value);
+    btn2.textContent = t("pictureCopied");
+  }));
 }
 function gotoConflict() {
   const camp = E.campaign();

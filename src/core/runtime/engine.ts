@@ -25,6 +25,7 @@ import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/fram
 import { CLOCK_READING_SLACK, matchScope, runGate, type EvalOutput, type GateInput, type GateResult } from './gate';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { settleRelations } from './relate';
+import { cleanPicture, novelaiPrompt, pictureInput, plainPrompt, type NovelAIPrompt, type Picture, type PlainPrompt } from './picture';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
@@ -3007,6 +3008,38 @@ export class CanonEngine {
     await this.reconcile('reanalyze_after_story', { allowModel: false });
     await this.host.save();
     return this.current?.replay.state.dispositions.get(eventId)?.disposition || 'pending';
+  }
+
+  /** 画面: a moment of a reply (by message id; default the last reply) as a picture in parts (picture.ts), with the
+   *  prompts for the image services. The people are those the engine has in the reply's scene (present at its end and
+   *  named in it) and the player character, described by the Persona. */
+  async picture(messageId?: string, signal?: AbortSignal): Promise<{ picture: Picture; dropped: string[]; novelai: NovelAIPrompt; plain: PlainPrompt }> {
+    const c = this.campaign();
+    if (!c || !this.current) throw new EngineError('incompatible_adapter', 'engine state unavailable');
+    const entries = this.host.readTranscript();
+    const at = messageId ? entries.findIndex((e) => e.messageId === messageId) : entries.map((e) => e.role).lastIndexOf('gm');
+    const entry = entries[at];
+    if (!entry || entry.role !== 'gm') throw new EngineError('incompatible_adapter', this.tr('没有可以画的回复。', 'There is no reply to draw.'));
+    const index = this.current.index;
+    const interp = interpretationsFor(c.interpretations, baseKey(entry)).find((x) => x.role === 'gm');
+    const prof = c.integration ? this.profileFor(entry) : null;
+    const persona = this.host.persona();
+    const playerId = prof?.profile.playerId;
+    const people = uniq([...(interp?.present || []), ...(interp?.named || [])])
+      .filter((id) => id !== playerId && index.entityKind(id) === 'person')
+      .map((id) => ({ id, name: index.entityName(id), description: index.pack.entities.get(id)?.static_description || '' }));
+    const user = entries.slice(0, at).reverse().find((e) => e.role === 'user');
+    const tick = interp?.sceneEnd?.lo ?? null;
+    const out = await callStructured<Picture>(this.host.model, 'picture', PROMPTS.picture, pictureInput({
+      work: index.pack.pack.title,
+      reply: entry.text,
+      playerMessage: user ? this.ooc(user.text).story : '',
+      time: interp?.sceneEnd ? formatStoryTime(interp.sceneEnd, this.campaign()?.binding.originDate || null) : '',
+      tick,
+      people: [{ id: playerId || 'player', name: persona.name, description: persona.description, player: true }, ...people],
+    }), { signal, operationId: 'picture', log: (l) => this.debugLog('task', l), maxTokens: 4000 });
+    const { picture, dropped } = cleanPicture(out);
+    return { picture, dropped, novelai: novelaiPrompt(picture), plain: plainPrompt(picture) };
   }
 
   /** 关注: mark/unmark an event the player wants to experience. */
