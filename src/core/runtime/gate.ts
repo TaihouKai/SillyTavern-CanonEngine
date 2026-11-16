@@ -720,12 +720,13 @@ export function runGate(g: GateInput): GateResult {
   for (const r of ev.relations || []) {
     const bond = String(r.bond || '').trim().slice(0, 400);
     const label = (r.people || []).join(' / ');
-    if (!bond || (r.people || []).length !== 2) continue;
+    if ((r.people || []).length !== 2) continue;
     if (!evidence(r.quote)) { warnings.push(`relation "${label}" ignored: evidence not found in text`); continue; }
     // someone who now has a relation that matters becomes a person of the chat (like the Persona's own people)
     const ids = r.people.map((x) => {
       const id = relationRef(String(x || '').trim());
-      if (id || !String(x || '').trim() || /^rt\.|^[a-z][a-z0-9_.-]*$/.test(String(x).trim())) return id;
+      // (someone new is introduced only with what they are to the other)
+      if (id || !bond || !String(x || '').trim() || /^rt\.|^[a-z][a-z0-9_.-]*$/.test(String(x).trim())) return id;
       const nid = `rt.person.${slug(String(x).trim())}.${newId('e').slice(2, 8)}`;
       runtimeEntities.push({ id: nid, name: String(x).trim().slice(0, 100), aliases: [], kind: 'person', description: bond });
       refToId.set(String(x).trim(), nid);
@@ -733,6 +734,9 @@ export function runGate(g: GateInput): GateResult {
     });
     if (!ids[0] || !ids[1] || ids[0] === ids[1] || !ids.every((id) => isPerson(id!))) { warnings.push(`relation "${label}" ignored: not two known people`); continue; }
     const people = ids as [Id, Id];
+    // what they are to each other is given anew when it changes; a change of another part only (a nickname taken up)
+    // keeps the bond the relation has. Two with no relation yet need it.
+    if (!bond && !index.relationNow(people[0], people[1])) { warnings.push(`relation "${label}" ignored: two with no relation yet need what they are to each other (bond)`); continue; }
     // (a side whose forms of address alone change gives those only: merged into the relation, the rest stays)
     const views = cleanViews(r.views, people, relationRef).map((v) => {
       // The player character's forms of address are the player's own words, never the reply's (user: the GM once had
@@ -745,10 +749,11 @@ export function runGate(g: GateInput): GateResult {
       return { ...v, address: kept };
     }).filter((v) => v.sees || v.address?.length);
     const together = String(r.together || '').trim().slice(0, 400);
+    if (!bond && !views.length && !together && !r.ended) continue;
     const name = (id: Id) => (index.entityExists(id) ? index.entityName(id) : runtimeEntities.find((x) => x.id === id)?.name || id);
     relationDrafts.push({
       recordId: newId('rec'), kind: 'relation', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
-      visibility: { mode: 'public', knower_ids: [] }, summary: `Relation: ${name(people[0])} – ${name(people[1])}: ${r.ended ? 'ENDED: ' : ''}${bond}`.slice(0, 300), evidenceKind: 'direct',
+      visibility: { mode: 'public', knower_ids: [] }, summary: `Relation: ${name(people[0])} – ${name(people[1])}: ${r.ended ? 'ENDED: ' : ''}${bond || '(as before)'}`.slice(0, 300), evidenceKind: 'direct',
       relations: [{ people, bond, views, ...(together ? { together } : {}), ...(r.ended ? { ended: true } : {}), quote: String(r.quote).slice(0, 300), source: 'play' }],
     });
   }
