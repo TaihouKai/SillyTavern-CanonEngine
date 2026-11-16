@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.38.1 — 2026-11-16
+
+- **A relation change changes the forms of address with it.** The review of a reply and `relate` were told to give anew every part a change makes untrue, but their example named only each side's regard and how they are together. A falling-out could then keep the old pet name. Both now name the forms of address: one that no longer fits is dropped (a pet name after a falling-out, with a cold surname or an insult in its place), and a new one is given (the name they use once they grow close). A pair that still follows the original story takes each stage's forms with the stage, as before.
+
 ## 1.38.0 — 2026-11-16
 
 - **Forms of address are their own part of a relation.** The user found the GM often gets wrong how people address each other. Until now each side had one `calls` string, and in the Toaru pack 590 of 1,778 were simply the other's full name. One word could not say that 上条 mostly calls 美琴 御坂 and teases her as 哔哩哔哩, or that 美琴 says 你这家伙 to his face and 那个笨蛋 when she speaks of him.

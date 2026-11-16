@@ -175,6 +175,9 @@ describe('relations between people, the player character like anyone', () => {
     });
     expect(x.engine.current!.index.relationNow('mira', 'tomas')!.views.find((v) => v.who === 'mira')!.address).toEqual([{ term: 'mother hen', use: 'always' }]);
     expect(PROMPTS.evaluate).toMatch(/a part you leave out stays as it is — so give anew every part this change makes untrue/);
+    // a change of the relation changes the forms of address with it where they no longer fit (user: "称呼也应该会随着改")
+    expect(PROMPTS.evaluate).toMatch(/each form of address that no longer fits — a pet name dropped/);
+    expect(PROMPTS.relate).toMatch(/give anew every part the change makes untrue, the forms of address included/);
   });
 
   it('RL14 an event that goes otherwise: the original stage does not come; what it does to the pair is worked out (here: nothing)', async () => {
