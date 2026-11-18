@@ -4,7 +4,7 @@
 import type { ContactInfo, FactDelta, FactValue, Id, Occurrence, RuntimeEntity, ScopeKind, StoryTime, Until } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { claimComparable, claimMatches, valuesEqual, coerceClaimValue } from '../domain/pack';
-import { cleanViews } from '../domain/address';
+import { cleanForms, cleanViews } from '../domain/address';
 import { factAt } from '../domain/reducer';
 import { applyChange, deltaMeets, deltaText, outcomeDelta, withPackEnd } from '../domain/delta';
 import type { WorldIndex } from '../domain/world-query';
@@ -48,7 +48,7 @@ export interface EvalOutput {
   /** Narrative integration: contacts from the world that reached the player in this reply. */
   contacts?: { quote: string; actors?: string[]; kind: ContactInfo['contactKind']; scope_kind: ScopeKind; scope_ref: string; scope_label?: string; opportunity_id?: string | null }[];
   /** Relations between two people (the player character like anyone) that this reply begins, changes or ends. */
-  relations?: { people: string[]; bond: string; views?: { who: string; address?: { term: string; use: string; when?: string }[]; sees: string }[]; together?: string; ended?: boolean; quote: string }[];
+  relations?: { people: string[]; bond: string; views?: { who: string; sees: string }[]; address?: { by: string; to: string; term: string; use: string; when?: string; quote: string }[]; together?: string; ended?: boolean; quote: string }[];
   /** The people physically with the player character where the reply ends. */
   present?: string[];
   /** Narrative integration: what people know about the player character, changed. */
@@ -709,6 +709,35 @@ export function runGate(g: GateInput): GateResult {
     return hit.length === 1 ? hit[0] : null;
   };
   const isPerson = (id: Id) => (index.entityExists(id) ? index.entityKind(id) : runtimeEntities.find((r) => r.id === id)?.kind) === 'person';
+  const said = (t: string) => normalizeName(g.userText || '').includes(normalizeName(t));
+  /** The forms of address the review gives for a pair that the text bears out, each on the side of the one who uses
+   *  it. A form is someone's own (live: the review put the player's 「电电」 for 美琴 on 美琴's side, from 美琴 putting up
+   *  with the name):
+   *  - its quote has the term, and is in the text: the reply for anyone else's form; the player character's forms are
+   *    the player's own words, never the reply's (user: the GM once had the player call 美琴 姐姐大人 — 黑子's form —
+   *    and must not make that a fact), so the player's message has the term;
+   *  - a term is one side's: the same term the other way round — in this review, or as the other's form in the
+   *    relation as it is — is a side misread; the player's own word for it is kept, any other is left out. */
+  const formsShown = (list: unknown, people: [Id, Id], label: string, name: (id: Id) => string) => {
+    const now = index.relationNow(people[0], people[1]);
+    const all = cleanForms(list, people, relationRef);
+    const key = (t: string) => normalizeName(t);
+    const out: typeof all = [];
+    for (const f of all) {
+      const where = `relation "${label}": form of address 「${f.term}」 (${name(f.by)} → ${name(f.to)}, ${f.use})`;
+      const isPlayer = f.by === g.playerId;
+      if (f.use !== 'dropped' && !key(f.quote).includes(key(f.term))) { warnings.push(`${where} ignored: its quote does not have the term`); continue; }
+      if (isPlayer ? !(said(f.term) || (f.use === 'dropped' && quoteInText(f.quote, g.userText || ''))) : !hasQuote(f.quote)) {
+        warnings.push(`${where} ignored: ${isPlayer ? "the player's message does not have it (the player character's forms are the player's own words)" : 'its quote is not in the reply'}`);
+        continue;
+      }
+      const otherWay = f.use !== 'dropped' && (all.some((x) => x !== f && x.by === f.to && x.use !== 'dropped' && key(x.term) === key(f.term))
+        || !!now?.views.find((v) => v.who === f.to)?.address?.some((a) => key(a.term) === key(f.term)));
+      if (otherWay && !(isPlayer && said(f.term))) { warnings.push(`${where} ignored: 「${f.term}」 is ${name(f.to)}'s for ${name(f.by)} — a form belongs to the one who uses it`); continue; }
+      out.push(f);
+    }
+    return out;
+  };
   for (const r of ev.relations || []) {
     const bond = String(r.bond || '').trim().slice(0, 400);
     const label = (r.people || []).join(' / ');
@@ -729,20 +758,16 @@ export function runGate(g: GateInput): GateResult {
     // what they are to each other is given anew when it changes; a change of another part only (a nickname taken up)
     // keeps the bond the relation has. Two with no relation yet need it.
     if (!bond && !index.relationNow(people[0], people[1])) { warnings.push(`relation "${label}" ignored: two with no relation yet need what they are to each other (bond)`); continue; }
+    const name = (id: Id) => (index.entityExists(id) ? index.entityName(id) : runtimeEntities.find((x) => x.id === id)?.name || id);
+    const forms = formsShown(r.address, people, label, name);
     // (a side whose forms of address alone change gives those only: merged into the relation, the rest stays)
-    const views = cleanViews(r.views, people, relationRef).map((v) => {
-      // The player character's forms of address are the player's own words, never the reply's (user: the GM once had
-      // the player call 美琴 姐姐大人 — 黑子's form — and must not make that a fact): a form of theirs is recorded only
-      // when the player's message has it.
-      if (v.who !== g.playerId || !v.address?.length) return v;
-      const said = (t: string) => normalizeName(g.userText || '').includes(normalizeName(t));
-      const kept = v.address.filter((f) => said(f.term));
-      for (const f of v.address.filter((f) => !said(f.term))) warnings.push(`relation "${label}": the player character's form of address 「${f.term}」 (${f.use}) ignored: the player's message does not have it`);
-      return { ...v, address: kept };
+    const views = people.map((who) => {
+      const v = cleanViews(r.views, people, relationRef).find((x) => x.who === who);
+      const address = forms.filter((f) => f.by === who).map((f) => ({ term: f.term, use: f.use, ...(f.when ? { when: f.when } : {}) }));
+      return { who, ...(address.length ? { address } : {}), sees: v?.sees || '' };
     }).filter((v) => v.sees || v.address?.length);
     const together = String(r.together || '').trim().slice(0, 400);
     if (!bond && !views.length && !together && !r.ended) continue;
-    const name = (id: Id) => (index.entityExists(id) ? index.entityName(id) : runtimeEntities.find((x) => x.id === id)?.name || id);
     relationDrafts.push({
       recordId: newId('rec'), kind: 'relation', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
       visibility: { mode: 'public', knower_ids: [] }, summary: `Relation: ${name(people[0])} – ${name(people[1])}: ${r.ended ? 'ENDED: ' : ''}${bond || '(as before)'}`.slice(0, 300), evidenceKind: 'direct',

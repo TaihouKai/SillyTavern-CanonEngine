@@ -9569,7 +9569,7 @@ function validate67(data, { instancePath = "", parentData, parentDataProperty, r
   return errors === 0;
 }
 validate67.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema105 = { "type": "object", "properties": { "decision": { "enum": ["retain", "repair", "conflict"] }, "scene_end": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "flashback": { "type": "boolean" }, "time_evidence": { "type": "array", "maxItems": 40, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 300 }, "kind": { "enum": ["now", "elapsed", "mentioned"] }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false } }, "required": ["lo", "hi"], "additionalProperties": false }] }, "minutes": { "oneOf": [{ "type": "null" }, { "type": "number", "minimum": 0 }] } }, "required": ["quote", "kind"], "additionalProperties": false } }, "claim_checks": { "type": "array", "items": { "type": "object", "properties": { "claim_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "verdict": { "enum": ["consistent", "contradiction", "unsupported", "belief_ok", "new_detail", "not_applicable"] }, "record_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "note": { "type": "string" } }, "required": ["claim_id", "verdict"], "additionalProperties": false }, "maxItems": 400 }, "transitions": { "type": "array", "items": { "type": "object", "properties": { "op": { "enum": ["set", "unset", "add", "remove"] }, "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "occurrence_ref": { "type": ["string", "null"] }, "until": { "description": 'how long the new value holds: "lasting", {"minutes": n} or {"event": id} (read by code; a missing or unreadable one is asked again)' } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, "maxItems": 200 }, "occurrences": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "title": { "type": "string" }, "account": { "type": "string" }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "affected": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "locations": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "causes": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "quote": { "type": "string" }, "pack_event_id": { "type": ["string", "null"] }, "disposition": { "enum": ["occurred", "diverged", "ongoing", null] }, "ref_phrases": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "continues": { "type": ["string", "null"], "maxLength": 200 }, "backstory": { "type": "boolean" }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "origin": { "enum": ["player", "gm", "intervention"] } }, "required": ["ref", "title", "account", "actors", "quote"], "additionalProperties": false }, "maxItems": 200 }, "state_claims": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["entity_id", "predicate", "value", "quote"], "additionalProperties": false }, "maxItems": 200 }, "player_actions": { "type": "array", "items": { "type": "object", "properties": { "quote": { "type": "string" }, "authorized_by_quote": { "type": ["string", "null"] }, "category": { "type": ["string", "null"], "enum": ["dialogue", "reactions", "actions", "trivial", "movement", "items", "skills", "combat", "decisions", "secrets", "intervention", null] } }, "required": ["quote", "authorized_by_quote"], "additionalProperties": false }, "maxItems": 200 }, "step_enactments": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "occurrence_ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" } }, "required": ["step_id", "occurrence_ref", "quote"], "additionalProperties": false }, "maxItems": 200 }, "new_entities": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "name": { "type": "string" }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "description": { "type": "string" }, "quote": { "type": "string" } }, "required": ["ref", "name", "kind", "description", "quote"], "additionalProperties": false }, "maxItems": 200 }, "violations": { "type": "array", "items": { "type": "object", "properties": { "code": { "type": "string" }, "quote": { "type": "string" }, "detail": { "type": "string" }, "blocking": { "type": "boolean" } }, "required": ["code", "detail"], "additionalProperties": false }, "maxItems": 200 }, "hard_checks": { "type": "array", "items": { "type": "object", "properties": { "event_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "status": { "enum": ["fulfilled", "not_due", "missing", "contradicted"] }, "occurrence_ref": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } }, "required": ["event_id", "status"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "scene_frame": { "type": ["string", "null"], "maxLength": 200 }, "summary": { "type": "string" }, "contacts": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 600 }, "actors": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 }, "kind": { "enum": ["invitation", "request", "information", "probe", "hostile", "consequence", "encounter"] }, "scope_kind": { "enum": ["event", "arc", "faction", "contact", "storyline"] }, "scope_ref": { "type": "string", "maxLength": 200 }, "scope_label": { "type": "string", "maxLength": 300 }, "opportunity_id": { "type": ["string", "null"], "maxLength": 200 } }, "required": ["quote", "kind", "scope_kind", "scope_ref"], "additionalProperties": false } }, "relations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "people": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "minItems": 2, "maxItems": 2 }, "bond": { "type": "string", "maxLength": 400 }, "views": { "type": "array", "maxItems": 2, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 200 }, "address": { "type": "array", "items": { "type": "object", "properties": { "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes", "dropped"] }, "when": { "type": "string", "maxLength": 200 } }, "required": ["term", "use"], "additionalProperties": false } }, "sees": { "type": "string", "maxLength": 400 } }, "required": ["who", "sees"], "additionalProperties": false } }, "together": { "type": "string", "maxLength": 400 }, "ended": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 600 } }, "required": ["people", "bond", "quote"], "additionalProperties": false } }, "present": { "type": "array", "maxItems": 30, "items": { "type": "string", "maxLength": 200 } }, "player_knowers": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "quote": { "type": "string", "maxLength": 600 } }, "required": ["who", "level", "quote"], "additionalProperties": false } }, "scene_groups": { "type": "array", "items": { "type": "string", "maxLength": 40 }, "maxItems": 20 } }, "required": ["decision", "scene_end", "claim_checks", "transitions", "occurrences", "state_claims", "player_actions", "violations", "hard_checks"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:evaluate", "title": "Canon Engine task output: evaluate" };
+var schema105 = { "type": "object", "properties": { "decision": { "enum": ["retain", "repair", "conflict"] }, "scene_end": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "flashback": { "type": "boolean" }, "time_evidence": { "type": "array", "maxItems": 40, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 300 }, "kind": { "enum": ["now", "elapsed", "mentioned"] }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false } }, "required": ["lo", "hi"], "additionalProperties": false }] }, "minutes": { "oneOf": [{ "type": "null" }, { "type": "number", "minimum": 0 }] } }, "required": ["quote", "kind"], "additionalProperties": false } }, "claim_checks": { "type": "array", "items": { "type": "object", "properties": { "claim_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "verdict": { "enum": ["consistent", "contradiction", "unsupported", "belief_ok", "new_detail", "not_applicable"] }, "record_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "note": { "type": "string" } }, "required": ["claim_id", "verdict"], "additionalProperties": false }, "maxItems": 400 }, "transitions": { "type": "array", "items": { "type": "object", "properties": { "op": { "enum": ["set", "unset", "add", "remove"] }, "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "occurrence_ref": { "type": ["string", "null"] }, "until": { "description": 'how long the new value holds: "lasting", {"minutes": n} or {"event": id} (read by code; a missing or unreadable one is asked again)' } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, "maxItems": 200 }, "occurrences": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "title": { "type": "string" }, "account": { "type": "string" }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "affected": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "locations": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "causes": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "quote": { "type": "string" }, "pack_event_id": { "type": ["string", "null"] }, "disposition": { "enum": ["occurred", "diverged", "ongoing", null] }, "ref_phrases": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "continues": { "type": ["string", "null"], "maxLength": 200 }, "backstory": { "type": "boolean" }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "origin": { "enum": ["player", "gm", "intervention"] } }, "required": ["ref", "title", "account", "actors", "quote"], "additionalProperties": false }, "maxItems": 200 }, "state_claims": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["entity_id", "predicate", "value", "quote"], "additionalProperties": false }, "maxItems": 200 }, "player_actions": { "type": "array", "items": { "type": "object", "properties": { "quote": { "type": "string" }, "authorized_by_quote": { "type": ["string", "null"] }, "category": { "type": ["string", "null"], "enum": ["dialogue", "reactions", "actions", "trivial", "movement", "items", "skills", "combat", "decisions", "secrets", "intervention", null] } }, "required": ["quote", "authorized_by_quote"], "additionalProperties": false }, "maxItems": 200 }, "step_enactments": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "occurrence_ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" } }, "required": ["step_id", "occurrence_ref", "quote"], "additionalProperties": false }, "maxItems": 200 }, "new_entities": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "name": { "type": "string" }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "description": { "type": "string" }, "quote": { "type": "string" } }, "required": ["ref", "name", "kind", "description", "quote"], "additionalProperties": false }, "maxItems": 200 }, "violations": { "type": "array", "items": { "type": "object", "properties": { "code": { "type": "string" }, "quote": { "type": "string" }, "detail": { "type": "string" }, "blocking": { "type": "boolean" } }, "required": ["code", "detail"], "additionalProperties": false }, "maxItems": 200 }, "hard_checks": { "type": "array", "items": { "type": "object", "properties": { "event_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "status": { "enum": ["fulfilled", "not_due", "missing", "contradicted"] }, "occurrence_ref": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } }, "required": ["event_id", "status"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "scene_frame": { "type": ["string", "null"], "maxLength": 200 }, "summary": { "type": "string" }, "contacts": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 600 }, "actors": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 }, "kind": { "enum": ["invitation", "request", "information", "probe", "hostile", "consequence", "encounter"] }, "scope_kind": { "enum": ["event", "arc", "faction", "contact", "storyline"] }, "scope_ref": { "type": "string", "maxLength": 200 }, "scope_label": { "type": "string", "maxLength": 300 }, "opportunity_id": { "type": ["string", "null"], "maxLength": 200 } }, "required": ["quote", "kind", "scope_kind", "scope_ref"], "additionalProperties": false } }, "relations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "people": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "minItems": 2, "maxItems": 2 }, "bond": { "type": "string", "maxLength": 400 }, "views": { "type": "array", "maxItems": 2, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 200 }, "sees": { "type": "string", "maxLength": 400 } }, "required": ["who", "sees"], "additionalProperties": false } }, "address": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "by": { "type": "string", "maxLength": 200 }, "to": { "type": "string", "maxLength": 200 }, "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes", "dropped"] }, "when": { "type": "string", "maxLength": 200 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["by", "to", "term", "use", "quote"], "additionalProperties": false } }, "together": { "type": "string", "maxLength": 400 }, "ended": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 600 } }, "required": ["people", "bond", "quote"], "additionalProperties": false } }, "present": { "type": "array", "maxItems": 30, "items": { "type": "string", "maxLength": 200 } }, "player_knowers": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "quote": { "type": "string", "maxLength": 600 } }, "required": ["who", "level", "quote"], "additionalProperties": false } }, "scene_groups": { "type": "array", "items": { "type": "string", "maxLength": 40 }, "maxItems": 20 } }, "required": ["decision", "scene_end", "claim_checks", "transitions", "occurrences", "state_claims", "player_actions", "violations", "hard_checks"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:evaluate", "title": "Canon Engine task output: evaluate" };
 function validate68(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -12987,7 +12987,7 @@ function validate68(data, { instancePath = "", parentData, parentDataProperty, r
               errors++;
             }
             for (const key22 in data124) {
-              if (!(key22 === "people" || key22 === "bond" || key22 === "views" || key22 === "together" || key22 === "ended" || key22 === "quote")) {
+              if (!(key22 === "people" || key22 === "bond" || key22 === "views" || key22 === "address" || key22 === "together" || key22 === "ended" || key22 === "quote")) {
                 const err296 = { instancePath: instancePath + "/relations/" + i22, schemaPath: "#/properties/relations/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key22 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
                   vErrors = [err296];
@@ -13108,7 +13108,7 @@ function validate68(data, { instancePath = "", parentData, parentDataProperty, r
                       errors++;
                     }
                     for (const key23 in data129) {
-                      if (!(key23 === "who" || key23 === "address" || key23 === "sees")) {
+                      if (!(key23 === "who" || key23 === "sees")) {
                         const err307 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24, schemaPath: "#/properties/relations/items/properties/views/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key23 }, message: "must NOT have additional properties" };
                         if (vErrors === null) {
                           vErrors = [err307];
@@ -13140,506 +13140,608 @@ function validate68(data, { instancePath = "", parentData, parentDataProperty, r
                         errors++;
                       }
                     }
-                    if (data129.address !== void 0) {
-                      let data131 = data129.address;
-                      if (Array.isArray(data131)) {
-                        const len25 = data131.length;
-                        for (let i25 = 0; i25 < len25; i25++) {
-                          let data132 = data131[i25];
-                          if (data132 && typeof data132 == "object" && !Array.isArray(data132)) {
-                            if (data132.term === void 0) {
-                              const err310 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/address/" + i25, schemaPath: "#/properties/relations/items/properties/views/items/properties/address/items/required", keyword: "required", params: { missingProperty: "term" }, message: "must have required property 'term'" };
-                              if (vErrors === null) {
-                                vErrors = [err310];
-                              } else {
-                                vErrors.push(err310);
-                              }
-                              errors++;
-                            }
-                            if (data132.use === void 0) {
-                              const err311 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/address/" + i25, schemaPath: "#/properties/relations/items/properties/views/items/properties/address/items/required", keyword: "required", params: { missingProperty: "use" }, message: "must have required property 'use'" };
-                              if (vErrors === null) {
-                                vErrors = [err311];
-                              } else {
-                                vErrors.push(err311);
-                              }
-                              errors++;
-                            }
-                            for (const key24 in data132) {
-                              if (!(key24 === "term" || key24 === "use" || key24 === "when")) {
-                                const err312 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/address/" + i25, schemaPath: "#/properties/relations/items/properties/views/items/properties/address/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key24 }, message: "must NOT have additional properties" };
-                                if (vErrors === null) {
-                                  vErrors = [err312];
-                                } else {
-                                  vErrors.push(err312);
-                                }
-                                errors++;
-                              }
-                            }
-                            if (data132.term !== void 0) {
-                              let data133 = data132.term;
-                              if (typeof data133 === "string") {
-                                if (func2(data133) > 60) {
-                                  const err313 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/address/" + i25 + "/term", schemaPath: "#/properties/relations/items/properties/views/items/properties/address/items/properties/term/maxLength", keyword: "maxLength", params: { limit: 60 }, message: "must NOT have more than 60 characters" };
-                                  if (vErrors === null) {
-                                    vErrors = [err313];
-                                  } else {
-                                    vErrors.push(err313);
-                                  }
-                                  errors++;
-                                }
-                              } else {
-                                const err314 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/address/" + i25 + "/term", schemaPath: "#/properties/relations/items/properties/views/items/properties/address/items/properties/term/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                                if (vErrors === null) {
-                                  vErrors = [err314];
-                                } else {
-                                  vErrors.push(err314);
-                                }
-                                errors++;
-                              }
-                            }
-                            if (data132.use !== void 0) {
-                              let data134 = data132.use;
-                              if (!(data134 === "always" || data134 === "usually" || data134 === "sometimes" || data134 === "dropped")) {
-                                const err315 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/address/" + i25 + "/use", schemaPath: "#/properties/relations/items/properties/views/items/properties/address/items/properties/use/enum", keyword: "enum", params: { allowedValues: schema105.properties.relations.items.properties.views.items.properties.address.items.properties.use.enum }, message: "must be equal to one of the allowed values" };
-                                if (vErrors === null) {
-                                  vErrors = [err315];
-                                } else {
-                                  vErrors.push(err315);
-                                }
-                                errors++;
-                              }
-                            }
-                            if (data132.when !== void 0) {
-                              let data135 = data132.when;
-                              if (typeof data135 === "string") {
-                                if (func2(data135) > 200) {
-                                  const err316 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/address/" + i25 + "/when", schemaPath: "#/properties/relations/items/properties/views/items/properties/address/items/properties/when/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
-                                  if (vErrors === null) {
-                                    vErrors = [err316];
-                                  } else {
-                                    vErrors.push(err316);
-                                  }
-                                  errors++;
-                                }
-                              } else {
-                                const err317 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/address/" + i25 + "/when", schemaPath: "#/properties/relations/items/properties/views/items/properties/address/items/properties/when/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                                if (vErrors === null) {
-                                  vErrors = [err317];
-                                } else {
-                                  vErrors.push(err317);
-                                }
-                                errors++;
-                              }
-                            }
-                          } else {
-                            const err318 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/address/" + i25, schemaPath: "#/properties/relations/items/properties/views/items/properties/address/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-                            if (vErrors === null) {
-                              vErrors = [err318];
-                            } else {
-                              vErrors.push(err318);
-                            }
-                            errors++;
-                          }
-                        }
-                      } else {
-                        const err319 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/address", schemaPath: "#/properties/relations/items/properties/views/items/properties/address/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                        if (vErrors === null) {
-                          vErrors = [err319];
-                        } else {
-                          vErrors.push(err319);
-                        }
-                        errors++;
-                      }
-                    }
                     if (data129.sees !== void 0) {
-                      let data136 = data129.sees;
-                      if (typeof data136 === "string") {
-                        if (func2(data136) > 400) {
-                          const err320 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/sees", schemaPath: "#/properties/relations/items/properties/views/items/properties/sees/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+                      let data131 = data129.sees;
+                      if (typeof data131 === "string") {
+                        if (func2(data131) > 400) {
+                          const err310 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/sees", schemaPath: "#/properties/relations/items/properties/views/items/properties/sees/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
                           if (vErrors === null) {
-                            vErrors = [err320];
+                            vErrors = [err310];
                           } else {
-                            vErrors.push(err320);
+                            vErrors.push(err310);
                           }
                           errors++;
                         }
                       } else {
-                        const err321 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/sees", schemaPath: "#/properties/relations/items/properties/views/items/properties/sees/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                        const err311 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24 + "/sees", schemaPath: "#/properties/relations/items/properties/views/items/properties/sees/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                         if (vErrors === null) {
-                          vErrors = [err321];
+                          vErrors = [err311];
                         } else {
-                          vErrors.push(err321);
+                          vErrors.push(err311);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err322 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24, schemaPath: "#/properties/relations/items/properties/views/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+                    const err312 = { instancePath: instancePath + "/relations/" + i22 + "/views/" + i24, schemaPath: "#/properties/relations/items/properties/views/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
                     if (vErrors === null) {
-                      vErrors = [err322];
+                      vErrors = [err312];
                     } else {
-                      vErrors.push(err322);
+                      vErrors.push(err312);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err323 = { instancePath: instancePath + "/relations/" + i22 + "/views", schemaPath: "#/properties/relations/items/properties/views/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                const err313 = { instancePath: instancePath + "/relations/" + i22 + "/views", schemaPath: "#/properties/relations/items/properties/views/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
-                  vErrors = [err323];
+                  vErrors = [err313];
                 } else {
-                  vErrors.push(err323);
+                  vErrors.push(err313);
+                }
+                errors++;
+              }
+            }
+            if (data124.address !== void 0) {
+              let data132 = data124.address;
+              if (Array.isArray(data132)) {
+                if (data132.length > 8) {
+                  const err314 = { instancePath: instancePath + "/relations/" + i22 + "/address", schemaPath: "#/properties/relations/items/properties/address/maxItems", keyword: "maxItems", params: { limit: 8 }, message: "must NOT have more than 8 items" };
+                  if (vErrors === null) {
+                    vErrors = [err314];
+                  } else {
+                    vErrors.push(err314);
+                  }
+                  errors++;
+                }
+                const len25 = data132.length;
+                for (let i25 = 0; i25 < len25; i25++) {
+                  let data133 = data132[i25];
+                  if (data133 && typeof data133 == "object" && !Array.isArray(data133)) {
+                    if (data133.by === void 0) {
+                      const err315 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25, schemaPath: "#/properties/relations/items/properties/address/items/required", keyword: "required", params: { missingProperty: "by" }, message: "must have required property 'by'" };
+                      if (vErrors === null) {
+                        vErrors = [err315];
+                      } else {
+                        vErrors.push(err315);
+                      }
+                      errors++;
+                    }
+                    if (data133.to === void 0) {
+                      const err316 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25, schemaPath: "#/properties/relations/items/properties/address/items/required", keyword: "required", params: { missingProperty: "to" }, message: "must have required property 'to'" };
+                      if (vErrors === null) {
+                        vErrors = [err316];
+                      } else {
+                        vErrors.push(err316);
+                      }
+                      errors++;
+                    }
+                    if (data133.term === void 0) {
+                      const err317 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25, schemaPath: "#/properties/relations/items/properties/address/items/required", keyword: "required", params: { missingProperty: "term" }, message: "must have required property 'term'" };
+                      if (vErrors === null) {
+                        vErrors = [err317];
+                      } else {
+                        vErrors.push(err317);
+                      }
+                      errors++;
+                    }
+                    if (data133.use === void 0) {
+                      const err318 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25, schemaPath: "#/properties/relations/items/properties/address/items/required", keyword: "required", params: { missingProperty: "use" }, message: "must have required property 'use'" };
+                      if (vErrors === null) {
+                        vErrors = [err318];
+                      } else {
+                        vErrors.push(err318);
+                      }
+                      errors++;
+                    }
+                    if (data133.quote === void 0) {
+                      const err319 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25, schemaPath: "#/properties/relations/items/properties/address/items/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
+                      if (vErrors === null) {
+                        vErrors = [err319];
+                      } else {
+                        vErrors.push(err319);
+                      }
+                      errors++;
+                    }
+                    for (const key24 in data133) {
+                      if (!(key24 === "by" || key24 === "to" || key24 === "term" || key24 === "use" || key24 === "when" || key24 === "quote")) {
+                        const err320 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25, schemaPath: "#/properties/relations/items/properties/address/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key24 }, message: "must NOT have additional properties" };
+                        if (vErrors === null) {
+                          vErrors = [err320];
+                        } else {
+                          vErrors.push(err320);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data133.by !== void 0) {
+                      let data134 = data133.by;
+                      if (typeof data134 === "string") {
+                        if (func2(data134) > 200) {
+                          const err321 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25 + "/by", schemaPath: "#/properties/relations/items/properties/address/items/properties/by/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
+                          if (vErrors === null) {
+                            vErrors = [err321];
+                          } else {
+                            vErrors.push(err321);
+                          }
+                          errors++;
+                        }
+                      } else {
+                        const err322 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25 + "/by", schemaPath: "#/properties/relations/items/properties/address/items/properties/by/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                        if (vErrors === null) {
+                          vErrors = [err322];
+                        } else {
+                          vErrors.push(err322);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data133.to !== void 0) {
+                      let data135 = data133.to;
+                      if (typeof data135 === "string") {
+                        if (func2(data135) > 200) {
+                          const err323 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25 + "/to", schemaPath: "#/properties/relations/items/properties/address/items/properties/to/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
+                          if (vErrors === null) {
+                            vErrors = [err323];
+                          } else {
+                            vErrors.push(err323);
+                          }
+                          errors++;
+                        }
+                      } else {
+                        const err324 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25 + "/to", schemaPath: "#/properties/relations/items/properties/address/items/properties/to/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                        if (vErrors === null) {
+                          vErrors = [err324];
+                        } else {
+                          vErrors.push(err324);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data133.term !== void 0) {
+                      let data136 = data133.term;
+                      if (typeof data136 === "string") {
+                        if (func2(data136) > 60) {
+                          const err325 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25 + "/term", schemaPath: "#/properties/relations/items/properties/address/items/properties/term/maxLength", keyword: "maxLength", params: { limit: 60 }, message: "must NOT have more than 60 characters" };
+                          if (vErrors === null) {
+                            vErrors = [err325];
+                          } else {
+                            vErrors.push(err325);
+                          }
+                          errors++;
+                        }
+                      } else {
+                        const err326 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25 + "/term", schemaPath: "#/properties/relations/items/properties/address/items/properties/term/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                        if (vErrors === null) {
+                          vErrors = [err326];
+                        } else {
+                          vErrors.push(err326);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data133.use !== void 0) {
+                      let data137 = data133.use;
+                      if (!(data137 === "always" || data137 === "usually" || data137 === "sometimes" || data137 === "dropped")) {
+                        const err327 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25 + "/use", schemaPath: "#/properties/relations/items/properties/address/items/properties/use/enum", keyword: "enum", params: { allowedValues: schema105.properties.relations.items.properties.address.items.properties.use.enum }, message: "must be equal to one of the allowed values" };
+                        if (vErrors === null) {
+                          vErrors = [err327];
+                        } else {
+                          vErrors.push(err327);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data133.when !== void 0) {
+                      let data138 = data133.when;
+                      if (typeof data138 === "string") {
+                        if (func2(data138) > 200) {
+                          const err328 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25 + "/when", schemaPath: "#/properties/relations/items/properties/address/items/properties/when/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
+                          if (vErrors === null) {
+                            vErrors = [err328];
+                          } else {
+                            vErrors.push(err328);
+                          }
+                          errors++;
+                        }
+                      } else {
+                        const err329 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25 + "/when", schemaPath: "#/properties/relations/items/properties/address/items/properties/when/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                        if (vErrors === null) {
+                          vErrors = [err329];
+                        } else {
+                          vErrors.push(err329);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data133.quote !== void 0) {
+                      let data139 = data133.quote;
+                      if (typeof data139 === "string") {
+                        if (func2(data139) > 300) {
+                          const err330 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25 + "/quote", schemaPath: "#/properties/relations/items/properties/address/items/properties/quote/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
+                          if (vErrors === null) {
+                            vErrors = [err330];
+                          } else {
+                            vErrors.push(err330);
+                          }
+                          errors++;
+                        }
+                      } else {
+                        const err331 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25 + "/quote", schemaPath: "#/properties/relations/items/properties/address/items/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                        if (vErrors === null) {
+                          vErrors = [err331];
+                        } else {
+                          vErrors.push(err331);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err332 = { instancePath: instancePath + "/relations/" + i22 + "/address/" + i25, schemaPath: "#/properties/relations/items/properties/address/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+                    if (vErrors === null) {
+                      vErrors = [err332];
+                    } else {
+                      vErrors.push(err332);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err333 = { instancePath: instancePath + "/relations/" + i22 + "/address", schemaPath: "#/properties/relations/items/properties/address/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err333];
+                } else {
+                  vErrors.push(err333);
                 }
                 errors++;
               }
             }
             if (data124.together !== void 0) {
-              let data137 = data124.together;
-              if (typeof data137 === "string") {
-                if (func2(data137) > 400) {
-                  const err324 = { instancePath: instancePath + "/relations/" + i22 + "/together", schemaPath: "#/properties/relations/items/properties/together/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+              let data140 = data124.together;
+              if (typeof data140 === "string") {
+                if (func2(data140) > 400) {
+                  const err334 = { instancePath: instancePath + "/relations/" + i22 + "/together", schemaPath: "#/properties/relations/items/properties/together/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
                   if (vErrors === null) {
-                    vErrors = [err324];
+                    vErrors = [err334];
                   } else {
-                    vErrors.push(err324);
+                    vErrors.push(err334);
                   }
                   errors++;
                 }
               } else {
-                const err325 = { instancePath: instancePath + "/relations/" + i22 + "/together", schemaPath: "#/properties/relations/items/properties/together/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                const err335 = { instancePath: instancePath + "/relations/" + i22 + "/together", schemaPath: "#/properties/relations/items/properties/together/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 if (vErrors === null) {
-                  vErrors = [err325];
+                  vErrors = [err335];
                 } else {
-                  vErrors.push(err325);
+                  vErrors.push(err335);
                 }
                 errors++;
               }
             }
             if (data124.ended !== void 0) {
               if (typeof data124.ended !== "boolean") {
-                const err326 = { instancePath: instancePath + "/relations/" + i22 + "/ended", schemaPath: "#/properties/relations/items/properties/ended/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                const err336 = { instancePath: instancePath + "/relations/" + i22 + "/ended", schemaPath: "#/properties/relations/items/properties/ended/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
                 if (vErrors === null) {
-                  vErrors = [err326];
+                  vErrors = [err336];
                 } else {
-                  vErrors.push(err326);
+                  vErrors.push(err336);
                 }
                 errors++;
               }
             }
             if (data124.quote !== void 0) {
-              let data139 = data124.quote;
-              if (typeof data139 === "string") {
-                if (func2(data139) > 600) {
-                  const err327 = { instancePath: instancePath + "/relations/" + i22 + "/quote", schemaPath: "#/properties/relations/items/properties/quote/maxLength", keyword: "maxLength", params: { limit: 600 }, message: "must NOT have more than 600 characters" };
+              let data142 = data124.quote;
+              if (typeof data142 === "string") {
+                if (func2(data142) > 600) {
+                  const err337 = { instancePath: instancePath + "/relations/" + i22 + "/quote", schemaPath: "#/properties/relations/items/properties/quote/maxLength", keyword: "maxLength", params: { limit: 600 }, message: "must NOT have more than 600 characters" };
                   if (vErrors === null) {
-                    vErrors = [err327];
+                    vErrors = [err337];
                   } else {
-                    vErrors.push(err327);
+                    vErrors.push(err337);
                   }
                   errors++;
                 }
               } else {
-                const err328 = { instancePath: instancePath + "/relations/" + i22 + "/quote", schemaPath: "#/properties/relations/items/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                const err338 = { instancePath: instancePath + "/relations/" + i22 + "/quote", schemaPath: "#/properties/relations/items/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 if (vErrors === null) {
-                  vErrors = [err328];
+                  vErrors = [err338];
                 } else {
-                  vErrors.push(err328);
+                  vErrors.push(err338);
                 }
                 errors++;
               }
             }
           } else {
-            const err329 = { instancePath: instancePath + "/relations/" + i22, schemaPath: "#/properties/relations/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            const err339 = { instancePath: instancePath + "/relations/" + i22, schemaPath: "#/properties/relations/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err329];
+              vErrors = [err339];
             } else {
-              vErrors.push(err329);
+              vErrors.push(err339);
             }
             errors++;
           }
         }
       } else {
-        const err330 = { instancePath: instancePath + "/relations", schemaPath: "#/properties/relations/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err340 = { instancePath: instancePath + "/relations", schemaPath: "#/properties/relations/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err330];
+          vErrors = [err340];
         } else {
-          vErrors.push(err330);
+          vErrors.push(err340);
         }
         errors++;
       }
     }
     if (data.present !== void 0) {
-      let data140 = data.present;
-      if (Array.isArray(data140)) {
-        if (data140.length > 30) {
-          const err331 = { instancePath: instancePath + "/present", schemaPath: "#/properties/present/maxItems", keyword: "maxItems", params: { limit: 30 }, message: "must NOT have more than 30 items" };
+      let data143 = data.present;
+      if (Array.isArray(data143)) {
+        if (data143.length > 30) {
+          const err341 = { instancePath: instancePath + "/present", schemaPath: "#/properties/present/maxItems", keyword: "maxItems", params: { limit: 30 }, message: "must NOT have more than 30 items" };
           if (vErrors === null) {
-            vErrors = [err331];
+            vErrors = [err341];
           } else {
-            vErrors.push(err331);
+            vErrors.push(err341);
           }
           errors++;
         }
-        const len26 = data140.length;
+        const len26 = data143.length;
         for (let i26 = 0; i26 < len26; i26++) {
-          let data141 = data140[i26];
-          if (typeof data141 === "string") {
-            if (func2(data141) > 200) {
-              const err332 = { instancePath: instancePath + "/present/" + i26, schemaPath: "#/properties/present/items/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
+          let data144 = data143[i26];
+          if (typeof data144 === "string") {
+            if (func2(data144) > 200) {
+              const err342 = { instancePath: instancePath + "/present/" + i26, schemaPath: "#/properties/present/items/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
               if (vErrors === null) {
-                vErrors = [err332];
+                vErrors = [err342];
               } else {
-                vErrors.push(err332);
+                vErrors.push(err342);
               }
               errors++;
             }
           } else {
-            const err333 = { instancePath: instancePath + "/present/" + i26, schemaPath: "#/properties/present/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            const err343 = { instancePath: instancePath + "/present/" + i26, schemaPath: "#/properties/present/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
             if (vErrors === null) {
-              vErrors = [err333];
+              vErrors = [err343];
             } else {
-              vErrors.push(err333);
+              vErrors.push(err343);
             }
             errors++;
           }
         }
       } else {
-        const err334 = { instancePath: instancePath + "/present", schemaPath: "#/properties/present/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err344 = { instancePath: instancePath + "/present", schemaPath: "#/properties/present/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err334];
+          vErrors = [err344];
         } else {
-          vErrors.push(err334);
+          vErrors.push(err344);
         }
         errors++;
       }
     }
     if (data.player_knowers !== void 0) {
-      let data142 = data.player_knowers;
-      if (Array.isArray(data142)) {
-        if (data142.length > 12) {
-          const err335 = { instancePath: instancePath + "/player_knowers", schemaPath: "#/properties/player_knowers/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
+      let data145 = data.player_knowers;
+      if (Array.isArray(data145)) {
+        if (data145.length > 12) {
+          const err345 = { instancePath: instancePath + "/player_knowers", schemaPath: "#/properties/player_knowers/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
           if (vErrors === null) {
-            vErrors = [err335];
+            vErrors = [err345];
           } else {
-            vErrors.push(err335);
+            vErrors.push(err345);
           }
           errors++;
         }
-        const len27 = data142.length;
+        const len27 = data145.length;
         for (let i27 = 0; i27 < len27; i27++) {
-          let data143 = data142[i27];
-          if (data143 && typeof data143 == "object" && !Array.isArray(data143)) {
-            if (data143.who === void 0) {
-              const err336 = { instancePath: instancePath + "/player_knowers/" + i27, schemaPath: "#/properties/player_knowers/items/required", keyword: "required", params: { missingProperty: "who" }, message: "must have required property 'who'" };
+          let data146 = data145[i27];
+          if (data146 && typeof data146 == "object" && !Array.isArray(data146)) {
+            if (data146.who === void 0) {
+              const err346 = { instancePath: instancePath + "/player_knowers/" + i27, schemaPath: "#/properties/player_knowers/items/required", keyword: "required", params: { missingProperty: "who" }, message: "must have required property 'who'" };
               if (vErrors === null) {
-                vErrors = [err336];
+                vErrors = [err346];
               } else {
-                vErrors.push(err336);
+                vErrors.push(err346);
               }
               errors++;
             }
-            if (data143.level === void 0) {
-              const err337 = { instancePath: instancePath + "/player_knowers/" + i27, schemaPath: "#/properties/player_knowers/items/required", keyword: "required", params: { missingProperty: "level" }, message: "must have required property 'level'" };
+            if (data146.level === void 0) {
+              const err347 = { instancePath: instancePath + "/player_knowers/" + i27, schemaPath: "#/properties/player_knowers/items/required", keyword: "required", params: { missingProperty: "level" }, message: "must have required property 'level'" };
               if (vErrors === null) {
-                vErrors = [err337];
+                vErrors = [err347];
               } else {
-                vErrors.push(err337);
+                vErrors.push(err347);
               }
               errors++;
             }
-            if (data143.quote === void 0) {
-              const err338 = { instancePath: instancePath + "/player_knowers/" + i27, schemaPath: "#/properties/player_knowers/items/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
+            if (data146.quote === void 0) {
+              const err348 = { instancePath: instancePath + "/player_knowers/" + i27, schemaPath: "#/properties/player_knowers/items/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
               if (vErrors === null) {
-                vErrors = [err338];
+                vErrors = [err348];
               } else {
-                vErrors.push(err338);
+                vErrors.push(err348);
               }
               errors++;
             }
-            for (const key25 in data143) {
+            for (const key25 in data146) {
               if (!(key25 === "who" || key25 === "existing_id" || key25 === "level" || key25 === "about" || key25 === "quote")) {
-                const err339 = { instancePath: instancePath + "/player_knowers/" + i27, schemaPath: "#/properties/player_knowers/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key25 }, message: "must NOT have additional properties" };
+                const err349 = { instancePath: instancePath + "/player_knowers/" + i27, schemaPath: "#/properties/player_knowers/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key25 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
-                  vErrors = [err339];
+                  vErrors = [err349];
                 } else {
-                  vErrors.push(err339);
+                  vErrors.push(err349);
                 }
                 errors++;
               }
             }
-            if (data143.who !== void 0) {
-              let data144 = data143.who;
-              if (typeof data144 === "string") {
-                if (func2(data144) > 200) {
-                  const err340 = { instancePath: instancePath + "/player_knowers/" + i27 + "/who", schemaPath: "#/properties/player_knowers/items/properties/who/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err340];
-                  } else {
-                    vErrors.push(err340);
-                  }
-                  errors++;
-                }
-              } else {
-                const err341 = { instancePath: instancePath + "/player_knowers/" + i27 + "/who", schemaPath: "#/properties/player_knowers/items/properties/who/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err341];
-                } else {
-                  vErrors.push(err341);
-                }
-                errors++;
-              }
-            }
-            if (data143.existing_id !== void 0) {
-              let data145 = data143.existing_id;
-              if (typeof data145 !== "string" && data145 !== null) {
-                const err342 = { instancePath: instancePath + "/player_knowers/" + i27 + "/existing_id", schemaPath: "#/properties/player_knowers/items/properties/existing_id/type", keyword: "type", params: { type: schema105.properties.player_knowers.items.properties.existing_id.type }, message: "must be string,null" };
-                if (vErrors === null) {
-                  vErrors = [err342];
-                } else {
-                  vErrors.push(err342);
-                }
-                errors++;
-              }
-              if (typeof data145 === "string") {
-                if (func2(data145) > 200) {
-                  const err343 = { instancePath: instancePath + "/player_knowers/" + i27 + "/existing_id", schemaPath: "#/properties/player_knowers/items/properties/existing_id/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err343];
-                  } else {
-                    vErrors.push(err343);
-                  }
-                  errors++;
-                }
-              }
-            }
-            if (data143.level !== void 0) {
-              let data146 = data143.level;
-              if (!(data146 === "exists" || data146 === "identity" || data146 === "secrets")) {
-                const err344 = { instancePath: instancePath + "/player_knowers/" + i27 + "/level", schemaPath: "#/properties/player_knowers/items/properties/level/enum", keyword: "enum", params: { allowedValues: schema105.properties.player_knowers.items.properties.level.enum }, message: "must be equal to one of the allowed values" };
-                if (vErrors === null) {
-                  vErrors = [err344];
-                } else {
-                  vErrors.push(err344);
-                }
-                errors++;
-              }
-            }
-            if (data143.about !== void 0) {
-              let data147 = data143.about;
+            if (data146.who !== void 0) {
+              let data147 = data146.who;
               if (typeof data147 === "string") {
-                if (func2(data147) > 400) {
-                  const err345 = { instancePath: instancePath + "/player_knowers/" + i27 + "/about", schemaPath: "#/properties/player_knowers/items/properties/about/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+                if (func2(data147) > 200) {
+                  const err350 = { instancePath: instancePath + "/player_knowers/" + i27 + "/who", schemaPath: "#/properties/player_knowers/items/properties/who/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
                   if (vErrors === null) {
-                    vErrors = [err345];
+                    vErrors = [err350];
                   } else {
-                    vErrors.push(err345);
+                    vErrors.push(err350);
                   }
                   errors++;
                 }
               } else {
-                const err346 = { instancePath: instancePath + "/player_knowers/" + i27 + "/about", schemaPath: "#/properties/player_knowers/items/properties/about/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                const err351 = { instancePath: instancePath + "/player_knowers/" + i27 + "/who", schemaPath: "#/properties/player_knowers/items/properties/who/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 if (vErrors === null) {
-                  vErrors = [err346];
+                  vErrors = [err351];
                 } else {
-                  vErrors.push(err346);
+                  vErrors.push(err351);
                 }
                 errors++;
               }
             }
-            if (data143.quote !== void 0) {
-              let data148 = data143.quote;
+            if (data146.existing_id !== void 0) {
+              let data148 = data146.existing_id;
+              if (typeof data148 !== "string" && data148 !== null) {
+                const err352 = { instancePath: instancePath + "/player_knowers/" + i27 + "/existing_id", schemaPath: "#/properties/player_knowers/items/properties/existing_id/type", keyword: "type", params: { type: schema105.properties.player_knowers.items.properties.existing_id.type }, message: "must be string,null" };
+                if (vErrors === null) {
+                  vErrors = [err352];
+                } else {
+                  vErrors.push(err352);
+                }
+                errors++;
+              }
               if (typeof data148 === "string") {
-                if (func2(data148) > 600) {
-                  const err347 = { instancePath: instancePath + "/player_knowers/" + i27 + "/quote", schemaPath: "#/properties/player_knowers/items/properties/quote/maxLength", keyword: "maxLength", params: { limit: 600 }, message: "must NOT have more than 600 characters" };
+                if (func2(data148) > 200) {
+                  const err353 = { instancePath: instancePath + "/player_knowers/" + i27 + "/existing_id", schemaPath: "#/properties/player_knowers/items/properties/existing_id/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
                   if (vErrors === null) {
-                    vErrors = [err347];
+                    vErrors = [err353];
                   } else {
-                    vErrors.push(err347);
+                    vErrors.push(err353);
+                  }
+                  errors++;
+                }
+              }
+            }
+            if (data146.level !== void 0) {
+              let data149 = data146.level;
+              if (!(data149 === "exists" || data149 === "identity" || data149 === "secrets")) {
+                const err354 = { instancePath: instancePath + "/player_knowers/" + i27 + "/level", schemaPath: "#/properties/player_knowers/items/properties/level/enum", keyword: "enum", params: { allowedValues: schema105.properties.player_knowers.items.properties.level.enum }, message: "must be equal to one of the allowed values" };
+                if (vErrors === null) {
+                  vErrors = [err354];
+                } else {
+                  vErrors.push(err354);
+                }
+                errors++;
+              }
+            }
+            if (data146.about !== void 0) {
+              let data150 = data146.about;
+              if (typeof data150 === "string") {
+                if (func2(data150) > 400) {
+                  const err355 = { instancePath: instancePath + "/player_knowers/" + i27 + "/about", schemaPath: "#/properties/player_knowers/items/properties/about/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err355];
+                  } else {
+                    vErrors.push(err355);
                   }
                   errors++;
                 }
               } else {
-                const err348 = { instancePath: instancePath + "/player_knowers/" + i27 + "/quote", schemaPath: "#/properties/player_knowers/items/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                const err356 = { instancePath: instancePath + "/player_knowers/" + i27 + "/about", schemaPath: "#/properties/player_knowers/items/properties/about/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 if (vErrors === null) {
-                  vErrors = [err348];
+                  vErrors = [err356];
                 } else {
-                  vErrors.push(err348);
+                  vErrors.push(err356);
+                }
+                errors++;
+              }
+            }
+            if (data146.quote !== void 0) {
+              let data151 = data146.quote;
+              if (typeof data151 === "string") {
+                if (func2(data151) > 600) {
+                  const err357 = { instancePath: instancePath + "/player_knowers/" + i27 + "/quote", schemaPath: "#/properties/player_knowers/items/properties/quote/maxLength", keyword: "maxLength", params: { limit: 600 }, message: "must NOT have more than 600 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err357];
+                  } else {
+                    vErrors.push(err357);
+                  }
+                  errors++;
+                }
+              } else {
+                const err358 = { instancePath: instancePath + "/player_knowers/" + i27 + "/quote", schemaPath: "#/properties/player_knowers/items/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err358];
+                } else {
+                  vErrors.push(err358);
                 }
                 errors++;
               }
             }
           } else {
-            const err349 = { instancePath: instancePath + "/player_knowers/" + i27, schemaPath: "#/properties/player_knowers/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            const err359 = { instancePath: instancePath + "/player_knowers/" + i27, schemaPath: "#/properties/player_knowers/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err349];
+              vErrors = [err359];
             } else {
-              vErrors.push(err349);
+              vErrors.push(err359);
             }
             errors++;
           }
         }
       } else {
-        const err350 = { instancePath: instancePath + "/player_knowers", schemaPath: "#/properties/player_knowers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err360 = { instancePath: instancePath + "/player_knowers", schemaPath: "#/properties/player_knowers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err350];
+          vErrors = [err360];
         } else {
-          vErrors.push(err350);
+          vErrors.push(err360);
         }
         errors++;
       }
     }
     if (data.scene_groups !== void 0) {
-      let data149 = data.scene_groups;
-      if (Array.isArray(data149)) {
-        if (data149.length > 20) {
-          const err351 = { instancePath: instancePath + "/scene_groups", schemaPath: "#/properties/scene_groups/maxItems", keyword: "maxItems", params: { limit: 20 }, message: "must NOT have more than 20 items" };
+      let data152 = data.scene_groups;
+      if (Array.isArray(data152)) {
+        if (data152.length > 20) {
+          const err361 = { instancePath: instancePath + "/scene_groups", schemaPath: "#/properties/scene_groups/maxItems", keyword: "maxItems", params: { limit: 20 }, message: "must NOT have more than 20 items" };
           if (vErrors === null) {
-            vErrors = [err351];
+            vErrors = [err361];
           } else {
-            vErrors.push(err351);
+            vErrors.push(err361);
           }
           errors++;
         }
-        const len28 = data149.length;
+        const len28 = data152.length;
         for (let i28 = 0; i28 < len28; i28++) {
-          let data150 = data149[i28];
-          if (typeof data150 === "string") {
-            if (func2(data150) > 40) {
-              const err352 = { instancePath: instancePath + "/scene_groups/" + i28, schemaPath: "#/properties/scene_groups/items/maxLength", keyword: "maxLength", params: { limit: 40 }, message: "must NOT have more than 40 characters" };
+          let data153 = data152[i28];
+          if (typeof data153 === "string") {
+            if (func2(data153) > 40) {
+              const err362 = { instancePath: instancePath + "/scene_groups/" + i28, schemaPath: "#/properties/scene_groups/items/maxLength", keyword: "maxLength", params: { limit: 40 }, message: "must NOT have more than 40 characters" };
               if (vErrors === null) {
-                vErrors = [err352];
+                vErrors = [err362];
               } else {
-                vErrors.push(err352);
+                vErrors.push(err362);
               }
               errors++;
             }
           } else {
-            const err353 = { instancePath: instancePath + "/scene_groups/" + i28, schemaPath: "#/properties/scene_groups/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            const err363 = { instancePath: instancePath + "/scene_groups/" + i28, schemaPath: "#/properties/scene_groups/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
             if (vErrors === null) {
-              vErrors = [err353];
+              vErrors = [err363];
             } else {
-              vErrors.push(err353);
+              vErrors.push(err363);
             }
             errors++;
           }
         }
       } else {
-        const err354 = { instancePath: instancePath + "/scene_groups", schemaPath: "#/properties/scene_groups/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err364 = { instancePath: instancePath + "/scene_groups", schemaPath: "#/properties/scene_groups/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err354];
+          vErrors = [err364];
         } else {
-          vErrors.push(err354);
+          vErrors.push(err364);
         }
         errors++;
       }
     }
   } else {
-    const err355 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err365 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err355];
+      vErrors = [err365];
     } else {
-      vErrors.push(err355);
+      vErrors.push(err365);
     }
     errors++;
   }

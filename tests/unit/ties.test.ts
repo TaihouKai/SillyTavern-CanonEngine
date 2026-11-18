@@ -109,10 +109,10 @@ describe('relations between people, the player character like anyone', () => {
 
   it('RL3 play changes a relation between two of the pack\'s people, and one of the player\'s; the GM sees how it stands now', async () => {
     const x = await setup();
-    await turn(x, 'I tell Mira that Tomas sold her out.', 'Mira slaps Tomas and walks off; she will not speak to him again. Mira turns away from you too; the friendship is over for now. [R3a]', {
+    await turn(x, 'I tell Mira that Tomas sold her out.', 'Mira slaps Tomas and walks off; she will not speak to him again. Tomas mutters about "that woman", the "old girl". Mira turns away from you too; the friendship is over for now. [R3a]', {
       scene_end: at(1, 7, 0), scene_entities: ['mira', 'tomas'],
       relations: [
-        { people: ['mira', 'tomas'], bond: 'estranged neighbours', views: [{ who: 'mira', sees: 'refuses to speak to him' }, { who: 'tomas', address: [{ term: '「that woman」、“old girl”', use: 'usually' }, { term: 'the medic', use: 'dropped' }], sees: 'pretends not to care' }], quote: 'she will not speak to him again' },
+        { people: ['mira', 'tomas'], bond: 'estranged neighbours', views: [{ who: 'mira', sees: 'refuses to speak to him' }, { who: 'tomas', sees: 'pretends not to care' }], address: [{ by: 'tomas', to: 'mira', term: '「that woman」、“old girl”', use: 'usually', quote: 'Tomas mutters about "that woman", the "old girl"' }, { by: 'tomas', to: 'mira', term: 'the medic', use: 'dropped', quote: 'Tomas mutters about "that woman"' }], quote: 'she will not speak to him again' },
         { people: ['mira', me(x)], bond: 'estranged friend after a quarrel', views: [{ who: 'mira', sees: 'avoids Ash' }], quote: 'the friendship is over for now' },
       ],
     });
@@ -162,7 +162,7 @@ describe('relations between people, the player character like anyone', () => {
     expect(x.model.tasks('relate')).toHaveLength(0);
     await turn(x, 'I watch them.', 'Mira snaps at Tomas for fussing; she calls him "mother hen" now. [M2]', {
       scene_end: at(1, 10, 40), scene_entities: ['mira', 'tomas'],
-      relations: [{ people: ['mira', 'tomas'], bond: 'close friends who bicker', views: [{ who: 'mira', address: [{ term: 'mother hen', use: 'sometimes', when: 'when he fusses' }], sees: '' }], quote: 'she calls him "mother hen" now' }],
+      relations: [{ people: ['mira', 'tomas'], bond: 'close friends who bicker', address: [{ by: 'mira', to: 'tomas', term: 'mother hen', use: 'sometimes', when: 'when he fusses', quote: 'she calls him "mother hen" now' }], quote: 'she calls him "mother hen" now' }],
     });
     expect(x.engine.current!.index.relationNow('mira', 'tomas')).toMatchObject({
       bond: 'close friends who bicker', source: 'play', together: 'easy silences; he fusses over her wounds',
@@ -171,7 +171,7 @@ describe('relations between people, the player character like anyone', () => {
     // a form now used always is the only one left
     await turn(x, 'I watch them more.', 'From now on it is only "mother hen". [M3]', {
       scene_end: at(1, 10, 50), scene_entities: ['mira', 'tomas'],
-      relations: [{ people: ['mira', 'tomas'], bond: 'close friends who bicker', views: [{ who: 'mira', address: [{ term: 'mother hen', use: 'always' }], sees: '' }], quote: 'From now on it is only "mother hen"' }],
+      relations: [{ people: ['mira', 'tomas'], bond: 'close friends who bicker', address: [{ by: 'mira', to: 'tomas', term: 'mother hen', use: 'always', quote: 'From now on it is only "mother hen"' }], quote: 'From now on it is only "mother hen"' }],
     });
     expect(x.engine.current!.index.relationNow('mira', 'tomas')!.views.find((v) => v.who === 'mira')!.address).toEqual([{ term: 'mother hen', use: 'always' }]);
     expect(PROMPTS.evaluate).toMatch(/a part you leave out stays as it is — so give anew every part this change makes untrue/);
@@ -351,19 +351,19 @@ describe('relations between people, the player character like anyone', () => {
     // user: the GM once had the player call 美琴 姐姐大人 (黑子's form) — that must not become how the player addresses her
     const x = await setup();
     (x.engine.settings as any).debug = true;   // (the review's warnings in the trace)
-    await turn(x, 'I walk Mira home.', '"Thanks, Big Sis," Ash says to Mira. [P1]', {
+    await turn(x, 'I walk Mira home.', '"Thanks, Big Sis," Ash says to Mira. "Anytime, kiddo." [P1]', {
       scene_end: at(1, 6, 30), scene_entities: ['mira'],
-      relations: [{ people: [me(x), 'mira'], bond: 'close friend since childhood', views: [{ who: me(x), address: [{ term: 'Big Sis', use: 'usually' }], sees: '' }, { who: 'mira', address: [{ term: 'kiddo', use: 'sometimes', when: 'when teasing' }], sees: '' }], quote: 'Thanks, Big Sis' }],
+      relations: [{ people: [me(x), 'mira'], bond: 'close friend since childhood', address: [{ by: me(x), to: 'mira', term: 'Big Sis', use: 'usually', quote: 'Thanks, Big Sis' }, { by: 'mira', to: me(x), term: 'kiddo', use: 'sometimes', when: 'when teasing', quote: 'Anytime, kiddo' }], quote: 'Thanks, Big Sis' }],
     });
     let rel = x.engine.current!.index.relationNow(me(x), 'mira')!;
     expect(rel.views.find((v) => v.who === me(x))).toBeUndefined();
     expect(rel.views.find((v) => v.who === 'mira')!.address).toEqual([{ term: 'Ashy', use: 'usually' }, { term: 'kiddo', use: 'sometimes', when: 'when teasing' }]);
-    expect(x.engine.lastTrace!.attempts.at(-1)!.warnings!.join('\n')).toMatch(/the player character's form of address 「Big Sis」 \(usually\) ignored: the player's message does not have it/);
+    expect(x.engine.lastTrace!.attempts.at(-1)!.warnings!.join('\n')).toMatch(/form of address 「Big Sis」 \(Ash → Mira, usually\) ignored: the player's message does not have it/);
     // the player's own words make it theirs; a nickname taken up with nothing else changing keeps the bond (live: 黑子
     // took up 小光 in a light exchange and the review recorded nothing, a change needing a bond restated)
     await turn(x, 'From now on I call her "Mimi", and she can call me "Ace".', 'Mira laughs. "Fine, Ace." [P2]', {
       scene_end: at(1, 6, 40), scene_entities: ['mira'],
-      relations: [{ people: [me(x), 'mira'], bond: '', views: [{ who: me(x), address: [{ term: 'Mimi', use: 'usually' }], sees: '' }, { who: 'mira', address: [{ term: 'Ace', use: 'usually' }], sees: '' }], quote: 'Fine, Ace.' }],
+      relations: [{ people: [me(x), 'mira'], bond: '', address: [{ by: me(x), to: 'mira', term: 'Mimi', use: 'usually', quote: 'From now on I call her "Mimi"' }, { by: 'mira', to: me(x), term: 'Ace', use: 'usually', quote: 'Fine, Ace.' }], quote: 'Fine, Ace.' }],
     });
     rel = x.engine.current!.index.relationNow(me(x), 'mira')!;
     expect(rel).toMatchObject({ bond: 'close friend since childhood', source: 'play' });
@@ -375,15 +375,54 @@ describe('relations between people, the player character like anyone', () => {
     expect(PROMPTS.evaluate).toMatch(/never forms of address — they go in address\./);
     expect(PROMPTS.evaluate).toMatch(/the player calling someone by a new name in their message \("小黑，早！"\) is one/);
     // two with no relation yet still need what they are to each other
-    await turn(x, 'I nod to Tomas.', 'Tomas nods back: "Morning, Ash." [P3]', {
+    await turn(x, 'I nod to Tomas.', 'Tomas nods back: "Morning, kid." [P3]', {
       scene_end: at(1, 6, 50), scene_entities: ['tomas'],
-      relations: [{ people: [me(x), 'tomas'], bond: '', views: [{ who: 'tomas', address: [{ term: 'kid', use: 'usually' }], sees: '' }], quote: 'Morning, Ash.' }],
+      relations: [{ people: [me(x), 'tomas'], bond: '', address: [{ by: 'tomas', to: me(x), term: 'kid', use: 'usually', quote: 'Morning, kid.' }], quote: 'Morning, kid.' }],
     });
     expect(x.engine.current!.index.relationNow(me(x), 'tomas')).toBeNull();
     // the GM and the review are told: a form is that person's own, the player's come from the Persona and the player
     expect(forms(x)).toMatch(/a form listed is that person's own, not the others' who know the same one\. The player character's forms are the Persona's and the player's own words/);
     expect(PROMPTS.evaluate).toMatch(/using for someone a distinctive form that FORMS OF ADDRESS gives as another person's for them/);
     expect(PROMPTS.evaluate).toMatch(/never a form that is another person's for that one[^;]*; the player character's forms only when the player's own message gives them/);
+  });
+
+  it('RL19 a form of address is the one who uses it: shown by its own words, never also the other way round (live: the player\'s 「电电」 for 美琴 put on 美琴\'s side)', async () => {
+    const x = await setup();
+    (x.engine.settings as any).debug = true;
+    // the player names Mira; the review also gives Mira the same name for the player, from her putting up with it
+    await turn(x, 'From today I call you "Sparky", Mira.', 'Mira glares. "Sparky. Fine, for today." [S1]', {
+      scene_end: at(1, 6, 30), scene_entities: ['mira'],
+      relations: [{ people: [me(x), 'mira'], bond: '', address: [
+        { by: me(x), to: 'mira', term: 'Sparky', use: 'usually', quote: 'From today I call you "Sparky"' },
+        { by: 'mira', to: me(x), term: 'Sparky', use: 'sometimes', quote: '"Sparky. Fine, for today."' },
+      ], quote: 'Fine, for today.' }],
+    });
+    let rel = x.engine.current!.index.relationNow(me(x), 'mira')!;
+    expect(rel.views.find((v) => v.who === me(x))!.address).toEqual([{ term: 'Sparky', use: 'usually' }]);
+    expect(rel.views.find((v) => v.who === 'mira')!.address).toEqual([{ term: 'Ashy', use: 'always' }]);
+    expect(x.engine.lastTrace!.attempts.at(-1)!.warnings!.join('\n')).toMatch(/「Sparky」 \(Mira → Ash, sometimes\) ignored: 「Sparky」 is Ash's for Mira/);
+    // later, the same misread alone: the relation already has it the other way
+    await turn(x, 'I wave.', 'Mira sighs. "Sparky, again?" [S2]', {
+      scene_end: at(1, 6, 40), scene_entities: ['mira'],
+      relations: [{ people: [me(x), 'mira'], bond: '', address: [{ by: 'mira', to: me(x), term: 'Sparky', use: 'usually', quote: '"Sparky, again?"' }], quote: 'Sparky, again?' }],
+    });
+    rel = x.engine.current!.index.relationNow(me(x), 'mira')!;
+    expect(rel.views.find((v) => v.who === 'mira')!.address).toEqual([{ term: 'Ashy', use: 'always' }]);
+    // someone else's form needs the reply's words that have it; a side not of the pair is no form
+    await turn(x, 'I listen.', 'Tomas grins at Mira. [S3]', {
+      scene_end: at(1, 6, 50), scene_entities: ['mira', 'tomas'],
+      relations: [{ people: ['mira', 'tomas'], bond: '', address: [
+        { by: 'tomas', to: 'mira', term: 'Doc', use: 'usually', quote: 'Tomas grins at Mira' },
+        { by: 'tomas', to: 'mira', term: 'Missy', use: 'usually', quote: 'he calls her Missy' },
+        { by: 'tomas', to: me(x), term: 'Boss', use: 'usually', quote: 'Tomas grins' },
+      ], quote: 'Tomas grins at Mira' }],
+    });
+    const warn = x.engine.lastTrace!.attempts.at(-1)!.warnings!.join('\n');
+    expect(warn).toMatch(/「Doc」 \(Tomas → Mira, usually\) ignored: its quote does not have the term/);
+    expect(warn).toMatch(/「Missy」 \(Tomas → Mira, usually\) ignored: its quote is not in the reply/);
+    expect(x.engine.current!.index.relationNow('mira', 'tomas')!.views.find((v) => v.who === 'tomas')!.address!.map((a) => a.term)).toEqual(['the medic']);
+    expect(PROMPTS.evaluate).toMatch(/by: the one who uses it, to: the one called so/);
+    expect(PROMPTS.evaluate).toMatch(/also where 美琴 puts up with the name, objects to it or repeats it/);
   });
 
   it('RL8 a Persona revision without a relation takes it out', async () => {

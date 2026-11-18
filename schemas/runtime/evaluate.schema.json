@@ -797,35 +797,6 @@
          "type": "string",
          "maxLength": 200
         },
-        "address": {
-         "type": "array",
-         "items": {
-          "type": "object",
-          "properties": {
-           "term": {
-            "type": "string",
-            "maxLength": 60
-           },
-           "use": {
-            "enum": [
-             "always",
-             "usually",
-             "sometimes",
-             "dropped"
-            ]
-           },
-           "when": {
-            "type": "string",
-            "maxLength": 200
-           }
-          },
-          "required": [
-           "term",
-           "use"
-          ],
-          "additionalProperties": false
-         }
-        },
         "sees": {
          "type": "string",
          "maxLength": 400
@@ -834,6 +805,51 @@
        "required": [
         "who",
         "sees"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "address": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+       "type": "object",
+       "properties": {
+        "by": {
+         "type": "string",
+         "maxLength": 200
+        },
+        "to": {
+         "type": "string",
+         "maxLength": 200
+        },
+        "term": {
+         "type": "string",
+         "maxLength": 60
+        },
+        "use": {
+         "enum": [
+          "always",
+          "usually",
+          "sometimes",
+          "dropped"
+         ]
+        },
+        "when": {
+         "type": "string",
+         "maxLength": 200
+        },
+        "quote": {
+         "type": "string",
+         "maxLength": 300
+        }
+       },
+       "required": [
+        "by",
+        "to",
+        "term",
+        "use",
+        "quote"
        ],
        "additionalProperties": false
       }

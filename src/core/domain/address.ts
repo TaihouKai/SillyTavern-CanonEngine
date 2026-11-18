@@ -66,6 +66,28 @@ export function cleanViews(list: unknown, people: readonly Id[], ref: (who: stri
   return out;
 }
 
+/** A change of a form of address as the review of a reply gives it: who uses it (by) for whom (to), with the words
+ *  where they do (quote). */
+export interface FormChange extends AddressChange { by: Id; to: Id; quote: string }
+
+/** The forms of address a review gives for a pair, each with both sides resolved (by `ref`) to the two, by ≠ to (a
+ *  missing `to` is the other one), the term cleaned as cleanAddress does (several in one entry made one each). */
+export function cleanForms(list: unknown, people: readonly [Id, Id], ref: (who: string) => Id | null = (w) => w): FormChange[] {
+  const out: FormChange[] = [];
+  for (const f of Array.isArray(list) ? list : []) {
+    if (!f || typeof f !== 'object') continue;
+    const x = f as { by?: unknown; to?: unknown; quote?: unknown };
+    const by = ref(String(x.by || '').trim());
+    if (!by || !people.includes(by)) continue;
+    const other = people.find((p) => p !== by)!;
+    const to = String(x.to || '').trim() ? ref(String(x.to).trim()) : other;
+    if (to !== other) continue;
+    const quote = String(x.quote || '').trim().slice(0, 300);
+    for (const c of cleanAddress([f], ADDRESS_CHANGES)) out.push({ by, to, ...c, quote });
+  }
+  return out;
+}
+
 /** One side's forms as one line for a model: 「姐姐大人」 (always); 「食蜂」 (usually); 「那个乳牛女人」 (sometimes: 斗嘴时). */
 export function addressLine(list: AddressForm[] | undefined): string {
   return (list || []).map((f) => `「${f.term}」 (${f.use}${f.when ? `: ${f.when}` : ''})`).join('; ');
