@@ -73,6 +73,95 @@
   "flashback": {
    "type": "boolean"
   },
+  "time_evidence": {
+   "type": "array",
+   "maxItems": 40,
+   "items": {
+    "type": "object",
+    "properties": {
+     "quote": {
+      "type": "string",
+      "maxLength": 300
+     },
+     "kind": {
+      "enum": [
+       "now",
+       "elapsed",
+       "mentioned"
+      ]
+     },
+     "at": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "lo": {
+          "type": "object",
+          "properties": {
+           "day": {
+            "type": "integer"
+           },
+           "minute": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1439
+           }
+          },
+          "required": [
+           "day",
+           "minute"
+          ],
+          "additionalProperties": false
+         },
+         "hi": {
+          "type": "object",
+          "properties": {
+           "day": {
+            "type": "integer"
+           },
+           "minute": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1439
+           }
+          },
+          "required": [
+           "day",
+           "minute"
+          ],
+          "additionalProperties": false
+         }
+        },
+        "required": [
+         "lo",
+         "hi"
+        ],
+        "additionalProperties": false
+       }
+      ]
+     },
+     "minutes": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "number",
+        "minimum": 0
+       }
+      ]
+     }
+    },
+    "required": [
+     "quote",
+     "kind"
+    ],
+    "additionalProperties": false
+   }
+  },
   "claim_checks": {
    "type": "array",
    "items": {

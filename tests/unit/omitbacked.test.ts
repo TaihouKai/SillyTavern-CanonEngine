@@ -40,7 +40,7 @@ describe('an omission from actual play needs a record that rules the event out',
 
   it('OB2 the event\'s person shown with the player during its window: the omission stands', async () => {
     const x = await setup();
-    expect(await turn(x, 'I spend the morning with Mira.', 'Mira stays with me through ten. [OB2a]', { scene_end: at(1, 10, 0), occurrences: [occ('o1', 'Morning with Mira', 'Mira stays with me through ten', { actors: ['mira'], time: { lo: { day: 1, minute: 540 }, hi: { day: 1, minute: 600 }, precision: 'range' } })] })).toBe(true);
+    expect(await turn(x, 'I spend the morning with Mira.', 'Mira stays with me through ten. [OB2a]', { scene_end: at(1, 10, 0), time_evidence: [], occurrences: [occ('o1', 'Morning with Mira', 'Mira stays with me through ten', { actors: ['mira'], time: { lo: { day: 1, minute: 540 }, hi: { day: 1, minute: 600 }, precision: 'range' } })] })).toBe(true);
     omitCiting(x);
     expect(await turn(x, 'We part at 11:00.', 'We part; it is 11:00. [OB2b]', { scene_end: at(1, 11, 0) })).toBe(true);
     expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('omitted');
@@ -48,7 +48,7 @@ describe('an omission from actual play needs a record that rules the event out',
 
   it('OB3 an event recorded as 未发生 can be re-analysed (live: no 重新分析 under it)', async () => {
     const x = await setup();
-    await turn(x, 'I spend the morning with Mira.', 'Mira stays with me through ten. [OB3a]', { scene_end: at(1, 10, 0), occurrences: [occ('o1', 'Morning with Mira', 'Mira stays with me through ten', { actors: ['mira'], time: { lo: { day: 1, minute: 540 }, hi: { day: 1, minute: 600 }, precision: 'range' } })] });
+    await turn(x, 'I spend the morning with Mira.', 'Mira stays with me through ten. [OB3a]', { scene_end: at(1, 10, 0), time_evidence: [], occurrences: [occ('o1', 'Morning with Mira', 'Mira stays with me through ten', { actors: ['mira'], time: { lo: { day: 1, minute: 540 }, hi: { day: 1, minute: 600 }, precision: 'range' } })] });
     omitCiting(x);
     await turn(x, 'We part at 11:00.', 'We part; it is 11:00. [OB3b]', { scene_end: at(1, 11, 0) });
     expect(st(x).dispositions.get('medic-ambush')?.disposition).toBe('omitted');

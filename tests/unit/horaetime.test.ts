@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { mentionsTime, statedTime } from '../../src/core/runtime/engine';
 import { PROMPTS } from '../../src/core/runtime/prompts';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
@@ -65,21 +64,12 @@ describe('story time follows Horae', () => {
     const y = await setup({ date: '2020/01/02', time: '08:00' });
     expect(y.engine.storyNow()).toBe(tick(1, 9, 30));
   });
-
-  it('H06 Horae ahead of the latest reply\'s own clock is not followed (live: Horae 08:50, the reply\'s phone 八点二十出头)', async () => {
-    const x = await setup({ date: '2020/01/02', time: '10:20' }); // the engine clock is 09:30
-    x.host.addGm('她低头看了看手机。九点四十出头，离十点还有好一阵。');
-    expect(x.engine.storyNow()).toBe(tick(1, 9, 30));
-    // a reading close to Horae's time: followed
-    const y = await setup({ date: '2020/01/02', time: '09:45' });
-    y.host.addGm('她低头看了看手机。九点四十出头。');
-    expect(y.engine.storyNow()).toBe(tick(1, 9, 45));
-  });
 });
 
 describe('the clock does not run ahead of the story', () => {
   const run = async (user: string, draft: string, end: any, extra: any = {}, horae: { date: string; time: string } | null = null) => {
     const x = await setup(horae); // 09:30
+    x.model.vouchTime = false; // the evidence is the test's
     x.host.addUser(user);
     x.model.draft(draft);
     x.model.on('evaluate', (i) => String(i.candidate).includes(draft.slice(-6)), { scene_end: end, ...extra });
@@ -92,44 +82,20 @@ describe('the clock does not run ahead of the story', () => {
     expect(await run('I grab her arm and shout.', 'She freezes; you hold on and shout her name. [CK1]', at(1, 10, 10))).toBe(tick(1, 9, 50));
   });
 
-  it('CK2 explicit time in the reply or the player message is not capped; a small estimate is kept as it is', async () => {
-    expect(await run('I wait.', 'Two hours later the rain stops. 两小时后雨停了。 [CK2]', at(1, 11, 30))).toBe(tick(1, 11, 30));
-    expect(await run('我赶过去之后，是13点51分，大概就2分钟。', 'You arrive. [CK3]', at(1, 13, 53))).toBe(tick(1, 13, 53));
+  it('CK2 a time the reply or the player message reaches or spends (the reviewer evidence) lifts the cap; a small estimate is kept as it is', async () => {
+    expect(await run('I wait.', 'Two hours later the rain stops. 两小时后雨停了。 [CK2]', at(1, 11, 30), { time_evidence: [{ quote: '两小时后雨停了', kind: 'elapsed', minutes: 120 }] })).toBe(tick(1, 11, 30));
+    expect(await run('我赶过去之后，是13点51分，大概就2分钟。', 'You arrive. [CK3]', at(1, 13, 53), { time_evidence: [{ quote: '是13点51分', kind: 'now', at: { lo: { day: 1, minute: 831 }, hi: { day: 1, minute: 831 } } }, { quote: '大概就2分钟', kind: 'elapsed', minutes: 2 }] })).toBe(tick(1, 13, 53));
     expect(await run('I nod.', 'She nods back. [CK4]', at(1, 9, 33))).toBe(tick(1, 9, 33));
   });
 
-  it('CK3 the Horae floor still wins over the cap; flashbacks are left alone', async () => {
-    expect(await run('I keep walking.', 'You walk on. [CK5]', at(1, 12, 0), {}, { date: '2020/01/02', time: '11:00' })).toBe(tick(1, 11, 0));
+  it('CK3 the reply starts at the later Horae time and may run 20 minutes on from there; flashbacks are left alone', async () => {
+    expect(await run('I keep walking.', 'You walk on. [CK5]', at(1, 12, 0), {}, { date: '2020/01/02', time: '11:00' })).toBe(tick(1, 11, 20));
     expect(await run('I remember.', 'Years ago she smiled. [CK6]', at(0, 8, 0), { flashback: true })).toBe(tick(1, 9, 30));
   });
 
-  it('CK4 time words: clock times, durations, parts of the day count; "一点点" (a little) does not', () => {
-    for (const t of ['13:51', '13点51分', '三点钟', '两小时后', '傍晚时分', '第二天早上', '大概2分钟', 'two hours later', 'that evening']) expect(mentionsTime(t)).toBe(true);
-    for (const t of ['她一点点靠近', '他抓住她的手大喊', 'She freezes and shouts.']) expect(mentionsTime(t)).toBe(false);
-  });
-
-  it('CK6 words that only mention another time do not lift the cap; durations add to it; clock times and jumps lift it (live: dialogue with 明天/今晚/午后 let walks take +45 and +65)', () => {
-    for (const t of ['「明天再说吧。」', '「今晚有空吗？」', '上午那件事', '今天午后的阳光', '「这半天你去哪了？」', '两天前的事']) expect(statedTime(t)).toEqual({ anchored: false, minutes: 0 });
-    expect(statedTime('三人又走了十分钟')).toEqual({ anchored: false, minutes: 10 });
-    expect(statedTime('大概2分钟后门被炸开')).toEqual({ anchored: false, minutes: 2 });
-    expect(statedTime('等了一个半小时')).toEqual({ anchored: false, minutes: 90 });
-    expect(statedTime('half an hour, then twenty minutes more').minutes).toBe(50);
-    for (const t of ['13:51', '13点51分', '下午三点整', '第二天早上', '到了傍晚', '傍晚时分', '天已经黑了', 'two hours later', 'that evening']) expect(statedTime(t).anchored).toBe(true);
-  });
-
-  it('CK8 a time that is spoken of is not a time that is reached: appointments, plans, other days and quoted speech leave the cap', () => {
-    const none = { anchored: false, minutes: 0 };
-    for (const t of ['「明天八点见。」她说完就走了。', '"See you at 8:00 tomorrow," she says, and leaves.', '“我们睡觉吧。”', '「等我十分钟。」', '两人约好三点在校门口集合。', '明天八点见', '她说下午三点要到车站。', '他提醒你，截止时间是17:00。', 'They agreed to meet at 8 pm.', 'She will be back at 10:30.', '昨晚十点的事，谁也没再提。', '八点前必须赶到。'])
-      expect(statedTime(t), t).toEqual(none);
-    for (const t of ['我在这里等到8点，并见到了B君。', '等到八点，她终于来了。', '八点整，钟声响起。', 'By 8:00 the square is full.', '「都已经八点了！」她跳了起来。', '"It\'s already 8:30," she says.', '一觉睡到天亮。'])
-      expect(statedTime(t).anchored, t).toBe(true);
-    expect(statedTime('「等我十分钟。」你们又走了五分钟。')).toEqual({ anchored: false, minutes: 5 });
-    expect(statedTime('「走吧。」两小时后，雨停了。')).toEqual({ anchored: false, minutes: 120 });
-  });
-
-  it('CK7 the cap allows the stated durations on top of 20 minutes, and nothing for dialogue time words', async () => {
-    expect(await run('我们走吧。', '「明天再说，今晚先盯住他。」三人走了十分钟，到了仓库。 [CK7]', at(1, 11, 0))).toBe(tick(1, 10, 0));
-    expect(await run('走。', '「上午那事你还记得吗？」两人沿着街道走去。 [CK8]', at(1, 10, 30))).toBe(tick(1, 9, 50));
+  it('CK7 the cap allows the stated amounts on top of 20 minutes, and nothing for times only spoken of', async () => {
+    expect(await run('我们走吧。', '「明天再说，今晚先盯住他。」三人走了十分钟，到了仓库。 [CK7]', at(1, 11, 0), { time_evidence: [{ quote: '明天再说', kind: 'mentioned' }, { quote: '今晚先盯住他', kind: 'mentioned' }, { quote: '三人走了十分钟', kind: 'elapsed', minutes: 10 }] })).toBe(tick(1, 10, 0));
+    expect(await run('走。', '「上午那事你还记得吗？」两人沿着街道走去。 [CK8]', at(1, 10, 30), { time_evidence: [{ quote: '上午那事', kind: 'mentioned' }] })).toBe(tick(1, 9, 50));
   });
 
   it('CK5 the reviewer is told lo is the minimum and the player message can state the time', () => {

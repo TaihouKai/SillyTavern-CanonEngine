@@ -47,6 +47,9 @@ export interface Interpretation {
   /** Message ids (with hashes) whose content this interpretation depended on. */
   dependsOn: { messageId: string; contentHash: string }[];
   sceneEnd: StoryTime | null;
+  /** The latest end this reply's own text accounts for, when it reaches a time (scenetime.ts): Horae later than it is
+   *  not followed. */
+  timeBound?: number;
   flashback: boolean;
   /** Ids of scene entities depicted (for the next turn's scene scope). */
   sceneEntities: Id[];

@@ -90,62 +90,6 @@ export function parseTickLabel(s: string): number | null {
   return day * DAY + hh * 60 + mm;
 }
 
-const CN_DIGIT: Record<string, number> = { 零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
-/** "十一", "二十三", "两", "11" → number (null when not a plain number up to 99). */
-export function cnNumber(s: string): number | null {
-  if (/^\d{1,2}$/.test(s)) return Number(s);
-  const m = s.match(/^([零〇一二两三四五六七八九])?(十)?([零〇一二两三四五六七八九])?$/);
-  if (!m || !s) return null;
-  if (!m[2]) return m[1] && !m[3] ? CN_DIGIT[m[1]] : null;
-  return (m[1] ? CN_DIGIT[m[1]] : 1) * 10 + (m[3] ? CN_DIGIT[m[3]] : 0);
-}
-
-/** Clock times a text reads as the time NOW — "都快十一点了", "已经三点半了", "现在十点二十了", "it's already 11:30" — as
- *  hour (0–24, as written) and minute; "nearly" (快/将近/差不多/almost) when it is not there yet. Appointments and
- *  plans ("明天八点开幕式", "五点半就得起来") are not readings: a Chinese reading ends in 了 or follows 现在. */
-/** Just before a time: someone looks at a clock, or a clock shows it ("看了看手机。", "瞥了一眼表，", "屏幕上显示",
- *  "抬头看了眼墙上的挂钟：“"). */
-const LOOKED_AT_CLOCK = /(?:看|瞥|瞄)[了一眼下看]{0,3}[^。！？“”「」]{0,6}?(?:手机|手表|腕表|表|时钟|挂钟|钟|时间|屏幕)[^。！？]{0,4}[。，：:\s“「『]*$|(?:手机|手表|屏幕|时钟|钟)[^。！？]{0,4}(?:显示|跳到|指着|指向|写着)[^。！？]{0,3}$/;
-/** Just after a time said aloud: the one who said it looks at a clock ("“八点二十七。”白井抬头看了眼墙上的挂钟"). */
-const LOOKS_AT_CLOCK_AFTER = /^[。！？…\s]*[”」』][^。！？“「]{0,8}(?:看|瞥|瞄)[了一眼下看]{0,3}[^。！？“”「」]{0,6}?(?:手机|手表|腕表|表|时钟|挂钟|钟|时间|屏幕)/;
-export function clockReadings(text: string): { hour: number; minute: number; nearly: boolean; quote: string }[] {
-  const out: { hour: number; minute: number; nearly: boolean; quote: string }[] = [];
-  const N = '[零〇一二两三四五六七八九十0-9]{1,3}';
-  const zh = new RegExp(`(都|已经|已|现在|这都|眼看)?(快|快要|将近|差不多|就要)?(${N})点(?:(半)|(一刻)|(三刻)|零?(${N})分?)?(出头|多|左右|钟)?(了)?`, 'g');
-  for (const m of String(text).matchAll(zh)) {
-    // a time just read off a clock ("看了看手机。八点二十出头") or said as "…出头" is a reading too (live: the reviewer
-    // ended a reply at 08:50 whose phone said 八点二十出头)
-    const plan = /^(?:要|得|就|才|再|开始|开|见|集合|出发|前|之前|以前)/.test(String(text).slice(m.index! + m[0].length, m.index! + m[0].length + 2));
-    const read = m[8] === '出头' || (!plan && (LOOKED_AT_CLOCK.test(String(text).slice(Math.max(0, m.index! - 20), m.index))
-      || LOOKS_AT_CLOCK_AFTER.test(String(text).slice(m.index! + m[0].length, m.index! + m[0].length + 30))));
-    if (!read) {
-      if (!m[9] && m[1] !== '现在') continue;
-      if (!m[1] && !m[2]) continue;
-    }
-    const hour = cnNumber(m[3]);
-    const minute = m[4] ? 30 : m[5] ? 15 : m[6] ? 45 : m[7] ? cnNumber(m[7]) : 0;
-    if (hour === null || hour > 24 || minute === null || minute > 59) continue;
-    out.push({ hour, minute, nearly: !!m[2], quote: m[0] });
-  }
-  const en = /\b(?:it'?s|it is|already|now)\s+(nearly\s+|almost\s+)?(\d{1,2})(?::(\d{2}))?\s*(?:o'?clock|a\.?m\.?|p\.?m\.?)?/gi;
-  for (const m of String(text).matchAll(en)) {
-    const hour = Number(m[2]), minute = m[3] ? Number(m[3]) : 0;
-    if (!m[3] && !/o'?clock|[ap]\.?m/i.test(m[0])) continue;
-    if (hour > 24 || minute > 59) continue;
-    out.push({ hour: /p\.?m/i.test(m[0]) && hour < 12 ? hour + 12 : hour, minute, nearly: !!m[1], quote: m[0] });
-  }
-  return out;
-}
-
-/** The tick a clock reading means near `from`: the hour as written or 12 hours on, the first at most an hour before
- *  `from` and within the next 12 hours (null when none is). */
-export function readingTick(r: { hour: number; minute: number }, from: number): number | null {
-  const day = Math.floor(from / DAY) * DAY;
-  const hours = r.hour >= 13 ? [r.hour] : [r.hour % 12, (r.hour % 12) + 12];
-  const ticks = [-1, 0, 1].flatMap((d) => hours.map((h) => day + d * DAY + h * 60 + r.minute)).filter((x) => x >= from - 60 && x <= from + 720).sort((a, b) => a - b);
-  return ticks.length ? ticks[0] : null;
-}
-
 /** Interval (a, b] intersects [lo, hi]? Used for crossed-interval collection. */
 export function intervalCrosses(fromExclusive: number, toInclusive: number, lo: number, hi: number): boolean {
   return hi > fromExclusive && lo <= toInclusive;

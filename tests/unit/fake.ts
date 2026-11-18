@@ -106,6 +106,10 @@ export class ScriptedModel implements ModelPort {
   calls: { task: TaskName | 'draft'; input: any; messages?: ChatMsg[] }[] = [];
   failTask: Partial<Record<TaskName | 'draft', number>> = {};
   taskGate: Partial<Record<TaskName | 'draft', () => Promise<void>>> = {};
+  /** The scripted reviewer vouches for the end a test gives it: an evaluate output with a scene_end later than the
+   *  current time and no time_evidence gets one item saying the reply reaches that time (the tests that are about
+   *  time evidence turn this off). */
+  vouchTime = true;
 
   on(task: TaskName, when: ((input: any) => boolean) | null, respond: TaskHandler | object, once = false) {
     this.rules.unshift({ task, when: when || undefined, respond: typeof respond === 'function' ? (respond as TaskHandler) : () => respond, once });
@@ -127,7 +131,9 @@ export class ScriptedModel implements ModelPort {
       const r = this.rules[idx];
       if (r.once) this.rules.splice(idx, 1);
       if (r.raw !== undefined) return r.raw;
-      return JSON.stringify(deepMerge(defaultTask(task, input), r.respond(input)));
+      const out = deepMerge(defaultTask(task, input), r.respond(input));
+      if (task === 'evaluate' && this.vouchTime) vouch(out, input);
+      return JSON.stringify(out);
     }
     return JSON.stringify(defaultTask(task, input));
   }
@@ -143,6 +149,13 @@ export class ScriptedModel implements ModelPort {
   }
 
   tasks(name: TaskName | 'draft') { return this.calls.filter((c) => c.task === name); }
+}
+
+/** The reply reaches the end the test scripted: one "now" item quoting the reply's first characters (see vouchTime). */
+function vouch(out: any, input: any) {
+  const e = out?.scene_end, c = input?.current_time, text = String(input?.candidate || '');
+  if (!e?.lo || !e?.hi || out.time_evidence !== undefined || out.flashback || !c || tickOf(e.lo) <= tickOf(c) || text.trim().length < 2) return;
+  out.time_evidence = [{ quote: text.trim().slice(0, 2), kind: 'now', at: { lo: e.lo, hi: e.hi } }];
 }
 
 const T = (tick: number) => ({ day: Math.floor(tick / 1440), minute: ((tick % 1440) + 1440) % 1440 });

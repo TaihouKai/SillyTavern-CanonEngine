@@ -23,7 +23,7 @@ describe('audit: model output', () => {
     const x = await setup(JSON.stringify(p));
     x.host.addUser('I wait an hour.');
     x.model.draft('It is 10:30 when you look up again. [W]');
-    x.model.on('evaluate', (i) => String(i.candidate).includes('[W]'), { scene_end: at(1, 10, 30) });
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[W]'), { scene_end: at(1, 10, 30), time_evidence: [{ quote: 'It is 10:30', kind: 'now', at: { lo: { day: 1, minute: 630 }, hi: { day: 1, minute: 630 } } }] });
     x.model.rules.unshift({ task: 'adjudicate', respond: () => ({}), raw: 'not json at all' });
     const ok = await x.engine.runOperation('normal');
     await new Promise((r) => setTimeout(r, 20));
@@ -33,11 +33,11 @@ describe('audit: model output', () => {
     expect({ turn: ok, disposition: d }).not.toEqual({ turn: true, disposition: 'omitted' });
   });
 
-  // The code reads a reply's own clock ("it's already 9:45", clockReadings) and caps a reply that says nothing about
-  // time at +20 minutes (UNTIMED_ADVANCE_MAX). Any other mention of a clock time (TIME_ANCHOR) lifts the cap, and the
-  // reviewer's estimate is then taken as it is.
+  // A reply's end is held to what its text accounts for: the reviewer's time evidence, checked against the text
+  // (scenetime.ts). Without a time the story reaches or spends, the clock moves at most +20 minutes.
   async function wrongEstimate(draft: string) {
     const x = await setup();
+    x.model.vouchTime = false; // the evidence is the test's
     x.host.addUser('I look around.');
     x.model.draft(draft);
     x.model.on('evaluate', (i) => String(i.candidate).includes('[T]'), { scene_end: at(3, 12, 0) }); // the reviewer is wrong about the time

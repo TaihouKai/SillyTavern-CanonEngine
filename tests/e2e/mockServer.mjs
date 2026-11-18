@@ -70,6 +70,15 @@ function defaultTask(task, input) {
   return {};
 }
 
+/** The scripted reviewer vouches for the end a rule gives it: an evaluate output with a scene_end later than the current
+ *  time and no time_evidence gets one item saying the reply reaches that time (quoting the reply's first characters). */
+function vouch(task, out, input) {
+  const e = out?.scene_end, c = input?.current_time, text = String(input?.candidate || '').trim();
+  const t = (x) => x.day * 1440 + x.minute;
+  if (task === 'evaluate' && e?.lo && e?.hi && out.time_evidence === undefined && !out.flashback && c && t(e.lo) > t(c) && text.length >= 2) out.time_evidence = [{ quote: text.slice(0, 2), kind: 'now', at: { lo: e.lo, hi: e.hi } }];
+  return out;
+}
+
 function deepMerge(base, patch) {
   if (Array.isArray(patch) || typeof patch !== 'object' || patch === null) return patch;
   const out = { ...base };
@@ -169,7 +178,7 @@ const server = http.createServer(async (req, res) => {
       let out;
       if (rule?.raw !== undefined) out = rule.raw;
       else if (rule?.response) out = JSON.stringify(typeof rule.response === 'function' ? rule.response(input) : rule.response);
-      else out = JSON.stringify(rule?.patch ? deepMerge(defaultTask(task, input), rule.patch) : defaultTask(task, input));
+      else out = JSON.stringify(vouch(task, rule?.patch ? deepMerge(defaultTask(task, input), rule.patch) : defaultTask(task, input), input));
       // a patch can name the player character as "$player" (the analysis gets its id as player_entity)
       if (input?.player_entity?.id) out = out.split('"$player"').join(JSON.stringify(input.player_entity.id));
       entry.response = out;

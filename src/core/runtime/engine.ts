@@ -10,7 +10,7 @@ import { buildBootstrap, causeOf, isDue, pendingHard, forcedCompletion, linkedCo
 import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { WorldIndex } from '../domain/world-query';
-import { agoLabel, clockReadings, eventTimeText, formatTick, formatStoryTime, fromTick, occurrenceTime, parseDateLabel, readingTick, toTick } from '../domain/time';
+import { agoLabel, eventTimeText, formatTick, formatStoryTime, fromTick, occurrenceTime, parseDateLabel, toTick } from '../domain/time';
 import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
 import type { WorldState } from '../domain/reducer';
 import { factAt, reduce as reduceRecords } from '../domain/reducer';
@@ -22,7 +22,8 @@ import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, EVAL_GROUPS_NOTE, EVAL_CHANCE_N
 import { baseKey, earliestChange, fingerprintPrefix, interpretationsFor, replay, sameBasis, scopeOf, stateHash, type ReplayResult } from './replay';
 import { buildPacket, DELIBERATION_TEXT, MIND_FIELDS, MIND_PLAN_MAX, mindPeople, mindsSection, retrieve, sceneFrameOf, type ClaimInput, type MindOut, type RefInput, type Retrieval } from './context';
 import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
-import { CLOCK_READING_SLACK, matchScope, runGate, type EvalOutput, type GateInput, type GateResult } from './gate';
+import { matchScope, runGate, toStoryTime, type EvalOutput, type GateInput, type GateResult } from './gate';
+import { checkTimeEvidence, evidenceLine, settleSceneEnd } from './scenetime';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { settleRelations } from './relate';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
@@ -110,68 +111,6 @@ export interface StatusInfo {
   canCancel: boolean;
 }
 
-/** Most a reply may advance the clock beyond the durations its text states. */
-const UNTIMED_ADVANCE_MAX = 20;
-/** A clock time or a jump in time. Where the narrative REACHES one ("等到八点，见到了她", "两小时后雨停了") the
- *  reviewer's estimate is used as it is; where one is only MENTIONED (an appointment, a plan, another day: "明天八点见",
- *  "约好三点集合", anything inside quoted speech) it says nothing about how long the reply takes: see statedTime.
- *  Words that only mention another time ("明天见", "今晚有空吗", "上午的事") are not here (live finding: dialogue
- *  full of them lifted the cap, and two walking scenes took +45 and +65 minutes). "一点" alone is "a little", not
- *  1 o'clock. */
-const TIME_ANCHOR = new RegExp([
-  String.raw`\d{1,2}\s*[:：]\s*\d{2}`,
-  String.raw`(?:\d{1,2}|[两三四五六七八九十]|十[一二])\s*点(?:\s*(?:\d{1,2}|[一二三四五六七八九十]+)\s*分|钟|整|半)?(?![点头多])`,
-  String.raw`第二天|次日|翌日|隔天|一觉|睡了一[觉夜]|过了很久|很久之后|一夜过去|转眼`,
-  String.raw`(?:到了|直到|一直到|已是|已经是|到)\s*(?:早上|清晨|上午|中午|正午|午后|下午|傍晚|黄昏|晚上|夜里|深夜|半夜|午夜|凌晨|黎明|天亮|天黑)`,
-  String.raw`(?:早上|清晨|上午|中午|午后|下午|傍晚|黄昏|晚上|深夜|凌晨|黎明)(?:时分|的时候)`,
-  String.raw`天(?:已经|就|已|也)?(?:黑|亮)了|入夜|夕阳西下|日落时|时间(?:流逝|过去)|(?:几|数)(?:个小时|小时|天)(?:过去|后)|过了(?:几|数|一)(?:个小时|小时|天)`,
-  String.raw`睡觉|睡着|入睡|睡下|睡到|\b(?:sleep|sleeps|slept|nap|naps|napped)\b`,
-  String.raw`\b(?:until|till|by) (?:the next |next )?(?:morning|noon|afternoon|evening|night|nightfall|dawn|dusk|midnight)\b|\bovernight\b|\b(?:time|hours|days|weeks|the (?:hours|days)) (?:pass|passes|passed|go by|went by)\b|\b(?:noon|night|morning|evening|dawn|dusk) (?:comes|came|falls|fell|breaks|broke|arrives|arrived)\b`,
-  String.raw`\b(?:(?:an?|one|two|three|four|five|six|several|a few|\d+) (?:hours?|minutes?|days?) later|later that|next (?:day|morning)|the following (?:day|morning)|that (?:evening|night|afternoon)|at (?:dawn|dusk|noon|midnight)|\d{1,2} ?(?:am|pm|o'clock))\b`,
-].join('|'), 'gi');
-/** Quoted speech: what someone says, not what the narrative tells as happening (an unclosed quote runs to the end of its line). */
-const SPEECH = /「[^」\n]*(?:」|$)|『[^』\n]*(?:』|$)|“[^”\n]*(?:”|$)|"[^"\n]*(?:"|$)/gm;
-/** Another day or part of the day than the one being told ("明天八点", "昨晚十点", "at 8 tomorrow"): a time spoken of. */
-const ELSEWHEN = /明天|明日|后天|明早|明晚|今晚|今夜|下周|下星期|下个?月|下次|改天|昨天|昨日|昨晚|昨夜|前天|今早|今天(?:早上|上午)|上周|上次|刚才|\b(?:tomorrow|tonight|this evening|next (?:week|month|time)|yesterday|last (?:night|week|time)|this morning|ago)\b/i;
-/** Before a time, in its sentence: it is arranged, intended or due, not arrived at. */
-const PLANNED_BEFORE = /约好|约定|约在|约了|说好|定在|定于|定好|打算|准备|计划|预定|预计|安排在|将在|将于|会在|要在|得在|必须在|记得|别忘|提醒|截止|期限|\b(?:agreed|arranged|scheduled|planned|plans?|will|going to|supposed to|due|deadline|remind\w*|see you|meet (?:me|us|you|him|her|them)|be (?:here|there|back))\b|'ll\b/i;
-/** Right after a time: "八点要到", "八点前", "八点在校门口见" (not "八点见到了她"). */
-const PLANNED_AFTER = /^\s*(?:要|得|就得|再|前|之前|以前|[^，。,；;]{0,8}?(?:见面|见|集合|碰头|会合)(?![面到了过着]))/;
-/** Is the time at [at, at + length) of `narration` reached by the narrative, rather than spoken of? */
-function reached(narration: string, at: number, length: number): boolean {
-  const head = narration.slice(0, at);
-  const start = Math.max(head.search(/[^。！？!?；;\n□]*$/), 0);
-  const sentence = head.slice(start);
-  const after = narration.slice(at + length, at + length + 16).split(/[。！？!?\n□]/)[0];
-  return !ELSEWHEN.test(sentence) && !ELSEWHEN.test(after) && !PLANNED_BEFORE.test(sentence.slice(-40)) && !PLANNED_AFTER.test(after);
-}
-const CN_NUM: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10, 半: 0.5, 几: 3 };
-const cnNumber = (t: string): number => {
-  if (/^\d+$/.test(t)) return Number(t);
-  if (t.includes('十')) { const [a, b] = t.split('十'); return (a ? CN_NUM[a] ?? 1 : 1) * 10 + (b ? CN_NUM[b] ?? 0 : 0); }
-  return CN_NUM[t] ?? 0;
-};
-const DURATION = /(\d+|[一二两三四五六七八九十半几]+)\s*(?:个)?(半)?(分钟|小时|钟头|天|周|星期|月)(半)?(?!前|以前|之前)|半(小时)(?!前)|\b(\d+|an?|one|two|three|four|five|ten|twenty|thirty|several|a few) (minutes?|hours?|days?)\b(?! ago)|\b(half an hour)\b/gi;
-const EN_NUM: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, ten: 10, twenty: 20, thirty: 30, several: 3, 'a few': 3 };
-const UNIT_MIN: Record<string, number> = { 分钟: 1, 小时: 60, 钟头: 60, 天: 1440, 周: 10080, 星期: 10080, 月: 43200, minute: 1, hour: 60, day: 1440 };
-/** What the text says about the time it takes: a clock time or a jump the narrative reaches (anchored), else the
- *  minutes the durations it tells add up to. A time that is only spoken of — in quoted speech, as an appointment or a
- *  plan, on another day — is neither ("明天八点见" against "等到八点，见到了她"); a clock read as the time now ("都已经
- *  八点了") is reached wherever it stands. */
-export function statedTime(text: string): { anchored: boolean; minutes: number } {
-  if (clockReadings(text).length) return { anchored: true, minutes: 0 };
-  const narration = text.replace(SPEECH, ' □ ');
-  for (const m of narration.matchAll(TIME_ANCHOR)) if (reached(narration, m.index!, m[0].length)) return { anchored: true, minutes: 0 };
-  let minutes = 0;
-  for (const m of narration.matchAll(DURATION)) {
-    if (!reached(narration, m.index!, m[0].length)) continue;
-    if (m[3]) { if (m[1] !== '半' || m[3] !== '天') minutes += (cnNumber(m[1]) + (m[2] || m[4] ? 0.5 : 0)) * UNIT_MIN[m[3]]; } // "这半天" is "all this while"
-    else if (m[5] || m[8]) minutes += 30;
-    else if (m[7]) minutes += (/^\d+$/.test(m[6]) ? Number(m[6]) : EN_NUM[m[6].toLowerCase()] ?? 1) * UNIT_MIN[m[7].toLowerCase().replace(/s$/, '')];
-  }
-  return { anchored: false, minutes: Math.round(minutes) };
-}
-export const mentionsTime = (text: string) => { const t = statedTime(text); return t.anchored || t.minutes > 0; };
 
 /** A time jump longer than this is not used to announce canon events (a typo or a misread date). */
 const MAX_TIME_JUMP_MINUTES = 7 * 1440;
@@ -1021,17 +960,15 @@ export class CanonEngine {
     const m = h.match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
     if (!m) return null;
     const t = parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin);
-    return t !== null && t > clock && t <= clock + 3 * 1440 && !this.againstLatestClock(t, clock) ? t : null;
+    return t !== null && t > clock && t <= clock + 3 * 1440 && !this.againstLatestClock(t) ? t : null;
   }
 
-  /** Horae's time for the latest reply is later than that reply's own clock reading allows (live: Horae 08:50 for a
-   *  reply whose phone said 八点二十出头 — the story model's state block ran ahead of its prose): not followed. */
-  private againstLatestClock(t: number, clock: number): boolean {
-    try {
-      const last = this.host.readTranscript().filter((e) => e.role === 'gm').slice(-1)[0];
-      if (!last) return false;
-      return clockReadings(last.text).some((r) => { const at = readingTick(r, clock); return at !== null && t > at + CLOCK_READING_SLACK; });
-    } catch { return false; }
+  /** Horae's time for the latest reply is later than that reply's own text allows (live: Horae 08:50 for a reply whose
+   *  phone said 八点二十出头 — the story model's state block ran ahead of its prose): not followed. The bound is what the
+   *  checked time evidence of that reply accounts for, kept with it (scenetime.ts). */
+  private againstLatestClock(t: number): boolean {
+    const last = this.current?.replay.applied.filter((x) => x.interp.role === 'gm').slice(-1)[0]?.interp;
+    return typeof last?.timeBound === 'number' && t > last.timeBound;
   }
 
   /** Story time as the player sees it: the engine clock, or Horae's time for the latest reply when Horae is fresh
@@ -1049,7 +986,7 @@ export class CanonEngine {
       const m = [h.scene.date, h.scene.time].filter(Boolean).join(' ').match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
       if (!m) return clock;
       const t = parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin);
-      return t !== null && t > clock && t <= clock + 3 * 1440 && !this.againstLatestClock(t, clock) ? t : clock;
+      return t !== null && t > clock && t <= clock + 3 * 1440 && !this.againstLatestClock(t) ? t : clock;
     } catch { return clock; }
   }
 
@@ -1065,7 +1002,7 @@ export class CanonEngine {
       const origin = this.campaign()?.binding.originDate || null;
       const m = hint.match(/(\d{3,6})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\D*?(\d{1,2})[:：](\d{2})/);
       const t = m && origin ? parseDateLabel(`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`, origin) : null;
-      if (t !== null && clock !== undefined && this.againstLatestClock(t, clock)) return {};
+      if (t !== null && clock !== undefined && this.againstLatestClock(t)) return {};
       return { horae_time: hint };
     } catch { return {}; }
   }
@@ -1239,7 +1176,7 @@ export class CanonEngine {
       records, intents: [], stateClaims: gate.stateClaims,
       playerActions: gate.playerActions.map((a) => ({ quote: a.quote, authorizedBy: a.authorizedBy && userEntry ? { messageId: userEntry.messageId, quote: a.authorizedBy.quote } : null })),
       dependsOn: userEntry ? [{ messageId: userEntry.messageId, contentHash: userEntry.contentHash }] : [],
-      sceneEnd: gate.sceneEnd, flashback: gate.flashback,
+      sceneEnd: gate.sceneEnd, flashback: gate.flashback, ...(typeof gate.timeBound === 'number' ? { timeBound: gate.timeBound } : {}),
       // Who/what is in the scene after this reply: the reviewer's scene list plus what the reply itself names.
       // Not everything the review looked up (causal/parent pulls, last turn's seeds): stored scene entities
       // seed the next turn's retrieval, so including lookups made the set snowball to its cap.
@@ -1365,36 +1302,27 @@ export class CanonEngine {
       .map((t) => ({ get: () => t.until, set: (u: Until) => { t.until = u; }, text: `${t.entity_id}.${t.predicate} = ${JSON.stringify(t.value)}${t.quote ? ` ("${String(t.quote).slice(0, 60)}")` : ''}` })),
       pack, index, a.signal, a.operationId, 'this reply');
     if (!this.settings.sceneGrouping) for (const o of evaluation.occurrences) o.continues = null;
-    // Horae tracks story time every turn; its time at the end of the previous reply is where this reply
-    // starts at the earliest. The engine's own estimate only fills in the time this reply itself takes.
-    // An overestimate is permanent (the clock never goes back) while an underestimate is corrected by the Horae
-    // floor next turn: a reply whose text and player message say nothing about time advances at most
-    // UNTIMED_ADVANCE_MAX (live finding: 12:10 -> 14:43 over 11 short continuous replies, +20–40 min each);
-    // a reply telling durations ("走了十分钟") may add those on top. A clock time or a time jump the narrative reaches
-    // lifts the cap; one that is only spoken of (an appointment, a plan, quoted speech) does not (statedTime).
-    const stated = statedTime(`${a.text}\n${this.ooc(a.userEntry?.text).story}`);
-    if (evaluation.scene_end && !evaluation.flashback && !stated.anchored && !a.leapTo) {
-      const lo = toTick(evaluation.scene_end.lo), cap = tick + stated.minutes + UNTIMED_ADVANCE_MAX;
-      if (lo > cap) {
-        evaluation.scene_end = { lo: fromTick(cap), hi: fromTick(Math.max(cap, Math.min(toTick(evaluation.scene_end.hi), cap + UNTIMED_ADVANCE_MAX))), precision: 'approx' } as EvalOutput['scene_end'];
-        this.debugLog('task', { kind: 'scene_end_capped', from: formatTick(lo), to: formatTick(cap) });
-      }
-    }
-    // a time leap lands at its target at the earliest (the target is the player's, not an estimate)
-    const floor = a.leapTo ?? (a.mode !== 'retained' ? this.horaeTick(tick) : null);
-    if (floor !== null && !evaluation.flashback) {
-      const lo = evaluation.scene_end ? toTick(evaluation.scene_end.lo) : tick;
-      if (lo < floor) {
-        const hi = Math.max(evaluation.scene_end ? toTick(evaluation.scene_end.hi) : floor, floor);
-        evaluation.scene_end = { lo: fromTick(floor), hi: fromTick(hi), precision: 'approx' } as EvalOutput['scene_end'];
-        this.debugLog('task', { kind: 'scene_end_from_horae', from: formatTick(lo), to: formatTick(floor) });
-      }
+    // How far the reply moves story time: the reviewer's estimate, held to what the text accounts for. The reviewer
+    // lists the time expressions of the reply and the player's message (a time reached, an amount that passes, a time
+    // only spoken of); code checks each against the text and bounds the estimate by the checked ones (scenetime.ts).
+    // Horae tracks story time every turn: its time at the end of the previous reply is where this reply starts at the
+    // earliest; a time leap starts at its target (the player's, not an estimate).
+    const told = checkTimeEvidence(evaluation.time_evidence, a.text, this.ooc(a.userEntry?.text).story, tick);
+    const settled = settleSceneEnd({
+      estimate: toStoryTime(evaluation.scene_end), items: told.items, clockTick: tick, flashback: !!evaluation.flashback, leap: !!a.leapTo,
+      floor: a.leapTo ?? (a.mode !== 'retained' ? this.horaeTick(tick) : null),
+    });
+    if (settled.note) {
+      evaluation.scene_end = settled.end ? { lo: fromTick(settled.end.lo), hi: fromTick(settled.end.hi), precision: settled.end.precision } as EvalOutput['scene_end'] : null;
+      this.debugLog('task', { kind: 'scene_end_settled', note: settled.note, evidence: evidenceLine(told.items), mentioned: told.mentioned.slice(0, 6) });
     }
     const gate = runGate({
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: eng.binding(tick).length + eng.answers(tick).length, hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
       playerId: prof?.profile.playerId || null, personaName: prof?.profile.personaName, offered: a.offered || null, required: a.required || [], chanceCompanions: a.chance || [], chanceBlocking: (a.attempt ?? 0) === 0, leap: !!a.leapTo,
     });
+    gate.warnings.push(...told.warnings);
+    gate.timeBound = settled.bound;
     const c = this.campaign();
     const manifest: CoverageManifest | null = c ? {
       manifestId: newId('cov'), sessionId: c.sessionId, branchId: c.branchId, revision: c.revision, sourcePrefixHash: a.fences?.sourcePrefixHash || this.current?.replay.fingerprint || '',

@@ -8,7 +8,8 @@ import { cleanViews } from '../domain/address';
 import { factAt } from '../domain/reducer';
 import { applyChange, deltaMeets, deltaText, outcomeDelta, withPackEnd } from '../domain/delta';
 import type { WorldIndex } from '../domain/world-query';
-import { toTick, formatTick, clockReadings, readingTick } from '../domain/time';
+import { toTick, formatTick } from '../domain/time';
+import type { TimeEvidence } from './scenetime';
 import { isDue, pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
 import type { ClaimInput, Retrieval } from './context';
@@ -23,6 +24,8 @@ export interface EvalOutput {
   decision: 'retain' | 'repair' | 'conflict';
   scene_end: { lo: { day: number; minute: number }; hi: { day: number; minute: number }; precision: StoryTime['precision'] } | null;
   flashback?: boolean;
+  /** the time expressions of the reply and the player's message, read by the reviewer (scenetime.ts) */
+  time_evidence?: TimeEvidence[];
   claim_checks: { claim_id: string; verdict: string; record_ids?: string[]; note?: string }[];
   /** until: how long a set value holds — the analysis's answer, read into an Until by the engine before the gate (ends.ts) */
   transitions: { op: 'set' | 'unset'; entity_id: string; predicate: string; value?: FactValue; quote?: string; occurrence_ref?: string | null; until?: unknown }[];
@@ -127,6 +130,8 @@ export interface GateResult {
   stateClaims: StateClaim[];
   playerActions: PlayerAction[];
   sceneEnd: StoryTime | null;
+  /** set by the engine: the latest end the reply's own text accounts for, when it reaches a time (scenetime.ts) */
+  timeBound?: number | null;
   flashback: boolean;
   sceneEntities: Id[];
   /** The people with the player character where the reply ends (the reviewer's present). */
@@ -142,8 +147,6 @@ export interface GateResult {
 
 /** How far an estimated (not stated) time may lie before a canonical event's start and still be moved up to it. */
 export const EARLY_SHIFT_MAX = 3 * 60;
-/** Minutes a reply may run on after a clock reading in it before its estimated end is taken back to the reading. */
-export const CLOCK_READING_SLACK = 10;
 const DESTRUCTIVE = /(destroy|ruin|demolish|collaps|dead|dissolv|gone|burn|毁|废|塌|灭|亡|解散)/i;
 
 /** Does a reviewer's text refer to this HARD event (id, title, or a run of its required description)? */
@@ -242,17 +245,6 @@ export function runGate(g: GateInput): GateResult {
   const flashback = !!ev.flashback;
   if (sceneEnd && !flashback && sceneEnd.hi < g.clockTick) violations.push(`Story time moves backwards (ends ${formatTick(sceneEnd.hi)} before the committed ${formatTick(g.clockTick)}) without a flashback frame or recorded intervention.`);
   if (!sceneEnd) sceneEnd = { lo: g.clockTick, hi: g.clockTick, precision: 'approx' };
-  // the reply's own clock ("都快十一点了") is the time at that point of it: an estimated end far past it is taken back
-  // to it (live: a reply ending a meal begun two replies earlier, with "都快十一点了" in it, was given 23:20 from "a meal
-  // 30-60"; the clock only moves on, so an overestimate is never undone later)
-  if (!flashback && !g.leap && sceneEnd.precision !== 'minute') {
-    const rs = clockReadings(g.text).map((r) => ({ r, tick: readingTick(r, g.clockTick) })).filter((x): x is { r: (typeof x)['r']; tick: number } => x.tick !== null);
-    const last = rs.length ? rs.reduce((a, b) => (b.tick > a.tick ? b : a)) : null;
-    if (last && sceneEnd.lo > last.tick + CLOCK_READING_SLACK) {
-      warnings.push(`scene end ${formatTick(sceneEnd.lo)} is long after the reply's own clock "${last.r.quote}" (${formatTick(last.tick)}): taken from it`);
-      sceneEnd = { lo: Math.max(g.clockTick, last.tick), hi: Math.max(sceneEnd.hi, last.tick + CLOCK_READING_SLACK), precision: 'approx' };
-    }
-  }
 
   // ---- HARD invariants ------------------------------------------------------------------------
   const pendingHardMap = new Map(pendingHard(pack, index.state).map((c) => [c.event.id, c]));
