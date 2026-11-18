@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.39.2 — 2026-11-18 (Toaru pack 6.1.0)
+
+- **A relation changes only through an event both people are in.** The user ruled that a relation changing without an event is written in stone, against what the engine is for. A time trigger was considered and rejected, because the player could not stop it. In the game a stage comes with an event the two are in, and that event can go otherwise.
+  - The pack lint now refuses a stage whose start event does not list both people.
+  - Until now the builder silently left out a fact it could date at none of the pair's shared events. That is where a missing event hides. Now it returns such a fact as an orphan: what happens, when (with a date), and what event is missing. A date before the story is not an orphan.
+  - The builder checks list as problems, which must be 0:
+    - an orphan of a verified pair not settled in the verified relations' `orphans`. It is settled by `event` (the event, added or completed, lists both, and a stage of the pair starts there), by `covered` (a verified stage of the pair already is this change), or by `accepted` with a reason;
+    - a decision that does not hold;
+    - an opening stage that names a date after the story starts.
+  - The review file takes `added_events`: an event the sources tell and the pack lacks, written by a person, with its source. It is added on every build, and the arc lists it.
+- **Toaru pack 6.1.0.** I read all 241 orphans of the run by hand. Most were single episodes that do not change how two people stand, details of a stage already there, things before the story, or things in Othinus's unreal worlds. Each now has a written decision. The real problems were openings that told what happens later, and relations that never changed back:
+  - **Opening told the future: 丝库格兹努芙拉–瓦希莉莎 and 莎夏–丝库格兹努芙拉.** The opening told the defection and the order to arrest 莎夏, which happen on 10-18. 丝库格兹努芙拉 was missing from that event (「俄罗斯成教追捕莎夏」). She is added to it, the openings are colleagues, and the hostility starts there.
+  - **Opening told the future: 铁装–黄泉川.** The opening told 黄泉川 calling out 铁装's ways, which happens on 12-29. The pack said 当麻 defeated 铁装. The sources say it was 黄泉川, at the cost of an arm. The event is corrected, 黄泉川 is added to it, and the rift starts there.
+  - **Opening told the future: 泡浮–美琴.** The opening's own reason was the pool meeting of 7-25. The pack had no such event. It is added (「泳池边结识泡浮与湾内」), and the relation starts there.
+  - **Opening told the future: 佳茄–美琴 and 木原幻生–警策看取.** The first told later outings. The second told the 大霸星祭 plot, which stays in the 9-20 stage.
+  - **Relation never changed back: 绘恋–上里 and 获冴–上里.** The 12-05 stage told their pursuit of 上条 on 12-09/10, and the relation never went back to 上里. Now the 12-05 stage holds that night only. A new stage at 「上里势力夺回理想放逐」 (12-10), where both are added, has them back with him.
+  - **Started too late: 固法–美琴.** They met on 7-17, finding 佳茄's bag. 固法 is that event's unnamed Judgment officer, and is added to it. The relation now holds from the start.
+  - Not added, listed for the user: anime-original episodes the pack does not have, such as 春上 held hostage and saved by 佐天. Each is decided as accepted, with its reason.
+
 ## 1.39.1 — 2026-11-18
 
 - **A bond never carries forms of address, checked by code.** The review is told so since 1.38.2, yet live it wrote the bond 「色鬼同好，刚约定互称「小光」与「小黑子」」, as it did before 1.38.2. Now a new bond that writes out a form of this change in quotation marks is not taken, and the relation keeps its bond. The forms are recorded as usual, and a note says why the bond was not taken. Two people with no relation yet keep the bond given, because they need one.

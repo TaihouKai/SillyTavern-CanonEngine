@@ -240,6 +240,9 @@ def add_events(pack, rv, events, ents):
         }
         pack['events'].append(e)
         events[eid] = e
+        for arc in pack.get('arcs') or []:
+            if arc['id'] == e['arc_id'] and eid not in arc.setdefault('event_ids', []):
+                arc['event_ids'].append(eid)
     return miss
 
 

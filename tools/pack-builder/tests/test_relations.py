@@ -192,6 +192,10 @@ class RelationsTest(unittest.TestCase):
         base = {'none': False, 'known_before_start': False, 'known_how': '', 'facts': [{'at': 'e1', 'fact': '初识'}], 'stages': [{'from_event': 'e1', 'why': ''}]}
         self.assertEqual(check(base), [])
         self.assertEqual(check({**base, 'orphans': [{'fact': '成了保镖', 'when': '十月', 'what': ''}]}), ['orphan 1: fact, when and what must all be given'])
+        # a date before the story is no orphan (live: 54 of 373 were 2019)
+        dated = relations.check_facts(['e1'], start=(2020, 7, 19))
+        self.assertEqual(dated({**base, 'orphans': [{'fact': '结仇', 'when': '去年八月', 'when_date': '2019-08-04', 'what': '袭击'}]}), ['orphan 1: 2019-08-04 is before the story starts — not an orphan: a fact true at the start ("before", when they knew each other before), or leave it out'])
+        self.assertEqual(dated({**base, 'orphans': [{'fact': '结仇', 'when': '十月', 'when_date': '2020-10-04', 'what': '袭击'}]}), [])
         self.assertIn('List it under orphans instead', relations.FACTS_SYSTEM)
         self.assertNotIn('cannot be dated: leave it out', relations.FACTS_SYSTEM)
         with tempfile.TemporaryDirectory() as d:
@@ -212,6 +216,11 @@ class RelationsTest(unittest.TestCase):
             # or accepted with a reason; a decision about a fact the builder no longer gives is stale
             golden['orphans'] = {'ann|bo': {'博文成了安妮的保镖': {'accepted': '资料没有时间'}, '旧的': {'accepted': 'x'}}}
             self.assertEqual(relations.orphan_problems(golden, d, pack), ([], ['安妮–博文（ann|bo）：「旧的」已不是生成器给出的孤儿事实（删掉这条决定）']))
+            # or covered by a verified stage of the pair (a detail of a change already there)
+            golden['orphans'] = {'ann|bo': {'博文成了安妮的保镖': {'covered': 'e1', 'why': '同一次变化'}}}
+            self.assertEqual(relations.orphan_problems(golden, d, pack), ([], []))
+            golden['orphans'] = {'ann|bo': {'博文成了安妮的保镖': {'covered': 'e9', 'why': 'x'}}}
+            self.assertEqual(len(relations.orphan_problems(golden, d, pack)[1]), 1)
 
     def test_an_opening_stage_that_names_a_date_after_the_start_is_listed(self):
         pack = {'entities': PEOPLE, 'events': [], 'calendar': {'origin_label': '2020-07-19'}}
