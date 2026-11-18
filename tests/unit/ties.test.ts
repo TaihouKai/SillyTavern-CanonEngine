@@ -26,6 +26,8 @@ const RELATION = {
 function pack(rel: unknown[] = [RELATION]) {
   const p = structuredClone(base);
   p.entities.push({ id: 'tomas', name: 'Tomas', aliases: [], kind: 'person', static_description: 'A net mender on the harbor road.', source_refs: [base.sources[0].id] });
+  // Tomas hides Mira in the ambush: he is in that event (a stage starts only at an event both are in)
+  p.events.find((e: any) => e.id === 'medic-ambush').entity_ids.push('tomas');
   p.relations = rel;
   return JSON.stringify(p);
 }
@@ -105,6 +107,10 @@ describe('relations between people, the player character like anyone', () => {
     expect(errs).toMatch(/only the first stage can hold from the story start/);
     expect(errs).toMatch(/a second relation for tomas and mira/);
     expect(errs).toMatch(/unknown event "nope"/);
+    // a stage starts at an event both are in (user: a relation must not change without an event the game can change)
+    const orphan = JSON.parse(pack());
+    orphan.events.find((e: any) => e.id === 'medic-ambush').entity_ids = ['mira', 'council'];
+    expect(lintPack(orphan).errors.map((e) => e.message).join('\n')).toMatch(/"medic-ambush" is not an event of tomas: a stage starts at an event both are in/);
   });
 
   it('RL3 play changes a relation between two of the pack\'s people, and one of the player\'s; the GM sees how it stands now', async () => {

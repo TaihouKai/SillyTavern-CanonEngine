@@ -17,7 +17,7 @@ from .llm import LLMError
 from .nature import clean_wikitext
 from .util import log, read_json, warn, write_json
 
-RELATION_VERSION = 'relation-10'
+RELATION_VERSION = 'relation-11'
 WRITE_VERSION = 'relation-write-5'   # the writing step alone (its facts stay cached)
 MIN_SHARED = 8          # pairs no page lists: this many shared events make one
 MAX_EVENTS = 60         # shared events shown per pair (the first, the last, and an even spread)
@@ -33,7 +33,7 @@ KNOWN BEFORE THE STORY STARTS? known_before_start is true only when the sources 
 FACTS. Everything lasting that the sources show about how the two stand with each other: what they are to each other; how each feels about and treats the other (mixed feelings as they are — admiration and irritation, trust and rivalry, a crush and pride); how each addresses or refers to the other; what each would or would not do for the other, would never admit, keeps from the other; their usual dynamic when together and what is touchy between them; a shared past that matters. One sentence each, as patterns, not plot retelling. Many facts, all sides — 8 to 30 for a pair the sources say much about.
 - at: when it first becomes true — "before" (only when known_before_start: true before the story starts), or the id of the listed shared event where it first happens or first shows. Date it by the event dates and what the pages say; when a page tells something without a date, find the listed event it belongs to. A fact that becomes true only later is dated later, however central it is to the relationship.
 - A fact that stops being true at some point (a hostility that ends, a name no longer used) is still listed with its start; the change gets its own fact at the event where it changes ("不再敌视他").
-- A fact that becomes true during the story but at none of the listed shared events cannot be dated: leave it out. Never file it under "before" — "before" is only what holds when the story starts (a pair whose only shared event is in the past otherwise gets their whole story told at its start).
+- A fact that becomes true during the story but at none of the listed shared events is an orphan: the pack is missing the event where it happens, or does not list one of the two in that event. Never date it at another event and never file it under "before" — "before" is only what holds when the story starts (a pair whose only shared event is in the past otherwise gets their whole story told at its start). List it under orphans instead: fact (as above), when (when it happens, as the sources give it: a date, a period, "大霸星祭之后"), what (what happens there, in a few words — the event a person will add, or the event that should list both). A person adds the event, and the change then comes when it happens in the game; a relation never changes without an event. Not an orphan: a fact a listed shared event already shows (date it there).
 - An event in a world that is not real — an illusion, a dream, a world someone made and then undid, as the event's own text says — changes no relationship: date no fact there and start no stage there (a reconciliation in such a world never happened between the two).
 
 STAGES. A stage begins where the relationship itself changes for a long time: hostility ends or begins, they become friends, allies, a couple or enemies, a betrayal, one learns who the other really is, the way one addresses the other changes, one loses their memory of the other. Not a passing mood, a single quarrel, or a plot event that leaves how they stand unchanged. Stage 1 starts at null when known_before_start, else at the listed shared event where they first meet or first deal with each other — speak to, fight, help or clearly notice each other. Being at the same event without that (the same crowd, a tournament's opening, the same battle against different enemies, a table they happen to share) is not meeting; if they never deal with each other, answer {{"none": true}}. A later stage starts at a listed shared event at which at least one fact is dated. A stage shows only the facts dated at or before its own start, from then until the next stage: a fact dated after the last stage's start is never shown, and one dated between two starts only shows from the next start on — so put a stage where a lasting change happens, not before it. Most pairs have one to three stages; never more than {max_stages}. why: what changes there, one sentence (stage 1: "" or how they meet).
@@ -41,7 +41,7 @@ STAGES. A stage begins where the relationship itself changes for a long time: ho
 TRUTH. Only what the sources support. If the sources show no real relationship — they only appear in the same events and never deal with each other, or one of them is a name in the other's story — answer {{"none": true}}.
 
 Reply with a JSON object only:
-{{"none": false, "known_before_start": false, "known_how": "", "facts": [{{"at": "<event id or before>", "fact": ""}}], "stages": [{{"from_event": "<event id, or null when known_before_start>", "why": ""}}]}}"""
+{{"none": false, "known_before_start": false, "known_how": "", "facts": [{{"at": "<event id or before>", "fact": ""}}], "orphans": [{{"fact": "", "when": "", "what": ""}}], "stages": [{{"from_event": "<event id, or null when known_before_start>", "why": ""}}]}}"""
 
 WRITE_SYSTEM = """You write how two people of a story world stand with each other, stage by stage, for a game master who plays them in new scenes with a player. Problem this solves: the game master knows each person alone and plays every pair the same — polite acquaintances — so a devoted junior talks to her idol like a stranger and two rivals chat like friends. In {lang}.
 
@@ -290,11 +290,18 @@ def check_facts(ids, max_stages=MAX_STAGES, start=None):
                 elif start and story_dates_in(f['fact'], start):
                     # read-through: pairs whose only shared event is in the past got their whole story told "before"
                     # (大霸星祭, 9月…) — the opening stage then knew months ahead
-                    out.append(f'fact {j + 1}: "before" is only what is true before the story starts, and "{story_dates_in(f["fact"], start)[0]}" is after its start — date it at the listed shared event where it happens; if none of them is it, leave the fact out')
+                    out.append(f'fact {j + 1}: "before" is only what is true before the story starts, and "{story_dates_in(f["fact"], start)[0]}" is after its start — date it at the listed shared event where it happens; if none of them is it, list it under orphans')
             elif at not in order:
                 out.append(f'fact {j + 1}: at "{at}" is not "before" or one of the listed shared events from the story\'s start')
             else:
                 dated.add(at)
+        orph = obj.get('orphans', [])
+        if not isinstance(orph, list):
+            out.append('orphans must be a list ([] when there is none)')
+            orph = []
+        for j, o in enumerate(orph):
+            if not isinstance(o, dict) or not all(str(o.get(k) or '').strip() for k in ('fact', 'when', 'what')):
+                out.append(f'orphan {j + 1}: fact, when and what must all be given')
         st = obj.get('stages')
         if not isinstance(st, list) or not st:
             return out + ['stages must be a non-empty list']
@@ -392,6 +399,80 @@ def unshown(facts, starts, ids):
     return [f for f in facts if f.get('at') != 'before' and order.get(f.get('at'), 10 ** 6) > last]
 
 
+def clean_orphans(lst):
+    """The facts the model could date at none of the pair's shared events, as {fact, when, what}."""
+    out = []
+    for o in lst if isinstance(lst, list) else []:
+        if isinstance(o, dict) and all(str(o.get(k) or '').strip() for k in ('fact', 'when', 'what')):
+            out.append({k: str(o[k]).strip() for k in ('fact', 'when', 'what')})
+    return out
+
+
+def orphan_problems(golden, rel_dir, pack):
+    """A relation changes only through an event both are in (in the game that event can go otherwise). The facts of a
+    verified pair that the builder could date at none of their shared events are gaps of the pack, listed until a person
+    settles each in the verified relations' "orphans" ({pair: {fact: decision}}):
+      {"event": id}       the event that was missing, or missed one of them, now added or completed (review file); it
+                          must list both, and a verified stage of the pair must start there
+      {"accepted": why}   no event to add (the sources give no time, the change is not lasting...)
+    Returns (open, bad): orphans not settled, and decisions that do not hold (or no longer match an orphan)."""
+    gp = golden.get('pairs') or {}
+    decided = golden.get('orphans') or {}
+    evs = {e['id']: e for e in pack['events']}
+    names = {e['id']: e['name'] for e in pack['entities']}
+    found = {}
+    for k in gp:
+        a, b = k.split('|')
+        path = os.path.join(rel_dir, f'{a}__{b}.json')
+        r = read_json(path) if os.path.exists(path) else None
+        if r and not r.get('none'):
+            found[k] = r.get('orphans') or []
+    open_, bad = [], []
+    for k, lst in sorted(found.items()):
+        label = '–'.join(names.get(x, x) for x in k.split('|'))
+        for o in lst:
+            d = (decided.get(k) or {}).get(o['fact'])
+            if d is None:
+                open_.append(f'{label}（{k}）：{o["fact"]}｜时间：{o["when"]}｜所缺事件：{o["what"]}')
+    for k, ds in sorted(decided.items()):
+        label = '–'.join(names.get(x, x) for x in k.split('|'))
+        facts = {o['fact'] for o in found.get(k, [])}
+        for fact, d in ds.items():
+            if fact not in facts:
+                bad.append(f'{label}（{k}）：「{fact}」已不是生成器给出的孤儿事实（删掉这条决定）')
+            elif isinstance(d, dict) and d.get('event'):
+                e = evs.get(d['event'])
+                if not e:
+                    bad.append(f'{label}（{k}）：「{fact}」→ 事件 {d["event"]} 不在包里')
+                elif not all(x in (e.get('entity_ids') or []) for x in k.split('|')):
+                    bad.append(f'{label}（{k}）：「{fact}」→ 事件 {d["event"]} 没有列出两人')
+                elif d['event'] not in [s.get('from_event') for s in gp[k]['stages']]:
+                    bad.append(f'{label}（{k}）：「{fact}」→ 事件 {d["event"]} 处没有这对关系的阶段')
+            elif not (isinstance(d, dict) and str(d.get('accepted') or '').strip()):
+                bad.append(f'{label}（{k}）：「{fact}」的决定要么是 {{"event": id}}，要么是 {{"accepted": 理由}}')
+    return open_, bad
+
+
+def opening_dates(golden, pack):
+    """Verified first stages that hold from the story's start but name a date after it: what happens later told at the
+    start (the opening stage knew months ahead)."""
+    m = re.search(r'(\d{4})-(\d{2})-(\d{2})', (pack.get('calendar') or {}).get('origin_label') or '')
+    if not m:
+        return []
+    start = tuple(int(x) for x in m.groups())
+    names = {e['id']: e['name'] for e in pack['entities']}
+    out = []
+    for k, g in sorted((golden.get('pairs') or {}).items()):
+        s = (g.get('stages') or [{}])[0]
+        if s.get('from_event') is not None:
+            continue
+        text = ' '.join([s.get('bond') or '', s.get('why') or '', s.get('together') or ''] + [v.get('sees') or '' for v in s.get('views') or []])
+        ds = story_dates_in(text, start)
+        if ds:
+            out.append(f'{"–".join(names.get(x, x) for x in k.split("|"))}（{k}）：开局阶段写了 {"、".join(ds)}')
+    return out
+
+
 def to_pack(r, a, b, names):
     """The model's reply as the pack's relation of a and b (names: theirs, as the reply's views give them; None for none)."""
     if not isinstance(r, dict) or r.get('none') or not r.get('stages'):
@@ -475,7 +556,7 @@ def generate(project, client, pack, wiki, lang='Simplified Chinese', out_dir=Non
                 warn(f'relation write: {err}')
                 return None
             stages = [{**w, 'from_event': s.get('from_event'), **({'why': s['why']} if i and str(s.get('why') or '').strip() else {})} for i, (s, w) in enumerate(zip(r1['stages'], r2['stages']))]
-            return {'none': False, 'known_before_start': r1.get('known_before_start'), 'known_how': r1.get('known_how', ''), 'facts': r1['facts'], 'unshown': unshown(r1['facts'], starts, ids), 'stages': stages}
+            return {'none': False, 'known_before_start': r1.get('known_before_start'), 'known_how': r1.get('known_how', ''), 'facts': r1['facts'], 'orphans': clean_orphans(r1.get('orphans')), 'unshown': unshown(r1['facts'], starts, ids), 'stages': stages}
         jobs.append((k, one))
     res = client.run_many(jobs, 'relation')
     n = 0

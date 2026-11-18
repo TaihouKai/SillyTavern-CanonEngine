@@ -29,7 +29,7 @@ def path(project):
     return os.path.splitext(project.path)[0] + '.review.json'
 
 
-SECTIONS = ('times', 'ends', 'impacts', 'warnings', 'duplicates', 'events', 'entities', 'minds', 'start')
+SECTIONS = ('times', 'ends', 'impacts', 'warnings', 'duplicates', 'events', 'entities', 'minds', 'start', 'added_events')
 
 
 def load(project):

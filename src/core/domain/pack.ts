@@ -539,6 +539,12 @@ function lintRelations(pack: CanonPack, err: (p: string, m: string) => void, war
       const sp = `${at}/stages/${j}`;
       if (j > 0 && s.from_event === null) err(`${sp}/from_event`, 'only the first stage can hold from the story start (from_event null)');
       if (s.from_event && !evs.has(s.from_event)) err(`${sp}/from_event`, `unknown event "${s.from_event}"`);
+      // A relation changes only through an event both are in: in play that event can go otherwise, and the stage then
+      // does not simply come (user: a relation changed without an event is written in stone, against what the engine
+      // is for). A change at no such event is a gap of the pack: the event is missing, or one of them is missing from it.
+      const startEv = s.from_event ? evs.get(s.from_event) : undefined;
+      const missing = startEv ? r.people.filter((id) => !startEv.entity_ids.includes(id)) : [];
+      if (missing.length) err(`${sp}/from_event`, `"${s.from_event}" is not an event of ${missing.join(' and ')}: a stage starts at an event both are in (add them to the event, or add the event where the change happens)`);
       if (j > 0 && !s.why?.trim()) warn(`${sp}/why`, 'a later stage says what changes there (why): a game where this pair already went otherwise applies that change to the relation it has');
       const ev = s.from_event ? evs.get(s.from_event) : undefined;
       const lo = ev?.when.earliest ? toTick(ev.when.earliest) : null;

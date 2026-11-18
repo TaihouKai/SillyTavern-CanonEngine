@@ -250,6 +250,13 @@ def section(project, pack, lint_res=None):
     res.append(('problem', '疑似同一件事记了两次', '时间相近、人物相同、标题或经过相似；在核对文件 duplicates 里决定：同一件（合并）或不是', undecided_duplicates(pack, rv.get('duplicates') or {})))
     from . import corrections
     res += text_problems(pack, corrections.read_misses(project))
+    from . import relations as rels
+    golden = rels.load_golden(project) if hasattr(project, 'path') else None
+    if golden is not None:
+        open_, bad = rels.orphan_problems(golden, project.p('relations'), pack)
+        res.append(('problem', '关系孤儿事实', '资料里两人的关系在剧情中有变化，包里却没有两人都参与的事件：补上事件或事件里漏掉的人，并在那里给这对关系一个阶段；或在已核对关系文件 orphans 里写明理由（{"event": id} 或 {"accepted": 理由}）', open_))
+        res.append(('problem', '关系孤儿的决定不成立', '已核对关系文件 orphans 里的决定：事件要在包里、列出两人、并有这对关系从那里开始的阶段', bad))
+        res.append(('problem', '开局关系写了剧情开始后的日期', '从故事开始就成立的阶段只写开局时的样子；之后的变化要挂在事件上', rels.opening_dates(golden, pack)))
     res.append(('problem', 'canon-lint 警告未处理', '每条警告都要改掉，或在核对文件 warnings 里写明为什么接受', lint_findings(lint_res, rv.get('warnings') or {})))
     probs = [(t, ls) for k, t, _, ls in res if k == 'problem' and ls]
     L = ['## 质量检查', '', '每次 `build` 自动跑（代码检查，不调用模型）。「问题」应为 0；「复核」是各步骤的判断结果，供人过目。', '',

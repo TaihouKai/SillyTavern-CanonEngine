@@ -23,6 +23,12 @@ person, and stays fixed on a rebuild.
                                                           arcs, entity descriptions; "people": in 常态, 思考方式 and 关系,
                                                           which are attached after the build)
   minds:    entity id -> {"mind": {field: text}, "nature": {"<from_event or 'start'>": {field: text}}}
+  added_events: event id -> an event the sources tell that the pack is missing, written by a person from them (most
+                          often where two people's relation changes: a relation changes only through an event both are
+                          in, cpb/relations.py orphan_problems): {"title", "summary": {background, trigger, motives,
+                          course, result}, "when": {"from": "YYYY-MM-DD HH:MM", "to": ..., "precision", "label"},
+                          "entity_ids", "location_ids"?, "arc_id"?, "classification"? (FREE), "hook"?, "source": where
+                          the sources tell it}. Added before the other corrections, so they can correct it too.
 
 Every correction must still find what it corrects: one that matches nothing (the text changed, the event went) is
 listed by the checks until it is removed (a stale decision hides nothing, but it is not a decision about this pack).
@@ -192,12 +198,58 @@ def move_refs(e, a, b):
             e[lst] = out
 
 
+def add_events(pack, rv, events, ents):
+    """The review file's added_events put into the pack (see the module doc); returns what could not be added."""
+    import datetime as dt
+    import re
+    miss = []
+    m = re.search(r'(\d{4})-(\d{2})-(\d{2})', (pack.get('calendar') or {}).get('origin_label') or '')
+    origin = dt.date(*(int(x) for x in m.groups())) if m else None
+    arcs = {a['id'] for a in pack.get('arcs') or []}
+    src = (pack.get('sources') or [{}])[0].get('id')
+
+    def tick(t):
+        d, hm = t.strip().split(' ')
+        y, mo, dd = (int(x) for x in d.split('-'))
+        h, mi = (int(x) for x in hm.split(':'))
+        n = (dt.date(y, mo, dd) - origin).days * 1440 + h * 60 + mi
+        return {'day': n // 1440, 'minute': n % 1440}
+    for eid, a in sorted((rv.get('added_events') or {}).items()):
+        where = f'added_events.{eid}'
+        if eid in events:
+            miss.append(f'{where}：包里已有这个事件编号')
+            continue
+        unknown = [x for x in (a.get('entity_ids') or []) + (a.get('location_ids') or []) if x not in ents]
+        if unknown or not a.get('entity_ids'):
+            miss.append(f'{where}：人物或地点不在包里（{"、".join(unknown) or "没有人物"}）')
+            continue
+        if a.get('arc_id') and a['arc_id'] not in arcs:
+            miss.append(f'{where}：arc {a["arc_id"]} 不在包里')
+            continue
+        w = a.get('when') or {}
+        if not origin or not w.get('from') or not w.get('to') or not str(w.get('label') or '').strip() or not str(a.get('source') or '').strip() or not a.get('title') or not isinstance(a.get('summary'), dict):
+            miss.append(f'{where}：要有 title、summary、when（from、to、label）和资料出处 source')
+            continue
+        e = {
+            'id': eid, 'title': a['title'], 'summary': a['summary'], 'classification': a.get('classification') or 'FREE', 'required_description': None,
+            'when': {'earliest': tick(w['from']), 'latest': tick(w['to']), 'precision': w.get('precision') or 'range', 'label': w['label'], 'basis': 'documented', 'notes': '人工补充，按资料排定'},
+            'entity_ids': list(a['entity_ids']), 'location_ids': list(a.get('location_ids') or []), 'arc_id': a.get('arc_id'),
+            'canonical_preconditions': {'all': []}, 'outcomes': [], 'canonical_effects': [], 'visibility': {'mode': 'public', 'knower_ids': []},
+            'participation': {'offer': 'when_relevant', 'hook': a.get('hook') or ''}, 'source_refs': [src] if src else [],
+            'author_note': f'人工补充（资料有、包里缺的事件）。来源：{a["source"]}',
+        }
+        pack['events'].append(e)
+        events[eid] = e
+    return miss
+
+
 def apply(pack, rv, rep=None, people=False):
     """Applies the review file's corrections to an assembled pack (in place); returns the corrections that matched
     nothing (strings, for the checks)."""
     miss = []
     events = {e['id']: e for e in pack['events']}
     ents = {e['id']: e for e in pack['entities']}
+    miss += add_events(pack, rv, events, ents)
     # per event
     for eid, c in sorted((rv.get('events') or {}).items()):
         e = events.get(eid)

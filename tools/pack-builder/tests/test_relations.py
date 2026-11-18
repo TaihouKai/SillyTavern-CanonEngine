@@ -185,5 +185,52 @@ class RelationsTest(unittest.TestCase):
         self.assertTrue(any(x.startswith('关系 安妮–麦野沈利(开局).together') for ls in probs.values() for x in ls), probs)
 
 
+    def test_a_change_at_no_shared_event_is_an_orphan_listed_until_a_person_settles_it(self):
+        # user 2026-11-18: a relation changes only through an event both are in; a fact the builder can date at none
+        # of their shared events is returned (never dropped), and the checks list it until the pack has the event
+        check = relations.check_facts(['e1'])
+        base = {'none': False, 'known_before_start': False, 'known_how': '', 'facts': [{'at': 'e1', 'fact': '初识'}], 'stages': [{'from_event': 'e1', 'why': ''}]}
+        self.assertEqual(check(base), [])
+        self.assertEqual(check({**base, 'orphans': [{'fact': '成了保镖', 'when': '十月', 'what': ''}]}), ['orphan 1: fact, when and what must all be given'])
+        self.assertIn('List it under orphans instead', relations.FACTS_SYSTEM)
+        self.assertNotIn('cannot be dated: leave it out', relations.FACTS_SYSTEM)
+        with tempfile.TemporaryDirectory() as d:
+            write_json(f'{d}/ann__bo.json', {'people': ['ann', 'bo'], 'facts': [], 'stages': [], 'orphans': relations.clean_orphans([
+                {'fact': '博文成了安妮的保镖', 'when': '10月', 'what': '安妮雇博文'}, {'fact': '', 'when': 'x', 'what': 'y'}])})
+            pack = {'entities': PEOPLE, 'events': [ev('e1', 1, ['ann', 'bo']), ev('hire', 5, ['ann'])], 'calendar': {'origin_label': '2020-07-19'}}
+            golden = {'pairs': {'ann|bo': {'people': ['ann', 'bo'], 'stages': [{'from_event': 'e1', 'bond': '同学', 'views': []}]}}}
+            open_, bad = relations.orphan_problems(golden, d, pack)
+            self.assertEqual(open_, ['安妮–博文（ann|bo）：博文成了安妮的保镖｜时间：10月｜所缺事件：安妮雇博文'])
+            self.assertEqual(bad, [])
+            # settled by an event that must list both and start a stage of the pair
+            golden['orphans'] = {'ann|bo': {'博文成了安妮的保镖': {'event': 'hire'}}}
+            self.assertEqual(relations.orphan_problems(golden, d, pack), ([], ['安妮–博文（ann|bo）：「博文成了安妮的保镖」→ 事件 hire 没有列出两人']))
+            pack['events'][1]['entity_ids'].append('bo')
+            self.assertEqual(relations.orphan_problems(golden, d, pack)[1], ['安妮–博文（ann|bo）：「博文成了安妮的保镖」→ 事件 hire 处没有这对关系的阶段'])
+            golden['pairs']['ann|bo']['stages'].append({'from_event': 'hire', 'why': '雇佣', 'bond': '雇主与保镖', 'views': []})
+            self.assertEqual(relations.orphan_problems(golden, d, pack), ([], []))
+            # or accepted with a reason; a decision about a fact the builder no longer gives is stale
+            golden['orphans'] = {'ann|bo': {'博文成了安妮的保镖': {'accepted': '资料没有时间'}, '旧的': {'accepted': 'x'}}}
+            self.assertEqual(relations.orphan_problems(golden, d, pack), ([], ['安妮–博文（ann|bo）：「旧的」已不是生成器给出的孤儿事实（删掉这条决定）']))
+
+    def test_an_opening_stage_that_names_a_date_after_the_start_is_listed(self):
+        pack = {'entities': PEOPLE, 'events': [], 'calendar': {'origin_label': '2020-07-19'}}
+        golden = {'pairs': {'ann|bo': {'people': ['ann', 'bo'], 'stages': [{'from_event': None, 'bond': '同学', 'why': '9月起成了搭档', 'views': []}]},
+                            'ann|cy': {'people': ['ann', 'cy'], 'stages': [{'from_event': None, 'bond': '旧识', 'why': '一年前8月1日相识', 'views': []}]}}}
+        self.assertEqual(relations.opening_dates(golden, pack), ['安妮–博文（ann|bo）：开局阶段写了 9月'])
+
+    def test_an_event_the_pack_is_missing_is_added_from_the_review_file(self):
+        pack = {'entities': PEOPLE, 'events': [ev('e1', 1, ['ann', 'bo'])], 'arcs': [], 'calendar': {'origin_label': '2020-07-19'}, 'sources': [{'id': 'src'}]}
+        rv = {'added_events': {
+            'x.hire': {'title': '安妮雇博文当保镖', 'summary': {'course': '安妮雇了博文。', 'result': '博文成了她的保镖。'}, 'when': {'from': '2020-07-21 10:00', 'to': '2020-07-21 12:00', 'label': '约2020-07-21 上午；文中：第三天'}, 'entity_ids': ['ann', 'bo'], 'source': '某页「人际关系」'},
+            'x.bad': {'title': '缺资料出处', 'summary': {}, 'when': {'from': '2020-07-21 10:00', 'to': '2020-07-21 12:00', 'label': 'x'}, 'entity_ids': ['ann']},
+            'e1': {'title': '重号', 'summary': {}, 'when': {}, 'entity_ids': ['ann'], 'source': 's'}}}
+        miss = corrections.apply(pack, rv)
+        e = next(x for x in pack['events'] if x['id'] == 'x.hire')
+        self.assertEqual((e['when']['earliest'], e['when']['latest'], e['entity_ids'], e['classification'], e['source_refs']), ({'day': 2, 'minute': 600}, {'day': 2, 'minute': 720}, ['ann', 'bo'], 'FREE', ['src']))
+        self.assertIn('人工补充', e['author_note'])
+        self.assertEqual(sorted(m.split('：')[0] for m in miss), ['added_events.e1', 'added_events.x.bad'])
+
+
 if __name__ == '__main__':
     unittest.main()
