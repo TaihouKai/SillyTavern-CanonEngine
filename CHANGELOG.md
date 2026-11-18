@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.39.0 — 2026-11-18
+
+- **Story time: the review reads the times, code checks them.** The user: finding times in the text with patterns was too mechanical, and new cases kept coming. Until now code told a time the story reaches ("等到八点，她终于来了") from one only spoken of ("明天八点见") with word lists and patterns: 约好, 明天, 打算, 见, anything in quotation marks counted as only spoken of, and a few patterns for reading a clock. Every new way of writing it needed another word. Dialogue without quotation marks (the `*动作*` style) slipped through, and 「八点出发」 counted as arrival.
+  - The review now lists each expression of time in the player's message and the reply (`time_evidence`). Each item is one of:
+    - `now`: the story reaches that time there. The item gives the time it means.
+    - `elapsed`: a stated amount of time passes. The item gives the minutes.
+    - `mentioned`: the time is only spoken of.
+
+    It judges by meaning, inside dialogue or not, however the dialogue is marked.
+  - Code checks each item against the text. The quote must be in the reply or the player's message. A clock must be the one the quote writes (八点二十出头 is not 08:50). An amount must be one the quote writes. An item that fails is left out with a note, and lifts nothing.
+  - From the checked items, in the order they come, code works out the latest end the text accounts for. The review's estimate may run 20 minutes past it, or 10 after a time reached, and no further. With no checked item it is 20 minutes, as before.
+  - Horae's later time is where the reply starts; the reply's own clock still wins over it. Each reply keeps its bound, and Horae later than the latest reply's bound is not followed.
+  - The word lists and patterns are gone from the engine.
+- **A form of address says who uses it for whom.** Until now the review gave forms inside each side's view, which can be read both ways. Once it put the player's 「电电」 for 美琴 on 美琴's side, because 美琴 put up with the name. Only the player's own side was checked by code.
+  - Each form is now `{by, to, term, use, when, quote}` at the relation. The quote is the words where `by` calls `to` so.
+  - Code checks:
+    - The quote has the term and is in the text: the reply for anyone else's form, the player's message for the player character's.
+    - A term is one side's. The same term the other way round is a misread side and is left out, whether it comes in the same review or is already the other's form in the relation. If one of the two is the player's own word for it, that one is kept.
+  - Left as it is: dialogue with no speaker marked can't be attributed by code. There `by` is the review's reading.
+
 ## 1.38.2 — 2026-11-16
 
 - **The player character's forms of address come from the player, never from the reply.** The user's case: the GM once had the player call 美琴 姐姐大人, which is 黑子's form for her. The settings let the GM write the player character's lines, so such a line passed, and the review could then record 姐姐大人 as how the player addresses 美琴: the GM's slip would have become a fact the GM reads back every turn after. Now a form of address on the player character's side is recorded only when the player's own message has it. Otherwise it is left out, with a note. The Persona and the panel set the player's forms as before.
