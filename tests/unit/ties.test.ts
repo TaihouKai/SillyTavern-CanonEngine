@@ -421,6 +421,15 @@ describe('relations between people, the player character like anyone', () => {
     expect(warn).toMatch(/「Doc」 \(Tomas → Mira, usually\) ignored: its quote does not have the term/);
     expect(warn).toMatch(/「Missy」 \(Tomas → Mira, usually\) ignored: its quote is not in the reply/);
     expect(x.engine.current!.index.relationNow('mira', 'tomas')!.views.find((v) => v.who === 'tomas')!.address!.map((a) => a.term)).toEqual(['the medic']);
+    // a bond that writes out a form of the change keeps the bond the relation has (live: 「色鬼同好，刚约定互称「小光」与「小黑子」」)
+    await turn(x, 'And you can call me "Ace-chan".', 'Mira rolls her eyes. "Fine, Ace-chan." [S4]', {
+      scene_end: at(1, 7, 0), scene_entities: ['mira'],
+      relations: [{ people: [me(x), 'mira'], bond: 'old friends who just agreed on 「Sparky」 and 「Ace-chan」', address: [{ by: 'mira', to: me(x), term: 'Ace-chan', use: 'sometimes', quote: 'Fine, Ace-chan.' }], quote: 'Fine, Ace-chan.' }],
+    });
+    rel = x.engine.current!.index.relationNow(me(x), 'mira')!;
+    expect(rel.bond).toBe('close friend since childhood');
+    expect(rel.views.find((v) => v.who === 'mira')!.address!.map((a) => a.term)).toContain('Ace-chan');
+    expect(x.engine.lastTrace!.attempts.at(-1)!.warnings!.join('\n')).toMatch(/bond 「old friends who just agreed on 「Sparky」 and 「Ace-chan」」 not taken: it writes out a form of address/);
     expect(PROMPTS.evaluate).toMatch(/by: the one who uses it, to: the one called so/);
     expect(PROMPTS.evaluate).toMatch(/also where 美琴 puts up with the name, objects to it or repeats it/);
   });

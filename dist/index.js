@@ -28277,7 +28277,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.39.0";
+var ENGINE_RELEASE = "1.39.1";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -30843,7 +30843,7 @@ function runGate(g) {
     return out;
   };
   for (const r of ev.relations || []) {
-    const bond = String(r.bond || "").trim().slice(0, 400);
+    let bond = String(r.bond || "").trim().slice(0, 400);
     const label = (r.people || []).join(" / ");
     if ((r.people || []).length !== 2) continue;
     if (!evidence(r.quote)) {
@@ -30869,6 +30869,11 @@ function runGate(g) {
     }
     const name2 = (id) => index.entityExists(id) ? index.entityName(id) : runtimeEntities.find((x) => x.id === id)?.name || id;
     const forms = formsShown(r.address, people, label, name2);
+    const quotes = ["\u300C\u300D", "\u300E\u300F", "\u201C\u201D", '""', "\u2018\u2019", "''"];
+    if (bond && index.relationNow(people[0], people[1]) && forms.some((f) => quotes.some((q) => bond.includes(q[0] + f.term + q[1])))) {
+      warnings.push(`relation "${label}": bond \u300C${bond}\u300D not taken: it writes out a form of address, which goes in address; the bond stays as it was`);
+      bond = "";
+    }
     const views = people.map((who) => {
       const v = cleanViews(r.views, people, relationRef).find((x) => x.who === who);
       const address = forms.filter((f) => f.by === who).map((f) => ({ term: f.term, use: f.use, ...f.when ? { when: f.when } : {} }));

@@ -739,7 +739,7 @@ export function runGate(g: GateInput): GateResult {
     return out;
   };
   for (const r of ev.relations || []) {
-    const bond = String(r.bond || '').trim().slice(0, 400);
+    let bond = String(r.bond || '').trim().slice(0, 400);
     const label = (r.people || []).join(' / ');
     if ((r.people || []).length !== 2) continue;
     if (!evidence(r.quote)) { warnings.push(`relation "${label}" ignored: evidence not found in text`); continue; }
@@ -760,6 +760,14 @@ export function runGate(g: GateInput): GateResult {
     if (!bond && !index.relationNow(people[0], people[1])) { warnings.push(`relation "${label}" ignored: two with no relation yet need what they are to each other (bond)`); continue; }
     const name = (id: Id) => (index.entityExists(id) ? index.entityName(id) : runtimeEntities.find((x) => x.id === id)?.name || id);
     const forms = formsShown(r.address, people, label, name);
+    // A bond never carries forms of address (live, twice, though the review is told so: 「刚互定「小黑」「小光」的称呼」,
+    // 「色鬼同好，刚约定互称「小光」与「小黑子」」): a new bond that writes out a form of this change in quotation marks keeps
+    // the bond the relation has (two with no relation yet keep theirs: they need one).
+    const quotes = ['「」', '『』', '“”', '""', '‘’', "''"];
+    if (bond && index.relationNow(people[0], people[1]) && forms.some((f) => quotes.some((q) => bond.includes(q[0] + f.term + q[1])))) {
+      warnings.push(`relation "${label}": bond 「${bond}」 not taken: it writes out a form of address, which goes in address; the bond stays as it was`);
+      bond = '';
+    }
     // (a side whose forms of address alone change gives those only: merged into the relation, the rest stays)
     const views = people.map((who) => {
       const v = cleanViews(r.views, people, relationRef).find((x) => x.who === who);

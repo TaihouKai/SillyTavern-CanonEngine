@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.39.1 — 2026-11-18
+
+- **A bond never carries forms of address, checked by code.** The review is told so since 1.38.2, yet live it wrote the bond 「色鬼同好，刚约定互称「小光」与「小黑子」」, as it did before 1.38.2. Now a new bond that writes out a form of this change in quotation marks is not taken, and the relation keeps its bond. The forms are recorded as usual, and a note says why the bond was not taken. Two people with no relation yet keep the bond given, because they need one.
+- Tested live with DeepSeek in the user's Tavern, test chat 21h01m08s702ms:
+  - 「晚上八点在第七学区车站出发吧」 in unquoted action-style dialogue was read as mentioned; the clock went 16:00→16:15.
+  - 「一直坐到天都黑了」 and 「七点半，天彻底黑透了」 were read as times reached (→19:30), and 「前辈明天上午有空吗」 as mentioned.
+  - 「大概走了二十分钟」 was read as elapsed 20.
+  - 「一觉睡到第二天早上七点闹钟响」 was read as a time reached, and the clock went to the next day at 07:10.
+  - The player's 「小黑子」 for 黑子 was recorded on the player's side only, though 黑子 repeated it and objected; that was the 1.38.2 error.
+  - 黑子 taking up 「小光」 for the player was recorded on 黑子's side, with her own line as the quote.
+
 ## 1.39.0 — 2026-11-18
 
 - **Story time: the review reads the times, code checks them.** The user: finding times in the text with patterns was too mechanical, and new cases kept coming. Until now code told a time the story reaches ("等到八点，她终于来了") from one only spoken of ("明天八点见") with word lists and patterns: 约好, 明天, 打算, 见, anything in quotation marks counted as only spoken of, and a few patterns for reading a clock. Every new way of writing it needed another word. Dialogue without quotation marks (the `*动作*` style) slipped through, and 「八点出发」 counted as arrival.
