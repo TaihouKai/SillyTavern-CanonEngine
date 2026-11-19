@@ -244,7 +244,8 @@ export type RecordKind =
   | 'world_contact'
   | 'player_tie'
   | 'relation'
-  | 'scene_frame';
+  | 'scene_frame'
+  | 'combat';
 
 /** What a player decision or a contact is about. event/arc: pack ids; faction: an organization entity id;
  *  contact: a world_contact record id; storyline: a free label (out-of-character "stop this line"). */
@@ -394,7 +395,33 @@ export interface LedgerRecord {
   relations?: RelationChange[];
   /** kind scene_frame: the time frame the scene is in from now on (MAIN_FRAME for the main frame). */
   frameId?: Id;
+  /** 战斗 (any record that changes them; kind combat: the panel): what someone is linked to in the combat graph,
+   *  their states, their 对抗倾向, whether a fight is under way, who saw which ability. */
+  combatLinks?: CombatLinkChange[];
+  statuses?: StatusChange[];
+  styles?: StyleChange[];
+  fight?: FightChange;
+  witnessed?: Witnessed[];
 }
+
+/** Where a combat change comes from, highest first: the player's own word or the panel (ui), the Persona, play (an
+ *  accepted reply, a combat ruling), and last what the combat analysis filled in where nothing said anything (fill),
+ *  which never stands against anything above it. */
+export type CombatSource = 'ui' | 'persona' | 'play' | 'fill';
+/** A link of someone to a combat node as this game changed it (removed: no longer). Over the pack's links. */
+export interface CombatLinkChange { entity: Id; node: Id; label: string; removed?: boolean; source: CombatSource; quote?: string }
+/** 状态: a state someone is in — hurt, bleeding, elated, carrying something (equipment is a state too) — with a count
+ *  where it is counted (令咒 2) and how long it holds (Until; lasting: until it is changed or the player takes it
+ *  away). The same text again replaces it; removed takes it away. node: the combat node it brings (holding a sword
+ *  brings the sword's abilities). */
+export interface StatusChange { entity: Id; text: string; count?: number | null; until?: Until; node?: Id | null; removed?: boolean; source: CombatSource; quote?: string }
+/** 对抗倾向 as this game set it: the panel, the Persona (the player character), or filled in for someone without one. */
+export interface StyleChange { entity: Id; style: Pick<CombatStyleVersion, 'start' | 'force' | 'response' | 'limit' | 'stop'>; source: CombatSource }
+/** A fight under way or over, with who is in it. player: the player's message started it; engine: a reply or ruling
+ *  found it so; ui: the player's correction in the panel (just the state from then on, no lock). */
+export interface FightChange { ongoing: boolean; participants: Id[]; source: 'player' | 'engine' | 'ui'; why?: string }
+/** Who saw an ability (or a part of it) used: they know it from then on. */
+export interface Witnessed { node: Id; part?: AbilityPart | null; who: Id[] }
 
 export interface RuntimeEntity {
   id: Id; // rt.<...>

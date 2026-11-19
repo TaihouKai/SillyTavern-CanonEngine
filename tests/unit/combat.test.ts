@@ -56,3 +56,74 @@ describe('combat section of a pack', () => {
     expect(n.warnings.join('\n')).toMatch(/"tomas" links to no combat node/);
   });
 });
+
+import { reduce } from '../../src/core/domain/reducer';
+import { fightNow, knowsNode, linksOf, statusesOf, styleOf, walkCombat } from '../../src/core/domain/combat-state';
+import type { LedgerRecord } from '../../src/core/domain/types';
+import { load, T } from './helpers';
+
+let seq = 0;
+const rec = (tick: number, extra: Partial<LedgerRecord>): LedgerRecord => ({
+  recordId: `r${++seq}`, commitId: 'c', branchId: 'main', sequence: seq, kind: 'combat', storyTime: { lo: tick, hi: tick, precision: 'minute' },
+  sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] }, summary: '', evidenceKind: 'direct', ...extra,
+});
+
+describe('combat as this game has it', () => {
+  it('CS1 links: the pack\'s, changed by play and the panel; what was filled in never stands against them', () => {
+    const L = load(demoRaw());
+    const st = reduce(L, [
+      rec(T(0, 9), { combatLinks: [{ entity: 'mira', node: 'cb-emergency-care', label: 'has', removed: true, source: 'play', quote: 'her hands were broken' }] }),
+      rec(T(0, 9), { combatLinks: [{ entity: 'mira', node: 'cb-emergency-care', label: 'has', source: 'fill' }, { entity: 'mira', node: 'cb-soldier', label: 'is', source: 'fill' }] }),
+    ]);
+    expect(linksOf(L, st, 'mira').map((l) => `${l.node}:${l.source}`)).toEqual(['cb-ordinary:pack', 'cb-soldier:fill']);
+    const st2 = reduce(L, [rec(T(0, 9), { combatLinks: [{ entity: 'mira', node: 'cb-ordinary', label: 'is', removed: true, source: 'fill' }] })]);
+    expect(linksOf(L, st2, 'mira').map((l) => l.node)).toContain('cb-ordinary');
+  });
+
+  it('CS2 states: the same text replaces, removed takes away, minutes and events end them; a state can bring a node', () => {
+    const L = load(demoRaw());
+    const st = reduce(L, [
+      rec(T(0, 9), { statuses: [{ entity: 'mira', text: '流血', until: { minutes: 30 }, source: 'play' }, { entity: 'mira', text: 'Rifle', node: 'cb-firearms', source: 'play' }, { entity: 'mira', text: 'Bandages', count: 3, source: 'play' }] }),
+      rec(T(0, 9, 5), { statuses: [{ entity: 'mira', text: 'bandages', count: 2, source: 'play' }] }),
+    ]);
+    const now = (t: number) => statusesOf(st, 'mira', t).map((s) => `${s.text}${s.count ? '×' + s.count : ''}`).sort();
+    expect(now(T(0, 9, 10))).toEqual(['Rifle', 'bandages×2', '流血']);
+    expect(now(T(0, 9, 40))).toEqual(['Rifle', 'bandages×2']);
+    expect(linksOf(L, st, 'mira', T(0, 9, 10)).map((l) => l.node)).toContain('cb-firearms');
+    const st2 = reduce(L, [...st.records, rec(T(0, 10), { statuses: [{ entity: 'mira', text: 'Rifle', removed: true, source: 'ui' }] })]);
+    expect(statusesOf(st2, 'mira', T(0, 10)).map((s) => s.text)).toEqual(['bandages']);
+  });
+
+  it('CS3 对抗倾向: the panel over the pack over what was filled in; the fight is the latest change', () => {
+    const L = load(demoRaw());
+    const s = { start: 'x', force: 'x', response: 'x', limit: 'x', stop: 'x' };
+    expect(styleOf(L, reduce(L, [rec(T(0, 9), { styles: [{ entity: 'mira', style: s, source: 'fill' }] })]), 'mira')!.source).toBe('pack');
+    expect(styleOf(L, reduce(L, [rec(T(0, 9), { styles: [{ entity: 'mira', style: s, source: 'ui' }] })]), 'mira')!.style.start).toBe('x');
+    expect(styleOf(L, reduce(L, []), 'nobody')).toBe(null);
+    const st = reduce(L, [rec(T(0, 9), { fight: { ongoing: true, participants: ['mira', 'council'], source: 'player' } }), rec(T(0, 9, 3), { fight: { ongoing: false, participants: [], source: 'engine' } }), rec(T(0, 9, 3), { fight: { ongoing: true, participants: ['mira', 'council'], source: 'ui' } })]);
+    expect(fightNow(st)).toMatchObject({ ongoing: true, participants: ['mira', 'council'], source: 'ui' });
+  });
+
+  it('CS4 who knows a hidden ability: its holder, the named knowers, and whoever saw it used', () => {
+    const raw = demoRaw() as any;
+    raw.combat.nodes.find((n: any) => n.id === 'cb-emergency-care').parts.find((p: any) => p.part === 'limits').visibility = { mode: 'secret', knower_ids: [] };
+    const L = load(raw);
+    const st = reduce(L, []);
+    expect(knowsNode(L, st, 'council', 'cb-emergency-care', 'effect')).toBe(true);
+    expect(knowsNode(L, st, 'council', 'cb-emergency-care', 'limits')).toBe(false);
+    expect(knowsNode(L, st, 'mira', 'cb-emergency-care', 'limits')).toBe(true);
+    const seen = reduce(L, [rec(T(0, 9), { witnessed: [{ node: 'cb-emergency-care', part: 'limits', who: ['council'] }] })]);
+    expect(knowsNode(L, seen, 'council', 'cb-emergency-care', 'limits')).toBe(true);
+  });
+
+  it('CS5 the walk: from the fighters outward, never into another entity; near nodes whole, far ones as gist; the budget cuts the furthest', () => {
+    const L = load(demoRaw());
+    const st = reduce(L, []);
+    const w = walkCombat(L, st, ['mira', 'union'], { maxDepth: 3, fullDepth: 1, budgetChars: 10000 });
+    expect(w.nodes.map((n) => `${n.node.id}@${n.depth}${n.full ? '' : '~'}`)).toEqual(['cb-ambush@1', 'cb-emergency-care@1', 'cb-ordinary@1', 'cb-soldier@1', 'cb-firearms@2~']);
+    expect(walkCombat(L, st, ['mira'], { maxDepth: 1, fullDepth: 1, budgetChars: 10000 }).nodes.map((n) => n.node.id)).not.toContain('cb-firearms');
+    const tight = walkCombat(L, st, ['mira', 'union'], { maxDepth: 3, fullDepth: 1, budgetChars: 400 });
+    expect(tight.cut.length).toBeGreaterThan(0);
+    expect(tight.cut).toContain('cb-firearms');
+  });
+});
