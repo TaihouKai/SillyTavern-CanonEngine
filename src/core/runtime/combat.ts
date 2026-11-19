@@ -66,7 +66,10 @@ export interface CombatSettings { maxDepth: number; fullDepth: number; budgetCha
 export const DEFAULT_COMBAT: CombatSettings = { maxDepth: 3, fullDepth: 2, budgetChars: 9000 };
 
 /** One exchange of a ruling as the code accepted it. */
-export interface RulingExchange { actor: Id; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean; overrides?: { quote: string; why: string } | null }
+export interface RulingExchange { actor: Id; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }
+/** An outcome the player's message states for the player character's own act, and whether it happens as written:
+ *  only an objective mechanism (basis) can stop it. */
+export interface PlayerOutcome { quote: string; stands: boolean; why: string; basis: { ref: string; quote?: string }[] }
 /** The ruling of one turn: kept with the reply (the panel shows it; the reviewer checks the reply against it). */
 export interface Ruling {
   fighters: Id[];
@@ -74,7 +77,9 @@ export interface Ruling {
   statuses: StatusChange[];
   witnessed: Witnessed[];
   over: boolean; overWhy: string; stopAt: string;
-  /** The player's words that stand where the analysis ruled against them without an objective mechanism. */
+  /** Each outcome the player's message states, standing or stopped by an objective mechanism (the code holds it so). */
+  outcomes: PlayerOutcome[];
+  /** The player's words that stand although the analysis ruled against them without an objective mechanism. */
   stands: string[];
   /** What was filled in for fighters the setting says nothing about. */
   filled: { links: CombatLinkChange[]; styles: StyleChange[] };
@@ -83,7 +88,7 @@ export interface Ruling {
   notes: string[];
 }
 
-interface CombatOut { exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; overrides?: { quote: string; why: string } | null; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; over: boolean; over_why?: string; stop_at?: string }
+interface CombatOut { player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; over: boolean; over_why?: string; stop_at?: string }
 interface FillOut { people: { who: string; links: { node: string; label: string }[]; style?: { start: string; force: string; response: string; limit: string; stop: string } | null }[] }
 
 /** Lorebook entries about someone: an entry whose title is their name, or one of whose keys is in a name of theirs. */
@@ -163,7 +168,7 @@ export async function judgeFight(a: {
     who,
     of: walk.nodes.filter((w) => w.node.kind === 'ability' && !w.from.includes(who)).flatMap((w) => (w.node.parts || [{ part: 'effect' as const, text: '' }]).filter((p) => knowsNode(L, index.state, who, w.node.id, p.part)).map((p) => `${w.node.id}:${p.part}`)),
   }));
-  const out = await callStructured<CombatOut>(a.port, 'combat', PROMPTS.combat, {
+  const input = {
     basis: L.combat.basis,
     time: a.timeLabel,
     fighters: fighters.map((id) => ({
@@ -179,25 +184,41 @@ export async function judgeFight(a: {
     sources: [...sourceText].map(([ref, text]) => ({ ref, text: text.slice(0, 3000) })),
     relations, knows,
     player_message: a.playerMessage, statements: a.statements, recent: a.recent.slice(-2000),
-  }, { signal: a.signal, operationId: a.operationId, log: a.log });
+  };
+  const ask = (extra: object) => callStructured<CombatOut>(a.port, 'combat', PROMPTS.combat, { ...input, ...extra }, { signal: a.signal, operationId: a.operationId, log: a.log });
 
-  // 3. the code's checks
+  // 3. the code's checks: an outcome the player wrote is stopped only by an objective mechanism (a node the fighters
+  // reach without filled-in links; a source's own words). One that is not gets the ruling asked again with it standing.
   const basisOk = (b: { ref: string; quote?: string }) => b.ref === 'judgement' || L.combat.nodes.has(b.ref) && walk.nodes.some((w) => w.node.id === b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!));
   const objectiveOk = (b: { ref: string; quote?: string }) => objective.has(b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!));
-  const exchanges: RulingExchange[] = [];
+  const checkOutcomes = (o: CombatOut) => {
+    const list: PlayerOutcome[] = [], unfounded: string[] = [];
+    for (const x of o.player_outcomes || []) {
+      const quote = String(x.quote || '').trim();
+      if (!quote || !quoteInText(quote, a.playerMessage)) { notes.push(`ruling: an outcome of words the player did not write was left out ("${quote.slice(0, 40)}")`); continue; }
+      const basis = (x.basis || []).filter(basisOk);
+      if (!x.stands && !basis.some(objectiveOk)) { unfounded.push(quote); continue; }
+      list.push({ quote, stands: !!x.stands, why: String(x.why || '').slice(0, 300), basis: x.stands ? [] : basis });
+    }
+    return { list, unfounded };
+  };
+  let out = await ask({});
+  let checked = checkOutcomes(out);
   const stands: string[] = [];
-  for (const x0 of out.exchanges || []) {
-    // an override as words only, or without its reason, is still one (an empty one is none)
-    const ov = x0.overrides as unknown;
-    const x = { ...x0, overrides: typeof ov === 'string' ? (ov.trim() ? { quote: ov.trim(), why: '' } : null) : ov && typeof ov === 'object' && String((ov as { quote?: string }).quote || '').trim() ? { quote: String((ov as { quote: string }).quote), why: String((ov as { why?: string }).why || '') } : null };
+  if (checked.unfounded.length) {
+    notes.push(`ruling: stopped without an objective mechanism, so they stand: ${checked.unfounded.map((q) => `"${q}"`).join(', ')} (ruled again)`);
+    out = await ask({ outcomes_that_stand: checked.unfounded });
+    checked = checkOutcomes(out);
+    // what still does not hold stands for the game master in any case
+    for (const q of checked.unfounded) { stands.push(q); checked.list.push({ quote: q, stands: true, why: 'no objective mechanism stops it', basis: [] }); }
+  }
+  const outcomes = checked.list;
+  const exchanges: RulingExchange[] = [];
+  for (const x of out.exchanges || []) {
     const actor = fighters.includes(x.actor) ? x.actor : (() => { const r = index.resolveEntity(String(x.actor)); return r.ids.length === 1 && fighters.includes(r.ids[0]) ? r.ids[0] : null; })();
     if (!actor || !String(x.text || '').trim()) { notes.push(`ruling: an exchange of "${x.actor}" left out (not a fighter)`); continue; }
     const basis = (x.basis || []).filter((b) => { const ok = basisOk(b); if (!ok) notes.push(`ruling: basis "${b.ref}" is not in what the fight was given (left out)`); return ok; });
-    if (x.overrides) {
-      if (!quoteInText(x.overrides.quote, a.playerMessage)) { notes.push(`ruling: an override of words the player did not write was left out`); }
-      else if (!basis.some(objectiveOk)) { stands.push(x.overrides.quote); notes.push(`ruling: "${x.overrides.quote}" stands — ruled against without an objective mechanism (${x.overrides.why})`); continue; }
-    }
-    exchanges.push({ actor, text: String(x.text).trim().slice(0, 800), basis: basis.length ? basis : [{ ref: 'judgement' }], ...(x.unsupported || !basis.length || basis.every((b) => b.ref === 'judgement') ? { unsupported: true } : {}), ...(x.overrides && quoteInText(x.overrides.quote, a.playerMessage) ? { overrides: x.overrides } : {}) });
+    exchanges.push({ actor, text: String(x.text).trim().slice(0, 800), basis: basis.length ? basis : [{ ref: 'judgement' }], ...(x.unsupported || !basis.length || basis.every((b) => b.ref === 'judgement') ? { unsupported: true } : {}) });
   }
   const statuses: StatusChange[] = [];
   for (const s of out.statuses || []) {
@@ -214,7 +235,7 @@ export async function judgeFight(a: {
     const who = (w.who || []).filter((x) => fighters.includes(x) || a.index.entityExists(x));
     if (who.length) witnessed.push({ node: w.node, ...(w.part && (ABILITY_PARTS as readonly string[]).includes(w.part) ? { part: w.part as Witnessed['part'] } : {}), who });
   }
-  return { fighters, exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || '').slice(0, 300), stopAt: String(out.stop_at || '').slice(0, 300), stands, filled, cut: walk.cut, notes };
+  return { fighters, exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || '').slice(0, 300), stopAt: String(out.stop_at || '').slice(0, 300), outcomes, stands, filled, cut: walk.cut, notes };
 }
 
 /** What the ruling records with the reply: what was filled in, the states, who saw what, the fight's end. */
@@ -237,6 +258,7 @@ export function rulingSection(r: Ruling, names: (id: Id) => string): string {
     'COMBAT RULING (binding — Canon Engine judged this turn of the fight before the reply. Write exactly these results, in this order, as vividly as you like: how it looks, sounds and feels is yours. Change no result; add no blow, hit, dodge or move that is not here; nobody wins, loses, is hurt or escapes otherwise. The player character does nothing beyond the player\'s message.)',
     ...lines,
     ...(states.length ? [`After this turn: ${states.join('; ')}.`] : []),
+    ...r.outcomes.filter((o) => !o.stands).map((o) => `Does NOT happen as the player wrote «${o.quote}»: ${o.why}`),
     ...(r.stands.length ? [`The player's words stand as written: ${r.stands.map((q) => `«${q}»`).join(' ')}`] : []),
     r.over ? `The fight ends here${r.overWhy ? `: ${r.overWhy}` : ''}.` : `End the reply at this point${r.stopAt ? `: ${r.stopAt}` : ''} — the player character's next move is the player's.`,
   ].join('\n');

@@ -26,7 +26,7 @@ async function turn(x: X, user: string, draft: string, opts: { extract?: any; ev
   x.host.addUser(user);
   if (opts.extract) x.model.on('extract_user', (i) => i.message === user, opts.extract, true);
   if (opts.fill) x.model.on('combat_fill', null, opts.fill, true);
-  if (opts.combat) x.model.on('combat', (i) => i.player_message === user, opts.combat, true);
+  if (opts.combat) x.model.on('combat', (i) => i.player_message === user, opts.combat);
   x.model.draft(draft);
   x.model.on('evaluate', (i) => String(i.candidate).includes(draft.slice(-6)), { scene_end: at(1, 7, 0), ...(opts.evaluate || {}) });
   return x.engine.runOperation('normal');
@@ -76,21 +76,26 @@ describe('战斗分析: a fight is judged before the reply', () => {
     await turn(x, msg, 'He goes down. [F2]', {
       extract: start,
       fill: (i: any) => ({ people: i.people.map((p: any) => ({ who: p.who, links: [{ node: 'cb-soldier', label: 'is' }], style: p.needs_style ? { start: 'x', force: 'x', response: 'x', limit: 'x', stop: 'x' } : null })) }),
-      combat: (i: any) => ({ exchanges: [{ actor: i.fighters.find((f: any) => f.id !== me(x)).id, text: 'He blocks the punch; trained soldiers do.', basis: [{ ref: 'cb-soldier' }], overrides: { quote: 'knock him out cold', why: 'soldiers block' } }], statuses: [], over: false }),
+      combat: (i: any) => i.outcomes_that_stand
+        ? { player_outcomes: [{ quote: 'knock him out cold', stands: true }], exchanges: [{ actor: me(x), text: 'The punch knocks him out cold.', basis: [{ ref: 'judgement' }] }], statuses: [], over: true, over_why: 'he is out' }
+        : { player_outcomes: [{ quote: 'knock him out cold', stands: false, basis: [{ ref: 'cb-soldier' }], why: 'soldiers block' }], exchanges: [{ actor: i.fighters.find((f: any) => f.id !== me(x)).id, text: 'He blocks the punch; trained soldiers do.', basis: [{ ref: 'cb-soldier' }] }], statuses: [], over: false },
     });
+    // stopped through a filled-in link only: asked again with the player's words standing
     const ruling = x.engine.current!.replay.applied.at(-1)!.interp.combat!;
-    expect(ruling.exchanges).toEqual([]);
-    expect(ruling.stands).toEqual(['knock him out cold']);
-    expect(ctx(x)).toContain("The player's words stand as written: «knock him out cold»");
+    expect(x.model.tasks('combat').at(-1)!.input.outcomes_that_stand).toEqual(['knock him out cold']);
+    expect(ruling.exchanges.map((e) => e.text)).toEqual(['The punch knocks him out cold.']);
+    expect(ruling.outcomes).toEqual([{ quote: 'knock him out cold', stands: true, why: '', basis: [] }]);
+    expect(fightNow(st(x)).ongoing).toBe(false);
 
-    const msg2 = 'I punch him again, he cannot block that.';
+    const msg2 = 'I punch Mira, my fist breaks her jaw.';
     await turn(x, msg2, 'Ash cannot reach. [F3]', {
-      extract: { fight: { state: 'continues', participants: [] } },
-      combat: (i: any) => ({ exchanges: [{ actor: me(x), text: 'Ash never fights armed men: he holds back.', basis: [{ ref: 'persona', quote: 'Carries no weapon.' }], overrides: { quote: 'he cannot block that', why: 'the Persona' } }], statuses: [], over: true, over_why: 'Ash walks away' }),
+      extract: { fight: { state: 'starts', participants: ['mira'] } },
+      combat: () => ({ player_outcomes: [{ quote: 'my fist breaks her jaw', stands: false, basis: [{ ref: 'persona', quote: 'Carries no weapon.' }], why: 'the Persona' }], exchanges: [{ actor: me(x), text: 'The punch glances off.', basis: [{ ref: 'persona', quote: 'Carries no weapon.' }] }], statuses: [], over: true, over_why: 'Ash walks away' }),
     });
     const r2 = x.engine.current!.replay.applied.at(-1)!.interp.combat!;
-    expect(r2.exchanges.length).toBe(1);
+    expect(r2.outcomes[0]).toMatchObject({ quote: 'my fist breaks her jaw', stands: false });
     expect(r2.stands).toEqual([]);
+    expect(ctx(x)).toContain('Does NOT happen as the player wrote «my fist breaks her jaw»: the Persona');
     expect(fightNow(st(x)).ongoing).toBe(false);
   });
 

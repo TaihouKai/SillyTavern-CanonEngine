@@ -36,31 +36,6 @@
        "additionalProperties": false
       }
      },
-     "overrides": {
-      "anyOf": [
-       {
-        "type": "null"
-       },
-       {
-        "type": "string",
-        "maxLength": 300
-       },
-       {
-        "type": "object",
-        "properties": {
-         "quote": {
-          "type": "string",
-          "maxLength": 300
-         },
-         "why": {
-          "type": "string",
-          "maxLength": 300
-         }
-        },
-        "additionalProperties": false
-       }
-      ]
-     },
      "unsupported": {
       "type": "boolean"
      }
@@ -209,9 +184,56 @@
   "stop_at": {
    "type": "string",
    "maxLength": 300
+  },
+  "player_outcomes": {
+   "type": "array",
+   "maxItems": 12,
+   "items": {
+    "type": "object",
+    "properties": {
+     "quote": {
+      "type": "string",
+      "maxLength": 300
+     },
+     "stands": {
+      "type": "boolean"
+     },
+     "basis": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+       "type": "object",
+       "properties": {
+        "ref": {
+         "type": "string",
+         "maxLength": 160
+        },
+        "quote": {
+         "type": "string",
+         "maxLength": 300
+        }
+       },
+       "required": [
+        "ref"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "why": {
+      "type": "string",
+      "maxLength": 300
+     }
+    },
+    "required": [
+     "quote",
+     "stands"
+    ],
+    "additionalProperties": false
+   }
   }
  },
  "required": [
+  "player_outcomes",
   "exchanges",
   "statuses",
   "over"

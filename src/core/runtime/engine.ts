@@ -1345,7 +1345,7 @@ export class CanonEngine {
       ...(a.leapTo ? { time_leap: { from: formatTick(tick), to: formatTick(a.leapTo) } } : {}),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
       ...(groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who, level: g.level, knows: g.about })) } : {}),
-      ...(a.ruling ? { fight_ruling: { exchanges: a.ruling.exchanges.map((x) => `${index.entityName(x.actor)}: ${x.text}`), states: a.ruling.statuses.map((s) => `${index.entityName(s.entity)}: ${s.removed ? 'no longer ' : ''}${s.text}${s.count != null ? ` (${s.count} left)` : ''}`), stands: a.ruling.stands, stop_at: a.ruling.over ? `the fight ends: ${a.ruling.overWhy}` : a.ruling.stopAt } } : {}),
+      ...(a.ruling ? { fight_ruling: { exchanges: a.ruling.exchanges.map((x) => `${index.entityName(x.actor)}: ${x.text}`), states: a.ruling.statuses.map((s) => `${index.entityName(s.entity)}: ${s.removed ? 'no longer ' : ''}${s.text}${s.count != null ? ` (${s.count} left)` : ''}`), stands: a.ruling.stands, player_words_that_do_not_happen: a.ruling.outcomes.filter((o) => !o.stands).map((o) => `«${o.quote}»: ${o.why}`), stop_at: a.ruling.over ? `the fight ends: ${a.ruling.overWhy}` : a.ruling.stopAt } } : {}),
       ...(a.chance?.length ? { chance_events_with_companion: a.chance.map((x) => ({ event_id: x.eventId, title: x.title, comes_to: x.who, ...(x.loose ? { by: formatTick(x.lo) } : { starts: formatTick(x.lo) }), what: (pack.events.get(x.eventId)?.summary || '').slice(0, 400) })) } : {}),
     };
     const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', evalPrompt, evalInput,

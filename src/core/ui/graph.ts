@@ -456,7 +456,7 @@ export interface RelationsView {
 export interface CombatView {
   none: string | null; basis: string;
   fight: { ongoing: boolean; people: { id: string; name: string }[]; source: string | null; since: string | null };
-  rulings: { when: string; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean; overrides?: string }[]; states: string[]; stands: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
+  rulings: { when: string; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean }[]; stopped: { quote: string; why: string; basis: string[] }[]; states: string[]; stands: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
   people: { id: string; name: string; player?: boolean; fighting?: boolean; states: { text: string; count: number | null; until: string; source: string }[]; style: { start: string; force: string; response: string; limit: string; stop: string; source: string } | null; links: { node: string; name: string; kind: string; label: string; source: string }[] }[];
   hidden: number;
 }
@@ -621,7 +621,8 @@ export class GraphPanel {
       ? `<div class="cg-cbfight cg-cbon"><b>${esc(t('combatFightOn').replace('{p}', v.fight.people.map((p) => p.name).join('、')).replace('{t}', v.fight.since || ''))}</b> <button class="menu_button" data-act="cb-fight-off" title="${esc(t('combatEndTip'))}">${t('combatEnd')}</button></div>`
       : `<div class="cg-cbfight"><span>${t('combatFightOff')}</span> <button class="menu_button" data-act="cb-fight-on" title="${esc(t('combatStartTip'))}">${t('combatStart')}</button></div>`;
     const ruling = (r: CombatView['rulings'][number], i: number) => `<details class="cg-nperson"${i === 0 ? ' open' : ''}><summary>${esc(r.when)}${r.over ? ` <span class="cg-key">${esc(t('combatOver'))}${esc(r.overWhy)}</span>` : ''}</summary>`
-      + `<ol class="cg-cbex">${r.exchanges.map((x) => `<li><b>${esc(x.who)}</b>：${esc(x.text)}<div class="cg-hint">${x.unsupported ? esc(t('combatUnsupported')) : esc(x.basis.join('；'))}${x.overrides ? `<br>${esc(t('combatOverrides'))}«${esc(x.overrides)}»` : ''}</div></li>`).join('')}</ol>`
+      + (r.stopped.length ? r.stopped.map((o) => `<div class="cg-nfield">${esc(t('combatOverrides'))}«${esc(o.quote)}»：${esc(o.why)}<div class="cg-hint">${esc(o.basis.join('；'))}</div></div>`).join('') : '')
+      + `<ol class="cg-cbex">${r.exchanges.map((x) => `<li><b>${esc(x.who)}</b>：${esc(x.text)}<div class="cg-hint">${x.unsupported ? esc(t('combatUnsupported')) : esc(x.basis.join('；'))}</div></li>`).join('')}</ol>`
       + (r.states.length ? `<div class="cg-nfield"><b>${t('combatStates')}</b>${esc(r.states.join('；'))}</div>` : '')
       + (r.stands.length ? `<div class="cg-nfield">${esc(t('combatStands'))}${r.stands.map((s) => `«${esc(s)}»`).join(' ')}</div>` : '')
       + (!r.over && r.stopAt ? `<div class="cg-hint">${esc(t('combatStop'))}${esc(r.stopAt)}</div>` : '')
