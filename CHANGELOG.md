@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.40.0 — 2026-11-20 (Toaru pack 6.2.2)
+
+- **战斗分析.** A confrontation (a fight, an attack, a chase, sneaking past a guard) is judged by Canon Engine before the GM writes. The GM writes up the ruling and may only embellish it.
+  - **What it is judged by.** Every pack now says what fights run on: either `none` with a reason, or a `basis` and a combat graph. The graph has concepts, rules, abilities in parts (principle, effect, conditions, cost, limits, counters), original fights as precedents, and links from people to nodes, with the event a power comes or goes. Every person has a 对抗倾向: when they start, how hard they hit, how they answer, what they would risk their life for, when they stop.
+  - **A turn of a fight.** Your message starts, continues or ends a fight. Someone new in it gets an identity. What nothing says about a fighter is filled in from the setting's concepts, as the lowest source and marked as a guess.
+  - **The judge's input.** The judge gets what the fighters are linked to and their fights with each other, then what lies further out, then a few other fights of each. The fighters share the budget, so a long history never crowds out someone's abilities. It also gets your Persona and the lorebook entries about the fighters, the states they are in, who knows what of whose abilities, and the people present, who may join of their own accord.
+  - **Your words stand, unless a mechanism stops them.** What you write your character does happens. An outcome you write is stopped only by an objective mechanism: a node's own words, or a source's (a reflection, a body such a blow cannot harm). Without one it stands, and the judge is asked again. Every exchange names what it went by: a node, your Persona, a lorebook entry, someone's 对抗倾向, or 判断 when nothing decides it.
+  - **States.** The judge records hurts, a knock-out, equipment and counted resources. A passing state lasts minutes; a fracture or a lost object lasts until changed.
+  - **The review.** The reviewer holds the reply to the ruling. Embellishment is fine: lines, taunts, how it looks. A changed result is sent back.
+  - **Panel.** In the timeline window, the 战斗 view shows the fight now, with start and end buttons. It also shows the last rulings with each exchange's basis, what was stopped and why, and what was filled in. Each person's states, links and 对抗倾向 can be edited there; anyone else is found by name.
+  - **Code.** Combat is a module of its own (`src/core/combat`). The engine, gate, reducer, prompts and timeline window call it only through `combat/index.ts`, and the boundary check fails otherwise.
+- **A draft with the model's reasoning left in its text is written again.** Live, DeepSeek once wrote `<｜begin▁of▁thinking｜>` and a page of planning before the story, and never closed it.
+- **Toaru pack 6.2.2: combat built from the wiki, every proposal read by hand.** The builder is `cpb combat`, with the parts setting, golden, people and precedents.
+  - 267 setting nodes. Six were written by hand and are marked as generated: Level 2, Level 5, ordinary person, Anti-Skill, Judgment, firearms.
+  - 848 people's own abilities.
+  - 354 original fights, kept from 500 proposed.
+  - 对抗倾向 for all 558 people.
+  - A second read in live testing removed two wrong links (Stiyl holding 移动教会; 剪牛仔裤狂魔 as a 后天女武神). It also gave 符文卡 its time: water spoils the ink in the first volume, and the laminated cards come later.
+  - Lint 0 errors, 0 warnings; builder checks 0 problems.
+- Tested live with DeepSeek and your Persona in your Tavern. Test chats `…2026-11-20@01h11m03s300ms` (thugs, then 史提尔 and 上条 at the dormitory fire) and `…2026-11-20@01h52m22s543ms` (一方通行). Fixes from that testing:
+  - A thug was made again as a new person by the review.
+  - Stiyl's abilities were cut from the judge's input by Kamijou's history.
+  - A summoned 火焰巨人 was counted as a new fighter.
+  - A state of the player character was dropped.
+  - The judge did not cite your Persona or a 对抗倾向.
+
 ## 1.39.2 — 2026-11-18 (Toaru pack 6.1.0)
 
 - **A relation changes only through an event both people are in.** The user ruled that a relation changing without an event is written in stone, against what the engine is for. A time trigger was considered and rejected, because the player could not stop it. In the game a stage comes with an event the two are in, and that event can go otherwise.
