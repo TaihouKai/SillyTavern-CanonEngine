@@ -10,6 +10,7 @@ import { applyChange, deltaMeets, deltaText, outcomeDelta, withPackEnd } from '.
 import type { WorldIndex } from '../domain/world-query';
 import { toTick, formatTick } from '../domain/time';
 import type { TimeEvidence } from './scenetime';
+import { reviewStatuses } from './combat';
 import { isDue, pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
 import type { ClaimInput, Retrieval } from './context';
@@ -53,6 +54,11 @@ export interface EvalOutput {
   present?: string[];
   /** Narrative integration: what people know about the player character, changed. */
   player_knowers?: { who: string; existing_id?: string | null; level?: 'exists' | 'identity' | 'secrets'; about?: string; quote: string }[];
+  /** 战斗: states the reply shows changing; a fight the reply itself starts (and whether it then decides it); with a
+   *  ruling, where the reply departs from it. */
+  statuses?: { who: string; text: string; count?: number | null; until?: unknown; removed?: boolean; quote: string }[];
+  fight?: { starts: boolean; participants?: string[]; resolved_unruled: boolean; quote?: string } | null;
+  ruling_conflicts?: { quote: string; why: string }[];
 }
 
 /** A quote that is a line of speech: a quoted span (“…” 「…」 『…』 "…" ‘…’) with at most a short attribution around it. */
@@ -121,6 +127,9 @@ export interface GateInput {
   /** A time leap reply: the GM writes the player character's life in it (any kind of act; contradicting the player's
    *  message is still the reviewer's violation). */
   leap?: boolean;
+  /** 战斗 (a pack with combat): ruled — this turn's fight was judged (fighters: who is in it); failed — the analysis
+   *  failed, so a fight the reply decides is not sent back. */
+  combat?: { ruled: boolean; fighters: Id[]; failed?: boolean } | null;
 }
 
 export interface GateResult {
@@ -788,6 +797,25 @@ export function runGate(g: GateInput): GateResult {
     visibility: { mode: 'public', knower_ids: [] }, summary: `Introduced: ${runtimeEntities.map((r) => r.name).join(', ')}`, evidenceKind: 'direct', runtimeEntities,
   });
   records.push(...relationDrafts);
+  // ---- 战斗: states this reply changes, a fight it starts, and the reply held to the ruling ----------------
+  if (g.combat) {
+    const st = reviewStatuses(ev.statuses, text, g.userText, (x) => resolveId(x), g.combat.ruled ? g.combat.fighters : []);
+    warnings.push(...st.warnings);
+    if (st.statuses.length) records.push({
+      recordId: newId('rec'), kind: 'combat', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+      visibility: { mode: 'public', knower_ids: [] }, summary: `States: ${st.statuses.map((s) => `${s.entity} ${s.removed ? '−' : ''}${s.text}`).join('; ')}`.slice(0, 300), evidenceKind: 'direct', statuses: st.statuses,
+    });
+    if (g.combat.ruled) {
+      for (const c of ev.ruling_conflicts || []) if (quoteInText(c.quote, text)) violations.push(`The reply departs from the combat ruling ("${c.quote}"): ${c.why} Write the ruling's results as they are (embellish freely, change no result).`);
+    } else if (ev.fight?.starts) {
+      const ps = uniq((ev.fight.participants || []).map((x) => resolveId(String(x))).filter((x): x is Id => !!x));
+      if (ev.fight.resolved_unruled && !g.combat.failed) violations.push(`The reply decides a fight Canon Engine has not judged${ev.fight.quote ? ` ("${ev.fight.quote}")` : ''}. Stop where it begins — the attack comes, the fight breaks out — and leave how it goes to the next turn: Canon Engine judges it then.`);
+      else if (ps.length >= 2) records.push({
+        recordId: newId('rec'), kind: 'combat', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+        visibility: { mode: 'public', knower_ids: [] }, summary: `A fight breaks out: ${ps.join(', ')}`, evidenceKind: 'direct', fight: { ongoing: true, participants: ps, source: 'engine', why: String(ev.fight.quote || '').slice(0, 300) },
+      });
+    }
+  }
   // ---- what people know about the player character, as this reply changes it --------------
   if (g.playerId) {
     for (const t of ev.player_knowers || []) {

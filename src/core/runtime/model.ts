@@ -18,13 +18,15 @@ import mindSchema from '../../../schemas/runtime/mind.schema.json';
 import affiliationsSchema from '../../../schemas/runtime/affiliations.schema.json';
 import endsSchema from '../../../schemas/runtime/ends.schema.json';
 import relateSchema from '../../../schemas/runtime/relate.schema.json';
+import combatSchema from '../../../schemas/runtime/combat.schema.json';
+import combatFillSchema from '../../../schemas/runtime/combat-fill.schema.json';
 
 const TASK_SCHEMAS: Record<string, Record<string, any>> = {
-  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema, world_check: worldCheckSchema, mind: mindSchema, affiliations: affiliationsSchema, ends: endsSchema, relate: relateSchema,
+  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema, world_check: worldCheckSchema, mind: mindSchema, affiliations: affiliationsSchema, ends: endsSchema, relate: relateSchema, combat: combatSchema, combat_fill: combatFillSchema,
 };
 import { EngineError } from '../domain/util';
 
-export type TaskName = 'extract_user' | 'discover' | 'evaluate' | 'adjudicate' | 'impact' | 'plan' | 'digest' | 'profile' | 'integrate' | 'foreknow' | 'leap' | 'world_check' | 'mind' | 'affiliations' | 'ends' | 'relate';
+export type TaskName = 'extract_user' | 'discover' | 'evaluate' | 'adjudicate' | 'impact' | 'plan' | 'digest' | 'profile' | 'integrate' | 'foreknow' | 'leap' | 'world_check' | 'mind' | 'affiliations' | 'ends' | 'relate' | 'combat' | 'combat_fill';
 
 export interface ChatMsg { role: 'system' | 'user' | 'assistant'; content: string }
 
@@ -92,6 +94,8 @@ const validators: Record<TaskName, ((d: unknown) => boolean) & { errors?: { inst
   affiliations: V.affiliations,
   ends: V.ends,
   relate: V.relate,
+  combat: V.combat,
+  combat_fill: V.combat_fill,
 };
 
 /** Extract the first balanced JSON object from model text (handles code fences / prose around it). */

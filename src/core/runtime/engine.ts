@@ -26,6 +26,8 @@ import { matchScope, runGate, toStoryTime, type EvalOutput, type GateInput, type
 import { checkTimeEvidence, evidenceLine, settleSceneEnd } from './scenetime';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { settleRelations } from './relate';
+import { DEFAULT_COMBAT, FIGHT_START_RULE, fightFromMessage, judgeFight, rulingRecord, rulingSection, statesSection, type Ruling } from './combat';
+import { fightNow } from '../domain/combat-state';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
@@ -65,12 +67,17 @@ export interface EngineSettings {
   mindPlans: boolean;
   /** Marks out-of-character parts of the player's message ("(OOC: if A, then B)"); '' = no OOC parsing. */
   oocKeyword: string;
+  /** 战斗分析: how far from the fighters the combat graph is walked (links), up to which distance a node is given
+   *  whole (further ones as their gist), and how many characters of it at most. */
+  combatMaxDepth: number;
+  combatFullDepth: number;
+  combatBudgetChars: number;
 }
 
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
 const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + String(text || '').length * 4));
 
-const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change' };
+const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change', combat: 'judging the fight', combat_fill: 'what the fighters are' };
 
 /** Length and provider stats of the published reply, shown after the turn timings. */
 export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
@@ -99,6 +106,9 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   secretsReadable: true,
   mindPlans: true,
   oocKeyword: 'OOC',
+  combatMaxDepth: 3,
+  combatFullDepth: 2,
+  combatBudgetChars: 9000,
 };
 
 export type OpPhase = 'idle' | 'reconciling' | 'planning' | 'generating' | 'validating' | 'committing' | 'error' | 'conflict' | 'disabled';
@@ -122,6 +132,7 @@ export interface ExtractUserOut {
   }[];
   references: { phrase: string; quote: string; kind: 'entity' | 'event'; mode?: string; candidates?: string[] }[];
   scene_entities?: string[];
+  fight?: import('./combat').FightOut | null;
   scene_groups?: string[] | null;
 }
 
@@ -791,6 +802,7 @@ export class CanonEngine {
       opportunities,
       ...(prof ? { engagement_context: this.engagementContext(index, prof.profile, tick) } : {}),
       ...(groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who })) } : {}),
+      ...(pack.combat.none === null ? { fight_now: (() => { const f = fightNow(index.state); return f.ongoing ? { ongoing: true, participants: f.participants.map((p) => `${p} | ${index.entityName(p)}`) } : { ongoing: false }; })() } : { fight_now: 'this pack has no combat: fight is always null' }),
     };
     const out = await this.withTimeout(callStructured<ExtractUserOut>(this.host.model, 'extract_user', extractPrompt, extractInput,
       { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(entry.text) }), this.settings.taskTimeoutMs * 4, signal);
@@ -848,6 +860,12 @@ export class CanonEngine {
       } else {
         intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
       }
+    }
+    // 战斗: the fight as this message starts, goes on with or ends it (someone new in it gets an identity now)
+    {
+      const f = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
+      records.push(...f.records);
+      warnings.push(...f.warnings);
     }
     const refs: RefInput[] = out.references.map((r, i) => ({ id: `u${i + 1}`, quote: r.quote, phrase: r.phrase, kind: r.kind, assertion: 'user_input', temporal: r.kind === 'event' ? 'past' : 'present', candidates: r.candidates }));
     const interp: Interpretation = {
@@ -1025,6 +1043,41 @@ export class CanonEngine {
    *  for or the call failed (the reply goes ahead without it). Who is decided here: the pack's people with a 思考方式
    *  other than "rarely" who are in the scene or whom the player's message involves (named, referred to, or in the scene
    *  it sets), those it involves first. */
+  private fighterName(index: WorldIndex, profile: PlayerProfile | null, id: Id): string {
+    return profile && id === profile.playerId ? profile.personaName : index.entityName(id);
+  }
+
+  /** The lorebook as this game has it: entries the world check rewrote or disabled, and its additions. */
+  private async gameLore(): Promise<LoreEntry[]> {
+    const raw = this.host.lore ? await this.host.lore.entries().catch(() => [] as LoreEntry[]) : [];
+    const scan = this.loreScan();
+    const out: LoreEntry[] = [];
+    for (const e of raw) {
+      const o = scan?.overrides.get(`${e.book}|${e.uid}`);
+      if (o?.action === 'disable') continue;
+      out.push(o?.action === 'replace' ? { ...e, content: o.content } : e);
+    }
+    for (const a of scan?.additions || []) out.push({ book: 'canon-engine', uid: a.id, title: a.title, keys: a.keys, secondary: [], secondaryLogic: null, constant: false, disabled: false, caseSensitive: null, wholeWords: null, content: a.content });
+    return out;
+  }
+
+  /** 战斗分析 of this turn (combat.ts). */
+  private async judge(index: WorldIndex, profile: PlayerProfile | null, userEntry: SourceEntry | null, userInterp: Interpretation | null, prevGm: SourceEntry | null, prevGmInterp: Interpretation | null, tick: number, signal: AbortSignal, operationId: string): Promise<Ruling | null> {
+    const places = uniq([...(userInterp?.sceneEntities || []), ...(prevGmInterp?.sceneEntities || [])]).filter((id) => index.entityKind(id) === 'place');
+    const told = (userInterp?.records || []).filter((r) => r.kind === 'user_assertion').map((r) => `established: ${r.summary.replace(/^User asserted: /, '')}`);
+    return judgeFight({
+      port: this.host.model, index, overlay: (records) => new WorldIndex(index.pack, this.overlay(index.state, records)),
+      playerId: profile?.playerId ?? null, personaName: profile?.personaName || '', personaText: profile?.personaText || '',
+      lore: await this.gameLore(),
+      playerMessage: userEntry ? this.ooc(userEntry.text).story : '',
+      statements: [...told, ...(userInterp?.intents || []).map((i) => i.summary)],
+      recent: prevGm ? prevGm.text.slice(-2000) : '', timeLabel: formatTick(tick, this.campaign()?.binding.originDate || null),
+      places,
+      settings: { maxDepth: this.settings.combatMaxDepth ?? DEFAULT_COMBAT.maxDepth, fullDepth: this.settings.combatFullDepth ?? DEFAULT_COMBAT.fullDepth, budgetChars: this.settings.combatBudgetChars ?? DEFAULT_COMBAT.budgetChars },
+      signal, operationId, log: (l) => this.debugLog('task', l),
+    });
+  }
+
   private async planMinds(index: WorldIndex, retrieval: Retrieval, context: string, userEntry: SourceEntry, prevGm: SourceEntry | null, playerName: string, involved: Id[], signal: AbortSignal, operationId: string): Promise<string> {
     const userText = this.ooc(userEntry.text).story;
     const named = new Set([...index.scanEntities(userText).map((m) => m.id), ...involved]);
@@ -1204,6 +1257,9 @@ export class CanonEngine {
     chance?: GateInput['chanceCompanions'];
     /** A time leap reply: the time it leaps to. */
     leapTo?: number | null;
+    /** 战斗分析: this turn's ruling (the reply is held to it), or that judging the fight failed. */
+    ruling?: Ruling | null;
+    combatFailed?: boolean;
   }): Promise<ReviewResult> {
     const { index } = a;
     const pack = index.pack;
@@ -1257,6 +1313,7 @@ export class CanonEngine {
       presence: prof ? presenceSection(index, prof.profile, tick) : undefined,
       perception: prof ? { open: this.settings.secretsReadable !== false, defenses: prof.profile.defenses, player: prof.profile.playerId } : undefined,
       decisions: decisionsSection(decisions) || undefined,
+      states: statesSection(index, uniq([...(prof ? [prof.profile.playerId] : []), ...a.sceneSeeds, ...retrieval.entities.keys()]), (id) => this.fighterName(index, prof?.profile ?? null, id), tick) || undefined,
     });
     const due = pendingHard(pack, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
     const groups = prof ? recognitionGroups(index, prof.profile) : [];
@@ -1287,6 +1344,7 @@ export class CanonEngine {
       ...(a.leapTo ? { time_leap: { from: formatTick(tick), to: formatTick(a.leapTo) } } : {}),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
       ...(groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who, level: g.level, knows: g.about })) } : {}),
+      ...(a.ruling ? { fight_ruling: { exchanges: a.ruling.exchanges.map((x) => `${index.entityName(x.actor)}: ${x.text}`), states: a.ruling.statuses.map((s) => `${index.entityName(s.entity)}: ${s.removed ? 'no longer ' : ''}${s.text}${s.count != null ? ` (${s.count} left)` : ''}`), stands: a.ruling.stands, stop_at: a.ruling.over ? `the fight ends: ${a.ruling.overWhy}` : a.ruling.stopAt } } : {}),
       ...(a.chance?.length ? { chance_events_with_companion: a.chance.map((x) => ({ event_id: x.eventId, title: x.title, comes_to: x.who, ...(x.loose ? { by: formatTick(x.lo) } : { starts: formatTick(x.lo) }), what: (pack.events.get(x.eventId)?.summary || '').slice(0, 400) })) } : {}),
     };
     const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', evalPrompt, evalInput,
@@ -1320,6 +1378,7 @@ export class CanonEngine {
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: eng.binding(tick).length + eng.answers(tick).length, hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
       playerId: prof?.profile.playerId || null, personaName: prof?.profile.personaName, offered: a.offered || null, required: a.required || [], chanceCompanions: a.chance || [], chanceBlocking: (a.attempt ?? 0) === 0, leap: !!a.leapTo,
+      combat: pack.combat.none === null && !a.leapTo && a.mode === 'draft' ? { ruled: !!a.ruling, fighters: a.ruling?.fighters || [], failed: !!a.combatFailed } : null,
     });
     gate.warnings.push(...told.warnings);
     gate.timeBound = settled.bound;
@@ -1686,10 +1745,31 @@ export class CanonEngine {
           requiredContacts: requiredSection(index, required, c.binding.originDate) || undefined,
           worldLore: this.worldLoreSection(),
           minds: undefined as string | undefined,
+          combat: undefined as string | undefined,
+          states: statesSection(rIndex, uniq([...(prof ? [prof.profile.playerId] : []), ...(prevGmInterp?.present || []), ...sceneSeeds, ...fightNow(rIndex.state).participants]), (id) => this.fighterName(rIndex, prof?.profile ?? null, id), cp) || undefined,
         };
+        // 战斗分析: a fight under way is judged before the reply; the GM writes the ruling. Without one, a fight the
+        // reply starts stops where it begins (judged next turn).
+        let ruling: Ruling | null = null;
+        let combatFailed = false;
+        if (pack.combat.none === null && !leapTo && !continuing) {
+          if (fightNow(rIndex.state).ongoing) {
+            this.setStatus('planning', 'Judging the fight…');
+            try {
+              ruling = await this.timeStep('combat', this.judge(rIndex, prof?.profile ?? null, userEntry, userInterp, prevGm, prevGmInterp, cp, abort.signal, operationId));
+            } catch (e) {
+              if (e instanceof EngineError && e.kind === 'cancelled') throw e;
+              combatFailed = true;
+              this.rejects.push(`combat: the fight was not judged this turn (${(e as Error).message.slice(0, 160)})`);
+            }
+            this.checkFences(fences, excludeLast);
+          }
+          packetArgs.combat = ruling ? rulingSection(ruling, (id) => this.fighterName(rIndex, prof?.profile ?? null, id)) : FIGHT_START_RULE;
+        }
         let packet = buildPacket(packetArgs);
-        // 角色盘算: the people here who think before they act get this reply's moves worked out first
-        if (fresh && !leapTo && !continuing && this.settings.mindPlans !== false) {
+        // 角色盘算: the people here who think before they act get this reply's moves worked out first (in a judged
+        // fight the ruling has the fighters' moves)
+        if (fresh && !leapTo && !continuing && !ruling && this.settings.mindPlans !== false) {
           // who the player's message involves: named in it, referred to (one candidate), or in the scene it sets
           const involved = uniq([...(userInterp?.sceneEntities || []), ...userRefs.filter((r) => r.candidates?.length === 1).map((r) => r.candidates![0])]);
           const minds = await this.planMinds(rIndex, retrieval, packet.text, userEntry!, prevGm, prof?.profile.personaName || '', involved, abort.signal, operationId);
@@ -1728,7 +1808,7 @@ export class CanonEngine {
         let lastResort = false; // one extra, harsher repair when HARD problems survive the normal repairs
         for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
           this.setStatus('validating', attempt > this.settings.maxRepairs ? 'Re-checking final HARD repair…' : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})…` : 'Validating…');
-          let review = await this.reviewCandidate({ text: candidate, index: rIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: lp?.notes || [], stagedHard: lp?.stagedHard, fences, attempt, offered, required, jumpTo, chance, leapTo });
+          let review = await this.reviewCandidate({ text: candidate, index: rIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: lp?.notes || [], stagedHard: lp?.stagedHard, fences, attempt, offered, required, jumpTo, chance, leapTo, ruling, combatFailed });
           this.checkFences(fences, excludeLast);
           // Interval adjudication for the proposed advance. The review that sees the staged results may place the
           // reply's end later: then the events whose windows close in the extra time are settled too (live finding:
@@ -1752,11 +1832,12 @@ export class CanonEngine {
             // The evaluator must see staged offscreen history: review again with it (not a repair).
             const stagedIndex = new WorldIndex(pack, this.overlay(rIndex.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
             const stagedHard = new Map([...(lp?.stagedHard || []), ...adj.stagedHard]);
-            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [...(lp?.notes || []), ...adj.notes], stagedHard, fences, attempt, offered, required, jumpTo, chance, leapTo });
+            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [...(lp?.notes || []), ...adj.notes], stagedHard, fences, attempt, offered, required, jumpTo, chance, leapTo, ruling, combatFailed });
             // Gate HARD crossing with staged offscreen occurrences against the committed clock
             review.gate = runGate({
               pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
               evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: (() => { const e = engagementView(stagedIndex.state, pack), t = stagedIndex.state.clock.lo; return e.binding(t).length + e.answers(t).length; })(), hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, personaName: prof?.profile.personaName, offered, required, chanceCompanions: chance, chanceBlocking: attempt === 0, leap: !!leapTo,
+              combat: pack.combat.none === null && !leapTo ? { ruled: !!ruling, fighters: ruling?.fighters || [], failed: combatFailed } : null,
             });
             this.checkFences(fences, excludeLast);
           }
@@ -1840,6 +1921,10 @@ export class CanonEngine {
           if (continuedInterp?.sceneEnd && !continuedInterp.flashback && (!interp.sceneEnd || interp.sceneEnd.lo < continuedInterp.sceneEnd.lo)) interp.sceneEnd = continuedInterp.sceneEnd;
           // the revised message replaces the old logical reply; its old effects are not counted twice
           interp.dependsOn = interp.dependsOn.filter((d) => d.messageId !== continuedEntry.messageId);
+        }
+        if (ruling) {
+          interp.records.push(rulingRecord(ruling, { lo: clock, hi: clock, precision: 'minute' }, (id) => this.fighterName(rIndex, prof?.profile ?? null, id)));
+          interp.combat = ruling;
         }
         if (interp.sceneEnd && !interp.flashback && interp.sceneEnd.lo > clock) interp.records.push(this.timeAdvance(interp.sceneEnd, commitId));
         // what the events this reply settles do to the relations this game has to work out (carried with a continuation)

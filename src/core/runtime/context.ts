@@ -191,6 +191,10 @@ export interface PacketInput {
   present?: Id[];
   /** 角色盘算: this turn's moves of the people here who think before they act (GM only). */
   minds?: string;
+  /** 战斗分析: the ruling of this turn's fight (the GM writes it; the reviewer checks the reply against it). */
+  combat?: string;
+  /** 状态 of the people here (combat.ts statesSection). */
+  states?: string;
   /** Who in the scene knows about the player (GM only; the reviewer gets the groups as input). */
   recognition?: string;
   /** People with the player who take part in a canon event soon, and how it reaches them (GM only). */
@@ -522,6 +526,8 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   const mind = inp.review ? '' : mindSection(index, retrieval);
   if (mind) required.push(mind);
   if (inp.minds && !inp.review) required.push(inp.minds);
+  if (inp.combat) required.push(inp.combat);
+  if (inp.states) required.push(inp.states);
   // The player in the world and their decisions: required, never dropped for budget, also for the reviewer.
   if (inp.presence) required.push(inp.presence);
   if (inp.recognition) required.push(inp.recognition);

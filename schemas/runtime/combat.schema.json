@@ -1,0 +1,220 @@
+{
+ "type": "object",
+ "properties": {
+  "exchanges": {
+   "type": "array",
+   "maxItems": 12,
+   "items": {
+    "type": "object",
+    "properties": {
+     "actor": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "text": {
+      "type": "string",
+      "maxLength": 800
+     },
+     "basis": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+       "type": "object",
+       "properties": {
+        "ref": {
+         "type": "string",
+         "maxLength": 160
+        },
+        "quote": {
+         "type": "string",
+         "maxLength": 300
+        }
+       },
+       "required": [
+        "ref"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "overrides": {
+      "anyOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "quote": {
+          "type": "string",
+          "maxLength": 300
+         },
+         "why": {
+          "type": "string",
+          "maxLength": 300
+         }
+        },
+        "required": [
+         "quote",
+         "why"
+        ],
+        "additionalProperties": false
+       }
+      ]
+     },
+     "unsupported": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "actor",
+     "text",
+     "basis"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "statuses": {
+   "type": "array",
+   "maxItems": 20,
+   "items": {
+    "type": "object",
+    "properties": {
+     "who": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "text": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "count": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "until": {
+      "anyOf": [
+       {
+        "const": "lasting"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "minutes": {
+          "type": "number"
+         }
+        },
+        "required": [
+         "minutes"
+        ],
+        "additionalProperties": false
+       },
+       {
+        "type": "object",
+        "properties": {
+         "event": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "event"
+        ],
+        "additionalProperties": false
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "node": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 120
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "removed": {
+      "type": "boolean"
+     },
+     "quote": {
+      "type": "string",
+      "maxLength": 300
+     }
+    },
+    "required": [
+     "who",
+     "text"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "witnessed": {
+   "type": "array",
+   "maxItems": 20,
+   "items": {
+    "type": "object",
+    "properties": {
+     "node": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "part": {
+      "anyOf": [
+       {
+        "enum": [
+         "principle",
+         "effect",
+         "conditions",
+         "cost",
+         "limits",
+         "counters"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "who": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "maxLength": 120
+      }
+     }
+    },
+    "required": [
+     "node",
+     "who"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "over": {
+   "type": "boolean"
+  },
+  "over_why": {
+   "type": "string",
+   "maxLength": 300
+  },
+  "stop_at": {
+   "type": "string",
+   "maxLength": 300
+  }
+ },
+ "required": [
+  "exchanges",
+  "statuses",
+  "over"
+ ],
+ "additionalProperties": false
+}

@@ -1,6 +1,8 @@
 export declare const pack: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
 export declare const adjudicate: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
 export declare const affiliations: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
+export declare const combat_fill: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
+export declare const combat: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
 export declare const digest: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
 export declare const discover: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };
 export declare const ends: { (data: unknown): boolean; errors?: { instancePath: string; message?: string; keyword: string; params: unknown }[] | null };

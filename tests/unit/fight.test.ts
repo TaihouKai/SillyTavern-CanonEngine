@@ -1,0 +1,133 @@
+import { describe, expect, it } from 'vitest';
+import { makeEngine, tick, at } from './fake';
+import { demoRaw } from './helpers';
+import { fightNow, linksOf, statusesOf, styleOf } from '../../src/core/domain/combat-state';
+
+const PROFILE = { player: { name: 'Ash', aliases: [], summary: 'a dock worker who boxed as a youth', public_identity: 'works the piers' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
+const PERSONA = 'Ash, a dock worker. Boxed as a youth: a hard right hook. Carries no weapon.';
+type X = ReturnType<typeof makeEngine>;
+
+async function setup() {
+  const x = makeEngine();
+  (x.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
+  x.model.on('profile', null, PROFILE);
+  await x.engine.bind(JSON.stringify(demoRaw()), { startTick: tick(1, 6, 0), mode: 'new' });
+  await x.engine.reconcile('test');
+  x.host.addUser('I look around the harbor.');
+  x.model.draft('The harbor at dawn. [F0]');
+  await x.engine.runOperation('normal');
+  return x;
+}
+const me = (x: X) => x.engine.playerProfile()!.profile.playerId;
+const st = (x: X) => x.engine.current!.replay.state;
+const L = (x: X) => x.engine.current!.index.pack;
+const ctx = (x: X) => String(x.model.tasks('draft').at(-1)!.input.engineContext);
+async function turn(x: X, user: string, draft: string, opts: { extract?: any; evaluate?: any; combat?: any; fill?: any } = {}) {
+  x.host.addUser(user);
+  if (opts.extract) x.model.on('extract_user', (i) => i.message === user, opts.extract, true);
+  if (opts.fill) x.model.on('combat_fill', null, opts.fill, true);
+  if (opts.combat) x.model.on('combat', (i) => i.player_message === user, opts.combat, true);
+  x.model.draft(draft);
+  x.model.on('evaluate', (i) => String(i.candidate).includes(draft.slice(-6)), { scene_end: at(1, 7, 0), ...(opts.evaluate || {}) });
+  return x.engine.runOperation('normal');
+}
+
+describe('战斗分析: a fight is judged before the reply', () => {
+  it('CF1 the player starts a fight with someone new: they get an identity, what nothing says is filled in, the ruling is judged and given to the GM, its states are recorded', async () => {
+    const x = await setup();
+    const msg = 'A thug in a yellow jacket grabs my collar. I hit him with my right hook.';
+    const ok = await turn(x, msg, 'Your fist lands; he staggers back. [F1]', {
+      extract: { fight: { state: 'starts', participants: ['Thug'], new_people: [{ name: 'Thug', description: 'a thug in a yellow jacket', quote: 'A thug in a yellow jacket' }], why: 'the player hits him' } },
+      fill: (i: any) => ({ people: i.people.map((p: any) => ({ who: p.who, links: [{ node: p.who === me(x) ? 'cb-ordinary' : 'cb-ordinary', label: 'is' }, { node: 'cb-firearms', label: 'not a concept' }], style: p.needs_style ? { start: 'picks on the weak', force: 'hits to hurt', response: 'hits back', limit: 'nothing', stop: 'runs when losing' } : null })) }),
+      combat: (i: any) => ({ exchanges: [{ actor: me(x), text: 'The hook lands on the thug\'s jaw.', basis: [{ ref: 'judgement' }] }, { actor: i.fighters.find((f: any) => f.id !== me(x)).id, text: 'He staggers back, dazed, and swings wildly.', basis: [{ ref: 'cb-ordinary' }] }], statuses: [{ who: i.fighters.find((f: any) => f.id !== me(x)).id, text: 'dazed', until: { minutes: 5 } }], over: false, stop_at: 'his wild swing comes at Ash' }),
+    });
+    expect(ok).toBe(true);
+    const f = fightNow(st(x));
+    expect(f.ongoing).toBe(true);
+    const thug = f.participants.find((p) => p !== me(x))!;
+    expect(thug).toMatch(/^rt\./);
+    expect(st(x).runtimeEntities.get(thug)?.name).toBe('Thug');
+    // what nothing said, filled in (lowest source); a non-concept is refused
+    expect(linksOf(L(x), st(x), thug).map((l) => `${l.node}:${l.source}`)).toEqual(['cb-ordinary:fill']);
+    expect(styleOf(L(x), st(x), thug)).toMatchObject({ source: 'fill', style: { stop: 'runs when losing' } });
+    // the fill call got the concepts as its menu; the analysis got the persona as a source and the player's words
+    expect(x.model.tasks('combat_fill').at(-1)!.input.concepts).toContain('cb-ordinary | Ordinary person | An untrained adult with no weapon.');
+    const ci = x.model.tasks('combat').at(-1)!.input;
+    expect(ci.sources.map((s: any) => s.ref)).toEqual(['persona']);
+    expect(ci.player_message).toBe(msg);
+    expect(ci.nodes.map((n: any) => n.id)).toContain('cb-ordinary');
+    // the GM writes the ruling; no 角色盘算 in a judged fight
+    expect(ctx(x)).toContain('COMBAT RULING (binding');
+    expect(ctx(x)).toContain("1. Ash: The hook lands on the thug's jaw.");
+    expect(ctx(x)).toContain('End the reply at this point: his wild swing comes at Ash');
+    expect(x.model.tasks('mind').length).toBe(0);
+    // the reviewer was given the ruling; its states are recorded with the reply, and kept with it for the panel
+    expect(x.model.tasks('evaluate').at(-1)!.input.fight_ruling.exchanges[1]).toMatch(/staggers back/);
+    expect(statusesOf(st(x), thug, tick(1, 6, 2)).map((s) => s.text)).toEqual(['dazed']);
+    expect(statusesOf(st(x), thug, tick(1, 6, 6)).map((s) => s.text)).toEqual([]); // five minutes from the start of the turn
+    const gm = x.engine.current!.replay.applied.at(-1)!.interp;
+    expect(gm.combat?.exchanges.length).toBe(2);
+  });
+
+  it('CF2 the player\'s words stand unless an objective mechanism stops them: a node reached through filled-in links or none is not one; the Persona quoted is', async () => {
+    const x = await setup();
+    const msg = 'I punch the thug and knock him out cold.';
+    const start = { fight: { state: 'starts', participants: ['Thug'], new_people: [{ name: 'Thug', description: 'a thug', quote: 'the thug' }] } };
+    await turn(x, msg, 'He goes down. [F2]', {
+      extract: start,
+      fill: (i: any) => ({ people: i.people.map((p: any) => ({ who: p.who, links: [{ node: 'cb-soldier', label: 'is' }], style: p.needs_style ? { start: 'x', force: 'x', response: 'x', limit: 'x', stop: 'x' } : null })) }),
+      combat: (i: any) => ({ exchanges: [{ actor: i.fighters.find((f: any) => f.id !== me(x)).id, text: 'He blocks the punch; trained soldiers do.', basis: [{ ref: 'cb-soldier' }], overrides: { quote: 'knock him out cold', why: 'soldiers block' } }], statuses: [], over: false }),
+    });
+    const ruling = x.engine.current!.replay.applied.at(-1)!.interp.combat!;
+    expect(ruling.exchanges).toEqual([]);
+    expect(ruling.stands).toEqual(['knock him out cold']);
+    expect(ctx(x)).toContain("The player's words stand as written: «knock him out cold»");
+
+    const msg2 = 'I punch him again, he cannot block that.';
+    await turn(x, msg2, 'Ash cannot reach. [F3]', {
+      extract: { fight: { state: 'continues', participants: [] } },
+      combat: (i: any) => ({ exchanges: [{ actor: me(x), text: 'Ash never fights armed men: he holds back.', basis: [{ ref: 'persona', quote: 'Carries no weapon.' }], overrides: { quote: 'he cannot block that', why: 'the Persona' } }], statuses: [], over: true, over_why: 'Ash walks away' }),
+    });
+    const r2 = x.engine.current!.replay.applied.at(-1)!.interp.combat!;
+    expect(r2.exchanges.length).toBe(1);
+    expect(r2.stands).toEqual([]);
+    expect(fightNow(st(x)).ongoing).toBe(false);
+  });
+
+  it('CF3 the reply is held to the ruling: a departure is sent back; with no fight, one the reply starts stops where it begins, and one it decides is sent back', async () => {
+    const x = await setup();
+    await turn(x, 'I swing at the thug.', 'The thug ducks. [F4a]', {
+      extract: { fight: { state: 'starts', participants: ['Thug'], new_people: [{ name: 'Thug', description: 'a thug', quote: 'the thug' }] } },
+      combat: (i: any) => ({ exchanges: [{ actor: i.fighters.find((f: any) => f.id !== me(x)).id, text: 'He ducks the swing.', basis: [{ ref: 'judgement' }] }], statuses: [], over: false }),
+      evaluate: { ruling_conflicts: [{ quote: '[F4a]', why: 'the reply has the thug fall' }] },
+    });
+    expect(x.engine.lastTimings!.repairs!.flat().join(' ')).toMatch(/departs from the combat ruling/);
+
+    const y = await setup();
+    expect(ctx(y)).toContain('FIGHTS (Canon Engine judges every fight');
+    await turn(y, 'I walk to the pier.', 'A man lunges at you with a knife. [F5]', { evaluate: { fight: { starts: true, participants: [me(y), 'mira'], resolved_unruled: false, quote: '[F5]' } } });
+    expect(fightNow(st(y))).toMatchObject({ ongoing: true, source: 'engine' });
+    const z = await setup();
+    await turn(z, 'I walk to the pier.', 'A man lunges and you beat him senseless. [F6]', { evaluate: { fight: { starts: true, participants: [me(z), 'mira'], resolved_unruled: true, quote: '[F6]' } } });
+    expect(z.engine.lastTimings!.repairs!.flat().join(' ')).toMatch(/decides a fight Canon Engine has not judged/);
+  });
+
+  it('CF4 states a reply shows are recorded with their words; without them nothing is', async () => {
+    const x = await setup();
+    await turn(x, 'I help Mira carry the crates.', 'Mira twists her ankle on the ramp. [F7]', { evaluate: { statuses: [
+      { who: 'mira', text: 'twisted ankle', until: 'lasting', quote: 'Mira twists her ankle' },
+      { who: 'mira', text: 'drunk', quote: 'nowhere in the reply' },
+    ] } });
+    expect(statusesOf(st(x), 'mira').map((s) => s.text)).toEqual(['twisted ankle']);
+  });
+});
+
+describe('states for the game master', () => {
+  it('CF5 the GM and the reviewer see the states of the people here; over ones are gone', async () => {
+    const x = await setup();
+    await turn(x, 'I help Mira carry the crates.', 'Mira cuts her hand on a nail. [F8]', { evaluate: { present: ['mira'], statuses: [{ who: 'mira', text: 'cut hand', until: { minutes: 600 }, quote: 'Mira cuts her hand' }] } });
+    await turn(x, 'We keep working.', 'You work on. [F9]');
+    expect(ctx(x)).toMatch(/STATES \(状态[^\n]*\n- Mira \[mira\]: cut hand \(until \d+ min from now\)/);
+    expect(String(x.model.tasks('evaluate').at(-1)!.input.retrieved_context)).toContain('- Mira [mira]: cut hand');
+  });
+});

@@ -103,7 +103,7 @@ export interface Walk { nodes: WalkedNode[]; /** reached but left out for the bu
  *  (depth 1) and their precedents, then outward along node links up to maxDepth. The walk never goes into another
  *  entity (from "magic" it does not reach every magus). Nodes up to fullDepth come whole, further ones as their gist;
  *  nodes reached from more of the starts come first; past the budget the furthest are left out (listed in cut). */
-export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts: { maxDepth: number; fullDepth: number; budgetChars: number; tick?: number }): Walk {
+export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts: { maxDepth: number; fullDepth: number; budgetChars: number; tick?: number; /** only what holds without filled-in links (what can stand against the player's words). */ objective?: boolean }): Walk {
   const tick = opts.tick ?? state.clock.lo;
   const seen = new Map<Id, { depth: number; from: Set<Id>; via: string }>();
   const reach = (node: Id, depth: number, from: Id, via: string) => {
@@ -115,7 +115,7 @@ export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts:
   };
   for (const e of starts) {
     let frontier: Id[] = [];
-    for (const l of linksOf(L, state, e, tick)) { reach(l.node, 1, e, `${e} ${l.label}`); frontier.push(l.node); }
+    for (const l of linksOf(L, state, e, tick)) { if (opts.objective && l.source === 'fill') continue; reach(l.node, 1, e, `${e} ${l.label}`); frontier.push(l.node); }
     for (const p of L.combat.precedentsOf.get(e) || []) { reach(p, 1, e, `${e} was in it`); frontier.push(p); }
     for (let d = 2; d <= opts.maxDepth && frontier.length; d++) {
       const next: Id[] = [];

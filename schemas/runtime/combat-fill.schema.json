@@ -1,0 +1,89 @@
+{
+ "type": "object",
+ "properties": {
+  "people": {
+   "type": "array",
+   "maxItems": 12,
+   "items": {
+    "type": "object",
+    "properties": {
+     "who": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "links": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+       "type": "object",
+       "properties": {
+        "node": {
+         "type": "string",
+         "maxLength": 120
+        },
+        "label": {
+         "type": "string",
+         "maxLength": 80
+        }
+       },
+       "required": [
+        "node",
+        "label"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "style": {
+      "anyOf": [
+       {
+        "type": "object",
+        "properties": {
+         "start": {
+          "type": "string",
+          "maxLength": 300
+         },
+         "force": {
+          "type": "string",
+          "maxLength": 300
+         },
+         "response": {
+          "type": "string",
+          "maxLength": 300
+         },
+         "limit": {
+          "type": "string",
+          "maxLength": 300
+         },
+         "stop": {
+          "type": "string",
+          "maxLength": 300
+         }
+        },
+        "required": [
+         "start",
+         "force",
+         "response",
+         "limit",
+         "stop"
+        ],
+        "additionalProperties": false
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "who",
+     "links"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "people"
+ ],
+ "additionalProperties": false
+}

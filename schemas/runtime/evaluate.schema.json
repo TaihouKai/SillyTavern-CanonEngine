@@ -930,6 +930,137 @@
     "maxLength": 40
    },
    "maxItems": 20
+  },
+  "statuses": {
+   "type": "array",
+   "maxItems": 30,
+   "items": {
+    "type": "object",
+    "properties": {
+     "who": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "text": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "count": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "until": {
+      "anyOf": [
+       {
+        "const": "lasting"
+       },
+       {
+        "type": "object",
+        "properties": {
+         "minutes": {
+          "type": "number"
+         }
+        },
+        "required": [
+         "minutes"
+        ],
+        "additionalProperties": false
+       },
+       {
+        "type": "object",
+        "properties": {
+         "event": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "event"
+        ],
+        "additionalProperties": false
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "removed": {
+      "type": "boolean"
+     },
+     "quote": {
+      "type": "string",
+      "maxLength": 300
+     }
+    },
+    "required": [
+     "who",
+     "text",
+     "quote"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "fight": {
+   "anyOf": [
+    {
+     "type": "null"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "starts": {
+       "type": "boolean"
+      },
+      "participants": {
+       "type": "array",
+       "maxItems": 12,
+       "items": {
+        "type": "string",
+        "maxLength": 120
+       }
+      },
+      "resolved_unruled": {
+       "type": "boolean"
+      },
+      "quote": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "starts",
+      "resolved_unruled"
+     ],
+     "additionalProperties": false
+    }
+   ]
+  },
+  "ruling_conflicts": {
+   "type": "array",
+   "maxItems": 10,
+   "items": {
+    "type": "object",
+    "properties": {
+     "quote": {
+      "type": "string",
+      "maxLength": 300
+     },
+     "why": {
+      "type": "string",
+      "maxLength": 300
+     }
+    },
+    "required": [
+     "quote",
+     "why"
+    ],
+    "additionalProperties": false
+   }
   }
  },
  "required": [

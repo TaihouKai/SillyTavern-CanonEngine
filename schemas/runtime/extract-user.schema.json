@@ -258,6 +258,69 @@
     "maxLength": 40
    },
    "maxItems": 20
+  },
+  "fight": {
+   "anyOf": [
+    {
+     "type": "null"
+    },
+    {
+     "type": "object",
+     "properties": {
+      "state": {
+       "enum": [
+        "none",
+        "starts",
+        "continues",
+        "ends"
+       ]
+      },
+      "participants": {
+       "type": "array",
+       "maxItems": 12,
+       "items": {
+        "type": "string",
+        "maxLength": 120
+       }
+      },
+      "new_people": {
+       "type": "array",
+       "maxItems": 8,
+       "items": {
+        "type": "object",
+        "properties": {
+         "name": {
+          "type": "string",
+          "maxLength": 80
+         },
+         "description": {
+          "type": "string",
+          "maxLength": 300
+         },
+         "quote": {
+          "type": "string",
+          "maxLength": 200
+         }
+        },
+        "required": [
+         "name",
+         "description",
+         "quote"
+        ],
+        "additionalProperties": false
+       }
+      },
+      "why": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "state"
+     ],
+     "additionalProperties": false
+    }
+   ]
   }
  },
  "required": [
