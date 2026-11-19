@@ -116,7 +116,7 @@ export interface CombatViewData {
   none: string | null; basis: string;
   fight: { ongoing: boolean; people: { id: Id; name: string }[]; source: string | null; since: string | null };
   rulings: { when: string; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean }[]; stopped: { quote: string; why: string; basis: string[] }[]; states: string[]; stands: string[]; joined: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
-  people: { id: Id; name: string; player?: boolean; fighting?: boolean; states: { text: string; count: number | null; until: string; source: string }[]; style: { start: string; force: string; response: string; limit: string; stop: string; source: string } | null; links: { node: string; name: string; kind: string; label: string; source: string }[] }[];
+  people: { id: Id; name: string; player?: boolean; fighting?: boolean; /** fighting, the player, with states, or changed in this game (the rest only when searched for). */ relevant: boolean; states: { text: string; count: number | null; until: string; source: string }[]; style: { start: string; force: string; response: string; limit: string; stop: string; source: string } | null; links: { node: string; name: string; kind: string; label: string; source: string }[] }[];
   hidden: number;
 }
 export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null | undefined, origin: Origin, rulings: { tick: number; ruling: import('./combat').Ruling }[]): CombatViewData {
@@ -136,7 +136,8 @@ export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null
       style: style ? { ...style.style, source: style.source } : null,
       links: linksOf(L, s, id, tick).map((l) => ({ node: l.node, name: L.combat.nodes.get(l.node)?.name || l.node, kind: L.combat.nodes.get(l.node)?.kind || '', label: l.label, source: l.source })),
     };
-  }).filter((p) => p.player || p.fighting || p.states.length || p.style || p.links.length);
+  }).filter((p) => p.player || p.fighting || p.states.length || p.style || p.links.length)
+    .map((p) => ({ ...p, relevant: !!(p.player || p.fighting || p.states.length || (p.style && p.style.source !== 'pack') || p.links.some((l) => l.source !== 'pack')) }));
   people.sort((a, b) => Number(!!b.fighting) - Number(!!a.fighting) || Number(!!b.player) - Number(!!a.player) || Number(b.states.length > 0) - Number(a.states.length > 0) || a.name.localeCompare(b.name, 'zh'));
   return {
     none: L.combat.none, basis: L.combat.basis,

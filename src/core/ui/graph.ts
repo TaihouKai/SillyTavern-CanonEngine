@@ -457,7 +457,7 @@ export interface CombatView {
   none: string | null; basis: string;
   fight: { ongoing: boolean; people: { id: string; name: string }[]; source: string | null; since: string | null };
   rulings: { when: string; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean }[]; stopped: { quote: string; why: string; basis: string[] }[]; states: string[]; stands: string[]; joined: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
-  people: { id: string; name: string; player?: boolean; fighting?: boolean; states: { text: string; count: number | null; until: string; source: string }[]; style: { start: string; force: string; response: string; limit: string; stop: string; source: string } | null; links: { node: string; name: string; kind: string; label: string; source: string }[] }[];
+  people: { id: string; name: string; player?: boolean; fighting?: boolean; relevant: boolean; states: { text: string; count: number | null; until: string; source: string }[]; style: { start: string; force: string; response: string; limit: string; stop: string; source: string } | null; links: { node: string; name: string; kind: string; label: string; source: string }[] }[];
   hidden: number;
 }
 export type CombatChange = { fight: { ongoing: boolean; participants?: string[] } } | { status: { entity: string; text: string; count?: number | null; minutes?: number | null } | { entity: string; text: string; removed: true } } | { style: { entity: string; style: { start: string; force: string; response: string; limit: string; stop: string } } };
@@ -631,7 +631,7 @@ export class GraphPanel {
       + (r.notes.length ? `<div class="cg-hint">${esc(t('combatNotes'))}${esc(r.notes.join('；'))}</div>` : '')
       + '</details>';
     const rulings = v.rulings.length ? v.rulings.map(ruling).join('') : `<div class="cg-empty">${t('combatNoRulings')}</div>`;
-    const people = v.people.filter((p) => !q || p.name.toLowerCase().includes(q));
+    const people = v.people.filter((p) => (q ? p.name.toLowerCase().includes(q) : p.relevant));
     const keys = ['start', 'force', 'response', 'limit', 'stop'] as const;
     const person = (p: CombatView['people'][number]) => {
       const states = p.states.length
@@ -643,7 +643,7 @@ export class GraphPanel {
       const pick = !v.fight.ongoing ? `<input type="checkbox" class="cb-pick" data-entity="${esc(p.id)}" title="${esc(t('combatPick'))}"> ` : '';
       return `<details class="cg-nperson cg-cbperson" data-entity="${esc(p.id)}"${p.fighting || p.player ? ' open' : ''}><summary>${pick}${esc(p.name)}${p.player ? ` <span class="cg-hint">${t('naturePlayer')}</span>` : ''}${p.fighting ? ` <span class="cg-key cg-nstate-now">${t('combatFighting')}</span>` : ''}${p.states.length ? ` <span class="cg-hint">${esc(p.states.map((s) => s.text).join('、'))}</span>` : ''}</summary><h4>${t('combatStates')}</h4>${states}${add}<h4>${t('combatStyle')}</h4>${style}${links}</details>`;
     };
-    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint"><b>${t('combatBasis')}</b>：${esc(v.basis)}</div>${fight}<h4>${t('combatRulings')}</h4>${rulings}<h4>${t('combatStates')} · ${t('combatStyle')}</h4><div class="cg-hint">${t('combatPeopleNote').replace('{n}', String(people.length))}</div>${people.map(person).join('')}${v.hidden ? `<div class="cg-hint">${t('combatHidden').replace('{n}', String(v.hidden))}</div>` : ''}</div>`;
+    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint"><b>${t('combatBasis')}</b>：${esc(v.basis)}</div>${fight}<h4>${t('combatRulings')}</h4>${rulings}<h4>${t('combatStates')} · ${t('combatStyle')}</h4><div class="cg-hint">${t(q ? 'combatPeopleFound' : 'combatPeopleNote').replace('{n}', String(people.length)).replace('{all}', String(v.people.length))}</div>${people.map(person).join('')}${v.hidden ? `<div class="cg-hint">${t('combatHidden').replace('{n}', String(v.hidden))}</div>` : ''}</div>`;
   }
 
   /** A change the 战斗 view's buttons make (the engine keeps it as the player's own record). */
