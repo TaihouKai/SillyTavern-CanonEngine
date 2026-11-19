@@ -452,6 +452,16 @@ export interface RelationsView {
   hidden: number;
 }
 
+/** 战斗 as the timeline shows it (see CanonEngine.combatView), and the changes its buttons make (editCombat). */
+export interface CombatView {
+  none: string | null; basis: string;
+  fight: { ongoing: boolean; people: { id: string; name: string }[]; source: string | null; since: string | null };
+  rulings: { when: string; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean; overrides?: string }[]; states: string[]; stands: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
+  people: { id: string; name: string; player?: boolean; fighting?: boolean; states: { text: string; count: number | null; until: string; source: string }[]; style: { start: string; force: string; response: string; limit: string; stop: string; source: string } | null; links: { node: string; name: string; kind: string; label: string; source: string }[] }[];
+  hidden: number;
+}
+export type CombatChange = { fight: { ongoing: boolean; participants?: string[] } } | { status: { entity: string; text: string; count?: number | null; minutes?: number | null } | { entity: string; text: string; removed: true } } | { style: { entity: string; style: { start: string; force: string; response: string; limit: string; stop: string } } };
+
 /** Forms of address as the panels show them: 「姐姐大人」（总是）；「那个笨蛋」（有时：跟别人提起他时）. */
 export function addressText(list: { term: string; use: string; when?: string }[]): string {
   return list.map((f) => `「${f.term}」（${t('addrUse_' + f.use)}${f.when ? `：${f.when}` : ''}）`).join('；');
@@ -488,9 +498,14 @@ export class GraphPanel {
   private getNature: (spoilers: boolean) => NatureView | null;
   private showRelations = false;
   private getRelations: (spoilers: boolean) => RelationsView | null;
+  private showCombat = false;
+  private getCombat: (spoilers: boolean) => CombatView | null;
+  private onCombat: (change: CombatChange) => Promise<void>;
 
-  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined, linkCandidates: GraphPanel['linkCandidates'] = () => [], getMembers: GraphPanel['getMembers'] = () => null, getNature: GraphPanel['getNature'] = () => null, getRelations: GraphPanel['getRelations'] = () => null) {
+  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined, linkCandidates: GraphPanel['linkCandidates'] = () => [], getMembers: GraphPanel['getMembers'] = () => null, getNature: GraphPanel['getNature'] = () => null, getRelations: GraphPanel['getRelations'] = () => null, getCombat: GraphPanel['getCombat'] = () => null, onCombat: GraphPanel['onCombat'] = async () => undefined) {
     this.getData = getData;
+    this.getCombat = getCombat;
+    this.onCombat = onCombat;
     this.getRelations = getRelations;
     this.getMembers = getMembers;
     this.getNature = getNature;
@@ -520,12 +535,12 @@ export class GraphPanel {
     this.data = { pack: d.pack, current: d.current };
     this.preview = !!d.preview;
     // a library pack seen without a world: only its canon reference view
-    if (d.preview && !d.current) { this.mode = 'pack'; this.showMembers = false; this.showNature = false; this.showRelations = false; }
+    if (d.preview && !d.current) { this.mode = 'pack'; this.showMembers = false; this.showNature = false; this.showRelations = false; this.showCombat = false; }
     if (!d.current && this.mode === 'current') this.mode = 'pack';
     const g0 = this.mode === 'pack' ? d.pack : d.current;
     const g = g0 ? this.applyFilter(g0) : null;
     // lay out and draw first: the legend lists the frames near the view
-    const canvasHtml = this.showRelations ? this.relationsHtml(d.spoilers) : this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t('graphNoData')}</div>` : this.firstSvg(g);
+    const canvasHtml = this.showCombat ? this.combatHtml(d.spoilers) : this.showRelations ? this.relationsHtml(d.spoilers) : this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t('graphNoData')}</div>` : this.firstSvg(g);
     const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc(a.id)}" ${a.id === this.filter.arc ? 'selected' : ''}>${esc(a.title)}</option>`).join('');
     this.el.innerHTML = `
       <div class="cg-head">
@@ -543,6 +558,7 @@ export class GraphPanel {
         ${d.preview && !d.current ? '' : `<button class="menu_button ${this.showMembers ? 'active' : ''}" data-act="members" title="${esc(t('membersTip'))}">${t('members')}</button>`}
         ${d.preview && !d.current ? '' : `<button class="menu_button cg-nature-btn ${this.showNature ? 'active' : ''}" data-act="nature" title="${esc(t('natureTip'))}">${t('nature')}</button>`}
         ${d.preview && !d.current ? '' : `<button class="menu_button cg-relations-btn ${this.showRelations ? 'active' : ''}" data-act="relations" title="${esc(t('relationsTip'))}">${t('relations')}</button>`}
+        ${d.preview || !d.current ? '' : `<button class="menu_button cg-combat-btn ${this.showCombat ? 'active' : ''}" data-act="combat" title="${esc(t('combatTip'))}">${t('combat')}</button>`}
         <button class="menu_button" data-act="fit">${t('graphFit')}</button>
         <button class="menu_button" data-act="close">✕</button>
       </div>
@@ -591,6 +607,57 @@ export class GraphPanel {
     };
     const mind = (m: NonNullable<NatureView['people'][number]['mind']>) => `<div class="cg-nver cg-nmind"><div class="cg-nhead">${t('mindTitle')} <span class="cg-key">${t('mindDelib_' + m.deliberation)} · ${t('mindSharp_' + m.sharpness)}</span></div>${(['approach', 'thinks_hard_about', 'pushed', 'notices', 'blind', 'speaks'] as const).map((k) => field('mind_' + k, m[k] || '')).join('')}</div>`;
     return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t('natureNote').replace('{n}', String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? ' open' : ''}><summary>${esc(p.name)}${p.player ? ` <span class="cg-hint">${t('naturePlayer')}</span>` : ''}${p.versions.length > 1 ? ` <span class="cg-hint">${t('natureVersions').replace('{n}', String(p.versions.length))}</span>` : ''}</summary>${p.versions.map((x) => ver(x, !!p.player)).join('')}${p.mind ? mind(p.mind) : ''}</details>`).join('')}${v.hidden ? `<div class="cg-hint">${t('natureHidden').replace('{n}', String(v.hidden))}</div>` : ''}</div>`;
+  }
+
+  /** 战斗: the fight now (with the player's correction), the last rulings, and each person's states (editable),
+   *  对抗倾向 (editable) and links; the search box filters people by name. */
+  private combatHtml(spoilers: boolean): string {
+    const v = this.getCombat(spoilers);
+    if (!v) return `<div class="cg-empty">${t('graphNoData')}</div>`;
+    if (v.none !== null) return `<div class="cg-memberswrap"><div class="cg-empty">${esc(t('combatNone').replace('{r}', v.none))}</div></div>`;
+    const q = this.filter.q.trim().toLowerCase();
+    const src = (s: string) => `<span class="cg-hint">${esc(t('combatSrc_' + s))}</span>`;
+    const fight = v.fight.ongoing
+      ? `<div class="cg-cbfight cg-cbon"><b>${esc(t('combatFightOn').replace('{p}', v.fight.people.map((p) => p.name).join('、')).replace('{t}', v.fight.since || ''))}</b> <button class="menu_button" data-act="cb-fight-off" title="${esc(t('combatEndTip'))}">${t('combatEnd')}</button></div>`
+      : `<div class="cg-cbfight"><span>${t('combatFightOff')}</span> <button class="menu_button" data-act="cb-fight-on" title="${esc(t('combatStartTip'))}">${t('combatStart')}</button></div>`;
+    const ruling = (r: CombatView['rulings'][number], i: number) => `<details class="cg-nperson"${i === 0 ? ' open' : ''}><summary>${esc(r.when)}${r.over ? ` <span class="cg-key">${esc(t('combatOver'))}${esc(r.overWhy)}</span>` : ''}</summary>`
+      + `<ol class="cg-cbex">${r.exchanges.map((x) => `<li><b>${esc(x.who)}</b>：${esc(x.text)}<div class="cg-hint">${x.unsupported ? esc(t('combatUnsupported')) : esc(x.basis.join('；'))}${x.overrides ? `<br>${esc(t('combatOverrides'))}«${esc(x.overrides)}»` : ''}</div></li>`).join('')}</ol>`
+      + (r.states.length ? `<div class="cg-nfield"><b>${t('combatStates')}</b>${esc(r.states.join('；'))}</div>` : '')
+      + (r.stands.length ? `<div class="cg-nfield">${esc(t('combatStands'))}${r.stands.map((s) => `«${esc(s)}»`).join(' ')}</div>` : '')
+      + (!r.over && r.stopAt ? `<div class="cg-hint">${esc(t('combatStop'))}${esc(r.stopAt)}</div>` : '')
+      + (r.filled.length ? `<div class="cg-hint">${esc(t('combatFilled'))}${esc(r.filled.join('；'))}</div>` : '')
+      + (r.notes.length ? `<div class="cg-hint">${esc(t('combatNotes'))}${esc(r.notes.join('；'))}</div>` : '')
+      + '</details>';
+    const rulings = v.rulings.length ? v.rulings.map(ruling).join('') : `<div class="cg-empty">${t('combatNoRulings')}</div>`;
+    const people = v.people.filter((p) => !q || p.name.toLowerCase().includes(q));
+    const keys = ['start', 'force', 'response', 'limit', 'stop'] as const;
+    const person = (p: CombatView['people'][number]) => {
+      const states = p.states.length
+        ? `<table class="canon-table cg-members">${p.states.map((s) => `<tr><td>${esc(s.text)}${s.count !== null ? ` ×${s.count}` : ''}</td><td>${s.until ? esc(t('combatUntil').replace('{t}', s.until)) : ''}</td><td>${src(s.source)}</td><td><button class="menu_button" data-act="cb-state-del" data-entity="${esc(p.id)}" data-text="${esc(s.text)}">✕</button></td></tr>`).join('')}</table>`
+        : `<div class="cg-hint">${t('combatNoStates')}</div>`;
+      const add = `<div class="cg-cbadd"><input class="text_pole cb-st-text" placeholder="${esc(t('combatStateText'))}"><input class="text_pole cb-st-count" type="number" min="0" placeholder="${esc(t('combatCount'))}"><input class="text_pole cb-st-min" type="number" min="1" placeholder="${esc(t('combatMinutes'))}"><button class="menu_button" data-act="cb-state-add" data-entity="${esc(p.id)}">${t('combatAddState')}</button></div>`;
+      const style = `<div class="cg-cbstyle">${keys.map((k) => `<label><b>${t('style_' + k)}</b><textarea class="text_pole cb-sty-${k}" rows="1">${esc(p.style?.[k] || '')}</textarea></label>`).join('')}<div>${p.style ? src(p.style.source) : `<span class="cg-hint">${t('combatNoStyle')}</span>`} <button class="menu_button" data-act="cb-style-save" data-entity="${esc(p.id)}">${t('combatStyleSave')}</button></div></div>`;
+      const links = p.links.length ? `<div class="cg-nfield"><b>${t('combatLinks')}</b>${p.links.map((l) => `${esc(l.label)} ${esc(l.name)} ${src(l.source)}`).join('；')}</div>` : '';
+      const pick = !v.fight.ongoing ? `<input type="checkbox" class="cb-pick" data-entity="${esc(p.id)}" title="${esc(t('combatPick'))}"> ` : '';
+      return `<details class="cg-nperson cg-cbperson" data-entity="${esc(p.id)}"${p.fighting || p.player ? ' open' : ''}><summary>${pick}${esc(p.name)}${p.player ? ` <span class="cg-hint">${t('naturePlayer')}</span>` : ''}${p.fighting ? ` <span class="cg-key cg-nstate-now">${t('combatFighting')}</span>` : ''}${p.states.length ? ` <span class="cg-hint">${esc(p.states.map((s) => s.text).join('、'))}</span>` : ''}</summary><h4>${t('combatStates')}</h4>${states}${add}<h4>${t('combatStyle')}</h4>${style}${links}</details>`;
+    };
+    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint"><b>${t('combatBasis')}</b>：${esc(v.basis)}</div>${fight}<h4>${t('combatRulings')}</h4>${rulings}<h4>${t('combatStates')} · ${t('combatStyle')}</h4><div class="cg-hint">${t('combatPeopleNote').replace('{n}', String(people.length))}</div>${people.map(person).join('')}${v.hidden ? `<div class="cg-hint">${t('combatHidden').replace('{n}', String(v.hidden))}</div>` : ''}</div>`;
+  }
+
+  /** A change the 战斗 view's buttons make (the engine keeps it as the player's own record). */
+  private combatAct(b: HTMLElement) {
+    const act = b.dataset.act!, entity = b.dataset.entity || '';
+    const box = b.closest('.cg-cbperson') as HTMLElement | null;
+    const val = (sel: string) => ((box?.querySelector(sel) as HTMLInputElement | HTMLTextAreaElement | null)?.value || '').trim();
+    let change: CombatChange | null = null;
+    if (act === 'cb-fight-off') change = { fight: { ongoing: false } };
+    else if (act === 'cb-fight-on') change = { fight: { ongoing: true, participants: [...this.el.querySelectorAll('.cb-pick:checked')].map((x) => (x as HTMLElement).dataset.entity!) } };
+    else if (act === 'cb-state-del') change = { status: { entity, text: b.dataset.text || '', removed: true } };
+    else if (act === 'cb-state-add' && val('.cb-st-text')) change = { status: { entity, text: val('.cb-st-text'), count: val('.cb-st-count') ? Number(val('.cb-st-count')) : null, minutes: val('.cb-st-min') ? Number(val('.cb-st-min')) : null } };
+    else if (act === 'cb-style-save') change = { style: { entity, style: { start: val('.cb-sty-start'), force: val('.cb-sty-force'), response: val('.cb-sty-response'), limit: val('.cb-sty-limit'), stop: val('.cb-sty-stop') } } };
+    if (!change) return;
+    (b as HTMLButtonElement).disabled = true;
+    void this.onCombat(change).finally(() => { this.keepView = true; this.refresh(); });
   }
 
   /** 角色关系: a table, one row a relation — in force in this game now, or (spoilers) a pack stage still to come; the
@@ -729,9 +796,11 @@ export class GraphPanel {
     if (b?.dataset.mode) { this.mode = b.dataset.mode as 'pack' | 'current'; this.selected = null; this.refresh(); return; }
     if (b?.dataset.act === 'close') { this.toggle(false); return; }
     if (b?.dataset.act === 'preview-exit') { this.onPreviewEnd?.(); this.selected = null; this.keepView = false; this.refresh(); return; }
-    if (b?.dataset.act === 'members') { this.showMembers = !this.showMembers; this.showNature = false; this.showRelations = false; this.keepView = true; this.refresh(); return; }
-    if (b?.dataset.act === 'nature') { this.showNature = !this.showNature; this.showMembers = false; this.showRelations = false; this.keepView = true; this.refresh(); return; }
-    if (b?.dataset.act === 'relations') { this.showRelations = !this.showRelations; this.showMembers = false; this.showNature = false; this.keepView = true; this.refresh(); return; }
+    if (b?.dataset.act === 'members') { this.showMembers = !this.showMembers; this.showNature = false; this.showRelations = false; this.showCombat = false; this.keepView = true; this.refresh(); return; }
+    if (b?.dataset.act === 'nature') { this.showNature = !this.showNature; this.showMembers = false; this.showRelations = false; this.showCombat = false; this.keepView = true; this.refresh(); return; }
+    if (b?.dataset.act === 'relations') { this.showRelations = !this.showRelations; this.showMembers = false; this.showNature = false; this.showCombat = false; this.keepView = true; this.refresh(); return; }
+    if (b?.dataset.act === 'combat') { this.showCombat = !this.showCombat; this.showMembers = false; this.showNature = false; this.showRelations = false; this.keepView = true; this.refresh(); return; }
+    if (b?.dataset.act?.startsWith('cb-')) { this.combatAct(b); return; }
     if (b?.dataset.act === 'fit') { (this as unknown as { fit?: () => void }).fit?.(); return; }
     if (b?.dataset.act === 'digest' || b?.dataset.act === 'undigest') {
       (b as HTMLButtonElement).disabled = true;

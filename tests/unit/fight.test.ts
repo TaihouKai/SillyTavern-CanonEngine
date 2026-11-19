@@ -131,3 +131,30 @@ describe('states for the game master', () => {
     expect(String(x.model.tasks('evaluate').at(-1)!.input.retrieved_context)).toContain('- Mira [mira]: cut hand');
   });
 });
+
+describe('the 战斗 view and the player\'s corrections', () => {
+  it('CF6 the view lists the fight, the rulings and everyone\'s states; the player turns the fight on and off, adds and takes away states and sets 对抗倾向', async () => {
+    const x = await setup();
+    await turn(x, 'I hit the thug.', 'He reels. [F10]', {
+      extract: { fight: { state: 'starts', participants: ['Thug'], new_people: [{ name: 'Thug', description: 'a thug', quote: 'the thug' }] } },
+      combat: (i: any) => ({ exchanges: [{ actor: me(x), text: 'Ash hits the thug.', basis: [{ ref: 'judgement' }] }], statuses: [{ who: me(x), text: 'bruised knuckles', until: 'lasting' }], over: false, stop_at: 'he swings back' }),
+    });
+    let v = x.engine.combatView(false)!;
+    expect(v.none).toBe(null);
+    expect(v.fight.ongoing).toBe(true);
+    expect(v.fight.people.map((p) => p.name)).toEqual(['Ash', 'Thug']);
+    expect(v.rulings[0].exchanges[0]).toMatchObject({ who: 'Ash', text: 'Ash hits the thug.', unsupported: true });
+    expect(v.people[0]).toMatchObject({ name: 'Ash', player: true, fighting: true, states: [{ text: 'bruised knuckles', source: 'play' }] });
+    expect(v.people.find((p) => p.name === 'Mira')!.style!.source).toBe('pack');
+    await x.engine.editCombat({ fight: { ongoing: false } });
+    expect(fightNow(st(x))).toMatchObject({ ongoing: false, source: 'ui' });
+    await x.engine.editCombat({ status: { entity: 'mira', text: 'sprained wrist', count: null, minutes: 120 } });
+    await x.engine.editCombat({ status: { entity: me(x), text: 'bruised knuckles', removed: true } });
+    await x.engine.editCombat({ style: { entity: 'mira', style: { start: 'never', force: 'none', response: 'hides', limit: 'patients', stop: 'at once' } } });
+    v = x.engine.combatView(false)!;
+    expect(v.people.find((p) => p.name === 'Mira')).toMatchObject({ states: [{ text: 'sprained wrist', source: 'ui' }], style: { response: 'hides', source: 'ui' } });
+    expect(v.people.find((p) => p.name === 'Ash')!.states).toEqual([]);
+    await x.engine.editCombat({ fight: { ongoing: true, participants: ['mira', me(x)] } });
+    expect(fightNow(st(x))).toMatchObject({ ongoing: true, participants: ['mira', me(x)], source: 'ui' });
+  });
+});

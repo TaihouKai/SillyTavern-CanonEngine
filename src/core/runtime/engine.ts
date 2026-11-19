@@ -35,7 +35,7 @@ import { answeredBy, contactDecision, playedProfile, playerOrgs, nameIn, isIn, c
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, voiceTurnNote, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
-import { membershipView, natureView, relationsView, type MembershipView, type NatureViewData, type RelationsViewData } from './views';
+import { combatView, membershipView, natureView, relationsView, type CombatViewData, type MembershipView, type NatureViewData, type RelationsViewData } from './views';
 
 export interface EngineSettings {
   maxOrdinaryPlanner: number;
@@ -3170,6 +3170,46 @@ export class CanonEngine {
   natureView(spoilers: boolean): NatureViewData | null {
     if (!this.campaign() || !this.current) return null;
     return natureView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign()!.binding.originDate);
+  }
+
+  /** 战斗: the fight, the last rulings and everyone's states and 对抗倾向, as the timeline window shows them. */
+  combatView(spoilers: boolean): CombatViewData | null {
+    if (!this.campaign() || !this.current) return null;
+    const rulings = this.current.replay.applied.filter((a) => a.interp.combat).map((a) => ({ tick: a.interp.records.find((r) => r.kind === 'combat')?.storyTime.lo ?? a.interp.sceneEnd?.lo ?? this.current!.replay.state.clock.lo, ruling: a.interp.combat! }));
+    return combatView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign()!.binding.originDate, rulings);
+  }
+
+  /** The player's own change of 战斗 in the panel — the fight on or off (just the state from then on, no lock), a
+   *  state of someone (null: taken away), someone's 对抗倾向 (null: back to what the pack or play says) — kept as a
+   *  record after the current last message, like the panel's relation changes. */
+  async editCombat(change: { fight: { ongoing: boolean; participants?: Id[] } } | { status: { entity: Id; text: string; count?: number | null; minutes?: number | null } | { entity: Id; text: string; removed: true } } | { style: { entity: Id; style: { start: string; force: string; response: string; limit: string; stop: string } } }): Promise<void> {
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
+    const c = this.campaign();
+    if (!c || !this.current) return;
+    const idx = this.current.index;
+    const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
+    const tick = this.current.replay.state.clock.lo;
+    const base = { recordId: newId('rec'), kind: 'combat' as const, storyTime: { lo: tick, hi: tick, precision: 'minute' as const }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public' as const, knower_ids: [] }, evidenceKind: 'direct' as const };
+    let rec: RecordDraft;
+    if ('fight' in change) {
+      const now = fightNow(idx.state);
+      const participants = uniq((change.fight.participants?.length ? change.fight.participants : now.participants.length ? now.participants : this.playerProfile() ? [this.playerProfile()!.profile.playerId] : []).filter((x) => idx.entityExists(x)));
+      rec = { ...base, summary: `Fight ${change.fight.ongoing ? 'on' : 'over'} (Canon Engine panel)`, fight: { ongoing: change.fight.ongoing, participants, source: 'ui' } };
+    } else if ('status' in change) {
+      const s = change.status;
+      const text = String(s.text || '').trim().slice(0, 120);
+      if (!text || !idx.entityExists(s.entity)) return;
+      const minutes = 'minutes' in s && s.minutes && s.minutes > 0 ? Math.round(s.minutes) : null;
+      rec = { ...base, summary: `State of ${idx.entityName(s.entity)}: ${'removed' in s ? 'removed' : 'set'} ${text} (Canon Engine panel)`, statuses: [{ entity: s.entity, text, ...('removed' in s ? { removed: true } : { ...(s.count != null && Number.isFinite(s.count) ? { count: Math.max(0, Math.round(s.count)) } : {}), until: minutes ? { minutes } : 'lasting' }), source: 'ui' }] };
+    } else {
+      const st = change.style.style;
+      if (!idx.entityExists(change.style.entity) || ![st.start, st.force, st.response, st.limit, st.stop].every((x) => String(x || '').trim())) return;
+      rec = { ...base, summary: `对抗倾向 of ${idx.entityName(change.style.entity)} (Canon Engine panel)`, styles: [{ entity: change.style.entity, style: { start: st.start.trim(), force: st.force.trim(), response: st.response.trim(), limit: st.limit.trim(), stop: st.stop.trim() }, source: 'ui' }] };
+    }
+    c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+    c.configRevisions.push({ at: this.host.now(), summary: rec.summary });
+    await this.host.save();
+    await this.reconcile('combat_edited');
   }
 
   /** 角色关系: every pair this game knows of, as the timeline window shows them (see views.relationsView). */
