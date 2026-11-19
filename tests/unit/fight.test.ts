@@ -201,4 +201,17 @@ describe('someone here joins', () => {
     expect(r.exchanges.map((e) => e.actor)).toContain('mira');
     expect(fightNow(st(x)).participants).toContain('mira');
   });
+
+  it('CF8 someone present whom the ruling has act in the fight has joined it, even when joins leaves them out', async () => {
+    const x = await setup();
+    await turn(x, 'I talk with Mira on the pier.', 'Mira listens. [F13]', { evaluate: { present: ['mira'] } });
+    await turn(x, 'A thug shoves me; I shove him back.', 'He stumbles. [F14]', {
+      extract: { fight: { state: 'starts', participants: ['Thug'], new_people: [{ name: 'Thug', description: 'a thug', quote: 'A thug' }] } },
+      combat: () => ({ joins: [], player_outcomes: [], exchanges: [{ actor: me(x), text: 'Ash shoves him back.', basis: [{ ref: 'judgement' }] }, { actor: 'Mira', text: 'Mira grabs the thug.', basis: [{ ref: 'judgement' }] }], statuses: [], over: false }),
+    });
+    const r = x.engine.current!.replay.applied.at(-1)!.interp.combat!;
+    expect(r.joined).toEqual(['mira']);
+    expect(r.exchanges.map((e) => e.actor)).toContain('mira');
+    expect(fightNow(st(x)).participants).toContain('mira');
+  });
 });

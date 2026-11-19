@@ -35633,10 +35633,11 @@ async function judgeFight(a) {
     }
   }
   const outcomes = checked.list;
-  const joined = uniq((out.joins || []).map((x) => bystanders.includes(x) ? x : (() => {
+  const bystander = (x) => bystanders.includes(String(x)) ? String(x) : (() => {
     const r = index.resolveEntity(String(x));
     return r.ids.length === 1 && bystanders.includes(r.ids[0]) ? r.ids[0] : null;
-  })()).filter((x) => !!x));
+  })();
+  const joined = uniq([...out.joins || [], ...(out.exchanges || []).map((x) => x.actor)].map(bystander).filter((x) => !!x));
   fighters.push(...joined);
   const exchanges = [];
   for (const x of out.exchanges || []) {

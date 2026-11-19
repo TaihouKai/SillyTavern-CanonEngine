@@ -174,7 +174,10 @@ export async function judgeFight(a: {
     for (const q of checked.unfounded) { stands.push(q); checked.list.push({ quote: q, stands: true, why: 'no objective mechanism stops it', basis: [] }); }
   }
   const outcomes = checked.list;
-  const joined = uniq((out.joins || []).map((x) => (bystanders.includes(x) ? x : (() => { const r = index.resolveEntity(String(x)); return r.ids.length === 1 && bystanders.includes(r.ids[0]) ? r.ids[0] : null; })())).filter((x): x is Id => !!x));
+  const bystander = (x: unknown) => (bystanders.includes(String(x)) ? String(x) : (() => { const r = index.resolveEntity(String(x)); return r.ids.length === 1 && bystanders.includes(r.ids[0]) ? r.ids[0] : null; })());
+  // someone present the ruling has act in the fight has joined it, said or not (live: the grudge holder's Level 3
+  // friend attacked the player and his exchange was dropped as "not a fighter")
+  const joined = uniq([...(out.joins || []), ...(out.exchanges || []).map((x) => x.actor)].map(bystander).filter((x): x is Id => !!x));
   fighters.push(...joined);
   const exchanges: RulingExchange[] = [];
   for (const x of out.exchanges || []) {
