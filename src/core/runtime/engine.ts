@@ -26,7 +26,7 @@ import { matchScope, runGate, toStoryTime, type EvalOutput, type GateInput, type
 import { checkTimeEvidence, evidenceLine, settleSceneEnd } from './scenetime';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { settleRelations } from './relate';
-import { grudgesForReview, grudgesNow, hostileDue, hostileSection, hostilityPanelRecord, hostilityView, type DangerLevel, type HostileDue, type HostilityChange, type HostilityViewData } from '../hostility';
+import { dangerSources, grudgesForReview, grudgesNow, hostileDue, hostileSection, hostilityPanelRecord, hostilityView, type DangerLevel, type HostileDue, type HostilityChange, type HostilityViewData } from '../hostility';
 import { DEFAULT_COMBAT, combatBeforeReply, combatReview, combatView, fightFromMessage, fightNow, fightNowInput, judgeFight, panelRecord, rulingForReview, rulingRecord, statesSection, type CombatChange, type CombatViewData, type FightOut, type Ruling } from '../combat';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
@@ -1239,6 +1239,7 @@ export class CanonEngine {
       // seed the next turn's retrieval, so including lookups made the set snowball to its cap.
       sceneEntities: uniq([...gate.sceneEntities, ...review.retrieval.entries.flatMap((e) => e.resolved.entityIds)].filter((x) => index.entityExists(x) || gate.runtimeEntities.some((r) => r.id === x))).slice(0, 24),
       ...(gate.present.length ? { present: gate.present } : {}),
+      ...(gate.places.length ? { places: gate.places } : {}),
       ...this.sceneGroupsOf(index, userEntry, review.evaluation.scene_groups || []),
       offscreenBasis: [], warnings: gate.warnings.slice(0, 20), manifestId: review.manifest?.manifestId,
     };
@@ -1338,7 +1339,7 @@ export class CanonEngine {
       staged_offscreen: a.stagedNotes,
       due_hard: due.map((h) => ({ event_id: h.event.id, required_description: h.event.required_description, outcomes: h.event.outcomes, earliest: h.event.when.earliest, latest: h.event.when.latest })),
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== 'invalidated').map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
-      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.entities.keys(), ...a.sceneSeeds, ...(prof ? [prof.profile.playerId] : []), ...(a.offered?.actors || []), ...fightNow(index.state).participants, ...grudgesNow(index.state).map((g) => g.holder)], { notes: true }),
+      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.entities.keys(), ...a.sceneSeeds, ...(prof ? [prof.profile.playerId] : []), ...(a.offered?.actors || []), ...fightNow(index.state).participants, ...grudgesNow(index.state).map((g) => g.holder), ...dangerSources(index.pack).filter((x) => index.entityKind(x) === 'place')], { notes: true }),
       reeval_reasons: a.reevalReasons || [],
       player_entity: prof ? { id: prof.profile.playerId, name: prof.profile.personaName } : null,
       grudges_now: grudgesForReview(index),
@@ -1771,7 +1772,7 @@ export class CanonEngine {
         // 主动敌对 (hostility/turn.ts): a grudge whose time came, or the danger of where the player is, comes for them
         const hostile: HostileDue | null = prof && !leapTo && !continuing ? hostileDue({
           index: rIndex, tick: jumpTo ?? cp, playerId: prof.profile.playerId,
-          places: uniq([...sceneSeeds, ...horaeSceneIds, ...(prevGmInterp?.present || [])]).filter((x) => rIndex.entityExists(x) && rIndex.entityKind(x) === 'place'),
+          places: (Array.isArray(userInterp?.sceneGroups) ? userInterp!.sceneEntities : prevGmInterp?.places?.length ? prevGmInterp.places : horaeSceneIds).filter((x) => rIndex.entityExists(x) && rIndex.entityKind(x) === 'place'),
           orgs: playerOrgs(rIndex, prof.profile, cp).filter(isIn).map((o) => o.id),
           dangers: { on: this.settings.dangers !== false, level: this.settings.dangerLevel || 'medium' }, seed: c.sessionId,
         }) : null;
@@ -3213,8 +3214,8 @@ export class CanonEngine {
     if (!this.campaign() || !this.current) return null;
     const idx = this.current.index;
     const prof = this.playerProfile();
-    const last = this.current.replay.applied.slice().reverse().find((x) => x.interp.sceneEntities?.length);
-    const places = (last?.interp.sceneEntities || []).filter((x) => idx.entityExists(x) && idx.entityKind(x) === 'place');
+    const last = this.current.replay.applied.slice().reverse().find((x) => x.interp.places?.length);
+    const places = (last?.interp.places || []).filter((x) => idx.entityExists(x) && idx.entityKind(x) === 'place');
     const orgs = prof ? playerOrgs(idx, prof.profile, idx.state.clock.lo).filter(isIn).map((o) => o.id) : [];
     return hostilityView(idx, this.campaign()!.binding.originDate, uniq([...places, ...orgs]));
   }

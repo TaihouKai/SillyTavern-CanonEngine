@@ -69,3 +69,11 @@ export function dangersAt(L: LoadedPack, state: WorldState, from: Id[], tick: nu
   }
   return out;
 }
+
+/** The places and organizations the pack's dangers are linked from (the reviewer gets them, so where the player is can
+ *  be named as one of them). */
+export function dangerSources(L: LoadedPack): Id[] {
+  const out = new Set<Id>();
+  for (const [from, ls] of L.combat.linksFrom) if (ls.some((l) => L.combat.nodes.get(l.to)?.kind === 'danger')) out.add(from);
+  return [...out];
+}

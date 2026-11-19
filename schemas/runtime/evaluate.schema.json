@@ -1140,6 +1140,13 @@
         ],
         "additionalProperties": false
       }
+    },
+    "player_places": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "string"
+      }
     }
   },
   "required": [

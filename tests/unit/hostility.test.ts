@@ -25,7 +25,7 @@ async function setup(raw: CanonPack = demoRaw()) {
   await x.engine.reconcile('test');
   x.host.addUser('I look around the harbor.');
   x.model.draft('The harbor at dawn. [H0]');
-  x.model.on('evaluate', (i) => String(i.candidate).includes('[H0]'), { scene_end: at(1, 6, 30), scene_entities: ['harbor'] });
+  x.model.on('evaluate', (i) => String(i.candidate).includes('[H0]'), { scene_end: at(1, 6, 30), scene_entities: ['harbor'], player_places: ['harbor'] });
   await x.engine.runOperation('normal');
   return x;
 }
@@ -36,7 +36,7 @@ async function turn(x: X, user: string, drafts: { text: string; evaluate?: any }
   x.host.addUser(user);
   for (const d of drafts) {
     x.model.draft(d.text);
-    x.model.on('evaluate', (i) => String(i.candidate).includes(d.text.slice(-6)), { scene_entities: ['harbor'], ...(d.evaluate || {}) });
+    x.model.on('evaluate', (i) => String(i.candidate).includes(d.text.slice(-6)), { scene_entities: ['harbor'], player_places: ['harbor'], ...(d.evaluate || {}) });
   }
   return x.engine.runOperation('normal');
 }

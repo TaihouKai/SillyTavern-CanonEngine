@@ -57,6 +57,9 @@ export interface Interpretation {
   sceneEntities: Id[];
   /** The people physically with the player character where a reply ends (missing: not known). */
   present?: Id[];
+  /** Where the player character is when a reply ends, from the most specific place out to its district or city
+   *  (missing: not known). 主动敌对 takes the dangers of these places. */
+  places?: Id[];
   /** Groups who know about the player (recognition groups, by name) present in the scene: for a reply, at its end;
    *  for a player message, where the scene goes (null: the message does not move the scene). */
   sceneGroups?: string[] | null;

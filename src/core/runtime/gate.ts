@@ -142,6 +142,8 @@ export interface GateResult {
   sceneEntities: Id[];
   /** The people with the player character where the reply ends (the reviewer's present). */
   present: Id[];
+  /** Where the player character is at the end (most specific first). */
+  places: Id[];
   /** The frame the scene moved to in this reply (a known frame id or MAIN_FRAME), or null when it stays. */
   sceneFrame: Id | null;
   enactedSteps: string[];
@@ -857,6 +859,8 @@ export function runGate(g: GateInput): GateResult {
   }
   const sceneEntities = uniq((ev.scene_entities || []).map(resolveId).filter(Boolean) as Id[]);
   const present = uniq((ev.present || []).map((x) => resolveId(String(x || '').trim())).filter((x): x is Id => !!x && (index.entityExists(x) ? index.entityKind(x) === 'person' : runtimeEntities.some((r) => r.id === x && r.kind === 'person'))));
+  const isPlace = (x: Id) => (index.entityExists(x) ? index.entityKind(x) === 'place' : runtimeEntities.some((r) => r.id === x && r.kind === 'place'));
+  const places = uniq((ev.player_places || []).map((x) => resolveId(String(x || '').trim())).filter((x): x is Id => !!x && isPlace(x))).slice(0, 4);
   // live: 佐天 walked with the player from 08:35 to 09:20 and the reply went past 索绮特's 09:00 chance encounter
   // without it; it was then settled offscreen as if she had been elsewhere.
   if (g.mode === 'draft' && !flashback) {
@@ -885,7 +889,7 @@ export function runGate(g: GateInput): GateResult {
       visibility: { mode: 'public', knower_ids: [] }, summary: `The scene is now in ${sceneFrame === MAIN_FRAME ? 'the main frame' : g.pack.frames.frames.get(sceneFrame)!.name}`, evidenceKind: 'direct', frameId: sceneFrame,
     });
   }
-  return { violations: uniq(violations), warnings, records, stateClaims, playerActions, sceneEnd, flashback, sceneEntities, present, sceneFrame: sceneFrame && sceneFrame !== frameNow ? sceneFrame : null, enactedSteps, hardFulfilled, coverage, coverageGaps, runtimeEntities };
+  return { violations: uniq(violations), warnings, records, stateClaims, playerActions, sceneEnd, flashback, sceneEntities, present, places, sceneFrame: sceneFrame && sceneFrame !== frameNow ? sceneFrame : null, enactedSteps, hardFulfilled, coverage, coverageGaps, runtimeEntities };
 }
 
 /** A frame named by a model: its id, MAIN_FRAME, or its name (also the main frame's name); null for anything else. */

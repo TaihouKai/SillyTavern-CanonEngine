@@ -14,6 +14,8 @@ import type { HostileDue } from './turn';
 export interface HostilityEvalOut {
   grudges?: { who: string; why: string; quote: string; comes?: { day: number; minute: number } | null }[];
   grudges_ended?: { who: string; quote: string }[];
+  /** where the player character is at the end, most specific first */
+  player_places?: string[];
 }
 
 /** What the review of this reply needs: what was due in it. */
