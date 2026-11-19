@@ -1271,7 +1271,7 @@ export class CanonEngine {
     const disc = this.discCache.get(discKey) || this.rememberDiscovery(discKey, await this.withTimeout(callStructured<DiscoverOut>(this.host.model, 'discover', PROMPTS.discover, {
       text: a.text,
       scene_framing: a.userEntry ? `Player input: ${this.ooc(a.userEntry.text).story}` : '',
-      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), a.sceneSeeds),
+      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), [...a.sceneSeeds, ...fightNow(index.state).participants]),
       occurrences: this.occurrenceCatalogue(index, a.text + ' ' + (a.userEntry?.text || '')),
     }, { signal: a.signal, operationId: a.operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(a.text) }), this.settings.taskTimeoutMs * 4, a.signal).catch((e) => {
       if (!(e instanceof EngineError) || e.kind !== 'invalid_model_json') throw e;
@@ -1329,7 +1329,7 @@ export class CanonEngine {
       staged_offscreen: a.stagedNotes,
       due_hard: due.map((h) => ({ event_id: h.event.id, required_description: h.event.required_description, outcomes: h.event.outcomes, earliest: h.event.when.earliest, latest: h.event.when.latest })),
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== 'invalidated').map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
-      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.entities.keys(), ...a.sceneSeeds, ...(prof ? [prof.profile.playerId] : []), ...(a.offered?.actors || [])], { notes: true }),
+      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.entities.keys(), ...a.sceneSeeds, ...(prof ? [prof.profile.playerId] : []), ...(a.offered?.actors || []), ...fightNow(index.state).participants], { notes: true }),
       reeval_reasons: a.reevalReasons || [],
       player_entity: prof ? { id: prof.profile.playerId, name: prof.profile.personaName } : null,
       engagement: decisions,
