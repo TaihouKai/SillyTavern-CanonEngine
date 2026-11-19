@@ -148,7 +148,9 @@ export async function judgeFight(a: {
 
   // 3. the code's checks: an outcome the player wrote is stopped only by an objective mechanism (a node the fighters
   // reach without filled-in links; a source's own words). One that is not gets the ruling asked again with it standing.
-  const basisOk = (b: { ref: string; quote?: string }) => b.ref === 'judgement' || L.combat.nodes.has(b.ref) && walk.nodes.some((w) => w.node.id === b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!));
+  // a fighter's 对抗倾向 can be cited for how they act ("style:<id>", with its words); it never stops the player's outcome
+  const styleText = (ref: string) => { const id = ref.startsWith('style:') ? ref.slice(6) : ''; const st = fighters.includes(id) || bystanders.includes(id) ? styleOf(L, index.state, id)?.style : null; return st ? [st.start, st.force, st.response, st.limit, st.stop].join(' ') : null; };
+  const basisOk = (b: { ref: string; quote?: string }) => b.ref === 'judgement' || L.combat.nodes.has(b.ref) && walk.nodes.some((w) => w.node.id === b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!)) || (!!b.quote && !!styleText(b.ref) && quoteInText(b.quote, styleText(b.ref)!));
   const objectiveOk = (b: { ref: string; quote?: string }) => objective.has(b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!));
   const checkOutcomes = (o: CombatOut) => {
     const list: PlayerOutcome[] = [], unfounded: string[] = [];

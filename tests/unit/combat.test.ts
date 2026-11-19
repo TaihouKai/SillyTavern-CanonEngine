@@ -133,7 +133,7 @@ describe('combat as this game has it', () => {
   it('CS5b a long history does not crowd out another fighter: a few other fights each, past ones first, after the abilities of everyone', () => {
     const raw = demoRaw();
     const ev = raw.events.map((e) => e.id);
-    for (let i = 0; i < 30; i++) raw.combat!.nodes.push({ id: `cb-fight-${String(i).padStart(2, '0')}`, kind: 'precedent', name: `Fight ${i}`, gist: 'x'.repeat(40), text: 'y'.repeat(400), who: ['mira'], event_id: ev[i % ev.length], source_refs: ['example-source'] } as never);
+    for (let i = 0; i < 30; i++) raw.combat!.nodes!.push({ id: `cb-fight-${String(i).padStart(2, '0')}`, kind: 'precedent', name: `Fight ${i}`, gist: 'x'.repeat(40), text: 'y'.repeat(400), who: ['mira'], event_id: ev[i % ev.length], source_refs: ['example-source'] } as never);
     const L = load(raw);
     const st = reduce(L, []);
     const w = walkCombat(L, st, ['mira', 'union'], { maxDepth: 3, fullDepth: 1, budgetChars: 1800 });

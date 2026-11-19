@@ -99,6 +99,27 @@ describe('战斗分析: a fight is judged before the reply', () => {
     expect(fightNow(st(x)).ongoing).toBe(false);
   });
 
+  it('CF2b the 对抗倾向 of a fighter can be cited for how they act (its own words), but it never stops what the player wrote', async () => {
+    const x = await setup();
+    const start = { fight: { state: 'starts', participants: ['Thug'], new_people: [{ name: 'Thug', description: 'a thug', quote: 'the thug' }] } };
+    const style = { start: 'picks fights with the weak', force: 'holds nothing back', response: 'is clumsy up close and backs away', limit: 'nobody', stop: 'runs when hurt' };
+    await turn(x, 'I punch the thug in the face.', 'He staggers back. [F2b]', {
+      extract: start,
+      fill: (i: any) => ({ people: i.people.map((p: any) => ({ who: p.who, links: [{ node: 'cb-soldier', label: 'is' }], style: p.needs_style ? style : null })) }),
+      combat: (i: any) => {
+        const thug = i.fighters.find((f: any) => f.id !== me(x)).id;
+        return i.outcomes_that_stand
+          ? { player_outcomes: [{ quote: 'punch the thug in the face', stands: true }], exchanges: [{ actor: thug, text: 'Hit, he backs away.', basis: [{ ref: `style:${thug}`, quote: 'is clumsy up close and backs away' }, { ref: `style:${thug}`, quote: 'words he never had' }] }], statuses: [], over: false, stop_at: 'x' }
+          : { player_outcomes: [{ quote: 'punch the thug in the face', stands: false, basis: [{ ref: `style:${thug}`, quote: 'runs when hurt' }], why: 'he runs' }], exchanges: [], statuses: [], over: false, stop_at: 'x' };
+      },
+    });
+    const ruling = x.engine.current!.replay.applied.at(-1)!.interp.combat!;
+    expect(ruling.outcomes[0]).toMatchObject({ stands: true });   // a 对抗倾向 is not an objective mechanism
+    expect(ruling.exchanges[0].basis.map((b) => b.quote)).toEqual(['is clumsy up close and backs away']);   // words it does not have are left out
+    expect(ruling.exchanges[0].unsupported).toBeUndefined();
+    expect(x.engine.combatView(false)!.rulings[0].exchanges[0].basis[0]).toBe('Thug的对抗倾向「is clumsy up close and backs away」');
+  });
+
   it('CF3 the reply is held to the ruling: a departure is sent back; with no fight, one the reply starts stops where it begins, and one it decides is sent back', async () => {
     const x = await setup();
     await turn(x, 'I swing at the thug.', 'The thug ducks. [F4a]', {

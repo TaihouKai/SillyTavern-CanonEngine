@@ -24,6 +24,9 @@ export interface CombatViewData {
 export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null | undefined, origin: Origin, rulings: { tick: number; ruling: Ruling }[]): CombatViewData {
   const L = idx.pack, s = idx.state, tick = s.clock.lo;
   const name = (id: Id) => idx.entityName(id);
+  // what a ruling went by, as the panel shows it: a node by name, the Persona, a lorebook entry, someone's 对抗倾向
+  const basisLabel = (b: { ref: string; quote?: string }) =>
+    (L.combat.nodes.get(b.ref)?.name || (b.ref === 'persona' ? 'Persona' : b.ref === 'judgement' ? '判断' : b.ref.startsWith('style:') ? `${name(b.ref.slice(6))}的对抗倾向` : b.ref.startsWith('lore:') ? `世界书 ${b.ref.slice(5)}` : b.ref)) + (b.quote ? `「${b.quote}」` : '');
   const f = fightNow(s);
   const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
   let hidden = 0;
@@ -46,8 +49,8 @@ export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null
     fight: { ongoing: f.ongoing, people: f.participants.filter((x) => idx.entityExists(x)).map((id) => ({ id, name: name(id) })), source: f.source, since: f.since === null ? null : formatTick(f.since, origin) },
     rulings: rulings.slice(-5).reverse().map(({ tick: t, ruling: r }) => ({
       when: formatTick(t, origin),
-      exchanges: r.exchanges.map((x) => ({ who: name(x.actor), text: x.text, basis: x.basis.map((b) => (L.combat.nodes.get(b.ref)?.name || b.ref) + (b.quote ? `「${b.quote}」` : '')), ...(x.unsupported ? { unsupported: true } : {}) })),
-      stopped: (r.outcomes || []).filter((o) => !o.stands).map((o) => ({ quote: o.quote, why: o.why, basis: o.basis.map((b) => (L.combat.nodes.get(b.ref)?.name || b.ref) + (b.quote ? `「${b.quote}」` : '')) })),
+      exchanges: r.exchanges.map((x) => ({ who: name(x.actor), text: x.text, basis: x.basis.map(basisLabel), ...(x.unsupported ? { unsupported: true } : {}) })),
+      stopped: (r.outcomes || []).filter((o) => !o.stands).map((o) => ({ quote: o.quote, why: o.why, basis: o.basis.map(basisLabel) })),
       states: r.statuses.map((x) => `${name(x.entity)}：${x.removed ? '−' : ''}${x.text}${x.count != null ? ` ×${x.count}` : ''}`),
       stands: r.stands, joined: (r.joined || []).map(name), over: r.over, overWhy: r.overWhy, stopAt: r.stopAt,
       filled: [...r.filled.links.map((l) => `${name(l.entity)} → ${L.combat.nodes.get(l.node)?.name || l.node}`), ...r.filled.styles.map((x) => `${name(x.entity)}：对抗倾向`)],
