@@ -1147,6 +1147,13 @@
       "items": {
         "type": "string"
       }
+    },
+    "attackers": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "string"
+      }
     }
   },
   "required": [

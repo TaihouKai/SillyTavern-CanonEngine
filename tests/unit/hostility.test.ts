@@ -118,15 +118,19 @@ describe('主动敌对: the world comes for the player', () => {
     await turn(x, 'I wait at the harbor until night.', [{ text: 'Night falls. [H6]', evaluate: { scene_end: at(d, h, 0) } }]);
     await turn(x, 'I walk home along the harbor road.', [
       { text: 'A quiet walk home. [H7a]', evaluate: { scene_end: at(d, h, 10) } },
-      { text: 'Two muggers block the road and one lunges at you. [H7b]', evaluate: { scene_end: at(d, h, 10), new_entities: [{ ref: 'n1', name: 'Mugger', kind: 'person', description: 'a harbor mugger', quote: 'Two muggers' }], fight: { starts: true, participants: [me(x), 'n1'], resolved_unruled: false, quote: 'one lunges at you' } } },
+      { text: 'Two muggers block the road and one reaches for your bag. [H7b]', evaluate: { scene_end: at(d, h, 10), new_entities: [{ ref: 'n1', name: 'Mugger', kind: 'person', description: 'a harbor mugger', quote: 'Two muggers' }, { ref: 'n2', name: 'Fisherman', kind: 'person', description: 'a fisherman watching', quote: 'Two muggers' }], attackers: ['n1'], present: ['n1', 'n2'] } },
     ]);
     expect(x.model.tasks('draft').at(-2)!.input.engineContext).toContain('DANGER HERE — REQUIRED');
     expect(x.model.tasks('draft').at(-2)!.input.engineContext).toContain('Harbor muggers');
     expect(x.host.chat.at(-1)!.text).toContain('[H7b]');
     expect(st(x).hostility.dangers).toHaveLength(1);
+    // the review named the attacker but saw no fight yet: the code starts it, with the attacker only (not the onlooker)
+    const mugger = [...st(x).runtimeEntities.values()].find((r) => r.name === 'Mugger')!.id;
+    expect(fightNow(st(x))).toMatchObject({ ongoing: true, source: 'engine', participants: [me(x), mugger] });
     expect(x.engine.hostilityView()!.came[0]).toMatchObject({ name: 'Harbor muggers', place: 'Harbor' });
     // once a day
-    await turn(x, 'I fight them off and keep walking.', [{ text: 'They run. [H8]', evaluate: { scene_end: at(d, h, 20), fight: null } }]);
+    await x.engine.editCombat({ fight: { ongoing: false } });
+    await turn(x, 'I keep walking.', [{ text: 'They are gone. [H8]', evaluate: { scene_end: at(d, h, 20), fight: null } }]);
     expect(ctx(x)).not.toContain('DANGER HERE');
   });
 
