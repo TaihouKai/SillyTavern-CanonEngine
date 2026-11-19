@@ -35796,6 +35796,7 @@ function runGate(g) {
   const relationDrafts = [];
   const relationRef = (x) => {
     if (refToId.has(x) || index.entityExists(x) || runtimeEntities.some((r) => r.id === x)) return resolveId(x);
+    if (g.playerId && x.length > 10 && x.startsWith("rt.player.") && g.playerId.startsWith(x)) return g.playerId;
     if (g.playerId && [...index.allNames(g.playerId), g.personaName || ""].some((n) => n && normalizeName(n) === normalizeName(x))) return g.playerId;
     const hit = index.resolveEntity(x).ids.filter((id) => index.allNames(id).some((n) => normalizeName(n) === normalizeName(x)));
     return hit.length === 1 ? hit[0] : null;
@@ -35893,7 +35894,7 @@ function runGate(g) {
   });
   records.push(...relationDrafts);
   if (g.combat) {
-    const cb = gateCombat(g.combat, ev, text, g.userText, (x) => resolveId(x), sceneEnd);
+    const cb = gateCombat(g.combat, ev, text, g.userText, (x) => relationRef(String(x)), sceneEnd);
     records.push(...cb.records);
     violations.push(...cb.violations);
     warnings.push(...cb.warnings);

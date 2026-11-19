@@ -706,7 +706,9 @@ export function runGate(g: GateInput): GateResult {
   // an id, a new_entities ref, or a name as written (a looser match would tie someone new to a known person)
   const relationRef = (x: string): Id | null => {
     if (refToId.has(x) || index.entityExists(x) || runtimeEntities.some((r) => r.id === x)) return resolveId(x);
-    // the player character by any of their names (the Persona's, the name the Persona gives them): never a new person
+    // the player character by any of their names (the Persona's, the name the Persona gives them), or by their id cut
+    // short (live: "rt.player.神光爱丽丝" for rt.player.神光爱丽丝.bc6a3c): never a new person
+    if (g.playerId && x.length > 10 && x.startsWith('rt.player.') && g.playerId.startsWith(x)) return g.playerId;
     if (g.playerId && [...index.allNames(g.playerId), g.personaName || ''].some((n) => n && normalizeName(n) === normalizeName(x))) return g.playerId;
     const hit = index.resolveEntity(x).ids.filter((id) => index.allNames(id).some((n) => normalizeName(n) === normalizeName(x)));
     return hit.length === 1 ? hit[0] : null;
@@ -793,7 +795,7 @@ export function runGate(g: GateInput): GateResult {
   records.push(...relationDrafts);
   // ---- 战斗: states this reply changes, a fight it starts, and the reply held to the ruling (combat/review.ts) ----
   if (g.combat) {
-    const cb = gateCombat(g.combat, ev, text, g.userText, (x) => resolveId(x), sceneEnd);
+    const cb = gateCombat(g.combat, ev, text, g.userText, (x) => relationRef(String(x)), sceneEnd);
     records.push(...cb.records);
     violations.push(...cb.violations);
     warnings.push(...cb.warnings);
