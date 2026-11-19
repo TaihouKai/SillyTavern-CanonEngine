@@ -26048,7 +26048,7 @@ function addressLine(list) {
   return (list || []).map((f) => `\u300C${f.term}\u300D (${f.use}${f.when ? `: ${f.when}` : ""})`).join("; ");
 }
 
-// src/core/domain/combat.ts
+// src/core/combat/graph.ts
 function indexCombat(pack2) {
   const c = pack2.combat || { none: "" };
   const nodes = new Map((c.nodes || []).map((n) => [n.id, n]));
@@ -26760,6 +26760,150 @@ function claimComparable(pack2, predicate, value) {
   return Array.isArray(p.allowed_values) && p.allowed_values.length > 0 && p.allowed_values.includes(value);
 }
 
+// src/core/combat/state.ts
+var emptyCombatState = () => ({ links: [], statuses: [], styles: [], fights: [], witnessed: [] });
+function applyCombat(cs, rec, tick) {
+  const at = { recordId: rec.recordId, seq: rec.sequence, tick };
+  for (const x of rec.combatLinks || []) cs.links.push({ ...x, ...at });
+  for (const x of rec.statuses || []) cs.statuses.push({ ...x, ...at });
+  for (const x of rec.styles || []) cs.styles.push({ ...x, ...at });
+  if (rec.fight) cs.fights.push({ ...rec.fight, ...at });
+  for (const x of rec.witnessed || []) cs.witnessed.push({ ...x, ...at });
+}
+var RANK = { ui: 5, persona: 4, play: 3, pack: 2, fill: 1 };
+var occurred = (state, e) => !!e && state.dispositions.get(e)?.disposition === "occurred";
+function linksOf(L, state, entity, tick = state.clock.lo) {
+  const now = /* @__PURE__ */ new Map();
+  for (const l of L.combat.linksFrom.get(entity) || []) {
+    if (l.from_event && !occurred(state, l.from_event)) continue;
+    if (l.until_event && occurred(state, l.until_event)) continue;
+    now.set(l.to, { node: l.to, label: l.label, source: "pack" });
+  }
+  const removedBy = /* @__PURE__ */ new Map();
+  for (const c of state.combat.links) {
+    if (c.entity !== entity || !L.combat.nodes.has(c.node)) continue;
+    const cur = now.get(c.node);
+    const curRank = cur ? RANK[cur.source] : removedBy.get(c.node) ?? 0;
+    if (c.source === "fill" && (c.removed || curRank > RANK.fill)) continue;
+    if (c.removed) {
+      now.delete(c.node);
+      removedBy.set(c.node, RANK[c.source]);
+      continue;
+    }
+    now.set(c.node, { node: c.node, label: c.label, source: c.source, ...c.quote ? { quote: c.quote } : {} });
+  }
+  for (const s of statusesOf(state, entity, tick)) if (s.node && L.combat.nodes.has(s.node) && !now.has(s.node)) now.set(s.node, { node: s.node, label: s.text, source: s.source });
+  return [...now.values()];
+}
+function statusesOf(state, entity, tick = state.clock.lo) {
+  const by = /* @__PURE__ */ new Map();
+  for (const s of state.combat.statuses) {
+    if (s.entity !== entity || s.tick > tick) continue;
+    const k = normalizeName(s.text);
+    if (s.removed) by.delete(k);
+    else by.set(k, s);
+  }
+  const out = [];
+  for (const s of by.values()) {
+    const u = s.until;
+    if (u && u !== "lasting" && "minutes" in u) {
+      const end = s.tick + Math.max(1, Math.round(u.minutes));
+      if (tick >= end) continue;
+      out.push({ ...s, endsAt: end });
+      continue;
+    }
+    if (u && u !== "lasting" && "event" in u) {
+      const d = state.dispositions.get(u.event);
+      if (d && d.tick >= s.tick && d.tick <= tick) continue;
+    }
+    out.push(s);
+  }
+  return out;
+}
+function styleOf(L, state, entity) {
+  let best = null;
+  const vs = L.pack.entities.find((e) => e.id === entity)?.combat_style;
+  if (vs?.length) {
+    let i = 0;
+    vs.forEach((v2, j) => {
+      if (j > 0 && occurred(state, v2.from_event) && !occurred(state, v2.until_event)) i = j;
+    });
+    const v = vs[i];
+    best = { style: { start: v.start, force: v.force, response: v.response, limit: v.limit, stop: v.stop }, source: "pack", rank: RANK.pack };
+  }
+  for (const s of state.combat.styles) {
+    if (s.entity !== entity) continue;
+    if (!best || RANK[s.source] >= best.rank) best = { style: s.style, source: s.source, rank: RANK[s.source] };
+  }
+  return best && { style: best.style, source: best.source };
+}
+function fightNow(state) {
+  const f = state.combat.fights[state.combat.fights.length - 1];
+  return f ? { ongoing: f.ongoing, participants: f.participants, source: f.source, since: f.tick } : { ongoing: false, participants: [], source: null, since: null };
+}
+function knowsNode(L, state, who, nodeId, part) {
+  const n = L.combat.nodes.get(nodeId);
+  if (!n) return false;
+  const vis = part && n.parts?.find((p) => p.part === part)?.visibility || n.visibility;
+  if (!vis || vis.mode === "public") return true;
+  if (vis.knower_ids.includes(who)) return true;
+  if (linksOf(L, state, who).some((l) => l.node === nodeId)) return true;
+  return state.combat.witnessed.some((w) => w.node === nodeId && (!w.part || !part || w.part === part) && w.who.includes(who));
+}
+function walkCombat(L, state, starts, opts) {
+  const tick = opts.tick ?? state.clock.lo;
+  const seen = /* @__PURE__ */ new Map();
+  const reach = (node, depth, from, via) => {
+    const s = seen.get(node);
+    if (!s) {
+      seen.set(node, { depth, from: /* @__PURE__ */ new Set([from]), via });
+      return true;
+    }
+    s.from.add(from);
+    if (depth < s.depth) {
+      s.depth = depth;
+      s.via = via;
+      return true;
+    }
+    return false;
+  };
+  for (const e of starts) {
+    let frontier = [];
+    for (const l of linksOf(L, state, e, tick)) {
+      if (opts.objective && l.source === "fill") continue;
+      reach(l.node, 1, e, `${e} ${l.label}`);
+      frontier.push(l.node);
+    }
+    for (const p of L.combat.precedentsOf.get(e) || []) {
+      reach(p, 1, e, `${e} was in it`);
+      frontier.push(p);
+    }
+    for (let d = 2; d <= opts.maxDepth && frontier.length; d++) {
+      const next = [];
+      for (const n of frontier) for (const l of L.combat.linksFrom.get(n) || []) {
+        if (!L.combat.nodes.has(l.to)) continue;
+        const before = seen.get(l.to)?.from.has(e);
+        reach(l.to, d, e, `${n} ${l.label}`);
+        if (!before) next.push(l.to);
+      }
+      frontier = next;
+    }
+  }
+  const list = [...seen.entries()].map(([id, s]) => ({ node: L.combat.nodes.get(id), depth: s.depth, full: s.depth <= opts.fullDepth, from: [...s.from], via: s.via })).sort((a, b) => a.depth - b.depth || b.from.length - a.from.length || a.node.id.localeCompare(b.node.id));
+  const nodes = [], cut = [];
+  let chars = 0;
+  for (const w of list) {
+    const size = (w.full ? w.node.text.length + (w.node.parts || []).reduce((n, p) => n + p.text.length, 0) : w.node.gist.length) + w.node.name.length + 20;
+    if (chars + size > opts.budgetChars && nodes.length) {
+      cut.push(w.node.id);
+      continue;
+    }
+    chars += size;
+    nodes.push(w);
+  }
+  return { nodes, cut, chars };
+}
+
 // src/core/domain/reducer.ts
 var factKey = (entity, predicate) => `${entity}|${predicate}`;
 function emptyState(pack2) {
@@ -26774,11 +26918,7 @@ function emptyState(pack2) {
     contacts: [],
     ties: [],
     relations: [],
-    combatLinks: [],
-    statuses: [],
-    styles: [],
-    fights: [],
-    witnessed: [],
+    combat: emptyCombatState(),
     runtimeEntities: /* @__PURE__ */ new Map(),
     enactedSteps: /* @__PURE__ */ new Map(),
     clock: { lo: pack2.coverage.start, hi: pack2.coverage.start, precision: "minute" },
@@ -26790,62 +26930,57 @@ function emptyState(pack2) {
     lastSeq: 0
   };
 }
-function applyRecord(state, rec2) {
-  if (state.recordById.has(rec2.recordId)) return;
-  state.recordById.set(rec2.recordId, rec2);
-  state.records.push(rec2);
-  state.lastSeq = Math.max(state.lastSeq, rec2.sequence);
-  const tick = rec2.storyTime.lo;
-  for (const d of rec2.factsSetOrUnset) applyDelta(state, d, rec2, tick);
-  for (const occ of rec2.occurrences || []) {
+function applyRecord(state, rec) {
+  if (state.recordById.has(rec.recordId)) return;
+  state.recordById.set(rec.recordId, rec);
+  state.records.push(rec);
+  state.lastSeq = Math.max(state.lastSeq, rec.sequence);
+  const tick = rec.storyTime.lo;
+  for (const d of rec.factsSetOrUnset) applyDelta(state, d, rec, tick);
+  for (const occ of rec.occurrences || []) {
     if (state.occurrences.has(occ.occurrenceId)) continue;
     state.occurrences.set(occ.occurrenceId, {
       ...occ,
-      recordId: rec2.recordId,
-      seq: rec2.sequence,
-      commitId: rec2.commitId,
-      kind: rec2.kind,
-      sourceMessageIds: rec2.sourceRefs.map((s) => s.messageId)
+      recordId: rec.recordId,
+      seq: rec.sequence,
+      commitId: rec.commitId,
+      kind: rec.kind,
+      sourceMessageIds: rec.sourceRefs.map((s) => s.messageId)
     });
   }
-  if (rec2.packEventId && rec2.disposition && (rec2.override || !state.dispositions.has(rec2.packEventId))) {
-    state.dispositions.set(rec2.packEventId, {
-      disposition: rec2.disposition,
-      recordId: rec2.recordId,
-      occurrenceId: rec2.eventOccurrenceIds[0],
+  if (rec.packEventId && rec.disposition && (rec.override || !state.dispositions.has(rec.packEventId))) {
+    state.dispositions.set(rec.packEventId, {
+      disposition: rec.disposition,
+      recordId: rec.recordId,
+      occurrenceId: rec.eventOccurrenceIds[0],
       tick,
-      reason: rec2.dispositionReason,
-      seq: rec2.sequence
+      reason: rec.dispositionReason,
+      seq: rec.sequence
     });
   }
-  if (rec2.kind === "participation_decline" && rec2.declinedEventId) state.declines.set(rec2.declinedEventId, rec2.recordId);
-  if (rec2.engagement) state.engagements.push({ ...rec2.engagement, recordId: rec2.recordId, seq: rec2.sequence, tick });
-  if (rec2.contact) state.contacts.push({ ...rec2.contact, recordId: rec2.recordId, seq: rec2.sequence, tick });
-  if (rec2.tie) state.ties.push({ ...rec2.tie, recordId: rec2.recordId, seq: rec2.sequence, tick });
-  for (const r of rec2.relations || []) state.relations.push({ ...r, recordId: rec2.recordId, seq: rec2.sequence, tick });
-  const at = { recordId: rec2.recordId, seq: rec2.sequence, tick };
-  for (const x of rec2.combatLinks || []) state.combatLinks.push({ ...x, ...at });
-  for (const x of rec2.statuses || []) state.statuses.push({ ...x, ...at });
-  for (const x of rec2.styles || []) state.styles.push({ ...x, ...at });
-  if (rec2.fight) state.fights.push({ ...rec2.fight, ...at });
-  for (const x of rec2.witnessed || []) state.witnessed.push({ ...x, ...at });
-  for (const re of rec2.runtimeEntities || []) if (!state.runtimeEntities.has(re.id) || rec2.kind === "persona_seed") state.runtimeEntities.set(re.id, { ...re, recordId: rec2.recordId });
-  for (const s of rec2.enactedStepIds || []) if (!state.enactedSteps.has(s)) state.enactedSteps.set(s, rec2.recordId);
-  if (rec2.kind === "scene_frame" && rec2.frameId) state.sceneFrame = { frameId: rec2.frameId, since: tick, recordId: rec2.recordId };
-  if ((rec2.kind === "time_advance" || rec2.kind === "initial_bootstrap") && rec2.storyTime.lo >= state.clock.lo) {
-    state.clock = { ...rec2.storyTime };
+  if (rec.kind === "participation_decline" && rec.declinedEventId) state.declines.set(rec.declinedEventId, rec.recordId);
+  if (rec.engagement) state.engagements.push({ ...rec.engagement, recordId: rec.recordId, seq: rec.sequence, tick });
+  if (rec.contact) state.contacts.push({ ...rec.contact, recordId: rec.recordId, seq: rec.sequence, tick });
+  if (rec.tie) state.ties.push({ ...rec.tie, recordId: rec.recordId, seq: rec.sequence, tick });
+  for (const r of rec.relations || []) state.relations.push({ ...r, recordId: rec.recordId, seq: rec.sequence, tick });
+  applyCombat(state.combat, rec, tick);
+  for (const re of rec.runtimeEntities || []) if (!state.runtimeEntities.has(re.id) || rec.kind === "persona_seed") state.runtimeEntities.set(re.id, { ...re, recordId: rec.recordId });
+  for (const s of rec.enactedStepIds || []) if (!state.enactedSteps.has(s)) state.enactedSteps.set(s, rec.recordId);
+  if (rec.kind === "scene_frame" && rec.frameId) state.sceneFrame = { frameId: rec.frameId, since: tick, recordId: rec.recordId };
+  if ((rec.kind === "time_advance" || rec.kind === "initial_bootstrap") && rec.storyTime.lo >= state.clock.lo) {
+    state.clock = { ...rec.storyTime };
   }
 }
-function applyDelta(state, d, rec2, tick) {
+function applyDelta(state, d, rec, tick) {
   const k = factKey(d.entity_id, d.predicate);
   const t2 = {
     tick,
-    tickHi: rec2.storyTime.hi,
-    seq: rec2.sequence,
+    tickHi: rec.storyTime.hi,
+    seq: rec.sequence,
     op: d.op === "unset" ? "unset" : "set",
     value: d.op === "set" ? normalizeValue(d.value) : void 0,
-    recordId: rec2.recordId,
-    kind: rec2.kind
+    recordId: rec.recordId,
+    kind: rec.kind
   };
   if (d.op === "add" || d.op === "remove") t2.change = { op: d.op, value: d.value };
   if (d.op !== "unset" && d.until && d.until !== "lasting") {
@@ -27211,11 +27346,11 @@ function buildBootstrap(pack2, startTick) {
     if (isDue(t2, startTick)) {
       const when2 = { lo: t2.lo, hi: t2.hi, precision: t2.lo === t2.hi ? "minute" : "range" };
       const p = adjudicateDefault(pack2, scratch, { event: ev, lo: t2.lo, hi: t2.hi }, when2, "bootstrap");
-      let rec2 = p.record;
-      if (!rec2 && ev.classification === "HARD") {
+      let rec = p.record;
+      if (!rec && ev.classification === "HARD") {
         const occId = newId("occ");
         const deltas = effectsToDeltas(ev.canonical_effects);
-        rec2 = {
+        rec = {
           recordId: newId("rec"),
           kind: "canon_occurrence",
           storyTime: when2,
@@ -27231,14 +27366,14 @@ function buildBootstrap(pack2, startTick) {
           dispositionReason: "HARD event due by the binding start point (bootstrap assumption)"
         };
       }
-      if (!rec2) {
+      if (!rec) {
         unresolved.push({ eventId: ev.id, explanation: p.explanation });
         continue;
       }
-      rec2.evidenceKind = "bootstrap";
-      rec2.summary = "[bootstrap] " + rec2.summary;
-      records.push(rec2);
-      applyRecord(scratch, { ...rec2, sequence: ++seq, branchId: "bootstrap", commitId: "bootstrap" });
+      rec.evidenceKind = "bootstrap";
+      rec.summary = "[bootstrap] " + rec.summary;
+      records.push(rec);
+      applyRecord(scratch, { ...rec, sequence: ++seq, branchId: "bootstrap", commitId: "bootstrap" });
     } else if (t2.lo <= startTick) {
       pending.push(ev.id);
     }
@@ -27702,15 +27837,15 @@ var WorldIndex = class _WorldIndex {
       const pred = k.slice(entityId.length + 1);
       const f = factAt(this.state, entityId, pred, cp);
       if (!f.supportRecordId) continue;
-      const rec2 = this.state.recordById.get(f.supportRecordId);
-      for (const oid of rec2?.eventOccurrenceIds || []) out.add(oid);
+      const rec = this.state.recordById.get(f.supportRecordId);
+      for (const oid of rec?.eventOccurrenceIds || []) out.add(oid);
     }
     return [...out];
   }
   historyView(id, origin = _WorldIndex.displayOrigin) {
     const o = this.state.occurrences.get(id);
     if (!o) return null;
-    const rec2 = this.state.recordById.get(o.recordId);
+    const rec = this.state.recordById.get(o.recordId);
     const later = [];
     for (const d of o.outcome) {
       const after = factHistory(this.state, d.entity_id, d.predicate).filter((t3) => t3.seq > o.seq);
@@ -27736,7 +27871,7 @@ var WorldIndex = class _WorldIndex {
       consequences: [...this.reverseCauses.get(id) || []].map((c) => ({ occurrenceId: c, title: this.state.occurrences.get(c)?.title || c })),
       laterChanges: later,
       visibility: o.visibility.mode + (o.visibility.knower_ids.length ? ` (known to: ${o.visibility.knower_ids.map((x) => this.entityName(x)).join(", ")})` : ""),
-      evidence: (rec2?.sourceRefs || []).flatMap((s) => s.spans.map((sp) => ({ messageId: s.messageId, quote: sp.quote }))),
+      evidence: (rec?.sourceRefs || []).flatMap((s) => s.spans.map((sp) => ({ messageId: s.messageId, quote: sp.quote }))),
       packEventId: o.packEventId
     };
   }
@@ -27791,14 +27926,14 @@ var WorldIndex = class _WorldIndex {
       const f = factAt(this.state, entityId, pred, cp);
       for (const u of f.uncertain) uncertain.push(`${pred} may change to ${JSON.stringify(u.value)} within ${formatTick(u.tick, _WorldIndex.displayOrigin)}\u2013${formatTick(u.tickHi, _WorldIndex.displayOrigin)}`);
       if (!f.known) continue;
-      const rec2 = f.supportRecordId ? this.state.recordById.get(f.supportRecordId) : void 0;
+      const rec = f.supportRecordId ? this.state.recordById.get(f.supportRecordId) : void 0;
       facts.push({
         predicate: pred,
         value: f.value,
         display: Array.isArray(f.value) ? f.value.map((x) => this.entityName(x)).join(", ") : this.pack.predicates.get(pred)?.value_type === "entity_ref" ? this.entityName(String(f.value)) : String(f.value),
         since: formatTick(f.validFrom, _WorldIndex.displayOrigin),
         supportRecordId: f.supportRecordId,
-        support: rec2 ? rec2.summary : ""
+        support: rec ? rec.summary : ""
       });
     }
     const unknown = [];
@@ -31810,12 +31945,12 @@ function extractJson(text) {
   for (const c of candidates) {
     const start = c.indexOf("{");
     if (start < 0) continue;
-    let depth = 0, inStr = false, esc4 = false;
+    let depth = 0, inStr = false, esc5 = false;
     for (let i = start; i < c.length; i++) {
       const ch = c[i];
       if (inStr) {
-        if (esc4) esc4 = false;
-        else if (ch === "\\") esc4 = true;
+        if (esc5) esc5 = false;
+        else if (ch === "\\") esc5 = true;
         else if (ch === '"') inStr = false;
         continue;
       }
@@ -31840,13 +31975,13 @@ function salvageTruncatedJson(text) {
   const start = s.indexOf("{");
   if (start < 0) return null;
   const stack = [];
-  let inStr = false, esc4 = false;
+  let inStr = false, esc5 = false;
   let cut = null;
   for (let i = start; i < s.length; i++) {
     const ch = s[i];
     if (inStr) {
-      if (esc4) esc4 = false;
-      else if (ch === "\\") esc4 = true;
+      if (esc5) esc5 = false;
+      else if (ch === "\\") esc5 = true;
       else if (ch === '"') inStr = false;
       continue;
     }
@@ -32103,12 +32238,12 @@ var taskDefaults = { callTimeoutMs: 0, observer: null, onDone: null, onReject: n
 function looksTruncated(text) {
   const start = text.indexOf("{");
   if (start < 0) return false;
-  let depth = 0, inStr = false, esc4 = false;
+  let depth = 0, inStr = false, esc5 = false;
   for (let i = start; i < text.length; i++) {
     const ch = text[i];
     if (inStr) {
-      if (esc4) esc4 = false;
-      else if (ch === "\\") esc4 = true;
+      if (esc5) esc5 = false;
+      else if (ch === "\\") esc5 = true;
       else if (ch === '"') inStr = false;
       continue;
     }
@@ -32330,6 +32465,26 @@ function voiceInput(v) {
   return { gm_may_write: VOICE_KINDS.filter((k) => v[k]), player_only: [...VOICE_KINDS.filter((k) => !v[k]), INTERVENTION] };
 }
 
+// src/core/combat/prompts.ts
+var EXTRACT_FIGHT = `fight (only for a pack with combat; fight_now says whether a fight is under way and who is in it): whether this message starts, goes on with or ends a CONFRONTATION \u2014 a contest whose result depends on one side's abilities against the other's: a fight, an attack on someone, a chase, sneaking past someone on watch, a contest of strength or skill. state: "starts" \u2014 the player character attacks, engages or is attacked in this message (not threats, plans or talk of fighting); "continues" \u2014 one is under way and the message goes on with it; "ends" \u2014 the player's own words end it (they surrender, walk away, stop); "none" otherwise. participants: everyone in it, the player character too: registry ids; for someone the registry does not have, their name as the message gives it (or a short description: "\u9EC4\u6BDB\u6DF7\u6DF7") and an entry in new_people with a one-line description and the words of the message that show them. why: one sentence.`;
+var EVAL_COMBAT = `   statuses: notable states of a person this reply (or player_action_scope) shows beginning, changing or ending \u2014 hurt (where, how badly), bleeding, ill, drunk, exhausted, knocked out, carrying or losing a notable object (equipment is a state: "\u6301\u6709\u9ED1\u952E"), a counted resource spent (count = what is left): who (registry id or new_entities ref), text (a few words), count when counted, until ({"minutes": n} for what passes by itself \u2014 numbness, a daze, being drunk; "lasting" for what stays until treated or changed \u2014 a fracture, an object held), removed: true when it ends (healed, put down, given away; a state in STATES the reply shows gone); a state in STATES that changes (numbness wearing off to stiffness): removed: true for it by its exact text in STATES, and the new one. quote (verbatim). Not a passing mood or a gesture. With fight_ruling given, leave out the fighters' changes: the ruling has them.
+   fight (only when fight_ruling is not given, for a pack with combat): when the reply itself starts a confrontation the player character is in or sees \u2014 someone attacks, a fight breaks out \u2014: starts true, participants (ids or new_entities refs), quote; resolved_unruled true when the reply then goes on to decide it (blows land, someone wins or loses) instead of stopping where it begins. null when the reply has none.
+   ruling_conflicts (only when fight_ruling is given): every place the reply changes what the ruling decided \u2014 another result, someone hit or hurt who was not (or not hit who was), an attack, dodge or escape the ruling does not have, someone arriving or leaving, the fight carried past its stop_at, the player character doing what the player did not write \u2014: quote and why. NOT a conflict: embellishment \u2014 how it looks, sounds and feels, what people say, their taunts, looks, gestures and thoughts \u2014 as long as no result changes; and following the ruling where it rules against the player's message (the ruling has already decided that: its result stands, not the player's words).`;
+var COMBAT_TASK = `TASK: Judge this turn of a fight \u2014 a confrontation whose result depends on one side's abilities against the other's. The game master writes the reply from your ruling and may only embellish it: what happens is yours to decide.
+Input: basis (what this world runs on by default); fighters (id, name, description, states now, \u5BF9\u6297\u503E\u5411 \u2014 how they act in a fight \u2014, what they are linked to); nodes (the setting: concepts, rules, abilities told in parts, precedents \u2014 how such fights went in the original story); sources (lorebook entries and the player's Persona, each with a ref); relations between the fighters; knows (what each fighter knows of the others' abilities: a part not listed for them is unknown to them); player_message (the player's own words this turn) and statements (what they establish as happening and what they only attempt); recent (the end of the story so far); time.
+1. Authority: an objective mechanism (a node, a source) > what the player's message establishes > your judgement. What the player writes their own character does, and what that act physically does \u2014 they pull the trigger and the bullet hits \u2014 happens. What it then does to someone else beyond what the player wrote is yours to judge by the mechanisms.
+   player_outcomes: EVERY outcome the player's message states for the player character's act \u2014 a hit, a cut, a wound, a kill, someone falling, an escape, an object taken \u2014 once each, quote = the player's words, verbatim. stands: true when it happens as written; false ONLY when an objective mechanism stops it (a reflection, a precognitive dodge, a body that such a blow cannot harm): then basis (node ids; a source ref with its words, verbatim) and why. Without such a mechanism it stands, whatever you would judge. [] when the message states no outcome. outcomes_that_stand, when given: these happen as written \u2014 rule the rest around them.
+2. basis for every exchange: the refs you decided by \u2014 node ids, source refs (with quote) \u2014 or [{"ref":"judgement"}] with unsupported true when nothing in the input decides it; then judge by the common sense of this world's basis. A node's text is the setting: use it as written, do not invent powers, weaknesses or rules it does not have.
+3. present: people here who are not in the fight. joins: those of them who join it this turn of their own accord \u2014 as their \u5BF9\u6297\u503E\u5411 and their relations with the fighters say (a friend steps in for a friend; a \u98CE\u7EAA\u59D4\u5458 stops a fight) \u2014: they act in exchanges from then on. Nobody joins only to help the story along. [] when nobody does.
+   Everyone but the player character acts as their \u5BF9\u6297\u503E\u5411 and their relations with the others say (shocking a friend for fun is play; someone who wants to die does not dodge; someone who never kills holds back), and only on what they know: they go for a weakness only if knows lists it for them. The player character does nothing the player's message does not say: you decide how the world answers it.
+4. This turn only: from what the player's message does to the next moment the player character must decide (an attack coming at them, a choice to make); say that moment in stop_at. exchanges in the order they happen: actor (a fighter id), text \u2014 who does what, with what result, plainly; the game master writes the prose.
+5. statuses: every change of a fighter's state this turn: hurt (where, how badly), bleeding, knocked out ({"minutes": n}), exhausted, a transformation, a counted resource spent (count = what is left), an object lost, taken or picked up. who = fighter id, text short (a few words: "\u5DE6\u81C2\u9AA8\u6298", "\u53F3\u81C2\u53D1\u9EBB", "\u4EE4\u5492", "\u5931\u53BB\u6B66\u5668"), until {"minutes": n} for what passes by itself (numbness, being dazed or out of breath, a short transformation: how long it takes to pass), "lasting" only for what stays until treated or changed (a fracture, a deep cut, an object lost or held, a counted resource); removed: true when a state ends. quote: "".
+6. witnessed: an ability (or one of its parts) someone sees used: node id, part or null, who saw it (fighter ids).
+7. over: true when the fight ends this turn (someone beaten, fled, surrendered, both stop); over_why.
+SHAPE: {"joins":[],"player_outcomes":[{"quote":"","stands":true,"basis":[{"ref":"","quote":""}],"why":""}],"exchanges":[{"actor":"","text":"","basis":[{"ref":"","quote":""}],"unsupported":false}],"statuses":[{"who":"","text":"","count":null,"until":"lasting","node":null,"removed":false,"quote":""}],"witnessed":[{"node":"","part":null,"who":[]}],"over":false,"over_why":"","stop_at":""}`;
+var COMBAT_FILL_TASK = `TASK: The people listed are in a fight, and nothing in the setting says what they are as fighters. For each, choose from concepts (the setting's: id | name | gist) those that describe them in a fight \u2014 at most 3, with a short label ("\u662F") \u2014 judging only by their description, the sources given for them and the scene. Choose nothing that nothing supports: an ordinary passer-by is an ordinary person, not a fighter. When needs_style is true, also write their \u5BF9\u6297\u503E\u5411 from the same evidence, a sentence each: start (when they start a fight), force (how much strength they use, whether they kill), response (what they do when attacked), limit (whom or what they would risk their life for), stop (when they give up or stop); "\u7167\u5E38\u4EBA" where nothing sets them apart. needs_style false: style null.
+SHAPE: {"people":[{"who":"","links":[{"node":"","label":""}],"style":{"start":"","force":"","response":"","limit":"","stop":""}}]}`;
+
 // src/core/runtime/prompts.ts
 var UNTIL_RULE = `"until" says how long the new value holds \u2014 "lasting": until a later change of it, however long (a death, a new home or post, joining or leaving, a lasting injury or disability, imprisonment, a new identity, something learned, a place destroyed); {"minutes": n}: over by itself after about n minutes, whatever happens (knocked out ~30, a short stay at a place or a scene's situation ~60\u2013180, exhaustion a few hours, a hospital stay or a healing injury some days: hours and days in minutes); {"event": "<id>"}: over when that canon event is over (only an id from the input). A state of the moment is never "lasting". Where someone is: "lasting" only for where they live, work or are based; a place they went to (an outing, a shop, a park, someone else's home, a trip, a hospital stay) holds the minutes until they would leave it.`;
 var GM_INTEGRATION_RULES = `[Canon Engine \u2014 scoped timeline integration. Active only while Canon Engine is enabled for this chat.]
@@ -32357,7 +32512,7 @@ For each meaningful statement give kind:
 engagement: the player's stance on being drawn into something the world offers \u2014 an event, a storyline, a request \u2014 given in their own words or by a clear voluntary act. stance: declined ("I won't take part in X", turning down an invitation), deferred ("not now", "let's talk tomorrow": until = that story time when stated, else null), accepted (agrees to an offer), joined (by their own action clearly takes part in the thing itself \u2014 e.g. goes to the battle and intervenes \u2014 even after declining it earlier), limited (a single act inside it, e.g. rescuing one person and leaving: it accepts nothing more), ooc_suppress (out of character: stop building this storyline or pulling me into it), reopened (explicitly wants to be involved again: "I changed my mind, I'll go"), answered (answers a question or demand a character put to them \u2014 one in recent_contacts \u2014 in any way: vaguely, partly, jokingly, evasively, or by saying they already answered), refused (refuses to answer such a question or demand: "none of your business", "I don't have to tell you", "I'm not reporting to you"). answered and refused always have scope "contact" + the id of the question's contact in recent_contacts (the latest one asking it); when the latest contact is a question or demand put to them ("will you\u2026?", "can you accept\u2026?", "yes or no?", "tell me\u2026"), a reply to it is "answered" even when it agrees ("fine", "no problem", "tonight is OK") \u2014 "accepted" is only for taking up an offer to do or join something; a vague or conditional reply ("we'll see", "depends", "who knows about tomorrow") is "answered" too, never "deferred" or "declined" of some event. scope_kind/scope_ref: "event" + an event id or "arc" + an arc id from engagement_context; "contact" + a contact id from engagement_context.recent_contacts when it answers that specific request only ("I won't do this job for X"); "faction" + an organization id ("I won't work for X"); "storyline" + a short scope_label for an out-of-character suppression of a whole line (give the arc id instead when one fits). Give scope_label as a short human name. Scope is what the player's words cover, not what the latest request happened to be about: refusing a whole kind of work or everything from someone ("no more jobs from them", "I won't take any of these missions for a while") is "faction" \u2014 the organization the requests come from (recent_contacts[].by, organizations), plus the player's own organization when they refuse to work through it (player_member) \u2014 one statement per scope with the same quote; "not this one" is the event or contact. When the player sets a period ("for now", "this week"), the decision still holds until they change it. Going along with a recent contact by the player's own act \u2014 calling back and arranging to meet, going where they asked, doing what they asked \u2014 is "accepted" with scope "contact" + that contact's id from recent_contacts (it accepts that contact, not the faction or event behind it). Passing by, asking for news, watching from afar, small talk or not answering is NOT an engagement statement; prefer engagement over participation_decline.
 ooc_parts, when given, are the parts of the message the player marked as out of character: never asserted_fact, attempted_action, spoken_dialogue, belief or hypothetical \u2014 classify them as ooc_direction, ooc_config_request, time_proposal or engagement (e.g. ooc_suppress, or an out-of-character "I won't join X").
 Also list references to entities or past events (direct, indirect like "the man I rescued", aliases, pronouns) with candidate ids, and scene_entities the user's action involves.
-fight (only for a pack with combat; fight_now says whether a fight is under way and who is in it): whether this message starts, goes on with or ends a CONFRONTATION \u2014 a contest whose result depends on one side's abilities against the other's: a fight, an attack on someone, a chase, sneaking past someone on watch, a contest of strength or skill. state: "starts" \u2014 the player character attacks, engages or is attacked in this message (not threats, plans or talk of fighting); "continues" \u2014 one is under way and the message goes on with it; "ends" \u2014 the player's own words end it (they surrender, walk away, stop); "none" otherwise. participants: everyone in it, the player character too: registry ids; for someone the registry does not have, their name as the message gives it (or a short description: "\u9EC4\u6BDB\u6DF7\u6DF7") and an entry in new_people with a one-line description and the words of the message that show them. why: one sentence.
+${EXTRACT_FIGHT}
 SHAPE: {"statements":[{"kind":"asserted_fact|attempted_action|spoken_dialogue|belief|hypothetical|ooc_direction|ooc_config_request|time_proposal|participation_decline|engagement","quote":"...","summary":"...","entities":["id"],"facts":[{"entity_id":"","predicate":"","value":true,"until":"lasting"}],"event_id":null,"time":null,"ambiguous":false,"stance":null,"scope_kind":null,"scope_ref":null,"scope_label":null,"until":null}],"references":[{"phrase":"","quote":"","kind":"entity|event","mode":"direct|indirect|alias|pronoun","candidates":["id"]}],"scene_entities":["id"],"fight":{"state":"none","participants":[],"new_people":[{"name":"","description":"","quote":""}],"why":""}}`,
   discover: `${COMMON}
 TASK: Reference and claim discovery over the COMPLETE candidate text. Find the references and claims worth checking (at most 40 references and 40 claims; when there are more, keep the ones a record could contradict: past events, known people/places/objects/organizations, possession, presence, causes):
@@ -32388,9 +32543,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    relations: how this reply (or the player's message, player_action_scope) begins, changes or ends a relationship between two people who matter in the story \u2014 the player character (player_entity) and anyone else alike \u2014 compared with RELATIONSHIPS and the player's connections in PLAYER IN THIS WORLD (retrieved_context): a meeting that matters beyond the moment (an introduction with a reason to meet again), becoming friends, allies, rivals or enemies, falling in love, dating, a falling-out, a debt or favor owed, trust won or broken, a family tie revealed, a form of address taken up or given up (a nickname offered and then used, starting to call the other by the given name, a cold surname after a falling-out \u2014 a change of its own, even in a light exchange and when nothing else between them changes), a change in how one of them treats the other (also one the reply shows as already so where RELATIONSHIPS says otherwise: "\u59D0\u59D0\u7ED9\u5FA1\u5742\u4E70\u4E86\u51B0\u6DC7\u6DCB" from a sister RELATIONSHIPS calls distant), one of them dying (ended: true) or the tie broken off for good (ended: true). people: the two, each by registry id or new_entities ref (a person met in this reply who matters gets a new_entities entry). The change is merged into the relationship as RELATIONSHIPS has it: a part you give replaces that part, a part you leave out stays as it is \u2014 so give anew every part this change makes untrue (a falling-out: each side's regard, how they are together, and each form of address that no longer fits \u2014 a pet name dropped, a cold surname or an insult in its place; growing close: the new name they use), and for two with no line there, every side the reply shows. bond: what they are to each other now, one short phrase in the story's language, the whole of it, not only the change ("\u540C\u73ED\u540C\u5B66\uFF0C\u521A\u548C\u597D\u7684\u670B\u53CB"); "" when it does not change (only for two with a line in RELATIONSHIPS or the player's connections); never forms of address \u2014 they go in address. views: each side that changes \u2014 who (one of the two), sees (how they regard and treat the other now, one sentence; "" when unchanged); for the player character only what the player's message or the reply makes plain, never a feeling you assume for them. address: each form of address between the two that changes, as FORMS OF ADDRESS has them: a new form, one used otherwise now, or one no longer used \u2014 by: the one who uses it, to: the one called so (the other of the two); a form is the speaker's own: "\u7231\u4E3D\u4E1D starts calling \u7F8E\u7434 \u300C\u7535\u7535\u300D" is by \u7231\u4E3D\u4E1D to \u7F8E\u7434, also where \u7F8E\u7434 puts up with the name, objects to it or repeats it; term: the form itself as the text has it, nothing else; use: always (the only form by uses for to now), usually, sometimes (with when: in what situation) or dropped (no longer used); quote: verbatim, the words where by calls or names to so (or stops), with the term in it \u2014 from the reply, or for the player character from the player's message; [] when none changes; never the other's plain full name; a form only when the reply makes it how by addresses to from now on \u2014 someone starts calling them so, a nickname is given \u2014 not a form used once, and never a form that is another person's for that one (\u59D0\u59D0\u5927\u4EBA is \u767D\u4E95\u9ED1\u5B50's for \u5FA1\u5742\u7F8E\u7434: someone else using it is a mistake of the reply, not a change); the player character's forms only when the player's own message gives them \u2014 the player calling someone by a new name in their message ("\u5C0F\u9ED1\uFF0C\u65E9\uFF01") is one. together: how the two are when together now, when that changes ("" when unchanged). Not: small talk (a form of address someone takes up is not small talk), a passing stranger, a mood of the moment, what RELATIONSHIPS already says. quote: verbatim from the reply or the player's message. Nothing changed: empty list.
    present: the people physically with the player character where the reply ends \u2014 in the same place, able to see or hear each other (on the phone or a video call counts); registry ids or new_entities refs. Not people only talked about, remembered, watched on a screen or elsewhere in the city.
    player_knowers: what people know about the PLAYER CHARACTER, compared with the "who knows" lines of PLAYER IN THIS WORLD: someone learns about the player more than they knew (also through their own power: reading the player character's mind or memories) \u2014 who they are or their role (level "identity"), a specific secret (level "secrets": about says which), only that their organization exists ("exists"); about: everything they know now. who: the person or group by name, existing_id their registry id or a new_entities ref when they have one, else null. Not: small talk, a passing stranger, a mood of the moment, what the lines already say. quote: verbatim from the reply or the player's message. Nothing changed: empty list.
-   statuses: notable states of a person this reply (or player_action_scope) shows beginning, changing or ending \u2014 hurt (where, how badly), bleeding, ill, drunk, exhausted, knocked out, carrying or losing a notable object (equipment is a state: "\u6301\u6709\u9ED1\u952E"), a counted resource spent (count = what is left): who (registry id or new_entities ref), text (a few words), count when counted, until ({"minutes": n} for what passes by itself \u2014 numbness, a daze, being drunk; "lasting" for what stays until treated or changed \u2014 a fracture, an object held), removed: true when it ends (healed, put down, given away; a state in STATES the reply shows gone); a state in STATES that changes (numbness wearing off to stiffness): removed: true for it by its exact text in STATES, and the new one. quote (verbatim). Not a passing mood or a gesture. With fight_ruling given, leave out the fighters' changes: the ruling has them.
-   fight (only when fight_ruling is not given, for a pack with combat): when the reply itself starts a confrontation the player character is in or sees \u2014 someone attacks, a fight breaks out \u2014: starts true, participants (ids or new_entities refs), quote; resolved_unruled true when the reply then goes on to decide it (blows land, someone wins or loses) instead of stopping where it begins. null when the reply has none.
-   ruling_conflicts (only when fight_ruling is given): every place the reply changes what the ruling decided \u2014 another result, someone hit or hurt who was not (or not hit who was), an attack, dodge or escape the ruling does not have, someone arriving or leaving, the fight carried past its stop_at, the player character doing what the player did not write \u2014: quote and why. NOT a conflict: embellishment \u2014 how it looks, sounds and feels, what people say, their taunts, looks, gestures and thoughts \u2014 as long as no result changes; and following the ruling where it rules against the player's message (the ruling has already decided that: its result stands, not the player's words).
+${EVAL_COMBAT}
 6. violations: ONLY problems that require rewriting the reply \u2014 player-character acts the player did not write whose category is in player_voice.player_only (the controller checks player_actions; what player_voice.gm_may_write allows is wanted, never a violation; an act carrying out what the player wrote \u2014 with its means, incantation or exact words \u2014 is never a violation), contradictions, recollections whose claim check is unsupported (a notable past; small compatible backstory is never a violation), leaking secret knowledge to characters who cannot know it, narration that reveals, quotes or paraphrases player_ooc_instructions or shows the player character weighing or planning them ("she thought: if he comes, I will...") \u2014 code "ooc_leak", engine labels/JSON in prose, skipping a due obligation, time moving backwards. Not violations: a reply that follows fight_ruling where it differs from the player's message (the ruling decided it: its player_words_that_do_not_happen do not happen, whatever the message says), story time moving forward within the scene, NPCs present or acting on their own, plausible new scene details, the natural completion of an action the player authorized, a plan step whose window the player's time skip passed narrated as having happened off-screen (record it as an occurrence at its own time, with a step_enactment). Set blocking=true for a problem that must be fixed; if you consider something minor or acceptable, leave it out (or set blocking=false).
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it). mode=retained and the message is not story text at all (out-of-character instructions, a setup or system note, rules or a menu \u2014 often the card's opening message telling the GM how to start): decision retain with no occurrences, transitions, state_claims or violations; it establishes nothing.
 SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"time_evidence":[{"quote":"","kind":"now","at":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0}},"minutes":null}],"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"until":"lasting","quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"backstory":false,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null,"category":"dialogue"}],"step_enactments":[{"step_id":"s1","occurrence_ref":"o1","quote":""}],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":"","blocking":true}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":"","contacts":[{"quote":"","actors":[],"kind":"invitation","scope_kind":"event","scope_ref":"","scope_label":"","opportunity_id":null}],"relations":[{"people":["",""],"bond":"","views":[{"who":"","sees":""}],"address":[{"by":"","to":"","term":"","use":"usually","when":"","quote":""}],"together":"","ended":false,"quote":""}],"present":[],"player_knowers":[{"who":"","existing_id":null,"level":"identity","about":"","quote":""}],"statuses":[{"who":"","text":"","count":null,"until":"lasting","removed":false,"quote":""}],"fight":null,"ruling_conflicts":[{"quote":"","why":""}]}`,
@@ -32459,23 +32612,11 @@ SHAPE: {"judgements":[{"id":"k1","knows":true,"how":""}]}`,
   relate: `${COMMON}
 TASK: Events of the original story have just settled in this game. In the original story each changes the relationship of the pairs listed with it as "change" says. In this game the pair stands as "now" says (null: they do not know each other yet) \u2014 which may already differ from the original story \u2014 and the event went as "actual" says (as in the original story, or otherwise). For EACH pair work out how the two stand after the event in this game: the original change where its premise holds here; in part, otherwise or not at all where it does not (they already fell out, one of them was not there, the event went differently); by what actually happened when the event went otherwise. changed: false when it leaves them as they stand (also when they never deal with each other in it as it went). Otherwise the change, merged into "now": a part you give replaces that part, a part you leave out stays \u2014 so give anew every part the change makes untrue, the forms of address included (a form that no longer fits is dropped, a new one given). bond: what they are to each other now, one short phrase, the whole of it. views: each side that changes \u2014 who (one of the two ids), sees (how they regard and treat the other now, one sentence; "" when unchanged), address (only the forms of address that change, from "now": a new form, one used otherwise, or one no longer used \u2014 term: the form itself; use: always (the only form they use for the other now), usually, sometimes (with when: in what situation) or dropped; [] when none changes). address_change, when given, is how the original story's forms change at this event: take a change only as far as it fits what actually happened and the relation "now". together: how they are when together, when that changes ("" when unchanged). ended: true only when the relationship is over for good (one of them died, broken off for good). Never decide the player character's feelings or words: for them only what actual says. Write in the language of the inputs; nothing beyond what the event and their relationship make plain.
 SHAPE: {"pairs":[{"n":1,"changed":false,"bond":"","views":[{"who":"","sees":"","address":[{"term":"","use":"usually","when":""}]}],"together":"","ended":false}]}`,
-  // 战斗分析: the fight is judged before the reply; the game master only writes it (design: 战斗分析设计稿).
+  // 战斗分析 (combat/prompts.ts)
   combat: `${COMMON}
-TASK: Judge this turn of a fight \u2014 a confrontation whose result depends on one side's abilities against the other's. The game master writes the reply from your ruling and may only embellish it: what happens is yours to decide.
-Input: basis (what this world runs on by default); fighters (id, name, description, states now, \u5BF9\u6297\u503E\u5411 \u2014 how they act in a fight \u2014, what they are linked to); nodes (the setting: concepts, rules, abilities told in parts, precedents \u2014 how such fights went in the original story); sources (lorebook entries and the player's Persona, each with a ref); relations between the fighters; knows (what each fighter knows of the others' abilities: a part not listed for them is unknown to them); player_message (the player's own words this turn) and statements (what they establish as happening and what they only attempt); recent (the end of the story so far); time.
-1. Authority: an objective mechanism (a node, a source) > what the player's message establishes > your judgement. What the player writes their own character does, and what that act physically does \u2014 they pull the trigger and the bullet hits \u2014 happens. What it then does to someone else beyond what the player wrote is yours to judge by the mechanisms.
-   player_outcomes: EVERY outcome the player's message states for the player character's act \u2014 a hit, a cut, a wound, a kill, someone falling, an escape, an object taken \u2014 once each, quote = the player's words, verbatim. stands: true when it happens as written; false ONLY when an objective mechanism stops it (a reflection, a precognitive dodge, a body that such a blow cannot harm): then basis (node ids; a source ref with its words, verbatim) and why. Without such a mechanism it stands, whatever you would judge. [] when the message states no outcome. outcomes_that_stand, when given: these happen as written \u2014 rule the rest around them.
-2. basis for every exchange: the refs you decided by \u2014 node ids, source refs (with quote) \u2014 or [{"ref":"judgement"}] with unsupported true when nothing in the input decides it; then judge by the common sense of this world's basis. A node's text is the setting: use it as written, do not invent powers, weaknesses or rules it does not have.
-3. present: people here who are not in the fight. joins: those of them who join it this turn of their own accord \u2014 as their \u5BF9\u6297\u503E\u5411 and their relations with the fighters say (a friend steps in for a friend; a \u98CE\u7EAA\u59D4\u5458 stops a fight) \u2014: they act in exchanges from then on. Nobody joins only to help the story along. [] when nobody does.
-   Everyone but the player character acts as their \u5BF9\u6297\u503E\u5411 and their relations with the others say (shocking a friend for fun is play; someone who wants to die does not dodge; someone who never kills holds back), and only on what they know: they go for a weakness only if knows lists it for them. The player character does nothing the player's message does not say: you decide how the world answers it.
-4. This turn only: from what the player's message does to the next moment the player character must decide (an attack coming at them, a choice to make); say that moment in stop_at. exchanges in the order they happen: actor (a fighter id), text \u2014 who does what, with what result, plainly; the game master writes the prose.
-5. statuses: every change of a fighter's state this turn: hurt (where, how badly), bleeding, knocked out ({"minutes": n}), exhausted, a transformation, a counted resource spent (count = what is left), an object lost, taken or picked up. who = fighter id, text short (a few words: "\u5DE6\u81C2\u9AA8\u6298", "\u53F3\u81C2\u53D1\u9EBB", "\u4EE4\u5492", "\u5931\u53BB\u6B66\u5668"), until {"minutes": n} for what passes by itself (numbness, being dazed or out of breath, a short transformation: how long it takes to pass), "lasting" only for what stays until treated or changed (a fracture, a deep cut, an object lost or held, a counted resource); removed: true when a state ends. quote: "".
-6. witnessed: an ability (or one of its parts) someone sees used: node id, part or null, who saw it (fighter ids).
-7. over: true when the fight ends this turn (someone beaten, fled, surrendered, both stop); over_why.
-SHAPE: {"joins":[],"player_outcomes":[{"quote":"","stands":true,"basis":[{"ref":"","quote":""}],"why":""}],"exchanges":[{"actor":"","text":"","basis":[{"ref":"","quote":""}],"unsupported":false}],"statuses":[{"who":"","text":"","count":null,"until":"lasting","node":null,"removed":false,"quote":""}],"witnessed":[{"node":"","part":null,"who":[]}],"over":false,"over_why":"","stop_at":""}`,
+${COMBAT_TASK}`,
   combat_fill: `${COMMON}
-TASK: The people listed are in a fight, and nothing in the setting says what they are as fighters. For each, choose from concepts (the setting's: id | name | gist) those that describe them in a fight \u2014 at most 3, with a short label ("\u662F") \u2014 judging only by their description, the sources given for them and the scene. Choose nothing that nothing supports: an ordinary passer-by is an ordinary person, not a fighter. When needs_style is true, also write their \u5BF9\u6297\u503E\u5411 from the same evidence, a sentence each: start (when they start a fight), force (how much strength they use, whether they kill), response (what they do when attacked), limit (whom or what they would risk their life for), stop (when they give up or stop); "\u7167\u5E38\u4EBA" where nothing sets them apart. needs_style false: style null.
-SHAPE: {"people":[{"who":"","links":[{"node":"","label":""}],"style":{"start":"","force":"","response":"","limit":"","stop":""}}]}`,
+${COMBAT_FILL_TASK}`,
   // User: smart characters only sounded clever and said what anyone would say; the GM writes every person in one pass
   // with the same effort. Here the people who think before they act get a pass of their own, before the reply.
   mind: `${COMMON}
@@ -33045,8 +33186,8 @@ function engagementView(state, pack2) {
   const all = [...state.engagements];
   for (const [eventId, recordId] of state.declines) {
     if (all.some((e) => e.recordId === recordId)) continue;
-    const rec2 = state.recordById.get(recordId);
-    all.push({ scopeKind: "event", scopeRef: eventId, scopeLabel: pack2.events.get(eventId)?.title || eventId, stance: "declined", quote: rec2?.sourceRefs[0]?.spans[0]?.quote || "", source: "player_message", recordId, seq: rec2?.sequence ?? 0, tick: rec2?.storyTime.lo ?? 0 });
+    const rec = state.recordById.get(recordId);
+    all.push({ scopeKind: "event", scopeRef: eventId, scopeLabel: pack2.events.get(eventId)?.title || eventId, stance: "declined", quote: rec?.sourceRefs[0]?.spans[0]?.quote || "", source: "player_message", recordId, seq: rec?.sequence ?? 0, tick: rec?.storyTime.lo ?? 0 });
   }
   all.sort((a, b) => a.seq - b.seq);
   for (const e of all) {
@@ -34073,8 +34214,8 @@ function validateAgainstPrefix(interp, state, pack2, entries, uptoIndex) {
       reasons.push(`unknown event ${b.eventId}`);
       continue;
     }
-    const rec2 = interp.records.find((r) => r.packEventId === b.eventId);
-    const tick = rec2 ? rec2.storyTime.lo : now;
+    const rec = interp.records.find((r) => r.packEventId === b.eventId);
+    const tick = rec ? rec.storyTime.lo : now;
     const v = triLabel(evalCondition(ev.canonical_preconditions, state, pack2, { tick }));
     if (v !== b.precondition) reasons.push(`offscreen adjudication of ${b.eventId} assumed preconditions ${b.precondition} but they are now ${v}`);
   }
@@ -34090,17 +34231,17 @@ function replay(input) {
   let seq = 0;
   const ledger = [];
   for (const b of bootstrap) {
-    const rec2 = draftToRecord(b, ++seq, branchId, "bootstrap");
-    applyRecord(state, rec2);
-    ledger.push(rec2);
+    const rec = draftToRecord(b, ++seq, branchId, "bootstrap");
+    applyRecord(state, rec);
+    ledger.push(rec);
   }
   const manual = input.manual || [];
   const present = new Set(entries.filter((e) => e.role !== "system").map((e) => e.messageId));
   const applyManual = (pred) => {
     for (const m of manual) if (pred(m)) {
-      const rec2 = draftToRecord(m.record, ++seq, branchId, "manual");
-      applyRecord(state, rec2);
-      ledger.push(rec2);
+      const rec = draftToRecord(m.record, ++seq, branchId, "manual");
+      applyRecord(state, rec);
+      ledger.push(rec);
     }
   };
   applyManual((m) => m.afterMessageId === null);
@@ -34136,10 +34277,10 @@ function replay(input) {
       if (!chosen) return finish({ index: i, entry: e, status: "needs_reeval", reasons: [...new Set(reasons)], candidates: cands });
     }
     for (const d of chosen.records) {
-      const rec2 = draftToRecord(d, ++seq, branchId, chosen.commitId);
-      rec2.sourceRefs = rec2.sourceRefs.length ? rec2.sourceRefs : [{ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, spans: [] }];
-      applyRecord(state, rec2);
-      ledger.push(rec2);
+      const rec = draftToRecord(d, ++seq, branchId, chosen.commitId);
+      rec.sourceRefs = rec.sourceRefs.length ? rec.sourceRefs : [{ messageId: e.messageId, variantId: e.variantId, contentHash: e.contentHash, spans: [] }];
+      applyRecord(state, rec);
+      ledger.push(rec);
     }
     if (chosen.role === "gm" && !chosen.basisScope) chosen.basisScope = scopeOf(state, chosen);
     for (const x of interpretationEntities(chosen)) state.told.set(x, quickHash((state.told.get(x) || "") + "\n" + e.contentHash));
@@ -34590,144 +34731,8 @@ function buildPacket(inp, compact = false) {
   return { text, facts, hash: sha256(text), required: reqText.length, optional: text.length - reqText.length, truncatedOptional: truncated };
 }
 
-// src/core/domain/combat-state.ts
-var RANK = { ui: 5, persona: 4, play: 3, pack: 2, fill: 1 };
-var occurred = (state, e) => !!e && state.dispositions.get(e)?.disposition === "occurred";
-function linksOf(L, state, entity, tick = state.clock.lo) {
-  const now = /* @__PURE__ */ new Map();
-  for (const l of L.combat.linksFrom.get(entity) || []) {
-    if (l.from_event && !occurred(state, l.from_event)) continue;
-    if (l.until_event && occurred(state, l.until_event)) continue;
-    now.set(l.to, { node: l.to, label: l.label, source: "pack" });
-  }
-  const removedBy = /* @__PURE__ */ new Map();
-  for (const c of state.combatLinks) {
-    if (c.entity !== entity || !L.combat.nodes.has(c.node)) continue;
-    const cur = now.get(c.node);
-    const curRank = cur ? RANK[cur.source] : removedBy.get(c.node) ?? 0;
-    if (c.source === "fill" && (c.removed || curRank > RANK.fill)) continue;
-    if (c.removed) {
-      now.delete(c.node);
-      removedBy.set(c.node, RANK[c.source]);
-      continue;
-    }
-    now.set(c.node, { node: c.node, label: c.label, source: c.source, ...c.quote ? { quote: c.quote } : {} });
-  }
-  for (const s of statusesOf(state, entity, tick)) if (s.node && L.combat.nodes.has(s.node) && !now.has(s.node)) now.set(s.node, { node: s.node, label: s.text, source: s.source });
-  return [...now.values()];
-}
-function statusesOf(state, entity, tick = state.clock.lo) {
-  const by = /* @__PURE__ */ new Map();
-  for (const s of state.statuses) {
-    if (s.entity !== entity || s.tick > tick) continue;
-    const k = normalizeName(s.text);
-    if (s.removed) by.delete(k);
-    else by.set(k, s);
-  }
-  const out = [];
-  for (const s of by.values()) {
-    const u = s.until;
-    if (u && u !== "lasting" && "minutes" in u) {
-      const end = s.tick + Math.max(1, Math.round(u.minutes));
-      if (tick >= end) continue;
-      out.push({ ...s, endsAt: end });
-      continue;
-    }
-    if (u && u !== "lasting" && "event" in u) {
-      const d = state.dispositions.get(u.event);
-      if (d && d.tick >= s.tick && d.tick <= tick) continue;
-    }
-    out.push(s);
-  }
-  return out;
-}
-function styleOf(L, state, entity) {
-  let best = null;
-  const vs = L.pack.entities.find((e) => e.id === entity)?.combat_style;
-  if (vs?.length) {
-    let i = 0;
-    vs.forEach((v2, j) => {
-      if (j > 0 && occurred(state, v2.from_event) && !occurred(state, v2.until_event)) i = j;
-    });
-    const v = vs[i];
-    best = { style: { start: v.start, force: v.force, response: v.response, limit: v.limit, stop: v.stop }, source: "pack", rank: RANK.pack };
-  }
-  for (const s of state.styles) {
-    if (s.entity !== entity) continue;
-    if (!best || RANK[s.source] >= best.rank) best = { style: s.style, source: s.source, rank: RANK[s.source] };
-  }
-  return best && { style: best.style, source: best.source };
-}
-function fightNow(state) {
-  const f = state.fights[state.fights.length - 1];
-  return f ? { ongoing: f.ongoing, participants: f.participants, source: f.source, since: f.tick } : { ongoing: false, participants: [], source: null, since: null };
-}
-function knowsNode(L, state, who, nodeId, part) {
-  const n = L.combat.nodes.get(nodeId);
-  if (!n) return false;
-  const vis = part && n.parts?.find((p) => p.part === part)?.visibility || n.visibility;
-  if (!vis || vis.mode === "public") return true;
-  if (vis.knower_ids.includes(who)) return true;
-  if (linksOf(L, state, who).some((l) => l.node === nodeId)) return true;
-  return state.witnessed.some((w) => w.node === nodeId && (!w.part || !part || w.part === part) && w.who.includes(who));
-}
-function walkCombat(L, state, starts, opts) {
-  const tick = opts.tick ?? state.clock.lo;
-  const seen = /* @__PURE__ */ new Map();
-  const reach = (node, depth, from, via) => {
-    const s = seen.get(node);
-    if (!s) {
-      seen.set(node, { depth, from: /* @__PURE__ */ new Set([from]), via });
-      return true;
-    }
-    s.from.add(from);
-    if (depth < s.depth) {
-      s.depth = depth;
-      s.via = via;
-      return true;
-    }
-    return false;
-  };
-  for (const e of starts) {
-    let frontier = [];
-    for (const l of linksOf(L, state, e, tick)) {
-      if (opts.objective && l.source === "fill") continue;
-      reach(l.node, 1, e, `${e} ${l.label}`);
-      frontier.push(l.node);
-    }
-    for (const p of L.combat.precedentsOf.get(e) || []) {
-      reach(p, 1, e, `${e} was in it`);
-      frontier.push(p);
-    }
-    for (let d = 2; d <= opts.maxDepth && frontier.length; d++) {
-      const next = [];
-      for (const n of frontier) for (const l of L.combat.linksFrom.get(n) || []) {
-        if (!L.combat.nodes.has(l.to)) continue;
-        const before = seen.get(l.to)?.from.has(e);
-        reach(l.to, d, e, `${n} ${l.label}`);
-        if (!before) next.push(l.to);
-      }
-      frontier = next;
-    }
-  }
-  const list = [...seen.entries()].map(([id, s]) => ({ node: L.combat.nodes.get(id), depth: s.depth, full: s.depth <= opts.fullDepth, from: [...s.from], via: s.via })).sort((a, b) => a.depth - b.depth || b.from.length - a.from.length || a.node.id.localeCompare(b.node.id));
-  const nodes = [], cut = [];
-  let chars = 0;
-  for (const w of list) {
-    const size = (w.full ? w.node.text.length + (w.node.parts || []).reduce((n, p) => n + p.text.length, 0) : w.node.gist.length) + w.node.name.length + 20;
-    if (chars + size > opts.budgetChars && nodes.length) {
-      cut.push(w.node.id);
-      continue;
-    }
-    chars += size;
-    nodes.push(w);
-  }
-  return { nodes, cut, chars };
-}
-
-// src/core/runtime/combat.ts
-var slug2 = (s) => (String(s).normalize("NFKC").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "person").slice(0, 24);
-var rec = (st, src, summary, extra) => ({
+// src/core/combat/record.ts
+var combatRecord = (st, src, summary, extra) => ({
   recordId: newId("rec"),
   kind: "combat",
   storyTime: st,
@@ -34739,13 +34744,26 @@ var rec = (st, src, summary, extra) => ({
   evidenceKind: "direct",
   ...extra
 });
+var cleanUntil = (u) => {
+  if (u === "lasting") return "lasting";
+  if (u && typeof u === "object" && "minutes" in u && Number.isFinite(Number(u.minutes)) && Number(u.minutes) > 0) return { minutes: Math.round(Number(u.minutes)) };
+  return void 0;
+};
+
+// src/core/combat/message.ts
+function fightNowInput(index) {
+  if (index.pack.combat.none !== null) return "this pack has no combat: fight is always null";
+  const f = fightNow(index.state);
+  return f.ongoing ? { ongoing: true, participants: f.participants.map((p) => `${p} | ${index.entityName(p)}`) } : { ongoing: false };
+}
+var slug2 = (s) => (String(s).normalize("NFKC").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "person").slice(0, 24);
 function fightFromMessage(out, index, text, src, st, playerId) {
   const warnings = [];
   if (!out || out.state === "none" || index.pack.combat.none !== null) return { records: [], warnings };
   const now = fightNow(index.state);
   if (out.state === "ends") {
     if (!now.ongoing) return { records: [], warnings };
-    return { records: [rec(st, src, `The player ended the fight: ${out.why || ""}`, { fight: { ongoing: false, participants: now.participants, source: "player", why: String(out.why || "").slice(0, 300) } })], warnings };
+    return { records: [combatRecord(st, src, `The player ended the fight: ${out.why || ""}`, { fight: { ongoing: false, participants: now.participants, source: "player", why: String(out.why || "").slice(0, 300) } })], warnings };
   }
   const made = [];
   const byName = /* @__PURE__ */ new Map();
@@ -34783,19 +34801,16 @@ function fightFromMessage(out, index, text, src, st, playerId) {
     return { records: [], warnings };
   }
   if (now.ongoing && participants.length === now.participants.length && participants.every((p) => now.participants.includes(p)) && !made.length) return { records: [], warnings };
-  return { records: [rec(st, src, `Fight: ${participants.map((p) => index.entityName(p) || made.find((m) => m.id === p)?.name || p).join(", ")}`, { fight: { ongoing: true, participants, source: "player", why: String(out.why || "").slice(0, 300) }, ...made.length ? { runtimeEntities: made } : {} })], warnings };
+  return { records: [combatRecord(st, src, `Fight: ${participants.map((p) => index.entityName(p) || made.find((m) => m.id === p)?.name || p).join(", ")}`, { fight: { ongoing: true, participants, source: "player", why: String(out.why || "").slice(0, 300) }, ...made.length ? { runtimeEntities: made } : {} })], warnings };
 }
+
+// src/core/combat/judge.ts
 var DEFAULT_COMBAT = { maxDepth: 3, fullDepth: 2, budgetChars: 9e3 };
 function loreAbout(entries, names) {
   const ns = names.filter((n) => n && n.trim().length >= 2);
   return entries.filter((e) => !e.disabled && e.content.trim() && (ns.some((n) => normalizeName(e.title || "") === normalizeName(n)) || e.keys.some((k) => ns.some((n) => keyMatch(k, n, e) !== null))));
 }
 var loreRef = (e) => `lore:${e.book}/${e.uid}`;
-var cleanUntil = (u) => {
-  if (u === "lasting") return "lasting";
-  if (u && typeof u === "object" && "minutes" in u && Number.isFinite(Number(u.minutes)) && Number(u.minutes) > 0) return { minutes: Math.round(Number(u.minutes)) };
-  return void 0;
-};
 async function judgeFight(a) {
   const L = a.index.pack;
   if (L.combat.none !== null) return null;
@@ -34843,7 +34858,7 @@ async function judgeFight(a) {
       if (p.who !== a.playerId && s && !styleOf(L, index.state, p.who) && [s.start, s.force, s.response, s.limit, s.stop].every((x) => typeof x === "string" && x.trim()))
         filled.styles.push({ entity: p.who, style: { start: s.start.trim(), force: s.force.trim(), response: s.response.trim(), limit: s.limit.trim(), stop: s.stop.trim() }, source: "fill" });
     }
-    if (filled.links.length || filled.styles.length) index = a.overlay([rec({ lo: a.index.state.clock.lo, hi: a.index.state.clock.lo, precision: "minute" }, [], "filled in", { combatLinks: filled.links, styles: filled.styles })]);
+    if (filled.links.length || filled.styles.length) index = a.overlay([combatRecord({ lo: a.index.state.clock.lo, hi: a.index.state.clock.lo, precision: "minute" }, [], "filled in", { combatLinks: filled.links, styles: filled.styles })]);
   }
   const starts = uniq([...fighters, ...bystanders, ...a.places]);
   const walk2 = walkCombat(L, index.state, starts, a.settings);
@@ -34966,7 +34981,7 @@ async function judgeFight(a) {
   return { fighters, joined, exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || "").slice(0, 300), stopAt: String(out.stop_at || "").slice(0, 300), outcomes, stands, filled, cut: walk2.cut, notes };
 }
 function rulingRecord(r, st, names) {
-  return rec(st, [], `Fight ruled: ${r.exchanges.map((x) => `${names(x.actor)}: ${x.text}`).join(" / ")}`, {
+  return combatRecord(st, [], `Fight ruled: ${r.exchanges.map((x) => `${names(x.actor)}: ${x.text}`).join(" / ")}`, {
     ...r.filled.links.length ? { combatLinks: r.filled.links } : {},
     ...r.filled.styles.length ? { styles: r.filled.styles } : {},
     ...r.statuses.length ? { statuses: r.statuses } : {},
@@ -34975,6 +34990,8 @@ function rulingRecord(r, st, names) {
     evidenceKind: "adjudication"
   });
 }
+
+// src/core/combat/reply.ts
 function rulingSection(r, names) {
   const lines = r.exchanges.map((x, i) => `${i + 1}. ${names(x.actor)}: ${x.text}`);
   const states = r.statuses.map((s) => `${names(s.entity)}: ${s.removed ? "no longer " : ""}${s.text}${s.count != null ? ` (${s.count} left)` : ""}`);
@@ -34986,6 +35003,42 @@ function rulingSection(r, names) {
     ...r.stands.length ? [`The player's words stand as written: ${r.stands.map((q) => `\xAB${q}\xBB`).join(" ")}`] : [],
     r.over ? `The fight ends here${r.overWhy ? `: ${r.overWhy}` : ""}.` : `End the reply at this point${r.stopAt ? `: ${r.stopAt}` : ""} \u2014 the player character's next move is the player's.`
   ].join("\n");
+}
+var FIGHT_START_RULE = "FIGHTS (Canon Engine judges every fight before it is written): if someone in your reply attacks someone or a fight breaks out, write up to the moment it begins \u2014 the attack comes, the first move is made \u2014 and end the reply there. Do not decide how it goes (who hits, who is hurt, who wins or escapes): Canon Engine judges it on the next turn, after the player has answered.";
+function statesSection(index, ids, name2, tick = index.state.clock.lo) {
+  const lines = uniq(ids).map((id) => ({ id, s: statusesOf(index.state, id, tick) })).filter((x) => x.s.length).map((x) => `- ${name2(x.id)} [${x.id}]: ${x.s.map((s) => `${s.text}${s.count != null ? ` \xD7${s.count}` : ""}${s.endsAt ? ` (until ${Math.max(0, s.endsAt - tick)} min from now)` : ""}`).join("; ")}`);
+  return lines.length ? `STATES (\u72B6\u6001 of the people here as they stand now \u2014 injuries, conditions, what they carry; they hold until the story changes them: show them where they matter, and keep counts as given):
+${lines.join("\n")}` : "";
+}
+
+// src/core/combat/turn.ts
+async function combatBeforeReply(index, active, judge, name2) {
+  if (index.pack.combat.none !== null || !active) return { ruling: null, failed: null, section: null };
+  let ruling = null, failed = null;
+  if (fightNow(index.state).ongoing) {
+    try {
+      ruling = await judge();
+    } catch (e) {
+      if (e instanceof EngineError && e.kind === "cancelled") throw e;
+      failed = e.message.slice(0, 160);
+    }
+  }
+  return { ruling, failed, section: ruling ? rulingSection(ruling, name2) : FIGHT_START_RULE };
+}
+
+// src/core/combat/review.ts
+function combatReview(pack2, a) {
+  if (pack2.combat.none !== null || a.leap || !a.draft) return null;
+  return { ruled: !!a.ruling, fighters: a.ruling?.fighters || [], failed: a.failed };
+}
+function rulingForReview(index, r) {
+  return {
+    exchanges: r.exchanges.map((x) => `${index.entityName(x.actor)}: ${x.text}`),
+    states: r.statuses.map((s) => `${index.entityName(s.entity)}: ${s.removed ? "no longer " : ""}${s.text}${s.count != null ? ` (${s.count} left)` : ""}`),
+    stands: r.stands,
+    player_words_that_do_not_happen: r.outcomes.filter((o) => !o.stands).map((o) => `\xAB${o.quote}\xBB: ${o.why}`),
+    stop_at: r.over ? `the fight ends: ${r.overWhy}` : r.stopAt
+  };
 }
 function reviewStatuses(list, text, userText, resolve, skip) {
   const statuses = [], warnings = [];
@@ -35002,15 +35055,88 @@ function reviewStatuses(list, text, userText, resolve, skip) {
     }
     if (skip.includes(who)) continue;
     const count = typeof s.count === "number" && Number.isFinite(s.count) ? Math.max(0, Math.round(s.count)) : null;
-    statuses.push({ entity: who, text: t2, ...count !== null ? { count } : {}, ...cleanUntil(s.until) ? { until: cleanUntil(s.until) } : {}, ...s.removed ? { removed: true } : {}, source: "play", quote: s.quote.slice(0, 300) });
+    const until = cleanUntil(s.until);
+    statuses.push({ entity: who, text: t2, ...count !== null ? { count } : {}, ...until ? { until } : {}, ...s.removed ? { removed: true } : {}, source: "play", quote: s.quote.slice(0, 300) });
   }
   return { statuses, warnings };
 }
-var FIGHT_START_RULE = "FIGHTS (Canon Engine judges every fight before it is written): if someone in your reply attacks someone or a fight breaks out, write up to the moment it begins \u2014 the attack comes, the first move is made \u2014 and end the reply there. Do not decide how it goes (who hits, who is hurt, who wins or escapes): Canon Engine judges it on the next turn, after the player has answered.";
-function statesSection(index, ids, name2, tick = index.state.clock.lo) {
-  const lines = uniq(ids).map((id) => ({ id, s: statusesOf(index.state, id, tick) })).filter((x) => x.s.length).map((x) => `- ${name2(x.id)} [${x.id}]: ${x.s.map((s) => `${s.text}${s.count != null ? ` \xD7${s.count}` : ""}${s.endsAt ? ` (until ${Math.max(0, s.endsAt - tick)} min from now)` : ""}`).join("; ")}`);
-  return lines.length ? `STATES (\u72B6\u6001 of the people here as they stand now \u2014 injuries, conditions, what they carry; they hold until the story changes them: show them where they matter, and keep counts as given):
-${lines.join("\n")}` : "";
+function gateCombat(c, ev, text, userText, resolve, sceneEnd) {
+  const records = [], violations = [];
+  const st = reviewStatuses(ev.statuses, text, userText, resolve, c.ruled ? c.fighters : []);
+  if (st.statuses.length) records.push(combatRecord({ ...sceneEnd }, [], `States: ${st.statuses.map((s) => `${s.entity} ${s.removed ? "\u2212" : ""}${s.text}`).join("; ")}`, { statuses: st.statuses }));
+  if (c.ruled) {
+    for (const x of ev.ruling_conflicts || []) if (quoteInText(x.quote, text)) violations.push(`The reply departs from the combat ruling ("${x.quote}"): ${x.why} Write the ruling's results as they are (embellish freely, change no result).`);
+  } else if (ev.fight?.starts) {
+    const ps = uniq((ev.fight.participants || []).map((x) => resolve(String(x))).filter((x) => !!x));
+    if (ev.fight.resolved_unruled && !c.failed) violations.push(`The reply decides a fight Canon Engine has not judged${ev.fight.quote ? ` ("${ev.fight.quote}")` : ""}. Stop where it begins \u2014 the attack comes, the fight breaks out \u2014 and leave how it goes to the next turn: Canon Engine judges it then.`);
+    else if (ps.length >= 2) records.push(combatRecord({ ...sceneEnd }, [], `A fight breaks out: ${ps.join(", ")}`, { fight: { ongoing: true, participants: ps, source: "engine", why: String(ev.fight.quote || "").slice(0, 300) } }));
+  }
+  return { records, violations, warnings: st.warnings };
+}
+
+// src/core/combat/panel.ts
+function combatView(idx, spoilers, player, origin, rulings) {
+  const L = idx.pack, s = idx.state, tick = s.clock.lo;
+  const name2 = (id) => idx.entityName(id);
+  const f = fightNow(s);
+  const occurred2 = (e) => !!e && s.dispositions.get(e)?.disposition === "occurred";
+  let hidden = 0;
+  const ids = new Set([...player ? [player] : [], ...f.participants, ...s.combat.statuses.map((x) => x.entity), ...s.combat.styles.map((x) => x.entity), ...s.combat.links.map((x) => x.entity), ...L.combat.linksFrom.keys()].filter((x) => idx.entityExists(x)));
+  for (const e of L.pack.entities) if (e.kind === "person" && e.combat_style) ids.add(e.id);
+  for (const l of L.pack.combat.links || []) if (L.entities.has(l.from) && l.from_event && !occurred2(l.from_event) && !s.dispositions.has(l.from_event)) {
+    if (!spoilers) hidden++;
+  }
+  const people = [...ids].map((id) => {
+    const style = styleOf(L, s, id);
+    return {
+      id,
+      name: name2(id),
+      ...id === player ? { player: true } : {},
+      ...f.ongoing && f.participants.includes(id) ? { fighting: true } : {},
+      states: statusesOf(s, id, tick).map((x) => ({ text: x.text, count: x.count ?? null, until: x.endsAt ? formatTick(x.endsAt, origin) : x.until && x.until !== "lasting" && "event" in x.until ? L.events.get(x.until.event)?.title || x.until.event : "", source: x.source })),
+      style: style ? { ...style.style, source: style.source } : null,
+      links: linksOf(L, s, id, tick).map((l) => ({ node: l.node, name: L.combat.nodes.get(l.node)?.name || l.node, kind: L.combat.nodes.get(l.node)?.kind || "", label: l.label, source: l.source }))
+    };
+  }).filter((p) => p.player || p.fighting || p.states.length || p.style || p.links.length).map((p) => ({ ...p, relevant: !!(p.player || p.fighting || p.states.length || p.style && p.style.source !== "pack" || p.links.some((l) => l.source !== "pack")) }));
+  people.sort((a, b) => Number(!!b.fighting) - Number(!!a.fighting) || Number(!!b.player) - Number(!!a.player) || Number(b.states.length > 0) - Number(a.states.length > 0) || a.name.localeCompare(b.name, "zh"));
+  return {
+    none: L.combat.none,
+    basis: L.combat.basis,
+    fight: { ongoing: f.ongoing, people: f.participants.filter((x) => idx.entityExists(x)).map((id) => ({ id, name: name2(id) })), source: f.source, since: f.since === null ? null : formatTick(f.since, origin) },
+    rulings: rulings.slice(-5).reverse().map(({ tick: t2, ruling: r }) => ({
+      when: formatTick(t2, origin),
+      exchanges: r.exchanges.map((x) => ({ who: name2(x.actor), text: x.text, basis: x.basis.map((b) => (L.combat.nodes.get(b.ref)?.name || b.ref) + (b.quote ? `\u300C${b.quote}\u300D` : "")), ...x.unsupported ? { unsupported: true } : {} })),
+      stopped: (r.outcomes || []).filter((o) => !o.stands).map((o) => ({ quote: o.quote, why: o.why, basis: o.basis.map((b) => (L.combat.nodes.get(b.ref)?.name || b.ref) + (b.quote ? `\u300C${b.quote}\u300D` : "")) })),
+      states: r.statuses.map((x) => `${name2(x.entity)}\uFF1A${x.removed ? "\u2212" : ""}${x.text}${x.count != null ? ` \xD7${x.count}` : ""}`),
+      stands: r.stands,
+      joined: (r.joined || []).map(name2),
+      over: r.over,
+      overWhy: r.overWhy,
+      stopAt: r.stopAt,
+      filled: [...r.filled.links.map((l) => `${name2(l.entity)} \u2192 ${L.combat.nodes.get(l.node)?.name || l.node}`), ...r.filled.styles.map((x) => `${name2(x.entity)}\uFF1A\u5BF9\u6297\u503E\u5411`)],
+      notes: r.notes
+    })),
+    people,
+    hidden
+  };
+}
+function panelRecord(idx, change, tick, player) {
+  const st = { lo: tick, hi: tick, precision: "minute" };
+  if ("fight" in change) {
+    const now = fightNow(idx.state);
+    const participants = uniq((change.fight.participants?.length ? change.fight.participants : now.participants.length ? now.participants : player ? [player] : []).filter((x) => idx.entityExists(x)));
+    return combatRecord(st, [], `Fight ${change.fight.ongoing ? "on" : "over"} (Canon Engine panel)`, { fight: { ongoing: change.fight.ongoing, participants, source: "ui" } });
+  }
+  if ("status" in change) {
+    const s = change.status;
+    const text = String(s.text || "").trim().slice(0, 120);
+    if (!text || !idx.entityExists(s.entity)) return null;
+    const minutes = "minutes" in s && s.minutes && s.minutes > 0 ? Math.round(s.minutes) : null;
+    return combatRecord(st, [], `State of ${idx.entityName(s.entity)}: ${"removed" in s ? "removed" : "set"} ${text} (Canon Engine panel)`, { statuses: [{ entity: s.entity, text, ..."removed" in s ? { removed: true } : { ...s.count != null && Number.isFinite(s.count) ? { count: Math.max(0, Math.round(s.count)) } : {}, until: minutes ? { minutes } : "lasting" }, source: "ui" }] });
+  }
+  const sty = change.style.style;
+  if (!idx.entityExists(change.style.entity) || ![sty.start, sty.force, sty.response, sty.limit, sty.stop].every((x) => String(x || "").trim())) return null;
+  return combatRecord(st, [], `\u5BF9\u6297\u503E\u5411 of ${idx.entityName(change.style.entity)} (Canon Engine panel)`, { styles: [{ entity: change.style.entity, style: { start: sty.start.trim(), force: sty.force.trim(), response: sty.response.trim(), limit: sty.limit.trim(), stop: sty.stop.trim() }, source: "ui" }] });
 }
 
 // src/core/runtime/gate.ts
@@ -35384,8 +35510,8 @@ function runGate(g) {
         warnings.push(`state claim "${quote.slice(0, 60)}" taken as a change this reply depicts: ${eid}.${pred}=${JSON.stringify(value)}`);
         return;
       }
-      const rec2 = f.supportRecordId ? index.state.recordById.get(f.supportRecordId) : void 0;
-      violations.push(`${label} "${quote}" presupposes ${index.entityName(eid)}.${pred}=${JSON.stringify(value)}, but the actual state is ${JSON.stringify(f.value)} (established by: ${rec2?.summary || "record"}). No supported change is recorded through this scene.`);
+      const rec = f.supportRecordId ? index.state.recordById.get(f.supportRecordId) : void 0;
+      violations.push(`${label} "${quote}" presupposes ${index.entityName(eid)}.${pred}=${JSON.stringify(value)}, but the actual state is ${JSON.stringify(f.value)} (established by: ${rec?.summary || "record"}). No supported change is recorded through this scene.`);
       return;
     }
     if (!f.known) {
@@ -35525,8 +35651,8 @@ function runGate(g) {
       continue;
     }
     enactedSteps.push(step.step_id);
-    const rec2 = occRecords.find((r) => r.eventOccurrenceIds.includes(occ.occurrenceId));
-    if (rec2) rec2.enactedStepIds = [...rec2.enactedStepIds || [], step.step_id];
+    const rec = occRecords.find((r) => r.eventOccurrenceIds.includes(occ.occurrenceId));
+    if (rec) rec.enactedStepIds = [...rec.enactedStepIds || [], step.step_id];
   }
   if (runtimeEntities.length) {
     records.push({
@@ -35723,38 +35849,10 @@ function runGate(g) {
   });
   records.push(...relationDrafts);
   if (g.combat) {
-    const st = reviewStatuses(ev.statuses, text, g.userText, (x) => resolveId(x), g.combat.ruled ? g.combat.fighters : []);
-    warnings.push(...st.warnings);
-    if (st.statuses.length) records.push({
-      recordId: newId("rec"),
-      kind: "combat",
-      storyTime: { ...sceneEnd },
-      sourceRefs: [],
-      factsSetOrUnset: [],
-      eventOccurrenceIds: [],
-      visibility: { mode: "public", knower_ids: [] },
-      summary: `States: ${st.statuses.map((s) => `${s.entity} ${s.removed ? "\u2212" : ""}${s.text}`).join("; ")}`.slice(0, 300),
-      evidenceKind: "direct",
-      statuses: st.statuses
-    });
-    if (g.combat.ruled) {
-      for (const c of ev.ruling_conflicts || []) if (quoteInText(c.quote, text)) violations.push(`The reply departs from the combat ruling ("${c.quote}"): ${c.why} Write the ruling's results as they are (embellish freely, change no result).`);
-    } else if (ev.fight?.starts) {
-      const ps = uniq((ev.fight.participants || []).map((x) => resolveId(String(x))).filter((x) => !!x));
-      if (ev.fight.resolved_unruled && !g.combat.failed) violations.push(`The reply decides a fight Canon Engine has not judged${ev.fight.quote ? ` ("${ev.fight.quote}")` : ""}. Stop where it begins \u2014 the attack comes, the fight breaks out \u2014 and leave how it goes to the next turn: Canon Engine judges it then.`);
-      else if (ps.length >= 2) records.push({
-        recordId: newId("rec"),
-        kind: "combat",
-        storyTime: { ...sceneEnd },
-        sourceRefs: [],
-        factsSetOrUnset: [],
-        eventOccurrenceIds: [],
-        visibility: { mode: "public", knower_ids: [] },
-        summary: `A fight breaks out: ${ps.join(", ")}`,
-        evidenceKind: "direct",
-        fight: { ongoing: true, participants: ps, source: "engine", why: String(ev.fight.quote || "").slice(0, 300) }
-      });
-    }
+    const cb = gateCombat(g.combat, ev, text, g.userText, (x) => resolveId(x), sceneEnd);
+    records.push(...cb.records);
+    violations.push(...cb.violations);
+    warnings.push(...cb.warnings);
   }
   if (g.playerId) {
     for (const t2 of ev.player_knowers || []) {
@@ -36060,8 +36158,8 @@ async function adjudicateInterval(args) {
     }
     if (!args.port) throw new EngineError("provider_failure", `Event "${c.event.title}" needs model adjudication but no model is available`);
     const playU = c.event.classification !== "HARD" && !args.leap ? recentPlay(pack2, scratch, c) : [];
-    const rec2 = await modelAdjudicate(args, scratch, c, when2, p.precondition, p.explanation, false, playU);
-    let result = rec2;
+    const rec = await modelAdjudicate(args, scratch, c, when2, p.precondition, p.explanation, false, playU);
+    let result = rec;
     if (!result && c.event.classification === "HARD" && args.forcedAllowed) {
       forcedUsed = true;
       result = await modelAdjudicate(args, scratch, c, when2, p.precondition, p.explanation, true);
@@ -36783,51 +36881,6 @@ function relationsView(idx, spoilers, player, origin = null) {
   rows.sort((x, y) => Number(!x.player) - Number(!y.player) || (x.a + x.b).localeCompare(y.a + y.b, "zh") || rank(x) - rank(y));
   return { rows, hidden };
 }
-function combatView(idx, spoilers, player, origin, rulings) {
-  const L = idx.pack, s = idx.state, tick = s.clock.lo;
-  const name2 = (id) => idx.entityName(id);
-  const f = fightNow(s);
-  const occurred2 = (e) => !!e && s.dispositions.get(e)?.disposition === "occurred";
-  let hidden = 0;
-  const ids = new Set([...player ? [player] : [], ...f.participants, ...s.statuses.map((x) => x.entity), ...s.styles.map((x) => x.entity), ...s.combatLinks.map((x) => x.entity), ...L.combat.linksFrom.keys()].filter((x) => idx.entityExists(x)));
-  for (const e of L.pack.entities) if (e.kind === "person" && e.combat_style) ids.add(e.id);
-  for (const l of L.pack.combat.links || []) if (L.entities.has(l.from) && l.from_event && !occurred2(l.from_event) && !s.dispositions.has(l.from_event)) {
-    if (!spoilers) hidden++;
-  }
-  const people = [...ids].map((id) => {
-    const style = styleOf(L, s, id);
-    return {
-      id,
-      name: name2(id),
-      ...id === player ? { player: true } : {},
-      ...f.ongoing && f.participants.includes(id) ? { fighting: true } : {},
-      states: statusesOf(s, id, tick).map((x) => ({ text: x.text, count: x.count ?? null, until: x.endsAt ? formatTick(x.endsAt, origin) : x.until && x.until !== "lasting" && "event" in x.until ? L.events.get(x.until.event)?.title || x.until.event : "", source: x.source })),
-      style: style ? { ...style.style, source: style.source } : null,
-      links: linksOf(L, s, id, tick).map((l) => ({ node: l.node, name: L.combat.nodes.get(l.node)?.name || l.node, kind: L.combat.nodes.get(l.node)?.kind || "", label: l.label, source: l.source }))
-    };
-  }).filter((p) => p.player || p.fighting || p.states.length || p.style || p.links.length).map((p) => ({ ...p, relevant: !!(p.player || p.fighting || p.states.length || p.style && p.style.source !== "pack" || p.links.some((l) => l.source !== "pack")) }));
-  people.sort((a, b) => Number(!!b.fighting) - Number(!!a.fighting) || Number(!!b.player) - Number(!!a.player) || Number(b.states.length > 0) - Number(a.states.length > 0) || a.name.localeCompare(b.name, "zh"));
-  return {
-    none: L.combat.none,
-    basis: L.combat.basis,
-    fight: { ongoing: f.ongoing, people: f.participants.filter((x) => idx.entityExists(x)).map((id) => ({ id, name: name2(id) })), source: f.source, since: f.since === null ? null : formatTick(f.since, origin) },
-    rulings: rulings.slice(-5).reverse().map(({ tick: t2, ruling: r }) => ({
-      when: formatTick(t2, origin),
-      exchanges: r.exchanges.map((x) => ({ who: name2(x.actor), text: x.text, basis: x.basis.map((b) => (L.combat.nodes.get(b.ref)?.name || b.ref) + (b.quote ? `\u300C${b.quote}\u300D` : "")), ...x.unsupported ? { unsupported: true } : {} })),
-      stopped: (r.outcomes || []).filter((o) => !o.stands).map((o) => ({ quote: o.quote, why: o.why, basis: o.basis.map((b) => (L.combat.nodes.get(b.ref)?.name || b.ref) + (b.quote ? `\u300C${b.quote}\u300D` : "")) })),
-      states: r.statuses.map((x) => `${name2(x.entity)}\uFF1A${x.removed ? "\u2212" : ""}${x.text}${x.count != null ? ` \xD7${x.count}` : ""}`),
-      stands: r.stands,
-      joined: (r.joined || []).map(name2),
-      over: r.over,
-      overWhy: r.overWhy,
-      stopAt: r.stopAt,
-      filled: [...r.filled.links.map((l) => `${name2(l.entity)} \u2192 ${L.combat.nodes.get(l.node)?.name || l.node}`), ...r.filled.styles.map((x) => `${name2(x.entity)}\uFF1A\u5BF9\u6297\u503E\u5411`)],
-      notes: r.notes
-    })),
-    people,
-    hidden
-  };
-}
 
 // src/core/runtime/engine.ts
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -37544,10 +37597,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       opportunities,
       ...prof ? { engagement_context: this.engagementContext(index, prof.profile, tick) } : {},
       ...groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who })) } : {},
-      ...pack2.combat.none === null ? { fight_now: (() => {
-        const f = fightNow(index.state);
-        return f.ongoing ? { ongoing: true, participants: f.participants.map((p) => `${p} | ${index.entityName(p)}`) } : { ongoing: false };
-      })() } : { fight_now: "this pack has no combat: fight is always null" }
+      fight_now: fightNowInput(index)
     };
     const out = await this.withTimeout(callStructured(
       this.host.model,
@@ -37604,8 +37654,8 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
         declines.push(s.event_id);
         records.push({ recordId: newId("rec"), kind: "participation_decline", storyTime: st, sourceRefs: src, factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: "public", knower_ids: [] }, summary: `Player declined to take part in ${pack2.events.get(s.event_id).title}`, evidenceKind: "direct", declinedEventId: s.event_id });
       } else if (s.kind === "engagement") {
-        const rec2 = engagementRecord(s, index, tick, src);
-        if (rec2) records.push(rec2);
+        const rec = engagementRecord(s, index, tick, src);
+        if (rec) records.push(rec);
         else warnings.push(`engagement statement ignored (unknown scope ${s.scope_kind}:${s.scope_ref}): ${s.summary}`);
         intents.push({ quote: s.quote, summary: `[${s.stance || "engagement"}] ${s.summary}` });
       } else if (s.kind === "time_proposal") {
@@ -37618,11 +37668,9 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
         intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
       }
     }
-    {
-      const f = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
-      records.push(...f.records);
-      warnings.push(...f.warnings);
-    }
+    const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
+    records.push(...fight.records);
+    warnings.push(...fight.warnings);
     const refs = out.references.map((r, i) => ({ id: `u${i + 1}`, quote: r.quote, phrase: r.phrase, kind: r.kind, assertion: "user_input", temporal: r.kind === "event" ? "past" : "present", candidates: r.candidates }));
     const interp = {
       key: baseKey(entry),
@@ -37755,9 +37803,9 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
   }
   /** A result recorded by hand (强制完成, 结束事件, 关联本局事件, 重新分析 with an after story) carries what it does to the
    *  relations this game has to work out (undone with it). */
-  async withRelations(rec2, operationId) {
-    const changes = (await this.relationRecords(this.current.replay.state, [rec2], void 0, operationId)).flatMap((r) => r.relations || []);
-    return changes.length ? { ...rec2, relations: [...rec2.relations || [], ...changes] } : rec2;
+  async withRelations(rec, operationId) {
+    const changes = (await this.relationRecords(this.current.replay.state, [rec], void 0, operationId)).flatMap((r) => r.relations || []);
+    return changes.length ? { ...rec, relations: [...rec.relations || [], ...changes] } : rec;
   }
   /** Horae's story time at the end of the previous reply as a tick, when it is usable: a new reply (not a
    *  swipe/regenerate/continue), Horae fresh, a calendar date, later than the engine clock and at most 3 days ahead. */
@@ -37846,7 +37894,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
     for (const a of scan?.additions || []) out.push({ book: "canon-engine", uid: a.id, title: a.title, keys: a.keys, secondary: [], secondaryLogic: null, constant: false, disabled: false, caseSensitive: null, wholeWords: null, content: a.content });
     return out;
   }
-  /** 战斗分析 of this turn (combat.ts). */
+  /** 战斗分析 of this turn: what only the engine knows (the lorebook as this game has it, the Persona, the scene) for combat/judge.ts. */
   async judge(index, profile2, userEntry, userInterp, prevGm, prevGmInterp, tick, signal, operationId) {
     const places = uniq([...userInterp?.sceneEntities || [], ...prevGmInterp?.sceneEntities || []]).filter((id) => index.entityKind(id) === "place");
     const told = (userInterp?.records || []).filter((r) => r.kind === "user_assertion").map((r) => `established: ${r.summary.replace(/^User asserted: /, "")}`);
@@ -38153,7 +38201,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       ...a.leapTo ? { time_leap: { from: formatTick(tick), to: formatTick(a.leapTo) } } : {},
       ...this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {},
       ...groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who, level: g.level, knows: g.about })) } : {},
-      ...a.ruling ? { fight_ruling: { exchanges: a.ruling.exchanges.map((x) => `${index.entityName(x.actor)}: ${x.text}`), states: a.ruling.statuses.map((s) => `${index.entityName(s.entity)}: ${s.removed ? "no longer " : ""}${s.text}${s.count != null ? ` (${s.count} left)` : ""}`), stands: a.ruling.stands, player_words_that_do_not_happen: a.ruling.outcomes.filter((o) => !o.stands).map((o) => `\xAB${o.quote}\xBB: ${o.why}`), stop_at: a.ruling.over ? `the fight ends: ${a.ruling.overWhy}` : a.ruling.stopAt } } : {},
+      ...a.ruling ? { fight_ruling: rulingForReview(index, a.ruling) } : {},
       ...a.chance?.length ? { chance_events_with_companion: a.chance.map((x) => ({ event_id: x.eventId, title: x.title, comes_to: x.who, ...x.loose ? { by: formatTick(x.lo) } : { starts: formatTick(x.lo) }, what: (pack2.events.get(x.eventId)?.summary || "").slice(0, 400) })) } : {}
     };
     const evaluation = await this.withTimeout(callStructured(
@@ -38220,7 +38268,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       chanceCompanions: a.chance || [],
       chanceBlocking: (a.attempt ?? 0) === 0,
       leap: !!a.leapTo,
-      combat: pack2.combat.none === null && !a.leapTo && a.mode === "draft" ? { ruled: !!a.ruling, fighters: a.ruling?.fighters || [], failed: !!a.combatFailed } : null
+      combat: combatReview(pack2, { leap: !!a.leapTo, draft: a.mode === "draft", ruling: a.ruling ?? null, failed: !!a.combatFailed })
     });
     gate.warnings.push(...told.warnings);
     gate.timeBound = settled.bound;
@@ -38615,22 +38663,16 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
           combat: void 0,
           states: statesSection(rIndex, uniq([...prof ? [prof.profile.playerId] : [], ...prevGmInterp?.present || [], ...sceneSeeds, ...fightNow(rIndex.state).participants]), (id) => this.fighterName(rIndex, prof?.profile ?? null, id), cp) || void 0
         };
-        let ruling = null;
-        let combatFailed = false;
-        if (pack2.combat.none === null && !leapTo && !continuing) {
-          if (fightNow(rIndex.state).ongoing) {
-            this.setStatus("planning", "Judging the fight\u2026");
-            try {
-              ruling = await this.timeStep("fight", this.judge(rIndex, prof?.profile ?? null, userEntry, userInterp, prevGm, prevGmInterp, jumpTo ?? cp, abort.signal, operationId));
-            } catch (e) {
-              if (e instanceof EngineError && e.kind === "cancelled") throw e;
-              combatFailed = true;
-              this.rejects.push(`combat: the fight was not judged this turn (${e.message.slice(0, 160)})`);
-            }
-            this.checkFences(fences, excludeLast);
-          }
-          packetArgs.combat = ruling ? rulingSection(ruling, (id) => this.fighterName(rIndex, prof?.profile ?? null, id)) : FIGHT_START_RULE;
-        }
+        const turnCombat = await combatBeforeReply(rIndex, !leapTo && !continuing, async () => {
+          this.setStatus("planning", "Judging the fight\u2026");
+          const r = await this.timeStep("fight", this.judge(rIndex, prof?.profile ?? null, userEntry, userInterp, prevGm, prevGmInterp, jumpTo ?? cp, abort.signal, operationId));
+          this.checkFences(fences, excludeLast);
+          return r;
+        }, (id) => this.fighterName(rIndex, prof?.profile ?? null, id));
+        const ruling = turnCombat.ruling;
+        const combatFailed = turnCombat.failed !== null;
+        if (turnCombat.failed) this.rejects.push(`combat: the fight was not judged this turn (${turnCombat.failed})`);
+        packetArgs.combat = turnCombat.section ?? void 0;
         let packet = buildPacket(packetArgs);
         if (fresh && !leapTo && !continuing && !ruling && this.settings.mindPlans !== false) {
           const involved = uniq([...userInterp?.sceneEntities || [], ...userRefs.filter((r) => r.candidates?.length === 1).map((r) => r.candidates[0])]);
@@ -38723,7 +38765,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
               chanceCompanions: chance,
               chanceBlocking: attempt === 0,
               leap: !!leapTo,
-              combat: pack2.combat.none === null && !leapTo ? { ruled: !!ruling, fighters: ruling?.fighters || [], failed: combatFailed } : null
+              combat: combatReview(pack2, { leap: !!leapTo, draft: true, ruling, failed: combatFailed })
             });
             this.checkFences(fences, excludeLast);
           }
@@ -39755,9 +39797,9 @@ ${lines.join("\n")}`;
     await this.exclusive(async () => {
       const state = this.current.replay.state;
       if (state.dispositions.get(eventId)?.disposition === "occurred") return;
-      const rec2 = state === state0 ? forced : forcedCompletion(this.pack(), state, eventId, state.clock.lo);
+      const rec = state === state0 ? forced : forcedCompletion(this.pack(), state, eventId, state.clock.lo);
       const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
-      c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec2, at: this.host.now() }];
+      c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `forced to complete: ${eventId}` });
       c.planRevisions.forEach((p) => {
         if (p.status === "active") p.status = "stale";
@@ -39787,7 +39829,7 @@ ${lines.join("\n")}`;
       if (sceneFrameOf(state) === frameId) return;
       const tick = state.clock.lo;
       const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
-      const rec2 = {
+      const rec = {
         recordId: newId("rec"),
         kind: "scene_frame",
         storyTime: { lo: tick, hi: tick, precision: "minute" },
@@ -39799,7 +39841,7 @@ ${lines.join("\n")}`;
         evidenceKind: "direct",
         frameId
       };
-      c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec2, at: this.host.now() }];
+      c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `scene frame set by hand: ${frameId}` });
     });
     await this.reconcile("set_frame", { allowModel: false });
@@ -39850,18 +39892,18 @@ ${lines.join("\n")}`;
     }
     if (!res) throw new EngineError("provider_failure", this.tr("\u5206\u6790\u6A21\u578B\u6CA1\u80FD\u7ED9\u8FD9\u4E2A\u4E8B\u4EF6\u5B9A\u7ED3\u679C\uFF1B\u8BF7\u518D\u8BD5\u4E00\u6B21\uFF0C\u6216\u4F7F\u7528\u300C\u5173\u8054\u672C\u5C40\u4E8B\u4EF6\u300D/\u300C\u5F3A\u5236\u5B8C\u6210\u300D\u3002", "The analysis model could not conclude this event; try again, or use Link story events / Force complete."));
     if ("stillUnderWay" in res) return "ongoing";
-    const rec2 = await this.withRelations(res.record, "conclude");
+    const rec = await this.withRelations(res.record, "conclude");
     await this.exclusive(async () => {
       const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
-      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last2 ? last2.messageId : null, record: rec2, at: this.host.now() }];
-      c.configRevisions.push({ at: this.host.now(), summary: `concluded ${eventId} from the story: ${rec2.disposition}` });
+      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: `concluded ${eventId} from the story: ${rec.disposition}` });
       c.planRevisions.forEach((p) => {
         if (p.status === "active") p.status = "stale";
       });
     });
     await this.reconcile("conclude_event", { allowModel: false });
     await this.host.save();
-    return rec2.disposition || "omitted";
+    return rec.disposition || "omitted";
   }
   /** Story events that may be this canonical event (关联本局事件): beats not tied to a canonical event, from a day
    *  before its window to a day after it (or the last two days for an event without a time), newest first. */
@@ -39884,9 +39926,9 @@ ${lines.join("\n")}`;
     if (!occurrenceIds.length) throw new EngineError("incompatible_adapter", "Choose at least one story event to link.");
     const linked = await this.withRelations(linkedCompletion(this.pack(), this.current.replay.state, eventId, occurrenceIds, disposition), "link_event");
     await this.exclusive(async () => {
-      const rec2 = linked;
+      const rec = linked;
       const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
-      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last2 ? last2.messageId : null, record: rec2, at: this.host.now() }];
+      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `linked ${eventId} (${disposition}) to ${occurrenceIds.length} story event(s)` });
       c.planRevisions.forEach((p) => {
         if (p.status === "active") p.status = "stale";
@@ -39982,11 +40024,11 @@ ${lines.join("\n")}`;
       if (!this.opActive) this.setStatus("idle");
     }
     if (!res) throw new EngineError("provider_failure", "The analysis model could not re-judge this event; try again.");
-    const rec2 = await this.withRelations(res.record, "reanalyze_after_story");
+    const rec = await this.withRelations(res.record, "reanalyze_after_story");
     await this.exclusive(async () => {
       const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
-      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last2 ? last2.messageId : null, record: rec2, at: this.host.now() }];
-      c.configRevisions.push({ at: this.host.now(), summary: `re-analysed ${eventId} with its after story: ${rec2.disposition}` });
+      c.manualRecords = [...(c.manualRecords || []).filter((m) => m.record.packEventId !== eventId), { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: `re-analysed ${eventId} with its after story: ${rec.disposition}` });
       c.planRevisions.forEach((p) => {
         if (p.status === "active") p.status = "stale";
       });
@@ -40150,7 +40192,7 @@ ${lines.join("\n")}`;
     if (!this.campaign() || !this.current) return null;
     return natureView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign().binding.originDate);
   }
-  /** 战斗: the fight, the last rulings and everyone's states and 对抗倾向, as the timeline window shows them. */
+  /** 战斗: the fight, the last rulings and everyone's states and 对抗倾向, as the timeline window shows them (combat/panel.ts). */
   combatView(spoilers) {
     if (!this.campaign() || !this.current) return null;
     const rulings = this.current.replay.applied.filter((a) => a.interp.combat).map((a) => ({ tick: a.interp.records.find((r) => r.kind === "combat")?.storyTime.lo ?? a.interp.sceneEnd?.lo ?? this.current.replay.state.clock.lo, ruling: a.interp.combat }));
@@ -40163,28 +40205,11 @@ ${lines.join("\n")}`;
     if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; try again when it is done.");
     const c = this.campaign();
     if (!c || !this.current) return;
-    const idx = this.current.index;
+    const rec = panelRecord(this.current.index, change, this.current.replay.state.clock.lo, this.playerProfile()?.profile.playerId ?? null);
+    if (!rec) return;
     const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
-    const tick = this.current.replay.state.clock.lo;
-    const base = { recordId: newId("rec"), kind: "combat", storyTime: { lo: tick, hi: tick, precision: "minute" }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: "public", knower_ids: [] }, evidenceKind: "direct" };
-    let rec2;
-    if ("fight" in change) {
-      const now = fightNow(idx.state);
-      const participants = uniq((change.fight.participants?.length ? change.fight.participants : now.participants.length ? now.participants : this.playerProfile() ? [this.playerProfile().profile.playerId] : []).filter((x) => idx.entityExists(x)));
-      rec2 = { ...base, summary: `Fight ${change.fight.ongoing ? "on" : "over"} (Canon Engine panel)`, fight: { ongoing: change.fight.ongoing, participants, source: "ui" } };
-    } else if ("status" in change) {
-      const s = change.status;
-      const text = String(s.text || "").trim().slice(0, 120);
-      if (!text || !idx.entityExists(s.entity)) return;
-      const minutes = "minutes" in s && s.minutes && s.minutes > 0 ? Math.round(s.minutes) : null;
-      rec2 = { ...base, summary: `State of ${idx.entityName(s.entity)}: ${"removed" in s ? "removed" : "set"} ${text} (Canon Engine panel)`, statuses: [{ entity: s.entity, text, ..."removed" in s ? { removed: true } : { ...s.count != null && Number.isFinite(s.count) ? { count: Math.max(0, Math.round(s.count)) } : {}, until: minutes ? { minutes } : "lasting" }, source: "ui" }] };
-    } else {
-      const st = change.style.style;
-      if (!idx.entityExists(change.style.entity) || ![st.start, st.force, st.response, st.limit, st.stop].every((x) => String(x || "").trim())) return;
-      rec2 = { ...base, summary: `\u5BF9\u6297\u503E\u5411 of ${idx.entityName(change.style.entity)} (Canon Engine panel)`, styles: [{ entity: change.style.entity, style: { start: st.start.trim(), force: st.force.trim(), response: st.response.trim(), limit: st.limit.trim(), stop: st.stop.trim() }, source: "ui" }] };
-    }
-    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec2, at: this.host.now() }];
-    c.configRevisions.push({ at: this.host.now(), summary: rec2.summary });
+    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
+    c.configRevisions.push({ at: this.host.now(), summary: rec.summary });
     await this.host.save();
     await this.reconcile("combat_edited");
   }
@@ -40203,8 +40228,8 @@ ${lines.join("\n")}`;
     const facts = [...s.facts.keys()].map((k) => {
       const [e, p] = [k.slice(0, k.indexOf("|")), k.slice(k.indexOf("|") + 1)];
       const f = factAt(s, e, p);
-      const rec2 = f.supportRecordId ? s.recordById.get(f.supportRecordId) : void 0;
-      return f.known ? { entity: idx.entityName(e), predicate: p, value: JSON.stringify(f.value), since: formatTick(f.validFrom, origin), source: rec2 ? `${rec2.kind}: ${rec2.summary}` : "" } : null;
+      const rec = f.supportRecordId ? s.recordById.get(f.supportRecordId) : void 0;
+      return f.known ? { entity: idx.entityName(e), predicate: p, value: JSON.stringify(f.value), since: formatTick(f.validFrom, origin), source: rec ? `${rec.kind}: ${rec.summary}` : "" } : null;
     }).filter(Boolean);
     const hidden = (evId) => !spoilers && !!evId && pack2.events.get(evId)?.visibility.mode === "secret";
     return {
@@ -40325,7 +40350,7 @@ ${lines.join("\n")}`;
     if (!cur || !["declined", "deferred"].includes(cur.stance) || !!cur.strong === strong) return;
     const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
     const tick = st.clock.lo;
-    const rec2 = {
+    const rec = {
       recordId: newId("rec"),
       kind: "engagement",
       storyTime: { lo: tick, hi: tick, precision: "minute" },
@@ -40337,7 +40362,7 @@ ${lines.join("\n")}`;
       evidenceKind: "direct",
       engagement: { scopeKind, scopeRef, scopeLabel: cur.scopeLabel, stance: cur.stance, quote: cur.quote, until: cur.until ?? null, source: "ui", strong }
     };
-    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec2, at: this.host.now() }];
+    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
     c.configRevisions.push({ at: this.host.now(), summary: `${strong ? this.tr("\u5F3A\u70C8\u62D2\u7EDD", "Made binding") : this.tr("\u53D6\u6D88\u5F3A\u70C8", "No longer binding")}: ${cur.scopeLabel}` });
     await this.host.save();
     await this.reconcile("engagement_strong");
@@ -40353,7 +40378,7 @@ ${lines.join("\n")}`;
     const label = `${k.actors.map((a) => this.current.index.entityName(a)).join(", ") || k.scopeLabel}: \u201C${k.quote.slice(0, 120)}\u201D`;
     const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
     const tick = st.clock.lo;
-    const rec2 = {
+    const rec = {
       recordId: newId("rec"),
       kind: "engagement",
       storyTime: { lo: tick, hi: tick, precision: "minute" },
@@ -40365,7 +40390,7 @@ ${lines.join("\n")}`;
       evidenceKind: "direct",
       engagement: { scopeKind: "contact", scopeRef: recordId, scopeLabel: label.slice(0, 300), stance, quote: "", until: null, source: "ui" }
     };
-    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec2, at: this.host.now() }];
+    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
     c.configRevisions.push({ at: this.host.now(), summary: `${{ accepted: this.tr("\u63A5\u53D7", "Accepted"), declined: this.tr("\u62D2\u7EDD", "Declined"), done: this.tr("\u5B8C\u6210", "Done") }[stance]}: ${label}` });
     await this.host.save();
     await this.reconcile("engagement_contact");
@@ -40380,7 +40405,7 @@ ${lines.join("\n")}`;
     else if (scopeKind === "arc") label = this.pack().pack.arcs.find((a) => a.id === scopeRef)?.title || label;
     const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
     const tick = this.current?.replay.state.clock.lo ?? c.binding.startTick;
-    const rec2 = {
+    const rec = {
       recordId: newId("rec"),
       kind: "engagement",
       storyTime: { lo: tick, hi: tick, precision: "minute" },
@@ -40392,7 +40417,7 @@ ${lines.join("\n")}`;
       evidenceKind: "direct",
       engagement: { scopeKind, scopeRef, scopeLabel: label, stance: "reopened", quote: "", until: null, source: "ui" }
     };
-    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec2, at: this.host.now() }];
+    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
     c.configRevisions.push({ at: this.host.now(), summary: `allowed contact again: ${label}` });
     await this.host.save();
     await this.reconcile("engagement_reopened");
@@ -40412,7 +40437,7 @@ ${lines.join("\n")}`;
     const tick = this.current?.replay.state.clock.lo ?? c.binding.startTick;
     const idx = this.current?.index;
     const base = { recordId: newId("rec"), storyTime: { lo: tick, hi: tick, precision: "minute" }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: "public", knower_ids: [] }, evidenceKind: "direct" };
-    let rec2;
+    let rec;
     if (kind === "relation") {
       const me = this.playerProfile()?.profile.playerId;
       if (!me) return;
@@ -40424,7 +40449,7 @@ ${lines.join("\n")}`;
         id = `rt.person.${name2.normalize("NFKC").toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, "-").replace(/^-|-$/g, "").slice(0, 20) || "x"}.${newId("e").slice(2, 8)}`;
         made.push({ id, name: name2, aliases: [], kind: "person", description: patch.relation.trim().slice(0, 600) });
       }
-      rec2 = {
+      rec = {
         ...base,
         kind: "relation",
         summary: `Relationship: ${name2} ${patch ? "set" : "removed"} (Canon Engine panel)`,
@@ -40443,15 +40468,15 @@ ${lines.join("\n")}`;
       };
     } else {
       const id = who || (idx ? idx.resolveEntity(name2).ids.find((x) => idx.entityKind(x) !== "place") : void 0) || null;
-      rec2 = {
+      rec = {
         ...base,
         kind: "player_tie",
         summary: `Who knows: ${name2} ${patch ? "set" : "removed"} (Canon Engine panel)`,
         tie: { who: id, name: name2, level: patch?.level || "identity", about: String(patch?.about || "").trim().slice(0, 400), quote: "", source: "ui", ...patch ? {} : { removed: true } }
       };
     }
-    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec2, at: this.host.now() }];
-    c.configRevisions.push({ at: this.host.now(), summary: rec2.summary });
+    c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
+    c.configRevisions.push({ at: this.host.now(), summary: rec.summary });
     await this.host.save();
     await this.reconcile("tie_edited");
   }
@@ -41222,6 +41247,41 @@ function t(key2) {
   return e ? e[lang] : key2;
 }
 
+// src/core/ui/combat-panel.ts
+var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+function combatHtml(v, query) {
+  if (!v) return `<div class="cg-empty">${t("graphNoData")}</div>`;
+  if (v.none !== null) return `<div class="cg-memberswrap"><div class="cg-empty">${esc(t("combatNone").replace("{r}", v.none))}</div></div>`;
+  const q = query.trim().toLowerCase();
+  const src = (s) => `<span class="cg-hint">${esc(t("combatSrc_" + s))}</span>`;
+  const fight = v.fight.ongoing ? `<div class="cg-cbfight cg-cbon"><b>${esc(t("combatFightOn").replace("{p}", v.fight.people.map((p) => p.name).join("\u3001")).replace("{t}", v.fight.since || ""))}</b> <button class="menu_button" data-act="cb-fight-off" title="${esc(t("combatEndTip"))}">${t("combatEnd")}</button></div>` : `<div class="cg-cbfight"><span>${t("combatFightOff")}</span> <button class="menu_button" data-act="cb-fight-on" title="${esc(t("combatStartTip"))}">${t("combatStart")}</button></div>`;
+  const ruling = (r, i) => `<details class="cg-nperson"${i === 0 ? " open" : ""}><summary>${esc(r.when)}${r.over ? ` <span class="cg-key">${esc(t("combatOver"))}${esc(r.overWhy)}</span>` : ""}</summary>` + (r.joined?.length ? `<div class="cg-nfield"><b>${t("combatJoined")}</b>${esc(r.joined.join("\u3001"))}</div>` : "") + (r.stopped.length ? r.stopped.map((o) => `<div class="cg-nfield">${esc(t("combatOverrides"))}\xAB${esc(o.quote)}\xBB\uFF1A${esc(o.why)}<div class="cg-hint">${esc(o.basis.join("\uFF1B"))}</div></div>`).join("") : "") + `<ol class="cg-cbex">${r.exchanges.map((x) => `<li><b>${esc(x.who)}</b>\uFF1A${esc(x.text)}<div class="cg-hint">${x.unsupported ? esc(t("combatUnsupported")) : esc(x.basis.join("\uFF1B"))}</div></li>`).join("")}</ol>` + (r.states.length ? `<div class="cg-nfield"><b>${t("combatStates")}</b>${esc(r.states.join("\uFF1B"))}</div>` : "") + (r.stands.length ? `<div class="cg-nfield">${esc(t("combatStands"))}${r.stands.map((s) => `\xAB${esc(s)}\xBB`).join(" ")}</div>` : "") + (!r.over && r.stopAt ? `<div class="cg-hint">${esc(t("combatStop"))}${esc(r.stopAt)}</div>` : "") + (r.filled.length ? `<div class="cg-hint">${esc(t("combatFilled"))}${esc(r.filled.join("\uFF1B"))}</div>` : "") + (r.notes.length ? `<div class="cg-hint">${esc(t("combatNotes"))}${esc(r.notes.join("\uFF1B"))}</div>` : "") + "</details>";
+  const rulings = v.rulings.length ? v.rulings.map(ruling).join("") : `<div class="cg-empty">${t("combatNoRulings")}</div>`;
+  const people = v.people.filter((p) => q ? p.name.toLowerCase().includes(q) : p.relevant);
+  const keys = ["start", "force", "response", "limit", "stop"];
+  const person = (p) => {
+    const states = p.states.length ? `<table class="canon-table cg-members">${p.states.map((s) => `<tr><td>${esc(s.text)}${s.count !== null ? ` \xD7${s.count}` : ""}</td><td>${s.until ? esc(t("combatUntil").replace("{t}", s.until)) : ""}</td><td>${src(s.source)}</td><td><button class="menu_button" data-act="cb-state-del" data-entity="${esc(p.id)}" data-text="${esc(s.text)}">\u2715</button></td></tr>`).join("")}</table>` : `<div class="cg-hint">${t("combatNoStates")}</div>`;
+    const add2 = `<div class="cg-cbadd"><input class="text_pole cb-st-text" placeholder="${esc(t("combatStateText"))}"><input class="text_pole cb-st-count" type="number" min="0" placeholder="${esc(t("combatCount"))}"><input class="text_pole cb-st-min" type="number" min="1" placeholder="${esc(t("combatMinutes"))}"><button class="menu_button" data-act="cb-state-add" data-entity="${esc(p.id)}">${t("combatAddState")}</button></div>`;
+    const style = `<div class="cg-cbstyle">${keys.map((k) => `<label><b>${t("style_" + k)}</b><textarea class="text_pole cb-sty-${k}" rows="1">${esc(p.style?.[k] || "")}</textarea></label>`).join("")}<div>${p.style ? src(p.style.source) : `<span class="cg-hint">${t("combatNoStyle")}</span>`} <button class="menu_button" data-act="cb-style-save" data-entity="${esc(p.id)}">${t("combatStyleSave")}</button></div></div>`;
+    const links = p.links.length ? `<div class="cg-nfield"><b>${t("combatLinks")}</b>${p.links.map((l) => `${esc(l.label)} ${esc(l.name)} ${src(l.source)}`).join("\uFF1B")}</div>` : "";
+    const pick = !v.fight.ongoing ? `<input type="checkbox" class="cb-pick" data-entity="${esc(p.id)}" title="${esc(t("combatPick"))}"> ` : "";
+    return `<details class="cg-nperson cg-cbperson" data-entity="${esc(p.id)}"${p.fighting || p.player ? " open" : ""}><summary>${pick}${esc(p.name)}${p.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}${p.fighting ? ` <span class="cg-key cg-nstate-now">${t("combatFighting")}</span>` : ""}${p.states.length ? ` <span class="cg-hint">${esc(p.states.map((s) => s.text).join("\u3001"))}</span>` : ""}</summary><h4>${t("combatStates")}</h4>${states}${add2}<h4>${t("combatStyle")}</h4>${style}${links}</details>`;
+  };
+  return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint"><b>${t("combatBasis")}</b>\uFF1A${esc(v.basis)}</div>${fight}<h4>${t("combatRulings")}</h4>${rulings}<h4>${t("combatStates")} \xB7 ${t("combatStyle")}</h4><div class="cg-hint">${t(q ? "combatPeopleFound" : "combatPeopleNote").replace("{n}", String(people.length)).replace("{all}", String(v.people.length))}</div>${people.map(person).join("")}${v.hidden ? `<div class="cg-hint">${t("combatHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
+}
+function combatChange(b, root) {
+  const act = b.dataset.act, entity = b.dataset.entity || "";
+  const box = b.closest(".cg-cbperson");
+  const val = (sel) => (box?.querySelector(sel)?.value || "").trim();
+  let change = null;
+  if (act === "cb-fight-off") change = { fight: { ongoing: false } };
+  else if (act === "cb-fight-on") change = { fight: { ongoing: true, participants: [...root.querySelectorAll(".cb-pick:checked")].map((x) => x.dataset.entity) } };
+  else if (act === "cb-state-del") change = { status: { entity, text: b.dataset.text || "", removed: true } };
+  else if (act === "cb-state-add" && val(".cb-st-text")) change = { status: { entity, text: val(".cb-st-text"), count: val(".cb-st-count") ? Number(val(".cb-st-count")) : null, minutes: val(".cb-st-min") ? Number(val(".cb-st-min")) : null } };
+  else if (act === "cb-style-save") change = { style: { entity, style: { start: val(".cb-sty-start"), force: val(".cb-sty-force"), response: val(".cb-sty-response"), limit: val(".cb-sty-limit"), stop: val(".cb-sty-stop") } } };
+  return change;
+}
+
 // src/core/ui/graph.ts
 var ORIGIN_KEYS = /* @__PURE__ */ new Set(["player", "gm", "canon", "offscreen", "bootstrap", "intervention"]);
 var originLabel = (o) => ORIGIN_KEYS.has(o) ? t(`g_origin_${o}`) : o;
@@ -41530,7 +41590,7 @@ function nowLabel(g) {
   return f.main ? `${t("g_now")} \xB7 ${f.name}` : `${t("g_now")} \xB7 ${f.name} ${f.local || ""}`.trim();
 }
 var clip2 = (s, n) => [...s].length > n ? [...s].slice(0, n - 1).join("") + "\u2026" : s;
-var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 function graphLayout(g, mode) {
   const timeText = (n) => n.frame ? n.frame.linked ? `${n.frame.name} ${n.frame.local.split(" ")[0]}` : n.frame.name : n.short || n.when.split(" \xB7 ")[0];
   const g2 = { ...g, nodes: g.nodes.map((n) => ({ ...n, sub: mode === "current" && n.status ? `${statusLabel(n.status)} \xB7 ${timeText(n)}` : timeText(n) })) };
@@ -41543,7 +41603,7 @@ function graphContent(GL, view) {
   const boxEnd = (n) => n.x + n.w + (n.inside || !v.detail ? 0 : 6 + Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12);
   const shown = (n) => boxEnd(n) >= v.x0 && n.x <= v.x1 && n.y + NODE_H >= v.y0 && n.y <= v.y1;
   const lanes = LANES.filter((l) => L.laneY[l][1] > L.laneY[l][0]).map((l, i) => `<rect x="0" y="${L.laneY[l][0]}" width="${L.width}" height="${L.laneY[l][1] - L.laneY[l][0]}" class="cg-lane cg-lane-${i % 2}"/><text x="${Math.max(8, Math.min(v.x0 + 8, L.width - 120))}" y="${L.laneY[l][0] + 18}" class="cg-lane-label">${laneLabel(l)}</text>`).join("");
-  const ticks = L.ticks.filter((tk) => tk.x >= v.x0 - 200 && tk.x <= v.x1).map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick${tk.major ? " cg-tick-major" : ""}"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label${tk.major ? " cg-tick-major" : ""}">${esc(tk.label)}</text>`).join("") + (L.axisStart > LEFT && v.x0 <= L.axisStart ? `<text x="${LEFT}" y="${AXIS_H - 12}" class="cg-tick-label">${t("g_timeUnknown")}</text><line x1="${L.axisStart - 20}" y1="${AXIS_H - 6}" x2="${L.axisStart - 20}" y2="${L.height}" class="cg-tick cg-tick-major"/>` : "");
+  const ticks = L.ticks.filter((tk) => tk.x >= v.x0 - 200 && tk.x <= v.x1).map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick${tk.major ? " cg-tick-major" : ""}"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label${tk.major ? " cg-tick-major" : ""}">${esc2(tk.label)}</text>`).join("") + (L.axisStart > LEFT && v.x0 <= L.axisStart ? `<text x="${LEFT}" y="${AXIS_H - 12}" class="cg-tick-label">${t("g_timeUnknown")}</text><line x1="${L.axisStart - 20}" y1="${AXIS_H - 6}" x2="${L.axisStart - 20}" y2="${L.height}" class="cg-tick cg-tick-major"/>` : "");
   const edges = !v.detail ? "" : g.edges.map((e) => {
     const a = pos.get(e.from), b = pos.get(e.to);
     if (!a || !b) return "";
@@ -41551,7 +41611,7 @@ function graphContent(GL, view) {
     const x1 = a.x + a.w, y1 = a.y + NODE_H / 2, x2 = b.x, y2 = b.y + NODE_H / 2;
     const dx = Math.max(40, Math.abs(x2 - x1) / 2);
     const d = x2 >= x1 ? `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}` : `M${a.x + a.w / 2},${a.y + NODE_H} C${a.x + a.w / 2},${a.y + NODE_H + 60} ${b.x + b.w / 2},${b.y + NODE_H + 60} ${b.x + b.w / 2},${b.y + NODE_H}`;
-    return `<path d="${d}" class="cg-edge cg-edge-${esc(e.kind)}" data-from="${esc(e.from)}" data-to="${esc(e.to)}" marker-end="url(#cg-arrow-${esc(e.kind)})"><title>${esc(e.kind)}${e.note ? "\uFF1A" + esc(e.note) : ""}</title></path>`;
+    return `<path d="${d}" class="cg-edge cg-edge-${esc2(e.kind)}" data-from="${esc2(e.from)}" data-to="${esc2(e.to)}" marker-end="url(#cg-arrow-${esc2(e.kind)})"><title>${esc2(e.kind)}${e.note ? "\uFF1A" + esc2(e.note) : ""}</title></path>`;
   }).join("");
   const clsOf = (n) => mode === "pack" ? `cg-c-${n.lane}` : `cg-c-${n.lane} cg-s-${n.status}`;
   const far = () => {
@@ -41563,12 +41623,12 @@ function graphContent(GL, view) {
     const cls = clsOf(n);
     const tx = n.inside ? 8 : n.w + 6;
     const tc = n.inside ? "" : " cg-out";
-    const head = `<g class="cg-node ${cls}${n.inside ? "" : " cg-narrow"}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${NODE_H}" rx="${Math.min(7, n.w / 2)}"/>` + (n.frame ? `<rect class="cg-frame cg-frame-${n.frame.idx % 8}" width="${n.w}" height="5" rx="2"/>` : "");
-    const tip2 = `<title>${esc(n.title)} \xB7 ${esc(n.when)}${n.frame ? ` \xB7 ${esc(n.frame.name)} ${t("g_local")} ${esc(n.frame.local)}` : ""}</title></g>`;
+    const head = `<g class="cg-node ${cls}${n.inside ? "" : " cg-narrow"}" data-id="${esc2(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${NODE_H}" rx="${Math.min(7, n.w / 2)}"/>` + (n.frame ? `<rect class="cg-frame cg-frame-${n.frame.idx % 8}" width="${n.w}" height="5" rx="2"/>` : "");
+    const tip2 = `<title>${esc2(n.title)} \xB7 ${esc2(n.when)}${n.frame ? ` \xB7 ${esc2(n.frame.name)} ${t("g_local")} ${esc2(n.frame.local)}` : ""}</title></g>`;
     const repeats = n.inside && n.w > 1400 ? Array.from({ length: Math.floor((n.w - 400) / 1e3) }, (_, k) => 8 + (k + 1) * 1e3).filter((x) => n.x + x >= v.x0 - 1e3 && n.x + x <= v.x1) : [];
-    return head + (n.inside ? "" : `<rect class="cg-hit" x="${n.w}" width="${Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12}" height="${NODE_H}"/>`) + `<text x="${tx}" y="18" class="cg-node-title${tc}">${esc(n.title2)}</text><text x="${tx}" y="36" class="cg-node-sub${tc}">${esc(n.sub2)}</text>` + repeats.map((x) => `<text x="${x}" y="18" class="cg-node-title">${esc(n.title2)}</text>`).join("") + tip2;
+    return head + (n.inside ? "" : `<rect class="cg-hit" x="${n.w}" width="${Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12}" height="${NODE_H}"/>`) + `<text x="${tx}" y="18" class="cg-node-title${tc}">${esc2(n.title2)}</text><text x="${tx}" y="36" class="cg-node-sub${tc}">${esc2(n.sub2)}</text>` + repeats.map((x) => `<text x="${x}" y="18" class="cg-node-title">${esc2(n.title2)}</text>`).join("") + tip2;
   }).join("");
-  const now = L.nowX !== null ? `<line x1="${L.nowX}" y1="0" x2="${L.nowX}" y2="${L.height}" class="cg-now"/><text x="${L.nowX + 4}" y="12" class="cg-now-label">${esc(nowLabel(g))}</text>` : "";
+  const now = L.nowX !== null ? `<line x1="${L.nowX}" y1="0" x2="${L.nowX}" y2="${L.height}" class="cg-now"/><text x="${L.nowX + 4}" y="12" class="cg-now-label">${esc2(nowLabel(g))}</text>` : "";
   const markers = ["enables", "motivates", "precedes", "related", "cause"].map((k) => `<marker id="cg-arrow-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="cg-arrow-${k}"/></marker>`).join("");
   return `<defs>${markers}</defs>${lanes}${ticks}${edges}${nodes}${now}`;
 }
@@ -41659,25 +41719,25 @@ var GraphPanel = class {
     if (!d.current && this.mode === "current") this.mode = "pack";
     const g0 = this.mode === "pack" ? d.pack : d.current;
     const g = g0 ? this.applyFilter(g0) : null;
-    const canvasHtml = this.showCombat ? this.combatHtml(d.spoilers) : this.showRelations ? this.relationsHtml(d.spoilers) : this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t("graphNoData")}</div>` : this.firstSvg(g);
-    const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc(a.id)}" ${a.id === this.filter.arc ? "selected" : ""}>${esc(a.title)}</option>`).join("");
+    const canvasHtml = this.showCombat ? combatHtml(this.getCombat(d.spoilers), this.filter.q) : this.showRelations ? this.relationsHtml(d.spoilers) : this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t("graphNoData")}</div>` : this.firstSvg(g);
+    const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc2(a.id)}" ${a.id === this.filter.arc ? "selected" : ""}>${esc2(a.title)}</option>`).join("");
     this.el.innerHTML = `
       <div class="cg-head">
-        <b>${t("graphTitle")}</b>${d.preview ? `<span class="cg-preview">${t("libViewing")}\uFF1A${esc(d.preview)}</span><button class="menu_button" data-act="preview-exit">${t("libViewExit")}</button>` : ""}
+        <b>${t("graphTitle")}</b>${d.preview ? `<span class="cg-preview">${t("libViewing")}\uFF1A${esc2(d.preview)}</span><button class="menu_button" data-act="preview-exit">${t("libViewExit")}</button>` : ""}
         <div class="cg-tabs">
           <button class="menu_button ${this.mode === "current" ? "active" : ""}" data-mode="current" ${d.current ? "" : "disabled"}>${t("graphCurrent")}</button>
           <button class="menu_button ${this.mode === "pack" ? "active" : ""}" data-mode="pack" ${d.pack ? "" : "disabled"}>${t("graphPack")}</button>
         </div>
-        <input class="text_pole cg-q" placeholder="${t("graphSearch")}" value="${esc(this.filter.q)}">
+        <input class="text_pole cg-q" placeholder="${t("graphSearch")}" value="${esc2(this.filter.q)}">
         <select class="text_pole cg-arc"><option value="">${t("graphAllArcs")}</option>${arcs}</select>
         ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? "checked" : ""}>${laneLabel(l)}</label>`).join("")}
         ${d.preview ? "" : `<label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? "checked" : ""}>${t("spoilers")}</label>`}
-        ${this.acts() && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t("digestTip"))}">${t("digest")}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t("undigestTip"))}">${t("undigest")}</button>` : ""}` : ""}
+        ${this.acts() && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc2(t("digestTip"))}">${t("digest")}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc2(t("undigestTip"))}">${t("undigest")}</button>` : ""}` : ""}
         ${this.mode === "current" && d.current?.frames?.now ? this.frameSelect(d.current) : ""}
-        ${d.preview && !d.current ? "" : `<button class="menu_button ${this.showMembers ? "active" : ""}" data-act="members" title="${esc(t("membersTip"))}">${t("members")}</button>`}
-        ${d.preview && !d.current ? "" : `<button class="menu_button cg-nature-btn ${this.showNature ? "active" : ""}" data-act="nature" title="${esc(t("natureTip"))}">${t("nature")}</button>`}
-        ${d.preview && !d.current ? "" : `<button class="menu_button cg-relations-btn ${this.showRelations ? "active" : ""}" data-act="relations" title="${esc(t("relationsTip"))}">${t("relations")}</button>`}
-        ${d.preview || !d.current ? "" : `<button class="menu_button cg-combat-btn ${this.showCombat ? "active" : ""}" data-act="combat" title="${esc(t("combatTip"))}">${t("combat")}</button>`}
+        ${d.preview && !d.current ? "" : `<button class="menu_button ${this.showMembers ? "active" : ""}" data-act="members" title="${esc2(t("membersTip"))}">${t("members")}</button>`}
+        ${d.preview && !d.current ? "" : `<button class="menu_button cg-nature-btn ${this.showNature ? "active" : ""}" data-act="nature" title="${esc2(t("natureTip"))}">${t("nature")}</button>`}
+        ${d.preview && !d.current ? "" : `<button class="menu_button cg-relations-btn ${this.showRelations ? "active" : ""}" data-act="relations" title="${esc2(t("relationsTip"))}">${t("relations")}</button>`}
+        ${d.preview || !d.current ? "" : `<button class="menu_button cg-combat-btn ${this.showCombat ? "active" : ""}" data-act="combat" title="${esc2(t("combatTip"))}">${t("combat")}</button>`}
         <button class="menu_button" data-act="fit">${t("graphFit")}</button>
         <button class="menu_button" data-act="close">\u2715</button>
       </div>
@@ -41701,8 +41761,8 @@ var GraphPanel = class {
   membersHtml(spoilers) {
     const m = this.getMembers(spoilers);
     if (!m) return `<div class="cg-empty">${t("graphNoData")}</div>`;
-    const now = m.now.length ? `<table class="canon-table cg-members"><tr><th>${t("membersOrg")}</th><th>${t("membersLeader")}</th><th>${t("membersList")}</th><th>${t("membersStatus")}</th></tr>${m.now.map((o) => `<tr><td>${esc(o.name)}</td><td>${esc(o.leader || "\u2014")}</td><td>${esc(o.members.join("\u3001") || "\u2014")}</td><td>${esc(o.status || "")}${o.statusSince ? ` <span class="cg-since">(${t("membersSince")} ${esc(o.statusSince)})</span>` : ""}</td></tr>`).join("")}</table>` : `<div class="cg-empty">${t("membersNone")}</div>`;
-    const ch = m.changes.length ? `<table class="canon-table cg-members"><tr><th>${t("membersWhen")}</th><th>${t("membersEvent")}</th><th>${t("membersOrg")}</th><th>${t("membersChange")}</th><th></th></tr>${m.changes.map((c) => `<tr class="cg-mstate-${c.state}"><td>${esc(c.when)}</td><td>${esc(c.event)}</td><td>${esc(c.org)}</td><td>${esc(memberChange(c))}</td><td><span class="cg-key cg-s-${c.state}">${statusLabel(c.state)}</span></td></tr>`).join("")}</table>` : "";
+    const now = m.now.length ? `<table class="canon-table cg-members"><tr><th>${t("membersOrg")}</th><th>${t("membersLeader")}</th><th>${t("membersList")}</th><th>${t("membersStatus")}</th></tr>${m.now.map((o) => `<tr><td>${esc2(o.name)}</td><td>${esc2(o.leader || "\u2014")}</td><td>${esc2(o.members.join("\u3001") || "\u2014")}</td><td>${esc2(o.status || "")}${o.statusSince ? ` <span class="cg-since">(${t("membersSince")} ${esc2(o.statusSince)})</span>` : ""}</td></tr>`).join("")}</table>` : `<div class="cg-empty">${t("membersNone")}</div>`;
+    const ch = m.changes.length ? `<table class="canon-table cg-members"><tr><th>${t("membersWhen")}</th><th>${t("membersEvent")}</th><th>${t("membersOrg")}</th><th>${t("membersChange")}</th><th></th></tr>${m.changes.map((c) => `<tr class="cg-mstate-${c.state}"><td>${esc2(c.when)}</td><td>${esc2(c.event)}</td><td>${esc2(c.org)}</td><td>${esc2(memberChange(c))}</td><td><span class="cg-key cg-s-${c.state}">${statusLabel(c.state)}</span></td></tr>`).join("")}</table>` : "";
     return `<div class="cg-memberswrap"><h4>${t("membersNowTitle")}</h4>${now}<h4>${t("membersChangesTitle")}</h4>${ch || `<div class="cg-empty">${t("membersNoChanges")}</div>`}${m.hidden ? `<div class="cg-hint">${t("membersHidden").replace("{n}", String(m.hidden))}</div>` : ""}</div>`;
   }
   /** 常态: each person's versions, the one in force in this game marked; the search box filters by name. */
@@ -41712,54 +41772,13 @@ var GraphPanel = class {
     if (!v.people.length) return `<div class="cg-empty">${t("natureNone")}</div>`;
     const q = this.filter.q.trim().toLowerCase();
     const people = v.people.filter((p) => !q || p.name.toLowerCase().includes(q));
-    const field2 = (k, x) => x.trim() ? `<div class="cg-nfield"><b>${t(k.startsWith("mind_") ? k : "nature_" + k)}</b>${esc(x)}</div>` : "";
+    const field2 = (k, x) => x.trim() ? `<div class="cg-nfield"><b>${t(k.startsWith("mind_") ? k : "nature_" + k)}</b>${esc2(x)}</div>` : "";
     const ver = (x, player = false) => {
       const head = player ? t("naturePersona") : x.from ? t("natureFrom").replace("{e}", x.from) + (x.until ? t("natureUntil").replace("{e}", x.until) : "") : t("natureStart");
-      return `<div class="cg-nver cg-nver-${x.state}"><div class="cg-nhead">${esc(head)} <span class="cg-key cg-nstate-${x.state}">${t("natureState_" + x.state)}</span>${x.why ? `<span class="cg-nwhy">${esc(x.why)}</span>` : ""}</div>${field2("habits", x.habits)}${field2("uses", x.uses)}${field2("others", x.others)}${field2("limits", x.limits)}${x.perceives?.kinds.length ? field2("perceives", x.perceives.kinds.map((k) => t("perceive_" + k)).join("\u3001") + (x.perceives.how ? `\uFF08${x.perceives.how}\uFF09` : "")) : ""}</div>`;
+      return `<div class="cg-nver cg-nver-${x.state}"><div class="cg-nhead">${esc2(head)} <span class="cg-key cg-nstate-${x.state}">${t("natureState_" + x.state)}</span>${x.why ? `<span class="cg-nwhy">${esc2(x.why)}</span>` : ""}</div>${field2("habits", x.habits)}${field2("uses", x.uses)}${field2("others", x.others)}${field2("limits", x.limits)}${x.perceives?.kinds.length ? field2("perceives", x.perceives.kinds.map((k) => t("perceive_" + k)).join("\u3001") + (x.perceives.how ? `\uFF08${x.perceives.how}\uFF09` : "")) : ""}</div>`;
     };
     const mind2 = (m) => `<div class="cg-nver cg-nmind"><div class="cg-nhead">${t("mindTitle")} <span class="cg-key">${t("mindDelib_" + m.deliberation)} \xB7 ${t("mindSharp_" + m.sharpness)}</span></div>${["approach", "thinks_hard_about", "pushed", "notices", "blind", "speaks"].map((k) => field2("mind_" + k, m[k] || "")).join("")}</div>`;
-    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t("natureNote").replace("{n}", String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? " open" : ""}><summary>${esc(p.name)}${p.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}${p.versions.length > 1 ? ` <span class="cg-hint">${t("natureVersions").replace("{n}", String(p.versions.length))}</span>` : ""}</summary>${p.versions.map((x) => ver(x, !!p.player)).join("")}${p.mind ? mind2(p.mind) : ""}</details>`).join("")}${v.hidden ? `<div class="cg-hint">${t("natureHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
-  }
-  /** 战斗: the fight now (with the player's correction), the last rulings, and each person's states (editable),
-   *  对抗倾向 (editable) and links; the search box filters people by name. */
-  combatHtml(spoilers) {
-    const v = this.getCombat(spoilers);
-    if (!v) return `<div class="cg-empty">${t("graphNoData")}</div>`;
-    if (v.none !== null) return `<div class="cg-memberswrap"><div class="cg-empty">${esc(t("combatNone").replace("{r}", v.none))}</div></div>`;
-    const q = this.filter.q.trim().toLowerCase();
-    const src = (s) => `<span class="cg-hint">${esc(t("combatSrc_" + s))}</span>`;
-    const fight = v.fight.ongoing ? `<div class="cg-cbfight cg-cbon"><b>${esc(t("combatFightOn").replace("{p}", v.fight.people.map((p) => p.name).join("\u3001")).replace("{t}", v.fight.since || ""))}</b> <button class="menu_button" data-act="cb-fight-off" title="${esc(t("combatEndTip"))}">${t("combatEnd")}</button></div>` : `<div class="cg-cbfight"><span>${t("combatFightOff")}</span> <button class="menu_button" data-act="cb-fight-on" title="${esc(t("combatStartTip"))}">${t("combatStart")}</button></div>`;
-    const ruling = (r, i) => `<details class="cg-nperson"${i === 0 ? " open" : ""}><summary>${esc(r.when)}${r.over ? ` <span class="cg-key">${esc(t("combatOver"))}${esc(r.overWhy)}</span>` : ""}</summary>` + (r.joined?.length ? `<div class="cg-nfield"><b>${t("combatJoined")}</b>${esc(r.joined.join("\u3001"))}</div>` : "") + (r.stopped.length ? r.stopped.map((o) => `<div class="cg-nfield">${esc(t("combatOverrides"))}\xAB${esc(o.quote)}\xBB\uFF1A${esc(o.why)}<div class="cg-hint">${esc(o.basis.join("\uFF1B"))}</div></div>`).join("") : "") + `<ol class="cg-cbex">${r.exchanges.map((x) => `<li><b>${esc(x.who)}</b>\uFF1A${esc(x.text)}<div class="cg-hint">${x.unsupported ? esc(t("combatUnsupported")) : esc(x.basis.join("\uFF1B"))}</div></li>`).join("")}</ol>` + (r.states.length ? `<div class="cg-nfield"><b>${t("combatStates")}</b>${esc(r.states.join("\uFF1B"))}</div>` : "") + (r.stands.length ? `<div class="cg-nfield">${esc(t("combatStands"))}${r.stands.map((s) => `\xAB${esc(s)}\xBB`).join(" ")}</div>` : "") + (!r.over && r.stopAt ? `<div class="cg-hint">${esc(t("combatStop"))}${esc(r.stopAt)}</div>` : "") + (r.filled.length ? `<div class="cg-hint">${esc(t("combatFilled"))}${esc(r.filled.join("\uFF1B"))}</div>` : "") + (r.notes.length ? `<div class="cg-hint">${esc(t("combatNotes"))}${esc(r.notes.join("\uFF1B"))}</div>` : "") + "</details>";
-    const rulings = v.rulings.length ? v.rulings.map(ruling).join("") : `<div class="cg-empty">${t("combatNoRulings")}</div>`;
-    const people = v.people.filter((p) => q ? p.name.toLowerCase().includes(q) : p.relevant);
-    const keys = ["start", "force", "response", "limit", "stop"];
-    const person = (p) => {
-      const states = p.states.length ? `<table class="canon-table cg-members">${p.states.map((s) => `<tr><td>${esc(s.text)}${s.count !== null ? ` \xD7${s.count}` : ""}</td><td>${s.until ? esc(t("combatUntil").replace("{t}", s.until)) : ""}</td><td>${src(s.source)}</td><td><button class="menu_button" data-act="cb-state-del" data-entity="${esc(p.id)}" data-text="${esc(s.text)}">\u2715</button></td></tr>`).join("")}</table>` : `<div class="cg-hint">${t("combatNoStates")}</div>`;
-      const add2 = `<div class="cg-cbadd"><input class="text_pole cb-st-text" placeholder="${esc(t("combatStateText"))}"><input class="text_pole cb-st-count" type="number" min="0" placeholder="${esc(t("combatCount"))}"><input class="text_pole cb-st-min" type="number" min="1" placeholder="${esc(t("combatMinutes"))}"><button class="menu_button" data-act="cb-state-add" data-entity="${esc(p.id)}">${t("combatAddState")}</button></div>`;
-      const style = `<div class="cg-cbstyle">${keys.map((k) => `<label><b>${t("style_" + k)}</b><textarea class="text_pole cb-sty-${k}" rows="1">${esc(p.style?.[k] || "")}</textarea></label>`).join("")}<div>${p.style ? src(p.style.source) : `<span class="cg-hint">${t("combatNoStyle")}</span>`} <button class="menu_button" data-act="cb-style-save" data-entity="${esc(p.id)}">${t("combatStyleSave")}</button></div></div>`;
-      const links = p.links.length ? `<div class="cg-nfield"><b>${t("combatLinks")}</b>${p.links.map((l) => `${esc(l.label)} ${esc(l.name)} ${src(l.source)}`).join("\uFF1B")}</div>` : "";
-      const pick = !v.fight.ongoing ? `<input type="checkbox" class="cb-pick" data-entity="${esc(p.id)}" title="${esc(t("combatPick"))}"> ` : "";
-      return `<details class="cg-nperson cg-cbperson" data-entity="${esc(p.id)}"${p.fighting || p.player ? " open" : ""}><summary>${pick}${esc(p.name)}${p.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}${p.fighting ? ` <span class="cg-key cg-nstate-now">${t("combatFighting")}</span>` : ""}${p.states.length ? ` <span class="cg-hint">${esc(p.states.map((s) => s.text).join("\u3001"))}</span>` : ""}</summary><h4>${t("combatStates")}</h4>${states}${add2}<h4>${t("combatStyle")}</h4>${style}${links}</details>`;
-    };
-    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint"><b>${t("combatBasis")}</b>\uFF1A${esc(v.basis)}</div>${fight}<h4>${t("combatRulings")}</h4>${rulings}<h4>${t("combatStates")} \xB7 ${t("combatStyle")}</h4><div class="cg-hint">${t(q ? "combatPeopleFound" : "combatPeopleNote").replace("{n}", String(people.length)).replace("{all}", String(v.people.length))}</div>${people.map(person).join("")}${v.hidden ? `<div class="cg-hint">${t("combatHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
-  }
-  /** A change the 战斗 view's buttons make (the engine keeps it as the player's own record). */
-  combatAct(b) {
-    const act = b.dataset.act, entity = b.dataset.entity || "";
-    const box = b.closest(".cg-cbperson");
-    const val = (sel) => (box?.querySelector(sel)?.value || "").trim();
-    let change = null;
-    if (act === "cb-fight-off") change = { fight: { ongoing: false } };
-    else if (act === "cb-fight-on") change = { fight: { ongoing: true, participants: [...this.el.querySelectorAll(".cb-pick:checked")].map((x) => x.dataset.entity) } };
-    else if (act === "cb-state-del") change = { status: { entity, text: b.dataset.text || "", removed: true } };
-    else if (act === "cb-state-add" && val(".cb-st-text")) change = { status: { entity, text: val(".cb-st-text"), count: val(".cb-st-count") ? Number(val(".cb-st-count")) : null, minutes: val(".cb-st-min") ? Number(val(".cb-st-min")) : null } };
-    else if (act === "cb-style-save") change = { style: { entity, style: { start: val(".cb-sty-start"), force: val(".cb-sty-force"), response: val(".cb-sty-response"), limit: val(".cb-sty-limit"), stop: val(".cb-sty-stop") } } };
-    if (!change) return;
-    b.disabled = true;
-    void this.onCombat(change).finally(() => {
-      this.keepView = true;
-      this.refresh();
-    });
+    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t("natureNote").replace("{n}", String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? " open" : ""}><summary>${esc2(p.name)}${p.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}${p.versions.length > 1 ? ` <span class="cg-hint">${t("natureVersions").replace("{n}", String(p.versions.length))}</span>` : ""}</summary>${p.versions.map((x) => ver(x, !!p.player)).join("")}${p.mind ? mind2(p.mind) : ""}</details>`).join("")}${v.hidden ? `<div class="cg-hint">${t("natureHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
   }
   /** 角色关系: a table, one row a relation — in force in this game now, or (spoilers) a pack stage still to come; the
    *  search box filters by name. */
@@ -41769,16 +41788,16 @@ var GraphPanel = class {
     if (!v.rows.length) return `<div class="cg-empty">${t("relationsNone")}</div>`;
     const q = this.filter.q.trim().toLowerCase();
     const rows = v.rows.filter((r) => !q || r.a.toLowerCase().includes(q) || r.b.toLowerCase().includes(q));
-    const side = (x) => x ? `${x.address?.length ? `<span class="cg-hint">${esc(t("relAddress"))}${esc(addressText(x.address))}</span><br>` : ""}${esc(x.sees)}` : "";
-    const when2 = (r) => r.state === "later" ? `<span class="cg-key cg-nstate-later">${t("natureState_later")}</span><br>${esc(r.when ? t("natureFrom").replace("{e}", r.when) : t("natureStart"))}` : `<span class="cg-key cg-nstate-now">${t(r.ended ? "relationsEnded" : "natureState_now")}</span><br>${esc(r.when ? t("relSince").replace("{t}", r.when) : t("relStart"))}${r.source && r.source !== "pack" ? `<br>${t("relSource_" + r.source)}` : ""}`;
-    const body = rows.map((r) => `<tr class="cg-mstate-${r.state}"><td>${esc(r.a)}${r.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}</td><td>${esc(r.b)}</td><td>${when2(r)}</td><td>${esc(r.bond)}</td><td>${side(r.ab)}</td><td>${side(r.ba)}</td><td>${esc(r.together || "")}</td></tr>`).join("");
+    const side = (x) => x ? `${x.address?.length ? `<span class="cg-hint">${esc2(t("relAddress"))}${esc2(addressText(x.address))}</span><br>` : ""}${esc2(x.sees)}` : "";
+    const when2 = (r) => r.state === "later" ? `<span class="cg-key cg-nstate-later">${t("natureState_later")}</span><br>${esc2(r.when ? t("natureFrom").replace("{e}", r.when) : t("natureStart"))}` : `<span class="cg-key cg-nstate-now">${t(r.ended ? "relationsEnded" : "natureState_now")}</span><br>${esc2(r.when ? t("relSince").replace("{t}", r.when) : t("relStart"))}${r.source && r.source !== "pack" ? `<br>${t("relSource_" + r.source)}` : ""}`;
+    const body = rows.map((r) => `<tr class="cg-mstate-${r.state}"><td>${esc2(r.a)}${r.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}</td><td>${esc2(r.b)}</td><td>${when2(r)}</td><td>${esc2(r.bond)}</td><td>${side(r.ab)}</td><td>${side(r.ba)}</td><td>${esc2(r.together || "")}</td></tr>`).join("");
     return `<div class="cg-memberswrap"><div class="cg-hint">${t("relationsNote").replace("{n}", String(rows.length))}</div><table class="canon-table cg-members cg-relations"><tr><th>${t("relationsA")}</th><th>${t("relationsB")}</th><th>${t("relationsWhen")}</th><th>${t("relationsBond")}</th><th>${t("relationsAB")}</th><th>${t("relationsBA")}</th><th>${t("relationsTogether")}</th></tr>${body}</table>${v.hidden ? `<div class="cg-hint">${t("relationsHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
   }
   /** 当前时空: the scene's time frame, changeable by hand when the reviewer missed a move between frames. */
   frameSelect(g) {
     const now = g.frames.now;
     const opts = [{ id: "main", name: now.main ? now.name : t("frameMain") }, ...g.frames.list.map((f) => ({ id: f.id, name: f.name }))];
-    return `<label class="cg-lanechk" title="${esc(t("frameTip"))}">${t("frameNow")} <select class="text_pole cg-frame-sel">${opts.map((o) => `<option value="${esc(o.id)}" ${o.id === now.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label>`;
+    return `<label class="cg-lanechk" title="${esc2(t("frameTip"))}">${t("frameNow")} <select class="text_pole cg-frame-sel">${opts.map((o) => `<option value="${esc2(o.id)}" ${o.id === now.id ? "selected" : ""}>${esc2(o.name)}</option>`).join("")}</select></label>`;
   }
   /** The frames of the boxes near the view (a pack with many frames — FGO has 21 — would fill rows with all of them). */
   frameLegend() {
@@ -41786,7 +41805,7 @@ var GraphPanel = class {
     if (!list.length || !this.GL) return "";
     const v = this.drawn;
     const used = new Set(this.GL.L.placed.filter((n) => n.frame && (!v || n.x + n.w >= v.x0 && n.x <= v.x1)).map((n) => n.frame.id));
-    return list.filter((f) => used.has(f.id)).map((f) => `<span class="cg-key cg-fkey cg-frame-${f.idx % 8}">${esc(f.name)}</span>`).join("");
+    return list.filter((f) => used.has(f.id)).map((f) => `<span class="cg-key cg-fkey cg-frame-${f.idx % 8}">${esc2(f.name)}</span>`).join("");
   }
   legend() {
     if (this.mode === "pack") return `<span class="cg-key cg-c-HARD">HARD</span><span class="cg-key cg-c-SOFT">SOFT</span><span class="cg-key cg-c-FREE">FREE</span><span class="cg-ek cg-edge-enables">${t("g_rel_enables")}</span><span class="cg-ek cg-edge-motivates">${t("g_rel_motivates")}</span><span class="cg-ek cg-edge-precedes">${t("g_rel_precedes")}</span><span class="cg-ek cg-edge-related">${t("g_rel_related")}</span>`;
@@ -41980,7 +41999,14 @@ var GraphPanel = class {
       return;
     }
     if (b?.dataset.act?.startsWith("cb-")) {
-      this.combatAct(b);
+      const change = combatChange(b, this.el);
+      if (change) {
+        b.disabled = true;
+        void this.onCombat(change).finally(() => {
+          this.keepView = true;
+          this.refresh();
+        });
+      }
       return;
     }
     if (b?.dataset.act === "fit") {
@@ -42005,7 +42031,7 @@ var GraphPanel = class {
         return;
       }
       const cands = this.linkCandidates(id);
-      box.innerHTML = cands.length ? `<div class="cg-linkhint">${esc(t("linkPick"))}</div>` + cands.map((c) => `<label class="cg-linkrow"><input type="checkbox" value="${esc(c.id)}"> <span class="cg-linkwhen">${esc(c.when)}</span> ${esc(c.title)}</label>`).join("") + `<div class="cg-linkbtns"><button class="menu_button" data-act="link-occurred" data-id="${esc(id)}" title="${esc(t("linkOccurredTip"))}">${t("linkOccurred")}</button><button class="menu_button" data-act="link-diverged" data-id="${esc(id)}" title="${esc(t("linkDivergedTip"))}">${t("linkDiverged")}</button></div>` : `<div class="cg-linkhint">${esc(t("linkNone"))}</div>`;
+      box.innerHTML = cands.length ? `<div class="cg-linkhint">${esc2(t("linkPick"))}</div>` + cands.map((c) => `<label class="cg-linkrow"><input type="checkbox" value="${esc2(c.id)}"> <span class="cg-linkwhen">${esc2(c.when)}</span> ${esc2(c.title)}</label>`).join("") + `<div class="cg-linkbtns"><button class="menu_button" data-act="link-occurred" data-id="${esc2(id)}" title="${esc2(t("linkOccurredTip"))}">${t("linkOccurred")}</button><button class="menu_button" data-act="link-diverged" data-id="${esc2(id)}" title="${esc2(t("linkDivergedTip"))}">${t("linkDiverged")}</button></div>` : `<div class="cg-linkhint">${esc2(t("linkNone"))}</div>`;
       return;
     }
     if (b && (b.dataset.act === "link-occurred" || b.dataset.act === "link-diverged")) {
@@ -42084,21 +42110,21 @@ var GraphPanel = class {
     this.armed = null;
     this.highlight(id);
     const titleOf = (x) => g.nodes.find((k) => k.id === x)?.title || x;
-    const ins = g.edges.filter((e) => e.to === id).map((e) => `\u2190 ${esc(titleOf(e.from))}\uFF08${esc(e.kind)}\uFF09`);
-    const outs = g.edges.filter((e) => e.from === id).map((e) => `\u2192 ${esc(titleOf(e.to))}\uFF08${esc(e.kind)}\uFF09`);
+    const ins = g.edges.filter((e) => e.to === id).map((e) => `\u2190 ${esc2(titleOf(e.from))}\uFF08${esc2(e.kind)}\uFF09`);
+    const outs = g.edges.filter((e) => e.from === id).map((e) => `\u2192 ${esc2(titleOf(e.to))}\uFF08${esc2(e.kind)}\uFF09`);
     this.el.querySelector(".cg-detail").innerHTML = `
-      <h3>${esc(n.title)}</h3>
+      <h3>${esc2(n.title)}</h3>
       <div class="cg-badges"><span class="cg-key cg-c-${n.lane}">${n.lane === "RUNTIME" ? t("g_lane_RUNTIME") : n.lane}</span>${n.status ? `<span class="cg-key cg-s-${n.status}">${statusLabel(n.status)}</span>` : ""}</div>
-      <div class="cg-when">${esc(n.when)}</div>
-      ${n.required ? `<div class="cg-req"><b>${t("g_required")}</b>${esc(n.required)}</div>` : ""}
-      <p style="white-space:pre-line">${esc(n.summary)}</p>
-      ${this.acts() && (n.lane === "SOFT" || n.lane === "FREE") && (n.status === "future" || n.status === "pending") ? `<button class="menu_button cg-focus${n.focused ? " active" : ""}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t("focusTip"))}">${n.focused ? t("unfocus") : t("focus")}</button>` : ""}
-      ${this.acts() && n.lane !== "RUNTIME" && n.status !== "occurred" && n.status !== "diverged" ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t("force")}</button>` : ""}
-      ${this.acts() && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.concluded ? t("unconclude") : n.linked ? t("unlink") : t("unforce")}</button>` : ""}
-      ${this.acts() && n.lane !== "RUNTIME" && !n.forced && (n.inProgress || n.status === "pending" || n.status === "unresolved") ? `<button class="menu_button cg-conclude" data-act="conclude" data-id="${esc(n.id)}" title="${esc(t("concludeTip"))}">${t("conclude")}</button>` : ""}
-      ${this.acts() && n.lane !== "RUNTIME" && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t("linkTip"))}">${t("link")}</button><div class="cg-linkpick"></div>` : ""}
-      ${this.mode === "current" && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t(n.members ? "reanalyzeOccTip" : "reanalyzeTip"))}">${t("reanalyze")}</button>` : ""}
-      ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join("")}
+      <div class="cg-when">${esc2(n.when)}</div>
+      ${n.required ? `<div class="cg-req"><b>${t("g_required")}</b>${esc2(n.required)}</div>` : ""}
+      <p style="white-space:pre-line">${esc2(n.summary)}</p>
+      ${this.acts() && (n.lane === "SOFT" || n.lane === "FREE") && (n.status === "future" || n.status === "pending") ? `<button class="menu_button cg-focus${n.focused ? " active" : ""}" data-act="focus" data-id="${esc2(n.id)}" title="${esc2(t("focusTip"))}">${n.focused ? t("unfocus") : t("focus")}</button>` : ""}
+      ${this.acts() && n.lane !== "RUNTIME" && n.status !== "occurred" && n.status !== "diverged" ? `<button class="menu_button cg-force" data-act="force" data-id="${esc2(n.id)}">${t("force")}</button>` : ""}
+      ${this.acts() && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc2(n.id)}">${n.concluded ? t("unconclude") : n.linked ? t("unlink") : t("unforce")}</button>` : ""}
+      ${this.acts() && n.lane !== "RUNTIME" && !n.forced && (n.inProgress || n.status === "pending" || n.status === "unresolved") ? `<button class="menu_button cg-conclude" data-act="conclude" data-id="${esc2(n.id)}" title="${esc2(t("concludeTip"))}">${t("conclude")}</button>` : ""}
+      ${this.acts() && n.lane !== "RUNTIME" && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc2(n.id)}" title="${esc2(t("linkTip"))}">${t("link")}</button><div class="cg-linkpick"></div>` : ""}
+      ${this.mode === "current" && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc2(n.id)}" title="${esc2(t(n.members ? "reanalyzeOccTip" : "reanalyzeTip"))}">${t("reanalyze")}</button>` : ""}
+      ${(n.detail || []).map((x) => `<div class="cg-line">${esc2(x)}</div>`).join("")}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>${t("g_relations")}</b><br>${[...ins, ...outs].join("<br>")}</div>` : ""}`;
   }
 };
@@ -42145,16 +42171,16 @@ function timelineData(engine2) {
 }
 
 // src/core/ui/inspector.ts
-var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-var chip = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc2(s)}</span>`;
-var btn = (label, attrs, tone = "") => `<button class="menu_button ci-btn${tone ? ` ci-btn-${tone}` : ""}" ${attrs}>${esc2(label)}</button>`;
-var sec = (id, label, inner, extra = "", tipHtml = "") => `<section class="ci-sec" data-sec="${id}"><h4 class="ci-sec-h"><span>${esc2(label)}</span>${tipHtml}<span class="ci-sp"></span>${extra}</h4>${inner}</section>`;
-var item = (key2, head, body = "", foot = "") => `<div class="ci-item" data-key="${esc2(key2)}"><div class="ci-head">${head}</div>${body ? `<div class="ci-body">${body}</div>` : ""}${foot}</div>`;
-var fold = (key2, label, inner, cls = "") => `<details class="ci-fold${cls ? ` ${cls}` : ""}" data-key="${esc2(key2)}"><summary>${esc2(label)}</summary><div class="ci-fold-in">${inner}</div></details>`;
+var esc3 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var chip = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc3(s)}</span>`;
+var btn = (label, attrs, tone = "") => `<button class="menu_button ci-btn${tone ? ` ci-btn-${tone}` : ""}" ${attrs}>${esc3(label)}</button>`;
+var sec = (id, label, inner, extra = "", tipHtml = "") => `<section class="ci-sec" data-sec="${id}"><h4 class="ci-sec-h"><span>${esc3(label)}</span>${tipHtml}<span class="ci-sp"></span>${extra}</h4>${inner}</section>`;
+var item = (key2, head, body = "", foot = "") => `<div class="ci-item" data-key="${esc3(key2)}"><div class="ci-head">${head}</div>${body ? `<div class="ci-body">${body}</div>` : ""}${foot}</div>`;
+var fold = (key2, label, inner, cls = "") => `<details class="ci-fold${cls ? ` ${cls}` : ""}" data-key="${esc3(key2)}"><summary>${esc3(label)}</summary><div class="ci-fold-in">${inner}</div></details>`;
 var muted = (s) => `<div class="ci-muted">${s}</div>`;
-var empty = () => `<div class="ci-empty">${esc2(t("ciNone"))}</div>`;
-var addrRow = (f) => `<div class="ci-addr-row"><input class="text_pole ci-addr-term" placeholder="${esc2(t("tieAddrTerm"))}" value="${esc2(f?.term || "")}"><select class="text_pole ci-addr-use">${["always", "usually", "sometimes"].map((u) => `<option value="${u}" ${(f?.use || "usually") === u ? "selected" : ""}>${esc2(t("addrUse_" + u))}</option>`).join("")}</select><input class="text_pole ci-addr-when" placeholder="${esc2(t("tieAddrWhen"))}" value="${esc2(f?.when || "")}"><button class="menu_button ci-btn" data-act="addr-del" title="${esc2(t("wsDelete"))}">\u2715</button></div>`;
-var sideForm = (key2, label, s) => `<fieldset class="ci-side" data-side="${key2}"><legend>${esc2(label)}</legend><label class="ci-lbl">${esc2(t("tieSees"))}</label><textarea class="text_pole ci-side-sees" rows="2">${esc2(s?.sees || "")}</textarea><label class="ci-lbl">${esc2(t("tieAddress"))}</label><div class="ci-addr">${(s?.address || []).map(addrRow).join("")}</div>${btn(t("tieAddrAdd"), 'data-act="addr-add"')}</fieldset>`;
+var empty = () => `<div class="ci-empty">${esc3(t("ciNone"))}</div>`;
+var addrRow = (f) => `<div class="ci-addr-row"><input class="text_pole ci-addr-term" placeholder="${esc3(t("tieAddrTerm"))}" value="${esc3(f?.term || "")}"><select class="text_pole ci-addr-use">${["always", "usually", "sometimes"].map((u) => `<option value="${u}" ${(f?.use || "usually") === u ? "selected" : ""}>${esc3(t("addrUse_" + u))}</option>`).join("")}</select><input class="text_pole ci-addr-when" placeholder="${esc3(t("tieAddrWhen"))}" value="${esc3(f?.when || "")}"><button class="menu_button ci-btn" data-act="addr-del" title="${esc3(t("wsDelete"))}">\u2715</button></div>`;
+var sideForm = (key2, label, s) => `<fieldset class="ci-side" data-side="${key2}"><legend>${esc3(label)}</legend><label class="ci-lbl">${esc3(t("tieSees"))}</label><textarea class="text_pole ci-side-sees" rows="2">${esc3(s?.sees || "")}</textarea><label class="ci-lbl">${esc3(t("tieAddress"))}</label><div class="ci-addr">${(s?.address || []).map(addrRow).join("")}</div>${btn(t("tieAddrAdd"), 'data-act="addr-add"')}</fieldset>`;
 function createInspector(d) {
   let el = null;
   let tab = "overview";
@@ -42184,70 +42210,70 @@ function createInspector(d) {
   function overview(v, ni, spoilers) {
     const w = E2().worldView();
     const todo = [];
-    const go = (tabId, text, tone) => `<button class="ci-todo ci-${tone}" data-tab="${tabId}">${esc2(text)} <span class="ci-arrow">\u203A</span></button>`;
+    const go = (tabId, text, tone) => `<button class="ci-todo ci-${tone}" data-tab="${tabId}">${esc3(text)} <span class="ci-arrow">\u203A</span></button>`;
     if (ni?.personaChanged) todo.push(go("identity", t("niChanged"), "warn"));
     if (ni && ni.unanswered.length) todo.push(go("contacts", t("ciTodoUnanswered").replace("{n}", String(ni.unanswered.length)), "accent"));
     if (w?.unchecked.length) todo.push(go("world", t("ciTodoUnchecked").replace("{n}", String(w.unchecked.length)), "warn"));
     if (w?.overrides.some((o) => o.stale)) todo.push(go("world", t("ciTodoStale"), "warn"));
-    if (v.recovery.status !== "ok") todo.push(`<div class="ci-todo ci-bad">${esc2(v.recovery.status)} ${esc2(v.recovery.reason || "")}</div>`);
-    const tile = (label, value, sub = "") => `<div class="ci-tile"><div class="ci-tile-l">${esc2(label)}</div><div class="ci-tile-v">${esc2(value)}</div>${sub ? `<div class="ci-tile-s">${esc2(sub)}</div>` : ""}</div>`;
+    if (v.recovery.status !== "ok") todo.push(`<div class="ci-todo ci-bad">${esc3(v.recovery.status)} ${esc3(v.recovery.reason || "")}</div>`);
+    const tile = (label, value, sub = "") => `<div class="ci-tile"><div class="ci-tile-l">${esc3(label)}</div><div class="ci-tile-v">${esc3(value)}</div>${sub ? `<div class="ci-tile-s">${esc3(sub)}</div>` : ""}</div>`;
     const tiles = `<div class="ci-tiles">${tile(t("ciTime"), v.time)}${tile(t("ciPack"), v.title, `hash ${v.packHash}`)}${tile(t("ciRevision"), `rev ${v.revision}`, `branch ${v.branchId.slice(0, 12)}`)}${tile(t("ciCounts"), `${v.occurrences.length} \xB7 ${v.facts.length}`, t("ciCountsSub"))}</div>`;
-    const notices = v.notices.slice().reverse().map((n, i) => item(`notice-${i}`, `${chip(n.level === "error" ? t("ciError") : n.level === "warn" ? t("ciWarn") : t("ciInfo"), n.level === "error" ? "bad" : n.level === "warn" ? "warn" : "")}`, esc2(n.text)));
+    const notices = v.notices.slice().reverse().map((n, i) => item(`notice-${i}`, `${chip(n.level === "error" ? t("ciError") : n.level === "warn" ? t("ciWarn") : t("ciInfo"), n.level === "error" ? "bad" : n.level === "warn" ? "warn" : "")}`, esc3(n.text)));
     void spoilers;
     return {
-      html: tiles + sec("todo", t("ciTodo"), todo.length ? `<div class="ci-todos">${todo.join("")}</div>` : `<div class="ci-empty">${esc2(t("ciAllClear"))}</div>`) + sec("notices", t("ciNotices"), notices.join("") || empty()),
+      html: tiles + sec("todo", t("ciTodo"), todo.length ? `<div class="ci-todos">${todo.join("")}</div>` : `<div class="ci-empty">${esc3(t("ciAllClear"))}</div>`) + sec("notices", t("ciNotices"), notices.join("") || empty()),
       secs: []
     };
   }
   function identity(ni) {
     let html = "";
-    if (ni.personaChanged) html += `<div class="ci-banner ci-warn"><b>${esc2(t("niChanged"))}</b><div class="ci-actions">${btn(t("niUpdate"), 'data-act="ni-update"', "primary")}${btn(t("niKeep"), 'data-act="ni-keep"')}</div></div>`;
-    else if (ni.profileOld) html += `<div class="ci-banner ci-warn"><b>${esc2(t("niOld"))}</b><div class="ci-actions">${btn(t("niUpdate"), 'data-act="ni-update"', "primary")}</div></div>`;
+    if (ni.personaChanged) html += `<div class="ci-banner ci-warn"><b>${esc3(t("niChanged"))}</b><div class="ci-actions">${btn(t("niUpdate"), 'data-act="ni-update"', "primary")}${btn(t("niKeep"), 'data-act="ni-keep"')}</div></div>`;
+    else if (ni.profileOld) html += `<div class="ci-banner ci-warn"><b>${esc3(t("niOld"))}</b><div class="ci-actions">${btn(t("niUpdate"), 'data-act="ni-update"', "primary")}</div></div>`;
     const p = ni.profile;
-    if (!p) return { html: html + `<div class="ci-empty">${esc2(t("niNoProfile"))}</div>`, secs: [] };
-    html += `<div class="ci-hero"><div class="ci-hero-name">${esc2(p.name)}</div><div>${esc2(p.summary)}</div>${p.publicIdentity ? muted(esc2(p.publicIdentity)) : ""}${muted(esc2(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev))))}${ni.personaChanged || ni.profileOld ? "" : `<div class="ci-actions">${btn(t("niReread"), `data-act="ni-update" title="${esc2(t("niRereadTip"))}"`)}</div>`}</div>`;
+    if (!p) return { html: html + `<div class="ci-empty">${esc3(t("niNoProfile"))}</div>`, secs: [] };
+    html += `<div class="ci-hero"><div class="ci-hero-name">${esc3(p.name)}</div><div>${esc3(p.summary)}</div>${p.publicIdentity ? muted(esc3(p.publicIdentity)) : ""}${muted(esc3(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev))))}${ni.personaChanged || ni.profileOld ? "" : `<div class="ci-actions">${btn(t("niReread"), `data-act="ni-update" title="${esc3(t("niRereadTip"))}"`)}</div>`}</div>`;
     const secs = [];
     const list = (id, label, rows) => {
       if (!rows.length) return "";
       secs.push({ id, label });
-      return sec(id, label, rows.map((r, i) => item(`${id}-${i}`, `<span class="ci-text">${esc2(r)}</span>`)).join(""));
+      return sec(id, label, rows.map((r, i) => item(`${id}-${i}`, `<span class="ci-text">${esc3(r)}</span>`)).join(""));
     };
     html += list("orgs", t("niOrgs"), p.affiliations) + list("places", t("niPlaces"), p.places) + list("roles", t("niRoles"), p.roles || []) + list("notsuited", t("niNotSuited"), p.notSuited || []) + list("voice", t("niVoice"), p.voice ? [p.voice] : []) + list("nature", t("niNature"), p.nature || []) + list("defenses", t("niDefenses"), p.defenses ? [p.defenses] : []) + list("recognized", t("niRecognized"), p.recognized || []) + list("lore", t("niLore"), p.lore || []) + list("notes", t("niNotes"), p.notes);
     return { html, secs };
   }
   function ties(ni) {
     const p = ni.profile;
-    if (!p) return { html: `<div class="ci-empty">${esc2(t("niNoProfile"))}</div>`, secs: [] };
-    const src = (x) => `${chip(t(`tieSrc_${x.by}`), x.by === "ui" ? "accent" : "")}${x.since ? `<span class="ci-meta">${esc2(t("tieSince").replace("{t}", x.since))}</span>` : ""}`;
-    const extra = (x) => `${x.start ? muted(`${esc2(t("tieStart"))}: ${esc2(x.start)}`) : ""}${x.quote ? `<div class="ci-quote">\u201C${esc2(x.quote)}\u201D</div>` : ""}`;
-    const ids = (kind, x, i) => `data-kind="${kind}" data-i="${i}" data-who="${esc2(x.who || "")}" data-name="${esc2(x.name)}"`;
-    const levels = (cur, attr) => `<select class="text_pole canon-tie-level" ${attr}>${["exists", "identity", "secrets"].map((l) => `<option value="${l}" ${l === cur ? "selected" : ""}>${esc2(t(`tieLevel_${l}`))}</option>`).join("")}</select>`;
+    if (!p) return { html: `<div class="ci-empty">${esc3(t("niNoProfile"))}</div>`, secs: [] };
+    const src = (x) => `${chip(t(`tieSrc_${x.by}`), x.by === "ui" ? "accent" : "")}${x.since ? `<span class="ci-meta">${esc3(t("tieSince").replace("{t}", x.since))}</span>` : ""}`;
+    const extra = (x) => `${x.start ? muted(`${esc3(t("tieStart"))}: ${esc3(x.start)}`) : ""}${x.quote ? `<div class="ci-quote">\u201C${esc3(x.quote)}\u201D</div>` : ""}`;
+    const ids = (kind, x, i) => `data-kind="${kind}" data-i="${i}" data-who="${esc3(x.who || "")}" data-name="${esc3(x.name)}"`;
+    const levels = (cur, attr) => `<select class="text_pole canon-tie-level" ${attr}>${["exists", "identity", "secrets"].map((l) => `<option value="${l}" ${l === cur ? "selected" : ""}>${esc3(t(`tieLevel_${l}`))}</option>`).join("")}</select>`;
     const saveDel = (attr) => `<div class="ci-actions">${btn(t("wsSave"), `data-act="tie-save" ${attr}`, "primary")}${btn(t("wsDelete"), `data-act="tie-del" ${attr}`, "danger")}</div>`;
-    const relForm = (a, r) => `<div class="ci-relform" ${a}>` + (r ? "" : `<input class="text_pole canon-tie-name" ${a} placeholder="${esc2(t("tieName"))}">`) + `<label class="ci-lbl">${esc2(t("tieBond"))}</label><textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc2(t("tieRelText"))}">${esc2(r?.text || "")}</textarea>` + sideForm("they", r ? t("tieTheySide").replace("{n}", r.name) : t("tieTheySideNew"), r?.they || null) + sideForm("me", r ? t("tieMeSide").replace("{n}", r.name) : t("tieMeSideNew"), r?.me || null) + `<label class="ci-lbl">${esc2(t("tieTogether"))}</label><textarea class="text_pole ci-rel-together" rows="2">${esc2(r?.together || "")}</textarea><label class="checkbox_label ci-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r?.ended ? "checked" : ""}><span>${esc2(t("tieEnded"))}</span></label>` + (r ? saveDel(a) : `<div class="ci-actions">${btn(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`) + "</div>";
-    const sideText = (label, s) => s && (s.sees || s.address.length) ? `<div class="ci-meta"><b>${esc2(label)}\uFF1A</b>${s.address.length ? `${esc2(t("relAddress"))}${esc2(addressText(s.address))}${s.sees ? "\uFF1B" : ""}` : ""}${esc2(s.sees)}</div>` : "";
+    const relForm = (a, r) => `<div class="ci-relform" ${a}>` + (r ? "" : `<input class="text_pole canon-tie-name" ${a} placeholder="${esc3(t("tieName"))}">`) + `<label class="ci-lbl">${esc3(t("tieBond"))}</label><textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc3(t("tieRelText"))}">${esc3(r?.text || "")}</textarea>` + sideForm("they", r ? t("tieTheySide").replace("{n}", r.name) : t("tieTheySideNew"), r?.they || null) + sideForm("me", r ? t("tieMeSide").replace("{n}", r.name) : t("tieMeSideNew"), r?.me || null) + `<label class="ci-lbl">${esc3(t("tieTogether"))}</label><textarea class="text_pole ci-rel-together" rows="2">${esc3(r?.together || "")}</textarea><label class="checkbox_label ci-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r?.ended ? "checked" : ""}><span>${esc3(t("tieEnded"))}</span></label>` + (r ? saveDel(a) : `<div class="ci-actions">${btn(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`) + "</div>";
+    const sideText = (label, s) => s && (s.sees || s.address.length) ? `<div class="ci-meta"><b>${esc3(label)}\uFF1A</b>${s.address.length ? `${esc3(t("relAddress"))}${esc3(addressText(s.address))}${s.sees ? "\uFF1B" : ""}` : ""}${esc3(s.sees)}</div>` : "";
     const rel = p.relationships.map((r, i) => {
       const a = ids("relation", r, i);
-      const body = `${esc2(r.text)}${r.org ? `<span class="ci-meta">${esc2(r.org)}</span>` : ""}` + sideText(t("tieTheySide").replace("{n}", r.name), r.they) + sideText(t("tieMeSide").replace("{n}", r.name), r.me) + (r.together ? `<div class="ci-meta"><b>${esc2(t("tieTogether"))}\uFF1A</b>${esc2(r.together)}</div>` : "") + extra(r);
+      const body = `${esc3(r.text)}${r.org ? `<span class="ci-meta">${esc3(r.org)}</span>` : ""}` + sideText(t("tieTheySide").replace("{n}", r.name), r.they) + sideText(t("tieMeSide").replace("{n}", r.name), r.me) + (r.together ? `<div class="ci-meta"><b>${esc3(t("tieTogether"))}\uFF1A</b>${esc3(r.together)}</div>` : "") + extra(r);
       return item(
         `rel-${r.name}`,
-        `<span class="ci-title">${esc2(r.name)}</span>${r.ended ? chip(t("tieEnded"), "muted") : ""}${src(r)}`,
+        `<span class="ci-title">${esc3(r.name)}</span>${r.ended ? chip(t("tieEnded"), "muted") : ""}${src(r)}`,
         body,
-        r.person ? fold(`rel-edit-${r.name}`, t("tieEdit"), relForm(a, r), "ci-edit") : muted(esc2(t("tieNotPerson")))
+        r.person ? fold(`rel-edit-${r.name}`, t("tieEdit"), relForm(a, r), "ci-edit") : muted(esc3(t("tieNotPerson")))
       );
     });
     const kn = p.knowers.map((k, i) => {
       const a = ids("knows", k, i);
       return item(
         `kn-${k.name}`,
-        `<span class="ci-title">${esc2(k.name)}</span>${chip(t(`tieLevel_${k.level}`), k.level === "secrets" ? "warn" : "")}${src(k)}`,
-        `${esc2(k.text)}${extra(k)}`,
-        fold(`kn-edit-${k.name}`, t("tieEdit"), `${levels(k.level, a)}<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc2(k.text)}</textarea>${saveDel(a)}`, "ci-edit")
+        `<span class="ci-title">${esc3(k.name)}</span>${chip(t(`tieLevel_${k.level}`), k.level === "secrets" ? "warn" : "")}${src(k)}`,
+        `${esc3(k.text)}${extra(k)}`,
+        fold(`kn-edit-${k.name}`, t("tieEdit"), `${levels(k.level, a)}<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc3(k.text)}</textarea>${saveDel(a)}`, "ci-edit")
       );
     });
     const add2 = (kind) => {
       const a = `data-kind="${kind}" data-i="new"`;
       if (kind === "relation") return fold("add-relation", t("tieAddRel"), relForm(a, null), "ci-add");
-      return fold("add-knows", t("tieAddKnower"), `<input class="text_pole canon-tie-name" ${a} placeholder="${esc2(t("tieName"))}">${levels("identity", a)}<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc2(t("tieKnowsText"))}"></textarea><div class="ci-actions">${btn(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`, "ci-add");
+      return fold("add-knows", t("tieAddKnower"), `<input class="text_pole canon-tie-name" ${a} placeholder="${esc3(t("tieName"))}">${levels("identity", a)}<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc3(t("tieKnowsText"))}"></textarea><div class="ci-actions">${btn(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`, "ci-add");
     };
     return {
       html: sec("rel", t("niConnections"), (rel.join("") || empty()) + add2("relation"), "", d.tip("tieTip")) + sec("knows", t("niWho"), (kn.join("") || empty()) + add2("knows")),
@@ -42255,12 +42281,12 @@ function createInspector(d) {
     };
   }
   function contacts(ni) {
-    const jobs = `<label class="checkbox_label ci-check ci-switch"><input type="checkbox" data-act="ni-jobs" ${E2().settings.quietDayJobs !== false ? "checked" : ""}><span>${esc2(t("niJobsToggle"))}</span></label>${d.tip("quietDayJobsTip")}`;
+    const jobs = `<label class="checkbox_label ci-check ci-switch"><input type="checkbox" data-act="ni-jobs" ${E2().settings.quietDayJobs !== false ? "checked" : ""}><span>${esc3(t("niJobsToggle"))}</span></label>${d.tip("quietDayJobsTip")}`;
     const groups = /* @__PURE__ */ new Map();
     for (const k of ni.contacts.slice().reverse()) groups.set(k.scope, [...groups.get(k.scope) || [], k]);
     const POS = ["accepted", "joined", "reopened", "answered", "limited"], NEG = ["declined", "deferred", "refused", "ooc_suppress"];
-    const ans = (k, stance, label, tone = "") => btn(t(label), `data-act="ni-answer" data-rec="${esc2(k.recordId)}" data-stance="${stance}"`, tone);
-    const line = (k) => `<div class="ci-meta">${esc2(k.time)} \xB7 ${esc2(k.kind)}${k.by.length ? ` \xB7 ${esc2(k.by.join(", "))}` : ""}</div><div class="ci-quote">\u201C${esc2(k.quote)}\u201D</div>`;
+    const ans = (k, stance, label, tone = "") => btn(t(label), `data-act="ni-answer" data-rec="${esc3(k.recordId)}" data-stance="${stance}"`, tone);
+    const line = (k) => `<div class="ci-meta">${esc3(k.time)} \xB7 ${esc3(k.kind)}${k.by.length ? ` \xB7 ${esc3(k.by.join(", "))}` : ""}</div><div class="ci-quote">\u201C${esc3(k.quote)}\u201D</div>`;
     const need = [], rest = [];
     for (const [k, ...older] of groups.values()) {
       const a = k.answer;
@@ -42269,7 +42295,7 @@ function createInspector(d) {
       const actions = k.lapsed || a === "done" ? "" : a && POS.includes(a) ? ans(k, "done", "niDone", "primary") : a && NEG.includes(a) ? ans(k, "accepted", "niAcceptAgain") : `${ans(k, "accepted", "niAccept", "primary")}${ans(k, "declined", "niDecline")}`;
       const card2 = item(
         `c-${k.scope}`,
-        `<span class="ci-title">${esc2(k.label)}</span>${k.sideJob ? chip(t("niSideJob")) : ""}${status}<span class="ci-sp"></span><span class="ci-actions">${actions}</span>`,
+        `<span class="ci-title">${esc3(k.label)}</span>${k.sideJob ? chip(t("niSideJob")) : ""}${status}<span class="ci-sp"></span><span class="ci-actions">${actions}</span>`,
         line(k),
         older.length ? fold(`c-old-${k.scope}`, t("niOlderContacts").replace("{n}", String(older.length)), older.map(line).join('<hr class="ci-hr">')) : ""
       );
@@ -42277,26 +42303,26 @@ function createInspector(d) {
     }
     let html = `<div class="ci-bar">${jobs}</div>`;
     const secs = [];
-    html += sec("need", t("ciNeedAnswer"), need.join("") || `<div class="ci-empty">${esc2(t("ciAllClear"))}</div>`);
+    html += sec("need", t("ciNeedAnswer"), need.join("") || `<div class="ci-empty">${esc3(t("ciAllClear"))}</div>`);
     secs.push({ id: "need", label: t("ciNeedAnswer") });
     html += sec("all", t("ciOtherContacts"), rest.join("") || empty());
     secs.push({ id: "all", label: t("ciOtherContacts") });
     if (ni.suggestions) {
       const sg = /* @__PURE__ */ new Map();
       for (const s of ni.suggestions) sg.set(s.scope, [...sg.get(s.scope) || [], s]);
-      const sLine = (s) => `<div>${s.sideJob ? chip(t("niSideJob")) : ""}${esc2(s.by.join(", "))}: ${esc2(s.contact)} <span class="ci-meta">${esc2(s.kind)}${s.direct ? " \xB7 direct" : ""}</span></div>`;
-      const avoid = (s) => btn(t(s.avoided ? "niUnavoid" : "niAvoid"), `data-act="ni-avoid" data-scope="${esc2(s.scope)}" title="${esc2(t(s.avoided ? "niUnavoidTip" : "niAvoidTip"))}"`);
-      const pref = (s) => (s.current ? chip(t("niCurrent"), "accent") : `${s.preferred ? chip(t("niPreferred"), "ok") : ""}${s.avoided ? chip(t("niAvoided"), "warn") : ""}<span class="ci-sp"></span>${s.avoided ? "" : btn(t(s.preferred ? "niUnprefer" : "niPrefer"), `data-act="ni-prefer" data-scope="${esc2(s.scope)}" title="${esc2(t(s.preferred ? "niUnpreferTip" : "niPreferTip"))}"`)}`) + avoid(s);
+      const sLine = (s) => `<div>${s.sideJob ? chip(t("niSideJob")) : ""}${esc3(s.by.join(", "))}: ${esc3(s.contact)} <span class="ci-meta">${esc3(s.kind)}${s.direct ? " \xB7 direct" : ""}</span></div>`;
+      const avoid = (s) => btn(t(s.avoided ? "niUnavoid" : "niAvoid"), `data-act="ni-avoid" data-scope="${esc3(s.scope)}" title="${esc3(t(s.avoided ? "niUnavoidTip" : "niAvoidTip"))}"`);
+      const pref = (s) => (s.current ? chip(t("niCurrent"), "accent") : `${s.preferred ? chip(t("niPreferred"), "ok") : ""}${s.avoided ? chip(t("niAvoided"), "warn") : ""}<span class="ci-sp"></span>${s.avoided ? "" : btn(t(s.preferred ? "niUnprefer" : "niPrefer"), `data-act="ni-prefer" data-scope="${esc3(s.scope)}" title="${esc3(t(s.preferred ? "niUnpreferTip" : "niPreferTip"))}"`)}`) + avoid(s);
       html += sec(
         "sugg",
         t("niSuggestions"),
-        [...sg.values()].map(([s, ...more]) => item(`s-${s.scope}`, `<span class="ci-title">${esc2(s.about)}</span>${pref(s)}`, sLine(s), more.length ? fold(`s-more-${s.scope}`, t("niMoreSuggestions").replace("{n}", String(more.length)), more.map(sLine).join("")) : "")).join("") || empty(),
-        btn(t("niRefresh"), `data-act="ni-refresh" title="${esc2(t("niRefreshTip"))}"`)
+        [...sg.values()].map(([s, ...more]) => item(`s-${s.scope}`, `<span class="ci-title">${esc3(s.about)}</span>${pref(s)}`, sLine(s), more.length ? fold(`s-more-${s.scope}`, t("niMoreSuggestions").replace("{n}", String(more.length)), more.map(sLine).join("")) : "")).join("") || empty(),
+        btn(t("niRefresh"), `data-act="ni-refresh" title="${esc3(t("niRefreshTip"))}"`)
       );
       secs.push({ id: "sugg", label: t("ciSugg") });
     }
     if (ni.dropped?.length) {
-      html += sec("dropped", t("niDropped"), ni.dropped.map((x, i) => item(`dr-${i}`, `<span class="ci-title">${esc2(x.id)}</span>`, esc2(x.reason))).join(""));
+      html += sec("dropped", t("niDropped"), ni.dropped.map((x, i) => item(`dr-${i}`, `<span class="ci-title">${esc3(x.id)}</span>`, esc3(x.reason))).join(""));
       secs.push({ id: "dropped", label: t("niDropped") });
     }
     return { html, secs };
@@ -42305,17 +42331,17 @@ function createInspector(d) {
     const negative = /* @__PURE__ */ new Set(["declined", "deferred", "ooc_suppress"]);
     const dg = /* @__PURE__ */ new Map();
     for (const x of ni.decisions.slice().reverse()) dg.set(x.scope, [...dg.get(x.scope) || [], x]);
-    const dLine = (x) => `<div class="ci-meta">${esc2(t(`niStance_${x.stance}`))} \xB7 ${esc2(x.time)}</div>${x.quote ? `<div class="ci-quote">\u201C${esc2(x.quote)}\u201D</div>` : ""}`;
+    const dLine = (x) => `<div class="ci-meta">${esc3(t(`niStance_${x.stance}`))} \xB7 ${esc3(x.time)}</div>${x.quote ? `<div class="ci-quote">\u201C${esc3(x.quote)}\u201D</div>` : ""}`;
     const active = [], past = [];
     for (const ds of dg.values()) {
       const x = ds.find((y) => y.active) || ds[0];
       const older = ds.filter((y) => y !== x);
       const neg = negative.has(x.stance);
       const force = x.active && neg ? chip(t(x.binding ? x.stance === "ooc_suppress" ? "niBindingOoc" : "niBinding" : "niWish"), x.binding ? "bad" : "warn") : "";
-      const acts = x.active && neg ? `${x.stance === "ooc_suppress" ? "" : btn(t(x.strong ? "niWeak" : "niStrong"), `data-act="${x.strong ? "ni-weak" : "ni-strong"}" data-kind="${esc2(x.scopeKind)}" data-ref="${esc2(x.scopeRef)}" title="${esc2(t(x.strong ? "niWeakTip" : "niStrongTip"))}"`)}${btn(t("niReopen"), `data-act="ni-reopen" data-kind="${esc2(x.scopeKind)}" data-ref="${esc2(x.scopeRef)}" data-label="${esc2(x.label)}"`)}` : "";
+      const acts = x.active && neg ? `${x.stance === "ooc_suppress" ? "" : btn(t(x.strong ? "niWeak" : "niStrong"), `data-act="${x.strong ? "ni-weak" : "ni-strong"}" data-kind="${esc3(x.scopeKind)}" data-ref="${esc3(x.scopeRef)}" title="${esc3(t(x.strong ? "niWeakTip" : "niStrongTip"))}"`)}${btn(t("niReopen"), `data-act="ni-reopen" data-kind="${esc3(x.scopeKind)}" data-ref="${esc3(x.scopeRef)}" data-label="${esc3(x.label)}"`)}` : "";
       const card2 = item(
         `d-${x.scope}`,
-        `<span class="ci-title">${esc2(x.label)}</span>${chip(t(`niStance_${x.stance}`), neg ? "bad" : "ok")}${force}<span class="ci-sp"></span><span class="ci-actions">${acts}</span>`,
+        `<span class="ci-title">${esc3(x.label)}</span>${chip(t(`niStance_${x.stance}`), neg ? "bad" : "ok")}${force}<span class="ci-sp"></span><span class="ci-actions">${acts}</span>`,
         dLine(x),
         older.length ? fold(`d-old-${x.scope}`, t("niOlderDecisions").replace("{n}", String(older.length)), older.map(dLine).join('<hr class="ci-hr">')) : ""
       );
@@ -42328,43 +42354,43 @@ function createInspector(d) {
   }
   function world() {
     const w = E2().worldView();
-    if (!w) return { html: `<div class="ci-empty">${esc2(t("niOff"))}</div>`, secs: [] };
+    if (!w) return { html: `<div class="ci-empty">${esc3(t("niOff"))}</div>`, secs: [] };
     const spoilers = !!camp()?.uiPreferences.spoilers;
     const secs = [];
-    const recheck = btn(t("wsRecheck"), `data-act="ws-recheck" title="${esc2(t("wsRecheckTip"))}"`, "primary");
-    const changes = w.changes.map((c, i) => item(`wc-${i}`, `${chip(t(`wsSrc_${c.source}`))}<span class="ci-text">${esc2(c.text)}</span>`, c.terms.length ? muted(`${esc2(t("wsTerms"))}: ${esc2(c.terms.join("\u3001"))}`) : ""));
-    const manual = fold("ws-manual", t("wsManual"), `<textarea class="text_pole canon-ws-manual" rows="3">${esc2(w.manual.join("\n"))}</textarea><div class="ci-actions">${btn(t("wsSave"), 'data-act="ws-manual"', "primary")}</div>`, "ci-add");
-    const checked = w.checked ? muted(esc2(t("wsChecked").replace("{lore}", String(w.checked.lore)).replace("{ent}", String(w.checked.entities)).replace("{ev}", String(w.checked.events))) + (w.checked.generic.length ? ` ${esc2(t("wsGeneric"))}${esc2(w.checked.generic.join("\u3001"))}` : "")) : "";
-    let html = `<div class="ci-bar">${muted(esc2(t("wsIntro")))}</div>`;
-    html += sec("changes", t("ciWsChanges"), (changes.join("") || `<div class="ci-empty">${esc2(t("wsNoChanges"))}</div>`) + manual + checked, recheck);
+    const recheck = btn(t("wsRecheck"), `data-act="ws-recheck" title="${esc3(t("wsRecheckTip"))}"`, "primary");
+    const changes = w.changes.map((c, i) => item(`wc-${i}`, `${chip(t(`wsSrc_${c.source}`))}<span class="ci-text">${esc3(c.text)}</span>`, c.terms.length ? muted(`${esc3(t("wsTerms"))}: ${esc3(c.terms.join("\u3001"))}`) : ""));
+    const manual = fold("ws-manual", t("wsManual"), `<textarea class="text_pole canon-ws-manual" rows="3">${esc3(w.manual.join("\n"))}</textarea><div class="ci-actions">${btn(t("wsSave"), 'data-act="ws-manual"', "primary")}</div>`, "ci-add");
+    const checked = w.checked ? muted(esc3(t("wsChecked").replace("{lore}", String(w.checked.lore)).replace("{ent}", String(w.checked.entities)).replace("{ev}", String(w.checked.events))) + (w.checked.generic.length ? ` ${esc3(t("wsGeneric"))}${esc3(w.checked.generic.join("\u3001"))}` : "")) : "";
+    let html = `<div class="ci-bar">${muted(esc3(t("wsIntro")))}</div>`;
+    html += sec("changes", t("ciWsChanges"), (changes.join("") || `<div class="ci-empty">${esc3(t("wsNoChanges"))}</div>`) + manual + checked, recheck);
     secs.push({ id: "changes", label: t("ciWsChanges") });
     if (w.checked) {
-      if (!w.loreHook && w.overrides.some((o) => o.kind === "lore")) html += `<div class="ci-banner ci-warn">${esc2(t("wsNoHook"))}</div>`;
+      if (!w.loreHook && w.overrides.some((o) => o.kind === "lore")) html += `<div class="ci-banner ci-warn">${esc3(t("wsNoHook"))}</div>`;
       if (w.unchecked.length) {
-        html += sec("unchecked", t("wsUnchecked").replace("{n}", String(w.unchecked.length)), `<div class="ci-banner ci-warn">${esc2(w.unchecked[0].why)}</div>` + w.unchecked.map((r, i) => item(`wu-${i}`, `<span class="ci-title">${esc2(r.title)}</span>${chip(t(`wsKind_${r.kind}`))}`)).join(""));
+        html += sec("unchecked", t("wsUnchecked").replace("{n}", String(w.unchecked.length)), `<div class="ci-banner ci-warn">${esc3(w.unchecked[0].why)}</div>` + w.unchecked.map((r, i) => item(`wu-${i}`, `<span class="ci-title">${esc3(r.title)}</span>${chip(t(`wsKind_${r.kind}`))}`)).join(""));
         secs.push({ id: "unchecked", label: t("ciWsUnchecked") });
       }
       const hidden = w.overrides.filter((o) => o.future && !spoilers).length;
       const shown = w.overrides.filter((o) => !o.future || spoilers);
       const ov = shown.map((o) => item(
         `wo-${o.id}`,
-        `<span class="ci-title">${esc2(o.title)}${o.name ? ` \u2192 ${esc2(o.name)}` : ""}</span>${chip(t(`wsKind_${o.kind}`))}${chip(t(o.action === "disable" ? "wsDisable" : "wsReplace"), o.action === "disable" ? "bad" : "accent")}${o.edited ? chip(t("wsEdited"), "ok") : ""}${o.stale ? chip(t("wsStale"), "warn") : ""}${o.book ? `<span class="ci-meta">${esc2(o.book)}</span>` : ""}`,
-        o.reason ? esc2(o.reason) : "",
-        fold(`wo-cmp-${o.id}`, `${t("wsOriginal")} / ${t("wsThisGame")}`, `<div class="ci-cmp"><div><div class="ci-cmp-l">${esc2(t("wsOriginal"))}</div>${esc2(o.original)}</div><div><div class="ci-cmp-l">${esc2(t("wsThisGame"))}</div>${esc2(o.action === "disable" ? "\u2014" : o.content)}</div></div>`) + fold(`wo-edit-${o.id}`, t("tieEdit"), `<textarea class="text_pole canon-ws-edit" data-id="${esc2(o.id)}" rows="5" title="${esc2(t("wsEditTip"))}">${esc2(o.content)}</textarea><div class="ci-actions">${btn(t("wsSave"), `data-act="ws-save" data-id="${esc2(o.id)}"`, "primary")}${btn(t("wsDelete"), `data-act="ws-del" data-id="${esc2(o.id)}"`, "danger")}</div>`, "ci-edit")
+        `<span class="ci-title">${esc3(o.title)}${o.name ? ` \u2192 ${esc3(o.name)}` : ""}</span>${chip(t(`wsKind_${o.kind}`))}${chip(t(o.action === "disable" ? "wsDisable" : "wsReplace"), o.action === "disable" ? "bad" : "accent")}${o.edited ? chip(t("wsEdited"), "ok") : ""}${o.stale ? chip(t("wsStale"), "warn") : ""}${o.book ? `<span class="ci-meta">${esc3(o.book)}</span>` : ""}`,
+        o.reason ? esc3(o.reason) : "",
+        fold(`wo-cmp-${o.id}`, `${t("wsOriginal")} / ${t("wsThisGame")}`, `<div class="ci-cmp"><div><div class="ci-cmp-l">${esc3(t("wsOriginal"))}</div>${esc3(o.original)}</div><div><div class="ci-cmp-l">${esc3(t("wsThisGame"))}</div>${esc3(o.action === "disable" ? "\u2014" : o.content)}</div></div>`) + fold(`wo-edit-${o.id}`, t("tieEdit"), `<textarea class="text_pole canon-ws-edit" data-id="${esc3(o.id)}" rows="5" title="${esc3(t("wsEditTip"))}">${esc3(o.content)}</textarea><div class="ci-actions">${btn(t("wsSave"), `data-act="ws-save" data-id="${esc3(o.id)}"`, "primary")}${btn(t("wsDelete"), `data-act="ws-del" data-id="${esc3(o.id)}"`, "danger")}</div>`, "ci-edit")
       ));
-      html += sec("overrides", t("wsOverrides"), (ov.join("") || (!hidden ? `<div class="ci-empty">${esc2(t("wsNone"))}</div>` : "")) + (hidden ? muted(esc2(t("wsFutureHidden").replace("{n}", String(hidden)))) : ""));
+      html += sec("overrides", t("wsOverrides"), (ov.join("") || (!hidden ? `<div class="ci-empty">${esc3(t("wsNone"))}</div>` : "")) + (hidden ? muted(esc3(t("wsFutureHidden").replace("{n}", String(hidden)))) : ""));
       secs.push({ id: "overrides", label: t("ciWsOverrides") });
       if (w.additions.length) {
         html += sec("additions", t("wsAdditions"), w.additions.map((a) => item(
           `wa-${a.id}`,
-          `<span class="ci-title">${esc2(a.title)}</span>${a.edited ? chip(t("wsEdited"), "ok") : ""}<span class="ci-meta">${esc2(a.keys.join("\u3001"))}</span>`,
-          a.reason ? esc2(a.reason) : "",
-          fold(`wa-edit-${a.id}`, t("wsThisGame"), `<textarea class="text_pole canon-ws-edit" data-id="${esc2(a.id)}" rows="5">${esc2(a.content)}</textarea><div class="ci-actions">${btn(t("wsSave"), `data-act="ws-save" data-id="${esc2(a.id)}"`, "primary")}${btn(t("wsDelete"), `data-act="ws-del" data-id="${esc2(a.id)}"`, "danger")}</div>`, "ci-edit")
+          `<span class="ci-title">${esc3(a.title)}</span>${a.edited ? chip(t("wsEdited"), "ok") : ""}<span class="ci-meta">${esc3(a.keys.join("\u3001"))}</span>`,
+          a.reason ? esc3(a.reason) : "",
+          fold(`wa-edit-${a.id}`, t("wsThisGame"), `<textarea class="text_pole canon-ws-edit" data-id="${esc3(a.id)}" rows="5">${esc3(a.content)}</textarea><div class="ci-actions">${btn(t("wsSave"), `data-act="ws-save" data-id="${esc3(a.id)}"`, "primary")}${btn(t("wsDelete"), `data-act="ws-del" data-id="${esc3(a.id)}"`, "danger")}</div>`, "ci-edit")
         )).join(""));
         secs.push({ id: "additions", label: t("ciWsAdditions") });
       }
       if (w.rejected.length) {
-        html += sec("rejected", t("wsRejected").replace("{n}", String(w.rejected.length)), w.rejected.map((r, i) => item(`wr-${i}`, `<span class="ci-title">${esc2(r.title)}</span>${chip(t(`wsKind_${r.kind}`))}`, `${esc2(r.why)}${r.reason ? muted(esc2(r.reason)) : ""}`)).join(""));
+        html += sec("rejected", t("wsRejected").replace("{n}", String(w.rejected.length)), w.rejected.map((r, i) => item(`wr-${i}`, `<span class="ci-title">${esc3(r.title)}</span>${chip(t(`wsKind_${r.kind}`))}`, `${esc3(r.why)}${r.reason ? muted(esc3(r.reason)) : ""}`)).join(""));
         secs.push({ id: "rejected", label: t("ciWsRejected") });
       }
     }
@@ -42383,24 +42409,24 @@ function createInspector(d) {
     };
     const cards = [...by].sort((a, b) => a[0].localeCompare(b[0])).map(([e, fs]) => item(
       `f-${e}`,
-      `<span class="ci-title">${esc2(e)}</span>${chip(String(fs.length), "muted")}`,
-      `<table class="ci-kv">${fs.map((f) => `<tr title="${esc2(f.source)}"><th>${esc2(f.predicate)}</th><td>${esc2(val(f.value))}</td><td class="ci-meta">${esc2(f.since)}</td></tr>`).join("")}</table>`
+      `<span class="ci-title">${esc3(e)}</span>${chip(String(fs.length), "muted")}`,
+      `<table class="ci-kv">${fs.map((f) => `<tr title="${esc3(f.source)}"><th>${esc3(f.predicate)}</th><td>${esc3(val(f.value))}</td><td class="ci-meta">${esc3(f.since)}</td></tr>`).join("")}</table>`
     ));
     return { html: cards.join("") || empty(), secs: [] };
   }
   function history(v) {
-    return { html: v.occurrences.slice().reverse().map((o) => item(`h-${o.id}`, `<span class="ci-meta ci-when">${esc2(o.before ? t("ciUndated").replace("{t}", o.before) : o.time)}</span><span class="ci-title">${esc2(o.title)}</span>${chip(o.origin, o.origin === "player" ? "accent" : "muted")}`, esc2(o.account))).join("") || empty(), secs: [] };
+    return { html: v.occurrences.slice().reverse().map((o) => item(`h-${o.id}`, `<span class="ci-meta ci-when">${esc3(o.before ? t("ciUndated").replace("{t}", o.before) : o.time)}</span><span class="ci-title">${esc3(o.title)}</span>${chip(o.origin, o.origin === "player" ? "accent" : "muted")}`, esc3(o.account))).join("") || empty(), secs: [] };
   }
   function deviations(v) {
-    return { html: v.deviations.map((x) => item(`dv-${x.id}`, `<span class="ci-title">${esc2(x.title)}</span>${chip(x.disposition, "warn")}`, esc2(x.reason))).join("") || empty(), secs: [] };
+    return { html: v.deviations.map((x) => item(`dv-${x.id}`, `<span class="ci-title">${esc3(x.title)}</span>${chip(x.disposition, "warn")}`, esc3(x.reason))).join("") || empty(), secs: [] };
   }
   function anchors(v, spoilers) {
     const tone = (s) => s === "occurred" ? "ok" : s === "pending" ? "muted" : s === "due" ? "accent" : "warn";
-    return { html: v.anchors.map((a) => item(`an-${a.id}`, `<span class="ci-title">${esc2(spoilers ? a.title : "\u2022\u2022\u2022")}</span>${chip(a.status, tone(a.status))}<span class="ci-meta">${esc2(a.when)}</span>`, esc2(a.required))).join("") || empty(), secs: [] };
+    return { html: v.anchors.map((a) => item(`an-${a.id}`, `<span class="ci-title">${esc3(spoilers ? a.title : "\u2022\u2022\u2022")}</span>${chip(a.status, tone(a.status))}<span class="ci-meta">${esc3(a.when)}</span>`, esc3(a.required))).join("") || empty(), secs: [] };
   }
   function debug(v) {
     const c = camp();
-    const block = (key2, label, text) => fold(`dbg-${key2}`, label, `<pre class="ci-pre">${esc2(text)}</pre>`);
+    const block = (key2, label, text) => fold(`dbg-${key2}`, label, `<pre class="ci-pre">${esc3(text)}</pre>`);
     return {
       html: block("turn", "Last turn", E2().lastReport || "\u2014") + block("op", "Last operation", JSON.stringify(v.lastTrace, null, 1)) + block("prompt", "Final draft prompt (as sent)", JSON.stringify(d.lastDraftPrompt(), null, 1)) + block("manifests", "Coverage manifests", JSON.stringify(v.manifests, null, 1)) + block("raw", "Raw campaign JSON", JSON.stringify({ ...c, packSnapshot: "[omitted]" }, null, 1).slice(0, 2e5)),
       secs: []
@@ -42427,12 +42453,12 @@ function createInspector(d) {
       { label: t("ciNavEngine"), items: [["plan", t("tabPlan"), ""], ...E2().settings.debug ? [["debug", t("tabDebug"), ""]] : []] }
     ];
     const ids = groups.flatMap((g) => g.items.map((x) => x[0]));
-    return { ids, html: groups.map((g) => `<div class="ci-nav-g">${g.label ? `<div class="ci-nav-l">${esc2(g.label)}</div>` : ""}${g.items.map(([id, label, b]) => `<button class="ci-nav-i${id === tab ? " ci-on" : ""}" data-tab="${id}"><span>${esc2(label)}</span>${b}</button>`).join("")}</div>`).join("") };
+    return { ids, html: groups.map((g) => `<div class="ci-nav-g">${g.label ? `<div class="ci-nav-l">${esc3(g.label)}</div>` : ""}${g.items.map(([id, label, b]) => `<button class="ci-nav-i${id === tab ? " ci-on" : ""}" data-tab="${id}"><span>${esc3(label)}</span>${b}</button>`).join("")}</div>`).join("") };
   }
   function page(v, spoilers) {
     const ni = v.integration;
     const needNi = ["identity", "ties", "contacts", "decisions", "world"];
-    if (needNi.includes(tab) && !ni) return { html: `<div class="ci-empty">${esc2(t("niOff"))}</div>`, secs: [] };
+    if (needNi.includes(tab) && !ni) return { html: `<div class="ci-empty">${esc3(t("niOff"))}</div>`, secs: [] };
     switch (tab) {
       case "identity":
         return identity(ni);
@@ -42453,7 +42479,7 @@ function createInspector(d) {
       case "anchors":
         return anchors(v, spoilers);
       case "plan":
-        return { html: `<pre class="ci-pre">${esc2(JSON.stringify(v.plan, null, 1))}</pre>`, secs: [] };
+        return { html: `<pre class="ci-pre">${esc3(JSON.stringify(v.plan, null, 1))}</pre>`, secs: [] };
       case "debug":
         return debug(v);
       default:
@@ -42500,13 +42526,13 @@ function createInspector(d) {
     const ni = v?.integration || null;
     const n = nav(v, ni);
     if (!n.ids.includes(tab)) tab = "overview";
-    const pg = v ? page(v, spoilers) : { html: `<div class="ci-empty">${esc2(E2().status.message || t("phase_reconciling"))}</div>`, secs: [] };
-    const head = `<div class="ci-headbar"><div class="ci-heading"><b>${esc2(t("inspect"))}</b>${v ? `<span class="ci-clock">\u23F1 ${esc2(v.time)}</span>` : ""}</div>
-      <label class="ci-spoil" title="${esc2(t("spoilers"))}"><input type="checkbox" data-act="spoilers" ${spoilers ? "checked" : ""}><span>${esc2(t("ciSpoilers"))}</span></label>
-      <button class="menu_button ci-x" data-act="close" title="${esc2(t("ciClose"))}">\u2715</button></div>`;
-    const tools = `<div class="ci-tools"><div class="ci-search"><input class="text_pole ci-filter" type="search" placeholder="${esc2(t("ciFilter"))}" value="${esc2(filters.get(tab) || "")}"><span class="ci-count"></span></div>${pg.secs.length > 1 ? `<div class="ci-jumps">${pg.secs.map((x) => `<button class="ci-jump" data-jump="${x.id}">${esc2(x.label)}</button>`).join("")}</div>` : ""}</div>`;
-    const main = `<div class="ci-page">${pg.html}<div class="ci-empty ci-nomatch" hidden>${esc2(t("ciNoMatch"))}</div></div>`;
-    const html = `${head}<div class="ci-grid"><nav class="ci-nav">${n.html}</nav><div class="ci-main">${tools}<div class="ci-scroll">${main}</div></div></div><div class="ci-grip" title="${esc2(t("ciResize"))}"></div>`;
+    const pg = v ? page(v, spoilers) : { html: `<div class="ci-empty">${esc3(E2().status.message || t("phase_reconciling"))}</div>`, secs: [] };
+    const head = `<div class="ci-headbar"><div class="ci-heading"><b>${esc3(t("inspect"))}</b>${v ? `<span class="ci-clock">\u23F1 ${esc3(v.time)}</span>` : ""}</div>
+      <label class="ci-spoil" title="${esc3(t("spoilers"))}"><input type="checkbox" data-act="spoilers" ${spoilers ? "checked" : ""}><span>${esc3(t("ciSpoilers"))}</span></label>
+      <button class="menu_button ci-x" data-act="close" title="${esc3(t("ciClose"))}">\u2715</button></div>`;
+    const tools = `<div class="ci-tools"><div class="ci-search"><input class="text_pole ci-filter" type="search" placeholder="${esc3(t("ciFilter"))}" value="${esc3(filters.get(tab) || "")}"><span class="ci-count"></span></div>${pg.secs.length > 1 ? `<div class="ci-jumps">${pg.secs.map((x) => `<button class="ci-jump" data-jump="${x.id}">${esc3(x.label)}</button>`).join("")}</div>` : ""}</div>`;
+    const main = `<div class="ci-page">${pg.html}<div class="ci-empty ci-nomatch" hidden>${esc3(t("ciNoMatch"))}</div></div>`;
+    const html = `${head}<div class="ci-grid"><nav class="ci-nav">${n.html}</nav><div class="ci-main">${tools}<div class="ci-scroll">${main}</div></div></div><div class="ci-grip" title="${esc3(t("ciResize"))}"></div>`;
     if (!force && html === lastHtml && tab === lastTab) return;
     const sc = el.querySelector(".ci-scroll");
     if (sc && lastTab) scrolls.set(lastTab, sc.scrollTop);
@@ -43945,7 +43971,7 @@ var getLock;
 var inspector = null;
 var graphPanel = null;
 var packPreview = null;
-var esc3 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var esc4 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 function mountUi(engine2, host2, settings, lock2) {
   E = engine2;
   H = host2;
@@ -44098,12 +44124,12 @@ function openLeapDialog(prefill) {
   const now = E.storyNow() ?? st.clock.lo;
   const label = (tick) => formatTick(tick, origin).replace(/ \(D-?\d+\)$/, "");
   const el = modal(`<h3>${t(prefill ? "leapNextTitle" : "leapTitle")}</h3>
-    <div>${t("leapNow")}: <b>${esc3(label(now))}</b></div>
-    <label>${t("leapTo")} <input class="text_pole canon-leap-to" value="${esc3(label(prefill?.final ?? now))}" placeholder="${esc3(t("leapToPh"))}"></label>
+    <div>${t("leapNow")}: <b>${esc4(label(now))}</b></div>
+    <label>${t("leapTo")} <input class="text_pole canon-leap-to" value="${esc4(label(prefill?.final ?? now))}" placeholder="${esc4(t("leapToPh"))}"></label>
     <div class="canon-leap-check canon-hint"></div>
     <div class="canon-leap-chapters"></div>
-    <label>${t("leapDesc")} <textarea class="text_pole canon-leap-desc" rows="5" placeholder="${esc3(t("leapDescPh"))}">${esc3(prefill?.description || "")}</textarea></label>
-    <div class="canon-hint">${esc3(t("leapHint"))}</div>
+    <label>${t("leapDesc")} <textarea class="text_pole canon-leap-desc" rows="5" placeholder="${esc4(t("leapDescPh"))}">${esc4(prefill?.description || "")}</textarea></label>
+    <div class="canon-hint">${esc4(t("leapHint"))}</div>
     <div class="canon-row"><button class="menu_button canon-leap-ok" disabled>${t("leapInsert")}</button><button class="menu_button" data-close>${t("close")}</button></div>`);
   const to = el.querySelector(".canon-leap-to");
   const check2 = el.querySelector(".canon-leap-check");
@@ -44123,8 +44149,8 @@ function openLeapDialog(prefill) {
     ok.disabled = !!bad;
     const was = chapters.length > 1 ? split() : true;
     chapters = bad ? [] : E.leapPlan(tick)?.chapters || [];
-    chEl.innerHTML = chapters.length > 1 ? `<label class="checkbox_label"><input type="checkbox" class="canon-leap-split" ${was ? "checked" : ""}> ${esc3(t("leapSplit").replace("{n}", String(chapters.length)))}</label>
-        <ol class="canon-list">${chapters.map((c) => `<li>\u2192 ${esc3(label(c.to))}${c.after ? ` <small>\uFF08${esc3(t("leapAfter").replace("{x}", c.after))}\uFF09</small>` : ""}</li>`).join("")}</ol>` : "";
+    chEl.innerHTML = chapters.length > 1 ? `<label class="checkbox_label"><input type="checkbox" class="canon-leap-split" ${was ? "checked" : ""}> ${esc4(t("leapSplit").replace("{n}", String(chapters.length)))}</label>
+        <ol class="canon-list">${chapters.map((c) => `<li>\u2192 ${esc4(label(c.to))}${c.after ? ` <small>\uFF08${esc4(t("leapAfter").replace("{x}", c.after))}\uFF09</small>` : ""}</li>`).join("")}</ol>` : "";
   };
   to.addEventListener("input", update);
   update();
@@ -44182,19 +44208,19 @@ function renderStatus() {
     rp.outputTokens ? `${t("outTokens")} ${rp.outputTokens}${rp.reasoningTokens ? ` (${t("thinking")} ${rp.reasoningTokens})` : ""}${rp.maxTokens ? ` / ${t("limit")} ${rp.maxTokens}` : ""}` : "",
     rp.finish ? `finish_reason: ${rp.finish}` : ""
   ].filter(Boolean).join("\n") : "";
-  const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc3(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
+  const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc4(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
   const tk = tm?.tokens;
-  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc3([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.storyInput !== void 0 ? [`${t("tokStory")} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} \xB7 ${t("tokAnalysis")} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : [], ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], ...costLines(tk), ...tk.backup?.length ? [t("backupUsed").replace("{n}", String(tk.backup.length)), ...tk.backup] : [], t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}${costPart(tk)}${tk.backup?.length ? ` \xB7 ${t("backupShort").replace("{n}", String(tk.backup.length))}` : ""}</span>` : "";
-  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc3([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...E.settings.debug && tm.repairs?.length ? tm.repairs.flatMap((v, i) => ["", `${t("repairWhy").replace("{n}", String(i + 1))}:`, ...v.map((x) => `- ${x}`)]) : [], ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc3(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc3(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}</span>` : "";
+  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc4([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.storyInput !== void 0 ? [`${t("tokStory")} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} \xB7 ${t("tokAnalysis")} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : [], ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], ...costLines(tk), ...tk.backup?.length ? [t("backupUsed").replace("{n}", String(tk.backup.length)), ...tk.backup] : [], t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}${costPart(tk)}${tk.backup?.length ? ` \xB7 ${t("backupShort").replace("{n}", String(tk.backup.length))}` : ""}</span>` : "";
+  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc4([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...E.settings.debug && tm.repairs?.length ? tm.repairs.flatMap((v, i) => ["", `${t("repairWhy").replace("{n}", String(i + 1))}:`, ...v.map((x) => `- ${x}`)]) : [], ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc4(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc4(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}</span>` : "";
   el.dataset.phase = conflict ? "conflict" : phase;
-  el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc3(t("phase_" + (conflict ? "conflict" : phase)))}</span>
-    <span class="canon-msg" title="${esc3(msg)}">${esc3(msg)}</span>${timing}
+  el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc4(t("phase_" + (conflict ? "conflict" : phase)))}</span>
+    <span class="canon-msg" title="${esc4(msg)}">${esc4(msg)}</span>${timing}
     <span class="canon-actions">
       ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t("cancel")}</button>` : ""}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t("retry")}</button>` : ""}
       ${!busy && (err && camp.recoveryState.details || E.settings.debug && E.lastReport) ? `<button class="menu_button canon-btn" data-act="details">${t("details")}</button>` : ""}
-      ${!busy && !conflict && camp.enabled && lockOk && E.pendingLeap() ? `<button class="menu_button canon-btn" data-act="leap-next" title="${esc3(t("leapNextTip"))}">${t("leapNext")}</button>` : ""}
-      ${!busy && !conflict && camp.enabled && lockOk ? `<button class="menu_button canon-btn" data-act="leap" title="${esc3(t("leapTip"))}">${t("leap")}</button>` : ""}
+      ${!busy && !conflict && camp.enabled && lockOk && E.pendingLeap() ? `<button class="menu_button canon-btn" data-act="leap-next" title="${esc4(t("leapNextTip"))}">${t("leapNext")}</button>` : ""}
+      ${!busy && !conflict && camp.enabled && lockOk ? `<button class="menu_button canon-btn" data-act="leap" title="${esc4(t("leapTip"))}">${t("leap")}</button>` : ""}
       ${conflict ? `<button class="menu_button canon-btn" data-act="goto">${t("editIt")}</button><button class="menu_button canon-btn" data-act="branch">${t("branchRegen")}</button>` : ""}
       <button class="menu_button canon-btn" data-act="inspect">${t("inspect")}</button>
     </span>`;
@@ -44233,11 +44259,11 @@ function renderSettings() {
   const out = [];
   if (H.isGroup()) out.push(`<div class="canon-note warn">${t("groupUnsupported")}</div>`);
   const comp = detectCompetingLore();
-  if (comp.books.length) out.push(`<div class="canon-note warn">${t("competing")} ${comp.books.map(esc3).join(", ")} ${tip("competingHint")}</div>`);
+  if (comp.books.length) out.push(`<div class="canon-note warn">${t("competing")} ${comp.books.map(esc4).join(", ")} ${tip("competingHint")}</div>`);
   if (comp.gmRule) out.push(`<div class="canon-note warn">${t("gmConflictShort")} ${tip("gmConflict")}</div>`);
-  if (hd.version && !hd.ok) out.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc3(hd.missing.join(", "))}</div>`);
+  if (hd.version && !hd.ok) out.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc4(hd.missing.join(", "))}</div>`);
   const lib = listLibrary();
-  const libRows = (mode) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc3(e.file)}"><b>${esc3(e.title)}</b> v${esc3(e.version)} \xB7 ${Math.round(e.size / 1024)} KB</span>
+  const libRows = (mode) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc4(e.file)}"><b>${esc4(e.title)}</b> v${esc4(e.version)} \xB7 ${Math.round(e.size / 1024)} KB</span>
       <button class="menu_button canon-btn" data-act="lib-view" data-i="${i}" title="${t("libViewTip")}">${t("libView")}</button>
       ${mode === "update" ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t("libUpdate")}</button>` : ""}
       ${mode === "enable" ? `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}" ${profileOk ? "" : "disabled"}>${t("libEnable")}</button>` : ""}
@@ -44252,11 +44278,11 @@ function renderSettings() {
     chat.push(`<div class="canon-lib"><div class="canon-lib-head">${t("library")} ${tip("libraryTip")}</div>${lib.length ? libRows("enable") : `<div class="canon-hint">${t("libEmpty")}</div>`}</div>`);
     chat.push(`<div class="canon-btns"><button class="menu_button" data-act="enable" ${profileOk ? "" : "disabled"}>${t("enable")}</button></div>`);
   } else {
-    chat.push(`<div class="canon-pack"><b>${esc3(E.packInfo()?.title || "")}</b> <span>v${esc3(camp.packVersion)}</span>${camp.enabled ? "" : ` <span class="canon-tag">${t("phase_disabled")}</span>`}</div>`);
+    chat.push(`<div class="canon-pack"><b>${esc4(E.packInfo()?.title || "")}</b> <span>v${esc4(camp.packVersion)}</span>${camp.enabled ? "" : ` <span class="canon-tag">${t("phase_disabled")}</span>`}</div>`);
     if (!profileOk) chat.push(`<div class="canon-note warn">${t("needProfileTurns")}</div>`);
     if (E.packMissing()) chat.push(`<div class="canon-note err">${t("packMissing")}</div><div class="canon-btns"><button class="menu_button" data-act="update">${t("packRelink")}</button></div>`);
     else if (E.packOutdated()) chat.push(`<div class="canon-note err">${t("packOutdated")}</div><div class="canon-btns"><button class="menu_button" data-act="update">${t("updatePack")}</button></div>`);
-    const btn2 = (act, label, tipKey, cls = "") => `<button class="menu_button ${cls}" data-act="${act}" title="${esc3(t(tipKey))}">${label}</button>`;
+    const btn2 = (act, label, tipKey, cls = "") => `<button class="menu_button ${cls}" data-act="${act}" title="${esc4(t(tipKey))}">${label}</button>`;
     chat.push(`<div class="canon-btns">
       ${btn2("inspect", t("inspect"), "inspectTip")}${btn2("retry", t("retry"), "retryTip")}${btn2("rebuild", t("rebuild"), "rebuildTip")}</div>
       <div class="canon-btns">${btn2("export", t("exportBackup"), "exportTip")}${btn2("import", t("importBackup"), "importTip")}${btn2("update", t("updatePack"), "updateTip")}</div>
@@ -44264,10 +44290,10 @@ function renderSettings() {
     if (lib.length) chat.push(`<details class="canon-lib"><summary>${t("library")} (${lib.length}) ${tip("libraryTip")}</summary>${libRows("update")}</details>`);
   }
   out.push(card(t("secChat"), "secChatTip", chat.join("")));
-  out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + check("mindPlans", s.mindPlans !== false, t("mindPlans"), "mindPlansTip") + (s.mindPlans !== false ? mindField() : "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc3(String(s.replyLength || ""))}" placeholder="${esc3(t("replyLengthPlaceholder"))}">`, t("replyLengthShort")) + field(t("oocKeyword"), "oocKeywordTip", `<input type="text" class="text_pole" data-set="oocKeyword" value="${esc3(String(s.oocKeyword ?? "OOC"))}" placeholder="OOC">`, t("oocKeywordShort")) + check("notifyDone", s.notifyDone !== false, t("notifyDone"), "notifyDoneTip") + (s.notifyDone !== false ? check("notifySound", s.notifySound !== false, t("notifySound"), "notifySoundTip") + notifyNote() : "")));
+  out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + check("mindPlans", s.mindPlans !== false, t("mindPlans"), "mindPlansTip") + (s.mindPlans !== false ? mindField() : "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc4(String(s.replyLength || ""))}" placeholder="${esc4(t("replyLengthPlaceholder"))}">`, t("replyLengthShort")) + field(t("oocKeyword"), "oocKeywordTip", `<input type="text" class="text_pole" data-set="oocKeyword" value="${esc4(String(s.oocKeyword ?? "OOC"))}" placeholder="OOC">`, t("oocKeywordShort")) + check("notifyDone", s.notifyDone !== false, t("notifyDone"), "notifyDoneTip") + (s.notifyDone !== false ? check("notifySound", s.notifySound !== false, t("notifySound"), "notifySoundTip") + notifyNote() : "")));
   out.push(card(t("secPersona"), "", check("ignorePersonaSections", !!s.ignorePersonaSections, t("ignorePersonaSections"), "ignorePersonaSectionsTip") + check("quietDayJobs", s.quietDayJobs !== false, t("quietDayJobs"), "quietDayJobsTip")));
   const pv = playerVoice(s.playerVoice);
-  out.push(`<details class="canon-card canon-voice"${s.voiceOpen ? " open" : ""}><summary class="canon-card-title">${t("secVoice")} ${tip("secVoiceTip")} <span class="canon-sub">${esc3(VOICE_KINDS.filter((k) => pv[k]).map((k) => t("voice_" + k)).join("\u3001") || t("voiceNone"))}</span></summary>` + VOICE_KINDS.map((k) => check("voice:" + k, pv[k], t("voice_" + k), "voice_" + k + "Tip")).join("") + `<div class="canon-hint">${t("voiceHint")}</div>` + check("secretsReadable", s.secretsReadable !== false, t("secretsReadable"), "secretsReadableTip") + `</details>`);
+  out.push(`<details class="canon-card canon-voice"${s.voiceOpen ? " open" : ""}><summary class="canon-card-title">${t("secVoice")} ${tip("secVoiceTip")} <span class="canon-sub">${esc4(VOICE_KINDS.filter((k) => pv[k]).map((k) => t("voice_" + k)).join("\u3001") || t("voiceNone"))}</span></summary>` + VOICE_KINDS.map((k) => check("voice:" + k, pv[k], t("voice_" + k), "voice_" + k + "Tip")).join("") + `<div class="canon-hint">${t("voiceHint")}</div>` + check("secretsReadable", s.secretsReadable !== false, t("secretsReadable"), "secretsReadableTip") + `</details>`);
   out.push(card(t("secEvents"), "", check("ignoreFirstMessage", !!s.ignoreFirstMessage, t("ignoreFirstMessage"), "ignoreFirstMessageTip") + check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip") + check("followTrackerTime", s.followTrackerTime !== false, t("followHoraeTime"), "followHoraeTimeTip")));
   const adv = [
     num("maxRepairs", s.maxRepairs),
@@ -44289,7 +44315,7 @@ function renderSettings() {
   body.innerHTML = out.join("");
 }
 function tip(key2) {
-  return key2 ? `<span class="canon-info" tabindex="0" role="button" aria-label="${esc3(t(key2))}" data-tip="${esc3(t(key2))}"><i class="fa-solid fa-circle-info"></i></span>` : "";
+  return key2 ? `<span class="canon-info" tabindex="0" role="button" aria-label="${esc4(t(key2))}" data-tip="${esc4(t(key2))}"><i class="fa-solid fa-circle-info"></i></span>` : "";
 }
 function card(title, tipKey, inner) {
   return `<div class="canon-card"><div class="canon-card-title">${title} ${tip(tipKey)}</div>${inner}</div>`;
@@ -44300,10 +44326,10 @@ function field(label, tipKey, control, hint = "") {
 var CHROME_FLAG = "chrome://flags/#unsafely-treat-insecure-origin-as-secure";
 function notifyNote() {
   if (!systemNotificationsAvailable()) {
-    const row = (label, value) => `<div class="canon-copyrow"><span>${esc3(label)}</span><code>${esc3(value)}</code><button class="menu_button canon-btn" data-act="copyValue" data-value="${esc3(value)}">${t("copy")}</button></div>`;
-    return `<div class="canon-note">${esc3(t("notifyInsecure"))}${row(t("notifyFlagPage"), CHROME_FLAG)}${row(t("notifyFlagValue"), location.origin)}</div>`;
+    const row = (label, value) => `<div class="canon-copyrow"><span>${esc4(label)}</span><code>${esc4(value)}</code><button class="menu_button canon-btn" data-act="copyValue" data-value="${esc4(value)}">${t("copy")}</button></div>`;
+    return `<div class="canon-note">${esc4(t("notifyInsecure"))}${row(t("notifyFlagPage"), CHROME_FLAG)}${row(t("notifyFlagValue"), location.origin)}</div>`;
   }
-  if (Notification.permission === "denied") return `<div class="canon-note warn">${esc3(t("notifyBlocked"))}</div>`;
+  if (Notification.permission === "denied") return `<div class="canon-note warn">${esc4(t("notifyBlocked"))}</div>`;
   return "";
 }
 function check(key2, on, label, tipKey) {
@@ -44320,13 +44346,13 @@ function profileField(current) {
     profiles = [];
   }
   const missing = current && current !== CHAT_PROFILE && !profiles.some((p) => p.id === current);
-  const opts = [`<option value="" ${current ? "" : "selected"} disabled>${t("taskProfilePick")}</option>`].concat(profiles.map((p) => `<option value="${esc3(p.id)}" ${p.id === current ? "selected" : ""}>${esc3(p.name)}${p.model ? ` \xB7 ${esc3(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc3(current)}" selected>\u26A0 ${esc3(current)}</option>`] : []).concat([`<option value="${CHAT_PROFILE}" ${current === CHAT_PROFILE ? "selected" : ""}>${t("taskProfileSame")}</option>`]);
+  const opts = [`<option value="" ${current ? "" : "selected"} disabled>${t("taskProfilePick")}</option>`].concat(profiles.map((p) => `<option value="${esc4(p.id)}" ${p.id === current ? "selected" : ""}>${esc4(p.name)}${p.model ? ` \xB7 ${esc4(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc4(current)}" selected>\u26A0 ${esc4(current)}</option>`] : []).concat([`<option value="${CHAT_PROFILE}" ${current === CHAT_PROFILE ? "selected" : ""}>${t("taskProfileSame")}</option>`]);
   const hint = !current ? `<div class="canon-hint warn">${profiles.length ? t("taskProfileMissing") : t("taskProfileNone")}</div>` : current === CHAT_PROFILE ? `<div class="canon-hint warn">${t("taskProfileSameWarn")}</div>` : `<div class="canon-hint">${t("taskProfileShort")}</div>`;
   const extra = String(getSettings().taskExtraBody || "");
   const profileUsed = current && current !== CHAT_PROFILE;
   return `<div class="canon-field canon-profile${current ? "" : " canon-required"}"><div class="canon-lbl">${t("taskProfile")} ${tip("taskProfileTip")}</div>
     <select class="text_pole" data-set="taskProfileId">${opts.join("")}</select>${hint}</div>
-    ${profileUsed ? field(t("taskExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc3(extra)}</textarea>`, t("taskExtraBodyShort")) : ""}
+    ${profileUsed ? field(t("taskExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc4(extra)}</textarea>`, t("taskExtraBodyShort")) : ""}
     ${current ? backupField(profiles, current) : ""}`;
 }
 function mindField() {
@@ -44338,15 +44364,15 @@ function mindField() {
     profiles = [];
   }
   const missing = cur && !profiles.some((p) => p.id === cur);
-  const opts = [`<option value="" ${cur ? "" : "selected"}>${t("mindProfileSame")}</option>`].concat(profiles.map((p) => `<option value="${esc3(p.id)}" ${p.id === cur ? "selected" : ""}>${esc3(p.name)}${p.model ? ` \xB7 ${esc3(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc3(cur)}" selected>\u26A0 ${esc3(cur)}</option>`] : []);
+  const opts = [`<option value="" ${cur ? "" : "selected"}>${t("mindProfileSame")}</option>`].concat(profiles.map((p) => `<option value="${esc4(p.id)}" ${p.id === cur ? "selected" : ""}>${esc4(p.name)}${p.model ? ` \xB7 ${esc4(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc4(cur)}" selected>\u26A0 ${esc4(cur)}</option>`] : []);
   return field(t("mindProfile"), "mindProfileTip", `<select class="text_pole" data-set="mindProfileId">${opts.join("")}</select>`, t("mindProfileShort"));
 }
 function backupField(profiles, main) {
   const s = getSettings();
   const cur = String(s.taskBackupProfileId || "");
   const missing = cur && !profiles.some((p) => p.id === cur);
-  const opts = [`<option value="" ${cur ? "" : "selected"}>${t("taskBackupNone")}</option>`].concat(profiles.filter((p) => p.id !== main).map((p) => `<option value="${esc3(p.id)}" ${p.id === cur ? "selected" : ""}>${esc3(p.name)}${p.model ? ` \xB7 ${esc3(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc3(cur)}" selected>\u26A0 ${esc3(cur)}</option>`] : []);
-  return field(t("taskBackup"), "taskBackupTip", `<select class="text_pole" data-set="taskBackupProfileId">${opts.join("")}</select>`, t("taskBackupShort")) + (cur ? field(t("taskBackupExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskBackupExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc3(String(s.taskBackupExtraBody || ""))}</textarea>`, t("taskExtraBodyShort")) : "");
+  const opts = [`<option value="" ${cur ? "" : "selected"}>${t("taskBackupNone")}</option>`].concat(profiles.filter((p) => p.id !== main).map((p) => `<option value="${esc4(p.id)}" ${p.id === cur ? "selected" : ""}>${esc4(p.name)}${p.model ? ` \xB7 ${esc4(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc4(cur)}" selected>\u26A0 ${esc4(cur)}</option>`] : []);
+  return field(t("taskBackup"), "taskBackupTip", `<select class="text_pole" data-set="taskBackupProfileId">${opts.join("")}</select>`, t("taskBackupShort")) + (cur ? field(t("taskBackupExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskBackupExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc4(String(s.taskBackupExtraBody || ""))}</textarea>`, t("taskExtraBodyShort")) : "");
 }
 var tipEl = null;
 var tipFor = null;
@@ -44538,7 +44564,7 @@ function openBindWizard(text) {
   const existing = chatLen > 1;
   const horae = H.sceneTracker?.status().scene;
   if (!p.ok || !p.summary) {
-    modal(`<h3>${t("wizardTitle")}</h3><div class="canon-note err">${t("validation")}: ${t("failed")}</div><ul class="canon-list">${p.errors.slice(0, 40).map((e) => `<li><code>${esc3(e.path)}</code> ${esc3(e.message)}</li>`).join("")}</ul><button class="menu_button" data-close>${t("close")}</button>`);
+    modal(`<h3>${t("wizardTitle")}</h3><div class="canon-note err">${t("validation")}: ${t("failed")}</div><ul class="canon-list">${p.errors.slice(0, 40).map((e) => `<li><code>${esc4(e.path)}</code> ${esc4(e.message)}</li>`).join("")}</ul><button class="menu_button" data-close>${t("close")}</button>`);
     return;
   }
   const S = p.summary;
@@ -44547,17 +44573,17 @@ function openBindWizard(text) {
   const defTick = covStart <= 480 ? 480 : covStart;
   const startDefault = formatTick(defTick, origin0).replace(/ \(D-?\d+\)$/, "");
   const originDefault = origin0 ? `${origin0.y}-${String(origin0.m).padStart(2, "0")}-${String(origin0.d).padStart(2, "0")}` : "";
-  const evOptions = E.previewEvents(text).map((e) => `<option value="${e.lo - 1}">${esc3(e.title)} (${esc3(formatTick(e.lo, origin0))})</option>`).join("");
+  const evOptions = E.previewEvents(text).map((e) => `<option value="${e.lo - 1}">${esc4(e.title)} (${esc4(formatTick(e.lo, origin0))})</option>`).join("");
   const el = modal(`<h3>${t("wizardTitle")}</h3>
-    <div><b>${esc3(S.title)}</b> v${esc3(S.version)} <small>(${esc3(S.packId)}, ${esc3(S.hash.slice(0, 12))})</small></div>
-    <div>${t("validation")}: <b>${t("ok")}</b> \xB7 ${t("coverage")}: ${esc3(S.coverage)} \xB7 ${t("hardCount")}: ${S.hardCount}</div>
-    ${p.warnings.length ? `<details><summary>${t("warnings")} (${p.warnings.length})</summary><ul class="canon-list">${p.warnings.map((w) => `<li>${esc3(w.path)} ${esc3(w.message)}</li>`).join("")}</ul></details>` : ""}
-    ${horae && (horae.date || horae.time) ? `<div class="canon-note">${t("horaeDetected")}: ${esc3(horae.date || "")} ${esc3(horae.time || "")} ${esc3(horae.location || "")}</div>` : ""}
+    <div><b>${esc4(S.title)}</b> v${esc4(S.version)} <small>(${esc4(S.packId)}, ${esc4(S.hash.slice(0, 12))})</small></div>
+    <div>${t("validation")}: <b>${t("ok")}</b> \xB7 ${t("coverage")}: ${esc4(S.coverage)} \xB7 ${t("hardCount")}: ${S.hardCount}</div>
+    ${p.warnings.length ? `<details><summary>${t("warnings")} (${p.warnings.length})</summary><ul class="canon-list">${p.warnings.map((w) => `<li>${esc4(w.path)} ${esc4(w.message)}</li>`).join("")}</ul></details>` : ""}
+    ${horae && (horae.date || horae.time) ? `<div class="canon-note">${t("horaeDetected")}: ${esc4(horae.date || "")} ${esc4(horae.time || "")} ${esc4(horae.location || "")}</div>` : ""}
     ${existing ? `<div class="canon-note">${t("existingChat")}</div>` : ""}
-    <label>${t("startTime")} <input class="text_pole canon-start" value="${esc3(startDefault)}" placeholder="${esc3(t("startPlaceholder"))}"></label>
+    <label>${t("startTime")} <input class="text_pole canon-start" value="${esc4(startDefault)}" placeholder="${esc4(t("startPlaceholder"))}"></label>
     <label>${t("startBefore")} <select class="canon-start-ev"><option value="">\u2014</option>${evOptions}</select></label>
-    <label>${t("originDate")} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD" value="${esc3(originDefault)}"></label>
-    ${S.originLabel ? `<div class="canon-note">${t("packOrigin")}: ${esc3(S.originLabel)}</div>` : ""}
+    <label>${t("originDate")} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD" value="${esc4(originDefault)}"></label>
+    ${S.originLabel ? `<div class="canon-note">${t("packOrigin")}: ${esc4(S.originLabel)}</div>` : ""}
     <div class="canon-row"><button class="menu_button canon-confirm">${t("confirmBind")}</button><button class="menu_button" data-close>${t("close")}</button></div>
     <div class="canon-wizard-status"></div>`);
   el.querySelector(".canon-start-ev").addEventListener("change", (ev) => {
@@ -44585,10 +44611,10 @@ function openBindWizard(text) {
       const insp = E.inspector(false);
       const camp = E.campaign();
       el.querySelector(".canon-modal").innerHTML = `<h3>${t("bindingSummary")}</h3>
-        <div>${t("startTime")}: ${esc3(camp.binding.startLabel)} \xB7 ${esc3(E.packInfo()?.packId || "")}@${esc3(camp.packVersion)}</div>
+        <div>${t("startTime")}: ${esc4(camp.binding.startLabel)} \xB7 ${esc4(E.packInfo()?.packId || "")}@${esc4(camp.packVersion)}</div>
         <div>${t("examined")}: ${res.examined}</div>
-        <div>${t("deviations")}: ${insp?.deviations.length ? insp.deviations.map((d) => esc3(`${d.title}: ${d.disposition}`)).join("; ") : "\u2014"}</div>
-        <div>${t("unresolved")}: ${[...res.unresolved, camp.recoveryState.status !== "ok" ? camp.recoveryState.reason : ""].filter(Boolean).map(esc3).join("; ") || "\u2014"}</div>
+        <div>${t("deviations")}: ${insp?.deviations.length ? insp.deviations.map((d) => esc4(`${d.title}: ${d.disposition}`)).join("; ") : "\u2014"}</div>
+        <div>${t("unresolved")}: ${[...res.unresolved, camp.recoveryState.status !== "ok" ? camp.recoveryState.reason : ""].filter(Boolean).map(esc4).join("; ") || "\u2014"}</div>
         <div class="canon-row"><button class="menu_button" data-close>${t("keep")}</button><button class="menu_button canon-undo">${t("undoBind")}</button></div>`;
       el.querySelector(".canon-undo").addEventListener("click", async () => {
         H.setCampaign(null);
@@ -44597,7 +44623,7 @@ function openBindWizard(text) {
         refreshUi();
       });
     } catch (e) {
-      status.innerHTML = `<div class="canon-note err">${esc3(e.message)}</div>`;
+      status.innerHTML = `<div class="canon-note err">${esc4(e.message)}</div>`;
     }
     refreshUi();
   });
@@ -44625,12 +44651,12 @@ async function updateOrRelink(text) {
 function openUpdateWizard(text) {
   const d = E.diffPack(text);
   if (!d.ok) {
-    modal(`<div class="canon-note err">${d.errors.map((e) => esc3(e.message)).join("<br>")}</div><button class="menu_button" data-close>${t("close")}</button>`);
+    modal(`<div class="canon-note err">${d.errors.map((e) => esc4(e.message)).join("<br>")}</div><button class="menu_button" data-close>${t("close")}</button>`);
     return;
   }
   const el = modal(`<h3>${t("updatePack")}</h3><div class="canon-note">${t("updatePreview")}</div>
-    <div>changed: ${esc3(d.changed.join(", ") || "\u2014")}</div><div>deleted: ${esc3(d.deleted.join(", ") || "\u2014")}</div><div>added: ${esc3(d.added.join(", ") || "\u2014")}</div>
-    <div><b>HARD contract changes:</b> ${esc3(d.hardChanged.join(", ") || "\u2014")}</div>
+    <div>changed: ${esc4(d.changed.join(", ") || "\u2014")}</div><div>deleted: ${esc4(d.deleted.join(", ") || "\u2014")}</div><div>added: ${esc4(d.added.join(", ") || "\u2014")}</div>
+    <div><b>HARD contract changes:</b> ${esc4(d.hardChanged.join(", ") || "\u2014")}</div>
     <div class="canon-row"><button class="menu_button canon-exp">${t("exportBackup")}</button><button class="menu_button canon-apply" disabled>${t("applyUpdate")}</button><button class="menu_button" data-close>${t("close")}</button></div>`);
   el.querySelector(".canon-exp").addEventListener("click", () => {
     download(`canon-backup-before-update-${Date.now()}.json`, E.exportBackup());
@@ -44939,13 +44965,13 @@ function announceDone(ok) {
   try {
     const e = engine;
     if (!globalSettings().notifyDone) return;
-    const rec2 = e.campaign()?.recoveryState;
-    if (!ok && (rec2?.errorKind === "cancelled" || rec2?.status === "ok")) return;
+    const rec = e.campaign()?.recoveryState;
+    if (!ok && (rec?.errorKind === "cancelled" || rec?.status === "ok")) return;
     const tm = e.lastTimings;
     const secs = tm ? Math.round(tm.totalMs / 1e3) : 0;
     const took = secs >= 60 ? `${Math.floor(secs / 60)}m${secs % 60}s` : `${secs}s`;
     const who = String(ctx().name2 || "Canon Engine");
-    const body = ok ? t("notifyBodyOk").replace("{name}", who).replace("{n}", String(tm?.reply?.chars ?? "?")).replace("{t}", took) : `${who}: ${String(rec2?.reason || "").slice(0, 140)}`;
+    const body = ok ? t("notifyBodyOk").replace("{name}", who).replace("{n}", String(tm?.reply?.chars ?? "?")).replace("{t}", took) : `${who}: ${String(rec?.reason || "").slice(0, 140)}`;
     notifyDone({ ok, title: t(ok ? "notifyTitleOk" : "notifyTitleFail"), body }, { sound: !!globalSettings().notifySound, titleMark: t(ok ? "notifyMarkOk" : "notifyMarkFail") });
   } catch {
   }

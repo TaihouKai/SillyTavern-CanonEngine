@@ -25715,7 +25715,7 @@ function cleanAddress(list, uses) {
   return out.slice(-MAX_FORMS);
 }
 
-// src/core/domain/combat.ts
+// src/core/combat/graph.ts
 function indexCombat(pack2) {
   const c = pack2.combat || { none: "" };
   const nodes = new Map((c.nodes || []).map((n) => [n.id, n]));
