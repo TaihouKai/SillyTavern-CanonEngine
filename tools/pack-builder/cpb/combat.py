@@ -307,7 +307,7 @@ def attach(pack, golden, source_id):
         node = {k: n[k] for k in ('id', 'kind', 'name', 'gist', 'text') if k in n}
         if n.get('parts'):
             node['parts'] = [{'part': p['part'], 'text': p['text'], **({'visibility': p['visibility']} if p.get('visibility') else {})} for p in n['parts']]
-        for k in ('who', 'event_id', 'visibility'):
+        for k in ('who', 'event_id', 'visibility', 'hours', 'frequency'):
             if n.get(k):
                 node[k] = n[k]
         node['source_refs'] = [] if n.get('generated') else [source_id]
@@ -468,7 +468,7 @@ def golden_setting(project, pack):
     nodes, links, seen = [], [], set()
     for n in kept:
         owner_ids = sorted({people[_key(o)] for o in n.get('owners') or [] if _key(o) in people})
-        node = {k: n[k] for k in ('id', 'kind', 'name', 'gist', 'text') if n.get(k)}
+        node = {k: n[k] for k in ('id', 'kind', 'name', 'gist', 'text', 'hours', 'frequency') if n.get(k)}
         if n['kind'] == 'ability':
             node['parts'] = [{'part': p['part'], 'text': p['text'], **({'visibility': {'mode': 'secret', 'knower_ids': owner_ids}} if p.get('secret') else {})}
                              for p in n.get('parts') or [] if p.get('part') in PARTS and p.get('text')]
