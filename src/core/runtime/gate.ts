@@ -174,12 +174,18 @@ function slug(s: string): string {
   return (String(s).normalize('NFKC').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'entity').slice(0, 24);
 }
 
+/** A model's thinking marker left in a reply's text (<think>, <thinking>, DeepSeek's <｜begin▁of▁thinking｜>). */
+export const THINKING_MARK = /<[｜|]\s*(begin|end)[▁_ ]of[▁_ ]thinking\s*[｜|]>|<\/?think(ing)?>/i;
+
 export function runGate(g: GateInput): GateResult {
   const { pack, index, text, evaluation: ev } = g;
   const violations: string[] = [];
   const warnings: string[] = [];
   const records: RecordDraft[] = [];
   const hasQuote = (q?: string | null) => !!q && quoteInText(q, text);
+  // live (DeepSeek): the model's own reasoning written into the reply, opened by its thinking marker and never closed,
+  // so neither SillyTavern nor the host split it off. Not story: written again.
+  if (g.mode === 'draft' && THINKING_MARK.test(text)) violations.push('The reply contains the own reasoning of its writer (a thinking marker and the planning after it). Write only the story.');
 
   // ---- runtime entities (code-assigned ids) ---------------------------------------------------
   const runtimeEntities: RuntimeEntity[] = [];

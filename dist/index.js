@@ -35224,12 +35224,14 @@ function toStoryTime(t2) {
 function slug3(s) {
   return (String(s).normalize("NFKC").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "entity").slice(0, 24);
 }
+var THINKING_MARK = /<[｜|]\s*(begin|end)[▁_ ]of[▁_ ]thinking\s*[｜|]>|<\/?think(ing)?>/i;
 function runGate(g) {
   const { pack: pack2, index, text, evaluation: ev } = g;
   const violations = [];
   const warnings = [];
   const records = [];
   const hasQuote = (q) => !!q && quoteInText(q, text);
+  if (g.mode === "draft" && THINKING_MARK.test(text)) violations.push("The reply contains the own reasoning of its writer (a thinking marker and the planning after it). Write only the story.");
   const runtimeEntities = [];
   const refToId = /* @__PURE__ */ new Map();
   for (const ne of ev.new_entities || []) {

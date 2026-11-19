@@ -8,6 +8,7 @@ import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
 import { PROMPTS } from '../../src/core/runtime/prompts';
 import { oocNote, splitOoc, storyOnly } from '../../src/core/runtime/ooc';
+import { THINKING_MARK } from '../../src/core/runtime/gate';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 
@@ -89,6 +90,18 @@ describe('OOC keyword', () => {
     expect(await x.engine.runOperation('normal')).toBe(true);
     expect(x.model.tasks('draft')).toHaveLength(1);
     expect(x.engine.lastTrace!.attempts[0].warnings!.join(' ')).toMatch(/ooc_leak" ignored: the player gave no out-of-character directions/);
+  });
+
+  it('OOC7 a draft with the model reasoning left in its text (a thinking marker never closed) is written again', async () => {
+    const x = await setup();
+    x.host.addUser('I wait at the dock.');
+    x.model.draft('<｜begin▁of▁thinking｜>The player waits. Plan: describe the dock, end on a choice.\n\n好的，这是你需求的最终输出：\n\nYou wait at the dock. [O7a]');
+    x.model.draft('好的，这是你需求的最终输出：\n\nYou wait at the dock. [O7b]');
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(x.model.tasks('draft')).toHaveLength(2);
+    expect(x.host.chat.at(-1)!.text).toContain('[O7b]');
+    expect(THINKING_MARK.test('<think>plan</think> story')).toBe(true);
+    expect(THINKING_MARK.test('她想了想。好的，这是你需求的最终输出：')).toBe(false);
   });
 
   it('OOC5 the analysis prompts know the OOC inputs; the note exists only with directions', () => {
