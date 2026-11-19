@@ -11,6 +11,7 @@ import type { WorldIndex } from '../domain/world-query';
 import { toTick, formatTick } from '../domain/time';
 import type { TimeEvidence } from './scenetime';
 import { gateCombat, type CombatEvalOut, type CombatReview } from '../combat';
+import { gateHostility, type HostilityEvalOut, type HostilityReview } from '../hostility';
 import { isDue, pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
 import type { ClaimInput, Retrieval } from './context';
@@ -21,7 +22,7 @@ import { MAIN_FRAME } from '../domain/frames';
 import { normalizeName } from '../domain/pack';
 import type { CoverageEntry, Opportunity, PlanRevision, PlayerAction, RecordDraft, StateClaim } from './types';
 
-export interface EvalOutput extends CombatEvalOut {
+export interface EvalOutput extends CombatEvalOut, HostilityEvalOut {
   decision: 'retain' | 'repair' | 'conflict';
   scene_end: { lo: { day: number; minute: number }; hi: { day: number; minute: number }; precision: StoryTime['precision'] } | null;
   flashback?: boolean;
@@ -38,7 +39,7 @@ export interface EvalOutput extends CombatEvalOut {
   state_claims: { entity_id: string; predicate: string; value: FactValue; quote: string; at?: { day: number; minute: number } | null }[];
   player_actions: { quote: string; authorized_by_quote: string | null; category?: string | null }[];
   step_enactments?: { step_id: string; occurrence_ref: string; quote: string }[];
-  new_entities?: { ref: string; name: string; kind: RuntimeEntity['kind']; description: string; quote: string }[];
+  new_entities?: { ref: string; name: string; kind: RuntimeEntity['kind']; description: string; quote: string; same_as?: string | null }[];
   violations: { code: string; quote?: string; detail: string; blocking?: boolean }[];
   hard_checks: { event_id: string; status: 'fulfilled' | 'not_due' | 'missing' | 'contradicted'; occurrence_ref?: string | null; quote?: string | null }[];
   scene_entities?: string[];
@@ -124,6 +125,8 @@ export interface GateInput {
   leap?: boolean;
   /** 战斗: how the reply is reviewed for combat (combat/review.ts); null: not at all. */
   combat?: CombatReview | null;
+  /** 主动敌对: what was due in this reply (hostility/review.ts). */
+  hostility?: HostilityReview | null;
 }
 
 export interface GateResult {
@@ -190,8 +193,17 @@ export function runGate(g: GateInput): GateResult {
   // ---- runtime entities (code-assigned ids) ---------------------------------------------------
   const runtimeEntities: RuntimeEntity[] = [];
   const refToId = new Map<string, Id>();
+  const renames: { id: Id; name: string }[] = [];
   for (const ne of ev.new_entities || []) {
     if (!hasQuote(ne.quote)) { warnings.push(`new entity "${ne.name}" dropped: evidence not found in text`); continue; }
+    // someone already known under a description or another name, now named (live: 「初中男生」 and 「小仓航」 became two people)
+    const same = ne.same_as ? String(ne.same_as).trim() : '';
+    if (same && index.entityExists(same) && index.entityKind(same) === ne.kind) {
+      refToId.set(ne.ref, same);
+      refToId.set(ne.name, same);
+      if (index.state.runtimeEntities.has(same) && index.entityName(same) !== ne.name) renames.push({ id: same, name: ne.name.slice(0, 80) });
+      continue;
+    }
     const existing = index.resolveEntity(ne.name);
     if (existing.ids.length) {
       // Renaming/duplicating a known identity cannot bypass its history (W17).
@@ -798,6 +810,10 @@ export function runGate(g: GateInput): GateResult {
     recordId: newId('rec'), kind: 'runtime_entity', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
     visibility: { mode: 'public', knower_ids: [] }, summary: `Introduced: ${runtimeEntities.map((r) => r.name).join(', ')}`, evidenceKind: 'direct', runtimeEntities,
   });
+  if (renames.length) records.push({
+    recordId: newId('rec'), kind: 'runtime_entity', storyTime: { ...sceneEnd }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [],
+    visibility: { mode: 'public', knower_ids: [] }, summary: `Named: ${renames.map((r) => `${index.entityName(r.id)} is ${r.name}`).join(', ')}`, evidenceKind: 'direct', renames,
+  });
   records.push(...relationDrafts);
   // ---- 战斗: states this reply changes, a fight it starts, and the reply held to the ruling (combat/review.ts) ----
   if (g.combat) {
@@ -805,6 +821,13 @@ export function runGate(g: GateInput): GateResult {
     records.push(...cb.records);
     violations.push(...cb.violations);
     warnings.push(...cb.warnings);
+  }
+  // ---- 主动敌对: grudges taken up and settled, a grudge acted on, and what was due came (hostility/review.ts) ----
+  if (g.hostility) {
+    const hs = gateHostility(g.hostility, ev, { index, text, userText: g.userText, resolve: (x) => relationRef(String(x)), isPerson, records, sceneEnd, draft: g.mode === 'draft' && !g.leap });
+    records.push(...hs.records);
+    violations.push(...hs.violations);
+    warnings.push(...hs.warnings);
   }
   // ---- what people know about the player character, as this reply changes it --------------
   if (g.playerId) {

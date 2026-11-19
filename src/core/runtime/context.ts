@@ -203,6 +203,9 @@ export interface PacketInput {
   reaction?: string;
   /** Contacts the world must make in this reply (GM only). */
   requiredContacts?: string;
+  /** 主动敌对: someone with a grudge, or a danger of where the player is, comes for them in this reply (GM only;
+   *  hostility/turn.ts). */
+  hostile?: string;
   /** 本局设定 when the host cannot take the rewritten lorebook entries in its own lore scan (GM only). */
   worldLore?: string;
   /** Time leap (this reply): what the GM writes for the time in between and where it lands (GM only). */
@@ -573,6 +576,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   if (restricted.length) required.push(`KNOWLEDGE BOUNDARIES (world truth vs who knows it): ${restricted.length} record(s) above are not public and are known only to the knowers listed with them (none listed: no established knowledge holder). Physical consequences remain visible; do not disclose the hidden cause to the player or other NPCs${inp.perception?.player && index.natureNow(inp.perception.player)?.version.perceives?.kinds.length ? ' — except as a power that perceives reaches it (HOW THEY ARE)' : ''}.`);
   if (retrieval.ambiguous.length) required.push('AMBIGUOUS REFERENCES (do not guess; keep ambiguity in narration):\n' + retrieval.ambiguous.map((a) => '- ' + a).join('\n'));
   if (inp.requiredContacts && !inp.review) required.push(inp.requiredContacts);
+  if (inp.hostile && !inp.review) required.push(inp.hostile);
   if (inp.worldLore && !inp.review) required.push(inp.worldLore);
   if (inp.reaction && !inp.review) required.push(inp.reaction);
   if (!inp.review) required.push('PLAYER SCOPE (exact current player input; do not add actions/consent/dialogue beyond it):\n' + (inp.playerScope.length ? inp.playerScope.map((s) => '- ' + s).join('\n') : '- (no new player input in this operation)'));

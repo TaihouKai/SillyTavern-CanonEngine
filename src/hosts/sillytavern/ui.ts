@@ -293,7 +293,7 @@ function renderSettings() {
     (s.notifyDone !== false ? check('notifySound', s.notifySound !== false, t('notifySound'), 'notifySoundTip') + notifyNote() : '')));
 
   // ---- the Persona as Canon reads it
-  out.push(card(t('secPersona'), '', check('ignorePersonaSections', !!s.ignorePersonaSections, t('ignorePersonaSections'), 'ignorePersonaSectionsTip') + check('quietDayJobs', s.quietDayJobs !== false, t('quietDayJobs'), 'quietDayJobsTip')));
+  out.push(card(t('secPersona'), '', check('ignorePersonaSections', !!s.ignorePersonaSections, t('ignorePersonaSections'), 'ignorePersonaSectionsTip') + check('quietDayJobs', s.quietDayJobs !== false, t('quietDayJobs'), 'quietDayJobsTip') + check('dangers', (s as any).dangers !== false, t('hoDangers'), 'hoDangersTip')));
 
   // ---- what the GM may write for the player character
   const pv = playerVoice((s as any).playerVoice);
@@ -309,6 +309,7 @@ function renderSettings() {
     num('budgetChars', s.budgetChars), num('horizonMinutes', s.horizonMinutes), num('taskTimeoutMs', s.taskTimeoutMs), num('draftTimeoutMs', s.draftTimeoutMs), num('taskTemperature', s.taskTemperature),
     `<div class="canon-frow canon-subhead"><b>${t('adv_combat')}</b> ${tip('adv_combatTip')}</div>`,
     num('combatMaxDepth', (s as any).combatMaxDepth ?? 3), num('combatFullDepth', (s as any).combatFullDepth ?? 2), num('combatBudgetChars', (s as any).combatBudgetChars ?? 9000),
+    `<div class="canon-frow"><span class="canon-lbl">${t('hoLevel')} ${tip('hoLevelTip')}</span><select class="text_pole canon-small" data-set="dangerLevel">${['low', 'medium', 'high'].map((l) => `<option value="${l}" ${((s as any).dangerLevel || 'medium') === l ? 'selected' : ''}>${t('hoLevel_' + l)}</option>`).join('')}</select></div>`,
     check('debug', !!s.debug, t('debug'), 'debugTip'),
     `<div class="canon-frow"><span class="canon-lbl">${t('uiLang')}</span><select class="text_pole canon-small" data-set="uiLang"><option value="zh" ${s.uiLang !== 'en' ? 'selected' : ''}>中文</option><option value="en" ${s.uiLang === 'en' ? 'selected' : ''}>English</option></select></div>`];
   out.push(`<details class="canon-card canon-adv"><summary class="canon-card-title">${t('advanced')} <span class="canon-sub">${t('advancedShort')}</span></summary>${adv.join('')}</details>`);

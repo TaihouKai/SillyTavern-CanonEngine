@@ -26,11 +26,12 @@ import { matchScope, runGate, toStoryTime, type EvalOutput, type GateInput, type
 import { checkTimeEvidence, evidenceLine, settleSceneEnd } from './scenetime';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { settleRelations } from './relate';
+import { grudgesForReview, grudgesNow, hostileDue, hostileSection, hostilityPanelRecord, hostilityView, type DangerLevel, type HostileDue, type HostilityChange, type HostilityViewData } from '../hostility';
 import { DEFAULT_COMBAT, combatBeforeReply, combatReview, combatView, fightFromMessage, fightNow, fightNowInput, judgeFight, panelRecord, rulingForReview, rulingRecord, statesSection, type CombatChange, type CombatViewData, type FightOut, type Ruling } from '../combat';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { answeredBy, contactDecision, playedProfile, playerOrgs, nameIn, isIn, companionEvents, companionDue, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { answeredBy, contactDecision, playLinks, playedProfile, playerOrgs, nameIn, isIn, companionEvents, companionDue, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, voiceTurnNote, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
@@ -57,6 +58,10 @@ export interface EngineSettings {
   sceneGrouping: boolean;
   /** On a day with no canon event left, the world offers a small job that fits the player's background. */
   quietDayJobs: boolean;
+  /** 主动敌对: the setting's own dangers reach the player where and when the pack has them (grudges come regardless). */
+  dangers: boolean;
+  /** How often a danger comes (low halves the pack's chance, high doubles it). */
+  dangerLevel: DangerLevel;
   /** What the GM may write for the player character (dialogue, reactions, small actions...; see voice.ts). */
   playerVoice: PlayerVoice;
   /** 允许 NPC 用能力读到我的秘密: a power that perceives (a mind reader) reaches the player character's secrets. */
@@ -101,6 +106,8 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   replyLength: '',
   sceneGrouping: false,
   quietDayJobs: true,
+  dangers: true,
+  dangerLevel: 'medium',
   playerVoice: { ...DEFAULT_PLAYER_VOICE },
   secretsReadable: true,
   mindPlans: true,
@@ -1257,6 +1264,8 @@ export class CanonEngine {
     /** 战斗分析: this turn's ruling (the reply is held to it), or that judging the fight failed. */
     ruling?: Ruling | null;
     combatFailed?: boolean;
+    /** 主动敌对: what was to come for the player in this reply (the reply is sent back without it). */
+    hostile?: HostileDue | null;
   }): Promise<ReviewResult> {
     const { index } = a;
     const pack = index.pack;
@@ -1329,9 +1338,10 @@ export class CanonEngine {
       staged_offscreen: a.stagedNotes,
       due_hard: due.map((h) => ({ event_id: h.event.id, required_description: h.event.required_description, outcomes: h.event.outcomes, earliest: h.event.when.earliest, latest: h.event.when.latest })),
       plan_steps: (a.plan?.steps || []).filter((s) => s.status !== 'invalidated').map((s) => ({ step_id: s.step_id, action: s.action, actors: s.actors })),
-      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.entities.keys(), ...a.sceneSeeds, ...(prof ? [prof.profile.playerId] : []), ...(a.offered?.actors || []), ...fightNow(index.state).participants], { notes: true }),
+      registry: this.registry(index, a.text + ' ' + (a.userEntry?.text || ''), [...retrieval.entities.keys(), ...a.sceneSeeds, ...(prof ? [prof.profile.playerId] : []), ...(a.offered?.actors || []), ...fightNow(index.state).participants, ...grudgesNow(index.state).map((g) => g.holder)], { notes: true }),
       reeval_reasons: a.reevalReasons || [],
       player_entity: prof ? { id: prof.profile.playerId, name: prof.profile.personaName } : null,
+      grudges_now: grudgesForReview(index),
       engagement: decisions,
       ...(a.required?.length ? { required_contacts: a.required.map((o) => ({ opportunity_id: o.id, scope_kind: o.scopeKind, scope_ref: o.scopeRef, about: o.scopeLabel, actors: o.actors, kind: o.kind, contact: o.contact })) } : {}),
       offered_contact: a.offered ? { opportunity_id: a.offered.id, scope_kind: a.offered.scopeKind, scope_ref: a.offered.scopeRef, about: a.offered.scopeLabel, actors: a.offered.actors, kind: a.offered.kind, contact: a.offered.contact, direct_impact: a.offered.directImpact, cleared_by_engine: true } : null,
@@ -1377,6 +1387,7 @@ export class CanonEngine {
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: eng.binding(tick).length + eng.answers(tick).length, hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
       playerId: prof?.profile.playerId || null, personaName: prof?.profile.personaName, offered: a.offered || null, required: a.required || [], chanceCompanions: a.chance || [], chanceBlocking: (a.attempt ?? 0) === 0, leap: !!a.leapTo,
       combat: combatReview(pack, { leap: !!a.leapTo, draft: a.mode === 'draft', ruling: a.ruling ?? null, failed: !!a.combatFailed }),
+      hostility: { due: a.mode === 'draft' ? a.hostile ?? null : null, playerId: prof?.profile.playerId || null },
     });
     gate.warnings.push(...told.warnings);
     gate.timeBound = settled.bound;
@@ -1757,6 +1768,14 @@ export class CanonEngine {
         const combatFailed = turnCombat.failed !== null;
         if (turnCombat.failed) this.rejects.push(`combat: the fight was not judged this turn (${turnCombat.failed})`);
         packetArgs.combat = turnCombat.section ?? undefined;
+        // 主动敌对 (hostility/turn.ts): a grudge whose time came, or the danger of where the player is, comes for them
+        const hostile: HostileDue | null = prof && !leapTo && !continuing ? hostileDue({
+          index: rIndex, tick: jumpTo ?? cp, playerId: prof.profile.playerId,
+          places: uniq([...sceneSeeds, ...horaeSceneIds, ...(prevGmInterp?.present || [])]).filter((x) => rIndex.entityExists(x) && rIndex.entityKind(x) === 'place'),
+          orgs: playerOrgs(rIndex, prof.profile, cp).filter(isIn).map((o) => o.id),
+          dangers: { on: this.settings.dangers !== false, level: this.settings.dangerLevel || 'medium' }, seed: c.sessionId,
+        }) : null;
+        (packetArgs as { hostile?: string }).hostile = hostile ? hostileSection(rIndex, hostile, { name: prof!.profile.personaName || rIndex.entityName(prof!.profile.playerId), looks: [prof!.profile.publicIdentity, prof!.profile.summary].filter(Boolean).join('; ').slice(0, 400) }) : undefined;
         let packet = buildPacket(packetArgs);
         // 角色盘算: the people here who think before they act get this reply's moves worked out first (in a judged
         // fight the ruling has the fighters' moves)
@@ -1799,7 +1818,7 @@ export class CanonEngine {
         let lastResort = false; // one extra, harsher repair when HARD problems survive the normal repairs
         for (let attempt = 0; attempt <= this.settings.maxRepairs + (lastResort ? 1 : 0); attempt++) {
           this.setStatus('validating', attempt > this.settings.maxRepairs ? 'Re-checking final HARD repair…' : attempt ? `Re-checking repaired draft (${attempt}/${this.settings.maxRepairs})…` : 'Validating…');
-          let review = await this.reviewCandidate({ text: candidate, index: rIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: lp?.notes || [], stagedHard: lp?.stagedHard, fences, attempt, offered, required, jumpTo, chance, leapTo, ruling, combatFailed });
+          let review = await this.reviewCandidate({ text: candidate, index: rIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: lp?.notes || [], stagedHard: lp?.stagedHard, fences, attempt, offered, required, jumpTo, chance, leapTo, ruling, combatFailed, hostile });
           this.checkFences(fences, excludeLast);
           // Interval adjudication for the proposed advance. The review that sees the staged results may place the
           // reply's end later: then the events whose windows close in the extra time are settled too (live finding:
@@ -1823,12 +1842,13 @@ export class CanonEngine {
             // The evaluator must see staged offscreen history: review again with it (not a repair).
             const stagedIndex = new WorldIndex(pack, this.overlay(rIndex.state, adj.records.filter((r) => r.storyTime.lo <= end.lo)));
             const stagedHard = new Map([...(lp?.stagedHard || []), ...adj.stagedHard]);
-            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [...(lp?.notes || []), ...adj.notes], stagedHard, fences, attempt, offered, required, jumpTo, chance, leapTo, ruling, combatFailed });
+            review = await this.reviewCandidate({ text: candidate, index: stagedIndex, userEntry: lastIsUser || op !== 'continue' ? userEntry : null, operationId, signal: abort.signal, mode: 'draft', plan, forced: planInfo.forced, sceneSeeds, reevalReasons: null, stagedNotes: [...(lp?.notes || []), ...adj.notes], stagedHard, fences, attempt, offered, required, jumpTo, chance, leapTo, ruling, combatFailed, hostile });
             // Gate HARD crossing with staged offscreen occurrences against the committed clock
             review.gate = runGate({
               pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
               evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: (() => { const e = engagementView(stagedIndex.state, pack), t = stagedIndex.state.clock.lo; return e.binding(t).length + e.answers(t).length; })(), hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, personaName: prof?.profile.personaName, offered, required, chanceCompanions: chance, chanceBlocking: attempt === 0, leap: !!leapTo,
               combat: combatReview(pack, { leap: !!leapTo, draft: true, ruling, failed: combatFailed }),
+              hostility: { due: hostile, playerId: prof?.profile.playerId || null },
             });
             this.checkFences(fences, excludeLast);
           }
@@ -2547,9 +2567,10 @@ export class CanonEngine {
       focus: focus.filter((f) => index.pack.events.has(f)).map((f) => ({ id: f, title: index.pack.events.get(f)!.title })),
       ...(c.preferredScopes?.length ? { preferred: c.preferredScopes } : {}),
       ...(c.avoidedScopes?.length ? { avoided: c.avoidedScopes } : {}),
+      ...(grudgesNow(index.state).length ? { grudges: grudgesForReview(index) } : {}),
       ...(quiet ? { quiet_day: true, ...(recentJobs.length ? { recent_jobs: recentJobs } : {}) } : {}),
       ...(kept.length ? { already_kept: kept.map((o) => ({ scope: `${o.scopeKind}:${o.scopeRef}`, about: o.scopeLabel, contact: o.contact })) } : {}),
-      registry: this.registry(index, `${userEntry?.text || ''} ${candidates.map((x) => x.event.title).join(' ')}`, [...withIds, ...playedProfile(index, profile).relationships.map((r) => r.entityId).filter(Boolean) as Id[]], { notes: true }),
+      registry: this.registry(index, `${userEntry?.text || ''} ${candidates.map((x) => x.event.title).join(' ')}`, [...withIds, ...playedProfile(index, profile).relationships.map((r) => r.entityId).filter(Boolean) as Id[], ...playLinks(index, profile, 16), ...grudgesNow(index.state).map((g) => g.holder)], { notes: true }),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 8000 }), this.settings.taskTimeoutMs * 4, signal);
     const checked = checkOpportunities(out, index, profile, candidates, tick, quiet);
     const dropped = [...checked.dropped, ...checked.valid.filter((o) => keptScopes.has(`${o.scopeKind}:${o.scopeRef}`)).map((o) => ({ id: o.id, reason: `${o.scopeLabel} is kept as it was` }))];
@@ -3184,6 +3205,33 @@ export class CanonEngine {
     c.configRevisions.push({ at: this.host.now(), summary: rec.summary });
     await this.host.save();
     await this.reconcile('combat_edited');
+  }
+
+  /** 主动敌对: who holds a grudge against the player, the dangers where the player is (the places of the last scene and
+   *  the player's organizations) and the dangers that came (hostility/panel.ts). */
+  hostilityView(): HostilityViewData | null {
+    if (!this.campaign() || !this.current) return null;
+    const idx = this.current.index;
+    const prof = this.playerProfile();
+    const last = this.current.replay.applied.slice().reverse().find((x) => x.interp.sceneEntities?.length);
+    const places = (last?.interp.sceneEntities || []).filter((x) => idx.entityExists(x) && idx.entityKind(x) === 'place');
+    const orgs = prof ? playerOrgs(idx, prof.profile, idx.state.clock.lo).filter(isIn).map((o) => o.id) : [];
+    return hostilityView(idx, this.campaign()!.binding.originDate, uniq([...places, ...orgs]));
+  }
+
+  /** 主动敌对 from the panel: take a grudge away, or add one; a record like any other. */
+  async editHostility(change: HostilityChange): Promise<boolean> {
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
+    const c = this.campaign();
+    if (!c || !this.current) return false;
+    const rec = hostilityPanelRecord(this.current.index, change, this.current.replay.state.clock.lo, this.playerProfile()?.profile.playerId ?? null);
+    if (!rec) return false;
+    const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
+    c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+    c.configRevisions.push({ at: this.host.now(), summary: rec.summary });
+    await this.host.save();
+    await this.reconcile('hostility_edited');
+    return true;
   }
 
   /** 角色关系: every pair this game knows of, as the timeline window shows them (see views.relationsView). */

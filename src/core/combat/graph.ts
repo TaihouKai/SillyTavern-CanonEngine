@@ -60,6 +60,9 @@ export function lintCombat(pack: CanonPack, err: Report, warn: Report): void {
     }
     if ((n.who || n.event_id) && n.kind !== 'precedent') err(`${at}`, `who and event_id are for precedents, not a ${n.kind}`);
     if (n.kind === 'precedent' && !n.who?.length) err(`${at}/who`, 'a precedent names who was in it');
+    if ((n.hours || n.frequency) && n.kind !== 'danger') err(`${at}`, `hours and frequency are for dangers, not a ${n.kind}`);
+    if (n.kind === 'danger' && !n.frequency) err(`${at}/frequency`, 'a danger says how often someone there meets it (common, occasional, rare)');
+    if (n.hours && n.hours.from === n.hours.to) err(`${at}/hours`, 'hours from and to are the same: leave hours out for any time of day');
     for (const w of n.who || []) if (!ents.has(w)) err(`${at}/who`, `unknown entity "${w}"`);
     if (n.event_id && !evs.has(n.event_id)) err(`${at}/event_id`, `unknown event "${n.event_id}"`);
     const vis = [n.visibility, ...(n.parts || []).map((p) => p.visibility)].filter(Boolean);
@@ -87,6 +90,8 @@ export function lintCombat(pack: CanonPack, err: Report, warn: Report): void {
   for (const n of nodes) if (n.kind === 'precedent' && n.who?.some((w) => ents.has(w))) reached.add(n.id);
   const queue = [...reached];
   while (queue.length) for (const t of out.get(queue.shift()!) || []) if (!reached.has(t)) { reached.add(t); queue.push(t); }
+  const fromEntities = new Set((c.links || []).filter((l) => ents.has(l.from)).map((l) => l.to));
+  nodes.forEach((n, i) => { if (n.kind === 'danger' && !fromEntities.has(n.id)) err(`/combat/nodes/${i}`, `the danger "${n.id}" is linked from no place or organization: nobody ever meets it`); });
   nodes.forEach((n, i) => { if (!reached.has(n.id)) warn(`/combat/nodes/${i}`, `no entity reaches "${n.id}" through links: a fight never gets it`); });
   const linked = new Set((c.links || []).filter((l) => ents.has(l.from)).map((l) => l.from));
   for (const { e, i } of people) {

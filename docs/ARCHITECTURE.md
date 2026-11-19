@@ -66,6 +66,13 @@ flowchart LR
 - **What stays in the engine** is what only the engine knows: the lorebook as this game has it, the Persona, the scene. The UI is `ui/combat-panel.ts`.
 - **Enforced.** `check-boundary.mjs` also fails when the core reaches past `combat/index.ts`, or the module reaches into the engine, the gate or the UI.
 
+主动敌对 (the world comes for the player) is a module of its own in the same way (`src/core/hostility`, through `hostility/index.ts`):
+- `state.ts`: grudges against the player and dangers that came, replayed under `WorldState.hostility`; the dangers linked from places and organizations, with their hours.
+- `turn.ts`: before the reply, at most one thing comes for the player, decided by code. It is either a grudge whose time has come, or a danger of where the player is. The danger is drawn from how common it is and the danger level, with a roll fixed for each three-hour stretch, at most once a story day, and only when the switch is on. The GM gets a required section and writes up to where the attack begins.
+- `review.ts`: grudges the reply shows taken up (with their words, and when they come) or settled. A fight with a holder settles the grudge (code). What was due must come: a fight begins, or at least a hostile contact; otherwise the reply is sent back.
+- `panel.ts`, `prompts.ts`: the inspector's 「谁要找你麻烦」 section (`ui/hostility-panel.ts`) and the review's part of the evaluate prompt.
+- The boundary check covers it like 战斗.
+
 Graph A (pinned pack), the actual history ledger, Graph B (projection = reducer state over baseline + ledger) and future plans are separate types and namespaces. Indexes are rebuildable projections; the selected transcript + pinned pack + binding seed are the only authorities.
 
 ## Source of truth and replay

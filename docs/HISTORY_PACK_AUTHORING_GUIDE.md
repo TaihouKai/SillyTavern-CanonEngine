@@ -231,6 +231,7 @@ When a fight is going on, the engine has a model judge each turn before the GM w
     - `rule`: a law of the world that decides fights, with when it applies;
     - `ability`: a power, technique, spell, item or weapon, with `parts`. The parts are `principle`, `effect` (required), `conditions`, `cost`, `limits` and `counters`. Leave out a part the sources say nothing about;
     - `precedent`: a fight of the original story, with `who` (the people) and `event_id`: who won, how, and why.
+    - `danger`: an everyday danger of the setting, i.e. what someone meets at a place: who comes, whom they pick, how it goes. It has `frequency` (`common`, `occasional`, `rare`: how often someone there in those hours meets it) and may have `hours` (`{from, to}`, `"HH:MM"`, across midnight allowed; absent means any time). It is linked from the places it belongs to, or from an organization whose members it goes for. A setting without such dangers has none.
   - Each node gives `source_refs`, or `generated: true` when a model wrote it where the sources say nothing.
   - A node or a single part can have `visibility` like a secret (`public`, `restricted` or `secret`, with `knower_ids`). A weakness only a few know is a secret part. The judge uses it only for those who know it.
   - `links`: `{from, to, label}`. `from` is an entity or a node, and `to` is a node. A link from an entity can hold only from an event (`from_event`) and end at one (`until_event`): a power gained, lost or changed.

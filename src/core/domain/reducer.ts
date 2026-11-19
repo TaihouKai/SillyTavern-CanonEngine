@@ -2,6 +2,7 @@
 // Occurrences are kept separate from fluent state; a later reversal never erases an occurrence.
 import type { Condition, ContactInfo, EngagementInfo, RelationChange, TieInfo, FactDelta, FactValue, Id, LedgerRecord, Occurrence, RuntimeEntity, StoryTime, Tri } from './types';
 import { applyCombat, emptyCombatState, type CombatState } from '../combat/state';
+import { applyHostility, emptyHostilityState, type HostilityState } from '../hostility/state';
 import { UNKNOWN } from './types';
 import type { LoadedPack } from './pack';
 import { normalizeValue, valuesEqual } from './pack';
@@ -65,6 +66,8 @@ export interface WorldState {
   relations: RelationEntry[];
   /** 战斗: this game's combat changes (combat/state.ts). */
   combat: CombatState;
+  /** 主动敌对: grudges against the player and dangers that came to them (hostility/state.ts). */
+  hostility: HostilityState;
   runtimeEntities: Map<Id, RuntimeEntity & { recordId: string }>;
   enactedSteps: Map<string, string>;
   clock: StoryTime;
@@ -96,6 +99,7 @@ export function emptyState(pack: LoadedPack): WorldState {
     ties: [],
     relations: [],
     combat: emptyCombatState(),
+    hostility: emptyHostilityState(),
     runtimeEntities: new Map(),
     enactedSteps: new Map(),
     clock: { lo: pack.coverage.start, hi: pack.coverage.start, precision: 'minute' },
@@ -143,8 +147,13 @@ export function applyRecord(state: WorldState, rec: LedgerRecord): void {
   if (rec.tie) state.ties.push({ ...rec.tie, recordId: rec.recordId, seq: rec.sequence, tick });
   for (const r of rec.relations || []) state.relations.push({ ...r, recordId: rec.recordId, seq: rec.sequence, tick });
   applyCombat(state.combat, rec, tick);
+  applyHostility(state.hostility, rec, tick);
   // a later Persona read describes the player (and the Persona's own people, groups, places) anew: it wins
   for (const re of rec.runtimeEntities || []) if (!state.runtimeEntities.has(re.id) || rec.kind === 'persona_seed') state.runtimeEntities.set(re.id, { ...re, recordId: rec.recordId });
+  for (const r of rec.renames || []) {
+    const re = state.runtimeEntities.get(r.id);
+    if (re && re.name !== r.name) state.runtimeEntities.set(r.id, { ...re, name: r.name, aliases: [...new Set([...(re.aliases || []), re.name])].filter((x) => x !== r.name) });
+  }
   for (const s of rec.enactedStepIds || []) if (!state.enactedSteps.has(s)) state.enactedSteps.set(s, rec.recordId);
   if (rec.kind === 'scene_frame' && rec.frameId) state.sceneFrame = { frameId: rec.frameId, since: tick, recordId: rec.recordId };
   // The committed clock moves only through time-advance/bootstrap records and never backwards;

@@ -6,11 +6,12 @@
 import type { CanonEngine } from '../runtime/engine';
 import { t } from './i18n';
 import { addressText } from './graph';
+import { hostilityChange, hostilityHtml } from './hostility-panel';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface InspectorDeps {
   engine: () => CanonEngine;
-  settings: () => { inspectorOpen: boolean; quietDayJobs?: boolean };
+  settings: () => { inspectorOpen: boolean; quietDayJobs?: boolean; dangers?: boolean; dangerLevel?: string };
   saveSettings: () => void;
   refreshUi: () => void;
   toast: (level: 'info' | 'error' | 'warning', msg: string) => void;
@@ -172,6 +173,10 @@ export function createInspector(d: InspectorDeps) {
     const secs: Page['secs'] = [];
     html += sec('need', t('ciNeedAnswer'), need.join('') || `<div class="ci-empty">${esc(t('ciAllClear'))}</div>`);
     secs.push({ id: 'need', label: t('ciNeedAnswer') });
+    // 主动敌对 (ui/hostility-panel.ts): who comes for the player, and the dangers where they are
+    const ho = hostilityHtml(E().hostilityView(), { dangers: E().settings.dangers !== false, level: E().settings.dangerLevel || 'medium' }, d.tip);
+    html += sec('hostile', t('hoTitle'), `<div class="ci-bar">${ho.bar}</div>${ho.body}`, '', d.tip('hoTip'));
+    secs.push({ id: 'hostile', label: t('hoTitle') });
     html += sec('all', t('ciOtherContacts'), rest.join('') || empty());
     secs.push({ id: 'all', label: t('ciOtherContacts') });
     if (ni.suggestions) {
@@ -468,6 +473,10 @@ export function createInspector(d: InspectorDeps) {
           : { level: (sel('canon-tie-level')?.value || 'identity') as 'exists' | 'identity' | 'secrets', about: text };
         // a saved edit closes its form
         run(E0.editTie(kind, isNew ? null : b.dataset.who || null, name, patch), () => { const det = b.closest('details[data-key]') as HTMLElement | null; if (det) opened.delete(`${tab}|${det.dataset.key}`); });
+      } else if (act === 'ho-end' || act === 'ho-add') {
+        const change = hostilityChange(b);
+        if (!change) { d.toast('warning', t('hoNeedText')); return; }
+        run(E0.editHostility(change).then((ok) => { if (!ok) d.toast('warning', t('hoNotFound')); }), () => opened.delete(`${tab}|ho-add`));
       } else if (act === 'ni-answer') run(E0.answerContact(b.dataset.rec || '', b.dataset.stance as 'accepted' | 'declined' | 'done'));
       else if (act === 'ni-update') { b.textContent = t('niBusy'); run(E0.updateIdentity()); }
       else if (act === 'ni-keep') run(E0.keepIdentity());
@@ -478,6 +487,13 @@ export function createInspector(d: InspectorDeps) {
       const tg = ev.target as HTMLInputElement;
       const c = camp();
       if (tg.dataset.act === 'spoilers' && c) { c.uiPreferences.spoilers = tg.checked; render(true); }
+      if (tg.dataset.act === 'ho-dangers' || tg.dataset.act === 'ho-level') {
+        const st = d.settings() as any;
+        if (tg.dataset.act === 'ho-dangers') { st.dangers = tg.checked; E().settings.dangers = tg.checked; }
+        else { st.dangerLevel = (tg as unknown as HTMLSelectElement).value; E().settings.dangerLevel = st.dangerLevel; }
+        d.saveSettings();
+        render(true);
+      }
       if (tg.dataset.act === 'ni-jobs') {
         (d.settings() as any).quietDayJobs = tg.checked;
         E().settings.quietDayJobs = tg.checked;

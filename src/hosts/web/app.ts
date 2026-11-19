@@ -119,7 +119,7 @@ const graph = new GraphPanel(() => timelineData(engine), (v) => { const camp = e
 
 const inspector = createInspector({
   engine: () => engine,
-  settings: () => ({ inspectorOpen: settings.inspectorOpen, quietDayJobs: engine.settings.quietDayJobs }),
+  settings: () => ({ inspectorOpen: settings.inspectorOpen, quietDayJobs: engine.settings.quietDayJobs, dangers: engine.settings.dangers, dangerLevel: engine.settings.dangerLevel }),
   saveSettings: () => { settings.inspectorOpen = !!(engine.settings as any).inspectorOpen || settings.inspectorOpen; saveSettings(); },
   refreshUi: () => render(),
   toast,

@@ -163,6 +163,8 @@ export interface PackCombat {
 }
 export const COMBAT_NODE_KINDS = ['concept', 'rule', 'ability', 'precedent', 'danger'] as const;
 export type CombatNodeKind = (typeof COMBAT_NODE_KINDS)[number];
+export const DANGER_FREQUENCIES = ['common', 'occasional', 'rare'] as const;
+export type DangerFrequency = (typeof DANGER_FREQUENCIES)[number];
 export const ABILITY_PARTS = ['principle', 'effect', 'conditions', 'cost', 'limits', 'counters'] as const;
 export type AbilityPart = (typeof ABILITY_PARTS)[number];
 /** One node. gist: one sentence (what the analysis gets for a node further away); text: the whole of it — a
@@ -174,6 +176,9 @@ export interface CombatNode {
   id: Id; kind: CombatNodeKind; name: string; gist: string; text: string;
   parts?: { part: AbilityPart; text: string; visibility?: Visibility }[];
   who?: Id[]; event_id?: Id;
+  /** A danger: the hours it happens in (from–to, may cross midnight; absent: any time) and how often someone there
+   *  then meets it. Linked from the places (or organizations) it belongs to. */
+  hours?: { from: string; to: string }; frequency?: DangerFrequency;
   visibility?: Visibility;
   source_refs: Id[];
   /** Written by a model where the sources say nothing (reviewed by a person like the rest). */
@@ -245,7 +250,8 @@ export type RecordKind =
   | 'player_tie'
   | 'relation'
   | 'scene_frame'
-  | 'combat';
+  | 'combat'
+  | 'hostility';
 
 /** What a player decision or a contact is about. event/arc: pack ids; faction: an organization entity id;
  *  contact: a world_contact record id; storyline: a free label (out-of-character "stop this line"). */
@@ -402,7 +408,19 @@ export interface LedgerRecord {
   styles?: StyleChange[];
   fight?: FightChange;
   witnessed?: Witnessed[];
+  /** 主动敌对 (any record that changes them; kind hostility: the panel): who holds a grudge against the player, and a
+   *  danger of the setting that came to the player at this record's time. */
+  grudges?: GrudgeChange[];
+  /** Someone the game knew under another name or a description, now named (runtime entities only): the new name
+   *  becomes their name, the old one an alias. */
+  renames?: { id: Id; name: string }[];
+  danger?: { node: Id; place: Id | null };
 }
+
+/** Someone who holds a grudge against the player character and means to come for them. comes: the earliest story
+ *  time they come (tick). ended: why it is over — avenged (they came: a fight with the player began), reconciled (the
+ *  story made peace), ui (the player took it away in the panel). The latest change per holder holds. */
+export interface GrudgeChange { holder: Id; why: string; quote: string; comes: number; ended?: 'avenged' | 'reconciled' | 'ui'; source: 'play' | 'ui' }
 
 /** Where a combat change comes from, highest first: the player's own word or the panel (ui), the Persona, play (an
  *  accepted reply, a combat ruling), and last what the combat analysis filled in where nothing said anything (fill),
