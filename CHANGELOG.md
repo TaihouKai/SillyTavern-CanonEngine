@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.41.0 — 2026-11-20 (Toaru pack 6.3.1)
+
+- **主动敌对: the world comes for you.** You had never been attacked unprompted. A grudge was proposed every turn but never happened: its actor could not be matched, and it was optional. Now it is decided by code, as its own module (`src/core/hostility`).
+  - **Grudges.** When a reply (or your message) shows someone taking up a grudge against your character — vowing revenge, swearing to come back with friends — Canon Engine records who, why, the words, and when they come. "明天晚上" becomes the next evening; with no time given, the next evening at least six hours away. When that time comes, the GM must bring them in that reply, wherever you are, and stop where the attack begins. A reply without them is sent back. When they come at you, the fight begins and is judged like any other. A fight with them settles the grudge, and so does making peace with them. Grudges come whatever the danger switch says. The world-reaction step now sees the people from play, and leaves grudges to this.
+  - **Everyday dangers.** A pack can give places (or organizations) dangers: what you meet there, at what hours, how often. While you are there at those hours, Canon Engine decides whether one comes this time, from how common it is and the danger level. The roll is fixed for each three-hour stretch, so a retry or a reload does not draw again, and at most one comes per story day. The GM brings people of that sort, who pick you for what they see.
+  - **Where you are.** The review now says where your character is at the end of each reply, from the most specific place out to the district. Dangers come from there only, not from every place a reply mentions.
+  - **Your controls.** In the inspector, under 接触, the section 「谁要找你麻烦」 shows:
+    - the switch (设定里的日常危险会找上你) and the danger level (低/中/高; also in the settings);
+    - who holds a grudge against you, why and when they come, with 了结 to take one away and a form to add one;
+    - the dangers where you are, and those that came.
+- **Someone known only by a description who is then named keeps their identity.** Live, 「初中男生」 and 「小仓航」 had become two people.
+- **Fights.** Someone present whom the ruling has act in the fight has now joined it. Live, the grudge holder's Level 3 friend attacked, and his move was dropped as "not a fighter".
+- **Toaru pack 6.3.1: two everyday dangers, written by hand from the wiki's district and Skill-Out pages.**
+  - 第十学区's slums (Skill-Out; common).
+  - Back alleys after dark, 19:00–04:00 (street thugs; occasional), linked from 第七学区 and its alleys.
+  - How often and at what hours are my judgement, and the text says so.
+  - Lint 0/0, checks 0.
+- Tested live with DeepSeek and your Persona, in test chat `…2026-11-20@02h38m40s997ms`:
+  - a thug you kicked vowed to come back 「明天晚上」 with friends;
+  - the next evening he came with a Level 3, and the GM stopped as the attack began;
+  - the fight began, and the grudge was settled;
+  - walking the alleys at night, drunk thugs blocked you (the danger level was raised to 高 in the test page's memory only, never in your settings).
+
 ## 1.40.0 — 2026-11-20 (Toaru pack 6.2.2)
 
 - **战斗分析.** A confrontation (a fight, an attack, a chase, sneaking past a guard) is judged by Canon Engine before the GM writes. The GM writes up the ruling and may only embellish it.
