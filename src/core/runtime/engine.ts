@@ -795,7 +795,7 @@ export class CanonEngine {
       message: entry.text,
       ...(oocParts.length ? { ooc_parts: oocParts } : {}),
       persona,
-      current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
+      current_time: { label: formatTick(tick, origin), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...this.currentFrameInput(index, tick),
       registry: this.registry(index, entry.text, prof ? [prof.profile.playerId] : []),
       occurrences: this.occurrenceCatalogue(index, entry.text),
@@ -1323,8 +1323,9 @@ export class CanonEngine {
       candidate: a.text,
       player_action_scope: a.userEntry ? this.ooc(a.userEntry.text).story : '',
       ...(a.userEntry && this.ooc(a.userEntry.text).ooc.length ? { player_ooc_instructions: this.ooc(a.userEntry.text).ooc } : {}),
-      current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
+      current_time: { label: formatTick(tick, this.campaign()?.binding.originDate || null), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...(a.mode !== 'retained' ? this.horaeTimeHint() : {}),
+      ...((() => { const j = a.jumpTo ?? this.jumpOf(a.userEntry, tick); return j ? { player_time_jump: { to: formatTick(j, this.campaign()?.binding.originDate || null), day: Math.floor(j / 1440), minute: j % 1440 } } : {}; })()),
       retrieved_context: packet.text,
       claims: claims.map((c) => ({ id: c.id, quote: c.quote, kind: c.kind, assertion: c.assertion, expected: c.expected })),
       references: refs.map((r) => ({ id: r.id, quote: r.quote, kind: r.kind, assertion: r.assertion })),
@@ -1756,7 +1757,7 @@ export class CanonEngine {
           if (fightNow(rIndex.state).ongoing) {
             this.setStatus('planning', 'Judging the fight…');
             try {
-              ruling = await this.timeStep('combat', this.judge(rIndex, prof?.profile ?? null, userEntry, userInterp, prevGm, prevGmInterp, cp, abort.signal, operationId));
+              ruling = await this.timeStep('fight', this.judge(rIndex, prof?.profile ?? null, userEntry, userInterp, prevGm, prevGmInterp, jumpTo ?? cp, abort.signal, operationId));
             } catch (e) {
               if (e instanceof EngineError && e.kind === 'cancelled') throw e;
               combatFailed = true;
@@ -1923,7 +1924,7 @@ export class CanonEngine {
           interp.dependsOn = interp.dependsOn.filter((d) => d.messageId !== continuedEntry.messageId);
         }
         if (ruling) {
-          interp.records.push(rulingRecord(ruling, { lo: clock, hi: clock, precision: 'minute' }, (id) => this.fighterName(rIndex, prof?.profile ?? null, id)));
+          interp.records.push(rulingRecord(ruling, { lo: jumpTo ?? clock, hi: jumpTo ?? clock, precision: 'minute' }, (id) => this.fighterName(rIndex, prof?.profile ?? null, id)));
           interp.combat = ruling;
         }
         if (interp.sceneEnd && !interp.flashback && interp.sceneEnd.lo > clock) interp.records.push(this.timeAdvance(interp.sceneEnd, commitId));

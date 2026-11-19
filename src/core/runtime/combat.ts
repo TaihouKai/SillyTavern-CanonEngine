@@ -186,7 +186,10 @@ export async function judgeFight(a: {
   const objectiveOk = (b: { ref: string; quote?: string }) => objective.has(b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!));
   const exchanges: RulingExchange[] = [];
   const stands: string[] = [];
-  for (const x of out.exchanges || []) {
+  for (const x0 of out.exchanges || []) {
+    // an override as words only, or without its reason, is still one (an empty one is none)
+    const ov = x0.overrides as unknown;
+    const x = { ...x0, overrides: typeof ov === 'string' ? (ov.trim() ? { quote: ov.trim(), why: '' } : null) : ov && typeof ov === 'object' && String((ov as { quote?: string }).quote || '').trim() ? { quote: String((ov as { quote: string }).quote), why: String((ov as { why?: string }).why || '') } : null };
     const actor = fighters.includes(x.actor) ? x.actor : (() => { const r = index.resolveEntity(String(x.actor)); return r.ids.length === 1 && fighters.includes(r.ids[0]) ? r.ids[0] : null; })();
     if (!actor || !String(x.text || '').trim()) { notes.push(`ruling: an exchange of "${x.actor}" left out (not a fighter)`); continue; }
     const basis = (x.basis || []).filter((b) => { const ok = basisOk(b); if (!ok) notes.push(`ruling: basis "${b.ref}" is not in what the fight was given (left out)`); return ok; });

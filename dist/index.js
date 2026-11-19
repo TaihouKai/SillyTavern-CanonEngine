@@ -10161,7 +10161,7 @@ function validate73(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate73.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 var combat = validate74;
-var schema116 = { "type": "object", "properties": { "exchanges": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "actor": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 800 }, "basis": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 160 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["ref"], "additionalProperties": false } }, "overrides": { "anyOf": [{ "type": "null" }, { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 300 }, "why": { "type": "string", "maxLength": 300 } }, "required": ["quote", "why"], "additionalProperties": false }] }, "unsupported": { "type": "boolean" } }, "required": ["actor", "text", "basis"], "additionalProperties": false } }, "statuses": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 120 }, "count": { "anyOf": [{ "type": "number" }, { "type": "null" }] }, "until": { "anyOf": [{ "const": "lasting" }, { "type": "object", "properties": { "minutes": { "type": "number" } }, "required": ["minutes"], "additionalProperties": false }, { "type": "object", "properties": { "event": { "type": "string" } }, "required": ["event"], "additionalProperties": false }, { "type": "null" }] }, "node": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] }, "removed": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["who", "text"], "additionalProperties": false } }, "witnessed": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "node": { "type": "string", "maxLength": 120 }, "part": { "anyOf": [{ "enum": ["principle", "effect", "conditions", "cost", "limits", "counters"] }, { "type": "null" }] }, "who": { "type": "array", "items": { "type": "string", "maxLength": 120 } } }, "required": ["node", "who"], "additionalProperties": false } }, "over": { "type": "boolean" }, "over_why": { "type": "string", "maxLength": 300 }, "stop_at": { "type": "string", "maxLength": 300 } }, "required": ["exchanges", "statuses", "over"], "additionalProperties": false, "$id": "urn:canon-engine:combat" };
+var schema116 = { "type": "object", "properties": { "exchanges": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "actor": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 800 }, "basis": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 160 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["ref"], "additionalProperties": false } }, "overrides": { "anyOf": [{ "type": "null" }, { "type": "string", "maxLength": 300 }, { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 300 }, "why": { "type": "string", "maxLength": 300 } }, "additionalProperties": false }] }, "unsupported": { "type": "boolean" } }, "required": ["actor", "text", "basis"], "additionalProperties": false } }, "statuses": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 120 }, "count": { "anyOf": [{ "type": "number" }, { "type": "null" }] }, "until": { "anyOf": [{ "const": "lasting" }, { "type": "object", "properties": { "minutes": { "type": "number" } }, "required": ["minutes"], "additionalProperties": false }, { "type": "object", "properties": { "event": { "type": "string" } }, "required": ["event"], "additionalProperties": false }, { "type": "null" }] }, "node": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] }, "removed": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["who", "text"], "additionalProperties": false } }, "witnessed": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "node": { "type": "string", "maxLength": 120 }, "part": { "anyOf": [{ "enum": ["principle", "effect", "conditions", "cost", "limits", "counters"] }, { "type": "null" }] }, "who": { "type": "array", "items": { "type": "string", "maxLength": 120 } } }, "required": ["node", "who"], "additionalProperties": false } }, "over": { "type": "boolean" }, "over_why": { "type": "string", "maxLength": 300 }, "stop_at": { "type": "string", "maxLength": 300 } }, "required": ["exchanges", "statuses", "over"], "additionalProperties": false, "$id": "urn:canon-engine:combat" };
 function validate74(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -10427,9 +10427,9 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
               var _valid0 = _errs22 === errors;
               valid7 = valid7 || _valid0;
               const _errs24 = errors;
-              if (data8 && typeof data8 == "object" && !Array.isArray(data8)) {
-                if (data8.quote === void 0) {
-                  const err23 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/1/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
+              if (typeof data8 === "string") {
+                if (func2(data8) > 300) {
+                  const err23 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/1/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
                   if (vErrors === null) {
                     vErrors = [err23];
                   } else {
@@ -10437,18 +10437,22 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                   }
                   errors++;
                 }
-                if (data8.why === void 0) {
-                  const err24 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/1/required", keyword: "required", params: { missingProperty: "why" }, message: "must have required property 'why'" };
-                  if (vErrors === null) {
-                    vErrors = [err24];
-                  } else {
-                    vErrors.push(err24);
-                  }
-                  errors++;
+              } else {
+                const err24 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/1/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err24];
+                } else {
+                  vErrors.push(err24);
                 }
+                errors++;
+              }
+              var _valid0 = _errs24 === errors;
+              valid7 = valid7 || _valid0;
+              const _errs26 = errors;
+              if (data8 && typeof data8 == "object" && !Array.isArray(data8)) {
                 for (const key3 in data8) {
                   if (!(key3 === "quote" || key3 === "why")) {
-                    const err25 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/1/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
+                    const err25 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/2/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
                     if (vErrors === null) {
                       vErrors = [err25];
                     } else {
@@ -10461,7 +10465,7 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                   let data9 = data8.quote;
                   if (typeof data9 === "string") {
                     if (func2(data9) > 300) {
-                      const err26 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides/quote", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/1/properties/quote/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
+                      const err26 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides/quote", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/2/properties/quote/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
                       if (vErrors === null) {
                         vErrors = [err26];
                       } else {
@@ -10470,7 +10474,7 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                       errors++;
                     }
                   } else {
-                    const err27 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides/quote", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/1/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    const err27 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides/quote", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/2/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                     if (vErrors === null) {
                       vErrors = [err27];
                     } else {
@@ -10483,7 +10487,7 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                   let data10 = data8.why;
                   if (typeof data10 === "string") {
                     if (func2(data10) > 300) {
-                      const err28 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides/why", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/1/properties/why/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
+                      const err28 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides/why", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/2/properties/why/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
                       if (vErrors === null) {
                         vErrors = [err28];
                       } else {
@@ -10492,7 +10496,7 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                       errors++;
                     }
                   } else {
-                    const err29 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides/why", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/1/properties/why/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    const err29 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides/why", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/2/properties/why/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                     if (vErrors === null) {
                       vErrors = [err29];
                     } else {
@@ -10502,7 +10506,7 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                   }
                 }
               } else {
-                const err30 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+                const err30 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf/2/type", keyword: "type", params: { type: "object" }, message: "must be object" };
                 if (vErrors === null) {
                   vErrors = [err30];
                 } else {
@@ -10510,7 +10514,7 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               }
-              var _valid0 = _errs24 === errors;
+              var _valid0 = _errs26 === errors;
               valid7 = valid7 || _valid0;
               if (!valid7) {
                 const err31 = { instancePath: instancePath + "/exchanges/" + i0 + "/overrides", schemaPath: "#/properties/exchanges/items/properties/overrides/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
@@ -10653,9 +10657,9 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
             }
             if (data13.count !== void 0) {
               let data16 = data13.count;
-              const _errs43 = errors;
+              const _errs45 = errors;
               let valid12 = false;
-              const _errs44 = errors;
+              const _errs46 = errors;
               if (!(typeof data16 == "number")) {
                 const err43 = { instancePath: instancePath + "/statuses/" + i2 + "/count", schemaPath: "#/properties/statuses/items/properties/count/anyOf/0/type", keyword: "type", params: { type: "number" }, message: "must be number" };
                 if (vErrors === null) {
@@ -10665,9 +10669,9 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               }
-              var _valid1 = _errs44 === errors;
+              var _valid1 = _errs46 === errors;
               valid12 = valid12 || _valid1;
-              const _errs46 = errors;
+              const _errs48 = errors;
               if (data16 !== null) {
                 const err44 = { instancePath: instancePath + "/statuses/" + i2 + "/count", schemaPath: "#/properties/statuses/items/properties/count/anyOf/1/type", keyword: "type", params: { type: "null" }, message: "must be null" };
                 if (vErrors === null) {
@@ -10677,7 +10681,7 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               }
-              var _valid1 = _errs46 === errors;
+              var _valid1 = _errs48 === errors;
               valid12 = valid12 || _valid1;
               if (!valid12) {
                 const err45 = { instancePath: instancePath + "/statuses/" + i2 + "/count", schemaPath: "#/properties/statuses/items/properties/count/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
@@ -10688,10 +10692,10 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               } else {
-                errors = _errs43;
+                errors = _errs45;
                 if (vErrors !== null) {
-                  if (_errs43) {
-                    vErrors.length = _errs43;
+                  if (_errs45) {
+                    vErrors.length = _errs45;
                   } else {
                     vErrors = null;
                   }
@@ -10700,9 +10704,9 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
             }
             if (data13.until !== void 0) {
               let data17 = data13.until;
-              const _errs49 = errors;
+              const _errs51 = errors;
               let valid13 = false;
-              const _errs50 = errors;
+              const _errs52 = errors;
               if ("lasting" !== data17) {
                 const err46 = { instancePath: instancePath + "/statuses/" + i2 + "/until", schemaPath: "#/properties/statuses/items/properties/until/anyOf/0/const", keyword: "const", params: { allowedValue: "lasting" }, message: "must be equal to constant" };
                 if (vErrors === null) {
@@ -10712,9 +10716,9 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               }
-              var _valid2 = _errs50 === errors;
+              var _valid2 = _errs52 === errors;
               valid13 = valid13 || _valid2;
-              const _errs51 = errors;
+              const _errs53 = errors;
               if (data17 && typeof data17 == "object" && !Array.isArray(data17)) {
                 if (data17.minutes === void 0) {
                   const err47 = { instancePath: instancePath + "/statuses/" + i2 + "/until", schemaPath: "#/properties/statuses/items/properties/until/anyOf/1/required", keyword: "required", params: { missingProperty: "minutes" }, message: "must have required property 'minutes'" };
@@ -10756,12 +10760,12 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               }
-              var _valid2 = _errs51 === errors;
+              var _valid2 = _errs53 === errors;
               valid13 = valid13 || _valid2;
               if (_valid2) {
                 var props1 = true;
               }
-              const _errs56 = errors;
+              const _errs58 = errors;
               if (data17 && typeof data17 == "object" && !Array.isArray(data17)) {
                 if (data17.event === void 0) {
                   const err51 = { instancePath: instancePath + "/statuses/" + i2 + "/until", schemaPath: "#/properties/statuses/items/properties/until/anyOf/2/required", keyword: "required", params: { missingProperty: "event" }, message: "must have required property 'event'" };
@@ -10803,14 +10807,14 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               }
-              var _valid2 = _errs56 === errors;
+              var _valid2 = _errs58 === errors;
               valid13 = valid13 || _valid2;
               if (_valid2) {
                 if (props1 !== true) {
                   props1 = true;
                 }
               }
-              const _errs61 = errors;
+              const _errs63 = errors;
               if (data17 !== null) {
                 const err55 = { instancePath: instancePath + "/statuses/" + i2 + "/until", schemaPath: "#/properties/statuses/items/properties/until/anyOf/3/type", keyword: "type", params: { type: "null" }, message: "must be null" };
                 if (vErrors === null) {
@@ -10820,7 +10824,7 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               }
-              var _valid2 = _errs61 === errors;
+              var _valid2 = _errs63 === errors;
               valid13 = valid13 || _valid2;
               if (!valid13) {
                 const err56 = { instancePath: instancePath + "/statuses/" + i2 + "/until", schemaPath: "#/properties/statuses/items/properties/until/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
@@ -10831,10 +10835,10 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               } else {
-                errors = _errs49;
+                errors = _errs51;
                 if (vErrors !== null) {
-                  if (_errs49) {
-                    vErrors.length = _errs49;
+                  if (_errs51) {
+                    vErrors.length = _errs51;
                   } else {
                     vErrors = null;
                   }
@@ -10843,9 +10847,9 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
             }
             if (data13.node !== void 0) {
               let data20 = data13.node;
-              const _errs64 = errors;
+              const _errs66 = errors;
               let valid16 = false;
-              const _errs65 = errors;
+              const _errs67 = errors;
               if (typeof data20 === "string") {
                 if (func2(data20) > 120) {
                   const err57 = { instancePath: instancePath + "/statuses/" + i2 + "/node", schemaPath: "#/properties/statuses/items/properties/node/anyOf/0/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
@@ -10865,9 +10869,9 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               }
-              var _valid3 = _errs65 === errors;
+              var _valid3 = _errs67 === errors;
               valid16 = valid16 || _valid3;
-              const _errs67 = errors;
+              const _errs69 = errors;
               if (data20 !== null) {
                 const err59 = { instancePath: instancePath + "/statuses/" + i2 + "/node", schemaPath: "#/properties/statuses/items/properties/node/anyOf/1/type", keyword: "type", params: { type: "null" }, message: "must be null" };
                 if (vErrors === null) {
@@ -10877,7 +10881,7 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               }
-              var _valid3 = _errs67 === errors;
+              var _valid3 = _errs69 === errors;
               valid16 = valid16 || _valid3;
               if (!valid16) {
                 const err60 = { instancePath: instancePath + "/statuses/" + i2 + "/node", schemaPath: "#/properties/statuses/items/properties/node/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
@@ -10888,10 +10892,10 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               } else {
-                errors = _errs64;
+                errors = _errs66;
                 if (vErrors !== null) {
-                  if (_errs64) {
-                    vErrors.length = _errs64;
+                  if (_errs66) {
+                    vErrors.length = _errs66;
                   } else {
                     vErrors = null;
                   }
@@ -11020,9 +11024,9 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
             }
             if (data24.part !== void 0) {
               let data26 = data24.part;
-              const _errs81 = errors;
+              const _errs83 = errors;
               let valid20 = false;
-              const _errs82 = errors;
+              const _errs84 = errors;
               if (!(data26 === "principle" || data26 === "effect" || data26 === "conditions" || data26 === "cost" || data26 === "limits" || data26 === "counters")) {
                 const err72 = { instancePath: instancePath + "/witnessed/" + i3 + "/part", schemaPath: "#/properties/witnessed/items/properties/part/anyOf/0/enum", keyword: "enum", params: { allowedValues: schema116.properties.witnessed.items.properties.part.anyOf[0].enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
@@ -11032,9 +11036,9 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               }
-              var _valid4 = _errs82 === errors;
+              var _valid4 = _errs84 === errors;
               valid20 = valid20 || _valid4;
-              const _errs83 = errors;
+              const _errs85 = errors;
               if (data26 !== null) {
                 const err73 = { instancePath: instancePath + "/witnessed/" + i3 + "/part", schemaPath: "#/properties/witnessed/items/properties/part/anyOf/1/type", keyword: "type", params: { type: "null" }, message: "must be null" };
                 if (vErrors === null) {
@@ -11044,7 +11048,7 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               }
-              var _valid4 = _errs83 === errors;
+              var _valid4 = _errs85 === errors;
               valid20 = valid20 || _valid4;
               if (!valid20) {
                 const err74 = { instancePath: instancePath + "/witnessed/" + i3 + "/part", schemaPath: "#/properties/witnessed/items/properties/part/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
@@ -11055,10 +11059,10 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               } else {
-                errors = _errs81;
+                errors = _errs83;
                 if (vErrors !== null) {
-                  if (_errs81) {
-                    vErrors.length = _errs81;
+                  if (_errs83) {
+                    vErrors.length = _errs83;
                   } else {
                     vErrors = null;
                   }
@@ -31310,6 +31314,10 @@ var combat_schema_default = {
                 type: "null"
               },
               {
+                type: "string",
+                maxLength: 300
+              },
+              {
                 type: "object",
                 properties: {
                   quote: {
@@ -31321,10 +31329,6 @@ var combat_schema_default = {
                     maxLength: 300
                   }
                 },
-                required: [
-                  "quote",
-                  "why"
-                ],
                 additionalProperties: false
               }
             ]
@@ -32190,7 +32194,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
 1. For EVERY claim id in "claims" return a claim_check verdict: consistent (agrees with retrieved records/state), contradiction (conflicts: e.g. a destroyed place shown operating, a dead person greeting, wrong actor/outcome of a past event, using a missing object), unsupported (asserts a NOTABLE past with no supporting record: a death, serious injury, major fight or crime, a canonical event, or a relationship, rank, membership or secret knowledge \u2014 e.g. who is the player's superior, who knows their secret identity \u2014 that the player profile and records do not give), belief_ok (a character's belief/rumor/lie presented as such), new_detail (compatible new detail; also small invented backstory that contradicts no record, state, canonical event or the player profile \u2014 an anecdote, habit or minor earlier incident, including one shared with the player character such as "last time she helped us catch a bag-snatcher she scorched half a street of billboards" between people who already know each other \u2014 record it as an occurrence with backstory=true; also a character's everyday account of another person's recent whereabouts or doings \u2014 out all night, busy, not answering the phone \u2014 when no record or due event says otherwise), not_applicable. Cite record_ids you relied on.
    Ordinary present-scene details with no record (weather, crowds, shops, decorations, minor NPCs) are new_detail, never contradiction. Preparations, schedules, anticipation or rumors of a FUTURE event ("flags for tomorrow's festival") do not assert that the event has started. A different wording of a free-text state ("\u6B63\u5E38\u8FD0\u8F6C" vs "operating normally") is consistent.
 2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote; EVERY transition with op "set" MUST give "until" \u2014 never leave it out: ${UNTIL_RULE}; an entity-set fact such as an organization's members changes by who joins \u2014 op "add", value: the ids joining \u2014 or leaves \u2014 op "remove" \u2014 never as the whole list; the player character (player_entity) being taken on by an organization or leaving it in this scene is such a change too), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it; backstory=true for small invented past the reply establishes (see new_detail), with time = its approximate past time or null), state_claims (facts the narration presupposes \u2014 what it takes as already true before or apart from this scene; a change the reply itself shows happening (someone is hit and falls, a machine is wrecked, an object is taken) is a TRANSITION with the new value, not a state_claim; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null; put each claim on the entity the quote is actually about \u2014 a building, room, door or object that is not in the registry is NOT its district or city: leave such a claim out rather than file it on a containing place), player_actions (player-character acts depicted \u2014 dialogue, reactions and actions; authorized_by_quote = a span COPIED VERBATIM from the player's message that covers it, or null; category = the kind of act: dialogue|reactions|actions|trivial|movement|items|skills|combat|decisions|secrets|intervention \u2014 the most committing kind that fits: agreeing to a job in a line of dialogue is decisions, burning someone is combat, cutting off or stopping what another character is doing (a canonical event, someone's significant act) \u2014 even with one line like "stop fanning her" \u2014 is intervention; noticing or suspecting it is only a reaction; reacting to an offer or question without saying yes or no \u2014 an opinion, a complaint, a joke, a question back, "maybe", "we'll see" \u2014 is dialogue, not decisions; so is answering a question, an excuse or teasing back; secrets is only revealing one \u2014 denying, dodging or a cover story that keeps it is dialogue; trivial everyday matters that commit the character to nothing are trivial, never items or decisions \u2014 accepting a snack or a small gift, paying for a drink, taking a flyer, sitting with someone who asks: items and decisions are for what commits the character (equipment, valuables, key items, notable money; a task, plan, promise, joining something)). An action is authorized when it carries out what the player wrote, including its natural steps and immediate details (for "I take her back to the cell and lock her up": stopping her, taking her belongings, escorting her, locking the door) and HOW it is done: for "I burn the traps along the way", each trap burned, the spell, its incantation and what the fire looks like are all authorized; for a line whose gist the player gave, its exact words. Never require the player to have specified such details. An authorized act is fine whatever its category. player_ooc_instructions, when given, are the player's out-of-character directions for this reply (not part of player_action_scope): an act that carries one out is authorized (authorized_by_quote = a span copied from that instruction) only when its condition actually happens in the candidate; if the condition does not happen, null. Use null only for a NEW decision, goal or line of dialogue the player did not express, step_enactments, new_entities (genuinely new people/places/objects introduced).
-3. scene_end: story time when the reply ends ({day, minute} with minute = minutes after midnight on a 24-hour clock: noon / \u4E2D\u534812\u70B9 is 720, 12:10 is 730, midnight is 0; \u665A\u4E0A/\u4E0B\u5348 hours are after 12:00). lo is the MINIMUM time the depicted events actually need, added to the time the scene starts: add up everything the reply shows in order \u2014 dialogue, actions, fighting, movement. Spoken dialogue takes about as long as saying it: a short line a few seconds, a dozen lines of small talk about 1-2 minutes; a single action beat or fight moment under a minute, a whole fight a few minutes; moving by distance (across a room seconds, down the street a few minutes, a train ride to another district 15-30); only a long conversation with many long speeches 10-20 minutes; a whole meal shown from sitting down to leaving 30-60 (a meal already under way before this reply counts only what this reply shows: eating while talking takes as long as the talk); walking/travel by distance; waiting lasts as long as what the text says fills it (reading two articles while waiting is several minutes); sleeping until the stated waking. Activity that runs "until" a part of the day ("\u4E00\u76F4\u5199\u5230\u5929\u9ED1", "until evening") ends at that part of the day's usual clock time for the date (dark in September about 18:00-18:30), not a guessed duration. Time the text does not state (lingering, unstated filler) goes into hi, never into lo; when unsure, keep lo low \u2014 an overestimate can never be taken back. An explicit time, duration or skip in the PLAYER'S MESSAGE (player_action_scope) or in the reply ("13\u70B951\u5206", "\u5927\u69822\u5206\u949F", "two hours later", "\u508D\u665A") anchors scene_end and wins over estimates. A clock someone in the reply reads or states as the time now ("\u90FD\u5FEB\u5341\u4E00\u70B9\u4E86", "\u5DF2\u7ECF\u4E09\u70B9\u4E86", "it's 11:30") is the time at that point of the reply: lo is that time plus only what the reply shows after it. precision "approx" for an estimate, "minute" only when a time is stated. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback. time_evidence: every expression of time in the player's message (player_action_scope) and the reply \u2014 clock times, parts of the day, other days, amounts of time, skips \u2014 each once, in the order they come, judged by what it says in its sentence, inside dialogue or not and however the dialogue is marked: quote \u2014 the words exactly as written, a short run that contains the expression; kind \u2014 "now" where the story reaches that time at that point: a clock someone reads or states as the time now ("\u90FD\u5FEB\u5341\u4E00\u70B9\u4E86", a phone showing "\u516B\u70B9\u4E8C\u5341\u51FA\u5934", \u300C\u90FD\u5DF2\u7ECF\u516B\u70B9\u4E86\uFF01\u300D), the narration arriving at a time ("\u7B49\u5230\u516B\u70B9\uFF0C\u5979\u7EC8\u4E8E\u6765\u4E86", "\u508D\u665A\u65F6\u5206", "\u7B2C\u4E8C\u5929\u65E9\u4E0A", "\u5929\u5DF2\u7ECF\u9ED1\u4E86", "\u4E00\u89C9\u7761\u5230\u5929\u4EAE"), with at: {lo, hi} the time it means, as scene_end gives times ("\u516B\u70B9\u4E8C\u5341\u51FA\u5934" 8:20 to 8:30, "\u5FEB\u5341\u4E00\u70B9" a few minutes before 11:00, a part of the day its usual clock span for the date); "elapsed" where a stated amount of time passes in the story ("\u53C8\u8D70\u4E86\u5341\u5206\u949F", "\u4E24\u5C0F\u65F6\u540E\uFF0C\u96E8\u505C\u4E86", "\u7B49\u4E86\u4E00\u4E2A\u534A\u5C0F\u65F6"), with minutes; "mentioned" where a time is only spoken of and the story does not get there in this reply \u2014 a plan, an appointment, a deadline, another day, the past, a question ("\u660E\u5929\u516B\u70B9\u89C1", "\u7EA6\u597D\u4E09\u70B9\u5728\u6821\u95E8\u53E3\u96C6\u5408", "\u516B\u70B9\u524D\u5FC5\u987B\u8D76\u5230", "\u6628\u665A\u5341\u70B9\u7684\u4E8B", "\u4ECA\u665A\u6709\u7A7A\u5417"). Not an expression of time: a word that only looks like one ("\u4E00\u70B9\u70B9" is "a little"), a name. [] when there is none. scene_end agrees with it: it is not before a time the story reaches.
+3. scene_end: story time when the reply ends ({day, minute} with minute = minutes after midnight on a 24-hour clock: noon / \u4E2D\u534812\u70B9 is 720, 12:10 is 730, midnight is 0; \u665A\u4E0A/\u4E0B\u5348 hours are after 12:00). lo is the MINIMUM time the depicted events actually need, added to the time the scene starts: add up everything the reply shows in order \u2014 dialogue, actions, fighting, movement. Spoken dialogue takes about as long as saying it: a short line a few seconds, a dozen lines of small talk about 1-2 minutes; a single action beat or fight moment under a minute, a whole fight a few minutes; moving by distance (across a room seconds, down the street a few minutes, a train ride to another district 15-30); only a long conversation with many long speeches 10-20 minutes; a whole meal shown from sitting down to leaving 30-60 (a meal already under way before this reply counts only what this reply shows: eating while talking takes as long as the talk); walking/travel by distance; waiting lasts as long as what the text says fills it (reading two articles while waiting is several minutes); sleeping until the stated waking. Activity that runs "until" a part of the day ("\u4E00\u76F4\u5199\u5230\u5929\u9ED1", "until evening") ends at that part of the day's usual clock time for the date (dark in September about 18:00-18:30), not a guessed duration. Time the text does not state (lingering, unstated filler) goes into hi, never into lo; when unsure, keep lo low \u2014 an overestimate can never be taken back. An explicit time, duration or skip in the PLAYER'S MESSAGE (player_action_scope) or in the reply ("13\u70B951\u5206", "\u5927\u69822\u5206\u949F", "two hours later", "\u508D\u665A") anchors scene_end and wins over estimates. A clock someone in the reply reads or states as the time now ("\u90FD\u5FEB\u5341\u4E00\u70B9\u4E86", "\u5DF2\u7ECF\u4E09\u70B9\u4E86", "it's 11:30") is the time at that point of the reply: lo is that time plus only what the reply shows after it. precision "approx" for an estimate, "minute" only when a time is stated. current_time.label gives the calendar date with the day number ("2020-07-21 16:25 (D2)": D3 is 2020-07-22). player_time_jump, when given, is where the player's message moves story time, already worked out from their words ("\u7B2C\u4E8C\u5929\u508D\u665A"): the scene starts there, and a reply set at that date and time is right. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback. time_evidence: every expression of time in the player's message (player_action_scope) and the reply \u2014 clock times, parts of the day, other days, amounts of time, skips \u2014 each once, in the order they come, judged by what it says in its sentence, inside dialogue or not and however the dialogue is marked: quote \u2014 the words exactly as written, a short run that contains the expression; kind \u2014 "now" where the story reaches that time at that point: a clock someone reads or states as the time now ("\u90FD\u5FEB\u5341\u4E00\u70B9\u4E86", a phone showing "\u516B\u70B9\u4E8C\u5341\u51FA\u5934", \u300C\u90FD\u5DF2\u7ECF\u516B\u70B9\u4E86\uFF01\u300D), the narration arriving at a time ("\u7B49\u5230\u516B\u70B9\uFF0C\u5979\u7EC8\u4E8E\u6765\u4E86", "\u508D\u665A\u65F6\u5206", "\u7B2C\u4E8C\u5929\u65E9\u4E0A", "\u5929\u5DF2\u7ECF\u9ED1\u4E86", "\u4E00\u89C9\u7761\u5230\u5929\u4EAE"), with at: {lo, hi} the time it means, as scene_end gives times ("\u516B\u70B9\u4E8C\u5341\u51FA\u5934" 8:20 to 8:30, "\u5FEB\u5341\u4E00\u70B9" a few minutes before 11:00, a part of the day its usual clock span for the date); "elapsed" where a stated amount of time passes in the story ("\u53C8\u8D70\u4E86\u5341\u5206\u949F", "\u4E24\u5C0F\u65F6\u540E\uFF0C\u96E8\u505C\u4E86", "\u7B49\u4E86\u4E00\u4E2A\u534A\u5C0F\u65F6"), with minutes; "mentioned" where a time is only spoken of and the story does not get there in this reply \u2014 a plan, an appointment, a deadline, another day, the past, a question ("\u660E\u5929\u516B\u70B9\u89C1", "\u7EA6\u597D\u4E09\u70B9\u5728\u6821\u95E8\u53E3\u96C6\u5408", "\u516B\u70B9\u524D\u5FC5\u987B\u8D76\u5230", "\u6628\u665A\u5341\u70B9\u7684\u4E8B", "\u4ECA\u665A\u6709\u7A7A\u5417"). Not an expression of time: a word that only looks like one ("\u4E00\u70B9\u70B9" is "a little"), a name. [] when there is none. scene_end agrees with it: it is not before a time the story reaches.
    canon_events_now lists the canonical (non-HARD) events whose time window is open around this scene. If the reply depicts one of them happening \u2014 even with other participants (e.g. the player tagging along) or a different course \u2014 record that occurrence with its pack_event_id and a disposition. Decide the result only when the event has CONCLUDED in this reply (its outcome happened, or it can no longer happen as written): "occurred" if its original result holds, "diverged" if the result is different. While it is still under way \u2014 the fight has started, the attack is in progress, nobody has won yet \u2014 use "ongoing": the result is not settled, and the event is judged in the reply where it ends. Never use "diverged" only because the result is not shown yet. An entry with in_progress lists the beats already shown; continue it ("ongoing" again, or "occurred"/"diverged" when it ends). Never file such an event as an ordinary scene beat. A canonical event that already has its result (its window passed) cannot happen again: what the reply shows of it later \u2014 the fight still going, its aftermath \u2014 is its after story: record it with that pack_event_id and disposition "ongoing".
 4. hard_checks for each due HARD contract: fulfilled only if the text actually depicts the required content (named actors/winner) at the right time; not_due if the reply ends before it; missing/contradicted otherwise.
    Caricature (code "character_caricature", blocking): a character of the story acting as a caricature of themselves in a way a reader would notice \u2014 calling themselves by a title or nickname others use for them (\u672C\u5973\u738B for a girl others call \u5973\u738B), using authority they do not have over the player character (an officer demanding a statement, a signature or an account from someone with no incident behind it), or one trait taking over a whole scene against the rest of who they are. Quote it. Ordinary quirks, banter and a character's known manner of speech are not caricature.
@@ -32207,7 +32211,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    player_knowers: what people know about the PLAYER CHARACTER, compared with the "who knows" lines of PLAYER IN THIS WORLD: someone learns about the player more than they knew (also through their own power: reading the player character's mind or memories) \u2014 who they are or their role (level "identity"), a specific secret (level "secrets": about says which), only that their organization exists ("exists"); about: everything they know now. who: the person or group by name, existing_id their registry id or a new_entities ref when they have one, else null. Not: small talk, a passing stranger, a mood of the moment, what the lines already say. quote: verbatim from the reply or the player's message. Nothing changed: empty list.
    statuses: notable states of a person this reply (or player_action_scope) shows beginning, changing or ending \u2014 hurt (where, how badly), bleeding, ill, drunk, exhausted, knocked out, carrying or losing a notable object (equipment is a state: "\u6301\u6709\u9ED1\u952E"), a counted resource spent (count = what is left): who (registry id or new_entities ref), text (short), count when counted, until ("lasting": until it changes; {"minutes": n}: a while), removed: true when it ends; quote (verbatim). Not a passing mood or a gesture. With fight_ruling given, leave out the fighters' changes: the ruling has them.
    fight (only when fight_ruling is not given, for a pack with combat): when the reply itself starts a confrontation the player character is in or sees \u2014 someone attacks, a fight breaks out \u2014: starts true, participants (ids or new_entities refs), quote; resolved_unruled true when the reply then goes on to decide it (blows land, someone wins or loses) instead of stopping where it begins. null when the reply has none.
-   ruling_conflicts (only when fight_ruling is given): every place the reply departs from the ruling \u2014 another result, someone hit who was not, a move the ruling does not have, the fight carried past its stop_at, the player character doing what the player did not write \u2014: quote and why. Embellishment (how it looks, sounds, feels) is not a conflict.
+   ruling_conflicts (only when fight_ruling is given): every place the reply changes what the ruling decided \u2014 another result, someone hit or hurt who was not (or not hit who was), an attack, dodge or escape the ruling does not have, someone arriving or leaving, the fight carried past its stop_at, the player character doing what the player did not write \u2014: quote and why. NOT a conflict: embellishment \u2014 how it looks, sounds and feels, what people say, their taunts, looks, gestures and thoughts \u2014 as long as no result changes; and following the ruling where it rules against the player's message (the ruling has already decided that: its result stands, not the player's words).
 6. violations: ONLY problems that require rewriting the reply \u2014 player-character acts the player did not write whose category is in player_voice.player_only (the controller checks player_actions; what player_voice.gm_may_write allows is wanted, never a violation; an act carrying out what the player wrote \u2014 with its means, incantation or exact words \u2014 is never a violation), contradictions, recollections whose claim check is unsupported (a notable past; small compatible backstory is never a violation), leaking secret knowledge to characters who cannot know it, narration that reveals, quotes or paraphrases player_ooc_instructions or shows the player character weighing or planning them ("she thought: if he comes, I will...") \u2014 code "ooc_leak", engine labels/JSON in prose, skipping a due obligation, time moving backwards. Not violations: story time moving forward within the scene, NPCs present or acting on their own, plausible new scene details, the natural completion of an action the player authorized, a plan step whose window the player's time skip passed narrated as having happened off-screen (record it as an occurrence at its own time, with a step_enactment). Set blocking=true for a problem that must be fixed; if you consider something minor or acceptable, leave it out (or set blocking=false).
 decision: retain (compatible as written), repair (must be revised), conflict (mode=retained only: the message cannot follow the new prefix and no separate credible cause is described in it). mode=retained and the message is not story text at all (out-of-character instructions, a setup or system note, rules or a menu \u2014 often the card's opening message telling the GM how to start): decision retain with no occurrences, transitions, state_claims or violations; it establishes nothing.
 SHAPE: {"decision":"retain","scene_end":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0},"precision":"minute"},"flashback":false,"time_evidence":[{"quote":"","kind":"now","at":{"lo":{"day":0,"minute":0},"hi":{"day":0,"minute":0}},"minutes":null}],"claim_checks":[{"claim_id":"c1","verdict":"consistent","record_ids":[],"note":""}],"transitions":[{"op":"set","entity_id":"","predicate":"","value":true,"until":"lasting","quote":"","occurrence_ref":null}],"occurrences":[{"ref":"o1","title":"","account":"","actors":[],"affected":[],"locations":[],"time":null,"causes":[],"quote":"","pack_event_id":null,"disposition":null,"ref_phrases":[],"continues":null,"backstory":false,"visibility":"public","knowers":[],"origin":"gm"}],"state_claims":[{"entity_id":"","predicate":"","value":true,"quote":""}],"player_actions":[{"quote":"","authorized_by_quote":null,"category":"dialogue"}],"step_enactments":[{"step_id":"s1","occurrence_ref":"o1","quote":""}],"new_entities":[{"ref":"n1","name":"","kind":"person","description":"","quote":""}],"violations":[{"code":"","quote":"","detail":"","blocking":true}],"hard_checks":[{"event_id":"","status":"not_due","occurrence_ref":null,"quote":null}],"scene_entities":[],"summary":"","contacts":[{"quote":"","actors":[],"kind":"invitation","scope_kind":"event","scope_ref":"","scope_label":"","opportunity_id":null}],"relations":[{"people":["",""],"bond":"","views":[{"who":"","sees":""}],"address":[{"by":"","to":"","term":"","use":"usually","when":"","quote":""}],"together":"","ended":false,"quote":""}],"present":[],"player_knowers":[{"who":"","existing_id":null,"level":"identity","about":"","quote":""}],"statuses":[{"who":"","text":"","count":null,"until":"lasting","removed":false,"quote":""}],"fight":null,"ruling_conflicts":[{"quote":"","why":""}]}`,
@@ -34704,7 +34708,9 @@ async function judgeFight(a) {
   const objectiveOk = (b) => objective.has(b.ref) || sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref));
   const exchanges = [];
   const stands = [];
-  for (const x of out.exchanges || []) {
+  for (const x0 of out.exchanges || []) {
+    const ov = x0.overrides;
+    const x = { ...x0, overrides: typeof ov === "string" ? ov.trim() ? { quote: ov.trim(), why: "" } : null : ov && typeof ov === "object" && String(ov.quote || "").trim() ? { quote: String(ov.quote), why: String(ov.why || "") } : null };
     const actor = fighters.includes(x.actor) ? x.actor : (() => {
       const r = index.resolveEntity(String(x.actor));
       return r.ids.length === 1 && fighters.includes(r.ids[0]) ? r.ids[0] : null;
@@ -37321,7 +37327,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       message: entry.text,
       ...oocParts.length ? { ooc_parts: oocParts } : {},
       persona,
-      current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
+      current_time: { label: formatTick(tick, origin), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...this.currentFrameInput(index, tick),
       registry: this.registry(index, entry.text, prof ? [prof.profile.playerId] : []),
       occurrences: this.occurrenceCatalogue(index, entry.text),
@@ -37911,8 +37917,12 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       candidate: a.text,
       player_action_scope: a.userEntry ? this.ooc(a.userEntry.text).story : "",
       ...a.userEntry && this.ooc(a.userEntry.text).ooc.length ? { player_ooc_instructions: this.ooc(a.userEntry.text).ooc } : {},
-      current_time: { label: formatTick(tick), day: Math.floor(tick / 1440), minute: tick % 1440 },
+      current_time: { label: formatTick(tick, this.campaign()?.binding.originDate || null), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...a.mode !== "retained" ? this.horaeTimeHint() : {},
+      ...(() => {
+        const j = a.jumpTo ?? this.jumpOf(a.userEntry, tick);
+        return j ? { player_time_jump: { to: formatTick(j, this.campaign()?.binding.originDate || null), day: Math.floor(j / 1440), minute: j % 1440 } } : {};
+      })(),
       retrieved_context: packet.text,
       claims: claims.map((c2) => ({ id: c2.id, quote: c2.quote, kind: c2.kind, assertion: c2.assertion, expected: c2.expected })),
       references: refs.map((r) => ({ id: r.id, quote: r.quote, kind: r.kind, assertion: r.assertion })),
@@ -38400,7 +38410,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
           if (fightNow(rIndex.state).ongoing) {
             this.setStatus("planning", "Judging the fight\u2026");
             try {
-              ruling = await this.timeStep("combat", this.judge(rIndex, prof?.profile ?? null, userEntry, userInterp, prevGm, prevGmInterp, cp, abort.signal, operationId));
+              ruling = await this.timeStep("fight", this.judge(rIndex, prof?.profile ?? null, userEntry, userInterp, prevGm, prevGmInterp, jumpTo ?? cp, abort.signal, operationId));
             } catch (e) {
               if (e instanceof EngineError && e.kind === "cancelled") throw e;
               combatFailed = true;
@@ -38595,7 +38605,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
           interp.dependsOn = interp.dependsOn.filter((d) => d.messageId !== continuedEntry.messageId);
         }
         if (ruling) {
-          interp.records.push(rulingRecord(ruling, { lo: clock, hi: clock, precision: "minute" }, (id) => this.fighterName(rIndex, prof?.profile ?? null, id)));
+          interp.records.push(rulingRecord(ruling, { lo: jumpTo ?? clock, hi: jumpTo ?? clock, precision: "minute" }, (id) => this.fighterName(rIndex, prof?.profile ?? null, id)));
           interp.combat = ruling;
         }
         if (interp.sceneEnd && !interp.flashback && interp.sceneEnd.lo > clock) interp.records.push(this.timeAdvance(interp.sceneEnd, commitId));
