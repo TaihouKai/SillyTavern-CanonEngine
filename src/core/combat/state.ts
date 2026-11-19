@@ -3,7 +3,7 @@
 import type { AbilityPart, CombatLinkChange, CombatNode, CombatSource, CombatStyleVersion, FightChange, Id, LedgerRecord, StatusChange, StyleChange, Witnessed } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import type { WorldState } from '../domain/reducer';
-import { normalizeName } from '../domain/pack';
+import { eventTime, normalizeName } from '../domain/pack';
 
 /** A combat change as replayed (record order). */
 export type Replayed<T> = T & { recordId: string; seq: number; tick: number };
@@ -126,14 +126,18 @@ export interface Walk { nodes: WalkedNode[]; /** reached but left out for the bu
 
 /** What a fight needs from the combat graph: from the people in it, the place and the objects used, their links
  *  (depth 1) and their precedents, then outward along node links up to maxDepth. The walk never goes into another
- *  entity (from "magic" it does not reach every magus). Nodes up to fullDepth come whole, further ones as their gist;
- *  nodes reached from more of the starts come first; past the budget the furthest are left out (listed in cut). */
+ *  entity (from "magic" it does not reach every magus). Nodes up to fullDepth come whole, further ones as their gist.
+ *  Order (what the budget keeps first): what the starts are linked to; the original fights between two or more of them;
+ *  depth 2; further out; then up to PRECEDENTS_EACH other fights of each (those already over in the story first, the
+ *  nearest in time first). Within each, the starts take turns, so no one's long history crowds out another's
+ *  abilities. Past the budget the rest is left out (listed in cut). */
+export const PRECEDENTS_EACH = 3;
 export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts: { maxDepth: number; fullDepth: number; budgetChars: number; tick?: number; /** only what holds without filled-in links (what can stand against the player's words). */ objective?: boolean }): Walk {
   const tick = opts.tick ?? state.clock.lo;
-  const seen = new Map<Id, { depth: number; from: Set<Id>; via: string }>();
+  const seen = new Map<Id, { depth: number; from: Set<Id>; via: string; order: number }>();
   const reach = (node: Id, depth: number, from: Id, via: string) => {
     const s = seen.get(node);
-    if (!s) { seen.set(node, { depth, from: new Set([from]), via }); return true; }
+    if (!s) { seen.set(node, { depth, from: new Set([from]), via, order: seen.size }); return true; }
     s.from.add(from);
     if (depth < s.depth) { s.depth = depth; s.via = via; return true; }
     return false;
@@ -153,15 +157,41 @@ export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts:
       frontier = next;
     }
   }
-  const list = [...seen.entries()].map(([id, s]) => ({ node: L.combat.nodes.get(id)!, depth: s.depth, full: s.depth <= opts.fullDepth, from: [...s.from], via: s.via }))
-    .sort((a, b) => a.depth - b.depth || b.from.length - a.from.length || a.node.id.localeCompare(b.node.id));
+  const startSet = new Set(starts);
+  const startAt = new Map(starts.map((x, i) => [x, i]));
+  const when = (n: CombatNode) => (n.event_id ? eventTime(L, n.event_id) : null);
+  const tierOf = (n: CombatNode, depth: number) =>
+    n.kind === 'precedent' ? ((n.who || []).filter((x) => startSet.has(x)).length >= 2 ? 1 : 4) : depth <= 1 ? 0 : depth === 2 ? 2 : 3;
+  const all = [...seen.entries()].map(([id, s]) => {
+    const node = L.combat.nodes.get(id)!;
+    const from = [...s.from].sort((a, b) => startAt.get(a)! - startAt.get(b)!);
+    const t = when(node);
+    return { node, depth: s.depth, full: s.depth <= opts.fullDepth, from, via: s.via, tier: tierOf(node, s.depth), order: s.order,
+      // precedents: over in the story before now first, then the nearest in time
+      past: t && t.hi <= tick ? 0 : 1, distance: t ? Math.abs(t.lo - tick) : Infinity };
+  });
+  all.sort((a, b) => a.tier - b.tier || b.from.length - a.from.length || a.past - b.past || a.distance - b.distance || a.order - b.order);
+  // the starts take turns within each tier (a node's turn: how many of its first start's came before it there)
+  const turns = new Map<string, number>(), each = new Map<Id, number>();
+  const ranked: (typeof all[number] & { turn: number })[] = [];
+  for (const w of all) {
+    if (w.tier === 4) {   // only a few other fights of each
+      if (!w.from.some((x) => (each.get(x) || 0) < PRECEDENTS_EACH)) continue;
+      w.from.forEach((x) => each.set(x, (each.get(x) || 0) + 1));
+    }
+    const k = `${w.tier}|${w.from[0]}`;
+    const turn = turns.get(k) || 0;
+    turns.set(k, turn + 1);
+    ranked.push({ ...w, turn });
+  }
+  const list = ranked.sort((a, b) => a.tier - b.tier || a.turn - b.turn || startAt.get(a.from[0])! - startAt.get(b.from[0])!);
   const nodes: WalkedNode[] = [], cut: Id[] = [];
   let chars = 0;
   for (const w of list) {
     const size = (w.full ? w.node.text.length + (w.node.parts || []).reduce((n, p) => n + p.text.length, 0) : w.node.gist.length) + w.node.name.length + 20;
-    if (chars + size > opts.budgetChars && nodes.length) { cut.push(w.node.id); continue; }
+    if (cut.length || (chars + size > opts.budgetChars && nodes.length)) { cut.push(w.node.id); continue; }   // in order: once over, the rest is out
     chars += size;
-    nodes.push(w);
+    nodes.push({ node: w.node, depth: w.depth, full: w.full, from: w.from, via: w.via });
   }
   return { nodes, cut, chars };
 }

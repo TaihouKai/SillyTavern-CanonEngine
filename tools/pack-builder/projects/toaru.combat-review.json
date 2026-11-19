@@ -31,7 +31,7 @@
   "arrowhead-comet": "drop: 一次事件里的武器，不会再用",
   "arthurian-legend": "drop: 传说来源，不是机制",
   "artificial-angel": "keep",
-  "artificial-valkyrie": "keep",
+  "artificial-valkyrie": "drop: 包内没有可确认的后天女武神（剪牛仔裤狂魔只写「有女武神的性质」）",
   "astrology": "drop: 占卜体系",
   "battle-nun": "keep",
   "battle-nun-in-training": "drop: 与战斗修女重复（英文）",
@@ -1962,7 +1962,60 @@
     ]
    }
   },
-  "stiyl-magnus": "keep",
+  "stiyl-magnus": {
+   "edit": {
+    "links": [
+     {
+      "node": "magician",
+      "label": "是",
+      "from_event": null,
+      "until_event": null
+     },
+     {
+      "node": "anglican-church",
+      "label": "所属",
+      "from_event": null,
+      "until_event": null
+     },
+     {
+      "node": "crossist",
+      "label": "是",
+      "from_event": null,
+      "until_event": null
+     },
+     {
+      "node": "rune-card",
+      "label": "能力",
+      "from_event": null,
+      "until_event": null
+     },
+     {
+      "node": "opila-rune",
+      "label": "能力",
+      "from_event": null,
+      "until_event": null
+     },
+     {
+      "node": "elemental-color-boost",
+      "label": "能力",
+      "from_event": null,
+      "until_event": null
+     },
+     {
+      "node": "magic-circle",
+      "label": "能力",
+      "from_event": null,
+      "until_event": null
+     },
+     {
+      "node": "hrungnir-stone",
+      "label": "持有",
+      "from_event": null,
+      "until_event": null
+     }
+    ]
+   }
+  },
   "othinus": "keep",
   "uiharu-kazari": "keep",
   "saten-ruiko": {
@@ -8322,7 +8375,24 @@
   "kihara-ransuu": "keep",
   "amano-kaguya": "keep",
   "watanabe": "keep",
-  "jeans-slasher": "keep",
+  "jeans-slasher": {
+   "edit": {
+    "links": [
+     {
+      "node": "magician",
+      "label": "是",
+      "from_event": null,
+      "until_event": null
+     },
+     {
+      "node": "christianity",
+      "label": "是",
+      "from_event": null,
+      "until_event": null
+     }
+    ]
+   }
+  },
   "keshouin-asuka": {
    "edit": {
     "links": [

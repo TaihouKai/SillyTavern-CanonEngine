@@ -26733,6 +26733,9 @@ function indexRelations(pack2) {
   }
   return { relations, relationsOf, relationsAt };
 }
+function eventTime(pack2, id) {
+  return pack2.timeIndex.find((t2) => t2.id === id) || null;
+}
 function loadPinnedPack(pack2) {
   const r = validatePack(pack2);
   if (!r.ok || !r.loaded) throw new Error("Pinned pack snapshot failed validation: " + r.errors.map((e) => `${e.path} ${e.message}`).join("; "));
@@ -26850,13 +26853,14 @@ function knowsNode(L, state, who, nodeId, part) {
   if (linksOf(L, state, who).some((l) => l.node === nodeId)) return true;
   return state.combat.witnessed.some((w) => w.node === nodeId && (!w.part || !part || w.part === part) && w.who.includes(who));
 }
+var PRECEDENTS_EACH = 3;
 function walkCombat(L, state, starts, opts) {
   const tick = opts.tick ?? state.clock.lo;
   const seen = /* @__PURE__ */ new Map();
   const reach = (node, depth, from, via) => {
     const s = seen.get(node);
     if (!s) {
-      seen.set(node, { depth, from: /* @__PURE__ */ new Set([from]), via });
+      seen.set(node, { depth, from: /* @__PURE__ */ new Set([from]), via, order: seen.size });
       return true;
     }
     s.from.add(from);
@@ -26889,17 +26893,51 @@ function walkCombat(L, state, starts, opts) {
       frontier = next;
     }
   }
-  const list = [...seen.entries()].map(([id, s]) => ({ node: L.combat.nodes.get(id), depth: s.depth, full: s.depth <= opts.fullDepth, from: [...s.from], via: s.via })).sort((a, b) => a.depth - b.depth || b.from.length - a.from.length || a.node.id.localeCompare(b.node.id));
+  const startSet = new Set(starts);
+  const startAt = new Map(starts.map((x, i) => [x, i]));
+  const when2 = (n) => n.event_id ? eventTime(L, n.event_id) : null;
+  const tierOf = (n, depth) => n.kind === "precedent" ? (n.who || []).filter((x) => startSet.has(x)).length >= 2 ? 1 : 4 : depth <= 1 ? 0 : depth === 2 ? 2 : 3;
+  const all = [...seen.entries()].map(([id, s]) => {
+    const node = L.combat.nodes.get(id);
+    const from = [...s.from].sort((a, b) => startAt.get(a) - startAt.get(b));
+    const t2 = when2(node);
+    return {
+      node,
+      depth: s.depth,
+      full: s.depth <= opts.fullDepth,
+      from,
+      via: s.via,
+      tier: tierOf(node, s.depth),
+      order: s.order,
+      // precedents: over in the story before now first, then the nearest in time
+      past: t2 && t2.hi <= tick ? 0 : 1,
+      distance: t2 ? Math.abs(t2.lo - tick) : Infinity
+    };
+  });
+  all.sort((a, b) => a.tier - b.tier || b.from.length - a.from.length || a.past - b.past || a.distance - b.distance || a.order - b.order);
+  const turns = /* @__PURE__ */ new Map(), each = /* @__PURE__ */ new Map();
+  const ranked = [];
+  for (const w of all) {
+    if (w.tier === 4) {
+      if (!w.from.some((x) => (each.get(x) || 0) < PRECEDENTS_EACH)) continue;
+      w.from.forEach((x) => each.set(x, (each.get(x) || 0) + 1));
+    }
+    const k = `${w.tier}|${w.from[0]}`;
+    const turn = turns.get(k) || 0;
+    turns.set(k, turn + 1);
+    ranked.push({ ...w, turn });
+  }
+  const list = ranked.sort((a, b) => a.tier - b.tier || a.turn - b.turn || startAt.get(a.from[0]) - startAt.get(b.from[0]));
   const nodes = [], cut = [];
   let chars = 0;
   for (const w of list) {
     const size = (w.full ? w.node.text.length + (w.node.parts || []).reduce((n, p) => n + p.text.length, 0) : w.node.gist.length) + w.node.name.length + 20;
-    if (chars + size > opts.budgetChars && nodes.length) {
+    if (cut.length || chars + size > opts.budgetChars && nodes.length) {
       cut.push(w.node.id);
       continue;
     }
     chars += size;
-    nodes.push(w);
+    nodes.push({ node: w.node, depth: w.depth, full: w.full, from: w.from, via: w.via });
   }
   return { nodes, cut, chars };
 }

@@ -127,17 +127,6 @@
    ]
   },
   {
-   "id": "artificial-valkyrie",
-   "kind": "concept",
-   "name": "后天女武神",
-   "gist": "将普通人类扭曲要害部位改造成女武神性质的产物，具备复原能力。",
-   "text": "后天女武神（人工女武神）是将普通人类以特殊方式转换成女武神的产物，特殊方式指扭曲普通人类的要害部位使其拥有女武神性质。她们身着骑乘套装、背负西洋剑、耳配羽毛坠饰。欧提努斯制造并派出数十名后天女武神袭击布伦希尔德，以趁乱获取主神之枪的情报。其中一名在被踢爆后仍能在散落的身体组织中造出巨大脸庞说话并试图重塑身体，可能意味着女武神拥有强大的复原能力。",
-   "origin": "setting",
-   "owner_ids": [
-    "othinus"
-   ]
-  },
-  {
    "id": "battle-nun",
    "kind": "concept",
    "name": "战斗修女",
@@ -32866,14 +32855,6 @@
   },
   {
    "from": "stiyl-magnus",
-   "to": "walking-church-cb",
-   "label": "持有",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "stiyl-magnus",
    "to": "hrungnir-stone",
    "label": "持有",
    "from_event": null,
@@ -48020,14 +48001,6 @@
    "from": "jeans-slasher",
    "to": "magician",
    "label": "是",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "jeans-slasher",
-   "to": "artificial-valkyrie",
-   "label": "持有",
    "from_event": null,
    "until_event": null,
    "origin": "people"

@@ -120,10 +120,26 @@ describe('combat as this game has it', () => {
     const L = load(demoRaw());
     const st = reduce(L, []);
     const w = walkCombat(L, st, ['mira', 'union'], { maxDepth: 3, fullDepth: 1, budgetChars: 10000 });
-    expect(w.nodes.map((n) => `${n.node.id}@${n.depth}${n.full ? '' : '~'}`)).toEqual(['cb-ambush@1', 'cb-emergency-care@1', 'cb-ordinary@1', 'cb-soldier@1', 'cb-firearms@2~']);
+    // the fighters' own links first, taking turns; then further out; an original fight of only one of them last
+    expect(w.nodes.map((n) => `${n.node.id}@${n.depth}${n.full ? '' : '~'}`)).toEqual(['cb-ordinary@1', 'cb-soldier@1', 'cb-emergency-care@1', 'cb-firearms@2~', 'cb-ambush@1']);
+    // a fight between two of the fighters comes right after their links
+    expect(walkCombat(L, st, ['mira', 'council'], { maxDepth: 3, fullDepth: 1, budgetChars: 10000 }).nodes.map((n) => n.node.id).indexOf('cb-ambush')).toBeLessThanOrEqual(3);
     expect(walkCombat(L, st, ['mira'], { maxDepth: 1, fullDepth: 1, budgetChars: 10000 }).nodes.map((n) => n.node.id)).not.toContain('cb-firearms');
     const tight = walkCombat(L, st, ['mira', 'union'], { maxDepth: 3, fullDepth: 1, budgetChars: 400 });
     expect(tight.cut.length).toBeGreaterThan(0);
     expect(tight.cut).toContain('cb-firearms');
+  });
+
+  it('CS5b a long history does not crowd out another fighter: a few other fights each, past ones first, after the abilities of everyone', () => {
+    const raw = demoRaw();
+    const ev = raw.events.map((e) => e.id);
+    for (let i = 0; i < 30; i++) raw.combat!.nodes.push({ id: `cb-fight-${String(i).padStart(2, '0')}`, kind: 'precedent', name: `Fight ${i}`, gist: 'x'.repeat(40), text: 'y'.repeat(400), who: ['mira'], event_id: ev[i % ev.length], source_refs: ['example-source'] } as never);
+    const L = load(raw);
+    const st = reduce(L, []);
+    const w = walkCombat(L, st, ['mira', 'union'], { maxDepth: 3, fullDepth: 1, budgetChars: 1800 });
+    const ids = w.nodes.map((n) => n.node.id);
+    expect(ids).toContain('cb-soldier');   // union's own, not crowded out by mira's thirty fights
+    const all = walkCombat(L, st, ['mira', 'union'], { maxDepth: 3, fullDepth: 1, budgetChars: Infinity }).nodes.filter((n) => n.node.kind === 'precedent');
+    expect(all.length).toBe(3);
   });
 });
