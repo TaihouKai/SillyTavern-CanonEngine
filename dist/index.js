@@ -35931,23 +35931,32 @@ function gateHostility(h, ev, a) {
     changes.push({ holder: g.holder, why: g.why, quote: g.quote, comes: g.comes, ended: "reconciled", source: "play" });
   }
   let danger;
+  let fight;
   if (h.due && a.draft) {
     const hostile = a.records.filter((r) => r.contact && r.contact.contactKind === "hostile");
     const started = a.records.some((r) => r.fight?.ongoing);
+    const begin = (people, why) => {
+      if (!started && h.playerId) fight = { ongoing: true, participants: uniq([h.playerId, ...people]).filter((x) => x === h.playerId || a.isPerson(x)), source: "engine", why };
+    };
     if (h.due.kind === "grudge") {
       const g = h.due.grudge;
+      const came = hostile.filter((r) => r.contact.actors.includes(g.holder));
       if (fought.has(g.holder)) {
-      } else if (hostile.some((r) => r.contact.actors.includes(g.holder))) changes.push({ holder: g.holder, why: g.why, quote: g.quote, comes: tick + 1440, source: "play" });
-      else violations.push(`${name2(g.holder)} holds a grudge against the player character (${g.why}) and comes for them in this reply, but the reply does not show it. Bring them in where the player character is \u2014 waiting on the way, at a door, catching up in the street \u2014 and stop where the attack begins; leave what the player character does to the player.`);
+      } else if (came.length) {
+        begin([g.holder, ...came.flatMap((r) => r.contact.actors)], `${name2(g.holder)} comes for the player (grudge: ${g.why})`);
+        changes.push({ holder: g.holder, why: g.why, quote: g.quote, comes: g.comes, ended: "avenged", source: "play" });
+      } else violations.push(`${name2(g.holder)} holds a grudge against the player character (${g.why}) and comes for them in this reply, but the reply does not show it. Bring them in where the player character is \u2014 waiting on the way, at a door, catching up in the street \u2014 and stop where the attack begins; leave what the player character does to the player.`);
     } else {
-      if (started || hostile.length) danger = { node: h.due.node.id, place: h.due.from };
-      else violations.push(`The danger of this place and hour reaches the player character in this reply (${h.due.node.name}), but the reply does not show it. Bring in people of the sort it says, who pick the player character, and stop where the attack begins; leave what the player character does to the player.`);
+      if (started || hostile.length) {
+        danger = { node: h.due.node.id, place: h.due.from };
+        begin(hostile.flatMap((r) => r.contact.actors), `${h.due.node.name}`);
+      } else violations.push(`The danger of this place and hour reaches the player character in this reply (${h.due.node.name}), but the reply does not show it. Bring in people of the sort it says, who pick the player character, and stop where the attack begins; leave what the player character does to the player.`);
     }
   }
   const records = [];
-  if (changes.length || danger) {
-    const summary = [...changes.map((c) => `${name2(c.holder)}: ${c.ended ? `grudge over (${c.ended})` : "grudge against the player"}`), ...danger ? [`danger: ${a.index.pack.combat.nodes.get(danger.node)?.name || danger.node}`] : []].join("; ");
-    records.push(hostilityRecord(a.sceneEnd, [], summary, { grudges: uniqChanges(changes), ...danger ? { danger } : {} }));
+  if (changes.length || danger || fight) {
+    const summary = [...changes.map((c) => `${name2(c.holder)}: ${c.ended ? `grudge over (${c.ended})` : "grudge against the player"}`), ...danger ? [`danger: ${a.index.pack.combat.nodes.get(danger.node)?.name || danger.node}`] : [], ...fight ? ["a fight begins"] : []].join("; ");
+    records.push(hostilityRecord(a.sceneEnd, [], summary, { grudges: uniqChanges(changes), ...danger ? { danger } : {}, ...fight && fight.participants.length >= 2 ? { fight } : {} }));
   }
   return { records, violations, warnings };
 }

@@ -75,6 +75,23 @@ describe('主动敌对: the world comes for the player', () => {
     expect(st(x).hostility.grudges.at(-1)).toMatchObject({ holder: thug, ended: 'avenged' });
   });
 
+  it('HO1b when they come at the player and the review saw no fight yet, the code starts it (live: the reply stopped as the attack began, the review called it a hostile contact)', async () => {
+    const x = await setup();
+    await turn(x, 'I knock the thug down.', [{ text: "The thug spits: \"Tomorrow night.\" [J1]", evaluate: {
+      scene_end: at(1, 7, 0), new_entities: [{ ref: 'n1', name: 'Thug', kind: 'person', description: 'a thug', quote: 'The thug' }],
+      grudges: [{ who: 'n1', why: 'knocked down', quote: 'Tomorrow night.', comes: { day: 2, minute: 20 * 60 } }],
+    } }]);
+    const thug = grudgesNow(st(x))[0].holder;
+    await turn(x, 'I sleep until the next evening.', [{ text: 'You sleep. [J2]', evaluate: { scene_end: at(2, 20, 30) } }]);
+    await turn(x, 'I walk down the harbor road.', [{ text: 'The Thug blocks the road and raises a pipe at you. [J3]', evaluate: {
+      scene_end: at(2, 20, 45), contacts: [{ quote: 'raises a pipe at you', actors: [thug], kind: 'hostile', scope_kind: 'storyline', scope_label: 'revenge', opportunity_id: null }],
+    } }]);
+    expect(x.host.chat.at(-1)!.text).toContain('[J3]');
+    expect(fightNow(st(x))).toMatchObject({ ongoing: true, source: 'engine' });
+    expect(fightNow(st(x)).participants).toEqual([me(x), thug]);
+    expect(grudgesNow(st(x))).toEqual([]);
+  });
+
   it('HO2 a grudge needs its words in the text; without a time it comes the next evening; one the reply settles ends', async () => {
     const x = await setup();
     await turn(x, 'I shove Mira aside.', [{ text: 'Mira glares: "You will regret this." [H4]', evaluate: {
