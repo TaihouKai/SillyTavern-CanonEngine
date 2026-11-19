@@ -10161,7 +10161,7 @@ function validate73(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate73.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 var combat = validate74;
-var schema116 = { "type": "object", "properties": { "exchanges": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "actor": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 800 }, "basis": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 160 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["ref"], "additionalProperties": false } }, "unsupported": { "type": "boolean" } }, "required": ["actor", "text", "basis"], "additionalProperties": false } }, "statuses": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 120 }, "count": { "anyOf": [{ "type": "number" }, { "type": "null" }] }, "until": { "anyOf": [{ "const": "lasting" }, { "type": "object", "properties": { "minutes": { "type": "number" } }, "required": ["minutes"], "additionalProperties": false }, { "type": "object", "properties": { "event": { "type": "string" } }, "required": ["event"], "additionalProperties": false }, { "type": "null" }] }, "node": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] }, "removed": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["who", "text"], "additionalProperties": false } }, "witnessed": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "node": { "type": "string", "maxLength": 120 }, "part": { "anyOf": [{ "enum": ["principle", "effect", "conditions", "cost", "limits", "counters"] }, { "type": "null" }] }, "who": { "type": "array", "items": { "type": "string", "maxLength": 120 } } }, "required": ["node", "who"], "additionalProperties": false } }, "over": { "type": "boolean" }, "over_why": { "type": "string", "maxLength": 300 }, "stop_at": { "type": "string", "maxLength": 300 }, "player_outcomes": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 300 }, "stands": { "type": "boolean" }, "basis": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 160 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["ref"], "additionalProperties": false } }, "why": { "type": "string", "maxLength": 300 } }, "required": ["quote", "stands"], "additionalProperties": false } } }, "required": ["player_outcomes", "exchanges", "statuses", "over"], "additionalProperties": false, "$id": "urn:canon-engine:combat" };
+var schema116 = { "type": "object", "properties": { "exchanges": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "actor": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 800 }, "basis": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 160 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["ref"], "additionalProperties": false } }, "unsupported": { "type": "boolean" } }, "required": ["actor", "text", "basis"], "additionalProperties": false } }, "statuses": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 120 }, "count": { "anyOf": [{ "type": "number" }, { "type": "null" }] }, "until": { "anyOf": [{ "const": "lasting" }, { "type": "object", "properties": { "minutes": { "type": "number" } }, "required": ["minutes"], "additionalProperties": false }, { "type": "object", "properties": { "event": { "type": "string" } }, "required": ["event"], "additionalProperties": false }, { "type": "null" }] }, "node": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] }, "removed": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["who", "text"], "additionalProperties": false } }, "witnessed": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "node": { "type": "string", "maxLength": 120 }, "part": { "anyOf": [{ "enum": ["principle", "effect", "conditions", "cost", "limits", "counters"] }, { "type": "null" }] }, "who": { "type": "array", "items": { "type": "string", "maxLength": 120 } } }, "required": ["node", "who"], "additionalProperties": false } }, "over": { "type": "boolean" }, "over_why": { "type": "string", "maxLength": 300 }, "stop_at": { "type": "string", "maxLength": 300 }, "player_outcomes": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 300 }, "stands": { "type": "boolean" }, "basis": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 160 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["ref"], "additionalProperties": false } }, "why": { "type": "string", "maxLength": 300 } }, "required": ["quote", "stands"], "additionalProperties": false } }, "joins": { "type": "array", "maxItems": 8, "items": { "type": "string", "maxLength": 120 } } }, "required": ["player_outcomes", "exchanges", "statuses", "over"], "additionalProperties": false, "$id": "urn:canon-engine:combat" };
 function validate74(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -10211,7 +10211,7 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
       errors++;
     }
     for (const key0 in data) {
-      if (!(key0 === "exchanges" || key0 === "statuses" || key0 === "witnessed" || key0 === "over" || key0 === "over_why" || key0 === "stop_at" || key0 === "player_outcomes")) {
+      if (!(key0 === "exchanges" || key0 === "statuses" || key0 === "witnessed" || key0 === "over" || key0 === "over_why" || key0 === "stop_at" || key0 === "player_outcomes" || key0 === "joins")) {
         const err4 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
           vErrors = [err4];
@@ -11284,12 +11284,57 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
+    if (data.joins !== void 0) {
+      let data38 = data.joins;
+      if (Array.isArray(data38)) {
+        if (data38.length > 8) {
+          const err96 = { instancePath: instancePath + "/joins", schemaPath: "#/properties/joins/maxItems", keyword: "maxItems", params: { limit: 8 }, message: "must NOT have more than 8 items" };
+          if (vErrors === null) {
+            vErrors = [err96];
+          } else {
+            vErrors.push(err96);
+          }
+          errors++;
+        }
+        const len7 = data38.length;
+        for (let i7 = 0; i7 < len7; i7++) {
+          let data39 = data38[i7];
+          if (typeof data39 === "string") {
+            if (func2(data39) > 120) {
+              const err97 = { instancePath: instancePath + "/joins/" + i7, schemaPath: "#/properties/joins/items/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+              if (vErrors === null) {
+                vErrors = [err97];
+              } else {
+                vErrors.push(err97);
+              }
+              errors++;
+            }
+          } else {
+            const err98 = { instancePath: instancePath + "/joins/" + i7, schemaPath: "#/properties/joins/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err98];
+            } else {
+              vErrors.push(err98);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err99 = { instancePath: instancePath + "/joins", schemaPath: "#/properties/joins/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err99];
+        } else {
+          vErrors.push(err99);
+        }
+        errors++;
+      }
+    }
   } else {
-    const err96 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err100 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err96];
+      vErrors = [err100];
     } else {
-      vErrors.push(err96);
+      vErrors.push(err100);
     }
     errors++;
   }
@@ -31606,6 +31651,14 @@ var combat_schema_default = {
         ],
         additionalProperties: false
       }
+    },
+    joins: {
+      type: "array",
+      maxItems: 8,
+      items: {
+        type: "string",
+        maxLength: 120
+      }
     }
   },
   required: [
@@ -32335,7 +32388,7 @@ TASK: Final review of a candidate GM reply (or of a retained transcript message 
    relations: how this reply (or the player's message, player_action_scope) begins, changes or ends a relationship between two people who matter in the story \u2014 the player character (player_entity) and anyone else alike \u2014 compared with RELATIONSHIPS and the player's connections in PLAYER IN THIS WORLD (retrieved_context): a meeting that matters beyond the moment (an introduction with a reason to meet again), becoming friends, allies, rivals or enemies, falling in love, dating, a falling-out, a debt or favor owed, trust won or broken, a family tie revealed, a form of address taken up or given up (a nickname offered and then used, starting to call the other by the given name, a cold surname after a falling-out \u2014 a change of its own, even in a light exchange and when nothing else between them changes), a change in how one of them treats the other (also one the reply shows as already so where RELATIONSHIPS says otherwise: "\u59D0\u59D0\u7ED9\u5FA1\u5742\u4E70\u4E86\u51B0\u6DC7\u6DCB" from a sister RELATIONSHIPS calls distant), one of them dying (ended: true) or the tie broken off for good (ended: true). people: the two, each by registry id or new_entities ref (a person met in this reply who matters gets a new_entities entry). The change is merged into the relationship as RELATIONSHIPS has it: a part you give replaces that part, a part you leave out stays as it is \u2014 so give anew every part this change makes untrue (a falling-out: each side's regard, how they are together, and each form of address that no longer fits \u2014 a pet name dropped, a cold surname or an insult in its place; growing close: the new name they use), and for two with no line there, every side the reply shows. bond: what they are to each other now, one short phrase in the story's language, the whole of it, not only the change ("\u540C\u73ED\u540C\u5B66\uFF0C\u521A\u548C\u597D\u7684\u670B\u53CB"); "" when it does not change (only for two with a line in RELATIONSHIPS or the player's connections); never forms of address \u2014 they go in address. views: each side that changes \u2014 who (one of the two), sees (how they regard and treat the other now, one sentence; "" when unchanged); for the player character only what the player's message or the reply makes plain, never a feeling you assume for them. address: each form of address between the two that changes, as FORMS OF ADDRESS has them: a new form, one used otherwise now, or one no longer used \u2014 by: the one who uses it, to: the one called so (the other of the two); a form is the speaker's own: "\u7231\u4E3D\u4E1D starts calling \u7F8E\u7434 \u300C\u7535\u7535\u300D" is by \u7231\u4E3D\u4E1D to \u7F8E\u7434, also where \u7F8E\u7434 puts up with the name, objects to it or repeats it; term: the form itself as the text has it, nothing else; use: always (the only form by uses for to now), usually, sometimes (with when: in what situation) or dropped (no longer used); quote: verbatim, the words where by calls or names to so (or stops), with the term in it \u2014 from the reply, or for the player character from the player's message; [] when none changes; never the other's plain full name; a form only when the reply makes it how by addresses to from now on \u2014 someone starts calling them so, a nickname is given \u2014 not a form used once, and never a form that is another person's for that one (\u59D0\u59D0\u5927\u4EBA is \u767D\u4E95\u9ED1\u5B50's for \u5FA1\u5742\u7F8E\u7434: someone else using it is a mistake of the reply, not a change); the player character's forms only when the player's own message gives them \u2014 the player calling someone by a new name in their message ("\u5C0F\u9ED1\uFF0C\u65E9\uFF01") is one. together: how the two are when together now, when that changes ("" when unchanged). Not: small talk (a form of address someone takes up is not small talk), a passing stranger, a mood of the moment, what RELATIONSHIPS already says. quote: verbatim from the reply or the player's message. Nothing changed: empty list.
    present: the people physically with the player character where the reply ends \u2014 in the same place, able to see or hear each other (on the phone or a video call counts); registry ids or new_entities refs. Not people only talked about, remembered, watched on a screen or elsewhere in the city.
    player_knowers: what people know about the PLAYER CHARACTER, compared with the "who knows" lines of PLAYER IN THIS WORLD: someone learns about the player more than they knew (also through their own power: reading the player character's mind or memories) \u2014 who they are or their role (level "identity"), a specific secret (level "secrets": about says which), only that their organization exists ("exists"); about: everything they know now. who: the person or group by name, existing_id their registry id or a new_entities ref when they have one, else null. Not: small talk, a passing stranger, a mood of the moment, what the lines already say. quote: verbatim from the reply or the player's message. Nothing changed: empty list.
-   statuses: notable states of a person this reply (or player_action_scope) shows beginning, changing or ending \u2014 hurt (where, how badly), bleeding, ill, drunk, exhausted, knocked out, carrying or losing a notable object (equipment is a state: "\u6301\u6709\u9ED1\u952E"), a counted resource spent (count = what is left): who (registry id or new_entities ref), text (a few words), count when counted, until ({"minutes": n} for what passes by itself \u2014 numbness, a daze, being drunk; "lasting" for what stays until treated or changed \u2014 a fracture, an object held), removed: true when it ends (healed, put down, given away; a state in STATES the reply shows gone); quote (verbatim). Not a passing mood or a gesture. With fight_ruling given, leave out the fighters' changes: the ruling has them.
+   statuses: notable states of a person this reply (or player_action_scope) shows beginning, changing or ending \u2014 hurt (where, how badly), bleeding, ill, drunk, exhausted, knocked out, carrying or losing a notable object (equipment is a state: "\u6301\u6709\u9ED1\u952E"), a counted resource spent (count = what is left): who (registry id or new_entities ref), text (a few words), count when counted, until ({"minutes": n} for what passes by itself \u2014 numbness, a daze, being drunk; "lasting" for what stays until treated or changed \u2014 a fracture, an object held), removed: true when it ends (healed, put down, given away; a state in STATES the reply shows gone); a state in STATES that changes (numbness wearing off to stiffness): removed: true for it by its exact text in STATES, and the new one. quote (verbatim). Not a passing mood or a gesture. With fight_ruling given, leave out the fighters' changes: the ruling has them.
    fight (only when fight_ruling is not given, for a pack with combat): when the reply itself starts a confrontation the player character is in or sees \u2014 someone attacks, a fight breaks out \u2014: starts true, participants (ids or new_entities refs), quote; resolved_unruled true when the reply then goes on to decide it (blows land, someone wins or loses) instead of stopping where it begins. null when the reply has none.
    ruling_conflicts (only when fight_ruling is given): every place the reply changes what the ruling decided \u2014 another result, someone hit or hurt who was not (or not hit who was), an attack, dodge or escape the ruling does not have, someone arriving or leaving, the fight carried past its stop_at, the player character doing what the player did not write \u2014: quote and why. NOT a conflict: embellishment \u2014 how it looks, sounds and feels, what people say, their taunts, looks, gestures and thoughts \u2014 as long as no result changes; and following the ruling where it rules against the player's message (the ruling has already decided that: its result stands, not the player's words).
 6. violations: ONLY problems that require rewriting the reply \u2014 player-character acts the player did not write whose category is in player_voice.player_only (the controller checks player_actions; what player_voice.gm_may_write allows is wanted, never a violation; an act carrying out what the player wrote \u2014 with its means, incantation or exact words \u2014 is never a violation), contradictions, recollections whose claim check is unsupported (a notable past; small compatible backstory is never a violation), leaking secret knowledge to characters who cannot know it, narration that reveals, quotes or paraphrases player_ooc_instructions or shows the player character weighing or planning them ("she thought: if he comes, I will...") \u2014 code "ooc_leak", engine labels/JSON in prose, skipping a due obligation, time moving backwards. Not violations: a reply that follows fight_ruling where it differs from the player's message (the ruling decided it: its player_words_that_do_not_happen do not happen, whatever the message says), story time moving forward within the scene, NPCs present or acting on their own, plausible new scene details, the natural completion of an action the player authorized, a plan step whose window the player's time skip passed narrated as having happened off-screen (record it as an occurrence at its own time, with a step_enactment). Set blocking=true for a problem that must be fixed; if you consider something minor or acceptable, leave it out (or set blocking=false).
@@ -32413,12 +32466,13 @@ Input: basis (what this world runs on by default); fighters (id, name, descripti
 1. Authority: an objective mechanism (a node, a source) > what the player's message establishes > your judgement. What the player writes their own character does, and what that act physically does \u2014 they pull the trigger and the bullet hits \u2014 happens. What it then does to someone else beyond what the player wrote is yours to judge by the mechanisms.
    player_outcomes: EVERY outcome the player's message states for the player character's act \u2014 a hit, a cut, a wound, a kill, someone falling, an escape, an object taken \u2014 once each, quote = the player's words, verbatim. stands: true when it happens as written; false ONLY when an objective mechanism stops it (a reflection, a precognitive dodge, a body that such a blow cannot harm): then basis (node ids; a source ref with its words, verbatim) and why. Without such a mechanism it stands, whatever you would judge. [] when the message states no outcome. outcomes_that_stand, when given: these happen as written \u2014 rule the rest around them.
 2. basis for every exchange: the refs you decided by \u2014 node ids, source refs (with quote) \u2014 or [{"ref":"judgement"}] with unsupported true when nothing in the input decides it; then judge by the common sense of this world's basis. A node's text is the setting: use it as written, do not invent powers, weaknesses or rules it does not have.
-3. Everyone but the player character acts as their \u5BF9\u6297\u503E\u5411 and their relations with the others say (shocking a friend for fun is play; someone who wants to die does not dodge; someone who never kills holds back), and only on what they know: they go for a weakness only if knows lists it for them. The player character does nothing the player's message does not say: you decide how the world answers it.
+3. present: people here who are not in the fight. joins: those of them who join it this turn of their own accord \u2014 as their \u5BF9\u6297\u503E\u5411 and their relations with the fighters say (a friend steps in for a friend; a \u98CE\u7EAA\u59D4\u5458 stops a fight) \u2014: they act in exchanges from then on. Nobody joins only to help the story along. [] when nobody does.
+   Everyone but the player character acts as their \u5BF9\u6297\u503E\u5411 and their relations with the others say (shocking a friend for fun is play; someone who wants to die does not dodge; someone who never kills holds back), and only on what they know: they go for a weakness only if knows lists it for them. The player character does nothing the player's message does not say: you decide how the world answers it.
 4. This turn only: from what the player's message does to the next moment the player character must decide (an attack coming at them, a choice to make); say that moment in stop_at. exchanges in the order they happen: actor (a fighter id), text \u2014 who does what, with what result, plainly; the game master writes the prose.
 5. statuses: every change of a fighter's state this turn: hurt (where, how badly), bleeding, knocked out ({"minutes": n}), exhausted, a transformation, a counted resource spent (count = what is left), an object lost, taken or picked up. who = fighter id, text short (a few words: "\u5DE6\u81C2\u9AA8\u6298", "\u53F3\u81C2\u53D1\u9EBB", "\u4EE4\u5492", "\u5931\u53BB\u6B66\u5668"), until {"minutes": n} for what passes by itself (numbness, being dazed or out of breath, a short transformation: how long it takes to pass), "lasting" only for what stays until treated or changed (a fracture, a deep cut, an object lost or held, a counted resource); removed: true when a state ends. quote: "".
 6. witnessed: an ability (or one of its parts) someone sees used: node id, part or null, who saw it (fighter ids).
 7. over: true when the fight ends this turn (someone beaten, fled, surrendered, both stop); over_why.
-SHAPE: {"player_outcomes":[{"quote":"","stands":true,"basis":[{"ref":"","quote":""}],"why":""}],"exchanges":[{"actor":"","text":"","basis":[{"ref":"","quote":""}],"unsupported":false}],"statuses":[{"who":"","text":"","count":null,"until":"lasting","node":null,"removed":false,"quote":""}],"witnessed":[{"node":"","part":null,"who":[]}],"over":false,"over_why":"","stop_at":""}`,
+SHAPE: {"joins":[],"player_outcomes":[{"quote":"","stands":true,"basis":[{"ref":"","quote":""}],"why":""}],"exchanges":[{"actor":"","text":"","basis":[{"ref":"","quote":""}],"unsupported":false}],"statuses":[{"who":"","text":"","count":null,"until":"lasting","node":null,"removed":false,"quote":""}],"witnessed":[{"node":"","part":null,"who":[]}],"over":false,"over_why":"","stop_at":""}`,
   combat_fill: `${COMMON}
 TASK: The people listed are in a fight, and nothing in the setting says what they are as fighters. For each, choose from concepts (the setting's: id | name | gist) those that describe them in a fight \u2014 at most 3, with a short label ("\u662F") \u2014 judging only by their description, the sources given for them and the scene. Choose nothing that nothing supports: an ordinary passer-by is an ordinary person, not a fighter. When needs_style is true, also write their \u5BF9\u6297\u503E\u5411 from the same evidence, a sentence each: start (when they start a fight), force (how much strength they use, whether they kill), response (what they do when attacked), limit (whom or what they would risk their life for), stop (when they give up or stop); "\u7167\u5E38\u4EBA" where nothing sets them apart. needs_style false: style null.
 SHAPE: {"people":[{"who":"","links":[{"node":"","label":""}],"style":{"start":"","force":"","response":"","limit":"","stop":""}}]}`,
@@ -34748,6 +34802,7 @@ async function judgeFight(a) {
   const now = fightNow(a.index.state);
   if (!now.ongoing) return null;
   const fighters = now.participants.filter((id) => a.index.entityExists(id));
+  const bystanders = uniq((a.present || []).filter((id) => a.index.entityExists(id) && !fighters.includes(id) && id !== a.playerId)).slice(0, 8);
   if (fighters.length < 1) return null;
   const notes = [];
   const name2 = (id) => id === a.playerId ? a.personaName || a.index.entityName(id) : a.index.entityName(id);
@@ -34790,7 +34845,7 @@ async function judgeFight(a) {
     }
     if (filled.links.length || filled.styles.length) index = a.overlay([rec({ lo: a.index.state.clock.lo, hi: a.index.state.clock.lo, precision: "minute" }, [], "filled in", { combatLinks: filled.links, styles: filled.styles })]);
   }
-  const starts = uniq([...fighters, ...a.places]);
+  const starts = uniq([...fighters, ...bystanders, ...a.places]);
   const walk2 = walkCombat(L, index.state, starts, a.settings);
   const objective = new Set(walkCombat(L, index.state, starts, { ...a.settings, budgetChars: Infinity, objective: true }).nodes.map((w) => w.node.id));
   const sourceText = /* @__PURE__ */ new Map();
@@ -34827,6 +34882,7 @@ async function judgeFight(a) {
     sources: [...sourceText].map(([ref, text]) => ({ ref, text: text.slice(0, 3e3) })),
     relations,
     knows,
+    present: bystanders.map((id) => ({ id, name: name2(id), description: describe(id), style: styleOf(L, index.state, id)?.style || null, linked: linksOf(L, index.state, id).map((l) => `${l.label} ${l.node}`), relations: fighters.map((f) => index.relationNow(id, f)).filter(Boolean).map((r) => r.bond) })),
     player_message: a.playerMessage,
     statements: a.statements,
     recent: a.recent.slice(-2e3)
@@ -34864,6 +34920,11 @@ async function judgeFight(a) {
     }
   }
   const outcomes = checked.list;
+  const joined = uniq((out.joins || []).map((x) => bystanders.includes(x) ? x : (() => {
+    const r = index.resolveEntity(String(x));
+    return r.ids.length === 1 && bystanders.includes(r.ids[0]) ? r.ids[0] : null;
+  })()).filter((x) => !!x));
+  fighters.push(...joined);
   const exchanges = [];
   for (const x of out.exchanges || []) {
     const actor = fighters.includes(x.actor) ? x.actor : (() => {
@@ -34902,7 +34963,7 @@ async function judgeFight(a) {
     const who = (w.who || []).filter((x) => fighters.includes(x) || a.index.entityExists(x));
     if (who.length) witnessed.push({ node: w.node, ...w.part && ABILITY_PARTS.includes(w.part) ? { part: w.part } : {}, who });
   }
-  return { fighters, exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || "").slice(0, 300), stopAt: String(out.stop_at || "").slice(0, 300), outcomes, stands, filled, cut: walk2.cut, notes };
+  return { fighters, joined, exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || "").slice(0, 300), stopAt: String(out.stop_at || "").slice(0, 300), outcomes, stands, filled, cut: walk2.cut, notes };
 }
 function rulingRecord(r, st, names) {
   return rec(st, [], `Fight ruled: ${r.exchanges.map((x) => `${names(x.actor)}: ${x.text}`).join(" / ")}`, {
@@ -34910,7 +34971,7 @@ function rulingRecord(r, st, names) {
     ...r.filled.styles.length ? { styles: r.filled.styles } : {},
     ...r.statuses.length ? { statuses: r.statuses } : {},
     ...r.witnessed.length ? { witnessed: r.witnessed } : {},
-    ...r.over ? { fight: { ongoing: false, participants: r.fighters, source: "engine", why: r.overWhy } } : {},
+    ...r.over ? { fight: { ongoing: false, participants: r.fighters, source: "engine", why: r.overWhy } } : r.joined.length ? { fight: { ongoing: true, participants: r.fighters, source: "engine", why: `joined: ${r.joined.map(names).join(", ")}` } } : {},
     evidenceKind: "adjudication"
   });
 }
@@ -36756,6 +36817,7 @@ function combatView(idx, spoilers, player, origin, rulings) {
       stopped: (r.outcomes || []).filter((o) => !o.stands).map((o) => ({ quote: o.quote, why: o.why, basis: o.basis.map((b) => (L.combat.nodes.get(b.ref)?.name || b.ref) + (b.quote ? `\u300C${b.quote}\u300D` : "")) })),
       states: r.statuses.map((x) => `${name2(x.entity)}\uFF1A${x.removed ? "\u2212" : ""}${x.text}${x.count != null ? ` \xD7${x.count}` : ""}`),
       stands: r.stands,
+      joined: (r.joined || []).map(name2),
       over: r.over,
       overWhy: r.overWhy,
       stopAt: r.stopAt,
@@ -37801,6 +37863,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       recent: prevGm ? prevGm.text.slice(-2e3) : "",
       timeLabel: formatTick(tick, this.campaign()?.binding.originDate || null),
       places,
+      present: prevGmInterp?.present || [],
       settings: { maxDepth: this.settings.combatMaxDepth ?? DEFAULT_COMBAT.maxDepth, fullDepth: this.settings.combatFullDepth ?? DEFAULT_COMBAT.fullDepth, budgetChars: this.settings.combatBudgetChars ?? DEFAULT_COMBAT.budgetChars },
       signal,
       operationId,
@@ -40565,6 +40628,7 @@ var D = {
   combatOverrides: { zh: "\u63A8\u7FFB\u4E86\u73A9\u5BB6\u5199\u7684\uFF1A", en: "Overrides the player's words: " },
   combatStands: { zh: "\u73A9\u5BB6\u5199\u7684\u6210\u7ACB\uFF08\u5224\u5B9A\u63A8\u7FFB\u5B83\u4F46\u6CA1\u6709\u5BA2\u89C2\u4F9D\u636E\uFF09\uFF1A", en: "The player's words stand (ruled against without an objective mechanism): " },
   combatStop: { zh: "\u505C\u5728\uFF1A", en: "Stops at: " },
+  combatJoined: { zh: "\u52A0\u5165\u6218\u6597", en: "Joined" },
   combatOver: { zh: "\u6218\u6597\u7ED3\u675F\uFF1A", en: "Fight over: " },
   combatFilled: { zh: "\u8865\u586B\uFF08\u7EA7\u522B\u6700\u4F4E\uFF09\uFF1A", en: "Filled in (lowest source): " },
   combatNotes: { zh: "\u4EE3\u7801\u6838\u5BF9\uFF1A", en: "Checks: " },
@@ -41664,7 +41728,7 @@ var GraphPanel = class {
     const q = this.filter.q.trim().toLowerCase();
     const src = (s) => `<span class="cg-hint">${esc(t("combatSrc_" + s))}</span>`;
     const fight = v.fight.ongoing ? `<div class="cg-cbfight cg-cbon"><b>${esc(t("combatFightOn").replace("{p}", v.fight.people.map((p) => p.name).join("\u3001")).replace("{t}", v.fight.since || ""))}</b> <button class="menu_button" data-act="cb-fight-off" title="${esc(t("combatEndTip"))}">${t("combatEnd")}</button></div>` : `<div class="cg-cbfight"><span>${t("combatFightOff")}</span> <button class="menu_button" data-act="cb-fight-on" title="${esc(t("combatStartTip"))}">${t("combatStart")}</button></div>`;
-    const ruling = (r, i) => `<details class="cg-nperson"${i === 0 ? " open" : ""}><summary>${esc(r.when)}${r.over ? ` <span class="cg-key">${esc(t("combatOver"))}${esc(r.overWhy)}</span>` : ""}</summary>` + (r.stopped.length ? r.stopped.map((o) => `<div class="cg-nfield">${esc(t("combatOverrides"))}\xAB${esc(o.quote)}\xBB\uFF1A${esc(o.why)}<div class="cg-hint">${esc(o.basis.join("\uFF1B"))}</div></div>`).join("") : "") + `<ol class="cg-cbex">${r.exchanges.map((x) => `<li><b>${esc(x.who)}</b>\uFF1A${esc(x.text)}<div class="cg-hint">${x.unsupported ? esc(t("combatUnsupported")) : esc(x.basis.join("\uFF1B"))}</div></li>`).join("")}</ol>` + (r.states.length ? `<div class="cg-nfield"><b>${t("combatStates")}</b>${esc(r.states.join("\uFF1B"))}</div>` : "") + (r.stands.length ? `<div class="cg-nfield">${esc(t("combatStands"))}${r.stands.map((s) => `\xAB${esc(s)}\xBB`).join(" ")}</div>` : "") + (!r.over && r.stopAt ? `<div class="cg-hint">${esc(t("combatStop"))}${esc(r.stopAt)}</div>` : "") + (r.filled.length ? `<div class="cg-hint">${esc(t("combatFilled"))}${esc(r.filled.join("\uFF1B"))}</div>` : "") + (r.notes.length ? `<div class="cg-hint">${esc(t("combatNotes"))}${esc(r.notes.join("\uFF1B"))}</div>` : "") + "</details>";
+    const ruling = (r, i) => `<details class="cg-nperson"${i === 0 ? " open" : ""}><summary>${esc(r.when)}${r.over ? ` <span class="cg-key">${esc(t("combatOver"))}${esc(r.overWhy)}</span>` : ""}</summary>` + (r.joined?.length ? `<div class="cg-nfield"><b>${t("combatJoined")}</b>${esc(r.joined.join("\u3001"))}</div>` : "") + (r.stopped.length ? r.stopped.map((o) => `<div class="cg-nfield">${esc(t("combatOverrides"))}\xAB${esc(o.quote)}\xBB\uFF1A${esc(o.why)}<div class="cg-hint">${esc(o.basis.join("\uFF1B"))}</div></div>`).join("") : "") + `<ol class="cg-cbex">${r.exchanges.map((x) => `<li><b>${esc(x.who)}</b>\uFF1A${esc(x.text)}<div class="cg-hint">${x.unsupported ? esc(t("combatUnsupported")) : esc(x.basis.join("\uFF1B"))}</div></li>`).join("")}</ol>` + (r.states.length ? `<div class="cg-nfield"><b>${t("combatStates")}</b>${esc(r.states.join("\uFF1B"))}</div>` : "") + (r.stands.length ? `<div class="cg-nfield">${esc(t("combatStands"))}${r.stands.map((s) => `\xAB${esc(s)}\xBB`).join(" ")}</div>` : "") + (!r.over && r.stopAt ? `<div class="cg-hint">${esc(t("combatStop"))}${esc(r.stopAt)}</div>` : "") + (r.filled.length ? `<div class="cg-hint">${esc(t("combatFilled"))}${esc(r.filled.join("\uFF1B"))}</div>` : "") + (r.notes.length ? `<div class="cg-hint">${esc(t("combatNotes"))}${esc(r.notes.join("\uFF1B"))}</div>` : "") + "</details>";
     const rulings = v.rulings.length ? v.rulings.map(ruling).join("") : `<div class="cg-empty">${t("combatNoRulings")}</div>`;
     const people = v.people.filter((p) => !q || p.name.toLowerCase().includes(q));
     const keys = ["start", "force", "response", "limit", "stop"];

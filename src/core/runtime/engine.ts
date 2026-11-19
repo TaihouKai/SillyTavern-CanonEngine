@@ -1072,7 +1072,7 @@ export class CanonEngine {
       playerMessage: userEntry ? this.ooc(userEntry.text).story : '',
       statements: [...told, ...(userInterp?.intents || []).map((i) => i.summary)],
       recent: prevGm ? prevGm.text.slice(-2000) : '', timeLabel: formatTick(tick, this.campaign()?.binding.originDate || null),
-      places,
+      places, present: prevGmInterp?.present || [],
       settings: { maxDepth: this.settings.combatMaxDepth ?? DEFAULT_COMBAT.maxDepth, fullDepth: this.settings.combatFullDepth ?? DEFAULT_COMBAT.fullDepth, budgetChars: this.settings.combatBudgetChars ?? DEFAULT_COMBAT.budgetChars },
       signal, operationId, log: (l) => this.debugLog('task', l),
     });

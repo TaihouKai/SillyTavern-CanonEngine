@@ -163,3 +163,21 @@ describe('the 战斗 view and the player\'s corrections', () => {
     expect(fightNow(st(x))).toMatchObject({ ongoing: true, participants: ['mira', me(x)], source: 'ui' });
   });
 });
+
+describe('someone here joins', () => {
+  it('CF7 a person present who is not in the fight may join it of their own accord: they act, and they are in the fight from then on', async () => {
+    const x = await setup();
+    await turn(x, 'I talk with Mira on the pier.', 'Mira listens. [F11]', { evaluate: { present: ['mira'] } });
+    await turn(x, 'A thug shoves me; I shove him back.', 'He stumbles. [F12]', {
+      extract: { fight: { state: 'starts', participants: ['Thug'], new_people: [{ name: 'Thug', description: 'a thug', quote: 'A thug' }] } },
+      combat: (i: any) => ({ joins: i.present.map((p: any) => p.id), player_outcomes: [], exchanges: [{ actor: me(x), text: 'Ash shoves him back.', basis: [{ ref: 'judgement' }] }, { actor: 'mira', text: 'Mira pulls Ash away from him.', basis: [{ ref: 'cb-emergency-care' }] }], statuses: [], over: false }),
+    });
+    const ci = x.model.tasks('combat').at(-1)!.input;
+    expect(ci.present.map((p: any) => p.id)).toEqual(['mira']);
+    expect(ci.nodes.map((n: any) => n.id)).toContain('cb-emergency-care');
+    const r = x.engine.current!.replay.applied.at(-1)!.interp.combat!;
+    expect(r.joined).toEqual(['mira']);
+    expect(r.exchanges.map((e) => e.actor)).toContain('mira');
+    expect(fightNow(st(x)).participants).toContain('mira');
+  });
+});

@@ -115,7 +115,7 @@ export function relationsView(idx: WorldIndex, spoilers: boolean, player?: Id | 
 export interface CombatViewData {
   none: string | null; basis: string;
   fight: { ongoing: boolean; people: { id: Id; name: string }[]; source: string | null; since: string | null };
-  rulings: { when: string; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean }[]; stopped: { quote: string; why: string; basis: string[] }[]; states: string[]; stands: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
+  rulings: { when: string; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean }[]; stopped: { quote: string; why: string; basis: string[] }[]; states: string[]; stands: string[]; joined: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
   people: { id: Id; name: string; player?: boolean; fighting?: boolean; states: { text: string; count: number | null; until: string; source: string }[]; style: { start: string; force: string; response: string; limit: string; stop: string; source: string } | null; links: { node: string; name: string; kind: string; label: string; source: string }[] }[];
   hidden: number;
 }
@@ -146,7 +146,7 @@ export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null
       exchanges: r.exchanges.map((x) => ({ who: name(x.actor), text: x.text, basis: x.basis.map((b) => (L.combat.nodes.get(b.ref)?.name || b.ref) + (b.quote ? `「${b.quote}」` : '')), ...(x.unsupported ? { unsupported: true } : {}) })),
       stopped: (r.outcomes || []).filter((o) => !o.stands).map((o) => ({ quote: o.quote, why: o.why, basis: o.basis.map((b) => (L.combat.nodes.get(b.ref)?.name || b.ref) + (b.quote ? `「${b.quote}」` : '')) })),
       states: r.statuses.map((x) => `${name(x.entity)}：${x.removed ? '−' : ''}${x.text}${x.count != null ? ` ×${x.count}` : ''}`),
-      stands: r.stands, over: r.over, overWhy: r.overWhy, stopAt: r.stopAt,
+      stands: r.stands, joined: (r.joined || []).map(name), over: r.over, overWhy: r.overWhy, stopAt: r.stopAt,
       filled: [...r.filled.links.map((l) => `${name(l.entity)} → ${L.combat.nodes.get(l.node)?.name || l.node}`), ...r.filled.styles.map((x) => `${name(x.entity)}：对抗倾向`)],
       notes: r.notes,
     })),

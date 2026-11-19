@@ -230,6 +230,14 @@
     ],
     "additionalProperties": false
    }
+  },
+  "joins": {
+   "type": "array",
+   "maxItems": 8,
+   "items": {
+    "type": "string",
+    "maxLength": 120
+   }
   }
  },
  "required": [

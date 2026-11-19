@@ -77,6 +77,8 @@ export interface Ruling {
   statuses: StatusChange[];
   witnessed: Witnessed[];
   over: boolean; overWhy: string; stopAt: string;
+  /** People here who joined the fight this turn on their own. */
+  joined: Id[];
   /** Each outcome the player's message states, standing or stopped by an objective mechanism (the code holds it so). */
   outcomes: PlayerOutcome[];
   /** The player's words that stand although the analysis ruled against them without an objective mechanism. */
@@ -88,7 +90,7 @@ export interface Ruling {
   notes: string[];
 }
 
-interface CombatOut { player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; over: boolean; over_why?: string; stop_at?: string }
+interface CombatOut { joins?: string[]; player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; over: boolean; over_why?: string; stop_at?: string }
 interface FillOut { people: { who: string; links: { node: string; label: string }[]; style?: { start: string; force: string; response: string; limit: string; stop: string } | null }[] }
 
 /** Lorebook entries about someone: an entry whose title is their name, or one of whose keys is in a name of theirs. */
@@ -109,6 +111,8 @@ export async function judgeFight(a: {
   port: ModelPort; index: WorldIndex; overlay: (records: RecordDraft[]) => WorldIndex;
   playerId: Id | null; personaName: string; personaText: string; lore: LoreEntry[];
   playerMessage: string; statements: string[]; recent: string; timeLabel: string; places: Id[];
+  /** The people here not (yet) in the fight: they may join it on their own. */
+  present?: Id[];
   settings: CombatSettings; signal?: AbortSignal; operationId: string; log?: (l: unknown) => void;
 }): Promise<Ruling | null> {
   const L = a.index.pack;
@@ -116,6 +120,7 @@ export async function judgeFight(a: {
   const now = fightNow(a.index.state);
   if (!now.ongoing) return null;
   const fighters = now.participants.filter((id) => a.index.entityExists(id));
+  const bystanders = uniq((a.present || []).filter((id) => a.index.entityExists(id) && !fighters.includes(id) && id !== a.playerId)).slice(0, 8);
   if (fighters.length < 1) return null;
   const notes: string[] = [];
   const name = (id: Id) => (id === a.playerId ? a.personaName || a.index.entityName(id) : a.index.entityName(id));
@@ -153,7 +158,8 @@ export async function judgeFight(a: {
   }
 
   // 2. what the fight needs
-  const starts = uniq([...fighters, ...a.places]);
+  // (the people here who may join are walked from too: what they can do is part of the turn)
+  const starts = uniq([...fighters, ...bystanders, ...a.places]);
   const walk = walkCombat(L, index.state, starts, a.settings);
   const objective = new Set(walkCombat(L, index.state, starts, { ...a.settings, budgetChars: Infinity, objective: true }).nodes.map((w) => w.node.id));
   const sourceText = new Map<string, string>();
@@ -183,6 +189,7 @@ export async function judgeFight(a: {
     })),
     sources: [...sourceText].map(([ref, text]) => ({ ref, text: text.slice(0, 3000) })),
     relations, knows,
+    present: bystanders.map((id) => ({ id, name: name(id), description: describe(id), style: styleOf(L, index.state, id)?.style || null, linked: linksOf(L, index.state, id).map((l) => `${l.label} ${l.node}`), relations: fighters.map((f) => index.relationNow(id, f)).filter(Boolean).map((r) => r!.bond) })),
     player_message: a.playerMessage, statements: a.statements, recent: a.recent.slice(-2000),
   };
   const ask = (extra: object) => callStructured<CombatOut>(a.port, 'combat', PROMPTS.combat, { ...input, ...extra }, { signal: a.signal, operationId: a.operationId, log: a.log });
@@ -213,6 +220,8 @@ export async function judgeFight(a: {
     for (const q of checked.unfounded) { stands.push(q); checked.list.push({ quote: q, stands: true, why: 'no objective mechanism stops it', basis: [] }); }
   }
   const outcomes = checked.list;
+  const joined = uniq((out.joins || []).map((x) => (bystanders.includes(x) ? x : (() => { const r = index.resolveEntity(String(x)); return r.ids.length === 1 && bystanders.includes(r.ids[0]) ? r.ids[0] : null; })())).filter((x): x is Id => !!x));
+  fighters.push(...joined);
   const exchanges: RulingExchange[] = [];
   for (const x of out.exchanges || []) {
     const actor = fighters.includes(x.actor) ? x.actor : (() => { const r = index.resolveEntity(String(x.actor)); return r.ids.length === 1 && fighters.includes(r.ids[0]) ? r.ids[0] : null; })();
@@ -235,7 +244,7 @@ export async function judgeFight(a: {
     const who = (w.who || []).filter((x) => fighters.includes(x) || a.index.entityExists(x));
     if (who.length) witnessed.push({ node: w.node, ...(w.part && (ABILITY_PARTS as readonly string[]).includes(w.part) ? { part: w.part as Witnessed['part'] } : {}), who });
   }
-  return { fighters, exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || '').slice(0, 300), stopAt: String(out.stop_at || '').slice(0, 300), outcomes, stands, filled, cut: walk.cut, notes };
+  return { fighters, joined, exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || '').slice(0, 300), stopAt: String(out.stop_at || '').slice(0, 300), outcomes, stands, filled, cut: walk.cut, notes };
 }
 
 /** What the ruling records with the reply: what was filled in, the states, who saw what, the fight's end. */
@@ -245,7 +254,7 @@ export function rulingRecord(r: Ruling, st: StoryTime, names: (id: Id) => string
     ...(r.filled.styles.length ? { styles: r.filled.styles } : {}),
     ...(r.statuses.length ? { statuses: r.statuses } : {}),
     ...(r.witnessed.length ? { witnessed: r.witnessed } : {}),
-    ...(r.over ? { fight: { ongoing: false, participants: r.fighters, source: 'engine' as const, why: r.overWhy } } : {}),
+    ...(r.over ? { fight: { ongoing: false, participants: r.fighters, source: 'engine' as const, why: r.overWhy } } : r.joined.length ? { fight: { ongoing: true, participants: r.fighters, source: 'engine' as const, why: `joined: ${r.joined.map(names).join(', ')}` } } : {}),
     evidenceKind: 'adjudication',
   });
 }

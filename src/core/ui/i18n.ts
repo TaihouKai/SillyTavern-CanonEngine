@@ -119,6 +119,7 @@ const D: Record<string, { zh: string; en: string }> = {
   combatOverrides: { zh: '推翻了玩家写的：', en: "Overrides the player's words: " },
   combatStands: { zh: '玩家写的成立（判定推翻它但没有客观依据）：', en: "The player's words stand (ruled against without an objective mechanism): " },
   combatStop: { zh: '停在：', en: 'Stops at: ' },
+  combatJoined: { zh: '加入战斗', en: 'Joined' },
   combatOver: { zh: '战斗结束：', en: 'Fight over: ' },
   combatFilled: { zh: '补填（级别最低）：', en: 'Filled in (lowest source): ' },
   combatNotes: { zh: '代码核对：', en: 'Checks: ' },
