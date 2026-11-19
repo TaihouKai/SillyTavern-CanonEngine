@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ } from './fake';
-import { ROOT } from './helpers';
+import { ROOT, ordinary } from './helpers';
 import { playedProfile, recognitionGroups } from '../../src/core/runtime/integration';
 import { PROMPTS } from '../../src/core/runtime/prompts';
 import { lintPack, validatePackText } from '../../src/core/domain/pack';
@@ -25,7 +25,7 @@ const RELATION = {
 };
 function pack(rel: unknown[] = [RELATION]) {
   const p = structuredClone(base);
-  p.entities.push({ id: 'tomas', name: 'Tomas', aliases: [], kind: 'person', static_description: 'A net mender on the harbor road.', source_refs: [base.sources[0].id] });
+  p.entities.push({ id: 'tomas', name: 'Tomas', aliases: [], kind: 'person', static_description: 'A net mender on the harbor road.', source_refs: [base.sources[0].id] }); ordinary(p);
   // Tomas hides Mira in the ambush: he is in that event (a stage starts only at an event both are in)
   p.events.find((e: any) => e.id === 'medic-ambush').entity_ids.push('tomas');
   p.relations = rel;

@@ -75,6 +75,27 @@ export interface PackEntity {
   nature?: NatureVersion[];
   /** 思考方式: how the person thinks (see MindProfile). */
   mind?: MindProfile;
+  /** 对抗倾向: how the person acts in a confrontation, in versions like 常态 (see CombatStyleVersion). */
+  combat_style?: CombatStyleVersion[];
+}
+/** 对抗倾向: how a person acts in a confrontation, the same five things for anyone in any setting, a sentence each.
+ *  What holds toward one person only (a friend whose shocks are play) is part of the two people's relation, not
+ *  this. "照常人" says nothing sets them apart. Versions as 常态: the first holds at the start, a later one from its
+ *  event. */
+export interface CombatStyleVersion {
+  from_event: Id | null; until_event?: Id | null; why?: string;
+  /** 出手: when they start a fight themselves. */
+  start: string;
+  /** 下手: how much of their strength they use, whether they kill, when they go all out. */
+  force: string;
+  /** 应对: what they do when attacked: fight back, dodge, flee, take it. */
+  response: string;
+  /** 底线: whom or what they would risk their life or give themselves up for. */
+  limit: string;
+  /** 收手: when they give up, retreat or stop. */
+  stop: string;
+  /** Written by a model where the sources say nothing (reviewed by a person like the rest). */
+  generated?: boolean;
 }
 /** How a person thinks: how much effort they put into thinking before they act and how well they reason when they do
  *  are separate (a brawler can be sharp and rarely bother). Those who think before they act get their moves planned
@@ -127,7 +148,41 @@ export interface CanonPack {
   edges: PackEdge[];
   /** How two people stand with each other, in stages (see PackRelation). */
   relations?: PackRelation[];
+  /** 战斗: what a confrontation is judged by (see PackCombat). Every pack says it, if only that it has none. */
+  combat: PackCombat;
 }
+/** What confrontations in this world are judged by. Either `none` (the story has no fighting worth judging: the
+ *  reason) or the rest: `basis`, what the world runs on by default ("real-world physics"), and a graph of nodes —
+ *  concepts, rules, abilities, precedents, dangers — joined by links. People, places and objects of the pack link to
+ *  nodes (in versions, as 常态); the combat analysis takes what is linked from those in a fight, outward. */
+export interface PackCombat {
+  none?: string;
+  basis?: string;
+  nodes?: CombatNode[];
+  links?: CombatLink[];
+}
+export const COMBAT_NODE_KINDS = ['concept', 'rule', 'ability', 'precedent', 'danger'] as const;
+export type CombatNodeKind = (typeof COMBAT_NODE_KINDS)[number];
+export const ABILITY_PARTS = ['principle', 'effect', 'conditions', 'cost', 'limits', 'counters'] as const;
+export type AbilityPart = (typeof ABILITY_PARTS)[number];
+/** One node. gist: one sentence (what the analysis gets for a node further away); text: the whole of it — a
+ *  concept's description, a rule with when it applies, a precedent's result and the reason the story gives.
+ *  An ability is told in parts (how it works, what it does, conditions, cost, limits, known ways to beat it), each
+ *  with who knows it; a precedent names who fought whom and the event. Nodes are public unless their visibility says
+ *  otherwise; a person always knows their own abilities. */
+export interface CombatNode {
+  id: Id; kind: CombatNodeKind; name: string; gist: string; text: string;
+  parts?: { part: AbilityPart; text: string; visibility?: Visibility }[];
+  who?: Id[]; event_id?: Id;
+  visibility?: Visibility;
+  source_refs: Id[];
+  /** Written by a model where the sources say nothing (reviewed by a person like the rest). */
+  generated?: boolean;
+}
+/** A link from an entity (person, place, object) or a node to a node, with what it is ("是", "依赖", "克制"). An
+ *  entity's links hold in versions: from_event (null or absent: from the start) until until_event; between nodes
+ *  they are the setting and always hold. */
+export interface CombatLink { from: Id; to: Id; label: string; from_event?: Id | null; until_event?: Id | null }
 /** How two people of the story stand with each other in the original story. The stages are in story order; one holds
  *  once its from_event has occurred in the branch (null: from the story start) until the next one does. Before the
  *  first holds they do not know each other. Each stage is the whole relation then (a game can start at any time) and,

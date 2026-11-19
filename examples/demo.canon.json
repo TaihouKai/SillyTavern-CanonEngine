@@ -96,6 +96,16 @@
       "static_description": "A medic trained in emergency care.",
       "source_refs": [
         "example-source"
+      ],
+      "combat_style": [
+        {
+          "from_event": null,
+          "start": "Never starts a fight.",
+          "force": "Does not hurt anyone if she can help it; would only push someone away to get to a patient.",
+          "response": "Runs or hides; if cornered, shields the wounded with her body rather than fight.",
+          "limit": "Would risk her life to reach and keep alive someone wounded, friend or enemy.",
+          "stop": "Stops as soon as she can get away or the patient is safe."
+        }
       ]
     },
     {
@@ -685,5 +695,106 @@
       ],
       "note": "The conflict begins before its end."
     }
-  ]
+  ],
+  "combat": {
+    "basis": "Real-world physics and medicine: people are hurt, bleed and die as people do; there is no magic.",
+    "nodes": [
+      {
+        "id": "cb-ordinary",
+        "kind": "concept",
+        "name": "Ordinary person",
+        "gist": "An untrained adult with no weapon.",
+        "text": "An untrained adult: can push, hit and run, but loses to trained or armed attackers and is badly hurt by weapons.",
+        "source_refs": [
+          "example-source"
+        ]
+      },
+      {
+        "id": "cb-soldier",
+        "kind": "concept",
+        "name": "Union soldier",
+        "gist": "A trained fighter with a rifle.",
+        "text": "Trained in close combat and in using a rifle; works in squads; follows orders.",
+        "source_refs": [
+          "example-source"
+        ]
+      },
+      {
+        "id": "cb-firearms",
+        "kind": "rule",
+        "name": "Firearms",
+        "gist": "A bullet that hits can kill; cover stops it.",
+        "text": "A rifle shot that hits the body can kill or disable; solid cover (a wall, a vehicle) stops it; at night or in smoke aim is poor.",
+        "source_refs": [
+          "example-source"
+        ]
+      },
+      {
+        "id": "cb-emergency-care",
+        "kind": "ability",
+        "name": "Emergency care",
+        "gist": "Mira can stop bleeding and keep the wounded alive.",
+        "text": "Mira treats wounds in the field.",
+        "parts": [
+          {
+            "part": "effect",
+            "text": "Stops bleeding, sets fractures and keeps a badly wounded person alive until a hospital."
+          },
+          {
+            "part": "conditions",
+            "text": "Needs her kit and a few minutes without being shot at."
+          },
+          {
+            "part": "limits",
+            "text": "Cannot bring back the dead or heal in moments; does nothing in a fight itself."
+          }
+        ],
+        "source_refs": [
+          "example-source"
+        ]
+      },
+      {
+        "id": "cb-ambush",
+        "kind": "precedent",
+        "name": "Ambush of Mira",
+        "gist": "Council gunmen killed Mira on the harbor road.",
+        "text": "Council gunmen waited on the road out of the harbor and shot Mira, who was alone and unarmed. An unarmed person alone against armed attackers who chose the place dies.",
+        "who": [
+          "mira",
+          "council"
+        ],
+        "event_id": "medic-ambush",
+        "source_refs": [
+          "example-source"
+        ]
+      }
+    ],
+    "links": [
+      {
+        "from": "mira",
+        "to": "cb-ordinary",
+        "label": "is, in a fight"
+      },
+      {
+        "from": "mira",
+        "to": "cb-emergency-care",
+        "label": "has"
+      },
+      {
+        "from": "union",
+        "to": "cb-soldier",
+        "label": "its fighters are"
+      },
+      {
+        "from": "council",
+        "to": "cb-firearms",
+        "label": "its gunmen use"
+      },
+      {
+        "from": "cb-soldier",
+        "to": "cb-firearms",
+        "label": "fights with"
+      }
+    ]
+  }
 }

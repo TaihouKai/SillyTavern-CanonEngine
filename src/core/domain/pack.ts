@@ -8,6 +8,7 @@ import { SUMMARY_LABELS, renderSummary, type EventSummary } from './summary';
 import { deepClone, hashObject, stableStringify } from './util';
 import { MAIN_FRAME, indexFrames, parseLocal, type FrameIndex } from './frames';
 import { ADDRESS_USES, cleanAddress } from './address';
+import { indexCombat, lintCombat, type CombatIndex } from './combat';
 
 export interface LintIssue { level: 'error' | 'warning'; path: string; message: string }
 
@@ -36,6 +37,8 @@ export interface LoadedPack {
   relations: Map<string, PackRelation>;
   relationsOf: Map<Id, string[]>;
   relationsAt: Map<Id, string[]>;
+  /** 战斗: the combat graph (see combat.ts). */
+  combat: CombatIndex;
   warnings: LintIssue[];
 }
 
@@ -499,6 +502,7 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
   lintFrames(pack, entities, err, warn);
   lintNature(pack, err, warn);
   lintRelations(pack, err, warn);
+  lintCombat(pack, err, warn);
   return { errors: dedupeIssues(errors), warnings: dedupeIssues(warnings) };
 }
 
@@ -653,6 +657,7 @@ function buildLoaded(pack: CanonPack, warnings: LintIssue[]): LoadedPack {
     coverage: { start: toTick(pack.coverage.start), end: toTick(pack.coverage.end) },
     frames: indexFrames(pack),
     ...indexRelations(pack),
+    combat: indexCombat(pack),
     warnings,
   };
 }

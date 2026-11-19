@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
-import { ROOT } from './helpers';
+import { ROOT, ordinary } from './helpers';
 
 function membersPack() {
   const p = JSON.parse(readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8'));
@@ -16,7 +16,7 @@ function membersPack() {
   p.entities.push(
     { id: 'ren', name: 'Ren', aliases: [], kind: 'person', static_description: 'A council clerk.', source_refs: refs },
     { id: 'market', name: 'Fish Market', aliases: [], kind: 'place', static_description: 'The harbor fish market.', source_refs: refs },
-  );
+  ); ordinary(p);
   p.initial_state.facts.push({ fact: { entity_id: 'council', predicate: 'members', value: ['ren'] }, source_refs: p.initial_state.facts[0].source_refs, note: 'test' });
   return JSON.stringify(p);
 }

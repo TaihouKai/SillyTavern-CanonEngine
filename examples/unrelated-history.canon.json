@@ -951,5 +951,8 @@
       ],
       "note": "The return follows its loan. Neither event belongs to the conflict chain."
     }
-  ]
+  ],
+  "combat": {
+    "none": "A retrieval fixture about archives and couriers: nobody fights in it."
+  }
 }

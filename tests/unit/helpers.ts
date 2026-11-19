@@ -16,3 +16,15 @@ export function load(raw: CanonPack): LoadedPack {
   return r.loaded;
 }
 export const T = (day: number, h: number, m = 0) => day * 1440 + h * 60 + m;
+/** People a test adds to a pack with combat: 对抗倾向 "照常人" and the demo's ordinary-person node, for each person
+ *  without them (the pack lint wants both). */
+export function ordinary(p: CanonPack): CanonPack {
+  const plain = '照常人';
+  for (const e of p.entities) {
+    if (e.kind !== 'person' || !p.combat || p.combat.none !== undefined) continue;
+    e.combat_style ||= [{ from_event: null, start: plain, force: plain, response: plain, limit: plain, stop: plain }];
+    const node = p.combat.nodes?.find((n) => n.kind === 'concept')?.id;
+    if (node && !(p.combat.links || []).some((l) => l.from === e.id)) (p.combat.links ||= []).push({ from: e.id, to: node, label: 'is, in a fight' });
+  }
+  return p;
+}

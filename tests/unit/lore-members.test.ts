@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
-import { ROOT } from './helpers';
+import { ROOT, ordinary } from './helpers';
 import { lintPack, validatePackText } from '../../src/core/domain/pack';
 import { buildBootstrap } from '../../src/core/domain/schedule';
 import { WorldIndex } from '../../src/core/domain/world-query';
@@ -22,7 +22,7 @@ function membersPack(opts: { deathWithoutUpdate?: boolean } = {}) {
     { id: 'ren', name: 'Ren', aliases: [], kind: 'person', static_description: 'A council clerk.', source_refs: p.entities[0].source_refs },
     { id: 'sol', name: 'Sol', aliases: [], kind: 'person', static_description: 'A council elder.', source_refs: p.entities[0].source_refs },
     { id: 'tal', name: 'Tal', aliases: [], kind: 'person', static_description: 'A union docker.', source_refs: p.entities[0].source_refs },
-  );
+  ); ordinary(p);
   p.initial_state.facts.push(
     { fact: { entity_id: 'council', predicate: 'members', value: ['sol', 'ren'] }, source_refs: p.initial_state.facts[0].source_refs, note: 'test' },
     { fact: { entity_id: 'tal', predicate: 'affiliation', value: 'union' }, source_refs: p.initial_state.facts[0].source_refs, note: 'test' },

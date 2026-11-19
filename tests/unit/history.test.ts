@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
-import { ROOT } from './helpers';
+import { ROOT, ordinary } from './helpers';
 import { checkOpportunities, integrationCandidates } from '../../src/core/runtime/integration';
 import { agoLabel } from '../../src/core/domain/time';
 
@@ -22,7 +22,7 @@ function pack() {
   p.entities.push(
     { id: 'ren', name: 'Ren', aliases: [], kind: 'person', static_description: 'A council clerk.', source_refs: src },
     { id: 'sol', name: 'Sol', aliases: [], kind: 'person', static_description: 'A council elder.', source_refs: src },
-  );
+  ); ordinary(p);
   const fact = (entity_id: string, predicate: string, value: unknown) => ({ fact: { entity_id, predicate, value }, source_refs: p.initial_state.facts[0].source_refs, note: 'test' });
   p.initial_state.facts.push(fact('council', 'members', ['sol', 'ren']), fact('ren', 'alive', true));
   const base = p.events.find((e: any) => e.id === 'harbor-festival');

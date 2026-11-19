@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, occ } from './fake';
-import { ROOT } from './helpers';
+import { ROOT, ordinary } from './helpers';
 import { validatePackText } from '../../src/core/domain/pack';
 import { factAt } from '../../src/core/domain/reducer';
 import { memberships } from '../../src/core/runtime/integration';
@@ -23,7 +23,7 @@ function orgPack(over: (p: any) => void = () => {}) {
   p.entities.push(
     { id: 'ren', name: 'Ren', aliases: [], kind: 'person', static_description: 'A council clerk.', source_refs: src },
     { id: 'sol', name: 'Sol', aliases: [], kind: 'person', static_description: 'A council elder.', source_refs: src },
-  );
+  ); ordinary(p);
   p.initial_state.facts.push(
     { fact: { entity_id: 'council', predicate: 'members', value: ['sol', 'ren'] }, source_refs: p.initial_state.facts[0].source_refs, note: 'test' },
     { fact: { entity_id: 'council', predicate: 'leader', value: 'sol' }, source_refs: p.initial_state.facts[0].source_refs, note: 'test' },

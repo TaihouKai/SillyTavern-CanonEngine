@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
-import { ROOT } from './helpers';
+import { ROOT, ordinary } from './helpers';
 import { lintPack, validatePackText } from '../../src/core/domain/pack';
 
 const base = JSON.parse(readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8'));
@@ -14,7 +14,7 @@ const BRAWLER = { deliberation: 'rarely', sharpness: 'plain', approach: 'shoulde
 function packWith(mira: unknown = SCHEMER, tomas: unknown = BRAWLER) {
   const p = structuredClone(base);
   p.entities.find((e: any) => e.id === 'mira').mind = mira;
-  p.entities.push({ id: 'tomas', name: 'Tomas', aliases: [], kind: 'person', static_description: 'a docker', source_refs: [], ...(tomas ? { mind: tomas } : {}) });
+  p.entities.push({ id: 'tomas', name: 'Tomas', aliases: [], kind: 'person', static_description: 'a docker', source_refs: [], ...(tomas ? { mind: tomas } : {}) }); ordinary(p);
   return p;
 }
 async function setup(pack = packWith(), settings: any = {}) {
