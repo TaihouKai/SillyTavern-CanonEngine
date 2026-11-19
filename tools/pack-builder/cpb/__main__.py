@@ -4,7 +4,7 @@ import sys
 
 import os
 
-from . import adapters, address, assemble, corrections, deaths, dedupe, ends, impacts, llm, mind, nature, relations, report, review, skeleton, start, steps
+from . import adapters, address, assemble, corrections, deaths, dedupe, ends, impacts, llm, mind, nature, relations, report, review, skeleton, start, steps, combat
 from . import prompts as P
 from .config import Project, load_global
 from .util import ROOT, log, read_json, write_json
@@ -72,7 +72,7 @@ def main(argv=None):
         except (AttributeError, ValueError):
             pass
     ap = argparse.ArgumentParser(prog='python -m cpb', description='Build a Canon Engine history pack from a story source.')
-    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'relations', 'golden', 'address', 'ends', 'impacts', 'start', 'deaths', 'run', 'status'])
+    ap.add_argument('command', choices=['fetch', 'corpus', 'scan', 'estimate', 'summarize', 'dedupe', 'chapters', 'entities', 'build', 'nature', 'mind', 'relations', 'golden', 'address', 'ends', 'impacts', 'start', 'deaths', 'combat', 'run', 'status'])
     ap.add_argument('-p', '--project', default='fgo-cn', help='project name under projects/ or a path to a project file')
     ap.add_argument('--config', help='global config file (default: config.json)')
     ap.add_argument('--chapters', help='only these chapter ids, comma separated (e.g. w100,w101)')
@@ -85,6 +85,8 @@ def main(argv=None):
     ap.add_argument('--adopt', help='golden: pairs (a|b, comma separated) read in the builder output, copied into the verified relations')
     ap.add_argument('--note', help='golden --adopt: what the person checked')
     ap.add_argument('--apply', action='store_true', help='address: put the proposals (read first: work/<project>/out/address-review.txt) into the verified relations')
+    ap.add_argument('--part', choices=['setting', 'golden', 'people', 'precedents'], help='combat: which pass (setting proposals; golden: the reviewed setting into projects/<p>.combat.json; people needs it)')
+    ap.add_argument('--only', help='combat --part people: only these person ids, comma separated')
     ap.add_argument('--offpeak', action='store_true', help='make model calls only at the off-peak price; stop when peak hours begin')
     args = ap.parse_args(argv)
     gcfg = load_global(args.config)
@@ -248,6 +250,37 @@ def main(argv=None):
         assemble.write_pack(project, out, pk)
         res = report.lint(gcfg, out)
         log(f'nature: {n} people with a 常态 — pack: {out}' + (f' — canon-lint: {"OK" if res.get("ok") else "ERRORS"}, {len(res.get("errors", []))} errors' if res else ''))
+    if cmd == 'combat':
+        # 战斗: proposals for the setting's nodes, the people's links / abilities / 对抗倾向, the story's fights; a person
+        # reads them and keeps what holds in projects/<project>.combat.json (the build puts that into the pack)
+        src_path = args.pack or project.p('out', project.get('pack', {}).get('file') or f'{project.get("pack", {}).get("pack_id", project.name)}.canon.json')
+        pk = read_json(src_path)
+        if not pk:
+            log(f'combat: no pack at {src_path} (build first, or give --pack)')
+            return 2
+        cl = client(gcfg, project, args)
+        lang = steps.lang_name(project)
+        try:
+            if args.part == 'setting':
+                combat.gen_setting(project, cl, pk, lang)
+            elif args.part == 'golden':
+                combat.golden_setting(project, pk)
+                rvw = read_json(combat.review_path(project), {}) or {}
+                if rvw.get('people'):
+                    combat.golden_people(project, pk)
+                if rvw.get('precedents'):
+                    combat.golden_precedents(project, pk)
+            elif args.part == 'people':
+                combat.gen_people(project, cl, pk, read_json(combat.golden_path(project), {}) or {}, nature.wiki_pages(project), lang, set(args.only.split(',')) if args.only else None)
+            elif args.part == 'precedents':
+                combat.gen_precedents(project, cl, pk, lang)
+            else:
+                log('combat: give --part setting|golden|people|precedents')
+                return 2
+        except llm.BudgetExceeded as e:
+            log(str(e))
+            log('run the same command again to continue (finished results are kept)')
+            return 2
     if cmd == 'deaths':
         # deaths followed by the person's presence: died, came back, or only thought dead; then the pack is built again
         pk = assemble.build(project, project.p('out', 'raw.canon.json'), raw=True)[0]
@@ -296,6 +329,11 @@ def main(argv=None):
             miss += gmiss
             log(f'relations: {n} verified pairs')
         corrections.write_misses(project, corrections.read_misses(project) + miss)
+        # 战斗: the verified combat data (none yet: the pack says so, and the check lists it as a problem)
+        cg = read_json(combat.golden_path(project), None)
+        log(combat.attach(pk, cg, (pk.get('sources') or [{}])[0].get('id', 'source')) if cg else 'combat: no verified data yet')
+        if not cg:
+            pk['combat'] = {'none': 'combat data not verified yet'}
         assemble.write_pack(project, path, pk)
         res = report.lint(gcfg, path)
         report.write(project, read_json(path) or pack, rep, chrep, clock, path, res, cl.ledger if cl else None)

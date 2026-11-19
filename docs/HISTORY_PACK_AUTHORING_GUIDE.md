@@ -219,6 +219,41 @@ The top-level `relations` list says how pairs of people stand with each other. W
   - In a side's forms of address, a term appears once, and `always` stands alone (errors). A term with brackets or several forms in one, a term that is the other's full name, and a `sometimes` form without `when` are warnings.
 - **Building.** canon-pack-builder writes relations with `python -m cpb relations -p <project>`. It covers the pairs the sources' pages list for each other, plus the pairs that share many events. `python -m cpb address -p <project>` proposes the forms of address of the verified relations, stage by stage. A person reads every proposal, and `address --apply` puts them into the verified relations.
 
+### 战斗 (how fights in this world are judged)
+
+When a fight is going on, the engine has a model judge each turn before the GM writes. The judge decides what each side does and what happens, and the GM only writes it up. The judge needs to know how fights work in this world. The pack's `combat` section tells it, and every pack must have one.
+
+- **A world without fights says so.** `"combat": {"none": "<why>"}` (a slice-of-life world, or data not written yet). Fights are then judged on common sense alone. A missing section is an error, so a pack never leaves this out by accident.
+- **Otherwise:** `"combat": {"basis": "…", "nodes": […], "links": […]}`.
+  - `basis`: a few sentences on what fights in this world turn on (the systems of power, what usually beats what, what counts besides strength). The judge always gets it.
+  - `nodes`: what fights are judged by, each with `id`, `kind`, `name`, `gist` (one sentence) and `text` (a few sentences):
+    - `concept`: a kind of fighter or being and what it means in a fight (a power level, a 魔术师, an ordinary person, a trained unit);
+    - `rule`: a law of the world that decides fights, with when it applies;
+    - `ability`: a power, technique, spell, item or weapon, with `parts`. The parts are `principle`, `effect` (required), `conditions`, `cost`, `limits` and `counters`. Leave out a part the sources say nothing about;
+    - `precedent`: a fight of the original story, with `who` (the people) and `event_id`: who won, how, and why.
+  - Each node gives `source_refs`, or `generated: true` when a model wrote it where the sources say nothing.
+  - A node or a single part can have `visibility` like a secret (`public`, `restricted` or `secret`, with `knower_ids`). A weakness only a few know is a secret part. The judge uses it only for those who know it.
+  - `links`: `{from, to, label}`. `from` is an entity or a node, and `to` is a node. A link from an entity can hold only from an event (`from_event`) and end at one (`until_event`): a power gained, lost or changed.
+- **How the judge finds what it needs.** It does not search by keywords. It walks the links from the people in the fight, those present and the place, to their kinds, abilities and rules, and from those onwards. It never walks into another entity. Near nodes come in full and far ones as their gist, up to the distance and size set in the advanced settings under 战斗分析. So everything a fight needs must be reachable by links:
+  - every person links to at least what kind of person they are;
+  - a rule hangs off what it applies to (the concept → the rule), not the other way;
+  - an ability links to the concept it belongs to.
+- **对抗倾向 (`combat_style` on a person).** How the person acts in a confrontation, as five sentences, in versions like 常态:
+  - `start` (出手): when they start a fight themselves;
+  - `force` (下手): how much of their strength they use, whether they kill, when they go all out;
+  - `response` (应对): what they do when attacked;
+  - `limit` (底线): whom or what they would risk their life for;
+  - `stop` (收手): when they give up, retreat or stop.
+  - "照常人" for a field where nothing sets them apart. What holds toward one person only belongs in the pair's relation, not here. A later version starts at an event (`from_event`, `why`), where how they fight changes for good.
+- **In the game.** A filled-in value is a state of the game. Play adds links (a power gained), states (a wound, a weapon held: text, an optional count, and when it ends) and changed 对抗倾向. The player's come from the Persona. Where the sources for someone are empty (a runtime person, or a person of the lorebook only), the judge first fills the empty parts from the pack's nodes, at the lowest precedence. Sources rank: the user's edits in the panel > the Persona > what happened in play > the pack > what the judge filled in.
+- **Lint checks.**
+  - `none` and `basis` exclude each other. Ids are unique and are not entity ids.
+  - Parts only on abilities, and every ability has `effect`. `who` and `event_id` only on precedents.
+  - Every link names a known entity or node, and its events exist.
+  - Errors: a node with neither `source_refs` nor `generated`, and, when the pack has combat, a person without `combat_style`.
+  - Warnings: a node no entity reaches through links (a fight never gets it), and a person linked to no node.
+- **Building.** canon-pack-builder: `python -m cpb combat -p <project> --part setting` proposes nodes from the setting's wiki pages (those not already in the main dumps). A person reads every proposal and records keep, drop or an edit in `projects/<project>.combat-review.json`, together with nodes and links written by hand. `--part golden` writes what was kept into `projects/<project>.combat.json`. `--part people` then proposes each person's links, own abilities and 对抗倾向. A setting ability the wiki gives the person must be linked or rejected, never written again. `--part precedents` proposes the original story's fights. Each pass is read the same way. `build` puts the verified file into the pack. Without it, the pack says `none` and the checks list it as a problem.
+
 ## 4. Sources and provenance
 
 Each source has `id`, `title`, `locator`, `kind`, and `notes`. `locator` can be a volume/chapter/page citation, a stable URL, a user-provided corrected reference path with entry IDs, or an editorial record. It need not be publicly downloadable. `kind` is `primary`, `secondary`, `editorial`, or `example`.
