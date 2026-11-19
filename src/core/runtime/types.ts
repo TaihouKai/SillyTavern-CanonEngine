@@ -51,7 +51,7 @@ export interface Interpretation {
    *  not followed. */
   timeBound?: number;
   /** 战斗分析: the ruling this reply was written from (the panel shows it). */
-  combat?: import('./combat').Ruling;
+  combat?: import('../combat').Ruling;
   flashback: boolean;
   /** Ids of scene entities depicted (for the next turn's scene scope). */
   sceneEntities: Id[];

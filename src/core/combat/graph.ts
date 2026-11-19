@@ -1,8 +1,8 @@
 // 战斗: the pack's combat graph — nodes (concepts, rules, abilities, precedents, dangers) joined by links, people,
 // places and objects linked to nodes in versions — and each person's 对抗倾向. Lint and indexes; the walk that takes
 // what a fight needs is in the runtime (combat analysis).
-import type { CanonPack, CombatLink, CombatNode, Id } from './types';
-import { ABILITY_PARTS } from './types';
+import type { CanonPack, CombatLink, CombatNode, Id } from '../domain/types';
+import { ABILITY_PARTS } from '../domain/types';
 
 export interface CombatIndex {
   /** none: the pack's reason it has no fighting worth judging (the analysis never runs). */

@@ -7,7 +7,6 @@ import { effectTarget, effectToDelta } from '../domain/delta';
 import { agoLabel, formatTick } from '../domain/time';
 import { memberships } from './integration';
 import { pairKey } from '../domain/pack';
-import { fightNow, linksOf, statusesOf, styleOf } from '../domain/combat-state';
 
 type Origin = { y: number; m: number; d: number } | null;
 export interface MembershipView {
@@ -107,50 +106,4 @@ export function relationsView(idx: WorldIndex, spoilers: boolean, player?: Id | 
   const rank = (r: RelationsViewData['rows'][number]) => Number(!r.player) * 2 + Number(r.state === 'later');
   rows.sort((x, y) => Number(!x.player) - Number(!y.player) || (x.a + x.b).localeCompare(y.a + y.b, 'zh') || rank(x) - rank(y));
   return { rows, hidden };
-}
-
-/** 战斗 as the timeline window shows it: the pack's basis (or why it has none), the fight now, the last rulings, and
- *  each person's states, 对抗倾向 and what they are linked to now (the people in the fight and the player first; the
- *  pack's versions still to come are left out, counted). */
-export interface CombatViewData {
-  none: string | null; basis: string;
-  fight: { ongoing: boolean; people: { id: Id; name: string }[]; source: string | null; since: string | null };
-  rulings: { when: string; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean }[]; stopped: { quote: string; why: string; basis: string[] }[]; states: string[]; stands: string[]; joined: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
-  people: { id: Id; name: string; player?: boolean; fighting?: boolean; /** fighting, the player, with states, or changed in this game (the rest only when searched for). */ relevant: boolean; states: { text: string; count: number | null; until: string; source: string }[]; style: { start: string; force: string; response: string; limit: string; stop: string; source: string } | null; links: { node: string; name: string; kind: string; label: string; source: string }[] }[];
-  hidden: number;
-}
-export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null | undefined, origin: Origin, rulings: { tick: number; ruling: import('./combat').Ruling }[]): CombatViewData {
-  const L = idx.pack, s = idx.state, tick = s.clock.lo;
-  const name = (id: Id) => idx.entityName(id);
-  const f = fightNow(s);
-  const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
-  let hidden = 0;
-  const ids = new Set<Id>([...(player ? [player] : []), ...f.participants, ...s.statuses.map((x) => x.entity), ...s.styles.map((x) => x.entity), ...s.combatLinks.map((x) => x.entity), ...L.combat.linksFrom.keys()].filter((x) => idx.entityExists(x)));
-  for (const e of L.pack.entities) if (e.kind === 'person' && e.combat_style) ids.add(e.id);
-  for (const l of L.pack.combat.links || []) if (L.entities.has(l.from) && l.from_event && !occurred(l.from_event) && !s.dispositions.has(l.from_event)) { if (!spoilers) hidden++; }
-  const people: CombatViewData['people'] = [...ids].map((id) => {
-    const style = styleOf(L, s, id);
-    return {
-      id, name: name(id), ...(id === player ? { player: true } : {}), ...(f.ongoing && f.participants.includes(id) ? { fighting: true } : {}),
-      states: statusesOf(s, id, tick).map((x) => ({ text: x.text, count: x.count ?? null, until: x.endsAt ? formatTick(x.endsAt, origin) : x.until && x.until !== 'lasting' && 'event' in x.until ? (L.events.get(x.until.event)?.title || x.until.event) : '', source: x.source })),
-      style: style ? { ...style.style, source: style.source } : null,
-      links: linksOf(L, s, id, tick).map((l) => ({ node: l.node, name: L.combat.nodes.get(l.node)?.name || l.node, kind: L.combat.nodes.get(l.node)?.kind || '', label: l.label, source: l.source })),
-    };
-  }).filter((p) => p.player || p.fighting || p.states.length || p.style || p.links.length)
-    .map((p) => ({ ...p, relevant: !!(p.player || p.fighting || p.states.length || (p.style && p.style.source !== 'pack') || p.links.some((l) => l.source !== 'pack')) }));
-  people.sort((a, b) => Number(!!b.fighting) - Number(!!a.fighting) || Number(!!b.player) - Number(!!a.player) || Number(b.states.length > 0) - Number(a.states.length > 0) || a.name.localeCompare(b.name, 'zh'));
-  return {
-    none: L.combat.none, basis: L.combat.basis,
-    fight: { ongoing: f.ongoing, people: f.participants.filter((x) => idx.entityExists(x)).map((id) => ({ id, name: name(id) })), source: f.source, since: f.since === null ? null : formatTick(f.since, origin) },
-    rulings: rulings.slice(-5).reverse().map(({ tick: t, ruling: r }) => ({
-      when: formatTick(t, origin),
-      exchanges: r.exchanges.map((x) => ({ who: name(x.actor), text: x.text, basis: x.basis.map((b) => (L.combat.nodes.get(b.ref)?.name || b.ref) + (b.quote ? `「${b.quote}」` : '')), ...(x.unsupported ? { unsupported: true } : {}) })),
-      stopped: (r.outcomes || []).filter((o) => !o.stands).map((o) => ({ quote: o.quote, why: o.why, basis: o.basis.map((b) => (L.combat.nodes.get(b.ref)?.name || b.ref) + (b.quote ? `「${b.quote}」` : '')) })),
-      states: r.statuses.map((x) => `${name(x.entity)}：${x.removed ? '−' : ''}${x.text}${x.count != null ? ` ×${x.count}` : ''}`),
-      stands: r.stands, joined: (r.joined || []).map(name), over: r.over, overWhy: r.overWhy, stopAt: r.stopAt,
-      filled: [...r.filled.links.map((l) => `${name(l.entity)} → ${L.combat.nodes.get(l.node)?.name || l.node}`), ...r.filled.styles.map((x) => `${name(x.entity)}：对抗倾向`)],
-      notes: r.notes,
-    })),
-    people, hidden,
-  };
 }

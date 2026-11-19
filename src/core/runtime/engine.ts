@@ -26,8 +26,7 @@ import { matchScope, runGate, toStoryTime, type EvalOutput, type GateInput, type
 import { checkTimeEvidence, evidenceLine, settleSceneEnd } from './scenetime';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { settleRelations } from './relate';
-import { DEFAULT_COMBAT, FIGHT_START_RULE, fightFromMessage, judgeFight, rulingRecord, rulingSection, statesSection, type Ruling } from './combat';
-import { fightNow } from '../domain/combat-state';
+import { DEFAULT_COMBAT, combatBeforeReply, combatReview, combatView, fightFromMessage, fightNow, fightNowInput, judgeFight, panelRecord, rulingForReview, rulingRecord, statesSection, type CombatChange, type CombatViewData, type FightOut, type Ruling } from '../combat';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
@@ -35,7 +34,7 @@ import { answeredBy, contactDecision, playedProfile, playerOrgs, nameIn, isIn, c
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, voiceTurnNote, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
-import { combatView, membershipView, natureView, relationsView, type CombatViewData, type MembershipView, type NatureViewData, type RelationsViewData } from './views';
+import { membershipView, natureView, relationsView, type MembershipView, type NatureViewData, type RelationsViewData } from './views';
 
 export interface EngineSettings {
   maxOrdinaryPlanner: number;
@@ -132,7 +131,7 @@ export interface ExtractUserOut {
   }[];
   references: { phrase: string; quote: string; kind: 'entity' | 'event'; mode?: string; candidates?: string[] }[];
   scene_entities?: string[];
-  fight?: import('./combat').FightOut | null;
+  fight?: FightOut | null;
   scene_groups?: string[] | null;
 }
 
@@ -802,7 +801,7 @@ export class CanonEngine {
       opportunities,
       ...(prof ? { engagement_context: this.engagementContext(index, prof.profile, tick) } : {}),
       ...(groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who })) } : {}),
-      ...(pack.combat.none === null ? { fight_now: (() => { const f = fightNow(index.state); return f.ongoing ? { ongoing: true, participants: f.participants.map((p) => `${p} | ${index.entityName(p)}`) } : { ongoing: false }; })() } : { fight_now: 'this pack has no combat: fight is always null' }),
+      fight_now: fightNowInput(index),
     };
     const out = await this.withTimeout(callStructured<ExtractUserOut>(this.host.model, 'extract_user', extractPrompt, extractInput,
       { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(entry.text) }), this.settings.taskTimeoutMs * 4, signal);
@@ -861,12 +860,10 @@ export class CanonEngine {
         intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
       }
     }
-    // 战斗: the fight as this message starts, goes on with or ends it (someone new in it gets an identity now)
-    {
-      const f = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
-      records.push(...f.records);
-      warnings.push(...f.warnings);
-    }
+    // 战斗: the fight as this message starts, goes on with or ends it (combat/message.ts)
+    const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
+    records.push(...fight.records);
+    warnings.push(...fight.warnings);
     const refs: RefInput[] = out.references.map((r, i) => ({ id: `u${i + 1}`, quote: r.quote, phrase: r.phrase, kind: r.kind, assertion: 'user_input', temporal: r.kind === 'event' ? 'past' : 'present', candidates: r.candidates }));
     const interp: Interpretation = {
       key: baseKey(entry), messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, role: 'user', commitId: newId('cmt'),
@@ -1061,7 +1058,7 @@ export class CanonEngine {
     return out;
   }
 
-  /** 战斗分析 of this turn (combat.ts). */
+  /** 战斗分析 of this turn: what only the engine knows (the lorebook as this game has it, the Persona, the scene) for combat/judge.ts. */
   private async judge(index: WorldIndex, profile: PlayerProfile | null, userEntry: SourceEntry | null, userInterp: Interpretation | null, prevGm: SourceEntry | null, prevGmInterp: Interpretation | null, tick: number, signal: AbortSignal, operationId: string): Promise<Ruling | null> {
     const places = uniq([...(userInterp?.sceneEntities || []), ...(prevGmInterp?.sceneEntities || [])]).filter((id) => index.entityKind(id) === 'place');
     const told = (userInterp?.records || []).filter((r) => r.kind === 'user_assertion').map((r) => `established: ${r.summary.replace(/^User asserted: /, '')}`);
@@ -1345,7 +1342,7 @@ export class CanonEngine {
       ...(a.leapTo ? { time_leap: { from: formatTick(tick), to: formatTick(a.leapTo) } } : {}),
       ...(this.settings.sceneGrouping ? { scene_grouping: this.sceneBoxes(index) } : {}),
       ...(groups.length ? { recognition_groups: groups.map((g, i) => ({ id: `g${i + 1}`, who: g.who, level: g.level, knows: g.about })) } : {}),
-      ...(a.ruling ? { fight_ruling: { exchanges: a.ruling.exchanges.map((x) => `${index.entityName(x.actor)}: ${x.text}`), states: a.ruling.statuses.map((s) => `${index.entityName(s.entity)}: ${s.removed ? 'no longer ' : ''}${s.text}${s.count != null ? ` (${s.count} left)` : ''}`), stands: a.ruling.stands, player_words_that_do_not_happen: a.ruling.outcomes.filter((o) => !o.stands).map((o) => `«${o.quote}»: ${o.why}`), stop_at: a.ruling.over ? `the fight ends: ${a.ruling.overWhy}` : a.ruling.stopAt } } : {}),
+      ...(a.ruling ? { fight_ruling: rulingForReview(index, a.ruling) } : {}),
       ...(a.chance?.length ? { chance_events_with_companion: a.chance.map((x) => ({ event_id: x.eventId, title: x.title, comes_to: x.who, ...(x.loose ? { by: formatTick(x.lo) } : { starts: formatTick(x.lo) }), what: (pack.events.get(x.eventId)?.summary || '').slice(0, 400) })) } : {}),
     };
     const evaluation = await this.withTimeout(callStructured<EvalOutput>(this.host.model, 'evaluate', evalPrompt, evalInput,
@@ -1379,7 +1376,7 @@ export class CanonEngine {
       pack, index, text: a.text, userText: a.userEntry?.text || '', userSource: a.userEntry ? { messageId: a.userEntry.messageId, contentHash: a.userEntry.contentHash } : null,
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: eng.binding(tick).length + eng.answers(tick).length, hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
       playerId: prof?.profile.playerId || null, personaName: prof?.profile.personaName, offered: a.offered || null, required: a.required || [], chanceCompanions: a.chance || [], chanceBlocking: (a.attempt ?? 0) === 0, leap: !!a.leapTo,
-      combat: pack.combat.none === null && !a.leapTo && a.mode === 'draft' ? { ruled: !!a.ruling, fighters: a.ruling?.fighters || [], failed: !!a.combatFailed } : null,
+      combat: combatReview(pack, { leap: !!a.leapTo, draft: a.mode === 'draft', ruling: a.ruling ?? null, failed: !!a.combatFailed }),
     });
     gate.warnings.push(...told.warnings);
     gate.timeBound = settled.bound;
@@ -1749,24 +1746,17 @@ export class CanonEngine {
           combat: undefined as string | undefined,
           states: statesSection(rIndex, uniq([...(prof ? [prof.profile.playerId] : []), ...(prevGmInterp?.present || []), ...sceneSeeds, ...fightNow(rIndex.state).participants]), (id) => this.fighterName(rIndex, prof?.profile ?? null, id), cp) || undefined,
         };
-        // 战斗分析: a fight under way is judged before the reply; the GM writes the ruling. Without one, a fight the
-        // reply starts stops where it begins (judged next turn).
-        let ruling: Ruling | null = null;
-        let combatFailed = false;
-        if (pack.combat.none === null && !leapTo && !continuing) {
-          if (fightNow(rIndex.state).ongoing) {
-            this.setStatus('planning', 'Judging the fight…');
-            try {
-              ruling = await this.timeStep('fight', this.judge(rIndex, prof?.profile ?? null, userEntry, userInterp, prevGm, prevGmInterp, jumpTo ?? cp, abort.signal, operationId));
-            } catch (e) {
-              if (e instanceof EngineError && e.kind === 'cancelled') throw e;
-              combatFailed = true;
-              this.rejects.push(`combat: the fight was not judged this turn (${(e as Error).message.slice(0, 160)})`);
-            }
-            this.checkFences(fences, excludeLast);
-          }
-          packetArgs.combat = ruling ? rulingSection(ruling, (id) => this.fighterName(rIndex, prof?.profile ?? null, id)) : FIGHT_START_RULE;
-        }
+        // 战斗分析 (combat/turn.ts): a fight under way is judged before the reply and the GM writes the ruling
+        const turnCombat = await combatBeforeReply(rIndex, !leapTo && !continuing, async () => {
+          this.setStatus('planning', 'Judging the fight…');
+          const r = await this.timeStep('fight', this.judge(rIndex, prof?.profile ?? null, userEntry, userInterp, prevGm, prevGmInterp, jumpTo ?? cp, abort.signal, operationId));
+          this.checkFences(fences, excludeLast);
+          return r;
+        }, (id) => this.fighterName(rIndex, prof?.profile ?? null, id));
+        const ruling = turnCombat.ruling;
+        const combatFailed = turnCombat.failed !== null;
+        if (turnCombat.failed) this.rejects.push(`combat: the fight was not judged this turn (${turnCombat.failed})`);
+        packetArgs.combat = turnCombat.section ?? undefined;
         let packet = buildPacket(packetArgs);
         // 角色盘算: the people here who think before they act get this reply's moves worked out first (in a judged
         // fight the ruling has the fighters' moves)
@@ -1838,7 +1828,7 @@ export class CanonEngine {
             review.gate = runGate({
               pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
               evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: (() => { const e = engagementView(stagedIndex.state, pack), t = stagedIndex.state.clock.lo; return e.binding(t).length + e.answers(t).length; })(), hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, personaName: prof?.profile.personaName, offered, required, chanceCompanions: chance, chanceBlocking: attempt === 0, leap: !!leapTo,
-              combat: pack.combat.none === null && !leapTo ? { ruled: !!ruling, fighters: ruling?.fighters || [], failed: combatFailed } : null,
+              combat: combatReview(pack, { leap: !!leapTo, draft: true, ruling, failed: combatFailed }),
             });
             this.checkFences(fences, excludeLast);
           }
@@ -3173,7 +3163,7 @@ export class CanonEngine {
     return natureView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign()!.binding.originDate);
   }
 
-  /** 战斗: the fight, the last rulings and everyone's states and 对抗倾向, as the timeline window shows them. */
+  /** 战斗: the fight, the last rulings and everyone's states and 对抗倾向, as the timeline window shows them (combat/panel.ts). */
   combatView(spoilers: boolean): CombatViewData | null {
     if (!this.campaign() || !this.current) return null;
     const rulings = this.current.replay.applied.filter((a) => a.interp.combat).map((a) => ({ tick: a.interp.records.find((r) => r.kind === 'combat')?.storyTime.lo ?? a.interp.sceneEnd?.lo ?? this.current!.replay.state.clock.lo, ruling: a.interp.combat! }));
@@ -3183,30 +3173,13 @@ export class CanonEngine {
   /** The player's own change of 战斗 in the panel — the fight on or off (just the state from then on, no lock), a
    *  state of someone (null: taken away), someone's 对抗倾向 (null: back to what the pack or play says) — kept as a
    *  record after the current last message, like the panel's relation changes. */
-  async editCombat(change: { fight: { ongoing: boolean; participants?: Id[] } } | { status: { entity: Id; text: string; count?: number | null; minutes?: number | null } | { entity: Id; text: string; removed: true } } | { style: { entity: Id; style: { start: string; force: string; response: string; limit: string; stop: string } } }): Promise<void> {
+  async editCombat(change: CombatChange): Promise<void> {
     if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
     const c = this.campaign();
     if (!c || !this.current) return;
-    const idx = this.current.index;
+    const rec = panelRecord(this.current.index, change, this.current.replay.state.clock.lo, this.playerProfile()?.profile.playerId ?? null);
+    if (!rec) return;
     const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
-    const tick = this.current.replay.state.clock.lo;
-    const base = { recordId: newId('rec'), kind: 'combat' as const, storyTime: { lo: tick, hi: tick, precision: 'minute' as const }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public' as const, knower_ids: [] }, evidenceKind: 'direct' as const };
-    let rec: RecordDraft;
-    if ('fight' in change) {
-      const now = fightNow(idx.state);
-      const participants = uniq((change.fight.participants?.length ? change.fight.participants : now.participants.length ? now.participants : this.playerProfile() ? [this.playerProfile()!.profile.playerId] : []).filter((x) => idx.entityExists(x)));
-      rec = { ...base, summary: `Fight ${change.fight.ongoing ? 'on' : 'over'} (Canon Engine panel)`, fight: { ongoing: change.fight.ongoing, participants, source: 'ui' } };
-    } else if ('status' in change) {
-      const s = change.status;
-      const text = String(s.text || '').trim().slice(0, 120);
-      if (!text || !idx.entityExists(s.entity)) return;
-      const minutes = 'minutes' in s && s.minutes && s.minutes > 0 ? Math.round(s.minutes) : null;
-      rec = { ...base, summary: `State of ${idx.entityName(s.entity)}: ${'removed' in s ? 'removed' : 'set'} ${text} (Canon Engine panel)`, statuses: [{ entity: s.entity, text, ...('removed' in s ? { removed: true } : { ...(s.count != null && Number.isFinite(s.count) ? { count: Math.max(0, Math.round(s.count)) } : {}), until: minutes ? { minutes } : 'lasting' }), source: 'ui' }] };
-    } else {
-      const st = change.style.style;
-      if (!idx.entityExists(change.style.entity) || ![st.start, st.force, st.response, st.limit, st.stop].every((x) => String(x || '').trim())) return;
-      rec = { ...base, summary: `对抗倾向 of ${idx.entityName(change.style.entity)} (Canon Engine panel)`, styles: [{ entity: change.style.entity, style: { start: st.start.trim(), force: st.force.trim(), response: st.response.trim(), limit: st.limit.trim(), stop: st.stop.trim() }, source: 'ui' }] };
-    }
     c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
     c.configRevisions.push({ at: this.host.now(), summary: rec.summary });
     await this.host.save();

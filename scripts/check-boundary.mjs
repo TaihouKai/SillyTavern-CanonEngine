@@ -36,5 +36,22 @@ for (const f of [...walk('src/hosts'), ...walk('site/src')]) {
     if (target.startsWith('src/core/') && target !== 'src/core/index' && target !== 'src/core/index.ts') problems.push(`${rel(f)}: imports ${target}; a host uses the core through src/core/index.ts`);
   }
 }
+// 战斗 is a module of its own (src/core/combat): the rest of the core uses it through src/core/combat/index.ts. Only the
+// domain layer reaches its pure parts directly (pack loading indexes the graph, the reducer replays the changes), and the
+// prompt registry its prompt text. The module does not reach into the engine, the gate or the UI.
+const COMBAT_DIRECT = { 'src/core/combat/graph': ['src/core/domain/'], 'src/core/combat/state': ['src/core/domain/'], 'src/core/combat/prompts': ['src/core/runtime/prompts.ts'] };
+for (const f of walk('src/core')) {
+  const from = rel(f);
+  for (const s of specs(readFileSync(f, 'utf8'))) {
+    if (!s.startsWith('.')) continue;
+    const target = rel(resolve(dirname(f), s)).replace(/\.ts$/, '');
+    if (from.startsWith('src/core/combat/')) {
+      if (/^src\/core\/(runtime\/(engine|gate)|ui\/)/.test(target)) problems.push(`${from}: imports ${target}; the combat module does not reach into the engine, the gate or the UI`);
+      continue;
+    }
+    if (!target.startsWith('src/core/combat/') || target === 'src/core/combat/index') continue;
+    if (!(COMBAT_DIRECT[target] || []).some((p) => from.startsWith(p))) problems.push(`${from}: imports ${target}; the core uses combat through src/core/combat/index.ts`);
+  }
+}
 if (problems.length) { console.error('Boundary problems:\n  ' + problems.join('\n  ')); process.exit(1); }
-console.log('boundary ok: src/core stands alone; hosts use src/core/index.ts');
+console.log('boundary ok: src/core stands alone; hosts use src/core/index.ts; combat is used through src/core/combat/index.ts');

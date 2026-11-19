@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeEngine, tick, at } from './fake';
 import { demoRaw } from './helpers';
-import { fightNow, linksOf, statusesOf, styleOf } from '../../src/core/domain/combat-state';
+import { fightNow, linksOf, statusesOf, styleOf } from '../../src/core/combat';
 
 const PROFILE = { player: { name: 'Ash', aliases: [], summary: 'a dock worker who boxed as a youth', public_identity: 'works the piers' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
 const PERSONA = 'Ash, a dock worker. Boxed as a youth: a hard right hook. Carries no weapon.';

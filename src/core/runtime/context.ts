@@ -193,7 +193,7 @@ export interface PacketInput {
   minds?: string;
   /** 战斗分析: the ruling of this turn's fight (the GM writes it; the reviewer checks the reply against it). */
   combat?: string;
-  /** 状态 of the people here (combat.ts statesSection). */
+  /** 状态 of the people here (combat/reply.ts statesSection). */
   states?: string;
   /** Who in the scene knows about the player (GM only; the reviewer gets the groups as input). */
   recognition?: string;

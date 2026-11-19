@@ -58,7 +58,7 @@ describe('combat section of a pack', () => {
 });
 
 import { reduce } from '../../src/core/domain/reducer';
-import { fightNow, knowsNode, linksOf, statusesOf, styleOf, walkCombat } from '../../src/core/domain/combat-state';
+import { fightNow, knowsNode, linksOf, statusesOf, styleOf, walkCombat } from '../../src/core/combat';
 import type { LedgerRecord } from '../../src/core/domain/types';
 import { load, T } from './helpers';
 

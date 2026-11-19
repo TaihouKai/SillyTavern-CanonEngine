@@ -8,7 +8,7 @@ import { SUMMARY_LABELS, renderSummary, type EventSummary } from './summary';
 import { deepClone, hashObject, stableStringify } from './util';
 import { MAIN_FRAME, indexFrames, parseLocal, type FrameIndex } from './frames';
 import { ADDRESS_USES, cleanAddress } from './address';
-import { indexCombat, lintCombat, type CombatIndex } from './combat';
+import { indexCombat, lintCombat, type CombatIndex } from '../combat/graph';
 
 export interface LintIssue { level: 'error' | 'warning'; path: string; message: string }
 
@@ -37,7 +37,7 @@ export interface LoadedPack {
   relations: Map<string, PackRelation>;
   relationsOf: Map<Id, string[]>;
   relationsAt: Map<Id, string[]>;
-  /** 战斗: the combat graph (see combat.ts). */
+  /** 战斗: the combat graph (combat/graph.ts). */
   combat: CombatIndex;
   warnings: LintIssue[];
 }

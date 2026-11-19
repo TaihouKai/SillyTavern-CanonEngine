@@ -7,60 +7,17 @@
 //   player's Persona; the model rules the turn (combat), the code checks it: the player's words stand unless an
 //   objective mechanism (a node the fighters reach without filled-in links, a lorebook entry or the Persona, quoted)
 //   stops them; states and who saw what become records of the reply.
-import type { CombatLinkChange, CombatSource, Id, RuntimeEntity, SourceRef, StatusChange, StoryTime, StyleChange, Until, Witnessed } from '../domain/types';
+import type { CombatLinkChange, Id, StatusChange, StoryTime, StyleChange, Witnessed } from '../domain/types';
 import { ABILITY_PARTS } from '../domain/types';
-import type { LoadedPack } from '../domain/pack';
 import { normalizeName } from '../domain/pack';
 import type { WorldIndex } from '../domain/world-query';
-import { fightNow, knowsNode, linksOf, statusesOf, styleOf, walkCombat } from '../domain/combat-state';
-import { newId, quoteInText, uniq } from '../domain/util';
-import { keyMatch, type LoreEntry } from './lore';
-import { callStructured, type ModelPort } from './model';
-import { PROMPTS } from './prompts';
-import type { RecordDraft } from './types';
-
-export interface FightOut { state: 'none' | 'starts' | 'continues' | 'ends'; participants?: string[]; new_people?: { name: string; description: string; quote: string }[]; why?: string }
-
-const slug = (s: string) => (String(s).normalize('NFKC').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'person').slice(0, 24);
-const rec = (st: StoryTime, src: SourceRef[], summary: string, extra: Partial<RecordDraft>): RecordDraft => ({
-  recordId: newId('rec'), kind: 'combat', storyTime: st, sourceRefs: src, factsSetOrUnset: [], eventOccurrenceIds: [],
-  visibility: { mode: 'public', knower_ids: [] }, summary: summary.slice(0, 300), evidenceKind: 'direct', ...extra,
-});
-
-/** The fight as the player's message changes it: the record (with the new people it brings in), or none. */
-export function fightFromMessage(out: FightOut | null | undefined, index: WorldIndex, text: string, src: SourceRef[], st: StoryTime, playerId: Id | null): { records: RecordDraft[]; warnings: string[] } {
-  const warnings: string[] = [];
-  if (!out || out.state === 'none' || index.pack.combat.none !== null) return { records: [], warnings };
-  const now = fightNow(index.state);
-  if (out.state === 'ends') {
-    if (!now.ongoing) return { records: [], warnings };
-    return { records: [rec(st, src, `The player ended the fight: ${out.why || ''}`, { fight: { ongoing: false, participants: now.participants, source: 'player', why: String(out.why || '').slice(0, 300) } })], warnings };
-  }
-  const made: RuntimeEntity[] = [];
-  const byName = new Map<string, Id>();
-  for (const p of out.new_people || []) {
-    const name = String(p.name || '').trim();
-    if (!name) continue;
-    if (!quoteInText(p.quote, text)) { warnings.push(`fight: new person "${name}" left out (their words are not in the message)`); continue; }
-    const known = index.resolveEntity(name);
-    if (known.ids.length === 1) { byName.set(normalizeName(name), known.ids[0]); continue; }
-    const id = `rt.${slug(name)}.${newId('e').slice(2, 8)}`;
-    made.push({ id, name, aliases: [], kind: 'person', description: String(p.description || '').slice(0, 300) });
-    byName.set(normalizeName(name), id);
-  }
-  const people: Id[] = [];
-  for (const x of out.participants || []) {
-    const s = String(x).trim();
-    const id = index.entityExists(s) ? s : byName.get(normalizeName(s)) ?? (() => { const r = index.resolveEntity(s); return r.ids.length === 1 ? r.ids[0] : null; })();
-    if (id) people.push(id); else warnings.push(`fight: "${s}" is nobody known (left out)`);
-  }
-  if (playerId && !people.includes(playerId) && people.length) people.unshift(playerId);
-  let participants = uniq(people);
-  if (out.state === 'continues' && now.ongoing) participants = uniq([...now.participants, ...participants]);
-  if (participants.length < 2) { if (out.state === 'starts') warnings.push('fight: fewer than two sides known; no fight recorded'); return { records: [], warnings }; }
-  if (now.ongoing && participants.length === now.participants.length && participants.every((p) => now.participants.includes(p)) && !made.length) return { records: [], warnings };
-  return { records: [rec(st, src, `Fight: ${participants.map((p) => index.entityName(p) || made.find((m) => m.id === p)?.name || p).join(', ')}`, { fight: { ongoing: true, participants, source: 'player', why: String(out.why || '').slice(0, 300) }, ...(made.length ? { runtimeEntities: made } : {}) })], warnings };
-}
+import { quoteInText, uniq } from '../domain/util';
+import { keyMatch, type LoreEntry } from '../runtime/lore';
+import { callStructured, type ModelPort } from '../runtime/model';
+import { PROMPTS } from '../runtime/prompts';
+import type { RecordDraft } from '../runtime/types';
+import { fightNow, knowsNode, linksOf, statusesOf, styleOf, walkCombat } from './state';
+import { cleanUntil, combatRecord as rec } from './record';
 
 export interface CombatSettings { maxDepth: number; fullDepth: number; budgetChars: number }
 export const DEFAULT_COMBAT: CombatSettings = { maxDepth: 3, fullDepth: 2, budgetChars: 9000 };
@@ -100,11 +57,6 @@ export function loreAbout(entries: LoreEntry[], names: string[]): LoreEntry[] {
 }
 
 const loreRef = (e: LoreEntry) => `lore:${e.book}/${e.uid}`;
-const cleanUntil = (u: unknown): Until | undefined => {
-  if (u === 'lasting') return 'lasting';
-  if (u && typeof u === 'object' && 'minutes' in u && Number.isFinite(Number((u as { minutes: unknown }).minutes)) && Number((u as { minutes: number }).minutes) > 0) return { minutes: Math.round(Number((u as { minutes: number }).minutes)) };
-  return undefined;
-};
 
 /** Judge this turn of the fight under way (null: none, or the pack has no combat). */
 export async function judgeFight(a: {
@@ -257,43 +209,4 @@ export function rulingRecord(r: Ruling, st: StoryTime, names: (id: Id) => string
     ...(r.over ? { fight: { ongoing: false, participants: r.fighters, source: 'engine' as const, why: r.overWhy } } : r.joined.length ? { fight: { ongoing: true, participants: r.fighters, source: 'engine' as const, why: `joined: ${r.joined.map(names).join(', ')}` } } : {}),
     evidenceKind: 'adjudication',
   });
-}
-
-/** The ruling for the game master: binding, in order, to be written as vividly as wanted, and nothing beyond. */
-export function rulingSection(r: Ruling, names: (id: Id) => string): string {
-  const lines = r.exchanges.map((x, i) => `${i + 1}. ${names(x.actor)}: ${x.text}`);
-  const states = r.statuses.map((s) => `${names(s.entity)}: ${s.removed ? 'no longer ' : ''}${s.text}${s.count != null ? ` (${s.count} left)` : ''}`);
-  return [
-    'COMBAT RULING (binding — Canon Engine judged this turn of the fight before the reply. Write exactly these results, in this order, as vividly as you like: how it looks, sounds and feels is yours. Change no result; add no blow, hit, dodge or move that is not here; nobody wins, loses, is hurt or escapes otherwise. The player character does nothing beyond the player\'s message.)',
-    ...lines,
-    ...(states.length ? [`After this turn: ${states.join('; ')}.`] : []),
-    ...r.outcomes.filter((o) => !o.stands).map((o) => `Does NOT happen as the player wrote «${o.quote}»: ${o.why}`),
-    ...(r.stands.length ? [`The player's words stand as written: ${r.stands.map((q) => `«${q}»`).join(' ')}`] : []),
-    r.over ? `The fight ends here${r.overWhy ? `: ${r.overWhy}` : ''}.` : `End the reply at this point${r.stopAt ? `: ${r.stopAt}` : ''} — the player character's next move is the player's.`,
-  ].join('\n');
-}
-
-/** States a review found in a reply outside a ruling (and the GM-started fight), as the code accepts them. */
-export function reviewStatuses(list: { who: string; text: string; count?: number | null; until?: unknown; removed?: boolean; quote: string }[] | undefined, text: string, userText: string, resolve: (x: string) => Id | null, skip: Id[]): { statuses: StatusChange[]; warnings: string[] } {
-  const statuses: StatusChange[] = [], warnings: string[] = [];
-  for (const s of list || []) {
-    if (!quoteInText(s.quote, text) && !quoteInText(s.quote, userText)) { warnings.push(`state "${s.text}" dropped: its words are not in the reply`); continue; }
-    const who = resolve(s.who);
-    const t = String(s.text || '').trim().slice(0, 120);
-    if (!who || !t) { warnings.push(`state "${s.text}" dropped: unknown person "${s.who}"`); continue; }
-    if (skip.includes(who)) continue;
-    const count = typeof s.count === 'number' && Number.isFinite(s.count) ? Math.max(0, Math.round(s.count)) : null;
-    statuses.push({ entity: who, text: t, ...(count !== null ? { count } : {}), ...(cleanUntil(s.until) ? { until: cleanUntil(s.until) } : {}), ...(s.removed ? { removed: true } : {}), source: 'play' as CombatSource, quote: s.quote.slice(0, 300) });
-  }
-  return { statuses, warnings };
-}
-
-/** For the game master when no fight is under way (a pack with combat): a fight the reply starts stops where it begins. */
-export const FIGHT_START_RULE = 'FIGHTS (Canon Engine judges every fight before it is written): if someone in your reply attacks someone or a fight breaks out, write up to the moment it begins — the attack comes, the first move is made — and end the reply there. Do not decide how it goes (who hits, who is hurt, who wins or escapes): Canon Engine judges it on the next turn, after the player has answered.';
-
-/** People's states (状态) for the game master and the reviewer: those of the people here that hold now. */
-export function statesSection(index: WorldIndex, ids: Id[], name: (id: Id) => string, tick = index.state.clock.lo): string {
-  const lines = uniq(ids).map((id) => ({ id, s: statusesOf(index.state, id, tick) })).filter((x) => x.s.length)
-    .map((x) => `- ${name(x.id)} [${x.id}]: ${x.s.map((s) => `${s.text}${s.count != null ? ` ×${s.count}` : ''}${s.endsAt ? ` (until ${Math.max(0, s.endsAt - tick)} min from now)` : ''}`).join('; ')}`);
-  return lines.length ? `STATES (状态 of the people here as they stand now — injuries, conditions, what they carry; they hold until the story changes them: show them where they matter, and keep counts as given):\n${lines.join('\n')}` : '';
 }

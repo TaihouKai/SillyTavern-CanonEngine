@@ -1,9 +1,34 @@
 // 战斗 as this game has it: the pack's combat graph with this game's changes over it (links, states, 对抗倾向, the
 // fight, who saw what), and the walk that takes what a fight needs. Pure: pack + replayed state in, answers out.
-import type { AbilityPart, CombatNode, CombatSource, CombatStyleVersion, Id, StatusChange } from './types';
-import type { LoadedPack } from './pack';
-import type { Replayed, WorldState } from './reducer';
-import { normalizeName } from './pack';
+import type { AbilityPart, CombatLinkChange, CombatNode, CombatSource, CombatStyleVersion, FightChange, Id, LedgerRecord, StatusChange, StyleChange, Witnessed } from '../domain/types';
+import type { LoadedPack } from '../domain/pack';
+import type { WorldState } from '../domain/reducer';
+import { normalizeName } from '../domain/pack';
+
+/** A combat change as replayed (record order). */
+export type Replayed<T> = T & { recordId: string; seq: number; tick: number };
+
+/** This game's combat changes, replayed in record order (WorldState.combat): links, states, 对抗倾向, the fight and
+ *  who saw which ability. */
+export interface CombatState {
+  links: Replayed<CombatLinkChange>[];
+  statuses: Replayed<StatusChange>[];
+  styles: Replayed<StyleChange>[];
+  fights: Replayed<FightChange>[];
+  witnessed: Replayed<Witnessed>[];
+}
+
+export const emptyCombatState = (): CombatState => ({ links: [], statuses: [], styles: [], fights: [], witnessed: [] });
+
+/** The reducer's step for a record's combat changes. */
+export function applyCombat(cs: CombatState, rec: LedgerRecord, tick: number): void {
+  const at = { recordId: rec.recordId, seq: rec.sequence, tick };
+  for (const x of rec.combatLinks || []) cs.links.push({ ...x, ...at });
+  for (const x of rec.statuses || []) cs.statuses.push({ ...x, ...at });
+  for (const x of rec.styles || []) cs.styles.push({ ...x, ...at });
+  if (rec.fight) cs.fights.push({ ...rec.fight, ...at });
+  for (const x of rec.witnessed || []) cs.witnessed.push({ ...x, ...at });
+}
 
 /** Precedence of a change's source: the player's word and the panel over the Persona over play over what was filled
  *  in. The pack stands between play and fill: what the original story says is objective, fill never overrides it. */
@@ -24,7 +49,7 @@ export function linksOf(L: LoadedPack, state: WorldState, entity: Id, tick = sta
     now.set(l.to, { node: l.to, label: l.label, source: 'pack' });
   }
   const removedBy = new Map<Id, number>();
-  for (const c of state.combatLinks) {
+  for (const c of state.combat.links) {
     if (c.entity !== entity || !L.combat.nodes.has(c.node)) continue;
     const cur = now.get(c.node);
     const curRank = cur ? RANK[cur.source] : removedBy.get(c.node) ?? 0;
@@ -42,7 +67,7 @@ export type StatusNow = Replayed<StatusChange> & { endsAt?: number };
  *  whose time is over (minutes after they came; an event settled since). */
 export function statusesOf(state: WorldState, entity: Id, tick = state.clock.lo): StatusNow[] {
   const by = new Map<string, Replayed<StatusChange>>();
-  for (const s of state.statuses) {
+  for (const s of state.combat.statuses) {
     if (s.entity !== entity || s.tick > tick) continue;
     const k = normalizeName(s.text);
     if (s.removed) by.delete(k); else by.set(k, s);
@@ -70,7 +95,7 @@ export function styleOf(L: LoadedPack, state: WorldState, entity: Id): { style: 
     const v = vs[i];
     best = { style: { start: v.start, force: v.force, response: v.response, limit: v.limit, stop: v.stop }, source: 'pack', rank: RANK.pack };
   }
-  for (const s of state.styles) {
+  for (const s of state.combat.styles) {
     if (s.entity !== entity) continue;
     if (!best || RANK[s.source] >= best.rank) best = { style: s.style, source: s.source, rank: RANK[s.source] };
   }
@@ -80,7 +105,7 @@ export function styleOf(L: LoadedPack, state: WorldState, entity: Id): { style: 
 /** Whether a fight is under way now, and who is in it (the latest change: a player's correction in the panel is just
  *  the state from then on). */
 export function fightNow(state: WorldState): { ongoing: boolean; participants: Id[]; source: 'player' | 'engine' | 'ui' | null; since: number | null } {
-  const f = state.fights[state.fights.length - 1];
+  const f = state.combat.fights[state.combat.fights.length - 1];
   return f ? { ongoing: f.ongoing, participants: f.participants, source: f.source, since: f.tick } : { ongoing: false, participants: [], source: null, since: null };
 }
 
@@ -93,7 +118,7 @@ export function knowsNode(L: LoadedPack, state: WorldState, who: Id, nodeId: Id,
   if (!vis || vis.mode === 'public') return true;
   if (vis.knower_ids.includes(who)) return true;
   if (linksOf(L, state, who).some((l) => l.node === nodeId)) return true;
-  return state.witnessed.some((w) => w.node === nodeId && (!w.part || !part || w.part === part) && w.who.includes(who));
+  return state.combat.witnessed.some((w) => w.node === nodeId && (!w.part || !part || w.part === part) && w.who.includes(who));
 }
 
 export interface WalkedNode { node: CombatNode; depth: number; /** whole text (near) or only the gist (further away). */ full: boolean; /** who in the fight reaches it. */ from: Id[]; via: string }

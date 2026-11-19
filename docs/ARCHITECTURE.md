@@ -30,6 +30,10 @@ flowchart LR
     mdl[model: structured task runner]
     port[host: HostPort, the host's side]
   end
+  subgraph combat [combat — 战斗分析, used through combat/index.ts]
+    cgraph[graph + state: the pack's combat graph, this game's changes, the walk]
+    cjudge[message, judge, turn, reply, review, panel]
+  end
   cui[ui: timeline window, inspector, texts]
   end
   subgraph st [src/hosts/sillytavern — the SillyTavern host]
@@ -44,10 +48,23 @@ flowchart LR
     wm[WebModel: any OpenAI-compatible API, the GM's instructions]
   end
   domain --> runtime
+  combat --> runtime
   runtime --> cui
   st -->|src/core/index.ts| core
   web -->|src/core/index.ts| core
 ```
+
+战斗分析 is a module of its own (`src/core/combat`), and the rest of the core uses it only through `src/core/combat/index.ts`:
+- **Pure parts the domain layer uses directly.** `graph.ts` (the pack's combat graph: index and lint) and `state.ts` (this game's combat changes replayed under `WorldState.combat`: links, states, 对抗倾向, the fight, who saw which ability, and the walk that takes what a fight needs).
+- **The steps of a turn**, each one call from the engine or the gate:
+  - `message.ts`: the player's message starts, goes on with or ends a fight;
+  - `turn.ts` and `judge.ts`: before the reply, a fight under way is judged (`combat_fill`, `combat`, checked by code);
+  - `reply.ts`: what the GM gets;
+  - `review.ts`: the reply held to the ruling, and states and GM-started fights recorded;
+  - `panel.ts`: the timeline window's view and its edits;
+  - `prompts.ts`: the models' instructions about fights.
+- **What stays in the engine** is what only the engine knows: the lorebook as this game has it, the Persona, the scene. The UI is `ui/combat-panel.ts`.
+- **Enforced.** `check-boundary.mjs` also fails when the core reaches past `combat/index.ts`, or the module reaches into the engine, the gate or the UI.
 
 Graph A (pinned pack), the actual history ledger, Graph B (projection = reducer state over baseline + ledger) and future plans are separate types and namespaces. Indexes are rebuildable projections; the selected transcript + pinned pack + binding seed are the only authorities.
 

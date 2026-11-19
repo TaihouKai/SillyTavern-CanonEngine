@@ -1,6 +1,7 @@
 // Pure history replay: baseline + ordered validated ledger records -> world state.
 // Occurrences are kept separate from fluent state; a later reversal never erases an occurrence.
-import type { CombatLinkChange, Condition, ContactInfo, EngagementInfo, FightChange, RelationChange, StatusChange, StyleChange, TieInfo, FactDelta, FactValue, Id, LedgerRecord, Occurrence, RuntimeEntity, StoryTime, Tri, Witnessed } from './types';
+import type { Condition, ContactInfo, EngagementInfo, RelationChange, TieInfo, FactDelta, FactValue, Id, LedgerRecord, Occurrence, RuntimeEntity, StoryTime, Tri } from './types';
+import { applyCombat, emptyCombatState, type CombatState } from '../combat/state';
 import { UNKNOWN } from './types';
 import type { LoadedPack } from './pack';
 import { normalizeValue, valuesEqual } from './pack';
@@ -45,8 +46,6 @@ export interface EngagementEntry extends EngagementInfo { recordId: string; seq:
 export interface ContactEntry extends ContactInfo { recordId: string; seq: number; tick: number }
 export interface TieEntry extends TieInfo { recordId: string; seq: number; tick: number }
 export interface RelationEntry extends RelationChange { recordId: string; seq: number; tick: number }
-/** A combat change as replayed (record order). */
-export type Replayed<T> = T & { recordId: string; seq: number; tick: number };
 
 export interface WorldState {
   packHash: string;
@@ -64,12 +63,8 @@ export interface WorldState {
   ties: TieEntry[];
   /** Relations between two people as the Persona and play set them (record order; see WorldIndex.relationNow). */
   relations: RelationEntry[];
-  /** 战斗: changes of combat links, states, 对抗倾向, the fight and who saw what (record order; see combat-state.ts). */
-  combatLinks: Replayed<CombatLinkChange>[];
-  statuses: Replayed<StatusChange>[];
-  styles: Replayed<StyleChange>[];
-  fights: Replayed<FightChange>[];
-  witnessed: Replayed<Witnessed>[];
+  /** 战斗: this game's combat changes (combat/state.ts). */
+  combat: CombatState;
   runtimeEntities: Map<Id, RuntimeEntity & { recordId: string }>;
   enactedSteps: Map<string, string>;
   clock: StoryTime;
@@ -100,11 +95,7 @@ export function emptyState(pack: LoadedPack): WorldState {
     contacts: [],
     ties: [],
     relations: [],
-    combatLinks: [],
-    statuses: [],
-    styles: [],
-    fights: [],
-    witnessed: [],
+    combat: emptyCombatState(),
     runtimeEntities: new Map(),
     enactedSteps: new Map(),
     clock: { lo: pack.coverage.start, hi: pack.coverage.start, precision: 'minute' },
@@ -151,12 +142,7 @@ export function applyRecord(state: WorldState, rec: LedgerRecord): void {
   if (rec.contact) state.contacts.push({ ...rec.contact, recordId: rec.recordId, seq: rec.sequence, tick });
   if (rec.tie) state.ties.push({ ...rec.tie, recordId: rec.recordId, seq: rec.sequence, tick });
   for (const r of rec.relations || []) state.relations.push({ ...r, recordId: rec.recordId, seq: rec.sequence, tick });
-  const at = { recordId: rec.recordId, seq: rec.sequence, tick };
-  for (const x of rec.combatLinks || []) state.combatLinks.push({ ...x, ...at });
-  for (const x of rec.statuses || []) state.statuses.push({ ...x, ...at });
-  for (const x of rec.styles || []) state.styles.push({ ...x, ...at });
-  if (rec.fight) state.fights.push({ ...rec.fight, ...at });
-  for (const x of rec.witnessed || []) state.witnessed.push({ ...x, ...at });
+  applyCombat(state.combat, rec, tick);
   // a later Persona read describes the player (and the Persona's own people, groups, places) anew: it wins
   for (const re of rec.runtimeEntities || []) if (!state.runtimeEntities.has(re.id) || rec.kind === 'persona_seed') state.runtimeEntities.set(re.id, { ...re, recordId: rec.recordId });
   for (const s of rec.enactedStepIds || []) if (!state.enactedSteps.has(s)) state.enactedSteps.set(s, rec.recordId);
