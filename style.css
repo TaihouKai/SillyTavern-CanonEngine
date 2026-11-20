@@ -304,6 +304,7 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .ci-nodelink { background:none; border:0; padding:0; margin:0; font:inherit; color:var(--ci-accent); cursor:pointer; text-decoration:underline dotted; text-underline-offset:2px; }
 .ci-nodelink:hover { text-decoration-style:solid; }
 .ci-cbbasis { margin-bottom:6px; }
+.ci-cbnode { scroll-margin-top:44px; }
 .ci-cbwhy { display:flex; flex-direction:column; gap:4px; }
 .ci-cbwalk { margin:0; padding-left:1.6em; display:flex; flex-direction:column; gap:2px; }
 .ci-cbwalk .ci-meta { margin-left:6px; }

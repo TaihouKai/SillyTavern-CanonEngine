@@ -186,7 +186,7 @@ const D: Record<string, { zh: string; en: string }> = {
   cbWalked: { zh: '交给判定的节点（{n} 个，按取用顺序）：', en: "Nodes given to the ruling ({n}, in the order taken):" },
   cbNoWalked: { zh: '没有记录（1.44.0 之前的判定，或参战者在设定里什么都没挂）。', en: "None recorded (a ruling before 1.44.0, or the fighters are linked to nothing in the setting)." },
   cbUsed: { zh: '被引用', en: "cited" },
-  cbVia: { zh: '第 {d} 层，经 {f}', en: "distance {d}, via {f}" },
+  cbVia: { zh: '第 {d} 层，来自 {f}', en: "distance {d}, from {f}" },
   cbWasIn: { zh: '{w} 参与过', en: "{w} was in it" },
   cbGist: { zh: '只给了摘要', en: "gist only" },
   cbCut: { zh: '超出篇幅没有给的：', en: "Left out for the size limit: " },
