@@ -3212,9 +3212,10 @@ export class CanonEngine {
     return f.ongoing ? Math.max(1, f.participants.length) : 0;
   }
 
-  /** 战斗: the fight, the last rulings, everyone's states and 对抗倾向 and the setting's nodes, as the inspector's 战斗
-   *  page shows them (combat/panel.ts). query: the page's search box; focus: nodes the player opened from a link. */
-  combatView(spoilers: boolean, query = '', focus: readonly string[] = []): CombatViewData | null {
+  /** 战斗: the fight, the last rulings, everyone's states and 对抗倾向 and the setting around a focus, as the inspector's
+   *  战斗 page shows them (combat/panel.ts). query: the page's search box; focus: the setting's centre (null: the page's
+   *  own pick). */
+  combatView(spoilers: boolean, query = '', focus: string | null = null): CombatViewData | null {
     if (!this.campaign() || !this.current) return null;
     const rulings = this.current.replay.applied.filter((a) => a.interp.combat).map((a) => ({ tick: a.interp.records.find((r) => r.kind === 'combat')?.storyTime.lo ?? a.interp.sceneEnd?.lo ?? this.current!.replay.state.clock.lo, ruling: a.interp.combat! }));
     return combatView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign()!.binding.originDate, rulings, query, focus);

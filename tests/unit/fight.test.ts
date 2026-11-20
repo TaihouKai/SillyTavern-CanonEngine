@@ -201,7 +201,7 @@ describe('new people in a fight the player starts', () => {
 });
 
 describe('the 战斗 page shows the setting and why a ruling went as it did', () => {
-  it('CF6b a ruling keeps the analysis\' reasoning and the nodes it was given (cited ones marked); the setting lists concepts, rules and what the listed people are linked to, finds any node by its text, hides a precedent still to come unless spoilers', async () => {
+  it('CF6b a ruling keeps the analysis\' reasoning and the nodes it was given (cited ones marked); the setting is drawn around a focus (two steps, people only around it), finds nodes by text and people by name, hides a precedent still to come unless spoilers', async () => {
     const x = await setup();
     await turn(x, 'I hit the thug.', 'He reels. [F13]', {
       extract: { fight: { state: 'starts', participants: ['mira'] } },
@@ -214,26 +214,30 @@ describe('the 战斗 page shows the setting and why a ruling went as it did', ()
     expect(r.walked.find((w) => w.node === 'cb-ordinary')).toMatchObject({ used: false });
     expect(String(x.model.tasks('combat').at(-1)!.input.nodes.find((n: any) => n.id === 'cb-emergency-care').reached)).toBe('mira has');
 
+    // the setting around a focus: by default the first listed person linked to something (the player is not)
     let s = x.engine.combatView(false)!.setting;
-    expect(s.found).toBe(false);
-    const ids = s.nodes.map((n) => n.id);
-    expect(ids).toEqual(expect.arrayContaining(['cb-ordinary', 'cb-soldier', 'cb-firearms', 'cb-emergency-care']));
-    expect(ids).not.toContain('cb-ambush');   // a precedent of an event still to come
+    expect(s.focus).toMatchObject({ id: 'mira', entity: true, out: expect.arrayContaining([{ node: 'cb-emergency-care', name: 'Emergency care', label: 'has' }]) });
+    const depth = (v: typeof s) => Object.fromEntries(v.graph.nodes.map((p) => [p.id, p.depth]));
+    expect(depth(s)).toEqual({ mira: 0, 'cb-ordinary': 1, 'cb-emergency-care': 1 });   // not the precedent still to come
+    expect(s.graph.edges).toEqual(expect.arrayContaining([{ from: 'mira', to: 'cb-emergency-care', label: 'has' }]));
     expect(s.hidden).toBe(1);
-    const fire = s.nodes.find((n) => n.id === 'cb-firearms')!;
-    expect(fire.in).toEqual(expect.arrayContaining([expect.objectContaining({ node: 'cb-soldier', label: 'fights with' }), expect.objectContaining({ label: 'its gunmen use', source: 'pack' })]));
-    expect(s.nodes.find((n) => n.id === 'cb-soldier')!.out).toEqual([{ node: 'cb-firearms', name: 'Firearms', label: 'fights with' }]);
-    expect(s.nodes.find((n) => n.id === 'cb-emergency-care')!.parts.map((p) => p.part)).toEqual(['effect', 'conditions', 'limits']);
-
+    expect(s.byKind.map((k) => k.kind)).toEqual(['concept', 'rule']);
+    expect(s.starts.map((p) => p.id)).toEqual(['mira']);
+    // a node: its links both ways; two steps out, people only around the focus (the council's gunmen are not drawn)
+    s = x.engine.combatView(false, '', 'cb-soldier')!.setting;
+    expect(s.focus).toMatchObject({ id: 'cb-soldier', entity: false, out: [{ node: 'cb-firearms', name: 'Firearms', label: 'fights with' }], in: [{ id: 'union', label: 'its fighters are', source: 'pack' }] });
+    expect(depth(s)).toEqual({ 'cb-soldier': 0, 'cb-firearms': 1, union: 1 });
+    expect(x.engine.combatView(false, '', 'cb-emergency-care')!.setting.focus!.parts.map((p) => p.part)).toEqual(['effect', 'conditions', 'limits']);
+    // a query finds nodes by their text and people by name
     const care2 = L(x).combat.nodes.get('cb-emergency-care')!;
-    s = x.engine.combatView(false, care2.parts![0].text.slice(0, 12))!.setting;
-    expect(s).toMatchObject({ found: true, nodes: [{ id: 'cb-emergency-care' }] });
-    s = x.engine.combatView(false, 'nothing like this anywhere', ['cb-firearms'])!.setting;
-    expect(s.nodes.map((n) => n.id)).toEqual(['cb-firearms']);
-    s = x.engine.combatView(true)!.setting;
+    expect(x.engine.combatView(false, care2.parts![0].text.slice(0, 12))!.setting.found).toEqual([{ id: 'cb-emergency-care', name: 'Emergency care', kind: 'ability' }]);
+    expect(x.engine.combatView(false, 'mir')!.setting.found).toEqual(expect.arrayContaining([{ id: 'mira', name: 'Mira', kind: 'person' }]));
+    // spoilers: the precedent still to come is no focus without them, and drawn with them
+    expect(x.engine.combatView(false, '', 'cb-ambush')!.setting.focus!.id).toBe('mira');
+    s = x.engine.combatView(true, '', 'mira')!.setting;
     expect(s.hidden).toBe(0);
-    expect(s.nodes.find((n) => n.id === 'cb-ambush')).toBeUndefined();   // listed by default only when someone listed is in it
-    expect(x.engine.combatView(true, 'ambush')!.setting.nodes.map((n) => n.id)).toEqual(['cb-ambush']);
+    expect(s.graph.edges).toEqual(expect.arrayContaining([{ from: 'mira', to: 'cb-ambush', label: null }]));
+    expect(x.engine.combatView(true, 'ambush')!.setting.found!.map((n) => n.id)).toEqual(['cb-ambush']);
   });
 });
 

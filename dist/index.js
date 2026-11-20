@@ -33592,7 +33592,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.44.1";
+var ENGINE_RELEASE = "1.45.0";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -35884,8 +35884,10 @@ function gateCombat(c, ev, text, userText, resolve, sceneEnd) {
 
 // src/core/combat/panel.ts
 var SETTING_MAX = 40;
+var GRAPH_MAX = 60;
+var PEOPLE_EACH = 12;
 var KIND_ORDER = ["concept", "rule", "danger", "ability", "precedent"];
-function combatView(idx, spoilers, player, origin, rulings, query = "", focus = []) {
+function combatView(idx, spoilers, player, origin, rulings, query = "", focus = null) {
   const L = idx.pack, s = idx.state, tick = s.clock.lo;
   const name2 = (id) => idx.entityName(id);
   const basisLabel = (b) => (L.combat.nodes.get(b.ref)?.name || (b.ref === "persona" ? "Persona" : b.ref === "judgement" ? "\u5224\u65AD" : b.ref.startsWith("style:") ? `${name2(b.ref.slice(6))}\u7684\u5BF9\u6297\u503E\u5411` : b.ref.startsWith("lore:") ? `\u4E16\u754C\u4E66 ${b.ref.slice(5)}` : b.ref)) + (b.quote ? `\u300C${b.quote}\u300D` : "");
@@ -35944,64 +35946,105 @@ function combatView(idx, spoilers, player, origin, rulings, query = "", focus = 
     setting: settingView(idx, spoilers, people.filter((p) => p.relevant), query, focus)
   };
 }
-function settingView(idx, spoilers, listed, query, focus) {
+function settingView(idx, spoilers, listed, query, focusId) {
   const L = idx.pack, s = idx.state, nodes = L.combat.nodes;
-  const name2 = (id) => idx.entityName(id);
+  const name2 = (id) => nodes.get(id)?.name || idx.entityName(id);
   const occurred3 = (e) => !!e && s.dispositions.get(e)?.disposition === "occurred";
   const knowers = (v) => v && v.mode !== "public" ? v.knower_ids.map(name2) : null;
-  const inNow = /* @__PURE__ */ new Map();
-  const add2 = (n, x) => inNow.set(n, [...inNow.get(n) || [], x]);
-  const entities = new Set([...L.combat.linksFrom.keys(), ...s.combat.links.map((x) => x.entity), ...s.combat.statuses.filter((x) => x.node).map((x) => x.entity)].filter((x) => !nodes.has(x) && idx.entityExists(x)));
-  for (const e of entities) for (const l of linksOf(L, s, e)) add2(l.node, { name: name2(e), label: l.label, source: l.source });
-  const later = /* @__PURE__ */ new Map();
+  const isEntity = (id) => !nodes.has(id) && idx.entityExists(id);
+  const kindOf = (id) => nodes.get(id)?.kind || L.entities.get(id)?.kind || s.runtimeEntities.get(id)?.kind || "person";
+  const links = [];
+  const entities = new Set([...L.combat.linksFrom.keys(), ...s.combat.links.map((x) => x.entity), ...s.combat.statuses.filter((x) => x.node).map((x) => x.entity)].filter(isEntity));
+  for (const e of entities) for (const l of linksOf(L, s, e)) links.push({ from: e, to: l.node, label: l.label, source: l.source });
+  const later = [];
   for (const l of L.pack.combat.links || []) {
-    if (nodes.has(l.from) || !l.from_event || occurred3(l.from_event) || occurred3(l.until_event) || !idx.entityExists(l.from)) continue;
-    later.set(l.to, [...later.get(l.to) || [], { name: name2(l.from), label: l.label, source: "pack", later: L.events.get(l.from_event)?.title || l.from_event }]);
+    if (nodes.has(l.from) || !l.from_event || occurred3(l.from_event) || occurred3(l.until_event) || !isEntity(l.from) || !nodes.has(l.to)) continue;
+    later.push({ from: l.from, to: l.to, label: l.label, later: true, source: "pack", event: L.events.get(l.from_event)?.title || l.from_event });
   }
-  const fromNode = new Set((L.pack.combat.links || []).filter((l) => nodes.has(l.from)).map((l) => l.to));
+  for (const l of L.pack.combat.links || []) if (nodes.has(l.from) && nodes.has(l.to)) links.push({ from: l.from, to: l.to, label: l.label, source: "pack" });
+  for (const n of nodes.values()) if (n.kind === "precedent") {
+    for (const w of n.who || []) if (isEntity(w)) links.push({ from: w, to: n.id, label: null });
+  }
+  const linked = new Set(links.flatMap((l) => [l.from, l.to]));
+  const laterTo = new Set(later.map((l) => l.to));
   const spoiler = (id) => {
     const n = nodes.get(id);
     if (!n || spoilers) return false;
     if (n.kind === "precedent" && n.event_id && !occurred3(n.event_id)) return true;
-    return later.has(id) && !inNow.has(id) && !L.combat.linksFrom.has(id) && !fromNode.has(id);
+    return laterTo.has(id) && !linked.has(id);
   };
   const all = [...nodes.values()];
   const shown = all.filter((n) => !spoiler(n.id));
+  const graphLinks = [...links, ...spoilers ? later : []].filter((l) => !spoiler(l.from) && !spoiler(l.to));
+  const adj = /* @__PURE__ */ new Map();
+  for (const l of graphLinks) for (const end of [l.from, l.to]) adj.set(end, [...adj.get(end) || [], l]);
+  const usable = (id) => !!id && (nodes.has(id) ? !spoiler(id) : isEntity(id) && adj.has(id));
+  const byName = (a, b) => name2(a).localeCompare(name2(b), "zh");
+  const focus = usable(focusId) ? focusId : listed.map((p) => p.id).find(usable) ?? shown.filter((n) => n.kind === "concept").map((n) => n.id).sort(byName)[0] ?? null;
+  const listedIds = new Set(listed.map((p) => p.id));
+  const pts = /* @__PURE__ */ new Map();
+  let morePeople = 0;
+  const add2 = (id, depth) => {
+    if (pts.has(id) || pts.size >= GRAPH_MAX) return false;
+    pts.set(id, { id, name: name2(id), kind: kindOf(id), entity: isEntity(id), depth });
+    return true;
+  };
+  if (focus) {
+    add2(focus, 0);
+    let ring = [focus];
+    for (const depth of [1, 2]) {
+      const next = [];
+      for (const id of ring) {
+        if (depth > 1 && pts.get(id)?.entity) continue;
+        const around = uniq((adj.get(id) || []).map((l) => l.from === id ? l.to : l.from)).filter((x) => !pts.has(x));
+        const people = around.filter(isEntity).sort((a, b) => Number(listedIds.has(b)) - Number(listedIds.has(a)) || byName(a, b));
+        const keep = depth === 1 ? people.slice(0, PEOPLE_EACH) : [];
+        if (depth === 1) morePeople += people.length - keep.length;
+        for (const x of [...around.filter((y) => nodes.has(y)).sort((a, b) => KIND_ORDER.indexOf(kindOf(a)) - KIND_ORDER.indexOf(kindOf(b)) || byName(a, b)), ...keep]) if (add2(x, depth)) next.push(x);
+      }
+      ring = next;
+    }
+  }
+  const seen = /* @__PURE__ */ new Set();
+  const edges = graphLinks.filter((l) => pts.has(l.from) && pts.has(l.to) && !seen.has(`${l.from}|${l.to}|${l.label}`) && !!seen.add(`${l.from}|${l.to}|${l.label}`)).map((l) => ({ from: l.from, to: l.to, label: l.label, ...l.later ? { later: true } : {} }));
+  const view = (id) => {
+    const n = nodes.get(id);
+    const ins = (adj.get(id) || []).filter((l) => l.to === id && l.label !== null).map((l) => ({ id: l.from, name: name2(l.from), label: l.label, source: l.source || "pack", ...l.event ? { later: l.event } : {} }));
+    const outs = (adj.get(id) || []).filter((l) => l.from === id).map((l) => ({ node: l.to, name: name2(l.to), label: l.label }));
+    if (!n) {
+      const e = L.entities.get(id), rt = s.runtimeEntities.get(id);
+      return { id, kind: kindOf(id), entity: true, name: name2(id), gist: String(e?.static_description || rt?.description || "").slice(0, 300), text: "", generated: false, knowers: null, parts: [], who: [], event: null, hours: "", frequency: "", out: outs, in: [] };
+    }
+    return {
+      id,
+      kind: n.kind,
+      entity: false,
+      name: n.name,
+      gist: n.gist,
+      text: n.text,
+      generated: !!n.generated,
+      knowers: knowers(n.visibility),
+      parts: (n.parts || []).map((p) => ({ part: p.part, text: p.text, knowers: knowers(p.visibility) })),
+      who: (n.who || []).filter(isEntity).map(name2),
+      event: n.event_id ? L.events.get(n.event_id)?.title || n.event_id : null,
+      hours: n.hours ? `${n.hours.from}\u2013${n.hours.to}` : "",
+      frequency: n.frequency || "",
+      out: outs,
+      in: ins
+    };
+  };
   const q = query.trim().toLowerCase();
-  let picked, more = 0;
+  let found = null, more = 0;
   if (q) {
     const hay = (n) => [n.name, n.gist, n.text, ...(n.parts || []).map((p) => p.text)].join("\n").toLowerCase();
     const hits = shown.filter((n) => hay(n).includes(q)).sort((a, b) => Number(!a.name.toLowerCase().includes(q)) - Number(!b.name.toLowerCase().includes(q)));
+    const who = [...adj.keys()].filter((id) => isEntity(id) && name2(id).toLowerCase().includes(q)).sort(byName).slice(0, 10);
     more = Math.max(0, hits.length - SETTING_MAX);
-    picked = hits.slice(0, SETTING_MAX);
-  } else {
-    const ids = new Set(listed.flatMap((p) => p.links.map((l) => l.node)));
-    picked = shown.filter((n) => n.kind === "concept" || n.kind === "rule" || n.kind === "danger" || ids.has(n.id));
+    found = [...who.map((id) => ({ id, name: name2(id), kind: kindOf(id) })), ...hits.slice(0, SETTING_MAX).map((n) => ({ id: n.id, name: n.name, kind: n.kind }))];
   }
-  for (const id of focus) {
-    const n = nodes.get(id);
-    if (n && !spoiler(id) && !picked.includes(n)) picked.push(n);
-  }
-  picked.sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.name.localeCompare(b.name, "zh"));
-  const nodeIn = /* @__PURE__ */ new Map();
-  for (const l of L.pack.combat.links || []) if (nodes.has(l.from) && !spoiler(l.from)) nodeIn.set(l.to, [...nodeIn.get(l.to) || [], { node: l.from, name: nodes.get(l.from).name, label: l.label, source: "pack" }]);
-  const view = (n) => ({
-    id: n.id,
-    kind: n.kind,
-    name: n.name,
-    gist: n.gist,
-    text: n.text,
-    generated: !!n.generated,
-    knowers: knowers(n.visibility),
-    parts: (n.parts || []).map((p) => ({ part: p.part, text: p.text, knowers: knowers(p.visibility) })),
-    who: (n.who || []).filter((x) => idx.entityExists(x)).map(name2),
-    event: n.event_id ? L.events.get(n.event_id)?.title || n.event_id : null,
-    hours: n.hours ? `${n.hours.from}\u2013${n.hours.to}` : "",
-    frequency: n.frequency || "",
-    out: (L.combat.linksFrom.get(n.id) || []).filter((l) => nodes.has(l.to) && !spoiler(l.to)).map((l) => ({ node: l.to, name: nodes.get(l.to).name, label: l.label })),
-    in: [...nodeIn.get(n.id) || [], ...inNow.get(n.id) || [], ...spoilers ? later.get(n.id) || [] : []]
-  });
-  return { nodes: picked.map(view), found: !!q, more, total: shown.length, hidden: all.length - shown.length };
+  const starts = listed.filter((p) => adj.has(p.id)).map((p) => ({ id: p.id, name: p.name, kind: kindOf(p.id) }));
+  const byKind = ["concept", "rule", "danger"].map((kind) => ({ kind, items: shown.filter((n) => n.kind === kind).map((n) => ({ id: n.id, name: n.name })).sort((a, b) => a.name.localeCompare(b.name, "zh")) })).filter((g) => g.items.length);
+  return { focus: focus ? view(focus) : null, graph: { nodes: [...pts.values()], edges, morePeople }, found, more, starts, byKind, total: shown.length, hidden: all.length - shown.length };
 }
 function panelRecord(idx, change, tick, player) {
   const st = { lo: tick, hi: tick, precision: "minute" };
@@ -41299,9 +41342,10 @@ ${lines.join("\n")}`;
     const f = fightNow(this.current.replay.state);
     return f.ongoing ? Math.max(1, f.participants.length) : 0;
   }
-  /** 战斗: the fight, the last rulings, everyone's states and 对抗倾向 and the setting's nodes, as the inspector's 战斗
-   *  page shows them (combat/panel.ts). query: the page's search box; focus: nodes the player opened from a link. */
-  combatView(spoilers, query = "", focus = []) {
+  /** 战斗: the fight, the last rulings, everyone's states and 对抗倾向 and the setting around a focus, as the inspector's
+   *  战斗 page shows them (combat/panel.ts). query: the page's search box; focus: the setting's centre (null: the page's
+   *  own pick). */
+  combatView(spoilers, query = "", focus = null) {
     if (!this.campaign() || !this.current) return null;
     const rulings = this.current.replay.applied.filter((a) => a.interp.combat).map((a) => ({ tick: a.interp.records.find((r) => r.kind === "combat")?.storyTime.lo ?? a.interp.sceneEnd?.lo ?? this.current.replay.state.clock.lo, ruling: a.interp.combat }));
     return combatView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign().binding.originDate, rulings, query, focus);
@@ -41821,12 +41865,24 @@ var D = {
   combatSrc_fill: { zh: "\u8865\u586B", en: "filled in" },
   combatFighting: { zh: "\u6218\u6597\u4E2D", en: "fighting" },
   cbSetting: { zh: "\u6218\u6597\u8BBE\u5B9A", en: "Combat setting" },
-  cbSettingTip: { zh: "\u5267\u672C\u7684\u6218\u6597\u8BBE\u5B9A\uFF1A\u9ED8\u8BA4\u60C5\u51B5\uFF08\u6BD4\u5982\u73B0\u5B9E\u7269\u7406\uFF09\uFF0C\u4EE5\u53CA\u6982\u5FF5\u3001\u89C4\u5219\u3001\u80FD\u529B\u3001\u5148\u4F8B\u3001\u5371\u9669\u8FD9\u4E9B\u8282\u70B9\u548C\u5B83\u4EEC\u4E4B\u95F4\u7684\u8FDE\u63A5\u3002\u6218\u6597\u65F6 CanonEngine \u4ECE\u53C2\u6218\u8005\u6302\u7740\u7684\u8282\u70B9\u51FA\u53D1\uFF0C\u6CBF\u8FDE\u63A5\u53D6\u8D44\u6599\u4EA4\u7ED9\u5224\u5B9A\u3002\n\u9ED8\u8BA4\u5217\u51FA\u6982\u5FF5\u3001\u89C4\u5219\u3001\u5371\u9669\u548C\u4E0A\u9762\u5217\u51FA\u7684\u4EBA\u6302\u7740\u7684\u8282\u70B9\uFF1B\u5728\u641C\u7D22\u6846\u8F93\u5165\u540D\u5B57\u6216\u5185\u5BB9\u53EF\u4EE5\u627E\u5230\u4EFB\u4F55\u8282\u70B9\u3002\u70B9\u84DD\u8272\u7684\u8282\u70B9\u540D\u4F1A\u8DF3\u5230\u90A3\u4E2A\u8282\u70B9\u5E76\u5C55\u5F00\u8BE6\u60C5\u3002", en: "The pack's combat setting: what holds by default (e.g. real-world physics) and its nodes \u2014 concepts, rules, abilities, precedents, dangers \u2014 with their links. In a fight Canon Engine walks the links out from the nodes the fighters are linked to and gives what it finds to the ruling.\\nListed by default: the concepts, rules and dangers and the nodes the people above are linked to; type a name or words in the search box to find any node. A node's name in a link opens that node." },
-  cbBasis: { zh: "\u9ED8\u8BA4", en: "By default" },
-  cbListed: { zh: "{n} \u4E2A\u8282\u70B9\uFF1A\u6982\u5FF5\u3001\u89C4\u5219\u3001\u5371\u9669\uFF0C\u4EE5\u53CA\u4E0A\u9762\u5217\u51FA\u7684\u4EBA\u6302\u7740\u7684\u3002\u5267\u672C\u5171 {all} \u4E2A\uFF0C\u5728\u641C\u7D22\u6846\u8F93\u5165\u540D\u5B57\u6216\u5185\u5BB9\u53EF\u4EE5\u627E\u5230\u4EFB\u4F55\u4E00\u4E2A\u3002", en: "{n} nodes: the concepts, rules and dangers, and what the people above are linked to. Type a name or words in the search box to find any of the pack's {all}." },
-  cbFound: { zh: "\u641C\u7D22\u5230 {n} \u4E2A\u8282\u70B9\uFF08\u540D\u5B57\u6216\u5185\u5BB9\u91CC\u6709\u8FD9\u4E2A\u8BCD\uFF09\u3002", en: "{n} nodes found (by name or text)." },
+  cbSettingTip: { zh: "\u5267\u672C\u7684\u6218\u6597\u8BBE\u5B9A\uFF1A\u9ED8\u8BA4\u6309\u4EC0\u4E48\u5224\u65AD\uFF08\u6BD4\u5982\u73B0\u5B9E\u7269\u7406\uFF09\uFF0C\u4EE5\u53CA\u6982\u5FF5\u3001\u89C4\u5219\u3001\u80FD\u529B\u3001\u5148\u4F8B\u3001\u5371\u9669\u8FD9\u4E9B\u8282\u70B9\u548C\u5B83\u4EEC\u4E4B\u95F4\u7684\u8FDE\u63A5\u3002\u6218\u6597\u65F6 CanonEngine \u4ECE\u53C2\u6218\u8005\u6302\u7740\u7684\u8282\u70B9\u51FA\u53D1\uFF0C\u6CBF\u8FDE\u63A5\u53D6\u8D44\u6599\u4EA4\u7ED9\u5224\u5B9A\u3002\n\u56FE\u4EE5\u4E00\u4E2A\u8282\u70B9\u6216\u4E00\u4E2A\u4EBA\u4E3A\u4E2D\u5FC3\uFF0C\u753B\u51FA\u5468\u56F4\u4E24\u5C42\uFF1A\u70B9\u56FE\u4E0A\u7684\u70B9\u5C31\u4EE5\u5B83\u4E3A\u4E2D\u5FC3\u5C55\u5F00\uFF0C\u9F20\u6807\u505C\u5728\u70B9\u4E0A\u80FD\u770B\u5230\u5B83\u7684\u6BCF\u6761\u8FDE\u63A5\uFF1B\u56FE\u4E0B\u9762\u662F\u4E2D\u5FC3\u7684\u5168\u6587\u548C\u8FDE\u63A5\u3002\u4E0B\u9762\u7684\u6807\u7B7E\u3001\u9875\u9762\u4E0A\u4EFB\u4F55\u84DD\u8272\u7684\u8282\u70B9\u540D\uFF0C\u4EE5\u53CA\u641C\u7D22\u6846\uFF08\u6309\u540D\u5B57\u6216\u5185\u5BB9\u627E\u8282\u70B9\uFF0C\u6309\u540D\u5B57\u627E\u4EBA\uFF09\u90FD\u80FD\u6362\u4E2D\u5FC3\u3002", en: "The pack's combat setting: what holds by default (e.g. real-world physics) and its nodes \u2014 concepts, rules, abilities, precedents, dangers \u2014 with their links. In a fight Canon Engine walks the links out from the nodes the fighters are linked to and gives what it finds to the ruling.\nThe graph shows two steps around one node or person: click a point to centre on it, hover one to see its links; under it the centre in full with its links. The chips below, any node name on the page and the search box (nodes by name or text, people by name) move the centre too." },
+  cbFound: { zh: "\u641C\u7D22\u5230 {n} \u4E2A\uFF08\u8282\u70B9\u6309\u540D\u5B57\u6216\u5185\u5BB9\uFF0C\u4EBA\u6309\u540D\u5B57\uFF09\u3002\u70B9\u4E00\u4E2A\u653E\u5230\u56FE\u7684\u4E2D\u5FC3\u3002", en: "{n} found (nodes by name or text, people by name). Click one to centre the graph on it." },
   cbMore: { zh: "\u8FD8\u6709 {n} \u4E2A\u6CA1\u6709\u5217\u51FA\uFF0C\u8BF7\u8F93\u5165\u66F4\u5177\u4F53\u7684\u8BCD\u3002", en: "{n} more not listed: search for something more specific." },
   cbHidden: { zh: "{n} \u4E2A\u8282\u70B9\u5C5E\u4E8E\u5C1A\u672A\u5230\u6765\u7684\u5267\u60C5\uFF08\u5267\u900F\uFF09\uFF0C\u6CA1\u6709\u5217\u51FA\u3002", en: "{n} nodes belong to the story still to come (spoilers) and are not listed." },
+  cbBasisFold: { zh: "\u9ED8\u8BA4\u6309\u4EC0\u4E48\u5224\u65AD", en: "What holds by default" },
+  cbFought: { zh: "\u4EA4\u624B\u8FC7", en: "fought in" },
+  cbMorePeople: { zh: "\u53E6\u6709 {n} \u4EBA\u8FDE\u7740\u5B83\uFF0C\u6CA1\u753B\u51FA\u6765", en: "{n} more people linked, not drawn" },
+  cbGraphHint: { zh: "\u70B9\u4E00\u4E2A\u70B9\u5C31\u4EE5\u5B83\u4E3A\u4E2D\u5FC3 \xB7 \u9F20\u6807\u505C\u5728\u70B9\u4E0A\u770B\u5B83\u7684\u8FDE\u63A5", en: "Click a point to centre on it \xB7 hover to see its links" },
+  cbNoGraph: { zh: "\u8FD9\u4E2A\u5267\u672C\u7684\u6218\u6597\u8BBE\u5B9A\u91CC\u6CA1\u6709\u8282\u70B9\u3002", en: "This pack's combat setting has no nodes." },
+  cbStarts: { zh: "\u4ECE\u8FD9\u91CC\u770B\uFF1A", en: "Start from:" },
+  cbSearchHint: { zh: "\u5728\u641C\u7D22\u6846\u8F93\u5165\u540D\u5B57\u6216\u5185\u5BB9\uFF0C\u53EF\u4EE5\u627E\u5230\u4EFB\u4F55\u8282\u70B9\uFF08\u5171 {all} \u4E2A\uFF09\u6216\u4EBA\u3002", en: "Type a name or words in the search box to find any node (of {all}) or person." },
+  cbInMore: { zh: " \u7B49 {n} \u4E2A", en: " and {n} more" },
+  cbKind_person: { zh: "\u4EBA\u7269", en: "Person" },
+  cbKind_place: { zh: "\u5730\u70B9", en: "Place" },
+  cbKind_organization: { zh: "\u7EC4\u7EC7", en: "Organization" },
+  cbKind_object: { zh: "\u7269\u54C1", en: "Object" },
+  cbKind_world: { zh: "\u4E16\u754C", en: "World" },
+  cbKind_other: { zh: "\u5176\u4ED6", en: "Other" },
   cbKind_concept: { zh: "\u6982\u5FF5", en: "Concept" },
   cbKind_rule: { zh: "\u89C4\u5219", en: "Rule" },
   cbKind_ability: { zh: "\u80FD\u529B", en: "Ability" },
@@ -41846,7 +41902,6 @@ var D = {
   cbOut: { zh: "\u8FDE\u5230", en: "Links to" },
   cbIn: { zh: "\u8FDE\u5230\u5B83\u7684", en: "Linked from" },
   cbLater: { zh: "{e} \u4E4B\u540E", en: "after {e}" },
-  cbDetail: { zh: "\u8BE6\u60C5", en: "Details" },
   cbWhy: { zh: "\u5224\u5B9A\u7406\u7531 \xB7 \u89E6\u53D1\u7684 {n} \u4E2A\u8282\u70B9", en: "Why \xB7 the {n} nodes it was given" },
   cbReasoning: { zh: "AI \u7684\u5224\u5B9A\u7406\u7531", en: "The analysis' reasoning" },
   cbNoReasoning: { zh: "\u8FD9\u6B21\u5224\u5B9A\u6CA1\u6709\u5199\u7406\u7531\uFF081.44.0 \u4E4B\u524D\u7684\u5224\u5B9A\uFF09\u3002", en: "No reasoning for this ruling (before 1.44.0)." },
@@ -42705,14 +42760,14 @@ function layout(g) {
     y = laneY[l][1] + 6;
   }
   void unkRows;
-  const placed = sorted.map((n) => {
+  const placed2 = sorted.map((n) => {
     const p = geo.get(n.id);
     return { ...n, x: p.x, w: p.w, inside: p.inside, title2: p.title2, sub2: p.sub2, y: laneY[n.lane][0] + LANE_PAD / 2 + p.row * (NODE_H + ROW_GAP) };
   });
   const ticks = axisTicks(g, sc, bounds);
   const nowX = g.nowTick !== null ? sc.x(g.nowTick) : null;
-  const width = Math.max(sc.end, ...placed.map((p) => p.x + p.w + (p.inside ? 0 : 6 + textW(p.title2, 12.5) + 16))) + 60;
-  return { placed, width, height: y + 10, laneY, ticks, nowX, axisStart };
+  const width = Math.max(sc.end, ...placed2.map((p) => p.x + p.w + (p.inside ? 0 : 6 + textW(p.title2, 12.5) + 16))) + 60;
+  return { placed: placed2, width, height: y + 10, laneY, ticks, nowX, axisStart };
 }
 function axisTicks(g, sc, bounds) {
   const out = [];
@@ -43342,6 +43397,309 @@ function hostilityChange(b) {
   return null;
 }
 
+// src/core/ui/combat-graph.ts
+var KIND_COLOR = {
+  concept: "#5b9bf0",
+  rule: "#d9a53a",
+  ability: "#a879e8",
+  precedent: "#e0697a",
+  danger: "#e8613a",
+  person: "#43b58a",
+  place: "#3aaebb",
+  organization: "#8aa33c",
+  object: "#a08f78",
+  world: "#8c8c8c",
+  other: "#8c8c8c"
+};
+var kindColor = (k) => KIND_COLOR[k] || "#8c8c8c";
+var placed = /* @__PURE__ */ new Map();
+function layout2(ps, es) {
+  const focus = ps.find((p) => p.depth === 0);
+  const ring1 = ps.filter((p) => p.depth === 1), ring2 = ps.filter((p) => p.depth === 2);
+  const parent = /* @__PURE__ */ new Map();
+  for (const q of ring2) {
+    const by = es.find((e) => e.a === q && e.b.depth === 1 || e.b === q && e.a.depth === 1);
+    parent.set(q, by ? by.a === q ? by.b : by.a : ring1[0]);
+  }
+  const kids = new Map(ring1.map((p) => [p, ring2.filter((q) => parent.get(q) === p)]));
+  const R1 = Math.max(105, ring1.length * 62 / (2 * Math.PI));
+  const R2 = Math.max(R1 + 115, ring2.length * 19 / (2 * Math.PI));
+  focus.gx = 0;
+  focus.gy = 0;
+  focus.angle = 0;
+  const weight = (p) => 1 + (kids.get(p)?.length || 0) * 0.9;
+  const total = ring1.reduce((n, p) => n + weight(p), 0) || 1;
+  const share = (p) => 2 * Math.PI * (0.5 / ring1.length + 0.5 * weight(p) / total);
+  let at = -Math.PI / 2 - (ring1[0] ? share(ring1[0]) / 2 : 0);
+  for (const p of ring1) {
+    const span = share(p);
+    p.angle = at + span / 2;
+    p.gx = Math.cos(p.angle) * R1;
+    p.gy = Math.sin(p.angle) * R1;
+    const ks = kids.get(p) || [];
+    const crowded = span * R2 / Math.max(1, ks.length) < 16;
+    ks.forEach((q, i) => {
+      q.angle = at + span * (i + 0.5) / ks.length;
+      const r = R2 + (crowded && i % 2 ? 38 : 0);
+      q.gx = Math.cos(q.angle) * r;
+      q.gy = Math.sin(q.angle) * r;
+    });
+    at += span;
+  }
+}
+function mountCombatGraph(canvas, data, opts) {
+  const ctx2 = canvas.getContext("2d");
+  if (!ctx2 || !data.nodes.length) return;
+  const reduce2 = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const ps = data.nodes.map((n) => ({ ...n, r: n.depth === 0 ? 11 : n.depth === 1 ? 7 : 4.5, x: 0, y: 0, gx: 0, gy: 0, angle: 0 }));
+  const byId = new Map(ps.map((p) => [p.id, p]));
+  const es = data.edges.map((e) => ({ ...e, a: byId.get(e.from), b: byId.get(e.to) })).filter((e) => e.a && e.b);
+  const near = new Map(ps.map((p) => [p, /* @__PURE__ */ new Set()]));
+  for (const e of es) {
+    near.get(e.a).add(e.b);
+    near.get(e.b).add(e.a);
+  }
+  const focus = ps.find((p) => p.depth === 0);
+  layout2(ps, es);
+  const was = placed.get(focus.id), shift = was ? { x: -was.x, y: -was.y } : { x: 0, y: 0 };
+  for (const p of ps) {
+    const q = placed.get(p.id);
+    if (q) {
+      p.x = q.x + shift.x;
+      p.y = q.y + shift.y;
+    } else {
+      p.x = p.gx * 0.6;
+      p.y = p.gy * 0.6;
+    }
+  }
+  const ink = getComputedStyle(canvas).color || "rgb(220,220,220)";
+  const rgb = (ink.match(/\d+(\.\d+)?/g) || ["220", "220", "220"]).slice(0, 3).map(Number);
+  const light = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1e3 > 128;
+  const halo = light ? "rgba(20,20,24,.8)" : "rgba(250,250,250,.88)";
+  const accent = getComputedStyle(canvas).getPropertyValue("--ci-accent").trim() || "#e9a23b";
+  const ring2Names = ps.filter((p) => p.depth === 2).length <= 40;
+  let W = 0, H2 = 0, dpr = 1;
+  const size = () => {
+    const r = canvas.getBoundingClientRect();
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = r.width;
+    H2 = r.height;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H2 * dpr);
+  };
+  size();
+  let scale = 1, tx = W / 2, ty = H2 / 2;
+  const goal = () => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of ps) {
+      const m = p.depth === 2 && ring2Names ? 100 : 66;
+      x0 = Math.min(x0, p.gx - m);
+      x1 = Math.max(x1, p.gx + m);
+      y0 = Math.min(y0, p.gy - (p.depth === 2 ? m * 0.9 : 24));
+      y1 = Math.max(y1, p.gy + (p.depth === 2 ? m * 0.9 : 24));
+    }
+    const s = Math.min(1.5, W / Math.max(1, x1 - x0), H2 / Math.max(1, y1 - y0));
+    return { s, x: W / 2 - (x0 + x1) / 2 * s, y: H2 / 2 - (y0 + y1) / 2 * s };
+  };
+  {
+    const g = goal();
+    scale = g.s;
+    tx = g.x;
+    ty = g.y;
+  }
+  let hover = null, raf = 0, last2 = 0;
+  const label = (text, x, y, px, color) => {
+    ctx2.font = `${px / scale}px system-ui, sans-serif`;
+    ctx2.lineWidth = 3 / scale;
+    ctx2.strokeStyle = halo;
+    ctx2.lineJoin = "round";
+    ctx2.strokeText(text, x, y);
+    ctx2.fillStyle = color;
+    ctx2.fillText(text, x, y);
+  };
+  const nameOf = (p, px) => {
+    if (p === focus) {
+      ctx2.textAlign = "center";
+      ctx2.textBaseline = "top";
+      label(p.name, p.x, p.y + p.r + 4 / scale, px, ink);
+      return;
+    }
+    const ux = Math.cos(p.angle), uy = Math.sin(p.angle), off = p.r + 4 / scale;
+    if (p.depth === 1) {
+      ctx2.textAlign = ux > 0.3 ? "left" : ux < -0.3 ? "right" : "center";
+      ctx2.textBaseline = uy > 0.3 ? "top" : uy < -0.3 ? "bottom" : "middle";
+      label(p.name, p.x + ux * off, p.y + uy * off, px, ink);
+      return;
+    }
+    const flip = ux < 0;
+    ctx2.save();
+    ctx2.translate(p.x + ux * off, p.y + uy * off);
+    ctx2.rotate(flip ? p.angle + Math.PI : p.angle);
+    ctx2.textAlign = flip ? "right" : "left";
+    ctx2.textBaseline = "middle";
+    label(p.name, 0, 0, px, ink);
+    ctx2.restore();
+  };
+  const draw = () => {
+    ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx2.clearRect(0, 0, W, H2);
+    ctx2.translate(tx, ty);
+    ctx2.scale(scale, scale);
+    const lit = hover ? /* @__PURE__ */ new Set([hover, ...near.get(hover)]) : null;
+    for (const e of es) {
+      const hot = !!hover && (e.a === hover || e.b === hover);
+      const toFocus = e.a === focus || e.b === focus;
+      ctx2.globalAlpha = hot ? 0.85 : hover ? 0.08 : toFocus ? 0.45 : 0.22;
+      ctx2.strokeStyle = hot || !hover && toFocus ? accent : ink;
+      ctx2.lineWidth = (hot ? 1.6 : 1) / scale;
+      ctx2.setLineDash(e.later ? [4 / scale, 3 / scale] : []);
+      const mx = (e.a.x + e.b.x) / 2, my = (e.a.y + e.b.y) / 2, bow = toFocus ? 0 : 0.12;
+      const cx = mx + (mx - focus.x) * bow, cy = my + (my - focus.y) * bow;
+      ctx2.beginPath();
+      ctx2.moveTo(e.a.x, e.a.y);
+      ctx2.quadraticCurveTo(cx, cy, e.b.x, e.b.y);
+      ctx2.stroke();
+      if (hot) {
+        const dx = e.b.x - cx, dy = e.b.y - cy, d = Math.max(1, Math.hypot(dx, dy)), ux = dx / d, uy = dy / d;
+        const hx = e.b.x - ux * (e.b.r + 2 / scale), hy = e.b.y - uy * (e.b.r + 2 / scale), h = 6 / scale;
+        ctx2.setLineDash([]);
+        ctx2.fillStyle = accent;
+        ctx2.beginPath();
+        ctx2.moveTo(hx, hy);
+        ctx2.lineTo(hx - ux * h - uy * h * 0.55, hy - uy * h + ux * h * 0.55);
+        ctx2.lineTo(hx - ux * h + uy * h * 0.55, hy - uy * h - ux * h * 0.55);
+        ctx2.fill();
+      }
+    }
+    ctx2.setLineDash([]);
+    for (const p of ps) {
+      ctx2.globalAlpha = lit && !lit.has(p) ? 0.25 : 1;
+      ctx2.fillStyle = kindColor(p.kind);
+      ctx2.beginPath();
+      if (p.entity) {
+        const r = p.r * 0.9;
+        if (ctx2.roundRect) ctx2.roundRect(p.x - r, p.y - r, 2 * r, 2 * r, r * 0.45);
+        else ctx2.rect(p.x - r, p.y - r, 2 * r, 2 * r);
+      } else ctx2.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx2.fill();
+      if (p === focus || p === hover) {
+        ctx2.lineWidth = 2.2 / scale;
+        ctx2.strokeStyle = p === focus ? accent : ink;
+        ctx2.stroke();
+      }
+    }
+    for (const p of ps) {
+      if (p.depth === 2 && !ring2Names && !lit?.has(p)) continue;
+      ctx2.globalAlpha = lit && !lit.has(p) ? 0.25 : p.depth === 2 ? 0.8 : 1;
+      nameOf(p, p === focus ? 13 : p.depth === 1 ? 11.5 : 9.5);
+    }
+    if (hover) {
+      ctx2.textAlign = "center";
+      ctx2.textBaseline = "middle";
+      ctx2.globalAlpha = 0.95;
+      for (const e of es) if (e.a === hover || e.b === hover) {
+        const mx = (e.a.x + e.b.x) / 2, my = (e.a.y + e.b.y) / 2, bow = e.a === focus || e.b === focus ? 0 : 0.06;
+        label(e.label ?? opts.fought, mx + (mx - focus.x) * bow, my + (my - focus.y) * bow, 10, accent);
+      }
+    }
+    ctx2.globalAlpha = 1;
+  };
+  const save = () => {
+    for (const p of ps) placed.set(p.id, { x: p.x, y: p.y });
+  };
+  const frame = () => {
+    raf = 0;
+    if (!canvas.isConnected) {
+      save();
+      return;
+    }
+    const now = performance.now(), dt = last2 ? Math.min(64, now - last2) : 16.7;
+    last2 = now;
+    const k = 1 - Math.pow(0.84, dt / 16.7);
+    let moving = false;
+    for (const p of ps) {
+      const dx = p.gx - p.x, dy = p.gy - p.y;
+      if (Math.abs(dx) + Math.abs(dy) > 0.3) {
+        p.x += dx * k;
+        p.y += dy * k;
+        moving = true;
+      } else {
+        p.x = p.gx;
+        p.y = p.gy;
+      }
+    }
+    const g = goal();
+    if (Math.abs(g.s - scale) > 2e-3 || Math.abs(g.x - tx) + Math.abs(g.y - ty) > 0.5) {
+      scale += (g.s - scale) * k;
+      tx += (g.x - tx) * k;
+      ty += (g.y - ty) * k;
+      moving = true;
+    }
+    draw();
+    if (moving) raf = requestAnimationFrame(frame);
+    else {
+      save();
+      last2 = 0;
+    }
+  };
+  const kick = () => {
+    if (!raf) {
+      last2 = 0;
+      raf = requestAnimationFrame(frame);
+    }
+  };
+  if (reduce2) {
+    for (const p of ps) {
+      p.x = p.gx;
+      p.y = p.gy;
+    }
+    draw();
+    save();
+  } else kick();
+  const hit = (ev) => {
+    const x = (ev.offsetX - tx) / scale, y = (ev.offsetY - ty) / scale;
+    let best = null, bd = Infinity;
+    for (const p of ps) {
+      const d = Math.hypot(p.x - x, p.y - y);
+      if (d <= p.r + 6 / scale && d < bd) {
+        best = p;
+        bd = d;
+      }
+    }
+    return best;
+  };
+  canvas.addEventListener("pointermove", (ev) => {
+    const p = hit(ev);
+    if (p === hover) return;
+    hover = p;
+    canvas.style.cursor = p && p !== focus ? "pointer" : "";
+    if (!raf) draw();
+  });
+  canvas.addEventListener("pointerleave", () => {
+    hover = null;
+    canvas.style.cursor = "";
+    if (!raf) draw();
+  });
+  canvas.addEventListener("click", (ev) => {
+    const p = hit(ev);
+    if (p && p !== focus) {
+      save();
+      opts.pick(p.id);
+    }
+  });
+  if (typeof ResizeObserver === "function") {
+    const ro = new ResizeObserver(() => {
+      if (!canvas.isConnected) {
+        ro.disconnect();
+        return;
+      }
+      size();
+      kick();
+    });
+    ro.observe(canvas);
+  }
+}
+
 // src/core/ui/combat-panel.ts
 var esc3 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 var chip2 = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc3(s)}</span>`;
@@ -43350,8 +43708,7 @@ var fold = (key2, label, inner, cls = "") => `<details class="ci-fold${cls ? ` $
 var sec = (id, label, inner, tipHtml = "", cls = "") => `<section class="ci-sec${cls ? ` ${cls}` : ""}" data-sec="${id}"><h4 class="ci-sec-h"><span>${esc3(label)}</span>${tipHtml}<span class="ci-sp"></span></h4>${inner}</section>`;
 var empty = (s) => `<div class="ci-empty">${esc3(s)}</div>`;
 var nodeBtn = (id, label) => `<button class="ci-nodelink" data-act="cb-node" data-node="${esc3(id)}">${esc3(label)}</button>`;
-var KINDS = ["concept", "rule", "danger", "ability", "precedent"];
-function combatHtml(v, query, picked, focus, tip2) {
+function combatHtml(v, query, picked, tip2) {
   if (!v) return { html: empty(t("graphNoData")), secs: [] };
   if (v.none !== null) return { html: empty(t("combatNone").replace("{r}", v.none)), secs: [] };
   const q = query.trim().toLowerCase();
@@ -43379,25 +43736,35 @@ function combatHtml(v, query, picked, focus, tip2) {
   };
   const note = `<div class="ci-muted">${esc3(t(q ? "combatPeopleFound" : "combatPeopleNote").replace("{n}", String(people.length)).replace("{all}", String(v.people.length)))}</div>`;
   const knownBy = (k) => k ? chip2(k.length ? t("cbKnownBy").replace("{w}", k.join("\u3001")) : t("cbSecret"), "warn") : "";
-  const node = (n) => {
-    const head = `<span class="ci-title">${esc3(n.name)}</span>${chip2(t("cbKind_" + n.kind))}${n.generated ? chip2(t("cbGenerated"), "warn") : ""}${knownBy(n.knowers)}${n.frequency ? chip2(t("hoFreq_" + n.frequency), "muted") : ""}${n.hours ? chip2(n.hours, "muted") : ""}`;
+  const S = v.setting;
+  const dot = (k) => `<i class="ci-kdot" style="--k:${kindColor(k)}"></i>`;
+  const nodeChip = (x) => `<button class="ci-nodechip${S.focus?.id === x.id ? " ci-on" : ""}" data-act="cb-node" data-node="${esc3(x.id)}">${dot(x.kind)}${esc3(x.name)}</button>`;
+  const card2 = (n) => {
+    const ins = n.in.slice(0, 40);
     const rows = [
+      ...n.gist ? [`<div class="ci-muted">${esc3(n.gist)}</div>`] : [],
       ...n.text && n.text !== n.gist ? [`<div>${esc3(n.text)}</div>`] : [],
       ...n.parts.length ? [`<table class="ci-kv">${n.parts.map((p) => `<tr><th>${esc3(t("cbPart_" + p.part))}</th><td>${esc3(p.text)} ${knownBy(p.knowers)}</td></tr>`).join("")}</table>`] : [],
       ...n.who.length ? [`<div><b>${esc3(t("cbWho"))}\uFF1A</b>${esc3(n.who.join("\u3001"))}</div>`] : [],
       ...n.event ? [`<div><b>${esc3(t("cbEvent"))}\uFF1A</b>${esc3(n.event)}</div>`] : [],
-      ...n.out.length ? [`<div><b>${esc3(t("cbOut"))}\uFF1A</b>${n.out.map((l) => `${esc3(l.label)} ${nodeBtn(l.node, l.name)}`).join("\uFF1B")}</div>`] : [],
-      ...n.in.length ? [`<div><b>${esc3(t("cbIn"))}\uFF1A</b>${n.in.map((l) => `${l.node ? nodeBtn(l.node, l.name) : esc3(l.name)} ${esc3(l.label)}${l.source !== "pack" ? `\uFF08${esc3(t("combatSrc_" + l.source))}\uFF09` : ""}${l.later ? `\uFF08${esc3(t("cbLater").replace("{e}", l.later))}\uFF09` : ""}`).join("\uFF1B")}</div>`] : []
+      ...n.out.length ? [`<div><b>${esc3(t("cbOut"))}\uFF1A</b>${n.out.map((l) => `${esc3(l.label ?? t("cbFought"))} ${nodeBtn(l.node, l.name)}`).join("\uFF1B")}</div>`] : [],
+      ...ins.length ? [`<div><b>${esc3(t("cbIn"))}\uFF1A</b>${ins.map((l) => `${nodeBtn(l.id, l.name)} ${esc3(l.label)}${l.source !== "pack" ? `\uFF08${esc3(t("combatSrc_" + l.source))}\uFF09` : ""}${l.later ? `\uFF08${esc3(t("cbLater").replace("{e}", l.later))}\uFF09` : ""}`).join("\uFF1B")}${n.in.length > ins.length ? esc3(t("cbInMore").replace("{n}", String(n.in.length - ins.length))) : ""}</div>`] : []
     ];
-    return `<div class="ci-item ci-cbnode${focus.has(n.id) ? " ci-pin" : ""}" data-key="cbn-${esc3(n.id)}"><div class="ci-head">${head}</div><div class="ci-body"><div class="ci-muted">${esc3(n.gist)}</div>${rows.length ? fold(`cbnf-${n.id}`, t("cbDetail"), rows.join("")) : ""}</div></div>`;
+    const headHtml = `${dot(n.kind)}<span class="ci-title">${esc3(n.name)}</span>${chip2(t("cbKind_" + n.kind))}${n.generated ? chip2(t("cbGenerated"), "warn") : ""}${knownBy(n.knowers)}${n.frequency ? chip2(t("hoFreq_" + n.frequency), "muted") : ""}${n.hours ? chip2(n.hours, "muted") : ""}`;
+    return `<div class="ci-item ci-cbnode ci-pin" data-key="cbn-focus"><div class="ci-head">${headHtml}</div><div class="ci-body">${rows.join("")}</div></div>`;
   };
-  const S = v.setting;
-  const settingNote = `<div class="ci-muted">${esc3(S.found ? t("cbFound").replace("{n}", String(S.nodes.length)) : t("cbListed").replace("{n}", String(S.nodes.length)).replace("{all}", String(S.total)))}</div>`;
-  const groups = KINDS.map((k) => [k, S.nodes.filter((n) => n.kind === k)]).filter(([, ns]) => ns.length).map(([k, ns]) => `<h5 class="ci-sub">${esc3(t("cbKind_" + k))} \xB7 ${ns.length}</h5>${ns.map(node).join("")}`).join("");
-  const setting = `<div class="ci-cbbasis"><b>${esc3(t("cbBasis"))}\uFF1A</b>${esc3(v.basis)}</div>${settingNote}${groups}` + (S.more ? `<div class="ci-muted">${esc3(t("cbMore").replace("{n}", String(S.more)))}</div>` : "") + (S.hidden ? `<div class="ci-muted">${esc3(t("cbHidden").replace("{n}", String(S.hidden)))}</div>` : "");
+  const g = S.graph;
+  const legend = [...new Set(g.nodes.map((p) => p.kind))].map((k) => `<span class="ci-legend">${dot(k)}${esc3(t("cbKind_" + k))}</span>`).join("");
+  const graph = S.focus ? `<div class="ci-cbgraph-wrap"><canvas class="ci-cbgraph" data-sig="${esc3(`${S.focus.id}|${g.nodes.length}|${g.edges.length}`)}"></canvas><div class="ci-cbgraph-cap">${legend}<span class="ci-sp"></span>${g.morePeople ? `<span class="ci-muted">${esc3(t("cbMorePeople").replace("{n}", String(g.morePeople)))}</span>` : ""}<span class="ci-muted">${esc3(t("cbGraphHint"))}</span></div></div>${card2(S.focus)}` : empty(t("cbNoGraph"));
+  const finder = S.found ? `<div class="ci-muted">${esc3(t("cbFound").replace("{n}", String(S.found.length)))}</div><div class="ci-chips">${S.found.map(nodeChip).join("")}</div>${S.more ? `<div class="ci-muted">${esc3(t("cbMore").replace("{n}", String(S.more)))}</div>` : ""}` : (S.starts.length ? `<div class="ci-chips"><span class="ci-muted">${esc3(t("cbStarts"))}</span>${S.starts.map(nodeChip).join("")}</div>` : "") + S.byKind.map((k) => fold(`cbk-${k.kind}`, `${t("cbKind_" + k.kind)} \xB7 ${k.items.length}`, `<div class="ci-chips">${k.items.map((i) => nodeChip({ ...i, kind: k.kind })).join("")}</div>`)).join("") + `<div class="ci-muted">${esc3(t("cbSearchHint").replace("{all}", String(S.total)))}</div>`;
+  const setting = fold("cb-basis", t("cbBasisFold"), `<div class="ci-muted">${esc3(v.basis)}</div>`) + graph + `<div class="ci-cbfind">${finder}</div>` + (S.hidden ? `<div class="ci-muted">${esc3(t("cbHidden").replace("{n}", String(S.hidden)))}</div>` : "");
   const secs = [{ id: "cb-now", label: t("combatNow") }, { id: "cb-rulings", label: t("combatRulings") }, { id: "cb-people", label: t("combatPeople") }, { id: "cb-setting", label: t("cbSetting") }];
-  const html = sec("cb-now", t("combatNow"), fight, tip2("combatTip"), "ci-keep") + sec("cb-rulings", t("combatRulings"), v.rulings.length ? v.rulings.map(ruling).join("") : empty(t("combatNoRulings"))) + sec("cb-people", t("combatPeople"), note + people.map(person).join("") + (v.hidden ? `<div class="ci-muted">${esc3(t("combatHidden").replace("{n}", String(v.hidden)))}</div>` : "")) + sec("cb-setting", t("cbSetting"), setting, tip2("cbSettingTip"));
-  return { html, secs };
+  const html = sec("cb-now", t("combatNow"), fight, tip2("combatTip"), "ci-keep") + sec("cb-rulings", t("combatRulings"), v.rulings.length ? v.rulings.map(ruling).join("") : empty(t("combatNoRulings"))) + sec("cb-people", t("combatPeople"), note + people.map(person).join("") + (v.hidden ? `<div class="ci-muted">${esc3(t("combatHidden").replace("{n}", String(v.hidden)))}</div>` : "")) + sec("cb-setting", t("cbSetting"), setting, tip2("cbSettingTip"), "ci-keep");
+  const mount = (root, pick) => {
+    const c = root.querySelector("canvas.ci-cbgraph");
+    if (c && S.focus) mountCombatGraph(c, g, { pick, fought: t("cbFought") });
+  };
+  return { html, secs, mount };
 }
 function combatChange(b, picked) {
   const act = b.dataset.act, entity = b.dataset.entity || "";
@@ -43433,7 +43800,7 @@ function createInspector(d) {
   const scrolls = /* @__PURE__ */ new Map();
   const opened = /* @__PURE__ */ new Set();
   const cbPicked = /* @__PURE__ */ new Set();
-  const cbFocus = /* @__PURE__ */ new Set();
+  let cbFocus = null;
   const E2 = () => d.engine();
   const camp = () => E2().campaign();
   const width = () => {
@@ -43721,7 +44088,11 @@ function createInspector(d) {
         return world();
       case "combat": {
         const q = filters.get("combat") || "";
-        return combatHtml(E2().combatView(spoilers, q, [...cbFocus]), q, cbPicked, cbFocus, d.tip);
+        const pg = combatHtml(E2().combatView(spoilers, q, cbFocus), q, cbPicked, d.tip);
+        return { ...pg, mount: (root) => pg.mount?.(root, (id) => {
+          cbFocus = id;
+          render(true);
+        }) };
       }
       case "facts":
         return facts(v);
@@ -43798,6 +44169,7 @@ function createInspector(d) {
     const sc2 = el.querySelector(".ci-scroll");
     if (sc2) sc2.scrollTop = scrolls.get(tab) || 0;
     applyFilter();
+    pg.mount?.(el);
     if (focusFilter) {
       const f = el.querySelector(".ci-filter");
       f?.focus();
@@ -43836,10 +44208,8 @@ function createInspector(d) {
       const f = ev.target;
       if (f.classList.contains("ci-filter")) {
         filters.set(tab, f.value);
-        if (tab === "combat") {
-          cbFocus.clear();
-          render(true);
-        } else applyFilter();
+        if (tab === "combat") render(true);
+        else applyFilter();
       }
     });
     el.addEventListener("keydown", (ev) => {
@@ -43889,11 +44259,10 @@ function createInspector(d) {
       }
       if (act === "spoilers" || act === "ni-jobs") return;
       if (act === "cb-node" && b.dataset.node) {
-        const id = b.dataset.node;
-        cbFocus.add(id);
-        opened.add(`${tab}|cbnf-${id}`);
+        cbFocus = b.dataset.node;
+        const inSetting = !!b.closest('[data-sec="cb-setting"]');
         render(true);
-        el.querySelector(`.ci-cbnode[data-key="cbn-${CSS.escape(id)}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+        if (!inSetting) el.querySelector(".ci-cbgraph-wrap")?.scrollIntoView({ block: "start", behavior: "smooth" });
         return;
       }
       if (b.tagName === "BUTTON") b.disabled = true;

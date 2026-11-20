@@ -20,24 +20,41 @@ export interface CombatViewData {
   rulings: { when: string; reasoning: string; walked: { node: Id; name: string; kind: string; depth: number; full: boolean; via: string; label: string | null; used: boolean }[]; cut: { node: Id; name: string }[]; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean }[]; stopped: { quote: string; why: string; basis: string[] }[]; states: string[]; stands: string[]; joined: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
   people: { id: Id; name: string; player?: boolean; fighting?: boolean; /** fighting, the player, with states, or changed in this game (the rest only when searched for). */ relevant: boolean; states: { text: string; count: number | null; until: string; source: string }[]; style: { start: string; force: string; response: string; limit: string; stop: string; source: string } | null; links: { node: string; name: string; kind: string; label: string; source: string }[] }[];
   hidden: number;
-  /** The setting's nodes the page lists: by default the concepts, rules and dangers and what the listed people are
-   *  linked to; with a query, the nodes whose name or text has it (at most SETTING_MAX, more: the rest); focus: the
-   *  nodes the player opened from a link. hidden: nodes left out as spoilers. */
-  setting: { nodes: CombatNodeView[]; found: boolean; more: number; total: number; hidden: number };
+  /** The setting (战斗设定) around one focus — a node, or someone linked to nodes —: the graph two steps out (at most
+   *  GRAPH_MAX points, never through another person; around a node at most PEOPLE_EACH people, the rest counted),
+   *  the focus in full, what a query finds (nodes by name or text, people by name), and where to start (the listed
+   *  people, the concepts, rules and dangers). hidden: nodes left out as spoilers. */
+  setting: {
+    focus: CombatNodeView | null;
+    graph: { nodes: GraphPoint[]; edges: GraphEdge[]; morePeople: number };
+    found: { id: Id; name: string; kind: string }[] | null; more: number;
+    starts: { id: Id; name: string; kind: string }[];
+    byKind: { kind: string; items: { id: Id; name: string }[] }[];
+    total: number; hidden: number;
+  };
 }
-/** A node of the combat setting as the page shows it: what it is, its parts (an ability), who knows it when not
- *  everyone does, and its links both ways (an entity's as they hold now; with spoilers, also those still to come). */
+/** A point of the setting's graph: a node (kind: its kind) or an entity (kind: person, place, …). depth: steps from
+ *  the focus. */
+export interface GraphPoint { id: Id; name: string; kind: string; entity: boolean; depth: number }
+/** A link of the graph. label null: the person was in the precedent. later: the pack's link from an event still to
+ *  come (only with spoilers). */
+export interface GraphEdge { from: Id; to: Id; label: string | null; later?: boolean }
+/** A node of the setting (or the entity in focus) as the page shows it: what it is, its parts (an ability), who
+ *  knows it when not everyone does, and its links both ways (an entity's as they hold now; with spoilers, also those
+ *  still to come). out label null: a precedent the entity was in. */
 export interface CombatNodeView {
-  id: Id; kind: string; name: string; gist: string; text: string; generated: boolean; knowers: string[] | null;
+  id: Id; kind: string; entity: boolean; name: string; gist: string; text: string; generated: boolean; knowers: string[] | null;
   parts: { part: string; text: string; knowers: string[] | null }[];
   who: string[]; event: string | null; hours: string; frequency: string;
-  out: { node: Id; name: string; label: string }[];
-  in: { node?: Id; name: string; label: string; source: string; later?: string }[];
+  out: { node: Id; name: string; label: string | null }[];
+  in: { id: Id; name: string; label: string; source: string; later?: string }[];
 }
 export const SETTING_MAX = 40;
+export const GRAPH_MAX = 60;
+export const PEOPLE_EACH = 12;
 const KIND_ORDER = ['concept', 'rule', 'danger', 'ability', 'precedent'];
 
-export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null | undefined, origin: Origin, rulings: { tick: number; ruling: Ruling }[], query = '', focus: readonly Id[] = []): CombatViewData {
+export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null | undefined, origin: Origin, rulings: { tick: number; ruling: Ruling }[], query = '', focus: Id | null = null): CombatViewData {
   const L = idx.pack, s = idx.state, tick = s.clock.lo;
   const name = (id: Id) => idx.entityName(id);
   // what a ruling went by, as the panel shows it: a node by name, the Persona, a lorebook entry, someone's 对抗倾向
@@ -84,58 +101,103 @@ export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null
   };
 }
 
-/** The nodes of the setting the page lists (see CombatViewData.setting). A precedent of an event still to come, and
- *  a node only people still to come are linked to, are spoilers. */
-function settingView(idx: WorldIndex, spoilers: boolean, listed: CombatViewData['people'], query: string, focus: readonly Id[]): CombatViewData['setting'] {
+/** The setting around one focus (see CombatViewData.setting). A precedent of an event still to come, and a node only
+ *  people still to come are linked to, are spoilers. */
+function settingView(idx: WorldIndex, spoilers: boolean, listed: CombatViewData['people'], query: string, focusId: Id | null): CombatViewData['setting'] {
   const L = idx.pack, s = idx.state, nodes = L.combat.nodes;
-  const name = (id: Id) => idx.entityName(id);
+  const name = (id: Id) => nodes.get(id)?.name || idx.entityName(id);
   const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
   const knowers = (v?: { mode: string; knower_ids: Id[] }) => (v && v.mode !== 'public' ? v.knower_ids.map(name) : null);
-  // links into each node: the entities' as they hold now (pack, play, the panel, a state's node), with spoilers those
-  // of the pack still to come, and the other nodes'
-  const inNow = new Map<Id, CombatNodeView['in']>();
-  const add = (n: Id, x: CombatNodeView['in'][number]) => inNow.set(n, [...(inNow.get(n) || []), x]);
-  const entities = new Set<Id>([...L.combat.linksFrom.keys(), ...s.combat.links.map((x) => x.entity), ...s.combat.statuses.filter((x) => x.node).map((x) => x.entity)].filter((x) => !nodes.has(x) && idx.entityExists(x)));
-  for (const e of entities) for (const l of linksOf(L, s, e)) add(l.node, { name: name(e), label: l.label, source: l.source });
-  const later = new Map<Id, CombatNodeView['in']>();
+  const isEntity = (id: Id) => !nodes.has(id) && idx.entityExists(id);
+  const kindOf = (id: Id) => nodes.get(id)?.kind || L.entities.get(id)?.kind || s.runtimeEntities.get(id)?.kind || 'person';
+  // every link as it holds now: an entity's (the pack's in its versions, play, the panel, a state's node), the
+  // pack's still to come (shown with spoilers), between nodes, and the people of a precedent
+  type Link = GraphEdge & { source?: string; event?: string };
+  const links: Link[] = [];
+  const entities = new Set<Id>([...L.combat.linksFrom.keys(), ...s.combat.links.map((x) => x.entity), ...s.combat.statuses.filter((x) => x.node).map((x) => x.entity)].filter(isEntity));
+  for (const e of entities) for (const l of linksOf(L, s, e)) links.push({ from: e, to: l.node, label: l.label, source: l.source });
+  const later: Link[] = [];
   for (const l of L.pack.combat.links || []) {
-    if (nodes.has(l.from) || !l.from_event || occurred(l.from_event) || occurred(l.until_event) || !idx.entityExists(l.from)) continue;
-    later.set(l.to, [...(later.get(l.to) || []), { name: name(l.from), label: l.label, source: 'pack', later: L.events.get(l.from_event)?.title || l.from_event }]);
+    if (nodes.has(l.from) || !l.from_event || occurred(l.from_event) || occurred(l.until_event) || !isEntity(l.from) || !nodes.has(l.to)) continue;
+    later.push({ from: l.from, to: l.to, label: l.label, later: true, source: 'pack', event: L.events.get(l.from_event)?.title || l.from_event });
   }
-  const fromNode = new Set((L.pack.combat.links || []).filter((l) => nodes.has(l.from)).map((l) => l.to));
+  for (const l of L.pack.combat.links || []) if (nodes.has(l.from) && nodes.has(l.to)) links.push({ from: l.from, to: l.to, label: l.label, source: 'pack' });
+  for (const n of nodes.values()) if (n.kind === 'precedent') for (const w of n.who || []) if (isEntity(w)) links.push({ from: w, to: n.id, label: null });
+  const linked = new Set(links.flatMap((l) => [l.from, l.to]));
+  const laterTo = new Set(later.map((l) => l.to));
   const spoiler = (id: Id) => {
     const n = nodes.get(id);
     if (!n || spoilers) return false;
     if (n.kind === 'precedent' && n.event_id && !occurred(n.event_id)) return true;
-    return later.has(id) && !inNow.has(id) && !L.combat.linksFrom.has(id) && !fromNode.has(id);
+    return laterTo.has(id) && !linked.has(id);
   };
   const all = [...nodes.values()];
   const shown = all.filter((n) => !spoiler(n.id));
+  const graphLinks = [...links, ...(spoilers ? later : [])].filter((l) => !spoiler(l.from) && !spoiler(l.to));
+  const adj = new Map<Id, Link[]>();
+  for (const l of graphLinks) for (const end of [l.from, l.to]) adj.set(end, [...(adj.get(end) || []), l]);
+
+  // the focus: the one asked for, else the first listed person linked to something, else the first concept
+  const usable = (id: Id | null | undefined): id is Id => !!id && (nodes.has(id) ? !spoiler(id) : isEntity(id) && adj.has(id));
+  const byName = (a: Id, b: Id) => name(a).localeCompare(name(b), 'zh');
+  const focus = usable(focusId) ? focusId : listed.map((p) => p.id).find(usable) ?? shown.filter((n) => n.kind === 'concept').map((n) => n.id).sort(byName)[0] ?? null;
+
+  // the graph: two steps out from the focus, never through another person; people only around the focus
+  const listedIds = new Set(listed.map((p) => p.id));
+  const pts = new Map<Id, GraphPoint>();
+  let morePeople = 0;
+  const add = (id: Id, depth: number) => { if (pts.has(id) || pts.size >= GRAPH_MAX) return false; pts.set(id, { id, name: name(id), kind: kindOf(id), entity: isEntity(id), depth }); return true; };
+  if (focus) {
+    add(focus, 0);
+    let ring: Id[] = [focus];
+    for (const depth of [1, 2]) {
+      const next: Id[] = [];
+      for (const id of ring) {
+        if (depth > 1 && pts.get(id)?.entity) continue;
+        const around = uniq((adj.get(id) || []).map((l) => (l.from === id ? l.to : l.from))).filter((x) => !pts.has(x));
+        const people = around.filter(isEntity).sort((a, b) => Number(listedIds.has(b)) - Number(listedIds.has(a)) || byName(a, b));
+        const keep = depth === 1 ? people.slice(0, PEOPLE_EACH) : [];
+        if (depth === 1) morePeople += people.length - keep.length;
+        for (const x of [...around.filter((y) => nodes.has(y)).sort((a, b) => KIND_ORDER.indexOf(kindOf(a)) - KIND_ORDER.indexOf(kindOf(b)) || byName(a, b)), ...keep]) if (add(x, depth)) next.push(x);
+      }
+      ring = next;
+    }
+  }
+  const seen = new Set<string>();
+  const edges: GraphEdge[] = graphLinks.filter((l) => pts.has(l.from) && pts.has(l.to) && !seen.has(`${l.from}|${l.to}|${l.label}`) && !!seen.add(`${l.from}|${l.to}|${l.label}`))
+    .map((l) => ({ from: l.from, to: l.to, label: l.label, ...(l.later ? { later: true } : {}) }));
+
+  // the focus in full
+  const view = (id: Id): CombatNodeView => {
+    const n = nodes.get(id);
+    const ins = (adj.get(id) || []).filter((l) => l.to === id && l.label !== null).map((l) => ({ id: l.from, name: name(l.from), label: l.label!, source: l.source || 'pack', ...(l.event ? { later: l.event } : {}) }));
+    const outs = (adj.get(id) || []).filter((l) => l.from === id).map((l) => ({ node: l.to, name: name(l.to), label: l.label }));
+    if (!n) {
+      const e = L.entities.get(id), rt = s.runtimeEntities.get(id);
+      return { id, kind: kindOf(id), entity: true, name: name(id), gist: String(e?.static_description || rt?.description || '').slice(0, 300), text: '', generated: false, knowers: null, parts: [], who: [], event: null, hours: '', frequency: '', out: outs, in: [] };
+    }
+    return {
+      id, kind: n.kind, entity: false, name: n.name, gist: n.gist, text: n.text, generated: !!n.generated, knowers: knowers(n.visibility),
+      parts: (n.parts || []).map((p) => ({ part: p.part, text: p.text, knowers: knowers(p.visibility) })),
+      who: (n.who || []).filter(isEntity).map(name), event: n.event_id ? L.events.get(n.event_id)?.title || n.event_id : null,
+      hours: n.hours ? `${n.hours.from}–${n.hours.to}` : '', frequency: n.frequency || '',
+      out: outs, in: ins,
+    };
+  };
+
+  // what a query finds: nodes by name or text (named so first), people linked to something by name
   const q = query.trim().toLowerCase();
-  let picked: typeof all, more = 0;
+  let found: CombatViewData['setting']['found'] = null, more = 0;
   if (q) {
     const hay = (n: (typeof all)[number]) => [n.name, n.gist, n.text, ...(n.parts || []).map((p) => p.text)].join('\n').toLowerCase();
-    // the nodes named so first
     const hits = shown.filter((n) => hay(n).includes(q)).sort((a, b) => Number(!a.name.toLowerCase().includes(q)) - Number(!b.name.toLowerCase().includes(q)));
+    const who = [...adj.keys()].filter((id) => isEntity(id) && name(id).toLowerCase().includes(q)).sort(byName).slice(0, 10);
     more = Math.max(0, hits.length - SETTING_MAX);
-    picked = hits.slice(0, SETTING_MAX);
-  } else {
-    const ids = new Set(listed.flatMap((p) => p.links.map((l) => l.node)));
-    picked = shown.filter((n) => n.kind === 'concept' || n.kind === 'rule' || n.kind === 'danger' || ids.has(n.id));
+    found = [...who.map((id) => ({ id, name: name(id), kind: kindOf(id) })), ...hits.slice(0, SETTING_MAX).map((n) => ({ id: n.id, name: n.name, kind: n.kind }))];
   }
-  for (const id of focus) { const n = nodes.get(id); if (n && !spoiler(id) && !picked.includes(n)) picked.push(n); }
-  picked.sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.name.localeCompare(b.name, 'zh'));
-  const nodeIn = new Map<Id, CombatNodeView['in']>();
-  for (const l of L.pack.combat.links || []) if (nodes.has(l.from) && !spoiler(l.from)) nodeIn.set(l.to, [...(nodeIn.get(l.to) || []), { node: l.from, name: nodes.get(l.from)!.name, label: l.label, source: 'pack' }]);
-  const view = (n: (typeof all)[number]): CombatNodeView => ({
-    id: n.id, kind: n.kind, name: n.name, gist: n.gist, text: n.text, generated: !!n.generated, knowers: knowers(n.visibility),
-    parts: (n.parts || []).map((p) => ({ part: p.part, text: p.text, knowers: knowers(p.visibility) })),
-    who: (n.who || []).filter((x) => idx.entityExists(x)).map(name), event: n.event_id ? L.events.get(n.event_id)?.title || n.event_id : null,
-    hours: n.hours ? `${n.hours.from}–${n.hours.to}` : '', frequency: n.frequency || '',
-    out: (L.combat.linksFrom.get(n.id) || []).filter((l) => nodes.has(l.to) && !spoiler(l.to)).map((l) => ({ node: l.to, name: nodes.get(l.to)!.name, label: l.label })),
-    in: [...(nodeIn.get(n.id) || []), ...(inNow.get(n.id) || []), ...(spoilers ? later.get(n.id) || [] : [])],
-  });
-  return { nodes: picked.map(view), found: !!q, more, total: shown.length, hidden: all.length - shown.length };
+  const starts = listed.filter((p) => adj.has(p.id)).map((p) => ({ id: p.id, name: p.name, kind: kindOf(p.id) }));
+  const byKind = ['concept', 'rule', 'danger'].map((kind) => ({ kind, items: shown.filter((n) => n.kind === kind).map((n) => ({ id: n.id, name: n.name })).sort((a, b) => a.name.localeCompare(b.name, 'zh')) })).filter((g) => g.items.length);
+  return { focus: focus ? view(focus) : null, graph: { nodes: [...pts.values()], edges, morePeople }, found, more, starts, byKind, total: shown.length, hidden: all.length - shown.length };
 }
 
 /** A change the panel makes: the fight on or off (just the state from then on, no lock), a state of someone (removed:

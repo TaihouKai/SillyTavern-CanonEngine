@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.45.0 — 2026-11-20
+
+- **The combat setting is a graph.** A list could not show how the nodes hang together. The 战斗设定 section now draws the setting around one centre, a node or a person:
+  - **Layout.** The centre sits in the middle; what it links to sits on a ring around it; what those link to sits on an outer ring, inside the sector of what led there, with its names written along the radius. Colour and shape show the kind (people are squares). A link to a precedent someone was in counts as a link. A link from an event still to come is dashed (with 剧透 on).
+  - **Interaction.** Click a point to make it the centre: the points glide to their new places. Hover a point to light up its links and see what each one is. Under the graph, the centre is shown in full: its text, an ability's parts, who knows it, and every link both ways.
+  - **Moving the centre.** These also change the centre: the 「从这里看」 chips (the people listed above), the folds of concepts, rules and dangers, any blue node name on the page, and the search box (nodes by name or text, people by name).
+  - **Light.** It is drawn on one canvas with no library: at most 60 points, people only around the centre (the rest counted). The layout is computed once. Points glide for under a second, then nothing is drawn until the pointer moves.
+
 ## 1.44.1 — 2026-11-20
 
 - **Someone quoted in pieces is no longer dropped.** You punched the leader of two thugs, but only the other one was put in the fight (and got the bloody nose). The model had cited the leader with two pieces of your message joined by 「……」, and Canon Engine only accepted a quote that is one continuous piece of the text. The same message sent eight times gave such a quote once. A quote is now accepted when every piece is in the text, in order, and each piece is at least two characters. This holds for every quote Canon Engine checks: new people, facts, states, rulings and the review.
