@@ -99,6 +99,13 @@ function walkObject(o: Record<string, unknown>, s: Schema, path: string, list: s
   const props: Record<string, Schema> = s.properties || {};
   const protectedHere = PROTECTED[path === '' ? '' : list] || new Set<string>();
   const out: Record<string, unknown> = {};
+  // a time past midnight written as minute 1440 and up of the day before (live, the planner: steps late at night)
+  // is that time of the next day
+  if (props.day && props.minute?.maximum === 1439 && Number.isInteger(o.day) && Number.isInteger(o.minute) && (o.minute as number) > 1439) {
+    const m = o.minute as number;
+    o = { ...o, day: (o.day as number) + Math.floor(m / 1440), minute: m % 1440 };
+    notes.push(`${path}: minute ${m} → day ${o.day} minute ${o.minute}`);
+  }
   for (const [k, val] of Object.entries(o)) {
     if (!(k in props)) {
       // Nested extras are dropped. A top-level field the schema does not define may be an attempted
@@ -109,13 +116,19 @@ function walkObject(o: Record<string, unknown>, s: Schema, path: string, list: s
       if (path === '') {
         const homes = Object.keys(props).filter((h) => typesOf(props[h]).includes('object') && props[h].properties && k in props[h].properties);
         const home = homes.length === 1 ? homes[0] : '';
-        if (home && isObj(o[home]) && !(k in (o[home] as Record<string, unknown>))) {
+        if (home && isObj(o[home])) {
+          // (there already, with a value: the copy a level too high is dropped; live, three profiles in one batch)
+          const there = (o[home] as Record<string, unknown>)[k];
+          if (there !== undefined && there !== null && there !== '') { notes.push(`/${k} dropped (also in /${home})`); continue; }
           (o[home] as Record<string, unknown>)[k] = val;
           notes.push(`/${k} moved into /${home}`);
           if (home in out) out[home] = walk(o[home], props[home], `/${home}`, list, notes);
           continue;
         }
       }
+      // a remark on one of the fields ("scene_groups_note": a string beside "scene_groups"; live, it failed a reading
+      // once) is no attempt to change anything: dropped
+      if (path === '' && typeof val === 'string' && /_notes?$/.test(k) && k.replace(/_notes?$/, '') in props) { notes.push(`/${k} dropped (a remark on /${k.replace(/_notes?$/, '')})`); continue; }
       out[k] = val;
       continue;
     }

@@ -106,6 +106,19 @@
         "additionalProperties": false
        },
        {
+        "type": "object",
+        "properties": {
+         "while": {
+          "type": "string",
+          "maxLength": 120
+         }
+        },
+        "required": [
+         "while"
+        ],
+        "additionalProperties": false
+       },
+       {
         "type": "null"
        }
       ]
@@ -241,6 +254,27 @@
    "items": {
     "type": "string",
     "maxLength": 120
+   }
+  },
+  "stops": {
+   "type": "array",
+   "maxItems": 10,
+   "items": {
+    "type": "object",
+    "properties": {
+     "node": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "why": {
+      "type": "string",
+      "maxLength": 300
+     }
+    },
+    "required": [
+     "node"
+    ],
+    "additionalProperties": false
    }
   }
  },

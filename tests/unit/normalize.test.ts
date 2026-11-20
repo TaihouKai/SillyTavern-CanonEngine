@@ -1,6 +1,8 @@
 // N01–N06: schema-driven normalization of model output (shapes observed from real models).
 import { describe, expect, it } from 'vitest';
 import { callStructured } from '../../src/core/runtime/model';
+import { normalizeToSchema } from '../../src/core/runtime/normalize';
+import planSchema from '../../schemas/runtime/plan.schema.json';
 import type { ModelPort } from '../../src/core/runtime/model';
 
 function port(replies: unknown[]): ModelPort & { seen: number } {
@@ -94,5 +96,34 @@ describe('schema-driven normalization', () => {
     expect(p.seen).toBe(1);
     expect(out.player.public_identity).toBe('a student');
     expect('public_identity' in out).toBe(false);
+  });
+
+  it('N11 a remark on a field beside it is dropped; another unknown top-level field still fails the reply', async () => {
+    const p = port([{ player: { name: 'S', aliases: [], summary: 'x', public_identity: 'a student' }, affiliations: [], affiliations_note: 'none found', relationships: [], knowers: [] }]);
+    const out = await callStructured<any>(p, 'profile', 'sys', {});
+    expect(p.seen).toBe(1);
+    expect('affiliations_note' in out).toBe(false);
+    const q = port([{ player: { name: 'S', aliases: [], summary: 'x', public_identity: 'a student' }, affiliations: [], relationships: [], knowers: [], drop_anchor: 'x' }, { player: { name: 'S', aliases: [], summary: 'x', public_identity: 'a student' }, affiliations: [], relationships: [], knowers: [] }]);
+    await callStructured<any>(q, 'profile', 'sys', {});
+    expect(q.seen).toBe(2);
+  });
+
+  it('N11b a field of the one object written beside it too, while the object has it: the copy is dropped', async () => {
+    const p = port([{ player: { name: 'S', aliases: [], summary: 'x', public_identity: 'a student' }, public_identity: 'a student of Tokiwadai', affiliations: [], relationships: [], knowers: [] }]);
+    const out = await callStructured<any>(p, 'profile', 'sys', {});
+    expect(p.seen).toBe(1);
+    expect(out.player.public_identity).toBe('a student');
+    expect('public_identity' in out).toBe(false);
+  });
+
+  it('N12 a time written as minute 1440 and up is that time of the next day (live: plan steps past midnight)', () => {
+    const notes: string[] = [];
+    const t = { lo: { day: 76, minute: 1450 }, hi: { day: 76, minute: 2890 }, precision: 'approx' };
+    const step = { step_id: 's1', actors: ['mira'], action: 'x', intended_effects: [], means: 'x', serves_anchor: null, requires_player_consent: false, earliest: t.lo, latest: t.hi };
+    const out = normalizeToSchema({ steps: [step] }, planSchema as any, notes) as any;
+    expect(out.steps[0].earliest).toEqual({ day: 77, minute: 10 });
+    expect(out.steps[0].latest).toEqual({ day: 78, minute: 10 });
+    expect(notes.join(' ')).toMatch(/minute 1450 → day 77 minute 10/);
+    expect((normalizeToSchema({ steps: [{ ...step, earliest: { day: 76, minute: 600 } }] }, planSchema as any, []) as any).steps[0].earliest).toEqual({ day: 76, minute: 600 });
   });
 });

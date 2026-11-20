@@ -64,7 +64,8 @@ export function linksOf(L: LoadedPack, state: WorldState, entity: Id, tick = sta
 export type StatusNow = Replayed<StatusChange> & { endsAt?: number };
 
 /** Someone's states now: each text's latest change (same text, normalized: replaced; removed: gone), without those
- *  whose time is over (minutes after they came; an event settled since). */
+ *  whose time is over (minutes after they came; an event settled since; the thing at work they last while stopped,
+ *  or the fight over, since). */
 export function statusesOf(state: WorldState, entity: Id, tick = state.clock.lo): StatusNow[] {
   const by = new Map<string, Replayed<StatusChange>>();
   for (const s of state.combat.statuses) {
@@ -77,6 +78,7 @@ export function statusesOf(state: WorldState, entity: Id, tick = state.clock.lo)
     const u = s.until;
     if (u && u !== 'lasting' && 'minutes' in u) { const end = s.tick + Math.max(1, Math.round(u.minutes)); if (tick >= end) continue; out.push({ ...s, endsAt: end }); continue; }
     if (u && u !== 'lasting' && 'event' in u) { const d = state.dispositions.get(u.event); if (d && d.tick >= s.tick && d.tick <= tick) continue; }
+    if (s.while && state.combat.fights.some((f) => f.seq >= s.seq && f.tick <= tick && (!f.ongoing || f.ended?.includes(s.while!)))) continue;
     out.push(s);
   }
   return out;
@@ -112,9 +114,12 @@ export function fightNow(state: WorldState): { ongoing: boolean; participants: I
   // keeps the earlier findings)
   const identified: { id: Id; as: string; why: string }[] = [];
   const things: { node: Id; why: string }[] = [];
+  // (a thing that stopped later is no longer in it: a device burned)
+  const gone = new Set<Id>();
   for (let i = fs.length - 1; i >= 0 && fs[i].ongoing; i--) {
     for (const x of fs[i].identified || []) if (f.participants.includes(x.id) && !identified.some((y) => y.id === x.id)) identified.push(x);
-    for (const x of fs[i].things || []) if (!things.some((y) => y.node === x.node)) things.push(x);
+    for (const x of fs[i].things || []) if (!gone.has(x.node) && !things.some((y) => y.node === x.node)) things.push(x);
+    for (const x of fs[i].ended || []) gone.add(x);
   }
   return { ongoing: f.ongoing, participants: f.participants, source: f.source, since: f.tick, identified, things: f.ongoing ? things.reverse() : [] };
 }

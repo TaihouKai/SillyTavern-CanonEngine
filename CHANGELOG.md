@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.46.2 — 2026-11-21
+
+- **A device in a fight can stop, and what it causes ends with it.** Once found, 能力下降 (Capacity Down) stayed "at work" for the whole fight, even after your character burned it. Its headache was given a guessed ten minutes, so it was gone before the next turn. Now:
+  - a ruling can say a thing at work stops (destroyed, switched off, carried off), and it leaves the fight;
+  - a state can last *while* such a thing goes on (the headache from its noise), and it ends when the thing stops or the fight is over;
+  - the panel shows both: the ruling's 「不再起作用」 chip, and 「随「能力下降」」 beside the state.
+- **Citing a part of a thing counts.** The ruling cited the device as 「capacity-down:effect」 (the way the fighters' knowledge lists it), and that was thrown away as "not given".
+- **Someone with your character is there from the first message.** Out shopping with 御坂美琴 when a thief strikes, she was nobody present, so she could never step in. Whoever your message has with them can now join. Whether someone joins is also judged by what your message makes happen now. Live, a thief who came back at your character with a knife was ruled to have "given up", because the last reply had him run off.
+- **A person's own gear isn't a separate thing at work.** 结标淡希's flashlight came into the fight both with her and as a thing of its own once she was identified. Now it only comes with her.
+- **A state that gets worse replaces the old one.** 「隐隐作痛」 stayed beside 「刺痛加剧」.
+- **Three readings that failed on form, not content, no longer do:**
+  - a time past midnight written as minute 1450 of the day before (the planner): it is now read as 00:10 the next day;
+  - a profile with `public_identity` both inside `player` and beside it;
+  - a remark field beside a field (`scene_groups_note`).
+
 ## 1.46.1 — 2026-11-21
 
 - **An ambush by people with no names is a fight again.** A gang of Skill-Out jumping your character recorded no fight at all, so nothing was ruled. The message named the thugs as new people, but listed them under another name among the fighters. Everyone your message brings in as a new person is now in the fight, whatever the fighter list calls them.

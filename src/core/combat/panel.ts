@@ -17,8 +17,8 @@ type Origin = { y: number; m: number; d: number } | null;
 export interface CombatViewData {
   none: string | null; basis: string;
   fight: { ongoing: boolean; people: { id: Id; name: string; /** how the player's message called them, when it gave no name, and why they were taken for this person. */ as?: string; asWhy?: string }[]; /** the setting's things at work in it. */ things: { node: Id; name: string; why: string }[]; source: string | null; since: string | null };
-  rulings: { when: string; reasoning: string; walked: { node: Id; name: string; kind: string; depth: number; full: boolean; via: string; label: string | null; /** a thing at work in the fight: reached as itself. */ inFight?: boolean; used: boolean }[]; cut: { node: Id; name: string }[]; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean }[]; stopped: { quote: string; why: string; basis: string[] }[]; states: string[]; stands: string[]; joined: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
-  people: { id: Id; name: string; player?: boolean; fighting?: boolean; /** fighting, the player, with states, or changed in this game (the rest only when searched for). */ relevant: boolean; states: { text: string; count: number | null; until: string; source: string }[]; style: { start: string; force: string; response: string; limit: string; stop: string; source: string } | null; links: { node: string; name: string; kind: string; label: string; source: string }[] }[];
+  rulings: { when: string; reasoning: string; walked: { node: Id; name: string; kind: string; depth: number; full: boolean; via: string; label: string | null; /** a thing at work in the fight: reached as itself. */ inFight?: boolean; used: boolean }[]; cut: { node: Id; name: string }[]; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean }[]; stopped: { quote: string; why: string; basis: string[] }[]; states: string[]; stands: string[]; joined: string[]; /** things at work in the fight that stopped this turn (names). */ ended?: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
+  people: { id: Id; name: string; player?: boolean; fighting?: boolean; /** fighting, the player, with states, or changed in this game (the rest only when searched for). */ relevant: boolean; states: { text: string; count: number | null; until: string; /** the thing at work in the fight it lasts while (its name). */ while?: string; source: string }[]; style: { start: string; force: string; response: string; limit: string; stop: string; source: string } | null; links: { node: string; name: string; kind: string; label: string; source: string }[] }[];
   hidden: number;
   /** The setting (战斗设定) around one focus — a node, or someone linked to nodes —: the graph two steps out (at most
    *  GRAPH_MAX points, never through another person; around a node at most PEOPLE_EACH people, the rest counted),
@@ -70,7 +70,7 @@ export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null
     const style = styleOf(L, s, id);
     return {
       id, name: name(id), ...(id === player ? { player: true } : {}), ...(f.ongoing && f.participants.includes(id) ? { fighting: true } : {}),
-      states: statusesOf(s, id, tick).map((x) => ({ text: x.text, count: x.count ?? null, until: x.endsAt ? formatTick(x.endsAt, origin) : x.until && x.until !== 'lasting' && 'event' in x.until ? (L.events.get(x.until.event)?.title || x.until.event) : '', source: x.source })),
+      states: statusesOf(s, id, tick).map((x) => ({ text: x.text, count: x.count ?? null, ...(x.while ? { while: L.combat.nodes.get(x.while)?.name || x.while } : {}), until: x.endsAt ? formatTick(x.endsAt, origin) : x.until && x.until !== 'lasting' && 'event' in x.until ? (L.events.get(x.until.event)?.title || x.until.event) : '', source: x.source })),
       style: style ? { ...style.style, source: style.source } : null,
       links: linksOf(L, s, id, tick).map((l) => ({ node: l.node, name: L.combat.nodes.get(l.node)?.name || l.node, kind: L.combat.nodes.get(l.node)?.kind || '', label: l.label, source: l.source })),
     };
@@ -92,7 +92,7 @@ export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null
       exchanges: r.exchanges.map((x) => ({ who: name(x.actor), text: x.text, basis: x.basis.map(basisLabel), ...(x.unsupported ? { unsupported: true } : {}) })),
       stopped: (r.outcomes || []).filter((o) => !o.stands).map((o) => ({ quote: o.quote, why: o.why, basis: o.basis.map(basisLabel) })),
       states: r.statuses.map((x) => `${name(x.entity)}：${x.removed ? '−' : ''}${x.text}${x.count != null ? ` ×${x.count}` : ''}`),
-      stands: r.stands, joined: (r.joined || []).map(name), over: r.over, overWhy: r.overWhy, stopAt: r.stopAt,
+      stands: r.stands, joined: (r.joined || []).map(name), ...(r.ended?.length ? { ended: r.ended.map((n) => L.combat.nodes.get(n)?.name || n) } : {}), over: r.over, overWhy: r.overWhy, stopAt: r.stopAt,
       filled: [...r.filled.links.map((l) => `${name(l.entity)} → ${L.combat.nodes.get(l.node)?.name || l.node}`), ...r.filled.styles.map((x) => `${name(x.entity)}：对抗倾向`)],
       notes: r.notes,
     })),

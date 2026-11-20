@@ -94,6 +94,24 @@ describe('combat as this game has it', () => {
     expect(statusesOf(st2, 'mira', T(0, 10)).map((s) => s.text)).toEqual(['bandages']);
   });
 
+  it('CS2b a state that lasts while a thing at work goes on ends when it stops or the fight is over; a thing that stopped is out of the fight', () => {
+    const L = load(demoRaw());
+    const fight = (ongoing: boolean, extra = {}) => ({ fight: { ongoing, participants: ['mira', 'union'], source: 'engine' as const, ...extra } });
+    const base = [
+      rec(T(0, 9), fight(true, { things: [{ node: 'cb-firearms', why: 'x' }, { node: 'cb-ambush', why: 'y' }] })),
+      rec(T(0, 9), { statuses: [{ entity: 'mira', text: 'deafened', until: 'lasting', while: 'cb-firearms', source: 'play' }, { entity: 'mira', text: 'pinned', until: 'lasting', while: 'cb-ambush', source: 'play' }] }),
+    ];
+    const st = reduce(L, [...base, rec(T(0, 9, 5), fight(true, { ended: ['cb-firearms'] }))]);
+    expect(statusesOf(st, 'mira', T(0, 9, 3)).map((s) => s.text)).toEqual(['deafened', 'pinned']);
+    expect(statusesOf(st, 'mira', T(0, 9, 6)).map((s) => s.text)).toEqual(['pinned']);
+    expect(fightNow(st).things.map((t) => t.node)).toEqual(['cb-ambush']);
+    // a later record bringing it in again: at work again
+    const again = reduce(L, [...st.records, rec(T(0, 9, 7), fight(true, { things: [{ node: 'cb-firearms', why: 'z' }] }))]);
+    expect(fightNow(again).things.map((t) => t.node).sort()).toEqual(['cb-ambush', 'cb-firearms']);
+    const over = reduce(L, [...base, rec(T(0, 9, 8), fight(false))]);
+    expect(statusesOf(over, 'mira', T(0, 9, 9)).map((s) => s.text)).toEqual([]);
+  });
+
   it('CS3 对抗倾向: the panel over the pack over what was filled in; the fight is the latest change', () => {
     const L = load(demoRaw());
     const s = { start: 'x', force: 'x', response: 'x', limit: 'x', stop: 'x' };

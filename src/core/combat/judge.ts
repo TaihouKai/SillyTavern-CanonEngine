@@ -36,6 +36,8 @@ export interface Ruling {
   over: boolean; overWhy: string; stopAt: string;
   /** People here who joined the fight this turn on their own. */
   joined: Id[];
+  /** Things at work in the fight that stopped this turn (destroyed, switched off, carried off). */
+  ended?: Id[];
   /** Each outcome the player's message states, standing or stopped by an objective mechanism (the code holds it so). */
   outcomes: PlayerOutcome[];
   /** The player's words that stand although the analysis ruled against them without an objective mechanism. */
@@ -51,7 +53,7 @@ export interface Ruling {
   walked: { node: Id; depth: number; full: boolean; from: Id; label: string | null }[];
 }
 
-interface CombatOut { reasoning?: string; joins?: string[]; player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; over: boolean; over_why?: string; stop_at?: string }
+interface CombatOut { reasoning?: string; joins?: string[]; player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; stops?: { node: string; why?: string }[]; over: boolean; over_why?: string; stop_at?: string }
 interface FillOut { people: { who: string; links: { node: string; label: string }[]; style?: { start: string; force: string; response: string; limit: string; stop: string } | null }[] }
 
 /** Lorebook entries about someone: an entry whose title is their name, or one of whose keys is in a name of theirs. */
@@ -116,7 +118,8 @@ export async function judgeFight(a: {
   // 2. what the fight needs
   // (the people here who may join are walked from too: what they can do is part of the turn)
   // (and the things of the setting at work in it: a device running, an object used)
-  const starts = uniq([...fighters, ...bystanders, ...a.places, ...now.things.map((t) => t.node).filter((x) => L.combat.nodes.has(x))]);
+  const inFight = now.things.map((t) => t.node).filter((x) => L.combat.nodes.has(x));
+  const starts = uniq([...fighters, ...bystanders, ...a.places, ...inFight]);
   const walk = walkCombat(L, index.state, starts, a.settings);
   const objective = new Set(walkCombat(L, index.state, starts, { ...a.settings, budgetChars: Infinity, objective: true }).nodes.map((w) => w.node.id));
   const sourceText = new Map<string, string>();
@@ -155,6 +158,9 @@ export async function judgeFight(a: {
   // reach without filled-in links; a source's own words). One that is not gets the ruling asked again with it standing.
   // a fighter's 对抗倾向 can be cited for how they act ("style:<id>", with its words); it never stops the player's outcome
   const styleText = (ref: string) => { const id = ref.startsWith('style:') ? ref.slice(6) : ''; const st = fighters.includes(id) || bystanders.includes(id) ? styleOf(L, index.state, id)?.style : null; return st ? [st.start, st.force, st.response, st.limit, st.stop].join(' ') : null; };
+  // a part of a node cited as "<node>:<part>" (the way knows lists them) is that node (live: the effect of a jamming
+  // device a gang ran was cited so, and left out)
+  const fixRef = (b: { ref: string; quote?: string }) => { const r = String(b.ref || ''), i = r.lastIndexOf(':'); return i > 0 && L.combat.nodes.has(r.slice(0, i)) && (ABILITY_PARTS as readonly string[]).includes(r.slice(i + 1)) ? { ...b, ref: r.slice(0, i) } : b; };
   const basisOk = (b: { ref: string; quote?: string }) => b.ref === 'judgement' || L.combat.nodes.has(b.ref) && walk.nodes.some((w) => w.node.id === b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!)) || (!!b.quote && !!styleText(b.ref) && quoteInText(b.quote, styleText(b.ref)!));
   const objectiveOk = (b: { ref: string; quote?: string }) => objective.has(b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!));
   const checkOutcomes = (o: CombatOut) => {
@@ -162,7 +168,7 @@ export async function judgeFight(a: {
     for (const x of o.player_outcomes || []) {
       const quote = String(x.quote || '').trim();
       if (!quote || !quoteInText(quote, a.playerMessage)) { notes.push(`ruling: an outcome of words the player did not write was left out ("${quote.slice(0, 40)}")`); continue; }
-      const basis = (x.basis || []).filter(basisOk);
+      const basis = (x.basis || []).map(fixRef).filter(basisOk);
       if (!x.stands && !basis.some(objectiveOk)) { unfounded.push(quote); continue; }
       list.push({ quote, stands: !!x.stands, why: String(x.why || '').slice(0, 300), basis: x.stands ? [] : basis });
     }
@@ -188,7 +194,7 @@ export async function judgeFight(a: {
   for (const x of out.exchanges || []) {
     const actor = fighters.includes(x.actor) ? x.actor : (() => { const r = index.resolveEntity(String(x.actor)); return r.ids.length === 1 && fighters.includes(r.ids[0]) ? r.ids[0] : null; })();
     if (!actor || !String(x.text || '').trim()) { notes.push(`ruling: an exchange of "${x.actor}" left out (not a fighter)`); continue; }
-    const basis = (x.basis || []).filter((b) => { const ok = basisOk(b); if (!ok) notes.push(`ruling: basis "${b.ref}" is not in what the fight was given (left out)`); return ok; });
+    const basis = (x.basis || []).map(fixRef).filter((b) => { const ok = basisOk(b); if (!ok) notes.push(`ruling: basis "${b.ref}" is not in what the fight was given (left out)`); return ok; });
     exchanges.push({ actor, text: String(x.text).trim().slice(0, 800), basis: basis.length ? basis : [{ ref: 'judgement' }], ...(x.unsupported || !basis.length || basis.every((b) => b.ref === 'judgement') ? { unsupported: true } : {}) });
   }
   const statuses: StatusChange[] = [];
@@ -203,7 +209,16 @@ export async function judgeFight(a: {
       notes.push(`ruling: the state "${text}" of ${name(who)} names ${L.combat.nodes.get(node)!.name}, another fighter's ability (not linked)`);
       node = null;
     }
-    statuses.push({ entity: who, text, ...(count !== null ? { count } : {}), ...(cleanUntil(s.until) ? { until: cleanUntil(s.until) } : {}), ...(node ? { node } : {}), ...(s.removed ? { removed: true } : {}), source: 'play' });
+    // as long as a thing at work in the fight goes on (a headache from a jamming noise): lasting until it stops
+    const w = s.until && typeof s.until === 'object' && 'while' in s.until ? String((s.until as { while: unknown }).while) : null;
+    if (w && !inFight.includes(w)) notes.push(`ruling: the state "${text}" of ${name(who)} lasts while "${w}", not a thing at work in the fight (lasting)`);
+    const until = w ? 'lasting' : cleanUntil(s.until);
+    statuses.push({ entity: who, text, ...(count !== null ? { count } : {}), ...(until ? { until } : {}), ...(w && inFight.includes(w) ? { while: w } : {}), ...(node ? { node } : {}), ...(s.removed ? { removed: true } : {}), source: 'play' });
+  }
+  const ended: Id[] = [];
+  for (const x of out.stops || []) {
+    if (!inFight.includes(x.node)) { notes.push(`ruling: "${x.node}" stops, but it is not a thing at work in the fight (left out)`); continue; }
+    if (!ended.includes(x.node)) ended.push(x.node);
   }
   const witnessed: Witnessed[] = [];
   for (const w of out.witnessed || []) {
@@ -211,7 +226,7 @@ export async function judgeFight(a: {
     const who = (w.who || []).filter((x) => fighters.includes(x) || a.index.entityExists(x));
     if (who.length) witnessed.push({ node: w.node, ...(w.part && (ABILITY_PARTS as readonly string[]).includes(w.part) ? { part: w.part as Witnessed['part'] } : {}), who });
   }
-  return { fighters, joined, exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || '').slice(0, 300), stopAt: String(out.stop_at || '').slice(0, 300), outcomes, stands, filled, cut: walk.cut, notes,
+  return { fighters, joined, ...(ended.length ? { ended } : {}), exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || '').slice(0, 300), stopAt: String(out.stop_at || '').slice(0, 300), outcomes, stands, filled, cut: walk.cut, notes,
     reasoning: String(out.reasoning || '').trim().slice(0, 1500), walked: walk.nodes.map((w) => ({ node: w.node.id, depth: w.depth, full: w.full, from: w.viaFrom, label: w.viaLabel })) };
 }
 
@@ -222,7 +237,8 @@ export function rulingRecord(r: Ruling, st: StoryTime, names: (id: Id) => string
     ...(r.filled.styles.length ? { styles: r.filled.styles } : {}),
     ...(r.statuses.length ? { statuses: r.statuses } : {}),
     ...(r.witnessed.length ? { witnessed: r.witnessed } : {}),
-    ...(r.over ? { fight: { ongoing: false, participants: r.fighters, source: 'engine' as const, why: r.overWhy } } : r.joined.length ? { fight: { ongoing: true, participants: r.fighters, source: 'engine' as const, why: `joined: ${r.joined.map(names).join(', ')}` } } : {}),
+    ...(r.over ? { fight: { ongoing: false, participants: r.fighters, source: 'engine' as const, why: r.overWhy } }
+      : r.joined.length || r.ended?.length ? { fight: { ongoing: true, participants: r.fighters, source: 'engine' as const, why: [r.joined.length ? `joined: ${r.joined.map(names).join(', ')}` : '', r.ended?.length ? `stopped: ${r.ended.join(', ')}` : ''].filter(Boolean).join('; '), ...(r.ended?.length ? { ended: r.ended } : {}) } } : {}),
     evidenceKind: 'adjudication',
   });
 }

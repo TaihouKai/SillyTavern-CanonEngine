@@ -432,7 +432,10 @@ export interface CombatLinkChange { entity: Id; node: Id; label: string; removed
  *  where it is counted (令咒 2) and how long it holds (Until; lasting: until it is changed or the player takes it
  *  away). The same text again replaces it; removed takes it away. node: the combat node it brings (holding a sword
  *  brings the sword's abilities). */
-export interface StatusChange { entity: Id; text: string; count?: number | null; until?: Until; node?: Id | null; removed?: boolean; source: CombatSource; quote?: string }
+export interface StatusChange { entity: Id; text: string; count?: number | null; until?: Until; node?: Id | null; removed?: boolean; source: CombatSource; quote?: string;
+  /** A thing at work in the fight the state lasts as long as (a headache from a jamming noise): it ends when that
+   *  thing stops or the fight is over. */
+  while?: Id }
 /** 对抗倾向 as this game set it: the panel, the Persona (the player character), or filled in for someone without one. */
 export interface StyleChange { entity: Id; style: Pick<CombatStyleVersion, 'start' | 'force' | 'response' | 'limit' | 'stop'>; source: CombatSource }
 /** A fight under way or over, with who is in it. player: the player's message started it; engine: a reply or ruling
@@ -441,7 +444,9 @@ export interface FightChange { ongoing: boolean; participants: Id[]; source: 'pl
   /** People of the world the player's message described without naming them: how it called them, and why. */
   identified?: { id: Id; as: string; why: string }[];
   /** Things of the setting at work in the fight (a device, an object used, a field on the place): the walk starts from them too. */
-  things?: { node: Id; why: string }[] }
+  things?: { node: Id; why: string }[];
+  /** Things at work in the fight that stopped (destroyed, switched off, carried off): no longer in it. */
+  ended?: Id[] }
 /** Who saw an ability (or a part of it) used: they know it from then on. */
 export interface Witnessed { node: Id; part?: AbilityPart | null; who: Id[] }
 

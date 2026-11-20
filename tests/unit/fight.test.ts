@@ -7,11 +7,11 @@ const PROFILE = { player: { name: 'Ash', aliases: [], summary: 'a dock worker wh
 const PERSONA = 'Ash, a dock worker. Boxed as a youth: a hard right hook. Carries no weapon.';
 type X = ReturnType<typeof makeEngine>;
 
-async function setup() {
+async function setup(raw: unknown = demoRaw()) {
   const x = makeEngine();
   (x.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
   x.model.on('profile', null, PROFILE);
-  await x.engine.bind(JSON.stringify(demoRaw()), { startTick: tick(1, 6, 0), mode: 'new' });
+  await x.engine.bind(JSON.stringify(raw), { startTick: tick(1, 6, 0), mode: 'new' });
   await x.engine.reconcile('test');
   x.host.addUser('I look around the harbor.');
   x.model.draft('The harbor at dawn. [F0]');
@@ -260,6 +260,46 @@ describe('someone here joins', () => {
     expect(r.joined).toEqual(['mira']);
     expect(r.exchanges.map((e) => e.actor)).toContain('mira');
     expect(fightNow(st(x)).participants).toContain('mira');
+  });
+
+  it('CF9 a thing at work stops when the ruling says so; a state that lasts while it goes on ends with it; a part of it cited is it', async () => {
+    const raw = demoRaw() as any;
+    raw.combat.nodes.push({ id: 'cb-gas', kind: 'ability', name: 'Tear gas canister', gist: 'A canister of tear gas that blinds and chokes everyone near it.', text: 'A canister of tear gas that blinds and chokes everyone near it.', parts: [{ part: 'effect', text: 'Blinds and chokes everyone near it.' }], source_refs: raw.combat.nodes[0].source_refs });
+    raw.combat.links.push({ from: 'council', to: 'cb-gas', label: 'keeps' });
+    const x = await setup(raw);
+    const msg = 'A thug grins as a canister of tear gas hisses open at my feet. I hit him.';
+    x.model.on('combat_who', null, { people: [], things: [{ seen: 1, id: 'cb-gas', why: 'the canister hisses open' }] });
+    await turn(x, msg, 'You choke and swing. [F13]', {
+      extract: { fight: { state: 'starts', participants: ['Thug'], new_people: [{ name: 'Thug', description: 'a thug', quote: 'A thug' }], things: [{ quote: 'a canister of tear gas hisses open', what: 'a tear gas canister' }] } },
+      combat: (i: any) => ({ player_outcomes: [], exchanges: [{ actor: me(x), text: 'Ash swings through the gas, choking.', basis: [{ ref: 'cb-gas:effect' }] }], statuses: [{ who: me(x), text: 'choking', until: { while: 'cb-gas' } }, { who: me(x), text: 'dizzy', until: { while: 'cb-nope' } }], over: false }),
+    });
+    expect(fightNow(st(x)).things.map((t) => t.node)).toEqual(['cb-gas']);
+    const r1 = x.engine.current!.replay.applied.at(-1)!.interp.combat!;
+    expect(r1.exchanges[0].basis).toEqual([{ ref: 'cb-gas' }]);
+    expect(r1.notes.join(' ')).toMatch(/"dizzy" of Ash lasts while "cb-nope", not a thing at work/);
+    expect(statusesOf(st(x), me(x)).map((s) => `${s.text}:${s.while || s.until}`).sort()).toEqual(['choking:cb-gas', 'dizzy:lasting']);
+    await turn(x, 'I kick the canister into the sea.', 'It sinks with a hiss. [F14]', {
+      combat: () => ({ player_outcomes: [], exchanges: [{ actor: me(x), text: 'The canister sinks.', basis: [{ ref: 'judgement' }] }], statuses: [], stops: [{ node: 'cb-gas', why: 'kicked into the sea' }, { node: 'cb-firearms', why: '?' }], over: false }),
+    });
+    const r2 = x.engine.current!.replay.applied.at(-1)!.interp.combat!;
+    expect(r2.ended).toEqual(['cb-gas']);
+    expect(r2.notes.join(' ')).toMatch(/"cb-firearms" stops, but it is not a thing at work/);
+    const f = fightNow(st(x));
+    expect(f.ongoing).toBe(true);
+    expect(f.things).toEqual([]);
+    expect(statusesOf(st(x), me(x)).map((s) => s.text)).toEqual(['dizzy']);
+    const v = x.engine.combatView(false)!;
+    expect(v.rulings[0].ended).toEqual(['Tear gas canister']);
+    expect(v.fight.things).toEqual([]);
+  });
+
+  it('CF7b someone the message of the player has with them is present, though no reply had them here yet', async () => {
+    const x = await setup();
+    await turn(x, 'Out with Mira, a thug shoves me; I shove him back.', 'He stumbles. [F15]', {
+      extract: { scene_entities: ['mira'], fight: { state: 'starts', participants: ['Thug'], new_people: [{ name: 'Thug', description: 'a thug', quote: 'a thug' }] } },
+      combat: () => ({ player_outcomes: [], exchanges: [{ actor: me(x), text: 'Ash shoves him back.', basis: [{ ref: 'judgement' }] }], statuses: [], over: false }),
+    });
+    expect(x.model.tasks('combat').at(-1)!.input.present.map((p: any) => p.id)).toEqual(['mira']);
   });
 
   it('CF8 someone present whom the ruling has act in the fight has joined it, even when joins leaves them out', async () => {

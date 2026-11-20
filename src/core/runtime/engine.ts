@@ -1084,7 +1084,9 @@ export class CanonEngine {
       playerMessage: userEntry ? this.ooc(userEntry.text).story : '',
       statements: [...told, ...(userInterp?.intents || []).map((i) => i.summary)],
       recent: prevGm ? prevGm.text.slice(-2000) : '', timeLabel: formatTick(tick, this.campaign()?.binding.originDate || null),
-      places, present: prevGmInterp?.present || [],
+      // who is here: as the last reply left it, and whoever the player's message has with them (live: a friend the
+      // player was out shopping with in the first message was nobody present, and could not step in)
+      places, present: uniq([...(prevGmInterp?.present || []), ...(userInterp?.sceneEntities || []).filter((id) => index.entityKind(id) === 'person')]),
       settings: { maxDepth: this.settings.combatMaxDepth ?? DEFAULT_COMBAT.maxDepth, fullDepth: this.settings.combatFullDepth ?? DEFAULT_COMBAT.fullDepth, budgetChars: this.settings.combatBudgetChars ?? DEFAULT_COMBAT.budgetChars },
       signal, operationId, log: (l) => this.debugLog('task', l),
     });

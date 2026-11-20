@@ -149,9 +149,14 @@ export async function identifyInFight(a: {
     f.identified = [...(f.identified || []), { id: r.id, as: p.name, why: String(r.why || '').slice(0, 300) }];
     notes.push(`fight: "${p.name}" is ${L.entities.get(r.id)!.name} (${String(r.why || '').slice(0, 160)})`);
   }
+  // what someone now in the fight has comes with them, not as a thing of its own (live: the flashlight of the
+  // teleporter just identified was also put in the fight as a thing at work)
+  const owner = (id: Id) => (f.participants || []).map(String).find((p) => a.index.entityExists(p) && linksOf(L, a.index.state, p).some((l) => l.node === id));
   for (const t of out.things || []) {
     if (!t.id) continue;
     if (!things.includes(t.id)) { notes.push(`fight: "${t.id}" is not one of the things offered (left out)`); continue; }
+    const o = owner(t.id);
+    if (o) { notes.push(`fight: ${L.combat.nodes.get(t.id)!.name} comes with ${a.index.entityName(o)} (not a thing of its own)`); continue; }
     if (f.nodes?.some((x) => x.node === t.id)) continue;
     f.nodes = [...(f.nodes || []), { node: t.id, why: String(t.why || '').slice(0, 300) }];
     notes.push(`fight: ${L.combat.nodes.get(t.id)!.name} is in it (${String(t.why || '').slice(0, 160)})`);

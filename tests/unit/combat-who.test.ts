@@ -50,6 +50,18 @@ describe('who and what the message brings into a fight', () => {
     expect(w.nodes.find((n) => n.node.id === 'cb-gas')).toMatchObject({ depth: 1, full: true });
   });
 
+  it('CW1c what the newcomer just identified has comes with them, not as a thing of its own', async () => {
+    const L = pack();
+    const idx = new WorldIndex(L, reduce(L, []));
+    const f = fight();
+    f.things = [...f.things!, { quote: 'stops the bleeding', what: 'emergency care' }];
+    const p = port({ people: [{ name: 'medic woman', id: 'mira', why: 'a medic' }], things: [{ seen: 1, id: 'cb-gas' }, { seen: 2, id: 'cb-emergency-care' }] });
+    const notes = await identifyInFight({ port: p, index: idx, fight: f, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't' });
+    expect(p.seen[0].input.things.some((t: string) => t.startsWith('cb-emergency-care |'))).toBe(true);
+    expect(f.nodes!.map((n) => n.node)).toEqual(['cb-gas']);
+    expect(notes.join(' ')).toMatch(/Emergency care comes with Mira/);
+  });
+
   it('CW1b everyone new_people brings in fights, however participants calls them', () => {
     const L = pack();
     const idx = new WorldIndex(L, reduce(L, []));
