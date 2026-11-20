@@ -12479,7 +12479,7 @@ function validate77(data, { instancePath = "", parentData, parentDataProperty, r
   return errors === 0;
 }
 validate77.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema120 = { "type": "object", "properties": { "decision": { "enum": ["retain", "repair", "conflict"] }, "scene_end": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "flashback": { "type": "boolean" }, "time_evidence": { "type": "array", "maxItems": 40, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 300 }, "kind": { "enum": ["now", "elapsed", "mentioned"] }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false } }, "required": ["lo", "hi"], "additionalProperties": false }] }, "minutes": { "oneOf": [{ "type": "null" }, { "type": "number", "minimum": 0 }] } }, "required": ["quote", "kind"], "additionalProperties": false } }, "claim_checks": { "type": "array", "items": { "type": "object", "properties": { "claim_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "verdict": { "enum": ["consistent", "contradiction", "unsupported", "belief_ok", "new_detail", "not_applicable"] }, "record_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "note": { "type": "string" } }, "required": ["claim_id", "verdict"], "additionalProperties": false }, "maxItems": 400 }, "transitions": { "type": "array", "items": { "type": "object", "properties": { "op": { "enum": ["set", "unset", "add", "remove"] }, "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "occurrence_ref": { "type": ["string", "null"] }, "until": { "description": 'how long the new value holds: "lasting", {"minutes": n} or {"event": id} (read by code; a missing or unreadable one is asked again)' } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, "maxItems": 200 }, "occurrences": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "title": { "type": "string" }, "account": { "type": "string" }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "affected": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "locations": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "causes": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "quote": { "type": "string" }, "pack_event_id": { "type": ["string", "null"] }, "disposition": { "enum": ["occurred", "diverged", "ongoing", null] }, "ref_phrases": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "continues": { "type": ["string", "null"], "maxLength": 200 }, "backstory": { "type": "boolean" }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "origin": { "enum": ["player", "gm", "intervention"] } }, "required": ["ref", "title", "account", "actors", "quote"], "additionalProperties": false }, "maxItems": 200 }, "state_claims": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["entity_id", "predicate", "value", "quote"], "additionalProperties": false }, "maxItems": 200 }, "player_actions": { "type": "array", "items": { "type": "object", "properties": { "quote": { "type": "string" }, "authorized_by_quote": { "type": ["string", "null"] }, "category": { "type": ["string", "null"], "enum": ["dialogue", "reactions", "actions", "trivial", "movement", "items", "skills", "combat", "decisions", "secrets", "intervention", null] } }, "required": ["quote", "authorized_by_quote"], "additionalProperties": false }, "maxItems": 200 }, "step_enactments": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "occurrence_ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" } }, "required": ["step_id", "occurrence_ref", "quote"], "additionalProperties": false }, "maxItems": 200 }, "new_entities": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "name": { "type": "string" }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "description": { "type": "string" }, "quote": { "type": "string" }, "same_as": { "anyOf": [{ "type": "null" }, { "type": "string" }] } }, "required": ["ref", "name", "kind", "description", "quote"], "additionalProperties": false }, "maxItems": 200 }, "violations": { "type": "array", "items": { "type": "object", "properties": { "code": { "type": "string" }, "quote": { "type": "string" }, "detail": { "type": "string" }, "blocking": { "type": "boolean" } }, "required": ["code", "detail"], "additionalProperties": false }, "maxItems": 200 }, "hard_checks": { "type": "array", "items": { "type": "object", "properties": { "event_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "status": { "enum": ["fulfilled", "not_due", "missing", "contradicted"] }, "occurrence_ref": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } }, "required": ["event_id", "status"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "scene_frame": { "type": ["string", "null"], "maxLength": 200 }, "summary": { "type": "string" }, "contacts": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 600 }, "actors": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 }, "kind": { "enum": ["invitation", "request", "information", "probe", "hostile", "consequence", "encounter"] }, "scope_kind": { "enum": ["event", "arc", "faction", "contact", "storyline"] }, "scope_ref": { "type": "string", "maxLength": 200 }, "scope_label": { "type": "string", "maxLength": 300 }, "opportunity_id": { "type": ["string", "null"], "maxLength": 200 } }, "required": ["quote", "kind", "scope_kind", "scope_ref"], "additionalProperties": false } }, "relations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "people": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "minItems": 2, "maxItems": 2 }, "bond": { "type": "string", "maxLength": 400 }, "views": { "type": "array", "maxItems": 2, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 200 }, "sees": { "type": "string", "maxLength": 400 } }, "required": ["who", "sees"], "additionalProperties": false } }, "address": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "by": { "type": "string", "maxLength": 200 }, "to": { "type": "string", "maxLength": 200 }, "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes", "dropped"] }, "when": { "type": "string", "maxLength": 200 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["by", "to", "term", "use", "quote"], "additionalProperties": false } }, "together": { "type": "string", "maxLength": 400 }, "ended": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 600 } }, "required": ["people", "bond", "quote"], "additionalProperties": false } }, "present": { "type": "array", "maxItems": 30, "items": { "type": "string", "maxLength": 200 } }, "player_knowers": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "quote": { "type": "string", "maxLength": 600 } }, "required": ["who", "level", "quote"], "additionalProperties": false } }, "scene_groups": { "type": "array", "items": { "type": "string", "maxLength": 40 }, "maxItems": 20 }, "statuses": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 120 }, "count": { "anyOf": [{ "type": "number" }, { "type": "null" }] }, "until": { "anyOf": [{ "const": "lasting" }, { "type": "object", "properties": { "minutes": { "type": "number" } }, "required": ["minutes"], "additionalProperties": false }, { "type": "object", "properties": { "event": { "type": "string" } }, "required": ["event"], "additionalProperties": false }, { "type": "null" }] }, "removed": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["who", "text", "quote"], "additionalProperties": false } }, "fight": { "anyOf": [{ "type": "null" }, { "type": "object", "properties": { "starts": { "type": "boolean" }, "participants": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 120 } }, "resolved_unruled": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["starts", "resolved_unruled"], "additionalProperties": false }] }, "ruling_conflicts": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 300 }, "why": { "type": "string", "maxLength": 300 } }, "required": ["quote", "why"], "additionalProperties": false } }, "grudges": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "who": { "type": "string" }, "why": { "type": "string" }, "quote": { "type": "string" }, "comes": { "anyOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["who", "why", "quote"], "additionalProperties": false } }, "grudges_ended": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "who": { "type": "string" }, "quote": { "type": "string" } }, "required": ["who", "quote"], "additionalProperties": false } }, "player_places": { "type": "array", "maxItems": 6, "items": { "type": "string" } }, "attackers": { "type": "array", "maxItems": 12, "items": { "type": "string" } } }, "required": ["decision", "scene_end", "claim_checks", "transitions", "occurrences", "state_claims", "player_actions", "violations", "hard_checks"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:evaluate", "title": "Canon Engine task output: evaluate" };
+var schema120 = { "type": "object", "properties": { "decision": { "enum": ["retain", "repair", "conflict"] }, "scene_end": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "flashback": { "type": "boolean" }, "time_evidence": { "type": "array", "maxItems": 40, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 300 }, "kind": { "enum": ["now", "elapsed", "mentioned"] }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false } }, "required": ["lo", "hi"], "additionalProperties": false }] }, "minutes": { "oneOf": [{ "type": "null" }, { "type": "number", "minimum": 0 }] } }, "required": ["quote", "kind"], "additionalProperties": false } }, "claim_checks": { "type": "array", "items": { "type": "object", "properties": { "claim_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "verdict": { "enum": ["consistent", "contradiction", "unsupported", "belief_ok", "new_detail", "not_applicable"] }, "record_ids": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "note": { "type": "string" } }, "required": ["claim_id", "verdict"], "additionalProperties": false }, "maxItems": 400 }, "transitions": { "type": "array", "items": { "type": "object", "properties": { "op": { "enum": ["set", "unset", "add", "remove"] }, "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "occurrence_ref": { "type": ["string", "null"] }, "until": { "description": 'how long the new value holds: "lasting", {"minutes": n} or {"event": id} (read by code; a missing or unreadable one is asked again)' } }, "required": ["op", "entity_id", "predicate"], "additionalProperties": false }, "maxItems": 200 }, "occurrences": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "title": { "type": "string" }, "account": { "type": "string" }, "actors": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "affected": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "locations": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "lo": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "hi": { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }, "precision": { "enum": ["minute", "day", "range", "approx"] } }, "required": ["lo", "hi", "precision"], "additionalProperties": false }] }, "causes": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "quote": { "type": "string" }, "pack_event_id": { "type": ["string", "null"] }, "disposition": { "enum": ["occurred", "diverged", "ongoing", null] }, "ref_phrases": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "continues": { "type": ["string", "null"], "maxLength": 200 }, "backstory": { "type": "boolean" }, "visibility": { "enum": ["public", "restricted", "secret"] }, "knowers": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "origin": { "enum": ["player", "gm", "intervention"] } }, "required": ["ref", "title", "account", "actors", "quote"], "additionalProperties": false }, "maxItems": 200 }, "state_claims": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "quote": { "type": "string" }, "at": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["entity_id", "predicate", "value", "quote"], "additionalProperties": false }, "maxItems": 200 }, "player_actions": { "type": "array", "items": { "type": "object", "properties": { "quote": { "type": "string" }, "authorized_by_quote": { "type": ["string", "null"] }, "category": { "type": ["string", "null"], "enum": ["dialogue", "reactions", "actions", "trivial", "movement", "items", "skills", "combat", "decisions", "secrets", "intervention", null] } }, "required": ["quote", "authorized_by_quote"], "additionalProperties": false }, "maxItems": 200 }, "step_enactments": { "type": "array", "items": { "type": "object", "properties": { "step_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "occurrence_ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "quote": { "type": "string" } }, "required": ["step_id", "occurrence_ref", "quote"], "additionalProperties": false }, "maxItems": 200 }, "new_entities": { "type": "array", "items": { "type": "object", "properties": { "ref": { "type": "string", "minLength": 1, "maxLength": 200 }, "name": { "type": "string" }, "kind": { "enum": ["person", "organization", "place", "object", "world", "other"] }, "description": { "type": "string" }, "quote": { "type": "string" }, "same_as": { "anyOf": [{ "type": "null" }, { "type": "string" }] } }, "required": ["ref", "name", "kind", "description", "quote"], "additionalProperties": false }, "maxItems": 200 }, "violations": { "type": "array", "items": { "type": "object", "properties": { "code": { "type": "string" }, "quote": { "type": "string" }, "detail": { "type": "string" }, "blocking": { "type": "boolean" } }, "required": ["code", "detail"], "additionalProperties": false }, "maxItems": 200 }, "hard_checks": { "type": "array", "items": { "type": "object", "properties": { "event_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "status": { "enum": ["fulfilled", "not_due", "missing", "contradicted"] }, "occurrence_ref": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } }, "required": ["event_id", "status"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "scene_frame": { "type": ["string", "null"], "maxLength": 200 }, "summary": { "type": "string" }, "contacts": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 600 }, "actors": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 40 }, "kind": { "enum": ["invitation", "request", "information", "probe", "hostile", "consequence", "encounter"] }, "scope_kind": { "enum": ["event", "arc", "faction", "contact", "storyline"] }, "scope_ref": { "type": "string", "maxLength": 200 }, "scope_label": { "type": "string", "maxLength": 300 }, "opportunity_id": { "type": ["string", "null"], "maxLength": 200 } }, "required": ["quote", "kind", "scope_kind", "scope_ref"], "additionalProperties": false } }, "relations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "people": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "minItems": 2, "maxItems": 2 }, "bond": { "type": "string", "maxLength": 400 }, "views": { "type": "array", "maxItems": 2, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 200 }, "sees": { "type": "string", "maxLength": 400 } }, "required": ["who", "sees"], "additionalProperties": false } }, "address": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "by": { "type": "string", "maxLength": 200 }, "to": { "type": "string", "maxLength": 200 }, "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes", "dropped"] }, "when": { "type": "string", "maxLength": 200 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["by", "to", "term", "use", "quote"], "additionalProperties": false } }, "together": { "type": "string", "maxLength": 400 }, "ended": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 600 } }, "required": ["people", "bond", "quote"], "additionalProperties": false } }, "present": { "type": "array", "maxItems": 30, "items": { "type": "string", "maxLength": 200 } }, "player_knowers": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "quote": { "type": "string", "maxLength": 600 } }, "required": ["who", "level", "quote"], "additionalProperties": false } }, "scene_groups": { "type": "array", "items": { "type": "string", "maxLength": 40 }, "maxItems": 20 }, "statuses": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 120 }, "count": { "anyOf": [{ "type": "number" }, { "type": "null" }] }, "until": { "anyOf": [{ "const": "lasting" }, { "type": "object", "properties": { "minutes": { "type": "number" } }, "required": ["minutes"], "additionalProperties": false }, { "type": "object", "properties": { "event": { "type": "string" } }, "required": ["event"], "additionalProperties": false }, { "type": "null" }] }, "removed": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["who", "text", "quote"], "additionalProperties": false } }, "fight": { "anyOf": [{ "type": "null" }, { "type": "object", "properties": { "starts": { "type": "boolean" }, "participants": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 120 } }, "resolved_unruled": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["starts", "resolved_unruled"], "additionalProperties": false }] }, "ruling_conflicts": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 300 }, "why": { "type": "string", "maxLength": 300 } }, "required": ["quote", "why"], "additionalProperties": false } }, "grudges": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "who": { "type": "string" }, "why": { "type": "string" }, "quote": { "type": "string" }, "comes": { "anyOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["who", "why", "quote"], "additionalProperties": false } }, "grudges_ended": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "who": { "type": "string" }, "quote": { "type": "string" } }, "required": ["who", "quote"], "additionalProperties": false } }, "nsfw": { "type": "boolean" }, "player_places": { "type": "array", "maxItems": 6, "items": { "type": "string" } }, "attackers": { "type": "array", "maxItems": 12, "items": { "type": "string" } } }, "required": ["decision", "scene_end", "claim_checks", "transitions", "occurrences", "state_claims", "player_actions", "violations", "hard_checks"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:evaluate", "title": "Canon Engine task output: evaluate" };
 function validate78(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -17624,80 +17624,91 @@ function validate78(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
+    if (data.nsfw !== void 0) {
+      if (typeof data.nsfw !== "boolean") {
+        const err448 = { instancePath: instancePath + "/nsfw", schemaPath: "#/properties/nsfw/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+        if (vErrors === null) {
+          vErrors = [err448];
+        } else {
+          vErrors.push(err448);
+        }
+        errors++;
+      }
+    }
     if (data.player_places !== void 0) {
-      let data187 = data.player_places;
-      if (Array.isArray(data187)) {
-        if (data187.length > 6) {
-          const err448 = { instancePath: instancePath + "/player_places", schemaPath: "#/properties/player_places/maxItems", keyword: "maxItems", params: { limit: 6 }, message: "must NOT have more than 6 items" };
+      let data188 = data.player_places;
+      if (Array.isArray(data188)) {
+        if (data188.length > 6) {
+          const err449 = { instancePath: instancePath + "/player_places", schemaPath: "#/properties/player_places/maxItems", keyword: "maxItems", params: { limit: 6 }, message: "must NOT have more than 6 items" };
           if (vErrors === null) {
-            vErrors = [err448];
+            vErrors = [err449];
           } else {
-            vErrors.push(err448);
+            vErrors.push(err449);
           }
           errors++;
         }
-        const len34 = data187.length;
+        const len34 = data188.length;
         for (let i34 = 0; i34 < len34; i34++) {
-          if (typeof data187[i34] !== "string") {
-            const err449 = { instancePath: instancePath + "/player_places/" + i34, schemaPath: "#/properties/player_places/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+          if (typeof data188[i34] !== "string") {
+            const err450 = { instancePath: instancePath + "/player_places/" + i34, schemaPath: "#/properties/player_places/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
             if (vErrors === null) {
-              vErrors = [err449];
+              vErrors = [err450];
             } else {
-              vErrors.push(err449);
+              vErrors.push(err450);
             }
             errors++;
           }
         }
       } else {
-        const err450 = { instancePath: instancePath + "/player_places", schemaPath: "#/properties/player_places/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err451 = { instancePath: instancePath + "/player_places", schemaPath: "#/properties/player_places/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err450];
+          vErrors = [err451];
         } else {
-          vErrors.push(err450);
+          vErrors.push(err451);
         }
         errors++;
       }
     }
     if (data.attackers !== void 0) {
-      let data189 = data.attackers;
-      if (Array.isArray(data189)) {
-        if (data189.length > 12) {
-          const err451 = { instancePath: instancePath + "/attackers", schemaPath: "#/properties/attackers/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
+      let data190 = data.attackers;
+      if (Array.isArray(data190)) {
+        if (data190.length > 12) {
+          const err452 = { instancePath: instancePath + "/attackers", schemaPath: "#/properties/attackers/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
           if (vErrors === null) {
-            vErrors = [err451];
+            vErrors = [err452];
           } else {
-            vErrors.push(err451);
+            vErrors.push(err452);
           }
           errors++;
         }
-        const len35 = data189.length;
+        const len35 = data190.length;
         for (let i35 = 0; i35 < len35; i35++) {
-          if (typeof data189[i35] !== "string") {
-            const err452 = { instancePath: instancePath + "/attackers/" + i35, schemaPath: "#/properties/attackers/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+          if (typeof data190[i35] !== "string") {
+            const err453 = { instancePath: instancePath + "/attackers/" + i35, schemaPath: "#/properties/attackers/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
             if (vErrors === null) {
-              vErrors = [err452];
+              vErrors = [err453];
             } else {
-              vErrors.push(err452);
+              vErrors.push(err453);
             }
             errors++;
           }
         }
       } else {
-        const err453 = { instancePath: instancePath + "/attackers", schemaPath: "#/properties/attackers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err454 = { instancePath: instancePath + "/attackers", schemaPath: "#/properties/attackers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err453];
+          vErrors = [err454];
         } else {
-          vErrors.push(err453);
+          vErrors.push(err454);
         }
         errors++;
       }
     }
   } else {
-    const err454 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err455 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err454];
+      vErrors = [err455];
     } else {
-      vErrors.push(err454);
+      vErrors.push(err455);
     }
     errors++;
   }
@@ -17705,7 +17716,7 @@ function validate78(data, { instancePath = "", parentData, parentDataProperty, r
   return errors === 0;
 }
 validate78.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema121 = { "type": "object", "properties": { "statements": { "type": "array", "items": { "type": "object", "properties": { "kind": { "enum": ["asserted_fact", "attempted_action", "spoken_dialogue", "belief", "hypothetical", "ooc_direction", "ooc_config_request", "time_proposal", "participation_decline", "engagement"] }, "quote": { "type": "string" }, "summary": { "type": "string" }, "entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "facts": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "until": { "description": 'how long the new value holds: "lasting", {"minutes": n} or {"event": id} (read by code; a missing or unreadable one is asked again)' } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "event_id": { "type": ["string", "null"] }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "ambiguous": { "type": "boolean" }, "stance": { "oneOf": [{ "type": "null" }, { "enum": ["declined", "deferred", "accepted", "joined", "limited", "ooc_suppress", "reopened", "answered", "refused"] }] }, "scope_kind": { "oneOf": [{ "type": "null" }, { "enum": ["event", "arc", "faction", "contact", "storyline"] }] }, "scope_ref": { "type": ["string", "null"], "maxLength": 200 }, "scope_label": { "type": ["string", "null"], "maxLength": 300 }, "until": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["kind", "quote", "summary"], "additionalProperties": false }, "maxItems": 200 }, "references": { "type": "array", "items": { "type": "object", "properties": { "phrase": { "type": "string" }, "quote": { "type": "string" }, "kind": { "enum": ["entity", "event"] }, "mode": { "enum": ["direct", "indirect", "alias", "pronoun"] }, "candidates": { "type": "array", "items": { "type": "string" }, "maxItems": 200 } }, "required": ["phrase", "quote", "kind"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "scene_groups": { "type": ["array", "null"], "items": { "type": "string", "maxLength": 40 }, "maxItems": 20 }, "fight": { "anyOf": [{ "type": "null" }, { "type": "object", "properties": { "state": { "enum": ["none", "starts", "continues", "ends"] }, "participants": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 120 } }, "new_people": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 80 }, "description": { "type": "string", "maxLength": 300 }, "quote": { "type": "string", "maxLength": 200 } }, "required": ["name", "description", "quote"], "additionalProperties": false } }, "why": { "type": "string", "maxLength": 300 } }, "required": ["state"], "additionalProperties": false }] } }, "required": ["statements", "references"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:extract-user", "title": "Canon Engine task output: extract-user" };
+var schema121 = { "type": "object", "properties": { "statements": { "type": "array", "items": { "type": "object", "properties": { "kind": { "enum": ["asserted_fact", "attempted_action", "spoken_dialogue", "belief", "hypothetical", "ooc_direction", "ooc_config_request", "time_proposal", "participation_decline", "engagement"] }, "quote": { "type": "string" }, "summary": { "type": "string" }, "entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "facts": { "type": "array", "items": { "type": "object", "properties": { "entity_id": { "type": "string", "minLength": 1, "maxLength": 200 }, "predicate": { "type": "string", "minLength": 1, "maxLength": 200 }, "value": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }, { "type": "array", "items": { "type": "string" } }] }, "until": { "description": 'how long the new value holds: "lasting", {"minutes": n} or {"event": id} (read by code; a missing or unreadable one is asked again)' } }, "required": ["entity_id", "predicate", "value"], "additionalProperties": false }, "maxItems": 200 }, "event_id": { "type": ["string", "null"] }, "time": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] }, "ambiguous": { "type": "boolean" }, "stance": { "oneOf": [{ "type": "null" }, { "enum": ["declined", "deferred", "accepted", "joined", "limited", "ooc_suppress", "reopened", "answered", "refused"] }] }, "scope_kind": { "oneOf": [{ "type": "null" }, { "enum": ["event", "arc", "faction", "contact", "storyline"] }] }, "scope_ref": { "type": ["string", "null"], "maxLength": 200 }, "scope_label": { "type": ["string", "null"], "maxLength": 300 }, "until": { "oneOf": [{ "type": "null" }, { "type": "object", "properties": { "day": { "type": "integer" }, "minute": { "type": "integer", "minimum": 0, "maximum": 1439 } }, "required": ["day", "minute"], "additionalProperties": false }] } }, "required": ["kind", "quote", "summary"], "additionalProperties": false }, "maxItems": 200 }, "references": { "type": "array", "items": { "type": "object", "properties": { "phrase": { "type": "string" }, "quote": { "type": "string" }, "kind": { "enum": ["entity", "event"] }, "mode": { "enum": ["direct", "indirect", "alias", "pronoun"] }, "candidates": { "type": "array", "items": { "type": "string" }, "maxItems": 200 } }, "required": ["phrase", "quote", "kind"], "additionalProperties": false }, "maxItems": 200 }, "scene_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 200 }, "scene_groups": { "type": ["array", "null"], "items": { "type": "string", "maxLength": 40 }, "maxItems": 20 }, "nsfw": { "enum": ["on", "off", "none"] }, "fight": { "anyOf": [{ "type": "null" }, { "type": "object", "properties": { "state": { "enum": ["none", "starts", "continues", "ends"] }, "participants": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 120 } }, "new_people": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 80 }, "description": { "type": "string", "maxLength": 300 }, "quote": { "type": "string", "maxLength": 200 } }, "required": ["name", "description", "quote"], "additionalProperties": false } }, "why": { "type": "string", "maxLength": 300 } }, "required": ["state"], "additionalProperties": false }] } }, "required": ["statements", "references"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:extract-user", "title": "Canon Engine task output: extract-user" };
 function validate79(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -17737,7 +17748,7 @@ function validate79(data, { instancePath = "", parentData, parentDataProperty, r
       errors++;
     }
     for (const key0 in data) {
-      if (!(key0 === "statements" || key0 === "references" || key0 === "scene_entities" || key0 === "scene_groups" || key0 === "fight")) {
+      if (!(key0 === "statements" || key0 === "references" || key0 === "scene_entities" || key0 === "scene_groups" || key0 === "nsfw" || key0 === "fight")) {
         const err2 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
           vErrors = [err2];
@@ -18824,13 +18835,10 @@ function validate79(data, { instancePath = "", parentData, parentDataProperty, r
         }
       }
     }
-    if (data.fight !== void 0) {
-      let data37 = data.fight;
-      const _errs101 = errors;
-      let valid27 = false;
-      const _errs102 = errors;
-      if (data37 !== null) {
-        const err88 = { instancePath: instancePath + "/fight", schemaPath: "#/properties/fight/anyOf/0/type", keyword: "type", params: { type: "null" }, message: "must be null" };
+    if (data.nsfw !== void 0) {
+      let data37 = data.nsfw;
+      if (!(data37 === "on" || data37 === "off" || data37 === "none")) {
+        const err88 = { instancePath: instancePath + "/nsfw", schemaPath: "#/properties/nsfw/enum", keyword: "enum", params: { allowedValues: schema121.properties.nsfw.enum }, message: "must be equal to one of the allowed values" };
         if (vErrors === null) {
           vErrors = [err88];
         } else {
@@ -18838,34 +18846,37 @@ function validate79(data, { instancePath = "", parentData, parentDataProperty, r
         }
         errors++;
       }
-      var _valid5 = _errs102 === errors;
+    }
+    if (data.fight !== void 0) {
+      let data38 = data.fight;
+      const _errs102 = errors;
+      let valid27 = false;
+      const _errs103 = errors;
+      if (data38 !== null) {
+        const err89 = { instancePath: instancePath + "/fight", schemaPath: "#/properties/fight/anyOf/0/type", keyword: "type", params: { type: "null" }, message: "must be null" };
+        if (vErrors === null) {
+          vErrors = [err89];
+        } else {
+          vErrors.push(err89);
+        }
+        errors++;
+      }
+      var _valid5 = _errs103 === errors;
       valid27 = valid27 || _valid5;
-      const _errs104 = errors;
-      if (data37 && typeof data37 == "object" && !Array.isArray(data37)) {
-        if (data37.state === void 0) {
-          const err89 = { instancePath: instancePath + "/fight", schemaPath: "#/properties/fight/anyOf/1/required", keyword: "required", params: { missingProperty: "state" }, message: "must have required property 'state'" };
+      const _errs105 = errors;
+      if (data38 && typeof data38 == "object" && !Array.isArray(data38)) {
+        if (data38.state === void 0) {
+          const err90 = { instancePath: instancePath + "/fight", schemaPath: "#/properties/fight/anyOf/1/required", keyword: "required", params: { missingProperty: "state" }, message: "must have required property 'state'" };
           if (vErrors === null) {
-            vErrors = [err89];
+            vErrors = [err90];
           } else {
-            vErrors.push(err89);
+            vErrors.push(err90);
           }
           errors++;
         }
-        for (const key6 in data37) {
+        for (const key6 in data38) {
           if (!(key6 === "state" || key6 === "participants" || key6 === "new_people" || key6 === "why")) {
-            const err90 = { instancePath: instancePath + "/fight", schemaPath: "#/properties/fight/anyOf/1/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key6 }, message: "must NOT have additional properties" };
-            if (vErrors === null) {
-              vErrors = [err90];
-            } else {
-              vErrors.push(err90);
-            }
-            errors++;
-          }
-        }
-        if (data37.state !== void 0) {
-          let data38 = data37.state;
-          if (!(data38 === "none" || data38 === "starts" || data38 === "continues" || data38 === "ends")) {
-            const err91 = { instancePath: instancePath + "/fight/state", schemaPath: "#/properties/fight/anyOf/1/properties/state/enum", keyword: "enum", params: { allowedValues: schema121.properties.fight.anyOf[1].properties.state.enum }, message: "must be equal to one of the allowed values" };
+            const err91 = { instancePath: instancePath + "/fight", schemaPath: "#/properties/fight/anyOf/1/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key6 }, message: "must NOT have additional properties" };
             if (vErrors === null) {
               vErrors = [err91];
             } else {
@@ -18874,78 +18885,81 @@ function validate79(data, { instancePath = "", parentData, parentDataProperty, r
             errors++;
           }
         }
-        if (data37.participants !== void 0) {
-          let data39 = data37.participants;
-          if (Array.isArray(data39)) {
-            if (data39.length > 12) {
-              const err92 = { instancePath: instancePath + "/fight/participants", schemaPath: "#/properties/fight/anyOf/1/properties/participants/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
+        if (data38.state !== void 0) {
+          let data39 = data38.state;
+          if (!(data39 === "none" || data39 === "starts" || data39 === "continues" || data39 === "ends")) {
+            const err92 = { instancePath: instancePath + "/fight/state", schemaPath: "#/properties/fight/anyOf/1/properties/state/enum", keyword: "enum", params: { allowedValues: schema121.properties.fight.anyOf[1].properties.state.enum }, message: "must be equal to one of the allowed values" };
+            if (vErrors === null) {
+              vErrors = [err92];
+            } else {
+              vErrors.push(err92);
+            }
+            errors++;
+          }
+        }
+        if (data38.participants !== void 0) {
+          let data40 = data38.participants;
+          if (Array.isArray(data40)) {
+            if (data40.length > 12) {
+              const err93 = { instancePath: instancePath + "/fight/participants", schemaPath: "#/properties/fight/anyOf/1/properties/participants/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
               if (vErrors === null) {
-                vErrors = [err92];
+                vErrors = [err93];
               } else {
-                vErrors.push(err92);
+                vErrors.push(err93);
               }
               errors++;
             }
-            const len8 = data39.length;
+            const len8 = data40.length;
             for (let i8 = 0; i8 < len8; i8++) {
-              let data40 = data39[i8];
-              if (typeof data40 === "string") {
-                if (func2(data40) > 120) {
-                  const err93 = { instancePath: instancePath + "/fight/participants/" + i8, schemaPath: "#/properties/fight/anyOf/1/properties/participants/items/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+              let data41 = data40[i8];
+              if (typeof data41 === "string") {
+                if (func2(data41) > 120) {
+                  const err94 = { instancePath: instancePath + "/fight/participants/" + i8, schemaPath: "#/properties/fight/anyOf/1/properties/participants/items/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
                   if (vErrors === null) {
-                    vErrors = [err93];
+                    vErrors = [err94];
                   } else {
-                    vErrors.push(err93);
+                    vErrors.push(err94);
                   }
                   errors++;
                 }
               } else {
-                const err94 = { instancePath: instancePath + "/fight/participants/" + i8, schemaPath: "#/properties/fight/anyOf/1/properties/participants/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                const err95 = { instancePath: instancePath + "/fight/participants/" + i8, schemaPath: "#/properties/fight/anyOf/1/properties/participants/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 if (vErrors === null) {
-                  vErrors = [err94];
+                  vErrors = [err95];
                 } else {
-                  vErrors.push(err94);
+                  vErrors.push(err95);
                 }
                 errors++;
               }
             }
           } else {
-            const err95 = { instancePath: instancePath + "/fight/participants", schemaPath: "#/properties/fight/anyOf/1/properties/participants/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            const err96 = { instancePath: instancePath + "/fight/participants", schemaPath: "#/properties/fight/anyOf/1/properties/participants/type", keyword: "type", params: { type: "array" }, message: "must be array" };
             if (vErrors === null) {
-              vErrors = [err95];
+              vErrors = [err96];
             } else {
-              vErrors.push(err95);
+              vErrors.push(err96);
             }
             errors++;
           }
         }
-        if (data37.new_people !== void 0) {
-          let data41 = data37.new_people;
-          if (Array.isArray(data41)) {
-            if (data41.length > 8) {
-              const err96 = { instancePath: instancePath + "/fight/new_people", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/maxItems", keyword: "maxItems", params: { limit: 8 }, message: "must NOT have more than 8 items" };
+        if (data38.new_people !== void 0) {
+          let data42 = data38.new_people;
+          if (Array.isArray(data42)) {
+            if (data42.length > 8) {
+              const err97 = { instancePath: instancePath + "/fight/new_people", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/maxItems", keyword: "maxItems", params: { limit: 8 }, message: "must NOT have more than 8 items" };
               if (vErrors === null) {
-                vErrors = [err96];
+                vErrors = [err97];
               } else {
-                vErrors.push(err96);
+                vErrors.push(err97);
               }
               errors++;
             }
-            const len9 = data41.length;
+            const len9 = data42.length;
             for (let i9 = 0; i9 < len9; i9++) {
-              let data42 = data41[i9];
-              if (data42 && typeof data42 == "object" && !Array.isArray(data42)) {
-                if (data42.name === void 0) {
-                  const err97 = { instancePath: instancePath + "/fight/new_people/" + i9, schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/required", keyword: "required", params: { missingProperty: "name" }, message: "must have required property 'name'" };
-                  if (vErrors === null) {
-                    vErrors = [err97];
-                  } else {
-                    vErrors.push(err97);
-                  }
-                  errors++;
-                }
-                if (data42.description === void 0) {
-                  const err98 = { instancePath: instancePath + "/fight/new_people/" + i9, schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/required", keyword: "required", params: { missingProperty: "description" }, message: "must have required property 'description'" };
+              let data43 = data42[i9];
+              if (data43 && typeof data43 == "object" && !Array.isArray(data43)) {
+                if (data43.name === void 0) {
+                  const err98 = { instancePath: instancePath + "/fight/new_people/" + i9, schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/required", keyword: "required", params: { missingProperty: "name" }, message: "must have required property 'name'" };
                   if (vErrors === null) {
                     vErrors = [err98];
                   } else {
@@ -18953,8 +18967,8 @@ function validate79(data, { instancePath = "", parentData, parentDataProperty, r
                   }
                   errors++;
                 }
-                if (data42.quote === void 0) {
-                  const err99 = { instancePath: instancePath + "/fight/new_people/" + i9, schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
+                if (data43.description === void 0) {
+                  const err99 = { instancePath: instancePath + "/fight/new_people/" + i9, schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/required", keyword: "required", params: { missingProperty: "description" }, message: "must have required property 'description'" };
                   if (vErrors === null) {
                     vErrors = [err99];
                   } else {
@@ -18962,149 +18976,158 @@ function validate79(data, { instancePath = "", parentData, parentDataProperty, r
                   }
                   errors++;
                 }
-                for (const key7 in data42) {
+                if (data43.quote === void 0) {
+                  const err100 = { instancePath: instancePath + "/fight/new_people/" + i9, schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
+                  if (vErrors === null) {
+                    vErrors = [err100];
+                  } else {
+                    vErrors.push(err100);
+                  }
+                  errors++;
+                }
+                for (const key7 in data43) {
                   if (!(key7 === "name" || key7 === "description" || key7 === "quote")) {
-                    const err100 = { instancePath: instancePath + "/fight/new_people/" + i9, schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key7 }, message: "must NOT have additional properties" };
+                    const err101 = { instancePath: instancePath + "/fight/new_people/" + i9, schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key7 }, message: "must NOT have additional properties" };
                     if (vErrors === null) {
-                      vErrors = [err100];
+                      vErrors = [err101];
                     } else {
-                      vErrors.push(err100);
+                      vErrors.push(err101);
                     }
                     errors++;
                   }
                 }
-                if (data42.name !== void 0) {
-                  let data43 = data42.name;
-                  if (typeof data43 === "string") {
-                    if (func2(data43) > 80) {
-                      const err101 = { instancePath: instancePath + "/fight/new_people/" + i9 + "/name", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/properties/name/maxLength", keyword: "maxLength", params: { limit: 80 }, message: "must NOT have more than 80 characters" };
-                      if (vErrors === null) {
-                        vErrors = [err101];
-                      } else {
-                        vErrors.push(err101);
-                      }
-                      errors++;
-                    }
-                  } else {
-                    const err102 = { instancePath: instancePath + "/fight/new_people/" + i9 + "/name", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/properties/name/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                    if (vErrors === null) {
-                      vErrors = [err102];
-                    } else {
-                      vErrors.push(err102);
-                    }
-                    errors++;
-                  }
-                }
-                if (data42.description !== void 0) {
-                  let data44 = data42.description;
+                if (data43.name !== void 0) {
+                  let data44 = data43.name;
                   if (typeof data44 === "string") {
-                    if (func2(data44) > 300) {
-                      const err103 = { instancePath: instancePath + "/fight/new_people/" + i9 + "/description", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/properties/description/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
+                    if (func2(data44) > 80) {
+                      const err102 = { instancePath: instancePath + "/fight/new_people/" + i9 + "/name", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/properties/name/maxLength", keyword: "maxLength", params: { limit: 80 }, message: "must NOT have more than 80 characters" };
                       if (vErrors === null) {
-                        vErrors = [err103];
+                        vErrors = [err102];
                       } else {
-                        vErrors.push(err103);
+                        vErrors.push(err102);
                       }
                       errors++;
                     }
                   } else {
-                    const err104 = { instancePath: instancePath + "/fight/new_people/" + i9 + "/description", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/properties/description/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    const err103 = { instancePath: instancePath + "/fight/new_people/" + i9 + "/name", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/properties/name/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                     if (vErrors === null) {
-                      vErrors = [err104];
+                      vErrors = [err103];
                     } else {
-                      vErrors.push(err104);
+                      vErrors.push(err103);
                     }
                     errors++;
                   }
                 }
-                if (data42.quote !== void 0) {
-                  let data45 = data42.quote;
+                if (data43.description !== void 0) {
+                  let data45 = data43.description;
                   if (typeof data45 === "string") {
-                    if (func2(data45) > 200) {
-                      const err105 = { instancePath: instancePath + "/fight/new_people/" + i9 + "/quote", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/properties/quote/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
+                    if (func2(data45) > 300) {
+                      const err104 = { instancePath: instancePath + "/fight/new_people/" + i9 + "/description", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/properties/description/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
                       if (vErrors === null) {
-                        vErrors = [err105];
+                        vErrors = [err104];
                       } else {
-                        vErrors.push(err105);
+                        vErrors.push(err104);
                       }
                       errors++;
                     }
                   } else {
-                    const err106 = { instancePath: instancePath + "/fight/new_people/" + i9 + "/quote", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    const err105 = { instancePath: instancePath + "/fight/new_people/" + i9 + "/description", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/properties/description/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                     if (vErrors === null) {
-                      vErrors = [err106];
+                      vErrors = [err105];
                     } else {
-                      vErrors.push(err106);
+                      vErrors.push(err105);
+                    }
+                    errors++;
+                  }
+                }
+                if (data43.quote !== void 0) {
+                  let data46 = data43.quote;
+                  if (typeof data46 === "string") {
+                    if (func2(data46) > 200) {
+                      const err106 = { instancePath: instancePath + "/fight/new_people/" + i9 + "/quote", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/properties/quote/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
+                      if (vErrors === null) {
+                        vErrors = [err106];
+                      } else {
+                        vErrors.push(err106);
+                      }
+                      errors++;
+                    }
+                  } else {
+                    const err107 = { instancePath: instancePath + "/fight/new_people/" + i9 + "/quote", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err107];
+                    } else {
+                      vErrors.push(err107);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err107 = { instancePath: instancePath + "/fight/new_people/" + i9, schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+                const err108 = { instancePath: instancePath + "/fight/new_people/" + i9, schemaPath: "#/properties/fight/anyOf/1/properties/new_people/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
                 if (vErrors === null) {
-                  vErrors = [err107];
+                  vErrors = [err108];
                 } else {
-                  vErrors.push(err107);
+                  vErrors.push(err108);
                 }
                 errors++;
               }
             }
           } else {
-            const err108 = { instancePath: instancePath + "/fight/new_people", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            const err109 = { instancePath: instancePath + "/fight/new_people", schemaPath: "#/properties/fight/anyOf/1/properties/new_people/type", keyword: "type", params: { type: "array" }, message: "must be array" };
             if (vErrors === null) {
-              vErrors = [err108];
+              vErrors = [err109];
             } else {
-              vErrors.push(err108);
+              vErrors.push(err109);
             }
             errors++;
           }
         }
-        if (data37.why !== void 0) {
-          let data46 = data37.why;
-          if (typeof data46 === "string") {
-            if (func2(data46) > 300) {
-              const err109 = { instancePath: instancePath + "/fight/why", schemaPath: "#/properties/fight/anyOf/1/properties/why/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
+        if (data38.why !== void 0) {
+          let data47 = data38.why;
+          if (typeof data47 === "string") {
+            if (func2(data47) > 300) {
+              const err110 = { instancePath: instancePath + "/fight/why", schemaPath: "#/properties/fight/anyOf/1/properties/why/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
               if (vErrors === null) {
-                vErrors = [err109];
+                vErrors = [err110];
               } else {
-                vErrors.push(err109);
+                vErrors.push(err110);
               }
               errors++;
             }
           } else {
-            const err110 = { instancePath: instancePath + "/fight/why", schemaPath: "#/properties/fight/anyOf/1/properties/why/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            const err111 = { instancePath: instancePath + "/fight/why", schemaPath: "#/properties/fight/anyOf/1/properties/why/type", keyword: "type", params: { type: "string" }, message: "must be string" };
             if (vErrors === null) {
-              vErrors = [err110];
+              vErrors = [err111];
             } else {
-              vErrors.push(err110);
+              vErrors.push(err111);
             }
             errors++;
           }
         }
       } else {
-        const err111 = { instancePath: instancePath + "/fight", schemaPath: "#/properties/fight/anyOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        if (vErrors === null) {
-          vErrors = [err111];
-        } else {
-          vErrors.push(err111);
-        }
-        errors++;
-      }
-      var _valid5 = _errs104 === errors;
-      valid27 = valid27 || _valid5;
-      if (!valid27) {
-        const err112 = { instancePath: instancePath + "/fight", schemaPath: "#/properties/fight/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
+        const err112 = { instancePath: instancePath + "/fight", schemaPath: "#/properties/fight/anyOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
         if (vErrors === null) {
           vErrors = [err112];
         } else {
           vErrors.push(err112);
         }
         errors++;
+      }
+      var _valid5 = _errs105 === errors;
+      valid27 = valid27 || _valid5;
+      if (!valid27) {
+        const err113 = { instancePath: instancePath + "/fight", schemaPath: "#/properties/fight/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
+        if (vErrors === null) {
+          vErrors = [err113];
+        } else {
+          vErrors.push(err113);
+        }
+        errors++;
       } else {
-        errors = _errs101;
+        errors = _errs102;
         if (vErrors !== null) {
-          if (_errs101) {
-            vErrors.length = _errs101;
+          if (_errs102) {
+            vErrors.length = _errs102;
           } else {
             vErrors = null;
           }
@@ -19112,11 +19135,11 @@ function validate79(data, { instancePath = "", parentData, parentDataProperty, r
       }
     }
   } else {
-    const err113 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err114 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err113];
+      vErrors = [err114];
     } else {
-      vErrors.push(err113);
+      vErrors.push(err114);
     }
     errors++;
   }
