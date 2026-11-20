@@ -26,7 +26,7 @@ import { matchScope, runGate, toStoryTime, type EvalOutput, type GateInput, type
 import { checkTimeEvidence, evidenceLine, settleSceneEnd } from './scenetime';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { settleRelations } from './relate';
-import { NSFW_SECTION, nsfwOfMessage, nsfwScene } from '../nsfw';
+import { NSFW_SECTION } from '../nsfw';
 import { dangerSources, grudgesForReview, grudgesNow, hostileDue, hostileSection, hostilityPanelRecord, hostilityView, type DangerLevel, type HostileDue, type HostilityChange, type HostilityViewData } from '../hostility';
 import { DEFAULT_COMBAT, combatBeforeReply, combatReview, combatView, fightFromMessage, fightNow, fightNowInput, judgeFight, panelRecord, rulingForReview, rulingRecord, statesSection, type CombatChange, type CombatViewData, type FightOut, type Ruling } from '../combat';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
@@ -63,9 +63,6 @@ export interface EngineSettings {
   dangers: boolean;
   /** How often a danger comes (low halves the pack's chance, high doubles it). */
   dangerLevel: DangerLevel;
-  /** NSFW 场景: while the player character is in a sexual or erotic scene, the world does not reach out to them
-   *  (nsfw/index.ts). */
-  nsfwQuiet: boolean;
   /** What the GM may write for the player character (dialogue, reactions, small actions...; see voice.ts). */
   playerVoice: PlayerVoice;
   /** 允许 NPC 用能力读到我的秘密: a power that perceives (a mind reader) reaches the player character's secrets. */
@@ -112,7 +109,6 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   quietDayJobs: true,
   dangers: true,
   dangerLevel: 'medium',
-  nsfwQuiet: true,
   playerVoice: { ...DEFAULT_PLAYER_VOICE },
   secretsReadable: true,
   mindPlans: true,
@@ -145,7 +141,6 @@ export interface ExtractUserOut {
   scene_entities?: string[];
   fight?: FightOut | null;
   scene_groups?: string[] | null;
-  nsfw?: string;
 }
 
 interface DiscoverOut {
@@ -884,7 +879,6 @@ export class CanonEngine {
       sceneEntities: uniq([...(out.scene_entities || []).filter((x) => index.entityExists(x)), ...out.statements.flatMap((s) => (s.entities || []).filter((x) => index.entityExists(x)))]),
       offscreenBasis: [], warnings, configRequests, declines, basisStateHash: undefined,
       ...(groups.length && out.scene_groups !== undefined ? { sceneGroups: groupNames(groups, out.scene_groups) } : {}),
-      ...(typeof nsfwOfMessage(out.nsfw) === 'boolean' ? { nsfw: nsfwOfMessage(out.nsfw) } : {}),
     };
     (interp as Interpretation & { refs?: RefInput[] }).refs = refs;
     return interp;
@@ -1247,7 +1241,6 @@ export class CanonEngine {
       sceneEntities: uniq([...gate.sceneEntities, ...review.retrieval.entries.flatMap((e) => e.resolved.entityIds)].filter((x) => index.entityExists(x) || gate.runtimeEntities.some((r) => r.id === x))).slice(0, 24),
       ...(gate.present.length ? { present: gate.present } : {}),
       ...(gate.places.length ? { places: gate.places } : {}),
-      ...(review.evaluation.nsfw === true ? { nsfw: true } : {}),
       ...this.sceneGroupsOf(index, userEntry, review.evaluation.scene_groups || []),
       offscreenBasis: [], warnings: gate.warnings.slice(0, 20), manifestId: review.manifest?.manifestId,
     };
@@ -1693,11 +1686,10 @@ export class CanonEngine {
         const prof = c.integration ? this.profileFor(null) : null;
         const prevGm = (() => { for (let k = entries.length - (continuing ? 2 : 1); k >= 0; k--) if (entries[k].role === 'gm') return entries[k]; return null; })();
         const prevGmInterp = prevGm ? interpretationsFor(c.interpretations, baseKey(prevGm))[0] : null;
-        // NSFW 场景 (nsfw/index.ts): inside one the world does not reach out to the player in this reply — no world
-        // reaction, required contact, grudge, danger, chance event or pack hook; what was due comes after the scene
-        const privateScene = this.settings.nsfwQuiet !== false && !leapTo
-          && nsfwScene({ message: fresh ? userInterp?.nsfw : undefined, continued: continuing ? continuedInterp?.nsfw : undefined, lastReply: prevGmInterp?.nsfw });
-        if (privateScene) this.debugLog('turn', 'NSFW scene: the world does not reach out to the player in this reply');
+        // NSFW 模式 (nsfw/index.ts, turned on by the player): the world does not reach out to the player in this reply —
+        // no world reaction, required contact, grudge, danger, chance event or pack hook; what was due comes after
+        const privateScene = !!c.nsfwMode && !leapTo;
+        if (privateScene) this.debugLog('turn', 'NSFW mode: the world does not reach out to the player in this reply');
         let integrationFailed = false;
         const integP = prof && !leapTo && !privateScene
           ? this.integrate(index, prof.profile, fresh ? userEntry : null, jumpTo, abort.signal, operationId).catch((e) => {
@@ -3199,14 +3191,18 @@ export class CanonEngine {
     return natureView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign()!.binding.originDate);
   }
 
-  /** NSFW 场景: whether the world holds back on the next reply (the last message opens or carries on such a scene, or
-   *  the last reply ended inside one; nsfw/index.ts), for the inspector's 接触 page. */
-  privateSceneNow(): boolean {
-    if (this.settings.nsfwQuiet === false || !this.current) return false;
-    const a = this.current.replay.applied;
-    const last = a[a.length - 1]?.interp;
-    const reply = a.slice().reverse().find((x) => x.interp.role === 'gm')?.interp;
-    return nsfwScene({ message: last?.role === 'user' ? last.nsfw : undefined, lastReply: reply?.nsfw });
+  /** NSFW 模式 (nsfw/index.ts): whether it is on in this game. */
+  nsfwMode(): boolean {
+    return !!this.campaign()?.nsfwMode;
+  }
+
+  /** The player turns NSFW 模式 on or off (the inspector's button); kept with this game. */
+  async setNsfwMode(on: boolean): Promise<void> {
+    const c = this.campaign();
+    if (!c) return;
+    c.nsfwMode = on;
+    c.configRevisions.push({ at: this.host.now(), summary: `NSFW mode ${on ? 'on' : 'off'}` });
+    await this.host.save();
   }
 
   /** How many are fighting now (0: no fight), for the inspector's 战斗 entry. */

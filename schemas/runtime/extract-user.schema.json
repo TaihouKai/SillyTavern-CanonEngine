@@ -259,13 +259,6 @@
    },
    "maxItems": 20
   },
-  "nsfw": {
-   "enum": [
-    "on",
-    "off",
-    "none"
-   ]
-  },
   "fight": {
    "anyOf": [
     {

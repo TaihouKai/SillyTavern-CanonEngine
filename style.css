@@ -226,6 +226,8 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .ci-clock { opacity:.75; font-size:.9em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ci-spoil { display:flex; align-items:center; gap:4px; font-size:.9em; white-space:nowrap; cursor:pointer; margin:0; }
 .ci-x { padding:2px 9px !important; }
+.ci-nsfw { white-space:nowrap; }
+.ci-nsfw.ci-nsfw-on { border-color:#d9534f !important; background:rgba(220,80,70,.28) !important; }
 .ci-grid { flex:1 1 auto; min-height:0; display:grid; grid-template-columns:148px 1fr; }
 .ci-nav { overflow:auto; padding:8px 6px; border-right:1px solid var(--ci-line); display:flex; flex-direction:column; gap:10px; }
 .ci-nav-g { display:flex; flex-direction:column; gap:2px; }

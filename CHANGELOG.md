@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.43.0 — 2026-11-20
+
+- **NSFW 模式 is turned on by hand; the automatic reading is gone.** You found reading the scene from the text unreliable. The inspector now has an 「NSFW 模式」 button at the top, on every page. It stays on for this game until you click it again; while on, the button is red and the 接触 page says so. Nothing reads NSFW from your messages or the replies any more: the prompts, the review fields and the 「NSFW 场景中，世界不主动接触你」 setting are removed. While the mode is on, the world holds back exactly as in 1.42.0, and what was due comes on the first reply after you turn it off.
+
 ## 1.42.0 — 2026-11-20
 
 - **NSFW scenes are not interrupted by the world.** While your character is in a sexual scene, the world does not reach out to you in that reply. Nothing is sent your way:
@@ -8,8 +12,8 @@
   - no canon event coming by chance to the people with you;
   - no pack hook or 关注.
   The GM is told that nobody from outside interrupts. What was due comes on the first reply after the scene.
-  - **How it is read.** Your message says whether it opens or carries on such a scene, or ends or leaves it. The review of each reply says whether the reply ends inside one. Your message decides when it says; otherwise the last reply does.
-  - **Your control.** The switch 「NSFW 场景中，世界不主动接触你」 (on by default) is in the settings and on the inspector's 接触 page. That page says so while a scene is holding the world back.
+  - **How it is read.** Your message says whether it opens or carries on such a scene, or ends or leaves it. The review of each reply says whether the reply ends inside one. Your message decides when it says; otherwise the last reply does. (Removed in 1.43.0.)
+  - **Your control.** The switch 「NSFW 场景中，世界不主动接触你」 (on by default) is in the settings and on the inspector's 接触 page. That page says so while a scene is holding the world back. (Removed in 1.43.0.)
   - **Code.** A module of its own (`src/core/nsfw`), covered by the boundary check.
 
 ## 1.41.1 — 2026-11-20

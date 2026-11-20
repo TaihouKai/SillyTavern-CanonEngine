@@ -206,7 +206,7 @@ export interface PacketInput {
   /** 主动敌对: someone with a grudge, or a danger of where the player is, comes for them in this reply (GM only;
    *  hostility/turn.ts). */
   hostile?: string;
-  /** NSFW 场景: the world holds back in this reply (GM only; nsfw/index.ts). */
+  /** NSFW 模式: the world holds back in this reply (GM only; nsfw/index.ts). */
   privateScene?: string;
   /** 本局设定 when the host cannot take the rewritten lorebook entries in its own lore scan (GM only). */
   worldLore?: string;

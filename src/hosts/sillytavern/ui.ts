@@ -293,7 +293,7 @@ function renderSettings() {
     (s.notifyDone !== false ? check('notifySound', s.notifySound !== false, t('notifySound'), 'notifySoundTip') + notifyNote() : '')));
 
   // ---- the Persona as Canon reads it
-  out.push(card(t('secPersona'), '', check('ignorePersonaSections', !!s.ignorePersonaSections, t('ignorePersonaSections'), 'ignorePersonaSectionsTip') + check('quietDayJobs', s.quietDayJobs !== false, t('quietDayJobs'), 'quietDayJobsTip') + check('dangers', (s as any).dangers !== false, t('hoDangers'), 'hoDangersTip') + check('nsfwQuiet', (s as any).nsfwQuiet !== false, t('nsfwQuiet'), 'nsfwQuietTip')));
+  out.push(card(t('secPersona'), '', check('ignorePersonaSections', !!s.ignorePersonaSections, t('ignorePersonaSections'), 'ignorePersonaSectionsTip') + check('quietDayJobs', s.quietDayJobs !== false, t('quietDayJobs'), 'quietDayJobsTip') + check('dangers', (s as any).dangers !== false, t('hoDangers'), 'hoDangersTip')));
 
   // ---- what the GM may write for the player character
   const pv = playerVoice((s as any).playerVoice);
