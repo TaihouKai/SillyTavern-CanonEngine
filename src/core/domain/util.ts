@@ -100,11 +100,19 @@ export function normalizeText(s: string): string {
   return String(s ?? '').replace(/\s+/g, ' ').trim();
 }
 
-/** True when `quote` occurs verbatim (modulo whitespace) inside `text`. Empty quotes never match. */
+/** True when `quote` occurs verbatim (modulo whitespace) inside `text`, or is spans of it in order joined by an
+ *  ellipsis ("A……B", "A...B": models stitch the words they cite so; live, a fighter was dropped for it). Empty quotes,
+ *  and a stitched span under two characters, never match. */
 export function quoteInText(quote: string, text: string): boolean {
   const q = normalizeText(quote).toLowerCase();
   if (q.length < 2) return false;
-  return normalizeText(text).toLowerCase().includes(q);
+  const t = normalizeText(text).toLowerCase();
+  if (t.includes(q)) return true;
+  const parts = q.split(/\s*(?:…+|\.{3,}|。{3,})\s*/).filter(Boolean);
+  if (parts.length < 2 || parts.some((p) => p.length < 2)) return false;
+  let at = 0;
+  for (const p of parts) { const i = t.indexOf(p, at); if (i < 0) return false; at = i + p.length; }
+  return true;
 }
 
 export function uniq<T>(arr: Iterable<T>): T[] {

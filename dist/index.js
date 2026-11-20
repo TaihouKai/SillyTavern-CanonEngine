@@ -26440,7 +26440,17 @@ function normalizeText(s) {
 function quoteInText(quote, text) {
   const q = normalizeText(quote).toLowerCase();
   if (q.length < 2) return false;
-  return normalizeText(text).toLowerCase().includes(q);
+  const t2 = normalizeText(text).toLowerCase();
+  if (t2.includes(q)) return true;
+  const parts = q.split(/\s*(?:…+|\.{3,}|。{3,})\s*/).filter(Boolean);
+  if (parts.length < 2 || parts.some((p) => p.length < 2)) return false;
+  let at = 0;
+  for (const p of parts) {
+    const i = t2.indexOf(p, at);
+    if (i < 0) return false;
+    at = i + p.length;
+  }
+  return true;
 }
 function uniq(arr) {
   return [...new Set(arr)];
@@ -33582,7 +33592,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.44.0";
+var ENGINE_RELEASE = "1.44.1";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;

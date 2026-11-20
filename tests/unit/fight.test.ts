@@ -185,6 +185,21 @@ describe('the 战斗 view and the player\'s corrections', () => {
   });
 });
 
+describe('new people in a fight the player starts', () => {
+  it('CF1b someone cited with spans of the message joined by an ellipsis is in the fight (live: the leader of the thugs was dropped)', async () => {
+    const x = await setup();
+    const msg = '两个染着黄毛的混混堵在巷口，伸手要钱。我没理他们，直接一拳打在领头那个的脸上。';
+    await turn(x, msg, 'He reels. [F14]', {
+      extract: { fight: { state: 'starts', participants: [me(x), '黄毛混混（领头）', '黄毛混混（同伙）'], new_people: [
+        { name: '黄毛混混（领头）', description: '堵路索钱的混混头目', quote: '两个染着黄毛的混混堵在巷口，伸手要钱……直接一拳打在领头那个的脸上' },
+        { name: '黄毛混混（同伙）', description: '一起堵路的混混', quote: '两个染着黄毛的混混堵在巷口，伸手要钱' },
+      ] } },
+    });
+    const f = fightNow(st(x));
+    expect(f.participants.map((id) => x.engine.current!.index.entityName(id))).toEqual(['Ash', '黄毛混混（领头）', '黄毛混混（同伙）']);
+  });
+});
+
 describe('the 战斗 page shows the setting and why a ruling went as it did', () => {
   it('CF6b a ruling keeps the analysis\' reasoning and the nodes it was given (cited ones marked); the setting lists concepts, rules and what the listed people are linked to, finds any node by its text, hides a precedent still to come unless spoilers', async () => {
     const x = await setup();

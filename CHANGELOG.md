@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.44.1 — 2026-11-20
+
+- **Someone quoted in pieces is no longer dropped.** You punched the leader of two thugs, but only the other one was put in the fight (and got the bloody nose). The model had cited the leader with two pieces of your message joined by 「……」, and Canon Engine only accepted a quote that is one continuous piece of the text. The same message sent eight times gave such a quote once. A quote is now accepted when every piece is in the text, in order, and each piece is at least two characters. This holds for every quote Canon Engine checks: new people, facts, states, rulings and the review.
+
 ## 1.44.0 — 2026-11-20
 
 - **The combat setting is on the 战斗 page.** The setting's nodes (concepts, rules, abilities, precedents, dangers) could not be seen anywhere: a person's card named what they are linked to, and that was all. The page now ends with a section 「战斗设定」:
