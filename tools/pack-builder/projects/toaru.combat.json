@@ -32255,7 +32255,7 @@
    "from": "hamazura-shiage",
    "to": "dark-side-organization",
    "label": "所属",
-   "from_event": null,
+   "from_event": "gemstone.001.b17",
    "until_event": null,
    "origin": "people"
   },
@@ -32263,7 +32263,7 @@
    "from": "hamazura-shiage",
    "to": "firearms",
    "label": "熟练",
-   "from_event": null,
+   "from_event": "battle-royale.001.b21",
    "until_event": null,
    "origin": "people"
   },
@@ -32687,7 +32687,7 @@
    "from": "aleister-crowley",
    "to": "crowley-hazard",
    "label": "能力",
-   "from_event": null,
+   "from_event": "aleister.001.b12",
    "until_event": null,
    "origin": "people"
   },
@@ -32727,7 +32727,7 @@
    "from": "aleister-crowley",
    "to": "hypervelocity-shockwave-cannon",
    "label": "能力",
-   "from_event": null,
+   "from_event": "coronzon.001.b11",
    "until_event": null,
    "origin": "people"
   },
@@ -32799,7 +32799,7 @@
    "from": "aleister-crowley",
    "to": "anti-art-attachment",
    "label": "持有",
-   "from_event": null,
+   "from_event": "coronzon.001.b22",
    "until_event": null,
    "origin": "people"
   },
@@ -32839,7 +32839,7 @@
    "from": "stiyl-magnus",
    "to": "shingyo-kousa",
    "label": "能力",
-   "from_event": null,
+   "from_event": "resurrection.001.b1",
    "until_event": null,
    "origin": "people"
   },
@@ -33367,7 +33367,7 @@
    "from": "fremea-seivelun",
    "to": "human-resource",
    "label": "能力",
-   "from_event": null,
+   "from_event": "freshmen.001.b10",
    "until_event": null,
    "origin": "people"
   },
@@ -33407,14 +33407,6 @@
    "from": "kumokawa-seria",
    "to": "mechanical-and-information-skills",
    "label": "能力",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "kumokawa-seria",
-   "to": "ordinary-person",
-   "label": "是",
    "from_event": null,
    "until_event": null,
    "origin": "people"
@@ -33479,7 +33471,7 @@
    "from": "kakine-teitoku",
    "to": "kakine-vector-injection",
    "label": "能力",
-   "from_event": null,
+   "from_event": "battle-royale.001.b26",
    "until_event": null,
    "origin": "people"
   },
@@ -33783,7 +33775,7 @@
    "from": "fiamma-of-the-right",
    "to": "presence-hiding",
    "label": "能力",
-   "from_event": null,
+   "from_event": "othinus.002.b5",
    "until_event": null,
    "origin": "people"
   },
@@ -34039,7 +34031,7 @@
    "from": "kuroyoru-umidori",
    "to": "kuroyoru-mechanical-arms",
    "label": "能力",
-   "from_event": null,
+   "from_event": "yuzuriha.001.b10",
    "until_event": null,
    "origin": "people"
   },
@@ -34148,14 +34140,6 @@
    "origin": "people"
   },
   {
-   "from": "orsola-aquinas",
-   "to": "lotus-wand",
-   "label": "持有",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
    "from": "tsukuyomi-komoe",
    "to": "healing-ritual",
    "label": "能力",
@@ -34199,7 +34183,7 @@
    "from": "itsuwa",
    "to": "saint-destroyer",
    "label": "能力",
-   "from_event": null,
+   "from_event": "acqua.001.b8",
    "until_event": null,
    "origin": "people"
   },
@@ -34599,7 +34583,7 @@
    "from": "anna-sprengel",
    "to": "coin-of-nicholas",
    "label": "持有",
-   "from_event": null,
+   "from_event": "handcuffs.001.b2",
    "until_event": null,
    "origin": "people"
   },
@@ -35047,7 +35031,7 @@
    "from": "coronzon",
    "to": "winged-flight",
    "label": "能力",
-   "from_event": null,
+   "from_event": "coronzon.001.b21",
    "until_event": null,
    "origin": "people"
   },
@@ -35351,7 +35335,7 @@
    "from": "hokaze-junko",
    "to": "iai",
    "label": "能力",
-   "from_event": null,
+   "from_event": "tokiwadai-election.001.b20",
    "until_event": null,
    "origin": "people"
   },
@@ -35359,7 +35343,7 @@
    "from": "hokaze-junko",
    "to": "kata",
    "label": "能力",
-   "from_event": null,
+   "from_event": "tokiwadai-election.001.b20",
    "until_event": null,
    "origin": "people"
   },
@@ -35727,7 +35711,7 @@
    "from": "marian-slingeneyer",
    "to": "banbutsu-no-kin",
    "label": "能力",
-   "from_event": null,
+   "from_event": "othinus.002.b21",
    "until_event": null,
    "origin": "people"
   },
@@ -36559,7 +36543,7 @@
    "from": "carissa",
    "to": "curtana",
    "label": "持有",
-   "from_event": null,
+   "from_event": "british.001.b7",
    "until_event": null,
    "origin": "people"
   },
@@ -36567,7 +36551,7 @@
    "from": "carissa",
    "to": "all-dimensions-severing-spell",
    "label": "能力",
-   "from_event": null,
+   "from_event": "british.001.b7",
    "until_event": null,
    "origin": "people"
   },
@@ -36575,7 +36559,7 @@
    "from": "carissa",
    "to": "telesma",
    "label": "分配",
-   "from_event": null,
+   "from_event": "british.001.b7",
    "until_event": null,
    "origin": "people"
   },
@@ -36583,15 +36567,7 @@
    "from": "carissa",
    "to": "knight",
    "label": "指挥",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "carissa",
-   "to": "anglican-church-cb",
-   "label": "所属",
-   "from_event": null,
+   "from_event": "british.001.b7",
    "until_event": null,
    "origin": "people"
   },
@@ -36599,7 +36575,7 @@
    "from": "carissa",
    "to": "spiritual-item",
    "label": "持有",
-   "from_event": null,
+   "from_event": "british.001.b7",
    "until_event": null,
    "origin": "people"
   },
@@ -37359,7 +37335,7 @@
    "from": "qliphah-puzzle-545",
    "to": "dangerous-knowledge",
    "label": "能力",
-   "from_event": null,
+   "from_event": "coronzon.001.b24",
    "until_event": null,
    "origin": "people"
   },
@@ -37551,7 +37527,7 @@
    "from": "salome",
    "to": "internal-offering",
    "label": "能力",
-   "from_event": null,
+   "from_event": "salome.001.b7",
    "until_event": null,
    "origin": "people"
   },
@@ -37567,7 +37543,7 @@
    "from": "salome",
    "to": "cyborg",
    "label": "是",
-   "from_event": null,
+   "from_event": "salome.001.b7",
    "until_event": null,
    "origin": "people"
   },
@@ -37687,7 +37663,7 @@
    "from": "kanou-shinka",
    "to": "blue-flower-borrowed-name",
    "label": "能力",
-   "from_event": null,
+   "from_event": "st-germain.001.b2",
    "until_event": null,
    "origin": "people"
   },
@@ -38151,7 +38127,7 @@
    "from": "haruue-erii",
    "to": "rspk-resonance",
    "label": "能力",
-   "from_event": null,
+   "from_event": "poltergeist.001.b3",
    "until_event": "poltergeist.001.b24",
    "origin": "people"
   },
@@ -38191,7 +38167,7 @@
    "from": "kihara-gensei",
    "to": "teleportation",
    "label": "能力",
-   "from_event": null,
+   "from_event": "daihasei-railgun.001.b39",
    "until_event": null,
    "origin": "people"
   },
@@ -38199,7 +38175,7 @@
    "from": "kihara-gensei",
    "to": "freezing-ray",
    "label": "能力",
-   "from_event": null,
+   "from_event": "daihasei-railgun.001.b39",
    "until_event": null,
    "origin": "people"
   },
@@ -38223,7 +38199,7 @@
    "from": "kihara-gensei",
    "to": "multi-skill",
    "label": "能力",
-   "from_event": null,
+   "from_event": "daihasei-railgun.001.b39",
    "until_event": null,
    "origin": "people"
   },
@@ -38231,7 +38207,7 @@
    "from": "kihara-gensei",
    "to": "aero-shooter",
    "label": "借用",
-   "from_event": null,
+   "from_event": "daihasei-railgun.001.b39",
    "until_event": null,
    "origin": "people"
   },
@@ -38239,7 +38215,7 @@
    "from": "kihara-gensei",
    "to": "second-sight",
    "label": "借用",
-   "from_event": null,
+   "from_event": "daihasei-railgun.001.b39",
    "until_event": null,
    "origin": "people"
   },
@@ -38247,7 +38223,7 @@
    "from": "kihara-gensei",
    "to": "mental-out",
    "label": "借用",
-   "from_event": null,
+   "from_event": "daihasei-railgun.001.b39",
    "until_event": null,
    "origin": "people"
   },
@@ -38255,7 +38231,7 @@
    "from": "kihara-gensei",
    "to": "exterior",
    "label": "使用",
-   "from_event": null,
+   "from_event": "daihasei-railgun.001.b39",
    "until_event": null,
    "origin": "people"
   },
@@ -38884,14 +38860,6 @@
    "origin": "people"
   },
   {
-   "from": "mujinayama",
-   "to": "ordinary-person",
-   "label": "是",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
    "from": "kokuchou-mayui",
    "to": "ultrasonic-standing-wave-cube",
    "label": "能力",
@@ -39076,14 +39044,6 @@
    "origin": "people"
   },
   {
-   "from": "oumi-shuri",
-   "to": "ordinary-person",
-   "label": "是",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
    "from": "wannai-kinuho",
    "to": "esper",
    "label": "是",
@@ -39207,7 +39167,7 @@
    "from": "kihara-kagun",
    "to": "veiting",
    "label": "能力",
-   "from_event": null,
+   "from_event": "baggage.001.b6",
    "until_event": null,
    "origin": "people"
   },
@@ -39239,7 +39199,7 @@
    "from": "kihara-kagun",
    "to": "magician",
    "label": "是",
-   "from_event": null,
+   "from_event": "baggage.001.b6",
    "until_event": null,
    "origin": "people"
   },
@@ -39247,7 +39207,7 @@
    "from": "kihara-kagun",
    "to": "magic",
    "label": "能力",
-   "from_event": null,
+   "from_event": "baggage.001.b6",
    "until_event": null,
    "origin": "people"
   },
@@ -39255,7 +39215,7 @@
    "from": "kihara-kagun",
    "to": "mana",
    "label": "使用",
-   "from_event": null,
+   "from_event": "baggage.001.b6",
    "until_event": null,
    "origin": "people"
   },
@@ -39383,7 +39343,7 @@
    "from": "shundan-kimi",
    "to": "angel-dragon-2",
    "label": "能力",
-   "from_event": null,
+   "from_event": "jailbreaker.001.b5",
    "until_event": "jailbreaker.001.b14",
    "origin": "people"
   },
@@ -39391,7 +39351,7 @@
    "from": "shundan-kimi",
    "to": "salt-light-ray",
    "label": "能力",
-   "from_event": null,
+   "from_event": "jailbreaker.001.b5",
    "until_event": "jailbreaker.001.b14",
    "origin": "people"
   },
@@ -39399,7 +39359,7 @@
    "from": "shundan-kimi",
    "to": "black-lightning",
    "label": "能力",
-   "from_event": null,
+   "from_event": "jailbreaker.001.b5",
    "until_event": "jailbreaker.001.b14",
    "origin": "people"
   },
@@ -39407,7 +39367,7 @@
    "from": "shundan-kimi",
    "to": "blood-feather-control",
    "label": "能力",
-   "from_event": null,
+   "from_event": "jailbreaker.001.b5",
    "until_event": "jailbreaker.001.b14",
    "origin": "people"
   },
@@ -39439,7 +39399,7 @@
    "from": "shundan-kimi",
    "to": "angel",
    "label": "寄宿右手的天使龙",
-   "from_event": null,
+   "from_event": "jailbreaker.001.b5",
    "until_event": "jailbreaker.001.b14",
    "origin": "people"
   },
@@ -40069,14 +40029,6 @@
   },
   {
    "from": "stephanie-gorgeouspalace",
-   "to": "ordinary-person",
-   "label": "是",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "stephanie-gorgeouspalace",
    "to": "firearms",
    "label": "擅长",
    "from_event": null,
@@ -40423,7 +40375,7 @@
    "from": "silver-cross-alpha",
    "to": "five-over-cb",
    "label": "持有",
-   "from_event": null,
+   "from_event": "freshmen.001.b15",
    "until_event": null,
    "origin": "people"
   },
@@ -40575,7 +40527,7 @@
    "from": "benizome-jellyfish",
    "to": "coin-of-nicholas",
    "label": "持有",
-   "from_event": null,
+   "from_event": "handcuffs.001.b2",
    "until_event": null,
    "origin": "people"
   },
@@ -40591,7 +40543,7 @@
    "from": "sha-danshan",
    "to": "eternal-princess-badge",
    "label": "能力",
-   "from_event": null,
+   "from_event": "tokiwadai-election.001.b1",
    "until_event": null,
    "origin": "people"
   },
@@ -40950,14 +40902,6 @@
   {
    "from": "miyama-shaei",
    "to": "level-1",
-   "label": "是",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "miyama-shaei",
-   "to": "ordinary-person",
    "label": "是",
    "from_event": null,
    "until_event": null,
@@ -41391,7 +41335,7 @@
    "from": "hebitani-tsuguo",
    "to": "capacity-down",
    "label": "持有",
-   "from_event": null,
+   "from_event": "big-spider.001.b2",
    "until_event": null,
    "origin": "people"
   },
@@ -41455,7 +41399,7 @@
    "from": "esther-rosenthal",
    "to": "taowu-2",
    "label": "能力",
-   "from_event": null,
+   "from_event": "necromancer.001.b1",
    "until_event": null,
    "origin": "people"
   },
@@ -41884,14 +41828,6 @@
    "origin": "people"
   },
   {
-   "from": "kuruwa",
-   "to": "ordinary-person",
-   "label": "是",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
    "from": "komaba-ritoku",
    "to": "clockwork-bandage",
    "label": "能力",
@@ -41943,7 +41879,7 @@
    "from": "sunazara-chimitsu",
    "to": "silent-close-quarters-combat",
    "label": "能力",
-   "from_event": null,
+   "from_event": "battle-royale.001.b22",
    "until_event": null,
    "origin": "people"
   },
@@ -42293,14 +42229,6 @@
   },
   {
    "from": "cynthia-exment",
-   "to": "anglican-church-cb",
-   "label": "所属（皇家天文学研究机构）",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "cynthia-exment",
    "to": "spiritual-item",
    "label": "持有",
    "from_event": null,
@@ -42389,14 +42317,6 @@
   },
   {
    "from": "kihara-byouri",
-   "to": "ordinary-person",
-   "label": "是",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "kihara-byouri",
    "to": "cyborg",
    "label": "能力",
    "from_event": null,
@@ -42415,7 +42335,7 @@
    "from": "nemoto-norito",
    "to": "minimal-conflict-theory",
    "label": "能力",
-   "from_event": null,
+   "from_event": "christmas-eve.001.b15",
    "until_event": null,
    "origin": "people"
   },
@@ -42423,7 +42343,7 @@
    "from": "nemoto-norito",
    "to": "feuerel",
    "label": "能力",
-   "from_event": null,
+   "from_event": "christmas-eve.001.b15",
    "until_event": null,
    "origin": "people"
   },
@@ -42431,7 +42351,7 @@
    "from": "nemoto-norito",
    "to": "wasserel",
    "label": "能力",
-   "from_event": null,
+   "from_event": "christmas-eve.001.b15",
    "until_event": null,
    "origin": "people"
   },
@@ -42439,7 +42359,7 @@
    "from": "nemoto-norito",
    "to": "windel",
    "label": "能力",
-   "from_event": null,
+   "from_event": "christmas-eve.001.b15",
    "until_event": null,
    "origin": "people"
   },
@@ -42447,7 +42367,7 @@
    "from": "nemoto-norito",
    "to": "erdeel",
    "label": "能力",
-   "from_event": null,
+   "from_event": "christmas-eve.001.b15",
    "until_event": null,
    "origin": "people"
   },
@@ -42455,7 +42375,7 @@
    "from": "nemoto-norito",
    "to": "schmetterlingel",
    "label": "能力",
-   "from_event": null,
+   "from_event": "christmas-eve.001.b15",
    "until_event": null,
    "origin": "people"
   },
@@ -42463,7 +42383,7 @@
    "from": "nemoto-norito",
    "to": "lichtel",
    "label": "能力",
-   "from_event": null,
+   "from_event": "christmas-eve.001.b15",
    "until_event": null,
    "origin": "people"
   },
@@ -42471,7 +42391,7 @@
    "from": "nemoto-norito",
    "to": "explosionel",
    "label": "能力",
-   "from_event": null,
+   "from_event": "christmas-eve.001.b15",
    "until_event": null,
    "origin": "people"
   },
@@ -42479,7 +42399,7 @@
    "from": "nemoto-norito",
    "to": "schneid",
    "label": "能力",
-   "from_event": null,
+   "from_event": "christmas-eve.001.b15",
    "until_event": null,
    "origin": "people"
   },
@@ -42487,7 +42407,7 @@
    "from": "nemoto-norito",
    "to": "magician",
    "label": "是",
-   "from_event": null,
+   "from_event": "christmas-eve.001.b15",
    "until_event": null,
    "origin": "people"
   },
@@ -43079,7 +42999,7 @@
    "from": "hino-jinsaku",
    "to": "poisoned-kukri",
    "label": "能力",
-   "from_event": null,
+   "from_event": "angel-fall.001.b6",
    "until_event": null,
    "origin": "people"
   },
@@ -43231,14 +43151,6 @@
    "from": "ingrid-martin",
    "to": "knife-butt-throw",
    "label": "能力",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "ingrid-martin",
-   "to": "ordinary-person",
-   "label": "是",
    "from_event": null,
    "until_event": null,
    "origin": "people"
@@ -44007,7 +43919,7 @@
    "from": "tezcatlipoca",
    "to": "self-division",
    "label": "能力",
-   "from_event": null,
+   "from_event": "st-germain.001.b1",
    "until_event": null,
    "origin": "people"
   },
@@ -44110,14 +44022,6 @@
   {
    "from": "sugitani",
    "to": "ninja",
-   "label": "是",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "sugitani",
-   "to": "ordinary-person",
    "label": "是",
    "from_event": null,
    "until_event": null,
@@ -44479,7 +44383,7 @@
    "from": "reading-thoth-78",
    "to": "silver-paint-knife",
    "label": "能力",
-   "from_event": null,
+   "from_event": "aleister.001.b9",
    "until_event": null,
    "origin": "people"
   },
@@ -44487,7 +44391,7 @@
    "from": "reading-thoth-78",
    "to": "rose-cross-emblems",
    "label": "能力",
-   "from_event": null,
+   "from_event": "aleister.001.b9",
    "until_event": null,
    "origin": "people"
   },
@@ -44495,7 +44399,7 @@
    "from": "reading-thoth-78",
    "to": "kings-of-angels-summon",
    "label": "能力",
-   "from_event": null,
+   "from_event": "aleister.001.b9",
    "until_event": null,
    "origin": "people"
   },
@@ -44543,7 +44447,7 @@
    "from": "reading-thoth-78",
    "to": "telesma",
    "label": "能力",
-   "from_event": null,
+   "from_event": "aleister.001.b9",
    "until_event": null,
    "origin": "people"
   },
@@ -44551,7 +44455,7 @@
    "from": "reading-thoth-78",
    "to": "angel",
    "label": "召唤",
-   "from_event": null,
+   "from_event": "aleister.001.b9",
    "until_event": null,
    "origin": "people"
   },
@@ -44559,7 +44463,7 @@
    "from": "reading-thoth-78",
    "to": "spiritual-item",
    "label": "持有",
-   "from_event": null,
+   "from_event": "aleister.001.b9",
    "until_event": null,
    "origin": "people"
   },
@@ -44669,14 +44573,6 @@
   },
   {
    "from": "female-knight",
-   "to": "anglican-church-cb",
-   "label": "所属",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "female-knight",
    "to": "magic",
    "label": "能力",
    "from_event": null,
@@ -44711,7 +44607,7 @@
    "from": "ushibuka",
    "to": "anglican-church-cb",
    "label": "所属",
-   "from_event": null,
+   "from_event": "orsola.001.b25",
    "until_event": null,
    "origin": "people"
   },
@@ -45452,14 +45348,6 @@
    "origin": "people"
   },
   {
-   "from": "xiaoguo",
-   "to": "ordinary-person",
-   "label": "是",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
    "from": "daris",
    "to": "magician",
    "label": "是",
@@ -45765,23 +45653,7 @@
   },
   {
    "from": "floris",
-   "to": "anglican-church-cb",
-   "label": "相关",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "floris",
    "to": "spiritual-item",
-   "label": "持有",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "floris",
-   "to": "steel-glove",
    "label": "持有",
    "from_event": null,
    "until_event": null,
@@ -45847,7 +45719,7 @@
    "from": "inui-shoji",
    "to": "firearms",
    "label": "持有",
-   "from_event": null,
+   "from_event": "magic-god-invasion.001.b26",
    "until_event": null,
    "origin": "people"
   },
@@ -46023,7 +45895,7 @@
    "from": "isahaya",
    "to": "anglican-church-cb",
    "label": "所属",
-   "from_event": null,
+   "from_event": "orsola.001.b25",
    "until_event": null,
    "origin": "people"
   },
@@ -46111,7 +45983,7 @@
    "from": "westcott",
    "to": "wax-seal-magic",
    "label": "能力",
-   "from_event": null,
+   "from_event": "coronzon.001.b26",
    "until_event": null,
    "origin": "people"
   },
@@ -46623,7 +46495,7 @@
    "from": "group-contact",
    "to": "remote-electrode-shutdown",
    "label": "能力",
-   "from_event": null,
+   "from_event": "academy-invasion.001.b38",
    "until_event": null,
    "origin": "people"
   },
@@ -47103,7 +46975,7 @@
    "from": "israel-regardie",
    "to": "grimoire-body",
    "label": "能力",
-   "from_event": null,
+   "from_event": "coronzon.001.b10",
    "until_event": null,
    "origin": "people"
   },
@@ -47143,7 +47015,7 @@
    "from": "israel-regardie",
    "to": "original-grimoire",
    "label": "身体为魔道书构成",
-   "from_event": null,
+   "from_event": "coronzon.001.b10",
    "until_event": null,
    "origin": "people"
   },
@@ -47663,7 +47535,7 @@
    "from": "kogarashi",
    "to": "anglican-church-cb",
    "label": "所属",
-   "from_event": null,
+   "from_event": "orsola.001.b25",
    "until_event": null,
    "origin": "people"
   },
@@ -47727,14 +47599,6 @@
    "from": "holegres-mirates",
    "to": "knight",
    "label": "是",
-   "from_event": null,
-   "until_event": null,
-   "origin": "people"
-  },
-  {
-   "from": "holegres-mirates",
-   "to": "anglican-church-cb",
-   "label": "所属",
    "from_event": null,
    "until_event": null,
    "origin": "people"
@@ -47943,7 +47807,7 @@
    "from": "isaac-rosenthal",
    "to": "taowu-artificial-soul",
    "label": "能力",
-   "from_event": null,
+   "from_event": "necromancer.001.b1",
    "until_event": null,
    "origin": "people"
   },
@@ -48447,7 +48311,7 @@
    "from": "akemi",
    "to": "level-upper",
    "label": "持有",
-   "from_event": null,
+   "from_event": "level-upper.001.b17",
    "until_event": "level-upper.001.b23",
    "origin": "people"
   },
@@ -49063,7 +48927,7 @@
    "from": "ureapaddy-exica",
    "to": "anglican-church-cb",
    "label": "加入（后）",
-   "from_event": null,
+   "from_event": "endymion.001.b17",
    "until_event": null,
    "origin": "people"
   },
@@ -49215,7 +49079,7 @@
    "from": "hishigata-hirumi",
    "to": "perfect-body",
    "label": "能力",
-   "from_event": null,
+   "from_event": "necromancer.001.b1",
    "until_event": null,
    "origin": "people"
   },

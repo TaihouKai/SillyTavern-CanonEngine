@@ -86,6 +86,35 @@ People in it (id | name): {people}
 
 {summary}"""
 
+TIMING_SYSTEM = """You check WHEN one person of {work} has each of the things a fight engine links them to. The engine starts a game at the story start and moves through the story; what a person only gets later must not be theirs before.
+
+For each item listed (an ability, a technique, an item, a kind they are, a group they belong to), decide:
+- "start": they already have it at the story start given below;
+- "later": they only have it from an event of the story on: they learn or develop it, obtain or are given it, awaken or are changed into it, join it. Give from_event: the id of the first event where they have it (one of their events, or the first event of the arc that tells it).
+- "outside": they only get it in a part of the story after every arc listed (the last arc is {last}; anything told up to it is inside).
+Shown for the first time later is not gained later: a technique, spell or skill they use for the first time in a later volume they already had, unless the source says it was new then (developed, learned, obtained, given, awakened); "uses", "shows", "first appears" is not that. An item they take or are given at some point is "later". Decide from the item's text, the events and the wiki page; when they say nothing about how it came, it is "start". A person reads every "later" and "outside": when the sources leave you unsure, say "later" and why.
+The wiki page keeps its citations as 〔medium series volume〕 (小说 原篇 = 旧约, 新约, 创约; 漫画 超电磁炮 ...): the volume where a thing is told. The arcs list says which volumes each arc is; use it to find the event.
+why: a few words in {lang} (what the source says, with its citation).
+Reply with JSON only: {{"timing": [{{"node": "<id>", "at": "start|later|outside", "from_event": null, "why": ""}}]}}"""
+
+TIMING_USER = """Work: {work}
+
+Person: {name}{aliases}
+Pack description: {desc}
+
+Story start: {first}
+Events from the story's start (id | when | title), in story order:
+{events}
+
+Arcs of the story (title | days | first event id):
+{arcs}
+
+Items to decide (id | link | name | text):
+{items}
+
+Wiki page:
+{page}"""
+
 FIGHT_WORDS = re.compile(r'战斗|交战|击败|打倒|打败|对决|决斗|袭击|攻击|击退|击杀|杀死|交手|激战|对战|迎战|围攻|压制|制服|败北|胜利|打赢|输给|斩|射杀|狙击|爆破|偷袭|追杀|拦截')
 
 
@@ -236,6 +265,100 @@ def gen_people(project, client, pack, golden, wiki, lang, only=None):
             continue
         write_json(project.p('combat', 'people', f'{eid}.json'), {'id': eid, 'name': ents[eid]['name'], 'version': COMBAT_VERSION, 'has_page': any(n in wiki for n in [ents[eid]['name'], *(ents[eid].get('aliases') or [])]), **r})
     log(f'combat people: {sum(1 for r in res.values() if not isinstance(r, Exception))}/{len(jobs)} — {client.ledger.summary()}')
+    return res
+
+
+def timing_items(golden, eid):
+    """A person's links in the verified file that hold from the start (no from_event): what the timing pass asks about."""
+    nodes = {n['id']: n for n in golden.get('nodes', [])}
+    return [(l, nodes[l['to']]) for l in golden.get('links', []) if l['from'] == eid and l.get('origin') == 'people' and not l.get('from_event') and l['to'] in nodes]
+
+
+def cited_wikitext(t, limit=14000):
+    """The wiki text with its citations kept short (〔小说 创约12〕): where a thing is told says when it comes."""
+    def cite(m):
+        f = m.group(1).split('|')
+        return f'〔{" ".join(x for x in f[1:4] if x)}〕' if len(f) >= 4 else ''
+    return clean_wikitext(re.sub(r'\{\{注\|([^{}]*)\}\}', cite, t), limit=limit)
+
+
+def arc_lines(pack):
+    days, first = {}, {}
+    for ev in pack['events']:
+        a, d = ev.get('arc_id'), ((ev.get('when') or {}).get('earliest') or {}).get('day')
+        if a is None or d is None:
+            continue
+        days.setdefault(a, []).append(d)
+        if a not in first or d < first[a][0]:
+            first[a] = (d, ev['id'])
+    return [f'{a["title"]} | day {min(days[a["id"]])}–{max(days[a["id"]])} | {first[a["id"]][1]}' for a in pack.get('arcs') or [] if a['id'] in days and max(days[a['id']]) >= 0]
+
+
+def arc_volumes(pack):
+    """Which volumes each arc tells, from its title ("旧约9-10 ...", "创约12-14 ..."): {(series, volume): arc title}."""
+    out = {}
+    for a in pack.get('arcs') or []:
+        m = re.match(r'(旧约|新约|创约)(\d+)(?:-(\d+))?', a['title'])
+        if m:
+            for v in range(int(m.group(2)), int(m.group(3) or m.group(2)) + 1):
+                out[(m.group(1), v)] = a['title']
+    return out
+
+
+def check_timing(ids, items, volumes=None):
+    def check(obj):
+        p = []
+        got = {t.get('node'): t for t in obj.get('timing') or []}
+        for i in items:
+            if i not in got:
+                p.append(f'{i!r} is not decided')
+        for n, t in got.items():
+            if n not in items:
+                p.append(f'{n!r} is not one of the items listed')
+            if t.get('at') not in ('start', 'later', 'outside'):
+                p.append(f'{n!r}: at must be start, later or outside')
+            if t.get('at') == 'later' and t.get('from_event') not in ids:
+                p.append(f'{n!r}: later needs from_event, an event id (one of the events or an arc\'s first event)')
+            if t.get('at') == 'outside':   # a volume an arc tells is inside the story
+                for m in re.finditer(r'(原篇|旧约|新约|创约)\s*(\d+)', t.get('why') or ''):
+                    arc = (volumes or {}).get(('旧约' if m.group(1) == '原篇' else m.group(1), int(m.group(2))))
+                    if arc:
+                        p.append(f'{n!r}: {m.group(0)} is told by the arc {arc!r}, which is listed: it is inside the story ("later" with an event of that arc)')
+        return p
+    return check
+
+
+def gen_timing(project, client, pack, golden, wiki, lang, only=None):
+    """When each person has what they are linked to (proposals; the review's "timing" keeps what holds)."""
+    work = pack.get('title', project.name)
+    al = arc_lines(pack)
+    arcs, last = '\n'.join(al), (al[-1].split(' | ')[0] if al else '(none)')
+    ev_ids = {ev['id'] for ev in pack['events']}
+    vols = arc_volumes(pack)
+    jobs = []
+    for e in pack['entities']:
+        if e['kind'] != 'person' or (only and e['id'] not in only):
+            continue
+        items = timing_items(golden, e['id'])
+        if not items:
+            continue
+        names = [e['name'], *(e.get('aliases') or [])]
+        page = next((wiki[n] for n in names if n in wiki and isinstance(wiki[n], str)), '')
+        before, lines, _ = event_lines(pack, e['id'], max_lines=160, start_day=0)
+        origin = (pack.get('calendar') or {}).get('origin_label') or 'day 0'
+        first = origin + ('; this person first appears at: ' + ' | '.join(lines[0].split(' | ')[1:3]) if lines and not before else '')
+        listed = '\n'.join(f'{n["id"]} | {l.get("label") or ""} | {n["name"]} | {n["text"]}' for l, n in items)
+        user = TIMING_USER.format(work=work, name=e['name'], aliases=f'（{"、".join(e["aliases"][:6])}）' if e.get('aliases') else '',
+                                  desc=e.get('static_description') or '', first=first, events='\n'.join(lines) or '(none)', items=listed,
+                                  arcs=arcs, page=cited_wikitext(page, limit=14000) if page else '(no wiki page)')
+        jobs.append((e['id'], (lambda u=user, i=ev_ids, its={n['id'] for _, n in items}: client.call('combat_timing', COMBAT_VERSION, TIMING_SYSTEM.format(work=work, lang=lang, last=last), u, check_timing(i, its, vols), max_tokens=3000))))
+    res = client.run_many(jobs, 'combat_timing')
+    for eid, r in res.items():
+        if isinstance(r, Exception) or not r:
+            warn(f'combat timing: {eid}: {r}')
+            continue
+        write_json(project.p('combat', 'timing', f'{eid}.json'), {'id': eid, **r})
+    log(f'combat timing: {sum(1 for r in res.values() if not isinstance(r, Exception))}/{len(jobs)} — {client.ledger.summary()}')
     return res
 
 
@@ -571,6 +694,21 @@ def golden_people(project, pack):
                       | ({'generated': True} if v.get('generated') else {}))
         if st:
             styles[e['id']] = st
+    # timing (review "timing": {person: {node: event id | "outside" | "drop"}}): a link that holds only from a later
+    # event; one that holds only after everything the pack covers, or that the sources do not give them, is left out
+    timing = rv.get('timing') or {}
+    ev_ids = {ev['id'] for ev in pack['events']}
+    kept_links = []
+    for l in links:
+        t = (timing.get(l['from']) or {}).get(l['to']) if l.get('origin') == 'people' else None
+        if t in ('outside', 'drop'):
+            continue
+        if t:
+            if t not in ev_ids:
+                raise SystemExit(f'combat golden people: timing {l["from"]} -> {l["to"]}: {t!r} is not an event of the pack')
+            l['from_event'] = t
+        kept_links.append(l)
+    links = kept_links
     g.update(nodes=nodes, links=links, styles=styles)
     write_json(path, g)
     log(f'combat golden people: {sum(1 for n in nodes if n.get("origin") == "people")} own abilities, {sum(1 for l in links if l.get("origin") == "people")} links, {len(styles)} 对抗倾向 — {path}')

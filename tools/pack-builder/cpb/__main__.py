@@ -85,7 +85,7 @@ def main(argv=None):
     ap.add_argument('--adopt', help='golden: pairs (a|b, comma separated) read in the builder output, copied into the verified relations')
     ap.add_argument('--note', help='golden --adopt: what the person checked')
     ap.add_argument('--apply', action='store_true', help='address: put the proposals (read first: work/<project>/out/address-review.txt) into the verified relations')
-    ap.add_argument('--part', choices=['setting', 'golden', 'people', 'precedents'], help='combat: which pass (setting proposals; golden: the reviewed setting into projects/<p>.combat.json; people needs it)')
+    ap.add_argument('--part', choices=['setting', 'golden', 'people', 'precedents', 'timing'], help='combat: which pass (setting proposals; golden: the reviewed setting into projects/<p>.combat.json; people needs it)')
     ap.add_argument('--only', help='combat --part people: only these person ids, comma separated')
     ap.add_argument('--offpeak', action='store_true', help='make model calls only at the off-peak price; stop when peak hours begin')
     args = ap.parse_args(argv)
@@ -274,8 +274,10 @@ def main(argv=None):
                 combat.gen_people(project, cl, pk, read_json(combat.golden_path(project), {}) or {}, nature.wiki_pages(project), lang, set(args.only.split(',')) if args.only else None)
             elif args.part == 'precedents':
                 combat.gen_precedents(project, cl, pk, lang)
+            elif args.part == 'timing':
+                combat.gen_timing(project, cl, pk, read_json(combat.golden_path(project), {}) or {}, nature.wiki_pages(project), lang, set(args.only.split(',')) if args.only else None)
             else:
-                log('combat: give --part setting|golden|people|precedents')
+                log('combat: give --part setting|golden|people|precedents|timing')
                 return 2
         except llm.BudgetExceeded as e:
             log(str(e))
@@ -332,8 +334,6 @@ def main(argv=None):
         # 战斗: the verified combat data (none yet: the pack says so, and the check lists it as a problem)
         cg = read_json(combat.golden_path(project), None)
         log(combat.attach(pk, cg, (pk.get('sources') or [{}])[0].get('id', 'source')) if cg else 'combat: no verified data yet')
-        if not cg:
-            pk['combat'] = {'none': 'combat data not verified yet'}
         assemble.write_pack(project, path, pk)
         res = report.lint(gcfg, path)
         report.write(project, read_json(path) or pack, rep, chrep, clock, path, res, cl.ledger if cl else None)

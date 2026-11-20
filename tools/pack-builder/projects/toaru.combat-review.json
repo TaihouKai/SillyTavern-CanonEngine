@@ -10017,5 +10017,214 @@
   "resurrection.001.b39": "drop: 交代笼统，看不出谁凭什么胜过谁",
   "resurrection.001.b36": "drop: 交代笼统，看不出谁凭什么胜过谁",
   "resurrection.001.b43": "keep"
+ },
+ "timing": {
+  "akemi": {
+   "level-upper": "level-upper.001.b17"
+  },
+  "aleister-crowley": {
+   "crowley-hazard": "aleister.001.b12",
+   "hypervelocity-shockwave-cannon": "coronzon.001.b11",
+   "anti-art-attachment": "coronzon.001.b22"
+  },
+  "anna-sprengel": {
+   "coin-of-nicholas": "handcuffs.001.b2"
+  },
+  "benizome-jellyfish": {
+   "coin-of-nicholas": "handcuffs.001.b2"
+  },
+  "carissa": {
+   "curtana": "british.001.b7",
+   "all-dimensions-severing-spell": "british.001.b7",
+   "telesma": "british.001.b7",
+   "knight": "british.001.b7",
+   "spiritual-item": "british.001.b7",
+   "anglican-church-cb": "drop"
+  },
+  "female-knight": {
+   "anglican-church-cb": "drop"
+  },
+  "holegres-mirates": {
+   "anglican-church-cb": "drop"
+  },
+  "coronzon": {
+   "winged-flight": "coronzon.001.b21"
+  },
+  "cynthia-exment": {
+   "anglican-church-cb": "drop"
+  },
+  "esther-rosenthal": {
+   "taowu-2": "necromancer.001.b1"
+  },
+  "fiamma-of-the-right": {
+   "presence-hiding": "othinus.002.b5"
+  },
+  "floris": {
+   "anglican-church-cb": "drop",
+   "steel-glove": "drop"
+  },
+  "fremea-seivelun": {
+   "human-resource": "freshmen.001.b10"
+  },
+  "group-contact": {
+   "remote-electrode-shutdown": "academy-invasion.001.b38"
+  },
+  "hamazura-shiage": {
+   "dark-side-organization": "gemstone.001.b17",
+   "firearms": "battle-royale.001.b21"
+  },
+  "haruue-erii": {
+   "rspk-resonance": "poltergeist.001.b3"
+  },
+  "hebitani-tsuguo": {
+   "capacity-down": "big-spider.001.b2"
+  },
+  "hino-jinsaku": {
+   "poisoned-kukri": "angel-fall.001.b6"
+  },
+  "hishigata-hirumi": {
+   "perfect-body": "necromancer.001.b1"
+  },
+  "hokaze-junko": {
+   "iai": "tokiwadai-election.001.b20",
+   "kata": "tokiwadai-election.001.b20"
+  },
+  "ingrid-martin": {
+   "ordinary-person": "drop"
+  },
+  "inui-shoji": {
+   "firearms": "magic-god-invasion.001.b26"
+  },
+  "isaac-rosenthal": {
+   "taowu-artificial-soul": "necromancer.001.b1"
+  },
+  "isahaya": {
+   "anglican-church-cb": "orsola.001.b25"
+  },
+  "kogarashi": {
+   "anglican-church-cb": "orsola.001.b25"
+  },
+  "ushibuka": {
+   "anglican-church-cb": "orsola.001.b25"
+  },
+  "israel-regardie": {
+   "grimoire-body": "coronzon.001.b10",
+   "original-grimoire": "coronzon.001.b10"
+  },
+  "itsuwa": {
+   "saint-destroyer": "acqua.001.b8"
+  },
+  "kakine-teitoku": {
+   "kakine-vector-injection": "battle-royale.001.b26"
+  },
+  "kanou-shinka": {
+   "blue-flower-borrowed-name": "st-germain.001.b2"
+  },
+  "kihara-byouri": {
+   "ordinary-person": "drop"
+  },
+  "kihara-gensei": {
+   "teleportation": "daihasei-railgun.001.b39",
+   "freezing-ray": "daihasei-railgun.001.b39",
+   "multi-skill": "daihasei-railgun.001.b39",
+   "aero-shooter": "daihasei-railgun.001.b39",
+   "second-sight": "daihasei-railgun.001.b39",
+   "mental-out": "daihasei-railgun.001.b39",
+   "exterior": "daihasei-railgun.001.b39"
+  },
+  "kihara-kagun": {
+   "veiting": "baggage.001.b6",
+   "magician": "baggage.001.b6",
+   "magic": "baggage.001.b6",
+   "mana": "baggage.001.b6"
+  },
+  "kumokawa-seria": {
+   "ordinary-person": "drop"
+  },
+  "kuroyoru-umidori": {
+   "kuroyoru-mechanical-arms": "yuzuriha.001.b10"
+  },
+  "kuruwa": {
+   "ordinary-person": "drop"
+  },
+  "marian-slingeneyer": {
+   "banbutsu-no-kin": "othinus.002.b21"
+  },
+  "miyama-shaei": {
+   "ordinary-person": "drop"
+  },
+  "mujinayama": {
+   "ordinary-person": "drop"
+  },
+  "nemoto-norito": {
+   "minimal-conflict-theory": "christmas-eve.001.b15",
+   "feuerel": "christmas-eve.001.b15",
+   "wasserel": "christmas-eve.001.b15",
+   "windel": "christmas-eve.001.b15",
+   "erdeel": "christmas-eve.001.b15",
+   "schmetterlingel": "christmas-eve.001.b15",
+   "lichtel": "christmas-eve.001.b15",
+   "explosionel": "christmas-eve.001.b15",
+   "schneid": "christmas-eve.001.b15",
+   "magician": "christmas-eve.001.b15"
+  },
+  "orsola-aquinas": {
+   "lotus-wand": "drop"
+  },
+  "oumi-shuri": {
+   "ordinary-person": "drop"
+  },
+  "qliphah-puzzle-545": {
+   "dangerous-knowledge": "coronzon.001.b24"
+  },
+  "reading-thoth-78": {
+   "silver-paint-knife": "aleister.001.b9",
+   "rose-cross-emblems": "aleister.001.b9",
+   "kings-of-angels-summon": "aleister.001.b9",
+   "telesma": "aleister.001.b9",
+   "angel": "aleister.001.b9",
+   "spiritual-item": "aleister.001.b9"
+  },
+  "salome": {
+   "internal-offering": "salome.001.b7",
+   "cyborg": "salome.001.b7"
+  },
+  "sha-danshan": {
+   "eternal-princess-badge": "tokiwadai-election.001.b1"
+  },
+  "shundan-kimi": {
+   "angel-dragon-2": "jailbreaker.001.b5",
+   "salt-light-ray": "jailbreaker.001.b5",
+   "black-lightning": "jailbreaker.001.b5",
+   "blood-feather-control": "jailbreaker.001.b5",
+   "angel": "jailbreaker.001.b5"
+  },
+  "silver-cross-alpha": {
+   "five-over-cb": "freshmen.001.b15"
+  },
+  "stephanie-gorgeouspalace": {
+   "ordinary-person": "drop"
+  },
+  "stiyl-magnus": {
+   "shingyo-kousa": "resurrection.001.b1"
+  },
+  "sugitani": {
+   "ordinary-person": "drop"
+  },
+  "sunazara-chimitsu": {
+   "silent-close-quarters-combat": "battle-royale.001.b22"
+  },
+  "tezcatlipoca": {
+   "self-division": "st-germain.001.b1"
+  },
+  "ureapaddy-exica": {
+   "anglican-church-cb": "endymion.001.b17"
+  },
+  "westcott": {
+   "wax-seal-magic": "coronzon.001.b26"
+  },
+  "xiaoguo": {
+   "ordinary-person": "drop"
+  }
  }
 }

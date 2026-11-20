@@ -1584,6 +1584,8 @@ def build(project, out_path=None, raw=False):
     for e in pack['events']:
         if marks_of.get(e['id']):
             e['review'] = '；'.join(marks_of[e['id']])
+    # 战斗: none until a person has verified it (the build attaches projects/<project>.combat.json over this)
+    pack.setdefault('combat', {'none': 'combat data not verified yet'})
     out_path = out_path or project.p('out', f'{pack["pack_id"]}.canon.json')
     pack = spelled(project, pack)
     write_json(out_path, pack, indent=1)
