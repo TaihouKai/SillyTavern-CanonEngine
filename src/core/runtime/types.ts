@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, NatureVersion, 
 export const STORAGE_VERSION = 1;
 /** Release version: shown to users, and written into campaigns and backups as the version that made them (kept equal
  *  to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.41.1';
+export const ENGINE_RELEASE = '1.42.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -60,6 +60,10 @@ export interface Interpretation {
   /** Where the player character is when a reply ends, from the most specific place out to its district or city
    *  (missing: not known). 主动敌对 takes the dangers of these places. */
   places?: Id[];
+  /** NSFW 场景 (nsfw/index.ts): for a reply, true when it ends inside a sexual or erotic scene with the player
+   *  character; for a player message, true when it opens or carries on one, false when it ends or leaves one
+   *  (missing: it says nothing either way). */
+  nsfw?: boolean;
   /** Groups who know about the player (recognition groups, by name) present in the scene: for a reply, at its end;
    *  for a player message, where the scene goes (null: the message does not move the scene). */
   sceneGroups?: string[] | null;

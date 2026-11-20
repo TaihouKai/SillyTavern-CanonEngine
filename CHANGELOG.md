@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.42.0 — 2026-11-20
+
+- **NSFW scenes are not interrupted by the world.** While your character is in a sexual scene, the world does not reach out to you in that reply. Nothing is sent your way:
+  - no world reaction and no contact your position binds you to (the world-reaction step is not run);
+  - no grudge or everyday danger;
+  - no canon event coming by chance to the people with you;
+  - no pack hook or 关注.
+  The GM is told that nobody from outside interrupts. What was due comes on the first reply after the scene.
+  - **How it is read.** Your message says whether it opens or carries on such a scene, or ends or leaves it. The review of each reply says whether the reply ends inside one. Your message decides when it says; otherwise the last reply does.
+  - **Your control.** The switch 「NSFW 场景中，世界不主动接触你」 (on by default) is in the settings and on the inspector's 接触 page. That page says so while a scene is holding the world back.
+  - **Code.** A module of its own (`src/core/nsfw`), covered by the boundary check.
+
 ## 1.41.1 — 2026-11-20
 
 - **战斗 moved to the inspector.** The 战斗 view was a button among the timeline window's tools, hard to reach. It is now a page of the inspector, under 世界, with a badge while a fight is under way. It has three sections:

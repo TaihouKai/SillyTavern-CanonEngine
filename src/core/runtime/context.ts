@@ -206,6 +206,8 @@ export interface PacketInput {
   /** 主动敌对: someone with a grudge, or a danger of where the player is, comes for them in this reply (GM only;
    *  hostility/turn.ts). */
   hostile?: string;
+  /** NSFW 场景: the world holds back in this reply (GM only; nsfw/index.ts). */
+  privateScene?: string;
   /** 本局设定 when the host cannot take the rewritten lorebook entries in its own lore scan (GM only). */
   worldLore?: string;
   /** Time leap (this reply): what the GM writes for the time in between and where it lands (GM only). */
@@ -577,6 +579,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   if (retrieval.ambiguous.length) required.push('AMBIGUOUS REFERENCES (do not guess; keep ambiguity in narration):\n' + retrieval.ambiguous.map((a) => '- ' + a).join('\n'));
   if (inp.requiredContacts && !inp.review) required.push(inp.requiredContacts);
   if (inp.hostile && !inp.review) required.push(inp.hostile);
+  if (inp.privateScene && !inp.review) required.push(inp.privateScene);
   if (inp.worldLore && !inp.review) required.push(inp.worldLore);
   if (inp.reaction && !inp.review) required.push(inp.reaction);
   if (!inp.review) required.push('PLAYER SCOPE (exact current player input; do not add actions/consent/dialogue beyond it):\n' + (inp.playerScope.length ? inp.playerScope.map((s) => '- ' + s).join('\n') : '- (no new player input in this operation)'));

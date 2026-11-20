@@ -1141,6 +1141,9 @@
         "additionalProperties": false
       }
     },
+    "nsfw": {
+      "type": "boolean"
+    },
     "player_places": {
       "type": "array",
       "maxItems": 6,

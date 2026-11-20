@@ -44,6 +44,7 @@ export interface EvalOutput extends CombatEvalOut, HostilityEvalOut {
   hard_checks: { event_id: string; status: 'fulfilled' | 'not_due' | 'missing' | 'contradicted'; occurrence_ref?: string | null; quote?: string | null }[];
   scene_entities?: string[];
   scene_groups?: string[];
+  nsfw?: boolean;
   /** Time frames (only asked when the pack has frames): the frame the scene is in at the reply's end, or null. */
   scene_frame?: string | null;
   summary?: string;

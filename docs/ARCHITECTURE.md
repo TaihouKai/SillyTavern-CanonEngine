@@ -73,6 +73,11 @@ flowchart LR
 - `panel.ts`, `prompts.ts`: the inspector's 「谁要找你麻烦」 section (`ui/hostility-panel.ts`) and the review's part of the evaluate prompt.
 - The boundary check covers it like 战斗.
 
+NSFW 场景 (the world holds back while the player character is in a sexual scene) is a small module of the same kind (`src/core/nsfw/index.ts`):
+- The scene is read from the player's message (extract_user `nsfw`: on, off or none) and from the review of the last reply (evaluate `nsfw`: it ends inside one). The message decides when it says; else the reply it continues or the last reply.
+- Inside one (setting `nsfwQuiet`, default on), the engine leaves out every way the world reaches the player for that reply: the integrate task is not run, no world reaction, no required contact, no grudge or danger, no chance companion event, no pack hook or 关注; the GM gets the PRIVATE SCENE instruction. What was due waits for the first reply after the scene.
+- UI: the switch in the settings and on the inspector's 接触 page, with a note there while it holds.
+
 Graph A (pinned pack), the actual history ledger, Graph B (projection = reducer state over baseline + ledger) and future plans are separate types and namespaces. Indexes are rebuildable projections; the selected transcript + pinned pack + binding seed are the only authorities.
 
 ## Source of truth and replay

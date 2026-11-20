@@ -12,7 +12,7 @@ import { combatChange, combatHtml } from './combat-panel';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface InspectorDeps {
   engine: () => CanonEngine;
-  settings: () => { inspectorOpen: boolean; quietDayJobs?: boolean; dangers?: boolean; dangerLevel?: string };
+  settings: () => { inspectorOpen: boolean; quietDayJobs?: boolean; dangers?: boolean; dangerLevel?: string; nsfwQuiet?: boolean };
   saveSettings: () => void;
   refreshUi: () => void;
   toast: (level: 'info' | 'error' | 'warning', msg: string) => void;
@@ -172,7 +172,10 @@ export function createInspector(d: InspectorDeps) {
         line(k), older.length ? fold(`c-old-${k.scope}`, t('niOlderContacts').replace('{n}', String(older.length)), older.map(line).join('<hr class="ci-hr">')) : '');
       (waiting ? need : rest).push(card);
     }
-    let html = `<div class="ci-bar">${jobs}</div>`;
+    // NSFW 场景: the world holds back while the player is in one (nsfw/index.ts)
+    const nsfw = `<label class="checkbox_label ci-check ci-switch"><input type="checkbox" data-act="ni-nsfw" ${E().settings.nsfwQuiet !== false ? 'checked' : ''}><span>${esc(t('nsfwQuiet'))}</span></label>${d.tip('nsfwQuietTip')}`;
+    let html = `<div class="ci-bar">${jobs}</div><div class="ci-bar">${nsfw}</div>`;
+    if (E().privateSceneNow()) html += `<div class="ci-banner">${esc(t('nsfwNow'))}</div>`;
     const secs: Page['secs'] = [];
     html += sec('need', t('ciNeedAnswer'), need.join('') || `<div class="ci-empty">${esc(t('ciAllClear'))}</div>`);
     secs.push({ id: 'need', label: t('ciNeedAnswer') });
@@ -447,7 +450,7 @@ export function createInspector(d: InspectorDeps) {
       // a form of address more or less in a relation being edited (saved with the relation)
       if (act === 'addr-add') { b.closest('.ci-side')?.querySelector('.ci-addr')?.insertAdjacentHTML('beforeend', addrRow(null)); return; }
       if (act === 'addr-del') { b.closest('.ci-addr-row')?.remove(); return; }
-      if (act === 'spoilers' || act === 'ni-jobs') return;
+      if (act === 'spoilers' || act === 'ni-jobs' || act === 'ni-nsfw') return;
       if (b.tagName === 'BUTTON') (b as HTMLButtonElement).disabled = true;
       if (act === 'ni-prefer') run(E0.togglePreferred(b.dataset.scope || ''));
       if (act === 'ni-avoid') run(E0.toggleAvoided(b.dataset.scope || ''));
@@ -511,6 +514,13 @@ export function createInspector(d: InspectorDeps) {
         if (tg.dataset.act === 'ho-dangers') { st.dangers = tg.checked; E().settings.dangers = tg.checked; }
         else { st.dangerLevel = (tg as unknown as HTMLSelectElement).value; E().settings.dangerLevel = st.dangerLevel; }
         d.saveSettings();
+        render(true);
+      }
+      if (tg.dataset.act === 'ni-nsfw') {
+        (d.settings() as any).nsfwQuiet = tg.checked;
+        E().settings.nsfwQuiet = tg.checked;
+        d.saveSettings();
+        d.refreshUi();
         render(true);
       }
       if (tg.dataset.act === 'ni-jobs') {

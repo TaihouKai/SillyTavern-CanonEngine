@@ -36,13 +36,14 @@ for (const f of [...walk('src/hosts'), ...walk('site/src')]) {
     if (target.startsWith('src/core/') && target !== 'src/core/index' && target !== 'src/core/index.ts') problems.push(`${rel(f)}: imports ${target}; a host uses the core through src/core/index.ts`);
   }
 }
-// Feature modules: 战斗 (src/core/combat) and 主动敌对 (src/core/hostility). The rest of the core uses each through its
+// Feature modules: 战斗 (src/core/combat), 主动敌对 (src/core/hostility) and NSFW 场景 (src/core/nsfw). The rest of the core uses each through its
 // index.ts. Only the domain layer reaches their pure parts directly (pack loading indexes the combat graph, the reducer
 // replays the changes), and the prompt registry their prompt text. A module does not reach into the engine, the gate
 // or the UI, and uses another module through that one's index.ts too.
 const MODULES = {
   combat: { 'src/core/combat/graph': ['src/core/domain/'], 'src/core/combat/state': ['src/core/domain/'], 'src/core/combat/prompts': ['src/core/runtime/prompts.ts'] },
   hostility: { 'src/core/hostility/state': ['src/core/domain/'], 'src/core/hostility/prompts': ['src/core/runtime/prompts.ts'] },
+  nsfw: {},
 };
 for (const f of walk('src/core')) {
   const from = rel(f);
@@ -61,4 +62,4 @@ for (const f of walk('src/core')) {
   }
 }
 if (problems.length) { console.error('Boundary problems:\n  ' + problems.join('\n  ')); process.exit(1); }
-console.log('boundary ok: src/core stands alone; hosts use src/core/index.ts; combat and hostility are used through their index.ts');
+console.log(`boundary ok: src/core stands alone; hosts use src/core/index.ts; ${Object.keys(MODULES).join(', ')} are used through their index.ts`);
