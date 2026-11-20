@@ -14,4 +14,4 @@ export { DEFAULT_COMBAT, judgeFight, loreAbout, rulingRecord, type CombatSetting
 export { combatBeforeReply, type TurnCombat } from './turn';
 export { FIGHT_START_RULE, rulingSection, statesSection } from './reply';
 export { combatReview, gateCombat, rulingForReview, type CombatEvalOut, type CombatReview } from './review';
-export { combatView, panelRecord, type CombatChange, type CombatViewData } from './panel';
+export { combatView, panelRecord, type CombatChange, type CombatNodeView, type CombatViewData } from './panel';

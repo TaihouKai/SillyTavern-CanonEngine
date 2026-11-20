@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.44.0 — 2026-11-20
+
+- **The combat setting is on the 战斗 page.** The setting's nodes (concepts, rules, abilities, precedents, dangers) could not be seen anywhere: a person's card named what they are linked to, and that was all. The page now ends with a section 「战斗设定」:
+  - what the world runs on by default (this used to be a fold under 现在);
+  - by default the concepts, rules and dangers, and the nodes the people listed above are linked to;
+  - the page's search box also finds any node by its name or its text (at most 40 at a time).
+  Each node shows its kind and its gist. 详情 opens the whole text: an ability's parts, who knows it when not everyone does, a precedent's fighters and event, and its links both ways. An AI-written node is marked 「AI 补写」. A node's name in a link, on a person's card or in a ruling, opens that node. With 剧透 off, a precedent of an event still to come is not listed, and neither is a node only people still to come are linked to.
+- **Why a ruling went as it did.** Each ruling now has a fold 「判定理由 · 触发的 n 个节点」. It holds two things:
+  - **the analysis' own reasoning.** The combat task now writes it first, so it decides before it rules;
+  - **the nodes the fight was given,** in the order they were taken, each with its distance, what reached it, and whether it was given whole or only as its gist. The ones an exchange or an outcome cited are marked 「被引用」. Nodes left out for the size limit are listed too.
+  Rulings made before 1.44.0 have neither.
+
 ## 1.43.0 — 2026-11-20
 
 - **NSFW 模式 is turned on by hand; the automatic reading is gone.** You found reading the scene from the text unreliable. The inspector now has an 「NSFW 模式」 button at the top, on every page. It stays on for this game until you click it again; while on, the button is red and the 接触 page says so. Nothing reads NSFW from your messages or the replies any more: the prompts, the review fields and the 「NSFW 场景中，世界不主动接触你」 setting are removed. While the mode is on, the world holds back exactly as in 1.42.0, and what was due comes on the first reply after you turn it off.

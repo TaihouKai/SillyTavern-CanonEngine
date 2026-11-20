@@ -121,7 +121,8 @@ export function knowsNode(L: LoadedPack, state: WorldState, who: Id, nodeId: Id,
   return state.combat.witnessed.some((w) => w.node === nodeId && (!w.part || !part || w.part === part) && w.who.includes(who));
 }
 
-export interface WalkedNode { node: CombatNode; depth: number; /** whole text (near) or only the gist (further away). */ full: boolean; /** who in the fight reaches it. */ from: Id[]; via: string }
+export interface WalkedNode { node: CombatNode; depth: number; /** whole text (near) or only the gist (further away). */ full: boolean; /** who in the fight reaches it. */ from: Id[]; via: string;
+  /** what it was reached from (an entity or a node) and by which link (null: a precedent the entity was in). */ viaFrom: Id; viaLabel: string | null }
 export interface Walk { nodes: WalkedNode[]; /** reached but left out for the budget. */ cut: Id[]; chars: number }
 
 /** What a fight needs from the combat graph: from the people in it, the place and the objects used, their links
@@ -134,24 +135,24 @@ export interface Walk { nodes: WalkedNode[]; /** reached but left out for the bu
 export const PRECEDENTS_EACH = 3;
 export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts: { maxDepth: number; fullDepth: number; budgetChars: number; tick?: number; /** only what holds without filled-in links (what can stand against the player's words). */ objective?: boolean }): Walk {
   const tick = opts.tick ?? state.clock.lo;
-  const seen = new Map<Id, { depth: number; from: Set<Id>; via: string; order: number }>();
-  const reach = (node: Id, depth: number, from: Id, via: string) => {
+  const seen = new Map<Id, { depth: number; from: Set<Id>; viaFrom: Id; viaLabel: string | null; order: number }>();
+  const reach = (node: Id, depth: number, from: Id, viaFrom: Id, viaLabel: string | null) => {
     const s = seen.get(node);
-    if (!s) { seen.set(node, { depth, from: new Set([from]), via, order: seen.size }); return true; }
+    if (!s) { seen.set(node, { depth, from: new Set([from]), viaFrom, viaLabel, order: seen.size }); return true; }
     s.from.add(from);
-    if (depth < s.depth) { s.depth = depth; s.via = via; return true; }
+    if (depth < s.depth) { s.depth = depth; s.viaFrom = viaFrom; s.viaLabel = viaLabel; return true; }
     return false;
   };
   for (const e of starts) {
     let frontier: Id[] = [];
-    for (const l of linksOf(L, state, e, tick)) { if (opts.objective && l.source === 'fill') continue; reach(l.node, 1, e, `${e} ${l.label}`); frontier.push(l.node); }
-    for (const p of L.combat.precedentsOf.get(e) || []) { reach(p, 1, e, `${e} was in it`); frontier.push(p); }
+    for (const l of linksOf(L, state, e, tick)) { if (opts.objective && l.source === 'fill') continue; reach(l.node, 1, e, e, l.label); frontier.push(l.node); }
+    for (const p of L.combat.precedentsOf.get(e) || []) { reach(p, 1, e, e, null); frontier.push(p); }
     for (let d = 2; d <= opts.maxDepth && frontier.length; d++) {
       const next: Id[] = [];
       for (const n of frontier) for (const l of L.combat.linksFrom.get(n) || []) {
         if (!L.combat.nodes.has(l.to)) continue;
         const before = seen.get(l.to)?.from.has(e);
-        reach(l.to, d, e, `${n} ${l.label}`);
+        reach(l.to, d, e, n, l.label);
         if (!before) next.push(l.to);
       }
       frontier = next;
@@ -166,7 +167,7 @@ export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts:
     const node = L.combat.nodes.get(id)!;
     const from = [...s.from].sort((a, b) => startAt.get(a)! - startAt.get(b)!);
     const t = when(node);
-    return { node, depth: s.depth, full: s.depth <= opts.fullDepth, from, via: s.via, tier: tierOf(node, s.depth), order: s.order,
+    return { node, depth: s.depth, full: s.depth <= opts.fullDepth, from, viaFrom: s.viaFrom, viaLabel: s.viaLabel, via: `${s.viaFrom} ${s.viaLabel ?? 'was in it'}`, tier: tierOf(node, s.depth), order: s.order,
       // precedents: over in the story before now first, then the nearest in time
       past: t && t.hi <= tick ? 0 : 1, distance: t ? Math.abs(t.lo - tick) : Infinity };
   });
@@ -191,7 +192,7 @@ export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts:
     const size = (w.full ? w.node.text.length + (w.node.parts || []).reduce((n, p) => n + p.text.length, 0) : w.node.gist.length) + w.node.name.length + 20;
     if (cut.length || (chars + size > opts.budgetChars && nodes.length)) { cut.push(w.node.id); continue; }   // in order: once over, the rest is out
     chars += size;
-    nodes.push({ node: w.node, depth: w.depth, full: w.full, from: w.from, via: w.via });
+    nodes.push({ node: w.node, depth: w.depth, full: w.full, from: w.from, via: w.via, viaFrom: w.viaFrom, viaLabel: w.viaLabel });
   }
   return { nodes, cut, chars };
 }

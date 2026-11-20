@@ -45,9 +45,13 @@ export interface Ruling {
   /** Nodes the walk left out for the budget. */
   cut: Id[];
   notes: string[];
+  /** The analysis' own account of how it ruled (for the player, in the panel). */
+  reasoning: string;
+  /** The nodes the fight was given, in the walk's order: how far out, whole or as the gist, and what reached them. */
+  walked: { node: Id; depth: number; full: boolean; from: Id; label: string | null }[];
 }
 
-interface CombatOut { joins?: string[]; player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; over: boolean; over_why?: string; stop_at?: string }
+interface CombatOut { reasoning?: string; joins?: string[]; player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; over: boolean; over_why?: string; stop_at?: string }
 interface FillOut { people: { who: string; links: { node: string; label: string }[]; style?: { start: string; force: string; response: string; limit: string; stop: string } | null }[] }
 
 /** Lorebook entries about someone: an entry whose title is their name, or one of whose keys is in a name of theirs. */
@@ -201,7 +205,8 @@ export async function judgeFight(a: {
     const who = (w.who || []).filter((x) => fighters.includes(x) || a.index.entityExists(x));
     if (who.length) witnessed.push({ node: w.node, ...(w.part && (ABILITY_PARTS as readonly string[]).includes(w.part) ? { part: w.part as Witnessed['part'] } : {}), who });
   }
-  return { fighters, joined, exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || '').slice(0, 300), stopAt: String(out.stop_at || '').slice(0, 300), outcomes, stands, filled, cut: walk.cut, notes };
+  return { fighters, joined, exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || '').slice(0, 300), stopAt: String(out.stop_at || '').slice(0, 300), outcomes, stands, filled, cut: walk.cut, notes,
+    reasoning: String(out.reasoning || '').trim().slice(0, 1500), walked: walk.nodes.map((w) => ({ node: w.node.id, depth: w.depth, full: w.full, from: w.viaFrom, label: w.viaLabel })) };
 }
 
 /** What the ruling records with the reply: what was filled in, the states, who saw what, the fight's end. */

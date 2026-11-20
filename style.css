@@ -301,6 +301,13 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .ci-banner { border:1px solid var(--ci-line); border-left-width:3px; border-radius:6px; padding:8px 10px; margin:10px 0; display:flex; flex-direction:column; gap:6px; }
 .ci-banner.ci-bad { border-left-color:#d9534f; background:rgba(220,80,70,.08); }
 .ci-banner .ci-actions { align-self:flex-start; }
+.ci-nodelink { background:none; border:0; padding:0; margin:0; font:inherit; color:var(--ci-accent); cursor:pointer; text-decoration:underline dotted; text-underline-offset:2px; }
+.ci-nodelink:hover { text-decoration-style:solid; }
+.ci-cbbasis { margin-bottom:6px; }
+.ci-cbwhy { display:flex; flex-direction:column; gap:4px; }
+.ci-cbwalk { margin:0; padding-left:1.6em; display:flex; flex-direction:column; gap:2px; }
+.ci-cbwalk .ci-meta { margin-left:6px; }
+.ci-cbwhyfold > summary { opacity:.9; font-weight:600; }
 .ci-cbex { margin:4px 0 6px 18px; padding:0; }
 .ci-cbex li { margin:3px 0; }
 .ci-cbrow { display:flex; gap:6px; }

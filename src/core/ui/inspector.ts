@@ -53,6 +53,8 @@ export function createInspector(d: InspectorDeps) {
   const opened = new Set<string>();
   // 战斗: the people ticked for a fight the player starts (kept while the page is rebuilt)
   const cbPicked = new Set<string>();
+  // 战斗设定 nodes the player opened from a link (until the page's search changes)
+  const cbFocus = new Set<string>();
   const E = () => d.engine();
   const camp = () => E().campaign();
   const width = () => { try { return Number(localStorage.getItem('canon-insp-width')) || 0; } catch { return 0; } };
@@ -336,7 +338,7 @@ export function createInspector(d: InspectorDeps) {
       case 'contacts': return contacts(ni!);
       case 'decisions': return decisions(ni!);
       case 'world': return world();
-      case 'combat': return combatHtml(E().combatView(spoilers), filters.get('combat') || '', cbPicked, d.tip);
+      case 'combat': { const q = filters.get('combat') || ''; return combatHtml(E().combatView(spoilers, q, [...cbFocus]), q, cbPicked, cbFocus, d.tip); }
       case 'facts': return facts(v);
       case 'history': return history(v);
       case 'deviations': return deviations(v);
@@ -353,7 +355,7 @@ export function createInspector(d: InspectorDeps) {
     const q = (filters.get(tab) || '').trim().toLowerCase();
     const items = [...el.querySelectorAll<HTMLElement>('.ci-page .ci-item')];
     let shown = 0;
-    for (const it of items) { const on = !q || (it.textContent || '').toLowerCase().includes(q); it.hidden = !on; if (on) shown++; }
+    for (const it of items) { const on = !q || it.classList.contains('ci-pin') || (it.textContent || '').toLowerCase().includes(q); it.hidden = !on; if (on) shown++; }
     for (const s of el.querySelectorAll<HTMLElement>('.ci-page .ci-sec:not(.ci-keep)')) s.hidden = !!q && !s.querySelector('.ci-item:not([hidden])');
     const n = el.querySelector('.ci-count');
     if (n) n.textContent = q ? `${shown}/${items.length}` : '';
@@ -424,8 +426,8 @@ export function createInspector(d: InspectorDeps) {
       const f = ev.target as HTMLInputElement;
       if (f.classList.contains('ci-filter')) {
         filters.set(tab, f.value);
-        // 战斗 lists the people that matter now, and anyone by name when searched for: the page is rebuilt
-        if (tab === 'combat') render(true); else applyFilter();
+        // 战斗 lists the people and nodes that matter now, and any by name (a node by its text too) when searched for: the page is rebuilt
+        if (tab === 'combat') { cbFocus.clear(); render(true); } else applyFilter();
       }
     });
     el.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !(ev.target as HTMLElement).closest('textarea')) toggle(false); });
@@ -450,6 +452,15 @@ export function createInspector(d: InspectorDeps) {
       if (act === 'addr-add') { b.closest('.ci-side')?.querySelector('.ci-addr')?.insertAdjacentHTML('beforeend', addrRow(null)); return; }
       if (act === 'addr-del') { b.closest('.ci-addr-row')?.remove(); return; }
       if (act === 'spoilers' || act === 'ni-jobs') return;
+      // a node of the 战斗设定 named in a link: shown, opened and scrolled to
+      if (act === 'cb-node' && b.dataset.node) {
+        const id = b.dataset.node;
+        cbFocus.add(id);
+        opened.add(`${tab}|cbnf-${id}`);
+        render(true);
+        el.querySelector(`.ci-cbnode[data-key="cbn-${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        return;
+      }
       if (b.tagName === 'BUTTON') (b as HTMLButtonElement).disabled = true;
       if (act === 'nsfw') { run(E0.setNsfwMode(!E0.nsfwMode()).then(() => d.refreshUi())); return; }
       if (act === 'ni-prefer') run(E0.togglePreferred(b.dataset.scope || ''));

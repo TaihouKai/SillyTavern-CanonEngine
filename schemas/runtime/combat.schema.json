@@ -1,6 +1,10 @@
 {
  "type": "object",
  "properties": {
+  "reasoning": {
+   "type": "string",
+   "maxLength": 1500
+  },
   "exchanges": {
    "type": "array",
    "maxItems": 12,
@@ -241,6 +245,7 @@
   }
  },
  "required": [
+  "reasoning",
   "player_outcomes",
   "exchanges",
   "statuses",

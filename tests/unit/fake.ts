@@ -187,7 +187,7 @@ export function defaultTask(task: TaskName, input: any): any {
     case 'mind': return { minds: [] };
     case 'affiliations': return { organizations: [] };
     case 'relate': return { pairs: [] };
-    case 'combat': return { player_outcomes: [], exchanges: [], statuses: [], witnessed: [], over: false, over_why: '', stop_at: '' };
+    case 'combat': return { reasoning: 'scripted', player_outcomes: [], exchanges: [], statuses: [], witnessed: [], over: false, over_why: '', stop_at: '' };
     case 'combat_fill': return { people: [] };
     case 'ends': return { ends: (input.items || []).map((x: any) => ({ n: x.n, until: 'lasting', why: 'scripted' })) };
     case 'impact': return { changed: [], affected_anchors: [], affected_steps: [], scope: 'local', severity: 'none', replan: false, explanation: 'scripted' };

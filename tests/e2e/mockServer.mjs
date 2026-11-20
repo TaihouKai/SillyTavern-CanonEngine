@@ -54,7 +54,7 @@ function defaultTask(task, input) {
     case 'leap': return { events: [], mention: [], impossible: [], life: [], landing: '' };
     case 'foreknow': return { judgements: [] };
     case 'world_check': return { items: [], additions: [] };
-    case 'combat': return { player_outcomes: [], exchanges: [], statuses: [], witnessed: [], over: false, over_why: '', stop_at: '' };
+    case 'combat': return { reasoning: 'scripted', player_outcomes: [], exchanges: [], statuses: [], witnessed: [], over: false, over_why: '', stop_at: '' };
     case 'combat_fill': return { people: [] };
     case 'ends': return { ends: [...String(input.question || '').matchAll(/^(\d+)\. /gm)].map((m) => ({ n: Number(m[1]), until: 'lasting', why: 'mock' })) };
     case 'affiliations': return { organizations: (input.organizations || []).filter((o) => o.read).map((o) => ({ ref: o.ref, status: o.read.status })) };

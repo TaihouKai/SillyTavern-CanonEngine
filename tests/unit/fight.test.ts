@@ -185,6 +185,43 @@ describe('the 战斗 view and the player\'s corrections', () => {
   });
 });
 
+describe('the 战斗 page shows the setting and why a ruling went as it did', () => {
+  it('CF6b a ruling keeps the analysis\' reasoning and the nodes it was given (cited ones marked); the setting lists concepts, rules and what the listed people are linked to, finds any node by its text, hides a precedent still to come unless spoilers', async () => {
+    const x = await setup();
+    await turn(x, 'I hit the thug.', 'He reels. [F13]', {
+      extract: { fight: { state: 'starts', participants: ['mira'] } },
+      combat: () => ({ reasoning: 'Mira only knows first aid, so she cannot block.', exchanges: [{ actor: me(x), text: 'Ash hits Mira.', basis: [{ ref: 'cb-emergency-care' }] }], statuses: [], over: false }),
+    });
+    const r = x.engine.combatView(false)!.rulings[0];
+    expect(r.reasoning).toBe('Mira only knows first aid, so she cannot block.');
+    const care = r.walked.find((w) => w.node === 'cb-emergency-care')!;
+    expect(care).toMatchObject({ name: 'Emergency care', depth: 1, full: true, via: 'Mira', label: 'has', used: true });
+    expect(r.walked.find((w) => w.node === 'cb-ordinary')).toMatchObject({ used: false });
+    expect(String(x.model.tasks('combat').at(-1)!.input.nodes.find((n: any) => n.id === 'cb-emergency-care').reached)).toBe('mira has');
+
+    let s = x.engine.combatView(false)!.setting;
+    expect(s.found).toBe(false);
+    const ids = s.nodes.map((n) => n.id);
+    expect(ids).toEqual(expect.arrayContaining(['cb-ordinary', 'cb-soldier', 'cb-firearms', 'cb-emergency-care']));
+    expect(ids).not.toContain('cb-ambush');   // a precedent of an event still to come
+    expect(s.hidden).toBe(1);
+    const fire = s.nodes.find((n) => n.id === 'cb-firearms')!;
+    expect(fire.in).toEqual(expect.arrayContaining([expect.objectContaining({ node: 'cb-soldier', label: 'fights with' }), expect.objectContaining({ label: 'its gunmen use', source: 'pack' })]));
+    expect(s.nodes.find((n) => n.id === 'cb-soldier')!.out).toEqual([{ node: 'cb-firearms', name: 'Firearms', label: 'fights with' }]);
+    expect(s.nodes.find((n) => n.id === 'cb-emergency-care')!.parts.map((p) => p.part)).toEqual(['effect', 'conditions', 'limits']);
+
+    const care2 = L(x).combat.nodes.get('cb-emergency-care')!;
+    s = x.engine.combatView(false, care2.parts![0].text.slice(0, 12))!.setting;
+    expect(s).toMatchObject({ found: true, nodes: [{ id: 'cb-emergency-care' }] });
+    s = x.engine.combatView(false, 'nothing like this anywhere', ['cb-firearms'])!.setting;
+    expect(s.nodes.map((n) => n.id)).toEqual(['cb-firearms']);
+    s = x.engine.combatView(true)!.setting;
+    expect(s.hidden).toBe(0);
+    expect(s.nodes.find((n) => n.id === 'cb-ambush')).toBeUndefined();   // listed by default only when someone listed is in it
+    expect(x.engine.combatView(true, 'ambush')!.setting.nodes.map((n) => n.id)).toEqual(['cb-ambush']);
+  });
+});
+
 describe('someone here joins', () => {
   it('CF7 a person present who is not in the fight may join it of their own accord: they act, and they are in the fight from then on', async () => {
     const x = await setup();
