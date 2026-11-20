@@ -40,7 +40,7 @@ export function combatHtml(v: CombatView | null, query: string, picked: Readonly
       ? `<table class="ci-kv">${p.states.map((s) => `<tr><td>${esc(s.text)}${s.count !== null ? ` ×${s.count}` : ''}</td><td class="ci-meta">${s.until ? esc(t('combatUntil').replace('{t}', s.until)) : ''}</td><td class="ci-meta">${src(s.source)}</td><td class="ci-meta">${btn('✕', `data-act="cb-state-del" data-entity="${esc(p.id)}" data-text="${esc(s.text)}" title="${esc(t('combatStateDel'))}"`)}</td></tr>`).join('')}</table>`
       : `<div class="ci-muted">${esc(t('combatNoStates'))}</div>`;
     const add = fold(`cba-${p.id}`, t('combatAddStateFold'), `<input class="text_pole cb-st-text" placeholder="${esc(t('combatStateText'))}"><div class="ci-cbrow"><input class="text_pole cb-st-count" type="number" min="0" placeholder="${esc(t('combatCount'))}"><input class="text_pole cb-st-min" type="number" min="1" placeholder="${esc(t('combatMinutes'))}"></div><div class="ci-actions">${btn(t('combatAddState'), `data-act="cb-state-add" data-entity="${esc(p.id)}"`, 'primary')}</div>`);
-    const style = fold(`cbs-${p.id}`, p.style ? t('combatStyle') : `${t('combatStyle')}（${t('combatNoStyle')}）`, keys.map((k) => `<label class="ci-lbl">${esc(t('style_' + k))}</label><textarea class="text_pole cb-sty-${k}" rows="2">${esc(p.style?.[k] || '')}</textarea>`).join('')
+    const style = fold(`cbs-${p.id}`, p.style ? t('combatStyle') : `${t('combatStyle')} · ${t('combatStyleNone')}`, (p.style ? '' : `<div class="ci-muted">${esc(t('combatNoStyle'))}</div>`) + keys.map((k) => `<label class="ci-lbl">${esc(t('style_' + k))}</label><textarea class="text_pole cb-sty-${k}" rows="2">${esc(p.style?.[k] || '')}</textarea>`).join('')
       + `<div class="ci-actions">${p.style ? src(p.style.source) : ''}<span class="ci-sp"></span>${btn(t('combatStyleSave'), `data-act="cb-style-save" data-entity="${esc(p.id)}"`, 'primary')}</div>`, 'ci-edit');
     const links = p.links.length ? `<div class="ci-meta"><b>${esc(t('combatLinks'))}：</b>${p.links.map((l) => `${esc(l.label)} ${esc(l.name)}${l.source !== 'pack' ? `（${esc(t('combatSrc_' + l.source))}）` : ''}`).join('；')}</div>` : '';
     const pick = !v.fight.ongoing ? `<label class="ci-check ci-cbpick" title="${esc(t('combatPickTip'))}"><input type="checkbox" class="cb-pick" data-entity="${esc(p.id)}" ${picked.has(p.id) ? 'checked' : ''}><span>${esc(t('combatPick'))}</span></label>` : '';
@@ -49,7 +49,7 @@ export function combatHtml(v: CombatView | null, query: string, picked: Readonly
   };
   const note = `<div class="ci-muted">${esc(t(q ? 'combatPeopleFound' : 'combatPeopleNote').replace('{n}', String(people.length)).replace('{all}', String(v.people.length)))}</div>`;
   const secs = [{ id: 'cb-now', label: t('combatNow') }, { id: 'cb-rulings', label: t('combatRulings') }, { id: 'cb-people', label: t('combatPeople') }];
-  const html = sec('cb-now', t('combatNow'), `${fight}<div class="ci-muted"><b>${esc(t('combatBasis'))}：</b>${esc(v.basis)}</div>`, tip('combatTip'), 'ci-keep')
+  const html = sec('cb-now', t('combatNow'), `${fight}${fold('cb-basis', t('combatBasis'), `<div class="ci-muted">${esc(v.basis)}</div>`)}`, tip('combatTip'), 'ci-keep')
     + sec('cb-rulings', t('combatRulings'), v.rulings.length ? v.rulings.map(ruling).join('') : empty(t('combatNoRulings')))
     + sec('cb-people', t('combatPeople'), note + people.map(person).join('') + (v.hidden ? `<div class="ci-muted">${esc(t('combatHidden').replace('{n}', String(v.hidden)))}</div>` : ''));
   return { html, secs };
