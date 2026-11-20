@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.45.1 — 2026-11-21
+
+- **The setting graph starts somewhere that makes sense.** In a new game, your character is linked to nothing in the setting yet. The graph then fell back to the first concept by name (阿涅泽部队 in the Toaru pack). Its default centre is now the setting's core: the node most linked with other nodes (a concept first). In the Toaru pack that is 能力者, linked with 29 other nodes. The four most linked nodes are also among the 「从这里看」 chips. As before, once you or anyone fighting is linked to something, the graph starts from them.
+
 ## 1.45.0 — 2026-11-20
 
 - **The combat setting is a graph.** A list could not show how the nodes hang together. The 战斗设定 section now draws the setting around one centre, a node or a person:

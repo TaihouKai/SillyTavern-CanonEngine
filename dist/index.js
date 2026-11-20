@@ -33592,7 +33592,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.45.0";
+var ENGINE_RELEASE = "1.45.1";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -35980,7 +35980,10 @@ function settingView(idx, spoilers, listed, query, focusId) {
   for (const l of graphLinks) for (const end of [l.from, l.to]) adj.set(end, [...adj.get(end) || [], l]);
   const usable = (id) => !!id && (nodes.has(id) ? !spoiler(id) : isEntity(id) && adj.has(id));
   const byName = (a, b) => name2(a).localeCompare(name2(b), "zh");
-  const focus = usable(focusId) ? focusId : listed.map((p) => p.id).find(usable) ?? shown.filter((n) => n.kind === "concept").map((n) => n.id).sort(byName)[0] ?? null;
+  const nodeDegree = /* @__PURE__ */ new Map();
+  for (const l of graphLinks) if (nodes.has(l.from) && nodes.has(l.to)) for (const end of [l.from, l.to]) nodeDegree.set(end, (nodeDegree.get(end) || 0) + 1);
+  const core = shown.map((n) => n.id).sort((a, b) => (nodeDegree.get(b) || 0) - (nodeDegree.get(a) || 0) || Number(kindOf(b) === "concept") - Number(kindOf(a) === "concept") || byName(a, b));
+  const focus = usable(focusId) ? focusId : listed.map((p) => p.id).find(usable) ?? core[0] ?? null;
   const listedIds = new Set(listed.map((p) => p.id));
   const pts = /* @__PURE__ */ new Map();
   let morePeople = 0;
@@ -36042,7 +36045,7 @@ function settingView(idx, spoilers, listed, query, focusId) {
     more = Math.max(0, hits.length - SETTING_MAX);
     found = [...who.map((id) => ({ id, name: name2(id), kind: kindOf(id) })), ...hits.slice(0, SETTING_MAX).map((n) => ({ id: n.id, name: n.name, kind: n.kind }))];
   }
-  const starts = listed.filter((p) => adj.has(p.id)).map((p) => ({ id: p.id, name: p.name, kind: kindOf(p.id) }));
+  const starts = [...listed.filter((p) => adj.has(p.id)).map((p) => p.id), ...core.slice(0, 4)].map((id) => ({ id, name: name2(id), kind: kindOf(id) }));
   const byKind = ["concept", "rule", "danger"].map((kind) => ({ kind, items: shown.filter((n) => n.kind === kind).map((n) => ({ id: n.id, name: n.name })).sort((a, b) => a.name.localeCompare(b.name, "zh")) })).filter((g) => g.items.length);
   return { focus: focus ? view(focus) : null, graph: { nodes: [...pts.values()], edges, morePeople }, found, more, starts, byKind, total: shown.length, hidden: all.length - shown.length };
 }

@@ -23,7 +23,7 @@ export interface CombatViewData {
   /** The setting (战斗设定) around one focus — a node, or someone linked to nodes —: the graph two steps out (at most
    *  GRAPH_MAX points, never through another person; around a node at most PEOPLE_EACH people, the rest counted),
    *  the focus in full, what a query finds (nodes by name or text, people by name), and where to start (the listed
-   *  people, the concepts, rules and dangers). hidden: nodes left out as spoilers. */
+   *  people linked to something, the setting's core: the nodes most linked with other nodes). hidden: nodes left out as spoilers. */
   setting: {
     focus: CombatNodeView | null;
     graph: { nodes: GraphPoint[]; edges: GraphEdge[]; morePeople: number };
@@ -137,10 +137,15 @@ function settingView(idx: WorldIndex, spoilers: boolean, listed: CombatViewData[
   const adj = new Map<Id, Link[]>();
   for (const l of graphLinks) for (const end of [l.from, l.to]) adj.set(end, [...(adj.get(end) || []), l]);
 
-  // the focus: the one asked for, else the first listed person linked to something, else the first concept
+  // the setting's core: the nodes most linked with other nodes (a concept before others, then by name)
   const usable = (id: Id | null | undefined): id is Id => !!id && (nodes.has(id) ? !spoiler(id) : isEntity(id) && adj.has(id));
   const byName = (a: Id, b: Id) => name(a).localeCompare(name(b), 'zh');
-  const focus = usable(focusId) ? focusId : listed.map((p) => p.id).find(usable) ?? shown.filter((n) => n.kind === 'concept').map((n) => n.id).sort(byName)[0] ?? null;
+  const nodeDegree = new Map<Id, number>();
+  for (const l of graphLinks) if (nodes.has(l.from) && nodes.has(l.to)) for (const end of [l.from, l.to]) nodeDegree.set(end, (nodeDegree.get(end) || 0) + 1);
+  const core = shown.map((n) => n.id).sort((a, b) => (nodeDegree.get(b) || 0) - (nodeDegree.get(a) || 0) || Number(kindOf(b) === 'concept') - Number(kindOf(a) === 'concept') || byName(a, b));
+  // the focus: the one asked for, else the first listed person linked to something (the player, those fighting),
+  // else the core (a game that has not begun: the player is linked to nothing yet)
+  const focus = usable(focusId) ? focusId : listed.map((p) => p.id).find(usable) ?? core[0] ?? null;
 
   // the graph: two steps out from the focus, never through another person; people only around the focus
   const listedIds = new Set(listed.map((p) => p.id));
@@ -195,7 +200,7 @@ function settingView(idx: WorldIndex, spoilers: boolean, listed: CombatViewData[
     more = Math.max(0, hits.length - SETTING_MAX);
     found = [...who.map((id) => ({ id, name: name(id), kind: kindOf(id) })), ...hits.slice(0, SETTING_MAX).map((n) => ({ id: n.id, name: n.name, kind: n.kind }))];
   }
-  const starts = listed.filter((p) => adj.has(p.id)).map((p) => ({ id: p.id, name: p.name, kind: kindOf(p.id) }));
+  const starts = [...listed.filter((p) => adj.has(p.id)).map((p) => p.id), ...core.slice(0, 4)].map((id) => ({ id, name: name(id), kind: kindOf(id) }));
   const byKind = ['concept', 'rule', 'danger'].map((kind) => ({ kind, items: shown.filter((n) => n.kind === kind).map((n) => ({ id: n.id, name: n.name })).sort((a, b) => a.name.localeCompare(b.name, 'zh')) })).filter((g) => g.items.length);
   return { focus: focus ? view(focus) : null, graph: { nodes: [...pts.values()], edges, morePeople }, found, more, starts, byKind, total: shown.length, hidden: all.length - shown.length };
 }

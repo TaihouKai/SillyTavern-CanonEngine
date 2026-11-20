@@ -203,6 +203,10 @@ describe('new people in a fight the player starts', () => {
 describe('the 战斗 page shows the setting and why a ruling went as it did', () => {
   it('CF6b a ruling keeps the analysis\' reasoning and the nodes it was given (cited ones marked); the setting is drawn around a focus (two steps, people only around it), finds nodes by text and people by name, hides a precedent still to come unless spoilers', async () => {
     const x = await setup();
+    // a game that has not begun (the player linked to nothing): the setting's core, the node most linked with others
+    const start = x.engine.combatView(false)!.setting;
+    expect(start.focus!.id).toBe('cb-soldier');
+    expect(start.starts.map((p) => p.id).slice(0, 2)).toEqual(['cb-soldier', 'cb-firearms']);
     await turn(x, 'I hit the thug.', 'He reels. [F13]', {
       extract: { fight: { state: 'starts', participants: ['mira'] } },
       combat: () => ({ reasoning: 'Mira only knows first aid, so she cannot block.', exchanges: [{ actor: me(x), text: 'Ash hits Mira.', basis: [{ ref: 'cb-emergency-care' }] }], statuses: [], over: false }),
@@ -222,7 +226,7 @@ describe('the 战斗 page shows the setting and why a ruling went as it did', ()
     expect(s.graph.edges).toEqual(expect.arrayContaining([{ from: 'mira', to: 'cb-emergency-care', label: 'has' }]));
     expect(s.hidden).toBe(1);
     expect(s.byKind.map((k) => k.kind)).toEqual(['concept', 'rule']);
-    expect(s.starts.map((p) => p.id)).toEqual(['mira']);
+    expect(s.starts.map((p) => p.id)[0]).toBe('mira');
     // a node: its links both ways; two steps out, people only around the focus (the council's gunmen are not drawn)
     s = x.engine.combatView(false, '', 'cb-soldier')!.setting;
     expect(s.focus).toMatchObject({ id: 'cb-soldier', entity: false, out: [{ node: 'cb-firearms', name: 'Firearms', label: 'fights with' }], in: [{ id: 'union', label: 'its fighters are', source: 'pack' }] });
