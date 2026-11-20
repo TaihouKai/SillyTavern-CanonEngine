@@ -8,8 +8,6 @@ import { localTime } from '../domain/frames';
 import { summaryLines } from '../domain/summary';
 import { sceneRoot, segmentSceneChain, uniq } from '../domain/util';
 import { getLang, t } from './i18n';
-import { combatChange, combatHtml } from './combat-panel';
-import type { CombatChange, CombatViewData as CombatView } from '../combat';
 import { deltaText } from '../domain/delta';
 import type { FactDelta } from '../domain/types';
 
@@ -490,14 +488,9 @@ export class GraphPanel {
   private getNature: (spoilers: boolean) => NatureView | null;
   private showRelations = false;
   private getRelations: (spoilers: boolean) => RelationsView | null;
-  private showCombat = false;
-  private getCombat: (spoilers: boolean) => CombatView | null;
-  private onCombat: (change: CombatChange) => Promise<void>;
 
-  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined, linkCandidates: GraphPanel['linkCandidates'] = () => [], getMembers: GraphPanel['getMembers'] = () => null, getNature: GraphPanel['getNature'] = () => null, getRelations: GraphPanel['getRelations'] = () => null, getCombat: GraphPanel['getCombat'] = () => null, onCombat: GraphPanel['onCombat'] = async () => undefined) {
+  constructor(getData: GraphPanel['getData'], setSpoilers: (v: boolean) => void, onEventAction: GraphPanel['onEventAction'] = async () => undefined, linkCandidates: GraphPanel['linkCandidates'] = () => [], getMembers: GraphPanel['getMembers'] = () => null, getNature: GraphPanel['getNature'] = () => null, getRelations: GraphPanel['getRelations'] = () => null) {
     this.getData = getData;
-    this.getCombat = getCombat;
-    this.onCombat = onCombat;
     this.getRelations = getRelations;
     this.getMembers = getMembers;
     this.getNature = getNature;
@@ -527,12 +520,12 @@ export class GraphPanel {
     this.data = { pack: d.pack, current: d.current };
     this.preview = !!d.preview;
     // a library pack seen without a world: only its canon reference view
-    if (d.preview && !d.current) { this.mode = 'pack'; this.showMembers = false; this.showNature = false; this.showRelations = false; this.showCombat = false; }
+    if (d.preview && !d.current) { this.mode = 'pack'; this.showMembers = false; this.showNature = false; this.showRelations = false; }
     if (!d.current && this.mode === 'current') this.mode = 'pack';
     const g0 = this.mode === 'pack' ? d.pack : d.current;
     const g = g0 ? this.applyFilter(g0) : null;
     // lay out and draw first: the legend lists the frames near the view
-    const canvasHtml = this.showCombat ? combatHtml(this.getCombat(d.spoilers), this.filter.q) : this.showRelations ? this.relationsHtml(d.spoilers) : this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t('graphNoData')}</div>` : this.firstSvg(g);
+    const canvasHtml = this.showRelations ? this.relationsHtml(d.spoilers) : this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t('graphNoData')}</div>` : this.firstSvg(g);
     const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc(a.id)}" ${a.id === this.filter.arc ? 'selected' : ''}>${esc(a.title)}</option>`).join('');
     this.el.innerHTML = `
       <div class="cg-head">
@@ -550,7 +543,6 @@ export class GraphPanel {
         ${d.preview && !d.current ? '' : `<button class="menu_button ${this.showMembers ? 'active' : ''}" data-act="members" title="${esc(t('membersTip'))}">${t('members')}</button>`}
         ${d.preview && !d.current ? '' : `<button class="menu_button cg-nature-btn ${this.showNature ? 'active' : ''}" data-act="nature" title="${esc(t('natureTip'))}">${t('nature')}</button>`}
         ${d.preview && !d.current ? '' : `<button class="menu_button cg-relations-btn ${this.showRelations ? 'active' : ''}" data-act="relations" title="${esc(t('relationsTip'))}">${t('relations')}</button>`}
-        ${d.preview || !d.current ? '' : `<button class="menu_button cg-combat-btn ${this.showCombat ? 'active' : ''}" data-act="combat" title="${esc(t('combatTip'))}">${t('combat')}</button>`}
         <button class="menu_button" data-act="fit">${t('graphFit')}</button>
         <button class="menu_button" data-act="close">✕</button>
       </div>
@@ -737,15 +729,9 @@ export class GraphPanel {
     if (b?.dataset.mode) { this.mode = b.dataset.mode as 'pack' | 'current'; this.selected = null; this.refresh(); return; }
     if (b?.dataset.act === 'close') { this.toggle(false); return; }
     if (b?.dataset.act === 'preview-exit') { this.onPreviewEnd?.(); this.selected = null; this.keepView = false; this.refresh(); return; }
-    if (b?.dataset.act === 'members') { this.showMembers = !this.showMembers; this.showNature = false; this.showRelations = false; this.showCombat = false; this.keepView = true; this.refresh(); return; }
-    if (b?.dataset.act === 'nature') { this.showNature = !this.showNature; this.showMembers = false; this.showRelations = false; this.showCombat = false; this.keepView = true; this.refresh(); return; }
-    if (b?.dataset.act === 'relations') { this.showRelations = !this.showRelations; this.showMembers = false; this.showNature = false; this.showCombat = false; this.keepView = true; this.refresh(); return; }
-    if (b?.dataset.act === 'combat') { this.showCombat = !this.showCombat; this.showMembers = false; this.showNature = false; this.showRelations = false; this.keepView = true; this.refresh(); return; }
-    if (b?.dataset.act?.startsWith('cb-')) {
-      const change = combatChange(b, this.el);
-      if (change) { (b as HTMLButtonElement).disabled = true; void this.onCombat(change).finally(() => { this.keepView = true; this.refresh(); }); }
-      return;
-    }
+    if (b?.dataset.act === 'members') { this.showMembers = !this.showMembers; this.showNature = false; this.showRelations = false; this.keepView = true; this.refresh(); return; }
+    if (b?.dataset.act === 'nature') { this.showNature = !this.showNature; this.showMembers = false; this.showRelations = false; this.keepView = true; this.refresh(); return; }
+    if (b?.dataset.act === 'relations') { this.showRelations = !this.showRelations; this.showMembers = false; this.showNature = false; this.keepView = true; this.refresh(); return; }
     if (b?.dataset.act === 'fit') { (this as unknown as { fit?: () => void }).fit?.(); return; }
     if (b?.dataset.act === 'digest' || b?.dataset.act === 'undigest') {
       (b as HTMLButtonElement).disabled = true;

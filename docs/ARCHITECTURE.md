@@ -61,9 +61,9 @@ flowchart LR
   - `turn.ts` and `judge.ts`: before the reply, a fight under way is judged (`combat_fill`, `combat`, checked by code);
   - `reply.ts`: what the GM gets;
   - `review.ts`: the reply held to the ruling, and states and GM-started fights recorded;
-  - `panel.ts`: the timeline window's view and its edits;
+  - `panel.ts`: the inspector's 战斗 page and its edits;
   - `prompts.ts`: the models' instructions about fights.
-- **What stays in the engine** is what only the engine knows: the lorebook as this game has it, the Persona, the scene. The UI is `ui/combat-panel.ts`.
+- **What stays in the engine** is what only the engine knows: the lorebook as this game has it, the Persona, the scene. The UI is `ui/combat-panel.ts`, the inspector's 战斗 page.
 - **Enforced.** `check-boundary.mjs` also fails when the core reaches past `combat/index.ts`, or the module reaches into the engine, the gate or the UI.
 
 主动敌对 (the world comes for the player) is a module of its own in the same way (`src/core/hostility`, through `hostility/index.ts`):

@@ -7,6 +7,7 @@ import type { CanonEngine } from '../runtime/engine';
 import { t } from './i18n';
 import { addressText } from './graph';
 import { hostilityChange, hostilityHtml } from './hostility-panel';
+import { combatChange, combatHtml } from './combat-panel';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface InspectorDeps {
@@ -50,6 +51,8 @@ export function createInspector(d: InspectorDeps) {
   const filters = new Map<string, string>();
   const scrolls = new Map<string, number>();
   const opened = new Set<string>();
+  // 战斗: the people ticked for a fight the player starts (kept while the page is rebuilt)
+  const cbPicked = new Set<string>();
   const E = () => d.engine();
   const camp = () => E().campaign();
   const width = () => { try { return Number(localStorage.getItem('canon-insp-width')) || 0; } catch { return 0; } };
@@ -310,6 +313,7 @@ export function createInspector(d: InspectorDeps) {
       ] as [string, string, string][] }] : []),
       { label: t('ciNavWorld'), items: [
         ...(ni ? [['world', t('wsTitle'), w?.unchecked.length ? badge(w.unchecked.length, 'warn') : badge(w?.overrides.length || 0, 'muted')] as [string, string, string]] : []),
+        ['combat', t('combat'), badge(E().fighting(), 'bad')],
         ['facts', t('tabFacts'), badge(v?.facts.length || 0, 'muted')],
         ['history', t('tabHistory'), badge(v?.occurrences.length || 0, 'muted')],
         ['deviations', t('tabDeviations'), badge(v?.deviations.length || 0, 'muted')],
@@ -331,6 +335,7 @@ export function createInspector(d: InspectorDeps) {
       case 'contacts': return contacts(ni!);
       case 'decisions': return decisions(ni!);
       case 'world': return world();
+      case 'combat': return combatHtml(E().combatView(spoilers), filters.get('combat') || '', cbPicked, d.tip);
       case 'facts': return facts(v);
       case 'history': return history(v);
       case 'deviations': return deviations(v);
@@ -348,7 +353,7 @@ export function createInspector(d: InspectorDeps) {
     const items = [...el.querySelectorAll<HTMLElement>('.ci-page .ci-item')];
     let shown = 0;
     for (const it of items) { const on = !q || (it.textContent || '').toLowerCase().includes(q); it.hidden = !on; if (on) shown++; }
-    for (const s of el.querySelectorAll<HTMLElement>('.ci-page .ci-sec')) s.hidden = !!q && !s.querySelector('.ci-item:not([hidden])');
+    for (const s of el.querySelectorAll<HTMLElement>('.ci-page .ci-sec:not(.ci-keep)')) s.hidden = !!q && !s.querySelector('.ci-item:not([hidden])');
     const n = el.querySelector('.ci-count');
     if (n) n.textContent = q ? `${shown}/${items.length}` : '';
     el.querySelector('.ci-nomatch')?.toggleAttribute('hidden', !(q && !shown && items.length));
@@ -415,7 +420,11 @@ export function createInspector(d: InspectorDeps) {
     el.addEventListener('focusout', () => { setTimeout(() => { if (pending && !editing()) render(); }, 0); });
     el.addEventListener('input', (ev) => {
       const f = ev.target as HTMLInputElement;
-      if (f.classList.contains('ci-filter')) { filters.set(tab, f.value); applyFilter(); }
+      if (f.classList.contains('ci-filter')) {
+        filters.set(tab, f.value);
+        // 战斗 lists the people that matter now, and anyone by name when searched for: the page is rebuilt
+        if (tab === 'combat') render(true); else applyFilter();
+      }
     });
     el.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !(ev.target as HTMLElement).closest('textarea')) toggle(false); });
     // drag the left edge to resize (remembered in this browser)
@@ -477,6 +486,15 @@ export function createInspector(d: InspectorDeps) {
         const change = hostilityChange(b);
         if (!change) { d.toast('warning', t('hoNeedText')); return; }
         run(E0.editHostility(change).then((ok) => { if (!ok) d.toast('warning', t('hoNotFound')); }), () => opened.delete(`${tab}|ho-add`));
+      } else if (act?.startsWith('cb-')) {
+        const change = combatChange(b, cbPicked);
+        if (!change) { (b as HTMLButtonElement).disabled = false; d.toast('warning', t('combatNeedText')); return; }
+        run(E0.editCombat(change), () => {
+          if ('fight' in change) cbPicked.clear();
+          // a saved edit closes its form
+          const det = b.closest('details[data-key]') as HTMLElement | null;
+          if (det) opened.delete(`${tab}|${det.dataset.key}`);
+        });
       } else if (act === 'ni-answer') run(E0.answerContact(b.dataset.rec || '', b.dataset.stance as 'accepted' | 'declined' | 'done'));
       else if (act === 'ni-update') { b.textContent = t('niBusy'); run(E0.updateIdentity()); }
       else if (act === 'ni-keep') run(E0.keepIdentity());
@@ -486,6 +504,7 @@ export function createInspector(d: InspectorDeps) {
     el.addEventListener('change', (ev) => {
       const tg = ev.target as HTMLInputElement;
       const c = camp();
+      if (tg.classList.contains('cb-pick') && tg.dataset.entity) { if (tg.checked) cbPicked.add(tg.dataset.entity); else cbPicked.delete(tg.dataset.entity); return; }
       if (tg.dataset.act === 'spoilers' && c) { c.uiPreferences.spoilers = tg.checked; render(true); }
       if (tg.dataset.act === 'ho-dangers' || tg.dataset.act === 'ho-level') {
         const st = d.settings() as any;

@@ -1,4 +1,4 @@
-// 战斗 in the timeline window: what it shows (the pack's basis, the fight now, the last rulings, each person's states,
+// 战斗 in the inspector: what its page shows (the pack's basis, the fight now, the last rulings, each person's states,
 // 对抗倾向 and links) and the records its buttons make (the fight on or off, a state, a 对抗倾向).
 import type { Id, StoryTime } from '../domain/types';
 import type { WorldIndex } from '../domain/world-query';
@@ -11,7 +11,7 @@ import { combatRecord } from './record';
 
 type Origin = { y: number; m: number; d: number } | null;
 
-/** 战斗 as the timeline window shows it: the pack's basis (or why it has none), the fight now, the last rulings, and
+/** 战斗 as the inspector's page shows it: the pack's basis (or why it has none), the fight now, the last rulings, and
  *  each person's states, 对抗倾向 and what they are linked to now (the people in the fight and the player first; the
  *  pack's versions still to come are left out, counted). */
 export interface CombatViewData {

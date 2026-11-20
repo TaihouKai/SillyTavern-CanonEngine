@@ -115,7 +115,7 @@ const graph = new GraphPanel(() => timelineData(engine), (v) => { const camp = e
   } catch (e) { toast('error', (e as Error).message); }
 }, (id) => { try { return engine.linkCandidates(id); } catch { return []; } },
 () => { try { return engine.membershipView(!!engine.campaign()?.uiPreferences.spoilers); } catch { return null; } },
-() => { try { return engine.natureView(!!engine.campaign()?.uiPreferences.spoilers); } catch { return null; } }, () => { try { return engine.relationsView(!!engine.campaign()?.uiPreferences.spoilers); } catch { return null; } }, () => { try { return engine.combatView(!!engine.campaign()?.uiPreferences.spoilers); } catch { return null; } }, async (change) => { try { await engine.editCombat(change); } catch (e) { toast('error', (e as Error).message); } });
+() => { try { return engine.natureView(!!engine.campaign()?.uiPreferences.spoilers); } catch { return null; } }, () => { try { return engine.relationsView(!!engine.campaign()?.uiPreferences.spoilers); } catch { return null; } });
 
 const inspector = createInspector({
   engine: () => engine,

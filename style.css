@@ -297,6 +297,13 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 .ci-hr { border:0; border-top:1px solid var(--ci-line); margin:6px 0; }
 .ci-bar { display:flex; align-items:center; gap:6px; margin:10px 0; }
 .ci-banner { border:1px solid var(--ci-line); border-left-width:3px; border-radius:6px; padding:8px 10px; margin:10px 0; display:flex; flex-direction:column; gap:6px; }
+.ci-banner.ci-bad { border-left-color:#d9534f; background:rgba(220,80,70,.08); }
+.ci-banner .ci-actions { align-self:flex-start; }
+.ci-cbex { margin:4px 0 6px 18px; padding:0; }
+.ci-cbex li { margin:3px 0; }
+.ci-cbrow { display:flex; gap:6px; }
+.ci-fold-in .ci-cbrow input { flex:1 1 0; min-width:0; width:auto; }
+.ci-cbpick { font-size:.85em; }
 .ci-banner.ci-warn { border-left-color:#d9a227; background:rgba(220,165,40,.08); }
 .ci-hero { padding:10px 0 12px; }
 .ci-hero-name { font-size:1.2em; font-weight:700; }
@@ -335,14 +342,4 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 }
 
 /* 战斗 view (timeline window) */
-.cg-cbfight { margin: 8px 0; padding: 6px 8px; border: 1px solid var(--SmartThemeBorderColor, #555); border-radius: 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.cg-cbfight.cg-cbon { border-color: #c0392b; }
-.cg-cbex { margin: 4px 0 4px 18px; padding: 0; }
-.cg-cbex li { margin: 3px 0; }
-.cg-cbadd { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
-.cg-cbadd .cb-st-text { flex: 1 1 200px; }
-.cg-cbadd .cb-st-count, .cg-cbadd .cb-st-min { width: 120px; }
-.cg-cbstyle label { display: flex; gap: 6px; align-items: flex-start; margin: 2px 0; }
-.cg-cbstyle label b { min-width: 7em; }
-.cg-cbstyle textarea { flex: 1; min-height: 1.8em; }
 .canon-subhead { margin-top: 8px; }

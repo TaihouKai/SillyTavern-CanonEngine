@@ -3185,7 +3185,14 @@ export class CanonEngine {
     return natureView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign()!.binding.originDate);
   }
 
-  /** 战斗: the fight, the last rulings and everyone's states and 对抗倾向, as the timeline window shows them (combat/panel.ts). */
+  /** How many are fighting now (0: no fight), for the inspector's 战斗 entry. */
+  fighting(): number {
+    if (!this.campaign() || !this.current) return 0;
+    const f = fightNow(this.current.replay.state);
+    return f.ongoing ? Math.max(1, f.participants.length) : 0;
+  }
+
+  /** 战斗: the fight, the last rulings and everyone's states and 对抗倾向, as the inspector's 战斗 page shows them (combat/panel.ts). */
   combatView(spoilers: boolean): CombatViewData | null {
     if (!this.campaign() || !this.current) return null;
     const rulings = this.current.replay.applied.filter((a) => a.interp.combat).map((a) => ({ tick: a.interp.records.find((r) => r.kind === 'combat')?.storyTime.lo ?? a.interp.sceneEnd?.lo ?? this.current!.replay.state.clock.lo, ruling: a.interp.combat! }));

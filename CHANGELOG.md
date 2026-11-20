@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.41.1 — 2026-11-20
+
+- **战斗 moved to the inspector.** The 战斗 view was a button among the timeline window's tools, hard to reach. It is now a page of the inspector, under 世界, with a badge while a fight is under way. It has three sections:
+  - **现在:** whether a fight is under way and who is in it, with 开始战斗 / 结束战斗;
+  - **最近的战斗判定:** the newest ruling open, older ones folded;
+  - **状态 · 对抗倾向:** each person as a card with their states (✕ takes one away), a fold to add a state and a fold to edit their 对抗倾向. The page's search box finds anyone in the pack by name, and the people ticked 参战 stay ticked while you search.
+  The timeline window no longer has the 战斗 button.
+
 ## 1.41.0 — 2026-11-20 (Toaru pack 6.3.1)
 
 - **主动敌对: the world comes for you.** You had never been attacked unprompted. A grudge was proposed every turn but never happened: its actor could not be matched, and it was optional. Now it is decided by code, as its own module (`src/core/hostility`).

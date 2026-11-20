@@ -106,16 +106,16 @@ function entryMatches(e, text, generic = /* @__PURE__ */ new Set()) {
     const m = keyMatch(k, text, e);
     return m !== null && !generic.has(norm(m));
   })) return false;
-  const sec2 = e.secondary.filter((k) => k.trim());
-  if (!e.secondaryLogic || !sec2.length) return true;
-  const hits = sec2.filter((k) => keyMatches(k, text, e)).length;
+  const sec3 = e.secondary.filter((k) => k.trim());
+  if (!e.secondaryLogic || !sec3.length) return true;
+  const hits = sec3.filter((k) => keyMatches(k, text, e)).length;
   switch (e.secondaryLogic) {
     case "not_all":
-      return hits < sec2.length;
+      return hits < sec3.length;
     case "not_any":
       return hits === 0;
     case "all":
-      return hits === sec2.length;
+      return hits === sec3.length;
     default:
       return hits > 0;
   }
@@ -26888,16 +26888,16 @@ function lintPack(input) {
   pack2.events.forEach((ev, i) => {
     const P = `/events/${i}`;
     if (ev.sections) {
-      const sec2 = ev.sections;
+      const sec3 = ev.sections;
       const need = ev.classification === "FREE" ? ["course", "result"] : ["trigger", "course", "result"];
-      const missing = need.filter((k) => !sec2[k]);
+      const missing = need.filter((k) => !sec3[k]);
       if (missing.length) err(`${P}/summary`, `${ev.classification} summary lacks ${missing.join(", ")}`);
-      (sec2.motives || []).forEach((m, j) => {
+      (sec3.motives || []).forEach((m, j) => {
         m.entity_ids.forEach((x, k) => checkEntity(x, `${P}/summary/motives/${j}/entity_ids/${k}`));
         const outside = m.entity_ids.filter((x) => entities.has(x) && !ev.entity_ids.includes(x));
         if (outside.length) warn(`${P}/summary/motives/${j}`, `motive of ${outside.join(", ")}, who ${outside.length > 1 ? "are" : "is"} not in the event's entity_ids`);
       });
-      for (const [, ref] of renderSummary(sec2, true).matchAll(/(?:见|see )“([^”]+)”/g)) {
+      for (const [, ref] of renderSummary(sec3, true).matchAll(/(?:见|see )“([^”]+)”/g)) {
         if (!pack2.events.some((x) => x.title.includes(ref))) warn(`${P}/summary`, `reference \u201C${ref}\u201D matches no event title`);
       }
     }
@@ -33542,7 +33542,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.41.0";
+var ENGINE_RELEASE = "1.41.1";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -40170,9 +40170,9 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     if (!c) return;
     const changes0 = this.worldChanges();
     const prev = c.worldSettings;
-    const empty2 = { lore: 0, entities: 0, events: 0, generic: [] };
+    const empty3 = { lore: 0, entities: 0, events: 0, generic: [] };
     if (!changes0.length) {
-      c.worldSettings = prev && (prev.overrides.some((o) => o.edited) || prev.additions.some((a) => a.edited)) ? { ...prev, basis: "", at: this.host.now(), changes: [], overrides: prev.overrides.filter((o) => o.edited), additions: prev.additions.filter((a) => a.edited), checked: empty2 } : void 0;
+      c.worldSettings = prev && (prev.overrides.some((o) => o.edited) || prev.additions.some((a) => a.edited)) ? { ...prev, basis: "", at: this.host.now(), changes: [], overrides: prev.overrides.filter((o) => o.edited), additions: prev.additions.filter((a) => a.edited), checked: empty3 } : void 0;
       this.overlayCache = null;
       return;
     }
@@ -41134,7 +41134,13 @@ ${lines.join("\n")}`;
     if (!this.campaign() || !this.current) return null;
     return natureView(this.current.index, spoilers, this.playerProfile()?.profile.playerId, this.campaign().binding.originDate);
   }
-  /** 战斗: the fight, the last rulings and everyone's states and 对抗倾向, as the timeline window shows them (combat/panel.ts). */
+  /** How many are fighting now (0: no fight), for the inspector's 战斗 entry. */
+  fighting() {
+    if (!this.campaign() || !this.current) return 0;
+    const f = fightNow(this.current.replay.state);
+    return f.ongoing ? Math.max(1, f.participants.length) : 0;
+  }
+  /** 战斗: the fight, the last rulings and everyone's states and 对抗倾向, as the inspector's 战斗 page shows them (combat/panel.ts). */
   combatView(spoilers) {
     if (!this.campaign() || !this.current) return null;
     const rulings = this.current.replay.applied.filter((a) => a.interp.combat).map((a) => ({ tick: a.interp.records.find((r) => r.kind === "combat")?.storyTime.lo ?? a.interp.sceneEnd?.lo ?? this.current.replay.state.clock.lo, ruling: a.interp.combat }));
@@ -41604,7 +41610,15 @@ var D = {
   naturePlayer: { zh: "\uFF08\u4F60\u7684\u89D2\u8272\uFF0C\u8BFB\u81EA Persona\uFF09", en: "(your character, from the Persona)" },
   relations: { zh: "\u89D2\u8272\u5173\u7CFB", en: "Relations" },
   combat: { zh: "\u6218\u6597", en: "Fights" },
-  combatTip: { zh: "\u6218\u6597\u5206\u6790\uFF1A\u73B0\u5728\u662F\u5426\u5728\u6218\u6597\u3001\u8C01\u5728\u6218\u6597\uFF0C\u6700\u8FD1\u51E0\u8F6E\u7684\u5224\u5B9A\uFF08\u6BCF\u4E00\u4E0B\u4EA4\u950B\u548C\u4F9D\u636E\uFF09\uFF0C\u4EE5\u53CA\u6BCF\u4E2A\u4EBA\u7684\u72B6\u6001\uFF08\u4F24\u52BF\u3001\u643A\u5E26\u7684\u4E1C\u897F\u7B49\uFF0C\u53EF\u4EE5\u6DFB\u52A0\u3001\u4FEE\u6539\u3001\u53D6\u6D88\uFF09\u3001\u5BF9\u6297\u503E\u5411\uFF08\u53EF\u4EE5\u4FEE\u6539\uFF09\u548C\u5728\u6218\u6597\u8BBE\u5B9A\u91CC\u6302\u7740\u7684\u8282\u70B9\u3002\u518D\u70B9\u4E00\u6B21\u56DE\u5230\u65F6\u95F4\u7EBF\u3002", en: "Combat analysis: whether a fight is under way and who is in it, the last rulings (each exchange and what it rests on), and everyone's states (injuries, what they carry \u2014 add, change or take away), \u5BF9\u6297\u503E\u5411 (editable) and what they are linked to in the combat setting. Click again to return to the timeline." },
+  combatTip: { zh: "\u6218\u6597\u5206\u6790\uFF1A\u73B0\u5728\u662F\u5426\u5728\u6218\u6597\u3001\u8C01\u5728\u6218\u6597\uFF08CanonEngine \u5224\u65AD\u9519\u4E86\u53EF\u4EE5\u624B\u52A8\u5F00\u59CB\u6216\u7ED3\u675F\uFF09\uFF0C\u6700\u8FD1\u51E0\u8F6E\u7684\u5224\u5B9A\uFF08\u6BCF\u4E00\u4E0B\u4EA4\u950B\u548C\u4F9D\u636E\uFF09\uFF0C\u4EE5\u53CA\u6BCF\u4E2A\u4EBA\u7684\u72B6\u6001\uFF08\u4F24\u52BF\u3001\u643A\u5E26\u7684\u4E1C\u897F\u7B49\uFF0C\u53EF\u4EE5\u6DFB\u52A0\u3001\u53D6\u6D88\uFF09\u3001\u5BF9\u6297\u503E\u5411\uFF08\u53EF\u4EE5\u4FEE\u6539\uFF09\u548C\u5728\u6218\u6597\u8BBE\u5B9A\u91CC\u6302\u7740\u7684\u8282\u70B9\u3002\n\u9ED8\u8BA4\u53EA\u5217\u51FA\u6218\u6597\u4E2D\u7684\u4EBA\u3001\u4F60\u3001\u6709\u72B6\u6001\u7684\u4EBA\u548C\u672C\u5C40\u6709\u6539\u52A8\u7684\u4EBA\uFF1B\u5728\u4E0A\u9762\u7684\u641C\u7D22\u6846\u8F93\u5165\u540D\u5B57\u53EF\u4EE5\u627E\u5230\u5267\u672C\u91CC\u7684\u4EFB\u4F55\u4EBA\u3002", en: "Combat analysis: whether a fight is under way and who is in it (start or end it by hand when Canon Engine got it wrong), the last rulings (each exchange and what it rests on), and everyone's states (injuries, what they carry \u2014 add or take away), \u5BF9\u6297\u503E\u5411 (editable) and what they are linked to in the combat setting.\nListed: those fighting, you, anyone with states or changed in this game; type a name in the search box above to find anyone in the pack." },
+  combatNow: { zh: "\u73B0\u5728", en: "Now" },
+  combatPeople: { zh: "\u72B6\u6001 \xB7 \u5BF9\u6297\u503E\u5411", en: "States \xB7 \u5BF9\u6297\u503E\u5411" },
+  combatGoesOn: { zh: "\u672A\u7ED3\u675F", en: "goes on" },
+  combatExchanges: { zh: "{n} \u4E0B\u4EA4\u950B", en: "{n} exchanges" },
+  combatStateDel: { zh: "\u53D6\u6D88\u8FD9\u4E2A\u72B6\u6001", en: "Take this state away" },
+  combatAddStateFold: { zh: "\u6DFB\u52A0\u72B6\u6001", en: "Add a state" },
+  combatPickTip: { zh: "\u52FE\u9009\u540E\u6309\u4E0A\u9762\u7684\u300C\u5F00\u59CB\u6218\u6597\u300D\uFF0C\u628A\u52FE\u9009\u7684\u4EBA\u6807\u8BB0\u4E3A\u6B63\u5728\u6218\u6597\u3002", en: "Tick, then press \u201CStart a fight\u201D above to mark the ticked people as fighting." },
+  combatNeedText: { zh: "\u5148\u5199\u4E0A\u72B6\u6001\u3002", en: "Write the state first." },
   combatNone: { zh: "\u8FD9\u4E2A\u5267\u672C\u6CA1\u6709\u6218\u6597\u8BBE\u5B9A\uFF1A{r}", en: "This pack has no combat: {r}" },
   combatBasis: { zh: "\u57FA\u7840", en: "Basis" },
   combatFightOn: { zh: "\u6218\u6597\u4E2D\uFF1A{p}\uFF08{t} \u8D77\uFF09", en: "Fight under way: {p} (since {t})" },
@@ -42243,41 +42257,6 @@ function t(key2) {
   return e ? e[lang] : key2;
 }
 
-// src/core/ui/combat-panel.ts
-var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-function combatHtml(v, query) {
-  if (!v) return `<div class="cg-empty">${t("graphNoData")}</div>`;
-  if (v.none !== null) return `<div class="cg-memberswrap"><div class="cg-empty">${esc(t("combatNone").replace("{r}", v.none))}</div></div>`;
-  const q = query.trim().toLowerCase();
-  const src = (s) => `<span class="cg-hint">${esc(t("combatSrc_" + s))}</span>`;
-  const fight = v.fight.ongoing ? `<div class="cg-cbfight cg-cbon"><b>${esc(t("combatFightOn").replace("{p}", v.fight.people.map((p) => p.name).join("\u3001")).replace("{t}", v.fight.since || ""))}</b> <button class="menu_button" data-act="cb-fight-off" title="${esc(t("combatEndTip"))}">${t("combatEnd")}</button></div>` : `<div class="cg-cbfight"><span>${t("combatFightOff")}</span> <button class="menu_button" data-act="cb-fight-on" title="${esc(t("combatStartTip"))}">${t("combatStart")}</button></div>`;
-  const ruling = (r, i) => `<details class="cg-nperson"${i === 0 ? " open" : ""}><summary>${esc(r.when)}${r.over ? ` <span class="cg-key">${esc(t("combatOver"))}${esc(r.overWhy)}</span>` : ""}</summary>` + (r.joined?.length ? `<div class="cg-nfield"><b>${t("combatJoined")}</b>${esc(r.joined.join("\u3001"))}</div>` : "") + (r.stopped.length ? r.stopped.map((o) => `<div class="cg-nfield">${esc(t("combatOverrides"))}\xAB${esc(o.quote)}\xBB\uFF1A${esc(o.why)}<div class="cg-hint">${esc(o.basis.join("\uFF1B"))}</div></div>`).join("") : "") + `<ol class="cg-cbex">${r.exchanges.map((x) => `<li><b>${esc(x.who)}</b>\uFF1A${esc(x.text)}<div class="cg-hint">${x.unsupported ? esc(t("combatUnsupported")) : esc(x.basis.join("\uFF1B"))}</div></li>`).join("")}</ol>` + (r.states.length ? `<div class="cg-nfield"><b>${t("combatStates")}</b>${esc(r.states.join("\uFF1B"))}</div>` : "") + (r.stands.length ? `<div class="cg-nfield">${esc(t("combatStands"))}${r.stands.map((s) => `\xAB${esc(s)}\xBB`).join(" ")}</div>` : "") + (!r.over && r.stopAt ? `<div class="cg-hint">${esc(t("combatStop"))}${esc(r.stopAt)}</div>` : "") + (r.filled.length ? `<div class="cg-hint">${esc(t("combatFilled"))}${esc(r.filled.join("\uFF1B"))}</div>` : "") + (r.notes.length ? `<div class="cg-hint">${esc(t("combatNotes"))}${esc(r.notes.join("\uFF1B"))}</div>` : "") + "</details>";
-  const rulings = v.rulings.length ? v.rulings.map(ruling).join("") : `<div class="cg-empty">${t("combatNoRulings")}</div>`;
-  const people = v.people.filter((p) => q ? p.name.toLowerCase().includes(q) : p.relevant);
-  const keys = ["start", "force", "response", "limit", "stop"];
-  const person = (p) => {
-    const states = p.states.length ? `<table class="canon-table cg-members">${p.states.map((s) => `<tr><td>${esc(s.text)}${s.count !== null ? ` \xD7${s.count}` : ""}</td><td>${s.until ? esc(t("combatUntil").replace("{t}", s.until)) : ""}</td><td>${src(s.source)}</td><td><button class="menu_button" data-act="cb-state-del" data-entity="${esc(p.id)}" data-text="${esc(s.text)}">\u2715</button></td></tr>`).join("")}</table>` : `<div class="cg-hint">${t("combatNoStates")}</div>`;
-    const add2 = `<div class="cg-cbadd"><input class="text_pole cb-st-text" placeholder="${esc(t("combatStateText"))}"><input class="text_pole cb-st-count" type="number" min="0" placeholder="${esc(t("combatCount"))}"><input class="text_pole cb-st-min" type="number" min="1" placeholder="${esc(t("combatMinutes"))}"><button class="menu_button" data-act="cb-state-add" data-entity="${esc(p.id)}">${t("combatAddState")}</button></div>`;
-    const style = `<div class="cg-cbstyle">${keys.map((k) => `<label><b>${t("style_" + k)}</b><textarea class="text_pole cb-sty-${k}" rows="1">${esc(p.style?.[k] || "")}</textarea></label>`).join("")}<div>${p.style ? src(p.style.source) : `<span class="cg-hint">${t("combatNoStyle")}</span>`} <button class="menu_button" data-act="cb-style-save" data-entity="${esc(p.id)}">${t("combatStyleSave")}</button></div></div>`;
-    const links = p.links.length ? `<div class="cg-nfield"><b>${t("combatLinks")}</b>${p.links.map((l) => `${esc(l.label)} ${esc(l.name)} ${src(l.source)}`).join("\uFF1B")}</div>` : "";
-    const pick = !v.fight.ongoing ? `<input type="checkbox" class="cb-pick" data-entity="${esc(p.id)}" title="${esc(t("combatPick"))}"> ` : "";
-    return `<details class="cg-nperson cg-cbperson" data-entity="${esc(p.id)}"${p.fighting || p.player ? " open" : ""}><summary>${pick}${esc(p.name)}${p.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}${p.fighting ? ` <span class="cg-key cg-nstate-now">${t("combatFighting")}</span>` : ""}${p.states.length ? ` <span class="cg-hint">${esc(p.states.map((s) => s.text).join("\u3001"))}</span>` : ""}</summary><h4>${t("combatStates")}</h4>${states}${add2}<h4>${t("combatStyle")}</h4>${style}${links}</details>`;
-  };
-  return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint"><b>${t("combatBasis")}</b>\uFF1A${esc(v.basis)}</div>${fight}<h4>${t("combatRulings")}</h4>${rulings}<h4>${t("combatStates")} \xB7 ${t("combatStyle")}</h4><div class="cg-hint">${t(q ? "combatPeopleFound" : "combatPeopleNote").replace("{n}", String(people.length)).replace("{all}", String(v.people.length))}</div>${people.map(person).join("")}${v.hidden ? `<div class="cg-hint">${t("combatHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
-}
-function combatChange(b, root) {
-  const act = b.dataset.act, entity = b.dataset.entity || "";
-  const box = b.closest(".cg-cbperson");
-  const val = (sel) => (box?.querySelector(sel)?.value || "").trim();
-  let change = null;
-  if (act === "cb-fight-off") change = { fight: { ongoing: false } };
-  else if (act === "cb-fight-on") change = { fight: { ongoing: true, participants: [...root.querySelectorAll(".cb-pick:checked")].map((x) => x.dataset.entity) } };
-  else if (act === "cb-state-del") change = { status: { entity, text: b.dataset.text || "", removed: true } };
-  else if (act === "cb-state-add" && val(".cb-st-text")) change = { status: { entity, text: val(".cb-st-text"), count: val(".cb-st-count") ? Number(val(".cb-st-count")) : null, minutes: val(".cb-st-min") ? Number(val(".cb-st-min")) : null } };
-  else if (act === "cb-style-save") change = { style: { entity, style: { start: val(".cb-sty-start"), force: val(".cb-sty-force"), response: val(".cb-sty-response"), limit: val(".cb-sty-limit"), stop: val(".cb-sty-stop") } } };
-  return change;
-}
-
 // src/core/ui/graph.ts
 var ORIGIN_KEYS = /* @__PURE__ */ new Set(["player", "gm", "canon", "offscreen", "bootstrap", "intervention"]);
 var originLabel = (o) => ORIGIN_KEYS.has(o) ? t(`g_origin_${o}`) : o;
@@ -42586,7 +42565,7 @@ function nowLabel(g) {
   return f.main ? `${t("g_now")} \xB7 ${f.name}` : `${t("g_now")} \xB7 ${f.name} ${f.local || ""}`.trim();
 }
 var clip2 = (s, n) => [...s].length > n ? [...s].slice(0, n - 1).join("") + "\u2026" : s;
-var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 function graphLayout(g, mode) {
   const timeText = (n) => n.frame ? n.frame.linked ? `${n.frame.name} ${n.frame.local.split(" ")[0]}` : n.frame.name : n.short || n.when.split(" \xB7 ")[0];
   const g2 = { ...g, nodes: g.nodes.map((n) => ({ ...n, sub: mode === "current" && n.status ? `${statusLabel(n.status)} \xB7 ${timeText(n)}` : timeText(n) })) };
@@ -42599,7 +42578,7 @@ function graphContent(GL, view) {
   const boxEnd = (n) => n.x + n.w + (n.inside || !v.detail ? 0 : 6 + Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12);
   const shown = (n) => boxEnd(n) >= v.x0 && n.x <= v.x1 && n.y + NODE_H >= v.y0 && n.y <= v.y1;
   const lanes = LANES.filter((l) => L.laneY[l][1] > L.laneY[l][0]).map((l, i) => `<rect x="0" y="${L.laneY[l][0]}" width="${L.width}" height="${L.laneY[l][1] - L.laneY[l][0]}" class="cg-lane cg-lane-${i % 2}"/><text x="${Math.max(8, Math.min(v.x0 + 8, L.width - 120))}" y="${L.laneY[l][0] + 18}" class="cg-lane-label">${laneLabel(l)}</text>`).join("");
-  const ticks = L.ticks.filter((tk) => tk.x >= v.x0 - 200 && tk.x <= v.x1).map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick${tk.major ? " cg-tick-major" : ""}"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label${tk.major ? " cg-tick-major" : ""}">${esc2(tk.label)}</text>`).join("") + (L.axisStart > LEFT && v.x0 <= L.axisStart ? `<text x="${LEFT}" y="${AXIS_H - 12}" class="cg-tick-label">${t("g_timeUnknown")}</text><line x1="${L.axisStart - 20}" y1="${AXIS_H - 6}" x2="${L.axisStart - 20}" y2="${L.height}" class="cg-tick cg-tick-major"/>` : "");
+  const ticks = L.ticks.filter((tk) => tk.x >= v.x0 - 200 && tk.x <= v.x1).map((tk) => `<line x1="${tk.x}" y1="${AXIS_H - 6}" x2="${tk.x}" y2="${L.height}" class="cg-tick${tk.major ? " cg-tick-major" : ""}"/><text x="${tk.x + 3}" y="${AXIS_H - 12}" class="cg-tick-label${tk.major ? " cg-tick-major" : ""}">${esc(tk.label)}</text>`).join("") + (L.axisStart > LEFT && v.x0 <= L.axisStart ? `<text x="${LEFT}" y="${AXIS_H - 12}" class="cg-tick-label">${t("g_timeUnknown")}</text><line x1="${L.axisStart - 20}" y1="${AXIS_H - 6}" x2="${L.axisStart - 20}" y2="${L.height}" class="cg-tick cg-tick-major"/>` : "");
   const edges = !v.detail ? "" : g.edges.map((e) => {
     const a = pos.get(e.from), b = pos.get(e.to);
     if (!a || !b) return "";
@@ -42607,7 +42586,7 @@ function graphContent(GL, view) {
     const x1 = a.x + a.w, y1 = a.y + NODE_H / 2, x2 = b.x, y2 = b.y + NODE_H / 2;
     const dx = Math.max(40, Math.abs(x2 - x1) / 2);
     const d = x2 >= x1 ? `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}` : `M${a.x + a.w / 2},${a.y + NODE_H} C${a.x + a.w / 2},${a.y + NODE_H + 60} ${b.x + b.w / 2},${b.y + NODE_H + 60} ${b.x + b.w / 2},${b.y + NODE_H}`;
-    return `<path d="${d}" class="cg-edge cg-edge-${esc2(e.kind)}" data-from="${esc2(e.from)}" data-to="${esc2(e.to)}" marker-end="url(#cg-arrow-${esc2(e.kind)})"><title>${esc2(e.kind)}${e.note ? "\uFF1A" + esc2(e.note) : ""}</title></path>`;
+    return `<path d="${d}" class="cg-edge cg-edge-${esc(e.kind)}" data-from="${esc(e.from)}" data-to="${esc(e.to)}" marker-end="url(#cg-arrow-${esc(e.kind)})"><title>${esc(e.kind)}${e.note ? "\uFF1A" + esc(e.note) : ""}</title></path>`;
   }).join("");
   const clsOf = (n) => mode === "pack" ? `cg-c-${n.lane}` : `cg-c-${n.lane} cg-s-${n.status}`;
   const far = () => {
@@ -42619,12 +42598,12 @@ function graphContent(GL, view) {
     const cls = clsOf(n);
     const tx = n.inside ? 8 : n.w + 6;
     const tc = n.inside ? "" : " cg-out";
-    const head = `<g class="cg-node ${cls}${n.inside ? "" : " cg-narrow"}" data-id="${esc2(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${NODE_H}" rx="${Math.min(7, n.w / 2)}"/>` + (n.frame ? `<rect class="cg-frame cg-frame-${n.frame.idx % 8}" width="${n.w}" height="5" rx="2"/>` : "");
-    const tip2 = `<title>${esc2(n.title)} \xB7 ${esc2(n.when)}${n.frame ? ` \xB7 ${esc2(n.frame.name)} ${t("g_local")} ${esc2(n.frame.local)}` : ""}</title></g>`;
+    const head = `<g class="cg-node ${cls}${n.inside ? "" : " cg-narrow"}" data-id="${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${n.w}" height="${NODE_H}" rx="${Math.min(7, n.w / 2)}"/>` + (n.frame ? `<rect class="cg-frame cg-frame-${n.frame.idx % 8}" width="${n.w}" height="5" rx="2"/>` : "");
+    const tip2 = `<title>${esc(n.title)} \xB7 ${esc(n.when)}${n.frame ? ` \xB7 ${esc(n.frame.name)} ${t("g_local")} ${esc(n.frame.local)}` : ""}</title></g>`;
     const repeats = n.inside && n.w > 1400 ? Array.from({ length: Math.floor((n.w - 400) / 1e3) }, (_, k) => 8 + (k + 1) * 1e3).filter((x) => n.x + x >= v.x0 - 1e3 && n.x + x <= v.x1) : [];
-    return head + (n.inside ? "" : `<rect class="cg-hit" x="${n.w}" width="${Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12}" height="${NODE_H}"/>`) + `<text x="${tx}" y="18" class="cg-node-title${tc}">${esc2(n.title2)}</text><text x="${tx}" y="36" class="cg-node-sub${tc}">${esc2(n.sub2)}</text>` + repeats.map((x) => `<text x="${x}" y="18" class="cg-node-title">${esc2(n.title2)}</text>`).join("") + tip2;
+    return head + (n.inside ? "" : `<rect class="cg-hit" x="${n.w}" width="${Math.max(textW(n.title2, 12.5), textW(n.sub2, 10.5)) + 12}" height="${NODE_H}"/>`) + `<text x="${tx}" y="18" class="cg-node-title${tc}">${esc(n.title2)}</text><text x="${tx}" y="36" class="cg-node-sub${tc}">${esc(n.sub2)}</text>` + repeats.map((x) => `<text x="${x}" y="18" class="cg-node-title">${esc(n.title2)}</text>`).join("") + tip2;
   }).join("");
-  const now = L.nowX !== null ? `<line x1="${L.nowX}" y1="0" x2="${L.nowX}" y2="${L.height}" class="cg-now"/><text x="${L.nowX + 4}" y="12" class="cg-now-label">${esc2(nowLabel(g))}</text>` : "";
+  const now = L.nowX !== null ? `<line x1="${L.nowX}" y1="0" x2="${L.nowX}" y2="${L.height}" class="cg-now"/><text x="${L.nowX + 4}" y="12" class="cg-now-label">${esc(nowLabel(g))}</text>` : "";
   const markers = ["enables", "motivates", "precedes", "related", "cause"].map((k) => `<marker id="cg-arrow-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="cg-arrow-${k}"/></marker>`).join("");
   return `<defs>${markers}</defs>${lanes}${ticks}${edges}${nodes}${now}`;
 }
@@ -42669,13 +42648,8 @@ var GraphPanel = class {
   getNature;
   showRelations = false;
   getRelations;
-  showCombat = false;
-  getCombat;
-  onCombat;
-  constructor(getData, setSpoilers, onEventAction = async () => void 0, linkCandidates = () => [], getMembers = () => null, getNature = () => null, getRelations = () => null, getCombat = () => null, onCombat = async () => void 0) {
+  constructor(getData, setSpoilers, onEventAction = async () => void 0, linkCandidates = () => [], getMembers = () => null, getNature = () => null, getRelations = () => null) {
     this.getData = getData;
-    this.getCombat = getCombat;
-    this.onCombat = onCombat;
     this.getRelations = getRelations;
     this.getMembers = getMembers;
     this.getNature = getNature;
@@ -42710,30 +42684,28 @@ var GraphPanel = class {
       this.showMembers = false;
       this.showNature = false;
       this.showRelations = false;
-      this.showCombat = false;
     }
     if (!d.current && this.mode === "current") this.mode = "pack";
     const g0 = this.mode === "pack" ? d.pack : d.current;
     const g = g0 ? this.applyFilter(g0) : null;
-    const canvasHtml = this.showCombat ? combatHtml(this.getCombat(d.spoilers), this.filter.q) : this.showRelations ? this.relationsHtml(d.spoilers) : this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t("graphNoData")}</div>` : this.firstSvg(g);
-    const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc2(a.id)}" ${a.id === this.filter.arc ? "selected" : ""}>${esc2(a.title)}</option>`).join("");
+    const canvasHtml = this.showRelations ? this.relationsHtml(d.spoilers) : this.showNature ? this.natureHtml(d.spoilers) : this.showMembers ? this.membersHtml(d.spoilers) : !g ? `<div class="cg-empty">${t("graphNoData")}</div>` : this.firstSvg(g);
+    const arcs = (d.pack?.arcs || []).map((a) => `<option value="${esc(a.id)}" ${a.id === this.filter.arc ? "selected" : ""}>${esc(a.title)}</option>`).join("");
     this.el.innerHTML = `
       <div class="cg-head">
-        <b>${t("graphTitle")}</b>${d.preview ? `<span class="cg-preview">${t("libViewing")}\uFF1A${esc2(d.preview)}</span><button class="menu_button" data-act="preview-exit">${t("libViewExit")}</button>` : ""}
+        <b>${t("graphTitle")}</b>${d.preview ? `<span class="cg-preview">${t("libViewing")}\uFF1A${esc(d.preview)}</span><button class="menu_button" data-act="preview-exit">${t("libViewExit")}</button>` : ""}
         <div class="cg-tabs">
           <button class="menu_button ${this.mode === "current" ? "active" : ""}" data-mode="current" ${d.current ? "" : "disabled"}>${t("graphCurrent")}</button>
           <button class="menu_button ${this.mode === "pack" ? "active" : ""}" data-mode="pack" ${d.pack ? "" : "disabled"}>${t("graphPack")}</button>
         </div>
-        <input class="text_pole cg-q" placeholder="${t("graphSearch")}" value="${esc2(this.filter.q)}">
+        <input class="text_pole cg-q" placeholder="${t("graphSearch")}" value="${esc(this.filter.q)}">
         <select class="text_pole cg-arc"><option value="">${t("graphAllArcs")}</option>${arcs}</select>
         ${LANES.map((l) => `<label class="cg-lanechk"><input type="checkbox" data-lane="${l}" ${this.filter.lanes.has(l) ? "checked" : ""}>${laneLabel(l)}</label>`).join("")}
         ${d.preview ? "" : `<label class="cg-lanechk"><input type="checkbox" class="cg-spoil" ${d.spoilers ? "checked" : ""}>${t("spoilers")}</label>`}
-        ${this.acts() && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc2(t("digestTip"))}">${t("digest")}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc2(t("undigestTip"))}">${t("undigest")}</button>` : ""}` : ""}
+        ${this.acts() && d.current ? `<button class="menu_button cg-digest" data-act="digest" title="${esc(t("digestTip"))}">${t("digest")}</button>${d.digested ? `<button class="menu_button" data-act="undigest" title="${esc(t("undigestTip"))}">${t("undigest")}</button>` : ""}` : ""}
         ${this.mode === "current" && d.current?.frames?.now ? this.frameSelect(d.current) : ""}
-        ${d.preview && !d.current ? "" : `<button class="menu_button ${this.showMembers ? "active" : ""}" data-act="members" title="${esc2(t("membersTip"))}">${t("members")}</button>`}
-        ${d.preview && !d.current ? "" : `<button class="menu_button cg-nature-btn ${this.showNature ? "active" : ""}" data-act="nature" title="${esc2(t("natureTip"))}">${t("nature")}</button>`}
-        ${d.preview && !d.current ? "" : `<button class="menu_button cg-relations-btn ${this.showRelations ? "active" : ""}" data-act="relations" title="${esc2(t("relationsTip"))}">${t("relations")}</button>`}
-        ${d.preview || !d.current ? "" : `<button class="menu_button cg-combat-btn ${this.showCombat ? "active" : ""}" data-act="combat" title="${esc2(t("combatTip"))}">${t("combat")}</button>`}
+        ${d.preview && !d.current ? "" : `<button class="menu_button ${this.showMembers ? "active" : ""}" data-act="members" title="${esc(t("membersTip"))}">${t("members")}</button>`}
+        ${d.preview && !d.current ? "" : `<button class="menu_button cg-nature-btn ${this.showNature ? "active" : ""}" data-act="nature" title="${esc(t("natureTip"))}">${t("nature")}</button>`}
+        ${d.preview && !d.current ? "" : `<button class="menu_button cg-relations-btn ${this.showRelations ? "active" : ""}" data-act="relations" title="${esc(t("relationsTip"))}">${t("relations")}</button>`}
         <button class="menu_button" data-act="fit">${t("graphFit")}</button>
         <button class="menu_button" data-act="close">\u2715</button>
       </div>
@@ -42757,8 +42729,8 @@ var GraphPanel = class {
   membersHtml(spoilers) {
     const m = this.getMembers(spoilers);
     if (!m) return `<div class="cg-empty">${t("graphNoData")}</div>`;
-    const now = m.now.length ? `<table class="canon-table cg-members"><tr><th>${t("membersOrg")}</th><th>${t("membersLeader")}</th><th>${t("membersList")}</th><th>${t("membersStatus")}</th></tr>${m.now.map((o) => `<tr><td>${esc2(o.name)}</td><td>${esc2(o.leader || "\u2014")}</td><td>${esc2(o.members.join("\u3001") || "\u2014")}</td><td>${esc2(o.status || "")}${o.statusSince ? ` <span class="cg-since">(${t("membersSince")} ${esc2(o.statusSince)})</span>` : ""}</td></tr>`).join("")}</table>` : `<div class="cg-empty">${t("membersNone")}</div>`;
-    const ch = m.changes.length ? `<table class="canon-table cg-members"><tr><th>${t("membersWhen")}</th><th>${t("membersEvent")}</th><th>${t("membersOrg")}</th><th>${t("membersChange")}</th><th></th></tr>${m.changes.map((c) => `<tr class="cg-mstate-${c.state}"><td>${esc2(c.when)}</td><td>${esc2(c.event)}</td><td>${esc2(c.org)}</td><td>${esc2(memberChange(c))}</td><td><span class="cg-key cg-s-${c.state}">${statusLabel(c.state)}</span></td></tr>`).join("")}</table>` : "";
+    const now = m.now.length ? `<table class="canon-table cg-members"><tr><th>${t("membersOrg")}</th><th>${t("membersLeader")}</th><th>${t("membersList")}</th><th>${t("membersStatus")}</th></tr>${m.now.map((o) => `<tr><td>${esc(o.name)}</td><td>${esc(o.leader || "\u2014")}</td><td>${esc(o.members.join("\u3001") || "\u2014")}</td><td>${esc(o.status || "")}${o.statusSince ? ` <span class="cg-since">(${t("membersSince")} ${esc(o.statusSince)})</span>` : ""}</td></tr>`).join("")}</table>` : `<div class="cg-empty">${t("membersNone")}</div>`;
+    const ch = m.changes.length ? `<table class="canon-table cg-members"><tr><th>${t("membersWhen")}</th><th>${t("membersEvent")}</th><th>${t("membersOrg")}</th><th>${t("membersChange")}</th><th></th></tr>${m.changes.map((c) => `<tr class="cg-mstate-${c.state}"><td>${esc(c.when)}</td><td>${esc(c.event)}</td><td>${esc(c.org)}</td><td>${esc(memberChange(c))}</td><td><span class="cg-key cg-s-${c.state}">${statusLabel(c.state)}</span></td></tr>`).join("")}</table>` : "";
     return `<div class="cg-memberswrap"><h4>${t("membersNowTitle")}</h4>${now}<h4>${t("membersChangesTitle")}</h4>${ch || `<div class="cg-empty">${t("membersNoChanges")}</div>`}${m.hidden ? `<div class="cg-hint">${t("membersHidden").replace("{n}", String(m.hidden))}</div>` : ""}</div>`;
   }
   /** 常态: each person's versions, the one in force in this game marked; the search box filters by name. */
@@ -42768,13 +42740,13 @@ var GraphPanel = class {
     if (!v.people.length) return `<div class="cg-empty">${t("natureNone")}</div>`;
     const q = this.filter.q.trim().toLowerCase();
     const people = v.people.filter((p) => !q || p.name.toLowerCase().includes(q));
-    const field2 = (k, x) => x.trim() ? `<div class="cg-nfield"><b>${t(k.startsWith("mind_") ? k : "nature_" + k)}</b>${esc2(x)}</div>` : "";
+    const field2 = (k, x) => x.trim() ? `<div class="cg-nfield"><b>${t(k.startsWith("mind_") ? k : "nature_" + k)}</b>${esc(x)}</div>` : "";
     const ver = (x, player = false) => {
       const head = player ? t("naturePersona") : x.from ? t("natureFrom").replace("{e}", x.from) + (x.until ? t("natureUntil").replace("{e}", x.until) : "") : t("natureStart");
-      return `<div class="cg-nver cg-nver-${x.state}"><div class="cg-nhead">${esc2(head)} <span class="cg-key cg-nstate-${x.state}">${t("natureState_" + x.state)}</span>${x.why ? `<span class="cg-nwhy">${esc2(x.why)}</span>` : ""}</div>${field2("habits", x.habits)}${field2("uses", x.uses)}${field2("others", x.others)}${field2("limits", x.limits)}${x.perceives?.kinds.length ? field2("perceives", x.perceives.kinds.map((k) => t("perceive_" + k)).join("\u3001") + (x.perceives.how ? `\uFF08${x.perceives.how}\uFF09` : "")) : ""}</div>`;
+      return `<div class="cg-nver cg-nver-${x.state}"><div class="cg-nhead">${esc(head)} <span class="cg-key cg-nstate-${x.state}">${t("natureState_" + x.state)}</span>${x.why ? `<span class="cg-nwhy">${esc(x.why)}</span>` : ""}</div>${field2("habits", x.habits)}${field2("uses", x.uses)}${field2("others", x.others)}${field2("limits", x.limits)}${x.perceives?.kinds.length ? field2("perceives", x.perceives.kinds.map((k) => t("perceive_" + k)).join("\u3001") + (x.perceives.how ? `\uFF08${x.perceives.how}\uFF09` : "")) : ""}</div>`;
     };
     const mind2 = (m) => `<div class="cg-nver cg-nmind"><div class="cg-nhead">${t("mindTitle")} <span class="cg-key">${t("mindDelib_" + m.deliberation)} \xB7 ${t("mindSharp_" + m.sharpness)}</span></div>${["approach", "thinks_hard_about", "pushed", "notices", "blind", "speaks"].map((k) => field2("mind_" + k, m[k] || "")).join("")}</div>`;
-    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t("natureNote").replace("{n}", String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? " open" : ""}><summary>${esc2(p.name)}${p.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}${p.versions.length > 1 ? ` <span class="cg-hint">${t("natureVersions").replace("{n}", String(p.versions.length))}</span>` : ""}</summary>${p.versions.map((x) => ver(x, !!p.player)).join("")}${p.mind ? mind2(p.mind) : ""}</details>`).join("")}${v.hidden ? `<div class="cg-hint">${t("natureHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
+    return `<div class="cg-memberswrap cg-naturewrap"><div class="cg-hint">${t("natureNote").replace("{n}", String(v.people.length))}</div>${people.map((p) => `<details class="cg-nperson"${people.length <= 3 ? " open" : ""}><summary>${esc(p.name)}${p.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}${p.versions.length > 1 ? ` <span class="cg-hint">${t("natureVersions").replace("{n}", String(p.versions.length))}</span>` : ""}</summary>${p.versions.map((x) => ver(x, !!p.player)).join("")}${p.mind ? mind2(p.mind) : ""}</details>`).join("")}${v.hidden ? `<div class="cg-hint">${t("natureHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
   }
   /** 角色关系: a table, one row a relation — in force in this game now, or (spoilers) a pack stage still to come; the
    *  search box filters by name. */
@@ -42784,16 +42756,16 @@ var GraphPanel = class {
     if (!v.rows.length) return `<div class="cg-empty">${t("relationsNone")}</div>`;
     const q = this.filter.q.trim().toLowerCase();
     const rows = v.rows.filter((r) => !q || r.a.toLowerCase().includes(q) || r.b.toLowerCase().includes(q));
-    const side = (x) => x ? `${x.address?.length ? `<span class="cg-hint">${esc2(t("relAddress"))}${esc2(addressText(x.address))}</span><br>` : ""}${esc2(x.sees)}` : "";
-    const when2 = (r) => r.state === "later" ? `<span class="cg-key cg-nstate-later">${t("natureState_later")}</span><br>${esc2(r.when ? t("natureFrom").replace("{e}", r.when) : t("natureStart"))}` : `<span class="cg-key cg-nstate-now">${t(r.ended ? "relationsEnded" : "natureState_now")}</span><br>${esc2(r.when ? t("relSince").replace("{t}", r.when) : t("relStart"))}${r.source && r.source !== "pack" ? `<br>${t("relSource_" + r.source)}` : ""}`;
-    const body = rows.map((r) => `<tr class="cg-mstate-${r.state}"><td>${esc2(r.a)}${r.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}</td><td>${esc2(r.b)}</td><td>${when2(r)}</td><td>${esc2(r.bond)}</td><td>${side(r.ab)}</td><td>${side(r.ba)}</td><td>${esc2(r.together || "")}</td></tr>`).join("");
+    const side = (x) => x ? `${x.address?.length ? `<span class="cg-hint">${esc(t("relAddress"))}${esc(addressText(x.address))}</span><br>` : ""}${esc(x.sees)}` : "";
+    const when2 = (r) => r.state === "later" ? `<span class="cg-key cg-nstate-later">${t("natureState_later")}</span><br>${esc(r.when ? t("natureFrom").replace("{e}", r.when) : t("natureStart"))}` : `<span class="cg-key cg-nstate-now">${t(r.ended ? "relationsEnded" : "natureState_now")}</span><br>${esc(r.when ? t("relSince").replace("{t}", r.when) : t("relStart"))}${r.source && r.source !== "pack" ? `<br>${t("relSource_" + r.source)}` : ""}`;
+    const body = rows.map((r) => `<tr class="cg-mstate-${r.state}"><td>${esc(r.a)}${r.player ? ` <span class="cg-hint">${t("naturePlayer")}</span>` : ""}</td><td>${esc(r.b)}</td><td>${when2(r)}</td><td>${esc(r.bond)}</td><td>${side(r.ab)}</td><td>${side(r.ba)}</td><td>${esc(r.together || "")}</td></tr>`).join("");
     return `<div class="cg-memberswrap"><div class="cg-hint">${t("relationsNote").replace("{n}", String(rows.length))}</div><table class="canon-table cg-members cg-relations"><tr><th>${t("relationsA")}</th><th>${t("relationsB")}</th><th>${t("relationsWhen")}</th><th>${t("relationsBond")}</th><th>${t("relationsAB")}</th><th>${t("relationsBA")}</th><th>${t("relationsTogether")}</th></tr>${body}</table>${v.hidden ? `<div class="cg-hint">${t("relationsHidden").replace("{n}", String(v.hidden))}</div>` : ""}</div>`;
   }
   /** 当前时空: the scene's time frame, changeable by hand when the reviewer missed a move between frames. */
   frameSelect(g) {
     const now = g.frames.now;
     const opts = [{ id: "main", name: now.main ? now.name : t("frameMain") }, ...g.frames.list.map((f) => ({ id: f.id, name: f.name }))];
-    return `<label class="cg-lanechk" title="${esc2(t("frameTip"))}">${t("frameNow")} <select class="text_pole cg-frame-sel">${opts.map((o) => `<option value="${esc2(o.id)}" ${o.id === now.id ? "selected" : ""}>${esc2(o.name)}</option>`).join("")}</select></label>`;
+    return `<label class="cg-lanechk" title="${esc(t("frameTip"))}">${t("frameNow")} <select class="text_pole cg-frame-sel">${opts.map((o) => `<option value="${esc(o.id)}" ${o.id === now.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label>`;
   }
   /** The frames of the boxes near the view (a pack with many frames — FGO has 21 — would fill rows with all of them). */
   frameLegend() {
@@ -42801,7 +42773,7 @@ var GraphPanel = class {
     if (!list.length || !this.GL) return "";
     const v = this.drawn;
     const used = new Set(this.GL.L.placed.filter((n) => n.frame && (!v || n.x + n.w >= v.x0 && n.x <= v.x1)).map((n) => n.frame.id));
-    return list.filter((f) => used.has(f.id)).map((f) => `<span class="cg-key cg-fkey cg-frame-${f.idx % 8}">${esc2(f.name)}</span>`).join("");
+    return list.filter((f) => used.has(f.id)).map((f) => `<span class="cg-key cg-fkey cg-frame-${f.idx % 8}">${esc(f.name)}</span>`).join("");
   }
   legend() {
     if (this.mode === "pack") return `<span class="cg-key cg-c-HARD">HARD</span><span class="cg-key cg-c-SOFT">SOFT</span><span class="cg-key cg-c-FREE">FREE</span><span class="cg-ek cg-edge-enables">${t("g_rel_enables")}</span><span class="cg-ek cg-edge-motivates">${t("g_rel_motivates")}</span><span class="cg-ek cg-edge-precedes">${t("g_rel_precedes")}</span><span class="cg-ek cg-edge-related">${t("g_rel_related")}</span>`;
@@ -42962,7 +42934,6 @@ var GraphPanel = class {
       this.showMembers = !this.showMembers;
       this.showNature = false;
       this.showRelations = false;
-      this.showCombat = false;
       this.keepView = true;
       this.refresh();
       return;
@@ -42971,7 +42942,6 @@ var GraphPanel = class {
       this.showNature = !this.showNature;
       this.showMembers = false;
       this.showRelations = false;
-      this.showCombat = false;
       this.keepView = true;
       this.refresh();
       return;
@@ -42980,29 +42950,8 @@ var GraphPanel = class {
       this.showRelations = !this.showRelations;
       this.showMembers = false;
       this.showNature = false;
-      this.showCombat = false;
       this.keepView = true;
       this.refresh();
-      return;
-    }
-    if (b?.dataset.act === "combat") {
-      this.showCombat = !this.showCombat;
-      this.showMembers = false;
-      this.showNature = false;
-      this.showRelations = false;
-      this.keepView = true;
-      this.refresh();
-      return;
-    }
-    if (b?.dataset.act?.startsWith("cb-")) {
-      const change = combatChange(b, this.el);
-      if (change) {
-        b.disabled = true;
-        void this.onCombat(change).finally(() => {
-          this.keepView = true;
-          this.refresh();
-        });
-      }
       return;
     }
     if (b?.dataset.act === "fit") {
@@ -43027,7 +42976,7 @@ var GraphPanel = class {
         return;
       }
       const cands = this.linkCandidates(id);
-      box.innerHTML = cands.length ? `<div class="cg-linkhint">${esc2(t("linkPick"))}</div>` + cands.map((c) => `<label class="cg-linkrow"><input type="checkbox" value="${esc2(c.id)}"> <span class="cg-linkwhen">${esc2(c.when)}</span> ${esc2(c.title)}</label>`).join("") + `<div class="cg-linkbtns"><button class="menu_button" data-act="link-occurred" data-id="${esc2(id)}" title="${esc2(t("linkOccurredTip"))}">${t("linkOccurred")}</button><button class="menu_button" data-act="link-diverged" data-id="${esc2(id)}" title="${esc2(t("linkDivergedTip"))}">${t("linkDiverged")}</button></div>` : `<div class="cg-linkhint">${esc2(t("linkNone"))}</div>`;
+      box.innerHTML = cands.length ? `<div class="cg-linkhint">${esc(t("linkPick"))}</div>` + cands.map((c) => `<label class="cg-linkrow"><input type="checkbox" value="${esc(c.id)}"> <span class="cg-linkwhen">${esc(c.when)}</span> ${esc(c.title)}</label>`).join("") + `<div class="cg-linkbtns"><button class="menu_button" data-act="link-occurred" data-id="${esc(id)}" title="${esc(t("linkOccurredTip"))}">${t("linkOccurred")}</button><button class="menu_button" data-act="link-diverged" data-id="${esc(id)}" title="${esc(t("linkDivergedTip"))}">${t("linkDiverged")}</button></div>` : `<div class="cg-linkhint">${esc(t("linkNone"))}</div>`;
       return;
     }
     if (b && (b.dataset.act === "link-occurred" || b.dataset.act === "link-diverged")) {
@@ -43106,21 +43055,21 @@ var GraphPanel = class {
     this.armed = null;
     this.highlight(id);
     const titleOf = (x) => g.nodes.find((k) => k.id === x)?.title || x;
-    const ins = g.edges.filter((e) => e.to === id).map((e) => `\u2190 ${esc2(titleOf(e.from))}\uFF08${esc2(e.kind)}\uFF09`);
-    const outs = g.edges.filter((e) => e.from === id).map((e) => `\u2192 ${esc2(titleOf(e.to))}\uFF08${esc2(e.kind)}\uFF09`);
+    const ins = g.edges.filter((e) => e.to === id).map((e) => `\u2190 ${esc(titleOf(e.from))}\uFF08${esc(e.kind)}\uFF09`);
+    const outs = g.edges.filter((e) => e.from === id).map((e) => `\u2192 ${esc(titleOf(e.to))}\uFF08${esc(e.kind)}\uFF09`);
     this.el.querySelector(".cg-detail").innerHTML = `
-      <h3>${esc2(n.title)}</h3>
+      <h3>${esc(n.title)}</h3>
       <div class="cg-badges"><span class="cg-key cg-c-${n.lane}">${n.lane === "RUNTIME" ? t("g_lane_RUNTIME") : n.lane}</span>${n.status ? `<span class="cg-key cg-s-${n.status}">${statusLabel(n.status)}</span>` : ""}</div>
-      <div class="cg-when">${esc2(n.when)}</div>
-      ${n.required ? `<div class="cg-req"><b>${t("g_required")}</b>${esc2(n.required)}</div>` : ""}
-      <p style="white-space:pre-line">${esc2(n.summary)}</p>
-      ${this.acts() && (n.lane === "SOFT" || n.lane === "FREE") && (n.status === "future" || n.status === "pending") ? `<button class="menu_button cg-focus${n.focused ? " active" : ""}" data-act="focus" data-id="${esc2(n.id)}" title="${esc2(t("focusTip"))}">${n.focused ? t("unfocus") : t("focus")}</button>` : ""}
-      ${this.acts() && n.lane !== "RUNTIME" && n.status !== "occurred" && n.status !== "diverged" ? `<button class="menu_button cg-force" data-act="force" data-id="${esc2(n.id)}">${t("force")}</button>` : ""}
-      ${this.acts() && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc2(n.id)}">${n.concluded ? t("unconclude") : n.linked ? t("unlink") : t("unforce")}</button>` : ""}
-      ${this.acts() && n.lane !== "RUNTIME" && !n.forced && (n.inProgress || n.status === "pending" || n.status === "unresolved") ? `<button class="menu_button cg-conclude" data-act="conclude" data-id="${esc2(n.id)}" title="${esc2(t("concludeTip"))}">${t("conclude")}</button>` : ""}
-      ${this.acts() && n.lane !== "RUNTIME" && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc2(n.id)}" title="${esc2(t("linkTip"))}">${t("link")}</button><div class="cg-linkpick"></div>` : ""}
-      ${this.mode === "current" && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc2(n.id)}" title="${esc2(t(n.members ? "reanalyzeOccTip" : "reanalyzeTip"))}">${t("reanalyze")}</button>` : ""}
-      ${(n.detail || []).map((x) => `<div class="cg-line">${esc2(x)}</div>`).join("")}
+      <div class="cg-when">${esc(n.when)}</div>
+      ${n.required ? `<div class="cg-req"><b>${t("g_required")}</b>${esc(n.required)}</div>` : ""}
+      <p style="white-space:pre-line">${esc(n.summary)}</p>
+      ${this.acts() && (n.lane === "SOFT" || n.lane === "FREE") && (n.status === "future" || n.status === "pending") ? `<button class="menu_button cg-focus${n.focused ? " active" : ""}" data-act="focus" data-id="${esc(n.id)}" title="${esc(t("focusTip"))}">${n.focused ? t("unfocus") : t("focus")}</button>` : ""}
+      ${this.acts() && n.lane !== "RUNTIME" && n.status !== "occurred" && n.status !== "diverged" ? `<button class="menu_button cg-force" data-act="force" data-id="${esc(n.id)}">${t("force")}</button>` : ""}
+      ${this.acts() && n.forced ? `<button class="menu_button cg-unforce" data-act="unforce" data-id="${esc(n.id)}">${n.concluded ? t("unconclude") : n.linked ? t("unlink") : t("unforce")}</button>` : ""}
+      ${this.acts() && n.lane !== "RUNTIME" && !n.forced && (n.inProgress || n.status === "pending" || n.status === "unresolved") ? `<button class="menu_button cg-conclude" data-act="conclude" data-id="${esc(n.id)}" title="${esc(t("concludeTip"))}">${t("conclude")}</button>` : ""}
+      ${this.acts() && n.lane !== "RUNTIME" && !n.forced ? `<button class="menu_button cg-linkopen" data-act="linkopen" data-id="${esc(n.id)}" title="${esc(t("linkTip"))}">${t("link")}</button><div class="cg-linkpick"></div>` : ""}
+      ${this.mode === "current" && n.reanalyzable && !n.forced ? `<button class="menu_button cg-reanalyze" data-act="reanalyze" data-id="${esc(n.id)}" title="${esc(t(n.members ? "reanalyzeOccTip" : "reanalyzeTip"))}">${t("reanalyze")}</button>` : ""}
+      ${(n.detail || []).map((x) => `<div class="cg-line">${esc(x)}</div>`).join("")}
       ${ins.length || outs.length ? `<div class="cg-rel"><b>${t("g_relations")}</b><br>${[...ins, ...outs].join("<br>")}</div>` : ""}`;
   }
 };
@@ -43167,17 +43116,17 @@ function timelineData(engine2) {
 }
 
 // src/core/ui/hostility-panel.ts
-var esc3 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-var chip = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc3(s)}</span>`;
-var btn = (label, attrs, tone = "") => `<button class="menu_button ci-btn${tone ? ` ci-btn-${tone}` : ""}" ${attrs}>${esc3(label)}</button>`;
+var esc2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var chip = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc2(s)}</span>`;
+var btn = (label, attrs, tone = "") => `<button class="menu_button ci-btn${tone ? ` ci-btn-${tone}` : ""}" ${attrs}>${esc2(label)}</button>`;
 function hostilityHtml(v, s, tip2) {
-  const bar = `<label class="checkbox_label ci-check ci-switch"><input type="checkbox" data-act="ho-dangers" ${s.dangers ? "checked" : ""}><span>${esc3(t("hoDangers"))}</span></label>${tip2("hoDangersTip")}<label class="ci-lbl ci-inline">${esc3(t("hoLevel"))} <select class="text_pole ci-ho-level" data-act="ho-level">${["low", "medium", "high"].map((l) => `<option value="${l}" ${s.level === l ? "selected" : ""}>${esc3(t("hoLevel_" + l))}</option>`).join("")}</select></label>`;
-  if (!v) return { bar, body: `<div class="ci-empty">${esc3(t("ciNone"))}</div>` };
-  const grudges = v.grudges.map((g) => `<div class="ci-item" data-key="ho-${esc3(g.holder)}"><div class="ci-head"><span class="ci-title">${esc3(g.name)}</span>${g.due ? chip(t("hoDue"), "bad") : chip(t("hoComes").replace("{t}", g.comes), "warn")}${g.source === "ui" ? chip(t("hoByYou"), "muted") : ""}<span class="ci-sp"></span><span class="ci-actions">${btn(t("hoEnd"), `data-act="ho-end" data-who="${esc3(g.holder)}" title="${esc3(t("hoEndTip"))}"`)}</span></div><div class="ci-body"><div>${esc3(g.why)}</div>${g.quote ? `<div class="ci-quote">\u201C${esc3(g.quote)}\u201D</div>` : ""}<div class="ci-meta">${esc3(t("hoSince").replace("{t}", g.since))}</div></div></div>`).join("");
-  const add2 = `<details class="ci-fold ci-add" data-key="ho-add"><summary>${esc3(t("hoAdd"))}</summary><div class="ci-fold-in"><input class="text_pole ci-ho-name" placeholder="${esc3(t("hoAddName"))}"><input class="text_pole ci-ho-why" placeholder="${esc3(t("hoAddWhy"))}"><div class="ci-actions">${btn(t("wsSave"), 'data-act="ho-add"', "primary")}</div></div></details>`;
-  const here = v.here.map((d) => `<div class="ci-item" data-key="hd-${esc3(d.node)}"><div class="ci-head"><span class="ci-title">${esc3(d.name)}</span>${chip(t("hoFreq_" + d.frequency))}${d.hours ? chip(d.hours, "muted") : ""}${d.now ? chip(t("hoNow"), "accent") : ""}</div><div class="ci-body"><div>${esc3(d.gist)}</div><div class="ci-meta">${esc3(d.from)}</div></div></div>`).join("");
-  const came = v.came.map((d) => `<div class="ci-meta">${esc3(d.when)} \xB7 ${esc3(d.name)}${d.place ? ` \xB7 ${esc3(d.place)}` : ""}</div>`).join("");
-  const body = `<h5 class="ci-sub">${esc3(t("hoGrudges"))}</h5>${grudges || `<div class="ci-empty">${esc3(t("hoNoGrudges"))}</div>`}${add2}<h5 class="ci-sub">${esc3(t("hoHere"))}</h5>${here || `<div class="ci-empty">${esc3(t("hoNoDangers"))}</div>`}` + (came ? `<h5 class="ci-sub">${esc3(t("hoCame"))}</h5>${came}` : "");
+  const bar = `<label class="checkbox_label ci-check ci-switch"><input type="checkbox" data-act="ho-dangers" ${s.dangers ? "checked" : ""}><span>${esc2(t("hoDangers"))}</span></label>${tip2("hoDangersTip")}<label class="ci-lbl ci-inline">${esc2(t("hoLevel"))} <select class="text_pole ci-ho-level" data-act="ho-level">${["low", "medium", "high"].map((l) => `<option value="${l}" ${s.level === l ? "selected" : ""}>${esc2(t("hoLevel_" + l))}</option>`).join("")}</select></label>`;
+  if (!v) return { bar, body: `<div class="ci-empty">${esc2(t("ciNone"))}</div>` };
+  const grudges = v.grudges.map((g) => `<div class="ci-item" data-key="ho-${esc2(g.holder)}"><div class="ci-head"><span class="ci-title">${esc2(g.name)}</span>${g.due ? chip(t("hoDue"), "bad") : chip(t("hoComes").replace("{t}", g.comes), "warn")}${g.source === "ui" ? chip(t("hoByYou"), "muted") : ""}<span class="ci-sp"></span><span class="ci-actions">${btn(t("hoEnd"), `data-act="ho-end" data-who="${esc2(g.holder)}" title="${esc2(t("hoEndTip"))}"`)}</span></div><div class="ci-body"><div>${esc2(g.why)}</div>${g.quote ? `<div class="ci-quote">\u201C${esc2(g.quote)}\u201D</div>` : ""}<div class="ci-meta">${esc2(t("hoSince").replace("{t}", g.since))}</div></div></div>`).join("");
+  const add2 = `<details class="ci-fold ci-add" data-key="ho-add"><summary>${esc2(t("hoAdd"))}</summary><div class="ci-fold-in"><input class="text_pole ci-ho-name" placeholder="${esc2(t("hoAddName"))}"><input class="text_pole ci-ho-why" placeholder="${esc2(t("hoAddWhy"))}"><div class="ci-actions">${btn(t("wsSave"), 'data-act="ho-add"', "primary")}</div></div></details>`;
+  const here = v.here.map((d) => `<div class="ci-item" data-key="hd-${esc2(d.node)}"><div class="ci-head"><span class="ci-title">${esc2(d.name)}</span>${chip(t("hoFreq_" + d.frequency))}${d.hours ? chip(d.hours, "muted") : ""}${d.now ? chip(t("hoNow"), "accent") : ""}</div><div class="ci-body"><div>${esc2(d.gist)}</div><div class="ci-meta">${esc2(d.from)}</div></div></div>`).join("");
+  const came = v.came.map((d) => `<div class="ci-meta">${esc2(d.when)} \xB7 ${esc2(d.name)}${d.place ? ` \xB7 ${esc2(d.place)}` : ""}</div>`).join("");
+  const body = `<h5 class="ci-sub">${esc2(t("hoGrudges"))}</h5>${grudges || `<div class="ci-empty">${esc2(t("hoNoGrudges"))}</div>`}${add2}<h5 class="ci-sub">${esc2(t("hoHere"))}</h5>${here || `<div class="ci-empty">${esc2(t("hoNoDangers"))}</div>`}` + (came ? `<h5 class="ci-sub">${esc2(t("hoCame"))}</h5>${came}` : "");
   return { bar, body };
 }
 function hostilityChange(b) {
@@ -43192,17 +43141,65 @@ function hostilityChange(b) {
   return null;
 }
 
+// src/core/ui/combat-panel.ts
+var esc3 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var chip2 = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc3(s)}</span>`;
+var btn2 = (label, attrs, tone = "") => `<button class="menu_button ci-btn${tone ? ` ci-btn-${tone}` : ""}" ${attrs}>${esc3(label)}</button>`;
+var fold = (key2, label, inner, cls = "") => `<details class="ci-fold${cls ? ` ${cls}` : ""}" data-key="${esc3(key2)}"><summary>${esc3(label)}</summary><div class="ci-fold-in">${inner}</div></details>`;
+var sec = (id, label, inner, tipHtml = "", cls = "") => `<section class="ci-sec${cls ? ` ${cls}` : ""}" data-sec="${id}"><h4 class="ci-sec-h"><span>${esc3(label)}</span>${tipHtml}<span class="ci-sp"></span></h4>${inner}</section>`;
+var empty = (s) => `<div class="ci-empty">${esc3(s)}</div>`;
+function combatHtml(v, query, picked, tip2) {
+  if (!v) return { html: empty(t("graphNoData")), secs: [] };
+  if (v.none !== null) return { html: empty(t("combatNone").replace("{r}", v.none)), secs: [] };
+  const q = query.trim().toLowerCase();
+  const src = (s) => chip2(t("combatSrc_" + s), s === "ui" ? "accent" : "muted");
+  const fight = v.fight.ongoing ? `<div class="ci-banner ci-bad"><b>${esc3(t("combatFightOn").replace("{p}", v.fight.people.map((p) => p.name).join("\u3001")).replace("{t}", v.fight.since || ""))}</b><div class="ci-actions">${btn2(t("combatEnd"), `data-act="cb-fight-off" title="${esc3(t("combatEndTip"))}"`)}</div></div>` : `<div class="ci-bar"><span>${esc3(t("combatFightOff"))}</span><span class="ci-sp"></span>${btn2(t("combatStart"), `data-act="cb-fight-on" title="${esc3(t("combatStartTip"))}"`)}</div>`;
+  const ruling = (r, i) => {
+    const head = `<span class="ci-title ci-when">${esc3(r.when)}</span>${r.over ? chip2(t("combatOver") + r.overWhy, "muted") : chip2(t("combatGoesOn"), "warn")}${r.joined?.length ? chip2(`${t("combatJoined")}\uFF1A${r.joined.join("\u3001")}`, "accent") : ""}`;
+    const inner = (r.stopped.length ? r.stopped.map((o) => `<div class="ci-banner ci-warn">${esc3(t("combatOverrides"))}\xAB${esc3(o.quote)}\xBB\uFF1A${esc3(o.why)}<div class="ci-meta">${esc3(o.basis.join("\uFF1B"))}</div></div>`).join("") : "") + `<ol class="ci-cbex">${r.exchanges.map((x) => `<li><b>${esc3(x.who)}</b>\uFF1A${esc3(x.text)}<div class="ci-meta">${x.unsupported ? esc3(t("combatUnsupported")) : esc3(x.basis.join("\uFF1B"))}</div></li>`).join("")}</ol>` + (r.states.length ? `<div><b>${esc3(t("combatStates"))}\uFF1A</b>${esc3(r.states.join("\uFF1B"))}</div>` : "") + (r.stands.length ? `<div class="ci-muted">${esc3(t("combatStands"))}${r.stands.map((s) => `\xAB${esc3(s)}\xBB`).join(" ")}</div>` : "") + (!r.over && r.stopAt ? `<div class="ci-muted">${esc3(t("combatStop"))}${esc3(r.stopAt)}</div>` : "") + (r.filled.length ? `<div class="ci-muted">${esc3(t("combatFilled"))}${esc3(r.filled.join("\uFF1B"))}</div>` : "") + (r.notes.length ? `<div class="ci-muted">${esc3(t("combatNotes"))}${esc3(r.notes.join("\uFF1B"))}</div>` : "");
+    const key2 = `cbr-${r.when}-${r.exchanges.length}`;
+    return `<div class="ci-item" data-key="${esc3(key2)}"><div class="ci-head">${head}</div>${i === 0 ? `<div class="ci-body">${inner}</div>` : fold(`${key2}-f`, t("combatExchanges").replace("{n}", String(r.exchanges.length)), inner)}</div>`;
+  };
+  const people = v.people.filter((p) => q ? p.name.toLowerCase().includes(q) : p.relevant);
+  const keys = ["start", "force", "response", "limit", "stop"];
+  const person = (p) => {
+    const states = p.states.length ? `<table class="ci-kv">${p.states.map((s) => `<tr><td>${esc3(s.text)}${s.count !== null ? ` \xD7${s.count}` : ""}</td><td class="ci-meta">${s.until ? esc3(t("combatUntil").replace("{t}", s.until)) : ""}</td><td class="ci-meta">${src(s.source)}</td><td class="ci-meta">${btn2("\u2715", `data-act="cb-state-del" data-entity="${esc3(p.id)}" data-text="${esc3(s.text)}" title="${esc3(t("combatStateDel"))}"`)}</td></tr>`).join("")}</table>` : `<div class="ci-muted">${esc3(t("combatNoStates"))}</div>`;
+    const add2 = fold(`cba-${p.id}`, t("combatAddStateFold"), `<input class="text_pole cb-st-text" placeholder="${esc3(t("combatStateText"))}"><div class="ci-cbrow"><input class="text_pole cb-st-count" type="number" min="0" placeholder="${esc3(t("combatCount"))}"><input class="text_pole cb-st-min" type="number" min="1" placeholder="${esc3(t("combatMinutes"))}"></div><div class="ci-actions">${btn2(t("combatAddState"), `data-act="cb-state-add" data-entity="${esc3(p.id)}"`, "primary")}</div>`);
+    const style = fold(`cbs-${p.id}`, p.style ? t("combatStyle") : `${t("combatStyle")}\uFF08${t("combatNoStyle")}\uFF09`, keys.map((k) => `<label class="ci-lbl">${esc3(t("style_" + k))}</label><textarea class="text_pole cb-sty-${k}" rows="2">${esc3(p.style?.[k] || "")}</textarea>`).join("") + `<div class="ci-actions">${p.style ? src(p.style.source) : ""}<span class="ci-sp"></span>${btn2(t("combatStyleSave"), `data-act="cb-style-save" data-entity="${esc3(p.id)}"`, "primary")}</div>`, "ci-edit");
+    const links = p.links.length ? `<div class="ci-meta"><b>${esc3(t("combatLinks"))}\uFF1A</b>${p.links.map((l) => `${esc3(l.label)} ${esc3(l.name)}${l.source !== "pack" ? `\uFF08${esc3(t("combatSrc_" + l.source))}\uFF09` : ""}`).join("\uFF1B")}</div>` : "";
+    const pick = !v.fight.ongoing ? `<label class="ci-check ci-cbpick" title="${esc3(t("combatPickTip"))}"><input type="checkbox" class="cb-pick" data-entity="${esc3(p.id)}" ${picked.has(p.id) ? "checked" : ""}><span>${esc3(t("combatPick"))}</span></label>` : "";
+    const head = `<span class="ci-title">${esc3(p.name)}</span>${p.player ? chip2(t("naturePlayer"), "accent") : ""}${p.fighting ? chip2(t("combatFighting"), "bad") : ""}<span class="ci-sp"></span>${pick}`;
+    return `<div class="ci-item ci-cbperson" data-key="cbp-${esc3(p.id)}" data-entity="${esc3(p.id)}"><div class="ci-head">${head}</div><div class="ci-body">${states}${links}</div>${add2}${style}</div>`;
+  };
+  const note = `<div class="ci-muted">${esc3(t(q ? "combatPeopleFound" : "combatPeopleNote").replace("{n}", String(people.length)).replace("{all}", String(v.people.length)))}</div>`;
+  const secs = [{ id: "cb-now", label: t("combatNow") }, { id: "cb-rulings", label: t("combatRulings") }, { id: "cb-people", label: t("combatPeople") }];
+  const html = sec("cb-now", t("combatNow"), `${fight}<div class="ci-muted"><b>${esc3(t("combatBasis"))}\uFF1A</b>${esc3(v.basis)}</div>`, tip2("combatTip"), "ci-keep") + sec("cb-rulings", t("combatRulings"), v.rulings.length ? v.rulings.map(ruling).join("") : empty(t("combatNoRulings"))) + sec("cb-people", t("combatPeople"), note + people.map(person).join("") + (v.hidden ? `<div class="ci-muted">${esc3(t("combatHidden").replace("{n}", String(v.hidden)))}</div>` : ""));
+  return { html, secs };
+}
+function combatChange(b, picked) {
+  const act = b.dataset.act, entity = b.dataset.entity || "";
+  const box = b.closest(".ci-cbperson");
+  const val = (sel) => (box?.querySelector(sel)?.value || "").trim();
+  let change = null;
+  if (act === "cb-fight-off") change = { fight: { ongoing: false } };
+  else if (act === "cb-fight-on") change = { fight: { ongoing: true, participants: [...picked] } };
+  else if (act === "cb-state-del") change = { status: { entity, text: b.dataset.text || "", removed: true } };
+  else if (act === "cb-state-add" && val(".cb-st-text")) change = { status: { entity, text: val(".cb-st-text"), count: val(".cb-st-count") ? Number(val(".cb-st-count")) : null, minutes: val(".cb-st-min") ? Number(val(".cb-st-min")) : null } };
+  else if (act === "cb-style-save") change = { style: { entity, style: { start: val(".cb-sty-start"), force: val(".cb-sty-force"), response: val(".cb-sty-response"), limit: val(".cb-sty-limit"), stop: val(".cb-sty-stop") } } };
+  return change;
+}
+
 // src/core/ui/inspector.ts
 var esc4 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-var chip2 = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc4(s)}</span>`;
-var btn2 = (label, attrs, tone = "") => `<button class="menu_button ci-btn${tone ? ` ci-btn-${tone}` : ""}" ${attrs}>${esc4(label)}</button>`;
-var sec = (id, label, inner, extra = "", tipHtml = "") => `<section class="ci-sec" data-sec="${id}"><h4 class="ci-sec-h"><span>${esc4(label)}</span>${tipHtml}<span class="ci-sp"></span>${extra}</h4>${inner}</section>`;
+var chip3 = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc4(s)}</span>`;
+var btn3 = (label, attrs, tone = "") => `<button class="menu_button ci-btn${tone ? ` ci-btn-${tone}` : ""}" ${attrs}>${esc4(label)}</button>`;
+var sec2 = (id, label, inner, extra = "", tipHtml = "") => `<section class="ci-sec" data-sec="${id}"><h4 class="ci-sec-h"><span>${esc4(label)}</span>${tipHtml}<span class="ci-sp"></span>${extra}</h4>${inner}</section>`;
 var item = (key2, head, body = "", foot = "") => `<div class="ci-item" data-key="${esc4(key2)}"><div class="ci-head">${head}</div>${body ? `<div class="ci-body">${body}</div>` : ""}${foot}</div>`;
-var fold = (key2, label, inner, cls = "") => `<details class="ci-fold${cls ? ` ${cls}` : ""}" data-key="${esc4(key2)}"><summary>${esc4(label)}</summary><div class="ci-fold-in">${inner}</div></details>`;
+var fold2 = (key2, label, inner, cls = "") => `<details class="ci-fold${cls ? ` ${cls}` : ""}" data-key="${esc4(key2)}"><summary>${esc4(label)}</summary><div class="ci-fold-in">${inner}</div></details>`;
 var muted = (s) => `<div class="ci-muted">${s}</div>`;
-var empty = () => `<div class="ci-empty">${esc4(t("ciNone"))}</div>`;
+var empty2 = () => `<div class="ci-empty">${esc4(t("ciNone"))}</div>`;
 var addrRow = (f) => `<div class="ci-addr-row"><input class="text_pole ci-addr-term" placeholder="${esc4(t("tieAddrTerm"))}" value="${esc4(f?.term || "")}"><select class="text_pole ci-addr-use">${["always", "usually", "sometimes"].map((u) => `<option value="${u}" ${(f?.use || "usually") === u ? "selected" : ""}>${esc4(t("addrUse_" + u))}</option>`).join("")}</select><input class="text_pole ci-addr-when" placeholder="${esc4(t("tieAddrWhen"))}" value="${esc4(f?.when || "")}"><button class="menu_button ci-btn" data-act="addr-del" title="${esc4(t("wsDelete"))}">\u2715</button></div>`;
-var sideForm = (key2, label, s) => `<fieldset class="ci-side" data-side="${key2}"><legend>${esc4(label)}</legend><label class="ci-lbl">${esc4(t("tieSees"))}</label><textarea class="text_pole ci-side-sees" rows="2">${esc4(s?.sees || "")}</textarea><label class="ci-lbl">${esc4(t("tieAddress"))}</label><div class="ci-addr">${(s?.address || []).map(addrRow).join("")}</div>${btn2(t("tieAddrAdd"), 'data-act="addr-add"')}</fieldset>`;
+var sideForm = (key2, label, s) => `<fieldset class="ci-side" data-side="${key2}"><legend>${esc4(label)}</legend><label class="ci-lbl">${esc4(t("tieSees"))}</label><textarea class="text_pole ci-side-sees" rows="2">${esc4(s?.sees || "")}</textarea><label class="ci-lbl">${esc4(t("tieAddress"))}</label><div class="ci-addr">${(s?.address || []).map(addrRow).join("")}</div>${btn3(t("tieAddrAdd"), 'data-act="addr-add"')}</fieldset>`;
 function createInspector(d) {
   let el = null;
   let tab = "overview";
@@ -43212,6 +43209,7 @@ function createInspector(d) {
   const filters = /* @__PURE__ */ new Map();
   const scrolls = /* @__PURE__ */ new Map();
   const opened = /* @__PURE__ */ new Set();
+  const cbPicked = /* @__PURE__ */ new Set();
   const E2 = () => d.engine();
   const camp = () => E2().campaign();
   const width = () => {
@@ -43240,25 +43238,25 @@ function createInspector(d) {
     if (v.recovery.status !== "ok") todo.push(`<div class="ci-todo ci-bad">${esc4(v.recovery.status)} ${esc4(v.recovery.reason || "")}</div>`);
     const tile = (label, value, sub = "") => `<div class="ci-tile"><div class="ci-tile-l">${esc4(label)}</div><div class="ci-tile-v">${esc4(value)}</div>${sub ? `<div class="ci-tile-s">${esc4(sub)}</div>` : ""}</div>`;
     const tiles = `<div class="ci-tiles">${tile(t("ciTime"), v.time)}${tile(t("ciPack"), v.title, `hash ${v.packHash}`)}${tile(t("ciRevision"), `rev ${v.revision}`, `branch ${v.branchId.slice(0, 12)}`)}${tile(t("ciCounts"), `${v.occurrences.length} \xB7 ${v.facts.length}`, t("ciCountsSub"))}</div>`;
-    const notices = v.notices.slice().reverse().map((n, i) => item(`notice-${i}`, `${chip2(n.level === "error" ? t("ciError") : n.level === "warn" ? t("ciWarn") : t("ciInfo"), n.level === "error" ? "bad" : n.level === "warn" ? "warn" : "")}`, esc4(n.text)));
+    const notices = v.notices.slice().reverse().map((n, i) => item(`notice-${i}`, `${chip3(n.level === "error" ? t("ciError") : n.level === "warn" ? t("ciWarn") : t("ciInfo"), n.level === "error" ? "bad" : n.level === "warn" ? "warn" : "")}`, esc4(n.text)));
     void spoilers;
     return {
-      html: tiles + sec("todo", t("ciTodo"), todo.length ? `<div class="ci-todos">${todo.join("")}</div>` : `<div class="ci-empty">${esc4(t("ciAllClear"))}</div>`) + sec("notices", t("ciNotices"), notices.join("") || empty()),
+      html: tiles + sec2("todo", t("ciTodo"), todo.length ? `<div class="ci-todos">${todo.join("")}</div>` : `<div class="ci-empty">${esc4(t("ciAllClear"))}</div>`) + sec2("notices", t("ciNotices"), notices.join("") || empty2()),
       secs: []
     };
   }
   function identity(ni) {
     let html = "";
-    if (ni.personaChanged) html += `<div class="ci-banner ci-warn"><b>${esc4(t("niChanged"))}</b><div class="ci-actions">${btn2(t("niUpdate"), 'data-act="ni-update"', "primary")}${btn2(t("niKeep"), 'data-act="ni-keep"')}</div></div>`;
-    else if (ni.profileOld) html += `<div class="ci-banner ci-warn"><b>${esc4(t("niOld"))}</b><div class="ci-actions">${btn2(t("niUpdate"), 'data-act="ni-update"', "primary")}</div></div>`;
+    if (ni.personaChanged) html += `<div class="ci-banner ci-warn"><b>${esc4(t("niChanged"))}</b><div class="ci-actions">${btn3(t("niUpdate"), 'data-act="ni-update"', "primary")}${btn3(t("niKeep"), 'data-act="ni-keep"')}</div></div>`;
+    else if (ni.profileOld) html += `<div class="ci-banner ci-warn"><b>${esc4(t("niOld"))}</b><div class="ci-actions">${btn3(t("niUpdate"), 'data-act="ni-update"', "primary")}</div></div>`;
     const p = ni.profile;
     if (!p) return { html: html + `<div class="ci-empty">${esc4(t("niNoProfile"))}</div>`, secs: [] };
-    html += `<div class="ci-hero"><div class="ci-hero-name">${esc4(p.name)}</div><div>${esc4(p.summary)}</div>${p.publicIdentity ? muted(esc4(p.publicIdentity)) : ""}${muted(esc4(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev))))}${ni.personaChanged || ni.profileOld ? "" : `<div class="ci-actions">${btn2(t("niReread"), `data-act="ni-update" title="${esc4(t("niRereadTip"))}"`)}</div>`}</div>`;
+    html += `<div class="ci-hero"><div class="ci-hero-name">${esc4(p.name)}</div><div>${esc4(p.summary)}</div>${p.publicIdentity ? muted(esc4(p.publicIdentity)) : ""}${muted(esc4(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev))))}${ni.personaChanged || ni.profileOld ? "" : `<div class="ci-actions">${btn3(t("niReread"), `data-act="ni-update" title="${esc4(t("niRereadTip"))}"`)}</div>`}</div>`;
     const secs = [];
     const list = (id, label, rows) => {
       if (!rows.length) return "";
       secs.push({ id, label });
-      return sec(id, label, rows.map((r, i) => item(`${id}-${i}`, `<span class="ci-text">${esc4(r)}</span>`)).join(""));
+      return sec2(id, label, rows.map((r, i) => item(`${id}-${i}`, `<span class="ci-text">${esc4(r)}</span>`)).join(""));
     };
     html += list("orgs", t("niOrgs"), p.affiliations) + list("places", t("niPlaces"), p.places) + list("roles", t("niRoles"), p.roles || []) + list("notsuited", t("niNotSuited"), p.notSuited || []) + list("voice", t("niVoice"), p.voice ? [p.voice] : []) + list("nature", t("niNature"), p.nature || []) + list("defenses", t("niDefenses"), p.defenses ? [p.defenses] : []) + list("recognized", t("niRecognized"), p.recognized || []) + list("lore", t("niLore"), p.lore || []) + list("notes", t("niNotes"), p.notes);
     return { html, secs };
@@ -43266,39 +43264,39 @@ function createInspector(d) {
   function ties(ni) {
     const p = ni.profile;
     if (!p) return { html: `<div class="ci-empty">${esc4(t("niNoProfile"))}</div>`, secs: [] };
-    const src = (x) => `${chip2(t(`tieSrc_${x.by}`), x.by === "ui" ? "accent" : "")}${x.since ? `<span class="ci-meta">${esc4(t("tieSince").replace("{t}", x.since))}</span>` : ""}`;
+    const src = (x) => `${chip3(t(`tieSrc_${x.by}`), x.by === "ui" ? "accent" : "")}${x.since ? `<span class="ci-meta">${esc4(t("tieSince").replace("{t}", x.since))}</span>` : ""}`;
     const extra = (x) => `${x.start ? muted(`${esc4(t("tieStart"))}: ${esc4(x.start)}`) : ""}${x.quote ? `<div class="ci-quote">\u201C${esc4(x.quote)}\u201D</div>` : ""}`;
     const ids = (kind, x, i) => `data-kind="${kind}" data-i="${i}" data-who="${esc4(x.who || "")}" data-name="${esc4(x.name)}"`;
     const levels = (cur, attr) => `<select class="text_pole canon-tie-level" ${attr}>${["exists", "identity", "secrets"].map((l) => `<option value="${l}" ${l === cur ? "selected" : ""}>${esc4(t(`tieLevel_${l}`))}</option>`).join("")}</select>`;
-    const saveDel = (attr) => `<div class="ci-actions">${btn2(t("wsSave"), `data-act="tie-save" ${attr}`, "primary")}${btn2(t("wsDelete"), `data-act="tie-del" ${attr}`, "danger")}</div>`;
-    const relForm = (a, r) => `<div class="ci-relform" ${a}>` + (r ? "" : `<input class="text_pole canon-tie-name" ${a} placeholder="${esc4(t("tieName"))}">`) + `<label class="ci-lbl">${esc4(t("tieBond"))}</label><textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc4(t("tieRelText"))}">${esc4(r?.text || "")}</textarea>` + sideForm("they", r ? t("tieTheySide").replace("{n}", r.name) : t("tieTheySideNew"), r?.they || null) + sideForm("me", r ? t("tieMeSide").replace("{n}", r.name) : t("tieMeSideNew"), r?.me || null) + `<label class="ci-lbl">${esc4(t("tieTogether"))}</label><textarea class="text_pole ci-rel-together" rows="2">${esc4(r?.together || "")}</textarea><label class="checkbox_label ci-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r?.ended ? "checked" : ""}><span>${esc4(t("tieEnded"))}</span></label>` + (r ? saveDel(a) : `<div class="ci-actions">${btn2(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`) + "</div>";
+    const saveDel = (attr) => `<div class="ci-actions">${btn3(t("wsSave"), `data-act="tie-save" ${attr}`, "primary")}${btn3(t("wsDelete"), `data-act="tie-del" ${attr}`, "danger")}</div>`;
+    const relForm = (a, r) => `<div class="ci-relform" ${a}>` + (r ? "" : `<input class="text_pole canon-tie-name" ${a} placeholder="${esc4(t("tieName"))}">`) + `<label class="ci-lbl">${esc4(t("tieBond"))}</label><textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc4(t("tieRelText"))}">${esc4(r?.text || "")}</textarea>` + sideForm("they", r ? t("tieTheySide").replace("{n}", r.name) : t("tieTheySideNew"), r?.they || null) + sideForm("me", r ? t("tieMeSide").replace("{n}", r.name) : t("tieMeSideNew"), r?.me || null) + `<label class="ci-lbl">${esc4(t("tieTogether"))}</label><textarea class="text_pole ci-rel-together" rows="2">${esc4(r?.together || "")}</textarea><label class="checkbox_label ci-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r?.ended ? "checked" : ""}><span>${esc4(t("tieEnded"))}</span></label>` + (r ? saveDel(a) : `<div class="ci-actions">${btn3(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`) + "</div>";
     const sideText = (label, s) => s && (s.sees || s.address.length) ? `<div class="ci-meta"><b>${esc4(label)}\uFF1A</b>${s.address.length ? `${esc4(t("relAddress"))}${esc4(addressText(s.address))}${s.sees ? "\uFF1B" : ""}` : ""}${esc4(s.sees)}</div>` : "";
     const rel = p.relationships.map((r, i) => {
       const a = ids("relation", r, i);
       const body = `${esc4(r.text)}${r.org ? `<span class="ci-meta">${esc4(r.org)}</span>` : ""}` + sideText(t("tieTheySide").replace("{n}", r.name), r.they) + sideText(t("tieMeSide").replace("{n}", r.name), r.me) + (r.together ? `<div class="ci-meta"><b>${esc4(t("tieTogether"))}\uFF1A</b>${esc4(r.together)}</div>` : "") + extra(r);
       return item(
         `rel-${r.name}`,
-        `<span class="ci-title">${esc4(r.name)}</span>${r.ended ? chip2(t("tieEnded"), "muted") : ""}${src(r)}`,
+        `<span class="ci-title">${esc4(r.name)}</span>${r.ended ? chip3(t("tieEnded"), "muted") : ""}${src(r)}`,
         body,
-        r.person ? fold(`rel-edit-${r.name}`, t("tieEdit"), relForm(a, r), "ci-edit") : muted(esc4(t("tieNotPerson")))
+        r.person ? fold2(`rel-edit-${r.name}`, t("tieEdit"), relForm(a, r), "ci-edit") : muted(esc4(t("tieNotPerson")))
       );
     });
     const kn = p.knowers.map((k, i) => {
       const a = ids("knows", k, i);
       return item(
         `kn-${k.name}`,
-        `<span class="ci-title">${esc4(k.name)}</span>${chip2(t(`tieLevel_${k.level}`), k.level === "secrets" ? "warn" : "")}${src(k)}`,
+        `<span class="ci-title">${esc4(k.name)}</span>${chip3(t(`tieLevel_${k.level}`), k.level === "secrets" ? "warn" : "")}${src(k)}`,
         `${esc4(k.text)}${extra(k)}`,
-        fold(`kn-edit-${k.name}`, t("tieEdit"), `${levels(k.level, a)}<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc4(k.text)}</textarea>${saveDel(a)}`, "ci-edit")
+        fold2(`kn-edit-${k.name}`, t("tieEdit"), `${levels(k.level, a)}<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc4(k.text)}</textarea>${saveDel(a)}`, "ci-edit")
       );
     });
     const add2 = (kind) => {
       const a = `data-kind="${kind}" data-i="new"`;
-      if (kind === "relation") return fold("add-relation", t("tieAddRel"), relForm(a, null), "ci-add");
-      return fold("add-knows", t("tieAddKnower"), `<input class="text_pole canon-tie-name" ${a} placeholder="${esc4(t("tieName"))}">${levels("identity", a)}<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc4(t("tieKnowsText"))}"></textarea><div class="ci-actions">${btn2(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`, "ci-add");
+      if (kind === "relation") return fold2("add-relation", t("tieAddRel"), relForm(a, null), "ci-add");
+      return fold2("add-knows", t("tieAddKnower"), `<input class="text_pole canon-tie-name" ${a} placeholder="${esc4(t("tieName"))}">${levels("identity", a)}<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc4(t("tieKnowsText"))}"></textarea><div class="ci-actions">${btn3(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`, "ci-add");
     };
     return {
-      html: sec("rel", t("niConnections"), (rel.join("") || empty()) + add2("relation"), "", d.tip("tieTip")) + sec("knows", t("niWho"), (kn.join("") || empty()) + add2("knows")),
+      html: sec2("rel", t("niConnections"), (rel.join("") || empty2()) + add2("relation"), "", d.tip("tieTip")) + sec2("knows", t("niWho"), (kn.join("") || empty2()) + add2("knows")),
       secs: [{ id: "rel", label: t("niConnections") }, { id: "knows", label: t("niWho") }]
     };
   }
@@ -43307,47 +43305,47 @@ function createInspector(d) {
     const groups = /* @__PURE__ */ new Map();
     for (const k of ni.contacts.slice().reverse()) groups.set(k.scope, [...groups.get(k.scope) || [], k]);
     const POS = ["accepted", "joined", "reopened", "answered", "limited"], NEG = ["declined", "deferred", "refused", "ooc_suppress"];
-    const ans = (k, stance, label, tone = "") => btn2(t(label), `data-act="ni-answer" data-rec="${esc4(k.recordId)}" data-stance="${stance}"`, tone);
+    const ans = (k, stance, label, tone = "") => btn3(t(label), `data-act="ni-answer" data-rec="${esc4(k.recordId)}" data-stance="${stance}"`, tone);
     const line = (k) => `<div class="ci-meta">${esc4(k.time)} \xB7 ${esc4(k.kind)}${k.by.length ? ` \xB7 ${esc4(k.by.join(", "))}` : ""}</div><div class="ci-quote">\u201C${esc4(k.quote)}\u201D</div>`;
     const need = [], rest = [];
     for (const [k, ...older] of groups.values()) {
       const a = k.answer;
       const waiting = !a && !k.inPlay && !k.lapsed;
-      const status = k.lapsed ? chip2(t("niJobLapsed"), "muted") : a ? chip2(t(`niStance_${a}`), a === "done" ? "muted" : POS.includes(a) ? "ok" : "bad") : k.inPlay ? chip2(t("niAnswerInPlay"), "ok") : ni.unanswered.includes(k.recordId) ? chip2(t("niUnanswered"), "accent") : "";
+      const status = k.lapsed ? chip3(t("niJobLapsed"), "muted") : a ? chip3(t(`niStance_${a}`), a === "done" ? "muted" : POS.includes(a) ? "ok" : "bad") : k.inPlay ? chip3(t("niAnswerInPlay"), "ok") : ni.unanswered.includes(k.recordId) ? chip3(t("niUnanswered"), "accent") : "";
       const actions = k.lapsed || a === "done" ? "" : a && POS.includes(a) ? ans(k, "done", "niDone", "primary") : a && NEG.includes(a) ? ans(k, "accepted", "niAcceptAgain") : `${ans(k, "accepted", "niAccept", "primary")}${ans(k, "declined", "niDecline")}`;
       const card2 = item(
         `c-${k.scope}`,
-        `<span class="ci-title">${esc4(k.label)}</span>${k.sideJob ? chip2(t("niSideJob")) : ""}${status}<span class="ci-sp"></span><span class="ci-actions">${actions}</span>`,
+        `<span class="ci-title">${esc4(k.label)}</span>${k.sideJob ? chip3(t("niSideJob")) : ""}${status}<span class="ci-sp"></span><span class="ci-actions">${actions}</span>`,
         line(k),
-        older.length ? fold(`c-old-${k.scope}`, t("niOlderContacts").replace("{n}", String(older.length)), older.map(line).join('<hr class="ci-hr">')) : ""
+        older.length ? fold2(`c-old-${k.scope}`, t("niOlderContacts").replace("{n}", String(older.length)), older.map(line).join('<hr class="ci-hr">')) : ""
       );
       (waiting ? need : rest).push(card2);
     }
     let html = `<div class="ci-bar">${jobs}</div>`;
     const secs = [];
-    html += sec("need", t("ciNeedAnswer"), need.join("") || `<div class="ci-empty">${esc4(t("ciAllClear"))}</div>`);
+    html += sec2("need", t("ciNeedAnswer"), need.join("") || `<div class="ci-empty">${esc4(t("ciAllClear"))}</div>`);
     secs.push({ id: "need", label: t("ciNeedAnswer") });
     const ho = hostilityHtml(E2().hostilityView(), { dangers: E2().settings.dangers !== false, level: E2().settings.dangerLevel || "medium" }, d.tip);
-    html += sec("hostile", t("hoTitle"), `<div class="ci-bar">${ho.bar}</div>${ho.body}`, "", d.tip("hoTip"));
+    html += sec2("hostile", t("hoTitle"), `<div class="ci-bar">${ho.bar}</div>${ho.body}`, "", d.tip("hoTip"));
     secs.push({ id: "hostile", label: t("hoTitle") });
-    html += sec("all", t("ciOtherContacts"), rest.join("") || empty());
+    html += sec2("all", t("ciOtherContacts"), rest.join("") || empty2());
     secs.push({ id: "all", label: t("ciOtherContacts") });
     if (ni.suggestions) {
       const sg = /* @__PURE__ */ new Map();
       for (const s of ni.suggestions) sg.set(s.scope, [...sg.get(s.scope) || [], s]);
-      const sLine = (s) => `<div>${s.sideJob ? chip2(t("niSideJob")) : ""}${esc4(s.by.join(", "))}: ${esc4(s.contact)} <span class="ci-meta">${esc4(s.kind)}${s.direct ? " \xB7 direct" : ""}</span></div>`;
-      const avoid = (s) => btn2(t(s.avoided ? "niUnavoid" : "niAvoid"), `data-act="ni-avoid" data-scope="${esc4(s.scope)}" title="${esc4(t(s.avoided ? "niUnavoidTip" : "niAvoidTip"))}"`);
-      const pref = (s) => (s.current ? chip2(t("niCurrent"), "accent") : `${s.preferred ? chip2(t("niPreferred"), "ok") : ""}${s.avoided ? chip2(t("niAvoided"), "warn") : ""}<span class="ci-sp"></span>${s.avoided ? "" : btn2(t(s.preferred ? "niUnprefer" : "niPrefer"), `data-act="ni-prefer" data-scope="${esc4(s.scope)}" title="${esc4(t(s.preferred ? "niUnpreferTip" : "niPreferTip"))}"`)}`) + avoid(s);
-      html += sec(
+      const sLine = (s) => `<div>${s.sideJob ? chip3(t("niSideJob")) : ""}${esc4(s.by.join(", "))}: ${esc4(s.contact)} <span class="ci-meta">${esc4(s.kind)}${s.direct ? " \xB7 direct" : ""}</span></div>`;
+      const avoid = (s) => btn3(t(s.avoided ? "niUnavoid" : "niAvoid"), `data-act="ni-avoid" data-scope="${esc4(s.scope)}" title="${esc4(t(s.avoided ? "niUnavoidTip" : "niAvoidTip"))}"`);
+      const pref = (s) => (s.current ? chip3(t("niCurrent"), "accent") : `${s.preferred ? chip3(t("niPreferred"), "ok") : ""}${s.avoided ? chip3(t("niAvoided"), "warn") : ""}<span class="ci-sp"></span>${s.avoided ? "" : btn3(t(s.preferred ? "niUnprefer" : "niPrefer"), `data-act="ni-prefer" data-scope="${esc4(s.scope)}" title="${esc4(t(s.preferred ? "niUnpreferTip" : "niPreferTip"))}"`)}`) + avoid(s);
+      html += sec2(
         "sugg",
         t("niSuggestions"),
-        [...sg.values()].map(([s, ...more]) => item(`s-${s.scope}`, `<span class="ci-title">${esc4(s.about)}</span>${pref(s)}`, sLine(s), more.length ? fold(`s-more-${s.scope}`, t("niMoreSuggestions").replace("{n}", String(more.length)), more.map(sLine).join("")) : "")).join("") || empty(),
-        btn2(t("niRefresh"), `data-act="ni-refresh" title="${esc4(t("niRefreshTip"))}"`)
+        [...sg.values()].map(([s, ...more]) => item(`s-${s.scope}`, `<span class="ci-title">${esc4(s.about)}</span>${pref(s)}`, sLine(s), more.length ? fold2(`s-more-${s.scope}`, t("niMoreSuggestions").replace("{n}", String(more.length)), more.map(sLine).join("")) : "")).join("") || empty2(),
+        btn3(t("niRefresh"), `data-act="ni-refresh" title="${esc4(t("niRefreshTip"))}"`)
       );
       secs.push({ id: "sugg", label: t("ciSugg") });
     }
     if (ni.dropped?.length) {
-      html += sec("dropped", t("niDropped"), ni.dropped.map((x, i) => item(`dr-${i}`, `<span class="ci-title">${esc4(x.id)}</span>`, esc4(x.reason))).join(""));
+      html += sec2("dropped", t("niDropped"), ni.dropped.map((x, i) => item(`dr-${i}`, `<span class="ci-title">${esc4(x.id)}</span>`, esc4(x.reason))).join(""));
       secs.push({ id: "dropped", label: t("niDropped") });
     }
     return { html, secs };
@@ -43362,18 +43360,18 @@ function createInspector(d) {
       const x = ds.find((y) => y.active) || ds[0];
       const older = ds.filter((y) => y !== x);
       const neg = negative.has(x.stance);
-      const force = x.active && neg ? chip2(t(x.binding ? x.stance === "ooc_suppress" ? "niBindingOoc" : "niBinding" : "niWish"), x.binding ? "bad" : "warn") : "";
-      const acts = x.active && neg ? `${x.stance === "ooc_suppress" ? "" : btn2(t(x.strong ? "niWeak" : "niStrong"), `data-act="${x.strong ? "ni-weak" : "ni-strong"}" data-kind="${esc4(x.scopeKind)}" data-ref="${esc4(x.scopeRef)}" title="${esc4(t(x.strong ? "niWeakTip" : "niStrongTip"))}"`)}${btn2(t("niReopen"), `data-act="ni-reopen" data-kind="${esc4(x.scopeKind)}" data-ref="${esc4(x.scopeRef)}" data-label="${esc4(x.label)}"`)}` : "";
+      const force = x.active && neg ? chip3(t(x.binding ? x.stance === "ooc_suppress" ? "niBindingOoc" : "niBinding" : "niWish"), x.binding ? "bad" : "warn") : "";
+      const acts = x.active && neg ? `${x.stance === "ooc_suppress" ? "" : btn3(t(x.strong ? "niWeak" : "niStrong"), `data-act="${x.strong ? "ni-weak" : "ni-strong"}" data-kind="${esc4(x.scopeKind)}" data-ref="${esc4(x.scopeRef)}" title="${esc4(t(x.strong ? "niWeakTip" : "niStrongTip"))}"`)}${btn3(t("niReopen"), `data-act="ni-reopen" data-kind="${esc4(x.scopeKind)}" data-ref="${esc4(x.scopeRef)}" data-label="${esc4(x.label)}"`)}` : "";
       const card2 = item(
         `d-${x.scope}`,
-        `<span class="ci-title">${esc4(x.label)}</span>${chip2(t(`niStance_${x.stance}`), neg ? "bad" : "ok")}${force}<span class="ci-sp"></span><span class="ci-actions">${acts}</span>`,
+        `<span class="ci-title">${esc4(x.label)}</span>${chip3(t(`niStance_${x.stance}`), neg ? "bad" : "ok")}${force}<span class="ci-sp"></span><span class="ci-actions">${acts}</span>`,
         dLine(x),
-        older.length ? fold(`d-old-${x.scope}`, t("niOlderDecisions").replace("{n}", String(older.length)), older.map(dLine).join('<hr class="ci-hr">')) : ""
+        older.length ? fold2(`d-old-${x.scope}`, t("niOlderDecisions").replace("{n}", String(older.length)), older.map(dLine).join('<hr class="ci-hr">')) : ""
       );
       (x.active ? active : past).push(card2);
     }
     return {
-      html: sec("active", t("niActive"), active.join("") || empty(), "", d.tip("niDecisionsTip")) + (past.length ? sec("past", t("ciPast"), past.join("")) : ""),
+      html: sec2("active", t("niActive"), active.join("") || empty2(), "", d.tip("niDecisionsTip")) + (past.length ? sec2("past", t("ciPast"), past.join("")) : ""),
       secs: past.length ? [{ id: "active", label: t("niActive") }, { id: "past", label: t("ciPast") }] : []
     };
   }
@@ -43382,40 +43380,40 @@ function createInspector(d) {
     if (!w) return { html: `<div class="ci-empty">${esc4(t("niOff"))}</div>`, secs: [] };
     const spoilers = !!camp()?.uiPreferences.spoilers;
     const secs = [];
-    const recheck = btn2(t("wsRecheck"), `data-act="ws-recheck" title="${esc4(t("wsRecheckTip"))}"`, "primary");
-    const changes = w.changes.map((c, i) => item(`wc-${i}`, `${chip2(t(`wsSrc_${c.source}`))}<span class="ci-text">${esc4(c.text)}</span>`, c.terms.length ? muted(`${esc4(t("wsTerms"))}: ${esc4(c.terms.join("\u3001"))}`) : ""));
-    const manual = fold("ws-manual", t("wsManual"), `<textarea class="text_pole canon-ws-manual" rows="3">${esc4(w.manual.join("\n"))}</textarea><div class="ci-actions">${btn2(t("wsSave"), 'data-act="ws-manual"', "primary")}</div>`, "ci-add");
+    const recheck = btn3(t("wsRecheck"), `data-act="ws-recheck" title="${esc4(t("wsRecheckTip"))}"`, "primary");
+    const changes = w.changes.map((c, i) => item(`wc-${i}`, `${chip3(t(`wsSrc_${c.source}`))}<span class="ci-text">${esc4(c.text)}</span>`, c.terms.length ? muted(`${esc4(t("wsTerms"))}: ${esc4(c.terms.join("\u3001"))}`) : ""));
+    const manual = fold2("ws-manual", t("wsManual"), `<textarea class="text_pole canon-ws-manual" rows="3">${esc4(w.manual.join("\n"))}</textarea><div class="ci-actions">${btn3(t("wsSave"), 'data-act="ws-manual"', "primary")}</div>`, "ci-add");
     const checked = w.checked ? muted(esc4(t("wsChecked").replace("{lore}", String(w.checked.lore)).replace("{ent}", String(w.checked.entities)).replace("{ev}", String(w.checked.events))) + (w.checked.generic.length ? ` ${esc4(t("wsGeneric"))}${esc4(w.checked.generic.join("\u3001"))}` : "")) : "";
     let html = `<div class="ci-bar">${muted(esc4(t("wsIntro")))}</div>`;
-    html += sec("changes", t("ciWsChanges"), (changes.join("") || `<div class="ci-empty">${esc4(t("wsNoChanges"))}</div>`) + manual + checked, recheck);
+    html += sec2("changes", t("ciWsChanges"), (changes.join("") || `<div class="ci-empty">${esc4(t("wsNoChanges"))}</div>`) + manual + checked, recheck);
     secs.push({ id: "changes", label: t("ciWsChanges") });
     if (w.checked) {
       if (!w.loreHook && w.overrides.some((o) => o.kind === "lore")) html += `<div class="ci-banner ci-warn">${esc4(t("wsNoHook"))}</div>`;
       if (w.unchecked.length) {
-        html += sec("unchecked", t("wsUnchecked").replace("{n}", String(w.unchecked.length)), `<div class="ci-banner ci-warn">${esc4(w.unchecked[0].why)}</div>` + w.unchecked.map((r, i) => item(`wu-${i}`, `<span class="ci-title">${esc4(r.title)}</span>${chip2(t(`wsKind_${r.kind}`))}`)).join(""));
+        html += sec2("unchecked", t("wsUnchecked").replace("{n}", String(w.unchecked.length)), `<div class="ci-banner ci-warn">${esc4(w.unchecked[0].why)}</div>` + w.unchecked.map((r, i) => item(`wu-${i}`, `<span class="ci-title">${esc4(r.title)}</span>${chip3(t(`wsKind_${r.kind}`))}`)).join(""));
         secs.push({ id: "unchecked", label: t("ciWsUnchecked") });
       }
       const hidden = w.overrides.filter((o) => o.future && !spoilers).length;
       const shown = w.overrides.filter((o) => !o.future || spoilers);
       const ov = shown.map((o) => item(
         `wo-${o.id}`,
-        `<span class="ci-title">${esc4(o.title)}${o.name ? ` \u2192 ${esc4(o.name)}` : ""}</span>${chip2(t(`wsKind_${o.kind}`))}${chip2(t(o.action === "disable" ? "wsDisable" : "wsReplace"), o.action === "disable" ? "bad" : "accent")}${o.edited ? chip2(t("wsEdited"), "ok") : ""}${o.stale ? chip2(t("wsStale"), "warn") : ""}${o.book ? `<span class="ci-meta">${esc4(o.book)}</span>` : ""}`,
+        `<span class="ci-title">${esc4(o.title)}${o.name ? ` \u2192 ${esc4(o.name)}` : ""}</span>${chip3(t(`wsKind_${o.kind}`))}${chip3(t(o.action === "disable" ? "wsDisable" : "wsReplace"), o.action === "disable" ? "bad" : "accent")}${o.edited ? chip3(t("wsEdited"), "ok") : ""}${o.stale ? chip3(t("wsStale"), "warn") : ""}${o.book ? `<span class="ci-meta">${esc4(o.book)}</span>` : ""}`,
         o.reason ? esc4(o.reason) : "",
-        fold(`wo-cmp-${o.id}`, `${t("wsOriginal")} / ${t("wsThisGame")}`, `<div class="ci-cmp"><div><div class="ci-cmp-l">${esc4(t("wsOriginal"))}</div>${esc4(o.original)}</div><div><div class="ci-cmp-l">${esc4(t("wsThisGame"))}</div>${esc4(o.action === "disable" ? "\u2014" : o.content)}</div></div>`) + fold(`wo-edit-${o.id}`, t("tieEdit"), `<textarea class="text_pole canon-ws-edit" data-id="${esc4(o.id)}" rows="5" title="${esc4(t("wsEditTip"))}">${esc4(o.content)}</textarea><div class="ci-actions">${btn2(t("wsSave"), `data-act="ws-save" data-id="${esc4(o.id)}"`, "primary")}${btn2(t("wsDelete"), `data-act="ws-del" data-id="${esc4(o.id)}"`, "danger")}</div>`, "ci-edit")
+        fold2(`wo-cmp-${o.id}`, `${t("wsOriginal")} / ${t("wsThisGame")}`, `<div class="ci-cmp"><div><div class="ci-cmp-l">${esc4(t("wsOriginal"))}</div>${esc4(o.original)}</div><div><div class="ci-cmp-l">${esc4(t("wsThisGame"))}</div>${esc4(o.action === "disable" ? "\u2014" : o.content)}</div></div>`) + fold2(`wo-edit-${o.id}`, t("tieEdit"), `<textarea class="text_pole canon-ws-edit" data-id="${esc4(o.id)}" rows="5" title="${esc4(t("wsEditTip"))}">${esc4(o.content)}</textarea><div class="ci-actions">${btn3(t("wsSave"), `data-act="ws-save" data-id="${esc4(o.id)}"`, "primary")}${btn3(t("wsDelete"), `data-act="ws-del" data-id="${esc4(o.id)}"`, "danger")}</div>`, "ci-edit")
       ));
-      html += sec("overrides", t("wsOverrides"), (ov.join("") || (!hidden ? `<div class="ci-empty">${esc4(t("wsNone"))}</div>` : "")) + (hidden ? muted(esc4(t("wsFutureHidden").replace("{n}", String(hidden)))) : ""));
+      html += sec2("overrides", t("wsOverrides"), (ov.join("") || (!hidden ? `<div class="ci-empty">${esc4(t("wsNone"))}</div>` : "")) + (hidden ? muted(esc4(t("wsFutureHidden").replace("{n}", String(hidden)))) : ""));
       secs.push({ id: "overrides", label: t("ciWsOverrides") });
       if (w.additions.length) {
-        html += sec("additions", t("wsAdditions"), w.additions.map((a) => item(
+        html += sec2("additions", t("wsAdditions"), w.additions.map((a) => item(
           `wa-${a.id}`,
-          `<span class="ci-title">${esc4(a.title)}</span>${a.edited ? chip2(t("wsEdited"), "ok") : ""}<span class="ci-meta">${esc4(a.keys.join("\u3001"))}</span>`,
+          `<span class="ci-title">${esc4(a.title)}</span>${a.edited ? chip3(t("wsEdited"), "ok") : ""}<span class="ci-meta">${esc4(a.keys.join("\u3001"))}</span>`,
           a.reason ? esc4(a.reason) : "",
-          fold(`wa-edit-${a.id}`, t("wsThisGame"), `<textarea class="text_pole canon-ws-edit" data-id="${esc4(a.id)}" rows="5">${esc4(a.content)}</textarea><div class="ci-actions">${btn2(t("wsSave"), `data-act="ws-save" data-id="${esc4(a.id)}"`, "primary")}${btn2(t("wsDelete"), `data-act="ws-del" data-id="${esc4(a.id)}"`, "danger")}</div>`, "ci-edit")
+          fold2(`wa-edit-${a.id}`, t("wsThisGame"), `<textarea class="text_pole canon-ws-edit" data-id="${esc4(a.id)}" rows="5">${esc4(a.content)}</textarea><div class="ci-actions">${btn3(t("wsSave"), `data-act="ws-save" data-id="${esc4(a.id)}"`, "primary")}${btn3(t("wsDelete"), `data-act="ws-del" data-id="${esc4(a.id)}"`, "danger")}</div>`, "ci-edit")
         )).join(""));
         secs.push({ id: "additions", label: t("ciWsAdditions") });
       }
       if (w.rejected.length) {
-        html += sec("rejected", t("wsRejected").replace("{n}", String(w.rejected.length)), w.rejected.map((r, i) => item(`wr-${i}`, `<span class="ci-title">${esc4(r.title)}</span>${chip2(t(`wsKind_${r.kind}`))}`, `${esc4(r.why)}${r.reason ? muted(esc4(r.reason)) : ""}`)).join(""));
+        html += sec2("rejected", t("wsRejected").replace("{n}", String(w.rejected.length)), w.rejected.map((r, i) => item(`wr-${i}`, `<span class="ci-title">${esc4(r.title)}</span>${chip3(t(`wsKind_${r.kind}`))}`, `${esc4(r.why)}${r.reason ? muted(esc4(r.reason)) : ""}`)).join(""));
         secs.push({ id: "rejected", label: t("ciWsRejected") });
       }
     }
@@ -43434,24 +43432,24 @@ function createInspector(d) {
     };
     const cards = [...by].sort((a, b) => a[0].localeCompare(b[0])).map(([e, fs]) => item(
       `f-${e}`,
-      `<span class="ci-title">${esc4(e)}</span>${chip2(String(fs.length), "muted")}`,
+      `<span class="ci-title">${esc4(e)}</span>${chip3(String(fs.length), "muted")}`,
       `<table class="ci-kv">${fs.map((f) => `<tr title="${esc4(f.source)}"><th>${esc4(f.predicate)}</th><td>${esc4(val(f.value))}</td><td class="ci-meta">${esc4(f.since)}</td></tr>`).join("")}</table>`
     ));
-    return { html: cards.join("") || empty(), secs: [] };
+    return { html: cards.join("") || empty2(), secs: [] };
   }
   function history(v) {
-    return { html: v.occurrences.slice().reverse().map((o) => item(`h-${o.id}`, `<span class="ci-meta ci-when">${esc4(o.before ? t("ciUndated").replace("{t}", o.before) : o.time)}</span><span class="ci-title">${esc4(o.title)}</span>${chip2(o.origin, o.origin === "player" ? "accent" : "muted")}`, esc4(o.account))).join("") || empty(), secs: [] };
+    return { html: v.occurrences.slice().reverse().map((o) => item(`h-${o.id}`, `<span class="ci-meta ci-when">${esc4(o.before ? t("ciUndated").replace("{t}", o.before) : o.time)}</span><span class="ci-title">${esc4(o.title)}</span>${chip3(o.origin, o.origin === "player" ? "accent" : "muted")}`, esc4(o.account))).join("") || empty2(), secs: [] };
   }
   function deviations(v) {
-    return { html: v.deviations.map((x) => item(`dv-${x.id}`, `<span class="ci-title">${esc4(x.title)}</span>${chip2(x.disposition, "warn")}`, esc4(x.reason))).join("") || empty(), secs: [] };
+    return { html: v.deviations.map((x) => item(`dv-${x.id}`, `<span class="ci-title">${esc4(x.title)}</span>${chip3(x.disposition, "warn")}`, esc4(x.reason))).join("") || empty2(), secs: [] };
   }
   function anchors(v, spoilers) {
     const tone = (s) => s === "occurred" ? "ok" : s === "pending" ? "muted" : s === "due" ? "accent" : "warn";
-    return { html: v.anchors.map((a) => item(`an-${a.id}`, `<span class="ci-title">${esc4(spoilers ? a.title : "\u2022\u2022\u2022")}</span>${chip2(a.status, tone(a.status))}<span class="ci-meta">${esc4(a.when)}</span>`, esc4(a.required))).join("") || empty(), secs: [] };
+    return { html: v.anchors.map((a) => item(`an-${a.id}`, `<span class="ci-title">${esc4(spoilers ? a.title : "\u2022\u2022\u2022")}</span>${chip3(a.status, tone(a.status))}<span class="ci-meta">${esc4(a.when)}</span>`, esc4(a.required))).join("") || empty2(), secs: [] };
   }
   function debug(v) {
     const c = camp();
-    const block = (key2, label, text) => fold(`dbg-${key2}`, label, `<pre class="ci-pre">${esc4(text)}</pre>`);
+    const block = (key2, label, text) => fold2(`dbg-${key2}`, label, `<pre class="ci-pre">${esc4(text)}</pre>`);
     return {
       html: block("turn", "Last turn", E2().lastReport || "\u2014") + block("op", "Last operation", JSON.stringify(v.lastTrace, null, 1)) + block("prompt", "Final draft prompt (as sent)", JSON.stringify(d.lastDraftPrompt(), null, 1)) + block("manifests", "Coverage manifests", JSON.stringify(v.manifests, null, 1)) + block("raw", "Raw campaign JSON", JSON.stringify({ ...c, packSnapshot: "[omitted]" }, null, 1).slice(0, 2e5)),
       secs: []
@@ -43470,6 +43468,7 @@ function createInspector(d) {
       ] }] : [],
       { label: t("ciNavWorld"), items: [
         ...ni ? [["world", t("wsTitle"), w?.unchecked.length ? badge(w.unchecked.length, "warn") : badge(w?.overrides.length || 0, "muted")]] : [],
+        ["combat", t("combat"), badge(E2().fighting(), "bad")],
         ["facts", t("tabFacts"), badge(v?.facts.length || 0, "muted")],
         ["history", t("tabHistory"), badge(v?.occurrences.length || 0, "muted")],
         ["deviations", t("tabDeviations"), badge(v?.deviations.length || 0, "muted")],
@@ -43495,6 +43494,8 @@ function createInspector(d) {
         return decisions(ni);
       case "world":
         return world();
+      case "combat":
+        return combatHtml(E2().combatView(spoilers), filters.get("combat") || "", cbPicked, d.tip);
       case "facts":
         return facts(v);
       case "history":
@@ -43521,7 +43522,7 @@ function createInspector(d) {
       it.hidden = !on;
       if (on) shown++;
     }
-    for (const s of el.querySelectorAll(".ci-page .ci-sec")) s.hidden = !!q && !s.querySelector(".ci-item:not([hidden])");
+    for (const s of el.querySelectorAll(".ci-page .ci-sec:not(.ci-keep)")) s.hidden = !!q && !s.querySelector(".ci-item:not([hidden])");
     const n = el.querySelector(".ci-count");
     if (n) n.textContent = q ? `${shown}/${items2.length}` : "";
     el.querySelector(".ci-nomatch")?.toggleAttribute("hidden", !(q && !shown && items2.length));
@@ -43607,7 +43608,8 @@ function createInspector(d) {
       const f = ev.target;
       if (f.classList.contains("ci-filter")) {
         filters.set(tab, f.value);
-        applyFilter();
+        if (tab === "combat") render(true);
+        else applyFilter();
       }
     });
     el.addEventListener("keydown", (ev) => {
@@ -43702,6 +43704,18 @@ function createInspector(d) {
         run(E0.editHostility(change).then((ok) => {
           if (!ok) d.toast("warning", t("hoNotFound"));
         }), () => opened.delete(`${tab}|ho-add`));
+      } else if (act?.startsWith("cb-")) {
+        const change = combatChange(b, cbPicked);
+        if (!change) {
+          b.disabled = false;
+          d.toast("warning", t("combatNeedText"));
+          return;
+        }
+        run(E0.editCombat(change), () => {
+          if ("fight" in change) cbPicked.clear();
+          const det = b.closest("details[data-key]");
+          if (det) opened.delete(`${tab}|${det.dataset.key}`);
+        });
       } else if (act === "ni-answer") run(E0.answerContact(b.dataset.rec || "", b.dataset.stance));
       else if (act === "ni-update") {
         b.textContent = t("niBusy");
@@ -43713,6 +43727,11 @@ function createInspector(d) {
     el.addEventListener("change", (ev) => {
       const tg = ev.target;
       const c = camp();
+      if (tg.classList.contains("cb-pick") && tg.dataset.entity) {
+        if (tg.checked) cbPicked.add(tg.dataset.entity);
+        else cbPicked.delete(tg.dataset.entity);
+        return;
+      }
       if (tg.dataset.act === "spoilers" && c) {
         c.uiPreferences.spoilers = tg.checked;
         render(true);
@@ -44556,12 +44575,12 @@ var StModel = class {
           } catch (e) {
             const msg = e.message;
             if (opts.signal?.aborted) throw e;
-            const empty2 = /No message generated/i.test(msg);
-            if (hasBackup && !empty2 && !isTransient(msg)) {
+            const empty3 = /No message generated/i.test(msg);
+            if (hasBackup && !empty3 && !isTransient(msg)) {
               why = `error: ${msg.slice(0, 200)}`;
               break;
             }
-            if (!empty2) throw e;
+            if (!empty3) throw e;
             if (hasBackup && attempt >= 2) {
               why = `empty reply ${attempt} times`;
               break;
@@ -45102,37 +45121,25 @@ function mountTopButton() {
     } catch {
       return null;
     }
-  }, () => {
-    try {
-      return E.combatView(!!E.campaign()?.uiPreferences.spoilers);
-    } catch {
-      return null;
-    }
-  }, async (change) => {
-    try {
-      await E.editCombat(change);
-    } catch (e) {
-      toast("error", e.message);
-    }
   });
   graphPanel.onPreviewEnd = () => {
     packPreview = null;
   };
   const holder = document.getElementById("top-settings-holder");
-  const btn3 = document.createElement("div");
-  btn3.id = "canon-engine-top-button";
-  btn3.className = "drawer";
-  btn3.innerHTML = `<div class="drawer-toggle drawer-header canon-top-toggle"><div class="drawer-icon fa-solid fa-diagram-project fa-fw closedIcon" title="${t("graphTitle")}"></div></div>`;
-  btn3.querySelector(".canon-top-toggle").addEventListener("click", (ev) => {
+  const btn4 = document.createElement("div");
+  btn4.id = "canon-engine-top-button";
+  btn4.className = "drawer";
+  btn4.innerHTML = `<div class="drawer-toggle drawer-header canon-top-toggle"><div class="drawer-icon fa-solid fa-diagram-project fa-fw closedIcon" title="${t("graphTitle")}"></div></div>`;
+  btn4.querySelector(".canon-top-toggle").addEventListener("click", (ev) => {
     ev.stopPropagation();
     graphPanel.toggle();
-    btn3.querySelector(".drawer-icon").classList.toggle("openIcon", graphPanel.isOpen());
-    btn3.querySelector(".drawer-icon").classList.toggle("closedIcon", !graphPanel.isOpen());
+    btn4.querySelector(".drawer-icon").classList.toggle("openIcon", graphPanel.isOpen());
+    btn4.querySelector(".drawer-icon").classList.toggle("closedIcon", !graphPanel.isOpen());
   });
   const before = document.getElementById("persona-management-button") || document.getElementById("rightNavHolder");
-  if (holder && before?.parentElement === holder) holder.insertBefore(btn3, before);
-  else if (holder) holder.appendChild(btn3);
-  else document.body.appendChild(btn3);
+  if (holder && before?.parentElement === holder) holder.insertBefore(btn4, before);
+  else if (holder) holder.appendChild(btn4);
+  else document.body.appendChild(btn4);
 }
 function openGraph() {
   graphPanel?.toggle(true);
@@ -45328,11 +45335,11 @@ function renderSettings() {
     if (!profileOk) chat.push(`<div class="canon-note warn">${t("needProfileTurns")}</div>`);
     if (E.packMissing()) chat.push(`<div class="canon-note err">${t("packMissing")}</div><div class="canon-btns"><button class="menu_button" data-act="update">${t("packRelink")}</button></div>`);
     else if (E.packOutdated()) chat.push(`<div class="canon-note err">${t("packOutdated")}</div><div class="canon-btns"><button class="menu_button" data-act="update">${t("updatePack")}</button></div>`);
-    const btn3 = (act, label, tipKey, cls = "") => `<button class="menu_button ${cls}" data-act="${act}" title="${esc5(t(tipKey))}">${label}</button>`;
+    const btn4 = (act, label, tipKey, cls = "") => `<button class="menu_button ${cls}" data-act="${act}" title="${esc5(t(tipKey))}">${label}</button>`;
     chat.push(`<div class="canon-btns">
-      ${btn3("inspect", t("inspect"), "inspectTip")}${btn3("retry", t("retry"), "retryTip")}${btn3("rebuild", t("rebuild"), "rebuildTip")}</div>
-      <div class="canon-btns">${btn3("export", t("exportBackup"), "exportTip")}${btn3("import", t("importBackup"), "importTip")}${btn3("update", t("updatePack"), "updateTip")}</div>
-      <div class="canon-btns">${btn3("toggle", camp.enabled ? t("disable") : t("reenable"), "toggleTip")}${btn3("unbind", t("unbindShort"), "unbindTip", "canon-danger")}</div>`);
+      ${btn4("inspect", t("inspect"), "inspectTip")}${btn4("retry", t("retry"), "retryTip")}${btn4("rebuild", t("rebuild"), "rebuildTip")}</div>
+      <div class="canon-btns">${btn4("export", t("exportBackup"), "exportTip")}${btn4("import", t("importBackup"), "importTip")}${btn4("update", t("updatePack"), "updateTip")}</div>
+      <div class="canon-btns">${btn4("toggle", camp.enabled ? t("disable") : t("reenable"), "toggleTip")}${btn4("unbind", t("unbindShort"), "unbindTip", "canon-danger")}</div>`);
     if (lib.length) chat.push(`<details class="canon-lib"><summary>${t("library")} (${lib.length}) ${tip("libraryTip")}</summary>${libRows("update")}</details>`);
   }
   out.push(card(t("secChat"), "secChatTip", chat.join("")));
