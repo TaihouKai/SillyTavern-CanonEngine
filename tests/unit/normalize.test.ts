@@ -88,4 +88,11 @@ describe('schema-driven normalization', () => {
     expect(p.seen).toBe(1);
     expect(out.occurrences[0].time).toEqual({ ...t, precision: 'approx' });
   });
+  it('N10 a field written one level too high is moved into the one top-level object that has it (live: profile "public_identity")', async () => {
+    const p = port([{ player: { name: 'S', aliases: [], summary: 'x' }, public_identity: 'a student', affiliations: [], relationships: [], knowers: [] }]);
+    const out = await callStructured<any>(p, 'profile', 'sys', {});
+    expect(p.seen).toBe(1);
+    expect(out.player.public_identity).toBe('a student');
+    expect('public_identity' in out).toBe(false);
+  });
 });

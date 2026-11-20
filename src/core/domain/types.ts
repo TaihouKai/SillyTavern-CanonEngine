@@ -437,7 +437,11 @@ export interface StatusChange { entity: Id; text: string; count?: number | null;
 export interface StyleChange { entity: Id; style: Pick<CombatStyleVersion, 'start' | 'force' | 'response' | 'limit' | 'stop'>; source: CombatSource }
 /** A fight under way or over, with who is in it. player: the player's message started it; engine: a reply or ruling
  *  found it so; ui: the player's correction in the panel (just the state from then on, no lock). */
-export interface FightChange { ongoing: boolean; participants: Id[]; source: 'player' | 'engine' | 'ui'; why?: string }
+export interface FightChange { ongoing: boolean; participants: Id[]; source: 'player' | 'engine' | 'ui'; why?: string;
+  /** People of the world the player's message described without naming them: how it called them, and why. */
+  identified?: { id: Id; as: string; why: string }[];
+  /** Things of the setting at work in the fight (a device, an object used, a field on the place): the walk starts from them too. */
+  things?: { node: Id; why: string }[] }
 /** Who saw an ability (or a part of it) used: they know it from then on. */
 export interface Witnessed { node: Id; part?: AbilityPart | null; who: Id[] }
 

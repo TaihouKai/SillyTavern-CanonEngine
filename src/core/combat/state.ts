@@ -104,9 +104,19 @@ export function styleOf(L: LoadedPack, state: WorldState, entity: Id): { style: 
 
 /** Whether a fight is under way now, and who is in it (the latest change: a player's correction in the panel is just
  *  the state from then on). */
-export function fightNow(state: WorldState): { ongoing: boolean; participants: Id[]; source: 'player' | 'engine' | 'ui' | null; since: number | null } {
-  const f = state.combat.fights[state.combat.fights.length - 1];
-  return f ? { ongoing: f.ongoing, participants: f.participants, source: f.source, since: f.tick } : { ongoing: false, participants: [], source: null, since: null };
+export function fightNow(state: WorldState): { ongoing: boolean; participants: Id[]; source: 'player' | 'engine' | 'ui' | null; since: number | null; identified: { id: Id; as: string; why: string }[]; things: { node: Id; why: string }[] } {
+  const fs = state.combat.fights;
+  const f = fs[fs.length - 1];
+  if (!f) return { ongoing: false, participants: [], source: null, since: null, identified: [], things: [] };
+  // who the player's words were found to mean and what is at work in it, over this fight's records (a later change
+  // keeps the earlier findings)
+  const identified: { id: Id; as: string; why: string }[] = [];
+  const things: { node: Id; why: string }[] = [];
+  for (let i = fs.length - 1; i >= 0 && fs[i].ongoing; i--) {
+    for (const x of fs[i].identified || []) if (f.participants.includes(x.id) && !identified.some((y) => y.id === x.id)) identified.push(x);
+    for (const x of fs[i].things || []) if (!things.some((y) => y.node === x.node)) things.push(x);
+  }
+  return { ongoing: f.ongoing, participants: f.participants, source: f.source, since: f.tick, identified, things: f.ongoing ? things.reverse() : [] };
 }
 
 /** Whether `who` knows a node, or a part of an ability: public; their own (linked to them now); named as a knower; or
@@ -145,6 +155,8 @@ export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts:
   };
   for (const e of starts) {
     let frontier: Id[] = [];
+    // a thing at work in the fight (a node): itself first
+    if (L.combat.nodes.has(e)) { reach(e, 1, e, e, null); frontier.push(e); }
     for (const l of linksOf(L, state, e, tick)) { if (opts.objective && l.source === 'fill') continue; reach(l.node, 1, e, e, l.label); frontier.push(l.node); }
     for (const p of L.combat.precedentsOf.get(e) || []) { reach(p, 1, e, e, null); frontier.push(p); }
     for (let d = 2; d <= opts.maxDepth && frontier.length; d++) {

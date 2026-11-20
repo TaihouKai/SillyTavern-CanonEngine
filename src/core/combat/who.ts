@@ -1,0 +1,139 @@
+// 战斗: what the player's message brings into a fight that the setting knows, though the message does not name it.
+// - Someone brought in without a name ("a red-haired girl with a flashlight") may be a person of the world. Live,
+//   three were (a teleporter, the fourth and the second Level 5) and were judged as ordinary strangers, so nothing
+//   the setting says about them reached the ruling.
+// - Something in the scene that no fighter has may be in the setting ("a piercing noise" was a device that stops
+//   espers' powers): it is part of the fight from then on, and the walk starts from it too.
+// The code picks the people and the things of the setting whose texts share the most with the message's words, and
+// a focused call says which of them are meant (combat_who). A stranger the player made up stays a stranger.
+import type { Id } from '../domain/types';
+import { normalizeName } from '../domain/pack';
+import type { WorldIndex } from '../domain/world-query';
+import { quoteInText, uniq } from '../domain/util';
+import type { LoreEntry } from '../runtime/lore';
+import { callStructured, type ModelPort } from '../runtime/model';
+import { PROMPTS } from '../runtime/prompts';
+import { loreAbout } from './judge';
+import type { FightOut } from './message';
+import { fightNow, linksOf } from './state';
+
+const PER_PERSON = 8;
+const MAX_CANDIDATES = 16;
+const PER_THING = 4;
+const MAX_THINGS = 8;
+
+interface WhoOut { people: { name: string; id: string | null; why?: string }[]; things?: { id: string; why?: string }[] }
+
+/** Character pairs of a text (letters and digits only): what two texts share, in any script. */
+function grams(s: string): Set<string> {
+  const t = s.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ');
+  const out = new Set<string>();
+  for (const w of t.split(' ')) for (let i = 0; i + 1 < w.length; i++) out.add(w.slice(i, i + 2));
+  return out;
+}
+
+/** The ids whose texts share the most character pairs with the words (rarer pairs count more; byLength: for the
+ *  size of the text), best first. */
+function ranked(texts: Map<Id, Set<string>>, words: string, n: number, byLength = false): Id[] {
+  const df = new Map<string, number>();
+  for (const g of texts.values()) for (const x of g) df.set(x, (df.get(x) || 0) + 1);
+  const N = texts.size || 1;
+  const q = grams(words);
+  return [...texts.entries()].map(([id, g]) => {
+    let s = 0;
+    for (const x of q) if (g.has(x)) s += Math.log(1 + N / (df.get(x) || 1));
+    return { id, s: byLength ? s / Math.sqrt(g.size || 1) : s };
+  }).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).slice(0, n).map((x) => x.id);
+}
+
+/** What the setting and the lorebook say about a person, as one text. */
+function personText(index: WorldIndex, id: Id, lore: LoreEntry[]): string {
+  const L = index.pack;
+  const e = L.entities.get(id)!;
+  const n = index.natureNow(id)?.version;
+  const nodes = linksOf(L, index.state, id).map((l) => L.combat.nodes.get(l.node)).filter((x) => !!x).map((x) => `${x!.name} ${x!.gist}`);
+  const lo = loreAbout(lore, [e.name, ...(e.aliases || [])]).slice(0, 2).map((x) => x.content.slice(0, 1500));
+  return [e.name, ...(e.aliases || []), e.static_description || '', n ? `${n.habits || ''} ${n.uses || ''} ${n.others || ''}` : '', ...nodes, ...lo].join('\n');
+}
+
+/** The people of the world most like the words about each described newcomer, with the ones near the story now
+ *  (`near`) always in. */
+export function whoCandidates(index: WorldIndex, words: string[], lore: LoreEntry[], near: Id[] = []): Id[] {
+  const L = index.pack;
+  const texts = new Map([...L.entities.values()].filter((e) => e.kind === 'person').map((e) => [e.id, grams(personText(index, e.id, lore))]));
+  const picked = words.flatMap((w) => ranked(texts, w, PER_PERSON));
+  const nearPeople = near.filter((id) => L.entities.get(id)?.kind === 'person');
+  return uniq([...nearPeople.slice(0, MAX_CANDIDATES / 2), ...picked]).slice(0, MAX_CANDIDATES);
+}
+
+/** The setting's abilities and dangers most like each thing the message shows (its words and what it is), that none
+ *  of the fighters has (what they have comes with them), nor the fight already. */
+export function thingCandidates(index: WorldIndex, things: string[], fighters: Id[], inFight: Id[] = []): Id[] {
+  const L = index.pack;
+  if (!things.length) return [];
+  const theirs = new Set(fighters.flatMap((f) => linksOf(L, index.state, f).map((l) => l.node)));
+  const texts = new Map([...L.combat.nodes.values()].filter((n) => (n.kind === 'ability' || n.kind === 'danger') && !theirs.has(n.id) && !inFight.includes(n.id)).map((n) => [n.id, grams(`${n.name} ${n.gist} ${n.text} ${(n.parts || []).map((x) => x.text).join(' ')}`)]));
+  // (a long text would win by its length alone)
+  return uniq(things.flatMap((w) => ranked(texts, w, PER_THING, true))).slice(0, MAX_THINGS);
+}
+
+/** Says which of the fight's new people are people of the world, and which things of the setting the message shows
+ *  in it; writes both into the fight in place (identified people leave new_people). Returns notes for the turn's
+ *  warnings. A failed call leaves the fight as it was. */
+export async function identifyInFight(a: {
+  port: ModelPort; index: WorldIndex; fight: FightOut | null | undefined; text: string; timeLabel: string;
+  lore: LoreEntry[]; near: Id[]; signal?: AbortSignal; operationId: string; log?: (l: unknown) => void;
+}): Promise<string[]> {
+  const f = a.fight;
+  const L = a.index.pack;
+  if (!f || (f.state !== 'starts' && f.state !== 'continues') || L.combat.none !== null) return [];
+  const now = fightNow(a.index.state);
+  const fresh = (f.new_people || []).filter((p) => String(p.name || '').trim() && quoteInText(p.quote, a.text) && a.index.resolveEntity(p.name).ids.length !== 1);
+  const fighters = uniq([...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...(f.state === 'continues' && now.ongoing ? now.participants : [])]);
+  const people = fresh.length ? whoCandidates(a.index, fresh.map((p) => `${p.name} ${p.description || ''} ${p.quote}`), a.lore, a.near).filter((id) => !fighters.includes(id)) : [];
+  const seen = (f.things || []).filter((t) => quoteInText(t.quote, a.text)).map((t) => `${t.what || ''} ${t.quote}`);
+  const things = thingCandidates(a.index, seen, [...fighters, ...people], now.ongoing ? now.things.map((t) => t.node) : []);
+  if (!people.length && !things.length) return [];
+  const notes: string[] = [];
+  let out: WhoOut;
+  try {
+    out = await callStructured<WhoOut>(a.port, 'combat_who', PROMPTS.combat_who, {
+      message: a.text, time: a.timeLabel,
+      fighters: fighters.map((id) => `${id} | ${a.index.entityName(id)}`),
+      new_people: fresh.map((p) => ({ name: p.name, description: p.description || '', words: p.quote })),
+      candidates: people.map((id) => {
+        const e = L.entities.get(id)!; const n = a.index.natureNow(id)?.version;
+        const lore = loreAbout(a.lore, [e.name, ...(e.aliases || [])])[0];
+        return {
+          id, name: e.name, aliases: (e.aliases || []).slice(0, 6), description: (e.static_description || '').slice(0, 300),
+          ...(n?.habits ? { habits: n.habits.slice(0, 300) } : {}),
+          abilities: linksOf(L, a.index.state, id).map((l) => L.combat.nodes.get(l.node)).filter((x) => x && x.kind === 'ability').slice(0, 6).map((x) => `${x!.name}: ${x!.gist}`.slice(0, 160)),
+          ...(lore ? { lorebook: lore.content.slice(0, 500) } : {}),
+        };
+      }),
+      ...(things.length ? { seen: (f.things || []).map((t) => ({ words: t.quote, what: t.what })), things: things.map((id) => { const n = L.combat.nodes.get(id)!; return `${id} | ${n.name} | ${n.gist}`; }) } : {}),
+    }, { signal: a.signal, operationId: a.operationId, log: a.log });
+  } catch (e) {
+    if (a.signal?.aborted) throw e;
+    return [`fight: who and what the message brings in was not decided (${String((e as Error).message || e).slice(0, 160)})`];
+  }
+  const taken = new Set<Id>();
+  for (const r of out.people || []) {
+    const p = fresh.find((x) => normalizeName(x.name) === normalizeName(r.name || ''));
+    if (!p || !r.id) continue;
+    if (!people.includes(r.id) || taken.has(r.id)) { notes.push(`fight: "${r.name}" said to be "${r.id}", not a candidate (kept as a newcomer)`); continue; }
+    taken.add(r.id);
+    f.participants = (f.participants || []).map((x) => (normalizeName(String(x)) === normalizeName(p.name) ? r.id! : x));
+    if (!f.participants.includes(r.id)) f.participants.push(r.id);
+    f.new_people = (f.new_people || []).filter((x) => x !== p);
+    f.identified = [...(f.identified || []), { id: r.id, as: p.name, why: String(r.why || '').slice(0, 300) }];
+    notes.push(`fight: "${p.name}" is ${L.entities.get(r.id)!.name} (${String(r.why || '').slice(0, 160)})`);
+  }
+  for (const t of out.things || []) {
+    if (!things.includes(t.id)) { if (t.id) notes.push(`fight: "${t.id}" is not one of the things offered (left out)`); continue; }
+    if (f.nodes?.some((x) => x.node === t.id)) continue;
+    f.nodes = [...(f.nodes || []), { node: t.id, why: String(t.why || '').slice(0, 300) }];
+    notes.push(`fight: ${L.combat.nodes.get(t.id)!.name} is in it (${String(t.why || '').slice(0, 160)})`);
+  }
+  return notes;
+}

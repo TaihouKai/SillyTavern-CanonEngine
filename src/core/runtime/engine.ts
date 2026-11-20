@@ -28,7 +28,7 @@ import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './a
 import { settleRelations } from './relate';
 import { NSFW_SECTION } from '../nsfw';
 import { dangerSources, grudgesForReview, grudgesNow, hostileDue, hostileSection, hostilityPanelRecord, hostilityView, type DangerLevel, type HostileDue, type HostilityChange, type HostilityViewData } from '../hostility';
-import { DEFAULT_COMBAT, combatBeforeReply, combatReview, combatView, fightFromMessage, fightNow, fightNowInput, judgeFight, panelRecord, rulingForReview, rulingRecord, statesSection, type CombatChange, type CombatViewData, type FightOut, type Ruling } from '../combat';
+import { DEFAULT_COMBAT, combatBeforeReply, combatReview, combatView, fightFromMessage, fightNow, fightNowInput, identifyInFight, judgeFight, panelRecord, rulingForReview, rulingRecord, statesSection, type CombatChange, type CombatViewData, type FightOut, type Ruling } from '../combat';
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
@@ -82,7 +82,7 @@ export interface EngineSettings {
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
 const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + String(text || '').length * 4));
 
-const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change', combat: 'judging the fight', combat_fill: 'what the fighters are' };
+const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change', combat: 'judging the fight', combat_fill: 'what the fighters are', combat_who: 'who the fighters are' };
 
 /** Length and provider stats of the published reply, shown after the turn timings. */
 export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
@@ -868,7 +868,12 @@ export class CanonEngine {
         intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
       }
     }
-    // 战斗: the fight as this message starts, goes on with or ends it (combat/message.ts)
+    // 战斗: the fight as this message starts, goes on with or ends it (combat/message.ts); someone it brings in without
+    // a name may be a person of the world, something in it a thing of the setting (combat/who.ts)
+    warnings.push(...await identifyInFight({
+      port: this.host.model, index, fight: out.fight, text: entry.text, timeLabel: formatTick(tick, origin), lore: await this.gameLore(),
+      near: (extractInput.registry.entities as string[]).map((l) => l.split(' | ')[0]), signal, operationId, log: (l) => this.debugLog('task', l),
+    }));
     const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
     records.push(...fight.records);
     warnings.push(...fight.warnings);

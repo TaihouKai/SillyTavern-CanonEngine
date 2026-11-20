@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.46.0 — 2026-11-21
+
+- **Someone you describe without a name can be who you mean.** Live tests found three canon characters entered as anonymous strangers. Each was described by look and ability, not by name: a red-haired girl with a military flashlight (结标淡希), a woman firing a beam (麦野沈利), and a man with white wings bending sunlight (垣根帝督). The ruling then treated them as an ordinary person, a generic esper and a generic angel, and nothing the setting says about them reached it. Now, when your message brings an unnamed person into a fight:
+  - the code picks the people of the world whose setting text and lorebook entries share the most with your words;
+  - a short call (「who the fighters are」) says whether one of them is meant: their look, ability or equipment, plus the time and place.
+
+  A stranger you made up stays a stranger, and a common look alone never makes someone known. The 战斗 banner shows who was found and how your message called them; hover the name for the reason.
+- **Something at work in a fight is part of it.** A piercing noise that gave your character a splitting headache was the setting's 能力下降 (Capacity Down), but the ruling never saw it: the ruling only drew on what the fighters and the place are linked to. The reading of your message now also lists what is at work in the fight besides the fighters: a device running, an object someone uses, an effect on the place. The same call says which of the setting's things it is. That thing stays in the fight until the fight ends, the ruling's walk starts from it as well, and the 战斗 banner lists it (「在起作用的」).
+- **A wound no longer hands you the attacker's ability.** A dart that 白井黑子 teleported into your leg linked 金属箭矢传送 to your character, as if you could use it. A state may name a thing of the setting only when it gives the fighter something to use (a weapon picked up, a form taken). A state that names another fighter's ability is not linked.
+- **A headache from a noise lasts while the noise does.** The ruling had given it five minutes. A state caused by something that is still going on now lasts until that cause stops.
+- **Reading the Persona no longer fails on a misplaced field.** The model sometimes wrote 「public_identity」 next to 「player」 instead of inside it. This was refused three times in a row, and the turn failed. A field written one level too high, when exactly one place can hold it, is now moved there. A refused field is also named when the model is asked again, so it can fix it.
+
 ## 1.45.1 — 2026-11-21
 
 - **The setting graph starts somewhere that makes sense.** In a new game, your character is linked to nothing in the setting yet. The graph then fell back to the first concept by name (阿涅泽部队 in the Toaru pack). Its default centre is now the setting's core: the node most linked with other nodes (a concept first). In the Toaru pack that is 能力者, linked with 29 other nodes. The four most linked nodes are also among the 「从这里看」 chips. As before, once you or anyone fighting is linked to something, the graph starts from them.

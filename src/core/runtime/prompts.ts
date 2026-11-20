@@ -1,7 +1,7 @@
 // Internal task instructions and the scoped GM integration instruction (GM_INTEGRATION_RULES §2).
 
 import { voiceRule } from './voice';
-import { COMBAT_FILL_TASK, COMBAT_TASK, EVAL_COMBAT, EXTRACT_FIGHT } from '../combat/prompts';
+import { COMBAT_FILL_TASK, COMBAT_TASK, COMBAT_WHO_TASK, EVAL_COMBAT, EXTRACT_FIGHT } from '../combat/prompts';
 import { EVAL_HOSTILITY } from '../hostility/prompts';
 
 /** How long a recorded fact holds (src/core/runtime/ends.ts reads it; one missing is asked again). */
@@ -35,7 +35,7 @@ engagement: the player's stance on being drawn into something the world offers �
 ooc_parts, when given, are the parts of the message the player marked as out of character: never asserted_fact, attempted_action, spoken_dialogue, belief or hypothetical — classify them as ooc_direction, ooc_config_request, time_proposal or engagement (e.g. ooc_suppress, or an out-of-character "I won't join X").
 Also list references to entities or past events (direct, indirect like "the man I rescued", aliases, pronouns) with candidate ids, and scene_entities the user's action involves.
 ${EXTRACT_FIGHT}
-SHAPE: {"statements":[{"kind":"asserted_fact|attempted_action|spoken_dialogue|belief|hypothetical|ooc_direction|ooc_config_request|time_proposal|participation_decline|engagement","quote":"...","summary":"...","entities":["id"],"facts":[{"entity_id":"","predicate":"","value":true,"until":"lasting"}],"event_id":null,"time":null,"ambiguous":false,"stance":null,"scope_kind":null,"scope_ref":null,"scope_label":null,"until":null}],"references":[{"phrase":"","quote":"","kind":"entity|event","mode":"direct|indirect|alias|pronoun","candidates":["id"]}],"scene_entities":["id"],"fight":{"state":"none","participants":[],"new_people":[{"name":"","description":"","quote":""}],"why":""}}`,
+SHAPE: {"statements":[{"kind":"asserted_fact|attempted_action|spoken_dialogue|belief|hypothetical|ooc_direction|ooc_config_request|time_proposal|participation_decline|engagement","quote":"...","summary":"...","entities":["id"],"facts":[{"entity_id":"","predicate":"","value":true,"until":"lasting"}],"event_id":null,"time":null,"ambiguous":false,"stance":null,"scope_kind":null,"scope_ref":null,"scope_label":null,"until":null}],"references":[{"phrase":"","quote":"","kind":"entity|event","mode":"direct|indirect|alias|pronoun","candidates":["id"]}],"scene_entities":["id"],"fight":{"state":"none","participants":[],"new_people":[{"name":"","description":"","quote":""}],"things":[{"quote":"","what":""}],"why":""}}`,
 
   discover: `${COMMON}
 TASK: Reference and claim discovery over the COMPLETE candidate text. Find the references and claims worth checking (at most 40 references and 40 claims; when there are more, keep the ones a record could contradict: past events, known people/places/objects/organizations, possession, presence, causes):
@@ -154,6 +154,9 @@ ${COMBAT_TASK}`,
   combat_fill: `${COMMON}
 ${COMBAT_FILL_TASK}`,
 
+  combat_who: `${COMMON}
+${COMBAT_WHO_TASK}`,
+
   // User: smart characters only sounded clever and said what anyone would say; the GM writes every person in one pass
   // with the same effort. Here the people who think before they act get a pass of their own, before the reply.
   mind: `${COMMON}
@@ -220,6 +223,7 @@ import affiliationsSchema from '../../../schemas/runtime/affiliations.schema.jso
 import relateSchema from '../../../schemas/runtime/relate.schema.json';
 import combatSchema from '../../../schemas/runtime/combat.schema.json';
 import combatFillSchema from '../../../schemas/runtime/combat-fill.schema.json';
+import combatWhoSchema from '../../../schemas/runtime/combat-who.schema.json';
 
 function enumsOf(schema: unknown): Map<string, string[]> {
   const found = new Map<string, string[]>();
@@ -250,7 +254,7 @@ export function annotateShape(prompt: string, schema: unknown): string {
 }
 
 const SCHEMAS: Record<keyof typeof RAW_PROMPTS, unknown> = {
-  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema, world_check: worldCheckSchema, mind: mindSchema, affiliations: affiliationsSchema, relate: relateSchema, combat: combatSchema, combat_fill: combatFillSchema,
+  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema, world_check: worldCheckSchema, mind: mindSchema, affiliations: affiliationsSchema, relate: relateSchema, combat: combatSchema, combat_fill: combatFillSchema, combat_who: combatWhoSchema,
 };
 /** Added to the reviewer's instructions only for a pack with time frames (other packs keep the prompt as it was). */
 export const EVAL_FRAMES_NOTE = `7. TIME FRAMES (this pack has them; see time_frames): also return "scene_frame" in the reply object: the id of the frame the scene is in at the END of the reply — where the player character is — when the reply shows them arriving in another frame or coming back (time travel, crossing into another world, entering or waking from a dream); "main" for the main frame; null when they stay in scene_frame_now. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame's conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).`;

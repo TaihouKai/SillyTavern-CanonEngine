@@ -115,7 +115,8 @@ export async function judgeFight(a: {
 
   // 2. what the fight needs
   // (the people here who may join are walked from too: what they can do is part of the turn)
-  const starts = uniq([...fighters, ...bystanders, ...a.places]);
+  // (and the things of the setting at work in it: a device running, an object used)
+  const starts = uniq([...fighters, ...bystanders, ...a.places, ...now.things.map((t) => t.node).filter((x) => L.combat.nodes.has(x))]);
   const walk = walkCombat(L, index.state, starts, a.settings);
   const objective = new Set(walkCombat(L, index.state, starts, { ...a.settings, budgetChars: Infinity, objective: true }).nodes.map((w) => w.node.id));
   const sourceText = new Map<string, string>();
@@ -140,7 +141,7 @@ export async function judgeFight(a: {
       linked: linksOf(L, index.state, id).map((l) => `${l.label} ${l.node}${l.source === 'fill' ? ' (filled in: a guess)' : ''}`),
     })),
     nodes: walk.nodes.map((w) => ({
-      id: w.node.id, kind: w.node.kind, name: w.node.name, reached: w.via,
+      id: w.node.id, kind: w.node.kind, name: w.node.name, reached: w.viaFrom === w.node.id ? `at work in this fight: ${now.things.find((t) => t.node === w.node.id)?.why || ''}` : w.via,
       ...(w.full ? { text: w.node.text, ...(w.node.parts ? { parts: w.node.parts.map((p) => ({ part: p.part, text: p.text })) } : {}), ...(w.node.who ? { who: w.node.who } : {}) } : { gist: w.node.gist }),
     })),
     sources: [...sourceText].map(([ref, text]) => ({ ref, text: text.slice(0, 3000) })),
@@ -196,7 +197,12 @@ export async function judgeFight(a: {
     const text = String(s.text || '').trim().slice(0, 120);
     if (!who || !text) { notes.push(`ruling: a state of "${s.who}" left out (not a fighter)`); continue; }
     const count = typeof s.count === 'number' && Number.isFinite(s.count) ? Math.max(0, Math.round(s.count)) : null;
-    const node = s.node && L.combat.nodes.has(s.node) ? s.node : null;
+    let node = s.node && L.combat.nodes.has(s.node) ? s.node : null;
+    // (live: a wound from a teleported dart named the thrower's ability, and linked it to the one hit)
+    if (node && L.combat.nodes.get(node)!.kind === 'ability' && !linksOf(L, index.state, who).some((l) => l.node === node) && fighters.some((f) => f !== who && linksOf(L, index.state, f).some((l) => l.node === node))) {
+      notes.push(`ruling: the state "${text}" of ${name(who)} names ${L.combat.nodes.get(node)!.name}, another fighter's ability (not linked)`);
+      node = null;
+    }
     statuses.push({ entity: who, text, ...(count !== null ? { count } : {}), ...(cleanUntil(s.until) ? { until: cleanUntil(s.until) } : {}), ...(node ? { node } : {}), ...(s.removed ? { removed: true } : {}), source: 'play' });
   }
   const witnessed: Witnessed[] = [];

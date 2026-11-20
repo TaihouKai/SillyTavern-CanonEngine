@@ -16,8 +16,8 @@ type Origin = { y: number; m: number; d: number } | null;
  *  pack's versions still to come are left out, counted). */
 export interface CombatViewData {
   none: string | null; basis: string;
-  fight: { ongoing: boolean; people: { id: Id; name: string }[]; source: string | null; since: string | null };
-  rulings: { when: string; reasoning: string; walked: { node: Id; name: string; kind: string; depth: number; full: boolean; via: string; label: string | null; used: boolean }[]; cut: { node: Id; name: string }[]; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean }[]; stopped: { quote: string; why: string; basis: string[] }[]; states: string[]; stands: string[]; joined: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
+  fight: { ongoing: boolean; people: { id: Id; name: string; /** how the player's message called them, when it gave no name, and why they were taken for this person. */ as?: string; asWhy?: string }[]; /** the setting's things at work in it. */ things: { node: Id; name: string; why: string }[]; source: string | null; since: string | null };
+  rulings: { when: string; reasoning: string; walked: { node: Id; name: string; kind: string; depth: number; full: boolean; via: string; label: string | null; /** a thing at work in the fight: reached as itself. */ inFight?: boolean; used: boolean }[]; cut: { node: Id; name: string }[]; exchanges: { who: string; text: string; basis: string[]; unsupported?: boolean }[]; stopped: { quote: string; why: string; basis: string[] }[]; states: string[]; stands: string[]; joined: string[]; over: boolean; overWhy: string; stopAt: string; filled: string[]; notes: string[] }[];
   people: { id: Id; name: string; player?: boolean; fighting?: boolean; /** fighting, the player, with states, or changed in this game (the rest only when searched for). */ relevant: boolean; states: { text: string; count: number | null; until: string; source: string }[]; style: { start: string; force: string; response: string; limit: string; stop: string; source: string } | null; links: { node: string; name: string; kind: string; label: string; source: string }[] }[];
   hidden: number;
   /** The setting (战斗设定) around one focus — a node, or someone linked to nodes —: the graph two steps out (at most
@@ -79,13 +79,13 @@ export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null
   people.sort((a, b) => Number(!!b.fighting) - Number(!!a.fighting) || Number(!!b.player) - Number(!!a.player) || Number(b.states.length > 0) - Number(a.states.length > 0) || a.name.localeCompare(b.name, 'zh'));
   return {
     none: L.combat.none, basis: L.combat.basis,
-    fight: { ongoing: f.ongoing, people: f.participants.filter((x) => idx.entityExists(x)).map((id) => ({ id, name: name(id) })), source: f.source, since: f.since === null ? null : formatTick(f.since, origin) },
+    fight: { ongoing: f.ongoing, people: f.participants.filter((x) => idx.entityExists(x)).map((id) => { const w = f.identified.find((x) => x.id === id); return { id, name: name(id), ...(w ? { as: w.as, asWhy: w.why } : {}) }; }), things: f.things.filter((x) => L.combat.nodes.has(x.node)).map((x) => ({ node: x.node, name: L.combat.nodes.get(x.node)!.name, why: x.why })), source: f.source, since: f.since === null ? null : formatTick(f.since, origin) },
     rulings: rulings.slice(-5).reverse().map(({ tick: t, ruling: r }) => ({
       when: formatTick(t, origin),
       reasoning: r.reasoning || '',
       walked: (r.walked || []).filter((w) => L.combat.nodes.has(w.node)).map((w) => ({
         node: w.node, name: L.combat.nodes.get(w.node)!.name, kind: L.combat.nodes.get(w.node)!.kind, depth: w.depth, full: w.full,
-        via: L.combat.nodes.get(w.from)?.name || name(w.from), label: w.label,
+        via: L.combat.nodes.get(w.from)?.name || name(w.from), label: w.label, ...(w.from === w.node ? { inFight: true } : {}),
         used: [...r.exchanges.flatMap((x) => x.basis), ...(r.outcomes || []).flatMap((o) => o.basis)].some((b) => b.ref === w.node),
       })),
       cut: r.cut.filter((id) => L.combat.nodes.has(id)).map((id) => ({ node: id, name: L.combat.nodes.get(id)!.name })),

@@ -20,13 +20,14 @@ import endsSchema from '../../../schemas/runtime/ends.schema.json';
 import relateSchema from '../../../schemas/runtime/relate.schema.json';
 import combatSchema from '../../../schemas/runtime/combat.schema.json';
 import combatFillSchema from '../../../schemas/runtime/combat-fill.schema.json';
+import combatWhoSchema from '../../../schemas/runtime/combat-who.schema.json';
 
 const TASK_SCHEMAS: Record<string, Record<string, any>> = {
-  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema, world_check: worldCheckSchema, mind: mindSchema, affiliations: affiliationsSchema, ends: endsSchema, relate: relateSchema, combat: combatSchema, combat_fill: combatFillSchema,
+  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema, world_check: worldCheckSchema, mind: mindSchema, affiliations: affiliationsSchema, ends: endsSchema, relate: relateSchema, combat: combatSchema, combat_fill: combatFillSchema, combat_who: combatWhoSchema,
 };
 import { EngineError } from '../domain/util';
 
-export type TaskName = 'extract_user' | 'discover' | 'evaluate' | 'adjudicate' | 'impact' | 'plan' | 'digest' | 'profile' | 'integrate' | 'foreknow' | 'leap' | 'world_check' | 'mind' | 'affiliations' | 'ends' | 'relate' | 'combat' | 'combat_fill';
+export type TaskName = 'extract_user' | 'discover' | 'evaluate' | 'adjudicate' | 'impact' | 'plan' | 'digest' | 'profile' | 'integrate' | 'foreknow' | 'leap' | 'world_check' | 'mind' | 'affiliations' | 'ends' | 'relate' | 'combat' | 'combat_fill' | 'combat_who';
 
 export interface ChatMsg { role: 'system' | 'user' | 'assistant'; content: string }
 
@@ -96,6 +97,7 @@ const validators: Record<TaskName, ((d: unknown) => boolean) & { errors?: { inst
   relate: V.relate,
   combat: V.combat,
   combat_fill: V.combat_fill,
+  combat_who: V.combat_who,
 };
 
 /** Extract the first balanced JSON object from model text (handles code fences / prose around it). */
@@ -453,7 +455,8 @@ async function runStructured<T>(port: ModelPort, task: TaskName, messages: ChatM
         }
         const errs = ((v.errors || []) as any[]).slice(0, 8).map((e) => {
           const allowed = (e.params as { allowedValues?: unknown[] } | undefined)?.allowedValues;
-          const got = allowed ? ` (got ${JSON.stringify(valueAt(data, e.instancePath))}; allowed: ${allowed.join(', ')})` : '';
+          const extra = (e.params as { additionalProperty?: string } | undefined)?.additionalProperty;
+          const got = allowed ? ` (got ${JSON.stringify(valueAt(data, e.instancePath))}; allowed: ${allowed.join(', ')})` : extra ? ` ("${extra}")` : '';
           return `${e.instancePath || '/'} ${e.message}${got}`;
         }).join('; ');
         throw new Error('schema violation: ' + errs);

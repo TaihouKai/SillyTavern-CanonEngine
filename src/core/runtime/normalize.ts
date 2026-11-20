@@ -102,8 +102,20 @@ function walkObject(o: Record<string, unknown>, s: Schema, path: string, list: s
   for (const [k, val] of Object.entries(o)) {
     if (!(k in props)) {
       // Nested extras are dropped. A top-level field the schema does not define may be an attempted
-      // mutation (e.g. "drop_anchor"): keep it so validation rejects the whole reply.
+      // mutation (e.g. "drop_anchor"): keep it so validation rejects the whole reply. One that is a field of
+      // exactly one top-level object and missing there was written a level too high (live: the profile's
+      // "public_identity" beside "player", three times in a row): it is moved into that object.
       if (s.additionalProperties === false && path !== '') continue;
+      if (path === '') {
+        const homes = Object.keys(props).filter((h) => typesOf(props[h]).includes('object') && props[h].properties && k in props[h].properties);
+        const home = homes.length === 1 ? homes[0] : '';
+        if (home && isObj(o[home]) && !(k in (o[home] as Record<string, unknown>))) {
+          (o[home] as Record<string, unknown>)[k] = val;
+          notes.push(`/${k} moved into /${home}`);
+          if (home in out) out[home] = walk(o[home], props[home], `/${home}`, list, notes);
+          continue;
+        }
+      }
       out[k] = val;
       continue;
     }

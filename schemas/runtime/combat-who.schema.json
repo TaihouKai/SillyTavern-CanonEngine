@@ -1,0 +1,59 @@
+{
+ "type": "object",
+ "properties": {
+  "people": {
+   "type": "array",
+   "maxItems": 8,
+   "items": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "id": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "maxLength": 120
+     },
+     "why": {
+      "type": "string",
+      "maxLength": 300
+     }
+    },
+    "required": [
+     "name",
+     "id"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "things": {
+   "type": "array",
+   "maxItems": 8,
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "why": {
+      "type": "string",
+      "maxLength": 300
+     }
+    },
+    "required": [
+     "id"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "people"
+ ],
+ "additionalProperties": false
+}

@@ -15,7 +15,13 @@ export function fightNowInput(index: WorldIndex): unknown {
   return f.ongoing ? { ongoing: true, participants: f.participants.map((p) => `${p} | ${index.entityName(p)}`) } : { ongoing: false };
 }
 
-export interface FightOut { state: 'none' | 'starts' | 'continues' | 'ends'; participants?: string[]; new_people?: { name: string; description: string; quote: string }[]; why?: string }
+export interface FightOut { state: 'none' | 'starts' | 'continues' | 'ends'; participants?: string[]; new_people?: { name: string; description: string; quote: string }[]; why?: string;
+  /** Set by identifyFighters (who.ts): new people found to be people of the world. */
+  identified?: { id: Id; as: string; why: string }[];
+  /** What the message shows at work in the fight besides the fighters: its words, and what it is as the model reads it. */
+  things?: { quote: string; what: string }[];
+  /** Set by identifyInFight: the setting's things the message shows at work in the fight. */
+  nodes?: { node: Id; why: string }[] }
 
 const slug = (s: string) => (String(s).normalize('NFKC').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'person').slice(0, 24);
 
@@ -50,6 +56,6 @@ export function fightFromMessage(out: FightOut | null | undefined, index: WorldI
   let participants = uniq(people);
   if (out.state === 'continues' && now.ongoing) participants = uniq([...now.participants, ...participants]);
   if (participants.length < 2) { if (out.state === 'starts') warnings.push('fight: fewer than two sides known; no fight recorded'); return { records: [], warnings }; }
-  if (now.ongoing && participants.length === now.participants.length && participants.every((p) => now.participants.includes(p)) && !made.length) return { records: [], warnings };
-  return { records: [combatRecord(st, src, `Fight: ${participants.map((p) => index.entityName(p) || made.find((m) => m.id === p)?.name || p).join(', ')}`, { fight: { ongoing: true, participants, source: 'player', why: String(out.why || '').slice(0, 300) }, ...(made.length ? { runtimeEntities: made } : {}) })], warnings };
+  if (now.ongoing && participants.length === now.participants.length && participants.every((p) => now.participants.includes(p)) && !made.length && !out.identified?.length && !out.nodes?.length) return { records: [], warnings };
+  return { records: [combatRecord(st, src, `Fight: ${participants.map((p) => index.entityName(p) || made.find((m) => m.id === p)?.name || p).join(', ')}`, { fight: { ongoing: true, participants, source: 'player', why: String(out.why || '').slice(0, 300), ...(out.identified?.length ? { identified: out.identified.filter((x) => participants.includes(x.id)) } : {}), ...(out.nodes?.length ? { things: out.nodes } : {}) }, ...(made.length ? { runtimeEntities: made } : {}) })], warnings };
 }
