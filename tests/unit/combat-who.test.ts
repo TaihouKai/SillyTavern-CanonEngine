@@ -31,7 +31,7 @@ describe('who and what the message brings into a fight', () => {
     const L = pack();
     const idx = new WorldIndex(L, reduce(L, []));
     const f = fight();
-    const p = port({ people: [{ name: 'medic woman', id: 'mira', why: 'a medic who stops bleeding' }], things: [{ id: 'cb-gas', why: 'the canister hisses open' }] });
+    const p = port({ people: [{ name: 'medic woman', id: 'mira', why: 'a medic who stops bleeding' }], things: [{ seen: 1, id: 'cb-gas', why: 'the canister hisses open' }] });
     const notes = await identifyInFight({ port: p, index: idx, fight: f, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't' });
     expect(p.seen[0].task).toBe('combat_who');
     expect(p.seen[0].input.candidates.map((c: any) => c.id)).toContain('mira');
@@ -50,15 +50,32 @@ describe('who and what the message brings into a fight', () => {
     expect(w.nodes.find((n) => n.node.id === 'cb-gas')).toMatchObject({ depth: 1, full: true });
   });
 
+  it('CW1b everyone new_people brings in fights, however participants calls them', () => {
+    const L = pack();
+    const idx = new WorldIndex(L, reduce(L, []));
+    const text = 'Seven or eight men with pipes and pistols step out and surround me; I set the leader gun alight.';
+    const { records, warnings } = fightFromMessage({ state: 'starts', participants: ['union', 'the gang'], new_people: [{ name: 'gang leader', description: 'leads the ambush', quote: 'the leader gun' }], why: 'x' }, idx, text, [], { lo: T(0, 9), hi: T(0, 9), precision: 'minute' }, null);
+    expect(records).toHaveLength(1);
+    expect(records[0].runtimeEntities!.map((e) => e.name)).toEqual(['gang leader']);
+    expect((records[0] as any).fight.participants).toEqual(['union', records[0].runtimeEntities![0].id]);
+    expect(warnings.join(' ')).toMatch(/"the gang" is nobody known/);
+  });
+
   it('CW2 an id not offered keeps the newcomer; a failed call leaves the fight as it was; nothing new: no call', async () => {
     const L = pack();
     const idx = new WorldIndex(L, reduce(L, []));
     const f = fight();
-    const notes = await identifyInFight({ port: port({ people: [{ name: 'medic woman', id: 'council', why: '?' }], things: [{ id: 'cb-firearms' }] }), index: idx, fight: f, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't' });
+    const notes = await identifyInFight({ port: port({ people: [{ name: 'medic woman', id: 'council', why: '?' }], things: [{ seen: 1, id: 'cb-firearms' }] }), index: idx, fight: f, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't' });
     expect(f.participants).toEqual(['union', 'medic woman']);
     expect(f.new_people).toHaveLength(1);
     expect(f.nodes).toBeUndefined();
     expect(notes.join(' ')).toMatch(/not a candidate/);
+    // a seen thing answered null (a fighter's own power, nothing that fits) joins nothing
+    const h = fight();
+    const nul = port({ people: [], things: [{ seen: 1, id: null, why: 'her own power' }] });
+    expect(await identifyInFight({ port: nul, index: idx, fight: h, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't' })).toEqual([]);
+    expect(h.nodes).toBeUndefined();
+    expect(nul.seen[0].input.seen).toEqual([{ n: 1, words: 'a canister of tear gas hisses open', what: 'a tear gas canister' }]);
     const g = fight();
     const failed = await identifyInFight({ port: port(new Error('down')), index: idx, fight: g, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't' });
     expect(g).toEqual(fight());

@@ -19,30 +19,36 @@ import { fightNow, linksOf } from './state';
 
 const PER_PERSON = 8;
 const MAX_CANDIDATES = 16;
-const PER_THING = 4;
-const MAX_THINGS = 8;
+const PER_THING = 5;
+const MAX_THINGS = 10;
 
-interface WhoOut { people: { name: string; id: string | null; why?: string }[]; things?: { id: string; why?: string }[] }
+interface WhoOut { people: { name: string; id: string | null; why?: string }[]; things?: { seen?: number; id: string | null; why?: string }[] }
 
-/** Character pairs of a text (letters and digits only): what two texts share, in any script. */
-function grams(s: string): Set<string> {
+/** Character pairs of a text (letters and digits only): what two texts share, in any script. singles: each CJK
+ *  character too (marked #), for words that differ but share a character: 噪音 and 声音, 头痛 and 头疼 (live, the
+ *  noise of an esper-jamming device was described in words none of whose pairs its text has). */
+function grams(s: string, singles = false): Set<string> {
   const t = s.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ');
   const out = new Set<string>();
-  for (const w of t.split(' ')) for (let i = 0; i + 1 < w.length; i++) out.add(w.slice(i, i + 2));
+  for (const w of t.split(' ')) {
+    for (let i = 0; i + 1 < w.length; i++) out.add(w.slice(i, i + 2));
+    if (singles) for (const ch of w) if (/\p{Script=Han}/u.test(ch)) out.add('#' + ch);
+  }
   return out;
 }
 
-/** The ids whose texts share the most character pairs with the words (rarer pairs count more; byLength: for the
- *  size of the text), best first. */
-function ranked(texts: Map<Id, Set<string>>, words: string, n: number, byLength = false): Id[] {
+/** The ids whose texts share the most character pairs with the words (rarer pairs count more), best first. things:
+ *  single characters count too, half (the texts were made with them), and a score is for the size of the text, mildly
+ *  (a long text would win by its length alone). */
+function ranked(texts: Map<Id, Set<string>>, words: string, n: number, things = false): Id[] {
   const df = new Map<string, number>();
   for (const g of texts.values()) for (const x of g) df.set(x, (df.get(x) || 0) + 1);
   const N = texts.size || 1;
-  const q = grams(words);
+  const q = grams(words, things);
   return [...texts.entries()].map(([id, g]) => {
     let s = 0;
-    for (const x of q) if (g.has(x)) s += Math.log(1 + N / (df.get(x) || 1));
-    return { id, s: byLength ? s / Math.sqrt(g.size || 1) : s };
+    for (const x of q) if (g.has(x)) s += (x.startsWith('#') ? 0.5 : 1) * Math.log(1 + N / (df.get(x) || 1));
+    return { id, s: things ? s / Math.sqrt(Math.sqrt(g.size || 1)) : s };
   }).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).slice(0, n).map((x) => x.id);
 }
 
@@ -72,9 +78,14 @@ export function thingCandidates(index: WorldIndex, things: string[], fighters: I
   const L = index.pack;
   if (!things.length) return [];
   const theirs = new Set(fighters.flatMap((f) => linksOf(L, index.state, f).map((l) => l.node)));
-  const texts = new Map([...L.combat.nodes.values()].filter((n) => (n.kind === 'ability' || n.kind === 'danger') && !theirs.has(n.id) && !inFight.includes(n.id)).map((n) => [n.id, grams(`${n.name} ${n.gist} ${n.text} ${(n.parts || []).map((x) => x.text).join(' ')}`)]));
-  // (a long text would win by its length alone)
+  const texts = new Map([...L.combat.nodes.values()].filter((n) => (n.kind === 'ability' || n.kind === 'danger') && !theirs.has(n.id) && !inFight.includes(n.id)).map((n) => [n.id, grams(`${n.name} ${n.gist} ${n.text} ${(n.parts || []).map((x) => x.text).join(' ')}`, true)]));
   return uniq(things.flatMap((w) => ranked(texts, w, PER_THING, true))).slice(0, MAX_THINGS);
+}
+
+/** The names of a person's abilities and equipment in the setting now. */
+function ownNames(index: WorldIndex, id: Id): string[] {
+  const L = index.pack;
+  return uniq(linksOf(L, index.state, id).map((l) => L.combat.nodes.get(l.node)).filter((x) => x && x.kind === 'ability').map((x) => x!.name)).slice(0, 10);
 }
 
 /** Says which of the fight's new people are people of the world, and which things of the setting the message shows
@@ -83,23 +94,30 @@ export function thingCandidates(index: WorldIndex, things: string[], fighters: I
 export async function identifyInFight(a: {
   port: ModelPort; index: WorldIndex; fight: FightOut | null | undefined; text: string; timeLabel: string;
   lore: LoreEntry[]; near: Id[]; signal?: AbortSignal; operationId: string; log?: (l: unknown) => void;
+  /** The player character and what their Persona gives them (their powers are no setting entries: live, a light
+   *  shield and a light blade of the player's own were matched to other people's). */
+  player?: { id: Id; has: string[] } | null;
 }): Promise<string[]> {
   const f = a.fight;
   const L = a.index.pack;
   if (!f || (f.state !== 'starts' && f.state !== 'continues') || L.combat.none !== null) return [];
   const now = fightNow(a.index.state);
   const fresh = (f.new_people || []).filter((p) => String(p.name || '').trim() && quoteInText(p.quote, a.text) && a.index.resolveEntity(p.name).ids.length !== 1);
-  const fighters = uniq([...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...(f.state === 'continues' && now.ongoing ? now.participants : [])]);
+  const fighters = uniq([...(a.player ? [a.player.id] : []), ...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...(f.state === 'continues' && now.ongoing ? now.participants : [])]);
   const people = fresh.length ? whoCandidates(a.index, fresh.map((p) => `${p.name} ${p.description || ''} ${p.quote}`), a.lore, a.near).filter((id) => !fighters.includes(id)) : [];
-  const seen = (f.things || []).filter((t) => quoteInText(t.quote, a.text)).map((t) => `${t.what || ''} ${t.quote}`);
-  const things = thingCandidates(a.index, seen, [...fighters, ...people], now.ongoing ? now.things.map((t) => t.node) : []);
+  const shown = (f.things || []).filter((t) => quoteInText(t.quote, a.text)).slice(0, 12);
+  // (only the fighters' own are left out: a candidate's — a device one of them carries — may be what is at work, and
+  // live it was: the Capacity Down a gang member holds was never offered for the noise in the gang's ambush)
+  const things = thingCandidates(a.index, shown.map((t) => `${t.what || ''} ${t.quote}`), fighters, now.ongoing ? now.things.map((t) => t.node) : []);
   if (!people.length && !things.length) return [];
   const notes: string[] = [];
   let out: WhoOut;
   try {
     out = await callStructured<WhoOut>(a.port, 'combat_who', PROMPTS.combat_who, {
       message: a.text, time: a.timeLabel,
-      fighters: fighters.map((id) => `${id} | ${a.index.entityName(id)}`),
+      // what each fighter has: a thing the message shows that is theirs comes with them (live, a fighter's own
+      // flashlight was matched to someone else's flashlight weapon)
+      fighters: fighters.map((id) => { const has = id === a.player?.id ? a.player.has.slice(0, 8).map((x) => x.slice(0, 80)) : ownNames(a.index, id); return `${id} | ${a.index.entityName(id)}${has.length ? ` | has: ${has.join(', ')}` : ''}`; }),
       new_people: fresh.map((p) => ({ name: p.name, description: p.description || '', words: p.quote })),
       candidates: people.map((id) => {
         const e = L.entities.get(id)!; const n = a.index.natureNow(id)?.version;
@@ -111,7 +129,9 @@ export async function identifyInFight(a: {
           ...(lore ? { lorebook: lore.content.slice(0, 500) } : {}),
         };
       }),
-      ...(things.length ? { seen: (f.things || []).map((t) => ({ words: t.quote, what: t.what })), things: things.map((id) => { const n = L.combat.nodes.get(id)!; return `${id} | ${n.name} | ${n.gist}`; }) } : {}),
+      // each seen gets an answer, null allowed (asked for a list of the things at work, live the model listed ones it
+      // said were not: "read as an ability application, not a device")
+      ...(things.length ? { seen: shown.map((t, i) => ({ n: i + 1, words: t.quote, what: t.what })), things: things.map((id) => { const n = L.combat.nodes.get(id)!; return `${id} | ${n.name} | ${n.gist}`; }) } : {}),
     }, { signal: a.signal, operationId: a.operationId, log: a.log });
   } catch (e) {
     if (a.signal?.aborted) throw e;
@@ -130,7 +150,8 @@ export async function identifyInFight(a: {
     notes.push(`fight: "${p.name}" is ${L.entities.get(r.id)!.name} (${String(r.why || '').slice(0, 160)})`);
   }
   for (const t of out.things || []) {
-    if (!things.includes(t.id)) { if (t.id) notes.push(`fight: "${t.id}" is not one of the things offered (left out)`); continue; }
+    if (!t.id) continue;
+    if (!things.includes(t.id)) { notes.push(`fight: "${t.id}" is not one of the things offered (left out)`); continue; }
     if (f.nodes?.some((x) => x.node === t.id)) continue;
     f.nodes = [...(f.nodes || []), { node: t.id, why: String(t.why || '').slice(0, 300) }];
     notes.push(`fight: ${L.combat.nodes.get(t.id)!.name} is in it (${String(t.why || '').slice(0, 160)})`);

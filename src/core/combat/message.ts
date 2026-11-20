@@ -52,6 +52,9 @@ export function fightFromMessage(out: FightOut | null | undefined, index: WorldI
     const id = index.entityExists(s) ? s : byName.get(normalizeName(s)) ?? (() => { const r = index.resolveEntity(s); return r.ids.length === 1 ? r.ids[0] : null; })();
     if (id) people.push(id); else warnings.push(`fight: "${s}" is nobody known (left out)`);
   }
+  // everyone new_people brings in is in the fight, however participants calls them (live: the thugs of an ambush were
+  // new people, and participants named them otherwise: no fight was recorded)
+  people.push(...byName.values());
   if (playerId && !people.includes(playerId) && people.length) people.unshift(playerId);
   let participants = uniq(people);
   if (out.state === 'continues' && now.ongoing) participants = uniq([...now.participants, ...participants]);

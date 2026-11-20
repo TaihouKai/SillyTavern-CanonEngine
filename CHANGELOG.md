@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.46.1 — 2026-11-21
+
+- **An ambush by people with no names is a fight again.** A gang of Skill-Out jumping your character recorded no fight at all, so nothing was ruled. The message named the thugs as new people, but listed them under another name among the fighters. Everyone your message brings in as a new person is now in the fight, whatever the fighter list calls them.
+- **A device a gang carries is found.** The jamming noise in that ambush was never offered as 能力下降 (Capacity Down), for two reasons:
+  - the setting's things were left out when any *possible* person had them (a gang member holds it), not only when a fighter did;
+  - your words (刺耳的高频噪音, 头痛欲裂) share no pair of characters with its text (声音, 头疼).
+
+  Now only the fighters' own things are left out, and single characters count too, at half weight. Capacity Down now ranks 2nd–3rd for those words (it was 30th).
+- **Your own powers and a fighter's own gear are not "things at work".** Your light shield was matched to 麦野沈利's 光之护盾, your light blade to a generic 切断攻击, 结标淡希's own flashlight to someone else's flashlight weapon, and 神裂火织's sword to 五和's. The call now sees what each fighter has (yours from your Persona), and it answers every thing your message shows, with 「none」 allowed. Asked only for the things at work, it had listed things it said were not ones.
+- **A Level 5 is no longer filled in as an ordinary person** or as powered armour: a concept is chosen only when the person is what it says, and never two that contradict each other.
+- **A canon event under way reaches the review in full.** The reviewer got the first 220 characters of each event's summary, and for 前方之风入侵 that cut ended before the guards collapse. A reply showing 警备员 and 风纪委员 fall across the city was refused three times, and the turn failed. The review now gets what happens: cause, course and result.
+- **A plan step after a HARD event no longer fails the turn.** The planner kept marking steps that come after a HARD event as serving it. Three proposals in a row were refused for that, and the turn failed. Such a step can't serve it, since the deadline doesn't move, so it is dropped together with the steps that depend on it.
+- **Allies' shared fights no longer crowd out the rules.** For a fight with 史提尔 the ruling was given nine fights 上条 and 史提尔 had been in together, mostly on the same side. They pushed out the rune rules and the rule for an esper using magic. At most three such fights for the same people now come first; the rest come after the other links.
+
 ## 1.46.0 — 2026-11-21
 
 - **Someone you describe without a name can be who you mean.** Live tests found three canon characters entered as anonymous strangers. Each was described by look and ability, not by name: a red-haired girl with a military flashlight (结标淡希), a woman firing a beam (麦野沈利), and a man with white wings bending sunlight (垣根帝督). The ruling then treated them as an ordinary person, a generic esper and a generic angel, and nothing the setting says about them reached it. Now, when your message brings an unnamed person into a fight:

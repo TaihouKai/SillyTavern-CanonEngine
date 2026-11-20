@@ -10260,7 +10260,7 @@ function validate73(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate73.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 var combat_who = validate74;
-var schema116 = { "type": "object", "properties": { "people": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 120 }, "id": { "type": ["string", "null"], "maxLength": 120 }, "why": { "type": "string", "maxLength": 300 } }, "required": ["name", "id"], "additionalProperties": false } }, "things": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "id": { "type": "string", "maxLength": 120 }, "why": { "type": "string", "maxLength": 300 } }, "required": ["id"], "additionalProperties": false } } }, "required": ["people"], "additionalProperties": false, "$id": "urn:canon-engine:combat_who" };
+var schema116 = { "type": "object", "properties": { "people": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 120 }, "id": { "type": ["string", "null"], "maxLength": 120 }, "why": { "type": "string", "maxLength": 300 } }, "required": ["name", "id"], "additionalProperties": false } }, "things": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "seen": { "type": "integer", "minimum": 1, "maximum": 12 }, "id": { "type": ["string", "null"], "maxLength": 120 }, "why": { "type": "string", "maxLength": 300 } }, "required": ["seen", "id"], "additionalProperties": false } } }, "required": ["people"], "additionalProperties": false, "$id": "urn:canon-engine:combat_who" };
 function validate74(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -10441,8 +10441,8 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
         for (let i1 = 0; i1 < len1; i1++) {
           let data6 = data5[i1];
           if (data6 && typeof data6 == "object" && !Array.isArray(data6)) {
-            if (data6.id === void 0) {
-              const err15 = { instancePath: instancePath + "/things/" + i1, schemaPath: "#/properties/things/items/required", keyword: "required", params: { missingProperty: "id" }, message: "must have required property 'id'" };
+            if (data6.seen === void 0) {
+              const err15 = { instancePath: instancePath + "/things/" + i1, schemaPath: "#/properties/things/items/required", keyword: "required", params: { missingProperty: "seen" }, message: "must have required property 'seen'" };
               if (vErrors === null) {
                 vErrors = [err15];
               } else {
@@ -10450,31 +10450,30 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
+            if (data6.id === void 0) {
+              const err16 = { instancePath: instancePath + "/things/" + i1, schemaPath: "#/properties/things/items/required", keyword: "required", params: { missingProperty: "id" }, message: "must have required property 'id'" };
+              if (vErrors === null) {
+                vErrors = [err16];
+              } else {
+                vErrors.push(err16);
+              }
+              errors++;
+            }
             for (const key2 in data6) {
-              if (!(key2 === "id" || key2 === "why")) {
-                const err16 = { instancePath: instancePath + "/things/" + i1, schemaPath: "#/properties/things/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key2 }, message: "must NOT have additional properties" };
+              if (!(key2 === "seen" || key2 === "id" || key2 === "why")) {
+                const err17 = { instancePath: instancePath + "/things/" + i1, schemaPath: "#/properties/things/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key2 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
-                  vErrors = [err16];
+                  vErrors = [err17];
                 } else {
-                  vErrors.push(err16);
+                  vErrors.push(err17);
                 }
                 errors++;
               }
             }
-            if (data6.id !== void 0) {
-              let data7 = data6.id;
-              if (typeof data7 === "string") {
-                if (func2(data7) > 120) {
-                  const err17 = { instancePath: instancePath + "/things/" + i1 + "/id", schemaPath: "#/properties/things/items/properties/id/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err17];
-                  } else {
-                    vErrors.push(err17);
-                  }
-                  errors++;
-                }
-              } else {
-                const err18 = { instancePath: instancePath + "/things/" + i1 + "/id", schemaPath: "#/properties/things/items/properties/id/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (data6.seen !== void 0) {
+              let data7 = data6.seen;
+              if (!(typeof data7 == "number" && (!(data7 % 1) && !isNaN(data7)))) {
+                const err18 = { instancePath: instancePath + "/things/" + i1 + "/seen", schemaPath: "#/properties/things/items/properties/seen/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
                 if (vErrors === null) {
                   vErrors = [err18];
                 } else {
@@ -10482,12 +10481,9 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                 }
                 errors++;
               }
-            }
-            if (data6.why !== void 0) {
-              let data8 = data6.why;
-              if (typeof data8 === "string") {
-                if (func2(data8) > 300) {
-                  const err19 = { instancePath: instancePath + "/things/" + i1 + "/why", schemaPath: "#/properties/things/items/properties/why/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
+              if (typeof data7 == "number") {
+                if (data7 > 12 || isNaN(data7)) {
+                  const err19 = { instancePath: instancePath + "/things/" + i1 + "/seen", schemaPath: "#/properties/things/items/properties/seen/maximum", keyword: "maximum", params: { comparison: "<=", limit: 12 }, message: "must be <= 12" };
                   if (vErrors === null) {
                     vErrors = [err19];
                   } else {
@@ -10495,42 +10491,88 @@ function validate74(data, { instancePath = "", parentData, parentDataProperty, r
                   }
                   errors++;
                 }
-              } else {
-                const err20 = { instancePath: instancePath + "/things/" + i1 + "/why", schemaPath: "#/properties/things/items/properties/why/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (data7 < 1 || isNaN(data7)) {
+                  const err20 = { instancePath: instancePath + "/things/" + i1 + "/seen", schemaPath: "#/properties/things/items/properties/seen/minimum", keyword: "minimum", params: { comparison: ">=", limit: 1 }, message: "must be >= 1" };
+                  if (vErrors === null) {
+                    vErrors = [err20];
+                  } else {
+                    vErrors.push(err20);
+                  }
+                  errors++;
+                }
+              }
+            }
+            if (data6.id !== void 0) {
+              let data8 = data6.id;
+              if (typeof data8 !== "string" && data8 !== null) {
+                const err21 = { instancePath: instancePath + "/things/" + i1 + "/id", schemaPath: "#/properties/things/items/properties/id/type", keyword: "type", params: { type: schema116.properties.things.items.properties.id.type }, message: "must be string,null" };
                 if (vErrors === null) {
-                  vErrors = [err20];
+                  vErrors = [err21];
                 } else {
-                  vErrors.push(err20);
+                  vErrors.push(err21);
+                }
+                errors++;
+              }
+              if (typeof data8 === "string") {
+                if (func2(data8) > 120) {
+                  const err22 = { instancePath: instancePath + "/things/" + i1 + "/id", schemaPath: "#/properties/things/items/properties/id/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err22];
+                  } else {
+                    vErrors.push(err22);
+                  }
+                  errors++;
+                }
+              }
+            }
+            if (data6.why !== void 0) {
+              let data9 = data6.why;
+              if (typeof data9 === "string") {
+                if (func2(data9) > 300) {
+                  const err23 = { instancePath: instancePath + "/things/" + i1 + "/why", schemaPath: "#/properties/things/items/properties/why/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err23];
+                  } else {
+                    vErrors.push(err23);
+                  }
+                  errors++;
+                }
+              } else {
+                const err24 = { instancePath: instancePath + "/things/" + i1 + "/why", schemaPath: "#/properties/things/items/properties/why/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err24];
+                } else {
+                  vErrors.push(err24);
                 }
                 errors++;
               }
             }
           } else {
-            const err21 = { instancePath: instancePath + "/things/" + i1, schemaPath: "#/properties/things/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            const err25 = { instancePath: instancePath + "/things/" + i1, schemaPath: "#/properties/things/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err21];
+              vErrors = [err25];
             } else {
-              vErrors.push(err21);
+              vErrors.push(err25);
             }
             errors++;
           }
         }
       } else {
-        const err22 = { instancePath: instancePath + "/things", schemaPath: "#/properties/things/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err26 = { instancePath: instancePath + "/things", schemaPath: "#/properties/things/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err22];
+          vErrors = [err26];
         } else {
-          vErrors.push(err22);
+          vErrors.push(err26);
         }
         errors++;
       }
     }
   } else {
-    const err23 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err27 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err23];
+      vErrors = [err27];
     } else {
-      vErrors.push(err23);
+      vErrors.push(err27);
     }
     errors++;
   }
@@ -27895,6 +27937,15 @@ function walkCombat(L, state, starts, opts) {
     };
   });
   all.sort((a, b) => a.tier - b.tier || b.from.length - a.from.length || a.past - b.past || a.distance - b.distance || a.order - b.order);
+  const shared = /* @__PURE__ */ new Map();
+  for (const w of all) {
+    if (w.tier !== 1) continue;
+    const k = (w.node.who || []).filter((x) => startSet.has(x)).sort().join("|");
+    const n = shared.get(k) || 0;
+    shared.set(k, n + 1);
+    if (n >= PRECEDENTS_EACH) w.tier = 4;
+  }
+  all.sort((a, b) => a.tier - b.tier || b.from.length - a.from.length || a.past - b.past || a.distance - b.distance || a.order - b.order);
   const turns = /* @__PURE__ */ new Map(), each = /* @__PURE__ */ new Map();
   const ranked2 = [];
   for (const w of all) {
@@ -33142,8 +33193,16 @@ var combat_who_schema_default = {
       items: {
         type: "object",
         properties: {
+          seen: {
+            type: "integer",
+            minimum: 1,
+            maximum: 12
+          },
           id: {
-            type: "string",
+            type: [
+              "string",
+              "null"
+            ],
             maxLength: 120
           },
           why: {
@@ -33152,6 +33211,7 @@ var combat_who_schema_default = {
           }
         },
         required: [
+          "seen",
           "id"
         ],
         additionalProperties: false
@@ -33737,7 +33797,7 @@ function voiceInput(v) {
 }
 
 // src/core/combat/prompts.ts
-var EXTRACT_FIGHT = `fight (only for a pack with combat; fight_now says whether a fight is under way and who is in it): whether this message starts, goes on with or ends a CONFRONTATION \u2014 a contest whose result depends on one side's abilities against the other's: a fight, an attack on someone, a chase, sneaking past someone on watch, a contest of strength or skill. state: "starts" \u2014 the player character attacks, engages or is attacked in this message (not threats, plans or talk of fighting); "continues" \u2014 one is under way and the message goes on with it; "ends" \u2014 the player's own words end it (they surrender, walk away, stop); "none" otherwise. participants: everyone in it, the player character too \u2014 people and creatures acting of their own will; what a fighter's ability or equipment makes or calls up (a giant of flame, a construct, a conjured blade) is part of that fighter, not a participant: registry ids; for someone the registry does not have, their name as the message gives it (or a short description: "\u9EC4\u6BDB\u6DF7\u6DF7") and an entry in new_people with a one-line description and the words of the message that show them. things: what the message shows at work in the fight that is no participant and no fighter's own power \u2014 a device running, a weapon or object someone uses, a field or effect on the place: quote (the message's words) and what (what it is in this world, by the name this world gives it when you know it, and what it does). why: one sentence.`;
+var EXTRACT_FIGHT = `fight (only for a pack with combat; fight_now says whether a fight is under way and who is in it): whether this message starts, goes on with or ends a CONFRONTATION \u2014 a contest whose result depends on one side's abilities against the other's: a fight, an attack on someone, a chase, sneaking past someone on watch, a contest of strength or skill. state: "starts" \u2014 the player character attacks, engages or is attacked in this message (not threats, plans or talk of fighting); "continues" \u2014 one is under way and the message goes on with it; "ends" \u2014 the player's own words end it (they surrender, walk away, stop); "none" otherwise. participants: everyone in it, the player character too \u2014 people and creatures acting of their own will; what a fighter's ability or equipment makes or calls up (a giant of flame, a construct, a conjured blade) is part of that fighter, not a participant: registry ids; for someone the registry does not have, their name as the message gives it (or a short description: "\u9EC4\u6BDB\u6DF7\u6DF7") and an entry in new_people with a one-line description and the words of the message that show them. things: what the message shows at work in the fight that is no participant and no fighter's own power or equipment (the player character's too) \u2014 a device running, a weapon or object someone uses, a field or effect on the place: quote (the message's words) and what (what it is in this world, by the name this world gives it when you know it, and what it does). why: one sentence.`;
 var EVAL_COMBAT = `   statuses: notable states of a person this reply (or player_action_scope) shows beginning, changing or ending \u2014 hurt (where, how badly), bleeding, ill, drunk, exhausted, knocked out, carrying or losing a notable object (equipment is a state: "\u6301\u6709\u9ED1\u952E"), a counted resource spent (count = what is left): who (registry id or new_entities ref), text (a few words), count when counted, until ({"minutes": n} for what passes by itself \u2014 numbness, a daze, being drunk; "lasting" for what stays until treated or changed \u2014 a fracture, an object held), removed: true when it ends (healed, put down, given away; a state in STATES the reply shows gone); a state in STATES that changes (numbness wearing off to stiffness): removed: true for it by its exact text in STATES, and the new one. quote (verbatim). Not a passing mood or a gesture. With fight_ruling given, leave out the fighters' changes: the ruling has them.
    fight (only when fight_ruling is not given, for a pack with combat): when the reply itself starts a confrontation the player character is in or sees \u2014 someone attacks, a fight breaks out \u2014: starts true, participants (ids or new_entities refs), quote; resolved_unruled true when the reply then goes on to decide it (blows land, someone wins or loses) instead of stopping where it begins. null when the reply has none.
    ruling_conflicts (only when fight_ruling is given): every place the reply changes what the ruling decided \u2014 another result, someone hit or hurt who was not (or not hit who was), an attack, dodge or escape the ruling does not have, someone arriving or leaving, the fight carried past its stop_at, the player character doing what the player did not write \u2014: quote and why. NOT a conflict: embellishment \u2014 how it looks, sounds and feels, what people say, their taunts, looks, gestures and thoughts \u2014 as long as no result changes; and following the ruling where it rules against the player's message (the ruling has already decided that: its result stands, not the player's words).`;
@@ -33756,9 +33816,9 @@ Input: basis (what this world runs on by default); fighters (id, name, descripti
 SHAPE: {"reasoning":"","joins":[],"player_outcomes":[{"quote":"","stands":true,"basis":[{"ref":"","quote":""}],"why":""}],"exchanges":[{"actor":"","text":"","basis":[{"ref":"","quote":""}],"unsupported":false}],"statuses":[{"who":"","text":"","count":null,"until":"lasting","node":null,"removed":false,"quote":""}],"witnessed":[{"node":"","part":null,"who":[]}],"over":false,"over_why":"","stop_at":""}`;
 var COMBAT_WHO_TASK = `TASK: The player's message is part of a fight. Say what in it is of this world, though the message does not name it.
 1. people: for each of new_people (people the message brings in without a name: how it calls them, its words about them), whether they are one of the candidates \u2014 people of this world, with what the setting and the user's lorebook say about them. id: a candidate's id when the message's words clearly fit that person: their looks, the ability or equipment the message shows, what they do or say, together with the time and the place, where that person could be then. null when nobody fits clearly, when two candidates fit as well, or when the words fit anyone (a thug, a passer-by, a girl in a uniform): a stranger the player made up stays a stranger, and a common look alone never makes them someone known. why: one short sentence.
-2. things (id | name | gist, of the setting; none is any fighter's own), for what seen lists (the message's words about something at work in the fight, and what it was read as): those the message shows at work in this fight \u2014 a device running, a weapon or object someone uses, a field or effect on the place \u2014 when its words clearly fit (what it does, how it looks or sounds). Not one the message only talks about, and not what a fighter does with their own powers. why: one short sentence.
-SHAPE: {"people":[{"name":"","id":null,"why":""}],"things":[{"id":"","why":""}]}`;
-var COMBAT_FILL_TASK = `TASK: The people listed are in a fight, and nothing in the setting says what they are as fighters. For each, choose from concepts (the setting's: id | name | gist) those that describe them in a fight \u2014 at most 3, with a short label ("\u662F") \u2014 judging only by their description, the sources given for them and the scene. Choose nothing that nothing supports: an ordinary passer-by is an ordinary person, not a fighter. When needs_style is true, also write their \u5BF9\u6297\u503E\u5411 from the same evidence, a sentence each: start (when they start a fight), force (how much strength they use, whether they kill), response (what they do when attacked), limit (whom or what they would risk their life for), stop (when they give up or stop); "\u7167\u5E38\u4EBA" where nothing sets them apart. needs_style false: style null.
+2. things: for each of seen (n: the message's words about something at work in the fight, and what it was read as), which of things (id | name | gist, of the setting; none is any fighter's own: fighters lists what each has) it is. id: one of things when the words clearly fit it (what it does, how it looks or sounds) and it is at work in this fight \u2014 a device running, a weapon or object someone uses, a field or effect on the place. null when none fits clearly, when it is only talked about, when it is what a fighter does with their own powers (the player character's too), or when it is what a fighter has or a candidate you name has (their own weapon or device comes with them: a thing that only looks like it is not meant). why: one short sentence.
+SHAPE: {"people":[{"name":"","id":null,"why":""}],"things":[{"seen":1,"id":null,"why":""}]}`;
+var COMBAT_FILL_TASK = `TASK: The people listed are in a fight, and nothing in the setting says what they are as fighters. For each, choose from concepts (the setting's: id | name | gist) those that describe them in a fight \u2014 at most 3, with a short label ("\u662F") \u2014 judging only by their description, the sources given for them and the scene. Choose nothing that nothing supports: an ordinary passer-by is an ordinary person, not a fighter. A concept only when they are what its gist says, not because something they do looks like it (live, a Level 5 who shapes light into armor-like shields was filled in as powered armor). Never two that contradict each other: whoever has an ability, magic or training is not one without any (live, a Level 5 was also filled in as an ordinary person). When needs_style is true, also write their \u5BF9\u6297\u503E\u5411 from the same evidence, a sentence each: start (when they start a fight), force (how much strength they use, whether they kill), response (what they do when attacked), limit (whom or what they would risk their life for), stop (when they give up or stop); "\u7167\u5E38\u4EBA" where nothing sets them apart. needs_style false: style null.
 SHAPE: {"people":[{"who":"","links":[{"node":"","label":""}],"style":{"start":"","force":"","response":"","limit":"","stop":""}}]}`;
 
 // src/core/hostility/prompts.ts
@@ -34095,7 +34155,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.46.0";
+var ENGINE_RELEASE = "1.46.1";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -36082,6 +36142,7 @@ function fightFromMessage(out, index, text, src, st, playerId) {
     if (id) people.push(id);
     else warnings.push(`fight: "${s}" is nobody known (left out)`);
   }
+  people.push(...byName.values());
   if (playerId && !people.includes(playerId) && people.length) people.unshift(playerId);
   let participants = uniq(people);
   if (out.state === "continues" && now.ongoing) participants = uniq([...now.participants, ...participants]);
@@ -36309,23 +36370,28 @@ function rulingRecord(r, st, names) {
 // src/core/combat/who.ts
 var PER_PERSON = 8;
 var MAX_CANDIDATES = 16;
-var PER_THING = 4;
-var MAX_THINGS = 8;
-function grams(s) {
+var PER_THING = 5;
+var MAX_THINGS = 10;
+function grams(s, singles = false) {
   const t2 = s.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
   const out = /* @__PURE__ */ new Set();
-  for (const w of t2.split(" ")) for (let i = 0; i + 1 < w.length; i++) out.add(w.slice(i, i + 2));
+  for (const w of t2.split(" ")) {
+    for (let i = 0; i + 1 < w.length; i++) out.add(w.slice(i, i + 2));
+    if (singles) {
+      for (const ch of w) if (/\p{Script=Han}/u.test(ch)) out.add("#" + ch);
+    }
+  }
   return out;
 }
-function ranked(texts, words, n, byLength = false) {
+function ranked(texts, words, n, things = false) {
   const df = /* @__PURE__ */ new Map();
   for (const g of texts.values()) for (const x of g) df.set(x, (df.get(x) || 0) + 1);
   const N = texts.size || 1;
-  const q = grams(words);
+  const q = grams(words, things);
   return [...texts.entries()].map(([id, g]) => {
     let s = 0;
-    for (const x of q) if (g.has(x)) s += Math.log(1 + N / (df.get(x) || 1));
-    return { id, s: byLength ? s / Math.sqrt(g.size || 1) : s };
+    for (const x of q) if (g.has(x)) s += (x.startsWith("#") ? 0.5 : 1) * Math.log(1 + N / (df.get(x) || 1));
+    return { id, s: things ? s / Math.sqrt(Math.sqrt(g.size || 1)) : s };
   }).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).slice(0, n).map((x) => x.id);
 }
 function personText(index, id, lore) {
@@ -36347,8 +36413,12 @@ function thingCandidates(index, things, fighters, inFight = []) {
   const L = index.pack;
   if (!things.length) return [];
   const theirs = new Set(fighters.flatMap((f) => linksOf(L, index.state, f).map((l) => l.node)));
-  const texts = new Map([...L.combat.nodes.values()].filter((n) => (n.kind === "ability" || n.kind === "danger") && !theirs.has(n.id) && !inFight.includes(n.id)).map((n) => [n.id, grams(`${n.name} ${n.gist} ${n.text} ${(n.parts || []).map((x) => x.text).join(" ")}`)]));
+  const texts = new Map([...L.combat.nodes.values()].filter((n) => (n.kind === "ability" || n.kind === "danger") && !theirs.has(n.id) && !inFight.includes(n.id)).map((n) => [n.id, grams(`${n.name} ${n.gist} ${n.text} ${(n.parts || []).map((x) => x.text).join(" ")}`, true)]));
   return uniq(things.flatMap((w) => ranked(texts, w, PER_THING, true))).slice(0, MAX_THINGS);
+}
+function ownNames(index, id) {
+  const L = index.pack;
+  return uniq(linksOf(L, index.state, id).map((l) => L.combat.nodes.get(l.node)).filter((x) => x && x.kind === "ability").map((x) => x.name)).slice(0, 10);
 }
 async function identifyInFight(a) {
   const f = a.fight;
@@ -36356,10 +36426,10 @@ async function identifyInFight(a) {
   if (!f || f.state !== "starts" && f.state !== "continues" || L.combat.none !== null) return [];
   const now = fightNow(a.index.state);
   const fresh = (f.new_people || []).filter((p) => String(p.name || "").trim() && quoteInText(p.quote, a.text) && a.index.resolveEntity(p.name).ids.length !== 1);
-  const fighters = uniq([...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...f.state === "continues" && now.ongoing ? now.participants : []]);
+  const fighters = uniq([...a.player ? [a.player.id] : [], ...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...f.state === "continues" && now.ongoing ? now.participants : []]);
   const people = fresh.length ? whoCandidates(a.index, fresh.map((p) => `${p.name} ${p.description || ""} ${p.quote}`), a.lore, a.near).filter((id) => !fighters.includes(id)) : [];
-  const seen = (f.things || []).filter((t2) => quoteInText(t2.quote, a.text)).map((t2) => `${t2.what || ""} ${t2.quote}`);
-  const things = thingCandidates(a.index, seen, [...fighters, ...people], now.ongoing ? now.things.map((t2) => t2.node) : []);
+  const shown = (f.things || []).filter((t2) => quoteInText(t2.quote, a.text)).slice(0, 12);
+  const things = thingCandidates(a.index, shown.map((t2) => `${t2.what || ""} ${t2.quote}`), fighters, now.ongoing ? now.things.map((t2) => t2.node) : []);
   if (!people.length && !things.length) return [];
   const notes = [];
   let out;
@@ -36367,7 +36437,12 @@ async function identifyInFight(a) {
     out = await callStructured(a.port, "combat_who", PROMPTS.combat_who, {
       message: a.text,
       time: a.timeLabel,
-      fighters: fighters.map((id) => `${id} | ${a.index.entityName(id)}`),
+      // what each fighter has: a thing the message shows that is theirs comes with them (live, a fighter's own
+      // flashlight was matched to someone else's flashlight weapon)
+      fighters: fighters.map((id) => {
+        const has = id === a.player?.id ? a.player.has.slice(0, 8).map((x) => x.slice(0, 80)) : ownNames(a.index, id);
+        return `${id} | ${a.index.entityName(id)}${has.length ? ` | has: ${has.join(", ")}` : ""}`;
+      }),
       new_people: fresh.map((p) => ({ name: p.name, description: p.description || "", words: p.quote })),
       candidates: people.map((id) => {
         const e = L.entities.get(id);
@@ -36383,7 +36458,9 @@ async function identifyInFight(a) {
           ...lore ? { lorebook: lore.content.slice(0, 500) } : {}
         };
       }),
-      ...things.length ? { seen: (f.things || []).map((t2) => ({ words: t2.quote, what: t2.what })), things: things.map((id) => {
+      // each seen gets an answer, null allowed (asked for a list of the things at work, live the model listed ones it
+      // said were not: "read as an ability application, not a device")
+      ...things.length ? { seen: shown.map((t2, i) => ({ n: i + 1, words: t2.quote, what: t2.what })), things: things.map((id) => {
         const n = L.combat.nodes.get(id);
         return `${id} | ${n.name} | ${n.gist}`;
       }) } : {}
@@ -36408,8 +36485,9 @@ async function identifyInFight(a) {
     notes.push(`fight: "${p.name}" is ${L.entities.get(r.id).name} (${String(r.why || "").slice(0, 160)})`);
   }
   for (const t2 of out.things || []) {
+    if (!t2.id) continue;
     if (!things.includes(t2.id)) {
-      if (t2.id) notes.push(`fight: "${t2.id}" is not one of the things offered (left out)`);
+      notes.push(`fight: "${t2.id}" is not one of the things offered (left out)`);
       continue;
     }
     if (f.nodes?.some((x) => x.node === t2.id)) continue;
@@ -38207,6 +38285,24 @@ function planScope(pack2, state, affected = []) {
   const detailed = [.../* @__PURE__ */ new Set([...pend.slice(0, 2), ...affected.filter((a) => pend.includes(a))])];
   return { detailed, register: pend.filter((p) => !detailed.includes(p)) };
 }
+function dropLateSteps(out, pack2) {
+  const late = new Set(out.steps.filter((s) => {
+    const pe = s.serves_anchor ? pack2.events.get(s.serves_anchor) : void 0;
+    return !!pe && pe.classification === "HARD" && !!pe.when.latest && toTick(s.earliest) > toTick(pe.when.latest);
+  }).map((s) => s.step_id));
+  if (!late.size) return [];
+  const notes = [...late].map((id) => `step ${id}: dropped (starts after the deadline of the anchor it serves)`);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const s of out.steps) if (!late.has(s.step_id) && (s.depends_on || []).some((d) => late.has(d))) {
+      late.add(s.step_id);
+      notes.push(`step ${s.step_id}: dropped (depends on a dropped step)`);
+      grew = true;
+    }
+  }
+  out.steps = out.steps.filter((s) => !late.has(s.step_id));
+  return notes;
+}
 function normalizePlanEffects(out, pack2, scope) {
   const notes = [];
   if (!Array.isArray(out.protected_anchor_ids)) out.protected_anchor_ids = [];
@@ -38405,7 +38501,7 @@ async function runPlanning(args) {
       player: args.player
     };
     const out = await callStructured(args.port, "plan", PROMPTS.plan, input, { signal: args.signal, operationId: args.operationId, log: args.log });
-    const fixed = normalizePlanEffects(out, pack2, scope);
+    const fixed = [...dropLateSteps(out, pack2), ...normalizePlanEffects(out, pack2, scope)];
     if (fixed.length) args.log?.({ kind: "plan_effects_normalized", notes: fixed });
     const errs = validatePlan(out, pack2, index, scope, clockTick, mode === "FORCED_CONVERGENCE");
     if (errs.length) {
@@ -39419,7 +39515,8 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       near: extractInput.registry.entities.map((l) => l.split(" | ")[0]),
       signal,
       operationId,
-      log: (l) => this.debugLog("task", l)
+      log: (l) => this.debugLog("task", l),
+      player: prof ? { id: prof.profile.playerId, has: prof.profile.capabilities } : null
     }));
     const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
     records.push(...fight.records);
@@ -40155,7 +40252,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       const ev = pack2.events.get(t2.id);
       if (ev.classification === "HARD") continue;
       const beats = index.inProgressBeats(ev.id);
-      out.push({ id: ev.id, title: ev.title, window: `${formatTick(t2.lo)} \u2013 ${formatTick(t2.hi)}`, original: ev.summary.length > 220 ? ev.summary.slice(0, 217) + "\u2026" : ev.summary, ...beats.length ? { in_progress: beats.map((o) => `${o.title}: ${o.account}`.slice(0, 200)) } : {} });
+      out.push({ id: ev.id, title: ev.title, window: `${formatTick(t2.lo)} \u2013 ${formatTick(t2.hi)}`, original: whatHappens(ev, pack2.pack.language), ...beats.length ? { in_progress: beats.map((o) => `${o.title}: ${o.account}`.slice(0, 200)) } : {} });
       if (out.length >= 10) break;
     }
     return out;
@@ -42343,6 +42440,10 @@ function labelForError(kind) {
     invalid_input: "Message sent back"
   };
   return m[kind] || kind;
+}
+function whatHappens(ev, language) {
+  const s = ev.sections ? renderSummary({ trigger: ev.sections.trigger, course: ev.sections.course, result: ev.sections.result }, /^zh/i.test(language)) : ev.summary;
+  return s.length > 420 ? s.slice(0, 419) + "\u2026" : s;
 }
 
 // src/core/ui/i18n.ts

@@ -142,4 +142,19 @@ describe('combat as this game has it', () => {
     const all = walkCombat(L, st, ['mira', 'union'], { maxDepth: 3, fullDepth: 1, budgetChars: Infinity }).nodes.filter((n) => n.node.kind === 'precedent');
     expect(all.length).toBe(3);
   });
+
+  it('CS5c many fights of the same two people: a few come first, the rest after what is further out (live: fights of allies cut the rules)', () => {
+    const raw = demoRaw();
+    const ev = raw.events.map((e) => e.id);
+    raw.combat!.nodes!.push({ id: 'cb-triage', kind: 'rule', name: 'Triage', gist: 'The worst hurt first.', text: 'The worst hurt first.', source_refs: ['example-source'] } as never);
+    raw.combat!.links!.push({ from: 'cb-emergency-care', to: 'cb-triage', label: 'follows' } as never);
+    for (let i = 0; i < 8; i++) raw.combat!.nodes!.push({ id: `cb-pair-${i}`, kind: 'precedent', name: `Pair ${i}`, gist: 'x', text: 'y'.repeat(100), who: ['mira', 'council'], event_id: ev[i % ev.length], source_refs: ['example-source'] } as never);
+    const L = load(raw);
+    const w = walkCombat(L, reduce(L, []), ['mira', 'council'], { maxDepth: 3, fullDepth: 1, budgetChars: Infinity });
+    const ids = w.nodes.map((n) => n.node.id);
+    const pairs = ids.map((id, i) => [id, i] as const).filter(([id]) => id.startsWith('cb-pair-') || id === 'cb-ambush');
+    // three right after the links, then depth 2 (the rule her care follows), then the rest
+    expect(ids.indexOf('cb-triage')).toBeGreaterThan(pairs[2][1]);
+    expect(ids.indexOf('cb-triage')).toBeLessThan(pairs[3][1]);
+  });
 });

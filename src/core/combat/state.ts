@@ -138,7 +138,8 @@ export interface Walk { nodes: WalkedNode[]; /** reached but left out for the bu
 /** What a fight needs from the combat graph: from the people in it, the place and the objects used, their links
  *  (depth 1) and their precedents, then outward along node links up to maxDepth. The walk never goes into another
  *  entity (from "magic" it does not reach every magus). Nodes up to fullDepth come whole, further ones as their gist.
- *  Order (what the budget keeps first): what the starts are linked to; the original fights between two or more of them;
+ *  Order (what the budget keeps first): what the starts are linked to; up to PRECEDENTS_EACH original fights of the
+ *  same two or more of them;
  *  depth 2; further out; then up to PRECEDENTS_EACH other fights of each (those already over in the story first, the
  *  nearest in time first). Within each, the starts take turns, so no one's long history crowds out another's
  *  abilities. Past the budget the rest is left out (listed in cut). */
@@ -183,6 +184,17 @@ export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts:
       // precedents: over in the story before now first, then the nearest in time
       past: t && t.hi <= tick ? 0 : 1, distance: t ? Math.abs(t.lo - tick) : Infinity };
   });
+  all.sort((a, b) => a.tier - b.tier || b.from.length - a.from.length || a.past - b.past || a.distance - b.distance || a.order - b.order);
+  // a few original fights of the same people come first, the rest with the other fights (live: nine fights two of
+  // them were in, most of them side by side, pushed out the rules of the runes and of an esper using magic)
+  const shared = new Map<string, number>();
+  for (const w of all) {
+    if (w.tier !== 1) continue;
+    const k = (w.node.who || []).filter((x) => startSet.has(x)).sort().join('|');
+    const n = shared.get(k) || 0;
+    shared.set(k, n + 1);
+    if (n >= PRECEDENTS_EACH) w.tier = 4;
+  }
   all.sort((a, b) => a.tier - b.tier || b.from.length - a.from.length || a.past - b.past || a.distance - b.distance || a.order - b.order);
   // the starts take turns within each tier (a node's turn: how many of its first start's came before it there)
   const turns = new Map<string, number>(), each = new Map<Id, number>();

@@ -5,6 +5,7 @@ import type { Persona } from './host';
 import type { AddressForm, Id, LedgerRecord, MindProfile, NatureVersion, StoryTime, Until } from '../domain/types';
 import { loadPinnedPack, validatePack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { normalizeName, valuesEqual } from '../domain/pack';
+import { renderSummary, type EventSummary } from '../domain/summary';
 import { cleanViews } from '../domain/address';
 import { buildBootstrap, causeOf, isDue, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
 import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
@@ -873,6 +874,7 @@ export class CanonEngine {
     warnings.push(...await identifyInFight({
       port: this.host.model, index, fight: out.fight, text: entry.text, timeLabel: formatTick(tick, origin), lore: await this.gameLore(),
       near: (extractInput.registry.entities as string[]).map((l) => l.split(' | ')[0]), signal, operationId, log: (l) => this.debugLog('task', l),
+      player: prof ? { id: prof.profile.playerId, has: prof.profile.capabilities } : null,
     }));
     const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
     records.push(...fight.records);
@@ -1506,7 +1508,7 @@ export class CanonEngine {
       const ev = pack.events.get(t.id)!;
       if (ev.classification === 'HARD') continue;
       const beats = index.inProgressBeats(ev.id);
-      out.push({ id: ev.id, title: ev.title, window: `${formatTick(t.lo)} – ${formatTick(t.hi)}`, original: ev.summary.length > 220 ? ev.summary.slice(0, 217) + '…' : ev.summary, ...(beats.length ? { in_progress: beats.map((o) => `${o.title}: ${o.account}`.slice(0, 200)) } : {}) });
+      out.push({ id: ev.id, title: ev.title, window: `${formatTick(t.lo)} – ${formatTick(t.hi)}`, original: whatHappens(ev, pack.pack.language), ...(beats.length ? { in_progress: beats.map((o) => `${o.title}: ${o.account}`.slice(0, 200)) } : {}) });
       if (out.length >= 10) break;
     }
     return out;
@@ -3555,3 +3557,11 @@ export function labelForError(kind: string): string {
 }
 
 export { toTick, valuesEqual };
+
+/** What happens in a canon event, for a reviewer to check a reply by: its trigger, course and result (the background
+ *  and motives come first in the summary, and cut short they crowded out the course: live, an invasion that knocks out
+ *  the city's guards was cut before the guards, and a reply showing them fall was rejected three times). */
+function whatHappens(ev: { summary: string; sections?: EventSummary | null }, language: string): string {
+  const s = ev.sections ? renderSummary({ trigger: ev.sections.trigger, course: ev.sections.course, result: ev.sections.result }, /^zh/i.test(language)) : ev.summary;
+  return s.length > 420 ? s.slice(0, 419) + '…' : s;
+}

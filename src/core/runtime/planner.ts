@@ -39,6 +39,25 @@ export function planScope(pack: LoadedPack, state: WorldState, affected: Id[] = 
   return { detailed, register: pend.filter((p) => !detailed.includes(p)) };
 }
 
+/** Drops in place the steps said to serve a HARD anchor that start after its authored deadline, and the steps that
+ *  depend on them: such a step cannot serve it (the deadline does not slide), and the planner writes them for what
+ *  comes after the anchor (live, three proposals in a row failed on two such steps, and the turn with them).
+ *  Returns notes on what was dropped. */
+export function dropLateSteps(out: PlanOutput, pack: LoadedPack): string[] {
+  const late = new Set(out.steps.filter((s) => {
+    const pe = s.serves_anchor ? pack.events.get(s.serves_anchor) : undefined;
+    return !!pe && pe.classification === 'HARD' && !!pe.when.latest && toTick(s.earliest) > toTick(pe.when.latest);
+  }).map((s) => s.step_id));
+  if (!late.size) return [];
+  const notes = [...late].map((id) => `step ${id}: dropped (starts after the deadline of the anchor it serves)`);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const s of out.steps) if (!late.has(s.step_id) && (s.depends_on || []).some((d) => late.has(d))) { late.add(s.step_id); notes.push(`step ${s.step_id}: dropped (depends on a dropped step)`); grew = true; }
+  }
+  out.steps = out.steps.filter((s) => !late.has(s.step_id));
+  return notes;
+}
+
 /** Repairs mistyped intended effects in place. A planner often writes `true` for "this outcome happens"
  *  on a string/enum predicate (exterior.condition=true for a HARD requiring "毁坏"): that is the anchor's
  *  own outcome, so it takes the anchor's value. Other mistyped or disallowed effects are dropped (effects
@@ -236,7 +255,7 @@ export async function runPlanning(args: {
       player: args.player,
     };
     const out = await callStructured<PlanOutput>(args.port, 'plan', PROMPTS.plan, input, { signal: args.signal, operationId: args.operationId, log: args.log });
-    const fixed = normalizePlanEffects(out, pack, scope);
+    const fixed = [...dropLateSteps(out, pack), ...normalizePlanEffects(out, pack, scope)];
     if (fixed.length) args.log?.({ kind: 'plan_effects_normalized', notes: fixed });
     const errs = validatePlan(out, pack, index, scope, clockTick, mode === 'FORCED_CONVERGENCE');
     if (errs.length) { errors.push(...errs); return null; }
