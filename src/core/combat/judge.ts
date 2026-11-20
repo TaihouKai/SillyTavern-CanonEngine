@@ -53,7 +53,7 @@ export interface Ruling {
   walked: { node: Id; depth: number; full: boolean; from: Id; label: string | null }[];
 }
 
-interface CombatOut { reasoning?: string; joins?: string[]; player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; stops?: { node: string; why?: string }[]; over: boolean; over_why?: string; stop_at?: string }
+interface CombatOut { reasoning?: string; joins?: string[]; player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; replaces?: string | null; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; stops?: { node: string; why?: string }[]; over: boolean; over_why?: string; stop_at?: string }
 interface FillOut { people: { who: string; links: { node: string; label: string }[]; style?: { start: string; force: string; response: string; limit: string; stop: string } | null }[] }
 
 /** Lorebook entries about someone: an entry whose title is their name, or one of whose keys is in a name of theirs. */
@@ -213,6 +213,10 @@ export async function judgeFight(a: {
     const w = s.until && typeof s.until === 'object' && 'while' in s.until ? String((s.until as { while: unknown }).while) : null;
     if (w && !inFight.includes(w)) notes.push(`ruling: the state "${text}" of ${name(who)} lasts while "${w}", not a thing at work in the fight (lasting)`);
     const until = w ? 'lasting' : cleanUntil(s.until);
+    // the state it takes the place of ends (one of theirs now, by its text)
+    const old = s.replaces && !s.removed ? statusesOf(index.state, who).find((x) => normalizeName(x.text) === normalizeName(String(s.replaces)) && normalizeName(x.text) !== normalizeName(text)) : undefined;
+    if (old) statuses.push({ entity: who, text: old.text, removed: true, source: 'play' });
+    else if (s.replaces && !s.removed) notes.push(`ruling: the state "${text}" of ${name(who)} replaces "${String(s.replaces).slice(0, 60)}", which they do not have (kept both)`);
     statuses.push({ entity: who, text, ...(count !== null ? { count } : {}), ...(until ? { until } : {}), ...(w && inFight.includes(w) ? { while: w } : {}), ...(node ? { node } : {}), ...(s.removed ? { removed: true } : {}), source: 'play' });
   }
   const ended: Id[] = [];

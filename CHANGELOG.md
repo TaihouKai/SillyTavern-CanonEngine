@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.46.3 — 2026-11-21
+
+- **A HARD canon outcome told in other words is no longer refused.** When your character walked in on 结标淡希 having just attacked 白井黑子, the reply described the injury as 「肩膀与侧腹被金属钉贯穿」, but the pack writes 「肩部与身体多处被螺丝钉、针贯穿」. That counted as a different result, and two replies were sent back. For a fact written as free text, other wording is no conflict. The reviewer's check decides whether the required content is there, and the pack's wording is kept.
+- **A state that gets worse takes the old one's place.** Asking in words didn't work: Seraphina's vessel pain piled up as 「隐隐作痛」, 「刺痛加剧」 and 「左臂刺痛」 side by side. Each new state in a ruling now says which current state it replaces, and that one ends.
+
 ## 1.46.2 — 2026-11-21
 
 - **A device in a fight can stop, and what it causes ends with it.** Once found, 能力下降 (Capacity Down) stayed "at work" for the whole fight, even after your character burned it. Its headache was given a guessed ten minutes, so it was gone before the next turn. Now:

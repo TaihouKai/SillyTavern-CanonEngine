@@ -140,6 +140,17 @@
      "quote": {
       "type": "string",
       "maxLength": 300
+     },
+     "replaces": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 120
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "required": [

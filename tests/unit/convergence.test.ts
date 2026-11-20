@@ -13,9 +13,9 @@ import { DEFAULT_PLAYER_VOICE, voiceTurnNote } from '../../src/core/runtime/voic
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 const has = (s: string) => (i: any) => JSON.stringify(i).includes(s);
 
-async function setup(start = tick(1, 9, 30)) {
+async function setup(start = tick(1, 9, 30), raw = demo) {
   const x = makeEngine();
-  await x.engine.bind(demo, { startTick: start, mode: 'new' });
+  await x.engine.bind(raw, { startTick: start, mode: 'new' });
   await x.engine.reconcile('test');
   return x;
 }
@@ -114,6 +114,27 @@ describe('convergence', () => {
     expect(st(x).dispositions.get('conflict-ends')?.disposition).toBe('occurred');
     expect(factAt(st(x), 'conflict', 'victor').value).toBe('union');
     expect(x.engine.lastTrace!.attempts[0].warnings!.join(' ')).toMatch(/required outcome conflict\.victor taken from the pack/);
+  });
+
+  it('C05c a free-text outcome the reply words otherwise is no conflict: confirmed by the reviewer, the words of the pack stand; unconfirmed, sent back (live: an injury told in other words)', async () => {
+    const raw = JSON.parse(demo);
+    raw.predicates.push({ id: 'terms', description: 'How the conflict ended, in words.', value_type: 'string' });
+    const ends = raw.events.find((e: any) => e.id === 'conflict-ends');
+    ends.outcomes.push({ entity_id: 'conflict', predicate: 'terms', value: 'the Council lowers its banners' });
+    ends.canonical_effects.push({ op: 'set', fact: { entity_id: 'conflict', predicate: 'terms', value: 'the Council lowers its banners' }, until: 'lasting' });
+    const ev = (status: string) => ({ scene_end: at(4, 18, 10), occurrences: [occ('o1', 'Union victory', 'the Council banners fall', { pack_event_id: 'conflict-ends', disposition: 'occurred', time: at(4, 18) })], transitions: [{ op: 'set', entity_id: 'conflict', predicate: 'active', value: false, quote: 'the war is over', occurrence_ref: 'o1' }, { op: 'set', entity_id: 'conflict', predicate: 'victor', value: 'union', quote: 'the war is over', occurrence_ref: 'o1' }, { op: 'set', entity_id: 'conflict', predicate: 'terms', value: 'the Council banners fall', quote: 'the Council banners fall', occurrence_ref: 'o1' }], hard_checks: [{ event_id: 'conflict-ends', status, occurrence_ref: 'o1', quote: 'the Council banners fall' }] });
+    const x = await setup(tick(4, 17), JSON.stringify(raw));
+    x.host.addUser('I watch the final battle.');
+    x.model.draft('The Council banners fall; the war is over. [H2]');
+    x.model.on('evaluate', (i) => String(i.candidate).includes('[H2]'), ev('fulfilled'));
+    expect(await x.engine.runOperation('normal')).toBe(true);
+    expect(factAt(st(x), 'conflict', 'terms').value).toBe('the Council lowers its banners');
+    const y = await setup(tick(4, 17), JSON.stringify(raw));
+    y.host.addUser('I watch the final battle.');
+    y.model.draft('The Council banners fall; the war is over. [H3]', 'The Council banners fall; the war is over. [H4]', 'The Council banners fall; the war is over. [H5]', 'The Council banners fall; the war is over. [H6]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[H'), ev('missing'));
+    expect(await y.engine.runOperation('normal')).toBe(false);
+    expect(y.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/exact required outcome.*missing conflict\.terms/);
   });
 
   it('C06/C09 planner escapes are rejected (drop_anchor field, new date, renamed winner, parallel world, player consent)', async () => {

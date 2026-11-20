@@ -414,7 +414,10 @@ export function runGate(g: GateInput): GateResult {
         if (pe.classification === 'HARD') {
           let missing = pe.outcomes.filter((req) => !deltas.some((d) => deltaMeets(d, req)));
           // a change of the same fact that is not the required one (for who joins or leaves: one the other way)
-          const wrong = deltas.filter((d) => pe.outcomes.some((req) => req.entity_id === d.entity_id && req.predicate === d.predicate && !deltaMeets(d, req)
+          // (a free text set in other words is no other value: live, 「肩膀与侧腹被金属钉贯穿」 for 「肩部与身体多处被螺丝钉、
+          // 针贯穿」 sent three replies back; the reviewer's check says whether it is the required content)
+          const wording = (d: FactDelta, req: { op?: string }) => d.op === 'set' && (!req.op || req.op === 'set') && pack.predicates.get(d.predicate)?.value_type === 'string';
+          const wrong = deltas.filter((d) => pe.outcomes.some((req) => req.entity_id === d.entity_id && req.predicate === d.predicate && !deltaMeets(d, req) && !wording(d, req)
             && (!req.op || d.op === 'unset' || (d.op !== 'set' && d.op !== req.op && [d.value].flat().some((x) => [req.value].flat().includes(x))))));
           // live: the reviewer confirmed the HARD content depicted (an off-screen abduction reported by text message)
           // but left out the outcome fact, whose exact pack wording it never reproduces ("被秘密带离并藏匿"); three

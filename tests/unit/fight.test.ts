@@ -302,6 +302,16 @@ describe('someone here joins', () => {
     expect(x.model.tasks('combat').at(-1)!.input.present.map((p: any) => p.id)).toEqual(['mira']);
   });
 
+  it('CF10 a state that takes the place of one they have ends it; one that names a state they lack keeps both', async () => {
+    const x = await setup();
+    const start = { fight: { state: 'starts', participants: ['Thug'], new_people: [{ name: 'Thug', description: 'a thug', quote: 'a thug' }] } };
+    const hit = (statuses: any[]) => () => ({ player_outcomes: [], exchanges: [{ actor: me(x), text: 'Ash swings.', basis: [{ ref: 'judgement' }] }], statuses, over: false });
+    await turn(x, 'I swing at a thug.', 'He hits back. [F16]', { extract: start, combat: hit([{ who: me(x), text: 'ribs aching', until: 'lasting' }]) });
+    await turn(x, 'I swing again.', 'Pain flares. [F17]', { combat: hit([{ who: me(x), text: 'ribs cracked', until: 'lasting', replaces: 'Ribs aching' }, { who: me(x), text: 'out of breath', until: { minutes: 5 }, replaces: 'dizzy' }]) });
+    expect(statusesOf(st(x), me(x)).map((s) => s.text).sort()).toEqual(['out of breath', 'ribs cracked']);
+    expect(x.engine.current!.replay.applied.at(-1)!.interp.combat!.notes.join(' ')).toMatch(/"out of breath" of Ash replaces "dizzy", which they do not have/);
+  });
+
   it('CF8 someone present whom the ruling has act in the fight has joined it, even when joins leaves them out', async () => {
     const x = await setup();
     await turn(x, 'I talk with Mira on the pier.', 'Mira listens. [F13]', { evaluate: { present: ['mira'] } });
