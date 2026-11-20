@@ -80,6 +80,8 @@ export function mountCombatGraph(canvas: HTMLCanvasElement, data: { nodes: Graph
   const halo = light ? 'rgba(20,20,24,.8)' : 'rgba(250,250,250,.88)';
   const accent = getComputedStyle(canvas).getPropertyValue('--ci-accent').trim() || '#e9a23b';
   const ring2Names = ps.filter((p) => p.depth === 2).length <= 40;
+  // a crowded first ring writes its names along the radius too (side by side they would run into each other)
+  const ring1Radial = ps.filter((p) => p.depth === 1).length > 16;
 
   let W = 0, H = 0, dpr = 1;
   const size = () => { const r = canvas.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1); W = r.width; H = r.height; canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); };
@@ -88,7 +90,7 @@ export function mountCombatGraph(canvas: HTMLCanvasElement, data: { nodes: Graph
   let scale = 1, tx = W / 2, ty = H / 2;
   const goal = () => {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const p of ps) { const m = p.depth === 2 && ring2Names ? 100 : 66; x0 = Math.min(x0, p.gx - m); x1 = Math.max(x1, p.gx + m); y0 = Math.min(y0, p.gy - (p.depth === 2 ? m * 0.9 : 24)); y1 = Math.max(y1, p.gy + (p.depth === 2 ? m * 0.9 : 24)); }
+    for (const p of ps) { const m = (p.depth === 2 && ring2Names) || (p.depth === 1 && ring1Radial) ? 100 : 66; x0 = Math.min(x0, p.gx - m); x1 = Math.max(x1, p.gx + m); const tall = p.depth === 2 || (p.depth === 1 && ring1Radial); y0 = Math.min(y0, p.gy - (tall ? m * 0.9 : 24)); y1 = Math.max(y1, p.gy + (tall ? m * 0.9 : 24)); }
     const s = Math.min(1.5, W / Math.max(1, x1 - x0), H / Math.max(1, y1 - y0));
     return { s, x: W / 2 - ((x0 + x1) / 2) * s, y: H / 2 - ((y0 + y1) / 2) * s };
   };
@@ -100,11 +102,12 @@ export function mountCombatGraph(canvas: HTMLCanvasElement, data: { nodes: Graph
     ctx.lineWidth = 3 / scale; ctx.strokeStyle = halo; ctx.lineJoin = 'round';
     ctx.strokeText(text, x, y); ctx.fillStyle = color; ctx.fillText(text, x, y);
   };
-  // a name: the focus's under it; the first ring's beside it, away from the centre; the outer ring's along the radius
+  // a name: the focus's under it; the first ring's beside it, away from the centre (along the radius when crowded);
+  // the outer ring's along the radius
   const nameOf = (p: P, px: number) => {
     if (p === focus) { ctx.textAlign = 'center'; ctx.textBaseline = 'top'; label(p.name, p.x, p.y + p.r + 4 / scale, px, ink); return; }
     const ux = Math.cos(p.angle), uy = Math.sin(p.angle), off = p.r + 4 / scale;
-    if (p.depth === 1) {
+    if (p.depth === 1 && !ring1Radial) {
       ctx.textAlign = ux > 0.3 ? 'left' : ux < -0.3 ? 'right' : 'center';
       ctx.textBaseline = uy > 0.3 ? 'top' : uy < -0.3 ? 'bottom' : 'middle';
       label(p.name, p.x + ux * off, p.y + uy * off, px, ink);
