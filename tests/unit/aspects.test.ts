@@ -406,3 +406,34 @@ describe('a thing the story keeps is not destroyed in a fight', () => {
   });
 });
 
+describe('what an event of now hands someone', () => {
+  it('AS13 the hook an event about to happen hands Mira, before the world says so: the newcomer with it is Mira, she holds it in the fight, and it can be taken from her', async () => {
+    const raw = harbor();
+    raw.events.find((e) => e.id === 'medic-ambush')!.canonical_effects.push({ op: 'set', fact: { entity_id: 'hook', predicate: 'holder', value: 'mira' }, until: 'lasting' });
+    const y = makeEngine();
+    (y.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
+    y.model.on('profile', null, PROFILE);
+    y.model.on('persona_abilities', null, { abilities: [], setting: [] });
+    await y.engine.bind(JSON.stringify(raw), { startTick: tick(1, 9, 30), mode: 'new' });
+    await y.engine.reconcile('test');
+    const pid = () => y.engine.playerProfile()!.profile.playerId;
+    const msg = 'A woman swings the cargo hook at me; I tear it from her hands.';
+    y.host.addUser(msg);
+    y.model.on('extract_user', (i) => i.message === msg, {
+      references: [{ phrase: 'cargo hook', quote: 'the cargo hook', kind: 'entity', mode: 'direct', candidates: ['hook'] }],
+      fight: { state: 'starts', participants: ['a woman'], new_people: [{ name: 'a woman', description: 'swings a hook', quote: 'A woman swings the cargo hook at me' }], why: 'x' } }, true);
+    let holds: unknown = null;
+    y.model.on('combat', (i) => i.player_message === msg, (i: any) => {
+      holds = i.fighters.find((f: any) => f.id === 'mira')?.holds;
+      return { reasoning: 'x', exchanges: [{ actor: pid(), text: 'Ash tears the hook away.', basis: [{ ref: 'judgement' }], unsupported: true }], statuses: [], over: false, handovers: [{ object: 'hook', to: pid() }] };
+    });
+    y.model.draft('Ash tears the hook away. [AS13]');
+    y.model.on('evaluate', null, { scene_end: at(1, 9, 35) });
+    await y.engine.runOperation('normal');
+    expect(fightNow(y.engine.current!.replay.state).identified.map((x) => x.id)).toEqual(['mira']);
+    expect(holds).toEqual(['hook | Cargo hook']);
+    expect(y.engine.combatView(false)!.rulings[0].notes.join(' ')).not.toMatch(/nobody here holds it/);
+    expect(tiesOf(y.engine.current!.replay.state, pid()).holds).toEqual(['hook']);
+  });
+});
+

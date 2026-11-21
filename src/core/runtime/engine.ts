@@ -7,7 +7,7 @@ import { loadPinnedPack, validatePack, validatePackText, type LoadedPack, type L
 import { normalizeName, valuesEqual } from '../domain/pack';
 import { renderSummary, type EventSummary } from '../domain/summary';
 import { cleanViews } from '../domain/address';
-import { buildBootstrap, causeOf, isDue, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
+import { buildBootstrap, causeOf, eventsOfNow, isDue, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
 import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { WorldIndex } from '../domain/world-query';
@@ -99,9 +99,7 @@ const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + Str
  *  茵蒂克丝 was in nothing the message or the story so far had named). */
 export function peopleOfNow(index: WorldIndex, tick = index.state.clock.lo): Id[] {
   const L = index.pack;
-  return uniq(L.timeIndex.filter((t) => t.lo <= tick + 180 && t.hi >= tick - 60 && index.state.dispositions.get(t.id)?.disposition !== 'occurred')
-    .sort((a, b) => Math.abs(a.lo - tick) - Math.abs(b.lo - tick)).slice(0, 12)
-    .flatMap((t) => L.events.get(t.id)!.entity_ids.filter((id) => L.entities.get(id)?.kind === 'person')));
+  return uniq(eventsOfNow(L, index.state, tick).flatMap((id) => L.events.get(id)!.entity_ids.filter((x) => L.entities.get(x)?.kind === 'person')));
 }
 
 /** An id the model gave: as it is when it is one; else, read as a name ("index-librorum-prohibitorum"), the one entity

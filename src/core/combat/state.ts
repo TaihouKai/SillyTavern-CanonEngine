@@ -4,6 +4,7 @@ import type { AbilityPart, CombatLinkChange, CombatNode, CombatSource, CombatSty
 import type { LoadedPack } from '../domain/pack';
 import type { WorldState } from '../domain/reducer';
 import { factAt } from '../domain/reducer';
+import { eventsOfNow } from '../domain/schedule';
 import { eventTime, normalizeName } from '../domain/pack';
 import { aspectReader, runtimeAbilities } from '../domain/aspects';
 
@@ -92,6 +93,24 @@ function tiesAt(state: WorldState, tick: number) {
 export function tiesOf(state: WorldState, entity: Id, tick = state.clock.lo): { holds: Id[]; memberOf: Id[] } {
   const t = tiesAt(state, tick);
   return { holds: t.holds.get(entity) || [], memberOf: t.memberOf.get(entity) || [] };
+}
+
+/** Who holds an object in a fight now: the world's fact; while it does not say, whom an event of the story under way
+ *  now, or about to be, hands it to (live: at 15:30 the story was inside the window of the event that gives 滨面 the
+ *  ladies' handgun, not yet settled, so the gun taken from him was nobody's). Null: nobody known. */
+export function holderOf(L: LoadedPack, state: WorldState, obj: Id): Id | null {
+  if (L.predicates.get('holder')?.value_type !== 'entity_ref') return null;
+  const v = factAt(state, obj, 'holder', { tick: state.clock.lo });
+  if (v.known) return typeof v.value === 'string' ? v.value : null;
+  for (const id of eventsOfNow(L, state)) for (const x of L.events.get(id)!.canonical_effects) if (x.op === 'set' && x.fact.entity_id === obj && x.fact.predicate === 'holder' && typeof x.fact.value === 'string') return x.fact.value;
+  return null;
+}
+
+/** The objects someone holds in a fight now (holderOf of each). */
+export function heldBy(L: LoadedPack, state: WorldState, who: Id): Id[] {
+  if (L.predicates.get('holder')?.value_type !== 'entity_ref') return [];
+  const soon = eventsOfNow(L, state).flatMap((id) => L.events.get(id)!.canonical_effects.flatMap((x) => (x.op === 'set' && 'fact' in x && x.fact.predicate === 'holder' && x.fact.value === who ? [x.fact.entity_id] : [])));
+  return [...new Set([...tiesOf(state, who).holds, ...soon])].filter((o) => holderOf(L, state, o) === who);
 }
 
 /** What someone is linked to in the combat graph now: what they are written to have — their abilities and links

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.48.3 — 2026-11-21 (pack 7.1.1)
+
+- **What an event under way hands someone.** At 15:30 the story was inside the window of the event that gives 滨面 the ladies' handgun (15:20–15:40). That event was not settled yet, so the world did not yet say who held the gun. The thug holding it was not known as 滨面, and the gun taken from him belonged to nobody. Until the world says who holds an object, a fight now goes by whom an event under way now, or starting within three hours, hands it to. This applies both to telling who someone is and to what they hold in the ruling.
+
 ## 1.48.2 — 2026-11-21 (pack 7.1.1)
 
 - **A device the story keeps is not destroyed in a fight.** Told that the 能力下降 is destroyed only in the raid two days later, the ruling still had Alice cut it open. A thing at work in a fight now stops with how it stops: destroyed, switched off, carried off or out of reach. A ruling that destroys a thing the story keeps, or doesn't say how, is ruled again with that thing marked as not destroyed.

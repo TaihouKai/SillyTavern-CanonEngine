@@ -29728,6 +29728,18 @@ function tiesOf(state, entity, tick = state.clock.lo) {
   const t2 = tiesAt(state, tick);
   return { holds: t2.holds.get(entity) || [], memberOf: t2.memberOf.get(entity) || [] };
 }
+function holderOf(L, state, obj) {
+  if (L.predicates.get("holder")?.value_type !== "entity_ref") return null;
+  const v = factAt(state, obj, "holder", { tick: state.clock.lo });
+  if (v.known) return typeof v.value === "string" ? v.value : null;
+  for (const id of eventsOfNow(L, state)) for (const x of L.events.get(id).canonical_effects) if (x.op === "set" && x.fact.entity_id === obj && x.fact.predicate === "holder" && typeof x.fact.value === "string") return x.fact.value;
+  return null;
+}
+function heldBy(L, state, who) {
+  if (L.predicates.get("holder")?.value_type !== "entity_ref") return [];
+  const soon = eventsOfNow(L, state).flatMap((id) => L.events.get(id).canonical_effects.flatMap((x) => x.op === "set" && "fact" in x && x.fact.predicate === "holder" && x.fact.value === who ? [x.fact.entity_id] : []));
+  return [.../* @__PURE__ */ new Set([...tiesOf(state, who).holds, ...soon])].filter((o) => holderOf(L, state, o) === who);
+}
 function linksOf(L, state, entity, tick = state.clock.lo) {
   const now = /* @__PURE__ */ new Map();
   const src = { pack: L, state };
@@ -30190,6 +30202,9 @@ function isDue(window2, tick) {
 }
 function nearHard(pending, at) {
   return pending.filter((c, i) => i < 2 || c.lo <= at + 2 * 1440);
+}
+function eventsOfNow(pack2, state, tick = state.clock.lo) {
+  return pack2.timeIndex.filter((t2) => t2.lo <= tick + 180 && t2.hi >= tick - 60 && state.dispositions.get(t2.id)?.disposition !== "occurred").sort((a, b) => Math.abs(a.lo - tick) - Math.abs(b.lo - tick)).slice(0, 12).map((t2) => t2.id);
 }
 function pendingHard(pack2, state) {
   return pack2.timeIndex.filter((t2) => pack2.events.get(t2.id).classification === "HARD" && state.dispositions.get(t2.id)?.disposition !== "occurred").map((t2) => ({ event: pack2.events.get(t2.id), lo: t2.lo, hi: t2.hi }));
@@ -36321,7 +36336,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.48.2";
+var ENGINE_RELEASE = "1.48.3";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -38422,7 +38437,6 @@ async function judgeFight(a) {
   const L = a.index.pack;
   if (L.combat.none !== null) return null;
   const N = combatNodes(L, a.index.state);
-  const canHold = L.predicates.get("holder")?.value_type === "entity_ref";
   const now = fightNow(a.index.state);
   if (!now.ongoing) return null;
   const fighters = now.participants.filter((id) => a.index.entityExists(id));
@@ -38437,7 +38451,7 @@ async function judgeFight(a) {
   const loreOf = new Map(fighters.map((id) => [id, id === a.playerId ? [] : loreAbout(a.lore, namesOf(id))]));
   const linkLine = (l) => `${l.label} ${l.node}${l.via && l.via !== l.node ? ` (through ${l.via}, which they ${l.how === "holds" ? "hold" : "belong to"})` : ""}${l.source === "fill" ? " (filled in: a guess)" : ""}`;
   const worldNow = (id) => index.entityState(id).facts.filter((f) => index.pack.predicates.get(f.predicate)?.value_type !== "entity_set").slice(0, 10).map((f) => `${f.predicate}: ${f.display}`.slice(0, 200));
-  const holdsNow2 = (id) => canHold ? tiesOf(index.state, id).holds.map((o) => `${o} | ${a.index.entityName(o)}`) : [];
+  const holdsNow2 = (id) => heldBy(L, index.state, id).map((o) => `${o} | ${a.index.entityName(o)}`);
   const statesNow = (id) => statusesOf(index.state, id).map((s) => `${s.text}${s.count != null ? ` \xD7${s.count}` : ""}`);
   const recordText = (ref) => {
     const id = ref.startsWith("world:") ? ref.slice(6) : "";
@@ -38485,7 +38499,7 @@ async function judgeFight(a) {
   if (a.playerId && a.personaText) sourceText.set("persona", a.personaText);
   for (const es of loreOf.values()) for (const e of es) sourceText.set(loreRef(e), e.content);
   const at = index.state.clock.hi;
-  const here = /* @__PURE__ */ new Set([...fighters, ...bystanders, ...[...fighters, ...bystanders].flatMap((id) => canHold ? tiesOf(index.state, id).holds : [])]);
+  const here = /* @__PURE__ */ new Set([...fighters, ...bystanders, ...[...fighters, ...bystanders].flatMap((id) => heldBy(L, index.state, id))]);
   const isThingHere = (id) => L.entities.get(id)?.kind !== "person" && linksOf(L, index.state, id).some((l) => inFight.includes(l.node));
   const fixed = [];
   for (const c of nearHard(pendingHard(L, index.state), at).filter((x) => x.lo > at)) for (const o of c.event.outcomes) {
@@ -38637,7 +38651,7 @@ async function judgeFight(a) {
   }
   const ended = [];
   const handovers = [];
-  const heldHere = new Set([...fighters, ...bystanders].flatMap((id) => canHold ? tiesOf(index.state, id).holds : []));
+  const heldHere = new Set([...fighters, ...bystanders].flatMap((id) => heldBy(L, index.state, id)));
   for (const x of out.handovers || []) {
     const obj = String(x.object || "").split("|")[0].trim(), to = x.to ? String(x.to).trim() : null;
     if (!heldHere.has(obj)) {
@@ -38736,7 +38750,7 @@ function personText(index, id, lore) {
   const n = READ4(index, id).nature?.version;
   const nodes = linksOf(L, index.state, id).map((l) => combatNodes(L, index.state).get(l.node)).filter((x) => !!x).map((x) => `${x.name} ${x.gist}`);
   const lo = loreAbout(lore, [e.name, ...e.aliases || []]).slice(0, 2).map((x) => x.content.slice(0, 1500));
-  const held = L.predicates.get("holder")?.value_type === "entity_ref" ? tiesOf(index.state, id).holds.map((o) => `${index.entityName(o)} ${L.entities.get(o)?.static_description || ""}`) : [];
+  const held = heldBy(L, index.state, id).map((o) => `${index.entityName(o)} ${L.entities.get(o)?.static_description || ""}`);
   return [e.name, ...e.aliases || [], e.static_description || "", n ? `${n.habits || ""} ${n.uses || ""} ${n.others || ""}` : "", ...nodes, ...held, ...lo].join("\n");
 }
 function whoCandidates(index, words, lore, near = []) {
@@ -38775,8 +38789,8 @@ async function identifyInFight(a) {
   }
   const canHold = L.predicates.get("holder")?.value_type === "entity_ref";
   const holderNow = (obj) => {
-    const v = factAt(a.index.state, obj, "holder", { tick: a.index.state.clock.lo });
-    return v.known && typeof v.value === "string" && L.entities.get(v.value)?.kind === "person" ? v.value : null;
+    const h = holderOf(L, a.index.state, obj);
+    return h && L.entities.get(h)?.kind === "person" ? h : null;
   };
   for (const p of canHold ? [...f.new_people || []] : []) {
     const words = `${p.name || ""} ${p.quote || ""}`;
@@ -38817,7 +38831,7 @@ async function identifyInFight(a) {
           description: (e.static_description || "").slice(0, 300),
           ...n?.habits ? { habits: n.habits.slice(0, 300) } : {},
           // what they have in hand now (the world's facts): a gun in the message's hands may be theirs
-          ...canHold && tiesOf(a.index.state, id).holds.length ? { holds: tiesOf(a.index.state, id).holds.map((o) => a.index.entityName(o)) } : {},
+          ...heldBy(L, a.index.state, id).length ? { holds: heldBy(L, a.index.state, id).map((o) => a.index.entityName(o)) } : {},
           abilities: linksOf(L, a.index.state, id).map((l) => combatNodes(L, a.index.state).get(l.node)).filter((x) => x && x.kind === "ability").slice(0, 6).map((x) => `${x.name}: ${x.gist}`.slice(0, 160)),
           ...lore ? { lorebook: lore.content.slice(0, 500) } : {}
         };
@@ -41139,7 +41153,7 @@ var READ_PLAYER2 = aspectReader(["nature", "abilities", "setting"]);
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
 function peopleOfNow(index, tick = index.state.clock.lo) {
   const L = index.pack;
-  return uniq(L.timeIndex.filter((t2) => t2.lo <= tick + 180 && t2.hi >= tick - 60 && index.state.dispositions.get(t2.id)?.disposition !== "occurred").sort((a, b) => Math.abs(a.lo - tick) - Math.abs(b.lo - tick)).slice(0, 12).flatMap((t2) => L.events.get(t2.id).entity_ids.filter((id) => L.entities.get(id)?.kind === "person")));
+  return uniq(eventsOfNow(L, index.state, tick).flatMap((id) => L.events.get(id).entity_ids.filter((x) => L.entities.get(x)?.kind === "person")));
 }
 function candidateId(index, x) {
   if (index.entityExists(x) || index.pack.events.has(x) || index.state.occurrences.has(x)) return x;

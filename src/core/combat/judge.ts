@@ -19,7 +19,7 @@ import { keyMatch, type LoreEntry } from '../runtime/lore';
 import { callStructured, type ModelPort } from '../runtime/model';
 import { PROMPTS } from '../runtime/prompts';
 import type { RecordDraft } from '../runtime/types';
-import { combatNodes, fightNow, knowsNode, linksOf, statusesOf, styleOf, tiesOf, walkCombat } from './state';
+import { combatNodes, fightNow, heldBy, knowsNode, linksOf, statusesOf, styleOf, walkCombat } from './state';
 import { cleanUntil, combatRecord as rec } from './record';
 
 export interface CombatSettings { maxDepth: number; fullDepth: number; budgetChars: number }
@@ -84,8 +84,6 @@ export async function judgeFight(a: {
   const L = a.index.pack;
   if (L.combat.none !== null) return null;
   const N = combatNodes(L, a.index.state);
-  // who holds an object is a fact of the pack's (holder, naming the holder): a ruling can change it only then
-  const canHold = L.predicates.get('holder')?.value_type === 'entity_ref';
   const now = fightNow(a.index.state);
   if (!now.ongoing) return null;
   const fighters = now.participants.filter((id) => a.index.entityExists(id));
@@ -99,7 +97,7 @@ export async function judgeFight(a: {
   const linkLine = (l: ReturnType<typeof linksOf>[number]) => `${l.label} ${l.node}${l.via && l.via !== l.node ? ` (through ${l.via}, which they ${l.how === 'holds' ? 'hold' : 'belong to'})` : ''}${l.source === 'fill' ? ' (filled in: a guess)' : ''}`;
   const worldNow = (id: Id) => index.entityState(id).facts.filter((f) => index.pack.predicates.get(f.predicate)?.value_type !== 'entity_set').slice(0, 10).map((f) => `${f.predicate}: ${f.display}`.slice(0, 200));
   // the objects of the world someone holds now (the facts): what a ruling may hand over
-  const holdsNow = (id: Id) => (canHold ? tiesOf(index.state, id).holds.map((o) => `${o} | ${a.index.entityName(o)}`) : []);
+  const holdsNow = (id: Id) => heldBy(L, index.state, id).map((o) => `${o} | ${a.index.entityName(o)}`);
   const statesNow = (id: Id) => statusesOf(index.state, id).map((s) => `${s.text}${s.count != null ? ` ×${s.count}` : ''}`);
   // what is so of someone here now (the fight's states, what they hold, the world's record): a basis that stops an
   // outcome as a mechanism does ("world:<id>"; live, "the sword is still in his hand" counted as mere judgement)
@@ -150,7 +148,7 @@ export async function judgeFight(a: {
   // told so, and it stops an outcome as a mechanism does (live: Alice cut the 能力下降 two days before the raid that
   // destroys it; the ruling had it cut, the reply check refused every reply that showed it, and the turn failed)
   const at = index.state.clock.hi;
-  const here = new Set([...fighters, ...bystanders, ...[...fighters, ...bystanders].flatMap((id) => (canHold ? tiesOf(index.state, id).holds : []))]);
+  const here = new Set([...fighters, ...bystanders, ...[...fighters, ...bystanders].flatMap((id) => heldBy(L, index.state, id))]);
   const isThingHere = (id: Id) => L.entities.get(id)?.kind !== 'person' && linksOf(L, index.state, id).some((l) => inFight.includes(l.node));
   const fixed: { ref: string; who: Id; outcome: Outcome; event: Id }[] = [];
   // (an event whose window is open may be this very fight: its outcomes come as it does)
@@ -273,7 +271,7 @@ export async function judgeFight(a: {
   const ended: Id[] = [];
   // an object changes hands: one a fighter or someone here holds, to a fighter, someone here or nobody
   const handovers: NonNullable<Ruling['handovers']> = [];
-  const heldHere = new Set([...fighters, ...bystanders].flatMap((id) => (canHold ? tiesOf(index.state, id).holds : [])));
+  const heldHere = new Set([...fighters, ...bystanders].flatMap((id) => heldBy(L, index.state, id)));
   for (const x of out.handovers || []) {
     const obj = String(x.object || '').split('|')[0].trim(), to = x.to ? String(x.to).trim() : null;
     if (!heldHere.has(obj)) { notes.push(`ruling: "${obj}" changes hands, but nobody here holds it (left out)`); continue; }

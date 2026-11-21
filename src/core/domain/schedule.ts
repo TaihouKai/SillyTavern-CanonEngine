@@ -45,6 +45,13 @@ export function nearHard(pending: Candidate[], at: number): Candidate[] {
   return pending.filter((c, i) => i < 2 || c.lo <= at + 2 * 1440);
 }
 
+/** The story's events under way now or starting within three hours, not yet over, nearest first (at most 12): what
+ *  may be about here, and whom they bring. */
+export function eventsOfNow(pack: LoadedPack, state: WorldState, tick = state.clock.lo): Id[] {
+  return pack.timeIndex.filter((t) => t.lo <= tick + 180 && t.hi >= tick - 60 && state.dispositions.get(t.id)?.disposition !== 'occurred')
+    .sort((a, b) => Math.abs(a.lo - tick) - Math.abs(b.lo - tick)).slice(0, 12).map((t) => t.id);
+}
+
 /** Pending HARD obligations ordered by deadline (compact register). */
 export function pendingHard(pack: LoadedPack, state: WorldState): Candidate[] {
   return pack.timeIndex
