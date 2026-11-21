@@ -27,7 +27,7 @@ export function indexCombat(pack: CanonPack): CombatIndex {
   for (const l of c.links || []) link(l);
   if (c.none === undefined) {
     for (const { owner, ability: a } of packAbilities(pack)) {
-      nodes.set(a.id, { id: a.id, kind: 'ability', name: a.name, gist: a.gist, text: a.text, parts: a.parts, ...(a.visibility ? { visibility: a.visibility } : {}), source_refs: a.source_refs, ...(a.generated ? { generated: true } : {}), owner, from_event: a.from_event ?? null, until_event: a.until_event ?? null });
+      nodes.set(a.id, { id: a.id, kind: 'ability', name: a.name, gist: a.gist, text: a.text, parts: a.parts, ...(a.visibility ? { visibility: a.visibility } : {}), source_refs: a.source_refs, ...(a.generated ? { generated: true } : {}), owner, from_event: a.from_event ?? null, until_event: a.until_event ?? null, ...(a.of ? { of: a.of } : {}) });
       for (const l of a.links || []) link({ from: a.id, to: l.to, label: l.label });
     }
     const ents = new Map(pack.entities.map((e) => [e.id, e]));

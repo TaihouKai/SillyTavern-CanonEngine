@@ -3,7 +3,7 @@
  "properties": {
   "abilities": {
    "type": "array",
-   "maxItems": 12,
+   "maxItems": 16,
    "items": {
     "type": "object",
     "properties": {
@@ -74,6 +74,13 @@
        ],
        "additionalProperties": false
       }
+     },
+     "of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "maxLength": 80
      }
     },
     "required": [

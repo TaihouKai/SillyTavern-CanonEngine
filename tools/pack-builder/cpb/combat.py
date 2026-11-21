@@ -52,7 +52,7 @@ Page: {title} ({site})
 PEOPLE_SYSTEM = """You write what a fight engine needs about one person of {work}: what they are as a fighter, what they can do, and how they act in a confrontation. The engine judges fights from this; a player may fight them or beside them.
 
 1. links: the setting's concepts and abilities (listed by id) that describe this person: what kind of fighter they are (a Level, 魔术师, 圣人, an ordinary person...) and the listed abilities they have. Every person gets at least one concept; an ordinary person is "ordinary-person". label: what the link is, a few words in {lang} ("是", "能力", "持有"). A link that only holds from an event on (a power gained, lost or changed) gives from_event (an id from the events list), and until_event when it ends.
-2. abilities: this person's OWN abilities the list does not have (what the list has, under any name, is linked, never written again) (a unique power, their own spell, technique or weapon), as nodes: id (lowercase ASCII words joined by "-", English or romaji), name (in {lang}), gist (one sentence), text (2-4 sentences), parts — principle, effect, conditions, cost, limits, counters (only what the sources say; leave out the rest); secret: true on a part the story treats as hidden. A version from an event: from_event / until_event.
+2. abilities: this person's OWN abilities the list does not have (what the list has, under any name, is linked, never written again) (a unique power, their own spell, technique or weapon), as nodes: id (lowercase ASCII words joined by "-", English or romaji), name (in {lang}), gist (one sentence), text (2-4 sentences), parts — principle, effect, conditions, cost, limits, counters (only what the sources say; leave out the rest); secret: true on a part the story treats as hidden. A version from an event: from_event / until_event. of: for a way of using another of this person's abilities (a technique, form, mode or application of their power: 反射 of 一方通行), the id of that ability (one of theirs, written here or listed as theirs); the power's conditions, cost, limits and counters hold for its uses and are not written again; null for what stands on its own. Never a use of a use.
 3. style: 对抗倾向, five sentences in {lang}, from what the sources show of how they fight:
    start — when they start a fight themselves; force — how much of their strength they use, whether they kill, when they go all out; response — what they do when attacked (fight back, dodge, flee, take it); limit — whom or what they would risk their life for; stop — when they give up, retreat or stop.
    "照常人" for a field where nothing sets them apart. What holds toward one person only (a friend whose shocks are play) does not belong here. A later version from an event where how they fight changes for good (a killer who vows not to kill): from_event, why.
@@ -62,7 +62,7 @@ PEOPLE_SYSTEM = """You write what a fight engine needs about one person of {work
 5. not_had: an ability listed as this person's that the sources do not give them (a wrong attribution): {{"node": "<id>", "why": "<a few words>"}}.
 
 TRUTH: what the sources say; a weak or minor person gets a short entry. Never invent powers. Patterns, not story: no specific fights or lines.
-Reply with JSON only: {{"links": [{{"node": "", "label": "", "from_event": null, "until_event": null}}], "abilities": [{{"id": "", "name": "", "gist": "", "text": "", "parts": [{{"part": "effect", "text": "", "secret": false}}], "from_event": null, "until_event": null}}], "style": [{{"from_event": null, "why": "", "start": "", "force": "", "response": "", "limit": "", "stop": "", "generated": false}}], "not_had": []}}"""
+Reply with JSON only: {{"links": [{{"node": "", "label": "", "from_event": null, "until_event": null}}], "abilities": [{{"id": "", "name": "", "gist": "", "text": "", "parts": [{{"part": "effect", "text": "", "secret": false}}], "from_event": null, "until_event": null, "of": null}}], "style": [{{"from_event": null, "why": "", "start": "", "force": "", "response": "", "limit": "", "stop": "", "generated": false}}], "not_had": []}}"""
 
 PEOPLE_USER = """Work: {work}
 
@@ -230,6 +230,15 @@ def check_people(ids, node_ids, own=None):
             for k in ('from_event', 'until_event'):
                 if a.get(k) and a[k] not in ids:
                     p.append(f'ability {k} {a[k]!r} is not an id of the events list')
+        mine = {_id(a.get('id')): a for a in obj.get('abilities') or []} | {n['id']: n for n in own or []}
+        for a in obj.get('abilities') or []:   # a use names one of this person's abilities, which is no use itself
+            of = a.get('of')
+            if not of:
+                continue
+            if _id(of) == _id(a.get('id')) or _id(of) not in mine:
+                p.append(f'ability {a.get("name")!r}: of {of!r} is not one of the other abilities of this person (their own here, or listed as theirs)')
+            elif mine[_id(of)].get('of'):
+                p.append(f'ability {a.get("name")!r}: of {of!r} is itself a use; name the power it is a use of')
         st = obj.get('style') or []
         if not st:
             p.append('style is missing')
@@ -462,7 +471,7 @@ def attach(pack, golden, source_id):
         g = ge.get(e['id']) or {}
         if g.get('abilities'):
             aspects(e)['abilities'] = [{**{k: a[k] for k in ('id', 'name', 'gist', 'text', 'parts') if k in a},
-                                       **{k: a[k] for k in ('visibility', 'links', 'from_event', 'until_event') if a.get(k)}, **sourced(a)} for a in g['abilities']]
+                                       **{k: a[k] for k in ('visibility', 'links', 'from_event', 'until_event', 'of') if a.get(k)}, **sourced(a)} for a in g['abilities']]
             n_ab += len(g['abilities'])
         if g.get('setting'):
             aspects(e)['setting'] = [{k: l[k] for k in ('node', 'label', 'from_event', 'until_event') if l.get(k)} for l in g['setting']]
@@ -729,7 +738,8 @@ def golden_people(project, pack):
                 else:
                     parts[k] = {'part': k, 'text': p['text'], **({'visibility': {'mode': 'secret', 'knower_ids': [e['id']]}} if p.get('secret') else {})}
             node = {'id': a['id'], 'kind': 'ability', 'name': a['name'], 'gist': a['gist'], 'text': a['text'],
-                    'parts': [parts[k] for k in PARTS if k in parts], 'origin': 'people', 'owner_ids': [e['id']]}
+                    'parts': [parts[k] for k in PARTS if k in parts], 'origin': 'people', 'owner_ids': [e['id']],
+                    **({'of': _id(a['of'])} if a.get('of') else {})}
             if a.get('generated') or not prop.get('has_page'):
                 node['generated'] = True
             nodes.append(node)
@@ -842,6 +852,7 @@ def place(project, pack):
     default where the facts have it."""
     rv = read_json(review_path(project), {}) or {}
     pl, ties, holders = rv.get('placement') or {}, rv.get('ties') or {}, rv.get('holders') or []
+    uses = rv.get('uses') or {}
     pool = read_json(pool_path(project), {}) or {}
     ents = {e['id']: e for e in pack['entities']}
     evs = {ev['id'] for ev in pack['events']}
@@ -910,6 +921,8 @@ def place(project, pack):
         a = {k: n[k] for k in ('id', 'name', 'gist', 'text', 'parts', 'visibility', 'generated') if n.get(k)}
         a.setdefault('parts', [])
         return a
+    # uses (review "uses": ability id -> the ability of the same entity it is a use of; one level), and the people
+    # pass's own "of" where the review says nothing
     for i, n in nodes.items():
         if where[i] == 'setting' or not resolve(i) == i:
             continue
@@ -922,6 +935,24 @@ def place(project, pack):
             parts = ''.join(f'{PART_LABEL.get(x["part"], x["part"])}：{x["text"]}' for x in n.get('parts') or [])
             E(on(i))['fighting'] = {'gist': n['gist'], 'text': n['text'] + (('（' + parts + '）') if parts else ''), '_from': i}
     ab = {a['id']: (eid, a) for eid, g in ge.items() for a in g.get('abilities') or []}
+    bad_uses = []
+    for i, p in sorted({**{n['id']: n['of'] for n in nodes.values() if n.get('of')}, **uses}.items()):
+        i, p = resolve(i) or i, resolve(p) if p else p
+        if not p:
+            continue
+        if i not in ab or p not in ab:
+            bad_uses.append(f'use {i} -> {p}: both must be abilities written on an entity')
+        elif ab[i][0] != ab[p][0]:
+            bad_uses.append(f'use {i} -> {p}: {p} is {ab[p][0]}\'s, {i} is {ab[i][0]}\'s (a use is of the same entity\'s ability)')
+        elif i == p:
+            bad_uses.append(f'use {i}: of itself')
+        else:
+            ab[i][1]['of'] = p
+    for i, (eid, a) in ab.items():
+        if a.get('of') and ab.get(a['of'], (None, {}))[1].get('of'):
+            bad_uses.append(f'use {i} -> {a["of"]}: that one is a use itself (of {ab[a["of"]][1]["of"]}); a use is of the power, one level')
+    if bad_uses:
+        raise SystemExit('combat place: fix the review\'s "uses":\n  ' + '\n  '.join(bad_uses))
     out_links = []
     for l in between:
         f, t = resolve(l['from']), resolve(l['to'])

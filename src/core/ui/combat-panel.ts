@@ -69,6 +69,7 @@ export function combatHtml(v: CombatView | null, query: string, picked: Readonly
   const card = (n: NonNullable<typeof S.focus>) => {
     const ins = n.in.slice(0, 40);
     const rows = [
+      ...(n.of ? [`<div class="ci-muted">${esc(t('cbUseOf').replace('{a}', n.of.name))} ${nodeBtn(n.of.id, n.of.name)}</div>`] : []),
       ...(n.gist ? [`<div class="ci-muted">${esc(n.gist)}</div>`] : []),
       ...(n.text && n.text !== n.gist ? [`<div>${esc(n.text)}</div>`] : []),
       ...(n.parts.length ? [`<table class="ci-kv">${n.parts.map((p) => `<tr><th>${esc(t('cbPart_' + p.part))}</th><td>${esc(p.text)} ${knownBy(p.knowers)}</td></tr>`).join('')}</table>`] : []),

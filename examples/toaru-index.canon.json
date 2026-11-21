@@ -1,7 +1,7 @@
 {
  "schema_version": "2.0.0",
  "pack_id": "toaru-index-chronicle",
- "pack_version": "7.0.0",
+ "pack_version": "7.1.0",
  "title": "魔法禁书目录 编年史（旧约·新约·创约及外传）",
  "language": "zh-CN",
  "description": "《魔法禁书目录》系列（含超电磁炮、一方通行、未元物质、心理掌握、暗部少女共栖、幽幻姐妹等外传）的历史事件包。2.0 起由 canon-pack-builder 依据魔禁维基（灰机wiki）的篇章、时间线与考据页，以及英文 Toaru Wiki（fandom）的篇章页与人物经历逐篇细化；日期依考据页。HARD为主线关键节点，SOFT为可被玩家改变的重要事件（如角色死亡），FREE为背景与日常。恋爱关系一律不强制。",
@@ -657,6 +657,7 @@
         "label": "与主动控制相对"
        }
       ],
+      "of": "accelerator-ability",
       "source_refs": [
        "source-scripts"
       ]
@@ -694,6 +695,7 @@
         "label": "与被动反射相对"
        }
       ],
+      "of": "accelerator-ability",
       "source_refs": [
        "source-scripts"
       ]
@@ -727,6 +729,7 @@
         "label": "属于该能力"
        }
       ],
+      "of": "accelerator-ability",
       "source_refs": [
        "source-scripts"
       ]
@@ -753,6 +756,7 @@
        }
       ],
       "from_event": "wwiii.001.b14",
+      "of": "black-wings",
       "source_refs": [
        "source-scripts"
       ]
@@ -949,6 +953,7 @@
        }
       ],
       "until_event": "index.001.b13",
+      "of": "johns-pen",
       "source_refs": [
        "source-scripts"
       ]
@@ -1082,6 +1087,7 @@
        }
       ],
       "until_event": "index.001.b13",
+      "of": "johns-pen",
       "source_refs": [
        "source-scripts"
       ]
@@ -1104,6 +1110,7 @@
        }
       ],
       "until_event": "index.001.b13",
+      "of": "johns-pen",
       "source_refs": [
        "source-scripts"
       ]
@@ -1124,6 +1131,7 @@
        }
       ],
       "until_event": "index.001.b13",
+      "of": "johns-pen",
       "source_refs": [
        "source-scripts"
       ]
@@ -1144,6 +1152,7 @@
        }
       ],
       "until_event": "index.001.b13",
+      "of": "johns-pen",
       "source_refs": [
        "source-scripts"
       ]
@@ -1245,6 +1254,7 @@
         "label": "属于其攻击手段"
        }
       ],
+      "of": "meltdowner",
       "source_refs": [
        "source-scripts"
       ]
@@ -1315,6 +1325,7 @@
         "label": "以其反作用力实现"
        }
       ],
+      "of": "meltdowner",
       "source_refs": [
        "source-scripts"
       ]
@@ -1340,6 +1351,7 @@
         "label": "属于其防御用法"
        }
       ],
+      "of": "meltdowner",
       "source_refs": [
        "source-scripts"
       ]
@@ -1694,6 +1706,7 @@
         "label": "所属能力"
        }
       ],
+      "of": "mental-out",
       "source_refs": [
        "source-scripts"
       ]
@@ -1768,6 +1781,7 @@
         "label": "属于其子能力"
        }
       ],
+      "of": "mental-out",
       "source_refs": [
        "source-scripts"
       ]
@@ -1801,6 +1815,7 @@
         "label": "所属能力"
        }
       ],
+      "of": "mental-out",
       "source_refs": [
        "source-scripts"
       ]
@@ -2005,6 +2020,7 @@
        }
       ],
       "from_event": "battle-royale.001.b12",
+      "of": "aim-stalker",
       "source_refs": [
        "source-scripts"
       ]
@@ -2347,6 +2363,7 @@
         "label": "能力来源"
        }
       ],
+      "of": "nitrogen-manipulation",
       "source_refs": [
        "source-scripts"
       ]
@@ -2925,6 +2942,7 @@
         "label": "魔术术式"
        }
       ],
+      "of": "rune-card",
       "source_refs": [
        "source-scripts"
       ]
@@ -3008,6 +3026,7 @@
         "text": "强弱取决于卡片数量；出了符文结界范围就无能为力；卡片字迹被破坏则术式失效。"
        }
       ],
+      "of": "rune-card",
       "source_refs": [
        "source-scripts"
       ]
@@ -3027,6 +3046,7 @@
         "text": "连接对象精神，将对方身体情况再现于自身以探知病灶。"
        }
       ],
+      "of": "rune-card",
       "source_refs": [
        "source-scripts"
       ]
@@ -3587,6 +3607,7 @@
         "label": "作用于网络"
        }
       ],
+      "of": "network-command-tower",
       "source_refs": [
        "source-scripts"
       ]
@@ -3792,6 +3813,7 @@
         "text": "钢丝数量固定为七根，斩击轨迹受手部操纵限制。"
        }
       ],
+      "of": "shichiten-shichitou",
       "source_refs": [
        "source-scripts"
       ]
@@ -3869,6 +3891,7 @@
         "text": "不能长时间战斗，也不能连续使用，一发定胜负。"
        }
       ],
+      "of": "shichiten-shichitou",
       "source_refs": [
        "source-scripts"
       ]
@@ -4441,6 +4464,7 @@
        }
       ],
       "from_event": "battle-royale.001.b27",
+      "of": "dark-matter",
       "source_refs": [
        "source-scripts"
       ]
@@ -4463,6 +4487,7 @@
        }
       ],
       "from_event": "ichihanaran.001.b13",
+      "of": "dark-matter",
       "source_refs": [
        "source-scripts"
       ]
@@ -4486,6 +4511,7 @@
         "text": "若对手解析并重新定义包含未元物质的世界公式，翅膀的控制权可能被夺走。"
        }
       ],
+      "of": "dark-matter",
       "source_refs": [
        "source-scripts"
       ]
@@ -4514,6 +4540,7 @@
        }
       ],
       "from_event": "battle-royale.001.b26",
+      "of": "dark-matter",
       "source_refs": [
        "source-scripts"
       ]
@@ -4534,6 +4561,7 @@
        }
       ],
       "from_event": "ichihanaran.001.b13",
+      "of": "dark-matter",
       "source_refs": [
        "source-scripts"
       ]
@@ -4574,6 +4602,7 @@
        }
       ],
       "from_event": "ichihanaran.001.b13",
+      "of": "dark-matter",
       "source_refs": [
        "source-scripts"
       ]
@@ -4936,6 +4965,7 @@
         "text": "镜头被遮挡或手机被弹开即失效。"
        }
       ],
+      "of": "mental-stinger",
       "source_refs": [
        "source-scripts"
       ]
@@ -6403,6 +6433,7 @@
         "text": "产生足以粉碎沥青的爆炸。"
        }
       ],
+      "of": "naval-spear",
       "source_refs": [
        "source-scripts"
       ]
@@ -6426,6 +6457,7 @@
         "text": "用长枪在空中画出圆圈并吟诵。"
        }
       ],
+      "of": "naval-spear",
       "source_refs": [
        "source-scripts"
       ]
@@ -6468,6 +6500,7 @@
         "text": "在握柄上用血画出X形斜十字。"
        }
       ],
+      "of": "naval-spear",
       "source_refs": [
        "source-scripts"
       ]
@@ -7649,6 +7682,7 @@
        }
       ],
       "from_event": "academy-invasion.001.b26",
+      "of": "fuse-kazakiri",
       "source_refs": [
        "source-scripts"
       ]
@@ -7669,6 +7703,7 @@
        }
       ],
       "from_event": "wwiii.002.b3",
+      "of": "fuse-kazakiri",
       "source_refs": [
        "source-scripts"
       ]
@@ -8244,6 +8279,7 @@
         "text": "需要切断的头发。"
        }
       ],
+      "of": "hair-manipulation",
       "source_refs": [
        "source-scripts"
       ]
@@ -9064,6 +9100,7 @@
        }
       ],
       "from_event": "tokiwadai-election.001.b20",
+      "of": "teni-kizoku",
       "source_refs": [
        "source-scripts"
       ]
@@ -9080,6 +9117,7 @@
        }
       ],
       "from_event": "tokiwadai-election.001.b20",
+      "of": "teni-kizoku",
       "source_refs": [
        "source-scripts"
       ]
@@ -9328,6 +9366,7 @@
         "text": "能力被外部装置压制时完全用不出来；她不会用能力直接伤人，也不愿在朋友身上试威力。"
        }
       ],
+      "of": "aero-hand",
       "source_refs": [
        "source-scripts"
       ]
@@ -10155,6 +10194,7 @@
         "text": "需先以油蜡笔绘制魔法阵并吟唱。"
        }
       ],
+      "of": "alice-golem",
       "source_refs": [
        "source-scripts"
       ]
@@ -10178,6 +10218,7 @@
         "text": "破坏安全装置「秘文」，或在两秒内摧毁石巨人90%以上的肉体，可使其停止。"
        }
       ],
+      "of": "alice-golem",
       "source_refs": [
        "source-scripts"
       ]
@@ -10433,6 +10474,7 @@
         "text": "以钻石光辉干扰视觉，使对手目测错误；制造薄板改变风向。"
        }
       ],
+      "of": "carbon-magic",
       "source_refs": [
        "source-scripts"
       ]
@@ -13412,6 +13454,7 @@
         "label": "配合使用"
        }
       ],
+      "of": "hrunting",
       "source_refs": [
        "source-scripts"
       ]
@@ -13660,6 +13703,7 @@
         "text": "对象必须背对欧莉安娜。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13675,6 +13719,7 @@
         "text": "半径1米圈内生成约208道真空气刃，从下向上斩击。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13690,6 +13735,7 @@
         "text": "使目标昏睡，不造成伤害。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13705,6 +13751,7 @@
         "text": "与特定对象进行通信。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13724,6 +13771,7 @@
         "text": "被幻想杀手打消后整堵墙消失。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13743,6 +13791,7 @@
         "text": "需在原地形成魔法阵。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13758,6 +13807,7 @@
         "text": "冰墙反射阳光，干扰对方对欧莉安娜方位的判断。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13773,6 +13823,7 @@
         "text": "召唤含水龙卷风，可灭火。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13796,6 +13847,7 @@
         "text": "对方未受伤时可被幻想杀手打消；已受伤时无法彻底打消。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13811,6 +13863,7 @@
         "text": "生成爆炸火球。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13826,6 +13879,7 @@
         "text": "爆破目标血管。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13849,6 +13903,7 @@
         "text": "被幻想杀手打消时白色物质消失，被吸取物炸开。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13868,6 +13923,7 @@
         "text": "需抽出第577张纸、平举并运用红色的风之象征。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -13883,6 +13939,7 @@
         "text": "布置多种魔法陷阱。"
        }
       ],
+      "of": "shorthand-original",
       "source_refs": [
        "source-scripts"
       ]
@@ -15171,6 +15228,7 @@
         "text": "需要大喊招式名并挥拳。"
        }
       ],
+      "of": "guts",
       "source_refs": [
        "source-scripts"
       ]
@@ -15194,6 +15252,7 @@
         "text": "防御并非完美，对极强攻击可能无法完全抵挡。"
        }
       ],
+      "of": "guts",
       "source_refs": [
        "source-scripts"
       ]
@@ -15209,6 +15268,7 @@
         "text": "将空气粒子激发成等离子体，产生电流状攻击。"
        }
       ],
+      "of": "guts",
       "source_refs": [
        "source-scripts"
       ]
@@ -15224,6 +15284,7 @@
         "text": "以数倍音速移动，可空中二段跳。"
        }
       ],
+      "of": "guts",
       "source_refs": [
        "source-scripts"
       ]
@@ -15239,6 +15300,7 @@
         "text": "制造爆炸，可产生烟雾、冲击波等效果。"
        }
       ],
+      "of": "guts",
       "source_refs": [
        "source-scripts"
       ]
@@ -17840,6 +17902,7 @@
         }
        }
       ],
+      "of": "universal-crystal-2",
       "source_refs": [
        "source-scripts"
       ]
@@ -18932,6 +18995,7 @@
         "text": "符文被清除或术式原理被看破则失效。"
        }
       ],
+      "of": "laevateinn",
       "source_refs": [
        "source-scripts"
       ]
@@ -19216,6 +19280,7 @@
       ],
       "from_event": "jailbreaker.001.b5",
       "until_event": "jailbreaker.001.b14",
+      "of": "angel-dragon-2",
       "source_refs": [
        "source-scripts"
       ]
@@ -19233,6 +19298,7 @@
       ],
       "from_event": "jailbreaker.001.b5",
       "until_event": "jailbreaker.001.b14",
+      "of": "angel-dragon-2",
       "source_refs": [
        "source-scripts"
       ]
@@ -19258,6 +19324,7 @@
       ],
       "from_event": "jailbreaker.001.b5",
       "until_event": "jailbreaker.001.b14",
+      "of": "angel-dragon-2",
       "source_refs": [
        "source-scripts"
       ]
@@ -19395,6 +19462,7 @@
       ],
       "from_event": "yuzuriha.001.b8",
       "until_event": "yuzuriha.001.b11",
+      "of": "psychokinesis",
       "source_refs": [
        "source-scripts"
       ]
@@ -22100,6 +22168,7 @@
         "text": "失去机能后的铠甲会成为枷锁，将穿着者困在里面。"
        }
       ],
+      "of": "life-armor",
       "source_refs": [
        "source-scripts"
       ]
@@ -22619,6 +22688,7 @@
        }
       ],
       "from_event": "tokiwadai-election.001.b1",
+      "of": "mental-creation",
       "source_refs": [
        "source-scripts"
       ]
@@ -22954,6 +23024,7 @@
         "text": "自身与所持物品透明化。"
        }
       ],
+      "of": "azusa-yumi",
       "source_refs": [
        "source-scripts"
       ]
@@ -22969,6 +23040,7 @@
         "text": "广域搜索并定位目标。"
        }
       ],
+      "of": "azusa-yumi",
       "source_refs": [
        "source-scripts"
       ]
@@ -22984,6 +23056,7 @@
         "text": "发射透明冲击波。"
        }
       ],
+      "of": "azusa-yumi",
       "source_refs": [
        "source-scripts"
       ]
@@ -22999,6 +23072,7 @@
         "text": "生成空气团块弹射自身升空。"
        }
       ],
+      "of": "azusa-yumi",
       "source_refs": [
        "source-scripts"
       ]
@@ -23014,6 +23088,7 @@
         "text": "发射压缩空气刃，可切断声音。"
        }
       ],
+      "of": "azusa-yumi",
       "source_refs": [
        "source-scripts"
       ]
@@ -23033,6 +23108,7 @@
         "text": "对心防坚固者会失效。"
        }
       ],
+      "of": "azusa-yumi",
       "source_refs": [
        "source-scripts"
       ]
@@ -23078,6 +23154,7 @@
         "text": "设置结界增幅梓弓术式。"
        }
       ],
+      "of": "azusa-yumi",
       "source_refs": [
        "source-scripts"
       ]
@@ -23473,6 +23550,7 @@
         "text": "时间地点有数十分钟误差。"
        }
       ],
+      "of": "nensha-precognition",
       "source_refs": [
        "source-scripts"
       ]
@@ -25130,6 +25208,7 @@
         "text": "需要在近距离使用。"
        }
       ],
+      "of": "wave-manipulation",
       "source_refs": [
        "source-scripts"
       ]
@@ -25176,6 +25255,7 @@
         "text": "使用后身体受反噬，随后昏倒。"
        }
       ],
+      "of": "wave-manipulation",
       "source_refs": [
        "source-scripts"
       ]
@@ -26682,6 +26762,7 @@
         "text": "需以念动使能力维持，与其他用途不能同时兼顾太多。"
        }
       ],
+      "of": "psychokinesis-multipurpose",
       "source_refs": [
        "source-scripts"
       ]
@@ -26697,6 +26778,7 @@
         "text": "以念动力将车辆或人体切断。"
        }
       ],
+      "of": "psychokinesis-multipurpose",
       "source_refs": [
        "source-scripts"
       ]
@@ -27165,6 +27247,7 @@
        }
       ],
       "from_event": "baggage.001.b9",
+      "of": "equ-dark-matter",
       "source_refs": [
        "source-scripts"
       ]
@@ -27266,6 +27349,7 @@
        }
       ],
       "from_event": "christmas-eve.001.b15",
+      "of": "minimal-conflict-theory",
       "source_refs": [
        "source-scripts"
       ]
@@ -27286,6 +27370,7 @@
        }
       ],
       "from_event": "christmas-eve.001.b15",
+      "of": "minimal-conflict-theory",
       "source_refs": [
        "source-scripts"
       ]
@@ -27306,6 +27391,7 @@
        }
       ],
       "from_event": "christmas-eve.001.b15",
+      "of": "minimal-conflict-theory",
       "source_refs": [
        "source-scripts"
       ]
@@ -27326,6 +27412,7 @@
        }
       ],
       "from_event": "christmas-eve.001.b15",
+      "of": "minimal-conflict-theory",
       "source_refs": [
        "source-scripts"
       ]
@@ -27346,6 +27433,7 @@
        }
       ],
       "from_event": "christmas-eve.001.b15",
+      "of": "minimal-conflict-theory",
       "source_refs": [
        "source-scripts"
       ]
@@ -27366,6 +27454,7 @@
        }
       ],
       "from_event": "christmas-eve.001.b15",
+      "of": "minimal-conflict-theory",
       "source_refs": [
        "source-scripts"
       ]
@@ -27386,6 +27475,7 @@
        }
       ],
       "from_event": "christmas-eve.001.b15",
+      "of": "minimal-conflict-theory",
       "source_refs": [
        "source-scripts"
       ]
@@ -27406,6 +27496,7 @@
        }
       ],
       "from_event": "christmas-eve.001.b15",
+      "of": "minimal-conflict-theory",
       "source_refs": [
        "source-scripts"
       ]
@@ -27589,6 +27680,7 @@
         "text": "必须先吟唱此段，再按需要接后续咒语。"
        }
       ],
+      "of": "fairy-tale-magic-vasilisa",
       "source_refs": [
        "source-scripts"
       ]
@@ -27608,6 +27700,7 @@
         "text": "消耗大，不能连续无休止使用。"
        }
       ],
+      "of": "fairy-tale-magic-vasilisa",
       "source_refs": [
        "source-scripts"
       ]
@@ -27627,6 +27720,7 @@
         "text": "消耗大，不能连续无休止使用。"
        }
       ],
+      "of": "fairy-tale-magic-vasilisa",
       "source_refs": [
        "source-scripts"
       ]
@@ -27650,6 +27744,7 @@
         "text": "再生需要时间，并非瞬间完成。"
        }
       ],
+      "of": "fairy-tale-magic-vasilisa",
       "source_refs": [
        "source-scripts"
       ]
@@ -41974,6 +42069,7 @@
         "text": "密码拨到20947901。"
        }
       ],
+      "of": "gem-sword-sheath",
       "source_refs": [
        "source-scripts"
       ]
@@ -41993,6 +42089,7 @@
         "text": "密码拨到11790045。"
        }
       ],
+      "of": "gem-sword-sheath",
       "source_refs": [
        "source-scripts"
       ]
@@ -42012,6 +42109,7 @@
         "text": "密码未知，需拨到对应数字。"
        }
       ],
+      "of": "gem-sword-sheath",
       "source_refs": [
        "source-scripts"
       ]
@@ -42035,6 +42133,7 @@
         "text": "连使用者本人也会被卷入。"
        }
       ],
+      "of": "gem-sword-sheath",
       "source_refs": [
        "source-scripts"
       ]
@@ -44659,6 +44758,7 @@
         "text": "流星不足时无法发动。"
        }
       ],
+      "of": "astra",
       "source_refs": [
        "source-scripts"
       ]
@@ -44697,6 +44797,7 @@
         "text": "需以双手作拉弓动作。"
        }
       ],
+      "of": "astra",
       "source_refs": [
        "source-scripts"
       ]
@@ -44712,6 +44813,7 @@
         "text": "锋利斧刃轻易劈开事物。"
        }
       ],
+      "of": "astra",
       "source_refs": [
        "source-scripts"
       ]
@@ -44727,6 +44829,7 @@
         "text": "迎击时侵蚀骨头，产生剧烈疼痛。"
        }
       ],
+      "of": "astra",
       "source_refs": [
        "source-scripts"
       ]
@@ -44742,6 +44845,7 @@
         "text": "三尖分别毁灭现世、历史与精神世界；威力可撕裂溶解柏油。"
        }
       ],
+      "of": "astra",
       "source_refs": [
        "source-scripts"
       ]
@@ -44761,6 +44865,7 @@
         "text": "需以毗那迦的舞蹈动作依次驱动各法宝。"
        }
       ],
+      "of": "astra",
       "source_refs": [
        "source-scripts"
       ]
@@ -45890,6 +45995,7 @@
         "text": "具体战斗能力未知，且召唤后很快被亚雷斯塔击破。"
        }
       ],
+      "of": "voice-multiplication",
       "source_refs": [
        "source-scripts"
       ]
@@ -49230,6 +49336,7 @@
         "text": "进入该状态后无法行动，只能自保，不能反击或脱身。"
        }
       ],
+      "of": "telekinesis-3",
       "source_refs": [
        "source-scripts"
       ]

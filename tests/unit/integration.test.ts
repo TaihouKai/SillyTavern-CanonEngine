@@ -964,7 +964,7 @@ describe('preferred matters', () => {
     // read before the player's abilities were read (1.47.0): old too
     (x.engine.playerProfile()!.profile as { readBy?: string }).readBy = '1.46.6';
     expect(x.engine.integrationView(true)!.profileOld).toBe(true);
-    (x.engine.playerProfile()!.profile as { readBy?: string }).readBy = '1.47.0';
+    (x.engine.playerProfile()!.profile as { readBy?: string }).readBy = '1.48.0';
     expect(x.engine.integrationView(true)!.profileOld).toBe(false);
   });
 

@@ -1732,6 +1732,10 @@
         },
         "generated": {
           "type": "boolean"
+        },
+        "of": {
+          "description": "用法: the id of another ability of the same entity this one is a use of (one level). It tells only what is its own; the power's conditions, cost, limits and counters hold for it too.",
+          "$ref": "#/$defs/id"
         }
       },
       "required": [

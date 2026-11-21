@@ -46,7 +46,7 @@ export interface LinkNow { node: Id; label: string; source: CombatSource | 'pack
   via?: Id;
   /** A link the engine makes, not one written with a label: their own ability (has), an object they hold (holds), an
    *  organization they belong to (member). The label is then the engine's own words (the panel says it in its language). */
-  how?: 'has' | 'holds' | 'member' }
+  how?: 'has' | 'holds' | 'member' | 'use' }
 
 /** The combat graph's nodes in this game: the pack's (the setting, every entity's abilities, what an entity is in a
  *  fight) and the abilities of the people the story brought in (the player character's, from the Persona). */
@@ -56,7 +56,7 @@ export function combatNodes(L: LoadedPack, state: WorldState): Map<Id, CombatNod
   if (m) return m;
   const extra = runtimeAbilities(state);
   m = extra.length ? new Map(L.combat.nodes) : L.combat.nodes;
-  for (const { owner, ability: a } of extra) m.set(a.id, { id: a.id, kind: 'ability', name: a.name, gist: a.gist, text: a.text, parts: a.parts, ...(a.visibility ? { visibility: a.visibility } : {}), source_refs: a.source_refs, owner, from_event: a.from_event ?? null, until_event: a.until_event ?? null });
+  for (const { owner, ability: a } of extra) m.set(a.id, { id: a.id, kind: 'ability', name: a.name, gist: a.gist, text: a.text, parts: a.parts, ...(a.visibility ? { visibility: a.visibility } : {}), source_refs: a.source_refs, owner, from_event: a.from_event ?? null, until_event: a.until_event ?? null, ...(a.of ? { of: a.of } : {}) });
   nodeCache.set(state, m);
   return m;
 }
@@ -108,7 +108,10 @@ export function linksOf(L: LoadedPack, state: WorldState, entity: Id, tick = sta
     const through = via ? { via: via.id } : {};
     // what kind of being they are first, then what they can do
     for (const l of a.setting) if (!now.has(l.node)) now.set(l.node, { node: l.node, label: l.label, source, ...through, ...(via ? { how: via.how } : {}) });
-    for (const x of a.abilities) if (!now.has(x.id)) now.set(x.id, { node: x.id, label: 'has', source, ...through, how: via ? via.how : 'has' });
+    // a power first, its uses right after it (whatever order they are written in)
+    const powers = a.abilities.filter((x) => x.of === undefined);
+    const ordered = [...powers.flatMap((p) => [p, ...a.abilities.filter((x) => x.of === p.id)]), ...a.abilities.filter((x) => x.of !== undefined && !powers.some((p) => p.id === x.of))];
+    for (const x of ordered) if (!now.has(x.id)) now.set(x.id, x.of !== undefined ? { node: x.id, label: `use of ${x.of}`, source, ...through, how: via ? via.how : 'use' } : { node: x.id, label: 'has', source, ...through, how: via ? via.how : 'has' });
   };
   own(entity, base);
   const ties = tiesOf(state, entity, tick);

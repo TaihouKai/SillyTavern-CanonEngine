@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.48.0 — 2026-11-21 (pack 7.1.0)
+
+- **A power and its uses.** 神光爱丽丝's 万光统御 was read as five separate abilities: the power itself, plus 光之实体, 光子振动炮, 神经光同步 and 光子手术刀 listed beside it. That caused two problems:
+  - the power's text listed all the uses again;
+  - its cost (it uses up the light around her) seemed to apply to none of the uses.
+
+  An ability can now be a use of another ability of the same character. A use tells only what is its own, and the power's conditions, cost, limits and counters hold for it too. Fights get the power followed by its uses, and the 身份 page lists the uses under the power. Reading the Persona now gives a power with its uses. The read holds up when the uses don't name the power exactly:
+  - a use may name the power by either of its names (the one inside or outside brackets);
+  - a use of a use is attached to the power;
+  - a name that fits nothing, or uses that point at each other, are kept as standalone abilities, and the notes say so.
+
+  A chat whose identity was read before this release is offered a re-read.
+- **The pack's characters too.** Every character with several abilities was read again, and 107 abilities are now uses of a power:
+  - 一方通行's 反射 and 矢量控制;
+  - 麦野's 电子射线, 光之护盾 and 反作用力移动;
+  - 茵蒂克丝's 自动书记 spells;
+  - 欧莉安娜's 速记原典 spells;
+  - 垣根's uses of 未元物质;
+  - 削板's 骨气.
+
+  Standalone weapons, skills and second powers stay their own abilities.
+
 ## 1.47.0 — 2026-11-21 (pack 7.0.0)
 
 - **One record per character, item and organization.** The 战斗设定 graph had written much of the cast a second time. Of its 998 abilities, 944 belonged to a single person, and 56 nodes were things the pack already has as entries, such as 幻想杀手, 阿斯卡隆, 天草式十字凄教 and 英国清教. Now:

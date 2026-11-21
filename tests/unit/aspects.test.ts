@@ -10,6 +10,7 @@ import { combatNodes, knowsNode, linksOf, tiesOf, walkCombat } from '../../src/c
 import type { CanonPack, LedgerRecord } from '../../src/core/domain/types';
 import { makeEngine, tick, at } from './fake';
 import { demoRaw, load, T } from './helpers';
+import { validatePack } from '../../src/core/domain/pack';
 
 let seq = 0;
 const rec = (t: number, extra: Partial<LedgerRecord>): LedgerRecord => ({
@@ -116,7 +117,7 @@ describe('the player character has the same aspects', () => {
   const HOOK = { name: 'Right hook', gist: 'A boxer\'s hard right hook.', text: 'Learned boxing as a youth.', parts: [{ part: 'effect', text: 'Knocks a man down.' }, { part: 'limits', text: 'His left eye is weak: blind on the left.', secret: true }], links: [{ to: 'cb-ordinary', label: 'as' }, { to: 'nowhere', label: 'x' }] };
 
   it('AS4 what the Persona gives them is read into abilities in the same parts as anyone\'s, with who knows the secret ones; links only into the setting', async () => {
-    const x = await setup({ abilities: [HOOK, { name: 'Bad', gist: 'x', parts: [{ part: 'cost', text: 'x' }] }], setting: [{ node: 'cb-ordinary', label: 'is' }, { node: 'hook-swing', label: 'x' }, { node: 'ghost', label: 'x' }] });
+    const x = await setup({ abilities: [HOOK, { name: 'Bad', gist: '', parts: [{ part: 'cost', text: 'x' }] }], setting: [{ node: 'cb-ordinary', label: 'is' }, { node: 'hook-swing', label: 'x' }, { node: 'ghost', label: 'x' }] });
     const t = x.model.tasks('persona_abilities').at(-1)!.input;
     expect(t.persona.description).toBe(PERSONA);
     expect(t.public_identity).toBe('works the piers');
@@ -142,7 +143,7 @@ describe('the player character has the same aspects', () => {
     // what the player can do, wherever the world reads it: their abilities (no second list of capabilities)
     const ctx = String(x.model.tasks('draft').at(-1)!.input.engineContext);
     expect(ctx).toMatch(/- can\/has: Right hook: A boxer's hard right hook\.; a bicycle/);
-    expect(x.engine.integrationView(true)!.profile!.abilities).toEqual([{ name: 'Right hook', gist: 'A boxer\'s hard right hook.', secret: false, parts: ['效果：Knocks a man down.', '限制（秘密）：His left eye is weak: blind on the left.'] }]);
+    expect(x.engine.integrationView(true)!.profile!.abilities).toEqual([{ name: 'Right hook', gist: 'A boxer\'s hard right hook.', secret: false, parts: ['效果：Knocks a man down.', '限制（秘密）：His left eye is weak: blind on the left.'], uses: [] }]);
     expect(x.engine.integrationView(true)!.profile!.kinds).toEqual(['is Ordinary person']);
   });
 
@@ -159,4 +160,59 @@ describe('the player character has the same aspects', () => {
     const after = READ(x.engine.current!.index, x.engine.playerProfile()!.profile.playerId);
     expect(after.abilities.map((a) => a.name)).toEqual(['Left jab']);
   });
+
+  it('AS6 a power and its uses: each use goes to the power it names, however the reply writes the name; a use of a use goes to the power; a name that fits nothing, or a ring, leaves an ability of its own; no effect: its summary is what it does', async () => {
+    const P = (name: string, of: string | null, effect = true) => ({ name, gist: `${name} gist`, parts: effect ? [{ part: 'effect', text: `${name} does` }] : [], of });
+    const x = await setup({ abilities: [
+      { ...P('Domina Luminis (万光统御)', null), parts: [{ part: 'effect', text: 'bends light' }, { part: 'cost', text: 'needs light around' }] },
+      P('Light Blade', '万光统御'), P('Photon Laser', 'domina luminis (万光统御)', false), P('Prism Burst', 'Photon Laser'),
+      P('Boxing', 'Karate'), P('Ring A', 'Ring B'), P('Ring B', 'Ring A'), P('Self', 'Self'), P('Light Blade', null),
+    ], setting: [] });
+    const prof = x.engine.playerProfile()!.profile, pid = prof.playerId;
+    const a = READ(x.engine.current!.index, pid).abilities;
+    const id = (n: string) => a.find((y) => y.name === n)!.id;
+    const of = Object.fromEntries(a.map((y) => [y.name, y.of ? a.find((z) => z.id === y.of)!.name : null]));
+    expect(of).toEqual({ 'Domina Luminis (万光统御)': null, 'Light Blade': 'Domina Luminis (万光统御)', 'Photon Laser': 'Domina Luminis (万光统御)', 'Prism Burst': 'Domina Luminis (万光统御)', Boxing: null, 'Ring A': null, 'Ring B': null, Self: null });
+    expect(a.find((y) => y.name === 'Photon Laser')!.parts).toEqual([{ part: 'effect', text: 'Photon Laser gist' }]);
+    const notes = prof.notes.join(' | ');
+    expect(notes).toMatch(/"Boxing" is a use of "Karate", which is none of the abilities read/);
+    expect(notes).toMatch(/"Ring A": its uses go round in a ring/);
+    expect(notes).toMatch(/ability "Light Blade" given twice: kept once/);
+    expect(notes).toMatch(/ability "Photon Laser": no effect given, its summary taken/);
+    // the fight: the power, then its uses (each a use of it), what the analysis is told about them
+    const L = x.engine.current!.index.pack, st = x.engine.current!.replay.state;
+    const links = linksOf(L, st, pid).filter((l) => l.node.startsWith(pid));
+    expect(links.slice(0, 4).map((l) => [l.node, l.how, l.label])).toEqual([
+      [id('Domina Luminis (万光统御)'), 'has', 'has'], [id('Light Blade'), 'use', `use of ${id('Domina Luminis (万光统御)')}`],
+      [id('Photon Laser'), 'use', `use of ${id('Domina Luminis (万光统御)')}`], [id('Prism Burst'), 'use', `use of ${id('Domina Luminis (万光统御)')}`]]);
+    // the 身份 page: each power with its uses under it
+    const view = x.engine.integrationView(true)!.profile!.abilities;
+    expect(view.map((v) => [v.name, v.uses.map((u) => u.name)])).toEqual([['Domina Luminis (万光统御)', ['Light Blade', 'Photon Laser', 'Prism Burst']], ['Boxing', []], ['Ring A', []], ['Ring B', []], ['Self', []]]);
+    // the setting page draws a use from its power
+    const s = x.engine.combatView(false, '', id('Domina Luminis (万光统御)'))!.setting;
+    expect(s.graph.edges).toEqual(expect.arrayContaining([expect.objectContaining({ from: id('Domina Luminis (万光统御)'), to: id('Light Blade'), how: 'use' })]));
+    expect(x.engine.combatView(false, '', id('Photon Laser'))!.setting.focus!.of).toEqual({ id: id('Domina Luminis (万光统御)'), name: 'Domina Luminis (万光统御)' });
+  });
 });
+
+describe('uses in a pack', () => {
+  it('AS7 the lint: a use is of one of the same entity\'s abilities, which is no use itself; a use holds only while its power does', () => {
+    const raw = harbor();
+    const mira = raw.entities.find((e) => e.id === 'mira')!;
+    const ab = (id: string, extra: object = {}) => ({ id, name: id, gist: 'x', text: 'x', parts: [{ part: 'effect' as const, text: 'x' }], source_refs: ['example-source'], ...extra });
+    mira.aspects!.abilities!.push(ab('cb-suture', { of: 'cb-emergency-care' }), ab('cb-knot', { of: 'cb-suture' }), ab('cb-self', { of: 'cb-self' }), ab('cb-far', { of: 'hook-swing' }));
+    const e = validatePack(raw).errors.map((x) => x.message).join('\n');
+    expect(e).toMatch(/"cb-suture" is itself a use \(of "cb-emergency-care"\)/);
+    expect(e).toMatch(/an ability is no use of itself/);
+    expect(e).toMatch(/"hook-swing" is no ability of this entity/);
+    // fixed: the use holds with its power, and goes when the power does
+    mira.aspects!.abilities = [ab('cb-power', { from_event: 'conflict-begins' }), ab('cb-move', { of: 'cb-power' }), mira.aspects!.abilities![0]];
+    const L = load(raw);
+    const READ2 = aspectReader(['abilities'] as const);
+    expect(READ2(new WorldIndex(L, reduce(L, [])), 'mira').abilities.map((a) => a.id)).toEqual(['cb-emergency-care']);
+    const st = reduce(L, [rec(T(0, 9), { kind: 'canon_occurrence', packEventId: 'conflict-begins', disposition: 'occurred' })]);
+    expect(READ2(new WorldIndex(L, st), 'mira').abilities.map((a) => a.id)).toEqual(['cb-power', 'cb-move', 'cb-emergency-care']);
+    expect(L.combat.nodes.get('cb-move')).toMatchObject({ of: 'cb-power', owner: 'mira' });
+  });
+});
+

@@ -106,6 +106,24 @@ class PlaceTest(unittest.TestCase):
         # bo is in the guild (a fact), the guild in the order: no tie to decide, and no link (the facts carry it)
         self.assertFalse(any(x['node'] in ('guild', 'order') for x in g['entities']['bo'].get('setting', [])))
 
+    def test_uses(self):
+        p = pool()
+        p['nodes'] += [{'id': 'feint', 'kind': 'ability', 'name': '佯攻', 'gist': 'g', 'text': 't', 'origin': 'people', 'owner_ids': ['ann'], 'parts': [P()]},
+                       {'id': 'feint-2', 'kind': 'ability', 'name': '二段佯攻', 'gist': 'g', 'text': 't', 'origin': 'people', 'owner_ids': ['ann'], 'parts': [P()]}]
+        p['links'] += [{'from': 'ann', 'to': 'feint', 'label': '能力', 'origin': 'people'}, {'from': 'ann', 'to': 'feint-2', 'label': '能力', 'origin': 'people'}]
+        base = {'placement': {'sword-cb': {'entity': 'sword'}, 'guild-cb': {'entity': 'guild'}, 'armour': 'setting'}, 'ties': {'cy|guild-cb': 'drop'},
+                'holders': [{'object': 'sword', 'holder': 'ann', 'at': 'e1'}]}
+        g = self.run_place({**base, 'uses': {'feint': 'blade-art'}}, p)
+        self.assertEqual({a['id']: a.get('of') for a in g['entities']['ann']['abilities']}, {'blade-art': None, 'feint': 'blade-art', 'feint-2': None})
+        for bad, msg in (({'feint': 'war-cry'}, "war-cry is bo's"), ({'feint': 'blade-art', 'feint-2': 'feint'}, 'that one is a use itself'), ({'feint': 'feint'}, 'of itself'), ({'feint': 'nothing'}, 'must be abilities')):
+            with self.assertRaises(SystemExit) as c:
+                self.run_place({**base, 'uses': bad}, p)
+            self.assertIn(msg, str(c.exception))
+        pk = pack()
+        combat.attach(pk, g, 's')
+        ann = next(e for e in pk['entities'] if e['id'] == 'ann')
+        self.assertEqual([a.get('of') for a in ann['aspects']['abilities']], [None, 'blade-art', None])
+
 
 if __name__ == '__main__':
     unittest.main()

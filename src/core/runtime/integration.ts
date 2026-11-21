@@ -190,7 +190,7 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
 }
 
 export interface PersonaAbilitiesOut {
-  abilities: { name: string; gist: string; text?: string; parts: { part: string; text: string; secret?: boolean }[]; secret?: boolean; links?: { to: string; label: string }[] }[];
+  abilities: { name: string; gist: string; text?: string; parts: { part: string; text: string; secret?: boolean }[]; secret?: boolean; links?: { to: string; label: string }[]; of?: string | null }[];
   setting?: { node: string; label: string }[];
 }
 
@@ -213,17 +213,55 @@ export function applyPersonaAbilities(out: PersonaAbilitiesOut, built: { profile
   const secret = { mode: 'secret' as const, knower_ids: secretKnowers };
   const PARTS = ['principle', 'effect', 'conditions', 'cost', 'limits', 'counters'];
   const used = new Set<string>();
-  const abilities: Ability[] = [];
+  const abilities: (Ability & { ofName?: string })[] = [];
+  // a name as the reply may write it again: without spaces, case or a part in brackets ("万光统御 (Domina Luminis)")
+  const key = (n: string) => String(n || '').normalize('NFKC').toLowerCase().replace(/[（(][^）)]*[）)]/g, '').replace(/[\s·・.,，、:：'"“”‘’「」『』_-]+/g, '');
   for (const a of out.abilities || []) {
     const name = String(a.name || '').trim().slice(0, 80);
+    const gist = String(a.gist || '').trim().slice(0, 300);
     const parts = (a.parts || []).filter((x) => PARTS.includes(x.part) && String(x.text || '').trim()).filter((x, i, all) => all.findIndex((y) => y.part === x.part) === i)
       .map((x) => ({ part: x.part as Ability['parts'][number]['part'], text: String(x.text).trim().slice(0, 500), ...(x.secret && !a.secret ? { visibility: secret } : {}) }));
-    if (!name || !parts.some((x) => x.part === 'effect')) { notes.push(`ability "${name || '?'}" left out: it says nothing it does`); continue; }
+    if (!name) { notes.push('an ability without a name left out'); continue; }
+    if (abilities.some((x) => key(x.name) === key(name))) { notes.push(`ability "${name}" given twice: kept once`); continue; }
+    // what it does: its effect, else what its one sentence says it does (the reply's own words)
+    if (!parts.some((x) => x.part === 'effect')) {
+      if (!gist) { notes.push(`ability "${name}" left out: it says nothing it does`); continue; }
+      parts.unshift({ part: 'effect', text: gist });
+      notes.push(`ability "${name}": no effect given, its summary taken as what it does`);
+    }
     let id = `${pid}.${slug(name)}`;
     for (let i = 2; used.has(id); i++) id = `${pid}.${slug(name)}-${i}`;
     used.add(id);
     const links = (a.links || []).filter((l) => setting.has(String(l.to))).map((l) => ({ to: String(l.to), label: String(l.label || '属于').slice(0, 40) }));
-    abilities.push({ id, name, gist: String(a.gist || '').trim().slice(0, 300) || name, text: String(a.text || a.gist || '').trim().slice(0, 1200) || name, parts, ...(a.secret ? { visibility: secret } : {}), ...(links.length ? { links } : {}), source_refs: [], generated: true });
+    const ofName = a.of && key(a.of) !== key(name) ? String(a.of) : undefined;
+    abilities.push({ id, name, gist: gist || name, text: String(a.text || a.gist || '').trim().slice(0, 1200) || name, parts, ...(a.secret ? { visibility: secret } : {}), ...(links.length ? { links } : {}), source_refs: [], generated: true, ...(ofName ? { ofName } : {}) });
+  }
+  // uses: each to the power it names (by its name, or the one name that contains it or is contained in it); a use of a
+  // use goes to that one's power; a name that fits nothing, or a ring, leaves it an ability of its own
+  // (a name and the other name in its brackets are both its names: 「Domina Luminis (万光统御)」 is 万光统御 too)
+  const keys = (n: string) => [...new Set([key(n), ...[...String(n || '').matchAll(/[（(]([^）)]*)[）)]/g)].map((m) => key(m[1])), key(String(n || '').replace(/[（(]|[）)]/g, ''))].filter(Boolean))];
+  const byKey = (n: string) => {
+    const ks = keys(n);
+    const exact = abilities.filter((x) => keys(x.name).some((k) => ks.includes(k)));
+    if (exact.length === 1) return exact[0];
+    if (exact.length > 1) return undefined;
+    const near = abilities.filter((x) => keys(x.name).some((a) => ks.some((k) => k.length >= 2 && a.length >= 2 && (a.includes(k) || k.includes(a)))));
+    return near.length === 1 ? near[0] : undefined;
+  };
+  const target = new Map<string, string>();
+  for (const a of abilities) {
+    if (!a.ofName) continue;
+    const p = byKey(a.ofName);
+    if (!p || p.id === a.id) notes.push(`"${a.name}" is a use of "${a.ofName}", which is none of the abilities read: kept as an ability of its own`);
+    else target.set(a.id, p.id);
+  }
+  const root = (id: string) => { const seen = new Set<string>([id]); let cur = target.get(id); while (cur && target.has(cur)) { if (seen.has(cur)) return undefined; seen.add(cur); cur = target.get(cur); } return cur; };
+  for (const a of abilities) {
+    delete a.ofName;
+    if (!target.has(a.id)) continue;
+    const r = root(a.id);
+    if (r && r !== a.id) a.of = r;
+    else notes.push(`"${a.name}": its uses go round in a ring: kept as an ability of its own`);
   }
   const links: SettingLink[] = uniq((out.setting || []).map((l) => String(l.node))).filter((n) => { if (setting.has(n)) return true; notes.push(`setting link "${n}" left out: not a node of the setting`); return false; })
     .map((n) => ({ node: n, label: String(out.setting!.find((l) => String(l.node) === n)!.label || '是').slice(0, 40) })).slice(0, 6);

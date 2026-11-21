@@ -149,7 +149,7 @@ export async function judgeFight(a: {
       linked: linksOf(L, index.state, id).map(linkLine),
     })),
     nodes: walk.nodes.map((w) => ({
-      id: w.node.id, kind: w.node.owner === w.node.id ? L.entities.get(w.node.id)?.kind || w.node.kind : w.node.kind, name: w.node.name, ...(w.node.owner && w.node.owner !== w.node.id ? { of: name(w.node.owner) } : {}), reached: w.viaFrom === w.node.id ? `at work in this fight: ${now.things.find((t) => t.node === w.node.id)?.why || ''}` : w.via,
+      id: w.node.id, kind: w.node.owner === w.node.id ? L.entities.get(w.node.id)?.kind || w.node.kind : w.node.kind, name: w.node.name, ...(w.node.owner && w.node.owner !== w.node.id ? { of: name(w.node.owner) } : {}), ...(w.node.of ? { use_of: w.node.of } : {}), reached: w.viaFrom === w.node.id ? `at work in this fight: ${now.things.find((t) => t.node === w.node.id)?.why || ''}` : w.via,
       ...(w.full ? { text: w.node.text, ...(w.node.parts ? { parts: w.node.parts.map((p) => ({ part: p.part, text: p.text })) } : {}), ...(w.node.who ? { who: w.node.who } : {}) } : { gist: w.node.gist }),
     })),
     sources: [...sourceText].map(([ref, text]) => ({ ref, text: text.slice(0, 3000) })),

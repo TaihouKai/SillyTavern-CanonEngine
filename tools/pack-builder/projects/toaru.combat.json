@@ -7343,6 +7343,7 @@
        }
       }
      ],
+     "of": "accelerator-ability",
      "links": [
       {
        "to": "unexpected-matter-rule",
@@ -7385,6 +7386,7 @@
        "text": "对未知法则或矢量的对象难以生效。"
       }
      ],
+     "of": "accelerator-ability",
      "links": [
       {
        "to": "reflection",
@@ -7415,6 +7417,7 @@
        "text": "风攻击在风向异常变化或计算受声音干扰时失效；无法修复自己头盖骨的裂痕。"
       }
      ],
+     "of": "accelerator-ability",
      "links": [
       {
        "to": "accelerator-ability",
@@ -7437,6 +7440,7 @@
        "text": "与黑翼不同，使用时情绪不会失控。"
       }
      ],
+     "of": "black-wings",
      "links": [
       {
        "to": "black-wings",
@@ -11179,7 +11183,8 @@
        "part": "conditions",
        "text": "需要切断的头发。"
       }
-     ]
+     ],
+     "of": "hair-manipulation"
     },
     {
      "id": "hair-manipulation",
@@ -12734,7 +12739,8 @@
        "part": "conditions",
        "text": "密码拨到20947901。"
       }
-     ]
+     ],
+     "of": "gem-sword-sheath"
     },
     {
      "id": "pale-blue-greatsword",
@@ -12750,7 +12756,8 @@
        "part": "conditions",
        "text": "密码拨到11790045。"
       }
-     ]
+     ],
+     "of": "gem-sword-sheath"
     },
     {
      "id": "fan-sweep-lightsword",
@@ -12766,7 +12773,8 @@
        "part": "conditions",
        "text": "密码未知，需拨到对应数字。"
       }
-     ]
+     ],
+     "of": "gem-sword-sheath"
     },
     {
      "id": "dark-element-collapse",
@@ -12786,7 +12794,8 @@
        "part": "limits",
        "text": "连使用者本人也会被卷入。"
       }
-     ]
+     ],
+     "of": "gem-sword-sheath"
     }
    ],
    "setting": [
@@ -16231,6 +16240,7 @@
        "text": "瞬间释放超能力，以极快的初动发动强力一击。"
       }
      ],
+     "of": "teni-kizoku",
      "from_event": "tokiwadai-election.001.b20"
     },
     {
@@ -16244,6 +16254,7 @@
        "text": "以预先练成的动作组合进行连续攻击，无需临场计算。"
       }
      ],
+     "of": "teni-kizoku",
      "from_event": "tokiwadai-election.001.b20"
     }
    ],
@@ -16784,6 +16795,7 @@
        "text": "第一层可被幻想杀手以速度超越；第二层则足以吹飞 Innocentius。"
       }
      ],
+     "of": "johns-pen",
      "links": [
       {
        "to": "johns-pen",
@@ -16902,6 +16914,7 @@
        "text": "扭曲时空的高阶防御。"
       }
      ],
+     "of": "johns-pen",
      "links": [
       {
        "to": "johns-pen",
@@ -16921,6 +16934,7 @@
        "text": "约50支箭从上方落下，穿刺并燃烧目标；单支箭即可将石头化为粉末。"
       }
      ],
+     "of": "johns-pen",
      "links": [
       {
        "to": "johns-pen",
@@ -16944,6 +16958,7 @@
        "text": "需在自动书记模式下、调动十万三千本魔道书的知识才能发动。"
       }
      ],
+     "of": "johns-pen",
      "until_event": "index.001.b13"
     },
     {
@@ -16961,6 +16976,7 @@
        "text": "自动书记模式限定。"
       }
      ],
+     "of": "johns-pen",
      "until_event": "index.001.b13"
     }
    ],
@@ -17650,7 +17666,8 @@
        "part": "effect",
        "text": "产生足以粉碎沥青的爆炸。"
       }
-     ]
+     ],
+     "of": "naval-spear"
     },
     {
      "id": "explosion-spell",
@@ -17670,7 +17687,8 @@
        "part": "conditions",
        "text": "用长枪在空中画出圆圈并吟诵。"
       }
-     ]
+     ],
+     "of": "naval-spear"
     },
     {
      "id": "sacred-marriage",
@@ -17706,7 +17724,8 @@
        "part": "conditions",
        "text": "在握柄上用血画出X形斜十字。"
       }
-     ]
+     ],
+     "of": "naval-spear"
     },
     {
      "id": "mass-based-severing-spell",
@@ -18117,6 +18136,7 @@
        "text": "区块之间仍会互相传递情报。"
       }
      ],
+     "of": "dark-matter",
      "links": [
       {
        "to": "dark-matter",
@@ -18136,6 +18156,7 @@
        "text": "可复制自身器官乃至脑袋并赋予其未元物质能力；可制造或分裂成若干个体，通过「喷发点」把平等的力量分配给所有个体。"
       }
      ],
+     "of": "dark-matter",
      "links": [
       {
        "to": "dark-matter",
@@ -18162,7 +18183,8 @@
        "part": "limits",
        "text": "若对手解析并重新定义包含未元物质的世界公式，翅膀的控制权可能被夺走。"
       }
-     ]
+     ],
+     "of": "dark-matter"
     },
     {
      "id": "kakine-vector-injection",
@@ -18187,6 +18209,7 @@
        "text": "若对手重新定义世界公式并包含未元物质，则此攻击失效。"
       }
      ],
+     "of": "dark-matter",
      "from_event": "battle-royale.001.b26"
     },
     {
@@ -18204,6 +18227,7 @@
        "text": "需要先掌握以未元物质构建身体组织的方法。"
       }
      ],
+     "of": "dark-matter",
      "from_event": "ichihanaran.001.b13"
     },
     {
@@ -18238,6 +18262,7 @@
        "text": "需要以妹妹们的残留思念为基础。"
       }
      ],
+     "of": "dark-matter",
      "from_event": "ichihanaran.001.b13"
     }
    ],
@@ -18666,7 +18691,8 @@
        "part": "limits",
        "text": "钢丝数量固定为七根，斩击轨迹受手部操纵限制。"
       }
-     ]
+     ],
+     "of": "shichiten-shichitou"
     },
     {
      "id": "kinshi-kekkai",
@@ -18734,7 +18760,8 @@
        "part": "limits",
        "text": "不能长时间战斗，也不能连续使用，一发定胜负。"
       }
-     ]
+     ],
+     "of": "shichiten-shichitou"
     }
    ],
    "setting": [
@@ -19002,6 +19029,7 @@
        "text": "需处于保险丝·风斩形态。"
       }
      ],
+     "of": "fuse-kazakiri",
      "from_event": "academy-invasion.001.b26"
     },
     {
@@ -19019,6 +19047,7 @@
        "text": "需达到完全体形态。"
       }
      ],
+     "of": "fuse-kazakiri",
      "from_event": "wwiii.002.b3"
     }
    ],
@@ -19304,6 +19333,7 @@
        "text": "有侵蚀和失控的危险；体内徘徊着垣根帝督的存在，不断尝试将她的意识驱逐出身体，限制自由使用能力。"
       }
      ],
+     "of": "equ-dark-matter",
      "from_event": "baggage.001.b9"
     }
    ],
@@ -20053,6 +20083,7 @@
        "text": "用足以击倒她的强力冲击、大量弹幕或直接穿透屏障的攻击；对手若能把空气中的自然氮气消除（如Stephanie），屏障便难以维持，因此她随身携带一小罐液氮备用。"
       }
      ],
+     "of": "nitrogen-manipulation",
      "links": [
       {
        "to": "level-4-esper",
@@ -20234,6 +20265,7 @@
        "text": "一次只能使用一种模式，因为每种攻击都沿一个方向推到极限。"
       }
      ],
+     "of": "hrunting",
      "links": [
       {
        "to": "hrunting",
@@ -20389,7 +20421,8 @@
         ]
        }
       }
-     ]
+     ],
+     "of": "universal-crystal-2"
     }
    ],
    "setting": [
@@ -20551,7 +20584,8 @@
        "part": "limits",
        "text": "能力被外部装置压制时完全用不出来；她不会用能力直接伤人，也不愿在朋友身上试威力。"
       }
-     ]
+     ],
+     "of": "aero-hand"
     }
    ],
    "setting": [
@@ -21682,6 +21716,7 @@
        "text": "番外个体不受最后之作控制。"
       }
      ],
+     "of": "network-command-tower",
      "links": [
       {
        "to": "misaka-network",
@@ -23909,7 +23944,8 @@
        "part": "counters",
        "text": "镜头被遮挡或手机被弹开即失效。"
       }
-     ]
+     ],
+     "of": "mental-stinger"
     },
     {
      "id": "mental-out-five-over",
@@ -24005,7 +24041,8 @@
        "part": "limits",
        "text": "时间地点有数十分钟误差。"
       }
-     ]
+     ],
+     "of": "nensha-precognition"
     },
     {
      "id": "nensha-analysis-app",
@@ -24257,6 +24294,7 @@
        "text": "超电磁炮的电击能偏转电子射线；半导体产品能偏转并扩散电子射线；发射井式地下质量投射器级别的电场能反射电子射线；杀伤压击能偏转其方向。"
       }
      ],
+     "of": "meltdowner",
      "links": [
       {
        "to": "meltdowner",
@@ -24321,6 +24359,7 @@
        "text": "以电子射线的反作用力弹开自身，实现高速移动和闪避；也能正面吹飞袭来的爆风或冲击波。"
       }
      ],
+     "of": "meltdowner",
      "links": [
       {
        "to": "electron-beam",
@@ -24343,6 +24382,7 @@
        "text": "仅在判断无法靠攻击解决问题时才使用。"
       }
      ],
+     "of": "meltdowner",
      "links": [
       {
        "to": "meltdowner",
@@ -24673,6 +24713,7 @@
        "text": "需咏唱完整指令。"
       }
      ],
+     "of": "minimal-conflict-theory",
      "from_event": "christmas-eve.001.b15"
     },
     {
@@ -24690,6 +24731,7 @@
        "text": "需咏唱完整指令。"
       }
      ],
+     "of": "minimal-conflict-theory",
      "from_event": "christmas-eve.001.b15"
     },
     {
@@ -24707,6 +24749,7 @@
        "text": "需咏唱完整指令。"
       }
      ],
+     "of": "minimal-conflict-theory",
      "from_event": "christmas-eve.001.b15"
     },
     {
@@ -24724,6 +24767,7 @@
        "text": "需咏唱完整指令。"
       }
      ],
+     "of": "minimal-conflict-theory",
      "from_event": "christmas-eve.001.b15"
     },
     {
@@ -24741,6 +24785,7 @@
        "text": "需咏唱完整指令。"
       }
      ],
+     "of": "minimal-conflict-theory",
      "from_event": "christmas-eve.001.b15"
     },
     {
@@ -24758,6 +24803,7 @@
        "text": "需咏唱完整指令。"
       }
      ],
+     "of": "minimal-conflict-theory",
      "from_event": "christmas-eve.001.b15"
     },
     {
@@ -24775,6 +24821,7 @@
        "text": "需咏唱完整指令。"
       }
      ],
+     "of": "minimal-conflict-theory",
      "from_event": "christmas-eve.001.b15"
     },
     {
@@ -24792,6 +24839,7 @@
        "text": "需咏唱完整指令，根丘未咏唱完就被打断。"
       }
      ],
+     "of": "minimal-conflict-theory",
      "from_event": "christmas-eve.001.b15"
     }
    ],
@@ -25470,7 +25518,8 @@
        "part": "conditions",
        "text": "对象必须背对欧莉安娜。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "meishoku-no-setsudanfu",
@@ -25482,7 +25531,8 @@
        "part": "effect",
        "text": "半径1米圈内生成约208道真空气刃，从下向上斩击。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "drops-rest",
@@ -25494,7 +25544,8 @@
        "part": "effect",
        "text": "使目标昏睡，不造成伤害。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "mizu-no-shouchou",
@@ -25506,7 +25557,8 @@
        "part": "effect",
        "text": "与特定对象进行通信。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "tsuchi-no-shouchou",
@@ -25522,7 +25574,8 @@
        "part": "counters",
        "text": "被幻想杀手打消后整堵墙消失。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "kaze-no-shouchou-counter",
@@ -25538,7 +25591,8 @@
        "part": "conditions",
        "text": "需在原地形成魔法阵。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "kaze-no-shouchou-ice-wall",
@@ -25550,7 +25604,8 @@
        "part": "effect",
        "text": "冰墙反射阳光，干扰对方对欧莉安娜方位的判断。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "kaze-no-shouchou-tornado",
@@ -25562,7 +25617,8 @@
        "part": "effect",
        "text": "召唤含水龙卷风，可灭火。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "hi-no-shouchou-pain",
@@ -25582,7 +25638,8 @@
        "part": "counters",
        "text": "对方未受伤时可被幻想杀手打消；已受伤时无法彻底打消。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "hi-no-shouchou-explosion",
@@ -25594,7 +25651,8 @@
        "part": "effect",
        "text": "生成爆炸火球。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "chi-no-shouchou",
@@ -25606,7 +25664,8 @@
        "part": "effect",
        "text": "爆破目标血管。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "element-collection",
@@ -25626,7 +25685,8 @@
        "part": "counters",
        "text": "被幻想杀手打消时白色物质消失，被吸取物炸开。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "kage-ken",
@@ -25642,7 +25702,8 @@
        "part": "conditions",
        "text": "需抽出第577张纸、平举并运用红色的风之象征。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "trap",
@@ -25654,7 +25715,8 @@
        "part": "effect",
        "text": "布置多种魔法陷阱。"
       }
-     ]
+     ],
+     "of": "shorthand-original"
     },
     {
      "id": "hand-to-hand",
@@ -26550,7 +26612,8 @@
        "part": "limits",
        "text": "具体战斗能力未知，且召唤后很快被亚雷斯塔击破。"
       }
-     ]
+     ],
+     "of": "voice-multiplication"
     },
     {
      "id": "agathion-familiar",
@@ -26854,7 +26917,8 @@
        "part": "counters",
        "text": "符文被清除或术式原理被看破则失效。"
       }
-     ]
+     ],
+     "of": "laevateinn"
     }
    ],
    "setting": [
@@ -28037,6 +28101,7 @@
        "text": "需维持最大派阀一年以上才会被授予此徽章。"
       }
      ],
+     "of": "mental-creation",
      "from_event": "tokiwadai-election.001.b1"
     },
     {
@@ -28127,7 +28192,8 @@
        "part": "conditions",
        "text": "需先以油蜡笔绘制魔法阵并吟唱。"
       }
-     ]
+     ],
+     "of": "alice-golem"
     },
     {
      "id": "alice-auto-mode",
@@ -28147,7 +28213,8 @@
        "part": "counters",
        "text": "破坏安全装置「秘文」，或在两秒内摧毁石巨人90%以上的肉体，可使其停止。"
       }
-     ]
+     ],
+     "of": "alice-golem"
     },
     {
      "id": "levitation-spell",
@@ -28505,6 +28572,7 @@
        "text": "类别只是她自设的边界，并非能力本身的硬性限制，目标与条件可在施术时略作调整。"
       }
      ],
+     "of": "mental-out",
      "links": [
       {
        "to": "mental-out",
@@ -28573,6 +28641,7 @@
        "text": "005读心潜行：深入目标人物的精神；011强迫自白：对象必须正确回答所有问题；030气绝昏倒：让目标昏倒一定时间；044物质读心：从右手触碰的物质中抽出一段时间以内的记忆；061感官误认：欺骗他人感官；081目标误认：扭曲认知；109印象操作：扭曲别人对自己的印象；220好恶增加：增加喜好和厌恶的程度；330呆然自失：一定时间内对象无法认知时间流逝；401幼儿退化：将目标精神状态恢复到一定时间点前；433痛觉削除：减轻自己身体的疼痛。"
       }
      ],
+     "of": "mental-out",
      "links": [
       {
        "to": "mental-out",
@@ -28603,6 +28672,7 @@
        "text": "页面未给出具体强度上限；已知能力者强度不一，有强度未知者，也有至少达到强能力者级别者。"
       }
      ],
+     "of": "mental-out",
      "links": [
       {
        "to": "mental-out",
@@ -28734,6 +28804,7 @@
        "text": "被光线照到的物体表面变成盐。"
       }
      ],
+     "of": "angel-dragon-2",
      "from_event": "jailbreaker.001.b5",
      "until_event": "jailbreaker.001.b14"
     },
@@ -28748,6 +28819,7 @@
        "text": "放出黑色闪电，可模仿超电磁炮。"
       }
      ],
+     "of": "angel-dragon-2",
      "from_event": "jailbreaker.001.b5",
      "until_event": "jailbreaker.001.b14"
     },
@@ -28770,6 +28842,7 @@
        "text": "被控者无法处理命令外的事；未喝血者会盐分失控且无法恢复。"
       }
      ],
+     "of": "angel-dragon-2",
      "from_event": "jailbreaker.001.b5",
      "until_event": "jailbreaker.001.b14"
     },
@@ -29061,7 +29134,8 @@
        "part": "limits",
        "text": "失去机能后的铠甲会成为枷锁，将穿着者困在里面。"
       }
-     ]
+     ],
+     "of": "life-armor"
     }
    ],
    "setting": [
@@ -29240,7 +29314,8 @@
        "part": "conditions",
        "text": "需要大喊招式名并挥拳。"
       }
-     ]
+     ],
+     "of": "guts"
     },
     {
      "id": "magnetic-front",
@@ -29260,7 +29335,8 @@
        "part": "limits",
        "text": "防御并非完美，对极强攻击可能无法完全抵挡。"
       }
-     ]
+     ],
+     "of": "guts"
     },
     {
      "id": "plasma-generation",
@@ -29272,7 +29348,8 @@
        "part": "effect",
        "text": "将空气粒子激发成等离子体，产生电流状攻击。"
       }
-     ]
+     ],
+     "of": "guts"
     },
     {
      "id": "super-speed-movement",
@@ -29284,7 +29361,8 @@
        "part": "effect",
        "text": "以数倍音速移动，可空中二段跳。"
       }
-     ]
+     ],
+     "of": "guts"
     },
     {
      "id": "explosion-generation",
@@ -29296,7 +29374,8 @@
        "part": "effect",
        "text": "制造爆炸，可产生烟雾、冲击波等效果。"
       }
-     ]
+     ],
+     "of": "guts"
     }
    ],
    "setting": [
@@ -29508,7 +29587,8 @@
        "part": "effect",
        "text": "以钻石光辉干扰视觉，使对手目测错误；制造薄板改变风向。"
       }
-     ]
+     ],
+     "of": "carbon-magic"
     },
     {
      "id": "chambord",
@@ -29670,6 +29750,7 @@
        "text": "需要布置符文。"
       }
      ],
+     "of": "rune-card",
      "links": [
       {
        "to": "magician",
@@ -29749,7 +29830,8 @@
        "part": "limits",
        "text": "强弱取决于卡片数量；出了符文结界范围就无能为力；卡片字迹被破坏则术式失效。"
       }
-     ]
+     ],
+     "of": "rune-card"
     },
     {
      "id": "mental-link",
@@ -29765,7 +29847,8 @@
        "part": "effect",
        "text": "连接对象精神，将对方身体情况再现于自身以探知病灶。"
       }
-     ]
+     ],
+     "of": "rune-card"
     },
     {
      "id": "rippa-shijin",
@@ -30328,6 +30411,7 @@
        "text": "需要先锁定目标力场；对无能力者无效。"
       }
      ],
+     "of": "aim-stalker",
      "from_event": "battle-royale.001.b12"
     }
    ],
@@ -32040,7 +32124,8 @@
        "part": "limits",
        "text": "进入该状态后无法行动，只能自保，不能反击或脱身。"
       }
-     ]
+     ],
+     "of": "telekinesis-3"
     }
    ],
    "setting": [
@@ -32181,7 +32266,8 @@
        "part": "limits",
        "text": "流星不足时无法发动。"
       }
-     ]
+     ],
+     "of": "astra"
     },
     {
      "id": "pinaka",
@@ -32213,7 +32299,8 @@
        "part": "conditions",
        "text": "需以双手作拉弓动作。"
       }
-     ]
+     ],
+     "of": "astra"
     },
     {
      "id": "parashu",
@@ -32225,7 +32312,8 @@
        "part": "effect",
        "text": "锋利斧刃轻易劈开事物。"
       }
-     ]
+     ],
+     "of": "astra"
     },
     {
      "id": "pashupatastra",
@@ -32237,7 +32325,8 @@
        "part": "effect",
        "text": "迎击时侵蚀骨头，产生剧烈疼痛。"
       }
-     ]
+     ],
+     "of": "astra"
     },
     {
      "id": "trishula",
@@ -32249,7 +32338,8 @@
        "part": "effect",
        "text": "三尖分别毁灭现世、历史与精神世界；威力可撕裂溶解柏油。"
       }
-     ]
+     ],
+     "of": "astra"
     },
     {
      "id": "shiva-astra-cycle",
@@ -32265,7 +32355,8 @@
        "part": "conditions",
        "text": "需以毗那迦的舞蹈动作依次驱动各法宝。"
       }
-     ]
+     ],
+     "of": "astra"
     },
     {
      "id": "bystander-dispersal-spell",
@@ -32535,7 +32626,8 @@
        "part": "conditions",
        "text": "必须先吟唱此段，再按需要接后续咒语。"
       }
-     ]
+     ],
+     "of": "fairy-tale-magic-vasilisa"
     },
     {
      "id": "skull-lantern",
@@ -32551,7 +32643,8 @@
        "part": "cost",
        "text": "消耗大，不能连续无休止使用。"
       }
-     ]
+     ],
+     "of": "fairy-tale-magic-vasilisa"
     },
     {
      "id": "honest-powerless-girl",
@@ -32567,7 +32660,8 @@
        "part": "cost",
        "text": "消耗大，不能连续无休止使用。"
       }
-     ]
+     ],
+     "of": "fairy-tale-magic-vasilisa"
     },
     {
      "id": "water-of-life",
@@ -32587,7 +32681,8 @@
        "part": "limits",
        "text": "再生需要时间，并非瞬间完成。"
       }
-     ]
+     ],
+     "of": "fairy-tale-magic-vasilisa"
     }
    ],
    "setting": [
@@ -33711,7 +33806,8 @@
        "part": "effect",
        "text": "自身与所持物品透明化。"
       }
-     ]
+     ],
+     "of": "azusa-yumi"
     },
     {
      "id": "saguma-no-tsuru",
@@ -33723,7 +33819,8 @@
        "part": "effect",
        "text": "广域搜索并定位目标。"
       }
-     ]
+     ],
+     "of": "azusa-yumi"
     },
     {
      "id": "tsukiuchi-no-tsuru",
@@ -33735,7 +33832,8 @@
        "part": "effect",
        "text": "发射透明冲击波。"
       }
-     ]
+     ],
+     "of": "azusa-yumi"
     },
     {
      "id": "kazama-no-tsuru",
@@ -33747,7 +33845,8 @@
        "part": "effect",
        "text": "生成空气团块弹射自身升空。"
       }
-     ]
+     ],
+     "of": "azusa-yumi"
     },
     {
      "id": "danma-no-tsuru",
@@ -33759,7 +33858,8 @@
        "part": "effect",
        "text": "发射压缩空气刃，可切断声音。"
       }
-     ]
+     ],
+     "of": "azusa-yumi"
     },
     {
      "id": "wamaguma-no-tsuru",
@@ -33775,7 +33875,8 @@
        "part": "limits",
        "text": "对心防坚固者会失效。"
       }
-     ]
+     ],
+     "of": "azusa-yumi"
     },
     {
      "id": "gokan-kyoka",
@@ -33811,7 +33912,8 @@
        "part": "effect",
        "text": "设置结界增幅梓弓术式。"
       }
-     ]
+     ],
+     "of": "azusa-yumi"
     }
    ],
    "setting": [
@@ -33931,7 +34033,8 @@
        "part": "conditions",
        "text": "需以念动使能力维持，与其他用途不能同时兼顾太多。"
       }
-     ]
+     ],
+     "of": "psychokinesis-multipurpose"
     },
     {
      "id": "cutting-attack",
@@ -33943,7 +34046,8 @@
        "part": "effect",
        "text": "以念动力将车辆或人体切断。"
       }
-     ]
+     ],
+     "of": "psychokinesis-multipurpose"
     }
    ],
    "setting": [
@@ -34061,7 +34165,8 @@
        "part": "conditions",
        "text": "需要在近距离使用。"
       }
-     ]
+     ],
+     "of": "wave-manipulation"
     },
     {
      "id": "wave-manipulation",
@@ -34101,7 +34206,8 @@
        "part": "cost",
        "text": "使用后身体受反噬，随后昏倒。"
       }
-     ]
+     ],
+     "of": "wave-manipulation"
     }
    ],
    "setting": [
@@ -34269,6 +34375,7 @@
        "text": "无法操控自己。"
       }
      ],
+     "of": "psychokinesis",
      "from_event": "yuzuriha.001.b8",
      "until_event": "yuzuriha.001.b11"
     }

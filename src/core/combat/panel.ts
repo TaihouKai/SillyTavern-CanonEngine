@@ -44,7 +44,7 @@ export interface GraphEdge { from: Id; to: Id; label: string | null; later?: boo
  *  knows it when not everyone does, and its links both ways (an entity's as they hold now; with spoilers, also those
  *  still to come). out label null: a precedent the entity was in. */
 export interface CombatNodeView {
-  id: Id; kind: string; entity: boolean; name: string; /** an ability's: whose it is. */ owner?: string; gist: string; text: string; generated: boolean; knowers: string[] | null;
+  id: Id; kind: string; entity: boolean; name: string; /** an ability's: whose it is. */ owner?: string; /** a use's: the ability it is a use of. */ of?: { id: Id; name: string }; gist: string; text: string; generated: boolean; knowers: string[] | null;
   parts: { part: string; text: string; knowers: string[] | null }[];
   who: string[]; event: string | null; hours: string; frequency: string;
   out: { node: Id; name: string; label: string | null; how?: string }[];
@@ -131,14 +131,18 @@ function settingView(idx: WorldIndex, spoilers: boolean, listed: CombatViewData[
   for (const e of entities) for (const l of linksOf(L, s, e)) {
     // what comes with an object or an organization hangs on it (the entity's own point), not on everyone with it
     if (l.via) { if (l.node === l.via) links.push({ from: e, to: l.via, label: l.label, source: l.source, ...(l.how ? { how: l.how } : {}) }); continue; }
-    if (l.node !== e) links.push({ from: e, to: l.node, label: l.label, source: l.source, ...(l.how ? { how: l.how } : {}) });
+    // a use hangs on its power, not on the person
+    const of = nodes.get(l.node)?.of;
+    if (of && l.how === 'use') links.push({ from: of, to: l.node, label: l.label, source: l.source, how: 'use' });
+    else if (l.node !== e) links.push({ from: e, to: l.node, label: l.label, source: l.source, ...(l.how ? { how: l.how } : {}) });
   }
   const later: Link[] = [];
   for (const e of L.entities.keys()) {
     const w = WRITTEN(idx, e);
-    for (const x of [...(w.abilities || []).map((a) => ({ to: a.id, label: 'has', v: a })), ...(w.setting || []).map((l) => ({ to: l.node, label: l.label, v: l }))]) {
+    for (const x of [...(w.abilities || []).map((a) => ({ to: a.id, label: 'has', v: a, from: a.of })), ...(w.setting || []).map((l) => ({ to: l.node, label: l.label, v: l }))]) {
       if (!x.v.from_event || holdsNow(x.v, occurred) || occurred(x.v.until_event) || !nodes.has(x.to)) continue;
-      later.push({ from: e, to: x.to, label: x.label, later: true, source: 'pack', event: L.events.get(x.v.from_event)?.title || x.v.from_event, ...(x.label === 'has' ? { how: 'has' } : {}) });
+      const from = 'from' in x && x.from ? x.from : e;
+      later.push({ from, to: x.to, label: x.label, later: true, source: 'pack', event: L.events.get(x.v.from_event)?.title || x.v.from_event, ...(x.label === 'has' ? { how: from === e ? 'has' : 'use' } : {}) });
     }
   }
   for (const [from, ls] of L.combat.linksFrom) for (const l of ls) if (nodes.has(l.from) && nodes.has(l.to)) links.push({ from, to: l.to, label: l.label, source: 'pack' });
@@ -208,7 +212,7 @@ function settingView(idx: WorldIndex, spoilers: boolean, listed: CombatViewData[
     }
     if (!n) return { id, kind: 'concept', entity: false, name: id, gist: '', text: '', generated: false, knowers: null, parts: [], who: [], event: null, hours: '', frequency: '', out: outs, in: ins };
     return {
-      id, kind: n.kind, entity: false, name: n.name, ...(n.owner ? { owner: name(n.owner) } : {}), gist: n.gist, text: n.text, generated: !!n.generated, knowers: knowers(n.visibility),
+      id, kind: n.kind, entity: false, name: n.name, ...(n.owner ? { owner: name(n.owner) } : {}), ...(n.of ? { of: { id: n.of, name: name(n.of) } } : {}), gist: n.gist, text: n.text, generated: !!n.generated, knowers: knowers(n.visibility),
       parts: (n.parts || []).map((p) => ({ part: p.part, text: p.text, knowers: knowers(p.visibility) })),
       who: (n.who || []).filter(isEntity).map(name), event: n.event_id ? L.events.get(n.event_id)?.title || n.event_id : null,
       hours: n.hours ? `${n.hours.from}–${n.hours.to}` : '', frequency: n.frequency || '',

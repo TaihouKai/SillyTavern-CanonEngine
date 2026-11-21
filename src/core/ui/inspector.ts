@@ -107,7 +107,8 @@ export function createInspector(d: InspectorDeps) {
     const abilities = () => {
       if (!p.abilities?.length) return '';
       secs.push({ id: 'abilities', label: t('niAbilities') });
-      return sec('abilities', t('niAbilities'), p.abilities.map((a, i) => item(`abilities-${i}`, `<b>${esc(a.name)}</b>${a.secret ? ` ${chip(t('niSecret'), 'warn')}` : ''} <span class="ci-text">${esc(a.gist)}</span>${a.parts.map((x) => muted(esc(x))).join('')}`)).join(''));
+      const one = (a: { name: string; gist: string; secret: boolean; parts: string[] }) => `<b>${esc(a.name)}</b>${a.secret ? ` ${chip(t('niSecret'), 'warn')}` : ''} <span class="ci-text">${esc(a.gist)}</span>${a.parts.map((x) => muted(esc(x))).join('')}`;
+      return sec('abilities', t('niAbilities'), p.abilities.map((a, i) => item(`abilities-${i}`, one(a) + (a.uses?.length ? `<div class="ci-sub-list"><div class="ci-muted"><b>${esc(t('niUses'))}</b></div>${a.uses.map((u) => `<div class="ci-indent">${one(u)}</div>`).join('')}</div>` : ''))).join(''));
     };
     html += list('orgs', t('niOrgs'), p.affiliations) + list('places', t('niPlaces'), p.places) + abilities() + list('kinds', t('niKinds'), p.kinds || []) + list('roles', t('niRoles'), p.roles || [])
       + list('notsuited', t('niNotSuited'), p.notSuited || []) + list('voice', t('niVoice'), p.voice ? [p.voice] : []) + list('nature', t('niNature'), p.nature || []) + list('defenses', t('niDefenses'), p.defenses ? [p.defenses] : []) + list('recognized', t('niRecognized'), p.recognized || [])

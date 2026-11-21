@@ -25,6 +25,10 @@ export interface Ability {
   visibility?: Visibility;
   /** The setting's nodes it belongs to or depends on ("属于电击使能力"). */
   links?: { to: Id; label: string }[];
+  /** 用法: this is a use of another ability of the same entity (光子振动炮 of 万光统御; 反射 of 一方通行). It tells
+   *  only what is its own; the power's conditions, cost, limits and counters hold for it too. One level only, and it
+   *  holds only while its power does. */
+  of?: Id;
   from_event?: Id | null; until_event?: Id | null;
   source_refs: Id[];
   /** Written by a model where the sources say nothing (reviewed by a person like the rest). */
@@ -64,7 +68,7 @@ export const ASPECTS: { [K in AspectKey]: { name: string; for: readonly Kind[]; 
   nature: { name: '常态', for: ['person'], check: (vs, at, c) => { versions(vs, at, c); vs.forEach((v, j) => { for (const k of v.perceives?.kinds || []) if (!PERCEIVE_KINDS.includes(k)) c.err(`${at}/${j}/perceives`, `unknown kind "${k}"`); }); } },
   mind: { name: '思考方式', for: ['person'], check: () => {} },
   combat_style: { name: '对抗倾向', for: ['person'], check: (vs, at, c) => versions(vs, at, c) },
-  abilities: { name: '能力', for: ['person', 'object', 'organization', 'other'], check: (as, at, c) => as.forEach((a, j) => checkAbility(a, `${at}/${j}`, c)) },
+  abilities: { name: '能力', for: ['person', 'object', 'organization', 'other'], check: (as, at, c) => { as.forEach((a, j) => checkAbility(a, `${at}/${j}`, c)); checkUses(as, at, c); } },
   setting: { name: '设定归属', for: ['person', 'object', 'organization', 'place', 'world', 'other'], check: (ls, at, c) => ls.forEach((l, j) => timed(l, `${at}/${j}`, c)) },
   fighting: { name: '战斗中', for: ['object', 'organization', 'place', 'world', 'other'], check: (f, at, c) => { if (!f.gist.trim() || !f.text.trim()) c.err(at, 'fighting gives a gist and a text'); visibility(f.visibility, at, c); } },
 };
@@ -82,6 +86,17 @@ function versions(vs: { from_event: Id | null; until_event?: Id | null }[], at: 
 }
 function visibility(v: Visibility | undefined, at: string, c: LintCtx) {
   for (const k of v?.knower_ids || []) if (!c.entities.has(k)) c.err(at, `visibility names an unknown entity "${k}"`);
+}
+/** An entity's uses point at one of its own abilities that is no use itself (one level), never at themselves. */
+function checkUses(as: Ability[], at: string, c: LintCtx) {
+  const byId = new Map(as.map((a) => [a.id, a]));
+  as.forEach((a, j) => {
+    if (a.of === undefined) return;
+    const p = byId.get(a.of);
+    if (a.of === a.id) c.err(`${at}/${j}/of`, 'an ability is no use of itself');
+    else if (!p) c.err(`${at}/${j}/of`, `"${a.of}" is no ability of this entity: a use belongs to one of its own abilities`);
+    else if (p.of !== undefined) c.err(`${at}/${j}/of`, `"${a.of}" is itself a use (of "${p.of}"): a use belongs to the power, one level only`);
+  });
 }
 function checkAbility(a: Ability, at: string, c: LintCtx) {
   const parts = a.parts.map((p) => p.part);
@@ -161,7 +176,8 @@ const NOW: { [K in AspectKey]: (a: Aspects | undefined, occurred: (e?: Id | null
   nature: (a, o) => versionNow(a?.nature, o),
   mind: (a) => a?.mind || null,
   combat_style: (a, o) => versionNow(a?.combat_style, o),
-  abilities: (a, o) => (a?.abilities || []).filter((x) => holdsNow(x, o)),
+  // (a use holds only while its power does)
+  abilities: (a, o) => { const now = (a?.abilities || []).filter((x) => holdsNow(x, o)); const ids = new Set(now.map((x) => x.id)); return now.filter((x) => x.of === undefined || ids.has(x.of)); },
   setting: (a, o) => (a?.setting || []).filter((x) => holdsNow(x, o)),
   fighting: (a) => a?.fighting || null,
 };

@@ -362,3 +362,7 @@ details.canon-card[open] > summary.canon-card-title { margin-bottom:4px; }
 
 /* 战斗 view (timeline window) */
 .canon-subhead { margin-top: 8px; }
+
+/* a power's uses under it (身份: 能力) */
+.ci-sub-list { margin: 4px 0 0 0; }
+.ci-indent { margin-left: 1.2em; padding-left: 8px; border-left: 2px solid var(--SmartThemeBorderColor, #8884); margin-top: 4px; }

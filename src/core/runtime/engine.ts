@@ -41,8 +41,8 @@ import { oocNote, splitOoc } from './ooc';
 import { membershipView, natureView, relationsView, type MembershipView, type NatureViewData, type RelationsViewData } from './views';
 
 /** A Persona read before this release lacks what the profile has since (1.47.0: the player character's abilities,
- *  in the same aspects as anyone's): the 身份 page offers to read it again. */
-const PROFILE_READ_SINCE = '1.47.0';
+ *  in the same aspects as anyone's; 1.48.0: a power with its uses): the 身份 page offers to read it again. */
+const PROFILE_READ_SINCE = '1.48.0';
 const olderRelease = (a: string, b: string) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); return false; };
 
 // what the planner of people's moves reads of them besides 思考方式 (mindPeople): 常态
@@ -3379,13 +3379,15 @@ export class CanonEngine {
         notSuited: prof.profile.notSuited || [],
         voice: prof.profile.voice || '',
         defenses: prof.profile.defenses || '',
-        ...((): { nature: string[]; abilities: { name: string; gist: string; parts: string[]; secret: boolean }[]; kinds: string[] } => {
+        ...((): { nature: string[]; abilities: { name: string; gist: string; parts: string[]; secret: boolean; uses: { name: string; gist: string; parts: string[]; secret: boolean }[] }[]; kinds: string[] } => {
           const pa = READ_PLAYER(idx, prof.profile.playerId), n = pa.nature?.version;
           const PART: Record<string, string> = zh ? { principle: '原理', effect: '效果', conditions: '条件', cost: '代价', limits: '限制', counters: '克制' } : { principle: 'How', effect: 'Effect', conditions: 'Conditions', cost: 'Cost', limits: 'Limits', counters: 'Counters' };
           return {
             nature: n ? [...(['habits', 'uses', 'others', 'limits'] as const).filter((k) => n[k]).map((k) => `${{ habits: zh ? '平时' : 'Habits', uses: zh ? '使用' : 'Uses', others: zh ? '旁人' : 'Others', limits: zh ? '限制' : 'Limits' }[k]}：${n[k]}`),
               ...(n.perceives ? [`${zh ? '能得知' : 'Perceives'}：${n.perceives.kinds.join(', ')}${n.perceives.how ? `（${n.perceives.how}）` : ''}`] : [])] : [],
-            abilities: pa.abilities.map((a) => ({ name: a.name, gist: a.gist, secret: !!a.visibility && a.visibility.mode !== 'public', parts: a.parts.map((x) => `${PART[x.part] || x.part}${x.visibility && x.visibility.mode !== 'public' ? (zh ? '（秘密）' : ' (secret)') : ''}：${x.text}`) })),
+            // each power with its uses under it
+            abilities: ((one) => pa.abilities.filter((a) => !a.of).map((a) => ({ ...one(a), uses: pa.abilities.filter((u) => u.of === a.id).map(one) })))(
+              (a: (typeof pa.abilities)[number]) => ({ name: a.name, gist: a.gist, secret: !!a.visibility && a.visibility.mode !== 'public', parts: a.parts.map((x) => `${PART[x.part] || x.part}${x.visibility && x.visibility.mode !== 'public' ? (zh ? '（秘密）' : ' (secret)') : ''}：${x.text}`) })),
             kinds: pa.setting.map((l) => `${l.label} ${idx.pack.combat.nodes.get(l.node)?.name || l.node}`),
           };
         })(),

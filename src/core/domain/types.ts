@@ -186,6 +186,8 @@ export interface CombatNode {
   owner?: Id;
   /** In the combat index only, for the timing of an entity's ability: from_event / until_event as written. */
   from_event?: Id | null; until_event?: Id | null;
+  /** In the combat index only: the ability this one is a use of (its owner's; see Ability.of). */
+  of?: Id;
 }
 /** A link between two nodes of the setting (an entity's ability among them), with what it is ("属于", "依赖",
  *  "克制"): the setting, always in force. An entity's own links are its aspects (设定归属). */
