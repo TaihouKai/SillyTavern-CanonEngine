@@ -273,7 +273,9 @@ export async function judgeFight(a: {
   const handovers: NonNullable<Ruling['handovers']> = [];
   const heldHere = new Set([...fighters, ...bystanders].flatMap((id) => heldBy(L, index.state, id)));
   for (const x of out.handovers || []) {
-    const obj = String(x.object || '').split('|')[0].trim(), to = x.to ? String(x.to).trim() : null;
+    // an object or a person by id, "id | name" or name (live, the gun was handed over as 「女式手枪」 and left out)
+    const among = (v: string, ids: Iterable<Id>) => { const s = new Set(ids), w = v.split('|')[0].trim(); if (s.has(w)) return w; const r = index.resolveEntity(v.split('|').pop()!.trim()); const hit = r.ids.filter((id) => s.has(id)); return hit.length === 1 ? hit[0] : w; };
+    const obj = among(String(x.object || ''), heldHere), to = x.to ? among(String(x.to), [...fighters, ...bystanders]) : null;
     if (!heldHere.has(obj)) { notes.push(`ruling: "${obj}" changes hands, but nobody here holds it (left out)`); continue; }
     if (to && !fighters.includes(to) && !bystanders.includes(to)) { notes.push(`ruling: "${obj}" goes to "${to}", who is not here (left out)`); continue; }
     const d: FactDelta = to ? { op: 'set', entity_id: obj, predicate: 'holder', value: to } : { op: 'unset', entity_id: obj, predicate: 'holder' };

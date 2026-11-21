@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.48.4 — 2026-11-21 (pack 7.1.1)
+
+- **A handover written by name.** The ruling handed the gun over as 「女式手枪」 instead of its id, and it was dropped as held by nobody. An object or a receiver is now also found by name, among what someone here holds and the people here.
+
 ## 1.48.3 — 2026-11-21 (pack 7.1.1)
 
 - **What an event under way hands someone.** At 15:30 the story was inside the window of the event that gives 滨面 the ladies' handgun (15:20–15:40). That event was not settled yet, so the world did not yet say who held the gun. The thug holding it was not known as 滨面, and the gun taken from him belonged to nobody. Until the world says who holds an object, a fight now goes by whom an event under way now, or starting within three hours, hands it to. This applies both to telling who someone is and to what they hold in the ruling.

@@ -36336,7 +36336,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.48.3";
+var ENGINE_RELEASE = "1.48.4";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -38653,7 +38653,14 @@ async function judgeFight(a) {
   const handovers = [];
   const heldHere = new Set([...fighters, ...bystanders].flatMap((id) => heldBy(L, index.state, id)));
   for (const x of out.handovers || []) {
-    const obj = String(x.object || "").split("|")[0].trim(), to = x.to ? String(x.to).trim() : null;
+    const among = (v, ids) => {
+      const s = new Set(ids), w = v.split("|")[0].trim();
+      if (s.has(w)) return w;
+      const r = index.resolveEntity(v.split("|").pop().trim());
+      const hit = r.ids.filter((id) => s.has(id));
+      return hit.length === 1 ? hit[0] : w;
+    };
+    const obj = among(String(x.object || ""), heldHere), to = x.to ? among(String(x.to), [...fighters, ...bystanders]) : null;
     if (!heldHere.has(obj)) {
       notes.push(`ruling: "${obj}" changes hands, but nobody here holds it (left out)`);
       continue;

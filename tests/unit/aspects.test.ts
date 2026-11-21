@@ -425,7 +425,7 @@ describe('what an event of now hands someone', () => {
     let holds: unknown = null;
     y.model.on('combat', (i) => i.player_message === msg, (i: any) => {
       holds = i.fighters.find((f: any) => f.id === 'mira')?.holds;
-      return { reasoning: 'x', exchanges: [{ actor: pid(), text: 'Ash tears the hook away.', basis: [{ ref: 'judgement' }], unsupported: true }], statuses: [], over: false, handovers: [{ object: 'hook', to: pid() }] };
+      return { reasoning: 'x', exchanges: [{ actor: pid(), text: 'Ash tears the hook away.', basis: [{ ref: 'judgement' }], unsupported: true }], statuses: [], over: false, handovers: [{ object: 'Cargo hook', to: 'Ash' }] };
     });
     y.model.draft('Ash tears the hook away. [AS13]');
     y.model.on('evaluate', null, { scene_end: at(1, 9, 35) });
