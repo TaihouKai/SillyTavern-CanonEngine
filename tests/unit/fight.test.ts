@@ -280,6 +280,7 @@ describe('someone here joins', () => {
     expect(r1.exchanges[0].basis).toEqual([{ ref: 'cb-gas' }]);
     expect(r1.notes.join(' ')).toMatch(/"dizzy" of Ash lasts while "cb-nope", not a thing at work/);
     expect(statusesOf(st(x), me(x)).map((s) => `${s.text}:${s.while || s.until}`).sort()).toEqual(['choking:cb-gas', 'dizzy:lasting']);
+    expect(x.engine.combatView(false)!.people.find((p) => p.player)!.states.find((s) => s.text === 'choking')!.while).toBe('Tear gas canister');
     await turn(x, 'I kick the canister into the sea.', 'It sinks with a hiss. [F14]', {
       combat: () => ({ player_outcomes: [], exchanges: [{ actor: me(x), text: 'The canister sinks.', basis: [{ ref: 'judgement' }] }], statuses: [], stops: [{ node: 'cb-gas', why: 'kicked into the sea' }, { node: 'cb-firearms', why: '?' }], over: false }),
     });
