@@ -11477,7 +11477,7 @@ function validate85(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate85.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 var combat = validate86;
-var schema128 = { "type": "object", "properties": { "reasoning": { "type": "string", "maxLength": 1500 }, "exchanges": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "actor": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 800 }, "basis": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 160 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["ref"], "additionalProperties": false } }, "unsupported": { "type": "boolean" } }, "required": ["actor", "text", "basis"], "additionalProperties": false } }, "statuses": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 120 }, "count": { "anyOf": [{ "type": "number" }, { "type": "null" }] }, "until": { "anyOf": [{ "const": "lasting" }, { "type": "object", "properties": { "minutes": { "type": "number" } }, "required": ["minutes"], "additionalProperties": false }, { "type": "object", "properties": { "event": { "type": "string" } }, "required": ["event"], "additionalProperties": false }, { "type": "object", "properties": { "while": { "type": "string", "maxLength": 120 } }, "required": ["while"], "additionalProperties": false }, { "type": "null" }] }, "node": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] }, "removed": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 300 }, "replaces": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] } }, "required": ["who", "text"], "additionalProperties": false } }, "witnessed": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "node": { "type": "string", "maxLength": 120 }, "part": { "anyOf": [{ "enum": ["principle", "effect", "conditions", "cost", "limits", "counters"] }, { "type": "null" }] }, "who": { "type": "array", "items": { "type": "string", "maxLength": 120 } } }, "required": ["node", "who"], "additionalProperties": false } }, "over": { "type": "boolean" }, "over_why": { "type": "string", "maxLength": 300 }, "stop_at": { "type": "string", "maxLength": 300 }, "player_outcomes": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 300 }, "stands": { "type": "boolean" }, "basis": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 160 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["ref"], "additionalProperties": false } }, "why": { "type": "string", "maxLength": 300 } }, "required": ["quote", "stands"], "additionalProperties": false } }, "joins": { "type": "array", "maxItems": 8, "items": { "type": "string", "maxLength": 120 } }, "stops": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "node": { "type": "string", "maxLength": 120 }, "why": { "type": "string", "maxLength": 300 } }, "required": ["node"], "additionalProperties": false } } }, "required": ["reasoning", "player_outcomes", "exchanges", "statuses", "over"], "additionalProperties": false, "$id": "urn:canon-engine:combat" };
+var schema128 = { "type": "object", "properties": { "reasoning": { "type": "string", "maxLength": 1500 }, "exchanges": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "actor": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 800 }, "basis": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 160 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["ref"], "additionalProperties": false } }, "unsupported": { "type": "boolean" } }, "required": ["actor", "text", "basis"], "additionalProperties": false } }, "statuses": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 120 }, "text": { "type": "string", "maxLength": 120 }, "count": { "anyOf": [{ "type": "number" }, { "type": "null" }] }, "until": { "anyOf": [{ "const": "lasting" }, { "type": "object", "properties": { "minutes": { "type": "number" } }, "required": ["minutes"], "additionalProperties": false }, { "type": "object", "properties": { "event": { "type": "string" } }, "required": ["event"], "additionalProperties": false }, { "type": "object", "properties": { "while": { "type": "string", "maxLength": 120 } }, "required": ["while"], "additionalProperties": false }, { "type": "null" }] }, "node": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] }, "removed": { "type": "boolean" }, "quote": { "type": "string", "maxLength": 300 }, "replaces": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] } }, "required": ["who", "text"], "additionalProperties": false } }, "witnessed": { "type": "array", "maxItems": 20, "items": { "type": "object", "properties": { "node": { "type": "string", "maxLength": 120 }, "part": { "anyOf": [{ "enum": ["principle", "effect", "conditions", "cost", "limits", "counters"] }, { "type": "null" }] }, "who": { "type": "array", "items": { "type": "string", "maxLength": 120 } } }, "required": ["node", "who"], "additionalProperties": false } }, "over": { "type": "boolean" }, "over_why": { "type": "string", "maxLength": 300 }, "stop_at": { "type": "string", "maxLength": 300 }, "player_outcomes": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "quote": { "type": "string", "maxLength": 300 }, "stands": { "type": "boolean" }, "basis": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 160 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["ref"], "additionalProperties": false } }, "why": { "type": "string", "maxLength": 300 } }, "required": ["quote", "stands"], "additionalProperties": false } }, "joins": { "type": "array", "maxItems": 8, "items": { "type": "string", "maxLength": 120 } }, "stops": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "node": { "type": "string", "maxLength": 120 }, "why": { "type": "string", "maxLength": 300 } }, "required": ["node"], "additionalProperties": false } }, "handovers": { "type": "array", "maxItems": 6, "items": { "type": "object", "properties": { "object": { "type": "string", "maxLength": 120 }, "to": { "type": ["string", "null"], "maxLength": 120 }, "quote": { "type": "string", "maxLength": 300 } }, "required": ["object", "to"], "additionalProperties": false } } }, "required": ["reasoning", "player_outcomes", "exchanges", "statuses", "over"], "additionalProperties": false, "$id": "urn:canon-engine:combat" };
 function validate86(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -12893,12 +12893,144 @@ function validate86(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
+    if (data.handovers !== void 0) {
+      let data47 = data.handovers;
+      if (Array.isArray(data47)) {
+        if (data47.length > 6) {
+          const err121 = { instancePath: instancePath + "/handovers", schemaPath: "#/properties/handovers/maxItems", keyword: "maxItems", params: { limit: 6 }, message: "must NOT have more than 6 items" };
+          if (vErrors === null) {
+            vErrors = [err121];
+          } else {
+            vErrors.push(err121);
+          }
+          errors++;
+        }
+        const len9 = data47.length;
+        for (let i9 = 0; i9 < len9; i9++) {
+          let data48 = data47[i9];
+          if (data48 && typeof data48 == "object" && !Array.isArray(data48)) {
+            if (data48.object === void 0) {
+              const err122 = { instancePath: instancePath + "/handovers/" + i9, schemaPath: "#/properties/handovers/items/required", keyword: "required", params: { missingProperty: "object" }, message: "must have required property 'object'" };
+              if (vErrors === null) {
+                vErrors = [err122];
+              } else {
+                vErrors.push(err122);
+              }
+              errors++;
+            }
+            if (data48.to === void 0) {
+              const err123 = { instancePath: instancePath + "/handovers/" + i9, schemaPath: "#/properties/handovers/items/required", keyword: "required", params: { missingProperty: "to" }, message: "must have required property 'to'" };
+              if (vErrors === null) {
+                vErrors = [err123];
+              } else {
+                vErrors.push(err123);
+              }
+              errors++;
+            }
+            for (const key11 in data48) {
+              if (!(key11 === "object" || key11 === "to" || key11 === "quote")) {
+                const err124 = { instancePath: instancePath + "/handovers/" + i9, schemaPath: "#/properties/handovers/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key11 }, message: "must NOT have additional properties" };
+                if (vErrors === null) {
+                  vErrors = [err124];
+                } else {
+                  vErrors.push(err124);
+                }
+                errors++;
+              }
+            }
+            if (data48.object !== void 0) {
+              let data49 = data48.object;
+              if (typeof data49 === "string") {
+                if (func2(data49) > 120) {
+                  const err125 = { instancePath: instancePath + "/handovers/" + i9 + "/object", schemaPath: "#/properties/handovers/items/properties/object/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err125];
+                  } else {
+                    vErrors.push(err125);
+                  }
+                  errors++;
+                }
+              } else {
+                const err126 = { instancePath: instancePath + "/handovers/" + i9 + "/object", schemaPath: "#/properties/handovers/items/properties/object/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err126];
+                } else {
+                  vErrors.push(err126);
+                }
+                errors++;
+              }
+            }
+            if (data48.to !== void 0) {
+              let data50 = data48.to;
+              if (typeof data50 !== "string" && data50 !== null) {
+                const err127 = { instancePath: instancePath + "/handovers/" + i9 + "/to", schemaPath: "#/properties/handovers/items/properties/to/type", keyword: "type", params: { type: schema128.properties.handovers.items.properties.to.type }, message: "must be string,null" };
+                if (vErrors === null) {
+                  vErrors = [err127];
+                } else {
+                  vErrors.push(err127);
+                }
+                errors++;
+              }
+              if (typeof data50 === "string") {
+                if (func2(data50) > 120) {
+                  const err128 = { instancePath: instancePath + "/handovers/" + i9 + "/to", schemaPath: "#/properties/handovers/items/properties/to/maxLength", keyword: "maxLength", params: { limit: 120 }, message: "must NOT have more than 120 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err128];
+                  } else {
+                    vErrors.push(err128);
+                  }
+                  errors++;
+                }
+              }
+            }
+            if (data48.quote !== void 0) {
+              let data51 = data48.quote;
+              if (typeof data51 === "string") {
+                if (func2(data51) > 300) {
+                  const err129 = { instancePath: instancePath + "/handovers/" + i9 + "/quote", schemaPath: "#/properties/handovers/items/properties/quote/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err129];
+                  } else {
+                    vErrors.push(err129);
+                  }
+                  errors++;
+                }
+              } else {
+                const err130 = { instancePath: instancePath + "/handovers/" + i9 + "/quote", schemaPath: "#/properties/handovers/items/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err130];
+                } else {
+                  vErrors.push(err130);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err131 = { instancePath: instancePath + "/handovers/" + i9, schemaPath: "#/properties/handovers/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            if (vErrors === null) {
+              vErrors = [err131];
+            } else {
+              vErrors.push(err131);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err132 = { instancePath: instancePath + "/handovers", schemaPath: "#/properties/handovers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err132];
+        } else {
+          vErrors.push(err132);
+        }
+        errors++;
+      }
+    }
   } else {
-    const err121 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err133 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err121];
+      vErrors = [err133];
     } else {
-      vErrors.push(err121);
+      vErrors.push(err133);
     }
     errors++;
   }
@@ -29706,7 +29838,7 @@ function walkCombat(L, state, starts, opts) {
     }
     for (const l of linksOf(L, state, e, tick)) {
       if (opts.objective && l.source === "fill") continue;
-      reach(l.node, 1, e, e, l.label);
+      reach(l.node, 1, e, e, l.via && l.via !== l.node ? `${l.label} (through ${l.via}, which they ${l.how === "holds" ? "hold" : "belong to"})` : l.label);
       frontier.push(l.node);
     }
     for (const p of L.combat.precedentsOf.get(e) || []) {
@@ -34896,6 +35028,35 @@ var combat_schema_default = {
         ],
         additionalProperties: false
       }
+    },
+    handovers: {
+      type: "array",
+      maxItems: 6,
+      items: {
+        type: "object",
+        properties: {
+          object: {
+            type: "string",
+            maxLength: 120
+          },
+          to: {
+            type: [
+              "string",
+              "null"
+            ],
+            maxLength: 120
+          },
+          quote: {
+            type: "string",
+            maxLength: 300
+          }
+        },
+        required: [
+          "object",
+          "to"
+        ],
+        additionalProperties: false
+      }
     }
   },
   required: [
@@ -35772,19 +35933,20 @@ var EVAL_COMBAT = `   statuses: notable states of a person this reply (or player
    fight (only when fight_ruling is not given, for a pack with combat): when the reply itself starts a confrontation the player character is in or sees \u2014 someone attacks, a fight breaks out \u2014: starts true, participants (ids or new_entities refs), quote; resolved_unruled true when the reply then goes on to decide it (blows land, someone wins or loses) instead of stopping where it begins. null when the reply has none.
    ruling_conflicts (only when fight_ruling is given): every place the reply changes what the ruling decided \u2014 another result, someone hit or hurt who was not (or not hit who was), an attack, dodge or escape the ruling does not have, someone arriving or leaving, the fight carried past its stop_at, the player character doing what the player did not write \u2014: quote and why. NOT a conflict: embellishment \u2014 how it looks, sounds and feels, what people say, their taunts, looks, gestures and thoughts \u2014 as long as no result changes; and following the ruling where it rules against the player's message (the ruling has already decided that: its result stands, not the player's words).`;
 var COMBAT_TASK = `TASK: Judge this turn of a fight \u2014 a confrontation whose result depends on one side's abilities against the other's. The game master writes the reply from your ruling and may only embellish it: what happens is yours to decide.
-Input: basis (what this world runs on by default); fighters (id, name, description, states now, \u5BF9\u6297\u503E\u5411 \u2014 how they act in a fight \u2014, what they are linked to); nodes (the setting and what the fighters have: concepts, rules, abilities told in parts \u2014 each person's own and the player character's too \u2014, what an organization or object they belong to or hold is in a fight, precedents \u2014 how such fights went in the original story; a node with use_of is a use of that ability: the ability's conditions, cost, limits and counters hold for the use too); sources (lorebook entries and the player's Persona, each with a ref); relations between the fighters; knows (what each fighter knows of the others' abilities: a part not listed for them is unknown to them; of the player character's powers, each knows what their known_to_all says \u2014 someone famous is known by what they are famous for \u2014 and more only through what the story showed them); player_message (the player's own words this turn) and statements (what they establish as happening and what they only attempt); recent (the end of the story so far); time.
+Input: basis (what this world runs on by default); fighters (id, name, description, states now, world_now \u2014 what the world's record says of them at this moment: an injury, a condition, a form; hold the fight to it, as to their states \u2014, \u5BF9\u6297\u503E\u5411 \u2014 how they act in a fight \u2014, what they are linked to); nodes (the setting and what the fighters have: concepts, rules, abilities told in parts \u2014 each person's own and the player character's too \u2014, what an organization or object they belong to or hold is in a fight, precedents \u2014 how such fights went in the original story; a node with use_of is a use of that ability: the ability's conditions, cost, limits and counters hold for the use too); sources (lorebook entries and the player's Persona, each with a ref); relations between the fighters; knows (what each fighter knows of the others' abilities: a part not listed for them is unknown to them; of the player character's powers, each knows what their known_to_all says \u2014 someone famous is known by what they are famous for \u2014 and more only through what the story showed them); player_message (the player's own words this turn) and statements (what they establish as happening and what they only attempt); recent (the end of the story so far); time.
 1. Authority: an objective mechanism (a node, a source) > what the player's message establishes > your judgement. What the player writes their own character does, and what that act physically does \u2014 they pull the trigger and the bullet hits \u2014 happens. What it then does to someone else beyond what the player wrote is yours to judge by the mechanisms.
    player_outcomes: EVERY outcome the player's message states for the player character's act \u2014 a hit, a cut, a wound, a kill, someone falling, an escape, an object taken \u2014 once each, quote = the player's words, verbatim. stands: true when it happens as written; false ONLY when an objective mechanism stops it (a reflection, a precognitive dodge, a body that such a blow cannot harm): then basis (node ids; a source ref with its words, verbatim) and why. Without such a mechanism it stands, whatever you would judge. [] when the message states no outcome. outcomes_that_stand, when given: these happen as written \u2014 rule the rest around them.
 2. basis for every exchange: the refs you decided by \u2014 node ids; source refs with quote (the player character's abilities are nodes like anyone's, read from their Persona; the Persona itself is the source "persona": cite it with its words); a fighter's \u5BF9\u6297\u503E\u5411 as "style:<fighter id>" with its words \u2014 or [{"ref":"judgement"}] with unsupported true when nothing in the input decides it; then judge by the common sense of this world's basis. A node's text is the setting: use it as written, do not invent powers, weaknesses or rules it does not have.
 3. present: people here who are not in the fight. joins: those of them who join it this turn of their own accord \u2014 as their \u5BF9\u6297\u503E\u5411 and their relations with the fighters say (a friend steps in for a friend; a \u98CE\u7EAA\u59D4\u5458 stops a fight) \u2014, by the situation as the player's message makes it now, not as recent left it (live: a thief who had run off came back at the player with a knife, and her friend beside her, who zaps robbers, was ruled to stay out because "he had given up"): they act in exchanges from then on. Nobody joins only to help the story along. [] when nobody does.
    Everyone but the player character acts as their \u5BF9\u6297\u503E\u5411 and their relations with the others say (shocking a friend for fun is play; someone who wants to die does not dodge; someone who never kills holds back), and only on what they know: they go for a weakness only if knows lists it for them. The player character does nothing the player's message does not say: you decide how the world answers it.
 4. This turn only: from what the player's message does to the next moment the player character must decide (an attack coming at them, a choice to make); say that moment in stop_at. exchanges in the order they happen: actor (a fighter id), text \u2014 who does what, with what result, plainly; the game master writes the prose.
-5. statuses: every change of a fighter's state this turn: hurt (where, how badly), bleeding, knocked out ({"minutes": n}), exhausted, a transformation, a counted resource spent (count = what is left), an object lost, taken or picked up. who = fighter id, text short (a few words: "\u5DE6\u81C2\u9AA8\u6298", "\u53F3\u81C2\u53D1\u9EBB", "\u4EE4\u5492", "\u5931\u53BB\u6B66\u5668"), until {"minutes": n} for what passes by itself (numbness, being dazed or out of breath, a short transformation: how long it takes to pass), "lasting" only for what stays until treated or changed (a fracture, a deep cut, an object lost or held, a counted resource), {"while": "<node id>"} for what lasts as long as a thing at work in this fight goes on (a node reached "at work in this fight": a headache from its noise, being held in its field) \u2014 it ends by itself when that thing stops or the fight is over; a cause that is no such thing: "lasting", removed when it stops \u2014 not for what they can simply make, draw or lay out again; removed: true when a state ends \u2014 go through each fighter's states now: one this turn undoes (a weapon picked up again, what was destroyed laid out anew, a numbness passed) is removed; replaces: the text of a state they have now that this one takes the place of \u2014 it got worse or better, or was treated ("\u9690\u9690\u4F5C\u75DB" \u2192 "\u523A\u75DB\u52A0\u5267", a wound \u2192 the wound bandaged): the old one ends; null otherwise (live, "\u9690\u9690\u4F5C\u75DB", "\u523A\u75DB\u52A0\u5267" and "\u5DE6\u81C2\u523A\u75DB" all stayed). node: only when the state gives the fighter something of the setting to use from now on (a weapon or object picked up or held, a form they turn into): its node id; null otherwise \u2014 never what caused the state (a wound from someone's ability is not that ability of theirs). quote: "".
+5. statuses: every change of a fighter's state this turn: hurt (where, how badly), bleeding, knocked out ({"minutes": n}), exhausted, a transformation, a counted resource spent (count = what is left), an object lost, taken or picked up (one the world has, from someone's holds: a handover below instead). who = fighter id, text short (a few words: "\u5DE6\u81C2\u9AA8\u6298", "\u53F3\u81C2\u53D1\u9EBB", "\u4EE4\u5492", "\u5931\u53BB\u6B66\u5668"), until {"minutes": n} for what passes by itself (numbness, being dazed or out of breath, a short transformation: how long it takes to pass), "lasting" only for what stays until treated or changed (a fracture, a deep cut, an object lost or held, a counted resource), {"while": "<node id>"} for what lasts as long as a thing at work in this fight goes on (a node reached "at work in this fight": a headache from its noise, being held in its field) \u2014 it ends by itself when that thing stops or the fight is over; a cause that is no such thing: "lasting", removed when it stops \u2014 not for what they can simply make, draw or lay out again; removed: true when a state ends \u2014 go through each fighter's states now: one this turn undoes (a weapon picked up again, what was destroyed laid out anew, a numbness passed) is removed; replaces: the text of a state they have now that this one takes the place of \u2014 it got worse or better, or was treated ("\u9690\u9690\u4F5C\u75DB" \u2192 "\u523A\u75DB\u52A0\u5267", a wound \u2192 the wound bandaged): the old one ends; null otherwise (live, "\u9690\u9690\u4F5C\u75DB", "\u523A\u75DB\u52A0\u5267" and "\u5DE6\u81C2\u523A\u75DB" all stayed). node: only when the state gives the fighter something of the setting to use from now on (a weapon or object picked up or held, a form they turn into): its node id; null otherwise \u2014 never what caused the state (a wound from someone's ability is not that ability of theirs). quote: "".
 6. witnessed: an ability (or one of its parts) someone sees used: node id, part or null, who saw it (fighter ids).
+   handovers: each object of the world (from a fighter's or someone present's holds) that changes hands this turn \u2014 taken, knocked away, dropped, picked up: object id, to (the fighter or person here who holds it now, or null when nobody does) and the quote; not a state for it. [] when none does.
    stops: each thing at work in this fight that stops this turn \u2014 destroyed, switched off, carried off, out of reach \u2014 node id and why; [] when none does.
 7. over: true when the fight ends this turn (someone beaten, fled, surrendered, both stop); over_why.
 8. reasoning (write it first): how you ruled, for the player to read \u2014 what decides the exchanges, the player's outcomes and the end: which nodes, sources or \u5BF9\u6297\u503E\u5411 and why, and where only judgement decided. Plainly, a few sentences, in the language of the player's message.
-SHAPE: {"reasoning":"","joins":[],"player_outcomes":[{"quote":"","stands":true,"basis":[{"ref":"","quote":""}],"why":""}],"exchanges":[{"actor":"","text":"","basis":[{"ref":"","quote":""}],"unsupported":false}],"statuses":[{"who":"","text":"","count":null,"until":"lasting","node":null,"removed":false,"replaces":null,"quote":""}],"witnessed":[{"node":"","part":null,"who":[]}],"stops":[{"node":"","why":""}],"over":false,"over_why":"","stop_at":""}`;
+SHAPE: {"reasoning":"","joins":[],"player_outcomes":[{"quote":"","stands":true,"basis":[{"ref":"","quote":""}],"why":""}],"exchanges":[{"actor":"","text":"","basis":[{"ref":"","quote":""}],"unsupported":false}],"statuses":[{"who":"","text":"","count":null,"until":"lasting","node":null,"removed":false,"replaces":null,"quote":""}],"witnessed":[{"node":"","part":null,"who":[]}],"handovers":[{"object":"","to":null,"quote":""}],"stops":[{"node":"","why":""}],"over":false,"over_why":"","stop_at":""}`;
 var COMBAT_WHO_TASK = `TASK: The player's message is part of a fight. Say what in it is of this world, though the message does not name it.
 1. people: for each of new_people (people the message brings in without a name: how it calls them, its words about them), whether they are one of the candidates \u2014 people of this world, with what the setting and the user's lorebook say about them. id: a candidate's id when the message's words clearly fit that person: their looks, the ability or equipment the message shows, what they do or say, together with the time and the place, where that person could be then. null when nobody fits clearly, when two candidates fit as well, or when the words fit anyone (a thug, a passer-by, a girl in a uniform): a stranger the player made up stays a stranger, and a common look alone never makes them someone known. why: one short sentence.
 2. things: for each of seen (n: the message's words about something at work in the fight, and what it was read as), which of things (id | name | gist, of the setting; none is any fighter's own: fighters lists what each has) it is. id: one of things when the words clearly fit it (what it does, how it looks or sounds) and it is at work in this fight \u2014 a device running, a weapon or object someone uses, a field or effect on the place. null when none fits clearly, when it is only talked about, when it is what a fighter does with their own powers (the player character's too), or when it is what a fighter has or a candidate you name has (their own weapon or device comes with them: a thing that only looks like it is not meant). why: one short sentence.
@@ -35940,7 +36102,7 @@ ${COMBAT_WHO_TASK}`,
   persona_abilities: `${COMMON}
 TASK: Read the player's Persona (their character in this story world) into what a story engine knows of any person of the world: what they can do, and what kind of being they are in the setting. The engine judges fights and plays the world from this, for the player character exactly as for everyone else.
 1. abilities: every power, technique, spell, art, skill or piece of equipment of their own that the Persona gives them and that matters in what they do (a fight, a chase, an investigation, their work), each ONCE: name (as the Persona calls it), gist (one sentence: what it is and does), text (2 to 4 sentences), parts \u2014 principle (how it works), effect (what it does, how strong), conditions (what it needs to work), cost (what it costs them), limits (what it cannot do), counters (known ways to beat it) \u2014 only what the Persona states or what follows directly from how it works; leave out a part it says nothing about; every ability has an effect. of: null, or \u2014 for a way of using another of their abilities (a technique, form, mode or application the Persona gives under a power: a light blade and a light beam of one power over light) \u2014 the name of that power exactly as you wrote it. A power and its uses: the power is one entry (its effect says what the power does as such, without listing the uses again; its conditions, cost, limits and counters, written once, hold for every use), and each use is an entry of its own with of = the power, telling only what is its own (its own effect, and a condition or limit only it has). Never a use of a use. Something that stands on its own (a martial art, a weapon, a second power) has of null. secret: true for an ability (or a part) the Persona marks as secret or as known only to certain people; what it does not mark is public. links: setting nodes (by id, from setting) the ability belongs to or depends on ("\u5C5E\u4E8E\u7535\u51FB\u4F7F\u80FD\u529B"), with a short label; [] when none fits. An ordinary person with no special abilities: only the skills the Persona makes notable, or none.
-2. setting: what kind of being or fighter they are in this world, and the setting's shared things they have \u2014 ids from setting only (a power level, \u9B54\u672F\u5E08, \u80FD\u529B\u8005, an ordinary person, firearms), at most 6, each with a short label ("\u662F", "\u80FD\u529B\u7B49\u7EA7", "\u6301\u6709"). Only what the Persona states or clearly makes them; [] when setting is empty.
+2. setting: what kind of being or fighter they are in this world, and the setting's shared things they have \u2014 ids from setting only (a power level, \u9B54\u672F\u5E08, \u80FD\u529B\u8005, an ordinary person, firearms), at most 6, each with a short label ("\u662F", "\u80FD\u529B\u7B49\u7EA7", "\u6301\u6709"). A link says that they ARE that kind or HAVE that thing, in the setting's own sense: never a node for something they merely resemble or are treated like (someone with a power is no ordinary person, whatever rights or job they have). Only what the Persona states or clearly makes them; [] when setting is empty.
 Use the Persona's own words and language; never invent strengths, weaknesses or rules. background_lore (when given) is the user's lorebook for names the Persona uses: world background to understand what the Persona means (a named power's workings), never more than the Persona gives the player.
 SHAPE: {"abilities":[{"name":"","gist":"","text":"","parts":[{"part":"effect","text":"","secret":false}],"secret":false,"links":[{"to":"","label":""}],"of":null}],"setting":[{"node":"","label":""}]}`,
   // User: smart characters only sounded clever and said what anyone would say; the GM writes every person in one pass
@@ -38237,6 +38399,7 @@ async function judgeFight(a) {
   const L = a.index.pack;
   if (L.combat.none !== null) return null;
   const N = combatNodes(L, a.index.state);
+  const canHold = L.predicates.get("holder")?.value_type === "entity_ref";
   const now = fightNow(a.index.state);
   if (!now.ongoing) return null;
   const fighters = now.participants.filter((id) => a.index.entityExists(id));
@@ -38250,6 +38413,8 @@ async function judgeFight(a) {
   };
   const loreOf = new Map(fighters.map((id) => [id, id === a.playerId ? [] : loreAbout(a.lore, namesOf(id))]));
   const linkLine = (l) => `${l.label} ${l.node}${l.via && l.via !== l.node ? ` (through ${l.via}, which they ${l.how === "holds" ? "hold" : "belong to"})` : ""}${l.source === "fill" ? " (filled in: a guess)" : ""}`;
+  const worldNow = (id) => index.entityState(id).facts.filter((f) => index.pack.predicates.get(f.predicate)?.value_type !== "entity_set").slice(0, 10).map((f) => `${f.predicate}: ${f.display}`.slice(0, 200));
+  const holdsNow2 = (id) => canHold ? tiesOf(index.state, id).holds.map((o) => `${o} | ${a.index.entityName(o)}`) : [];
   const describe = (id) => (L.entities.get(id)?.static_description || a.index.state.runtimeEntities.get(id)?.description || "").slice(0, 600);
   let index = a.index;
   const filled = { links: [], styles: [] };
@@ -38309,6 +38474,10 @@ async function judgeFight(a) {
       ...id === a.playerId ? { player_character: true, ...a.playerPublic ? { known_to_all: a.playerPublic.slice(0, 600) } : {} } : {},
       description: describe(id),
       states: statusesOf(index.state, id).map((s) => `${s.text}${s.count != null ? ` \xD7${s.count}` : ""}`),
+      ...holdsNow2(id).length ? { holds: holdsNow2(id) } : {},
+      // what the world says of them now (an arm cut off by the story, a condition): live, a judge that had only the
+      // fight's own states had 上条 raise the right arm the story had cut off
+      ...worldNow(id).length ? { world_now: worldNow(id) } : {},
       ...id === a.playerId ? {} : { style: styleOf(L, index.state, id)?.style || null },
       linked: linksOf(L, index.state, id).map(linkLine)
     })),
@@ -38420,6 +38589,20 @@ async function judgeFight(a) {
     statuses.push({ entity: who, text, ...count !== null ? { count } : {}, ...until ? { until } : {}, ...w && inFight.includes(w) ? { while: w } : {}, ...node ? { node } : {}, ...s.removed ? { removed: true } : {}, source: "play" });
   }
   const ended = [];
+  const handovers = [];
+  const heldHere = new Set([...fighters, ...bystanders].flatMap((id) => canHold ? tiesOf(index.state, id).holds : []));
+  for (const x of out.handovers || []) {
+    const obj = String(x.object || "").split("|")[0].trim(), to = x.to ? String(x.to).trim() : null;
+    if (!heldHere.has(obj)) {
+      notes.push(`ruling: "${obj}" changes hands, but nobody here holds it (left out)`);
+      continue;
+    }
+    if (to && !fighters.includes(to) && !bystanders.includes(to)) {
+      notes.push(`ruling: "${obj}" goes to "${to}", who is not here (left out)`);
+      continue;
+    }
+    if (!handovers.some((h) => h.object === obj)) handovers.push({ object: obj, to });
+  }
   for (const x of out.stops || []) {
     if (!inFight.includes(x.node)) {
       notes.push(`ruling: "${x.node}" stops, but it is not a thing at work in the fight (left out)`);
@@ -38437,6 +38620,7 @@ async function judgeFight(a) {
     fighters,
     joined,
     ...ended.length ? { ended } : {},
+    ...handovers.length ? { handovers } : {},
     exchanges,
     statuses,
     witnessed,
@@ -38453,7 +38637,9 @@ async function judgeFight(a) {
   };
 }
 function rulingRecord(r, st, names) {
-  return combatRecord(st, [], `Fight ruled: ${r.exchanges.map((x) => `${names(x.actor)}: ${x.text}`).join(" / ")}`, {
+  const facts = (r.handovers || []).map((h) => h.to ? { op: "set", entity_id: h.object, predicate: "holder", value: h.to, until: "lasting" } : { op: "unset", entity_id: h.object, predicate: "holder" });
+  return combatRecord(st, [], `Fight ruled: ${r.exchanges.map((x) => `${names(x.actor)}: ${x.text}`).join(" / ")}${(r.handovers || []).map((h) => ` / ${names(h.object)} \u2192 ${h.to ? names(h.to) : "nobody"}`).join("")}`, {
+    ...facts.length ? { factsSetOrUnset: facts } : {},
     ...r.filled.links.length ? { combatLinks: r.filled.links } : {},
     ...r.filled.styles.length ? { styles: r.filled.styles } : {},
     ...r.statuses.length ? { statuses: r.statuses } : {},
@@ -38613,7 +38799,10 @@ async function identifyInFight(a) {
 // src/core/combat/reply.ts
 function rulingSection(r, names) {
   const lines = r.exchanges.map((x, i) => `${i + 1}. ${names(x.actor)}: ${x.text}`);
-  const states = r.statuses.map((s) => `${names(s.entity)}: ${s.removed ? "no longer " : ""}${s.text}${s.count != null ? ` (${s.count} left)` : ""}`);
+  const states = [
+    ...r.statuses.map((s) => `${names(s.entity)}: ${s.removed ? "no longer " : ""}${s.text}${s.count != null ? ` (${s.count} left)` : ""}`),
+    ...(r.handovers || []).map((h) => h.to ? `${names(h.to)} now holds ${names(h.object)}` : `nobody holds ${names(h.object)} now`)
+  ];
   return [
     "COMBAT RULING (binding \u2014 Canon Engine judged this turn of the fight before the reply. Write exactly these results, in this order, as vividly as you like: how it looks, sounds and feels is yours. Change no result; add no blow, hit, dodge or move that is not here; nobody wins, loses, is hurt or escapes otherwise. The player character does nothing beyond the player's message.)",
     ...lines,
@@ -38755,7 +38944,10 @@ function combatView(idx, spoilers, player, origin, rulings, query = "", focus = 
       cut: r.cut.filter((id) => N.has(id)).map((id) => ({ node: id, name: N.get(id).name })),
       exchanges: r.exchanges.map((x) => ({ who: name2(x.actor), text: x.text, basis: x.basis.map(basisLabel), ...x.unsupported ? { unsupported: true } : {} })),
       stopped: (r.outcomes || []).filter((o) => !o.stands).map((o) => ({ quote: o.quote, why: o.why, basis: o.basis.map(basisLabel) })),
-      states: r.statuses.map((x) => `${name2(x.entity)}\uFF1A${x.removed ? "\u2212" : ""}${x.text}${x.count != null ? ` \xD7${x.count}` : ""}`),
+      states: [
+        ...r.statuses.map((x) => `${name2(x.entity)}\uFF1A${x.removed ? "\u2212" : ""}${x.text}${x.count != null ? ` \xD7${x.count}` : ""}`),
+        ...(r.handovers || []).map((h) => `${name2(h.object)} \u2192 ${h.to ? name2(h.to) : "\u2014"}`)
+      ],
       stands: r.stands,
       joined: (r.joined || []).map(name2),
       ...r.ended?.length ? { ended: r.ended.map((n) => N.get(n)?.name || n) } : {},

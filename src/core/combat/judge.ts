@@ -7,7 +7,7 @@
 //   player's Persona; the model rules the turn (combat), the code checks it: the player's words stand unless an
 //   objective mechanism (a node the fighters reach without filled-in links, a lorebook entry or the Persona, quoted)
 //   stops them; states and who saw what become records of the reply.
-import type { CombatLinkChange, Id, StatusChange, StoryTime, StyleChange, Witnessed } from '../domain/types';
+import type { CombatLinkChange, FactDelta, Id, StatusChange, StoryTime, StyleChange, Witnessed } from '../domain/types';
 import { ABILITY_PARTS } from '../domain/types';
 import { normalizeName } from '../domain/pack';
 import type { WorldIndex } from '../domain/world-query';
@@ -16,7 +16,7 @@ import { keyMatch, type LoreEntry } from '../runtime/lore';
 import { callStructured, type ModelPort } from '../runtime/model';
 import { PROMPTS } from '../runtime/prompts';
 import type { RecordDraft } from '../runtime/types';
-import { combatNodes, fightNow, knowsNode, linksOf, statusesOf, styleOf, walkCombat } from './state';
+import { combatNodes, fightNow, knowsNode, linksOf, statusesOf, styleOf, tiesOf, walkCombat } from './state';
 import { cleanUntil, combatRecord as rec } from './record';
 
 export interface CombatSettings { maxDepth: number; fullDepth: number; budgetChars: number }
@@ -38,6 +38,9 @@ export interface Ruling {
   joined: Id[];
   /** Things at work in the fight that stopped this turn (destroyed, switched off, carried off). */
   ended?: Id[];
+  /** Objects of the world that changed hands this turn (taken, knocked away, picked up): who holds each now (null:
+   *  nobody). They become the facts of who holds them, so what an object brings goes with it. */
+  handovers?: { object: Id; to: Id | null }[];
   /** Each outcome the player's message states, standing or stopped by an objective mechanism (the code holds it so). */
   outcomes: PlayerOutcome[];
   /** The player's words that stand although the analysis ruled against them without an objective mechanism. */
@@ -53,7 +56,7 @@ export interface Ruling {
   walked: { node: Id; depth: number; full: boolean; from: Id; label: string | null }[];
 }
 
-interface CombatOut { reasoning?: string; joins?: string[]; player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; replaces?: string | null; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; stops?: { node: string; why?: string }[]; over: boolean; over_why?: string; stop_at?: string }
+interface CombatOut { reasoning?: string; joins?: string[]; player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; replaces?: string | null; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; stops?: { node: string; why?: string }[]; handovers?: { object: string; to: string | null; quote?: string }[]; over: boolean; over_why?: string; stop_at?: string }
 interface FillOut { people: { who: string; links: { node: string; label: string }[]; style?: { start: string; force: string; response: string; limit: string; stop: string } | null }[] }
 
 /** Lorebook entries about someone: an entry whose title is their name, or one of whose keys is in a name of theirs. */
@@ -78,6 +81,8 @@ export async function judgeFight(a: {
   const L = a.index.pack;
   if (L.combat.none !== null) return null;
   const N = combatNodes(L, a.index.state);
+  // who holds an object is a fact of the pack's (holder, naming the holder): a ruling can change it only then
+  const canHold = L.predicates.get('holder')?.value_type === 'entity_ref';
   const now = fightNow(a.index.state);
   if (!now.ongoing) return null;
   const fighters = now.participants.filter((id) => a.index.entityExists(id));
@@ -89,6 +94,9 @@ export async function judgeFight(a: {
   const loreOf = new Map(fighters.map((id) => [id, id === a.playerId ? [] : loreAbout(a.lore, namesOf(id))]));
   // a link as the analysis reads it: what it is, the node, and what it comes with (an object held, an organization)
   const linkLine = (l: ReturnType<typeof linksOf>[number]) => `${l.label} ${l.node}${l.via && l.via !== l.node ? ` (through ${l.via}, which they ${l.how === 'holds' ? 'hold' : 'belong to'})` : ''}${l.source === 'fill' ? ' (filled in: a guess)' : ''}`;
+  const worldNow = (id: Id) => index.entityState(id).facts.filter((f) => index.pack.predicates.get(f.predicate)?.value_type !== 'entity_set').slice(0, 10).map((f) => `${f.predicate}: ${f.display}`.slice(0, 200));
+  // the objects of the world someone holds now (the facts): what a ruling may hand over
+  const holdsNow = (id: Id) => (canHold ? tiesOf(index.state, id).holds.map((o) => `${o} | ${a.index.entityName(o)}`) : []);
   const describe = (id: Id) => (L.entities.get(id)?.static_description || a.index.state.runtimeEntities.get(id)?.description || '').slice(0, 600);
 
   // 1. what nothing says: filled in from the setting's concepts (lowest source, kept with the reply)
@@ -145,6 +153,10 @@ export async function judgeFight(a: {
     fighters: fighters.map((id) => ({
       id, name: name(id), ...(id === a.playerId ? { player_character: true, ...(a.playerPublic ? { known_to_all: a.playerPublic.slice(0, 600) } : {}) } : {}), description: describe(id),
       states: statusesOf(index.state, id).map((s) => `${s.text}${s.count != null ? ` ×${s.count}` : ''}`),
+      ...(holdsNow(id).length ? { holds: holdsNow(id) } : {}),
+      // what the world says of them now (an arm cut off by the story, a condition): live, a judge that had only the
+      // fight's own states had 上条 raise the right arm the story had cut off
+      ...(worldNow(id).length ? { world_now: worldNow(id) } : {}),
       ...(id === a.playerId ? {} : { style: styleOf(L, index.state, id)?.style || null }),
       linked: linksOf(L, index.state, id).map(linkLine),
     })),
@@ -225,6 +237,15 @@ export async function judgeFight(a: {
     statuses.push({ entity: who, text, ...(count !== null ? { count } : {}), ...(until ? { until } : {}), ...(w && inFight.includes(w) ? { while: w } : {}), ...(node ? { node } : {}), ...(s.removed ? { removed: true } : {}), source: 'play' });
   }
   const ended: Id[] = [];
+  // an object changes hands: one a fighter or someone here holds, to a fighter, someone here or nobody
+  const handovers: NonNullable<Ruling['handovers']> = [];
+  const heldHere = new Set([...fighters, ...bystanders].flatMap((id) => (canHold ? tiesOf(index.state, id).holds : [])));
+  for (const x of out.handovers || []) {
+    const obj = String(x.object || '').split('|')[0].trim(), to = x.to ? String(x.to).trim() : null;
+    if (!heldHere.has(obj)) { notes.push(`ruling: "${obj}" changes hands, but nobody here holds it (left out)`); continue; }
+    if (to && !fighters.includes(to) && !bystanders.includes(to)) { notes.push(`ruling: "${obj}" goes to "${to}", who is not here (left out)`); continue; }
+    if (!handovers.some((h) => h.object === obj)) handovers.push({ object: obj, to });
+  }
   for (const x of out.stops || []) {
     if (!inFight.includes(x.node)) { notes.push(`ruling: "${x.node}" stops, but it is not a thing at work in the fight (left out)`); continue; }
     if (!ended.includes(x.node)) ended.push(x.node);
@@ -235,13 +256,15 @@ export async function judgeFight(a: {
     const who = (w.who || []).filter((x) => fighters.includes(x) || a.index.entityExists(x));
     if (who.length) witnessed.push({ node: w.node, ...(w.part && (ABILITY_PARTS as readonly string[]).includes(w.part) ? { part: w.part as Witnessed['part'] } : {}), who });
   }
-  return { fighters, joined, ...(ended.length ? { ended } : {}), exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || '').slice(0, 300), stopAt: String(out.stop_at || '').slice(0, 300), outcomes, stands, filled, cut: walk.cut, notes,
+  return { fighters, joined, ...(ended.length ? { ended } : {}), ...(handovers.length ? { handovers } : {}), exchanges, statuses, witnessed, over: !!out.over, overWhy: String(out.over_why || '').slice(0, 300), stopAt: String(out.stop_at || '').slice(0, 300), outcomes, stands, filled, cut: walk.cut, notes,
     reasoning: String(out.reasoning || '').trim().slice(0, 1500), walked: walk.nodes.map((w) => ({ node: w.node.id, depth: w.depth, full: w.full, from: w.viaFrom, label: w.viaLabel })) };
 }
 
 /** What the ruling records with the reply: what was filled in, the states, who saw what, the fight's end. */
 export function rulingRecord(r: Ruling, st: StoryTime, names: (id: Id) => string): RecordDraft {
-  return rec(st, [], `Fight ruled: ${r.exchanges.map((x) => `${names(x.actor)}: ${x.text}`).join(' / ')}`, {
+  const facts: FactDelta[] = (r.handovers || []).map((h) => (h.to ? { op: 'set' as const, entity_id: h.object, predicate: 'holder', value: h.to, until: 'lasting' as const } : { op: 'unset' as const, entity_id: h.object, predicate: 'holder' }));
+  return rec(st, [], `Fight ruled: ${r.exchanges.map((x) => `${names(x.actor)}: ${x.text}`).join(' / ')}${(r.handovers || []).map((h) => ` / ${names(h.object)} → ${h.to ? names(h.to) : 'nobody'}`).join('')}`, {
+    ...(facts.length ? { factsSetOrUnset: facts } : {}),
     ...(r.filled.links.length ? { combatLinks: r.filled.links } : {}),
     ...(r.filled.styles.length ? { styles: r.filled.styles } : {}),
     ...(r.statuses.length ? { statuses: r.statuses } : {}),

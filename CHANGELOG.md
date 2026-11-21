@@ -12,6 +12,9 @@
   - a name that fits nothing, or uses that point at each other, are kept as standalone abilities, and the notes say so.
 
   A chat whose identity was read before this release is offered a re-read.
+- **An object taken in a fight changes hands in the world.** When Alice tore 阿斯卡隆 out of 后方之水's hands, the ruling only noted 「失去阿斯卡隆」 as a state. The world still had him holding it, so in the next turn the sword still counted as his and not hers. A ruling now says which object changes hands, and who holds it is recorded as a fact. The object's powers go with it, the GM writes the handover, and the panel lists it. The ruling can only move an object someone present holds, and only to someone present.
+- **A fight sees what the world says about the fighters.** On the night 上条's right arm is cut off in the original story, a ruling had him block with that arm: the judge saw only the fight's own states. It now also gets each fighter's current facts from the world (an injury, a condition, a form).
+- **The Persona is not linked to a kind it only resembles.** Alice was linked to 「普通人」 under the label 「现场权限等同于警备员」.
 - **The pack's characters too.** Every character with several abilities was read again, and 107 abilities are now uses of a power:
   - 一方通行's 反射 and 矢量控制;
   - 麦野's 电子射线, 光之护盾 and 反作用力移动;

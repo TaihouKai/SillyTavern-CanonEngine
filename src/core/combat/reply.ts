@@ -9,7 +9,8 @@ import type { Ruling } from './judge';
 /** The ruling for the game master: binding, in order, to be written as vividly as wanted, and nothing beyond. */
 export function rulingSection(r: Ruling, names: (id: Id) => string): string {
   const lines = r.exchanges.map((x, i) => `${i + 1}. ${names(x.actor)}: ${x.text}`);
-  const states = r.statuses.map((s) => `${names(s.entity)}: ${s.removed ? 'no longer ' : ''}${s.text}${s.count != null ? ` (${s.count} left)` : ''}`);
+  const states = [...r.statuses.map((s) => `${names(s.entity)}: ${s.removed ? 'no longer ' : ''}${s.text}${s.count != null ? ` (${s.count} left)` : ''}`),
+    ...(r.handovers || []).map((h) => (h.to ? `${names(h.to)} now holds ${names(h.object)}` : `nobody holds ${names(h.object)} now`))];
   return [
     'COMBAT RULING (binding — Canon Engine judged this turn of the fight before the reply. Write exactly these results, in this order, as vividly as you like: how it looks, sounds and feels is yours. Change no result; add no blow, hit, dodge or move that is not here; nobody wins, loses, is hurt or escapes otherwise. The player character does nothing beyond the player\'s message.)',
     ...lines,

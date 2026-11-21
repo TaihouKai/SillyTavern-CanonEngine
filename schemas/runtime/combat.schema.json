@@ -287,6 +287,35 @@
     ],
     "additionalProperties": false
    }
+  },
+  "handovers": {
+   "type": "array",
+   "maxItems": 6,
+   "items": {
+    "type": "object",
+    "properties": {
+     "object": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "to": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "maxLength": 120
+     },
+     "quote": {
+      "type": "string",
+      "maxLength": 300
+     }
+    },
+    "required": [
+     "object",
+     "to"
+    ],
+    "additionalProperties": false
+   }
   }
  },
  "required": [

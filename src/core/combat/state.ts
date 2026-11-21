@@ -231,7 +231,7 @@ export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts:
     let frontier: Id[] = [];
     // a thing at work in the fight (a node): itself first
     if (N.has(e)) { reach(e, 1, e, e, null); frontier.push(e); }
-    for (const l of linksOf(L, state, e, tick)) { if (opts.objective && l.source === 'fill') continue; reach(l.node, 1, e, e, l.label); frontier.push(l.node); }
+    for (const l of linksOf(L, state, e, tick)) { if (opts.objective && l.source === 'fill') continue; reach(l.node, 1, e, e, l.via && l.via !== l.node ? `${l.label} (through ${l.via}, which they ${l.how === 'holds' ? 'hold' : 'belong to'})` : l.label); frontier.push(l.node); }
     for (const p of L.combat.precedentsOf.get(e) || []) { reach(p, 1, e, e, null); frontier.push(p); }
     for (let d = 2; d <= opts.maxDepth && frontier.length; d++) {
       const next: Id[] = [];

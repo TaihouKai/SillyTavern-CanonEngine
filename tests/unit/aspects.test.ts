@@ -216,3 +216,38 @@ describe('uses in a pack', () => {
   });
 });
 
+describe('an object changes hands in a fight', () => {
+  it('AS8 the ruling hands an object over: who holds it is then the fact, and what it brings goes with it; one nobody here holds, or to someone not here, is left out', async () => {
+    const raw = harbor();
+    raw.initial_state.facts.push({ fact: { entity_id: 'hook', predicate: 'holder', value: 'council' }, source_refs: ['example-source'], note: 'x' });
+    // a chat bound to the pack where the council holds the hook
+    const y = makeEngine();
+    (y.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
+    y.model.on('profile', null, PROFILE);
+    y.model.on('persona_abilities', null, { abilities: [], setting: [] });
+    await y.engine.bind(JSON.stringify(raw), { startTick: tick(1, 6, 0), mode: 'new' });
+    await y.engine.reconcile('test');
+    const pid = () => y.engine.playerProfile()!.profile.playerId;
+    const msg = 'I grab the hook out of the gunman\'s hands.';
+    y.host.addUser(msg);
+    y.model.on('extract_user', (i) => i.message === msg, { fight: { state: 'starts', participants: ['council'], why: 'x' } }, true);
+    y.model.on('combat', (i) => i.player_message === msg, (i: any) => {
+      expect(i.fighters.find((f: any) => f.id === 'council').holds).toEqual(['hook | Cargo hook']);
+      return { reasoning: 'x', exchanges: [{ actor: pid(), text: 'Ash wrenches the hook away.', basis: [{ ref: 'judgement' }], unsupported: true }], statuses: [], over: false,
+        handovers: [{ object: 'hook', to: 'mira' }, { object: 'hook', to: pid(), quote: 'grab the hook' }, { object: 'cb-firearms', to: pid() }] };
+    });
+    y.model.draft('Ash wrenches the hook away. [AS8]');
+    y.model.on('evaluate', null, { scene_end: at(1, 6, 10) });
+    await y.engine.runOperation('normal');
+    const L = y.engine.current!.index.pack, st = y.engine.current!.replay.state;
+    expect(tiesOf(st, pid()).holds).toEqual(['hook']);
+    expect(tiesOf(st, 'council').holds).toEqual([]);
+    expect(linksOf(L, st, pid()).find((l) => l.node === 'hook-swing')).toMatchObject({ via: 'hook', how: 'holds' });
+    const r = y.engine.combatView(false)!.rulings[0];
+    expect(r.states).toContain(`Cargo hook → ${y.engine.current!.index.entityName(pid())}`);
+    expect(r.notes.join(' ')).toMatch(/"cb-firearms" changes hands, but nobody here holds it/);
+    expect(r.notes.join(' ')).toMatch(/"hook" goes to "mira", who is not here/);
+    expect(String(y.model.tasks('draft').at(-1)!.input.engineContext)).toMatch(/now holds Cargo hook/);
+  });
+});
+
