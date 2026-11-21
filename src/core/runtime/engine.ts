@@ -40,6 +40,11 @@ import { ENGINE_RELEASE, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
 import { membershipView, natureView, relationsView, type MembershipView, type NatureViewData, type RelationsViewData } from './views';
 
+/** A Persona read before this release lacks what the profile has since (1.47.0: the player character's abilities,
+ *  in the same aspects as anyone's): the 身份 page offers to read it again. */
+const PROFILE_READ_SINCE = '1.47.0';
+const olderRelease = (a: string, b: string) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); return false; };
+
 // what the planner of people's moves reads of them besides 思考方式 (mindPeople): 常态
 const READ_PEOPLE = aspectReader(['nature'] as const);
 // what the 身份 page shows of the player character as a person of the world: 常态, abilities, links into the setting
@@ -3399,7 +3404,7 @@ export class CanonEngine {
       personaChanged: this.personaChanged(),
       // read by an older release: what later ones read (who recognizes you 1.17.0, 角色常态 1.26.1) is missing until
       // the Persona is read again
-      profileOld: !!prof && (prof.profile.recognizedBy === undefined || !prof.profile.readBy),
+      profileOld: !!prof && (prof.profile.recognizedBy === undefined || !prof.profile.readBy || olderRelease(prof.profile.readBy, PROFILE_READ_SINCE)),
       decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId), strong: !!e.strong, binding: isBinding(e) })),
       // contacts filed as a free storyline before 1.8.1 are grouped with the event or matter they name
       // with the player's answer to the matter (a decision, or taken up in play) for the 接受/拒绝/完成 buttons

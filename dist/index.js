@@ -40743,6 +40743,12 @@ function relationsView(idx, spoilers, player, origin = null) {
 }
 
 // src/core/runtime/engine.ts
+var PROFILE_READ_SINCE = "1.47.0";
+var olderRelease = (a, b) => {
+  const x = a.split(".").map(Number), y = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
+  return false;
+};
 var READ_PEOPLE = aspectReader(["nature"]);
 var READ_PLAYER2 = aspectReader(["nature", "abilities", "setting"]);
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
@@ -44289,7 +44295,7 @@ ${lines.join("\n")}`;
       personaChanged: this.personaChanged(),
       // read by an older release: what later ones read (who recognizes you 1.17.0, 角色常态 1.26.1) is missing until
       // the Persona is read again
-      profileOld: !!prof && (prof.profile.recognizedBy === void 0 || !prof.profile.readBy),
+      profileOld: !!prof && (prof.profile.recognizedBy === void 0 || !prof.profile.readBy || olderRelease(prof.profile.readBy, PROFILE_READ_SINCE)),
       decisions: eng.all.map((e) => ({ recordId: e.recordId, scope: `${e.scopeKind}:${e.scopeRef}`, scopeKind: e.scopeKind, scopeRef: e.scopeRef, label: lab(e.scopeKind, e.scopeLabel), stance: e.stance, quote: e.quote, time: formatTick(e.tick, origin), source: e.source, active: active.has(e.recordId), strong: !!e.strong, binding: isBinding(e) })),
       // contacts filed as a free storyline before 1.8.1 are grouped with the event or matter they name
       // with the player's answer to the matter (a decision, or taken up in play) for the 接受/拒绝/完成 buttons

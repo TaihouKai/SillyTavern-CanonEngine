@@ -961,6 +961,11 @@ describe('preferred matters', () => {
     expect(x.engine.integrationView(true)!.profileOld).toBe(false);
     delete (x.engine.playerProfile()!.profile as { readBy?: string }).readBy;
     expect(x.engine.integrationView(true)!.profileOld).toBe(true);
+    // read before the player's abilities were read (1.47.0): old too
+    (x.engine.playerProfile()!.profile as { readBy?: string }).readBy = '1.46.6';
+    expect(x.engine.integrationView(true)!.profileOld).toBe(true);
+    (x.engine.playerProfile()!.profile as { readBy?: string }).readBy = '1.47.0';
+    expect(x.engine.integrationView(true)!.profileOld).toBe(false);
   });
 
   it('NI-50c a power that perceives reaches the player character\'s secrets unless the player turns it off; the Persona\'s shields hold (user: a mind reader was kept from a secret, the GM steering the player character\'s thoughts)', async () => {
