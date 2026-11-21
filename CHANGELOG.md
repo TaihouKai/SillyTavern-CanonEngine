@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.47.0 — 2026-11-21 (pack 7.0.0)
+
+- **One record per character, item and organization.** The 战斗设定 graph had written much of the cast a second time. Of its 998 abilities, 944 belonged to a single person, and 56 nodes were things the pack already has as entries, such as 幻想杀手, 阿斯卡隆, 天草式十字凄教 and 英国清教. Now:
+  - a person's own powers, an item's function and what an organization is in a fight are written on that entry;
+  - the setting keeps only what belongs to no one: kinds of fighter, rules, shared techniques and devices (firearms, a kind of spell), and the original story's fights.
+- **What an entry has comes in fixed kinds:** 常态, 思考方式, 对抗倾向, 能力, 设定归属 and 战斗中. Each kind is checked on its own and allowed only on some kinds of entry. Each part of the engine reads only the kinds it needs, which makes adding or fixing one kind a local change. The pack format is now 2.0.0; an older pack is refused with a note to rebuild it.
+- **What someone holds and where they belong are facts of the world.** Their item's or organization's powers reach a fight through those facts, so a change in play reaches every part of the engine:
+  - 阿斯卡隆 goes with whoever holds it;
+  - 幻想杀手 leaves 上条 when 右方之火 cuts it off, and comes back when the golden hand is gone;
+  - a member of 天草式 also gets what 英国清教 is, because 天草式 belongs to it.
+- **Your character is read like everyone else.** Reading your Persona now produces abilities in the same parts as any character of the world: how it works, what it does, conditions, cost, limits and counters. A part the Persona marks as secret is known only to you and the people it says know your secrets. Fights judge your character by these, and the 身份 page lists them.
+- **The pack data was checked item by item.** The Toaru pack (7.0.0) is rebuilt in the new shape:
+  - every node's placement was decided by hand;
+  - missing facts were added: the members of 英国清教, 必要之恶教会 and 特别例外处理小队, and who holds 幻想杀手, 移动教会, 项圈, 理想放逐, 使徒十字, 含羞草 and 战乱之剑;
+  - two entry errors were fixed: 战乱之剑 was entered as a place (it is 玛丽安's sword), and a duplicate entry of 自动书记远程控制灵装 was merged.
+
 ## 1.46.6 — 2026-11-21
 
 - **One person is in a fight once.** The man in the white suit at 三泽塾 was in Alice's fight twice:

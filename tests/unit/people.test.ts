@@ -12,7 +12,7 @@ import { PROMPTS, GM_INTEGRATION_RULES } from '../../src/core/runtime/prompts';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 type X = ReturnType<typeof makeEngine>;
-const PROFILE = { player: { name: 'Ash', aliases: [], summary: 'a dock worker', public_identity: '' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
+const PROFILE = { player: { name: 'Ash', aliases: [], summary: 'a dock worker', public_identity: '' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
 
 async function setup() {
   const x = makeEngine();

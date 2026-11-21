@@ -127,14 +127,6 @@
     "additionalProperties": false
    }
   },
-  "capabilities": {
-   "type": "array",
-   "items": {
-    "type": "string",
-    "maxLength": 400
-   },
-   "maxItems": 20
-  },
   "resources": {
    "type": "array",
    "items": {

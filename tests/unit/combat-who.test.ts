@@ -20,7 +20,7 @@ function port(reply: unknown): ModelPort & { seen: { task: string; input: any }[
 const pack = () => {
   const raw = demoRaw() as any;
   raw.combat.nodes.push({ id: 'cb-gas', kind: 'ability', name: 'Tear gas canister', gist: 'A canister of tear gas that blinds and chokes everyone near it.', text: 'A canister of tear gas that blinds and chokes everyone near it.', parts: [{ part: 'effect', text: 'Blinds and chokes everyone near it.' }], source_refs: raw.combat.nodes[0].source_refs });
-  raw.combat.links.push({ from: 'council', to: 'cb-gas', label: 'keeps' });
+  raw.entities.find((e: any) => e.id === 'council').aspects.setting.push({ node: 'cb-gas', label: 'keeps' });
   return load(raw);
 };
 const TEXT = 'A woman in a medic\'s coat kneels over the wounded and stops the bleeding; then a canister of tear gas hisses open and I choke.';

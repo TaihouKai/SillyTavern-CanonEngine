@@ -34,7 +34,7 @@ function pack() {
 const PROFILE = {
   player: { name: 'Ash', aliases: [], summary: 'a dock worker', public_identity: '' },
   affiliations: [{ name: 'The Council', existing_id: 'council', role: 'about to be taken on', status: 'joining', secrecy: 'public' }],
-  places: [], capabilities: [], resources: [], goals: [],
+  places: [], resources: [], goals: [],
   relationships: [{ name: 'Ren', existing_id: 'ren', relation: 'an old friend', basis: 'persona_stated' }], knowers: [], uncertain: [],
 };
 

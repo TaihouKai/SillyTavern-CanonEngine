@@ -6,14 +6,15 @@ import { DANGER_CHANCE, LEVEL_FACTOR, grudgesNow, inHours, roll } from '../../sr
 import { validatePack } from '../../src/core/domain/pack';
 import type { CanonPack } from '../../src/core/domain/types';
 
-const PROFILE = { player: { name: 'Ash', aliases: [], summary: 'a dock worker who boxed as a youth', public_identity: 'works the piers' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
+const PROFILE = { player: { name: 'Ash', aliases: [], summary: 'a dock worker who boxed as a youth', public_identity: 'works the piers' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
 type X = ReturnType<typeof makeEngine>;
 
 /** The demo pack with a danger at the harbor at night. */
 function withDanger(freq: 'common' | 'occasional' | 'rare' = 'common'): CanonPack {
   const raw = demoRaw();
   raw.combat!.nodes!.push({ id: 'cb-harbor-muggers', kind: 'danger', name: 'Harbor muggers', gist: 'Muggers work the harbor road at night.', text: 'After dark, small gangs rob people walking alone on the harbor road; they go for whoever looks like they carry money.', hours: { from: '20:00', to: '04:00' }, frequency: freq, source_refs: ['example-source'] } as never);
-  raw.combat!.links!.push({ from: 'harbor', to: 'cb-harbor-muggers', label: 'danger' });
+  const harbor = raw.entities.find((e) => e.id === 'harbor')!;
+  (harbor.aspects ||= {}).setting = [...(harbor.aspects.setting || []), { node: 'cb-harbor-muggers', label: 'danger' }];
   return raw;
 }
 
@@ -164,7 +165,9 @@ describe('主动敌对: the world comes for the player', () => {
   it('HO5 pack lint: a danger says how often, is linked from somewhere, and only dangers have hours', () => {
     const raw = withDanger();
     delete (raw.combat!.nodes!.at(-1) as any).frequency;
-    raw.combat!.links = raw.combat!.links!.filter((l) => l.to !== 'cb-harbor-muggers');
+    const harbor = raw.entities.find((e) => e.id === 'harbor')!;
+    harbor.aspects!.setting = harbor.aspects!.setting!.filter((l) => l.node !== 'cb-harbor-muggers');
+    if (!harbor.aspects!.setting.length) delete harbor.aspects!.setting;
     (raw.combat!.nodes![0] as any).hours = { from: '01:00', to: '02:00' };
     const errs = validatePack(raw).errors.map((e) => e.message).join('\n');
     expect(errs).toMatch(/a danger says how often/);

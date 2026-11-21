@@ -15,7 +15,11 @@ import { callStructured, type ModelPort } from '../runtime/model';
 import { PROMPTS } from '../runtime/prompts';
 import { loreAbout } from './judge';
 import type { FightOut } from './message';
-import { fightNow, linksOf } from './state';
+import { aspectReader } from '../domain/aspects';
+import { combatNodes, fightNow, linksOf } from './state';
+
+// what telling people apart reads of them besides what they have (linksOf): 常态
+const READ = aspectReader(['nature'] as const);
 
 const PER_PERSON = 8;
 const MAX_CANDIDATES = 16;
@@ -56,8 +60,8 @@ function ranked(texts: Map<Id, Set<string>>, words: string, n: number, things = 
 function personText(index: WorldIndex, id: Id, lore: LoreEntry[]): string {
   const L = index.pack;
   const e = L.entities.get(id)!;
-  const n = index.natureNow(id)?.version;
-  const nodes = linksOf(L, index.state, id).map((l) => L.combat.nodes.get(l.node)).filter((x) => !!x).map((x) => `${x!.name} ${x!.gist}`);
+  const n = READ(index, id).nature?.version;
+  const nodes = linksOf(L, index.state, id).map((l) => combatNodes(L, index.state).get(l.node)).filter((x) => !!x).map((x) => `${x!.name} ${x!.gist}`);
   const lo = loreAbout(lore, [e.name, ...(e.aliases || [])]).slice(0, 2).map((x) => x.content.slice(0, 1500));
   return [e.name, ...(e.aliases || []), e.static_description || '', n ? `${n.habits || ''} ${n.uses || ''} ${n.others || ''}` : '', ...nodes, ...lo].join('\n');
 }
@@ -78,14 +82,14 @@ export function thingCandidates(index: WorldIndex, things: string[], fighters: I
   const L = index.pack;
   if (!things.length) return [];
   const theirs = new Set(fighters.flatMap((f) => linksOf(L, index.state, f).map((l) => l.node)));
-  const texts = new Map([...L.combat.nodes.values()].filter((n) => (n.kind === 'ability' || n.kind === 'danger') && !theirs.has(n.id) && !inFight.includes(n.id)).map((n) => [n.id, grams(`${n.name} ${n.gist} ${n.text} ${(n.parts || []).map((x) => x.text).join(' ')}`, true)]));
+  const texts = new Map([...combatNodes(L, index.state).values()].filter((n) => (n.kind === 'ability' || n.kind === 'danger') && !theirs.has(n.id) && !inFight.includes(n.id)).map((n) => [n.id, grams(`${n.name} ${n.gist} ${n.text} ${(n.parts || []).map((x) => x.text).join(' ')}`, true)]));
   return uniq(things.flatMap((w) => ranked(texts, w, PER_THING, true))).slice(0, MAX_THINGS);
 }
 
-/** The names of a person's abilities and equipment in the setting now. */
+/** The names of what someone has now: their abilities, and what they hold or belong to. */
 function ownNames(index: WorldIndex, id: Id): string[] {
-  const L = index.pack;
-  return uniq(linksOf(L, index.state, id).map((l) => L.combat.nodes.get(l.node)).filter((x) => x && x.kind === 'ability').map((x) => x!.name)).slice(0, 10);
+  const L = index.pack, N = combatNodes(L, index.state);
+  return uniq(linksOf(L, index.state, id).map((l) => (l.via && l.node === l.via ? index.entityName(l.via) : N.get(l.node)?.kind === 'ability' ? N.get(l.node)!.name : ''))).filter(Boolean).slice(0, 10);
 }
 
 /** Says which of the fight's new people are people of the world, and which things of the setting the message shows
@@ -94,9 +98,9 @@ function ownNames(index: WorldIndex, id: Id): string[] {
 export async function identifyInFight(a: {
   port: ModelPort; index: WorldIndex; fight: FightOut | null | undefined; text: string; timeLabel: string;
   lore: LoreEntry[]; near: Id[]; signal?: AbortSignal; operationId: string; log?: (l: unknown) => void;
-  /** The player character and what their Persona gives them (their powers are no setting entries: live, a light
-   *  shield and a light blade of the player's own were matched to other people's). */
-  player?: { id: Id; has: string[] } | null;
+  /** The player character: a fighter whatever the message says (what they have is theirs, read from the Persona like
+   *  anyone's: live, a light shield and a light blade of the player's own were matched to other people's). */
+  player?: { id: Id } | null;
   /** Whom the message's words already mean (the reading's references with one candidate). */
   known?: { words: string; quote: string; id: Id }[];
 }): Promise<string[]> {
@@ -131,21 +135,21 @@ export async function identifyInFight(a: {
       message: a.text, time: a.timeLabel,
       // what each fighter has: a thing the message shows that is theirs comes with them (live, a fighter's own
       // flashlight was matched to someone else's flashlight weapon)
-      fighters: fighters.map((id) => { const has = id === a.player?.id ? a.player.has.slice(0, 8).map((x) => x.slice(0, 80)) : ownNames(a.index, id); return `${id} | ${a.index.entityName(id)}${has.length ? ` | has: ${has.join(', ')}` : ''}`; }),
+      fighters: fighters.map((id) => { const has = ownNames(a.index, id); return `${id} | ${a.index.entityName(id)}${has.length ? ` | has: ${has.join(', ')}` : ''}`; }),
       new_people: fresh.map((p) => ({ name: p.name, description: p.description || '', words: p.quote })),
       candidates: people.map((id) => {
-        const e = L.entities.get(id)!; const n = a.index.natureNow(id)?.version;
+        const e = L.entities.get(id)!; const n = READ(a.index, id).nature?.version;
         const lore = loreAbout(a.lore, [e.name, ...(e.aliases || [])])[0];
         return {
           id, name: e.name, aliases: (e.aliases || []).slice(0, 6), description: (e.static_description || '').slice(0, 300),
           ...(n?.habits ? { habits: n.habits.slice(0, 300) } : {}),
-          abilities: linksOf(L, a.index.state, id).map((l) => L.combat.nodes.get(l.node)).filter((x) => x && x.kind === 'ability').slice(0, 6).map((x) => `${x!.name}: ${x!.gist}`.slice(0, 160)),
+          abilities: linksOf(L, a.index.state, id).map((l) => combatNodes(L, a.index.state).get(l.node)).filter((x) => x && x.kind === 'ability').slice(0, 6).map((x) => `${x!.name}: ${x!.gist}`.slice(0, 160)),
           ...(lore ? { lorebook: lore.content.slice(0, 500) } : {}),
         };
       }),
       // each seen gets an answer, null allowed (asked for a list of the things at work, live the model listed ones it
       // said were not: "read as an ability application, not a device")
-      ...(things.length ? { seen: shown.map((t, i) => ({ n: i + 1, words: t.quote, what: t.what })), things: things.map((id) => { const n = L.combat.nodes.get(id)!; return `${id} | ${n.name} | ${n.gist}`; }) } : {}),
+      ...(things.length ? { seen: shown.map((t, i) => ({ n: i + 1, words: t.quote, what: t.what })), things: things.map((id) => { const n = combatNodes(L, a.index.state).get(id)!; return `${id} | ${n.name} | ${n.gist}`; }) } : {}),
     }, { signal: a.signal, operationId: a.operationId, log: a.log });
   } catch (e) {
     if (a.signal?.aborted) throw e;
@@ -170,10 +174,10 @@ export async function identifyInFight(a: {
     if (!t.id) continue;
     if (!things.includes(t.id)) { notes.push(`fight: "${t.id}" is not one of the things offered (left out)`); continue; }
     const o = owner(t.id);
-    if (o) { notes.push(`fight: ${L.combat.nodes.get(t.id)!.name} comes with ${a.index.entityName(o)} (not a thing of its own)`); continue; }
+    if (o) { notes.push(`fight: ${combatNodes(L, a.index.state).get(t.id)!.name} comes with ${a.index.entityName(o)} (not a thing of its own)`); continue; }
     if (f.nodes?.some((x) => x.node === t.id)) continue;
     f.nodes = [...(f.nodes || []), { node: t.id, why: String(t.why || '').slice(0, 300) }];
-    notes.push(`fight: ${L.combat.nodes.get(t.id)!.name} is in it (${String(t.why || '').slice(0, 160)})`);
+    notes.push(`fight: ${combatNodes(L, a.index.state).get(t.id)!.name} is in it (${String(t.why || '').slice(0, 160)})`);
   }
   return notes;
 }

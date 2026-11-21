@@ -13,8 +13,9 @@ const SCHEMER = { deliberation: 'habitual', sharpness: 'exceptional', approach: 
 const BRAWLER = { deliberation: 'rarely', sharpness: 'plain', approach: 'shoulders through the problem', pushed: 'a friend in danger' };
 function packWith(mira: unknown = SCHEMER, tomas: unknown = BRAWLER) {
   const p = structuredClone(base);
-  p.entities.find((e: any) => e.id === 'mira').mind = mira;
-  p.entities.push({ id: 'tomas', name: 'Tomas', aliases: [], kind: 'person', static_description: 'a docker', source_refs: [], ...(tomas ? { mind: tomas } : {}) }); ordinary(p);
+  const m = p.entities.find((e: any) => e.id === 'mira');
+  m.aspects = { ...m.aspects, ...(mira ? { mind: mira } : {}) };
+  p.entities.push({ id: 'tomas', name: 'Tomas', aliases: [], kind: 'person', static_description: 'a docker', source_refs: [], ...(tomas ? { aspects: { mind: tomas } } : {}) }); ordinary(p);
   return p;
 }
 async function setup(pack = packWith(), settings: any = {}) {
@@ -38,12 +39,12 @@ const PLAN = { minds: [{ id: 'mira', reads: [
 ], wants: 'the truth before she helps', move: 'refuses the money, asks for a favour later', next: 'if they bolt, lets them and asks around' }] };
 
 describe('思考方式 and 角色盘算', () => {
-  it('MD1 the pack format: mind is valid on people; on anything else a warning', () => {
+  it('MD1 the pack format: mind is valid on people; on anything else refused (an aspect is for the kinds the registry says)', () => {
     expect(validatePackText(JSON.stringify(packWith())).ok).toBe(true);
     expect(lintPack(packWith()).errors).toEqual([]);
     const p = packWith();
-    p.entities.find((e: any) => e.id === 'harbor').mind = BRAWLER;
-    expect(lintPack(p).warnings.map((w) => w.message).join(' ')).toMatch(/mind on a place/);
+    p.entities.find((e: any) => e.id === 'harbor').aspects = { mind: BRAWLER };
+    expect(lintPack(p).errors.map((w) => w.message).join(' ')).toMatch(/思考方式 \(mind\) is not for a place/);
     const bad = packWith({ ...SCHEMER, deliberation: 'sometimes' });
     expect(validatePackText(JSON.stringify(bad)).ok).toBe(false);
   });

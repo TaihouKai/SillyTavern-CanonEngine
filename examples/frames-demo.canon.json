@@ -1,6 +1,6 @@
 {
   "$schema": "../schemas/canon-pack.schema.json",
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "pack_id": "frames-demo",
   "pack_version": "1.0.0",
   "title": "时序管理局（时空框架示例）",

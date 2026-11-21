@@ -36,6 +36,14 @@ for (const f of [...walk('src/hosts'), ...walk('site/src')]) {
     if (target.startsWith('src/core/') && target !== 'src/core/index' && target !== 'src/core/index.ts') problems.push(`${rel(f)}: imports ${target}; a host uses the core through src/core/index.ts`);
   }
 }
+// 条目的属性 (aspects): an entity's aspects are read only through the readers of src/core/domain/aspects.ts, each
+// module naming the kinds it reads (aspectReader). Raw access is the aspect module's own, the pack lint's (the combat
+// section is checked with what the entities have) and the Persona read's, which writes the player character's.
+const ASPECTS_RAW = ['src/core/domain/aspects.ts', 'src/core/combat/graph.ts', 'src/core/runtime/integration.ts'];
+for (const f of walk('src/core')) {
+  if (ASPECTS_RAW.includes(rel(f)) || rel(f).startsWith('src/core/generated/')) continue;
+  if (/\.aspects\b/.test(code(readFileSync(f, 'utf8')))) problems.push(`${rel(f)}: reads an entity's aspects directly; use a reader (aspectReader / aspectWritten in src/core/domain/aspects.ts) naming the kinds it reads`);
+}
 // Feature modules: 战斗 (src/core/combat), 主动敌对 (src/core/hostility) and NSFW 场景 (src/core/nsfw). The rest of the core uses each through its
 // index.ts. Only the domain layer reaches their pure parts directly (pack loading indexes the combat graph, the reducer
 // replays the changes), and the prompt registry their prompt text. A module does not reach into the engine, the gate

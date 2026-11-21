@@ -4,6 +4,11 @@
 import type { CombatNode, GrudgeChange, Id, LedgerRecord } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import { factAt, type WorldState } from '../domain/reducer';
+import { aspectReader, aspectWritten } from '../domain/aspects';
+
+// what 主动敌对 reads of a place or organization: its links into the setting (the dangers met there)
+const READ = aspectReader(['setting'] as const);
+const WRITTEN = aspectWritten(['setting'] as const);
 
 /** A change as replayed (record order). */
 export type Replayed<T> = T & { recordId: string; seq: number; tick: number };
@@ -51,18 +56,15 @@ export function inHours(n: Pick<CombatNode, 'hours'>, tick: number): boolean {
   return a < b ? m >= a && m < b : m >= a || m < b;
 }
 
-const occurred = (state: WorldState, e?: Id | null) => !!e && state.dispositions.get(e)?.disposition === 'occurred';
 
 /** The dangers of the pack linked from these places or organizations now (in its versions), whose hours hold at
  *  `tick` (anyHour: at whatever hour), with where each comes from. */
 export function dangersAt(L: LoadedPack, state: WorldState, from: Id[], tick: number, anyHour = false): { node: CombatNode; from: Id }[] {
   const out: { node: CombatNode; from: Id }[] = [];
   const seen = new Set<Id>();
-  for (const e of from) for (const l of L.combat.linksFrom.get(e) || []) {
-    const n = L.combat.nodes.get(l.to);
+  for (const e of from) for (const l of READ({ pack: L, state }, e).setting) {
+    const n = L.combat.nodes.get(l.node);
     if (!n || n.kind !== 'danger' || seen.has(n.id)) continue;
-    if (l.from_event && !occurred(state, l.from_event)) continue;
-    if (l.until_event && occurred(state, l.until_event)) continue;
     if (!anyHour && !inHours(n, tick)) continue;
     seen.add(n.id);
     out.push({ node: n, from: e });
@@ -74,6 +76,7 @@ export function dangersAt(L: LoadedPack, state: WorldState, from: Id[], tick: nu
  *  be named as one of them). */
 export function dangerSources(L: LoadedPack): Id[] {
   const out = new Set<Id>();
-  for (const [from, ls] of L.combat.linksFrom) if (ls.some((l) => L.combat.nodes.get(l.to)?.kind === 'danger')) out.add(from);
+  const src = { pack: L, state: { runtimeEntities: new Map(), dispositions: new Map() } };
+  for (const id of L.entities.keys()) if ((WRITTEN(src, id).setting || []).some((l) => L.combat.nodes.get(l.node)?.kind === 'danger')) out.add(id);
   return [...out];
 }

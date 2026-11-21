@@ -14,6 +14,7 @@ import { evalCondition, factAt, triLabel } from '../domain/reducer';
 import { agoLabel, formatTick, toTick } from '../domain/time';
 import { hashObject, newId, sha256, uniq } from '../domain/util';
 import { WorldIndex } from '../domain/world-query';
+import { aspectReader, type Ability, type Aspects, type SettingLink } from '../domain/aspects';
 import { ENGINE_RELEASE } from './types';
 import type { AffiliationStatus, TieChange, IntegrationCache, Opportunity, PlayerNature, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
 import { markedLines } from './worldset';
@@ -42,7 +43,7 @@ export interface ProfileOut {
   player: { name: string; aliases?: string[]; summary: string; public_identity?: string };
   affiliations: { name: string; existing_id?: string | null; kind?: 'organization' | 'other'; role?: string; status: AffiliationStatus; leads?: boolean; members?: string[]; secrecy?: 'public' | 'restricted' | 'secret'; description?: string }[];
   places?: { name: string; existing_id?: string | null; use?: string; description?: string }[];
-  capabilities?: string[]; resources?: string[]; goals?: string[];
+  resources?: string[]; goals?: string[];
   roles?: { role: string; brings?: string[]; from?: string[]; style?: string }[];
   not_suited?: string[];
   voice?: string;
@@ -84,9 +85,10 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
   // (a name in parts — 塞拉菲娜·格拉默根, Mira Holt — is called by its first or last part alone too)
   const parts = (n: string) => { const p = n.split(/[·・\s]+/).filter((x) => x.length >= 2); return p.length > 1 ? [p[0], p[p.length - 1]] : []; };
   const aliases = uniq([...(out.player?.aliases || []), ...(persona.name && persona.name !== name ? [persona.name] : []), ...parts(name)].map((a) => a.trim()).filter((a) => a && a !== name)).slice(0, 10);
-  // the player is a person of this world like the pack's: their 常态 sits on their entity, read where anyone's is
+  // the player is a person of this world like the pack's: their 常态 (and their abilities, persona_abilities) sit on
+  // their entity, read where anyone's are
   const nature = natureOf(out.nature).nature;
-  runtimeEntities.push({ id: playerId, name, aliases, kind: 'person', description: `The player character. ${out.player?.summary || ''}`.slice(0, 600), ...(nature ? { nature: [{ from_event: null, ...nature }] } : {}) });
+  runtimeEntities.push({ id: playerId, name, aliases, kind: 'person', description: `The player character. ${out.player?.summary || ''}`.slice(0, 600), ...(nature ? { aspects: { nature: [{ from_event: null, ...nature }] } } : {}) });
   const reuse = (n: string, list: { entityId: Id; name: string }[] | undefined) => list?.find((x) => x.name === n)?.entityId;
   const affiliations: PlayerProfile['affiliations'] = [];
   for (const a of out.affiliations || []) {
@@ -176,16 +178,57 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
     profile: {
       personaName: persona.name, personaText: persona.description, personaHash: personaHash(persona), source: persona.source || 'standard_persona', playerId, readBy: ENGINE_RELEASE,
       summary: (out.player?.summary || '').slice(0, 1500), publicIdentity: (out.player?.public_identity || '').slice(0, 800),
-      affiliations, places, capabilities: list(out.capabilities), resources: list(out.resources), goals: list(out.goals), relationships, knowers, recognizedBy: recognizedBy.slice(0, 10), uncertain: list(out.uncertain), notes,
+      affiliations, places, resources: list(out.resources), goals: list(out.goals), relationships, knowers, recognizedBy: recognizedBy.slice(0, 10), uncertain: list(out.uncertain), notes,
       roles: (out.roles || []).filter((r) => r?.role?.trim()).slice(0, 8).map((r) => ({ role: r.role.trim().slice(0, 200), brings: list(r.brings), from: list(r.from), style: String(r.style || '').trim().slice(0, 300) })),
       notSuited: list(out.not_suited),
       voice: String(out.voice || '').trim().slice(0, 600),
-      ...(nature ? { nature } : {}),
       ...(String(out.defenses || '').trim() ? { defenses: String(out.defenses).trim().slice(0, 500) } : {}),
       worldChanges: worldChangesOf(out, persona.description),
     },
     runtimeEntities,
   };
+}
+
+export interface PersonaAbilitiesOut {
+  abilities: { name: string; gist: string; text?: string; parts: { part: string; text: string; secret?: boolean }[]; secret?: boolean; links?: { to: string; label: string }[] }[];
+  setting?: { node: string; label: string }[];
+}
+
+/** The setting's nodes the Persona read may link the player to: concepts, rules and the shared abilities (not
+ *  another entity's own). */
+export function personaSettingMenu(pack: LoadedPack): string[] {
+  return [...pack.combat.nodes.values()].filter((n) => !n.owner && (n.kind === 'concept' || n.kind === 'rule' || n.kind === 'ability')).map((n) => `${n.id} | ${n.kind} | ${n.name} | ${n.gist}`.slice(0, 220));
+}
+
+/** The player's abilities and links into the setting from the persona_abilities reply, onto the player's entity: an
+ *  ability as the pack writes its people's (parts, who knows it: secret — the player and those the Persona says
+ *  know their secrets), links only to the setting's own nodes. Returns notes for what was left out. */
+export function applyPersonaAbilities(out: PersonaAbilitiesOut, built: { profile: PlayerProfile; runtimeEntities: RuntimeEntity[] }, pack: LoadedPack): string[] {
+  const notes: string[] = [];
+  const pid = built.profile.playerId;
+  const ent = built.runtimeEntities.find((e) => e.id === pid);
+  if (!ent) return notes;
+  const setting = new Set([...pack.combat.nodes.values()].filter((n) => !n.owner && n.kind !== 'precedent').map((n) => n.id));
+  const secretKnowers = uniq(built.profile.knowers.filter((k) => k.level === 'secrets' && k.entityId).map((k) => k.entityId!));
+  const secret = { mode: 'secret' as const, knower_ids: secretKnowers };
+  const PARTS = ['principle', 'effect', 'conditions', 'cost', 'limits', 'counters'];
+  const used = new Set<string>();
+  const abilities: Ability[] = [];
+  for (const a of out.abilities || []) {
+    const name = String(a.name || '').trim().slice(0, 80);
+    const parts = (a.parts || []).filter((x) => PARTS.includes(x.part) && String(x.text || '').trim()).filter((x, i, all) => all.findIndex((y) => y.part === x.part) === i)
+      .map((x) => ({ part: x.part as Ability['parts'][number]['part'], text: String(x.text).trim().slice(0, 500), ...(x.secret && !a.secret ? { visibility: secret } : {}) }));
+    if (!name || !parts.some((x) => x.part === 'effect')) { notes.push(`ability "${name || '?'}" left out: it says nothing it does`); continue; }
+    let id = `${pid}.${slug(name)}`;
+    for (let i = 2; used.has(id); i++) id = `${pid}.${slug(name)}-${i}`;
+    used.add(id);
+    const links = (a.links || []).filter((l) => setting.has(String(l.to))).map((l) => ({ to: String(l.to), label: String(l.label || '属于').slice(0, 40) }));
+    abilities.push({ id, name, gist: String(a.gist || '').trim().slice(0, 300) || name, text: String(a.text || a.gist || '').trim().slice(0, 1200) || name, parts, ...(a.secret ? { visibility: secret } : {}), ...(links.length ? { links } : {}), source_refs: [], generated: true });
+  }
+  const links: SettingLink[] = uniq((out.setting || []).map((l) => String(l.node))).filter((n) => { if (setting.has(n)) return true; notes.push(`setting link "${n}" left out: not a node of the setting`); return false; })
+    .map((n) => ({ node: n, label: String(out.setting!.find((l) => String(l.node) === n)!.label || '是').slice(0, 40) })).slice(0, 6);
+  ent.aspects = { ...(ent.aspects || {}), ...(abilities.length ? { abilities } : {}), ...(links.length ? { setting: links } : {}) };
+  return notes;
 }
 
 /** The player's 常态 from the profile reply: kept when any field says something. */
@@ -416,7 +459,7 @@ export function playerContext(index: WorldIndex, profile: PlayerProfile, tick: n
     public_identity: profile.publicIdentity,
     affiliations: playerOrgs(index, profile, tick).map((o) => ({ id: o.id, name: o.name, standing: STANDING[o.standing], ...(o.leads ? { leads: true } : {}), ...(o.role ? { persona_role_at_start: o.role } : {}), secrecy: o.secrecy, now: factsLine(index, o.id, tick).trim() })),
     places: profile.places.map((p) => ({ id: p.entityId, name: nameIn(index, p.entityId, p.name), use: p.use, now: factsLine(index, p.entityId, tick).trim() })),
-    capabilities: profile.capabilities,
+    abilities: playerAbilities(index, profile.playerId),
     resources: profile.resources,
     goals: profile.goals,
     ...(profile.roles?.length ? { roles: profile.roles } : {}),
@@ -950,13 +993,21 @@ export function integrationKey(index: WorldIndex, profile: PlayerProfile, candid
 // ---------------------------------------------------------------------------------------------
 // GM context sections
 
+// what the player's presence reads of the player character: their abilities (as anyone's)
+const READ_PLAYER = aspectReader(['abilities'] as const);
+/** What the player character can do, one line each (name: gist). */
+export function playerAbilities(index: WorldIndex, playerId: Id): string[] {
+  return READ_PLAYER(index, playerId).abilities.map((a) => `${a.name}: ${a.gist}`.slice(0, 200));
+}
+
 export function presenceSection(index: WorldIndex, profile: PlayerProfile, tick: number): string {
   profile = playedProfile(index, profile);
   const lines = [`PLAYER IN THIS WORLD (from the player's Persona and actual play — the Persona describes the player at the start of this game, and what happened in play since overrides it; the public identity is what anyone may know — famous things (a rank or title, a known ability, a reputation) even strangers, personal details only people who would plausibly know them; beyond it, people know about the player only as listed):`];
   lines.push(`- ${profile.personaName} [${profile.playerId}] (the player character): ${profile.summary || '(no summary)'}${profile.publicIdentity ? ` Public identity: ${profile.publicIdentity}` : ''}${factsLine(index, profile.playerId, tick)}`);
   for (const o of playerOrgs(index, profile, tick)) lines.push(`- organization: ${o.name} [${o.id}] — now ${STANDING[o.standing]}${o.leads ? ', its leader' : ''}${o.role ? `; the Persona's words at the start: ${o.role}` : ''} (${o.secrecy})${factsLine(index, o.id, tick)}`);
   for (const p of profile.places) lines.push(`- place: ${nameIn(index, p.entityId, p.name)} [${p.entityId}] — ${p.use}${factsLine(index, p.entityId, tick)}`);
-  if (profile.capabilities.length || profile.resources.length) lines.push(`- can/has: ${[...profile.capabilities, ...profile.resources].slice(0, 10).join('; ')}`);
+  const can = playerAbilities(index, profile.playerId);
+  if (can.length || profile.resources.length) lines.push(`- can/has: ${[...can, ...profile.resources].slice(0, 10).join('; ')}`);
   if (profile.roles?.length) lines.push(`- roles: ${profile.roles.map((r) => `${r.role}${r.brings.length || r.from.length ? ` (${[r.brings.join(', '), r.from.length ? `from ${r.from.join(', ')}` : ''].filter(Boolean).join('; ')})` : ''}`).join(' | ')}`);
   if (profile.notSuited?.length) lines.push(`- does not take on: ${profile.notSuited.join('; ')}`);
   if (profile.voice) lines.push(`- how they come across and talk (write the player character's lines and reactions this way): ${profile.voice}`);

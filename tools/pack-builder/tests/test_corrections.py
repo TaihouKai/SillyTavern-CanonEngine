@@ -94,12 +94,12 @@ class CorrectionsTest(unittest.TestCase):
         self.assertEqual(p['entities'][0]['static_description'], '奥利芙的朋友。')
 
     def test_people_fixes(self):
-        ents = [dict(PEOPLE[0], nature=[{'from_event': None, 'habits': '习惯；', 'uses': '用', 'others': '', 'limits': '限'}], mind={'approach': '主杀派的做法'})]
+        ents = [dict(PEOPLE[0], aspects={'nature': [{'from_event': None, 'habits': '习惯；', 'uses': '用', 'others': '', 'limits': '限'}], 'mind': {'approach': '主杀派的做法'}})]
         p = pack([], ents)
         rv = {'minds': {'ann': {'nature': {'start': {'habits': '习惯。', 'others': '旁人知道。'}}}}, 'texts': [{'old': '主杀派', 'new': '杀害派', 'people': True}]}
         self.assertEqual(corrections.apply_people(p, rv) + corrections.apply(p, rv, people=True), [])
-        v = p['entities'][0]['nature'][0]
-        self.assertEqual((v['habits'], v['others'], p['entities'][0]['mind']['approach']), ('习惯。', '旁人知道。', '杀害派的做法'))
+        v = p['entities'][0]['aspects']['nature'][0]
+        self.assertEqual((v['habits'], v['others'], p['entities'][0]['aspects']['mind']['approach']), ('习惯。', '旁人知道。', '杀害派的做法'))
 
 
 class ChecksTest(unittest.TestCase):
@@ -113,7 +113,7 @@ class ChecksTest(unittest.TestCase):
                ev('a.001.b3', 3, [chg('add', 'club', 'members', ['bo'])], ents=['bo'])]
         for x in ents:
             x.setdefault('static_description', '社团里的人。')
-        ents[0]['nature'] = [{'from_event': None, 'habits': '习惯；', 'uses': '用。', 'others': '', 'limits': '同时因为他太强。'}]
+        ents[0]['aspects'] = {'nature': [{'from_event': None, 'habits': '习惯；', 'uses': '用。', 'others': '', 'limits': '同时因为他太强。'}]}
         out = {t: ls for _, t, _, ls in checks.text_problems(pack(evs, ents), ['texts：「x」没找到'])}
         self.assertEqual(len(out['谓词与实体种类不符']), 3)       # members on a cat, alive on a club, holder of itself
         self.assertEqual(len(out['没死过的人「复活」']), 1)       # ann, not bo (born)

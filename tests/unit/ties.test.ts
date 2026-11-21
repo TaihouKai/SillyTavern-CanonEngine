@@ -32,7 +32,7 @@ function pack(rel: unknown[] = [RELATION]) {
   return JSON.stringify(p);
 }
 const PROFILE = {
-  player: { name: 'Ash', aliases: [], summary: 'a dock worker', public_identity: 'works the piers' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [],
+  player: { name: 'Ash', aliases: [], summary: 'a dock worker', public_identity: 'works the piers' }, affiliations: [], places: [], resources: [], goals: [],
   relationships: [{ name: 'Mira', existing_id: 'mira', relation: 'close friend since childhood', basis: 'persona_stated', they: { address: [{ term: 'Ashy', use: 'always', when: '' }], sees: 'teases Ash like a brother' }, player: null }],
   knowers: [], uncertain: [],
 };

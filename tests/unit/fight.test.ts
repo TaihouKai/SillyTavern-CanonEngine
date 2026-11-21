@@ -3,7 +3,7 @@ import { makeEngine, tick, at } from './fake';
 import { demoRaw } from './helpers';
 import { fightNow, linksOf, statusesOf, styleOf } from '../../src/core/combat';
 
-const PROFILE = { player: { name: 'Ash', aliases: [], summary: 'a dock worker who boxed as a youth', public_identity: 'works the piers' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
+const PROFILE = { player: { name: 'Ash', aliases: [], summary: 'a dock worker who boxed as a youth', public_identity: 'works the piers' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
 const PERSONA = 'Ash, a dock worker. Boxed as a youth: a hard right hook. Carries no weapon.';
 type X = ReturnType<typeof makeEngine>;
 
@@ -222,10 +222,10 @@ describe('the 战斗 page shows the setting and why a ruling went as it did', ()
 
     // the setting around a focus: by default the first listed person linked to something (the player is not)
     let s = x.engine.combatView(false)!.setting;
-    expect(s.focus).toMatchObject({ id: 'mira', entity: true, out: expect.arrayContaining([{ node: 'cb-emergency-care', name: 'Emergency care', label: 'has' }]) });
+    expect(s.focus).toMatchObject({ id: 'mira', entity: true, out: expect.arrayContaining([{ node: 'cb-emergency-care', name: 'Emergency care', label: 'has', how: 'has' }]) });
     const depth = (v: typeof s) => Object.fromEntries(v.graph.nodes.map((p) => [p.id, p.depth]));
     expect(depth(s)).toEqual({ mira: 0, 'cb-ordinary': 1, 'cb-emergency-care': 1 });   // not the precedent still to come
-    expect(s.graph.edges).toEqual(expect.arrayContaining([{ from: 'mira', to: 'cb-emergency-care', label: 'has' }]));
+    expect(s.graph.edges).toEqual(expect.arrayContaining([{ from: 'mira', to: 'cb-emergency-care', label: 'has', how: 'has' }]));
     expect(s.hidden).toBe(1);
     expect(s.byKind.map((k) => k.kind)).toEqual(['concept', 'rule']);
     expect(s.starts.map((p) => p.id)[0]).toBe('mira');
@@ -267,7 +267,7 @@ describe('someone here joins', () => {
   it('CF9 a thing at work stops when the ruling says so; a state that lasts while it goes on ends with it; a part of it cited is it', async () => {
     const raw = demoRaw() as any;
     raw.combat.nodes.push({ id: 'cb-gas', kind: 'ability', name: 'Tear gas canister', gist: 'A canister of tear gas that blinds and chokes everyone near it.', text: 'A canister of tear gas that blinds and chokes everyone near it.', parts: [{ part: 'effect', text: 'Blinds and chokes everyone near it.' }], source_refs: raw.combat.nodes[0].source_refs });
-    raw.combat.links.push({ from: 'council', to: 'cb-gas', label: 'keeps' });
+    raw.entities.find((e: any) => e.id === 'council').aspects.setting.push({ node: 'cb-gas', label: 'keeps' });
     const x = await setup(raw);
     const msg = 'A thug grins as a canister of tear gas hisses open at my feet. I hit him.';
     x.model.on('combat_who', null, { people: [], things: [{ seen: 1, id: 'cb-gas', why: 'the canister hisses open' }] });

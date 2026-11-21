@@ -3,7 +3,13 @@
 import type { AbilityPart, CombatLinkChange, CombatNode, CombatSource, CombatStyleVersion, FightChange, Id, LedgerRecord, StatusChange, StyleChange, Witnessed } from '../domain/types';
 import type { LoadedPack } from '../domain/pack';
 import type { WorldState } from '../domain/reducer';
+import { factAt } from '../domain/reducer';
 import { eventTime, normalizeName } from '../domain/pack';
+import { aspectReader, runtimeAbilities } from '../domain/aspects';
+
+// what 战斗 reads of an entity: its abilities, its links into the setting, its 对抗倾向 (what an organization or
+// object is in a fight is in the combat index, from 战斗中); what it holds and belongs to are facts (holder, members)
+const READ = aspectReader(['abilities', 'setting', 'combat_style'] as const);
 
 /** A combat change as replayed (record order). */
 export type Replayed<T> = T & { recordId: string; seq: number; tick: number };
@@ -34,30 +40,93 @@ export function applyCombat(cs: CombatState, rec: LedgerRecord, tick: number): v
  *  in. The pack stands between play and fill: what the original story says is objective, fill never overrides it. */
 const RANK: Record<CombatSource | 'pack', number> = { ui: 5, persona: 4, play: 3, pack: 2, fill: 1 };
 
-const occurred = (state: WorldState, e?: Id | null) => !!e && state.dispositions.get(e)?.disposition === 'occurred';
 
-export interface LinkNow { node: Id; label: string; source: CombatSource | 'pack'; quote?: string }
+export interface LinkNow { node: Id; label: string; source: CombatSource | 'pack'; quote?: string;
+  /** Reached through what they hold or belong to now (holder, members): that entity. */
+  via?: Id;
+  /** A link the engine makes, not one written with a label: their own ability (has), an object they hold (holds), an
+   *  organization they belong to (member). The label is then the engine's own words (the panel says it in its language). */
+  how?: 'has' | 'holds' | 'member' }
 
-/** What someone is linked to in the combat graph now: the pack's links in force (a version from its event, until
- *  its end event), with this game's changes over them in record order. A filled-in link never stands against one
- *  from a higher source, and never takes one away. A state that brings a node (holding a sword) links it too. */
+/** The combat graph's nodes in this game: the pack's (the setting, every entity's abilities, what an entity is in a
+ *  fight) and the abilities of the people the story brought in (the player character's, from the Persona). */
+const nodeCache = new WeakMap<WorldState, Map<Id, CombatNode>>();
+export function combatNodes(L: LoadedPack, state: WorldState): Map<Id, CombatNode> {
+  let m = nodeCache.get(state);
+  if (m) return m;
+  const extra = runtimeAbilities(state);
+  m = extra.length ? new Map(L.combat.nodes) : L.combat.nodes;
+  for (const { owner, ability: a } of extra) m.set(a.id, { id: a.id, kind: 'ability', name: a.name, gist: a.gist, text: a.text, parts: a.parts, ...(a.visibility ? { visibility: a.visibility } : {}), source_refs: a.source_refs, owner, from_event: a.from_event ?? null, until_event: a.until_event ?? null });
+  nodeCache.set(state, m);
+  return m;
+}
+
+/** Who holds which objects and belongs to which organizations at a time (the facts holder and members). */
+const tieCache = new WeakMap<WorldState, Map<number, { holds: Map<Id, Id[]>; memberOf: Map<Id, Id[]> }>>();
+function tiesAt(state: WorldState, tick: number) {
+  let byTick = tieCache.get(state);
+  if (!byTick) tieCache.set(state, (byTick = new Map()));
+  let t = byTick.get(tick);
+  if (t) return t;
+  t = { holds: new Map(), memberOf: new Map() };
+  for (const k of state.facts.keys()) {
+    const i = k.lastIndexOf('|');
+    const entity = k.slice(0, i), predicate = k.slice(i + 1);
+    if (predicate !== 'holder' && predicate !== 'members') continue;
+    const f = factAt(state, entity, predicate, { tick });
+    if (!f.known) continue;
+    const to = predicate === 'holder' ? t.holds : t.memberOf;
+    for (const who of [f.value].flat()) if (typeof who === 'string') to.set(who, [...(to.get(who) || []), entity]);
+  }
+  // a member of an organization that is itself in a larger one belongs to that too (天草式 in 英国清教)
+  const direct = new Map(t.memberOf);
+  for (const [who, orgs] of direct) {
+    const all = new Set(orgs), todo = [...orgs];
+    while (todo.length) for (const o of direct.get(todo.pop()!) || []) if (!all.has(o) && o !== who) { all.add(o); todo.push(o); }
+    t.memberOf.set(who, [...all]);
+  }
+  byTick.set(tick, t);
+  return t;
+}
+/** The objects someone holds and the organizations they belong to now (also through an organization they are in). */
+export function tiesOf(state: WorldState, entity: Id, tick = state.clock.lo): { holds: Id[]; memberOf: Id[] } {
+  const t = tiesAt(state, tick);
+  return { holds: t.holds.get(entity) || [], memberOf: t.memberOf.get(entity) || [] };
+}
+
+/** What someone is linked to in the combat graph now: what they are written to have — their abilities and links
+ *  into the setting in force (the pack's; the Persona's for the player character) — and what comes with what they
+ *  hold and belong to now (an object's or an organization's: what it is in a fight, its abilities, its links), with
+ *  this game's changes over them in record order. A filled-in link never stands against one from a higher source,
+ *  and never takes one away. A state that brings a node (holding a sword) links it too. */
 export function linksOf(L: LoadedPack, state: WorldState, entity: Id, tick = state.clock.lo): LinkNow[] {
   const now = new Map<Id, LinkNow>();
-  for (const l of L.combat.linksFrom.get(entity) || []) {
-    if (l.from_event && !occurred(state, l.from_event)) continue;
-    if (l.until_event && occurred(state, l.until_event)) continue;
-    now.set(l.to, { node: l.to, label: l.label, source: 'pack' });
+  const src = { pack: L, state };
+  const base: CombatSource | 'pack' = L.entities.has(entity) ? 'pack' : 'persona';
+  const own = (id: Id, source: CombatSource | 'pack', via?: { id: Id; how: 'holds' | 'member' }) => {
+    const a = READ(src, id);
+    const through = via ? { via: via.id } : {};
+    // what kind of being they are first, then what they can do
+    for (const l of a.setting) if (!now.has(l.node)) now.set(l.node, { node: l.node, label: l.label, source, ...through, ...(via ? { how: via.how } : {}) });
+    for (const x of a.abilities) if (!now.has(x.id)) now.set(x.id, { node: x.id, label: 'has', source, ...through, how: via ? via.how : 'has' });
+  };
+  own(entity, base);
+  const ties = tiesOf(state, entity, tick);
+  const nodes = combatNodes(L, state);
+  for (const [ids, how, label] of [[ties.holds, 'holds', 'holds'], [ties.memberOf, 'member', 'belongs to']] as const) for (const id of ids) {
+    if (nodes.has(id) && !now.has(id)) now.set(id, { node: id, label, source: 'pack', via: id, how });
+    own(id, 'pack', { id, how });
   }
   const removedBy = new Map<Id, number>();
   for (const c of state.combat.links) {
-    if (c.entity !== entity || !L.combat.nodes.has(c.node)) continue;
+    if (c.entity !== entity || !nodes.has(c.node)) continue;
     const cur = now.get(c.node);
     const curRank = cur ? RANK[cur.source] : removedBy.get(c.node) ?? 0;
     if (c.source === 'fill' && (c.removed || curRank > RANK.fill)) continue;
     if (c.removed) { now.delete(c.node); removedBy.set(c.node, RANK[c.source]); continue; }
     now.set(c.node, { node: c.node, label: c.label, source: c.source, ...(c.quote ? { quote: c.quote } : {}) });
   }
-  for (const s of statusesOf(state, entity, tick)) if (s.node && L.combat.nodes.has(s.node) && !now.has(s.node)) now.set(s.node, { node: s.node, label: s.text, source: s.source });
+  for (const s of statusesOf(state, entity, tick)) if (s.node && nodes.has(s.node) && !now.has(s.node)) now.set(s.node, { node: s.node, label: s.text, source: s.source });
   return [...now.values()];
 }
 
@@ -90,13 +159,8 @@ export type Style = Pick<CombatStyleVersion, 'start' | 'force' | 'response' | 'l
  *  is over what was filled in. null: nothing says. */
 export function styleOf(L: LoadedPack, state: WorldState, entity: Id): { style: Style; source: CombatSource | 'pack' } | null {
   let best: { style: Style; source: CombatSource | 'pack'; rank: number } | null = null;
-  const vs = L.pack.entities.find((e) => e.id === entity)?.combat_style;
-  if (vs?.length) {
-    let i = 0;
-    vs.forEach((v, j) => { if (j > 0 && occurred(state, v.from_event) && !occurred(state, v.until_event)) i = j; });
-    const v = vs[i];
-    best = { style: { start: v.start, force: v.force, response: v.response, limit: v.limit, stop: v.stop }, source: 'pack', rank: RANK.pack };
-  }
+  const v = READ({ pack: L, state }, entity).combat_style?.version;
+  if (v) best = { style: { start: v.start, force: v.force, response: v.response, limit: v.limit, stop: v.stop }, source: L.entities.has(entity) ? 'pack' : 'persona', rank: L.entities.has(entity) ? RANK.pack : RANK.persona };
   for (const s of state.combat.styles) {
     if (s.entity !== entity) continue;
     if (!best || RANK[s.source] >= best.rank) best = { style: s.style, source: s.source, rank: RANK[s.source] };
@@ -127,7 +191,7 @@ export function fightNow(state: WorldState): { ongoing: boolean; participants: I
 /** Whether `who` knows a node, or a part of an ability: public; their own (linked to them now); named as a knower; or
  *  they saw it used. */
 export function knowsNode(L: LoadedPack, state: WorldState, who: Id, nodeId: Id, part?: AbilityPart | null): boolean {
-  const n = L.combat.nodes.get(nodeId);
+  const n = combatNodes(L, state).get(nodeId);
   if (!n) return false;
   const vis = (part && n.parts?.find((p) => p.part === part)?.visibility) || n.visibility;
   if (!vis || vis.mode === 'public') return true;
@@ -151,6 +215,7 @@ export interface Walk { nodes: WalkedNode[]; /** reached but left out for the bu
 export const PRECEDENTS_EACH = 3;
 export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts: { maxDepth: number; fullDepth: number; budgetChars: number; tick?: number; /** only what holds without filled-in links (what can stand against the player's words). */ objective?: boolean }): Walk {
   const tick = opts.tick ?? state.clock.lo;
+  const N = combatNodes(L, state);
   const seen = new Map<Id, { depth: number; from: Set<Id>; viaFrom: Id; viaLabel: string | null; order: number }>();
   const reach = (node: Id, depth: number, from: Id, viaFrom: Id, viaLabel: string | null) => {
     const s = seen.get(node);
@@ -162,13 +227,13 @@ export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts:
   for (const e of starts) {
     let frontier: Id[] = [];
     // a thing at work in the fight (a node): itself first
-    if (L.combat.nodes.has(e)) { reach(e, 1, e, e, null); frontier.push(e); }
+    if (N.has(e)) { reach(e, 1, e, e, null); frontier.push(e); }
     for (const l of linksOf(L, state, e, tick)) { if (opts.objective && l.source === 'fill') continue; reach(l.node, 1, e, e, l.label); frontier.push(l.node); }
     for (const p of L.combat.precedentsOf.get(e) || []) { reach(p, 1, e, e, null); frontier.push(p); }
     for (let d = 2; d <= opts.maxDepth && frontier.length; d++) {
       const next: Id[] = [];
       for (const n of frontier) for (const l of L.combat.linksFrom.get(n) || []) {
-        if (!L.combat.nodes.has(l.to)) continue;
+        if (!N.has(l.to)) continue;
         const before = seen.get(l.to)?.from.has(e);
         reach(l.to, d, e, n, l.label);
         if (!before) next.push(l.to);
@@ -182,7 +247,7 @@ export function walkCombat(L: LoadedPack, state: WorldState, starts: Id[], opts:
   const tierOf = (n: CombatNode, depth: number) =>
     n.kind === 'precedent' ? ((n.who || []).filter((x) => startSet.has(x)).length >= 2 ? 1 : 4) : depth <= 1 ? 0 : depth === 2 ? 2 : 3;
   const all = [...seen.entries()].map(([id, s]) => {
-    const node = L.combat.nodes.get(id)!;
+    const node = N.get(id)!;
     const from = [...s.from].sort((a, b) => startAt.get(a)! - startAt.get(b)!);
     const t = when(node);
     return { node, depth: s.depth, full: s.depth <= opts.fullDepth, from, viaFrom: s.viaFrom, viaLabel: s.viaLabel, via: `${s.viaFrom} ${s.viaLabel ?? 'was in it'}`, tier: tierOf(node, s.depth), order: s.order,

@@ -1,4 +1,4 @@
-// Authored pack types (schema 1.0.0) and runtime record types.
+// Authored pack types (schema 2.0.0) and runtime record types.
 // Runtime schemas are documented in docs/RUNTIME_SCHEMAS.md.
 
 export type Id = string;
@@ -71,12 +71,9 @@ export interface PackEntity {
   static_description: string; source_refs: Id[];
   /** A place in a time frame (a past era, another world): scenes and events there keep that frame's local time. */
   frame_id?: Id;
-  /** 常态: how a person's power, condition or non-human body shows in everyday scenes, in versions (see natureNow). */
-  nature?: NatureVersion[];
-  /** 思考方式: how the person thinks (see MindProfile). */
-  mind?: MindProfile;
-  /** 对抗倾向: how the person acts in a confrontation, in versions like 常态 (see CombatStyleVersion). */
-  combat_style?: CombatStyleVersion[];
+  /** What the world knows of it, in the fixed kinds of aspects.ts (常态, 思考方式, 对抗倾向, 能力, 设定归属, 战斗中);
+   *  modules read them through aspectReader only. */
+  aspects?: import('./aspects').Aspects;
 }
 /** 对抗倾向: how a person acts in a confrontation, the same five things for anyone in any setting, a sentence each.
  *  What holds toward one person only (a friend whose shocks are play) is part of the two people's relation, not
@@ -133,7 +130,7 @@ export interface PackFrame {
 export interface PackArc { id: Id; title: string; summary: string; event_ids: Id[] }
 export interface CanonPack {
   $schema?: string;
-  schema_version: '1.0.0';
+  schema_version: '2.0.0';
   pack_id: Id; pack_version: string; title: string; language: string; description: string;
   calendar: { system: 'relative_day'; origin_label: string; day_length_minutes: 1440; time_zone_label: string; notes: string; main_frame_name?: string };
   /** Time frames (optional): places that keep their own local time. */
@@ -152,9 +149,10 @@ export interface CanonPack {
   combat: PackCombat;
 }
 /** What confrontations in this world are judged by. Either `none` (the story has no fighting worth judging: the
- *  reason) or the rest: `basis`, what the world runs on by default ("real-world physics"), and a graph of nodes —
- *  concepts, rules, abilities, precedents, dangers — joined by links. People, places and objects of the pack link to
- *  nodes (in versions, as 常态); the combat analysis takes what is linked from those in a fight, outward. */
+ *  reason) or the rest: `basis`, what the world runs on by default ("real-world physics"), and the setting: nodes
+ *  that belong to no one entity — concepts, rules, shared abilities (firearms), precedents, dangers — joined by
+ *  links. What an entity has or is (its own abilities, its kinds, what it is in a fight) is written on the entity
+ *  (aspects); the combat analysis takes what is linked from those in a fight, outward. */
 export interface PackCombat {
   none?: string;
   basis?: string;
@@ -171,7 +169,8 @@ export type AbilityPart = (typeof ABILITY_PARTS)[number];
  *  concept's description, a rule with when it applies, a precedent's result and the reason the story gives.
  *  An ability is told in parts (how it works, what it does, conditions, cost, limits, known ways to beat it), each
  *  with who knows it; a precedent names who fought whom and the event. Nodes are public unless their visibility says
- *  otherwise; a person always knows their own abilities. */
+ *  otherwise; a person always knows their own abilities. The combat index also holds every entity's abilities and
+ *  what an entity is in a fight as nodes (owner: that entity; never written so in a pack). */
 export interface CombatNode {
   id: Id; kind: CombatNodeKind; name: string; gist: string; text: string;
   parts?: { part: AbilityPart; text: string; visibility?: Visibility }[];
@@ -183,11 +182,14 @@ export interface CombatNode {
   source_refs: Id[];
   /** Written by a model where the sources say nothing (reviewed by a person like the rest). */
   generated?: boolean;
+  /** In the combat index only: the entity whose ability this is, or the entity itself (what it is in a fight). */
+  owner?: Id;
+  /** In the combat index only, for the timing of an entity's ability: from_event / until_event as written. */
+  from_event?: Id | null; until_event?: Id | null;
 }
-/** A link from an entity (person, place, object) or a node to a node, with what it is ("是", "依赖", "克制"). An
- *  entity's links hold in versions: from_event (null or absent: from the start) until until_event; between nodes
- *  they are the setting and always hold. */
-export interface CombatLink { from: Id; to: Id; label: string; from_event?: Id | null; until_event?: Id | null }
+/** A link between two nodes of the setting (an entity's ability among them), with what it is ("属于", "依赖",
+ *  "克制"): the setting, always in force. An entity's own links are its aspects (设定归属). */
+export interface CombatLink { from: Id; to: Id; label: string }
 /** How two people of the story stand with each other in the original story. The stages are in story order; one holds
  *  once its from_event has occurred in the branch (null: from the story start) until the next one does. Before the
  *  first holds they do not know each other. Each stage is the whole relation then (a game can start at any time) and,
@@ -456,8 +458,9 @@ export interface RuntimeEntity {
   aliases: string[];
   kind: PackEntity['kind'];
   description: string;
-  /** 常态 of a person the story brought in (the player character from the Persona): read like a pack person's. */
-  nature?: NatureVersion[];
+  /** Aspects of someone the story brought in (the player character's, read from the Persona): read like a pack
+   *  entity's, by the same readers. */
+  aspects?: import('./aspects').Aspects;
 }
 
 export const UNKNOWN = Symbol('UNKNOWN');

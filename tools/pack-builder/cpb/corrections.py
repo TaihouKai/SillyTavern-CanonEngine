@@ -35,7 +35,7 @@ listed by the checks until it is removed (a stale decision hides nothing, but it
 """
 import os
 
-from .util import read_json, write_json
+from .util import aspect, read_json, write_json
 
 TEXT_FIELDS = ('background', 'trigger', 'course', 'result', 'aftermath', 'impact', 'note')
 
@@ -80,11 +80,11 @@ def _entity_texts(ent):
     out = []
     if ent.get('static_description'):
         out.append(((lambda: ent['static_description']), (lambda v: ent.__setitem__('static_description', v))))
-    m = ent.get('mind') or {}
+    m = aspect(ent, 'mind') or {}
     for k, v in list(m.items()):
         if isinstance(v, str):
             out.append(((lambda k=k: m[k]), (lambda v, k=k: m.__setitem__(k, v))))
-    for ver in ent.get('nature') or []:
+    for ver in aspect(ent, 'nature') or []:
         for k in ('why', 'habits', 'uses', 'others', 'limits'):
             if isinstance(ver.get(k), str):
                 out.append(((lambda ver=ver, k=k: ver[k]), (lambda v, ver=ver, k=k: ver.__setitem__(k, v))))
@@ -414,15 +414,15 @@ def apply_people(pack, rv):
             miss.append(f'minds.{i}：包里没有这个实体')
             continue
         for k, v in (c.get('mind') or {}).items():
-            if not ent.get('mind'):
+            if not aspect(ent, 'mind'):
                 miss.append(f'minds.{i}.mind：没有思考方式')
                 break
             if v:
-                ent['mind'][k] = v
+                aspect(ent, 'mind')[k] = v
             else:
-                ent['mind'].pop(k, None)
+                aspect(ent, 'mind').pop(k, None)
         for when, fields in (c.get('nature') or {}).items():
-            ver = next((x for x in ent.get('nature') or [] if (x.get('from_event') or 'start') == when), None)
+            ver = next((x for x in aspect(ent, 'nature') or [] if (x.get('from_event') or 'start') == when), None)
             if ver is None:
                 miss.append(f'minds.{i}.nature.{when}：没有这一版常态')
                 continue

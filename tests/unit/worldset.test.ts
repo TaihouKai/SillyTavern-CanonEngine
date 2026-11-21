@@ -24,7 +24,7 @@ const BOOK = [
   lore(4, '风纪委员', ['风纪委员'], '学生组成的治安组织。'),
 ];
 const PERSONA = '姓名：田中太郎\n能力：Level 5 火焰能力者\n身份: 第8位Level 5 (本局设定)\n喜欢吃拉面。';
-const PROFILE = (world: any[] = []) => ({ player: { name: '田中太郎', aliases: [], summary: '第八位Level 5', public_identity: '' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [], world_changes: world });
+const PROFILE = (world: any[] = []) => ({ player: { name: '田中太郎', aliases: [], summary: '第八位Level 5', public_identity: '' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [], world_changes: world });
 
 describe('this game\'s changes of the world', () => {
   it('WS1 a marked line is always a change (by the code, the mark taken off), with the analysis\' search words when it gave them; others are added', () => {

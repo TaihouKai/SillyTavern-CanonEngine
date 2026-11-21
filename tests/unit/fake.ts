@@ -179,7 +179,7 @@ export function defaultTask(task: TaskName, input: any): any {
       return { adjudications: c.id ? [{ event_id: c.id, decision: 'occurred', time: null, account: `Offscreen: ${c.title}. ${c.required_description || c.original_summary}`, actors: c.entities || [], causes: [], effects: (c.original_outcomes || []).map((o: any) => ({ op: 'set', entity_id: o.entity_id, predicate: o.predicate, value: o.value })), plan_step_ids: [], reason: 'scripted', extraordinary: !!input.authorized_forced }] : [] };
     }
     case 'digest': return { groups: [] };
-    case 'profile': return { player: { name: input.persona?.name || 'player', aliases: [], summary: `profile of ${input.persona?.name || 'player'}`, public_identity: '' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
+    case 'profile': return { player: { name: input.persona?.name || 'player', aliases: [], summary: `profile of ${input.persona?.name || 'player'}`, public_identity: '' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
     case 'integrate': return { assessments: [], opportunities: [] };
     case 'foreknow': return { judgements: [] };
     case 'leap': return { events: [], mention: [], impossible: [], life: [], landing: '' };
@@ -189,6 +189,7 @@ export function defaultTask(task: TaskName, input: any): any {
     case 'relate': return { pairs: [] };
     case 'combat': return { reasoning: 'scripted', player_outcomes: [], exchanges: [], statuses: [], witnessed: [], over: false, over_why: '', stop_at: '' };
     case 'combat_fill': return { people: [] };
+    case 'persona_abilities': return { abilities: [], setting: [] };
     case 'ends': return { ends: (input.items || []).map((x: any) => ({ n: x.n, until: 'lasting', why: 'scripted' })) };
     case 'impact': return { changed: [], affected_anchors: [], affected_steps: [], scope: 'local', severity: 'none', replan: false, explanation: 'scripted' };
     case 'plan': {

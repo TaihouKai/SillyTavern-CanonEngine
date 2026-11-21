@@ -22,9 +22,10 @@ export function ordinary(p: CanonPack): CanonPack {
   const plain = '照常人';
   for (const e of p.entities) {
     if (e.kind !== 'person' || !p.combat || p.combat.none !== undefined) continue;
-    e.combat_style ||= [{ from_event: null, start: plain, force: plain, response: plain, limit: plain, stop: plain }];
+    const a = (e.aspects ||= {});
+    a.combat_style ||= [{ from_event: null, start: plain, force: plain, response: plain, limit: plain, stop: plain }];
     const node = p.combat.nodes?.find((n) => n.kind === 'concept')?.id;
-    if (node && !(p.combat.links || []).some((l) => l.from === e.id)) (p.combat.links ||= []).push({ from: e.id, to: node, label: 'is, in a fight' });
+    if (node && !a.setting?.length && !a.abilities?.length) a.setting = [{ node, label: 'is, in a fight' }];
   }
   return p;
 }

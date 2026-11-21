@@ -25,7 +25,7 @@ const PERSONA = { name: 'Vera', description: 'Vera, the famous singer of the har
 const PROFILE = {
   player: { name: 'Vera', aliases: [], summary: 'A famous harbor singer who owns a tea house.', public_identity: 'famous singer; owner of the Lantern Tea House' },
   affiliations: [], places: [{ name: 'Lantern Tea House', existing_id: null, use: 'her tea house' }],
-  capabilities: [], resources: [], goals: [], relationships: [], uncertain: [],
+  resources: [], goals: [], relationships: [], uncertain: [],
   knowers: [
     { who: 'Council clerks', existing_id: 'council', level: 'identity', about: 'she buys the Council records', basis: 'persona_stated' },
     { who: 'the Council', existing_id: 'council', level: 'exists', about: 'someone buys records', basis: 'implied' },

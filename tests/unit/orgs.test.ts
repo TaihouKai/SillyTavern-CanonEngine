@@ -37,7 +37,7 @@ function orgPack(over: (p: any) => void = () => {}) {
   return JSON.stringify(p);
 }
 const PROFILE = (affiliations: any[], relationships: any[] = []) => ({
-  player: { name: 'Ash', aliases: [], summary: 'a dock worker', public_identity: '' }, affiliations, places: [], capabilities: [], resources: [], goals: [], relationships, knowers: [], uncertain: [],
+  player: { name: 'Ash', aliases: [], summary: 'a dock worker', public_identity: '' }, affiliations, places: [], resources: [], goals: [], relationships, knowers: [], uncertain: [],
 });
 async function setup(pack: string, profile: any, start = tick(1, 9, 30)) {
   const x = makeEngine();

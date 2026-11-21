@@ -20,6 +20,7 @@ export { validatePackText, lintPack, type LoadedPack, type LintIssue, type PackV
 export { buildBootstrap } from './domain/schedule';
 export { reduce, type WorldState } from './domain/reducer';
 export { WorldIndex } from './domain/world-query';
+export { aspectReader, aspectWritten, ASPECTS, type Ability, type Aspects, type AspectKey, type SettingLink, type Fighting } from './domain/aspects';
 export { formatTick, fromTick, parseTickLabel, parseDateLabel, parseOriginLabel } from './domain/time';
 export { newId, sha256, deepClone, EngineError } from './domain/util';
 export type { LedgerRecord } from './domain/types';

@@ -9,7 +9,7 @@ import os
 import re
 
 from .llm import LLMError
-from .util import ROOT, log, read_json, warn, write_json
+from .util import ROOT, aspects, log, read_json, warn, write_json
 
 NATURE_VERSION = 'nature-11'
 
@@ -358,7 +358,7 @@ def attach(pack, nature_dir, also=None):
     evs = {e['id'] for e in pack['events']}
     n = 0
     for e in pack['entities']:
-        e.pop('nature', None)
+        (e.get('aspects') or {}).pop('nature', None)
         d = read_json(f'{nature_dir}/{e["id"]}.json')
         for o in (also or {}).get(e['id'], []):
             if not d or d.get('none') or not d.get('versions'):
@@ -378,7 +378,7 @@ def attach(pack, nature_dir, also=None):
             if any(out[k] for k in FIELDS):
                 vs.append(out)
         if vs:
-            e['nature'] = vs
+            aspects(e)['nature'] = vs
             n += 1
     return n
 

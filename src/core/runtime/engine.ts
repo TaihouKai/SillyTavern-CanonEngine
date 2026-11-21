@@ -11,6 +11,7 @@ import { buildBootstrap, causeOf, isDue, pendingHard, forcedCompletion, linkedCo
 import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { WorldIndex } from '../domain/world-query';
+import { aspectReader } from '../domain/aspects';
 import { agoLabel, eventTimeText, formatTick, formatStoryTime, fromTick, occurrenceTime, parseDateLabel, toTick } from '../domain/time';
 import { EngineError, hashObject, newId, quoteInText, sceneRoot, sha256, uniq, deepClone } from '../domain/util';
 import type { WorldState } from '../domain/reducer';
@@ -33,11 +34,16 @@ import { DEFAULT_COMBAT, combatBeforeReply, combatReview, combatView, fightFromM
 import { assessImpact, diagnoseForced, impactCandidates, planScope, preconditionSignature, refreshPlan, runPlanning } from './planner';
 import type { PackRef } from './types';
 import type { Banner, Binding, CampaignData, CoverageManifest, Fences, IntegrationCache, Interpretation, Opportunity, OpType, PlanRevision, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
-import { answeredBy, contactDecision, playLinks, playedProfile, playerOrgs, nameIn, isIn, companionEvents, companionDue, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
+import { answeredBy, contactDecision, playLinks, playedProfile, playerOrgs, nameIn, isIn, companionEvents, companionDue, companionSection, dueRequired, liveSuggestions, requiredSection, withRequired, foreknowKey, groupNames, recognitionGroups, presentGroups, recognitionSection, aboutUnderWay, underWayEvents, quietDay, jobLapsed, opportunityBy, buildProfile, applyPersonaAbilities, personaSettingMenu, type PersonaAbilitiesOut, candidateInput, checkOpportunities, decisionsSection, engagementRecord, engagementView, integrationCandidates, isBinding, scopeKey, integrationKey, personaHash, memberships, playerContext, samePersona, playerContextHash, presenceSection, profileAt, seedRecord, selectOpportunity, unanswered, worldReactionSection, type IntegrateOut, type ProfileOut } from './integration';
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, voiceTurnNote, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
 import { membershipView, natureView, relationsView, type MembershipView, type NatureViewData, type RelationsViewData } from './views';
+
+// what the planner of people's moves reads of them besides 思考方式 (mindPeople): 常态
+const READ_PEOPLE = aspectReader(['nature'] as const);
+// what the 身份 page shows of the player character as a person of the world: 常态, abilities, links into the setting
+const READ_PLAYER = aspectReader(['nature', 'abilities', 'setting'] as const);
 
 export interface EngineSettings {
   maxOrdinaryPlanner: number;
@@ -83,7 +89,7 @@ export interface EngineSettings {
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
 const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + String(text || '').length * 4));
 
-const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change', combat: 'judging the fight', combat_fill: 'what the fighters are', combat_who: 'who the fighters are' };
+const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change', combat: 'judging the fight', combat_fill: 'what the fighters are', combat_who: 'who the fighters are', persona_abilities: 'reading what your character can do' };
 
 /** Length and provider stats of the published reply, shown after the turn timings. */
 export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
@@ -874,7 +880,7 @@ export class CanonEngine {
     warnings.push(...await identifyInFight({
       port: this.host.model, index, fight: out.fight, text: entry.text, timeLabel: formatTick(tick, origin), lore: await this.gameLore(),
       near: (extractInput.registry.entities as string[]).map((l) => l.split(' | ')[0]), signal, operationId, log: (l) => this.debugLog('task', l),
-      player: prof ? { id: prof.profile.playerId, has: prof.profile.capabilities } : null,
+      player: prof ? { id: prof.profile.playerId } : null,
       known: out.references.filter((r) => r.kind === 'entity' && r.candidates?.length === 1).map((r) => ({ words: r.phrase, quote: r.quote, id: r.candidates![0] })),
     }));
     const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
@@ -1105,7 +1111,7 @@ export class CanonEngine {
     try {
       const out = await this.withTimeout(callStructured<MindOut>(this.host.model, 'mind', PROMPTS.mind, {
         people: people.map(({ id, mind }) => {
-          const n = index.natureNow(id)?.version;
+          const n = READ_PEOPLE(index, id).nature?.version;
           return { id, name: index.entityName(id), description: index.pack.entities.get(id)?.static_description || '',
             mind: { deliberation: DELIBERATION_TEXT[mind.deliberation], sharpness: mind.sharpness, ...Object.fromEntries(MIND_FIELDS.filter(([k]) => mind[k]?.trim()).map(([k, label]) => [label, mind[k]!.trim()])) },
             ...(n ? { nature: [n.habits, n.uses, n.limits].filter(Boolean).join(' ') } : {}) };
@@ -2199,6 +2205,20 @@ export class CanonEngine {
     out.affiliations = await this.checkAffiliations(out, pack, persona, signal, operationId);
     const built = buildProfile(out, pack, index, persona, prev);
     if (lore.length) built.profile.lore = this.lastProfileLore;
+    // what the player character can do, read into the abilities (and links into the setting) every person of the world
+    // has: the same parts, the same readers (a failed read leaves them without, said in the notes)
+    try {
+      const ab = await this.withTimeout(callStructured<PersonaAbilitiesOut>(this.host.model, 'persona_abilities', PROMPTS.persona_abilities, {
+        persona: { name: persona.name, description: persona.description },
+        public_identity: built.profile.publicIdentity,
+        setting: personaSettingMenu(pack),
+        ...(lore.length ? { background_lore: lore.map((l) => ({ title: l.title, text: l.text.slice(0, 1500) })) } : {}),
+      }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 5000 }), this.settings.taskTimeoutMs * 2, signal);
+      built.profile.notes.push(...applyPersonaAbilities(ab, built, pack));
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      built.profile.notes.push(`abilities not read from the Persona: ${(e as Error).message}`);
+    }
     return built;
   }
 
@@ -3354,8 +3374,16 @@ export class CanonEngine {
         notSuited: prof.profile.notSuited || [],
         voice: prof.profile.voice || '',
         defenses: prof.profile.defenses || '',
-        nature: prof.profile.nature ? [...(['habits', 'uses', 'others', 'limits'] as const).filter((k) => prof.profile.nature![k]).map((k) => `${{ habits: zh ? '平时' : 'Habits', uses: zh ? '使用' : 'Uses', others: zh ? '旁人' : 'Others', limits: zh ? '限制' : 'Limits' }[k]}：${prof.profile.nature![k]}`),
-          ...(prof.profile.nature.perceives ? [`${zh ? '能得知' : 'Perceives'}：${prof.profile.nature.perceives.kinds.join(', ')}${prof.profile.nature.perceives.how ? `（${prof.profile.nature.perceives.how}）` : ''}`] : [])] : [],
+        ...((): { nature: string[]; abilities: { name: string; gist: string; parts: string[]; secret: boolean }[]; kinds: string[] } => {
+          const pa = READ_PLAYER(idx, prof.profile.playerId), n = pa.nature?.version;
+          const PART: Record<string, string> = zh ? { principle: '原理', effect: '效果', conditions: '条件', cost: '代价', limits: '限制', counters: '克制' } : { principle: 'How', effect: 'Effect', conditions: 'Conditions', cost: 'Cost', limits: 'Limits', counters: 'Counters' };
+          return {
+            nature: n ? [...(['habits', 'uses', 'others', 'limits'] as const).filter((k) => n[k]).map((k) => `${{ habits: zh ? '平时' : 'Habits', uses: zh ? '使用' : 'Uses', others: zh ? '旁人' : 'Others', limits: zh ? '限制' : 'Limits' }[k]}：${n[k]}`),
+              ...(n.perceives ? [`${zh ? '能得知' : 'Perceives'}：${n.perceives.kinds.join(', ')}${n.perceives.how ? `（${n.perceives.how}）` : ''}`] : [])] : [],
+            abilities: pa.abilities.map((a) => ({ name: a.name, gist: a.gist, secret: !!a.visibility && a.visibility.mode !== 'public', parts: a.parts.map((x) => `${PART[x.part] || x.part}${x.visibility && x.visibility.mode !== 'public' ? (zh ? '（秘密）' : ' (secret)') : ''}：${x.text}`) })),
+            kinds: pa.setting.map((l) => `${l.label} ${idx.pack.combat.nodes.get(l.node)?.name || l.node}`),
+          };
+        })(),
         relationships: played!.relationships.map((r) => {
           // each side of a relation with a person, the whole of it (the panel edits it all: editTie)
           const side = (who: Id | null) => { const v = r.views?.find((x) => x.who === who); return v ? { address: v.address || [], sees: v.sees } : null; };

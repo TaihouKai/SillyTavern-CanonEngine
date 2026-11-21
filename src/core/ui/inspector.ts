@@ -103,7 +103,13 @@ export function createInspector(d: InspectorDeps) {
       secs.push({ id, label });
       return sec(id, label, rows.map((r, i) => item(`${id}-${i}`, `<span class="ci-text">${esc(r)}</span>`)).join(''));
     };
-    html += list('orgs', t('niOrgs'), p.affiliations) + list('places', t('niPlaces'), p.places) + list('roles', t('niRoles'), p.roles || [])
+    // what the player character can do, read from the Persona as anyone's abilities are (with their parts)
+    const abilities = () => {
+      if (!p.abilities?.length) return '';
+      secs.push({ id: 'abilities', label: t('niAbilities') });
+      return sec('abilities', t('niAbilities'), p.abilities.map((a, i) => item(`abilities-${i}`, `<b>${esc(a.name)}</b>${a.secret ? ` ${chip(t('niSecret'), 'warn')}` : ''} <span class="ci-text">${esc(a.gist)}</span>${a.parts.map((x) => muted(esc(x))).join('')}`)).join(''));
+    };
+    html += list('orgs', t('niOrgs'), p.affiliations) + list('places', t('niPlaces'), p.places) + abilities() + list('kinds', t('niKinds'), p.kinds || []) + list('roles', t('niRoles'), p.roles || [])
       + list('notsuited', t('niNotSuited'), p.notSuited || []) + list('voice', t('niVoice'), p.voice ? [p.voice] : []) + list('nature', t('niNature'), p.nature || []) + list('defenses', t('niDefenses'), p.defenses ? [p.defenses] : []) + list('recognized', t('niRecognized'), p.recognized || [])
       + list('lore', t('niLore'), p.lore || []) + list('notes', t('niNotes'), p.notes);
     return { html, secs };

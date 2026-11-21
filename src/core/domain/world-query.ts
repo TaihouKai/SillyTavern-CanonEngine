@@ -1,6 +1,6 @@
 // Actual-history retrieval (causal OR mentioned) and independent entity/scene state queries.
 // Lookups never traverse the Hard graph and never depend on anchor relevance.
-import type { AddressChange, FactValue, Id, MindProfile, NatureVersion, Occurrence, RelationChange, RelationStage, RelationView, StoryTime } from './types';
+import type { AddressChange, FactValue, Id, Occurrence, RelationChange, RelationStage, RelationView, StoryTime } from './types';
 import type { LoadedPack } from './pack';
 import { normalizeName, pairKey } from './pack';
 import type { Checkpoint, OccurrenceEntry, WorldState } from './reducer';
@@ -192,18 +192,6 @@ export class WorldIndex {
     return r ? [r.name, ...r.aliases] : [id];
   }
 
-  /** The 常态 version in force for a person in this branch: the last whose from_event has occurred and whose
-   *  until_event has not (the first holds from the start); null when none is given. A person the story brought in
-   *  (the player character, from the Persona) is read the same way as the pack's. */
-  natureNow(id: Id): { version: NatureVersion; index: number } | null {
-    const vs = this.pack.entities.get(id)?.nature || this.state.runtimeEntities.get(id)?.nature;
-    if (!vs?.length) return null;
-    const occurred = (e?: Id | null) => !!e && this.state.dispositions.get(e)?.disposition === 'occurred';
-    let index = 0;
-    vs.forEach((v, i) => { if (i > 0 && occurred(v.from_event) && !occurred(v.until_event)) index = i; });
-    return { version: vs[index], index };
-  }
-
   /** How far a pair follows the original story's stages in this branch (records before sequence `beforeSeq` only;
    *  none: all): the stages in order, each once its from_event has occurred (the first, from_event null, from the
    *  start). An event of a stage that went differently or did not happen breaks the line: the original stages after
@@ -281,11 +269,6 @@ export class WorldIndex {
     for (const k of this.pack.relationsOf.get(id) || []) { const [x, y] = k.split('|'); others.add(x === id ? y : x); }
     for (const c of this.state.relations) if (c.people.includes(id)) others.add(c.people[0] === id ? c.people[1] : c.people[0]);
     return [...others].map((other) => ({ other, rel: this.relationNow(id, other) })).filter((x): x is { other: Id; rel: RelationNow } => !!x.rel);
-  }
-
-  /** 思考方式 of a pack person (null for others and for people the story added). */
-  mindOf(id: Id): MindProfile | null {
-    return this.pack.entities.get(id)?.mind || null;
   }
 
   entityExists(id: Id): boolean {

@@ -192,16 +192,23 @@ def place(project, by_id, events, fixes=None, rename=None):
         if oid not in ev['entity_ids']:
             ev['entity_ids'].append(oid)
 
-    for f in sorted(os.listdir(d)):
-        r = read_json(os.path.join(d, f)) or {}
-        ren = lambda i: (rename or {}).get(i, i)  # noqa: E731
+    ren = lambda i: (rename or {}).get(i, i)  # noqa: E731
+    lists = [read_json(os.path.join(d, f)) or {} for f in sorted(os.listdir(d))]
+    # an organization whose page gave no list, but whose members a person added (review `start` "add")
+    lists += [{'id': o, 'members': [], 'why': '人工核对'} for o, fx in sorted(fixes.items()) if fx.get('add') and not any(ren(x.get('id')) == o for x in lists)]
+    for r in lists:
         r = dict(r, id=ren(r.get('id')), members=[ren(m) for m in r.get('members') or []], leader=ren(r.get('leader')) if r.get('leader') else None)
         oid = r.get('id')
-        if oid not in by_id or r.get('none') or by_id[oid].get('kind') != 'organization':
+        if oid not in by_id or by_id[oid].get('kind') != 'organization' or (r.get('none') and not (fixes.get(oid) or {}).get('add')):
             continue        # only an organization has members (a list kept for 斯芬克斯, the cat, is not one)
-        fx = fixes.get(oid) or {}
+        fx = dict(fixes.get(oid) or {})
         wrong = set(fx.get('drop') or [])
-        ms = sorted({m for m in r.get('members') or [] if by_id.get(m, {}).get('kind') == 'person' and m not in wrong})
+        # members the page's list missed, by a person (an organization inside a larger one is a member of it too):
+        # {id: event where they enter | "start" | null (their first event with it)}
+        add = fx.get('add') or {}
+        add = {x: None for x in add} if isinstance(add, list) else add
+        fx['at'] = {**(fx.get('at') or {}), **{k: v for k, v in add.items() if v}}
+        ms = sorted({m for m in [*(r.get('members') or []), *add] if (by_id.get(m, {}).get('kind') == 'person' or m in add) and m not in wrong})
         leader = r.get('leader') if r.get('leader') in by_id and r.get('leader') not in wrong else None
         why = r.get('why') or '按组织页面'
         if re.search(r'[A-Za-z]{3,}', why):

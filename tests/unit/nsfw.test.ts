@@ -3,7 +3,7 @@ import { makeEngine, tick, at } from './fake';
 import { demoRaw } from './helpers';
 import { grudgesNow } from '../../src/core/hostility';
 
-const PROFILE = { player: { name: 'Ash', aliases: [], summary: 'a dock worker who boxed as a youth', public_identity: 'works the piers' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
+const PROFILE = { player: { name: 'Ash', aliases: [], summary: 'a dock worker who boxed as a youth', public_identity: 'works the piers' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
 type X = ReturnType<typeof makeEngine>;
 
 async function setup() {

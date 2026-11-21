@@ -7,13 +7,17 @@ import { join } from 'node:path';
 import { makeEngine, tick, at, occ } from './fake';
 import { ROOT } from './helpers';
 import { lintPack, validatePackText } from '../../src/core/domain/pack';
+import { aspectReader } from '../../src/core/domain/aspects';
+
+const NATURE = aspectReader(['nature'] as const);
 
 const base = JSON.parse(readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8'));
 const V1 = { from_event: null, habits: 'hums a sea shanty while she sews wounds shut', uses: 'mends anyone hurt near her', others: 'dockers trust her', limits: 'cannot mend what is already dead' };
 const V2 = { from_event: 'conflict-begins', until_event: null, why: 'the war leaves her hands shaking', habits: 'hands tremble when she sews', uses: 'still mends, slower', others: 'dockers worry about her', limits: 'no fine work any more' };
 function packWith(nature: unknown[]) {
   const p = structuredClone(base);
-  p.entities.find((e: any) => e.id === 'mira').nature = nature;
+  const mira = p.entities.find((e: any) => e.id === 'mira');
+  mira.aspects = { ...mira.aspects, nature };
   return p;
 }
 
@@ -54,10 +58,10 @@ describe('常态', () => {
     expect(ctx1).toMatch(/HOW THEY ARE \(常态[\s\S]*Background, not story[\s\S]*not "knowing what they could not know"/);
     expect(ctx1).toMatch(/Mira \[mira\]: habits: hums a sea shanty/);
     expect(ctx1).not.toMatch(/hands tremble/);
-    expect(x.engine.current!.index.natureNow('mira')!.index).toBe(0);
+    expect(NATURE(x.engine.current!.index, 'mira').nature!.index).toBe(0);
     await turn(x, 'I walk down to the harbor.', 'I walk down; Council militias storm the docks. [NT2b]', begins);
     expect(x.engine.current!.replay.state.dispositions.get('conflict-begins')?.disposition).toBe('occurred');
-    expect(x.engine.current!.index.natureNow('mira')!.index).toBe(1);
+    expect(NATURE(x.engine.current!.index, 'mira').nature!.index).toBe(1);
     const ctx3 = await turn(x, 'I find Mira again.', 'Mira is sewing. [NT2c]');
     expect(ctx3).toMatch(/Mira \[mira\]: habits: hands tremble/);
   });

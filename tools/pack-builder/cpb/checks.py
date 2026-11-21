@@ -9,7 +9,7 @@ import os
 import re
 
 from .changes import DISSOLVED, NOT_WHOLE
-from .util import ROOT, read_json
+from .util import ROOT, aspect, read_json
 
 DAY = 1440
 # a person's status that is a moment's (knocked out, fighting, on the way): one hanging for weeks is a leftover
@@ -187,7 +187,7 @@ def run(project, pack):
         e = by_name.get(n)
         if not e:
             lines.append(f'{n}：没有这个实体')
-        elif e['kind'] == 'person' and not e.get('mind') and pages.get(e['name']):
+        elif e['kind'] == 'person' and not aspect(e, 'mind') and pages.get(e['name']):
             lines.append(f'{n} [{e["id"]}]：有页面却没有思考方式')
     add('problem', '主要人物缺失', '项目 checks.leading 列出的人物和组织（普通人没有常态是正常的，不算）', lines)
     # what the previous build had and this one lost (live: 风纪委员, 警备员 and 对马 went missing in a rebuild, and no other
@@ -483,8 +483,8 @@ def _texts_of_event(e):
 
 def _texts_of_entity(x):
     out = [('描述', x.get('static_description') or '')]
-    out += [(f'思考方式.{k}', v) for k, v in (x.get('mind') or {}).items() if isinstance(v, str) and k not in ('deliberation', 'sharpness')]
-    for v in x.get('nature') or []:
+    out += [(f'思考方式.{k}', v) for k, v in (aspect(x, 'mind') or {}).items() if isinstance(v, str) and k not in ('deliberation', 'sharpness')]
+    for v in aspect(x, 'nature') or []:
         out += [(f'常态({v.get("from_event") or "开局"}).{k}', v.get(k) or '') for k in ('why', *NATURE_FIELDS)]
     return [(k, t) for k, t in out if t]
 
@@ -591,7 +591,7 @@ def text_problems(pack, misses=()):
         for k, t in texts:
             if k != '描述' and (CUT_OFF.search(t.strip()) or DANGLING.match(t.strip())):
                 cut.append(f'{x["id"]} {x["name"]} {k}：…{t.strip()[-24:]}')
-        for v in x.get('nature') or []:
+        for v in aspect(x, 'nature') or []:
             filled = [k for k in NATURE_FIELDS if (v.get(k) or '').strip()]
             empty = [k for k in NATURE_FIELDS if not (v.get(k) or '').strip()]
             if filled and empty:

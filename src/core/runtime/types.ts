@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, NatureVersion, 
 export const STORAGE_VERSION = 1;
 /** Release version: shown to users, and written into campaigns and backups as the version that made them (kept equal
  *  to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.46.6';
+export const ENGINE_RELEASE = '1.47.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -284,7 +284,6 @@ export interface PlayerProfile {
    *  (persona_seed); play changes it from there (the members facts). */
   affiliations: { entityId: Id; name: string; role: string; status: AffiliationStatus; secrecy: 'public' | 'restricted' | 'secret'; leads?: boolean; memberIds?: Id[] }[];
   places: { entityId: Id; name: string; use: string }[];
-  capabilities: string[];
   resources: string[];
   goals: string[];
   /** The parts of the player's life from the Persona (occupation, organization, school, family, part-time job…):
@@ -294,8 +293,6 @@ export interface PlayerProfile {
   notSuited?: string[];
   /** How the player character comes across and talks (from the Persona). Missing on profiles read before 1.14.0. */
   voice?: string;
-  /** 常态: how the player's own power or condition shows in everyday moments (from the Persona). Missing before 1.26.1. */
-  nature?: PlayerNature;
   /** The engine release that read the Persona (missing before 1.26.2): an older read lacks what later releases read. */
   readBy?: string;
   /** What the Persona says shields the player from other people's powers (a mind that cannot be read…). */

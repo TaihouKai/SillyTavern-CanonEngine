@@ -69,3 +69,14 @@ def uniq(xs):
             seen.add(x)
             out.append(x)
     return out
+
+
+def aspects(e):
+    """An entity's aspects (常态, 思考方式, 对抗倾向, 能力, 设定归属, 战斗中: the engine's src/core/domain/aspects.ts), created
+    when missing."""
+    return e.setdefault('aspects', {})
+
+
+def aspect(e, key, default=None):
+    """One aspect of an entity as written (None when it has none)."""
+    return (e.get('aspects') or {}).get(key, default)

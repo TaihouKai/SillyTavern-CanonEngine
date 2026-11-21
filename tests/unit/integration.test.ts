@@ -10,6 +10,11 @@ import { engagementView, isBinding, engagementRecord } from '../../src/core/runt
 import { PROMPTS, gmRulesFor, GM_INTEGRATION_RULES } from '../../src/core/runtime/prompts';
 import { DEFAULT_PLAYER_VOICE, voiceRule, LIVELY, REACT_NOT_DECIDE, ANSWER_IN_SCENE, voiceTurnNote } from '../../src/core/runtime/voice';
 import { ENGINE_RELEASE } from '../../src/core/runtime/types';
+import { aspectReader } from '../../src/core/domain/aspects';
+
+// the player character's 常态 is on their entity, read like anyone's
+const NATURE = aspectReader(['nature'] as const);
+const playerNature = (x: ReturnType<typeof makeEngine>) => NATURE(x.engine.current!.index, x.engine.playerProfile()!.profile.playerId).nature?.version;
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 type X = ReturnType<typeof makeEngine>;
@@ -19,7 +24,7 @@ const PROFILE = {
   player: { name: 'Vera', aliases: [], summary: 'Leader of the Grey Lantern, a secret smuggling ring at the harbor.', public_identity: 'owner of a dockside tea house' },
   affiliations: [{ name: 'Grey Lantern', existing_id: null, kind: 'organization', role: 'leader', status: 'member', secrecy: 'secret', description: 'a smuggling ring' }],
   places: [{ name: 'Lantern Tea House', existing_id: null, use: 'front and base' }],
-  capabilities: ['smuggling routes'], resources: ['twelve members', 'a fast boat'], goals: ['keep the ring alive'],
+  resources: ['twelve members', 'a fast boat'], goals: ['keep the ring alive'],
   relationships: [
     { name: 'Mira', existing_id: 'mira', relation: 'owes Vera a debt', basis: 'persona_stated' },
     { name: 'Mira', existing_id: 'mira', relation: 'Vera\'s handler', basis: 'implied' },
@@ -817,7 +822,7 @@ describe('preferred matters', () => {
   });
 
   it('NI-48b a player name in parts is called by its first or last part too (live: the short name of the player was taken for someone else)', async () => {
-    const two = { player: { name: 'Hana Mori', aliases: ['Little Hana'], summary: 'A student.', public_identity: 'a student' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
+    const two = { player: { name: 'Hana Mori', aliases: ['Little Hana'], summary: 'A student.', public_identity: 'a student' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
     const x = await setup({ persona: { name: 'Hana Mori', description: 'Hana Mori, a student.' }, start: tick(0, 10, 0), profile: two });
     await turn(x, 'I look around.', 'The harbor at morning. [H2]', { scene_end: at(0, 10, 10) });
     const id = x.engine.playerProfile()!.profile.playerId;
@@ -830,7 +835,7 @@ describe('preferred matters', () => {
     const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'harbor-festival').when, { earliest: { day: 1, minute: 1200 }, latest: { day: 3, minute: 960 }, precision: 'range' });
     const student = {
       player: { name: 'Hana', aliases: [], summary: 'An ordinary high-school student with no powers who works at a bakery after school.', public_identity: 'student at the harbor school' },
-      affiliations: [], places: [{ name: 'Wheat Bakery', existing_id: null, use: 'part-time job' }], capabilities: ['baking'], resources: [], goals: [],
+      affiliations: [], places: [{ name: 'Wheat Bakery', existing_id: null, use: 'part-time job' }], resources: [], goals: [],
       roles: [{ role: 'part-time job at the Wheat Bakery', brings: ['extra shifts', 'deliveries'], from: ['Mr. Tanabe'] }], not_suited: ['fighting'],
       relationships: [{ name: 'Mr. Tanabe', existing_id: null, relation: 'owner of the bakery where she works', basis: 'persona_stated' }, { name: 'classmates', existing_id: null, relation: 'classmates', basis: 'implied' }],
       knowers: [], uncertain: [],
@@ -935,7 +940,7 @@ describe('preferred matters', () => {
     const nature = { habits: 'sparks crackle in her hair when she is annoyed', uses: 'shocks a friend who goes too far, lightly', others: 'classmates keep their phones away from her', limits: 'cannot hold back a full discharge near machines' };
     const x = await setup({ profile: { ...PROFILE, nature: { ...nature, limits: '  ' + nature.limits } } });
     await turn(x, 'I look around.', 'The harbor at morning. [W52]', { scene_end: at(1, 9, 35) });
-    expect(x.engine.playerProfile()!.profile.nature).toEqual(nature);
+    expect(playerNature(x)).toEqual({ from_event: null, ...nature });
     // read like anyone's, in HOW THEY ARE (user: whatever an ordinary character has, the player character has too)
     const { playerId: pid, personaName } = x.engine.playerProfile()!.profile;
     const how = lastCtx(x).slice(lastCtx(x).indexOf('HOW THEY ARE'));
@@ -949,7 +954,7 @@ describe('preferred matters', () => {
     // an ordinary Persona: nothing
     const y = await setup({ profile: { ...PROFILE, nature: { habits: '', uses: '', others: '', limits: '' } } });
     await turn(y, 'I look around.', 'The harbor at morning. [W53]', { scene_end: at(1, 9, 35) });
-    expect(y.engine.playerProfile()!.profile.nature).toBeUndefined();
+    expect(playerNature(y)).toBeUndefined();
     expect(lastCtx(y)).not.toMatch(/the player character: signs/);
     // an identity read now is not old; one read before this release (no readBy) is, so the page offers to read it again
     expect(x.engine.playerProfile()!.profile.readBy).toBe(ENGINE_RELEASE);
@@ -960,7 +965,7 @@ describe('preferred matters', () => {
 
   it('NI-50c a power that perceives reaches the player character\'s secrets unless the player turns it off; the Persona\'s shields hold (user: a mind reader was kept from a secret, the GM steering the player character\'s thoughts)', async () => {
     const p = JSON.parse(demo);
-    p.entities.find((e: any) => e.id === 'mira').nature = [{ from_event: null, habits: 'hears what people near her think', uses: 'answers what was not said', others: 'people avoid her', limits: 'needs to see them', perceives: { kinds: ['thoughts', 'emotions'], how: 'within sight' } }];
+    p.entities.find((e: any) => e.id === 'mira').aspects.nature = [{ from_event: null, habits: 'hears what people near her think', uses: 'answers what was not said', others: 'people avoid her', limits: 'needs to see them', perceives: { kinds: ['thoughts', 'emotions'], how: 'within sight' } }];
     const pack = JSON.stringify(p);
     const mira = { references: [], statements: [], scene_entities: ['mira'] };
     const x = await setup({ pack });
@@ -989,9 +994,9 @@ describe('preferred matters', () => {
     const x = await setup({ profile: { ...PROFILE, nature } });
     await turn(x, 'I sit down next to Mira.', 'Mira glances at you. [PC4]', { scene_end: at(1, 9, 35) }, { references: [], statements: [], scene_entities: ['mira'] });
     const { playerId } = x.engine.playerProfile()!.profile;
-    expect(x.engine.playerProfile()!.profile.nature!.perceives).toEqual({ kinds: ['thoughts'], how: 'within sight' });
+    expect(playerNature(x)!.perceives).toEqual({ kinds: ['thoughts'], how: 'within sight' });
     // the same structure as a pack person's: the index answers for the player as for anyone
-    expect(x.engine.current!.index.natureNow(playerId)!.version).toMatchObject({ from_event: null, habits: nature.habits, perceives: { kinds: ['thoughts'] } });
+    expect(NATURE(x.engine.current!.index, playerId).nature!.version).toMatchObject({ from_event: null, habits: nature.habits, perceives: { kinds: ['thoughts'] } });
     const how = lastCtx(x).slice(lastCtx(x).indexOf('HOW THEY ARE'));
     expect(how).toMatch(/\(the player character: [^)]*\): habits: hears the surface thoughts[^\n]*perceives: what someone is thinking \(within sight\)/);
     expect(how).toMatch(/THE PLAYER CHARACTER PERCEIVES: what their power reaches is not hidden from them — other people's secrets included/);
@@ -1001,8 +1006,8 @@ describe('preferred matters', () => {
     x.model.on('profile', null, { ...PROFILE, nature: { ...nature, habits: 'hums when she reads someone', perceives: null } });
     (x as any).persona.description += '\nNow she hums.';
     await x.engine.updateIdentity();
-    expect(x.engine.current!.index.natureNow(playerId)!.version).toMatchObject({ habits: 'hums when she reads someone' });
-    expect(x.engine.current!.index.natureNow(playerId)!.version.perceives).toBeUndefined();
+    expect(NATURE(x.engine.current!.index, playerId).nature!.version).toMatchObject({ habits: 'hums when she reads someone' });
+    expect(NATURE(x.engine.current!.index, playerId).nature!.version.perceives).toBeUndefined();
   });
 
   it('NI-50e which organizations the Persona puts the player in is decided one by one (live: "Level 5的第八位" in the Persona\'s 本局设定 was taken for a change of the world only; an organization she was only managed from was made hers)', async () => {

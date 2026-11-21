@@ -1,15 +1,19 @@
-// 战斗: the pack's combat graph — nodes (concepts, rules, abilities, precedents, dangers) joined by links, people,
-// places and objects linked to nodes in versions — and each person's 对抗倾向. Lint and indexes; the walk that takes
-// what a fight needs is in the runtime (combat analysis).
+// 战斗: the pack's combat graph — the setting's nodes (concepts, rules, shared abilities, precedents, dangers) joined
+// by links, and what the entities are written to have (their aspects: own abilities, links into the setting, what an
+// organization or object is in a fight) — and each person's 对抗倾向. Lint and indexes; the walk that takes what a
+// fight needs is in state.ts.
 import type { CanonPack, CombatLink, CombatNode, Id } from '../domain/types';
 import { ABILITY_PARTS } from '../domain/types';
+import { packAbilities, packSetting } from '../domain/aspects';
 
 export interface CombatIndex {
   /** none: the pack's reason it has no fighting worth judging (the analysis never runs). */
   none: string | null;
   basis: string;
+  /** The setting's nodes, every entity's abilities (owner: the entity) and what an entity is in a fight (id and
+   *  owner: the entity itself). */
   nodes: Map<Id, CombatNode>;
-  /** Links by where they start (an entity or a node). */
+  /** Links between nodes by where they start (the setting's links and an ability's links into the setting). */
   linksFrom: Map<Id, CombatLink[]>;
   /** Precedents by the people in them. */
   precedentsOf: Map<Id, Id[]>;
@@ -19,7 +23,20 @@ export function indexCombat(pack: CanonPack): CombatIndex {
   const c = pack.combat || { none: '' };
   const nodes = new Map((c.nodes || []).map((n) => [n.id, n]));
   const linksFrom = new Map<Id, CombatLink[]>();
-  for (const l of c.links || []) linksFrom.set(l.from, [...(linksFrom.get(l.from) || []), l]);
+  const link = (l: CombatLink) => linksFrom.set(l.from, [...(linksFrom.get(l.from) || []), l]);
+  for (const l of c.links || []) link(l);
+  if (c.none === undefined) {
+    for (const { owner, ability: a } of packAbilities(pack)) {
+      nodes.set(a.id, { id: a.id, kind: 'ability', name: a.name, gist: a.gist, text: a.text, parts: a.parts, ...(a.visibility ? { visibility: a.visibility } : {}), source_refs: a.source_refs, ...(a.generated ? { generated: true } : {}), owner, from_event: a.from_event ?? null, until_event: a.until_event ?? null });
+      for (const l of a.links || []) link({ from: a.id, to: l.to, label: l.label });
+    }
+    const ents = new Map(pack.entities.map((e) => [e.id, e]));
+    for (const { owner, fighting } of packSetting(pack)) {
+      if (!fighting) continue;
+      const e = ents.get(owner)!;
+      nodes.set(owner, { id: owner, kind: 'concept', name: e.name, gist: fighting.gist, text: fighting.text, ...(fighting.visibility ? { visibility: fighting.visibility } : {}), source_refs: e.source_refs, owner });
+    }
+  }
   const precedentsOf = new Map<Id, Id[]>();
   for (const n of c.nodes || []) if (n.kind === 'precedent') for (const w of n.who || []) precedentsOf.set(w, [...(precedentsOf.get(w) || []), n.id]);
   return { none: c.none !== undefined ? c.none : null, basis: c.basis || '', nodes, linksFrom, precedentsOf };
@@ -27,8 +44,8 @@ export function indexCombat(pack: CanonPack): CombatIndex {
 
 type Report = (p: string, m: string) => void;
 
-/** The combat section: either none (with its reason) or basis + nodes + links that hold together; every person has
- *  对抗倾向 when the pack has combat. */
+/** The combat section: either none (with its reason) or basis + the setting's nodes and links that hold together
+ *  with what the entities have; every person has 对抗倾向 when the pack has combat. */
 export function lintCombat(pack: CanonPack, err: Report, warn: Report): void {
   const c = pack.combat;
   if (!c) { err('/combat', 'the pack says what confrontations are judged by: combat.none with the reason it has none, or combat.basis with nodes and links'); return; }
@@ -36,10 +53,11 @@ export function lintCombat(pack: CanonPack, err: Report, warn: Report): void {
   const evs = new Set(pack.events.map((e) => e.id));
   const sources = new Set(pack.sources.map((s) => s.id));
   const people = pack.entities.map((e, i) => ({ e, i })).filter((x) => x.e.kind === 'person');
+  const withCombat = pack.entities.map((e, i) => ({ e, i })).filter((x) => x.e.aspects && (x.e.aspects.combat_style || x.e.aspects.abilities || x.e.aspects.setting || x.e.aspects.fighting));
   if (c.none !== undefined) {
     if (!c.none.trim()) err('/combat/none', 'none gives the reason the story has no fighting worth judging');
     if (c.basis !== undefined || c.nodes?.length || c.links?.length) err('/combat', 'a pack with combat.none gives no basis, nodes or links');
-    for (const { e, i } of people) if (e.combat_style) warn(`/entities/${i}/combat_style`, 'combat_style in a pack without combat (combat.none)');
+    for (const { i } of withCombat) warn(`/entities/${i}/aspects`, 'combat aspects (对抗倾向, 能力, 设定归属, 战斗中) in a pack without combat (combat.none)');
     return;
   }
   if (!c.basis?.trim()) err('/combat/basis', 'basis says what the world runs on by default (e.g. real-world physics)');
@@ -49,7 +67,7 @@ export function lintCombat(pack: CanonPack, err: Report, warn: Report): void {
   nodes.forEach((n, i) => {
     const at = `/combat/nodes/${i}`;
     if (ids.has(n.id)) err(`${at}/id`, `duplicate node id "${n.id}"`);
-    if (ents.has(n.id)) err(`${at}/id`, `"${n.id}" is also an entity id: nodes and entities need their own ids`);
+    if (ents.has(n.id)) err(`${at}/id`, `"${n.id}" is also an entity id: what belongs to one entity is written on it (aspects), and nodes need their own ids`);
     ids.add(n.id);
     if (n.parts && n.kind !== 'ability') err(`${at}/parts`, `parts are for abilities, not a ${n.kind}`);
     if (n.kind === 'ability') {
@@ -70,39 +88,45 @@ export function lintCombat(pack: CanonPack, err: Report, warn: Report): void {
     for (const s of n.source_refs) if (!sources.has(s)) err(`${at}/source_refs`, `unknown source "${s}"`);
     if (!n.source_refs.length && !n.generated) err(`${at}/source_refs`, 'a node says where it comes from (source_refs), or that a model wrote it (generated: true)');
   });
+  // what the entities have: their abilities are nodes too (ids unique with the setting's), their links go to nodes
+  const abilities = packAbilities(pack);
+  const abilityIds = new Set(abilities.map((x) => x.ability.id));
+  for (const id of abilityIds) if (ids.has(id)) err('/combat/nodes', `"${id}" is both a node of the setting and an entity's ability`);
+  // what an organization, object or other entity is in a fight (战斗中) is a node too: its id is the entity's
+  const fighting = new Set(pack.entities.filter((e) => e.aspects?.fighting).map((e) => e.id));
+  const isNode = (id: Id) => ids.has(id) || abilityIds.has(id) || fighting.has(id);
   const reached = new Set<string>();
   const out = new Map<string, string[]>();
   const seen = new Set<string>();
   (c.links || []).forEach((l, i) => {
     const at = `/combat/links/${i}`;
-    const fromEntity = ents.has(l.from);
-    if (!fromEntity && !ids.has(l.from)) err(`${at}/from`, `unknown entity or node "${l.from}"`);
-    if (!ids.has(l.to)) err(`${at}/to`, ents.has(l.to) ? `"${l.to}" is an entity: a link goes to a node` : `unknown node "${l.to}"`);
-    if (!fromEntity && (l.from_event || l.until_event)) err(`${at}`, 'links between nodes are the setting and always hold: from_event and until_event are for an entity\'s links');
-    for (const k of ['from_event', 'until_event'] as const) if (l[k] && !evs.has(l[k]!)) err(`${at}/${k}`, `unknown event "${l[k]}"`);
+    if (!isNode(l.from) || fighting.has(l.from)) err(`${at}/from`, ents.has(l.from) ? `"${l.from}" is an entity: what it is linked to is written on it (aspects.setting)` : `unknown node "${l.from}"`);
+    if (!isNode(l.to)) err(`${at}/to`, ents.has(l.to) ? `"${l.to}" is an entity that says nothing of what it is in a fight (aspects.fighting): a link goes to a node` : `unknown node "${l.to}"`);
     if (l.from === l.to) err(`${at}`, 'a link to itself');
-    const key = `${l.from}>${l.to}>${l.from_event || ''}`;
-    if (seen.has(key)) warn(`${at}`, `a second link ${l.from} → ${l.to} for the same version`);
+    const key = `${l.from}>${l.to}`;
+    if (seen.has(key)) warn(`${at}`, `a second link ${l.from} → ${l.to}`);
     seen.add(key);
-    if (fromEntity) reached.add(l.to);
-    else out.set(l.from, [...(out.get(l.from) || []), l.to]);
+    out.set(l.from, [...(out.get(l.from) || []), l.to]);
+  });
+  const fromEntities = new Set<Id>();
+  pack.entities.forEach((e, i) => {
+    (e.aspects?.setting || []).forEach((l, j) => {
+      if (!isNode(l.node)) err(`/entities/${i}/aspects/setting/${j}/node`, ents.has(l.node) ? `"${l.node}" is an entity that says nothing of what it is in a fight (aspects.fighting); what someone holds or belongs to is a fact of the world (holder, members)` : `unknown node "${l.node}"`);
+      if (l.node === e.id) err(`/entities/${i}/aspects/setting/${j}/node`, 'a link to itself');
+      reached.add(l.node); fromEntities.add(l.node);
+    });
+    (e.aspects?.abilities || []).forEach((a, j) => {
+      reached.add(a.id);
+      (a.links || []).forEach((l, k) => { if (!isNode(l.to)) err(`/entities/${i}/aspects/abilities/${j}/links/${k}/to`, `unknown node "${l.to}"`); out.set(a.id, [...(out.get(a.id) || []), l.to]); });
+    });
   });
   for (const n of nodes) if (n.kind === 'precedent' && n.who?.some((w) => ents.has(w))) reached.add(n.id);
   const queue = [...reached];
   while (queue.length) for (const t of out.get(queue.shift()!) || []) if (!reached.has(t)) { reached.add(t); queue.push(t); }
-  const fromEntities = new Set((c.links || []).filter((l) => ents.has(l.from)).map((l) => l.to));
   nodes.forEach((n, i) => { if (n.kind === 'danger' && !fromEntities.has(n.id)) err(`/combat/nodes/${i}`, `the danger "${n.id}" is linked from no place or organization: nobody ever meets it`); });
   nodes.forEach((n, i) => { if (!reached.has(n.id)) warn(`/combat/nodes/${i}`, `no entity reaches "${n.id}" through links: a fight never gets it`); });
-  const linked = new Set((c.links || []).filter((l) => ents.has(l.from)).map((l) => l.from));
   for (const { e, i } of people) {
-    if (!e.combat_style) err(`/entities/${i}/combat_style`, 'every person has 对抗倾向 in a pack with combat (start, force, response, limit, stop; "照常人" when nothing sets them apart)');
-    else e.combat_style.forEach((v, j) => {
-      const at = `/entities/${i}/combat_style/${j}`;
-      if (j === 0 && v.from_event !== null) err(`${at}/from_event`, 'the first version holds at the story start: from_event must be null');
-      if (j > 0 && v.from_event === null) err(`${at}/from_event`, 'a later version starts at an event: from_event is missing');
-      for (const k of ['from_event', 'until_event'] as const) if (v[k] && !evs.has(v[k]!)) err(`${at}/${k}`, `unknown event "${v[k]}"`);
-    });
-    if (!linked.has(e.id)) warn(`/entities/${i}`, `"${e.id}" links to no combat node: a fight knows nothing of what they are (link at least what kind of person they are)`);
+    if (!e.aspects?.combat_style) err(`/entities/${i}/aspects/combat_style`, 'every person has 对抗倾向 in a pack with combat (start, force, response, limit, stop; "照常人" when nothing sets them apart)');
+    if (!e.aspects?.setting?.length && !e.aspects?.abilities?.length) warn(`/entities/${i}`, `"${e.id}" has no abilities and links to nothing of the setting: a fight knows nothing of what they are (link at least what kind of person they are)`);
   }
-  pack.entities.forEach((e, i) => { if (e.combat_style && e.kind !== 'person') warn(`/entities/${i}/combat_style`, `combat_style on a ${e.kind}: it is written for people`); });
 }

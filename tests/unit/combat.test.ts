@@ -12,9 +12,14 @@ describe('combat section of a pack', () => {
     expect(msgs(unrelatedRaw()).ok).toBe(true);
     const r = validatePack(demoRaw());
     expect(r.loaded!.combat.none).toBe(null);
-    expect(r.loaded!.combat.nodes.get('cb-emergency-care')?.kind).toBe('ability');
-    expect(r.loaded!.combat.linksFrom.get('mira')?.map((l) => l.to)).toEqual(['cb-ordinary', 'cb-emergency-care']);
+    // Mira's own ability is written on her (aspects) and is a node of the index, hers
+    expect(r.loaded!.combat.nodes.get('cb-emergency-care')).toMatchObject({ kind: 'ability', owner: 'mira' });
+    expect(r.loaded!.pack.combat.nodes!.some((n) => n.id === 'cb-emergency-care')).toBe(false);
+    expect(r.loaded!.entities.get('mira')!.aspects!.setting).toEqual([{ node: 'cb-ordinary', label: 'is, in a fight' }]);
+    expect(r.loaded!.combat.linksFrom.get('mira')).toBeUndefined();
     expect(r.loaded!.combat.precedentsOf.get('mira')).toEqual(['cb-ambush']);
+    // the old format is refused with what to do
+    expect(msgs({ ...demoRaw(), schema_version: '1.0.0' }).errors.join('\n')).toMatch(/old format \(schema_version 1\.0\.0\)[^]*Rebuild it/);
   });
 
   it('CB2 a pack without the section, or with none and nodes, or with no reason, is refused', () => {
@@ -31,16 +36,38 @@ describe('combat section of a pack', () => {
     p.combat.nodes.push({ id: 'mira', kind: 'concept', name: 'x', gist: 'x', text: 'x', source_refs: ['example-source'] });
     p.combat.nodes.push({ id: 'cb-bad-ability', kind: 'ability', name: 'x', gist: 'x', text: 'x', parts: [{ part: 'cost', text: 'x' }], source_refs: [] });
     p.combat.nodes.push({ id: 'cb-bad-rule', kind: 'rule', name: 'x', gist: 'x', text: 'x', who: ['mira'], source_refs: ['nowhere'] });
-    p.combat.links.push({ from: 'cb-firearms', to: 'cb-ordinary', label: 'x', from_event: 'medic-ambush' }, { from: 'mira', to: 'harbor', label: 'x' }, { from: 'ghost', to: 'cb-ordinary', label: 'x' });
+    p.combat.links.push({ from: 'council', to: 'cb-ordinary', label: 'x' }, { from: 'cb-firearms', to: 'harbor', label: 'x' }, { from: 'ghost', to: 'cb-ordinary', label: 'x' });
+    p.entities.find((e: any) => e.id === 'harbor').aspects = { setting: [{ node: 'council', label: 'x' }, { node: 'nowhere-node', label: 'x' }] };
+    p.entities.find((e: any) => e.id === 'union').aspects = { abilities: [{ id: 'cb-emergency-care', name: 'x', gist: 'x', text: 'x', parts: [{ part: 'effect', text: 'x' }], source_refs: ['example-source'] }] };
     const e = msgs(p).errors.join('\n');
     expect(e).toMatch(/"mira" is also an entity id/);
     expect(e).toMatch(/an ability says what it does/);
     expect(e).toMatch(/says where it comes from/);
     expect(e).toMatch(/who and event_id are for precedents/);
     expect(e).toMatch(/unknown source "nowhere"/);
-    expect(e).toMatch(/links between nodes are the setting/);
-    expect(e).toMatch(/"harbor" is an entity: a link goes to a node/);
-    expect(e).toMatch(/unknown entity or node "ghost"/);
+    expect(e).toMatch(/"council" is an entity: what it is linked to is written on it/);
+    expect(e).toMatch(/"harbor" is an entity that says nothing of what it is in a fight[^\n]*a link goes to a node/);
+    expect(e).toMatch(/unknown node "ghost"/);
+    // an entity's own links go to nodes: an organization someone belongs to is a fact of the world, not a link
+    expect(e).toMatch(/aspects\/setting\/0\/node "council" is an entity that says nothing of what it is in a fight \(aspects\.fighting\); what someone holds or belongs to is a fact/);
+    expect(e).toMatch(/aspects\/setting\/1\/node unknown node "nowhere-node"/);
+    // abilities share one space of ids: two entities cannot both have one
+    expect(e).toMatch(/duplicate ability id "cb-emergency-care"/);
+  });
+
+  it('CB3b what an organization or object is in a fight (战斗中) is a node too: links may go to it, not from it', () => {
+    const p = demoRaw() as any;
+    p.entities.find((e: any) => e.id === 'union').aspects = { fighting: { gist: 'dock workers who fight in crowds', text: 'They fight with numbers and hooks.' } };
+    p.combat.links.push({ from: 'cb-soldier', to: 'union', label: 'like' });
+    p.entities.find((e: any) => e.id === 'mira').aspects.setting.push({ node: 'union', label: 'trained with' });
+    const r = validatePack(p);
+    expect(r.errors).toEqual([]);
+    expect(r.loaded!.combat.nodes.get('union')).toMatchObject({ kind: 'concept', name: r.loaded!.entities.get('union')!.name, gist: 'dock workers who fight in crowds', owner: 'union' });
+    p.combat.links.push({ from: 'union', to: 'cb-soldier', label: 'x' });
+    expect(msgs(p).errors.join('\n')).toMatch(/"union" is an entity: what it is linked to is written on it/);
+    // 战斗中 is not for a person
+    p.entities.find((e: any) => e.id === 'mira').aspects.fighting = { gist: 'x', text: 'x' };
+    expect(msgs(p).errors.join('\n')).toMatch(/战斗中 \(fighting\) is not for a person/);
   });
 
   it('CB4 every person has 对抗倾向; a node nobody reaches and a person linked to nothing are warnings', () => {
@@ -48,12 +75,15 @@ describe('combat section of a pack', () => {
     p.entities.push({ id: 'tomas', name: 'Tomas', aliases: [], kind: 'person', static_description: 'A docker.', source_refs: ['example-source'] });
     p.combat.nodes.push({ id: 'cb-lonely', kind: 'rule', name: 'x', gist: 'x', text: 'x', generated: true, source_refs: [] });
     const m = msgs(p);
-    expect(m.errors.join('\n')).toMatch(/entities\/\d+\/combat_style every person has 对抗倾向/);
+    expect(m.errors.join('\n')).toMatch(/entities\/\d+\/aspects\/combat_style every person has 对抗倾向/);
     expect(m.warnings.join('\n')).toMatch(/no entity reaches "cb-lonely"/);
-    p.entities[p.entities.length - 1].combat_style = [{ from_event: 'medic-ambush', start: 'a', force: 'a', response: 'a', limit: 'a', stop: 'a' }];
+    p.entities[p.entities.length - 1].aspects = { combat_style: [{ from_event: 'medic-ambush', start: 'a', force: 'a', response: 'a', limit: 'a', stop: 'a' }] };
     const n = msgs(p);
     expect(n.errors.join('\n')).toMatch(/the first version holds at the story start/);
-    expect(n.warnings.join('\n')).toMatch(/"tomas" links to no combat node/);
+    expect(n.warnings.join('\n')).toMatch(/"tomas" has no abilities and links to nothing of the setting/);
+    // an aspect not for its kind of entity is refused
+    p.entities.find((e: any) => e.id === 'harbor').aspects = { mind: { deliberation: 'rarely', sharpness: 'plain', approach: 'x' } };
+    expect(msgs(p).errors.join('\n')).toMatch(/aspects\/mind 思考方式 \(mind\) is not for a place/);
   });
 });
 
@@ -124,7 +154,7 @@ describe('combat as this game has it', () => {
 
   it('CS4 who knows a hidden ability: its holder, the named knowers, and whoever saw it used', () => {
     const raw = demoRaw() as any;
-    raw.combat.nodes.find((n: any) => n.id === 'cb-emergency-care').parts.find((p: any) => p.part === 'limits').visibility = { mode: 'secret', knower_ids: [] };
+    raw.entities.find((e: any) => e.id === 'mira').aspects.abilities.find((a: any) => a.id === 'cb-emergency-care').parts.find((p: any) => p.part === 'limits').visibility = { mode: 'secret', knower_ids: [] };
     const L = load(raw);
     const st = reduce(L, []);
     expect(knowsNode(L, st, 'council', 'cb-emergency-care', 'effect')).toBe(true);

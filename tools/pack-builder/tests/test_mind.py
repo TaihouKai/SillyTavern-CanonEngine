@@ -65,8 +65,8 @@ class MindTest(unittest.TestCase):
             self.assertEqual(n, 2)
             self.assertEqual(sorted(cl.asked), ['丁丁（丁）', '甲'])
             self.assertEqual(mind.attach(pack, d), 2)
-            self.assertEqual(pack['entities'][0]['mind'], {'deliberation': 'habitual', 'sharpness': 'sharp', 'approach': '先摸底再出手', 'speaks': '只问不答'})
-            self.assertNotIn('mind', pack['entities'][1])
+            self.assertEqual(pack['entities'][0]['aspects']['mind'], {'deliberation': 'habitual', 'sharpness': 'sharp', 'approach': '先摸底再出手', 'speaks': '只问不答'})
+            self.assertNotIn('aspects', pack['entities'][1])
 
     def test_attach_skips_none_and_bad(self):
         with tempfile.TemporaryDirectory() as d:
@@ -75,7 +75,7 @@ class MindTest(unittest.TestCase):
                     json.dump(body, f)
             pk = {'entities': [{'id': x, 'name': x, 'kind': 'person'} for x in 'abc']}
             self.assertEqual(mind.attach(pk, d), 1)
-            self.assertEqual([e.get('mind', {}).get('deliberation') for e in pk['entities']], [None, None, 'habitual'])
+            self.assertEqual([e.get('aspects', {}).get('mind', {}).get('deliberation') for e in pk['entities']], [None, None, 'habitual'])
 
 
 if __name__ == '__main__':

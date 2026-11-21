@@ -75,7 +75,7 @@ class PerceiveTest(unittest.TestCase):
                 json.dump({'versions': [{**V, 'from_event': None, 'perceives': {'kinds': ['thoughts'], 'how': 'in sight'}}]}, f)
             pk = {'events': [], 'entities': [{'id': 'a', 'name': 'A', 'kind': 'person'}]}
             self.assertEqual(nature.attach(pk, d), 1)
-            self.assertEqual(pk['entities'][0]['nature'][0]['perceives'], {'kinds': ['thoughts'], 'how': 'in sight'})
+            self.assertEqual(pk['entities'][0]['aspects']['nature'][0]['perceives'], {'kinds': ['thoughts'], 'how': 'in sight'})
 
 
 class FakeClient:

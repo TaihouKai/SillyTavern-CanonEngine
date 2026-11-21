@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:canon-engine:pack:1.0.0",
+  "$id": "urn:canon-engine:pack:2.0.0",
   "title": "Canon Engine v1 History Pack",
   "description": "Structural validation only. Semantic validation is specified in HISTORY_PACK_AUTHORING_GUIDE.md.",
   "type": "object",
@@ -9,7 +9,7 @@
       "type": "string"
     },
     "schema_version": {
-      "const": "1.0.0"
+      "const": "2.0.0"
     },
     "pack_id": {
       "$ref": "#/$defs/id"
@@ -157,7 +157,7 @@
       }
     },
     "combat": {
-      "description": "战斗: what confrontations are judged by. Either none (the reason the story has no fighting worth judging) or basis (what the world runs on by default) with nodes and links.",
+      "description": "战斗: what confrontations are judged by. Either none (the reason the story has no fighting worth judging) or basis (what the world runs on by default) with the setting: nodes that belong to no one entity, and links between nodes. What an entity has or is, is written on it (aspects).",
       "type": "object",
       "properties": {
         "none": {
@@ -673,135 +673,8 @@
         "frame_id": {
           "$ref": "#/$defs/id"
         },
-        "nature": {
-          "description": "常态: how the person's power, condition or non-human body shows in everyday scenes. Version 1 (from_event null) holds at the story start; a later version holds once its from_event has occurred in the branch, until its until_event has.",
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 6,
-          "items": {
-            "type": "object",
-            "properties": {
-              "from_event": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/id"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "until_event": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/id"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "why": {
-                "type": "string"
-              },
-              "habits": {
-                "type": "string"
-              },
-              "uses": {
-                "type": "string"
-              },
-              "others": {
-                "type": "string"
-              },
-              "limits": {
-                "type": "string"
-              },
-              "perceives": {
-                "description": "What the power lets the person learn that others cannot; while it reaches someone, their secrets are open to it.",
-                "type": "object",
-                "properties": {
-                  "kinds": {
-                    "type": "array",
-                    "minItems": 1,
-                    "uniqueItems": true,
-                    "items": {
-                      "enum": [
-                        "thoughts",
-                        "memories",
-                        "emotions",
-                        "hidden",
-                        "whereabouts",
-                        "lies",
-                        "past"
-                      ]
-                    }
-                  },
-                  "how": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kinds"
-                ],
-                "additionalProperties": false
-              }
-            },
-            "required": [
-              "from_event",
-              "habits",
-              "uses",
-              "others",
-              "limits"
-            ],
-            "additionalProperties": false
-          }
-        },
-        "mind": {
-          "description": "思考方式: how the person thinks — how much effort they put into thinking before they act (deliberation), how well they reason when they do (sharpness), and how they go about a problem. The engine plans the moves of those who think before they act; the game master plays everyone by it. Patterns, never story.",
-          "type": "object",
-          "properties": {
-            "deliberation": {
-              "enum": [
-                "rarely",
-                "situational",
-                "habitual"
-              ]
-            },
-            "sharpness": {
-              "enum": [
-                "plain",
-                "sharp",
-                "exceptional"
-              ]
-            },
-            "approach": {
-              "type": "string"
-            },
-            "thinks_hard_about": {
-              "type": "string"
-            },
-            "pushed": {
-              "type": "string"
-            },
-            "notices": {
-              "type": "string"
-            },
-            "blind": {
-              "type": "string"
-            },
-            "speaks": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "deliberation",
-            "sharpness",
-            "approach"
-          ],
-          "additionalProperties": false
-        },
-        "combat_style": {
-          "$ref": "#/$defs/combat_style"
+        "aspects": {
+          "$ref": "#/$defs/aspects"
         }
       },
       "required": [
@@ -1534,14 +1407,27 @@
         "hours": {
           "type": "object",
           "properties": {
-            "from": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
-            "to": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+            "from": {
+              "type": "string",
+              "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+            },
+            "to": {
+              "type": "string",
+              "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+            }
           },
-          "required": ["from", "to"],
+          "required": [
+            "from",
+            "to"
+          ],
           "additionalProperties": false
         },
         "frequency": {
-          "enum": ["common", "occasional", "rare"]
+          "enum": [
+            "common",
+            "occasional",
+            "rare"
+          ]
         },
         "visibility": {
           "$ref": "#/$defs/visibility"
@@ -1579,6 +1465,294 @@
         "label": {
           "type": "string",
           "minLength": 1
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "label"
+      ],
+      "additionalProperties": false,
+      "description": "A link between two nodes of the setting (an entity's ability among them): always in force."
+    },
+    "aspects": {
+      "description": "What the world knows of the entity, in fixed kinds (src/core/domain/aspects.ts): 常态, 思考方式, 对抗倾向 (people), 能力, 设定归属, 战斗中. Who holds an object and who belongs to an organization are facts (holder, members), not aspects.",
+      "type": "object",
+      "properties": {
+        "nature": {
+          "description": "常态: how the person's power, condition or non-human body shows in everyday scenes. Version 1 (from_event null) holds at the story start; a later version holds once its from_event has occurred in the branch, until its until_event has.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "properties": {
+              "from_event": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "until_event": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "why": {
+                "type": "string"
+              },
+              "habits": {
+                "type": "string"
+              },
+              "uses": {
+                "type": "string"
+              },
+              "others": {
+                "type": "string"
+              },
+              "limits": {
+                "type": "string"
+              },
+              "perceives": {
+                "description": "What the power lets the person learn that others cannot; while it reaches someone, their secrets are open to it.",
+                "type": "object",
+                "properties": {
+                  "kinds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "enum": [
+                        "thoughts",
+                        "memories",
+                        "emotions",
+                        "hidden",
+                        "whereabouts",
+                        "lies",
+                        "past"
+                      ]
+                    }
+                  },
+                  "how": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kinds"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "from_event",
+              "habits",
+              "uses",
+              "others",
+              "limits"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "mind": {
+          "description": "思考方式: how the person thinks — how much effort they put into thinking before they act (deliberation), how well they reason when they do (sharpness), and how they go about a problem. The engine plans the moves of those who think before they act; the game master plays everyone by it. Patterns, never story.",
+          "type": "object",
+          "properties": {
+            "deliberation": {
+              "enum": [
+                "rarely",
+                "situational",
+                "habitual"
+              ]
+            },
+            "sharpness": {
+              "enum": [
+                "plain",
+                "sharp",
+                "exceptional"
+              ]
+            },
+            "approach": {
+              "type": "string"
+            },
+            "thinks_hard_about": {
+              "type": "string"
+            },
+            "pushed": {
+              "type": "string"
+            },
+            "notices": {
+              "type": "string"
+            },
+            "blind": {
+              "type": "string"
+            },
+            "speaks": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "deliberation",
+            "sharpness",
+            "approach"
+          ],
+          "additionalProperties": false
+        },
+        "combat_style": {
+          "$ref": "#/$defs/combat_style"
+        },
+        "abilities": {
+          "description": "能力: what the entity can do (a person's power, technique or skill; what an object does; what members of an organization are trained in), told in parts.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ability"
+          }
+        },
+        "setting": {
+          "description": "设定归属: what kind of being it is in the setting and the setting's shared things it has or belongs to (a power level, 魔术师, firearms; for a place, a danger met there).",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/setting_link"
+          }
+        },
+        "fighting": {
+          "$ref": "#/$defs/fighting"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ability": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gist": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "part": {
+                "enum": [
+                  "principle",
+                  "effect",
+                  "conditions",
+                  "cost",
+                  "limits",
+                  "counters"
+                ]
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "visibility": {
+                "$ref": "#/$defs/visibility"
+              }
+            },
+            "required": [
+              "part",
+              "text"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "visibility": {
+          "$ref": "#/$defs/visibility"
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "to": {
+                "$ref": "#/$defs/id"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "to",
+              "label"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "from_event": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "until_event": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "generated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "gist",
+        "text",
+        "parts",
+        "source_refs"
+      ],
+      "additionalProperties": false
+    },
+    "setting_link": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
         },
         "from_event": {
           "anyOf": [
@@ -1602,9 +1776,30 @@
         }
       },
       "required": [
-        "from",
-        "to",
+        "node",
         "label"
+      ],
+      "additionalProperties": false
+    },
+    "fighting": {
+      "description": "战斗中: what an organization, object or other thing is in a fight, reached through who belongs to it or holds it.",
+      "type": "object",
+      "properties": {
+        "gist": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visibility": {
+          "$ref": "#/$defs/visibility"
+        }
+      },
+      "required": [
+        "gist",
+        "text"
       ],
       "additionalProperties": false
     }

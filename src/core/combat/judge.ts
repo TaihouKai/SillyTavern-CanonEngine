@@ -16,7 +16,7 @@ import { keyMatch, type LoreEntry } from '../runtime/lore';
 import { callStructured, type ModelPort } from '../runtime/model';
 import { PROMPTS } from '../runtime/prompts';
 import type { RecordDraft } from '../runtime/types';
-import { fightNow, knowsNode, linksOf, statusesOf, styleOf, walkCombat } from './state';
+import { combatNodes, fightNow, knowsNode, linksOf, statusesOf, styleOf, walkCombat } from './state';
 import { cleanUntil, combatRecord as rec } from './record';
 
 export interface CombatSettings { maxDepth: number; fullDepth: number; budgetChars: number }
@@ -77,6 +77,7 @@ export async function judgeFight(a: {
 }): Promise<Ruling | null> {
   const L = a.index.pack;
   if (L.combat.none !== null) return null;
+  const N = combatNodes(L, a.index.state);
   const now = fightNow(a.index.state);
   if (!now.ongoing) return null;
   const fighters = now.participants.filter((id) => a.index.entityExists(id));
@@ -86,13 +87,15 @@ export async function judgeFight(a: {
   const name = (id: Id) => (id === a.playerId ? a.personaName || a.index.entityName(id) : a.index.entityName(id));
   const namesOf = (id: Id) => { const e = L.entities.get(id) || a.index.state.runtimeEntities.get(id); return uniq([name(id), ...(e?.aliases || [])].filter(Boolean)); };
   const loreOf = new Map(fighters.map((id) => [id, id === a.playerId ? [] : loreAbout(a.lore, namesOf(id))]));
+  // a link as the analysis reads it: what it is, the node, and what it comes with (an object held, an organization)
+  const linkLine = (l: ReturnType<typeof linksOf>[number]) => `${l.label} ${l.node}${l.via && l.via !== l.node ? ` (through ${l.via}, which they ${l.how === 'holds' ? 'hold' : 'belong to'})` : ''}${l.source === 'fill' ? ' (filled in: a guess)' : ''}`;
   const describe = (id: Id) => (L.entities.get(id)?.static_description || a.index.state.runtimeEntities.get(id)?.description || '').slice(0, 600);
 
   // 1. what nothing says: filled in from the setting's concepts (lowest source, kept with the reply)
   let index = a.index;
   const filled: Ruling['filled'] = { links: [], styles: [] };
   const lacking = fighters.filter((id) => !linksOf(L, index.state, id).length || (id !== a.playerId && !styleOf(L, index.state, id)));
-  const concepts = [...L.combat.nodes.values()].filter((n) => n.kind === 'concept');
+  const concepts = [...N.values()].filter((n) => n.kind === 'concept');
   if (lacking.length && concepts.length) {
     const out = await callStructured<FillOut>(a.port, 'combat_fill', PROMPTS.combat_fill, {
       concepts: concepts.map((n) => `${n.id} | ${n.name} | ${n.gist}`),
@@ -107,7 +110,7 @@ export async function judgeFight(a: {
     for (const p of out.people || []) {
       if (!lacking.includes(p.who)) continue;
       if (!linksOf(L, index.state, p.who).length) for (const l of (p.links || []).slice(0, 3)) {
-        if (L.combat.nodes.get(l.node)?.kind !== 'concept') { notes.push(`fill: "${l.node}" is not a concept of the setting (left out)`); continue; }
+        if (N.get(l.node)?.kind !== 'concept') { notes.push(`fill: "${l.node}" is not a concept of the setting (left out)`); continue; }
         filled.links.push({ entity: p.who, node: l.node, label: String(l.label || '是').slice(0, 40), source: 'fill' });
       }
       const s = p.style;
@@ -120,7 +123,7 @@ export async function judgeFight(a: {
   // 2. what the fight needs
   // (the people here who may join are walked from too: what they can do is part of the turn)
   // (and the things of the setting at work in it: a device running, an object used)
-  const inFight = now.things.map((t) => t.node).filter((x) => L.combat.nodes.has(x));
+  const inFight = now.things.map((t) => t.node).filter((x) => N.has(x));
   const starts = uniq([...fighters, ...bystanders, ...a.places, ...inFight]);
   const walk = walkCombat(L, index.state, starts, a.settings);
   const objective = new Set(walkCombat(L, index.state, starts, { ...a.settings, budgetChars: Infinity, objective: true }).nodes.map((w) => w.node.id));
@@ -143,15 +146,15 @@ export async function judgeFight(a: {
       id, name: name(id), ...(id === a.playerId ? { player_character: true, ...(a.playerPublic ? { known_to_all: a.playerPublic.slice(0, 600) } : {}) } : {}), description: describe(id),
       states: statusesOf(index.state, id).map((s) => `${s.text}${s.count != null ? ` ×${s.count}` : ''}`),
       ...(id === a.playerId ? {} : { style: styleOf(L, index.state, id)?.style || null }),
-      linked: linksOf(L, index.state, id).map((l) => `${l.label} ${l.node}${l.source === 'fill' ? ' (filled in: a guess)' : ''}`),
+      linked: linksOf(L, index.state, id).map(linkLine),
     })),
     nodes: walk.nodes.map((w) => ({
-      id: w.node.id, kind: w.node.kind, name: w.node.name, reached: w.viaFrom === w.node.id ? `at work in this fight: ${now.things.find((t) => t.node === w.node.id)?.why || ''}` : w.via,
+      id: w.node.id, kind: w.node.owner === w.node.id ? L.entities.get(w.node.id)?.kind || w.node.kind : w.node.kind, name: w.node.name, ...(w.node.owner && w.node.owner !== w.node.id ? { of: name(w.node.owner) } : {}), reached: w.viaFrom === w.node.id ? `at work in this fight: ${now.things.find((t) => t.node === w.node.id)?.why || ''}` : w.via,
       ...(w.full ? { text: w.node.text, ...(w.node.parts ? { parts: w.node.parts.map((p) => ({ part: p.part, text: p.text })) } : {}), ...(w.node.who ? { who: w.node.who } : {}) } : { gist: w.node.gist }),
     })),
     sources: [...sourceText].map(([ref, text]) => ({ ref, text: text.slice(0, 3000) })),
     relations, knows,
-    present: bystanders.map((id) => ({ id, name: name(id), description: describe(id), style: styleOf(L, index.state, id)?.style || null, linked: linksOf(L, index.state, id).map((l) => `${l.label} ${l.node}`), relations: fighters.map((f) => index.relationNow(id, f)).filter(Boolean).map((r) => r!.bond) })),
+    present: bystanders.map((id) => ({ id, name: name(id), description: describe(id), style: styleOf(L, index.state, id)?.style || null, linked: linksOf(L, index.state, id).map(linkLine), relations: fighters.map((f) => index.relationNow(id, f)).filter(Boolean).map((r) => r!.bond) })),
     player_message: a.playerMessage, statements: a.statements, recent: a.recent.slice(-2000),
   };
   const ask = (extra: object) => callStructured<CombatOut>(a.port, 'combat', PROMPTS.combat, { ...input, ...extra }, { signal: a.signal, operationId: a.operationId, log: a.log });
@@ -162,8 +165,8 @@ export async function judgeFight(a: {
   const styleText = (ref: string) => { const id = ref.startsWith('style:') ? ref.slice(6) : ''; const st = fighters.includes(id) || bystanders.includes(id) ? styleOf(L, index.state, id)?.style : null; return st ? [st.start, st.force, st.response, st.limit, st.stop].join(' ') : null; };
   // a part of a node cited as "<node>:<part>" (the way knows lists them) is that node (live: the effect of a jamming
   // device a gang ran was cited so, and left out)
-  const fixRef = (b: { ref: string; quote?: string }) => { const r = String(b.ref || ''), i = r.lastIndexOf(':'); return i > 0 && L.combat.nodes.has(r.slice(0, i)) && (ABILITY_PARTS as readonly string[]).includes(r.slice(i + 1)) ? { ...b, ref: r.slice(0, i) } : b; };
-  const basisOk = (b: { ref: string; quote?: string }) => b.ref === 'judgement' || L.combat.nodes.has(b.ref) && walk.nodes.some((w) => w.node.id === b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!)) || (!!b.quote && !!styleText(b.ref) && quoteInText(b.quote, styleText(b.ref)!));
+  const fixRef = (b: { ref: string; quote?: string }) => { const r = String(b.ref || ''), i = r.lastIndexOf(':'); return i > 0 && N.has(r.slice(0, i)) && (ABILITY_PARTS as readonly string[]).includes(r.slice(i + 1)) ? { ...b, ref: r.slice(0, i) } : b; };
+  const basisOk = (b: { ref: string; quote?: string }) => b.ref === 'judgement' || N.has(b.ref) && walk.nodes.some((w) => w.node.id === b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!)) || (!!b.quote && !!styleText(b.ref) && quoteInText(b.quote, styleText(b.ref)!));
   const objectiveOk = (b: { ref: string; quote?: string }) => objective.has(b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!));
   const checkOutcomes = (o: CombatOut) => {
     const list: PlayerOutcome[] = [], unfounded: string[] = [];
@@ -205,10 +208,10 @@ export async function judgeFight(a: {
     const text = String(s.text || '').trim().slice(0, 120);
     if (!who || !text) { notes.push(`ruling: a state of "${s.who}" left out (not a fighter)`); continue; }
     const count = typeof s.count === 'number' && Number.isFinite(s.count) ? Math.max(0, Math.round(s.count)) : null;
-    let node = s.node && L.combat.nodes.has(s.node) ? s.node : null;
+    let node = s.node && N.has(s.node) ? s.node : null;
     // (live: a wound from a teleported dart named the thrower's ability, and linked it to the one hit)
-    if (node && L.combat.nodes.get(node)!.kind === 'ability' && !linksOf(L, index.state, who).some((l) => l.node === node) && fighters.some((f) => f !== who && linksOf(L, index.state, f).some((l) => l.node === node))) {
-      notes.push(`ruling: the state "${text}" of ${name(who)} names ${L.combat.nodes.get(node)!.name}, another fighter's ability (not linked)`);
+    if (node && N.get(node)!.kind === 'ability' && !linksOf(L, index.state, who).some((l) => l.node === node) && fighters.some((f) => f !== who && linksOf(L, index.state, f).some((l) => l.node === node))) {
+      notes.push(`ruling: the state "${text}" of ${name(who)} names ${N.get(node)!.name}, another fighter's ability (not linked)`);
       node = null;
     }
     // as long as a thing at work in the fight goes on (a headache from a jamming noise): lasting until it stops
@@ -228,7 +231,7 @@ export async function judgeFight(a: {
   }
   const witnessed: Witnessed[] = [];
   for (const w of out.witnessed || []) {
-    if (!L.combat.nodes.has(w.node)) continue;
+    if (!N.has(w.node)) continue;
     const who = (w.who || []).filter((x) => fighters.includes(x) || a.index.entityExists(x));
     if (who.length) witnessed.push({ node: w.node, ...(w.part && (ABILITY_PARTS as readonly string[]).includes(w.part) ? { part: w.part as Witnessed['part'] } : {}), who });
   }

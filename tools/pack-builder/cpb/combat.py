@@ -1,8 +1,13 @@
 """战斗: what a fight in the story is judged by — the setting's concepts, rules and abilities as a graph, the original
 story's fights as precedents, and each person's links into the graph and 对抗倾向 (how they act in a confrontation).
 
-The builder only proposes; a person reads every item and keeps the verified data in projects/<project>.combat.json
-(the golden file), which `build` puts into the pack. Three proposal passes, each cached per item:
+The builder only proposes; a person reads every item and keeps what holds (the review file), which makes the verified
+pool (work/<project>/combat/pool.json: the setting's nodes, the people's links, abilities and 对抗倾向, the precedents)
+and from it the golden file, projects/<project>.combat.json, in the pack's shape: what belongs to one entity — a
+person's own abilities, an object's, what an organization is in a fight — written on that entity (the review's
+"placement"), the setting keeping only what belongs to no one entity, and who holds an object or belongs to an
+organization a fact of the world (its "ties" and "holders"). `build` puts the golden file into the pack. Three
+proposal passes, each cached per item:
 - setting: one call per wiki page about the setting (powers, magic, terms, items): the nodes it gives;
 - people: one call per person (pack description, 常态, wiki page, the setting's concepts and abilities): their links,
   their own abilities, their 对抗倾向 in versions;
@@ -15,13 +20,14 @@ import unicodedata
 
 from .llm import LLMError
 from .nature import clean_wikitext, event_lines
-from .util import ROOT, log, read_json, warn, write_json
+from .util import ROOT, aspects, log, read_json, warn, write_json
 
 COMBAT_VERSION = 'combat-1'
 PARTS = ('principle', 'effect', 'conditions', 'cost', 'limits', 'counters')
 KINDS = ('concept', 'rule', 'ability')
 STYLE = ('start', 'force', 'response', 'limit', 'stop')
 # part names a model wrote otherwise (singular, or in the work's language)
+PART_LABEL = {'principle': '原理', 'effect': '效果', 'conditions': '条件', 'cost': '代价', 'limits': '限制', 'counters': '克制'}
 PART_NAMES = {'condition': 'conditions', 'limit': 'limits', 'counter': 'counters', '原理': 'principle', '效果': 'effect', '条件': 'conditions', '代价': 'cost', '限制': 'limits', '弱点': 'counters', '克制': 'counters'}
 ID_RE = re.compile(r'^[a-z][a-z0-9-]*$')
 
@@ -241,7 +247,7 @@ def check_people(ids, node_ids, own=None):
 
 def gen_people(project, client, pack, golden, wiki, lang, only=None):
     ents = {e['id']: e for e in pack['entities']}
-    natures = {e['id']: e.get('nature') or [] for e in pack['entities']}
+    natures = {e['id']: (e.get('aspects') or {}).get('nature') or [] for e in pack['entities']}
     node_ids = {n['id'] for n in golden.get('nodes', [])}
     work = pack.get('title', project.name)
     jobs = []
@@ -419,56 +425,98 @@ def golden_path(project):
     return os.path.join(ROOT, 'projects', f'{project.name}.combat.json')
 
 
+def pool_path(project):
+    """The verified pool the review makes (setting nodes with their owners, the people's links, own abilities and
+    对抗倾向, the precedents): what the people and timing passes are offered, and what `place` turns into the golden
+    file."""
+    return project.p('combat', 'pool.json')
+
+
 def attach(pack, golden, source_id):
-    """Puts the verified combat data into the pack: pack.combat (basis or none, nodes, links) and each person's
-    combat_style. Returns a short report."""
+    """Puts the golden file into the pack: pack.combat (basis or none, the setting's nodes, the links between nodes),
+    each entity's combat aspects (能力, 设定归属, 战斗中, a person's 对抗倾向) and the holders it decided (a fact set at
+    their event). Returns a short report."""
+    for e in pack['entities']:
+        for k in ('abilities', 'setting', 'fighting', 'combat_style'):
+            (e.get('aspects') or {}).pop(k, None)
+        if e.get('aspects') == {}:
+            e.pop('aspects')
     if golden.get('none'):
         pack['combat'] = {'none': golden['none']}
         return 'combat: none'
-    nodes, links = [], []
+    sourced = lambda x: ({'source_refs': [], 'generated': True} if x.get('generated') else {'source_refs': [source_id]})
+    nodes = []
     for n in golden.get('nodes', []):
         node = {k: n[k] for k in ('id', 'kind', 'name', 'gist', 'text') if k in n}
         if n.get('parts'):
-            node['parts'] = [{'part': p['part'], 'text': p['text'], **({'visibility': p['visibility']} if p.get('visibility') else {})} for p in n['parts']]
+            node['parts'] = [{'part': x['part'], 'text': x['text'], **({'visibility': x['visibility']} if x.get('visibility') else {})} for x in n['parts']]
         for k in ('who', 'event_id', 'visibility', 'hours', 'frequency'):
             if n.get(k):
                 node[k] = n[k]
-        node['source_refs'] = [] if n.get('generated') else [source_id]
-        if n.get('generated'):
-            node['generated'] = True
-        nodes.append(node)
-    for l in golden.get('links', []):
-        links.append({k: l[k] for k in ('from', 'to', 'label', 'from_event', 'until_event') if l.get(k) is not None})
+        nodes.append({**node, **sourced(n)})
+    links = [{k: l[k] for k in ('from', 'to', 'label')} for l in golden.get('links', [])]
     pack['combat'] = {'basis': golden['basis'], 'nodes': nodes, 'links': links}
-    styles = golden.get('styles', {})
-    n = 0
+    styles, ge = golden.get('styles', {}), golden.get('entities', {})
+    n_ab = n_ent = n_st = 0
     for e in pack['entities']:
+        g = ge.get(e['id']) or {}
+        if g.get('abilities'):
+            aspects(e)['abilities'] = [{**{k: a[k] for k in ('id', 'name', 'gist', 'text', 'parts') if k in a},
+                                       **{k: a[k] for k in ('visibility', 'links', 'from_event', 'until_event') if a.get(k)}, **sourced(a)} for a in g['abilities']]
+            n_ab += len(g['abilities'])
+        if g.get('setting'):
+            aspects(e)['setting'] = [{k: l[k] for k in ('node', 'label', 'from_event', 'until_event') if l.get(k)} for l in g['setting']]
+        if g.get('fighting'):
+            aspects(e)['fighting'] = {k: g['fighting'][k] for k in ('gist', 'text', 'visibility') if g['fighting'].get(k)}
+        if g:
+            n_ent += 1
         if e['kind'] == 'person' and e['id'] in styles:
-            e['combat_style'] = styles[e['id']]
-            n += 1
-    return f'combat: {len(nodes)} nodes, {len(links)} links, 对抗倾向 for {n} people'
+            aspects(e)['combat_style'] = styles[e['id']]
+            n_st += 1
+    evs = {ev['id']: ev for ev in pack['events']}
+    for h in golden.get('holders') or []:
+        # (the event already says who holds it then: the review's holder is the one, a correction of it)
+        ev = evs[h['at']]
+        eff = {'op': 'set', 'fact': {'entity_id': h['object'], 'predicate': 'holder', 'value': h['holder']}, 'until': {'event': h['until']} if h.get('until') else 'lasting'}
+        same = next((i for i, o in enumerate(ev['canonical_effects']) if o.get('op') == 'set' and (o.get('fact') or {}).get('entity_id') == h['object'] and (o.get('fact') or {}).get('predicate') == 'holder'), None)
+        if same is None:
+            ev['canonical_effects'].append(eff)
+        else:
+            ev['canonical_effects'][same] = eff
+        for x in (h['object'], h['holder']):
+            if x not in ev['entity_ids']:
+                ev['entity_ids'].append(x)
+    return f'combat: {len(nodes)} setting nodes, {len(links)} links, {n_ab} abilities on {n_ent} entities, 对抗倾向 for {n_st} people, {len(golden.get("holders") or [])} holders'
 
 
 def problems(pack, golden):
-    """What keeps the verified combat data from being complete (checks of `build`): people without 对抗倾向 or without
-    any link, links to nodes that do not exist."""
+    """What keeps the golden file from being complete (checks of `build`): people without 对抗倾向 or without any link
+    into the setting, links to nodes that do not exist."""
     if not golden:
         return ['combat: no verified combat data (projects/<project>.combat.json)']
     if golden.get('none'):
         return []
     out = []
-    node_ids = {n['id'] for n in golden.get('nodes', [])}
-    linked = {l['from'] for l in golden.get('links', [])}
+    ge = golden.get('entities') or {}
+    ids = {n['id'] for n in golden.get('nodes', [])} | {a['id'] for g in ge.values() for a in g.get('abilities') or []} | {i for i, g in ge.items() if g.get('fighting')}
     styles = golden.get('styles', {})
     for e in pack['entities']:
         if e['kind'] != 'person':
             continue
         if e['id'] not in styles:
             out.append(f'combat: {e["name"]} ({e["id"]}) has no verified 对抗倾向')
-        if e['id'] not in linked:
-            out.append(f'combat: {e["name"]} ({e["id"]}) links to no node')
+        if not (ge.get(e['id']) or {}).get('setting') and not (ge.get(e['id']) or {}).get('abilities'):
+            out.append(f'combat: {e["name"]} ({e["id"]}) has no abilities and links to nothing of the setting')
+    for i, g in ge.items():
+        for l in g.get('setting') or []:
+            if l['node'] not in ids:
+                out.append(f'combat: {i} -> {l["node"]}: no such node')
+        for a in g.get('abilities') or []:
+            for l in a.get('links') or []:
+                if l['to'] not in ids:
+                    out.append(f'combat: ability {a["id"]} -> {l["to"]}: no such node')
     for l in golden.get('links', []):
-        if l['to'] not in node_ids:
+        if l['to'] not in ids or l['from'] not in ids:
             out.append(f'combat: link {l["from"]} -> {l["to"]}: no such node')
     return out
 
@@ -628,7 +676,7 @@ def golden_setting(project, pack):
             l['from'] = renamed.get(l['from'], l['from'])
         l['to'] = renamed.get(l['to'], l['to'])
         l.pop('from_entity', None)
-    path = golden_path(project)
+    path = pool_path(project)
     old = read_json(path, {}) or {}
     ids = {n['id'] for n in nodes}
     keep_nodes = [n for n in old.get('nodes') or [] if n.get('origin') != 'setting' and n['id'] not in ids]
@@ -647,7 +695,7 @@ def golden_people(project, pack):
     beside the setting nodes. Every person of the pack must be decided."""
     rv = read_json(review_path(project), {}) or {}
     dec = rv.get('people') or {}
-    path = golden_path(project)
+    path = pool_path(project)
     g = read_json(path, {}) or {}
     persons = [e for e in pack['entities'] if e['kind'] == 'person']
     open_ = [e['id'] for e in persons if e['id'] not in dec]
@@ -724,7 +772,7 @@ def golden_precedents(project, pack):
     open_ = [i for i in prop if i not in dec]
     if open_:
         raise SystemExit(f'combat golden precedents: {len(open_)} not reviewed yet (first: {open_[:5]})')
-    path = golden_path(project)
+    path = pool_path(project)
     g = read_json(path, {}) or {}
     nodes = [n for n in g.get('nodes') or [] if n.get('origin') != 'precedent']
     evs = {e['id'] for e in pack['events']}
@@ -743,3 +791,199 @@ def golden_precedents(project, pack):
     write_json(path, g)
     log(f'combat golden precedents: {n} fights — {path}')
     return g
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# the verified pool in the pack's shape: what belongs to one entity is written on it
+
+def _facts_ever(pack, holders):
+    """Who ever holds each object and belongs to each organization in the pack (its facts and the holders the review
+    adds), organizations in organizations followed: {(entity, person)}."""
+    held, member = set(), {}
+    for f in pack['initial_state']['facts']:
+        x = f['fact']
+        if x['predicate'] == 'members':
+            for m in x['value'] if isinstance(x['value'], list) else [x['value']]:
+                member.setdefault(x['entity_id'], set()).add(m)
+    for ev in pack['events']:
+        for o in ev['canonical_effects']:
+            x = o.get('fact') or o
+            v = x.get('value')
+            if x.get('predicate') == 'holder' and o.get('op') == 'set':
+                held.add((x['entity_id'], v))
+            if x.get('predicate') == 'members' and o.get('op') in ('add', 'set'):
+                for m in v if isinstance(v, list) else [v]:
+                    member.setdefault(x['entity_id'], set()).add(m)
+    for h in holders:
+        held.add((h['object'], h['holder']))
+    out = set(held)
+    for org in member:
+        seen, todo = set(), [org]
+        while todo:   # the members of an organization that is itself a member belong to the larger one too
+            o = todo.pop()
+            for m in member.get(o, ()):
+                if m not in seen:
+                    seen.add(m)
+                    out.add((org, m))
+                    todo.append(m)
+    return out
+
+
+def place(project, pack):
+    """Writes the golden file (projects/<project>.combat.json) from the verified pool in the pack's shape. Every node
+    goes where the review's "placement" says — "setting" (it belongs to no one entity), {"owner": id} (that entity's
+    own ability), {"entity": id} (the node is that entity of the pack: an ability of it, or for a concept what it is
+    in a fight), {"merge": node id} (the same as another node), {"drop": why} — or by default: a precedent, concept,
+    rule or danger stays in the setting; an ability the people pass wrote is its person's; a setting ability one
+    entity is linked to is theirs, one more are linked to stays shared. A node named like an entity of the pack must be
+    decided. An entity's link to a node now on another entity is a tie (review "ties", "<entity>|<node>"): "fact" (who
+    holds an object or belongs to an organization: the pack's facts, or a holder the review adds under "holders"),
+    "link" (a link into the setting to it: a kind of equipment, a network, a ship they command) or "drop"; "fact" is the
+    default where the facts have it."""
+    rv = read_json(review_path(project), {}) or {}
+    pl, ties, holders = rv.get('placement') or {}, rv.get('ties') or {}, rv.get('holders') or []
+    pool = read_json(pool_path(project), {}) or {}
+    ents = {e['id']: e for e in pack['entities']}
+    evs = {ev['id'] for ev in pack['events']}
+    nodes = {n['id']: n for n in pool.get('nodes') or []}
+    from_ent = [l for l in pool.get('links') or [] if l['from'] in ents]
+    between = [l for l in pool.get('links') or [] if l['from'] not in ents]
+    linkers = {}
+    for l in from_ent:
+        linkers.setdefault(l['to'], set()).add(l['from'])
+    names = {}
+    for e in pack['entities']:
+        for nm in [e['name'], *(e.get('aliases') or [])]:
+            names.setdefault(_key(nm), set()).add(e['id'])
+    renamed = {v: k for k, v in (pool.get('renamed') or {}).items()}
+
+    def default(n):
+        if n['kind'] != 'ability':
+            return 'setting'
+        if n.get('origin') == 'people':
+            return {'owner': (n.get('owner_ids') or [None])[0]}
+        li = linkers.get(n['id']) or set()
+        return {'owner': next(iter(li))} if len(li) == 1 else 'setting'
+    where, open_, bad = {}, [], []
+    for n in nodes.values():
+        d = pl.get(n['id'])
+        if d is None:
+            d = default(n)
+            own = d.get('owner') if isinstance(d, dict) else None
+            clash = (names.get(_key(n['name'])) or set()) | ({renamed[n['id']]} if n['id'] in renamed else set()) | ({n['id'][:-3]} if n['id'].endswith('-cb') and n['id'][:-3] in ents else set())
+            clash.discard(own)   # its own owner's name (未元物质 is also what 垣根帝督 is called)
+            if clash and n['kind'] != 'precedent':
+                open_.append(f'{n["id"]} 「{n["name"]}」 is named like {", ".join(sorted(clash))}')
+                continue
+        if isinstance(d, dict):
+            t = d.get('owner') or d.get('entity')
+            if (d.get('owner') or d.get('entity')) and t not in ents:
+                bad.append(f'{n["id"]}: {t!r} is not an entity of the pack')
+            if d.get('merge') and d['merge'] not in nodes:
+                bad.append(f'{n["id"]}: merge into {d["merge"]!r}, which is no node')
+        elif d != 'setting':
+            bad.append(f'{n["id"]}: placement {d!r} (setting, owner, entity, merge or drop)')
+        where[n['id']] = d
+    for k in pl:
+        if k not in nodes:
+            bad.append(f'placement {k!r}: no such node in the pool')
+    if open_ or bad:
+        raise SystemExit('combat place: decide in the review\'s "placement":\n  ' + '\n  '.join(open_ + bad))
+
+    def resolve(i, seen=()):
+        d = where.get(i)
+        if isinstance(d, dict) and d.get('merge'):
+            if i in seen:
+                raise SystemExit(f'combat place: merges go round: {i}')
+            return resolve(d['merge'], (*seen, i))
+        return None if isinstance(d, dict) and d.get('drop') else i
+    kind_of = lambda i: 'setting' if where[i] == 'setting' else 'owner' if where[i].get('owner') else 'entity'
+    on = lambda i: where[i].get('owner') or where[i].get('entity')
+    # where each node ends up as a node: itself (the setting, an ability on an entity) or the entity it is (what an
+    # organization or object is in a fight: its node is the entity)
+    target = lambda i: i if kind_of(i) != 'entity' or (nodes[i]['kind'] == 'ability' and where[i].get('as') != 'fighting') else on(i)
+    out_nodes = [{k: v for k, v in n.items() if k not in ('origin', 'owner_ids')} for i, n in nodes.items() if where[i] == 'setting']
+    ge, notes = {}, []
+    E = lambda i: ge.setdefault(i, {})
+
+    def ability(n):
+        a = {k: n[k] for k in ('id', 'name', 'gist', 'text', 'parts', 'visibility', 'generated') if n.get(k)}
+        a.setdefault('parts', [])
+        return a
+    for i, n in nodes.items():
+        if where[i] == 'setting' or not resolve(i) == i:
+            continue
+        if nodes[i]['kind'] == 'ability' and where[i].get('as') != 'fighting':
+            E(on(i)).setdefault('abilities', []).append(ability(n))
+        else:
+            if E(on(i)).get('fighting'):
+                notes.append(f'{i}: {on(i)} already has what it is in a fight (from {E(on(i))["fighting"]["_from"]}); this one is left out')
+                continue
+            parts = ''.join(f'{PART_LABEL.get(x["part"], x["part"])}：{x["text"]}' for x in n.get('parts') or [])
+            E(on(i))['fighting'] = {'gist': n['gist'], 'text': n['text'] + (('（' + parts + '）') if parts else ''), '_from': i}
+    ab = {a['id']: (eid, a) for eid, g in ge.items() for a in g.get('abilities') or []}
+    out_links = []
+    for l in between:
+        f, t = resolve(l['from']), resolve(l['to'])
+        if not f or not t:
+            continue
+        tt = target(t)
+        if target(f) == tt or (kind_of(f) == 'entity' and kind_of(t) == 'entity' and on(f) == on(t)):
+            continue        # (within one entity: what it is in a fight and its own abilities)
+        if kind_of(f) == 'entity' and target(f) == on(f):
+            # what an organization or object is in a fight, linked further: its links into the setting
+            E(on(f)).setdefault('setting', []).append({'node': tt, 'label': l['label']})
+        elif f in ab:
+            if ab[f][0] != tt:   # (not to its own entity)
+                ab[f][1].setdefault('links', []).append({'to': tt, 'label': l['label']})
+        else:
+            out_links.append({'from': f, 'to': tt, 'label': l['label']})
+    facts = _facts_ever(pack, holders)
+    open_ties = []
+    for l in from_ent:
+        t = resolve(l['to'])
+        if not t:
+            continue
+        timing = {k: l[k] for k in ('from_event', 'until_event') if l.get(k)}
+        k = kind_of(t)
+        if k == 'setting':
+            E(l['from']).setdefault('setting', []).append({'node': t, 'label': l['label'], **timing})
+            continue
+        if on(t) == l['from']:
+            if t in ab and timing:   # their own ability, from when they have it
+                ab[t][1].update(timing)
+            continue
+        key = f'{l["from"]}|{l["to"]}'
+        d = ties.get(key) or ('link' if k == 'owner' else 'fact' if (on(t), l['from']) in facts else None)
+        if d is None:
+            open_ties.append(f'"{key}": {ents[l["from"]]["name"]} {l["label"]} {nodes[t]["name"]} (on {ents[on(t)]["name"]}, {ents[on(t)]["kind"]}): no fact has it — fact (and a holder), link or drop')
+            continue
+        if d == 'link':
+            E(l['from']).setdefault('setting', []).append({'node': target(t), 'label': l['label'], **timing})
+        elif d == 'fact' and (on(t), l['from']) not in facts:
+            open_ties.append(f'"{key}": "fact", but no fact has {ents[l["from"]]["name"]} with {ents[on(t)]["name"]} (add it under "holders")')
+        elif d not in ('fact', 'drop', 'link'):
+            open_ties.append(f'"{key}": {d!r} (fact, link or drop)')
+    for k in ties:
+        if '|' not in k or k.split('|')[0] not in ents or k.split('|')[1] not in nodes:
+            open_ties.append(f'tie {k!r}: not an entity and a node of the pool')
+    for h in holders:
+        if ents.get(h.get('object'), {}).get('kind') != 'object' or h.get('holder') not in ents or h.get('at') not in evs or (h.get('until') and h['until'] not in evs):
+            open_ties.append(f'holder {h}: object (an object of the pack), holder (an entity), at (an event) and until (an event, or none) needed')
+    if open_ties:
+        raise SystemExit('combat place: decide in the review\'s "ties" / "holders":\n  ' + '\n  '.join(open_ties))
+    for g in ge.values():
+        if g.get('fighting'):
+            g['fighting'].pop('_from', None)
+        seen = set()
+        g['setting'] = [x for x in g.get('setting') or [] if not ((x['node'], x.get('from_event')) in seen or seen.add((x['node'], x.get('from_event'))))]
+        if not g['setting']:
+            g.pop('setting')
+    out = {'basis': pool.get('basis') or '', 'nodes': out_nodes, 'links': out_links, 'entities': dict(sorted(ge.items())),
+           'styles': pool.get('styles') or {}, 'holders': holders}
+    write_json(golden_path(project), out)
+    n_ab = sum(len(g.get('abilities') or []) for g in ge.values())
+    log(f'combat place: {len(out_nodes)} setting nodes, {len(out_links)} links, {n_ab} abilities and {sum(1 for g in ge.values() if g.get("fighting"))} 战斗中 on {len(ge)} entities, {len(holders)} holders — {golden_path(project)}')
+    for x in notes:
+        log('  ' + x)
+    return out

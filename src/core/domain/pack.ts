@@ -9,6 +9,7 @@ import { deepClone, hashObject, stableStringify } from './util';
 import { MAIN_FRAME, indexFrames, parseLocal, type FrameIndex } from './frames';
 import { ADDRESS_USES, cleanAddress } from './address';
 import { indexCombat, lintCombat, type CombatIndex } from '../combat/graph';
+import { lintAspects } from './aspects';
 
 export interface LintIssue { level: 'error' | 'warning'; path: string; message: string }
 
@@ -69,7 +70,10 @@ function looksLikeWorldInfo(raw: unknown): boolean {
 }
 
 export const WORLD_INFO_ERROR =
-  'This file is a SillyTavern World Info (lorebook) export. Canon Engine accepts only the new .canon.json history-pack format (schema_version 1.0.0) and has no lorebook importer. Author a new pack with HISTORY_PACK_AUTHORING_GUIDE.md and schemas/canon-pack.schema.json.';
+  'This file is a SillyTavern World Info (lorebook) export. Canon Engine accepts only the new .canon.json history-pack format (schema_version 2.0.0) and has no lorebook importer. Author a new pack with HISTORY_PACK_AUTHORING_GUIDE.md and schemas/canon-pack.schema.json.';
+
+export const OLD_PACK_ERROR =
+  'This pack is in the old format (schema_version 1.0.0): what an entity has (常态, 思考方式, 对抗倾向, abilities) now lives in its aspects, and the combat section holds only the setting. Rebuild it with the pack builder.';
 
 export interface PackValidationResult {
   ok: boolean;
@@ -92,6 +96,9 @@ export function validatePackText(text: string): PackValidationResult {
 export function validatePack(raw: unknown): PackValidationResult {
   if (looksLikeWorldInfo(raw)) {
     return { ok: false, errors: [{ level: 'error', path: '', message: WORLD_INFO_ERROR }], warnings: [] };
+  }
+  if (raw && typeof raw === 'object' && (raw as { schema_version?: unknown }).schema_version === '1.0.0') {
+    return { ok: false, errors: [{ level: 'error', path: '/schema_version', message: OLD_PACK_ERROR }], warnings: [] };
   }
   // a pack Canon already loaded (a pinned snapshot) carries its structured summary as `sections`: back to the authored form
   if (raw && typeof raw === 'object' && Array.isArray((raw as { events?: unknown[] }).events)) {
@@ -500,27 +507,10 @@ export function lintPack(input: CanonPack): { errors: LintIssue[]; warnings: Lin
   }
   if (!pack.events.some((e) => e.when.earliest)) warn('/coverage', 'coverage promises scheduled play but no finite-time events exist');
   lintFrames(pack, entities, err, warn);
-  lintNature(pack, err, warn);
+  lintAspects(pack, err, warn);
   lintRelations(pack, err, warn);
   lintCombat(pack, err, warn);
   return { errors: dedupeIssues(errors), warnings: dedupeIssues(warnings) };
-}
-
-/** 常态 versions: the first holds at the start (from_event null), later ones start (and end) at known events. 思考方式 is
- *  for people too. */
-function lintNature(pack: CanonPack, err: (p: string, m: string) => void, warn: (p: string, m: string) => void) {
-  const evs = new Set(pack.events.map((e) => e.id));
-  pack.entities.forEach((e, i) => {
-    if (e.mind && e.kind !== 'person') warn(`/entities/${i}/mind`, `mind on a ${e.kind}: it is written for people`);
-    if (!e.nature) return;
-    if (e.kind !== 'person') warn(`/entities/${i}/nature`, `nature on a ${e.kind}: it is written for people`);
-    e.nature.forEach((v, j) => {
-      const at = `/entities/${i}/nature/${j}`;
-      if (j === 0 && v.from_event !== null) err(`${at}/from_event`, 'the first version holds at the story start: from_event must be null');
-      if (j > 0 && v.from_event === null) err(`${at}/from_event`, 'a later version starts at an event: from_event is missing');
-      for (const k of ['from_event', 'until_event'] as const) if (v[k] && !evs.has(v[k]!)) err(`${at}/${k}`, `unknown event "${v[k]}"`);
-    });
-  });
 }
 
 /** Relations: two people of the pack, one entry per pair, stages at known events in story order, each side one of

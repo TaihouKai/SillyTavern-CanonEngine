@@ -9,7 +9,7 @@ import os
 
 from .llm import LLMError
 from .nature import clean_wikitext, other_names
-from .util import log, read_json, warn, write_json
+from .util import aspects, log, read_json, warn, write_json
 
 MIND_VERSION = 'mind-1'
 DELIBERATION = ('rarely', 'situational', 'habitual')
@@ -123,6 +123,6 @@ def attach(pack, mind_dir, also=None):
             if v:
                 m[f] = v
         if m.get('approach'):
-            e['mind'] = m
+            aspects(e)['mind'] = m
             n += 1
     return n

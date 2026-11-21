@@ -44,7 +44,7 @@ function world(text: string, at: number) {
 }
 const profile = (rel: Partial<PlayerProfile> = {}): PlayerProfile => ({
   personaName: 'Ash', personaText: '', personaHash: '', source: 'standard_persona', playerId: 'player', summary: '', publicIdentity: '',
-  affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [], notes: [], ...rel,
+  affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [], notes: [], ...rel,
 } as PlayerProfile);
 const lore = (book: string, comment: string, keys: string[], content: string, more: Partial<LoreEntry> = {}): LoreEntry =>
   ({ book, uid: comment, title: comment, keys, secondary: [], secondaryLogic: null, constant: false, disabled: false, caseSensitive: null, wholeWords: null, content, ...more });
@@ -84,7 +84,7 @@ describe('membership in the panel and the timeline window', () => {
   it('LM7 organization connections show their leader and members now; the 组织成员 view lists them and the pack\'s changes, upcoming ones only with spoilers', async () => {
     const x = makeEngine();
     x.host.persona = () => ({ name: 'Ash', description: 'Relation to the Council: bad.' });
-    x.model.on('profile', null, { player: { name: 'Ash', aliases: [], summary: 'a dock worker', public_identity: '' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [{ name: 'The Council', existing_id: 'council', relation: 'bad blood', basis: 'persona_stated' }], knowers: [], uncertain: [] });
+    x.model.on('profile', null, { player: { name: 'Ash', aliases: [], summary: 'a dock worker', public_identity: '' }, affiliations: [], places: [], resources: [], goals: [], relationships: [{ name: 'The Council', existing_id: 'council', relation: 'bad blood', basis: 'persona_stated' }], knowers: [], uncertain: [] });
     await x.engine.bind(membersPack(), { startTick: tick(1, 9, 0), mode: 'new' });
     await x.engine.reconcile('t');
     x.host.addUser('I look around.');

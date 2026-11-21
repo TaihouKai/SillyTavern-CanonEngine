@@ -1516,7 +1516,7 @@ def build(project, out_path=None, raw=False):
     src = c['source']
     tl = project.get('timeline', {})
     pack = {
-        'schema_version': '1.0.0',
+        'schema_version': '2.0.0',
         'pack_id': cfg_pack.get('pack_id', project.name),
         'pack_version': cfg_pack.get('pack_version', '0.1.0'),
         'title': cfg_pack.get('title', project.name),

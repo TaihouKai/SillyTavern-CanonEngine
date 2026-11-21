@@ -1,0 +1,114 @@
+{
+ "type": "object",
+ "properties": {
+  "abilities": {
+   "type": "array",
+   "maxItems": 12,
+   "items": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 80
+     },
+     "gist": {
+      "type": "string",
+      "maxLength": 300
+     },
+     "text": {
+      "type": "string",
+      "maxLength": 1200
+     },
+     "parts": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+       "type": "object",
+       "properties": {
+        "part": {
+         "enum": [
+          "principle",
+          "effect",
+          "conditions",
+          "cost",
+          "limits",
+          "counters"
+         ]
+        },
+        "text": {
+         "type": "string",
+         "maxLength": 500
+        },
+        "secret": {
+         "type": "boolean"
+        }
+       },
+       "required": [
+        "part",
+        "text"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "secret": {
+      "type": "boolean"
+     },
+     "links": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+       "type": "object",
+       "properties": {
+        "to": {
+         "type": "string",
+         "maxLength": 120
+        },
+        "label": {
+         "type": "string",
+         "maxLength": 40
+        }
+       },
+       "required": [
+        "to",
+        "label"
+       ],
+       "additionalProperties": false
+      }
+     }
+    },
+    "required": [
+     "name",
+     "gist",
+     "parts"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "setting": {
+   "type": "array",
+   "maxItems": 6,
+   "items": {
+    "type": "object",
+    "properties": {
+     "node": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "label": {
+      "type": "string",
+      "maxLength": 40
+     }
+    },
+    "required": [
+     "node",
+     "label"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "abilities"
+ ],
+ "additionalProperties": false
+}

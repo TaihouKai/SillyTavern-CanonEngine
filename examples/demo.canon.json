@@ -1,6 +1,6 @@
 {
   "$schema": "../schemas/canon-pack.schema.json",
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "pack_id": "demo-harbor",
   "pack_version": "1.0.0",
   "title": "Harbor Convergence — Synthetic Example",
@@ -97,16 +97,49 @@
       "source_refs": [
         "example-source"
       ],
-      "combat_style": [
-        {
-          "from_event": null,
-          "start": "Never starts a fight.",
-          "force": "Does not hurt anyone if she can help it; would only push someone away to get to a patient.",
-          "response": "Runs or hides; if cornered, shields the wounded with her body rather than fight.",
-          "limit": "Would risk her life to reach and keep alive someone wounded, friend or enemy.",
-          "stop": "Stops as soon as she can get away or the patient is safe."
-        }
-      ]
+      "aspects": {
+        "combat_style": [
+          {
+            "from_event": null,
+            "start": "Never starts a fight.",
+            "force": "Does not hurt anyone if she can help it; would only push someone away to get to a patient.",
+            "response": "Runs or hides; if cornered, shields the wounded with her body rather than fight.",
+            "limit": "Would risk her life to reach and keep alive someone wounded, friend or enemy.",
+            "stop": "Stops as soon as she can get away or the patient is safe."
+          }
+        ],
+        "abilities": [
+          {
+            "id": "cb-emergency-care",
+            "name": "Emergency care",
+            "gist": "Mira can stop bleeding and keep the wounded alive.",
+            "text": "Mira treats wounds in the field.",
+            "parts": [
+              {
+                "part": "effect",
+                "text": "Stops bleeding, sets fractures and keeps a badly wounded person alive until a hospital."
+              },
+              {
+                "part": "conditions",
+                "text": "Needs her kit and a few minutes without being shot at."
+              },
+              {
+                "part": "limits",
+                "text": "Cannot bring back the dead or heal in moments; does nothing in a fight itself."
+              }
+            ],
+            "source_refs": [
+              "example-source"
+            ]
+          }
+        ],
+        "setting": [
+          {
+            "label": "is, in a fight",
+            "node": "cb-ordinary"
+          }
+        ]
+      }
     },
     {
       "id": "union",
@@ -116,7 +149,15 @@
       "static_description": "A political coalition with military resources.",
       "source_refs": [
         "example-source"
-      ]
+      ],
+      "aspects": {
+        "setting": [
+          {
+            "label": "its fighters are",
+            "node": "cb-soldier"
+          }
+        ]
+      }
     },
     {
       "id": "council",
@@ -126,7 +167,15 @@
       "static_description": "A rival political institution.",
       "source_refs": [
         "example-source"
-      ]
+      ],
+      "aspects": {
+        "setting": [
+          {
+            "label": "its gunmen use",
+            "node": "cb-firearms"
+          }
+        ]
+      }
     },
     {
       "id": "conflict",
@@ -730,30 +779,6 @@
         ]
       },
       {
-        "id": "cb-emergency-care",
-        "kind": "ability",
-        "name": "Emergency care",
-        "gist": "Mira can stop bleeding and keep the wounded alive.",
-        "text": "Mira treats wounds in the field.",
-        "parts": [
-          {
-            "part": "effect",
-            "text": "Stops bleeding, sets fractures and keeps a badly wounded person alive until a hospital."
-          },
-          {
-            "part": "conditions",
-            "text": "Needs her kit and a few minutes without being shot at."
-          },
-          {
-            "part": "limits",
-            "text": "Cannot bring back the dead or heal in moments; does nothing in a fight itself."
-          }
-        ],
-        "source_refs": [
-          "example-source"
-        ]
-      },
-      {
         "id": "cb-ambush",
         "kind": "precedent",
         "name": "Ambush of Mira",
@@ -770,26 +795,6 @@
       }
     ],
     "links": [
-      {
-        "from": "mira",
-        "to": "cb-ordinary",
-        "label": "is, in a fight"
-      },
-      {
-        "from": "mira",
-        "to": "cb-emergency-care",
-        "label": "has"
-      },
-      {
-        "from": "union",
-        "to": "cb-soldier",
-        "label": "its fighters are"
-      },
-      {
-        "from": "council",
-        "to": "cb-firearms",
-        "label": "its gunmen use"
-      },
       {
         "from": "cb-soldier",
         "to": "cb-firearms",

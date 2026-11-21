@@ -4,6 +4,7 @@ import type { Id, MindProfile, NatureVersion, PackEvent, PerceiveKind, RelationV
 import type { LoadedPack } from '../domain/pack';
 import { pairKey } from '../domain/pack';
 import { addressLine } from '../domain/address';
+import { aspectReader } from '../domain/aspects';
 import { WorldIndex, type HistoryRecordView, type EntityStateView, type CanonStatusView } from '../domain/world-query';
 import { eventTimeText, formatStoryTime, formatTick, startsText, toTick } from '../domain/time';
 import { causeOf, pendingHard, upcomingRoute } from '../domain/schedule';
@@ -339,12 +340,14 @@ export const NATURE_MAX = 6;
 const NATURE_HEAD = 'HOW THEY ARE (常态: the standing nature of people here — how their power, condition or body shows in everyday behaviour, as of now in this branch). Background, not story: let it show in what they do and notice when the scene gives it room — a habit, a reflex, a passive use — without making it a topic, and without the same display every reply. Nothing in it happened; it is how they are. What a person learns through their own power (reading minds, sensing) is how they know it, not "knowing what they could not know".';
 // User: whatever an ordinary character has, the player character has too (except that the GM never acts for them):
 // the player is read here like anyone, not in a section of their own that each feature has to remember.
+// what the game master's context reads of people: 常态 and 思考方式
+const READ = aspectReader(['nature', 'mind'] as const);
 function natureSection(index: WorldIndex, retrieval: Retrieval, perception?: PacketInput['perception']): string {
   const rank = (t: Set<string>) => (t.has('scene') ? 0 : t.has('mentioned') ? 1 : 2);
   const player = perception?.player;
   const ids = [...(player ? [player] : []), ...[...retrieval.entities].filter(([id, t]) => id !== player && rank(t) < 2 && index.entityKind(id) === 'person')
     .sort((a, b) => rank(a[1]) - rank(b[1])).map(([id]) => id)];
-  const people = ids.map((id) => ({ id, now: index.natureNow(id) })).filter((p) => p.now).slice(0, NATURE_MAX);
+  const people = ids.map((id) => ({ id, now: READ(index, id).nature })).filter((p) => p.now).slice(0, NATURE_MAX);
   if (!people.length) return '';
   const perceives = (p: { now: { version: NatureVersion } | null }) => !!p.now!.version.perceives?.kinds.length;
   return NATURE_HEAD + '\n' + people.map(({ id, now }) => {
@@ -416,7 +419,7 @@ export function mindPeople(index: WorldIndex, retrieval: Retrieval): { id: Id; m
   const rank = (t: Set<string>) => (t.has('scene') ? 0 : t.has('mentioned') ? 1 : 2);
   return [...retrieval.entities].filter(([id, t]) => rank(t) < 2 && index.entityKind(id) === 'person')
     .sort((a, b) => rank(a[1]) - rank(b[1]))
-    .map(([id]) => ({ id, mind: index.mindOf(id)! })).filter((p) => p.mind).slice(0, NATURE_MAX);
+    .map(([id]) => ({ id, mind: READ(index, id).mind! })).filter((p) => p.mind).slice(0, NATURE_MAX);
 }
 export const DELIBERATION_TEXT: Record<MindProfile['deliberation'], string> = {
   rarely: 'rarely thinks before acting (acts on instinct and feeling; thinks a problem through only when pushed)',
@@ -575,7 +578,7 @@ export function buildPacket(inp: PacketInput, compact = false): Packet {
   // Knowledge boundaries
   const restricted = occIds.map((id) => index.state.occurrences.get(id)!).filter((o) => o.visibility.mode !== 'public');
   // Each record above already carries its visibility and knowers: state the rule once.
-  if (restricted.length) required.push(`KNOWLEDGE BOUNDARIES (world truth vs who knows it): ${restricted.length} record(s) above are not public and are known only to the knowers listed with them (none listed: no established knowledge holder). Physical consequences remain visible; do not disclose the hidden cause to the player or other NPCs${inp.perception?.player && index.natureNow(inp.perception.player)?.version.perceives?.kinds.length ? ' — except as a power that perceives reaches it (HOW THEY ARE)' : ''}.`);
+  if (restricted.length) required.push(`KNOWLEDGE BOUNDARIES (world truth vs who knows it): ${restricted.length} record(s) above are not public and are known only to the knowers listed with them (none listed: no established knowledge holder). Physical consequences remain visible; do not disclose the hidden cause to the player or other NPCs${inp.perception?.player && READ(index, inp.perception.player).nature?.version.perceives?.kinds.length ? ' — except as a power that perceives reaches it (HOW THEY ARE)' : ''}.`);
   if (retrieval.ambiguous.length) required.push('AMBIGUOUS REFERENCES (do not guess; keep ambiguity in narration):\n' + retrieval.ambiguous.map((a) => '- ' + a).join('\n'));
   if (inp.requiredContacts && !inp.review) required.push(inp.requiredContacts);
   if (inp.hostile && !inp.review) required.push(inp.hostile);

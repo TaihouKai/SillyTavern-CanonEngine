@@ -85,7 +85,7 @@ def main(argv=None):
     ap.add_argument('--adopt', help='golden: pairs (a|b, comma separated) read in the builder output, copied into the verified relations')
     ap.add_argument('--note', help='golden --adopt: what the person checked')
     ap.add_argument('--apply', action='store_true', help='address: put the proposals (read first: work/<project>/out/address-review.txt) into the verified relations')
-    ap.add_argument('--part', choices=['setting', 'golden', 'people', 'precedents', 'timing'], help='combat: which pass (setting proposals; golden: the reviewed setting into projects/<p>.combat.json; people needs it)')
+    ap.add_argument('--part', choices=['setting', 'golden', 'place', 'people', 'precedents', 'timing'], help='combat: which pass (setting proposals; golden: the review into the verified pool, then place; place: the pool into projects/<p>.combat.json in the pack shape; people needs the pool)')
     ap.add_argument('--only', help='combat --part people: only these person ids, comma separated')
     ap.add_argument('--offpeak', action='store_true', help='make model calls only at the off-peak price; stop when peak hours begin')
     args = ap.parse_args(argv)
@@ -270,14 +270,17 @@ def main(argv=None):
                     combat.golden_people(project, pk)
                 if rvw.get('precedents'):
                     combat.golden_precedents(project, pk)
+                combat.place(project, pk)
+            elif args.part == 'place':
+                combat.place(project, pk)
             elif args.part == 'people':
-                combat.gen_people(project, cl, pk, read_json(combat.golden_path(project), {}) or {}, nature.wiki_pages(project), lang, set(args.only.split(',')) if args.only else None)
+                combat.gen_people(project, cl, pk, read_json(combat.pool_path(project), {}) or {}, nature.wiki_pages(project), lang, set(args.only.split(',')) if args.only else None)
             elif args.part == 'precedents':
                 combat.gen_precedents(project, cl, pk, lang)
             elif args.part == 'timing':
-                combat.gen_timing(project, cl, pk, read_json(combat.golden_path(project), {}) or {}, nature.wiki_pages(project), lang, set(args.only.split(',')) if args.only else None)
+                combat.gen_timing(project, cl, pk, read_json(combat.pool_path(project), {}) or {}, nature.wiki_pages(project), lang, set(args.only.split(',')) if args.only else None)
             else:
-                log('combat: give --part setting|golden|people|precedents|timing')
+                log('combat: give --part setting|golden|place|people|precedents|timing')
                 return 2
         except llm.BudgetExceeded as e:
             log(str(e))

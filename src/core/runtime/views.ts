@@ -2,6 +2,7 @@
 // calls these for the game in play; anything else holding a world (a pack's canon replayed to a time) calls them too.
 import type { AddressForm, Id, MindProfile, NatureVersion, RelationView } from '../domain/types';
 import type { WorldIndex } from '../domain/world-query';
+import { aspectReader, aspectWritten } from '../domain/aspects';
 import { factAt } from '../domain/reducer';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { agoLabel, formatTick } from '../domain/time';
@@ -55,14 +56,17 @@ export function membershipView(idx: WorldIndex, tick: number, origin: Origin, sp
  *  starts at an event still to come: a canon spoiler, shown only with spoilers on. The people the story brought in
  *  (the player character first) are listed like the pack's. With them, their relations in force in this game (the
  *  ones still to come are not shown: they are spoilers and change with play). */
+// the 人物 page shows 常态 (every version, the one in force marked) and 思考方式
+const WRITTEN = aspectWritten(['nature', 'mind'] as const);
+const READ_NOW = aspectReader(['nature'] as const);
 export function natureView(idx: WorldIndex, spoilers: boolean, player?: Id | null, origin: Origin = null): NatureViewData {
   const s = idx.state;
   const title = (e?: Id | null) => (e ? idx.pack.events.get(e)?.title || e : null);
   const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
   let hidden = 0;
-  const all = [...[...s.runtimeEntities.values()].sort((a, b) => Number(b.id === player) - Number(a.id === player)), ...idx.pack.entities.values()] as { id: Id; name: string; nature?: NatureVersion[]; mind?: MindProfile }[];
+  const all = [...[...s.runtimeEntities.values()].sort((a, b) => Number(b.id === player) - Number(a.id === player)), ...idx.pack.entities.values()].map((e) => ({ id: e.id, name: e.name, ...WRITTEN(idx, e.id) }));
   const people: NatureViewData['people'] = all.filter((e) => e.nature?.length || e.mind).map((e) => {
-    const nowAt = idx.natureNow(e.id)?.index ?? -1;
+    const nowAt = READ_NOW(idx, e.id).nature?.index ?? -1;
     const versions = (e.nature || []).map((v, i) => ({ ...v, from: title(v.from_event), until: title(v.until_event),
       state: (i === nowAt ? 'now' : i === 0 || occurred(v.from_event) ? 'ended' : 'later') as 'now' | 'ended' | 'later' }))
       .filter((v) => { if (v.state === 'later' && !spoilers) { hidden++; return false; } return true; });

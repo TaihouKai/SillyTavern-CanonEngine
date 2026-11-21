@@ -2,7 +2,7 @@
 
 This is the independent input-format specification for an author or coding agent creating a **new history data file**. Read it without needing the earlier design conversation. The companion `schemas/canon-pack.schema.json` is the exact structural contract. `examples/demo.canon.json` is a complete valid example using an invented world.
 
-This guide is current for Canon Engine 1.20.0. The file format remains `schema_version: "1.0.0"`; later additions (structured summaries, time frames, etc.) are optional fields, so older packs stay valid. There is no lorebook input path. `examples/unrelated-history.canon.json` is a second complete example with events independent of the main Hard chain.
+This guide is current for Canon Engine 1.47.0. The file format is `schema_version: "2.0.0"`: what an entity has (常态, 思考方式, 对抗倾向, abilities, links into the setting) lives in its `aspects`, and the combat section holds only the setting (see §3). A `1.0.0` pack is refused with that message; rebuild it. There is no lorebook input path. `examples/unrelated-history.canon.json` is a second complete example with events independent of the main Hard chain.
 
 ## 1. Scope and intended workflow
 
@@ -19,7 +19,7 @@ The runtime engine is general-purpose. No Toaru-specific dates, characters, even
 | Top-level field | Meaning |
 | --- | --- |
 | `$schema` | Optional local/URI reference for editor assistance; not a fetch instruction |
-| `schema_version` | Exactly `1.0.0` for this specification |
+| `schema_version` | Exactly `2.0.0` for this specification |
 | `pack_id` | Stable identity of the authored world/timeline dataset |
 | `pack_version` | Three-part numeric version, e.g. `1.2.0` |
 | `title`, `language`, `description` | Human-readable identity and content language |
@@ -136,9 +136,24 @@ At play time the reviewer reports when a reply moves the scene into or out of a 
 
 `canon-lint` checks frame ids, unknown references, unreadable local dates, a frame on a non-place (warning) and an event whose places are in different frames without its own `frame_id` (warning). See `examples/frames-demo.canon.json`.
 
+### 条目的属性 (an entity's aspects)
+
+An entity has one record. What the world knows of it beyond its description goes in `aspects`, in a fixed set of kinds (the registry, `src/core/domain/aspects.ts`); each kind has its own format check and is allowed only on some kinds of entity. A module of the engine reads only the kinds it names, never the record raw.
+
+| aspect | for | what |
+| --- | --- | --- |
+| `nature` (常态) | person | how a power, condition or body shows in everyday scenes, in versions |
+| `mind` (思考方式) | person | how the person thinks |
+| `combat_style` (对抗倾向) | person | how they act in a confrontation, in versions |
+| `abilities` (能力) | person, object, organization, other | what it can do, told in parts (a person's power or skill, what an object does, what an organization's members are trained in) |
+| `setting` (设定归属) | any | what kind of being it is and the setting's shared things it has (links to the setting's nodes, in versions); for a place, the dangers met there |
+| `fighting` (战斗中) | object, organization, place, world, other | what it is in a fight (a unit of nuns fighting by numbers; a kind of powered suit) |
+
+What changes in play is not an aspect but a fact (§5): who holds an object (`holder`), who belongs to an organization (`members`), who leads it (`leader`). Whoever holds an object or belongs to an organization gets what it has (its abilities, what it is in a fight, its links) in a fight; an organization inside a larger one passes the larger one's on too. Relations are the top-level `relations` (a pair, not one entity's). The player character gets the same aspects from the Persona.
+
 ### 常态 (a person's nature)
 
-A person with a power, a condition, a non-human body or a device they depend on can carry `nature`: how it shows in everyday scenes, so the GM plays it as part of the person rather than a skill kept for the plot.
+A person with a power, a condition, a non-human body or a device they depend on can carry `aspects.nature`: how it shows in everyday scenes, so the GM plays it as part of the person rather than a skill kept for the plot.
 
 ```json
 "nature": [
@@ -157,7 +172,7 @@ A person with a power, a condition, a non-human body or a device they depend on 
 
 ### 思考方式 (how a person thinks)
 
-Any person, with or without a power, can carry `mind`: how much effort they put into thinking before they act, how well they reason when they do, and how they go about a problem. Without it the GM gives everyone the same mind and changes only the tone: a schemer merely sounds clever, a hothead reasons like a scholar.
+Any person, with or without a power, can carry `aspects.mind`: how much effort they put into thinking before they act, how well they reason when they do, and how they go about a problem. Without it the GM gives everyone the same mind and changes only the tone: a schemer merely sounds clever, a hothead reasons like a scholar.
 
 ```json
 "mind": {"deliberation": "habitual", "sharpness": "exceptional", "approach": "…", "thinks_hard_about": "…", "pushed": "…", "notices": "…", "blind": "…", "speaks": "…"}
@@ -224,22 +239,22 @@ The top-level `relations` list says how pairs of people stand with each other. W
 When a fight is going on, the engine has a model judge each turn before the GM writes. The judge decides what each side does and what happens, and the GM only writes it up. The judge needs to know how fights work in this world. The pack's `combat` section tells it, and every pack must have one.
 
 - **A world without fights says so.** `"combat": {"none": "<why>"}` (a slice-of-life world, or data not written yet). Fights are then judged on common sense alone. A missing section is an error, so a pack never leaves this out by accident.
-- **Otherwise:** `"combat": {"basis": "…", "nodes": […], "links": […]}`.
+- **Otherwise:** `"combat": {"basis": "…", "nodes": […], "links": […]}`: the setting, what belongs to no one entity. What one entity has or is goes on that entity (`aspects`), never as a node: a person's own powers, an object's function, what an organization is in a fight.
   - `basis`: a few sentences on what fights in this world turn on (the systems of power, what usually beats what, what counts besides strength). The judge always gets it.
   - `nodes`: what fights are judged by, each with `id`, `kind`, `name`, `gist` (one sentence) and `text` (a few sentences):
     - `concept`: a kind of fighter or being and what it means in a fight (a power level, a 魔术师, an ordinary person, a trained unit);
     - `rule`: a law of the world that decides fights, with when it applies;
-    - `ability`: a power, technique, spell, item or weapon, with `parts`. The parts are `principle`, `effect` (required), `conditions`, `cost`, `limits` and `counters`. Leave out a part the sources say nothing about;
+    - `ability`: a power, technique, spell, item or weapon shared by many or belonging to no one (firearms, a kind of spell, a kind of device), with `parts`. The parts are `principle`, `effect` (required), `conditions`, `cost`, `limits` and `counters`. Leave out a part the sources say nothing about. An entity's own abilities are written the same way in its `aspects.abilities` (with `from_event`/`until_event` when gained or lost later, and `links` to the setting's nodes they belong to); their ids share one space with the nodes;
     - `precedent`: a fight of the original story, with `who` (the people) and `event_id`: who won, how, and why.
     - `danger`: an everyday danger of the setting, i.e. what someone meets at a place: who comes, whom they pick, how it goes. It has `frequency` (`common`, `occasional`, `rare`: how often someone there in those hours meets it) and may have `hours` (`{from, to}`, `"HH:MM"`, across midnight allowed; absent means any time). It is linked from the places it belongs to, or from an organization whose members it goes for. A setting without such dangers has none.
   - Each node gives `source_refs`, or `generated: true` when a model wrote it where the sources say nothing.
   - A node or a single part can have `visibility` like a secret (`public`, `restricted` or `secret`, with `knower_ids`). A weakness only a few know is a secret part. The judge uses it only for those who know it.
-  - `links`: `{from, to, label}`. `from` is an entity or a node, and `to` is a node. A link from an entity can hold only from an event (`from_event`) and end at one (`until_event`): a power gained, lost or changed.
-- **How the judge finds what it needs.** It does not search by keywords. It walks the links from the people in the fight, those present and the place, to their kinds, abilities and rules, and from those onwards. It never walks into another entity. Near nodes come in full and far ones as their gist, up to the distance and size set in the advanced settings under 战斗分析. So everything a fight needs must be reachable by links:
+  - `links`: `{from, to, label}` between nodes (an entity's ability counts as a node; so does an entity with `fighting`, as a `to`). An entity's own links are its `aspects.setting`: `{node, label}`, holding from an event (`from_event`) until one (`until_event`). A specific object of the pack that is one of a kind of thing links to that kind (卡提纳正统 → 卡提纳: whoever holds it gets the kind).
+- **How the judge finds what it needs.** It does not search by keywords. It walks the links from the people in the fight, those present and the place, to their kinds, abilities and rules (and what comes with the objects they hold and the organizations they belong to now), and from those onwards. It never walks into another entity. Near nodes come in full and far ones as their gist, up to the distance and size set in the advanced settings under 战斗分析. So everything a fight needs must be reachable by links:
   - every person links to at least what kind of person they are;
   - a rule hangs off what it applies to (the concept → the rule), not the other way;
   - an ability links to the concept it belongs to.
-- **对抗倾向 (`combat_style` on a person).** How the person acts in a confrontation, as five sentences, in versions like 常态:
+- **对抗倾向 (`aspects.combat_style` on a person).** How the person acts in a confrontation, as five sentences, in versions like 常态:
   - `start` (出手): when they start a fight themselves;
   - `force` (下手): how much of their strength they use, whether they kill, when they go all out;
   - `response` (应对): what they do when attacked;
@@ -250,10 +265,10 @@ When a fight is going on, the engine has a model judge each turn before the GM w
 - **Lint checks.**
   - `none` and `basis` exclude each other. Ids are unique and are not entity ids.
   - Parts only on abilities, and every ability has `effect`. `who` and `event_id` only on precedents.
-  - Every link names a known entity or node, and its events exist.
-  - Errors: a node with neither `source_refs` nor `generated`, and, when the pack has combat, a person without `combat_style`.
-  - Warnings: a node no entity reaches through links (a fight never gets it), and a person linked to no node.
-- **Building.** canon-pack-builder: `python -m cpb combat -p <project> --part setting` proposes nodes from the setting's wiki pages (those not already in the main dumps). A person reads every proposal and records keep, drop or an edit in `projects/<project>.combat-review.json`, together with nodes and links written by hand. `--part golden` writes what was kept into `projects/<project>.combat.json`. `--part people` then proposes each person's links, own abilities and 对抗倾向. A setting ability the wiki gives the person must be linked or rejected, never written again. `--part precedents` proposes the original story's fights. Each pass is read the same way. `build` puts the verified file into the pack. Without it, the pack says `none` and the checks list it as a problem.
+  - Every link names a known node, and its events exist; a link from an entity is refused (it belongs in its aspects), and an entity's link to another entity that says nothing of what it is in a fight is refused (holding and belonging are facts).
+  - Errors: a node or ability with neither `source_refs` nor `generated`, an aspect on a kind of entity it is not for, two abilities with one id, and, when the pack has combat, a person without `combat_style`.
+  - Warnings: a node no entity reaches through links (a fight never gets it), and a person with no abilities and no link into the setting.
+- **Building.** canon-pack-builder: `python -m cpb combat -p <project> --part setting` proposes nodes from the setting's wiki pages (those not already in the main dumps). A person reads every proposal and records keep, drop or an edit in `projects/<project>.combat-review.json`, together with nodes and links written by hand. `--part golden` writes what was kept into the verified pool (`work/<project>/combat/pool.json`). `--part people` then proposes each person's links, own abilities and 对抗倾向. A setting ability the wiki gives the person must be linked or rejected, never written again. `--part precedents` proposes the original story's fights. Each pass is read the same way. `--part place` (also at the end of `golden`) writes `projects/<project>.combat.json` in the pack's shape: every node goes where the review's `placement` says (`setting`, `{"owner": id}`, `{"entity": id}` when the node is that entity of the pack, `{"merge": node}`, `{"drop": why}`); by default a person's own ability goes to that person and a setting ability one entity uses to it; a node named like an entity must be decided. An entity's link to a node now on another entity is a tie (`ties`: `fact`, `link` or `drop`; `fact` by default where the pack's facts have it), and `holders` adds who holds an object from an event (until one). `build` puts the verified file into the pack. Without it, the pack says `none` and the checks list it as a problem.
 
 ## 4. Sources and provenance
 

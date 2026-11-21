@@ -38728,6 +38728,21 @@
     "Kiyama Aiho"
    ],
    "note": "通读核对（2026-11-14）：错误或泛称的别名"
+  },
+  "sword-of-war": {
+   "kind": "object",
+   "description": "玛丽安·斯琳格奈亚所持的魔剑，传说出鞘即终结世界，能召唤各神话的末日与最高神化身。",
+   "note": "战斗数据核对（2026-11-21）：两个事件里都是玛丽安的魔剑，不是北欧神话的地名"
+  },
+  "automatic-writing-remote-control-spiritual-item": {
+   "merge_into": "johns-pen-remote",
+   "note": "战斗数据核对（2026-11-21）：同一件灵装，误作地点，没有事件"
+  },
+  "gate-of-gods": {
+   "aliases_add": [
+    "天上より来たる神々の門"
+   ],
+   "note": "战斗数据核对（2026-11-21）：日文原名"
   }
  },
  "minds": {
@@ -38948,7 +38963,15 @@
    "at": {
     "tsuchimikado-motoharu": "start"
    },
-   "note": "通读核对（2026-11-14）：土御门早是成员"
+   "note": "通读核对（2026-11-14）：土御门早是成员；战斗数据核对（2026-11-21）：补成员",
+   "add": {
+    "necessary-evil-church": "start",
+    "karasuma-fran": null,
+    "silvia": null,
+    "dion-fortune": "kamijou.001.b8",
+    "reflex-gesang-klingen": null,
+    "ureapaddy-exica": "endymion.001.b17"
+   }
   },
   "anti-skill": {
    "drop": [
@@ -38956,7 +38979,11 @@
     "stephanie-gorgeouspalace",
     "teshio-megumi"
    ],
-   "note": "通读核对（2026-11-14）：恐怖分子；警备员出身、现属 BLOCK；前警备员、现为佣兵"
+   "note": "通读核对（2026-11-14）：恐怖分子；警备员出身、现属 BLOCK；前警备员、现为佣兵；战斗数据核对（2026-11-21）：补成员",
+   "add": {
+    "takahashi": null,
+    "keibi-tai-cho": null
+   }
   },
   "armed-level-0-group": {
    "drop": [
@@ -39045,7 +39072,13 @@
     "tsuchimikado-motoharu": "start",
     "orsola-aquinas": "orsola.001.b25"
    },
-   "note": "通读核对（2026-11-14）：土御门早是成员；奥索拉到篇末才加入英国清教"
+   "note": "通读核对（2026-11-14）：土御门早是成员；奥索拉到篇末才加入英国清教；战斗数据核对（2026-11-21）：补成员",
+   "add": {
+    "necessarius-contact": null
+   },
+   "drop": [
+    "ureapaddy-exica"
+   ]
   },
   "school": {
    "at": {
@@ -39062,6 +39095,21 @@
     "yumiya-rakko": "number-six.001.b4"
    },
    "note": "复核清单（2026-11-14）：学生从各自登场起就在校"
+  },
+  "special-exception-squad": {
+   "add": {
+    "inoue-kitsune": null,
+    "sato-yaken": null,
+    "yamada-coyote": null,
+    "tanaka-kitsune": null
+   },
+   "note": "战斗数据核对（2026-11-21）：补成员"
+  },
+  "judgment": {
+   "add": {
+    "minamioki-sarusa": "start"
+   },
+   "note": "战斗数据核对（2026-11-21）：补成员（南冲在第一次出场时遇害，生前已是风纪委员）"
   }
  },
  "added_events": {

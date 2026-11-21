@@ -1597,6 +1597,34 @@
    "to": "back-alley-thugs",
    "label": "危险（背街小巷）",
    "from_entity": true
+  },
+  {
+   "from": "ability-decline",
+   "to": "capacity-down",
+   "label": "是",
+   "from_entity": true,
+   "note": "战斗数据核对（2026-11-21）：这一件是这一类"
+  },
+  {
+   "from": "level-upper-audio-file",
+   "to": "level-upper",
+   "label": "是",
+   "from_entity": true,
+   "note": "战斗数据核对（2026-11-21）：这一件是这一类"
+  },
+  {
+   "from": "curtana-orthodox",
+   "to": "curtana",
+   "label": "是",
+   "from_entity": true,
+   "note": "战斗数据核对（2026-11-21）：这一件是这一类"
+  },
+  {
+   "from": "gatling-gun",
+   "to": "firearms",
+   "label": "是",
+   "from_entity": true,
+   "note": "战斗数据核对（2026-11-21）：这一件是这一类"
   }
  ],
  "people": {
@@ -10226,5 +10254,313 @@
   "xiaoguo": {
    "ordinary-person": "drop"
   }
- }
+ },
+ "placement": {
+  "agnese-forces-cb": {
+   "entity": "agnese-forces"
+  },
+  "aim-burst": {
+   "entity": "fantasy-beast"
+  },
+  "aim-burst-core": {
+   "entity": "fantasy-beast"
+  },
+  "aim-burst-multi-ability": {
+   "entity": "fantasy-beast"
+  },
+  "aim-burst-regeneration": {
+   "entity": "fantasy-beast"
+  },
+  "amakusa-christian": {
+   "entity": "amakusa"
+  },
+  "anglican-church-cb": {
+   "entity": "anglican-church"
+  },
+  "five-over-cb": {
+   "entity": "five-over"
+  },
+  "god-s-right-seat": {
+   "entity": "god-right-seat"
+  },
+  "god-right-seat-telesma-control": {
+   "entity": "god-right-seat"
+  },
+  "misaka-network-cb": {
+   "entity": "misaka-network"
+  },
+  "misaka-network-link": {
+   "entity": "misaka-network"
+  },
+  "powered-suit-cb": {
+   "entity": "powered-suit"
+  },
+  "adriatic-queen-cb": {
+   "entity": "adriatic-queen",
+   "as": "fighting"
+  },
+  "anti-art-attachment": {
+   "entity": "anti-magic-powered-suit"
+  },
+  "ascalon-cb": {
+   "entity": "ascalon"
+  },
+  "collar-cb": {
+   "entity": "collar"
+  },
+  "exterior": {
+   "entity": "external-brain"
+  },
+  "gungnir": {
+   "entity": "gungsnir"
+  },
+  "imagine-breaker-cb": {
+   "entity": "imagine-breaker"
+  },
+  "walking-church-cb": {
+   "entity": "walking-church"
+  },
+  "world-rejecter": {
+   "entity": "ideal-exile"
+  },
+  "anti-skill-cb": {
+   "entity": "anti-skill"
+  },
+  "judgment-cb": {
+   "entity": "judgment"
+  },
+  "shoggoth-sample-2": {
+   "entity": "shoggoth-sample"
+  },
+  "remote-control-spiritual-item": {
+   "entity": "johns-pen-remote"
+  },
+  "koutei-no-keikou": {
+   "entity": "emperor-luggage"
+  },
+  "apostolic-cross": {
+   "entity": "apostle-cross"
+  },
+  "mimosa-2": {
+   "entity": "mimosa"
+  },
+  "logistics-wasp-2": {
+   "entity": "logistics-wasp"
+  },
+  "asteroid-intercept-laser": {
+   "entity": "special-exception-squad"
+  },
+  "asteroid-intercept-laser-2": {
+   "merge": "asteroid-intercept-laser"
+  },
+  "asteroid-intercept-laser-3": {
+   "merge": "asteroid-intercept-laser"
+  },
+  "asteroid-intercept-laser-4": {
+   "merge": "asteroid-intercept-laser"
+  },
+  "phase": {
+   "entity": "countless-phases"
+  },
+  "dainsleif": {
+   "entity": "sword-of-war"
+  },
+  "dark-matter": {
+   "owner": "kakine-teitoku"
+  },
+  "mental-out": {
+   "owner": "shokuhou-misaki"
+  },
+  "remote-control-spiritual-item-2": {
+   "owner": "laura-stuart"
+  },
+  "domination-foil": {
+   "owner": "kouzaku-mitori"
+  },
+  "universal-crystal-2": {
+   "owner": "kokuchou-mayui"
+  },
+  "angel-dragon-2": {
+   "owner": "shundan-kimi"
+  },
+  "kaso-doku": {
+   "owner": "hitokawa-hasami"
+  },
+  "taowu-artificial-soul": {
+   "owner": "isaac-rosenthal"
+  },
+  "trishula": {
+   "owner": "ureapaddy-exica"
+  },
+  "automata": {
+   "owner": "automaton"
+  },
+  "mokkurkalfi": {
+   "owner": "mokkerkalfe"
+  },
+  "reverse-qabalah-puzzle-545": {
+   "drop": "逆源质拼图545 is its own entity with its abilities"
+  },
+  "ladybug": {
+   "drop": "瓢虫 is its own entity with its abilities"
+  },
+  "kadou": {
+   "drop": "祸斗 is its own entity; 人皮挟美 has it as her own (kaso-doku)"
+  },
+  "taowu-2": {
+   "drop": "梼杌 is its own entity; 伊萨克 has it as his own"
+  },
+  "rouzeki": {
+   "drop": "狼藉 is its own entity with the same ability (drone-wolf-command)"
+  },
+  "aero-hand": {
+   "owner": "kongou-mitsuko"
+  },
+  "black-wings": {
+   "owner": "accelerator"
+  },
+  "white-wings": {
+   "owner": "accelerator"
+  },
+  "reflection": {
+   "owner": "accelerator"
+  },
+  "brisingamen": {
+   "owner": "freyja"
+  },
+  "coin-of-nicholas": {
+   "owner": "anna-sprengel"
+  },
+  "electron-beam": {
+   "owner": "mugino-shizuri"
+  },
+  "f2000r-assault-rifle": {
+   "owner": "misaka-sisters"
+  },
+  "instant-alchemy": {
+   "owner": "aureolus-izzard"
+  },
+  "radio-noise": {
+   "owner": "misaka-sisters"
+  },
+  "aero-shooter": "setting",
+  "second-sight": "setting",
+  "capacity-down": "setting",
+  "level-5": {
+   "entity": "level5"
+  },
+  "gate-of-the-gods-come-from-the-heavens": {
+   "entity": "gate-of-gods"
+  }
+ },
+ "ties": {
+  "kamijou-touma|imagine-breaker-cb": "fact",
+  "kamijou-touma-impostor|imagine-breaker-cb": "link",
+  "misaka-mikoto|misaka-network-link": "link",
+  "accelerator|misaka-network-link": "link",
+  "last-order|misaka-network-cb": "link",
+  "misaka-10032|misaka-network-cb": "link",
+  "misaka-sisters|misaka-network-cb": "link",
+  "misaka-sisters|misaka-network-link": "link",
+  "misaka-worst|misaka-network-cb": "link",
+  "will-of-the-whole-misaka-network|misaka-network-cb": "link",
+  "misaka-10777|misaka-network-cb": "link",
+  "dolly|misaka-network-cb": "link",
+  "misaka-10031|misaka-network-cb": "link",
+  "misaka-10046|misaka-network-cb": "link",
+  "misaka-9982|misaka-network-cb": "link",
+  "misaka-19090|misaka-network-cb": "link",
+  "index|walking-church-cb": "fact",
+  "index|collar-cb": "fact",
+  "shokuhou-misaki|exterior": "link",
+  "aleister-crowley|anti-art-attachment": "link",
+  "kihara-yuiitsu|anti-art-attachment": "link",
+  "yomikawa-aiho|powered-suit-cb": "link",
+  "kihara-noukan|powered-suit-cb": "link",
+  "therestina-kihara-lifeline|powered-suit-cb": "link",
+  "aritomi-haruki|powered-suit-cb": "link",
+  "kihara-hasuu|powered-suit-cb": "link",
+  "shutaura-sequenzia|powered-suit-cb": "link",
+  "shiokishi|powered-suit-cb": "link",
+  "silver-cross-alpha|powered-suit-cb": "link",
+  "kosako-shunichi|powered-suit-cb": "link",
+  "sekimura-hirotada|powered-suit-cb": "link",
+  "madarame-kenji|powered-suit-cb": "link",
+  "mitsuari-ayu|five-over-cb": "link",
+  "silver-cross-alpha|five-over-cb": "link",
+  "kamisato-kakeru|world-rejecter": "fact",
+  "lidvia-lorenzetti|apostolic-cross": "fact",
+  "the-professor|mimosa-2": "fact",
+  "darris-hewlane|logistics-wasp-2": "link",
+  "biagio-busoni|adriatic-queen-cb": "link",
+  "biagio-busoni|agnese-forces-cb": "link",
+  "cynthia-exment|amakusa-christian": "link",
+  "elizard|anglican-church-cb": "drop",
+  "knight-leader|anglican-church-cb": "drop",
+  "rensa|level-5": "link",
+  "original-sample|level-5": "link",
+  "shihai-hakka|level-5": "link",
+  "rensa-029|level-5": "link",
+  "kakine-teitoku-05|level-5": "link",
+  "marian-slingeneyer|dainsleif": "fact",
+  "ureapaddy-exica|gate-of-the-gods-come-from-the-heavens": "link"
+ },
+ "holders": [
+  {
+   "object": "imagine-breaker",
+   "holder": "kamijou-touma",
+   "at": "prehistory.001.b46",
+   "why": "生来寄宿在右手"
+  },
+  {
+   "object": "imagine-breaker",
+   "holder": "kamijou-touma",
+   "at": "wwiii.001.b15",
+   "why": "黄金之手消散后右手回来，打倒右方之火"
+  },
+  {
+   "object": "walking-church",
+   "holder": "index",
+   "at": "prehistory.001.b50",
+   "until": "index.001.b3",
+   "why": "茵蒂克丝穿着，被幻想杀手破坏为止"
+  },
+  {
+   "object": "collar",
+   "holder": "index",
+   "at": "prehistory.001.b50",
+   "until": "index.001.b13",
+   "why": "埋在茵蒂克丝喉咙深处，被破坏为止"
+  },
+  {
+   "object": "ideal-exile",
+   "holder": "kamisato-kakeru",
+   "at": "magic-god-invasion.001.b28",
+   "why": "寄宿在上里翔流右手"
+  },
+  {
+   "object": "ideal-exile",
+   "holder": "kamisato-kakeru",
+   "at": "kamisato-rescue.001.b27",
+   "why": "夺回理想放逐"
+  },
+  {
+   "object": "apostle-cross",
+   "holder": "lidvia-lorenzetti",
+   "at": "daihasei-index.001.b21",
+   "why": "丽多薇雅带入学园都市发动"
+  },
+  {
+   "object": "mimosa",
+   "holder": "the-professor",
+   "at": "daihasei-railgun.001.b2",
+   "why": "博士操纵的纳米粒子"
+  },
+  {
+   "object": "sword-of-war",
+   "holder": "marian-slingeneyer",
+   "at": "baggage.001.b18",
+   "why": "玛丽安的魔剑"
+  }
+ ]
 }

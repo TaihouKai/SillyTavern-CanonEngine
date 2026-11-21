@@ -12,6 +12,8 @@ const btn = (label: string, attrs: string, tone = '') => `<button class="menu_bu
 const fold = (key: string, label: string, inner: string, cls = '') => `<details class="ci-fold${cls ? ` ${cls}` : ''}" data-key="${esc(key)}"><summary>${esc(label)}</summary><div class="ci-fold-in">${inner}</div></details>`;
 const sec = (id: string, label: string, inner: string, tipHtml = '', cls = '') => `<section class="ci-sec${cls ? ` ${cls}` : ''}" data-sec="${id}"><h4 class="ci-sec-h"><span>${esc(label)}</span>${tipHtml}<span class="ci-sp"></span></h4>${inner}</section>`;
 const empty = (s: string) => `<div class="ci-empty">${esc(s)}</div>`;
+// a link's words: the engine's own (their ability, what they hold, where they belong) in the page's language, else the pack's
+const linkWord = (l: { label: string | null; how?: string }, none = '') => (l.how ? t('cbHow_' + l.how) : l.label ?? none);
 const nodeBtn = (id: string, label: string) => `<button class="ci-nodelink" data-act="cb-node" data-node="${esc(id)}">${esc(label)}</button>`;
 
 /** The 战斗 page. query: the page's filter box (people by name; the setting's nodes by name or text, people by name);
@@ -53,7 +55,7 @@ export function combatHtml(v: CombatView | null, query: string, picked: Readonly
     const add = fold(`cba-${p.id}`, t('combatAddStateFold'), `<input class="text_pole cb-st-text" placeholder="${esc(t('combatStateText'))}"><div class="ci-cbrow"><input class="text_pole cb-st-count" type="number" min="0" placeholder="${esc(t('combatCount'))}"><input class="text_pole cb-st-min" type="number" min="1" placeholder="${esc(t('combatMinutes'))}"></div><div class="ci-actions">${btn(t('combatAddState'), `data-act="cb-state-add" data-entity="${esc(p.id)}"`, 'primary')}</div>`);
     const style = fold(`cbs-${p.id}`, p.style ? t('combatStyle') : `${t('combatStyle')} · ${t('combatStyleNone')}`, (p.style ? '' : `<div class="ci-muted">${esc(t('combatNoStyle'))}</div>`) + keys.map((k) => `<label class="ci-lbl">${esc(t('style_' + k))}</label><textarea class="text_pole cb-sty-${k}" rows="2">${esc(p.style?.[k] || '')}</textarea>`).join('')
       + `<div class="ci-actions">${p.style ? src(p.style.source) : ''}<span class="ci-sp"></span>${btn(t('combatStyleSave'), `data-act="cb-style-save" data-entity="${esc(p.id)}"`, 'primary')}</div>`, 'ci-edit');
-    const links = p.links.length ? `<div class="ci-meta"><b>${esc(t('combatLinks'))}：</b>${p.links.map((l) => `${esc(l.label)} ${nodeBtn(l.node, l.name)}${l.source !== 'pack' ? `（${esc(t('combatSrc_' + l.source))}）` : ''}`).join('；')}</div>` : '';
+    const links = p.links.length ? `<div class="ci-meta"><b>${esc(t('combatLinks'))}：</b>${p.links.map((l) => `${esc(l.via ? `${t('cbHow_' + l.how)}「${l.via}」·${l.label === 'has' ? t('cbHow_has') : l.label}` : linkWord(l))} ${nodeBtn(l.node, l.name)}${l.source !== 'pack' ? `（${esc(t('combatSrc_' + l.source))}）` : ''}`).join('；')}</div>` : '';
     const pick = !v.fight.ongoing ? `<label class="ci-check ci-cbpick" title="${esc(t('combatPickTip'))}"><input type="checkbox" class="cb-pick" data-entity="${esc(p.id)}" ${picked.has(p.id) ? 'checked' : ''}><span>${esc(t('combatPick'))}</span></label>` : '';
     const head = `<span class="ci-title">${esc(p.name)}</span>${p.player ? chip(t('naturePlayer'), 'accent') : ''}${p.fighting ? chip(t('combatFighting'), 'bad') : ''}<span class="ci-sp"></span>${pick}`;
     return `<div class="ci-item ci-cbperson" data-key="cbp-${esc(p.id)}" data-entity="${esc(p.id)}"><div class="ci-head">${head}</div><div class="ci-body">${states}${links}</div>${add}${style}</div>`;
@@ -72,13 +74,13 @@ export function combatHtml(v: CombatView | null, query: string, picked: Readonly
       ...(n.parts.length ? [`<table class="ci-kv">${n.parts.map((p) => `<tr><th>${esc(t('cbPart_' + p.part))}</th><td>${esc(p.text)} ${knownBy(p.knowers)}</td></tr>`).join('')}</table>`] : []),
       ...(n.who.length ? [`<div><b>${esc(t('cbWho'))}：</b>${esc(n.who.join('、'))}</div>`] : []),
       ...(n.event ? [`<div><b>${esc(t('cbEvent'))}：</b>${esc(n.event)}</div>`] : []),
-      ...(n.out.length ? [`<div><b>${esc(t('cbOut'))}：</b>${n.out.map((l) => `${esc(l.label ?? t('cbFought'))} ${nodeBtn(l.node, l.name)}`).join('；')}</div>`] : []),
-      ...(ins.length ? [`<div><b>${esc(t('cbIn'))}：</b>${ins.map((l) => `${nodeBtn(l.id, l.name)} ${esc(l.label)}${l.source !== 'pack' ? `（${esc(t('combatSrc_' + l.source))}）` : ''}${l.later ? `（${esc(t('cbLater').replace('{e}', l.later))}）` : ''}`).join('；')}${n.in.length > ins.length ? esc(t('cbInMore').replace('{n}', String(n.in.length - ins.length))) : ''}</div>`] : []),
+      ...(n.out.length ? [`<div><b>${esc(t('cbOut'))}：</b>${n.out.map((l) => `${esc(linkWord(l, t('cbFought')))} ${nodeBtn(l.node, l.name)}`).join('；')}</div>`] : []),
+      ...(ins.length ? [`<div><b>${esc(t('cbIn'))}：</b>${ins.map((l) => `${nodeBtn(l.id, l.name)} ${esc(linkWord(l))}${l.source !== 'pack' ? `（${esc(t('combatSrc_' + l.source))}）` : ''}${l.later ? `（${esc(t('cbLater').replace('{e}', l.later))}）` : ''}`).join('；')}${n.in.length > ins.length ? esc(t('cbInMore').replace('{n}', String(n.in.length - ins.length))) : ''}</div>`] : []),
     ];
     const headHtml = `${dot(n.kind)}<span class="ci-title">${esc(n.name)}</span>${chip(t('cbKind_' + n.kind))}${n.generated ? chip(t('cbGenerated'), 'warn') : ''}${knownBy(n.knowers)}${n.frequency ? chip(t('hoFreq_' + n.frequency), 'muted') : ''}${n.hours ? chip(n.hours, 'muted') : ''}`;
     return `<div class="ci-item ci-cbnode ci-pin" data-key="cbn-focus"><div class="ci-head">${headHtml}</div><div class="ci-body">${rows.join('')}</div></div>`;
   };
-  const g = S.graph;
+  const g = { ...S.graph, edges: S.graph.edges.map((e) => ({ ...e, label: e.how ? t('cbHow_' + e.how) : e.label })) };
   const legend = [...new Set(g.nodes.map((p) => p.kind))].map((k) => `<span class="ci-legend">${dot(k)}${esc(t('cbKind_' + k))}</span>`).join('');
   const graph = S.focus
     ? `<div class="ci-cbgraph-wrap"><canvas class="ci-cbgraph" data-sig="${esc(`${S.focus.id}|${g.nodes.length}|${g.edges.length}`)}"></canvas><div class="ci-cbgraph-cap">${legend}<span class="ci-sp"></span>${g.morePeople ? `<span class="ci-muted">${esc(t('cbMorePeople').replace('{n}', String(g.morePeople)))}</span>` : ''}<span class="ci-muted">${esc(t('cbGraphHint'))}</span></div></div>${card(S.focus)}`

@@ -26,7 +26,8 @@ describe('model response schemas', () => {
 describe('package validation parity: 22 deliberately invalid variants are rejected', () => {
   const variants: [string, (p: any) => void][] = [
     ['World Info shape', (p) => { for (const k of Object.keys(p)) delete p[k]; p.entries = { 0: { uid: 0, key: ['x'], content: 'y' } }; }],
-    ['Unsupported schema version', (p) => { p.schema_version = '2.0.0'; }],
+    ['Unsupported schema version', (p) => { p.schema_version = '3.0.0'; }],
+    ['Old format (1.0.0)', (p) => { p.schema_version = '1.0.0'; }],
     ['Undeclared root field', (p) => { p.extra = 1; }],
     ['Hard downgrade subtype', (p) => { p.events[2].hard_subtype = 'start'; }],
     ['Hard description absent', (p) => { p.events[2].required_description = null; }],
