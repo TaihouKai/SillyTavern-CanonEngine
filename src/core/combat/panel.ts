@@ -67,9 +67,10 @@ export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null
   const L = idx.pack, s = idx.state, tick = s.clock.lo;
   const N = combatNodes(L, s);
   const name = (id: Id) => idx.entityName(id);
-  // what a ruling went by, as the panel shows it: a node by name, the Persona, a lorebook entry, someone's 对抗倾向
+  // what a ruling went by, as the panel shows it: a node by name, the Persona, a lorebook entry, someone's 对抗倾向 or
+  // what is so of them now
   const basisLabel = (b: { ref: string; quote?: string }) =>
-    (N.get(b.ref)?.name || (b.ref === 'persona' ? 'Persona' : b.ref === 'judgement' ? '判断' : b.ref.startsWith('style:') ? `${name(b.ref.slice(6))}的对抗倾向` : b.ref.startsWith('lore:') ? `世界书 ${b.ref.slice(5)}` : b.ref)) + (b.quote ? `「${b.quote}」` : '');
+    (N.get(b.ref)?.name || (b.ref === 'persona' ? 'Persona' : b.ref === 'judgement' ? '判断' : b.ref.startsWith('style:') ? `${name(b.ref.slice(6))}的对抗倾向` : b.ref.startsWith('world:') ? `${name(b.ref.slice(6))}的现状` : b.ref.startsWith('canon:') ? `原作「${idx.pack.events.get(b.ref.slice(6))?.title || b.ref.slice(6)}」` : b.ref.startsWith('lore:') ? `世界书 ${b.ref.slice(5)}` : b.ref)) + (b.quote ? `「${b.quote}」` : '');
   const f = fightNow(s);
   const occurred = (e?: Id | null) => !!e && s.dispositions.get(e)?.disposition === 'occurred';
   let hidden = 0;

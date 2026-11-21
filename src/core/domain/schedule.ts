@@ -39,6 +39,12 @@ export function hardDeadlinesReached(pack: LoadedPack, state: WorldState, toIncl
   return crossedCandidates(pack, state, -Infinity, toInclusive).filter((c) => c.event.classification === 'HARD' && isDue(c, toInclusive));
 }
 
+/** The pending HARD events near `at`: one of the next two, or one whose window opens within two days. Their outcomes
+ *  only they establish (the reply check refuses them otherwise; a fight is told so beforehand). */
+export function nearHard(pending: Candidate[], at: number): Candidate[] {
+  return pending.filter((c, i) => i < 2 || c.lo <= at + 2 * 1440);
+}
+
 /** Pending HARD obligations ordered by deadline (compact register). */
 export function pendingHard(pack: LoadedPack, state: WorldState): Candidate[] {
   return pack.timeIndex

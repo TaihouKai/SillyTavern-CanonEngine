@@ -56,6 +56,13 @@ export function personaLibraryCore(entry: any, description: string): string | nu
   return description.trim().startsWith(core) ? core : null;
 }
 
+/** The Persona as SillyTavern sends it: the names in for {{user}} and {{char}} (and the old <USER>, <BOT>). Only
+ *  these: the other macros ({{random}}, {{time}}) would make the same Persona read as a changed one. A name not
+ *  known leaves the macro as it is. */
+export function withNames(text: string, user: string, char: string): string {
+  return text.replace(/\{\{\s*user\s*\}\}|<USER>/gi, (m) => user || m).replace(/\{\{\s*char\s*\}\}|<BOT>/gi, (m) => char || m);
+}
+
 /** World Info's secondary-key logic (selective + selectiveLogic: 0 AND ANY, 1 NOT ALL, 2 NOT ANY, 3 AND ALL). */
 export function stLogic(e: any): LoreEntry['secondaryLogic'] {
   if (!e?.selective) return null;
@@ -386,8 +393,9 @@ export class StHost implements HostPort {
     const opts = { ignoreSections: !!this.settings().ignorePersonaSections };
     const c = ctx();
     const name = String(c.name1 || '');
-    const description = String(c.powerUserSettings?.persona_description || '');
-    const core = personaLibraryCore(c.extensionSettings?.personaLibrarySections?.[(stModule as any)?.user_avatar], description);
+    const raw = String(c.powerUserSettings?.persona_description || '');
+    const rawCore = personaLibraryCore(c.extensionSettings?.personaLibrarySections?.[(stModule as any)?.user_avatar], raw);
+    const description = withNames(raw, name, String(c.name2 || '')), core = rawCore === null ? null : withNames(rawCore, name, String(c.name2 || ''));
     if (core === null) return { name, description };
     return opts?.ignoreSections ? { name, description: core, alt: description, source: 'persona_core' } : { name, description, alt: core };
   }

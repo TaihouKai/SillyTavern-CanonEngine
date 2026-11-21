@@ -12,7 +12,7 @@ import { toTick, formatTick } from '../domain/time';
 import type { TimeEvidence } from './scenetime';
 import { gateCombat, type CombatEvalOut, type CombatReview } from '../combat';
 import { gateHostility, type HostilityEvalOut, type HostilityReview } from '../hostility';
-import { isDue, pendingHard } from '../domain/schedule';
+import { isDue, nearHard, pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
 import type { ClaimInput, Retrieval } from './context';
 import { withUntil } from './ends';
@@ -277,15 +277,12 @@ export function runGate(g: GateInput): GateResult {
    *  (as a change, not the value already holding) while the event is near (one of the next two pending HARD
    *  events, or its window opens within 2 days of the scene). Other values of the same fact are ordinary story (e.g. someone's whereabouts changes long
    *  before a HARD event that later requires a particular whereabouts). */
-  const nextHard = [...pendingHardMap.keys()].slice(0, 2);
   const preempted = (d: FactDelta, at: number): Id | undefined => {
     if (d.op === 'unset') return undefined;
     const cur = factAt(index.state, d.entity_id, d.predicate, { tick: Number.MAX_SAFE_INTEGER });
     if (applyChange(cur.known ? cur.value : undefined, d) === 'same') return undefined;
-    return (hardOutcomeKeys.get(`${d.entity_id}|${d.predicate}`) || []).find((id) => {
-      const c = pendingHardMap.get(id)!;
-      return (nextHard.includes(id) || c.lo <= at + 2 * 1440) && c.event.outcomes.some((o) => deltaMeets(d, o));
-    });
+    const near = new Set(nearHard([...pendingHardMap.values()], at).map((c) => c.event.id));
+    return (hardOutcomeKeys.get(`${d.entity_id}|${d.predicate}`) || []).find((id) => near.has(id) && pendingHardMap.get(id)!.event.outcomes.some((o) => deltaMeets(d, o)));
   };
 
   // occurrences

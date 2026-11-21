@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.48.1 — 2026-11-21 (pack 7.1.0)
+
+- **A fight knows what the story fixes for later.** Alice cut the 能力下降 in a gang's factory two days before the raid in which 美琴 destroys it. The ruling had it cut, and the reply check refused every reply that showed it, so the turn failed. A fight is now told the outcomes of the next HARD events about someone in it, what they hold, or the thing at work in it. Such an outcome does not happen in the fight: the attempt falls short in a way that fits, and a player's outcome that would bring it about is stopped by it. An event whose window is already open is not held back (the fight may be that event).
+- **What is so of someone stops an outcome.** "The sword is still in his hand" counted as mere judgement, so the stop was ruled again. A fighter's states, what they hold and the world's record of them are now a basis that stops an outcome, quoted.
+- **The names in the Persona.** The Persona was read with `{{user}}` left in it, so 塞拉菲娜's abilities read 「使{{user}}可以复制、操控原初之火」. `{{user}}`, `{{char}}`, `<USER>` and `<BOT>` now become the names, as SillyTavern sends them. The other macros stay as they are: `{{random}}` or `{{time}}` would make the same Persona look changed. A Persona read before this shows as changed once.
+- **A person the reading names by an alias.** The reading named the silver-haired nun on the rooftop "index-librorum-prohibitorum", an alias of 茵蒂克丝 written as an id. It matched nobody, so she fought as a stranger. A candidate written as a name now counts as the one entity it names.
+
 ## 1.48.0 — 2026-11-21 (pack 7.1.0)
 
 - **A power and its uses.** 神光爱丽丝's 万光统御 was read as five separate abilities: the power itself, plus 光之实体, 光子振动炮, 神经光同步 and 光子手术刀 listed beside it. That caused two problems:

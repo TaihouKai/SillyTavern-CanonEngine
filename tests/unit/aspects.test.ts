@@ -251,3 +251,89 @@ describe('an object changes hands in a fight', () => {
   });
 });
 
+describe('what is so of someone stops an outcome', () => {
+  it('AS9 the hook in the gunman\'s hands stops "I swing my hook" (world:<id>, its words); words it does not have do not, and the outcome stands', async () => {
+    const raw = harbor();
+    raw.initial_state.facts.push({ fact: { entity_id: 'hook', predicate: 'holder', value: 'council' }, source_refs: ['example-source'], note: 'x' });
+    const y = makeEngine();
+    (y.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
+    y.model.on('profile', null, PROFILE);
+    y.model.on('persona_abilities', null, { abilities: [], setting: [] });
+    await y.engine.bind(JSON.stringify(raw), { startTick: tick(1, 6, 0), mode: 'new' });
+    await y.engine.reconcile('test');
+    const turn = async (msg: string, quote: string) => {
+      y.host.addUser(msg);
+      y.model.on('extract_user', (i) => i.message === msg, { fight: { state: 'starts', participants: ['council'], why: 'x' } }, true);
+      y.model.on('combat', (i) => i.player_message === msg, { reasoning: 'x', player_outcomes: [{ quote: 'my hook hits him', stands: false, basis: [{ ref: 'world:council', quote }], why: 'he holds it' }],
+        exchanges: [{ actor: 'council', text: 'He keeps the hook.', basis: [{ ref: 'world:council', quote }] }], statuses: [], over: false });
+      y.model.draft(`He keeps the hook. [${quote}]`);
+      y.model.on('evaluate', null, { scene_end: at(1, 6, 10) });
+      await y.engine.runOperation('normal');
+      return y.engine.combatView(false)!.rulings[0];
+    };
+    const a = await turn('I swing my hook and my hook hits him.', 'hook | Cargo hook');
+    expect(a.stopped.map((o) => o.basis)).toEqual([['The Council的现状「hook | Cargo hook」']]);
+    expect(a.notes.join(' ')).not.toMatch(/without an objective mechanism/);
+    const b = await turn('Again: I swing my hook and my hook hits him.', 'the hook is his');
+    expect(b.stopped).toEqual([]);
+    expect(b.stands).toContain('my hook hits him');
+  });
+});
+
+describe('what the story fixes for later', () => {
+  it('AS10 a near HARD outcome about someone here, or what they hold, is canon_fixed: it stops the player\'s outcome, and a handover that would bring it about is left out', async () => {
+    const raw = harbor();
+    raw.initial_state.facts.push({ fact: { entity_id: 'hook', predicate: 'holder', value: 'council' }, source_refs: ['example-source'], note: 'x' });
+    const ev = raw.events.find((e) => e.id === 'conflict-begins')!;
+    ev.outcomes.push({ entity_id: 'hook', predicate: 'holder', value: 'mira' }, { entity_id: 'council', predicate: 'alive', value: false });
+    ev.canonical_effects.push({ op: 'set', fact: { entity_id: 'hook', predicate: 'holder', value: 'mira' }, until: 'lasting' }, { op: 'set', fact: { entity_id: 'council', predicate: 'alive', value: false }, until: 'lasting' });
+    const y = makeEngine();
+    (y.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
+    y.model.on('profile', null, PROFILE);
+    y.model.on('persona_abilities', null, { abilities: [], setting: [] });
+    await y.engine.bind(JSON.stringify(raw), { startTick: tick(1, 6, 0), mode: 'new' });
+    await y.engine.reconcile('test');
+    const msg = 'I shoot the gunman dead.';
+    y.host.addUser(msg);
+    y.model.on('extract_user', (i) => i.message === msg, { fight: { state: 'starts', participants: ['council', 'mira'], why: 'x' } }, true);
+    y.model.on('combat', (i) => i.player_message === msg, (i: any) => {
+      expect(i.canon_fixed).toEqual([
+        { ref: 'canon:conflict-begins', who: 'hook | Cargo hook', what: 'holder becomes Mira', only_by: ev.title },
+        { ref: 'canon:conflict-begins', who: 'council | The Council', what: 'alive becomes false', only_by: ev.title },
+      ]);
+      return { reasoning: 'x', player_outcomes: [{ quote: 'shoot the gunman dead', stands: false, basis: [{ ref: 'canon:conflict-begins' }], why: 'he lives to see the conflict' }],
+        exchanges: [{ actor: 'council', text: 'The shot misses; he drops the hook and Mira catches it.', basis: [{ ref: 'canon:conflict-begins' }] }], statuses: [], over: false,
+        handovers: [{ object: 'hook', to: 'mira' }] };
+    });
+    y.model.draft('The shot misses. [AS10]');
+    y.model.on('evaluate', null, { scene_end: at(1, 6, 10) });
+    await y.engine.runOperation('normal');
+    const r = y.engine.combatView(false)!.rulings[0];
+    expect(r.stopped.map((o) => o.basis)).toEqual([[`原作「${ev.title}」`]]);
+    expect(r.notes.join(' ')).not.toMatch(/without an objective mechanism/);
+    expect(r.notes.join(' ')).toMatch(/"hook" goes to "mira", which only ".*" brings about/);
+    expect(tiesOf(y.engine.current!.replay.state, 'council').holds).toEqual(['hook']);
+  });
+  it('AS10b an event whose window is open is not fixed (the fight may be it)', async () => {
+    const raw = harbor();
+    const ev = raw.events.find((e) => e.id === 'conflict-begins')!;
+    ev.outcomes.push({ entity_id: 'council', predicate: 'alive', value: false });
+    ev.canonical_effects.push({ op: 'set', fact: { entity_id: 'council', predicate: 'alive', value: false }, until: 'lasting' });
+    const y = makeEngine();
+    (y.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
+    y.model.on('profile', null, PROFILE);
+    y.model.on('persona_abilities', null, { abilities: [], setting: [] });
+    await y.engine.bind(JSON.stringify(raw), { startTick: tick(2, 9, 0), mode: 'new' });
+    await y.engine.reconcile('test');
+    const msg = 'I shoot the gunman.';
+    y.host.addUser(msg);
+    y.model.on('extract_user', (i) => i.message === msg, { fight: { state: 'starts', participants: ['council'], why: 'x' } }, true);
+    let seen: unknown = 'none';
+    y.model.on('combat', (i) => i.player_message === msg, (i: any) => { seen = i.canon_fixed; return { reasoning: 'x', exchanges: [], statuses: [], over: false }; });
+    y.model.draft('Shots. [AS10b]');
+    y.model.on('evaluate', null, { scene_end: at(2, 9, 0) });
+    await y.engine.runOperation('normal');
+    expect(seen).toBeUndefined();
+  });
+});
+

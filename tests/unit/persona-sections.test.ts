@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
-import { personaLibraryCore } from '../../src/hosts/sillytavern/st';
+import { personaLibraryCore, withNames } from '../../src/hosts/sillytavern/st';
 import { personaHash, samePersona } from '../../src/core/runtime/integration';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
@@ -46,3 +46,12 @@ describe('Canon ignores Persona Library sections', () => {
     expect(x.engine.personaChanged()).toBe(false);
   });
 });
+
+describe('the names in the Persona', () => {
+  it('PS-N {{user}} and {{char}} (any case, spaces, the old <USER>/<BOT>) become the names; other macros stay; a name with $ stays as it is; no name keeps the macro', () => {
+    expect(withNames('{{user}} 的炉心。{{ User }}与{{char}}；<USER>/<BOT>；{{random:1,2}} {{time}}', 'S', 'Game Master')).toBe('S 的炉心。S与Game Master；S/Game Master；{{random:1,2}} {{time}}');
+    expect(withNames('{{user}}', '$& $1', '')).toBe('$& $1');
+    expect(withNames('{{user}} {{char}}', '', '')).toBe('{{user}} {{char}}');
+  });
+});
+

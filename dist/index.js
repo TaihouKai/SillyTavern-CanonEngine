@@ -30176,6 +30176,9 @@ function crossedCandidates(pack2, state, fromExclusive, toInclusive) {
 function isDue(window2, tick) {
   return window2.hi <= tick;
 }
+function nearHard(pending, at) {
+  return pending.filter((c, i) => i < 2 || c.lo <= at + 2 * 1440);
+}
 function pendingHard(pack2, state) {
   return pack2.timeIndex.filter((t2) => pack2.events.get(t2.id).classification === "HARD" && state.dispositions.get(t2.id)?.disposition !== "occurred").map((t2) => ({ event: pack2.events.get(t2.id), lo: t2.lo, hi: t2.hi }));
 }
@@ -35933,17 +35936,17 @@ var EVAL_COMBAT = `   statuses: notable states of a person this reply (or player
    fight (only when fight_ruling is not given, for a pack with combat): when the reply itself starts a confrontation the player character is in or sees \u2014 someone attacks, a fight breaks out \u2014: starts true, participants (ids or new_entities refs), quote; resolved_unruled true when the reply then goes on to decide it (blows land, someone wins or loses) instead of stopping where it begins. null when the reply has none.
    ruling_conflicts (only when fight_ruling is given): every place the reply changes what the ruling decided \u2014 another result, someone hit or hurt who was not (or not hit who was), an attack, dodge or escape the ruling does not have, someone arriving or leaving, the fight carried past its stop_at, the player character doing what the player did not write \u2014: quote and why. NOT a conflict: embellishment \u2014 how it looks, sounds and feels, what people say, their taunts, looks, gestures and thoughts \u2014 as long as no result changes; and following the ruling where it rules against the player's message (the ruling has already decided that: its result stands, not the player's words).`;
 var COMBAT_TASK = `TASK: Judge this turn of a fight \u2014 a confrontation whose result depends on one side's abilities against the other's. The game master writes the reply from your ruling and may only embellish it: what happens is yours to decide.
-Input: basis (what this world runs on by default); fighters (id, name, description, states now, world_now \u2014 what the world's record says of them at this moment: an injury, a condition, a form; hold the fight to it, as to their states \u2014, \u5BF9\u6297\u503E\u5411 \u2014 how they act in a fight \u2014, what they are linked to); nodes (the setting and what the fighters have: concepts, rules, abilities told in parts \u2014 each person's own and the player character's too \u2014, what an organization or object they belong to or hold is in a fight, precedents \u2014 how such fights went in the original story; a node with use_of is a use of that ability: the ability's conditions, cost, limits and counters hold for the use too); sources (lorebook entries and the player's Persona, each with a ref); relations between the fighters; knows (what each fighter knows of the others' abilities: a part not listed for them is unknown to them; of the player character's powers, each knows what their known_to_all says \u2014 someone famous is known by what they are famous for \u2014 and more only through what the story showed them); player_message (the player's own words this turn) and statements (what they establish as happening and what they only attempt); recent (the end of the story so far); time.
+Input: basis (what this world runs on by default); fighters (id, name, description, states now, world_now \u2014 what the world's record says of them at this moment: an injury, a condition, a form; hold the fight to it, as to their states \u2014, \u5BF9\u6297\u503E\u5411 \u2014 how they act in a fight \u2014, what they are linked to); nodes (the setting and what the fighters have: concepts, rules, abilities told in parts \u2014 each person's own and the player character's too \u2014, what an organization or object they belong to or hold is in a fight, precedents \u2014 how such fights went in the original story; a node with use_of is a use of that ability: the ability's conditions, cost, limits and counters hold for the use too); sources (lorebook entries and the player's Persona, each with a ref); relations between the fighters; knows (what each fighter knows of the others' abilities: a part not listed for them is unknown to them; of the player character's powers, each knows what their known_to_all says \u2014 someone famous is known by what they are famous for \u2014 and more only through what the story showed them); player_message (the player's own words this turn) and statements (what they establish as happening and what they only attempt); recent (the end of the story so far); time; canon_fixed, when given: what the story brings about later, each only by its event (only_by) \u2014 someone here caught or killed, a thing here destroyed: it does NOT happen in this fight, whatever anyone does. An attempt at it falls short in a way that fits (it misses, is held off or interrupted, the thing survives damaged, they get away), the fight goes on around it, and a player's outcome that would bring it about is stopped with basis [{"ref": that line's ref}]. Nobody in the story knows of these lines.
 1. Authority: an objective mechanism (a node, a source) > what the player's message establishes > your judgement. What the player writes their own character does, and what that act physically does \u2014 they pull the trigger and the bullet hits \u2014 happens. What it then does to someone else beyond what the player wrote is yours to judge by the mechanisms.
-   player_outcomes: EVERY outcome the player's message states for the player character's act \u2014 a hit, a cut, a wound, a kill, someone falling, an escape, an object taken \u2014 once each, quote = the player's words, verbatim. stands: true when it happens as written; false ONLY when an objective mechanism stops it (a reflection, a precognitive dodge, a body that such a blow cannot harm): then basis (node ids; a source ref with its words, verbatim) and why. Without such a mechanism it stands, whatever you would judge. [] when the message states no outcome. outcomes_that_stand, when given: these happen as written \u2014 rule the rest around them.
-2. basis for every exchange: the refs you decided by \u2014 node ids; source refs with quote (the player character's abilities are nodes like anyone's, read from their Persona; the Persona itself is the source "persona": cite it with its words); a fighter's \u5BF9\u6297\u503E\u5411 as "style:<fighter id>" with its words \u2014 or [{"ref":"judgement"}] with unsupported true when nothing in the input decides it; then judge by the common sense of this world's basis. A node's text is the setting: use it as written, do not invent powers, weaknesses or rules it does not have.
+   player_outcomes: EVERY outcome the player's message states for the player character's act \u2014 a hit, a cut, a wound, a kill, someone falling, an escape, an object taken \u2014 once each, quote = the player's words, verbatim. stands: true when it happens as written; false ONLY when an objective mechanism stops it (a reflection, a precognitive dodge, a body that such a blow cannot harm, what is so of someone now \u2014 an object they do not hold, an arm they no longer have \u2014, a line of canon_fixed): then basis (node ids; a source ref with its words, verbatim) and why. Without such a mechanism it stands, whatever you would judge. [] when the message states no outcome. outcomes_that_stand, when given: these happen as written \u2014 rule the rest around them.
+2. basis for every exchange: the refs you decided by \u2014 node ids; source refs with quote (the player character's abilities are nodes like anyone's, read from their Persona; the Persona itself is the source "persona": cite it with its words); a fighter's \u5BF9\u6297\u503E\u5411 as "style:<fighter id>" with its words; what is so of a fighter or someone present now \u2014 a line of their states, holds or world_now \u2014 as "world:<their id>" with its words \u2014 or [{"ref":"judgement"}] with unsupported true when nothing in the input decides it; then judge by the common sense of this world's basis. A node's text is the setting: use it as written, do not invent powers, weaknesses or rules it does not have.
 3. present: people here who are not in the fight. joins: those of them who join it this turn of their own accord \u2014 as their \u5BF9\u6297\u503E\u5411 and their relations with the fighters say (a friend steps in for a friend; a \u98CE\u7EAA\u59D4\u5458 stops a fight) \u2014, by the situation as the player's message makes it now, not as recent left it (live: a thief who had run off came back at the player with a knife, and her friend beside her, who zaps robbers, was ruled to stay out because "he had given up"): they act in exchanges from then on. Nobody joins only to help the story along. [] when nobody does.
    Everyone but the player character acts as their \u5BF9\u6297\u503E\u5411 and their relations with the others say (shocking a friend for fun is play; someone who wants to die does not dodge; someone who never kills holds back), and only on what they know: they go for a weakness only if knows lists it for them. The player character does nothing the player's message does not say: you decide how the world answers it.
 4. This turn only: from what the player's message does to the next moment the player character must decide (an attack coming at them, a choice to make); say that moment in stop_at. exchanges in the order they happen: actor (a fighter id), text \u2014 who does what, with what result, plainly; the game master writes the prose.
 5. statuses: every change of a fighter's state this turn: hurt (where, how badly), bleeding, knocked out ({"minutes": n}), exhausted, a transformation, a counted resource spent (count = what is left), an object lost, taken or picked up (one the world has, from someone's holds: a handover below instead). who = fighter id, text short (a few words: "\u5DE6\u81C2\u9AA8\u6298", "\u53F3\u81C2\u53D1\u9EBB", "\u4EE4\u5492", "\u5931\u53BB\u6B66\u5668"), until {"minutes": n} for what passes by itself (numbness, being dazed or out of breath, a short transformation: how long it takes to pass), "lasting" only for what stays until treated or changed (a fracture, a deep cut, an object lost or held, a counted resource), {"while": "<node id>"} for what lasts as long as a thing at work in this fight goes on (a node reached "at work in this fight": a headache from its noise, being held in its field) \u2014 it ends by itself when that thing stops or the fight is over; a cause that is no such thing: "lasting", removed when it stops \u2014 not for what they can simply make, draw or lay out again; removed: true when a state ends \u2014 go through each fighter's states now: one this turn undoes (a weapon picked up again, what was destroyed laid out anew, a numbness passed) is removed; replaces: the text of a state they have now that this one takes the place of \u2014 it got worse or better, or was treated ("\u9690\u9690\u4F5C\u75DB" \u2192 "\u523A\u75DB\u52A0\u5267", a wound \u2192 the wound bandaged): the old one ends; null otherwise (live, "\u9690\u9690\u4F5C\u75DB", "\u523A\u75DB\u52A0\u5267" and "\u5DE6\u81C2\u523A\u75DB" all stayed). node: only when the state gives the fighter something of the setting to use from now on (a weapon or object picked up or held, a form they turn into): its node id; null otherwise \u2014 never what caused the state (a wound from someone's ability is not that ability of theirs). quote: "".
 6. witnessed: an ability (or one of its parts) someone sees used: node id, part or null, who saw it (fighter ids).
    handovers: each object of the world (from a fighter's or someone present's holds) that changes hands this turn \u2014 taken, knocked away, dropped, picked up: object id, to (the fighter or person here who holds it now, or null when nobody does) and the quote; not a state for it. [] when none does.
-   stops: each thing at work in this fight that stops this turn \u2014 destroyed, switched off, carried off, out of reach \u2014 node id and why; [] when none does.
+   stops: each thing at work in this fight that stops this turn \u2014 destroyed (never one canon_fixed keeps), switched off, carried off, out of reach \u2014 node id and why; [] when none does.
 7. over: true when the fight ends this turn (someone beaten, fled, surrendered, both stop); over_why.
 8. reasoning (write it first): how you ruled, for the player to read \u2014 what decides the exchanges, the player's outcomes and the end: which nodes, sources or \u5BF9\u6297\u503E\u5411 and why, and where only judgement decided. Plainly, a few sentences, in the language of the player's message.
 SHAPE: {"reasoning":"","joins":[],"player_outcomes":[{"quote":"","stands":true,"basis":[{"ref":"","quote":""}],"why":""}],"exchanges":[{"actor":"","text":"","basis":[{"ref":"","quote":""}],"unsupported":false}],"statuses":[{"who":"","text":"","count":null,"until":"lasting","node":null,"removed":false,"replaces":null,"quote":""}],"witnessed":[{"node":"","part":null,"who":[]}],"handovers":[{"object":"","to":null,"quote":""}],"stops":[{"node":"","why":""}],"over":false,"over_why":"","stop_at":""}`;
@@ -36298,7 +36301,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.48.0";
+var ENGINE_RELEASE = "1.48.1";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -38415,6 +38418,11 @@ async function judgeFight(a) {
   const linkLine = (l) => `${l.label} ${l.node}${l.via && l.via !== l.node ? ` (through ${l.via}, which they ${l.how === "holds" ? "hold" : "belong to"})` : ""}${l.source === "fill" ? " (filled in: a guess)" : ""}`;
   const worldNow = (id) => index.entityState(id).facts.filter((f) => index.pack.predicates.get(f.predicate)?.value_type !== "entity_set").slice(0, 10).map((f) => `${f.predicate}: ${f.display}`.slice(0, 200));
   const holdsNow2 = (id) => canHold ? tiesOf(index.state, id).holds.map((o) => `${o} | ${a.index.entityName(o)}`) : [];
+  const statesNow = (id) => statusesOf(index.state, id).map((s) => `${s.text}${s.count != null ? ` \xD7${s.count}` : ""}`);
+  const recordText = (ref) => {
+    const id = ref.startsWith("world:") ? ref.slice(6) : "";
+    return fighters.includes(id) || bystanders.includes(id) ? [...statesNow(id), ...holdsNow2(id), ...worldNow(id)].join("\n") || null : null;
+  };
   const describe = (id) => (L.entities.get(id)?.static_description || a.index.state.runtimeEntities.get(id)?.description || "").slice(0, 600);
   let index = a.index;
   const filled = { links: [], styles: [] };
@@ -38456,6 +38464,18 @@ async function judgeFight(a) {
   const sourceText = /* @__PURE__ */ new Map();
   if (a.playerId && a.personaText) sourceText.set("persona", a.personaText);
   for (const es of loreOf.values()) for (const e of es) sourceText.set(loreRef(e), e.content);
+  const at = index.state.clock.hi;
+  const here = /* @__PURE__ */ new Set([...fighters, ...bystanders, ...[...fighters, ...bystanders].flatMap((id) => canHold ? tiesOf(index.state, id).holds : [])]);
+  const isThingHere = (id) => L.entities.get(id)?.kind !== "person" && linksOf(L, index.state, id).some((l) => inFight.includes(l.node));
+  const fixed = [];
+  for (const c of nearHard(pendingHard(L, index.state), at).filter((x) => x.lo > at)) for (const o of c.event.outcomes) {
+    if (!here.has(o.entity_id) && !(L.entities.has(o.entity_id) && isThingHere(o.entity_id))) continue;
+    const cur = factAt(index.state, o.entity_id, o.predicate, { tick: at });
+    if ((o.op || "set") === "set" && cur.known && cur.value !== void 0 && o.value !== void 0 && valuesEqual(cur.value, o.value)) continue;
+    fixed.push({ ref: `canon:${c.event.id}`, who: o.entity_id, outcome: o, event: c.event.id });
+  }
+  const fixedRefs = new Set(fixed.map((f) => f.ref));
+  const valueText = (v) => (Array.isArray(v) ? v : [v]).map((x) => typeof x === "string" && index.entityExists(x) ? name2(x) : typeof x === "string" ? x : JSON.stringify(x)).join(", ");
   const relations = [];
   for (let i = 0; i < fighters.length; i++) for (let j = i + 1; j < fighters.length; j++) {
     const r = index.relationNow(fighters[i], fighters[j]);
@@ -38473,7 +38493,7 @@ async function judgeFight(a) {
       name: name2(id),
       ...id === a.playerId ? { player_character: true, ...a.playerPublic ? { known_to_all: a.playerPublic.slice(0, 600) } : {} } : {},
       description: describe(id),
-      states: statusesOf(index.state, id).map((s) => `${s.text}${s.count != null ? ` \xD7${s.count}` : ""}`),
+      states: statesNow(id),
       ...holdsNow2(id).length ? { holds: holdsNow2(id) } : {},
       // what the world says of them now (an arm cut off by the story, a condition): live, a judge that had only the
       // fight's own states had 上条 raise the right arm the story had cut off
@@ -38493,6 +38513,7 @@ async function judgeFight(a) {
     sources: [...sourceText].map(([ref, text]) => ({ ref, text: text.slice(0, 3e3) })),
     relations,
     knows,
+    ...fixed.length ? { canon_fixed: fixed.map((f) => ({ ref: f.ref, who: `${f.who} | ${name2(f.who)}`, what: `${f.outcome.predicate}${f.outcome.op === "add" ? " gains" : f.outcome.op === "remove" ? " loses" : " becomes"} ${valueText(f.outcome.value)}`, only_by: L.events.get(f.event).title })) } : {},
     present: bystanders.map((id) => ({ id, name: name2(id), description: describe(id), style: styleOf(L, index.state, id)?.style || null, linked: linksOf(L, index.state, id).map(linkLine), relations: fighters.map((f) => index.relationNow(id, f)).filter(Boolean).map((r) => r.bond) })),
     player_message: a.playerMessage,
     statements: a.statements,
@@ -38508,8 +38529,9 @@ async function judgeFight(a) {
     const r = String(b.ref || ""), i = r.lastIndexOf(":");
     return i > 0 && N.has(r.slice(0, i)) && ABILITY_PARTS.includes(r.slice(i + 1)) ? { ...b, ref: r.slice(0, i) } : b;
   };
-  const basisOk = (b) => b.ref === "judgement" || N.has(b.ref) && walk2.nodes.some((w) => w.node.id === b.ref) || sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)) || !!b.quote && !!styleText(b.ref) && quoteInText(b.quote, styleText(b.ref));
-  const objectiveOk = (b) => objective.has(b.ref) || sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref));
+  const recordOk = (b) => !!b.quote && !!recordText(b.ref) && quoteInText(b.quote, recordText(b.ref));
+  const basisOk = (b) => b.ref === "judgement" || fixedRefs.has(b.ref) || N.has(b.ref) && walk2.nodes.some((w) => w.node.id === b.ref) || sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)) || !!b.quote && !!styleText(b.ref) && quoteInText(b.quote, styleText(b.ref)) || recordOk(b);
+  const objectiveOk = (b) => objective.has(b.ref) || fixedRefs.has(b.ref) || sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)) || recordOk(b);
   const checkOutcomes = (o) => {
     const list = [], unfounded = [];
     for (const x of o.player_outcomes || []) {
@@ -38599,6 +38621,12 @@ async function judgeFight(a) {
     }
     if (to && !fighters.includes(to) && !bystanders.includes(to)) {
       notes.push(`ruling: "${obj}" goes to "${to}", who is not here (left out)`);
+      continue;
+    }
+    const d = to ? { op: "set", entity_id: obj, predicate: "holder", value: to } : { op: "unset", entity_id: obj, predicate: "holder" };
+    const by = fixed.find((f) => deltaMeets(d, f.outcome));
+    if (by) {
+      notes.push(`ruling: "${obj}" goes to "${to}", which only "${L.events.get(by.event).title}" brings about (left out)`);
       continue;
     }
     if (!handovers.some((h) => h.object === obj)) handovers.push({ object: obj, to });
@@ -38898,7 +38926,7 @@ function combatView(idx, spoilers, player, origin, rulings, query = "", focus = 
   const L = idx.pack, s = idx.state, tick = s.clock.lo;
   const N = combatNodes(L, s);
   const name2 = (id) => idx.entityName(id);
-  const basisLabel = (b) => (N.get(b.ref)?.name || (b.ref === "persona" ? "Persona" : b.ref === "judgement" ? "\u5224\u65AD" : b.ref.startsWith("style:") ? `${name2(b.ref.slice(6))}\u7684\u5BF9\u6297\u503E\u5411` : b.ref.startsWith("lore:") ? `\u4E16\u754C\u4E66 ${b.ref.slice(5)}` : b.ref)) + (b.quote ? `\u300C${b.quote}\u300D` : "");
+  const basisLabel = (b) => (N.get(b.ref)?.name || (b.ref === "persona" ? "Persona" : b.ref === "judgement" ? "\u5224\u65AD" : b.ref.startsWith("style:") ? `${name2(b.ref.slice(6))}\u7684\u5BF9\u6297\u503E\u5411` : b.ref.startsWith("world:") ? `${name2(b.ref.slice(6))}\u7684\u73B0\u72B6` : b.ref.startsWith("canon:") ? `\u539F\u4F5C\u300C${idx.pack.events.get(b.ref.slice(6))?.title || b.ref.slice(6)}\u300D` : b.ref.startsWith("lore:") ? `\u4E16\u754C\u4E66 ${b.ref.slice(5)}` : b.ref)) + (b.quote ? `\u300C${b.quote}\u300D` : "");
   const f = fightNow(s);
   const occurred = (e) => !!e && s.dispositions.get(e)?.disposition === "occurred";
   let hidden = 0;
@@ -39394,15 +39422,12 @@ function runGate(g) {
     const k = `${o.entity_id}|${o.predicate}`;
     hardOutcomeKeys.set(k, [...hardOutcomeKeys.get(k) || [], id]);
   }
-  const nextHard = [...pendingHardMap.keys()].slice(0, 2);
   const preempted = (d, at) => {
     if (d.op === "unset") return void 0;
     const cur = factAt(index.state, d.entity_id, d.predicate, { tick: Number.MAX_SAFE_INTEGER });
     if (applyChange(cur.known ? cur.value : void 0, d) === "same") return void 0;
-    return (hardOutcomeKeys.get(`${d.entity_id}|${d.predicate}`) || []).find((id) => {
-      const c = pendingHardMap.get(id);
-      return (nextHard.includes(id) || c.lo <= at + 2 * 1440) && c.event.outcomes.some((o) => deltaMeets(d, o));
-    });
+    const near = new Set(nearHard([...pendingHardMap.values()], at).map((c) => c.event.id));
+    return (hardOutcomeKeys.get(`${d.entity_id}|${d.predicate}`) || []).find((id) => near.has(id) && pendingHardMap.get(id).event.outcomes.some((o) => deltaMeets(d, o)));
   };
   const occByRef = /* @__PURE__ */ new Map();
   const occRecords = [];
@@ -41069,6 +41094,11 @@ var olderRelease = (a, b) => {
 var READ_PEOPLE = aspectReader(["nature"]);
 var READ_PLAYER2 = aspectReader(["nature", "abilities", "setting"]);
 var outputBudget = (text) => Math.min(16384, Math.max(4096, 2048 + String(text || "").length * 4));
+function candidateId(index, x) {
+  if (index.entityExists(x) || index.pack.events.has(x) || index.state.occurrences.has(x)) return x;
+  const r = index.resolveEntity(x.replace(/[-_.]+/g, " ").trim());
+  return r.ids.length === 1 ? r.ids[0] : null;
+}
 var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check", profile: "reading the Persona", integrate: "how the world reacts to the player", foreknow: "what the people with you have planned", leap: "planning the time leap", world_check: "checking the lorebook against this game", mind: "what the people here think and plan", relate: "how the relations change", combat: "judging the fight", combat_fill: "what the fighters are", combat_who: "who the fighters are", persona_abilities: "reading what your character can do" };
 var formatUsd = (v) => `$${v < 0.1 ? v.toFixed(4) : v < 10 ? v.toFixed(3) : v.toFixed(2)}`;
 var replyChars = (text) => String(text || "").replace(/\s+/g, "").length;
@@ -41793,6 +41823,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       extractInput,
       { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(entry.text) }
     ), this.settings.taskTimeoutMs * 4, signal);
+    for (const r of out.references || []) if (r.candidates) r.candidates = uniq(r.candidates.map((x) => candidateId(index, String(x))).filter((x) => !!x));
     const asserted = out.statements.filter((s) => s.kind === "asserted_fact" && !s.ambiguous && quoteInText(s.quote, entry.text)).flatMap((s) => s.facts || []).filter((f) => pack2.predicates.get(f.predicate) && pack2.predicates.get(f.predicate).value_type !== "entity_set" && index.entityExists(f.entity_id));
     await this.settleEnds(
       "extract_user",
@@ -47666,6 +47697,9 @@ function personaLibraryCore(entry, description) {
   if (!core || !sections.length) return null;
   return description.trim().startsWith(core) ? core : null;
 }
+function withNames(text, user, char) {
+  return text.replace(/\{\{\s*user\s*\}\}|<USER>/gi, (m) => user || m).replace(/\{\{\s*char\s*\}\}|<BOT>/gi, (m) => char || m);
+}
 function stLogic(e) {
   if (!e?.selective) return null;
   return ["any", "not_all", "not_any", "all"][Number(e.selectiveLogic) || 0] || "any";
@@ -48015,8 +48049,9 @@ var StHost = class {
     const opts = { ignoreSections: !!this.settings().ignorePersonaSections };
     const c = ctx();
     const name2 = String(c.name1 || "");
-    const description = String(c.powerUserSettings?.persona_description || "");
-    const core = personaLibraryCore(c.extensionSettings?.personaLibrarySections?.[stModule?.user_avatar], description);
+    const raw2 = String(c.powerUserSettings?.persona_description || "");
+    const rawCore = personaLibraryCore(c.extensionSettings?.personaLibrarySections?.[stModule?.user_avatar], raw2);
+    const description = withNames(raw2, name2, String(c.name2 || "")), core = rawCore === null ? null : withNames(rawCore, name2, String(c.name2 || ""));
     if (core === null) return { name: name2, description };
     return opts?.ignoreSections ? { name: name2, description: core, alt: description, source: "persona_core" } : { name: name2, description, alt: core };
   }

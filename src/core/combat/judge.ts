@@ -7,9 +7,12 @@
 //   player's Persona; the model rules the turn (combat), the code checks it: the player's words stand unless an
 //   objective mechanism (a node the fighters reach without filled-in links, a lorebook entry or the Persona, quoted)
 //   stops them; states and who saw what become records of the reply.
-import type { CombatLinkChange, FactDelta, Id, StatusChange, StoryTime, StyleChange, Witnessed } from '../domain/types';
+import type { CombatLinkChange, FactDelta, Id, Outcome, StatusChange, StoryTime, StyleChange, Witnessed } from '../domain/types';
+import { deltaMeets } from '../domain/delta';
+import { factAt } from '../domain/reducer';
+import { nearHard, pendingHard } from '../domain/schedule';
 import { ABILITY_PARTS } from '../domain/types';
-import { normalizeName } from '../domain/pack';
+import { normalizeName, valuesEqual } from '../domain/pack';
 import type { WorldIndex } from '../domain/world-query';
 import { quoteInText, uniq } from '../domain/util';
 import { keyMatch, type LoreEntry } from '../runtime/lore';
@@ -97,6 +100,10 @@ export async function judgeFight(a: {
   const worldNow = (id: Id) => index.entityState(id).facts.filter((f) => index.pack.predicates.get(f.predicate)?.value_type !== 'entity_set').slice(0, 10).map((f) => `${f.predicate}: ${f.display}`.slice(0, 200));
   // the objects of the world someone holds now (the facts): what a ruling may hand over
   const holdsNow = (id: Id) => (canHold ? tiesOf(index.state, id).holds.map((o) => `${o} | ${a.index.entityName(o)}`) : []);
+  const statesNow = (id: Id) => statusesOf(index.state, id).map((s) => `${s.text}${s.count != null ? ` ×${s.count}` : ''}`);
+  // what is so of someone here now (the fight's states, what they hold, the world's record): a basis that stops an
+  // outcome as a mechanism does ("world:<id>"; live, "the sword is still in his hand" counted as mere judgement)
+  const recordText = (ref: string) => { const id = ref.startsWith('world:') ? ref.slice(6) : ''; return fighters.includes(id) || bystanders.includes(id) ? [...statesNow(id), ...holdsNow(id), ...worldNow(id)].join('\n') || null : null; };
   const describe = (id: Id) => (L.entities.get(id)?.static_description || a.index.state.runtimeEntities.get(id)?.description || '').slice(0, 600);
 
   // 1. what nothing says: filled in from the setting's concepts (lowest source, kept with the reply)
@@ -138,6 +145,23 @@ export async function judgeFight(a: {
   const sourceText = new Map<string, string>();
   if (a.playerId && a.personaText) sourceText.set('persona', a.personaText);
   for (const es of loreOf.values()) for (const e of es) sourceText.set(loreRef(e), e.content);
+  // what the story fixes for later: an outcome of a near HARD event about someone here, what they hold, or the very
+  // thing at work in the fight (an object of the pack that is that device) happens only by that event. The fight is
+  // told so, and it stops an outcome as a mechanism does (live: Alice cut the 能力下降 two days before the raid that
+  // destroys it; the ruling had it cut, the reply check refused every reply that showed it, and the turn failed)
+  const at = index.state.clock.hi;
+  const here = new Set([...fighters, ...bystanders, ...[...fighters, ...bystanders].flatMap((id) => (canHold ? tiesOf(index.state, id).holds : []))]);
+  const isThingHere = (id: Id) => L.entities.get(id)?.kind !== 'person' && linksOf(L, index.state, id).some((l) => inFight.includes(l.node));
+  const fixed: { ref: string; who: Id; outcome: Outcome; event: Id }[] = [];
+  // (an event whose window is open may be this very fight: its outcomes come as it does)
+  for (const c of nearHard(pendingHard(L, index.state), at).filter((x) => x.lo > at)) for (const o of c.event.outcomes) {
+    if (!here.has(o.entity_id) && !(L.entities.has(o.entity_id) && isThingHere(o.entity_id))) continue;
+    const cur = factAt(index.state, o.entity_id, o.predicate, { tick: at });
+    if ((o.op || 'set') === 'set' && cur.known && cur.value !== undefined && o.value !== undefined && valuesEqual(cur.value, o.value)) continue;
+    fixed.push({ ref: `canon:${c.event.id}`, who: o.entity_id, outcome: o, event: c.event.id });
+  }
+  const fixedRefs = new Set(fixed.map((f) => f.ref));
+  const valueText = (v: unknown) => (Array.isArray(v) ? v : [v]).map((x) => (typeof x === 'string' && index.entityExists(x) ? name(x) : typeof x === 'string' ? x : JSON.stringify(x))).join(', ');
   const relations = [];
   for (let i = 0; i < fighters.length; i++) for (let j = i + 1; j < fighters.length; j++) {
     const r = index.relationNow(fighters[i], fighters[j]);
@@ -152,7 +176,7 @@ export async function judgeFight(a: {
     time: a.timeLabel,
     fighters: fighters.map((id) => ({
       id, name: name(id), ...(id === a.playerId ? { player_character: true, ...(a.playerPublic ? { known_to_all: a.playerPublic.slice(0, 600) } : {}) } : {}), description: describe(id),
-      states: statusesOf(index.state, id).map((s) => `${s.text}${s.count != null ? ` ×${s.count}` : ''}`),
+      states: statesNow(id),
       ...(holdsNow(id).length ? { holds: holdsNow(id) } : {}),
       // what the world says of them now (an arm cut off by the story, a condition): live, a judge that had only the
       // fight's own states had 上条 raise the right arm the story had cut off
@@ -166,6 +190,7 @@ export async function judgeFight(a: {
     })),
     sources: [...sourceText].map(([ref, text]) => ({ ref, text: text.slice(0, 3000) })),
     relations, knows,
+    ...(fixed.length ? { canon_fixed: fixed.map((f) => ({ ref: f.ref, who: `${f.who} | ${name(f.who)}`, what: `${f.outcome.predicate}${f.outcome.op === 'add' ? ' gains' : f.outcome.op === 'remove' ? ' loses' : ' becomes'} ${valueText(f.outcome.value)}`, only_by: L.events.get(f.event)!.title })) } : {}),
     present: bystanders.map((id) => ({ id, name: name(id), description: describe(id), style: styleOf(L, index.state, id)?.style || null, linked: linksOf(L, index.state, id).map(linkLine), relations: fighters.map((f) => index.relationNow(id, f)).filter(Boolean).map((r) => r!.bond) })),
     player_message: a.playerMessage, statements: a.statements, recent: a.recent.slice(-2000),
   };
@@ -178,8 +203,9 @@ export async function judgeFight(a: {
   // a part of a node cited as "<node>:<part>" (the way knows lists them) is that node (live: the effect of a jamming
   // device a gang ran was cited so, and left out)
   const fixRef = (b: { ref: string; quote?: string }) => { const r = String(b.ref || ''), i = r.lastIndexOf(':'); return i > 0 && N.has(r.slice(0, i)) && (ABILITY_PARTS as readonly string[]).includes(r.slice(i + 1)) ? { ...b, ref: r.slice(0, i) } : b; };
-  const basisOk = (b: { ref: string; quote?: string }) => b.ref === 'judgement' || N.has(b.ref) && walk.nodes.some((w) => w.node.id === b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!)) || (!!b.quote && !!styleText(b.ref) && quoteInText(b.quote, styleText(b.ref)!));
-  const objectiveOk = (b: { ref: string; quote?: string }) => objective.has(b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!));
+  const recordOk = (b: { ref: string; quote?: string }) => !!b.quote && !!recordText(b.ref) && quoteInText(b.quote, recordText(b.ref)!);
+  const basisOk = (b: { ref: string; quote?: string }) => b.ref === 'judgement' || fixedRefs.has(b.ref) || N.has(b.ref) && walk.nodes.some((w) => w.node.id === b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!)) || (!!b.quote && !!styleText(b.ref) && quoteInText(b.quote, styleText(b.ref)!)) || recordOk(b);
+  const objectiveOk = (b: { ref: string; quote?: string }) => objective.has(b.ref) || fixedRefs.has(b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!)) || recordOk(b);
   const checkOutcomes = (o: CombatOut) => {
     const list: PlayerOutcome[] = [], unfounded: string[] = [];
     for (const x of o.player_outcomes || []) {
@@ -244,6 +270,9 @@ export async function judgeFight(a: {
     const obj = String(x.object || '').split('|')[0].trim(), to = x.to ? String(x.to).trim() : null;
     if (!heldHere.has(obj)) { notes.push(`ruling: "${obj}" changes hands, but nobody here holds it (left out)`); continue; }
     if (to && !fighters.includes(to) && !bystanders.includes(to)) { notes.push(`ruling: "${obj}" goes to "${to}", who is not here (left out)`); continue; }
+    const d: FactDelta = to ? { op: 'set', entity_id: obj, predicate: 'holder', value: to } : { op: 'unset', entity_id: obj, predicate: 'holder' };
+    const by = fixed.find((f) => deltaMeets(d, f.outcome));
+    if (by) { notes.push(`ruling: "${obj}" goes to "${to}", which only "${L.events.get(by.event)!.title}" brings about (left out)`); continue; }
     if (!handovers.some((h) => h.object === obj)) handovers.push({ object: obj, to });
   }
   for (const x of out.stops || []) {

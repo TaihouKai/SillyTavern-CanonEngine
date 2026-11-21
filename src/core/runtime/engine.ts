@@ -94,6 +94,14 @@ export interface EngineSettings {
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
 const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + String(text || '').length * 4));
 
+/** An id the model gave: as it is when it is one; else, read as a name ("index-librorum-prohibitorum"), the one entity
+ *  it names; else none. */
+export function candidateId(index: WorldIndex, x: string): Id | null {
+  if (index.entityExists(x) || index.pack.events.has(x) || index.state.occurrences.has(x)) return x;
+  const r = index.resolveEntity(x.replace(/[-_.]+/g, ' ').trim());
+  return r.ids.length === 1 ? r.ids[0] : null;
+}
+
 const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change', combat: 'judging the fight', combat_fill: 'what the fighters are', combat_who: 'who the fighters are', persona_abilities: 'reading what your character can do' };
 
 /** Length and provider stats of the published reply, shown after the turn timings. */
@@ -825,6 +833,9 @@ export class CanonEngine {
     };
     const out = await this.withTimeout(callStructured<ExtractUserOut>(this.host.model, 'extract_user', extractPrompt, extractInput,
       { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: outputBudget(entry.text) }), this.settings.taskTimeoutMs * 4, signal);
+    // a reference's candidate is an id; one written as a name made into an id is the one entity it names (live, the
+    // silver-haired nun was "index-librorum-prohibitorum", an alias of 茵蒂克丝 as an id, and so nobody)
+    for (const r of out.references || []) if (r.candidates) r.candidates = uniq(r.candidates.map((x) => candidateId(index, String(x))).filter((x): x is Id => !!x));
     // how long each fact the player asserts holds (ends.ts): only the facts that become records
     const asserted = out.statements.filter((s) => s.kind === 'asserted_fact' && !s.ambiguous && quoteInText(s.quote, entry.text)).flatMap((s) => s.facts || [])
       .filter((f) => pack.predicates.get(f.predicate) && pack.predicates.get(f.predicate)!.value_type !== 'entity_set' && index.entityExists(f.entity_id));
