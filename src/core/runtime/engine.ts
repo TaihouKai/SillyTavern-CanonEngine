@@ -94,6 +94,16 @@ export interface EngineSettings {
 /** Output budget for analysis of a text: structured output grows with the analyzed text (~3 tokens per CJK character). */
 const outputBudget = (text: string) => Math.min(16384, Math.max(4096, 2048 + String(text || '').length * 4));
 
+/** The people of the story's events under way now or starting within three hours (not yet over), nearest first: who
+ *  may be about here (live: the silver-haired nun on the rooftops an hour before 「茵蒂克丝坠落阳台」 was nobody, as
+ *  茵蒂克丝 was in nothing the message or the story so far had named). */
+export function peopleOfNow(index: WorldIndex, tick = index.state.clock.lo): Id[] {
+  const L = index.pack;
+  return uniq(L.timeIndex.filter((t) => t.lo <= tick + 180 && t.hi >= tick - 60 && index.state.dispositions.get(t.id)?.disposition !== 'occurred')
+    .sort((a, b) => Math.abs(a.lo - tick) - Math.abs(b.lo - tick)).slice(0, 12)
+    .flatMap((t) => L.events.get(t.id)!.entity_ids.filter((id) => L.entities.get(id)?.kind === 'person')));
+}
+
 /** An id the model gave: as it is when it is one; else, read as a name ("index-librorum-prohibitorum"), the one entity
  *  it names; else none. */
 export function candidateId(index: WorldIndex, x: string): Id | null {
@@ -824,7 +834,7 @@ export class CanonEngine {
       persona,
       current_time: { label: formatTick(tick, origin), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...this.currentFrameInput(index, tick),
-      registry: this.registry(index, entry.text, prof ? [prof.profile.playerId] : []),
+      registry: this.registry(index, entry.text, [...(prof ? [prof.profile.playerId] : []), ...peopleOfNow(index)]),
       occurrences: this.occurrenceCatalogue(index, entry.text),
       opportunities,
       ...(prof ? { engagement_context: this.engagementContext(index, prof.profile, tick) } : {}),
@@ -895,7 +905,7 @@ export class CanonEngine {
     // a name may be a person of the world, something in it a thing of the setting (combat/who.ts)
     warnings.push(...await identifyInFight({
       port: this.host.model, index, fight: out.fight, text: entry.text, timeLabel: formatTick(tick, origin), lore: await this.gameLore(),
-      near: (extractInput.registry.entities as string[]).map((l) => l.split(' | ')[0]), signal, operationId, log: (l) => this.debugLog('task', l),
+      near: uniq([...peopleOfNow(index), ...(extractInput.registry.entities as string[]).map((l) => l.split(' | ')[0])]), signal, operationId, log: (l) => this.debugLog('task', l),
       player: prof ? { id: prof.profile.playerId } : null,
       known: out.references.filter((r) => r.kind === 'entity' && r.candidates?.length === 1).map((r) => ({ words: r.phrase, quote: r.quote, id: r.candidates![0] })),
     }));

@@ -25,6 +25,21 @@ def st(ent, pred, val, op='set'):
 
 
 class ChecksTest(unittest.TestCase):
+    def test_an_end_before_its_start(self):
+        late = dict(st('a', 'status', '拒绝护卫'), until={'event': 'e1'})
+        ok = dict(st('a', 'status', '复仇'), until={'event': 'e3'})
+        pack = {'entities': [{'id': 'a', 'name': '甲', 'aliases': [], 'kind': 'person'}], 'initial_state': {'facts': []},
+                'events': [ev('e1', 1, ids=['a']), ev('e2', 2, [late, ok], ids=['a']), ev('e3', 3, ids=['a'])]}
+        res, _ = checks.run(Project(), pack)
+        self.assertEqual({t: ls for _, t, _, ls in res}['状态在开始之前结束'], ['e2 甲.status=拒绝护卫 到 e1'])
+
+    def test_the_ends_review_says_how_long_over_an_impact(self):
+        from cpb import assemble
+        e = ev('e1', 1, [dict(st('a', 'status', '倒下'), until='lasting'), dict(st('a', 'injury', '擦伤'), until={'minutes': 60})], ids=['a'])
+        rv = {'ends': {'e1|a|status': {'value': '倒下', 'until': {'minutes': 360}}}}
+        assemble.apply_ends([e], rv, {}, {}, {'a': {'id': 'a'}})
+        self.assertEqual([x['until'] for x in e['canonical_effects']], [{'minutes': 360}, {'minutes': 60}])
+
     def test_windows_against_their_source_and_lint_warnings(self):
         # live 2026-11-14: 40 windows "as the sources give them" did not start at the stated time; 14 lint warnings were left
         import datetime as dt

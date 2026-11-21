@@ -203,6 +203,10 @@ def run(project, pack):
         by_title[(re.sub(r'（[^）]*）$', '', e['title']), date(_at(e)))].append(e['id'])
     add('problem', '同一天同标题的事件', '多半是同一件事记了两次', [f'{t}（{d}）：{", ".join(ids)}' for (t, d), ids in by_title.items() if len(ids) > 1])
     add('problem', 'HARD 事件缺少要求或结果', '', [f'{e["id"]} {e["title"]}' for e in evs if e['classification'] == 'HARD' and (not e.get('required_description') or not e.get('outcomes'))])
+    at_of = {e['id']: _at(e) for e in evs}
+    add('problem', '状态在开始之前结束', '效果的 until 指向一件更早开始的事件：在核对文件 ends 里改成之后的事件或时长',
+        [f'{e["id"]} {N(x["fact"]["entity_id"])}.{x["fact"]["predicate"]}={x["fact"].get("value")} 到 {x["until"]["event"]}' for e in evs for x in e.get('canonical_effects') or []
+         if isinstance(x.get('until'), dict) and x['until'].get('event') in at_of and at_of[x['until']['event']] < at_of[e['id']]])
     add('review', '没有任何相关实体的事件', '背景历史可以如此；故事内的事件不该', [f'{e["id"]} {e["title"]}' for e in evs if not e['entity_ids']])
 
     # relations: each stage starts at an event both take part in; the pairs that share many events and have none

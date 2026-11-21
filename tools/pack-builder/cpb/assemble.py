@@ -842,12 +842,15 @@ def apply_ends(events, rv, proposals, marks_of, by_id):
             if pred in LASTING_PREDICATES or op != 'set':
                 o['until'] = 'lasting'
                 continue
-            if 'until' in o:        # a checked impact brings its own
-                continue
             val = o['fact']['value']
+            # how long a state holds is the ends review's to say, an impact's own until only without one (live: the
+            # impact's "lasting" kept 麦野 倒下 a year on, though the ends review had made it six hours)
             if r and r.get('value') == val:
                 o['until'] = _until(r['until'], events, ev)
-            elif (proposals.get(key) or {}).get('value') == val:
+                continue
+            if 'until' in o:        # a checked impact brings its own
+                continue
+            if (proposals.get(key) or {}).get('value') == val:
                 o['until'] = _until(proposals[key]['until'], events, ev)
                 unchecked += 1
             else:

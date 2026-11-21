@@ -16,7 +16,8 @@ import { PROMPTS } from '../runtime/prompts';
 import { loreAbout } from './judge';
 import type { FightOut } from './message';
 import { aspectReader } from '../domain/aspects';
-import { combatNodes, fightNow, linksOf } from './state';
+import { combatNodes, fightNow, linksOf, tiesOf } from './state';
+import { factAt } from '../domain/reducer';
 
 // what telling people apart reads of them besides what they have (linksOf): 常态
 const READ = aspectReader(['nature'] as const);
@@ -63,7 +64,10 @@ function personText(index: WorldIndex, id: Id, lore: LoreEntry[]): string {
   const n = READ(index, id).nature?.version;
   const nodes = linksOf(L, index.state, id).map((l) => combatNodes(L, index.state).get(l.node)).filter((x) => !!x).map((x) => `${x!.name} ${x!.gist}`);
   const lo = loreAbout(lore, [e.name, ...(e.aliases || [])]).slice(0, 2).map((x) => x.content.slice(0, 1500));
-  return [e.name, ...(e.aliases || []), e.static_description || '', n ? `${n.habits || ''} ${n.uses || ''} ${n.others || ''}` : '', ...nodes, ...lo].join('\n');
+  // what they have on them now is seen too (live: the girl in a white habit with gold trim was not offered as 茵蒂克丝,
+  // who wears the 移动教会, "the white habit 茵蒂克丝 wears")
+  const held = L.predicates.get('holder')?.value_type === 'entity_ref' ? tiesOf(index.state, id).holds.map((o) => `${index.entityName(o)} ${L.entities.get(o)?.static_description || ''}`) : [];
+  return [e.name, ...(e.aliases || []), e.static_description || '', n ? `${n.habits || ''} ${n.uses || ''} ${n.others || ''}` : '', ...nodes, ...held, ...lo].join('\n');
 }
 
 /** The people of the world most like the words about each described newcomer, with the ones near the story now
@@ -121,6 +125,21 @@ export async function identifyInFight(a: {
     if (!had) f.identified = [...(f.identified || []), { id: k.id, as: String(p.name), why: 'the message refers to them' }];
     notes.push(`fight: "${p.name}" is ${a.index.entityName(k.id)} (the message refers to them)`);
   }
+  // a newcomer with an object in hand that the world says someone holds now is that someone (live: the blond thug with
+  // the ladies' handgun 滨面 held then was "too ordinary" to be him, and the gun taken from him was nobody's)
+  const canHold = L.predicates.get('holder')?.value_type === 'entity_ref';
+  const holderNow = (obj: Id): Id | null => { const v = factAt(a.index.state, obj, 'holder', { tick: a.index.state.clock.lo }); return v.known && typeof v.value === 'string' && L.entities.get(v.value)?.kind === 'person' ? v.value : null; };
+  for (const p of canHold ? [...(f.new_people || [])] : []) {
+    const words = `${p.name || ''} ${p.quote || ''}`;
+    const by = uniq((a.known || []).filter((r) => L.entities.has(r.id) && L.entities.get(r.id)!.kind !== 'person' && [r.words, r.quote].some((w) => !!w && w.length >= 2 && words.includes(w)))
+      .map((r) => holderNow(r.id)).filter((h): h is Id => !!h && h !== a.player?.id));
+    const obj = (a.known || []).find((r) => by.length === 1 && holderNow(r.id) === by[0]);
+    if (by.length !== 1 || (f.participants || []).map(String).includes(by[0]) || !obj) continue;
+    f.new_people = (f.new_people || []).filter((x) => x !== p);
+    f.participants = uniq((f.participants || []).map((x) => (normalizeName(String(x)) === normalizeName(String(p.name || '')) ? by[0] : String(x))).concat(by[0]));
+    f.identified = [...(f.identified || []), { id: by[0], as: String(p.name), why: `holds ${a.index.entityName(obj.id)}, which ${a.index.entityName(by[0])} holds now` }];
+    notes.push(`fight: "${p.name}" is ${a.index.entityName(by[0])} (holds ${a.index.entityName(obj.id)})`);
+  }
   const fresh = (f.new_people || []).filter((p) => String(p.name || '').trim() && quoteInText(p.quote, a.text) && a.index.resolveEntity(p.name).ids.length !== 1);
   const fighters = uniq([...(a.player ? [a.player.id] : []), ...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...(f.state === 'continues' && now.ongoing ? now.participants : [])]);
   const people = fresh.length ? whoCandidates(a.index, fresh.map((p) => `${p.name} ${p.description || ''} ${p.quote}`), a.lore, a.near).filter((id) => !fighters.includes(id)) : [];
@@ -143,6 +162,8 @@ export async function identifyInFight(a: {
         return {
           id, name: e.name, aliases: (e.aliases || []).slice(0, 6), description: (e.static_description || '').slice(0, 300),
           ...(n?.habits ? { habits: n.habits.slice(0, 300) } : {}),
+          // what they have in hand now (the world's facts): a gun in the message's hands may be theirs
+          ...(canHold && tiesOf(a.index.state, id).holds.length ? { holds: tiesOf(a.index.state, id).holds.map((o) => a.index.entityName(o)) } : {}),
           abilities: linksOf(L, a.index.state, id).map((l) => combatNodes(L, a.index.state).get(l.node)).filter((x) => x && x.kind === 'ability').slice(0, 6).map((x) => `${x!.name}: ${x!.gist}`.slice(0, 160)),
           ...(lore ? { lorebook: lore.content.slice(0, 500) } : {}),
         };

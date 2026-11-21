@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.48.2 — 2026-11-21 (pack 7.1.1)
+
+- **A device the story keeps is not destroyed in a fight.** Told that the 能力下降 is destroyed only in the raid two days later, the ruling still had Alice cut it open. A thing at work in a fight now stops with how it stops: destroyed, switched off, carried off or out of reach. A ruling that destroys a thing the story keeps, or doesn't say how, is ruled again with that thing marked as not destroyed.
+- **Someone known by what they hold.** The blond thug with a ladies' handgun was "too ordinary" to be 滨面, though the gun was the one 滨面 held at that moment. As a result, the gun taken from him belonged to nobody. A newcomer holding an object the world says someone holds now is now that person. Candidates are shown and matched with what they hold (茵蒂克丝 wears the 移动教会).
+- **Who may be about now.** The silver-haired nun on the rooftops, an hour before 「茵蒂克丝坠落阳台」, was offered nobody but other nuns. The people of the story's events under way now, or starting within three hours, now count as people who may be here. They come first, for the reading of the message and for telling who a newcomer is.
+- **Pack 7.1.1: a state's end is the ends review's.** 麦野 still lay 「倒下」 a year after the fight it came from. The review had made that six hours, but the impact's own "lasting" won. The checked end of a state now decides how long it holds, and 27 states now end where the review said. Each of these was read again, and two that ended before they began were fixed (花野, 马太·利斯). A new builder check finds such ends. States that were only moments long but had been kept for good now end: 埃扎力, 结标, 蜜蚁, 凯莉莎, and 麦野's 「失去战斗能力」.
+
 ## 1.48.1 — 2026-11-21 (pack 7.1.0)
 
 - **A fight knows what the story fixes for later.** Alice cut the 能力下降 in a gang's factory two days before the raid in which 美琴 destroys it. The ruling had it cut, and the reply check refused every reply that showed it, so the turn failed. A fight is now told the outcomes of the next HARD events about someone in it, what they hold, or the thing at work in it. Such an outcome does not happen in the fight: the attempt falls short in a way that fits, and a player's outcome that would bring it about is stopped by it. An event whose window is already open is not held back (the fight may be that event).

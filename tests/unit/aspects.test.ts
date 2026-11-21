@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { reduce } from '../../src/core/domain/reducer';
 import { aspectReader, aspectWritten, ASPECTS, ASPECT_KEYS } from '../../src/core/domain/aspects';
 import { WorldIndex } from '../../src/core/domain/world-query';
-import { combatNodes, knowsNode, linksOf, tiesOf, walkCombat } from '../../src/core/combat/state';
+import { combatNodes, fightNow, knowsNode, linksOf, tiesOf, walkCombat } from '../../src/core/combat/state';
 import type { CanonPack, LedgerRecord } from '../../src/core/domain/types';
 import { makeEngine, tick, at } from './fake';
 import { demoRaw, load, T } from './helpers';
@@ -334,6 +334,75 @@ describe('what the story fixes for later', () => {
     y.model.on('evaluate', null, { scene_end: at(2, 9, 0) });
     await y.engine.runOperation('normal');
     expect(seen).toBeUndefined();
+  });
+});
+
+describe('someone known by what they hold', () => {
+  it('AS11 a newcomer with the cargo hook Mira holds now is Mira; the hook then changes hands from her', async () => {
+    const raw = harbor();
+    raw.initial_state.facts.push({ fact: { entity_id: 'hook', predicate: 'holder', value: 'mira' }, source_refs: ['example-source'], note: 'x' });
+    const y = makeEngine();
+    (y.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
+    y.model.on('profile', null, PROFILE);
+    y.model.on('persona_abilities', null, { abilities: [], setting: [] });
+    await y.engine.bind(JSON.stringify(raw), { startTick: tick(1, 6, 0), mode: 'new' });
+    await y.engine.reconcile('test');
+    const pid = () => y.engine.playerProfile()!.profile.playerId;
+    const msg = 'A woman swings the cargo hook at me; I tear it from her hands.';
+    y.host.addUser(msg);
+    y.model.on('extract_user', (i) => i.message === msg, {
+      references: [{ phrase: 'cargo hook', quote: 'the cargo hook', kind: 'entity', mode: 'direct', candidates: ['hook'] }],
+      fight: { state: 'starts', participants: ['a woman'], new_people: [{ name: 'a woman', description: 'swings a hook', quote: 'A woman swings the cargo hook at me' }], why: 'x' } }, true);
+    y.model.on('combat', (i) => i.player_message === msg, (i: any) => {
+      expect(i.fighters.map((f: any) => f.id)).toContain('mira');
+      return { reasoning: 'x', exchanges: [{ actor: pid(), text: 'Ash tears the hook away.', basis: [{ ref: 'judgement' }], unsupported: true }], statuses: [], over: false, handovers: [{ object: 'hook', to: pid() }] };
+    });
+    y.model.draft('Ash tears the hook away. [AS11]');
+    y.model.on('evaluate', null, { scene_end: at(1, 6, 10) });
+    await y.engine.runOperation('normal');
+    const st = y.engine.current!.replay.state;
+    expect(fightNow(st).identified).toEqual([{ id: 'mira', as: 'a woman', why: 'holds Cargo hook, which Mira holds now' }]);
+    expect(tiesOf(st, pid()).holds).toEqual(['hook']);
+    expect(y.model.tasks('combat_who')).toHaveLength(0);
+  });
+});
+
+describe('a thing the story keeps is not destroyed in a fight', () => {
+  it('AS12 a ruling that destroys a device canon_fixed keeps (or does not say how) is ruled again with not_destroyed; switched off it stops', async () => {
+    const raw = harbor();
+    raw.predicates.push({ id: 'condition', description: 'its state', value_type: 'string' });
+    raw.entities.push({ id: 'the-crane', name: 'The harbor crane', aliases: [], kind: 'object', static_description: 'The one crane of the harbor.', source_refs: ['example-source'], aspects: { setting: [{ node: 'cb-crane', label: 'is' }] } });
+    (raw.combat as any).nodes.push({ id: 'cb-crane', kind: 'ability', name: 'Dock crane', gist: 'A dock crane a gunman fires down from.', text: 'A dock crane: high ground a gunman fires down from.', parts: [{ part: 'effect', text: 'High ground for a gunman.' }], source_refs: ['example-source'] });
+    const ev = raw.events.find((e) => e.id === 'conflict-begins')!;
+    ev.entity_ids.push('the-crane');
+    ev.outcomes.push({ entity_id: 'the-crane', predicate: 'condition', value: 'wrecked' });
+    ev.canonical_effects.push({ op: 'set', fact: { entity_id: 'the-crane', predicate: 'condition', value: 'wrecked' }, until: 'lasting' });
+    const y = makeEngine();
+    (y.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
+    y.model.on('profile', null, PROFILE);
+    y.model.on('persona_abilities', null, { abilities: [], setting: [] });
+    await y.engine.bind(JSON.stringify(raw), { startTick: tick(1, 6, 0), mode: 'new' });
+    await y.engine.reconcile('test');
+    const msg = 'The gunman fires from the crane; I shoot out the crane.';
+    y.host.addUser(msg);
+    y.model.on('extract_user', (i) => i.message === msg, { fight: { state: 'starts', participants: ['council'], things: [{ quote: 'fires from the crane', what: 'a dock crane a gunman fires down from' }], why: 'x' } }, true);
+    y.model.on('combat_who', null, { people: [], things: [{ seen: 1, id: 'cb-crane', why: 'the crane' }] });
+    const asked: any[] = [];
+    y.model.on('combat', (i) => i.player_message === msg, (i: any) => {
+      asked.push(i);
+      return { reasoning: 'x', exchanges: [{ actor: 'council', text: 'The crane shudders.', basis: [{ ref: 'judgement' }] }], statuses: [], over: false,
+        stops: [i.not_destroyed ? { node: 'cb-crane', how: 'switched_off', why: 'its power cut' } : { node: 'cb-crane', why: 'shot to pieces' }] };
+    });
+    y.model.draft('The crane shudders. [AS12]');
+    y.model.on('evaluate', null, { scene_end: at(1, 6, 10) });
+    await y.engine.runOperation('normal');
+    expect(asked).toHaveLength(2);
+    expect(asked[0].canon_fixed.map((f: any) => f.who)).toEqual(['the-crane | The harbor crane']);
+    expect(asked[1].not_destroyed).toEqual(['cb-crane | Dock crane']);
+    const r = y.engine.combatView(false)!.rulings[0];
+    expect(r.notes.join(' ')).toMatch(/which only a later event of the story does \(ruled again\)/);
+    expect(r.notes.join(' ')).not.toMatch(/still destroys/);
+    expect(r.ended).toHaveLength(1);
   });
 });
 

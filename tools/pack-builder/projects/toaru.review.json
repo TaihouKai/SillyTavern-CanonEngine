@@ -13147,8 +13147,10 @@
   },
   "british.001.b14|carissa|status": {
    "value": "政变失败，被击败",
-   "until": "lasting",
-   "note": "核对：按提议"
+   "until": {
+    "minutes": 1440
+   },
+   "note": "核对（2026-11-21）：被击败是一时的"
   },
   "british.001.b14|curtana-orthodox|condition": {
    "value": "毁坏",
@@ -14955,8 +14957,10 @@
   },
   "dragon.001.b23|mugino-shizuri|status": {
    "value": "失去战斗能力",
-   "until": "lasting",
-   "note": "核对：按提议"
+   "until": {
+    "minutes": 10080
+   },
+   "note": "核对（2026-11-21）：和同一处的伤一样七天"
   },
   "dragon.001.b24|accelerator|whereabouts": {
    "value": "离开学园都市前往俄罗斯",
@@ -17434,9 +17438,9 @@
   "item-daihasei.001.b28|hanano-choubi|status": {
    "value": "拒绝护卫，决定自行警示袭击者",
    "until": {
-    "event": "item-daihasei.001.b18"
+    "event": "item-daihasei.001.b29"
    },
-   "note": "核对：按提议"
+   "note": "核对（2026-11-21）：到她去复仇为止（原写的 b18 在这之前）"
   },
   "item-daihasei.001.b5|yamazaki-urika|whereabouts": {
    "value": "第3学区",
@@ -18530,8 +18534,10 @@
   },
   "mental-out.001.b15|mitsuari-ayu|status": {
    "value": "复仇计划失败，被制服",
-   "until": "lasting",
-   "note": "核对：按提议"
+   "until": {
+    "minutes": 120
+   },
+   "note": "核对（2026-11-21）：被制服是一时的"
   },
   "mental-out.001.b15|shokuhou-misaki|status": {
    "value": "获救",
@@ -22119,8 +22125,10 @@
   },
   "three-stories.001.b5|etzali|status": {
    "value": "被钢梁压住、被制服，背叛有翼者归来",
-   "until": "lasting",
-   "note": "核对：按提议"
+   "until": {
+    "minutes": 120
+   },
+   "note": "核对（2026-11-21）：被压住、被制服是一时的；归属看组织"
   },
   "three-stories.001.b6|last-order|whereabouts": {
    "value": "餐厅",
@@ -22304,8 +22312,10 @@
   },
   "tree-diagram.001.b12|musujime-awaki|status": {
    "value": "被击败，之后加入暗部",
-   "until": "lasting",
-   "note": "核对：按提议"
+   "until": {
+    "minutes": 120
+   },
+   "note": "核对（2026-11-21）：被击败是一时的；加入暗部看组织"
   },
   "tree-diagram.001.b12|tree-diagram-remains|condition": {
    "value": "毁坏",
@@ -22686,10 +22696,8 @@
   },
   "wwiii.001.b22|matthai-rees|status": {
    "value": "引咎辞职",
-   "until": {
-    "event": "wwiii.002.b8"
-   },
-   "note": "核对：按提议"
+   "until": "lasting",
+   "note": "核对（2026-11-21）：战后辞职是长久的（原写的 wwiii.002.b8 在这之前）"
   },
   "wwiii.001.b22|russian-orthodox-church|status": {
    "value": "投降",

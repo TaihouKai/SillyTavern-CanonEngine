@@ -59,7 +59,7 @@ export interface Ruling {
   walked: { node: Id; depth: number; full: boolean; from: Id; label: string | null }[];
 }
 
-interface CombatOut { reasoning?: string; joins?: string[]; player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; replaces?: string | null; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; stops?: { node: string; why?: string }[]; handovers?: { object: string; to: string | null; quote?: string }[]; over: boolean; over_why?: string; stop_at?: string }
+interface CombatOut { reasoning?: string; joins?: string[]; player_outcomes?: { quote: string; stands: boolean; basis?: { ref: string; quote?: string }[]; why?: string }[]; exchanges: { actor: string; text: string; basis: { ref: string; quote?: string }[]; unsupported?: boolean }[]; statuses: { who: string; text: string; count?: number | null; until?: unknown; node?: string | null; removed?: boolean; replaces?: string | null; quote?: string }[]; witnessed?: { node: string; part?: string | null; who: string[] }[]; stops?: { node: string; how?: string; why?: string }[]; handovers?: { object: string; to: string | null; quote?: string }[]; over: boolean; over_why?: string; stop_at?: string }
 interface FillOut { people: { who: string; links: { node: string; label: string }[]; style?: { start: string; force: string; response: string; limit: string; stop: string } | null }[] }
 
 /** Lorebook entries about someone: an entry whose title is their name, or one of whose keys is in a name of theirs. */
@@ -217,13 +217,21 @@ export async function judgeFight(a: {
     }
     return { list, unfounded };
   };
+  // a thing at work that canon_fixed keeps (it, or the object of the pack that is it) is not destroyed in the fight:
+  // a stop that destroys it, or does not say how, is ruled again (live: told 能力下降 is destroyed only by the raid,
+  // the ruling still had Alice cut it open)
+  const keptNodes = new Set(fixed.filter((f) => L.entities.get(f.who)?.kind !== 'person').flatMap((f) => [f.who, ...linksOf(L, index.state, f.who).map((l) => l.node)]).filter((n) => inFight.includes(n)));
+  const destroys = (o: CombatOut) => uniq((o.stops || []).filter((x) => keptNodes.has(x.node) && !['switched_off', 'carried_off', 'out_of_reach'].includes(String(x.how))).map((x) => x.node));
   let out = await ask({});
   let checked = checkOutcomes(out);
   const stands: string[] = [];
-  if (checked.unfounded.length) {
-    notes.push(`ruling: stopped without an objective mechanism, so they stand: ${checked.unfounded.map((q) => `"${q}"`).join(', ')} (ruled again)`);
-    out = await ask({ outcomes_that_stand: checked.unfounded });
+  const broken = destroys(out);
+  if (checked.unfounded.length || broken.length) {
+    if (checked.unfounded.length) notes.push(`ruling: stopped without an objective mechanism, so they stand: ${checked.unfounded.map((q) => `"${q}"`).join(', ')} (ruled again)`);
+    if (broken.length) notes.push(`ruling: destroys ${broken.map((n) => `"${N.get(n)?.name || n}"`).join(', ')}, which only a later event of the story does (ruled again)`);
+    out = await ask({ ...(checked.unfounded.length ? { outcomes_that_stand: checked.unfounded } : {}), ...(broken.length ? { not_destroyed: broken.map((n) => `${n} | ${N.get(n)?.name || n}`) } : {}) });
     checked = checkOutcomes(out);
+    if (destroys(out).length) notes.push(`ruling: still destroys ${destroys(out).map((n) => `"${N.get(n)?.name || n}"`).join(', ')} (kept as stopped)`);
     // what still does not hold stands for the game master in any case
     for (const q of checked.unfounded) { stands.push(q); checked.list.push({ quote: q, stands: true, why: 'no objective mechanism stops it', basis: [] }); }
   }
