@@ -62,6 +62,26 @@ describe('who and what the message brings into a fight', () => {
     expect(notes.join(' ')).toMatch(/Emergency care comes with Mira/);
   });
 
+  it('CW1d a newcomer the reading already resolved is that person: once in the fight, never matched again', async () => {
+    const L = pack();
+    const idx = new WorldIndex(L, reduce(L, []));
+    const known = [{ words: 'A woman in a medic coat', quote: 'A woman in a medic coat kneels', id: 'mira' }];
+    const f = fight(); f.things = [];
+    const p = port({ people: [{ name: 'medic woman', id: 'mira' }] });
+    const notes = await identifyInFight({ port: p, index: idx, fight: f, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't', known: [{ ...known[0], words: 'medic woman' }] });
+    expect(p.seen).toHaveLength(0);
+    expect(f.participants).toEqual(['union', 'mira']);
+    expect(f.new_people).toEqual([]);
+    expect(f.identified).toEqual([{ id: 'mira', as: 'medic woman', why: 'the message refers to them' }]);
+    expect(notes.join(' ')).toMatch(/"medic woman" is Mira \(the message refers to them\)/);
+    // already a fighter by id: the newcomer is dropped, not matched to someone else
+    const g = fight(); g.things = []; g.participants = ['union', 'mira', 'medic woman'];
+    await identifyInFight({ port: p, index: idx, fight: g, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't', known: [{ ...known[0], words: 'medic woman' }] });
+    expect(g.participants).toEqual(['union', 'mira']);
+    expect(g.identified).toBeUndefined();
+    expect(p.seen).toHaveLength(0);
+  });
+
   it('CW1b everyone new_people brings in fights, however participants calls them', () => {
     const L = pack();
     const idx = new WorldIndex(L, reduce(L, []));

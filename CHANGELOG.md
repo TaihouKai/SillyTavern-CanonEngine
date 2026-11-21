@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.46.6 — 2026-11-21
+
+- **One person is in a fight once.** The man in the white suit at 三泽塾 was in Alice's fight twice:
+  - as 奥雷欧斯·伊萨德, whom the reading of your message took the words to mean;
+  - as a newcomer described by his looks, who was then matched to his double, 奥雷欧斯替身.
+
+  A newcomer whose words the reading already resolved to one person is now that person.
+- **Your character's fame reaches the fight.** 垣根帝督 was ruled to know nothing of Seraphina's powers, though her Persona says nearly everyone knows the fire-loving Level 5 of Tokiwadai. The ruling now gets your character's public identity as what anyone may know of them. Anything beyond that, the others know only from what the story has shown them.
+
 ## 1.46.5 — 2026-11-21
 
 - **Your character's short name is theirs.** A reply that called 神光爱丽丝 「爱丽丝」 was refused: the setting has another 爱丽丝 (爱丽丝·异典), and the short name wasn't among your character's names. Reading the Persona now lists every name the story may call them by, including the given or family name alone. A name written in parts (塞拉菲娜·格拉默根) also gets its first and last parts. This takes effect for chats started from now on, since the reading happens when a chat starts.

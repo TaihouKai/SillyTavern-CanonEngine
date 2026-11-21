@@ -97,11 +97,26 @@ export async function identifyInFight(a: {
   /** The player character and what their Persona gives them (their powers are no setting entries: live, a light
    *  shield and a light blade of the player's own were matched to other people's). */
   player?: { id: Id; has: string[] } | null;
+  /** Whom the message's words already mean (the reading's references with one candidate). */
+  known?: { words: string; quote: string; id: Id }[];
 }): Promise<string[]> {
   const f = a.fight;
   const L = a.index.pack;
   if (!f || (f.state !== 'starts' && f.state !== 'continues') || L.combat.none !== null) return [];
   const now = fightNow(a.index.state);
+  const notes: string[] = [];
+  // a newcomer the reading already resolved is that person (live: the man in a white suit was among the fighters as
+  // the alchemist the reference named, and as a newcomer too, who was then matched to his double)
+  const same = (x: string, y: string) => !!x && !!y && (normalizeName(x) === normalizeName(y) || (y.length >= 4 && x.includes(y)) || (x.length >= 4 && y.includes(x)));
+  for (const p of [...(f.new_people || [])]) {
+    const k = (a.known || []).find((r) => a.index.entityExists(r.id) && L.entities.get(r.id)?.kind === 'person' && [r.words, r.quote].some((w) => same(String(p.name || ''), w) || same(String(p.quote || ''), w)));
+    if (!k) continue;
+    f.new_people = (f.new_people || []).filter((x) => x !== p);
+    const had = (f.participants || []).map(String).includes(k.id);
+    f.participants = uniq((f.participants || []).map((x) => (normalizeName(String(x)) === normalizeName(String(p.name || '')) ? k.id : String(x))).concat(k.id));
+    if (!had) f.identified = [...(f.identified || []), { id: k.id, as: String(p.name), why: 'the message refers to them' }];
+    notes.push(`fight: "${p.name}" is ${a.index.entityName(k.id)} (the message refers to them)`);
+  }
   const fresh = (f.new_people || []).filter((p) => String(p.name || '').trim() && quoteInText(p.quote, a.text) && a.index.resolveEntity(p.name).ids.length !== 1);
   const fighters = uniq([...(a.player ? [a.player.id] : []), ...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...(f.state === 'continues' && now.ongoing ? now.participants : [])]);
   const people = fresh.length ? whoCandidates(a.index, fresh.map((p) => `${p.name} ${p.description || ''} ${p.quote}`), a.lore, a.near).filter((id) => !fighters.includes(id)) : [];
@@ -109,8 +124,7 @@ export async function identifyInFight(a: {
   // (only the fighters' own are left out: a candidate's — a device one of them carries — may be what is at work, and
   // live it was: the Capacity Down a gang member holds was never offered for the noise in the gang's ambush)
   const things = thingCandidates(a.index, shown.map((t) => `${t.what || ''} ${t.quote}`), fighters, now.ongoing ? now.things.map((t) => t.node) : []);
-  if (!people.length && !things.length) return [];
-  const notes: string[] = [];
+  if (!people.length && !things.length) return notes;
   let out: WhoOut;
   try {
     out = await callStructured<WhoOut>(a.port, 'combat_who', PROMPTS.combat_who, {
@@ -135,7 +149,7 @@ export async function identifyInFight(a: {
     }, { signal: a.signal, operationId: a.operationId, log: a.log });
   } catch (e) {
     if (a.signal?.aborted) throw e;
-    return [`fight: who and what the message brings in was not decided (${String((e as Error).message || e).slice(0, 160)})`];
+    return [...notes, `fight: who and what the message brings in was not decided (${String((e as Error).message || e).slice(0, 160)})`];
   }
   const taken = new Set<Id>();
   for (const r of out.people || []) {

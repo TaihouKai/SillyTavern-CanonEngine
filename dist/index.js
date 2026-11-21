@@ -34081,7 +34081,7 @@ var EVAL_COMBAT = `   statuses: notable states of a person this reply (or player
    fight (only when fight_ruling is not given, for a pack with combat): when the reply itself starts a confrontation the player character is in or sees \u2014 someone attacks, a fight breaks out \u2014: starts true, participants (ids or new_entities refs), quote; resolved_unruled true when the reply then goes on to decide it (blows land, someone wins or loses) instead of stopping where it begins. null when the reply has none.
    ruling_conflicts (only when fight_ruling is given): every place the reply changes what the ruling decided \u2014 another result, someone hit or hurt who was not (or not hit who was), an attack, dodge or escape the ruling does not have, someone arriving or leaving, the fight carried past its stop_at, the player character doing what the player did not write \u2014: quote and why. NOT a conflict: embellishment \u2014 how it looks, sounds and feels, what people say, their taunts, looks, gestures and thoughts \u2014 as long as no result changes; and following the ruling where it rules against the player's message (the ruling has already decided that: its result stands, not the player's words).`;
 var COMBAT_TASK = `TASK: Judge this turn of a fight \u2014 a confrontation whose result depends on one side's abilities against the other's. The game master writes the reply from your ruling and may only embellish it: what happens is yours to decide.
-Input: basis (what this world runs on by default); fighters (id, name, description, states now, \u5BF9\u6297\u503E\u5411 \u2014 how they act in a fight \u2014, what they are linked to); nodes (the setting: concepts, rules, abilities told in parts, precedents \u2014 how such fights went in the original story); sources (lorebook entries and the player's Persona, each with a ref); relations between the fighters; knows (what each fighter knows of the others' abilities: a part not listed for them is unknown to them); player_message (the player's own words this turn) and statements (what they establish as happening and what they only attempt); recent (the end of the story so far); time.
+Input: basis (what this world runs on by default); fighters (id, name, description, states now, \u5BF9\u6297\u503E\u5411 \u2014 how they act in a fight \u2014, what they are linked to); nodes (the setting: concepts, rules, abilities told in parts, precedents \u2014 how such fights went in the original story); sources (lorebook entries and the player's Persona, each with a ref); relations between the fighters; knows (what each fighter knows of the others' abilities: a part not listed for them is unknown to them; of the player character's powers, each knows what their known_to_all says \u2014 someone famous is known by what they are famous for \u2014 and more only through what the story showed them); player_message (the player's own words this turn) and statements (what they establish as happening and what they only attempt); recent (the end of the story so far); time.
 1. Authority: an objective mechanism (a node, a source) > what the player's message establishes > your judgement. What the player writes their own character does, and what that act physically does \u2014 they pull the trigger and the bullet hits \u2014 happens. What it then does to someone else beyond what the player wrote is yours to judge by the mechanisms.
    player_outcomes: EVERY outcome the player's message states for the player character's act \u2014 a hit, a cut, a wound, a kill, someone falling, an escape, an object taken \u2014 once each, quote = the player's words, verbatim. stands: true when it happens as written; false ONLY when an objective mechanism stops it (a reflection, a precognitive dodge, a body that such a blow cannot harm): then basis (node ids; a source ref with its words, verbatim) and why. Without such a mechanism it stands, whatever you would judge. [] when the message states no outcome. outcomes_that_stand, when given: these happen as written \u2014 rule the rest around them.
 2. basis for every exchange: the refs you decided by \u2014 node ids; source refs with quote (the player character's own powers are in "persona": cite it with its words); a fighter's \u5BF9\u6297\u503E\u5411 as "style:<fighter id>" with its words \u2014 or [{"ref":"judgement"}] with unsupported true when nothing in the input decides it; then judge by the common sense of this world's basis. A node's text is the setting: use it as written, do not invent powers, weaknesses or rules it does not have.
@@ -34436,7 +34436,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.46.5";
+var ENGINE_RELEASE = "1.46.6";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -36517,7 +36517,7 @@ async function judgeFight(a) {
     fighters: fighters.map((id) => ({
       id,
       name: name2(id),
-      ...id === a.playerId ? { player_character: true } : {},
+      ...id === a.playerId ? { player_character: true, ...a.playerPublic ? { known_to_all: a.playerPublic.slice(0, 600) } : {} } : {},
       description: describe(id),
       states: statusesOf(index.state, id).map((s) => `${s.text}${s.count != null ? ` \xD7${s.count}` : ""}`),
       ...id === a.playerId ? {} : { style: styleOf(L, index.state, id)?.style || null },
@@ -36730,13 +36730,23 @@ async function identifyInFight(a) {
   const L = a.index.pack;
   if (!f || f.state !== "starts" && f.state !== "continues" || L.combat.none !== null) return [];
   const now = fightNow(a.index.state);
+  const notes = [];
+  const same = (x, y) => !!x && !!y && (normalizeName(x) === normalizeName(y) || y.length >= 4 && x.includes(y) || x.length >= 4 && y.includes(x));
+  for (const p of [...f.new_people || []]) {
+    const k = (a.known || []).find((r) => a.index.entityExists(r.id) && L.entities.get(r.id)?.kind === "person" && [r.words, r.quote].some((w) => same(String(p.name || ""), w) || same(String(p.quote || ""), w)));
+    if (!k) continue;
+    f.new_people = (f.new_people || []).filter((x) => x !== p);
+    const had = (f.participants || []).map(String).includes(k.id);
+    f.participants = uniq((f.participants || []).map((x) => normalizeName(String(x)) === normalizeName(String(p.name || "")) ? k.id : String(x)).concat(k.id));
+    if (!had) f.identified = [...f.identified || [], { id: k.id, as: String(p.name), why: "the message refers to them" }];
+    notes.push(`fight: "${p.name}" is ${a.index.entityName(k.id)} (the message refers to them)`);
+  }
   const fresh = (f.new_people || []).filter((p) => String(p.name || "").trim() && quoteInText(p.quote, a.text) && a.index.resolveEntity(p.name).ids.length !== 1);
   const fighters = uniq([...a.player ? [a.player.id] : [], ...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...f.state === "continues" && now.ongoing ? now.participants : []]);
   const people = fresh.length ? whoCandidates(a.index, fresh.map((p) => `${p.name} ${p.description || ""} ${p.quote}`), a.lore, a.near).filter((id) => !fighters.includes(id)) : [];
   const shown = (f.things || []).filter((t2) => quoteInText(t2.quote, a.text)).slice(0, 12);
   const things = thingCandidates(a.index, shown.map((t2) => `${t2.what || ""} ${t2.quote}`), fighters, now.ongoing ? now.things.map((t2) => t2.node) : []);
-  if (!people.length && !things.length) return [];
-  const notes = [];
+  if (!people.length && !things.length) return notes;
   let out;
   try {
     out = await callStructured(a.port, "combat_who", PROMPTS.combat_who, {
@@ -36772,7 +36782,7 @@ async function identifyInFight(a) {
     }, { signal: a.signal, operationId: a.operationId, log: a.log });
   } catch (e) {
     if (a.signal?.aborted) throw e;
-    return [`fight: who and what the message brings in was not decided (${String(e.message || e).slice(0, 160)})`];
+    return [...notes, `fight: who and what the message brings in was not decided (${String(e.message || e).slice(0, 160)})`];
   }
   const taken = /* @__PURE__ */ new Set();
   for (const r of out.people || []) {
@@ -39836,7 +39846,8 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       signal,
       operationId,
       log: (l) => this.debugLog("task", l),
-      player: prof ? { id: prof.profile.playerId, has: prof.profile.capabilities } : null
+      player: prof ? { id: prof.profile.playerId, has: prof.profile.capabilities } : null,
+      known: out.references.filter((r) => r.kind === "entity" && r.candidates?.length === 1).map((r) => ({ words: r.phrase, quote: r.quote, id: r.candidates[0] }))
     }));
     const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
     records.push(...fight.records);
@@ -40075,6 +40086,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       playerId: profile2?.playerId ?? null,
       personaName: profile2?.personaName || "",
       personaText: profile2?.personaText || "",
+      playerPublic: profile2?.publicIdentity || "",
       lore: await this.gameLore(),
       playerMessage: userEntry ? this.ooc(userEntry.text).story : "",
       statements: [...told, ...(userInterp?.intents || []).map((i) => i.summary)],

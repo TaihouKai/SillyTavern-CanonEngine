@@ -68,6 +68,8 @@ const loreRef = (e: LoreEntry) => `lore:${e.book}/${e.uid}`;
 export async function judgeFight(a: {
   port: ModelPort; index: WorldIndex; overlay: (records: RecordDraft[]) => WorldIndex;
   playerId: Id | null; personaName: string; personaText: string; lore: LoreEntry[];
+  /** What anyone may know of the player character (their public identity). */
+  playerPublic?: string;
   playerMessage: string; statements: string[]; recent: string; timeLabel: string; places: Id[];
   /** The people here not (yet) in the fight: they may join it on their own. */
   present?: Id[];
@@ -138,7 +140,7 @@ export async function judgeFight(a: {
     basis: L.combat.basis,
     time: a.timeLabel,
     fighters: fighters.map((id) => ({
-      id, name: name(id), ...(id === a.playerId ? { player_character: true } : {}), description: describe(id),
+      id, name: name(id), ...(id === a.playerId ? { player_character: true, ...(a.playerPublic ? { known_to_all: a.playerPublic.slice(0, 600) } : {}) } : {}), description: describe(id),
       states: statusesOf(index.state, id).map((s) => `${s.text}${s.count != null ? ` ×${s.count}` : ''}`),
       ...(id === a.playerId ? {} : { style: styleOf(L, index.state, id)?.style || null }),
       linked: linksOf(L, index.state, id).map((l) => `${l.label} ${l.node}${l.source === 'fill' ? ' (filled in: a guess)' : ''}`),

@@ -875,6 +875,7 @@ export class CanonEngine {
       port: this.host.model, index, fight: out.fight, text: entry.text, timeLabel: formatTick(tick, origin), lore: await this.gameLore(),
       near: (extractInput.registry.entities as string[]).map((l) => l.split(' | ')[0]), signal, operationId, log: (l) => this.debugLog('task', l),
       player: prof ? { id: prof.profile.playerId, has: prof.profile.capabilities } : null,
+      known: out.references.filter((r) => r.kind === 'entity' && r.candidates?.length === 1).map((r) => ({ words: r.phrase, quote: r.quote, id: r.candidates![0] })),
     }));
     const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
     records.push(...fight.records);
@@ -1080,6 +1081,7 @@ export class CanonEngine {
     return judgeFight({
       port: this.host.model, index, overlay: (records) => new WorldIndex(index.pack, this.overlay(index.state, records)),
       playerId: profile?.playerId ?? null, personaName: profile?.personaName || '', personaText: profile?.personaText || '',
+      playerPublic: profile?.publicIdentity || '',
       lore: await this.gameLore(),
       playerMessage: userEntry ? this.ooc(userEntry.text).story : '',
       statements: [...told, ...(userInterp?.intents || []).map((i) => i.summary)],

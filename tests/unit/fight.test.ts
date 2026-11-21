@@ -54,6 +54,8 @@ describe('战斗分析: a fight is judged before the reply', () => {
     expect(x.model.tasks('combat_fill').at(-1)!.input.concepts).toContain('cb-ordinary | Ordinary person | An untrained adult with no weapon.');
     const ci = x.model.tasks('combat').at(-1)!.input;
     expect(ci.sources.map((s: any) => s.ref)).toEqual(['persona']);
+    // what anyone may know of the player character
+    expect(ci.fighters.find((f: any) => f.player_character).known_to_all).toBe('works the piers');
     expect(ci.player_message).toBe(msg);
     expect(ci.nodes.map((n: any) => n.id)).toContain('cb-ordinary');
     // the GM writes the ruling; no 角色盘算 in a judged fight
