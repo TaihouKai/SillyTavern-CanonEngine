@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeEngine, tick, at, D, occ, legacyCampaign } from './fake';
 import { factAt } from '../../src/core/domain/reducer';
-import { validatePlan, normalizePlanEffects, dropLateSteps, planScope, type PlanOutput } from '../../src/core/runtime/planner';
+import { validatePlan, normalizePlanEffects, dropImpossibleSteps, planScope, type PlanOutput } from '../../src/core/runtime/planner';
 import { refersToHard } from '../../src/core/runtime/gate';
 import { ROOT } from './helpers';
 import * as V from '../../src/core/generated/validators.js';
@@ -160,9 +160,13 @@ describe('convergence', () => {
     // C06c a step said to serve an anchor that starts after its deadline is dropped before validation, with the steps
     // that depend on it (live, the planner kept writing such steps for what follows the anchor, and every plan failed)
     const late: PlanOutput = { ...base, steps: [step({ step_id: 'a' }), step({ step_id: 'b', earliest: D(3, 0), latest: D(3, 1) }), step({ step_id: 'c', serves_anchor: null, depends_on: ['b'] })] } as any;
-    expect(dropLateSteps(late, L)).toEqual(['step b: dropped (starts after the deadline of the anchor it serves)', 'step c: dropped (depends on a dropped step)']);
+    expect(dropImpossibleSteps(late, L, tick(1, 9, 30))).toEqual(['step b: dropped (starts after the deadline of the anchor it serves)', 'step c: dropped (depends on a dropped step)']);
     expect(late.steps.map((x) => x.step_id)).toEqual(['a']);
     expect(validatePlan(late, L, idx, scope, tick(1, 9, 30), false)).toEqual([]);
+    // and a step over before now (live: steps for the canon beats of the hour before the scene)
+    const past: PlanOutput = { ...base, steps: [step({ step_id: 'a' }), step({ step_id: 'p', earliest: D(1, 8), latest: D(1, 9) }), step({ step_id: 'q', depends_on: ['p'] })] } as any;
+    expect(dropImpossibleSteps(past, L, tick(1, 9, 30))).toEqual(['step p: dropped (over before now)', 'step q: dropped (depends on a dropped step)']);
+    expect(validatePlan(past, L, idx, scope, tick(1, 9, 30), false)).toEqual([]);
     // C06b a boolean "this outcome happens" on a non-boolean predicate takes the anchor's value; other mistyped effects are dropped
     const typed: PlanOutput = { ...base, steps: [step({ serves_anchor: 'conflict-ends', earliest: D(4, 10), latest: D(4, 18), intended_effects: [{ entity_id: 'conflict', predicate: 'victor', value: true }, { entity_id: 'conflict', predicate: 'victor', value: false }] })] } as any;
     expect(normalizePlanEffects(typed, L, scope)).toHaveLength(2);

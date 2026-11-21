@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.46.4 — 2026-11-21
+
+- **A plan step set before now no longer fails the turn.** Alice burst into 三泽塾 at 19:25, while 奥雷欧斯 was mid-attack. The planner kept writing steps for canon beats from earlier that hour. All three proposals were refused as "scheduled entirely in the past", and the turn failed. Such a step can't happen, so it is now dropped, together with the steps that depend on it.
+
 ## 1.46.3 — 2026-11-21
 
 - **A HARD canon outcome told in other words is no longer refused.** When your character walked in on 结标淡希 having just attacked 白井黑子, the reply described the injury as 「肩膀与侧腹被金属钉贯穿」, but the pack writes 「肩部与身体多处被螺丝钉、针贯穿」. That counted as a different result, and two replies were sent back. For a fact written as free text, other wording is no conflict. The reviewer's check decides whether the required content is there, and the pack's wording is kept.

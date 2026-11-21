@@ -34435,7 +34435,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.46.3";
+var ENGINE_RELEASE = "1.46.4";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -38593,13 +38593,20 @@ function planScope(pack2, state, affected = []) {
   const detailed = [.../* @__PURE__ */ new Set([...pend.slice(0, 2), ...affected.filter((a) => pend.includes(a))])];
   return { detailed, register: pend.filter((p) => !detailed.includes(p)) };
 }
-function dropLateSteps(out, pack2) {
-  const late = new Set(out.steps.filter((s) => {
+function dropImpossibleSteps(out, pack2, clockTick) {
+  const notes = [];
+  const late = /* @__PURE__ */ new Set();
+  for (const s of out.steps) {
     const pe = s.serves_anchor ? pack2.events.get(s.serves_anchor) : void 0;
-    return !!pe && pe.classification === "HARD" && !!pe.when.latest && toTick(s.earliest) > toTick(pe.when.latest);
-  }).map((s) => s.step_id));
+    if (pe && pe.classification === "HARD" && pe.when.latest && toTick(s.earliest) > toTick(pe.when.latest)) {
+      late.add(s.step_id);
+      notes.push(`step ${s.step_id}: dropped (starts after the deadline of the anchor it serves)`);
+    } else if (toTick(s.latest) < clockTick) {
+      late.add(s.step_id);
+      notes.push(`step ${s.step_id}: dropped (over before now)`);
+    }
+  }
   if (!late.size) return [];
-  const notes = [...late].map((id) => `step ${id}: dropped (starts after the deadline of the anchor it serves)`);
   for (let grew = true; grew; ) {
     grew = false;
     for (const s of out.steps) if (!late.has(s.step_id) && (s.depends_on || []).some((d) => late.has(d))) {
@@ -38809,7 +38816,7 @@ async function runPlanning(args) {
       player: args.player
     };
     const out = await callStructured(args.port, "plan", PROMPTS.plan, input, { signal: args.signal, operationId: args.operationId, log: args.log });
-    const fixed = [...dropLateSteps(out, pack2), ...normalizePlanEffects(out, pack2, scope)];
+    const fixed = [...dropImpossibleSteps(out, pack2, clockTick), ...normalizePlanEffects(out, pack2, scope)];
     if (fixed.length) args.log?.({ kind: "plan_effects_normalized", notes: fixed });
     const errs = validatePlan(out, pack2, index, scope, clockTick, mode === "FORCED_CONVERGENCE");
     if (errs.length) {

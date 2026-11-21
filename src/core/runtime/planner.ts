@@ -39,17 +39,21 @@ export function planScope(pack: LoadedPack, state: WorldState, affected: Id[] = 
   return { detailed, register: pend.filter((p) => !detailed.includes(p)) };
 }
 
-/** Drops in place the steps said to serve a HARD anchor that start after its authored deadline, and the steps that
- *  depend on them: such a step cannot serve it (the deadline does not slide), and the planner writes them for what
- *  comes after the anchor (live, three proposals in a row failed on two such steps, and the turn with them).
+/** Drops in place the steps that cannot happen, and the steps that depend on them:
+ *  - said to serve a HARD anchor, but starting after its authored deadline (the deadline does not slide; the planner
+ *    writes them for what comes after the anchor: live, three proposals in a row failed on two such steps);
+ *  - over before now (live, the planner kept writing steps for canon beats of the hour before the scene, and three
+ *    proposals failed on them, and the turn).
  *  Returns notes on what was dropped. */
-export function dropLateSteps(out: PlanOutput, pack: LoadedPack): string[] {
-  const late = new Set(out.steps.filter((s) => {
+export function dropImpossibleSteps(out: PlanOutput, pack: LoadedPack, clockTick: number): string[] {
+  const notes: string[] = [];
+  const late = new Set<string>();
+  for (const s of out.steps) {
     const pe = s.serves_anchor ? pack.events.get(s.serves_anchor) : undefined;
-    return !!pe && pe.classification === 'HARD' && !!pe.when.latest && toTick(s.earliest) > toTick(pe.when.latest);
-  }).map((s) => s.step_id));
+    if (pe && pe.classification === 'HARD' && pe.when.latest && toTick(s.earliest) > toTick(pe.when.latest)) { late.add(s.step_id); notes.push(`step ${s.step_id}: dropped (starts after the deadline of the anchor it serves)`); }
+    else if (toTick(s.latest) < clockTick) { late.add(s.step_id); notes.push(`step ${s.step_id}: dropped (over before now)`); }
+  }
   if (!late.size) return [];
-  const notes = [...late].map((id) => `step ${id}: dropped (starts after the deadline of the anchor it serves)`);
   for (let grew = true; grew;) {
     grew = false;
     for (const s of out.steps) if (!late.has(s.step_id) && (s.depends_on || []).some((d) => late.has(d))) { late.add(s.step_id); notes.push(`step ${s.step_id}: dropped (depends on a dropped step)`); grew = true; }
@@ -255,7 +259,7 @@ export async function runPlanning(args: {
       player: args.player,
     };
     const out = await callStructured<PlanOutput>(args.port, 'plan', PROMPTS.plan, input, { signal: args.signal, operationId: args.operationId, log: args.log });
-    const fixed = [...dropLateSteps(out, pack), ...normalizePlanEffects(out, pack, scope)];
+    const fixed = [...dropImpossibleSteps(out, pack, clockTick), ...normalizePlanEffects(out, pack, scope)];
     if (fixed.length) args.log?.({ kind: 'plan_effects_normalized', notes: fixed });
     const errs = validatePlan(out, pack, index, scope, clockTick, mode === 'FORCED_CONVERGENCE');
     if (errs.length) { errors.push(...errs); return null; }
