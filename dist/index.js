@@ -34188,6 +34188,7 @@ Each intended_effects value must have its predicate's declared type and be one o
 SHAPE: {"rationale":"","protected_anchor_ids":[],"assumptions":[{"text":"","fact":null}],"risks":[],"mode":"NORMAL","steps":[{"step_id":"s1","actors":[],"targets":[],"earliest":{"day":0,"minute":0},"latest":{"day":0,"minute":0},"prerequisites":[],"action":"","intended_effects":[{"entity_id":"","predicate":"","value":true}],"visibility":"secret","knowers":[],"depends_on":[],"means":"ordinary","serves_anchor":null,"requires_player_consent":false}],"inadequacy_note":""}`,
   profile: `${COMMON}
 TASK: Read the player's Persona (their character in this story world) and describe the player's presence in the world for a story engine: who they are, what they belong to or lead, where they operate, what they can do and have, what they want, whom they are connected to, and who plausibly knows about them. Use only what the Persona states or what its role clearly implies; never invent specific relationships.
+- player.aliases: every other name the story may call them by \u2014 the given name or the family name alone (a name of two parts written together too: say each part that is used on its own), nicknames, titles, the name in another script (live: the short given name of the player character was missing, and a reply using it was taken for another person of that name).
 - existing_id: a registry id when the Persona names a person, organization or place of this world; null for an original one (the engine creates it). Match names loosely (another script or language, a short form or a name without its prefix).
 - affiliations: every organization (or group) the Persona puts the player in, canon or original \u2014 also one they are about to join or have left. status, at the start of the game as the Persona describes it: "member" (they belong to it now), "joining" (about to join, a candidate, a newcomer not yet taken on: "not yet joined", "starts next week", "applied"), "former" (left, expelled, retired from it). leads (only for a member): true when the Persona makes the player its head or leader. members: the other people the Persona says belong to it (by name; mostly for an original organization) \u2014 never guessed, never the canon members a registry organization already lists.
 - world_changes: how this game's world differs from the original setting, as the Persona states it \u2014 a count or ranking that changes (a world with one more of a famous kind of people), who holds a post or belongs somewhere in canon, something that exists or happened only in this game. Every line marked "(\u672C\u5C40\u8BBE\u5B9A)" is one (its text without the mark); find the others in the rest of the Persona. Not the player's own traits that change nothing about the world (their looks, a friend of their own). text: the change as a plain statement; terms: names and words a lorebook entry about it would contain (the ranking's name, the people and organizations it touches, their titles), in the Persona's language and the world's usual spellings.
@@ -34435,7 +34436,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.46.4";
+var ENGINE_RELEASE = "1.46.5";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -34464,7 +34465,11 @@ function buildProfile(out, pack2, index, persona, prev) {
   const kindOf = (id) => pack2.entities.get(id)?.kind || index.entityKind(id);
   const name2 = (out.player?.name || persona.name || "player").trim();
   const playerId = prev?.playerId || `rt.player.${slug(name2)}.${newId("e").slice(2, 8)}`;
-  const aliases = uniq([...out.player?.aliases || [], ...persona.name && persona.name !== name2 ? [persona.name] : []].map((a) => a.trim()).filter((a) => a && a !== name2)).slice(0, 8);
+  const parts = (n) => {
+    const p = n.split(/[·・\s]+/).filter((x) => x.length >= 2);
+    return p.length > 1 ? [p[0], p[p.length - 1]] : [];
+  };
+  const aliases = uniq([...out.player?.aliases || [], ...persona.name && persona.name !== name2 ? [persona.name] : [], ...parts(name2)].map((a) => a.trim()).filter((a) => a && a !== name2)).slice(0, 10);
   const nature = natureOf(out.nature).nature;
   runtimeEntities.push({ id: playerId, name: name2, aliases, kind: "person", description: `The player character. ${out.player?.summary || ""}`.slice(0, 600), ...nature ? { nature: [{ from_event: null, ...nature }] } : {} });
   const reuse = (n, list2) => list2?.find((x) => x.name === n)?.entityId;

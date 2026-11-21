@@ -816,6 +816,15 @@ describe('preferred matters', () => {
     expect(lastCtx(y)).not.toMatch(/- roles:|- does not take on:/);
   });
 
+  it('NI-48b a player name in parts is called by its first or last part too (live: the short name of the player was taken for someone else)', async () => {
+    const two = { player: { name: 'Hana Mori', aliases: ['Little Hana'], summary: 'A student.', public_identity: 'a student' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
+    const x = await setup({ persona: { name: 'Hana Mori', description: 'Hana Mori, a student.' }, start: tick(0, 10, 0), profile: two });
+    await turn(x, 'I look around.', 'The harbor at morning. [H2]', { scene_end: at(0, 10, 10) });
+    const id = x.engine.playerProfile()!.profile.playerId;
+    expect(x.engine.current!.replay.state.runtimeEntities.get(id)!.aliases).toEqual(['Little Hana', 'Hana', 'Mori']);
+    expect(PROMPTS.profile).toMatch(/player\.aliases: every other name the story may call them by/);
+  });
+
   it('NI-48 an ordinary student: people the Persona names who are not in the pack become people of the chat, and a small matter may come from them or from a minor person it introduces (live: every matter for such a Persona was dropped as "no known actor")', async () => {
     expect(PROMPTS.integrate).toMatch(/a new minor person from their everyday surroundings \(give their name or a short description in actors and put them in establishes\)/);
     const wide = JSON.parse(demo); Object.assign(wide.events.find((e: any) => e.id === 'harbor-festival').when, { earliest: { day: 1, minute: 1200 }, latest: { day: 3, minute: 960 }, precision: 'range' });

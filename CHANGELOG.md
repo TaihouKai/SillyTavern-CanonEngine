@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.46.5 — 2026-11-21
+
+- **Your character's short name is theirs.** A reply that called 神光爱丽丝 「爱丽丝」 was refused: the setting has another 爱丽丝 (爱丽丝·异典), and the short name wasn't among your character's names. Reading the Persona now lists every name the story may call them by, including the given or family name alone. A name written in parts (塞拉菲娜·格拉默根) also gets its first and last parts. This takes effect for chats started from now on, since the reading happens when a chat starts.
+
 ## 1.46.4 — 2026-11-21
 
 - **A plan step set before now no longer fails the turn.** Alice burst into 三泽塾 at 19:25, while 奥雷欧斯 was mid-attack. The planner kept writing steps for canon beats from earlier that hour. All three proposals were refused as "scheduled entirely in the past", and the turn failed. Such a step can't happen, so it is now dropped, together with the steps that depend on it.

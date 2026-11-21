@@ -81,7 +81,9 @@ export function buildProfile(out: ProfileOut, pack: LoadedPack, index: WorldInde
   const kindOf = (id: Id) => pack.entities.get(id)?.kind || index.entityKind(id);
   const name = (out.player?.name || persona.name || 'player').trim();
   const playerId = prev?.playerId || `rt.player.${slug(name)}.${newId('e').slice(2, 8)}`;
-  const aliases = uniq([...(out.player?.aliases || []), ...(persona.name && persona.name !== name ? [persona.name] : [])].map((a) => a.trim()).filter((a) => a && a !== name)).slice(0, 8);
+  // (a name in parts — 塞拉菲娜·格拉默根, Mira Holt — is called by its first or last part alone too)
+  const parts = (n: string) => { const p = n.split(/[·・\s]+/).filter((x) => x.length >= 2); return p.length > 1 ? [p[0], p[p.length - 1]] : []; };
+  const aliases = uniq([...(out.player?.aliases || []), ...(persona.name && persona.name !== name ? [persona.name] : []), ...parts(name)].map((a) => a.trim()).filter((a) => a && a !== name)).slice(0, 10);
   // the player is a person of this world like the pack's: their 常态 sits on their entity, read where anyone's is
   const nature = natureOf(out.nature).nature;
   runtimeEntities.push({ id: playerId, name, aliases, kind: 'person', description: `The player character. ${out.player?.summary || ''}`.slice(0, 600), ...(nature ? { nature: [{ from_event: null, ...nature }] } : {}) });
