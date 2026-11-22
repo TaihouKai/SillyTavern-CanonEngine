@@ -8,6 +8,7 @@ import { effectTarget, effectToDelta } from '../domain/delta';
 import { agoLabel, formatTick } from '../domain/time';
 import { memberships } from './integration';
 import { pairKey } from '../domain/pack';
+import { SCENE_GAP } from '../domain/names';
 
 type Origin = { y: number; m: number; d: number } | null;
 export interface MembershipView {
@@ -110,4 +111,25 @@ export function relationsView(idx: WorldIndex, spoilers: boolean, player?: Id | 
   const rank = (r: RelationsViewData['rows'][number]) => Number(!r.player) * 2 + Number(r.state === 'later');
   rows.sort((x, y) => Number(!x.player) - Number(!y.player) || (x.a + x.b).localeCompare(y.a + y.b, 'zh') || rank(x) - rank(y));
   return { rows, hidden };
+}
+
+/** 称呼 as the inspector shows them (names.ts): the words in force — whom they mean, which step found them, where, and
+ *  until when (the player's own word: until taken away) — and the words the player said are not someone. people: what
+ *  the panel offers to bind words to (every person, then the rest). */
+export interface NamesViewData {
+  now: { words: string; id: Id; name: string; source: 'player' | 'fight' | 'reply' | 'ui'; quote: string; why: string; since: string; until: string | null; recordId: string }[];
+  denied: { words: string; id: Id; name: string; since: string; recordId: string }[];
+  people: string[];
+}
+
+export function namesView(idx: WorldIndex, origin: Origin = null): NamesViewData {
+  const name = (id: Id) => idx.entityName(id);
+  const now = idx.namesNow().filter((n) => idx.entityExists(n.id)).map((n) => ({
+    words: n.words, id: n.id, name: name(n.id), source: n.source, quote: n.quote, why: n.why || '', since: formatTick(n.since, origin),
+    until: n.source === 'ui' ? null : formatTick(n.last + SCENE_GAP, origin), recordId: n.recordId,
+  }));
+  const denied = idx.namesDenied().filter((n) => idx.entityExists(n.id)).map((n) => ({ words: n.words, id: n.id, name: name(n.id), since: formatTick(n.since, origin), recordId: n.recordId }));
+  const all = [...idx.pack.entities.values(), ...idx.state.runtimeEntities.values()];
+  const people = [...new Set([...all.filter((e) => e.kind === 'person'), ...all.filter((e) => e.kind !== 'person')].map((e) => e.name))];
+  return { now, denied, people };
 }

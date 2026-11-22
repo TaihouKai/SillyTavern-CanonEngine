@@ -367,7 +367,8 @@ describe('someone known by what they hold', () => {
     y.model.on('evaluate', null, { scene_end: at(1, 6, 10) });
     await y.engine.runOperation('normal');
     const st = y.engine.current!.replay.state;
-    expect(fightNow(st).identified).toEqual([{ id: 'mira', as: 'a woman', why: 'holds Cargo hook, which Mira holds now' }]);
+    expect(fightNow(st).participants).toContain('mira');
+    expect(y.engine.current!.index.namesNow()).toMatchObject([{ words: 'a woman', id: 'mira', source: 'fight', why: 'holds Cargo hook, which Mira holds now' }]);
     expect(tiesOf(st, pid()).holds).toEqual(['hook']);
     expect(y.model.tasks('combat_who')).toHaveLength(0);
   });
@@ -436,7 +437,7 @@ describe('what an event of now hands someone', () => {
     y.model.draft('Ash tears the hook away. [AS13]');
     y.model.on('evaluate', null, { scene_end: at(1, 9, 35) });
     await y.engine.runOperation('normal');
-    expect(fightNow(y.engine.current!.replay.state).identified.map((x) => x.id)).toEqual(['mira']);
+    expect(y.engine.current!.index.namesNow().map((x) => [x.words, x.id])).toEqual([['a woman', 'mira']]);
     expect(holds).toEqual(['hook | Cargo hook']);
     expect(y.engine.combatView(false)!.rulings[0].notes.join(' ')).not.toMatch(/nobody here holds it/);
     expect(tiesOf(y.engine.current!.replay.state, pid()).holds).toEqual(['hook']);

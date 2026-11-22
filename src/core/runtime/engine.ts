@@ -2,7 +2,8 @@
 // commit), journal recovery, backup. Host-independent (see host.ts).
 import { loreFor, type LoreBackground, type LoreEntry } from './lore';
 import type { Persona } from './host';
-import type { AddressForm, Id, LedgerRecord, MindProfile, NatureVersion, StoryTime, Until } from '../domain/types';
+import type { AddressForm, Id, LedgerRecord, MindProfile, NameBinding, NatureVersion, StoryTime, Until } from '../domain/types';
+import { bindingFrom } from '../domain/names';
 import { loadPinnedPack, validatePack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { normalizeName, valuesEqual } from '../domain/pack';
 import { renderSummary, type EventSummary } from '../domain/summary';
@@ -24,7 +25,7 @@ import { CONTINUE_INSTRUCTION, EVAL_FRAMES_NOTE, EVAL_GROUPS_NOTE, EVAL_CHANCE_N
 import { baseKey, earliestChange, fingerprintPrefix, interpretationsFor, replay, sameBasis, scopeOf, stateHash, type ReplayResult } from './replay';
 import { buildPacket, DELIBERATION_TEXT, MIND_FIELDS, MIND_PLAN_MAX, mindPeople, mindsSection, retrieve, sceneFrameOf, type ClaimInput, type MindOut, type RefInput, type Retrieval } from './context';
 import { MAIN_FRAME, conversionText, frameName, localTime } from '../domain/frames';
-import { matchScope, runGate, toStoryTime, type EvalOutput, type GateInput, type GateResult } from './gate';
+import { matchScope, namingRecord, runGate, toStoryTime, type EvalOutput, type GateInput, type GateResult } from './gate';
 import { checkTimeEvidence, evidenceLine, settleSceneEnd } from './scenetime';
 import { adjudicateInterval, concludeFromPlay, rejudgeWithAfterStory } from './adjudicator';
 import { settleRelations } from './relate';
@@ -38,7 +39,7 @@ import { answeredBy, contactDecision, playLinks, playedProfile, playerOrgs, name
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, voiceTurnNote, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
-import { membershipView, natureView, relationsView, type MembershipView, type NatureViewData, type RelationsViewData } from './views';
+import { membershipView, namesView, natureView, relationsView, type MembershipView, type NamesViewData, type NatureViewData, type RelationsViewData } from './views';
 
 /** A Persona read before this release lacks what the profile has since (1.47.0: the player character's abilities,
  *  in the same aspects as anyone's; 1.48.0: a power with its uses): the 身份 page offers to read it again. */
@@ -106,8 +107,7 @@ export function peopleOfNow(index: WorldIndex, tick = index.state.clock.lo): Id[
  *  it names; else none. */
 export function candidateId(index: WorldIndex, x: string): Id | null {
   if (index.entityExists(x) || index.pack.events.has(x) || index.state.occurrences.has(x)) return x;
-  const r = index.resolveEntity(x.replace(/[-_.]+/g, ' ').trim());
-  return r.ids.length === 1 ? r.ids[0] : null;
+  return index.whoOne(x.replace(/[-_.]+/g, ' ').trim());
 }
 
 const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change', combat: 'judging the fight', combat_fill: 'what the fighters are', combat_who: 'who the fighters are', persona_abilities: 'reading what your character can do' };
@@ -786,6 +786,10 @@ export class CanonEngine {
     const pack = index.pack;
     const ids = new Set<Id>(extra);
     for (const m of index.scanEntities(text)) ids.add(m.id);
+    // 称呼 in force (names.ts): words the story uses for someone, as the steps before found them
+    const called = index.namesNow().filter((n) => index.entityExists(n.id)).slice(0, 24);
+    for (const n of called) ids.add(n.id);
+    const denied = index.namesDenied().filter((n) => index.entityExists(n.id)).slice(0, 12);
     for (const o of [...index.state.occurrences.values()].sort((a, b) => b.seq - a.seq).slice(0, 15)) [...o.actors, ...o.affected, ...o.locations].forEach((x) => ids.add(x));
     for (const s of this.activePlan()?.steps || []) if (s.status !== 'invalidated') [...s.actors, ...(s.targets || [])].forEach((x) => ids.add(x));
     const tick = index.state.clock.lo;
@@ -797,6 +801,10 @@ export class CanonEngine {
       entities_format: opts.notes ? 'id | name | aliases | kind | description' : 'id | name | aliases | kind',
       entities_note: `Entities relevant to this text (${ids.size} of ${all.length} known). For any other known person, place or thing use its exact name; the engine resolves it.`,
       entities: all.filter((e) => ids.has(e.id)).map(ent),
+      ...(called.length || denied.length ? {
+        names_note: 'Words the story already uses for someone (found in earlier messages; the player\'s own word marked): they mean that one, unless the text clearly means someone else. Words listed as "not" never mean that one.',
+        names: [...called.map((n) => `「${n.words}」 = ${n.id} | ${index.entityName(n.id)}${n.source === 'ui' ? " (the player's word)" : ''}`), ...denied.map((n) => `「${n.words}」 not ${n.id} | ${index.entityName(n.id)} (the player's word)`)],
+      } : {}),
       predicates: [...pack.predicates.values()].map((p) => `${p.id} (${p.value_type}${p.allowed_values?.length ? `: ${p.allowed_values.join('/')}` : ''}): ${p.description}`),
     };
   }
@@ -845,27 +853,31 @@ export class CanonEngine {
     // silver-haired nun was "index-librorum-prohibitorum", an alias of 茵蒂克丝 as an id, and so nobody)
     for (const r of out.references || []) if (r.candidates) r.candidates = uniq(r.candidates.map((x) => candidateId(index, String(x))).filter((x): x is Id => !!x));
     const warnings: string[] = [];
+    // the time a time skip in the message moves to: what it says is at that time (words of 称呼 unused since are over)
+    const jumpOf = (s: ExtractUserOut['statements'][number]): number | null => {
+      const to = s.kind === 'time_proposal' && s.time && Number.isInteger(s.time.day) && Number.isInteger(s.time.minute) && s.time.minute >= 0 && s.time.minute < 1440 ? toTick(s.time) : null;
+      return to !== null && to > tick && to - tick <= MAX_TIME_JUMP_MINUTES ? to : null;
+    };
+    const at = leap?.target ?? Math.max(tick, ...out.statements.filter((s) => quoteInText(s.quote, entry.text)).map(jumpOf).filter((x): x is number => x !== null));
+    // 称呼 (names.ts): whom the message's words mean as its reading found them — a reference with one candidate, by
+    // words that are not already a name of theirs (never a pronoun) — and who the fight's newcomers are. Written with
+    // the message; this message's later steps and every step after it look words up through them (whoIs).
+    const refsOne = out.references.filter((r) => r.kind === 'entity' && r.candidates?.length === 1 && index.entityExists(r.candidates[0]) && quoteInText(r.quote, entry.text));
+    const read = refsOne.map((r) => ({ r, b: bindingFrom(r.phrase, r.candidates![0], r.quote, 'player') })).filter((x): x is { r: typeof refsOne[number]; b: NameBinding } => !!x.b);
+    const known = read.map((x) => x.b);
+    const names: NameBinding[] = read.filter((x) => x.r.mode !== 'pronoun' && !index.isNameOf(x.b.words, x.b.id)).map((x) => x.b);
     // 战斗: the fight as this message starts, goes on with or ends it (combat/message.ts); someone it brings in without
     // a name may be a person of the world, something in it a thing of the setting (combat/who.ts)
-    warnings.push(...await identifyInFight({
+    const who = await identifyInFight({
       port: this.host.model, index, fight: out.fight, text: entry.text, timeLabel: formatTick(tick, origin), lore: await this.gameLore(),
       near: uniq([...peopleOfNow(index), ...(extractInput.registry.entities as string[]).map((l) => l.split(' | ')[0])]), signal, operationId, log: (l) => this.debugLog('task', l),
-      player: prof ? { id: prof.profile.playerId } : null,
-      known: out.references.filter((r) => r.kind === 'entity' && r.candidates?.length === 1).map((r) => ({ words: r.phrase, quote: r.quote, id: r.candidates![0] })),
-    }));
-    // someone a fact the player asserts names is an entity, by id or by name, or the person this message's fight takes
-    // them for (live: 「一个金发混混手持女式手枪」 wrote the gun's holder as the words "金发混混", nobody, while the fight
-    // knew him as 滨面, and the gun taken from him was "nobody's"); a value that names nobody is no fact
-    const asPeople = [...(out.fight?.identified || []), ...fightNow(index.state).identified];
-    const entityValue = (x: unknown): Id | null => {
-      const v = typeof x === 'string' ? x.trim() : '';
-      if (!v) return null;
-      if (index.entityExists(v)) return v;
-      const as = uniq(asPeople.filter((p) => normalizeName(p.as) === normalizeName(v)).map((p) => p.id));
-      if (as.length === 1) return as[0];
-      const r = index.resolveEntity(v);
-      return r.ids.length === 1 ? r.ids[0] : null;
-    };
+      player: prof ? { id: prof.profile.playerId } : null, known, at,
+    });
+    warnings.push(...who.notes);
+    names.push(...who.names);
+    // someone a fact the player asserts names is whom its words mean (live: 「一个金发混混手持女式手枪」 wrote the gun's
+    // holder as the words "金发混混", nobody, while the fight knew him as 滨面); a value that names nobody is no fact
+    const entityValue = (x: unknown): Id | null => index.whoOne(x, { text: entry.text, extra: names, at });
     for (const s of out.statements) if (s.kind === 'asserted_fact') s.facts = (s.facts || []).flatMap((f) => {
       const p = pack.predicates.get(f.predicate), eid = entityValue(f.entity_id);
       if (!p || !eid) return [];
@@ -920,17 +932,19 @@ export class CanonEngine {
       } else if (s.kind === 'time_proposal') {
         intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
         // the target time, so the GM can be told which canon events begin during the jump
-        const to = s.time && Number.isInteger(s.time.day) && Number.isInteger(s.time.minute) && s.time.minute >= 0 && s.time.minute < 1440 ? toTick(s.time) : null;
-        if (to !== null && to > tick && to - tick <= MAX_TIME_JUMP_MINUTES) timeJumpTo = Math.max(timeJumpTo ?? 0, to);
+        const to = jumpOf(s);
+        if (to !== null) timeJumpTo = Math.max(timeJumpTo ?? 0, to);
       } else if (s.kind === 'ooc_config_request') {
         configRequests.push(`Out-of-character request "${s.quote}" was not applied to the engine. Use Canon Engine settings to change the binding or disable it.`);
       } else {
         intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
       }
     }
-    const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
+    const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null, names, at);
     records.push(...fight.records);
     warnings.push(...fight.warnings);
+    const named = namingRecord(names, { lo: at, hi: at, precision: 'minute' }, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], (id) => index.entityName(id));
+    if (named) records.push(named);
     const refs: RefInput[] = out.references.map((r, i) => ({ id: `u${i + 1}`, quote: r.quote, phrase: r.phrase, kind: r.kind, assertion: 'user_input', temporal: r.kind === 'event' ? 'past' : 'present', candidates: r.candidates }));
     const interp: Interpretation = {
       key: baseKey(entry), messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, role: 'user', commitId: newId('cmt'),
@@ -1351,12 +1365,19 @@ export class CanonEngine {
       this.rejects.push(`discover: unusable after retries, used built-in name matching instead (${(e as Error).message.slice(0, 160)})`);
       return { references: [], claims: [] } as DiscoverOut;
     }));
-    const refs: RefInput[] = disc.references.filter((r) => quoteInText(r.quote, a.text) || !r.quote).map((r) => ({ id: r.id, quote: r.quote, phrase: r.phrase, kind: r.ref_kind, assertion: r.assertion, temporal: r.temporal, candidates: r.candidate_ids }));
+    // a candidate who shares a name with the player character, whom the reply does not name by a name of their own, is
+    // the player character (whoIs readIds)
+    const cand = (c: string) => (index.entityExists(c) ? index.whoOne(c, { text: a.text, readIds: true }) ?? c : c);
+    const refs: RefInput[] = disc.references.filter((r) => quoteInText(r.quote, a.text) || !r.quote).map((r) => ({ id: r.id, quote: r.quote, phrase: r.phrase, kind: r.ref_kind, assertion: r.assertion, temporal: r.temporal, candidates: r.candidate_ids && uniq(r.candidate_ids.map(String).map(cand)) }));
+    // 称呼 this reply's reading found (names.ts): a reference with one candidate, by words that are not a name of
+    // theirs, never a pronoun; the gate writes them with the reply
+    const names = refs.filter((r, i) => r.kind !== 'event' && disc.references[i]?.mode !== 'pronoun' && r.candidates?.length === 1 && index.entityExists(r.candidates[0]) && r.quote && quoteInText(r.quote, a.text)
+      && !index.isNameOf(r.phrase, r.candidates[0])).map((r) => bindingFrom(r.phrase, r.candidates![0], r.quote, 'reply')).filter((b): b is NameBinding => !!b);
     const claims: ClaimInput[] = disc.claims.filter((c) => quoteInText(c.quote, a.text)).map((c) => ({ id: c.id, quote: c.quote, kind: c.kind, entityPhrases: c.entity_phrases || [], assertion: c.assertion, expected: c.expected || null }));
     // Deterministic discovery floor: every known entity/occurrence named in the text gets a lookup
     // and an explicit review item, even if the discovery model missed it.
     const seenEnt = new Set<string>();
-    for (const r of refs) for (const id of index.resolveEntity(r.phrase).ids) seenEnt.add(id);
+    for (const r of refs) for (const id of index.whoIs(r.phrase, { text: a.text })) seenEnt.add(id);
     for (const m of index.scanEntities(a.text)) {
       if (seenEnt.has(m.id)) continue;
       refs.push({ id: `d_${m.id}`, quote: m.phrase, phrase: m.phrase, kind: index.entityKind(m.id), assertion: 'narrator', temporal: 'present', candidates: [m.id] });
@@ -1451,7 +1472,7 @@ export class CanonEngine {
       evaluation, retrieval, claims, plan: a.plan, clockTick: tick, stagedHard: a.stagedHard || new Map(), mode: a.mode, forced: a.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: eng.binding(tick).length + eng.answers(tick).length, hasOoc: this.ooc(a.userEntry?.text).ooc.length > 0,
       playerId: prof?.profile.playerId || null, personaName: prof?.profile.personaName, offered: a.offered || null, required: a.required || [], chanceCompanions: a.chance || [], chanceBlocking: (a.attempt ?? 0) === 0, leap: !!a.leapTo,
       combat: combatReview(pack, { leap: !!a.leapTo, draft: a.mode === 'draft', ruling: a.ruling ?? null, failed: !!a.combatFailed }),
-      hostility: { due: a.mode === 'draft' ? a.hostile ?? null : null, playerId: prof?.profile.playerId || null },
+      hostility: { due: a.mode === 'draft' ? a.hostile ?? null : null, playerId: prof?.profile.playerId || null }, names,
     });
     gate.warnings.push(...told.warnings);
     gate.timeBound = settled.bound;
@@ -1461,7 +1482,7 @@ export class CanonEngine {
       packHash: c.packHash, operationId: a.operationId, candidateHash: sha256(a.text), sceneCheckpoint: gate.sceneEnd || index.state.clock,
       overlayHash: hashObject(a.stagedNotes), entries: gate.coverage, suppliedContextHash: sha256(packet.text), complete: gate.coverageGaps.length === 0, gaps: gate.coverageGaps, attempt: a.attempt ?? 0,
     } : null;
-    return { gate, evaluation, retrieval, manifest, facts: packet.facts, packetText: packet.text, claims, refs };
+    return { gate, evaluation, retrieval, manifest, facts: packet.facts, packetText: packet.text, claims, refs, names };
   }
 
   /** Plain-text report of a turn: error, every attempt's problems, resent calls, step timings. With drafts (debug
@@ -1782,7 +1803,7 @@ export class CanonEngine {
 
         // Pre-generation retrieval: user references + scene + causal seeds + semantic expansion
         const horaeScene = this.host.sceneTracker?.status().scene;
-        const horaeSceneIds = horaeScene ? uniq([horaeScene.location || '', ...(horaeScene.characters || [])].flatMap((n) => (n ? index.resolveEntity(n).ids : []))) : [];
+        const horaeSceneIds = horaeScene ? uniq([horaeScene.location || '', ...(horaeScene.characters || [])].flatMap((n) => (n ? index.whoIs(n) : []))) : [];
         const userRefs = ((userInterp as Interpretation & { refs?: RefInput[] })?.refs) || [];
         const sceneSeeds = uniq([...(prevGmInterp?.sceneEntities || []), ...horaeSceneIds, ...(userInterp?.sceneEntities || [])]);
         const retrieval = retrieve(rIndex, {
@@ -1917,7 +1938,7 @@ export class CanonEngine {
               pack, index: stagedIndex, text: candidate, userText: userEntry?.text || '', userSource: userEntry ? { messageId: userEntry.messageId, contentHash: userEntry.contentHash } : null,
               evaluation: review.evaluation, retrieval: review.retrieval, claims: review.claims, plan, clockTick: clock, stagedHard, mode: 'draft', forced: planInfo.forced, voice: playerVoice(this.settings.playerVoice), bindingDecisions: (() => { const e = engagementView(stagedIndex.state, pack), t = stagedIndex.state.clock.lo; return e.binding(t).length + e.answers(t).length; })(), hasOoc: this.ooc(userEntry?.text).ooc.length > 0, playerId: prof?.profile.playerId || null, personaName: prof?.profile.personaName, offered, required, chanceCompanions: chance, chanceBlocking: attempt === 0, leap: !!leapTo,
               combat: combatReview(pack, { leap: !!leapTo, draft: true, ruling, failed: combatFailed }),
-              hostility: { due: hostile, playerId: prof?.profile.playerId || null },
+              hostility: { due: hostile, playerId: prof?.profile.playerId || null }, names: review.names,
             });
             this.checkFences(fences, excludeLast);
           }
@@ -3340,6 +3361,46 @@ export class CanonEngine {
     return true;
   }
 
+  /** 称呼: the words in force and the ones the player took away (views.namesView). */
+  namesView(): NamesViewData | null {
+    if (!this.campaign() || !this.current) return null;
+    return namesView(this.current.index, this.campaign()!.binding.originDate);
+  }
+
+  /** 称呼 in the panel: words that mean someone from now on (add: by their id or exact name), words that are not someone
+   *  (deny), or the player's own earlier word taken back (undo: the panel's record). False: nobody by that name, or
+   *  nothing to take back. */
+  async editNames(change: { add: { words: string; who: string } } | { deny: { words: string; id: Id } } | { undo: string }): Promise<boolean> {
+    if (this.opActive) throw new EngineError('incompatible_adapter', 'Canon Engine is working on a reply; try again when it is done.');
+    const c = this.campaign();
+    if (!c || !this.current) return false;
+    const idx = this.current.index;
+    if ('undo' in change) {
+      const had = (c.manualRecords || []).length;
+      c.manualRecords = (c.manualRecords || []).filter((m) => !(m.record.kind === 'naming' && m.record.recordId === change.undo));
+      if (c.manualRecords.length === had) return false;
+      c.configRevisions.push({ at: this.host.now(), summary: 'Names: the player took back their word (Canon Engine panel)' });
+    } else {
+      const words = ('add' in change ? change.add.words : change.deny.words).trim().slice(0, 80);
+      const who = 'add' in change ? change.add.who.trim() : change.deny.id;
+      // the one they mean: an id, or a name as written (not a looser match)
+      const exact = idx.entityExists(who) ? [who] : uniq([...idx.pack.entities.values(), ...idx.state.runtimeEntities.values()].filter((e) => [e.name, ...(e.aliases || [])].some((n) => normalizeName(n) === normalizeName(who))).map((e) => e.id));
+      if (!normalizeName(words) || exact.length !== 1) return false;
+      const tick = this.current.replay.state.clock.lo;
+      const rec: RecordDraft = {
+        recordId: newId('rec'), kind: 'naming', storyTime: { lo: tick, hi: tick, precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] }, evidenceKind: 'direct',
+        summary: `Names: 「${words}」 ${'add' in change ? 'is' : 'is not'} ${idx.entityName(exact[0])} (Canon Engine panel)`,
+        names: [{ words, id: exact[0], quote: '', source: 'ui', ...('deny' in change ? { removed: true } : {}) }],
+      };
+      const last = this.host.readTranscript().filter((e) => e.role !== 'system').slice(-1)[0];
+      c.manualRecords = [...(c.manualRecords || []), { afterMessageId: last ? last.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: rec.summary });
+    }
+    await this.host.save();
+    await this.reconcile('names_edited');
+    return true;
+  }
+
   /** 角色关系: every pair this game knows of, as the timeline window shows them (see views.relationsView). */
   relationsView(spoilers: boolean): RelationsViewData | null {
     if (!this.campaign() || !this.current) return null;
@@ -3593,6 +3654,8 @@ export interface ReviewResult {
   packetText: string;
   claims: ClaimInput[];
   refs: RefInput[];
+  /** 称呼 the reading of the reply found (the gate writes them with it). */
+  names: NameBinding[];
 }
 
 

@@ -29674,6 +29674,51 @@ function claimComparable(pack2, predicate, value) {
   return Array.isArray(p.allowed_values) && p.allowed_values.length > 0 && p.allowed_values.includes(value);
 }
 
+// src/core/domain/names.ts
+var SCENE_GAP = 180;
+var nameKey = (words) => normalizeName(words);
+function applyNames(list, rec, tick) {
+  for (const n of rec.names || []) if (String(n.words || "").trim() && n.id) list.push({ ...n, recordId: rec.recordId, seq: rec.sequence, tick });
+}
+function namesAt(list, tick) {
+  const ui = /* @__PURE__ */ new Map(), text = /* @__PURE__ */ new Map(), denied = /* @__PURE__ */ new Map();
+  const sorted = [...list].sort((a, b) => a.seq - b.seq);
+  for (const n of sorted) {
+    const key2 = nameKey(n.words);
+    if (!key2) continue;
+    const pair = `${key2}|${n.id}`;
+    if (n.removed) {
+      if (ui.get(key2)?.id === n.id) ui.delete(key2);
+      if (text.get(key2)?.id === n.id) text.delete(key2);
+      denied.set(pair, { words: n.words.trim(), id: n.id, recordId: n.recordId, since: n.tick });
+      continue;
+    }
+    const entry = { key: key2, words: n.words.trim(), id: n.id, source: n.source, quote: n.quote || "", ...n.why ? { why: n.why } : {}, since: n.tick, last: n.tick, recordId: n.recordId };
+    if (n.source === "ui") {
+      ui.set(key2, entry);
+      denied.delete(pair);
+      continue;
+    }
+    if (denied.has(pair)) continue;
+    const had = text.get(key2);
+    if (had && had.id === n.id) {
+      had.last = n.tick;
+      had.quote = n.quote || had.quote;
+      if (n.why) had.why = n.why;
+    } else text.set(key2, entry);
+  }
+  const now = new Map(ui);
+  for (const [k, n] of text) if (!now.has(k) && tick - n.last <= SCENE_GAP) now.set(k, n);
+  return { now, denied };
+}
+var PRONOUN = /^(我|你|您|他|她|它|祂|我们|你们|他们|她们|它们|咱|咱们|自己|对方|其|此人|那人|这人|i|me|you|he|him|she|her|it|they|them|we|us|myself|yourself|himself|herself|themselves)$/i;
+function bindingFrom(words, id, quote, source, why) {
+  const w = String(words || "").trim().slice(0, 80);
+  const k = nameKey(w);
+  if (k.length < 2 || PRONOUN.test(k) || !id) return null;
+  return { words: w, id, quote: String(quote || w).slice(0, 200), source, ...why ? { why: why.slice(0, 300) } : {} };
+}
+
 // src/core/combat/state.ts
 var READ = aspectReader(["abilities", "setting", "combat_style"]);
 var emptyCombatState = () => ({ links: [], statuses: [], styles: [], fights: [], witnessed: [] });
@@ -29814,16 +29859,14 @@ function styleOf(L, state, entity) {
 function fightNow(state) {
   const fs = state.combat.fights;
   const f = fs[fs.length - 1];
-  if (!f) return { ongoing: false, participants: [], source: null, since: null, identified: [], things: [] };
-  const identified = [];
+  if (!f) return { ongoing: false, participants: [], source: null, since: null, things: [] };
   const things = [];
   const gone = /* @__PURE__ */ new Set();
   for (let i = fs.length - 1; i >= 0 && fs[i].ongoing; i--) {
-    for (const x of fs[i].identified || []) if (f.participants.includes(x.id) && !identified.some((y) => y.id === x.id)) identified.push(x);
     for (const x of fs[i].things || []) if (!gone.has(x.node) && !things.some((y) => y.node === x.node)) things.push(x);
     for (const x of fs[i].ended || []) gone.add(x);
   }
-  return { ongoing: f.ongoing, participants: f.participants, source: f.source, since: f.tick, identified, things: f.ongoing ? things.reverse() : [] };
+  return { ongoing: f.ongoing, participants: f.participants, source: f.source, since: f.tick, things: f.ongoing ? things.reverse() : [] };
 }
 function knowsNode(L, state, who, nodeId, part) {
   const n = combatNodes(L, state).get(nodeId);
@@ -30010,6 +30053,7 @@ function emptyState(pack2) {
     combat: emptyCombatState(),
     hostility: emptyHostilityState(),
     runtimeEntities: /* @__PURE__ */ new Map(),
+    names: [],
     enactedSteps: /* @__PURE__ */ new Map(),
     clock: { lo: pack2.coverage.start, hi: pack2.coverage.start, precision: "minute" },
     sceneFrame: null,
@@ -30060,6 +30104,7 @@ function applyRecord(state, rec) {
     const re = state.runtimeEntities.get(r.id);
     if (re && re.name !== r.name) state.runtimeEntities.set(r.id, { ...re, name: r.name, aliases: [.../* @__PURE__ */ new Set([...re.aliases || [], re.name])].filter((x) => x !== r.name) });
   }
+  applyNames(state.names, rec, tick);
   for (const s of rec.enactedStepIds || []) if (!state.enactedSteps.has(s)) state.enactedSteps.set(s, rec.recordId);
   if (rec.kind === "scene_frame" && rec.frameId) state.sceneFrame = { frameId: rec.frameId, since: tick, recordId: rec.recordId };
   if ((rec.kind === "time_advance" || rec.kind === "initial_bootstrap") && rec.storyTime.lo >= state.clock.lo) {
@@ -30677,6 +30722,7 @@ function addressDelta(prev, next) {
     return { who: v.who, address: [...changed, ...dropped] };
   }).filter((x) => x.address.length);
 }
+var PLAYER_PREFIX = "rt.player.";
 var CONTAINMENT_RE = /(located|location|parent|part.?of|within|inside|contain|district|area|region|位于|所在|属于|内)/i;
 function tokens(text) {
   const s = String(text || "").normalize("NFKC").toLowerCase();
@@ -30703,6 +30749,9 @@ var WorldIndex = class _WorldIndex {
   docTokens = /* @__PURE__ */ new Map();
   df = /* @__PURE__ */ new Map();
   runtimeAlias = /* @__PURE__ */ new Map();
+  /** The player character (the latest Persona read's), or null before one. */
+  playerId;
+  names;
   constructor(pack2, state) {
     this.pack = pack2;
     this.state = state;
@@ -30714,6 +30763,9 @@ var WorldIndex = class _WorldIndex {
         this.runtimeAlias.set(k, [...this.runtimeAlias.get(k) || [], re.id]);
       }
     }
+    const seed = [...state.records].reverse().find((r) => r.kind === "persona_seed" && (r.runtimeEntities || []).some((e) => e.id.startsWith(PLAYER_PREFIX)));
+    this.playerId = seed ? seed.runtimeEntities.find((e) => e.id.startsWith(PLAYER_PREFIX)).id : null;
+    this.names = namesAt(state.names || [], state.clock.lo);
   }
   indexOccurrence(o) {
     for (const e of [...o.actors, ...o.affected, ...o.locations]) {
@@ -30853,7 +30905,8 @@ var WorldIndex = class _WorldIndex {
     }
     return { ids: hits, ambiguous: hits.length > 1 };
   }
-  /** Find entity mentions inside free text (deterministic name/alias scan). */
+  /** Find entity mentions inside free text (deterministic name/alias scan, and the words of 称呼 in force). A mention
+   *  by a name the player character shares with someone (playerByName) is the player character. */
   scanEntities(text) {
     const norm3 = normalizeName(text);
     const found = /* @__PURE__ */ new Map();
@@ -30861,14 +30914,93 @@ var WorldIndex = class _WorldIndex {
       for (const n of names) {
         const nn = normalizeName(n);
         if (nn.length >= 2 && norm3.includes(nn)) {
-          found.set(id, n);
+          const to = this.playerByName(id, norm3) ? this.playerId : id;
+          if (!found.has(to)) found.set(to, n);
           return;
         }
       }
     };
     for (const e of this.pack.entities.values()) consider(e.id, [e.name, ...e.aliases]);
     for (const e of this.state.runtimeEntities.values()) consider(e.id, [e.name, ...e.aliases]);
+    for (const n of this.names.now.values()) if (n.key.length >= 2 && norm3.includes(n.key) && this.entityExists(n.id) && !found.has(n.id)) found.set(n.id, n.words);
     return [...found].map(([id, phrase]) => ({ id, phrase }));
+  }
+  /** 称呼 as they stand at a story time (now, or later: a text that moves time on). */
+  namesTable(at) {
+    if (at === void 0 || at <= this.state.clock.lo) return this.names;
+    if (this.namesLater?.at !== at) this.namesLater = { at, table: namesAt(this.state.names || [], at) };
+    return this.namesLater.table;
+  }
+  namesLater = null;
+  /** 称呼 in force now (names.ts): whom words of the story mean, the newest first. */
+  namesNow() {
+    return [...this.names.now.values()].sort((a, b) => b.last - a.last);
+  }
+  /** The words the player said are not someone (and the text may not give them back). */
+  namesDenied() {
+    return [...this.names.denied.values()];
+  }
+  /** Whether the words are a name of theirs (as written: their name or an alias). */
+  isNameOf(words, id) {
+    const k = normalizeName(words);
+    return !!k && this.allNames(id).some((n) => normalizeName(n) === k);
+  }
+  /** Whether the player said these words are not this one. */
+  nameDenied(words, id) {
+    return this.names.denied.has(`${nameKey(words)}|${id}`);
+  }
+  /** Whether a name of someone is one the player character shares (神光爱丽丝 and 爱丽丝·异典 are both 「爱丽丝」) and the
+   *  text names them by none of their own: then the text means the player character (live: 「爱丽丝低头看了看手里的
+   *  枪」 was filed on 爱丽丝·异典). text: normalized. */
+  playerByName(id, text) {
+    const p = this.playerId;
+    if (!p || id === p || !this.entityExists(p)) return false;
+    const parts = (n) => [n, ...n.split(/[·・\s]/)].map(normalizeName).filter((k) => k.length >= 2);
+    const mine = new Set(this.allNames(p).flatMap(parts));
+    const theirs = this.allNames(id).flatMap(parts);
+    return theirs.some((k) => mine.has(k)) && !theirs.some((k) => !mine.has(k) && text.includes(k));
+  }
+  /** Whom some words of the story mean: the one place a step looks them up (an id, a reference, a name a model wrote).
+   *  - an id is itself (a runtime id cut short, the one it starts);
+   *  - words of 称呼 in force (this turn's own first: `extra`, what the steps before found in the same text) are whom
+   *    they were found to mean;
+   *  - else by name (resolveEntity; exact: names only, no containment), leaving out whom the player said the words are
+   *    not, and with a name the player character shares read as the player character (playerByName, on the text the
+   *    words are from and the words themselves).
+   *  kind: only entities of that kind. readIds: an id a model gave for words of the text is read like a name (one of
+   *  someone who shares a name with the player character, which the text does not name them by, is the player
+   *  character): for the analysis of a text, never for a closed list of ids. at: the story time the text is at, when
+   *  later than now (a reply or message that moves time on: words of the table unused since then are over). More than
+   *  one id: the words fit several. */
+  whoIs(words, o = {}) {
+    const w = String(words ?? "").trim();
+    if (!w) return [];
+    const fit = (id) => !o.kind || this.entityKind(id) === o.kind;
+    if (this.entityExists(w)) {
+      const id = o.readIds && this.playerByName(w, normalizeName(o.text || "")) ? this.playerId : w;
+      return fit(id) ? [id] : [];
+    }
+    if (/^rt\.\S{6,}$/.test(w)) {
+      const cut = [...this.state.runtimeEntities.keys()].filter((id) => id.startsWith(w));
+      if (cut.length === 1) return fit(cut[0]) ? cut : [];
+    }
+    const k = normalizeName(w);
+    if (!k) return [];
+    const table = this.namesTable(o.at);
+    const extra = (o.extra || []).filter((n) => !n.removed && nameKey(n.words) === k && !table.denied.has(`${k}|${n.id}`));
+    const bound = table.now.get(k);
+    const byWords = bound?.source === "ui" ? bound.id : extra.length ? extra[extra.length - 1].id : bound?.id;
+    if (byWords) return fit(byWords) ? [byWords] : [];
+    const plain = normalizeName(`${o.text || ""} ${w}`);
+    const named = o.exact ? [.../* @__PURE__ */ new Set([...this.pack.aliasIndex.get(k) || [], ...this.runtimeAlias.get(k) || []])] : this.resolveEntity(w).ids;
+    const notPlayer = !!this.playerId && table.denied.has(`${k}|${this.playerId}`);
+    const ids = [...new Set(named.map((id) => !notPlayer && this.playerByName(id, plain) ? this.playerId : id))];
+    return ids.filter((id) => fit(id) && !table.denied.has(`${k}|${id}`));
+  }
+  /** The one entity the words mean, or null (none, or several). */
+  whoOne(words, o = {}) {
+    const ids = this.whoIs(words, o);
+    return ids.length === 1 ? ids[0] : null;
   }
   /** Lexical-semantic candidate search over occurrence accounts/evidence (CJK bigrams + words, IDF). */
   semanticSearch(text, k = 5, minScore = 1.2) {
@@ -35444,12 +35576,12 @@ function extractJson(text) {
   for (const c of candidates) {
     const start = c.indexOf("{");
     if (start < 0) continue;
-    let depth = 0, inStr = false, esc6 = false;
+    let depth = 0, inStr = false, esc7 = false;
     for (let i = start; i < c.length; i++) {
       const ch = c[i];
       if (inStr) {
-        if (esc6) esc6 = false;
-        else if (ch === "\\") esc6 = true;
+        if (esc7) esc7 = false;
+        else if (ch === "\\") esc7 = true;
         else if (ch === '"') inStr = false;
         continue;
       }
@@ -35474,13 +35606,13 @@ function salvageTruncatedJson(text) {
   const start = s.indexOf("{");
   if (start < 0) return null;
   const stack = [];
-  let inStr = false, esc6 = false;
+  let inStr = false, esc7 = false;
   let cut = null;
   for (let i = start; i < s.length; i++) {
     const ch = s[i];
     if (inStr) {
-      if (esc6) esc6 = false;
-      else if (ch === "\\") esc6 = true;
+      if (esc7) esc7 = false;
+      else if (ch === "\\") esc7 = true;
       else if (ch === '"') inStr = false;
       continue;
     }
@@ -35737,12 +35869,12 @@ var taskDefaults = { callTimeoutMs: 0, observer: null, onDone: null, onReject: n
 function looksTruncated(text) {
   const start = text.indexOf("{");
   if (start < 0) return false;
-  let depth = 0, inStr = false, esc6 = false;
+  let depth = 0, inStr = false, esc7 = false;
   for (let i = start; i < text.length; i++) {
     const ch = text[i];
     if (inStr) {
-      if (esc6) esc6 = false;
-      else if (ch === "\\") esc6 = true;
+      if (esc7) esc7 = false;
+      else if (ch === "\\") esc7 = true;
       else if (ch === '"') inStr = false;
       continue;
     }
@@ -35971,7 +36103,7 @@ var EVAL_COMBAT = `   statuses: notable states of a person this reply (or player
    fight (only when fight_ruling is not given, for a pack with combat): when the reply itself starts a confrontation the player character is in or sees \u2014 someone attacks, a fight breaks out \u2014: starts true, participants (ids or new_entities refs), quote; resolved_unruled true when the reply then goes on to decide it (blows land, someone wins or loses) instead of stopping where it begins. null when the reply has none.
    ruling_conflicts (only when fight_ruling is given): every place the reply changes what the ruling decided \u2014 another result, someone hit or hurt who was not (or not hit who was), an attack, dodge or escape the ruling does not have, someone arriving or leaving, the fight carried past its stop_at, the player character doing what the player did not write \u2014: quote and why. NOT a conflict: embellishment \u2014 how it looks, sounds and feels, what people say, their taunts, looks, gestures and thoughts \u2014 as long as no result changes; and following the ruling where it rules against the player's message (the ruling has already decided that: its result stands, not the player's words).`;
 var COMBAT_TASK = `TASK: Judge this turn of a fight \u2014 a confrontation whose result depends on one side's abilities against the other's. The game master writes the reply from your ruling and may only embellish it: what happens is yours to decide.
-Input: basis (what this world runs on by default); fighters (id, name, description, states now, world_now \u2014 what the world's record says of them at this moment: an injury, a condition, a form; hold the fight to it, as to their states \u2014, \u5BF9\u6297\u503E\u5411 \u2014 how they act in a fight \u2014, what they are linked to); nodes (the setting and what the fighters have: concepts, rules, abilities told in parts \u2014 each person's own and the player character's too \u2014, what an organization or object they belong to or hold is in a fight, precedents \u2014 how such fights went in the original story; a node with use_of is a use of that ability: the ability's conditions, cost, limits and counters hold for the use too); sources (lorebook entries and the player's Persona, each with a ref); relations between the fighters; knows (what each fighter knows of the others' abilities: a part not listed for them is unknown to them; of the player character's powers, each knows what their known_to_all says \u2014 someone famous is known by what they are famous for \u2014 and more only through what the story showed them); player_message (the player's own words this turn) and statements (what they establish as happening and what they only attempt); recent (the end of the story so far); time; canon_fixed, when given: what the story brings about later, each only by its event (only_by) \u2014 someone here caught or killed, a thing here destroyed: it does NOT happen in this fight, whatever anyone does. An attempt at it falls short in a way that fits (it misses, is held off or interrupted, the thing survives damaged, they get away), the fight goes on around it, and a player's outcome that would bring it about is stopped with basis [{"ref": that line's ref}]. Nobody in the story knows of these lines.
+Input: basis (what this world runs on by default); fighters (id, name, called \u2014 words the story uses for them, as the player's message may: those words mean them \u2014, description, states now, world_now \u2014 what the world's record says of them at this moment: an injury, a condition, a form; hold the fight to it, as to their states \u2014, \u5BF9\u6297\u503E\u5411 \u2014 how they act in a fight \u2014, what they are linked to); nodes (the setting and what the fighters have: concepts, rules, abilities told in parts \u2014 each person's own and the player character's too \u2014, what an organization or object they belong to or hold is in a fight, precedents \u2014 how such fights went in the original story; a node with use_of is a use of that ability: the ability's conditions, cost, limits and counters hold for the use too); sources (lorebook entries and the player's Persona, each with a ref); relations between the fighters; knows (what each fighter knows of the others' abilities: a part not listed for them is unknown to them; of the player character's powers, each knows what their known_to_all says \u2014 someone famous is known by what they are famous for \u2014 and more only through what the story showed them); player_message (the player's own words this turn) and statements (what they establish as happening and what they only attempt); recent (the end of the story so far); time; canon_fixed, when given: what the story brings about later, each only by its event (only_by) \u2014 someone here caught or killed, a thing here destroyed: it does NOT happen in this fight, whatever anyone does. An attempt at it falls short in a way that fits (it misses, is held off or interrupted, the thing survives damaged, they get away), the fight goes on around it, and a player's outcome that would bring it about is stopped with basis [{"ref": that line's ref}]. Nobody in the story knows of these lines.
 1. Authority: an objective mechanism (a node, a source) > what the player's message establishes > your judgement. What the player writes their own character does, and what that act physically does \u2014 they pull the trigger and the bullet hits \u2014 happens. What it then does to someone else beyond what the player wrote is yours to judge by the mechanisms.
    player_outcomes: EVERY outcome the player's message states for the player character's act \u2014 a hit, a cut, a wound, a kill, someone falling, an escape, an object taken \u2014 once each, quote = the player's words, verbatim. stands: true when it happens as written; false ONLY when an objective mechanism stops it (a reflection, a precognitive dodge, a body that such a blow cannot harm, what is so of someone now \u2014 an object they do not hold, an arm they no longer have \u2014, a line of canon_fixed): then basis (node ids; a source ref with its words, verbatim) and why. Without such a mechanism it stands, whatever you would judge. [] when the message states no outcome. outcomes_that_stand, when given: these happen as written \u2014 rule the rest around them. not_destroyed, when given: these things are not destroyed this turn (canon_fixed keeps them) \u2014 rule again with that: damaged, switched off, out of reach, the fight going on around them.
 2. basis for every exchange: the refs you decided by \u2014 node ids; source refs with quote (the player character's abilities are nodes like anyone's, read from their Persona; the Persona itself is the source "persona": cite it with its words); a fighter's \u5BF9\u6297\u503E\u5411 as "style:<fighter id>" with its words; what is so of a fighter or someone present now \u2014 a line of their states, holds or world_now \u2014 as "world:<their id>" with its words \u2014 or [{"ref":"judgement"}] with unsupported true when nothing in the input decides it; then judge by the common sense of this world's basis. A node's text is the setting: use it as written, do not invent powers, weaknesses or rules it does not have.
@@ -36336,7 +36468,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.48.6";
+var ENGINE_RELEASE = "1.49.0";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -36900,7 +37032,7 @@ function unanswered(state, tick) {
   }
   return out;
 }
-var isPlayerId = (id) => id.startsWith("rt.player.");
+var isPlayerId = (id) => id.startsWith(PLAYER_PREFIX);
 function contactDecision(state, c) {
   const k = scopeKey(c.scopeKind, c.scopeRef);
   const sameThing = (id) => {
@@ -37004,12 +37136,12 @@ function checkOpportunities(out, index, profile2, candidates, tick, quiet = fals
   const pending = unanswered(st, tick);
   for (const o of out.opportunities || []) {
     const ref = o.ref || "?";
-    const named = uniq((o.actors || []).map((a) => index.entityExists(a) ? a : index.resolveEntity(a).ids.length === 1 ? index.resolveEntity(a).ids[0] : null).filter(Boolean)).filter((a) => a !== profile2.playerId);
+    const named = uniq((o.actors || []).map((a) => index.whoOne(a)).filter(Boolean)).filter((a) => a !== profile2.playerId);
     const actors = named.filter((a) => {
       const f = factAt(st, a, "alive", { tick });
       return !(f.known && f.value === false);
     });
-    const newcomers = quiet && o.side_job && !o.target_event_id && !named.length ? uniq((o.actors || []).map((a) => String(a).trim()).filter((a) => a && !/^[a-z0-9._-]+$/.test(a) && !index.resolveEntity(a).ids.length)).slice(0, 3) : [];
+    const newcomers = quiet && o.side_job && !o.target_event_id && !named.length ? uniq((o.actors || []).map((a) => String(a).trim()).filter((a) => a && !/^[a-z0-9._-]+$/.test(a) && !index.whoIs(a).length)).slice(0, 3) : [];
     if (!actors.length && !newcomers.length) {
       dropped.push({ id: ref, reason: named.length ? "its actors are dead" : "no known actor" });
       continue;
@@ -37358,9 +37490,9 @@ function engagementRecord(s0, index, tick, src) {
     label ||= a.title;
   } else if (kind === "faction") {
     if (!index.entityExists(ref)) {
-      const r = index.resolveEntity(ref);
-      if (r.ids.length !== 1) return null;
-      ref = r.ids[0];
+      const id = index.whoOne(ref);
+      if (!id) return null;
+      ref = id;
     }
     label ||= index.entityName(ref);
   } else if (kind === "contact") {
@@ -37980,8 +38112,8 @@ function retrieve(index, spec) {
     const entityIds = new Set(candIds.filter((c) => index.entityExists(c)));
     const occIds = new Set(candIds.filter((c) => index.state.occurrences.has(c)));
     const packIds = new Set(candIds.filter((c) => index.pack.events.has(c)));
-    const ent = index.resolveEntity(r.phrase);
-    if (r.kind !== "event") ent.ids.forEach((x) => entityIds.add(x));
+    const ent = index.whoIs(r.phrase, { text: r.quote });
+    if (r.kind !== "event") ent.forEach((x) => entityIds.add(x));
     if (r.kind === "event" || r.temporal === "past" || r.temporal === "flashback" || r.kind === "other") {
       const ev = index.resolveEventPhrase(r.phrase + " " + r.quote);
       ev.occurrenceIds.forEach((x) => occIds.add(x));
@@ -37995,7 +38127,7 @@ function retrieve(index, spec) {
         for (const a of [...oc.affected, ...oc.actors]) if (index.entityKind(a) === (r.kind === "person" ? "person" : index.entityKind(a))) entityIds.add(a);
       }
     }
-    if (ent.ambiguous && entityIds.size > 1 && !candIds.length) ambiguous.push(`${r.phrase}: ${[...entityIds].join(" | ")}`);
+    if (ent.length > 1 && entityIds.size > 1 && !candIds.length) ambiguous.push(`${r.phrase}: ${[...entityIds].join(" | ")}`);
     entry.resolved = { entityIds: [...entityIds], occurrenceIds: [...occIds], packEventIds: [...packIds] };
     entry.disposition = entityIds.size + occIds.size + packIds.size === 0 ? r.kind === "event" ? "unresolved" : "new" : entityIds.size > 1 && !candIds.length ? "ambiguous" : "resolved";
     for (const id of entityIds) pullEntity(id, "mentioned", r.quote);
@@ -38021,7 +38153,7 @@ function retrieve(index, spec) {
     for (const m of index.scanEntities(t2)) pullEntity(m.id, "mentioned", t2.slice(0, 400));
   }
   for (const c of spec.claims) {
-    for (const ph of c.entityPhrases) for (const id of index.resolveEntity(ph).ids) pullEntity(id, "scene", c.quote);
+    for (const ph of c.entityPhrases) for (const id of index.whoIs(ph, { text: c.quote })) pullEntity(id, "scene", c.quote);
     if (c.expected && index.entityExists(c.expected.entity_id)) pullEntity(c.expected.entity_id, "scene", c.quote);
   }
   return { entries, occurrences, entities, canonEvents, claims: spec.claims, ambiguous };
@@ -38378,7 +38510,7 @@ function fightNowInput(index) {
   return f.ongoing ? { ongoing: true, participants: f.participants.map((p) => `${p} | ${index.entityName(p)}`) } : { ongoing: false };
 }
 var slug2 = (s) => (String(s).normalize("NFKC").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "person").slice(0, 24);
-function fightFromMessage(out, index, text, src, st, playerId) {
+function fightFromMessage(out, index, text, src, st, playerId, names = [], at) {
   const warnings = [];
   if (!out || out.state === "none" || index.pack.combat.none !== null) return { records: [], warnings };
   const now = fightNow(index.state);
@@ -38395,9 +38527,9 @@ function fightFromMessage(out, index, text, src, st, playerId) {
       warnings.push(`fight: new person "${name2}" left out (their words are not in the message)`);
       continue;
     }
-    const known = index.resolveEntity(name2);
-    if (known.ids.length === 1) {
-      byName.set(normalizeName(name2), known.ids[0]);
+    const known = index.whoOne(name2, { text, extra: names, at });
+    if (known) {
+      byName.set(normalizeName(name2), known);
       continue;
     }
     const id = `rt.${slug2(name2)}.${newId("e").slice(2, 8)}`;
@@ -38407,10 +38539,7 @@ function fightFromMessage(out, index, text, src, st, playerId) {
   const people = [];
   for (const x of out.participants || []) {
     const s = String(x).trim();
-    const id = index.entityExists(s) ? s : byName.get(normalizeName(s)) ?? (() => {
-      const r = index.resolveEntity(s);
-      return r.ids.length === 1 ? r.ids[0] : null;
-    })();
+    const id = byName.get(normalizeName(s)) ?? index.whoOne(s, { text, extra: names, at });
     if (id) people.push(id);
     else warnings.push(`fight: "${s}" is nobody known (left out)`);
   }
@@ -38422,8 +38551,8 @@ function fightFromMessage(out, index, text, src, st, playerId) {
     if (out.state === "starts") warnings.push("fight: fewer than two sides known; no fight recorded");
     return { records: [], warnings };
   }
-  if (now.ongoing && participants.length === now.participants.length && participants.every((p) => now.participants.includes(p)) && !made.length && !out.identified?.length && !out.nodes?.length) return { records: [], warnings };
-  return { records: [combatRecord(st, src, `Fight: ${participants.map((p) => index.entityName(p) || made.find((m) => m.id === p)?.name || p).join(", ")}`, { fight: { ongoing: true, participants, source: "player", why: String(out.why || "").slice(0, 300), ...out.identified?.length ? { identified: out.identified.filter((x) => participants.includes(x.id)) } : {}, ...out.nodes?.length ? { things: out.nodes } : {} }, ...made.length ? { runtimeEntities: made } : {} })], warnings };
+  if (now.ongoing && participants.length === now.participants.length && participants.every((p) => now.participants.includes(p)) && !made.length && !out.nodes?.length) return { records: [], warnings };
+  return { records: [combatRecord(st, src, `Fight: ${participants.map((p) => index.entityName(p) || made.find((m) => m.id === p)?.name || p).join(", ")}`, { fight: { ongoing: true, participants, source: "player", why: String(out.why || "").slice(0, 300), ...out.nodes?.length ? { things: out.nodes } : {} }, ...made.length ? { runtimeEntities: made } : {} })], warnings };
 }
 
 // src/core/combat/judge.ts
@@ -38519,12 +38648,17 @@ async function judgeFight(a) {
     who,
     of: walk2.nodes.filter((w) => w.node.kind === "ability" && !w.from.includes(who)).flatMap((w) => (w.node.parts || [{ part: "effect", text: "" }]).filter((p) => knowsNode(L, index.state, who, w.node.id, p.part)).map((p) => `${w.node.id}:${p.part}`))
   }));
+  const called = (id) => {
+    const w = index.namesNow().filter((n) => n.id === id).map((n) => n.words).slice(0, 4);
+    return w.length ? { called: w } : {};
+  };
   const input = {
     basis: L.combat.basis,
     time: a.timeLabel,
     fighters: fighters.map((id) => ({
       id,
       name: name2(id),
+      ...called(id),
       ...id === a.playerId ? { player_character: true, ...a.playerPublic ? { known_to_all: a.playerPublic.slice(0, 600) } : {} } : {},
       description: describe(id),
       states: statesNow(id),
@@ -38548,7 +38682,7 @@ async function judgeFight(a) {
     relations,
     knows,
     ...fixed.length ? { canon_fixed: fixed.map((f) => ({ ref: f.ref, who: `${f.who} | ${name2(f.who)}`, what: `${f.outcome.predicate}${f.outcome.op === "add" ? " gains" : f.outcome.op === "remove" ? " loses" : " becomes"} ${valueText(f.outcome.value)}`, only_by: L.events.get(f.event).title })) } : {},
-    present: bystanders.map((id) => ({ id, name: name2(id), description: describe(id), style: styleOf(L, index.state, id)?.style || null, linked: linksOf(L, index.state, id).map(linkLine), relations: fighters.map((f) => index.relationNow(id, f)).filter(Boolean).map((r) => r.bond) })),
+    present: bystanders.map((id) => ({ id, name: name2(id), ...called(id), description: describe(id), style: styleOf(L, index.state, id)?.style || null, linked: linksOf(L, index.state, id).map(linkLine), relations: fighters.map((f) => index.relationNow(id, f)).filter(Boolean).map((r) => r.bond) })),
     player_message: a.playerMessage,
     statements: a.statements,
     recent: a.recent.slice(-2e3)
@@ -38608,16 +38742,16 @@ async function judgeFight(a) {
   }
   const outcomes = checked.list;
   const bystander = (x) => bystanders.includes(String(x)) ? String(x) : (() => {
-    const r = index.resolveEntity(String(x));
-    return r.ids.length === 1 && bystanders.includes(r.ids[0]) ? r.ids[0] : null;
+    const id = index.whoOne(x);
+    return id && bystanders.includes(id) ? id : null;
   })();
   const joined = uniq([...out.joins || [], ...(out.exchanges || []).map((x) => x.actor)].map(bystander).filter((x) => !!x));
   fighters.push(...joined);
   const exchanges = [];
   for (const x of out.exchanges || []) {
     const actor = fighters.includes(x.actor) ? x.actor : (() => {
-      const r = index.resolveEntity(String(x.actor));
-      return r.ids.length === 1 && fighters.includes(r.ids[0]) ? r.ids[0] : null;
+      const id = index.whoOne(x.actor);
+      return id && fighters.includes(id) ? id : null;
     })();
     if (!actor || !String(x.text || "").trim()) {
       notes.push(`ruling: an exchange of "${x.actor}" left out (not a fighter)`);
@@ -38633,8 +38767,8 @@ async function judgeFight(a) {
   const statuses = [];
   for (const s of out.statuses || []) {
     const who = fighters.includes(s.who) ? s.who : (() => {
-      const r = index.resolveEntity(String(s.who));
-      return r.ids.length === 1 && fighters.includes(r.ids[0]) ? r.ids[0] : null;
+      const id = index.whoOne(s.who);
+      return id && fighters.includes(id) ? id : null;
     })();
     const text = String(s.text || "").trim().slice(0, 120);
     if (!who || !text) {
@@ -38662,8 +38796,7 @@ async function judgeFight(a) {
     const among = (v, ids) => {
       const s = new Set(ids), w = v.split("|")[0].trim();
       if (s.has(w)) return w;
-      const r = index.resolveEntity(v.split("|").pop().trim());
-      const hit = r.ids.filter((id) => s.has(id));
+      const hit = index.whoIs(v.split("|").pop().trim()).filter((id) => s.has(id));
       return hit.length === 1 ? hit[0] : w;
     };
     const obj = among(String(x.object || ""), heldHere), to = x.to ? among(String(x.to), [...fighters, ...bystanders]) : null;
@@ -38787,9 +38920,14 @@ function ownNames(index, id) {
 async function identifyInFight(a) {
   const f = a.fight;
   const L = a.index.pack;
-  if (!f || f.state !== "starts" && f.state !== "continues" || L.combat.none !== null) return [];
+  const names = [];
+  if (!f || f.state !== "starts" && f.state !== "continues" || L.combat.none !== null) return { notes: [], names };
   const now = fightNow(a.index.state);
   const notes = [];
+  const call = (p, id, why) => {
+    const b = bindingFrom(p.name, id, p.quote, "fight", why);
+    if (b) names.push(b);
+  };
   const same = (x, y) => !!x && !!y && (normalizeName(x) === normalizeName(y) || y.length >= 4 && x.includes(y) || x.length >= 4 && y.includes(x));
   for (const p of [...f.new_people || []]) {
     const k = (a.known || []).find((r) => a.index.entityExists(r.id) && L.entities.get(r.id)?.kind === "person" && [r.words, r.quote].some((w) => same(String(p.name || ""), w) || same(String(p.quote || ""), w)));
@@ -38797,7 +38935,7 @@ async function identifyInFight(a) {
     f.new_people = (f.new_people || []).filter((x) => x !== p);
     const had = (f.participants || []).map(String).includes(k.id);
     f.participants = uniq((f.participants || []).map((x) => normalizeName(String(x)) === normalizeName(String(p.name || "")) ? k.id : String(x)).concat(k.id));
-    if (!had) f.identified = [...f.identified || [], { id: k.id, as: String(p.name), why: "the message refers to them" }];
+    if (!had) call(p, k.id, "the message refers to them");
     notes.push(`fight: "${p.name}" is ${a.index.entityName(k.id)} (the message refers to them)`);
   }
   const canHold = L.predicates.get("holder")?.value_type === "entity_ref";
@@ -38812,15 +38950,15 @@ async function identifyInFight(a) {
     if (by.length !== 1 || (f.participants || []).map(String).includes(by[0]) || !obj) continue;
     f.new_people = (f.new_people || []).filter((x) => x !== p);
     f.participants = uniq((f.participants || []).map((x) => normalizeName(String(x)) === normalizeName(String(p.name || "")) ? by[0] : String(x)).concat(by[0]));
-    f.identified = [...f.identified || [], { id: by[0], as: String(p.name), why: `holds ${a.index.entityName(obj.id)}, which ${a.index.entityName(by[0])} holds now` }];
+    call(p, by[0], `holds ${a.index.entityName(obj.id)}, which ${a.index.entityName(by[0])} holds now`);
     notes.push(`fight: "${p.name}" is ${a.index.entityName(by[0])} (holds ${a.index.entityName(obj.id)})`);
   }
-  const fresh = (f.new_people || []).filter((p) => String(p.name || "").trim() && quoteInText(p.quote, a.text) && a.index.resolveEntity(p.name).ids.length !== 1);
+  const fresh = (f.new_people || []).filter((p) => String(p.name || "").trim() && quoteInText(p.quote, a.text) && a.index.whoIs(p.name, { text: a.text, extra: a.known, at: a.at }).length !== 1);
   const fighters = uniq([...a.player ? [a.player.id] : [], ...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...f.state === "continues" && now.ongoing ? now.participants : []]);
   const people = fresh.length ? whoCandidates(a.index, fresh.map((p) => `${p.name} ${p.description || ""} ${p.quote}`), a.lore, a.near).filter((id) => !fighters.includes(id)) : [];
   const shown = (f.things || []).filter((t2) => quoteInText(t2.quote, a.text)).slice(0, 12);
   const things = thingCandidates(a.index, shown.map((t2) => `${t2.what || ""} ${t2.quote}`), fighters, now.ongoing ? now.things.map((t2) => t2.node) : []);
-  if (!people.length && !things.length) return notes;
+  if (!people.length && !things.length) return { notes, names };
   let out;
   try {
     out = await callStructured(a.port, "combat_who", PROMPTS.combat_who, {
@@ -38858,7 +38996,7 @@ async function identifyInFight(a) {
     }, { signal: a.signal, operationId: a.operationId, log: a.log });
   } catch (e) {
     if (a.signal?.aborted) throw e;
-    return [...notes, `fight: who and what the message brings in was not decided (${String(e.message || e).slice(0, 160)})`];
+    return { notes: [...notes, `fight: who and what the message brings in was not decided (${String(e.message || e).slice(0, 160)})`], names };
   }
   const taken = /* @__PURE__ */ new Set();
   for (const r of out.people || []) {
@@ -38872,7 +39010,7 @@ async function identifyInFight(a) {
     f.participants = (f.participants || []).map((x) => normalizeName(String(x)) === normalizeName(p.name) ? r.id : x);
     if (!f.participants.includes(r.id)) f.participants.push(r.id);
     f.new_people = (f.new_people || []).filter((x) => x !== p);
-    f.identified = [...f.identified || [], { id: r.id, as: p.name, why: String(r.why || "").slice(0, 300) }];
+    call(p, r.id, String(r.why || ""));
     notes.push(`fight: "${p.name}" is ${L.entities.get(r.id).name} (${String(r.why || "").slice(0, 160)})`);
   }
   const owner = (id) => (f.participants || []).map(String).find((p) => a.index.entityExists(p) && linksOf(L, a.index.state, p).some((l) => l.node === id));
@@ -38891,7 +39029,7 @@ async function identifyInFight(a) {
     f.nodes = [...f.nodes || [], { node: t2.id, why: String(t2.why || "").slice(0, 300) }];
     notes.push(`fight: ${combatNodes(L, a.index.state).get(t2.id).name} is in it (${String(t2.why || "").slice(0, 160)})`);
   }
-  return notes;
+  return { notes, names };
 }
 
 // src/core/combat/reply.ts
@@ -39022,8 +39160,8 @@ function combatView(idx, spoilers, player, origin, rulings, query = "", focus = 
     none: L.combat.none,
     basis: L.combat.basis,
     fight: { ongoing: f.ongoing, people: f.participants.filter((x) => idx.entityExists(x)).map((id) => {
-      const w = f.identified.find((x) => x.id === id);
-      return { id, name: name2(id), ...w ? { as: w.as, asWhy: w.why } : {} };
+      const w = idx.namesNow().find((x) => x.id === id && x.source !== "ui");
+      return { id, name: name2(id), ...w ? { as: w.words, asWhy: w.why || w.quote } : {} };
     }), things: f.things.filter((x) => N.has(x.node)).map((x) => ({ node: x.node, name: N.get(x.node).name, why: x.why })), source: f.source, since: f.since === null ? null : formatTick(f.since, origin) },
     rulings: rulings.slice(-5).reverse().map(({ tick: t2, ruling: r }) => ({
       when: formatTick(t2, origin),
@@ -39394,6 +39532,22 @@ function slug3(s) {
   return (String(s).normalize("NFKC").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "entity").slice(0, 24);
 }
 var THINKING_MARK = /<[｜|]\s*(begin|end)[▁_ ]of[▁_ ]thinking\s*[｜|]>|<\/?think(ing)?>/i;
+function namingRecord(names, st, src, name2) {
+  const one = [...new Map(names.map((n) => [normalizeName(n.words), n])).values()];
+  if (!one.length) return null;
+  return {
+    recordId: newId("rec"),
+    kind: "naming",
+    storyTime: { ...st },
+    sourceRefs: src,
+    factsSetOrUnset: [],
+    eventOccurrenceIds: [],
+    visibility: { mode: "public", knower_ids: [] },
+    summary: `Names: ${one.map((n) => `\u300C${n.words}\u300D = ${name2(n.id)}`).join("; ").slice(0, 300)}`,
+    evidenceKind: "direct",
+    names: one
+  };
+}
 function runGate(g) {
   const { pack: pack2, index, text, evaluation: ev } = g;
   const violations = [];
@@ -39404,6 +39558,8 @@ function runGate(g) {
   const runtimeEntities = [];
   const refToId = /* @__PURE__ */ new Map();
   const renames = [];
+  const names = [...g.names || []];
+  const at = ev.flashback ? g.clockTick : Math.max(g.clockTick, toStoryTime(ev.scene_end)?.lo ?? g.clockTick);
   for (const ne of ev.new_entities || []) {
     if (!hasQuote(ne.quote)) {
       warnings.push(`new entity "${ne.name}" dropped: evidence not found in text`);
@@ -39414,19 +39570,18 @@ function runGate(g) {
       refToId.set(ne.ref, same);
       refToId.set(ne.name, same);
       if (index.state.runtimeEntities.has(same) && index.entityName(same) !== ne.name) renames.push({ id: same, name: ne.name.slice(0, 80) });
+      else if (!index.isNameOf(ne.name, same)) {
+        const b = bindingFrom(ne.name, same, ne.quote, "reply", "the review: the same one");
+        if (b) names.push(b);
+      }
       continue;
     }
-    const as = uniq(fightNow(index.state).identified.filter((p) => normalizeName(p.as) === normalizeName(ne.name)).map((p) => p.id));
-    if (as.length === 1 && index.entityKind(as[0]) === ne.kind) {
-      refToId.set(ne.ref, as[0]);
-      refToId.set(ne.name, as[0]);
-      warnings.push(`"${ne.name}" is ${index.entityName(as[0])}, as the fight took them; not registered as new`);
-      continue;
-    }
-    const existing = index.resolveEntity(ne.name);
-    if (existing.ids.length) {
-      refToId.set(ne.ref, existing.ids[0]);
-      warnings.push(`"${ne.name}" resolves to existing entity ${existing.ids[0]}; not registered as new`);
+    const ids = index.whoIs(ne.name, { text, extra: names, at });
+    const existing = ids.find((id2) => index.entityKind(id2) === ne.kind) ?? ids[0];
+    if (existing) {
+      refToId.set(ne.ref, existing);
+      refToId.set(ne.name, existing);
+      warnings.push(`"${ne.name}" is ${index.entityName(existing)} (${existing}); not registered as new`);
       continue;
     }
     const id = `rt.${slug3(ne.name)}.${newId("e").slice(2, 8)}`;
@@ -39434,24 +39589,10 @@ function runGate(g) {
     refToId.set(ne.ref, id);
     refToId.set(ne.name, id);
   }
-  const own = (n) => [n, ...n.split(/[·・\s]/)].map(normalizeName).filter((k) => k.length >= 2);
-  const playerNames = new Set(g.playerId ? [...index.allNames(g.playerId), g.personaName || ""].flatMap(own) : []);
-  const plain = normalizeName(text);
-  const playerByName = (id) => {
-    if (!g.playerId || id === g.playerId) return false;
-    const names = index.allNames(id).flatMap(own);
-    return names.some((k) => playerNames.has(k)) && !names.some((k) => !playerNames.has(k) && plain.includes(k));
-  };
   const resolveId = (x) => {
-    const id = (() => {
-      if (refToId.has(x)) return refToId.get(x);
-      if (index.entityExists(x)) return x;
-      if (runtimeEntities.some((r2) => r2.id === x)) return x;
-      const r = index.resolveEntity(x);
-      if (r.ids.length > 1 && g.playerId && r.ids.includes(g.playerId) && r.ids.every((y) => y === g.playerId || playerByName(y))) return g.playerId;
-      return r.ids.length === 1 ? r.ids[0] : null;
-    })();
-    return id && playerByName(id) ? g.playerId : id;
+    if (refToId.has(x)) return refToId.get(x);
+    if (runtimeEntities.some((r) => r.id === x)) return x;
+    return index.whoOne(x, { text, extra: names, readIds: true, at });
   };
   const entityKnown = (id) => index.entityExists(id) || runtimeEntities.some((r) => r.id === id);
   const checkDelta = (d, where) => {
@@ -39511,11 +39652,11 @@ function runGate(g) {
     const k = `${o.entity_id}|${o.predicate}`;
     hardOutcomeKeys.set(k, [...hardOutcomeKeys.get(k) || [], id]);
   }
-  const preempted = (d, at) => {
+  const preempted = (d, at2) => {
     if (d.op === "unset") return void 0;
     const cur = factAt(index.state, d.entity_id, d.predicate, { tick: Number.MAX_SAFE_INTEGER });
     if (applyChange(cur.known ? cur.value : void 0, d) === "same") return void 0;
-    const near = new Set(nearHard([...pendingHardMap.values()], at).map((c) => c.event.id));
+    const near = new Set(nearHard([...pendingHardMap.values()], at2).map((c) => c.event.id));
     return (hardOutcomeKeys.get(`${d.entity_id}|${d.predicate}`) || []).find((id) => near.has(id) && pendingHardMap.get(id).event.outcomes.some((o) => deltaMeets(d, o)));
   };
   const occByRef = /* @__PURE__ */ new Map();
@@ -39859,8 +40000,8 @@ function runGate(g) {
         continue;
       }
       if (!act && v.quote && g.playerId) {
-        const names = uniq(g.index.allNames(g.playerId).flatMap((n) => [n, ...n.split(/[·・\s]/)]).filter((n) => n.length >= 2));
-        if (names.length && !names.some((n) => v.quote.includes(n))) {
+        const names2 = uniq(g.index.allNames(g.playerId).flatMap((n) => [n, ...n.split(/[·・\s]/)]).filter((n) => n.length >= 2));
+        if (names2.length && !names2.some((n) => v.quote.includes(n)) && !g.index.scanEntities(v.quote).some((m) => m.id === g.playerId)) {
           warnings.push(`reviewer complaint about the player character ignored: its evidence is not something the player character does ("${v.quote.slice(0, 80)}"): ${v.detail.slice(0, 160)}`);
           continue;
         }
@@ -39991,11 +40132,8 @@ function runGate(g) {
   const evidence = (q) => hasQuote(q) || quoteInText(q || "", g.userText || "");
   const relationDrafts = [];
   const relationRef = (x) => {
-    if (refToId.has(x) || index.entityExists(x) || runtimeEntities.some((r) => r.id === x)) return resolveId(x);
-    if (g.playerId && x.length > 10 && x.startsWith("rt.player.") && g.playerId.startsWith(x)) return g.playerId;
-    if (g.playerId && [...index.allNames(g.playerId), g.personaName || ""].some((n) => n && normalizeName(n) === normalizeName(x))) return g.playerId;
-    const hit = index.resolveEntity(x).ids.filter((id) => index.allNames(id).some((n) => normalizeName(n) === normalizeName(x)));
-    return hit.length === 1 ? hit[0] : null;
+    if (refToId.has(x) || runtimeEntities.some((r) => r.id === x)) return resolveId(x);
+    return index.whoOne(x, { text, extra: names, exact: true, readIds: true, at });
   };
   const isPerson = (id) => (index.entityExists(id) ? index.entityKind(id) : runtimeEntities.find((r) => r.id === id)?.kind) === "person";
   const said = (t2) => normalizeName(g.userText || "").includes(normalizeName(t2));
@@ -40167,6 +40305,8 @@ function runGate(g) {
       if (fr) sceneFrame = fr;
     }
   }
+  const named = namingRecord(names.filter((n) => entityKnown(n.id)), { lo: sceneEnd.lo, hi: sceneEnd.lo, precision: sceneEnd.precision }, [], (id) => index.entityName(id));
+  if (named) records.push(named);
   const frameNow = g.index.state.sceneFrame?.frameId || MAIN_FRAME;
   if (sceneFrame && sceneFrame !== frameNow) {
     records.push({
@@ -40556,8 +40696,7 @@ async function modelAdjudicate(args, scratch, c, when2, pre, explanation, forced
   const resolve = (id) => {
     if (typeof id !== "string" || !id) return null;
     if (known(id)) return id;
-    const r = idx.resolveEntity(id);
-    return r.ids.length === 1 ? r.ids[0] : null;
+    return idx.whoOne(id);
   };
   for (const e of a.effects) {
     const p = pack2.predicates.get(e.predicate);
@@ -41172,6 +41311,24 @@ function relationsView(idx, spoilers, player, origin = null) {
   rows.sort((x, y) => Number(!x.player) - Number(!y.player) || (x.a + x.b).localeCompare(y.a + y.b, "zh") || rank(x) - rank(y));
   return { rows, hidden };
 }
+function namesView(idx, origin = null) {
+  const name2 = (id) => idx.entityName(id);
+  const now = idx.namesNow().filter((n) => idx.entityExists(n.id)).map((n) => ({
+    words: n.words,
+    id: n.id,
+    name: name2(n.id),
+    source: n.source,
+    quote: n.quote,
+    why: n.why || "",
+    since: formatTick(n.since, origin),
+    until: n.source === "ui" ? null : formatTick(n.last + SCENE_GAP, origin),
+    recordId: n.recordId
+  }));
+  const denied = idx.namesDenied().filter((n) => idx.entityExists(n.id)).map((n) => ({ words: n.words, id: n.id, name: name2(n.id), since: formatTick(n.since, origin), recordId: n.recordId }));
+  const all = [...idx.pack.entities.values(), ...idx.state.runtimeEntities.values()];
+  const people = [...new Set([...all.filter((e) => e.kind === "person"), ...all.filter((e) => e.kind !== "person")].map((e) => e.name))];
+  return { now, denied, people };
+}
 
 // src/core/runtime/engine.ts
 var PROFILE_READ_SINCE = "1.48.0";
@@ -41189,8 +41346,7 @@ function peopleOfNow(index, tick = index.state.clock.lo) {
 }
 function candidateId(index, x) {
   if (index.entityExists(x) || index.pack.events.has(x) || index.state.occurrences.has(x)) return x;
-  const r = index.resolveEntity(x.replace(/[-_.]+/g, " ").trim());
-  return r.ids.length === 1 ? r.ids[0] : null;
+  return index.whoOne(x.replace(/[-_.]+/g, " ").trim());
 }
 var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check", profile: "reading the Persona", integrate: "how the world reacts to the player", foreknow: "what the people with you have planned", leap: "planning the time leap", world_check: "checking the lorebook against this game", mind: "what the people here think and plan", relate: "how the relations change", combat: "judging the fight", combat_fill: "what the fighters are", combat_who: "who the fighters are", persona_abilities: "reading what your character can do" };
 var formatUsd = (v) => `$${v < 0.1 ? v.toFixed(4) : v < 10 ? v.toFixed(3) : v.toFixed(2)}`;
@@ -41858,6 +42014,9 @@ var CanonEngine = class {
     const pack2 = index.pack;
     const ids = new Set(extra);
     for (const m of index.scanEntities(text)) ids.add(m.id);
+    const called = index.namesNow().filter((n) => index.entityExists(n.id)).slice(0, 24);
+    for (const n of called) ids.add(n.id);
+    const denied = index.namesDenied().filter((n) => index.entityExists(n.id)).slice(0, 12);
     for (const o of [...index.state.occurrences.values()].sort((a, b) => b.seq - a.seq).slice(0, 15)) [...o.actors, ...o.affected, ...o.locations].forEach((x) => ids.add(x));
     for (const s of this.activePlan()?.steps || []) if (s.status !== "invalidated") [...s.actors, ...s.targets || []].forEach((x) => ids.add(x));
     const tick = index.state.clock.lo;
@@ -41868,6 +42027,10 @@ var CanonEngine = class {
       entities_format: opts.notes ? "id | name | aliases | kind | description" : "id | name | aliases | kind",
       entities_note: `Entities relevant to this text (${ids.size} of ${all.length} known). For any other known person, place or thing use its exact name; the engine resolves it.`,
       entities: all.filter((e) => ids.has(e.id)).map(ent),
+      ...called.length || denied.length ? {
+        names_note: `Words the story already uses for someone (found in earlier messages; the player's own word marked): they mean that one, unless the text clearly means someone else. Words listed as "not" never mean that one.`,
+        names: [...called.map((n) => `\u300C${n.words}\u300D = ${n.id} | ${index.entityName(n.id)}${n.source === "ui" ? " (the player's word)" : ""}`), ...denied.map((n) => `\u300C${n.words}\u300D not ${n.id} | ${index.entityName(n.id)} (the player's word)`)]
+      } : {},
       predicates: [...pack2.predicates.values()].map((p) => `${p.id} (${p.value_type}${p.allowed_values?.length ? `: ${p.allowed_values.join("/")}` : ""}): ${p.description}`)
     };
   }
@@ -41918,7 +42081,16 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
     ), this.settings.taskTimeoutMs * 4, signal);
     for (const r of out.references || []) if (r.candidates) r.candidates = uniq(r.candidates.map((x) => candidateId(index, String(x))).filter((x) => !!x));
     const warnings = [];
-    warnings.push(...await identifyInFight({
+    const jumpOf = (s) => {
+      const to = s.kind === "time_proposal" && s.time && Number.isInteger(s.time.day) && Number.isInteger(s.time.minute) && s.time.minute >= 0 && s.time.minute < 1440 ? toTick(s.time) : null;
+      return to !== null && to > tick && to - tick <= MAX_TIME_JUMP_MINUTES ? to : null;
+    };
+    const at = leap2?.target ?? Math.max(tick, ...out.statements.filter((s) => quoteInText(s.quote, entry.text)).map(jumpOf).filter((x) => x !== null));
+    const refsOne = out.references.filter((r) => r.kind === "entity" && r.candidates?.length === 1 && index.entityExists(r.candidates[0]) && quoteInText(r.quote, entry.text));
+    const read = refsOne.map((r) => ({ r, b: bindingFrom(r.phrase, r.candidates[0], r.quote, "player") })).filter((x) => !!x.b);
+    const known = read.map((x) => x.b);
+    const names = read.filter((x) => x.r.mode !== "pronoun" && !index.isNameOf(x.b.words, x.b.id)).map((x) => x.b);
+    const who = await identifyInFight({
       port: this.host.model,
       index,
       fight: out.fight,
@@ -41930,18 +42102,12 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       operationId,
       log: (l) => this.debugLog("task", l),
       player: prof ? { id: prof.profile.playerId } : null,
-      known: out.references.filter((r) => r.kind === "entity" && r.candidates?.length === 1).map((r) => ({ words: r.phrase, quote: r.quote, id: r.candidates[0] }))
-    }));
-    const asPeople = [...out.fight?.identified || [], ...fightNow(index.state).identified];
-    const entityValue = (x) => {
-      const v = typeof x === "string" ? x.trim() : "";
-      if (!v) return null;
-      if (index.entityExists(v)) return v;
-      const as = uniq(asPeople.filter((p) => normalizeName(p.as) === normalizeName(v)).map((p) => p.id));
-      if (as.length === 1) return as[0];
-      const r = index.resolveEntity(v);
-      return r.ids.length === 1 ? r.ids[0] : null;
-    };
+      known,
+      at
+    });
+    warnings.push(...who.notes);
+    names.push(...who.names);
+    const entityValue = (x) => index.whoOne(x, { text: entry.text, extra: names, at });
     for (const s of out.statements) if (s.kind === "asserted_fact") s.facts = (s.facts || []).flatMap((f) => {
       const p = pack2.predicates.get(f.predicate), eid = entityValue(f.entity_id);
       if (!p || !eid) return [];
@@ -42006,17 +42172,19 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
         intents.push({ quote: s.quote, summary: `[${s.stance || "engagement"}] ${s.summary}` });
       } else if (s.kind === "time_proposal") {
         intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
-        const to = s.time && Number.isInteger(s.time.day) && Number.isInteger(s.time.minute) && s.time.minute >= 0 && s.time.minute < 1440 ? toTick(s.time) : null;
-        if (to !== null && to > tick && to - tick <= MAX_TIME_JUMP_MINUTES) timeJumpTo = Math.max(timeJumpTo ?? 0, to);
+        const to = jumpOf(s);
+        if (to !== null) timeJumpTo = Math.max(timeJumpTo ?? 0, to);
       } else if (s.kind === "ooc_config_request") {
         configRequests.push(`Out-of-character request "${s.quote}" was not applied to the engine. Use Canon Engine settings to change the binding or disable it.`);
       } else {
         intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
       }
     }
-    const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
+    const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null, names, at);
     records.push(...fight.records);
     warnings.push(...fight.warnings);
+    const named = namingRecord(names, { lo: at, hi: at, precision: "minute" }, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], (id) => index.entityName(id));
+    if (named) records.push(named);
     const refs = out.references.map((r, i) => ({ id: `u${i + 1}`, quote: r.quote, phrase: r.phrase, kind: r.kind, assertion: "user_input", temporal: r.kind === "event" ? "past" : "present", candidates: r.candidates }));
     const interp = {
       key: baseKey(entry),
@@ -42471,10 +42639,12 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       this.rejects.push(`discover: unusable after retries, used built-in name matching instead (${e.message.slice(0, 160)})`);
       return { references: [], claims: [] };
     }));
-    const refs = disc.references.filter((r) => quoteInText(r.quote, a.text) || !r.quote).map((r) => ({ id: r.id, quote: r.quote, phrase: r.phrase, kind: r.ref_kind, assertion: r.assertion, temporal: r.temporal, candidates: r.candidate_ids }));
+    const cand = (c2) => index.entityExists(c2) ? index.whoOne(c2, { text: a.text, readIds: true }) ?? c2 : c2;
+    const refs = disc.references.filter((r) => quoteInText(r.quote, a.text) || !r.quote).map((r) => ({ id: r.id, quote: r.quote, phrase: r.phrase, kind: r.ref_kind, assertion: r.assertion, temporal: r.temporal, candidates: r.candidate_ids && uniq(r.candidate_ids.map(String).map(cand)) }));
+    const names = refs.filter((r, i) => r.kind !== "event" && disc.references[i]?.mode !== "pronoun" && r.candidates?.length === 1 && index.entityExists(r.candidates[0]) && r.quote && quoteInText(r.quote, a.text) && !index.isNameOf(r.phrase, r.candidates[0])).map((r) => bindingFrom(r.phrase, r.candidates[0], r.quote, "reply")).filter((b) => !!b);
     const claims = disc.claims.filter((c2) => quoteInText(c2.quote, a.text)).map((c2) => ({ id: c2.id, quote: c2.quote, kind: c2.kind, entityPhrases: c2.entity_phrases || [], assertion: c2.assertion, expected: c2.expected || null }));
     const seenEnt = /* @__PURE__ */ new Set();
-    for (const r of refs) for (const id of index.resolveEntity(r.phrase).ids) seenEnt.add(id);
+    for (const r of refs) for (const id of index.whoIs(r.phrase, { text: a.text })) seenEnt.add(id);
     for (const m of index.scanEntities(a.text)) {
       if (seenEnt.has(m.id)) continue;
       refs.push({ id: `d_${m.id}`, quote: m.phrase, phrase: m.phrase, kind: index.entityKind(m.id), assertion: "narrator", temporal: "present", candidates: [m.id] });
@@ -42620,7 +42790,8 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       chanceBlocking: (a.attempt ?? 0) === 0,
       leap: !!a.leapTo,
       combat: combatReview(pack2, { leap: !!a.leapTo, draft: a.mode === "draft", ruling: a.ruling ?? null, failed: !!a.combatFailed }),
-      hostility: { due: a.mode === "draft" ? a.hostile ?? null : null, playerId: prof?.profile.playerId || null }
+      hostility: { due: a.mode === "draft" ? a.hostile ?? null : null, playerId: prof?.profile.playerId || null },
+      names
     });
     gate.warnings.push(...told.warnings);
     gate.timeBound = settled.bound;
@@ -42642,7 +42813,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       gaps: gate.coverageGaps,
       attempt: a.attempt ?? 0
     } : null;
-    return { gate, evaluation, retrieval, manifest, facts: packet.facts, packetText: packet.text, claims, refs };
+    return { gate, evaluation, retrieval, manifest, facts: packet.facts, packetText: packet.text, claims, refs, names };
   }
   /** Plain-text report of a turn: error, every attempt's problems, resent calls, step timings. With drafts (debug
    *  mode) also each draft's text and the reviewer's notes that did not block it. */
@@ -42962,7 +43133,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
         const offered = prof && !leapTo && !privateScene ? selectOpportunity(integ, index, jumpTo ?? clock, busy, new Set(c.preferredScopes || []), new Set(c.avoidedScopes || [])) : null;
         const required = prof && !leapTo && !privateScene ? dueRequired(integ, index, clock, jumpTo, new Set(c.avoidedScopes || [])) : [];
         const horaeScene = this.host.sceneTracker?.status().scene;
-        const horaeSceneIds = horaeScene ? uniq([horaeScene.location || "", ...horaeScene.characters || []].flatMap((n) => n ? index.resolveEntity(n).ids : [])) : [];
+        const horaeSceneIds = horaeScene ? uniq([horaeScene.location || "", ...horaeScene.characters || []].flatMap((n) => n ? index.whoIs(n) : [])) : [];
         const userRefs = userInterp?.refs || [];
         const sceneSeeds = uniq([...prevGmInterp?.sceneEntities || [], ...horaeSceneIds, ...userInterp?.sceneEntities || []]);
         const retrieval = retrieve(rIndex, {
@@ -43131,7 +43302,8 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
               chanceBlocking: attempt === 0,
               leap: !!leapTo,
               combat: combatReview(pack2, { leap: !!leapTo, draft: true, ruling, failed: combatFailed }),
-              hostility: { due: hostile, playerId: prof?.profile.playerId || null }
+              hostility: { due: hostile, playerId: prof?.profile.playerId || null },
+              names: review.names
             });
             this.checkFences(fences, excludeLast);
           }
@@ -44637,6 +44809,50 @@ ${lines.join("\n")}`;
     await this.reconcile("hostility_edited");
     return true;
   }
+  /** 称呼: the words in force and the ones the player took away (views.namesView). */
+  namesView() {
+    if (!this.campaign() || !this.current) return null;
+    return namesView(this.current.index, this.campaign().binding.originDate);
+  }
+  /** 称呼 in the panel: words that mean someone from now on (add: by their id or exact name), words that are not someone
+   *  (deny), or the player's own earlier word taken back (undo: the panel's record). False: nobody by that name, or
+   *  nothing to take back. */
+  async editNames(change) {
+    if (this.opActive) throw new EngineError("incompatible_adapter", "Canon Engine is working on a reply; try again when it is done.");
+    const c = this.campaign();
+    if (!c || !this.current) return false;
+    const idx = this.current.index;
+    if ("undo" in change) {
+      const had = (c.manualRecords || []).length;
+      c.manualRecords = (c.manualRecords || []).filter((m) => !(m.record.kind === "naming" && m.record.recordId === change.undo));
+      if (c.manualRecords.length === had) return false;
+      c.configRevisions.push({ at: this.host.now(), summary: "Names: the player took back their word (Canon Engine panel)" });
+    } else {
+      const words = ("add" in change ? change.add.words : change.deny.words).trim().slice(0, 80);
+      const who = "add" in change ? change.add.who.trim() : change.deny.id;
+      const exact = idx.entityExists(who) ? [who] : uniq([...idx.pack.entities.values(), ...idx.state.runtimeEntities.values()].filter((e) => [e.name, ...e.aliases || []].some((n) => normalizeName(n) === normalizeName(who))).map((e) => e.id));
+      if (!normalizeName(words) || exact.length !== 1) return false;
+      const tick = this.current.replay.state.clock.lo;
+      const rec = {
+        recordId: newId("rec"),
+        kind: "naming",
+        storyTime: { lo: tick, hi: tick, precision: "minute" },
+        sourceRefs: [],
+        factsSetOrUnset: [],
+        eventOccurrenceIds: [],
+        visibility: { mode: "public", knower_ids: [] },
+        evidenceKind: "direct",
+        summary: `Names: \u300C${words}\u300D ${"add" in change ? "is" : "is not"} ${idx.entityName(exact[0])} (Canon Engine panel)`,
+        names: [{ words, id: exact[0], quote: "", source: "ui", ..."deny" in change ? { removed: true } : {} }]
+      };
+      const last2 = this.host.readTranscript().filter((e) => e.role !== "system").slice(-1)[0];
+      c.manualRecords = [...c.manualRecords || [], { afterMessageId: last2 ? last2.messageId : null, record: rec, at: this.host.now() }];
+      c.configRevisions.push({ at: this.host.now(), summary: rec.summary });
+    }
+    await this.host.save();
+    await this.reconcile("names_edited");
+    return true;
+  }
   /** 角色关系: every pair this game knows of, as the timeline window shows them (see views.relationsView). */
   relationsView(spoilers) {
     if (!this.campaign() || !this.current) return null;
@@ -45451,6 +45667,26 @@ var D = {
   hoEndTip: { zh: "\u8FD9\u4EFD\u4EC7\u4E0D\u518D\u7B97\u6570\uFF08\u8BB0\u4E00\u6761\u8BB0\u5F55\uFF0C\u53EF\u4EE5\u64A4\u9500\uFF09", en: "This grudge no longer counts (a record, which can be undone)" },
   hoSince: { zh: "\u7ED3\u4EC7\u4E8E {t}", en: "Since {t}" },
   hoAdd: { zh: "\u52A0\u4E00\u4E2A\u5BF9\u4F60\u6709\u4EC7\u7684\u4EBA", en: "Add someone with a grudge" },
+  nmTitle: { zh: "\u79F0\u547C", en: "Names" },
+  nmNow: { zh: "\u8FD9\u4E9B\u8BF4\u6CD5\u6307\u7684\u662F\u8C01", en: "Whom these words mean" },
+  nmDenied: { zh: "\u4F60\u8BF4\u8FC7\u4E0D\u662F\u7684", en: "Words you said are not someone" },
+  nmTip: { zh: "\u6545\u4E8B\u91CC\u7528\u6765\u6307\u4EBA\u7684\u8BF4\u6CD5\uFF08\u300C\u91D1\u53D1\u6DF7\u6DF7\u300D\u300C\u90A3\u4E2A\u5973\u4EBA\u300D\u3001\u5916\u53F7\uFF09\uFF0C\u5F15\u64CE\u8BA4\u51FA\u662F\u8C01\u540E\u8BB0\u5728\u8FD9\u91CC\uFF0C\u4E4B\u540E\u8BFB\u4F60\u7684\u6D88\u606F\u3001\u8BA4\u6218\u6597\u91CC\u7684\u4EBA\u3001\u5BA1 GM \u7684\u56DE\u590D\u90FD\u6309\u8FD9\u5F20\u8868\u6765\u3002\u4ECE\u6587\u5B57\u91CC\u8BA4\u51FA\u7684\u8BF4\u6CD5\u53EA\u5728\u8FD9\u4E00\u573A\u91CC\u7B97\u6570\uFF1A\u4E09\u4E2A\u949F\u5934\uFF08\u6545\u4E8B\u65F6\u95F4\uFF09\u91CC\u6CA1\u518D\u8FD9\u4E48\u53EB\u8FC7\u5C31\u4F5C\u5E9F\u3002\u4F60\u5728\u8FD9\u91CC\u5B9A\u7684\u4E00\u76F4\u7B97\uFF0C\u76F4\u5230\u4F60\u64A4\u9500\u3002", en: `Words the story uses for someone ("the blond thug", "that woman", a nickname): once the engine finds whom they mean it writes them here, and reading your messages, telling who is in a fight and reviewing the GM's reply all go by this list. Words found in the text hold for the scene only: three hours of story time without being used again and they are over. What you set here holds until you take it back.` },
+  nmNone: { zh: "\u73B0\u5728\u6CA1\u6709\u8BB0\u4E0B\u7684\u8BF4\u6CD5", en: "No words recorded now" },
+  nmSrc_player: { zh: "\u8BFB\u4F60\u7684\u6D88\u606F", en: "your message" },
+  nmSrc_fight: { zh: "\u6218\u6597\u91CC\u8BA4\u51FA", en: "found in the fight" },
+  nmSrc_reply: { zh: "\u8BFB GM \u56DE\u590D", en: "the GM's reply" },
+  nmSrc_ui: { zh: "\u4F60\u5B9A\u7684", en: "set by you" },
+  nmKeep: { zh: "\u4E00\u76F4\u7B97", en: "Always" },
+  nmDeny: { zh: "\u4E0D\u662F TA", en: "Not them" },
+  nmUndo: { zh: "\u64A4\u9500", en: "Take back" },
+  nmSince: { zh: "\u81EA {t}", en: "since {t}" },
+  nmUntil: { zh: "{t} \u524D\u6CA1\u518D\u7528\u5C31\u4F5C\u5E9F", en: "over at {t} unless used again" },
+  nmLasting: { zh: "\u4E00\u76F4\u7B97", en: "holds until you take it back" },
+  nmAdd: { zh: "\u52A0\u4E00\u4E2A\u8BF4\u6CD5", en: "Add words" },
+  nmAddWords: { zh: "\u8BF4\u6CD5\uFF0C\u6BD4\u5982\u300C\u91D1\u53D1\u6DF7\u6DF7\u300D", en: 'Words, e.g. "the blond thug"' },
+  nmAddWho: { zh: "\u6307\u7684\u662F\u8C01\uFF08\u540D\u5B57\uFF09", en: "Whom they mean (name)" },
+  nmNotFound: { zh: "\u6CA1\u627E\u5230\u8FD9\u4E2A\u540D\u5B57\u7684\u4EBA\u6216\u4E1C\u897F\uFF08\u8981\u548C\u540D\u5B57\u5B8C\u5168\u4E00\u6837\uFF09", en: "Nobody and nothing has that name (it must match exactly)" },
+  nmNeedText: { zh: "\u8BF4\u6CD5\u548C\u6307\u7684\u662F\u8C01\u90FD\u8981\u586B", en: "Fill in both the words and whom they mean" },
   hoAddName: { zh: "\u540D\u5B57\uFF08\u6E38\u620F\u91CC\u5DF2\u6709\u7684\u4EBA\uFF09", en: "Name (someone already in the game)" },
   hoAddWhy: { zh: "\u4E3A\u4EC0\u4E48\u8BB0\u6068\u4F60", en: "Why they hold it against you" },
   hoNeedText: { zh: "\u8BF7\u586B\u540D\u5B57\u548C\u539F\u56E0", en: "Give a name and a reason" },
@@ -47059,17 +47295,43 @@ function combatChange(b, picked) {
   return change;
 }
 
-// src/core/ui/inspector.ts
+// src/core/ui/names-panel.ts
 var esc4 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 var chip3 = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc4(s)}</span>`;
 var btn3 = (label, attrs, tone = "") => `<button class="menu_button ci-btn${tone ? ` ci-btn-${tone}` : ""}" ${attrs}>${esc4(label)}</button>`;
-var sec2 = (id, label, inner, extra = "", tipHtml = "") => `<section class="ci-sec" data-sec="${id}"><h4 class="ci-sec-h"><span>${esc4(label)}</span>${tipHtml}<span class="ci-sp"></span>${extra}</h4>${inner}</section>`;
-var item = (key2, head, body = "", foot = "") => `<div class="ci-item" data-key="${esc4(key2)}"><div class="ci-head">${head}</div>${body ? `<div class="ci-body">${body}</div>` : ""}${foot}</div>`;
-var fold2 = (key2, label, inner, cls = "") => `<details class="ci-fold${cls ? ` ${cls}` : ""}" data-key="${esc4(key2)}"><summary>${esc4(label)}</summary><div class="ci-fold-in">${inner}</div></details>`;
+function namesHtml(v) {
+  if (!v) return { now: `<div class="ci-empty">${esc4(t("ciNone"))}</div>`, denied: "", add: "" };
+  const a = (x) => `data-words="${esc4(x.words)}" data-id="${esc4(x.id)}"`;
+  const now = v.now.map((n) => `<div class="ci-item" data-key="nm-${esc4(n.words)}"><div class="ci-head"><span class="ci-title">\u300C${esc4(n.words)}\u300D \u2192 ${esc4(n.name)}</span>${chip3(t(`nmSrc_${n.source}`), n.source === "ui" ? "accent" : "")}<span class="ci-sp"></span><span class="ci-actions">` + (n.source === "ui" ? btn3(t("nmUndo"), `data-act="nm-undo" data-rec="${esc4(n.recordId)}"`) : btn3(t("nmKeep"), `data-act="nm-keep" ${a(n)}`)) + btn3(t("nmDeny"), `data-act="nm-deny" ${a(n)}`, "danger") + `</span></div><div class="ci-body">${n.why ? `<div>${esc4(n.why)}</div>` : ""}${n.quote ? `<div class="ci-quote">\u201C${esc4(n.quote)}\u201D</div>` : ""}<div class="ci-meta">${esc4(t("nmSince").replace("{t}", n.since))}${n.until ? ` \xB7 ${esc4(t("nmUntil").replace("{t}", n.until))}` : ` \xB7 ${esc4(t("nmLasting"))}`}</div></div></div>`).join("");
+  const denied = v.denied.map((n) => `<div class="ci-item" data-key="nmx-${esc4(n.words)}-${esc4(n.id)}"><div class="ci-head"><span class="ci-title">\u300C${esc4(n.words)}\u300D \u2260 ${esc4(n.name)}</span><span class="ci-meta">${esc4(t("nmSince").replace("{t}", n.since))}</span><span class="ci-sp"></span><span class="ci-actions">${btn3(t("nmUndo"), `data-act="nm-undo" data-rec="${esc4(n.recordId)}"`)}</span></div></div>`).join("");
+  const add2 = `<details class="ci-fold ci-add" data-key="nm-add"><summary>${esc4(t("nmAdd"))}</summary><div class="ci-fold-in"><input class="text_pole ci-nm-words" placeholder="${esc4(t("nmAddWords"))}"><input class="text_pole ci-nm-who" list="ci-nm-people" placeholder="${esc4(t("nmAddWho"))}"><datalist id="ci-nm-people">${v.people.map((p) => `<option value="${esc4(p)}">`).join("")}</datalist><div class="ci-actions">${btn3(t("wsSave"), 'data-act="nm-add"', "primary")}</div></div></details>`;
+  return { now: now || `<div class="ci-empty">${esc4(t("nmNone"))}</div>`, denied, add: add2 };
+}
+function namesChange(b) {
+  const act = b.dataset.act;
+  if (act === "nm-undo") return b.dataset.rec ? { undo: b.dataset.rec } : null;
+  if (act === "nm-keep") return b.dataset.words && b.dataset.id ? { add: { words: b.dataset.words, who: b.dataset.id } } : null;
+  if (act === "nm-deny") return b.dataset.words && b.dataset.id ? { deny: { words: b.dataset.words, id: b.dataset.id } } : null;
+  if (act === "nm-add") {
+    const box = b.closest(".ci-fold-in");
+    const words = box?.querySelector(".ci-nm-words")?.value.trim() || "";
+    const who = box?.querySelector(".ci-nm-who")?.value.trim() || "";
+    return words && who ? { add: { words, who } } : null;
+  }
+  return null;
+}
+
+// src/core/ui/inspector.ts
+var esc5 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var chip4 = (s, tone = "") => `<span class="ci-chip${tone ? ` ci-${tone}` : ""}">${esc5(s)}</span>`;
+var btn4 = (label, attrs, tone = "") => `<button class="menu_button ci-btn${tone ? ` ci-btn-${tone}` : ""}" ${attrs}>${esc5(label)}</button>`;
+var sec2 = (id, label, inner, extra = "", tipHtml = "") => `<section class="ci-sec" data-sec="${id}"><h4 class="ci-sec-h"><span>${esc5(label)}</span>${tipHtml}<span class="ci-sp"></span>${extra}</h4>${inner}</section>`;
+var item = (key2, head, body = "", foot = "") => `<div class="ci-item" data-key="${esc5(key2)}"><div class="ci-head">${head}</div>${body ? `<div class="ci-body">${body}</div>` : ""}${foot}</div>`;
+var fold2 = (key2, label, inner, cls = "") => `<details class="ci-fold${cls ? ` ${cls}` : ""}" data-key="${esc5(key2)}"><summary>${esc5(label)}</summary><div class="ci-fold-in">${inner}</div></details>`;
 var muted = (s) => `<div class="ci-muted">${s}</div>`;
-var empty2 = () => `<div class="ci-empty">${esc4(t("ciNone"))}</div>`;
-var addrRow = (f) => `<div class="ci-addr-row"><input class="text_pole ci-addr-term" placeholder="${esc4(t("tieAddrTerm"))}" value="${esc4(f?.term || "")}"><select class="text_pole ci-addr-use">${["always", "usually", "sometimes"].map((u) => `<option value="${u}" ${(f?.use || "usually") === u ? "selected" : ""}>${esc4(t("addrUse_" + u))}</option>`).join("")}</select><input class="text_pole ci-addr-when" placeholder="${esc4(t("tieAddrWhen"))}" value="${esc4(f?.when || "")}"><button class="menu_button ci-btn" data-act="addr-del" title="${esc4(t("wsDelete"))}">\u2715</button></div>`;
-var sideForm = (key2, label, s) => `<fieldset class="ci-side" data-side="${key2}"><legend>${esc4(label)}</legend><label class="ci-lbl">${esc4(t("tieSees"))}</label><textarea class="text_pole ci-side-sees" rows="2">${esc4(s?.sees || "")}</textarea><label class="ci-lbl">${esc4(t("tieAddress"))}</label><div class="ci-addr">${(s?.address || []).map(addrRow).join("")}</div>${btn3(t("tieAddrAdd"), 'data-act="addr-add"')}</fieldset>`;
+var empty2 = () => `<div class="ci-empty">${esc5(t("ciNone"))}</div>`;
+var addrRow = (f) => `<div class="ci-addr-row"><input class="text_pole ci-addr-term" placeholder="${esc5(t("tieAddrTerm"))}" value="${esc5(f?.term || "")}"><select class="text_pole ci-addr-use">${["always", "usually", "sometimes"].map((u) => `<option value="${u}" ${(f?.use || "usually") === u ? "selected" : ""}>${esc5(t("addrUse_" + u))}</option>`).join("")}</select><input class="text_pole ci-addr-when" placeholder="${esc5(t("tieAddrWhen"))}" value="${esc5(f?.when || "")}"><button class="menu_button ci-btn" data-act="addr-del" title="${esc5(t("wsDelete"))}">\u2715</button></div>`;
+var sideForm = (key2, label, s) => `<fieldset class="ci-side" data-side="${key2}"><legend>${esc5(label)}</legend><label class="ci-lbl">${esc5(t("tieSees"))}</label><textarea class="text_pole ci-side-sees" rows="2">${esc5(s?.sees || "")}</textarea><label class="ci-lbl">${esc5(t("tieAddress"))}</label><div class="ci-addr">${(s?.address || []).map(addrRow).join("")}</div>${btn4(t("tieAddrAdd"), 'data-act="addr-add"')}</fieldset>`;
 function createInspector(d) {
   let el = null;
   let tab = "overview";
@@ -47101,76 +47363,76 @@ function createInspector(d) {
   function overview(v, ni, spoilers) {
     const w = E2().worldView();
     const todo = [];
-    const go = (tabId, text, tone) => `<button class="ci-todo ci-${tone}" data-tab="${tabId}">${esc4(text)} <span class="ci-arrow">\u203A</span></button>`;
+    const go = (tabId, text, tone) => `<button class="ci-todo ci-${tone}" data-tab="${tabId}">${esc5(text)} <span class="ci-arrow">\u203A</span></button>`;
     if (ni?.personaChanged) todo.push(go("identity", t("niChanged"), "warn"));
     if (ni && ni.unanswered.length) todo.push(go("contacts", t("ciTodoUnanswered").replace("{n}", String(ni.unanswered.length)), "accent"));
     if (w?.unchecked.length) todo.push(go("world", t("ciTodoUnchecked").replace("{n}", String(w.unchecked.length)), "warn"));
     if (w?.overrides.some((o) => o.stale)) todo.push(go("world", t("ciTodoStale"), "warn"));
-    if (v.recovery.status !== "ok") todo.push(`<div class="ci-todo ci-bad">${esc4(v.recovery.status)} ${esc4(v.recovery.reason || "")}</div>`);
-    const tile = (label, value, sub = "") => `<div class="ci-tile"><div class="ci-tile-l">${esc4(label)}</div><div class="ci-tile-v">${esc4(value)}</div>${sub ? `<div class="ci-tile-s">${esc4(sub)}</div>` : ""}</div>`;
+    if (v.recovery.status !== "ok") todo.push(`<div class="ci-todo ci-bad">${esc5(v.recovery.status)} ${esc5(v.recovery.reason || "")}</div>`);
+    const tile = (label, value, sub = "") => `<div class="ci-tile"><div class="ci-tile-l">${esc5(label)}</div><div class="ci-tile-v">${esc5(value)}</div>${sub ? `<div class="ci-tile-s">${esc5(sub)}</div>` : ""}</div>`;
     const tiles = `<div class="ci-tiles">${tile(t("ciTime"), v.time)}${tile(t("ciPack"), v.title, `hash ${v.packHash}`)}${tile(t("ciRevision"), `rev ${v.revision}`, `branch ${v.branchId.slice(0, 12)}`)}${tile(t("ciCounts"), `${v.occurrences.length} \xB7 ${v.facts.length}`, t("ciCountsSub"))}</div>`;
-    const notices = v.notices.slice().reverse().map((n, i) => item(`notice-${i}`, `${chip3(n.level === "error" ? t("ciError") : n.level === "warn" ? t("ciWarn") : t("ciInfo"), n.level === "error" ? "bad" : n.level === "warn" ? "warn" : "")}`, esc4(n.text)));
+    const notices = v.notices.slice().reverse().map((n, i) => item(`notice-${i}`, `${chip4(n.level === "error" ? t("ciError") : n.level === "warn" ? t("ciWarn") : t("ciInfo"), n.level === "error" ? "bad" : n.level === "warn" ? "warn" : "")}`, esc5(n.text)));
     void spoilers;
     return {
-      html: tiles + sec2("todo", t("ciTodo"), todo.length ? `<div class="ci-todos">${todo.join("")}</div>` : `<div class="ci-empty">${esc4(t("ciAllClear"))}</div>`) + sec2("notices", t("ciNotices"), notices.join("") || empty2()),
+      html: tiles + sec2("todo", t("ciTodo"), todo.length ? `<div class="ci-todos">${todo.join("")}</div>` : `<div class="ci-empty">${esc5(t("ciAllClear"))}</div>`) + sec2("notices", t("ciNotices"), notices.join("") || empty2()),
       secs: []
     };
   }
   function identity(ni) {
     let html = "";
-    if (ni.personaChanged) html += `<div class="ci-banner ci-warn"><b>${esc4(t("niChanged"))}</b><div class="ci-actions">${btn3(t("niUpdate"), 'data-act="ni-update"', "primary")}${btn3(t("niKeep"), 'data-act="ni-keep"')}</div></div>`;
-    else if (ni.profileOld) html += `<div class="ci-banner ci-warn"><b>${esc4(t("niOld"))}</b><div class="ci-actions">${btn3(t("niUpdate"), 'data-act="ni-update"', "primary")}</div></div>`;
+    if (ni.personaChanged) html += `<div class="ci-banner ci-warn"><b>${esc5(t("niChanged"))}</b><div class="ci-actions">${btn4(t("niUpdate"), 'data-act="ni-update"', "primary")}${btn4(t("niKeep"), 'data-act="ni-keep"')}</div></div>`;
+    else if (ni.profileOld) html += `<div class="ci-banner ci-warn"><b>${esc5(t("niOld"))}</b><div class="ci-actions">${btn4(t("niUpdate"), 'data-act="ni-update"', "primary")}</div></div>`;
     const p = ni.profile;
-    if (!p) return { html: html + `<div class="ci-empty">${esc4(t("niNoProfile"))}</div>`, secs: [] };
-    html += `<div class="ci-hero"><div class="ci-hero-name">${esc4(p.name)}</div><div>${esc4(p.summary)}</div>${p.publicIdentity ? muted(esc4(p.publicIdentity)) : ""}${muted(esc4(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev))))}${ni.personaChanged || ni.profileOld ? "" : `<div class="ci-actions">${btn3(t("niReread"), `data-act="ni-update" title="${esc4(t("niRereadTip"))}"`)}</div>`}</div>`;
+    if (!p) return { html: html + `<div class="ci-empty">${esc5(t("niNoProfile"))}</div>`, secs: [] };
+    html += `<div class="ci-hero"><div class="ci-hero-name">${esc5(p.name)}</div><div>${esc5(p.summary)}</div>${p.publicIdentity ? muted(esc5(p.publicIdentity)) : ""}${muted(esc5(t(p.source === "persona_core" ? "niSourceCore" : "niSource").replace("{n}", String(p.chars)).replace("{rev}", String(p.rev))))}${ni.personaChanged || ni.profileOld ? "" : `<div class="ci-actions">${btn4(t("niReread"), `data-act="ni-update" title="${esc5(t("niRereadTip"))}"`)}</div>`}</div>`;
     const secs = [];
     const list = (id, label, rows) => {
       if (!rows.length) return "";
       secs.push({ id, label });
-      return sec2(id, label, rows.map((r, i) => item(`${id}-${i}`, `<span class="ci-text">${esc4(r)}</span>`)).join(""));
+      return sec2(id, label, rows.map((r, i) => item(`${id}-${i}`, `<span class="ci-text">${esc5(r)}</span>`)).join(""));
     };
     const abilities = () => {
       if (!p.abilities?.length) return "";
       secs.push({ id: "abilities", label: t("niAbilities") });
-      const one = (a) => `<b>${esc4(a.name)}</b>${a.secret ? ` ${chip3(t("niSecret"), "warn")}` : ""} <span class="ci-text">${esc4(a.gist)}</span>${a.parts.map((x) => muted(esc4(x))).join("")}`;
-      return sec2("abilities", t("niAbilities"), p.abilities.map((a, i) => item(`abilities-${i}`, one(a) + (a.uses?.length ? `<div class="ci-sub-list"><div class="ci-muted"><b>${esc4(t("niUses"))}</b></div>${a.uses.map((u) => `<div class="ci-indent">${one(u)}</div>`).join("")}</div>` : ""))).join(""));
+      const one = (a) => `<b>${esc5(a.name)}</b>${a.secret ? ` ${chip4(t("niSecret"), "warn")}` : ""} <span class="ci-text">${esc5(a.gist)}</span>${a.parts.map((x) => muted(esc5(x))).join("")}`;
+      return sec2("abilities", t("niAbilities"), p.abilities.map((a, i) => item(`abilities-${i}`, one(a) + (a.uses?.length ? `<div class="ci-sub-list"><div class="ci-muted"><b>${esc5(t("niUses"))}</b></div>${a.uses.map((u) => `<div class="ci-indent">${one(u)}</div>`).join("")}</div>` : ""))).join(""));
     };
     html += list("orgs", t("niOrgs"), p.affiliations) + list("places", t("niPlaces"), p.places) + abilities() + list("kinds", t("niKinds"), p.kinds || []) + list("roles", t("niRoles"), p.roles || []) + list("notsuited", t("niNotSuited"), p.notSuited || []) + list("voice", t("niVoice"), p.voice ? [p.voice] : []) + list("nature", t("niNature"), p.nature || []) + list("defenses", t("niDefenses"), p.defenses ? [p.defenses] : []) + list("recognized", t("niRecognized"), p.recognized || []) + list("lore", t("niLore"), p.lore || []) + list("notes", t("niNotes"), p.notes);
     return { html, secs };
   }
   function ties(ni) {
     const p = ni.profile;
-    if (!p) return { html: `<div class="ci-empty">${esc4(t("niNoProfile"))}</div>`, secs: [] };
-    const src = (x) => `${chip3(t(`tieSrc_${x.by}`), x.by === "ui" ? "accent" : "")}${x.since ? `<span class="ci-meta">${esc4(t("tieSince").replace("{t}", x.since))}</span>` : ""}`;
-    const extra = (x) => `${x.start ? muted(`${esc4(t("tieStart"))}: ${esc4(x.start)}`) : ""}${x.quote ? `<div class="ci-quote">\u201C${esc4(x.quote)}\u201D</div>` : ""}`;
-    const ids = (kind, x, i) => `data-kind="${kind}" data-i="${i}" data-who="${esc4(x.who || "")}" data-name="${esc4(x.name)}"`;
-    const levels = (cur, attr) => `<select class="text_pole canon-tie-level" ${attr}>${["exists", "identity", "secrets"].map((l) => `<option value="${l}" ${l === cur ? "selected" : ""}>${esc4(t(`tieLevel_${l}`))}</option>`).join("")}</select>`;
-    const saveDel = (attr) => `<div class="ci-actions">${btn3(t("wsSave"), `data-act="tie-save" ${attr}`, "primary")}${btn3(t("wsDelete"), `data-act="tie-del" ${attr}`, "danger")}</div>`;
-    const relForm = (a, r) => `<div class="ci-relform" ${a}>` + (r ? "" : `<input class="text_pole canon-tie-name" ${a} placeholder="${esc4(t("tieName"))}">`) + `<label class="ci-lbl">${esc4(t("tieBond"))}</label><textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc4(t("tieRelText"))}">${esc4(r?.text || "")}</textarea>` + sideForm("they", r ? t("tieTheySide").replace("{n}", r.name) : t("tieTheySideNew"), r?.they || null) + sideForm("me", r ? t("tieMeSide").replace("{n}", r.name) : t("tieMeSideNew"), r?.me || null) + `<label class="ci-lbl">${esc4(t("tieTogether"))}</label><textarea class="text_pole ci-rel-together" rows="2">${esc4(r?.together || "")}</textarea><label class="checkbox_label ci-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r?.ended ? "checked" : ""}><span>${esc4(t("tieEnded"))}</span></label>` + (r ? saveDel(a) : `<div class="ci-actions">${btn3(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`) + "</div>";
-    const sideText = (label, s) => s && (s.sees || s.address.length) ? `<div class="ci-meta"><b>${esc4(label)}\uFF1A</b>${s.address.length ? `${esc4(t("relAddress"))}${esc4(addressText(s.address))}${s.sees ? "\uFF1B" : ""}` : ""}${esc4(s.sees)}</div>` : "";
+    if (!p) return { html: `<div class="ci-empty">${esc5(t("niNoProfile"))}</div>`, secs: [] };
+    const src = (x) => `${chip4(t(`tieSrc_${x.by}`), x.by === "ui" ? "accent" : "")}${x.since ? `<span class="ci-meta">${esc5(t("tieSince").replace("{t}", x.since))}</span>` : ""}`;
+    const extra = (x) => `${x.start ? muted(`${esc5(t("tieStart"))}: ${esc5(x.start)}`) : ""}${x.quote ? `<div class="ci-quote">\u201C${esc5(x.quote)}\u201D</div>` : ""}`;
+    const ids = (kind, x, i) => `data-kind="${kind}" data-i="${i}" data-who="${esc5(x.who || "")}" data-name="${esc5(x.name)}"`;
+    const levels = (cur, attr) => `<select class="text_pole canon-tie-level" ${attr}>${["exists", "identity", "secrets"].map((l) => `<option value="${l}" ${l === cur ? "selected" : ""}>${esc5(t(`tieLevel_${l}`))}</option>`).join("")}</select>`;
+    const saveDel = (attr) => `<div class="ci-actions">${btn4(t("wsSave"), `data-act="tie-save" ${attr}`, "primary")}${btn4(t("wsDelete"), `data-act="tie-del" ${attr}`, "danger")}</div>`;
+    const relForm = (a, r) => `<div class="ci-relform" ${a}>` + (r ? "" : `<input class="text_pole canon-tie-name" ${a} placeholder="${esc5(t("tieName"))}">`) + `<label class="ci-lbl">${esc5(t("tieBond"))}</label><textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc5(t("tieRelText"))}">${esc5(r?.text || "")}</textarea>` + sideForm("they", r ? t("tieTheySide").replace("{n}", r.name) : t("tieTheySideNew"), r?.they || null) + sideForm("me", r ? t("tieMeSide").replace("{n}", r.name) : t("tieMeSideNew"), r?.me || null) + `<label class="ci-lbl">${esc5(t("tieTogether"))}</label><textarea class="text_pole ci-rel-together" rows="2">${esc5(r?.together || "")}</textarea><label class="checkbox_label ci-check"><input type="checkbox" class="canon-tie-ended" ${a} ${r?.ended ? "checked" : ""}><span>${esc5(t("tieEnded"))}</span></label>` + (r ? saveDel(a) : `<div class="ci-actions">${btn4(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`) + "</div>";
+    const sideText = (label, s) => s && (s.sees || s.address.length) ? `<div class="ci-meta"><b>${esc5(label)}\uFF1A</b>${s.address.length ? `${esc5(t("relAddress"))}${esc5(addressText(s.address))}${s.sees ? "\uFF1B" : ""}` : ""}${esc5(s.sees)}</div>` : "";
     const rel = p.relationships.map((r, i) => {
       const a = ids("relation", r, i);
-      const body = `${esc4(r.text)}${r.org ? `<span class="ci-meta">${esc4(r.org)}</span>` : ""}` + sideText(t("tieTheySide").replace("{n}", r.name), r.they) + sideText(t("tieMeSide").replace("{n}", r.name), r.me) + (r.together ? `<div class="ci-meta"><b>${esc4(t("tieTogether"))}\uFF1A</b>${esc4(r.together)}</div>` : "") + extra(r);
+      const body = `${esc5(r.text)}${r.org ? `<span class="ci-meta">${esc5(r.org)}</span>` : ""}` + sideText(t("tieTheySide").replace("{n}", r.name), r.they) + sideText(t("tieMeSide").replace("{n}", r.name), r.me) + (r.together ? `<div class="ci-meta"><b>${esc5(t("tieTogether"))}\uFF1A</b>${esc5(r.together)}</div>` : "") + extra(r);
       return item(
         `rel-${r.name}`,
-        `<span class="ci-title">${esc4(r.name)}</span>${r.ended ? chip3(t("tieEnded"), "muted") : ""}${src(r)}`,
+        `<span class="ci-title">${esc5(r.name)}</span>${r.ended ? chip4(t("tieEnded"), "muted") : ""}${src(r)}`,
         body,
-        r.person ? fold2(`rel-edit-${r.name}`, t("tieEdit"), relForm(a, r), "ci-edit") : muted(esc4(t("tieNotPerson")))
+        r.person ? fold2(`rel-edit-${r.name}`, t("tieEdit"), relForm(a, r), "ci-edit") : muted(esc5(t("tieNotPerson")))
       );
     });
     const kn = p.knowers.map((k, i) => {
       const a = ids("knows", k, i);
       return item(
         `kn-${k.name}`,
-        `<span class="ci-title">${esc4(k.name)}</span>${chip3(t(`tieLevel_${k.level}`), k.level === "secrets" ? "warn" : "")}${src(k)}`,
-        `${esc4(k.text)}${extra(k)}`,
-        fold2(`kn-edit-${k.name}`, t("tieEdit"), `${levels(k.level, a)}<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc4(k.text)}</textarea>${saveDel(a)}`, "ci-edit")
+        `<span class="ci-title">${esc5(k.name)}</span>${chip4(t(`tieLevel_${k.level}`), k.level === "secrets" ? "warn" : "")}${src(k)}`,
+        `${esc5(k.text)}${extra(k)}`,
+        fold2(`kn-edit-${k.name}`, t("tieEdit"), `${levels(k.level, a)}<textarea class="text_pole canon-tie-text" ${a} rows="2">${esc5(k.text)}</textarea>${saveDel(a)}`, "ci-edit")
       );
     });
     const add2 = (kind) => {
       const a = `data-kind="${kind}" data-i="new"`;
       if (kind === "relation") return fold2("add-relation", t("tieAddRel"), relForm(a, null), "ci-add");
-      return fold2("add-knows", t("tieAddKnower"), `<input class="text_pole canon-tie-name" ${a} placeholder="${esc4(t("tieName"))}">${levels("identity", a)}<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc4(t("tieKnowsText"))}"></textarea><div class="ci-actions">${btn3(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`, "ci-add");
+      return fold2("add-knows", t("tieAddKnower"), `<input class="text_pole canon-tie-name" ${a} placeholder="${esc5(t("tieName"))}">${levels("identity", a)}<textarea class="text_pole canon-tie-text" ${a} rows="2" placeholder="${esc5(t("tieKnowsText"))}"></textarea><div class="ci-actions">${btn4(t("wsSave"), `data-act="tie-save" ${a}`, "primary")}</div>`, "ci-add");
     };
     return {
       html: sec2("rel", t("niConnections"), (rel.join("") || empty2()) + add2("relation"), "", d.tip("tieTip")) + sec2("knows", t("niWho"), (kn.join("") || empty2()) + add2("knows")),
@@ -47178,30 +47440,30 @@ function createInspector(d) {
     };
   }
   function contacts(ni) {
-    const jobs = `<label class="checkbox_label ci-check ci-switch"><input type="checkbox" data-act="ni-jobs" ${E2().settings.quietDayJobs !== false ? "checked" : ""}><span>${esc4(t("niJobsToggle"))}</span></label>${d.tip("quietDayJobsTip")}`;
+    const jobs = `<label class="checkbox_label ci-check ci-switch"><input type="checkbox" data-act="ni-jobs" ${E2().settings.quietDayJobs !== false ? "checked" : ""}><span>${esc5(t("niJobsToggle"))}</span></label>${d.tip("quietDayJobsTip")}`;
     const groups = /* @__PURE__ */ new Map();
     for (const k of ni.contacts.slice().reverse()) groups.set(k.scope, [...groups.get(k.scope) || [], k]);
     const POS = ["accepted", "joined", "reopened", "answered", "limited"], NEG = ["declined", "deferred", "refused", "ooc_suppress"];
-    const ans = (k, stance, label, tone = "") => btn3(t(label), `data-act="ni-answer" data-rec="${esc4(k.recordId)}" data-stance="${stance}"`, tone);
-    const line = (k) => `<div class="ci-meta">${esc4(k.time)} \xB7 ${esc4(k.kind)}${k.by.length ? ` \xB7 ${esc4(k.by.join(", "))}` : ""}</div><div class="ci-quote">\u201C${esc4(k.quote)}\u201D</div>`;
+    const ans = (k, stance, label, tone = "") => btn4(t(label), `data-act="ni-answer" data-rec="${esc5(k.recordId)}" data-stance="${stance}"`, tone);
+    const line = (k) => `<div class="ci-meta">${esc5(k.time)} \xB7 ${esc5(k.kind)}${k.by.length ? ` \xB7 ${esc5(k.by.join(", "))}` : ""}</div><div class="ci-quote">\u201C${esc5(k.quote)}\u201D</div>`;
     const need = [], rest = [];
     for (const [k, ...older] of groups.values()) {
       const a = k.answer;
       const waiting = !a && !k.inPlay && !k.lapsed;
-      const status = k.lapsed ? chip3(t("niJobLapsed"), "muted") : a ? chip3(t(`niStance_${a}`), a === "done" ? "muted" : POS.includes(a) ? "ok" : "bad") : k.inPlay ? chip3(t("niAnswerInPlay"), "ok") : ni.unanswered.includes(k.recordId) ? chip3(t("niUnanswered"), "accent") : "";
+      const status = k.lapsed ? chip4(t("niJobLapsed"), "muted") : a ? chip4(t(`niStance_${a}`), a === "done" ? "muted" : POS.includes(a) ? "ok" : "bad") : k.inPlay ? chip4(t("niAnswerInPlay"), "ok") : ni.unanswered.includes(k.recordId) ? chip4(t("niUnanswered"), "accent") : "";
       const actions = k.lapsed || a === "done" ? "" : a && POS.includes(a) ? ans(k, "done", "niDone", "primary") : a && NEG.includes(a) ? ans(k, "accepted", "niAcceptAgain") : `${ans(k, "accepted", "niAccept", "primary")}${ans(k, "declined", "niDecline")}`;
       const card2 = item(
         `c-${k.scope}`,
-        `<span class="ci-title">${esc4(k.label)}</span>${k.sideJob ? chip3(t("niSideJob")) : ""}${status}<span class="ci-sp"></span><span class="ci-actions">${actions}</span>`,
+        `<span class="ci-title">${esc5(k.label)}</span>${k.sideJob ? chip4(t("niSideJob")) : ""}${status}<span class="ci-sp"></span><span class="ci-actions">${actions}</span>`,
         line(k),
         older.length ? fold2(`c-old-${k.scope}`, t("niOlderContacts").replace("{n}", String(older.length)), older.map(line).join('<hr class="ci-hr">')) : ""
       );
       (waiting ? need : rest).push(card2);
     }
     let html = `<div class="ci-bar">${jobs}</div>`;
-    if (E2().nsfwMode()) html += `<div class="ci-banner ci-warn">${esc4(t("nsfwOnNote"))}</div>`;
+    if (E2().nsfwMode()) html += `<div class="ci-banner ci-warn">${esc5(t("nsfwOnNote"))}</div>`;
     const secs = [];
-    html += sec2("need", t("ciNeedAnswer"), need.join("") || `<div class="ci-empty">${esc4(t("ciAllClear"))}</div>`);
+    html += sec2("need", t("ciNeedAnswer"), need.join("") || `<div class="ci-empty">${esc5(t("ciAllClear"))}</div>`);
     secs.push({ id: "need", label: t("ciNeedAnswer") });
     const ho = hostilityHtml(E2().hostilityView(), { dangers: E2().settings.dangers !== false, level: E2().settings.dangerLevel || "medium" }, d.tip);
     html += sec2("hostile", t("hoTitle"), `<div class="ci-bar">${ho.bar}</div>${ho.body}`, "", d.tip("hoTip"));
@@ -47211,19 +47473,19 @@ function createInspector(d) {
     if (ni.suggestions) {
       const sg = /* @__PURE__ */ new Map();
       for (const s of ni.suggestions) sg.set(s.scope, [...sg.get(s.scope) || [], s]);
-      const sLine = (s) => `<div>${s.sideJob ? chip3(t("niSideJob")) : ""}${esc4(s.by.join(", "))}: ${esc4(s.contact)} <span class="ci-meta">${esc4(s.kind)}${s.direct ? " \xB7 direct" : ""}</span></div>`;
-      const avoid = (s) => btn3(t(s.avoided ? "niUnavoid" : "niAvoid"), `data-act="ni-avoid" data-scope="${esc4(s.scope)}" title="${esc4(t(s.avoided ? "niUnavoidTip" : "niAvoidTip"))}"`);
-      const pref = (s) => (s.current ? chip3(t("niCurrent"), "accent") : `${s.preferred ? chip3(t("niPreferred"), "ok") : ""}${s.avoided ? chip3(t("niAvoided"), "warn") : ""}<span class="ci-sp"></span>${s.avoided ? "" : btn3(t(s.preferred ? "niUnprefer" : "niPrefer"), `data-act="ni-prefer" data-scope="${esc4(s.scope)}" title="${esc4(t(s.preferred ? "niUnpreferTip" : "niPreferTip"))}"`)}`) + avoid(s);
+      const sLine = (s) => `<div>${s.sideJob ? chip4(t("niSideJob")) : ""}${esc5(s.by.join(", "))}: ${esc5(s.contact)} <span class="ci-meta">${esc5(s.kind)}${s.direct ? " \xB7 direct" : ""}</span></div>`;
+      const avoid = (s) => btn4(t(s.avoided ? "niUnavoid" : "niAvoid"), `data-act="ni-avoid" data-scope="${esc5(s.scope)}" title="${esc5(t(s.avoided ? "niUnavoidTip" : "niAvoidTip"))}"`);
+      const pref = (s) => (s.current ? chip4(t("niCurrent"), "accent") : `${s.preferred ? chip4(t("niPreferred"), "ok") : ""}${s.avoided ? chip4(t("niAvoided"), "warn") : ""}<span class="ci-sp"></span>${s.avoided ? "" : btn4(t(s.preferred ? "niUnprefer" : "niPrefer"), `data-act="ni-prefer" data-scope="${esc5(s.scope)}" title="${esc5(t(s.preferred ? "niUnpreferTip" : "niPreferTip"))}"`)}`) + avoid(s);
       html += sec2(
         "sugg",
         t("niSuggestions"),
-        [...sg.values()].map(([s, ...more]) => item(`s-${s.scope}`, `<span class="ci-title">${esc4(s.about)}</span>${pref(s)}`, sLine(s), more.length ? fold2(`s-more-${s.scope}`, t("niMoreSuggestions").replace("{n}", String(more.length)), more.map(sLine).join("")) : "")).join("") || empty2(),
-        btn3(t("niRefresh"), `data-act="ni-refresh" title="${esc4(t("niRefreshTip"))}"`)
+        [...sg.values()].map(([s, ...more]) => item(`s-${s.scope}`, `<span class="ci-title">${esc5(s.about)}</span>${pref(s)}`, sLine(s), more.length ? fold2(`s-more-${s.scope}`, t("niMoreSuggestions").replace("{n}", String(more.length)), more.map(sLine).join("")) : "")).join("") || empty2(),
+        btn4(t("niRefresh"), `data-act="ni-refresh" title="${esc5(t("niRefreshTip"))}"`)
       );
       secs.push({ id: "sugg", label: t("ciSugg") });
     }
     if (ni.dropped?.length) {
-      html += sec2("dropped", t("niDropped"), ni.dropped.map((x, i) => item(`dr-${i}`, `<span class="ci-title">${esc4(x.id)}</span>`, esc4(x.reason))).join(""));
+      html += sec2("dropped", t("niDropped"), ni.dropped.map((x, i) => item(`dr-${i}`, `<span class="ci-title">${esc5(x.id)}</span>`, esc5(x.reason))).join(""));
       secs.push({ id: "dropped", label: t("niDropped") });
     }
     return { html, secs };
@@ -47232,17 +47494,17 @@ function createInspector(d) {
     const negative = /* @__PURE__ */ new Set(["declined", "deferred", "ooc_suppress"]);
     const dg = /* @__PURE__ */ new Map();
     for (const x of ni.decisions.slice().reverse()) dg.set(x.scope, [...dg.get(x.scope) || [], x]);
-    const dLine = (x) => `<div class="ci-meta">${esc4(t(`niStance_${x.stance}`))} \xB7 ${esc4(x.time)}</div>${x.quote ? `<div class="ci-quote">\u201C${esc4(x.quote)}\u201D</div>` : ""}`;
+    const dLine = (x) => `<div class="ci-meta">${esc5(t(`niStance_${x.stance}`))} \xB7 ${esc5(x.time)}</div>${x.quote ? `<div class="ci-quote">\u201C${esc5(x.quote)}\u201D</div>` : ""}`;
     const active = [], past = [];
     for (const ds of dg.values()) {
       const x = ds.find((y) => y.active) || ds[0];
       const older = ds.filter((y) => y !== x);
       const neg = negative.has(x.stance);
-      const force = x.active && neg ? chip3(t(x.binding ? x.stance === "ooc_suppress" ? "niBindingOoc" : "niBinding" : "niWish"), x.binding ? "bad" : "warn") : "";
-      const acts = x.active && neg ? `${x.stance === "ooc_suppress" ? "" : btn3(t(x.strong ? "niWeak" : "niStrong"), `data-act="${x.strong ? "ni-weak" : "ni-strong"}" data-kind="${esc4(x.scopeKind)}" data-ref="${esc4(x.scopeRef)}" title="${esc4(t(x.strong ? "niWeakTip" : "niStrongTip"))}"`)}${btn3(t("niReopen"), `data-act="ni-reopen" data-kind="${esc4(x.scopeKind)}" data-ref="${esc4(x.scopeRef)}" data-label="${esc4(x.label)}"`)}` : "";
+      const force = x.active && neg ? chip4(t(x.binding ? x.stance === "ooc_suppress" ? "niBindingOoc" : "niBinding" : "niWish"), x.binding ? "bad" : "warn") : "";
+      const acts = x.active && neg ? `${x.stance === "ooc_suppress" ? "" : btn4(t(x.strong ? "niWeak" : "niStrong"), `data-act="${x.strong ? "ni-weak" : "ni-strong"}" data-kind="${esc5(x.scopeKind)}" data-ref="${esc5(x.scopeRef)}" title="${esc5(t(x.strong ? "niWeakTip" : "niStrongTip"))}"`)}${btn4(t("niReopen"), `data-act="ni-reopen" data-kind="${esc5(x.scopeKind)}" data-ref="${esc5(x.scopeRef)}" data-label="${esc5(x.label)}"`)}` : "";
       const card2 = item(
         `d-${x.scope}`,
-        `<span class="ci-title">${esc4(x.label)}</span>${chip3(t(`niStance_${x.stance}`), neg ? "bad" : "ok")}${force}<span class="ci-sp"></span><span class="ci-actions">${acts}</span>`,
+        `<span class="ci-title">${esc5(x.label)}</span>${chip4(t(`niStance_${x.stance}`), neg ? "bad" : "ok")}${force}<span class="ci-sp"></span><span class="ci-actions">${acts}</span>`,
         dLine(x),
         older.length ? fold2(`d-old-${x.scope}`, t("niOlderDecisions").replace("{n}", String(older.length)), older.map(dLine).join('<hr class="ci-hr">')) : ""
       );
@@ -47255,43 +47517,43 @@ function createInspector(d) {
   }
   function world() {
     const w = E2().worldView();
-    if (!w) return { html: `<div class="ci-empty">${esc4(t("niOff"))}</div>`, secs: [] };
+    if (!w) return { html: `<div class="ci-empty">${esc5(t("niOff"))}</div>`, secs: [] };
     const spoilers = !!camp()?.uiPreferences.spoilers;
     const secs = [];
-    const recheck = btn3(t("wsRecheck"), `data-act="ws-recheck" title="${esc4(t("wsRecheckTip"))}"`, "primary");
-    const changes = w.changes.map((c, i) => item(`wc-${i}`, `${chip3(t(`wsSrc_${c.source}`))}<span class="ci-text">${esc4(c.text)}</span>`, c.terms.length ? muted(`${esc4(t("wsTerms"))}: ${esc4(c.terms.join("\u3001"))}`) : ""));
-    const manual = fold2("ws-manual", t("wsManual"), `<textarea class="text_pole canon-ws-manual" rows="3">${esc4(w.manual.join("\n"))}</textarea><div class="ci-actions">${btn3(t("wsSave"), 'data-act="ws-manual"', "primary")}</div>`, "ci-add");
-    const checked = w.checked ? muted(esc4(t("wsChecked").replace("{lore}", String(w.checked.lore)).replace("{ent}", String(w.checked.entities)).replace("{ev}", String(w.checked.events))) + (w.checked.generic.length ? ` ${esc4(t("wsGeneric"))}${esc4(w.checked.generic.join("\u3001"))}` : "")) : "";
-    let html = `<div class="ci-bar">${muted(esc4(t("wsIntro")))}</div>`;
-    html += sec2("changes", t("ciWsChanges"), (changes.join("") || `<div class="ci-empty">${esc4(t("wsNoChanges"))}</div>`) + manual + checked, recheck);
+    const recheck = btn4(t("wsRecheck"), `data-act="ws-recheck" title="${esc5(t("wsRecheckTip"))}"`, "primary");
+    const changes = w.changes.map((c, i) => item(`wc-${i}`, `${chip4(t(`wsSrc_${c.source}`))}<span class="ci-text">${esc5(c.text)}</span>`, c.terms.length ? muted(`${esc5(t("wsTerms"))}: ${esc5(c.terms.join("\u3001"))}`) : ""));
+    const manual = fold2("ws-manual", t("wsManual"), `<textarea class="text_pole canon-ws-manual" rows="3">${esc5(w.manual.join("\n"))}</textarea><div class="ci-actions">${btn4(t("wsSave"), 'data-act="ws-manual"', "primary")}</div>`, "ci-add");
+    const checked = w.checked ? muted(esc5(t("wsChecked").replace("{lore}", String(w.checked.lore)).replace("{ent}", String(w.checked.entities)).replace("{ev}", String(w.checked.events))) + (w.checked.generic.length ? ` ${esc5(t("wsGeneric"))}${esc5(w.checked.generic.join("\u3001"))}` : "")) : "";
+    let html = `<div class="ci-bar">${muted(esc5(t("wsIntro")))}</div>`;
+    html += sec2("changes", t("ciWsChanges"), (changes.join("") || `<div class="ci-empty">${esc5(t("wsNoChanges"))}</div>`) + manual + checked, recheck);
     secs.push({ id: "changes", label: t("ciWsChanges") });
     if (w.checked) {
-      if (!w.loreHook && w.overrides.some((o) => o.kind === "lore")) html += `<div class="ci-banner ci-warn">${esc4(t("wsNoHook"))}</div>`;
+      if (!w.loreHook && w.overrides.some((o) => o.kind === "lore")) html += `<div class="ci-banner ci-warn">${esc5(t("wsNoHook"))}</div>`;
       if (w.unchecked.length) {
-        html += sec2("unchecked", t("wsUnchecked").replace("{n}", String(w.unchecked.length)), `<div class="ci-banner ci-warn">${esc4(w.unchecked[0].why)}</div>` + w.unchecked.map((r, i) => item(`wu-${i}`, `<span class="ci-title">${esc4(r.title)}</span>${chip3(t(`wsKind_${r.kind}`))}`)).join(""));
+        html += sec2("unchecked", t("wsUnchecked").replace("{n}", String(w.unchecked.length)), `<div class="ci-banner ci-warn">${esc5(w.unchecked[0].why)}</div>` + w.unchecked.map((r, i) => item(`wu-${i}`, `<span class="ci-title">${esc5(r.title)}</span>${chip4(t(`wsKind_${r.kind}`))}`)).join(""));
         secs.push({ id: "unchecked", label: t("ciWsUnchecked") });
       }
       const hidden = w.overrides.filter((o) => o.future && !spoilers).length;
       const shown = w.overrides.filter((o) => !o.future || spoilers);
       const ov = shown.map((o) => item(
         `wo-${o.id}`,
-        `<span class="ci-title">${esc4(o.title)}${o.name ? ` \u2192 ${esc4(o.name)}` : ""}</span>${chip3(t(`wsKind_${o.kind}`))}${chip3(t(o.action === "disable" ? "wsDisable" : "wsReplace"), o.action === "disable" ? "bad" : "accent")}${o.edited ? chip3(t("wsEdited"), "ok") : ""}${o.stale ? chip3(t("wsStale"), "warn") : ""}${o.book ? `<span class="ci-meta">${esc4(o.book)}</span>` : ""}`,
-        o.reason ? esc4(o.reason) : "",
-        fold2(`wo-cmp-${o.id}`, `${t("wsOriginal")} / ${t("wsThisGame")}`, `<div class="ci-cmp"><div><div class="ci-cmp-l">${esc4(t("wsOriginal"))}</div>${esc4(o.original)}</div><div><div class="ci-cmp-l">${esc4(t("wsThisGame"))}</div>${esc4(o.action === "disable" ? "\u2014" : o.content)}</div></div>`) + fold2(`wo-edit-${o.id}`, t("tieEdit"), `<textarea class="text_pole canon-ws-edit" data-id="${esc4(o.id)}" rows="5" title="${esc4(t("wsEditTip"))}">${esc4(o.content)}</textarea><div class="ci-actions">${btn3(t("wsSave"), `data-act="ws-save" data-id="${esc4(o.id)}"`, "primary")}${btn3(t("wsDelete"), `data-act="ws-del" data-id="${esc4(o.id)}"`, "danger")}</div>`, "ci-edit")
+        `<span class="ci-title">${esc5(o.title)}${o.name ? ` \u2192 ${esc5(o.name)}` : ""}</span>${chip4(t(`wsKind_${o.kind}`))}${chip4(t(o.action === "disable" ? "wsDisable" : "wsReplace"), o.action === "disable" ? "bad" : "accent")}${o.edited ? chip4(t("wsEdited"), "ok") : ""}${o.stale ? chip4(t("wsStale"), "warn") : ""}${o.book ? `<span class="ci-meta">${esc5(o.book)}</span>` : ""}`,
+        o.reason ? esc5(o.reason) : "",
+        fold2(`wo-cmp-${o.id}`, `${t("wsOriginal")} / ${t("wsThisGame")}`, `<div class="ci-cmp"><div><div class="ci-cmp-l">${esc5(t("wsOriginal"))}</div>${esc5(o.original)}</div><div><div class="ci-cmp-l">${esc5(t("wsThisGame"))}</div>${esc5(o.action === "disable" ? "\u2014" : o.content)}</div></div>`) + fold2(`wo-edit-${o.id}`, t("tieEdit"), `<textarea class="text_pole canon-ws-edit" data-id="${esc5(o.id)}" rows="5" title="${esc5(t("wsEditTip"))}">${esc5(o.content)}</textarea><div class="ci-actions">${btn4(t("wsSave"), `data-act="ws-save" data-id="${esc5(o.id)}"`, "primary")}${btn4(t("wsDelete"), `data-act="ws-del" data-id="${esc5(o.id)}"`, "danger")}</div>`, "ci-edit")
       ));
-      html += sec2("overrides", t("wsOverrides"), (ov.join("") || (!hidden ? `<div class="ci-empty">${esc4(t("wsNone"))}</div>` : "")) + (hidden ? muted(esc4(t("wsFutureHidden").replace("{n}", String(hidden)))) : ""));
+      html += sec2("overrides", t("wsOverrides"), (ov.join("") || (!hidden ? `<div class="ci-empty">${esc5(t("wsNone"))}</div>` : "")) + (hidden ? muted(esc5(t("wsFutureHidden").replace("{n}", String(hidden)))) : ""));
       secs.push({ id: "overrides", label: t("ciWsOverrides") });
       if (w.additions.length) {
         html += sec2("additions", t("wsAdditions"), w.additions.map((a) => item(
           `wa-${a.id}`,
-          `<span class="ci-title">${esc4(a.title)}</span>${a.edited ? chip3(t("wsEdited"), "ok") : ""}<span class="ci-meta">${esc4(a.keys.join("\u3001"))}</span>`,
-          a.reason ? esc4(a.reason) : "",
-          fold2(`wa-edit-${a.id}`, t("wsThisGame"), `<textarea class="text_pole canon-ws-edit" data-id="${esc4(a.id)}" rows="5">${esc4(a.content)}</textarea><div class="ci-actions">${btn3(t("wsSave"), `data-act="ws-save" data-id="${esc4(a.id)}"`, "primary")}${btn3(t("wsDelete"), `data-act="ws-del" data-id="${esc4(a.id)}"`, "danger")}</div>`, "ci-edit")
+          `<span class="ci-title">${esc5(a.title)}</span>${a.edited ? chip4(t("wsEdited"), "ok") : ""}<span class="ci-meta">${esc5(a.keys.join("\u3001"))}</span>`,
+          a.reason ? esc5(a.reason) : "",
+          fold2(`wa-edit-${a.id}`, t("wsThisGame"), `<textarea class="text_pole canon-ws-edit" data-id="${esc5(a.id)}" rows="5">${esc5(a.content)}</textarea><div class="ci-actions">${btn4(t("wsSave"), `data-act="ws-save" data-id="${esc5(a.id)}"`, "primary")}${btn4(t("wsDelete"), `data-act="ws-del" data-id="${esc5(a.id)}"`, "danger")}</div>`, "ci-edit")
         )).join(""));
         secs.push({ id: "additions", label: t("ciWsAdditions") });
       }
       if (w.rejected.length) {
-        html += sec2("rejected", t("wsRejected").replace("{n}", String(w.rejected.length)), w.rejected.map((r, i) => item(`wr-${i}`, `<span class="ci-title">${esc4(r.title)}</span>${chip3(t(`wsKind_${r.kind}`))}`, `${esc4(r.why)}${r.reason ? muted(esc4(r.reason)) : ""}`)).join(""));
+        html += sec2("rejected", t("wsRejected").replace("{n}", String(w.rejected.length)), w.rejected.map((r, i) => item(`wr-${i}`, `<span class="ci-title">${esc5(r.title)}</span>${chip4(t(`wsKind_${r.kind}`))}`, `${esc5(r.why)}${r.reason ? muted(esc5(r.reason)) : ""}`)).join(""));
         secs.push({ id: "rejected", label: t("ciWsRejected") });
       }
     }
@@ -47310,24 +47572,24 @@ function createInspector(d) {
     };
     const cards = [...by].sort((a, b) => a[0].localeCompare(b[0])).map(([e, fs]) => item(
       `f-${e}`,
-      `<span class="ci-title">${esc4(e)}</span>${chip3(String(fs.length), "muted")}`,
-      `<table class="ci-kv">${fs.map((f) => `<tr title="${esc4(f.source)}"><th>${esc4(f.predicate)}</th><td>${esc4(val(f.value))}</td><td class="ci-meta">${esc4(f.since)}</td></tr>`).join("")}</table>`
+      `<span class="ci-title">${esc5(e)}</span>${chip4(String(fs.length), "muted")}`,
+      `<table class="ci-kv">${fs.map((f) => `<tr title="${esc5(f.source)}"><th>${esc5(f.predicate)}</th><td>${esc5(val(f.value))}</td><td class="ci-meta">${esc5(f.since)}</td></tr>`).join("")}</table>`
     ));
     return { html: cards.join("") || empty2(), secs: [] };
   }
   function history(v) {
-    return { html: v.occurrences.slice().reverse().map((o) => item(`h-${o.id}`, `<span class="ci-meta ci-when">${esc4(o.before ? t("ciUndated").replace("{t}", o.before) : o.time)}</span><span class="ci-title">${esc4(o.title)}</span>${chip3(o.origin, o.origin === "player" ? "accent" : "muted")}`, esc4(o.account))).join("") || empty2(), secs: [] };
+    return { html: v.occurrences.slice().reverse().map((o) => item(`h-${o.id}`, `<span class="ci-meta ci-when">${esc5(o.before ? t("ciUndated").replace("{t}", o.before) : o.time)}</span><span class="ci-title">${esc5(o.title)}</span>${chip4(o.origin, o.origin === "player" ? "accent" : "muted")}`, esc5(o.account))).join("") || empty2(), secs: [] };
   }
   function deviations(v) {
-    return { html: v.deviations.map((x) => item(`dv-${x.id}`, `<span class="ci-title">${esc4(x.title)}</span>${chip3(x.disposition, "warn")}`, esc4(x.reason))).join("") || empty2(), secs: [] };
+    return { html: v.deviations.map((x) => item(`dv-${x.id}`, `<span class="ci-title">${esc5(x.title)}</span>${chip4(x.disposition, "warn")}`, esc5(x.reason))).join("") || empty2(), secs: [] };
   }
   function anchors(v, spoilers) {
     const tone = (s) => s === "occurred" ? "ok" : s === "pending" ? "muted" : s === "due" ? "accent" : "warn";
-    return { html: v.anchors.map((a) => item(`an-${a.id}`, `<span class="ci-title">${esc4(spoilers ? a.title : "\u2022\u2022\u2022")}</span>${chip3(a.status, tone(a.status))}<span class="ci-meta">${esc4(a.when)}</span>`, esc4(a.required))).join("") || empty2(), secs: [] };
+    return { html: v.anchors.map((a) => item(`an-${a.id}`, `<span class="ci-title">${esc5(spoilers ? a.title : "\u2022\u2022\u2022")}</span>${chip4(a.status, tone(a.status))}<span class="ci-meta">${esc5(a.when)}</span>`, esc5(a.required))).join("") || empty2(), secs: [] };
   }
   function debug(v) {
     const c = camp();
-    const block = (key2, label, text) => fold2(`dbg-${key2}`, label, `<pre class="ci-pre">${esc4(text)}</pre>`);
+    const block = (key2, label, text) => fold2(`dbg-${key2}`, label, `<pre class="ci-pre">${esc5(text)}</pre>`);
     return {
       html: block("turn", "Last turn", E2().lastReport || "\u2014") + block("op", "Last operation", JSON.stringify(v.lastTrace, null, 1)) + block("prompt", "Final draft prompt (as sent)", JSON.stringify(d.lastDraftPrompt(), null, 1)) + block("manifests", "Coverage manifests", JSON.stringify(v.manifests, null, 1)) + block("raw", "Raw campaign JSON", JSON.stringify({ ...c, packSnapshot: "[omitted]" }, null, 1).slice(0, 2e5)),
       secs: []
@@ -47347,6 +47609,7 @@ function createInspector(d) {
       { label: t("ciNavWorld"), items: [
         ...ni ? [["world", t("wsTitle"), w?.unchecked.length ? badge(w.unchecked.length, "warn") : badge(w?.overrides.length || 0, "muted")]] : [],
         ["combat", t("combat"), badge(E2().fighting(), "bad")],
+        ["names", t("nmTitle"), badge(E2().namesView()?.now.length || 0, "muted")],
         ["facts", t("tabFacts"), badge(v?.facts.length || 0, "muted")],
         ["history", t("tabHistory"), badge(v?.occurrences.length || 0, "muted")],
         ["deviations", t("tabDeviations"), badge(v?.deviations.length || 0, "muted")],
@@ -47355,12 +47618,12 @@ function createInspector(d) {
       { label: t("ciNavEngine"), items: [["plan", t("tabPlan"), ""], ...E2().settings.debug ? [["debug", t("tabDebug"), ""]] : []] }
     ];
     const ids = groups.flatMap((g) => g.items.map((x) => x[0]));
-    return { ids, html: groups.map((g) => `<div class="ci-nav-g">${g.label ? `<div class="ci-nav-l">${esc4(g.label)}</div>` : ""}${g.items.map(([id, label, b]) => `<button class="ci-nav-i${id === tab ? " ci-on" : ""}" data-tab="${id}"><span>${esc4(label)}</span>${b}</button>`).join("")}</div>`).join("") };
+    return { ids, html: groups.map((g) => `<div class="ci-nav-g">${g.label ? `<div class="ci-nav-l">${esc5(g.label)}</div>` : ""}${g.items.map(([id, label, b]) => `<button class="ci-nav-i${id === tab ? " ci-on" : ""}" data-tab="${id}"><span>${esc5(label)}</span>${b}</button>`).join("")}</div>`).join("") };
   }
   function page(v, spoilers) {
     const ni = v.integration;
     const needNi = ["identity", "ties", "contacts", "decisions", "world"];
-    if (needNi.includes(tab) && !ni) return { html: `<div class="ci-empty">${esc4(t("niOff"))}</div>`, secs: [] };
+    if (needNi.includes(tab) && !ni) return { html: `<div class="ci-empty">${esc5(t("niOff"))}</div>`, secs: [] };
     switch (tab) {
       case "identity":
         return identity(ni);
@@ -47380,6 +47643,13 @@ function createInspector(d) {
           render(true);
         }) };
       }
+      case "names": {
+        const nm = namesHtml(E2().namesView());
+        return {
+          html: sec2("nm-now", t("nmNow"), nm.now + nm.add, "", d.tip("nmTip")) + (nm.denied ? sec2("nm-denied", t("nmDenied"), nm.denied) : ""),
+          secs: [{ id: "nm-now", label: t("nmNow") }, ...nm.denied ? [{ id: "nm-denied", label: t("nmDenied") }] : []]
+        };
+      }
       case "facts":
         return facts(v);
       case "history":
@@ -47389,7 +47659,7 @@ function createInspector(d) {
       case "anchors":
         return anchors(v, spoilers);
       case "plan":
-        return { html: `<pre class="ci-pre">${esc4(JSON.stringify(v.plan, null, 1))}</pre>`, secs: [] };
+        return { html: `<pre class="ci-pre">${esc5(JSON.stringify(v.plan, null, 1))}</pre>`, secs: [] };
       case "debug":
         return debug(v);
       default:
@@ -47436,14 +47706,14 @@ function createInspector(d) {
     const ni = v?.integration || null;
     const n = nav(v, ni);
     if (!n.ids.includes(tab)) tab = "overview";
-    const pg = v ? page(v, spoilers) : { html: `<div class="ci-empty">${esc4(E2().status.message || t("phase_reconciling"))}</div>`, secs: [] };
-    const head = `<div class="ci-headbar"><div class="ci-heading"><b>${esc4(t("inspect"))}</b>${v ? `<span class="ci-clock">\u23F1 ${esc4(v.time)}</span>` : ""}</div>
-      ${v ? `<button class="menu_button ci-btn ci-nsfw${E2().nsfwMode() ? " ci-nsfw-on" : ""}" data-act="nsfw" title="${esc4(t("nsfwTip"))}">${esc4(t(E2().nsfwMode() ? "nsfwOn" : "nsfwOff"))}</button>` : ""}
-      <label class="ci-spoil" title="${esc4(t("spoilers"))}"><input type="checkbox" data-act="spoilers" ${spoilers ? "checked" : ""}><span>${esc4(t("ciSpoilers"))}</span></label>
-      <button class="menu_button ci-x" data-act="close" title="${esc4(t("ciClose"))}">\u2715</button></div>`;
-    const tools = `<div class="ci-tools"><div class="ci-search"><input class="text_pole ci-filter" type="search" placeholder="${esc4(t("ciFilter"))}" value="${esc4(filters.get(tab) || "")}"><span class="ci-count"></span></div>${pg.secs.length > 1 ? `<div class="ci-jumps">${pg.secs.map((x) => `<button class="ci-jump" data-jump="${x.id}">${esc4(x.label)}</button>`).join("")}</div>` : ""}</div>`;
-    const main = `<div class="ci-page">${pg.html}<div class="ci-empty ci-nomatch" hidden>${esc4(t("ciNoMatch"))}</div></div>`;
-    const html = `${head}<div class="ci-grid"><nav class="ci-nav">${n.html}</nav><div class="ci-main">${tools}<div class="ci-scroll">${main}</div></div></div><div class="ci-grip" title="${esc4(t("ciResize"))}"></div>`;
+    const pg = v ? page(v, spoilers) : { html: `<div class="ci-empty">${esc5(E2().status.message || t("phase_reconciling"))}</div>`, secs: [] };
+    const head = `<div class="ci-headbar"><div class="ci-heading"><b>${esc5(t("inspect"))}</b>${v ? `<span class="ci-clock">\u23F1 ${esc5(v.time)}</span>` : ""}</div>
+      ${v ? `<button class="menu_button ci-btn ci-nsfw${E2().nsfwMode() ? " ci-nsfw-on" : ""}" data-act="nsfw" title="${esc5(t("nsfwTip"))}">${esc5(t(E2().nsfwMode() ? "nsfwOn" : "nsfwOff"))}</button>` : ""}
+      <label class="ci-spoil" title="${esc5(t("spoilers"))}"><input type="checkbox" data-act="spoilers" ${spoilers ? "checked" : ""}><span>${esc5(t("ciSpoilers"))}</span></label>
+      <button class="menu_button ci-x" data-act="close" title="${esc5(t("ciClose"))}">\u2715</button></div>`;
+    const tools = `<div class="ci-tools"><div class="ci-search"><input class="text_pole ci-filter" type="search" placeholder="${esc5(t("ciFilter"))}" value="${esc5(filters.get(tab) || "")}"><span class="ci-count"></span></div>${pg.secs.length > 1 ? `<div class="ci-jumps">${pg.secs.map((x) => `<button class="ci-jump" data-jump="${x.id}">${esc5(x.label)}</button>`).join("")}</div>` : ""}</div>`;
+    const main = `<div class="ci-page">${pg.html}<div class="ci-empty ci-nomatch" hidden>${esc5(t("ciNoMatch"))}</div></div>`;
+    const html = `${head}<div class="ci-grid"><nav class="ci-nav">${n.html}</nav><div class="ci-main">${tools}<div class="ci-scroll">${main}</div></div></div><div class="ci-grip" title="${esc5(t("ciResize"))}"></div>`;
     if (!force && html === lastHtml && tab === lastTab) return;
     const sc = el.querySelector(".ci-scroll");
     if (sc && lastTab) scrolls.set(lastTab, sc.scrollTop);
@@ -47613,6 +47883,16 @@ function createInspector(d) {
           const det = b.closest("details[data-key]");
           if (det) opened.delete(`${tab}|${det.dataset.key}`);
         });
+      } else if (act?.startsWith("nm-")) {
+        const change = namesChange(b);
+        if (!change) {
+          b.disabled = false;
+          d.toast("warning", t("nmNeedText"));
+          return;
+        }
+        run(E0.editNames(change).then((ok) => {
+          if (!ok) d.toast("warning", t("nmNotFound"));
+        }), () => opened.delete(`${tab}|nm-add`));
       } else if (act === "ni-answer") run(E0.answerContact(b.dataset.rec || "", b.dataset.stance));
       else if (act === "ni-update") {
         b.textContent = t("niBusy");
@@ -48937,7 +49217,7 @@ var getLock;
 var inspector = null;
 var graphPanel = null;
 var packPreview = null;
-var esc5 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var esc6 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 function mountUi(engine2, host2, settings, lock2) {
   E = engine2;
   H = host2;
@@ -49027,20 +49307,20 @@ function mountTopButton() {
     packPreview = null;
   };
   const holder = document.getElementById("top-settings-holder");
-  const btn4 = document.createElement("div");
-  btn4.id = "canon-engine-top-button";
-  btn4.className = "drawer";
-  btn4.innerHTML = `<div class="drawer-toggle drawer-header canon-top-toggle"><div class="drawer-icon fa-solid fa-diagram-project fa-fw closedIcon" title="${t("graphTitle")}"></div></div>`;
-  btn4.querySelector(".canon-top-toggle").addEventListener("click", (ev) => {
+  const btn5 = document.createElement("div");
+  btn5.id = "canon-engine-top-button";
+  btn5.className = "drawer";
+  btn5.innerHTML = `<div class="drawer-toggle drawer-header canon-top-toggle"><div class="drawer-icon fa-solid fa-diagram-project fa-fw closedIcon" title="${t("graphTitle")}"></div></div>`;
+  btn5.querySelector(".canon-top-toggle").addEventListener("click", (ev) => {
     ev.stopPropagation();
     graphPanel.toggle();
-    btn4.querySelector(".drawer-icon").classList.toggle("openIcon", graphPanel.isOpen());
-    btn4.querySelector(".drawer-icon").classList.toggle("closedIcon", !graphPanel.isOpen());
+    btn5.querySelector(".drawer-icon").classList.toggle("openIcon", graphPanel.isOpen());
+    btn5.querySelector(".drawer-icon").classList.toggle("closedIcon", !graphPanel.isOpen());
   });
   const before = document.getElementById("persona-management-button") || document.getElementById("rightNavHolder");
-  if (holder && before?.parentElement === holder) holder.insertBefore(btn4, before);
-  else if (holder) holder.appendChild(btn4);
-  else document.body.appendChild(btn4);
+  if (holder && before?.parentElement === holder) holder.insertBefore(btn5, before);
+  else if (holder) holder.appendChild(btn5);
+  else document.body.appendChild(btn5);
 }
 function openGraph() {
   graphPanel?.toggle(true);
@@ -49078,12 +49358,12 @@ function openLeapDialog(prefill) {
   const now = E.storyNow() ?? st.clock.lo;
   const label = (tick) => formatTick(tick, origin).replace(/ \(D-?\d+\)$/, "");
   const el = modal(`<h3>${t(prefill ? "leapNextTitle" : "leapTitle")}</h3>
-    <div>${t("leapNow")}: <b>${esc5(label(now))}</b></div>
-    <label>${t("leapTo")} <input class="text_pole canon-leap-to" value="${esc5(label(prefill?.final ?? now))}" placeholder="${esc5(t("leapToPh"))}"></label>
+    <div>${t("leapNow")}: <b>${esc6(label(now))}</b></div>
+    <label>${t("leapTo")} <input class="text_pole canon-leap-to" value="${esc6(label(prefill?.final ?? now))}" placeholder="${esc6(t("leapToPh"))}"></label>
     <div class="canon-leap-check canon-hint"></div>
     <div class="canon-leap-chapters"></div>
-    <label>${t("leapDesc")} <textarea class="text_pole canon-leap-desc" rows="5" placeholder="${esc5(t("leapDescPh"))}">${esc5(prefill?.description || "")}</textarea></label>
-    <div class="canon-hint">${esc5(t("leapHint"))}</div>
+    <label>${t("leapDesc")} <textarea class="text_pole canon-leap-desc" rows="5" placeholder="${esc6(t("leapDescPh"))}">${esc6(prefill?.description || "")}</textarea></label>
+    <div class="canon-hint">${esc6(t("leapHint"))}</div>
     <div class="canon-row"><button class="menu_button canon-leap-ok" disabled>${t("leapInsert")}</button><button class="menu_button" data-close>${t("close")}</button></div>`);
   const to = el.querySelector(".canon-leap-to");
   const check2 = el.querySelector(".canon-leap-check");
@@ -49103,8 +49383,8 @@ function openLeapDialog(prefill) {
     ok.disabled = !!bad;
     const was = chapters.length > 1 ? split() : true;
     chapters = bad ? [] : E.leapPlan(tick)?.chapters || [];
-    chEl.innerHTML = chapters.length > 1 ? `<label class="checkbox_label"><input type="checkbox" class="canon-leap-split" ${was ? "checked" : ""}> ${esc5(t("leapSplit").replace("{n}", String(chapters.length)))}</label>
-        <ol class="canon-list">${chapters.map((c) => `<li>\u2192 ${esc5(label(c.to))}${c.after ? ` <small>\uFF08${esc5(t("leapAfter").replace("{x}", c.after))}\uFF09</small>` : ""}</li>`).join("")}</ol>` : "";
+    chEl.innerHTML = chapters.length > 1 ? `<label class="checkbox_label"><input type="checkbox" class="canon-leap-split" ${was ? "checked" : ""}> ${esc6(t("leapSplit").replace("{n}", String(chapters.length)))}</label>
+        <ol class="canon-list">${chapters.map((c) => `<li>\u2192 ${esc6(label(c.to))}${c.after ? ` <small>\uFF08${esc6(t("leapAfter").replace("{x}", c.after))}\uFF09</small>` : ""}</li>`).join("")}</ol>` : "";
   };
   to.addEventListener("input", update);
   update();
@@ -49162,19 +49442,19 @@ function renderStatus() {
     rp.outputTokens ? `${t("outTokens")} ${rp.outputTokens}${rp.reasoningTokens ? ` (${t("thinking")} ${rp.reasoningTokens})` : ""}${rp.maxTokens ? ` / ${t("limit")} ${rp.maxTokens}` : ""}` : "",
     rp.finish ? `finish_reason: ${rp.finish}` : ""
   ].filter(Boolean).join("\n") : "";
-  const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc5(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
+  const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc6(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
   const tk = tm?.tokens;
-  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc5([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.storyInput !== void 0 ? [`${t("tokStory")} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} \xB7 ${t("tokAnalysis")} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : [], ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], ...costLines(tk), ...tk.backup?.length ? [t("backupUsed").replace("{n}", String(tk.backup.length)), ...tk.backup] : [], t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}${costPart(tk)}${tk.backup?.length ? ` \xB7 ${t("backupShort").replace("{n}", String(tk.backup.length))}` : ""}</span>` : "";
-  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc5([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...E.settings.debug && tm.repairs?.length ? tm.repairs.flatMap((v, i) => ["", `${t("repairWhy").replace("{n}", String(i + 1))}:`, ...v.map((x) => `- ${x}`)]) : [], ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc5(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc5(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}</span>` : "";
+  const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc6([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.storyInput !== void 0 ? [`${t("tokStory")} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} \xB7 ${t("tokAnalysis")} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : [], ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], ...costLines(tk), ...tk.backup?.length ? [t("backupUsed").replace("{n}", String(tk.backup.length)), ...tk.backup] : [], t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}${costPart(tk)}${tk.backup?.length ? ` \xB7 ${t("backupShort").replace("{n}", String(tk.backup.length))}` : ""}</span>` : "";
+  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc6([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...E.settings.debug && tm.repairs?.length ? tm.repairs.flatMap((v, i) => ["", `${t("repairWhy").replace("{n}", String(i + 1))}:`, ...v.map((x) => `- ${x}`)]) : [], ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc6(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc6(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}</span>` : "";
   el.dataset.phase = conflict ? "conflict" : phase;
-  el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc5(t("phase_" + (conflict ? "conflict" : phase)))}</span>
-    <span class="canon-msg" title="${esc5(msg)}">${esc5(msg)}</span>${timing}
+  el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc6(t("phase_" + (conflict ? "conflict" : phase)))}</span>
+    <span class="canon-msg" title="${esc6(msg)}">${esc6(msg)}</span>${timing}
     <span class="canon-actions">
       ${busy && st.canCancel !== false ? `<button class="menu_button canon-btn" data-act="cancel">${t("cancel")}</button>` : ""}
       ${!busy && (err || conflict) ? `<button class="menu_button canon-btn" data-act="retry">${t("retry")}</button>` : ""}
       ${!busy && (err && camp.recoveryState.details || E.settings.debug && E.lastReport) ? `<button class="menu_button canon-btn" data-act="details">${t("details")}</button>` : ""}
-      ${!busy && !conflict && camp.enabled && lockOk && E.pendingLeap() ? `<button class="menu_button canon-btn" data-act="leap-next" title="${esc5(t("leapNextTip"))}">${t("leapNext")}</button>` : ""}
-      ${!busy && !conflict && camp.enabled && lockOk ? `<button class="menu_button canon-btn" data-act="leap" title="${esc5(t("leapTip"))}">${t("leap")}</button>` : ""}
+      ${!busy && !conflict && camp.enabled && lockOk && E.pendingLeap() ? `<button class="menu_button canon-btn" data-act="leap-next" title="${esc6(t("leapNextTip"))}">${t("leapNext")}</button>` : ""}
+      ${!busy && !conflict && camp.enabled && lockOk ? `<button class="menu_button canon-btn" data-act="leap" title="${esc6(t("leapTip"))}">${t("leap")}</button>` : ""}
       ${conflict ? `<button class="menu_button canon-btn" data-act="goto">${t("editIt")}</button><button class="menu_button canon-btn" data-act="branch">${t("branchRegen")}</button>` : ""}
       <button class="menu_button canon-btn" data-act="inspect">${t("inspect")}</button>
     </span>`;
@@ -49213,11 +49493,11 @@ function renderSettings() {
   const out = [];
   if (H.isGroup()) out.push(`<div class="canon-note warn">${t("groupUnsupported")}</div>`);
   const comp = detectCompetingLore();
-  if (comp.books.length) out.push(`<div class="canon-note warn">${t("competing")} ${comp.books.map(esc5).join(", ")} ${tip("competingHint")}</div>`);
+  if (comp.books.length) out.push(`<div class="canon-note warn">${t("competing")} ${comp.books.map(esc6).join(", ")} ${tip("competingHint")}</div>`);
   if (comp.gmRule) out.push(`<div class="canon-note warn">${t("gmConflictShort")} ${tip("gmConflict")}</div>`);
-  if (hd.version && !hd.ok) out.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc5(hd.missing.join(", "))}</div>`);
+  if (hd.version && !hd.ok) out.push(`<div class="canon-note warn">${t("unsupportedHorae")}: ${esc6(hd.missing.join(", "))}</div>`);
   const lib = listLibrary();
-  const libRows = (mode) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc5(e.file)}"><b>${esc5(e.title)}</b> v${esc5(e.version)} \xB7 ${Math.round(e.size / 1024)} KB</span>
+  const libRows = (mode) => lib.map((e, i) => `<div class="canon-lib-row"><span class="canon-lib-name" title="${esc6(e.file)}"><b>${esc6(e.title)}</b> v${esc6(e.version)} \xB7 ${Math.round(e.size / 1024)} KB</span>
       <button class="menu_button canon-btn" data-act="lib-view" data-i="${i}" title="${t("libViewTip")}">${t("libView")}</button>
       ${mode === "update" ? `<button class="menu_button canon-btn" data-act="lib-update" data-i="${i}">${t("libUpdate")}</button>` : ""}
       ${mode === "enable" ? `<button class="menu_button canon-btn" data-act="lib-enable" data-i="${i}" ${profileOk ? "" : "disabled"}>${t("libEnable")}</button>` : ""}
@@ -49232,22 +49512,22 @@ function renderSettings() {
     chat.push(`<div class="canon-lib"><div class="canon-lib-head">${t("library")} ${tip("libraryTip")}</div>${lib.length ? libRows("enable") : `<div class="canon-hint">${t("libEmpty")}</div>`}</div>`);
     chat.push(`<div class="canon-btns"><button class="menu_button" data-act="enable" ${profileOk ? "" : "disabled"}>${t("enable")}</button></div>`);
   } else {
-    chat.push(`<div class="canon-pack"><b>${esc5(E.packInfo()?.title || "")}</b> <span>v${esc5(camp.packVersion)}</span>${camp.enabled ? "" : ` <span class="canon-tag">${t("phase_disabled")}</span>`}</div>`);
+    chat.push(`<div class="canon-pack"><b>${esc6(E.packInfo()?.title || "")}</b> <span>v${esc6(camp.packVersion)}</span>${camp.enabled ? "" : ` <span class="canon-tag">${t("phase_disabled")}</span>`}</div>`);
     if (!profileOk) chat.push(`<div class="canon-note warn">${t("needProfileTurns")}</div>`);
     if (E.packMissing()) chat.push(`<div class="canon-note err">${t("packMissing")}</div><div class="canon-btns"><button class="menu_button" data-act="update">${t("packRelink")}</button></div>`);
     else if (E.packOutdated()) chat.push(`<div class="canon-note err">${t("packOutdated")}</div><div class="canon-btns"><button class="menu_button" data-act="update">${t("updatePack")}</button></div>`);
-    const btn4 = (act, label, tipKey, cls = "") => `<button class="menu_button ${cls}" data-act="${act}" title="${esc5(t(tipKey))}">${label}</button>`;
+    const btn5 = (act, label, tipKey, cls = "") => `<button class="menu_button ${cls}" data-act="${act}" title="${esc6(t(tipKey))}">${label}</button>`;
     chat.push(`<div class="canon-btns">
-      ${btn4("inspect", t("inspect"), "inspectTip")}${btn4("retry", t("retry"), "retryTip")}${btn4("rebuild", t("rebuild"), "rebuildTip")}</div>
-      <div class="canon-btns">${btn4("export", t("exportBackup"), "exportTip")}${btn4("import", t("importBackup"), "importTip")}${btn4("update", t("updatePack"), "updateTip")}</div>
-      <div class="canon-btns">${btn4("toggle", camp.enabled ? t("disable") : t("reenable"), "toggleTip")}${btn4("unbind", t("unbindShort"), "unbindTip", "canon-danger")}</div>`);
+      ${btn5("inspect", t("inspect"), "inspectTip")}${btn5("retry", t("retry"), "retryTip")}${btn5("rebuild", t("rebuild"), "rebuildTip")}</div>
+      <div class="canon-btns">${btn5("export", t("exportBackup"), "exportTip")}${btn5("import", t("importBackup"), "importTip")}${btn5("update", t("updatePack"), "updateTip")}</div>
+      <div class="canon-btns">${btn5("toggle", camp.enabled ? t("disable") : t("reenable"), "toggleTip")}${btn5("unbind", t("unbindShort"), "unbindTip", "canon-danger")}</div>`);
     if (lib.length) chat.push(`<details class="canon-lib"><summary>${t("library")} (${lib.length}) ${tip("libraryTip")}</summary>${libRows("update")}</details>`);
   }
   out.push(card(t("secChat"), "secChatTip", chat.join("")));
-  out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + check("mindPlans", s.mindPlans !== false, t("mindPlans"), "mindPlansTip") + (s.mindPlans !== false ? mindField() : "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc5(String(s.replyLength || ""))}" placeholder="${esc5(t("replyLengthPlaceholder"))}">`, t("replyLengthShort")) + field(t("oocKeyword"), "oocKeywordTip", `<input type="text" class="text_pole" data-set="oocKeyword" value="${esc5(String(s.oocKeyword ?? "OOC"))}" placeholder="OOC">`, t("oocKeywordShort")) + check("notifyDone", s.notifyDone !== false, t("notifyDone"), "notifyDoneTip") + (s.notifyDone !== false ? check("notifySound", s.notifySound !== false, t("notifySound"), "notifySoundTip") + notifyNote() : "")));
+  out.push(card(t("secModel"), "", profileField(s.taskProfileId || "") + check("mindPlans", s.mindPlans !== false, t("mindPlans"), "mindPlansTip") + (s.mindPlans !== false ? mindField() : "") + field(t("replyLength"), "replyLengthTip", `<input type="text" class="text_pole" data-set="replyLength" value="${esc6(String(s.replyLength || ""))}" placeholder="${esc6(t("replyLengthPlaceholder"))}">`, t("replyLengthShort")) + field(t("oocKeyword"), "oocKeywordTip", `<input type="text" class="text_pole" data-set="oocKeyword" value="${esc6(String(s.oocKeyword ?? "OOC"))}" placeholder="OOC">`, t("oocKeywordShort")) + check("notifyDone", s.notifyDone !== false, t("notifyDone"), "notifyDoneTip") + (s.notifyDone !== false ? check("notifySound", s.notifySound !== false, t("notifySound"), "notifySoundTip") + notifyNote() : "")));
   out.push(card(t("secPersona"), "", check("ignorePersonaSections", !!s.ignorePersonaSections, t("ignorePersonaSections"), "ignorePersonaSectionsTip") + check("quietDayJobs", s.quietDayJobs !== false, t("quietDayJobs"), "quietDayJobsTip") + check("dangers", s.dangers !== false, t("hoDangers"), "hoDangersTip")));
   const pv = playerVoice(s.playerVoice);
-  out.push(`<details class="canon-card canon-voice"${s.voiceOpen ? " open" : ""}><summary class="canon-card-title">${t("secVoice")} ${tip("secVoiceTip")} <span class="canon-sub">${esc5(VOICE_KINDS.filter((k) => pv[k]).map((k) => t("voice_" + k)).join("\u3001") || t("voiceNone"))}</span></summary>` + VOICE_KINDS.map((k) => check("voice:" + k, pv[k], t("voice_" + k), "voice_" + k + "Tip")).join("") + `<div class="canon-hint">${t("voiceHint")}</div>` + check("secretsReadable", s.secretsReadable !== false, t("secretsReadable"), "secretsReadableTip") + `</details>`);
+  out.push(`<details class="canon-card canon-voice"${s.voiceOpen ? " open" : ""}><summary class="canon-card-title">${t("secVoice")} ${tip("secVoiceTip")} <span class="canon-sub">${esc6(VOICE_KINDS.filter((k) => pv[k]).map((k) => t("voice_" + k)).join("\u3001") || t("voiceNone"))}</span></summary>` + VOICE_KINDS.map((k) => check("voice:" + k, pv[k], t("voice_" + k), "voice_" + k + "Tip")).join("") + `<div class="canon-hint">${t("voiceHint")}</div>` + check("secretsReadable", s.secretsReadable !== false, t("secretsReadable"), "secretsReadableTip") + `</details>`);
   out.push(card(t("secEvents"), "", check("ignoreFirstMessage", !!s.ignoreFirstMessage, t("ignoreFirstMessage"), "ignoreFirstMessageTip") + check("sceneGrouping", !!s.sceneGrouping, t("sceneGrouping"), "sceneGroupingTip") + check("followTrackerTime", s.followTrackerTime !== false, t("followHoraeTime"), "followHoraeTimeTip")));
   const adv = [
     num("maxRepairs", s.maxRepairs),
@@ -49270,7 +49550,7 @@ function renderSettings() {
   body.innerHTML = out.join("");
 }
 function tip(key2) {
-  return key2 ? `<span class="canon-info" tabindex="0" role="button" aria-label="${esc5(t(key2))}" data-tip="${esc5(t(key2))}"><i class="fa-solid fa-circle-info"></i></span>` : "";
+  return key2 ? `<span class="canon-info" tabindex="0" role="button" aria-label="${esc6(t(key2))}" data-tip="${esc6(t(key2))}"><i class="fa-solid fa-circle-info"></i></span>` : "";
 }
 function card(title, tipKey, inner) {
   return `<div class="canon-card"><div class="canon-card-title">${title} ${tip(tipKey)}</div>${inner}</div>`;
@@ -49281,10 +49561,10 @@ function field(label, tipKey, control, hint = "") {
 var CHROME_FLAG = "chrome://flags/#unsafely-treat-insecure-origin-as-secure";
 function notifyNote() {
   if (!systemNotificationsAvailable()) {
-    const row = (label, value) => `<div class="canon-copyrow"><span>${esc5(label)}</span><code>${esc5(value)}</code><button class="menu_button canon-btn" data-act="copyValue" data-value="${esc5(value)}">${t("copy")}</button></div>`;
-    return `<div class="canon-note">${esc5(t("notifyInsecure"))}${row(t("notifyFlagPage"), CHROME_FLAG)}${row(t("notifyFlagValue"), location.origin)}</div>`;
+    const row = (label, value) => `<div class="canon-copyrow"><span>${esc6(label)}</span><code>${esc6(value)}</code><button class="menu_button canon-btn" data-act="copyValue" data-value="${esc6(value)}">${t("copy")}</button></div>`;
+    return `<div class="canon-note">${esc6(t("notifyInsecure"))}${row(t("notifyFlagPage"), CHROME_FLAG)}${row(t("notifyFlagValue"), location.origin)}</div>`;
   }
-  if (Notification.permission === "denied") return `<div class="canon-note warn">${esc5(t("notifyBlocked"))}</div>`;
+  if (Notification.permission === "denied") return `<div class="canon-note warn">${esc6(t("notifyBlocked"))}</div>`;
   return "";
 }
 function check(key2, on, label, tipKey) {
@@ -49301,13 +49581,13 @@ function profileField(current) {
     profiles = [];
   }
   const missing = current && current !== CHAT_PROFILE && !profiles.some((p) => p.id === current);
-  const opts = [`<option value="" ${current ? "" : "selected"} disabled>${t("taskProfilePick")}</option>`].concat(profiles.map((p) => `<option value="${esc5(p.id)}" ${p.id === current ? "selected" : ""}>${esc5(p.name)}${p.model ? ` \xB7 ${esc5(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc5(current)}" selected>\u26A0 ${esc5(current)}</option>`] : []).concat([`<option value="${CHAT_PROFILE}" ${current === CHAT_PROFILE ? "selected" : ""}>${t("taskProfileSame")}</option>`]);
+  const opts = [`<option value="" ${current ? "" : "selected"} disabled>${t("taskProfilePick")}</option>`].concat(profiles.map((p) => `<option value="${esc6(p.id)}" ${p.id === current ? "selected" : ""}>${esc6(p.name)}${p.model ? ` \xB7 ${esc6(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc6(current)}" selected>\u26A0 ${esc6(current)}</option>`] : []).concat([`<option value="${CHAT_PROFILE}" ${current === CHAT_PROFILE ? "selected" : ""}>${t("taskProfileSame")}</option>`]);
   const hint = !current ? `<div class="canon-hint warn">${profiles.length ? t("taskProfileMissing") : t("taskProfileNone")}</div>` : current === CHAT_PROFILE ? `<div class="canon-hint warn">${t("taskProfileSameWarn")}</div>` : `<div class="canon-hint">${t("taskProfileShort")}</div>`;
   const extra = String(getSettings().taskExtraBody || "");
   const profileUsed = current && current !== CHAT_PROFILE;
   return `<div class="canon-field canon-profile${current ? "" : " canon-required"}"><div class="canon-lbl">${t("taskProfile")} ${tip("taskProfileTip")}</div>
     <select class="text_pole" data-set="taskProfileId">${opts.join("")}</select>${hint}</div>
-    ${profileUsed ? field(t("taskExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc5(extra)}</textarea>`, t("taskExtraBodyShort")) : ""}
+    ${profileUsed ? field(t("taskExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc6(extra)}</textarea>`, t("taskExtraBodyShort")) : ""}
     ${current ? backupField(profiles, current) : ""}`;
 }
 function mindField() {
@@ -49319,15 +49599,15 @@ function mindField() {
     profiles = [];
   }
   const missing = cur && !profiles.some((p) => p.id === cur);
-  const opts = [`<option value="" ${cur ? "" : "selected"}>${t("mindProfileSame")}</option>`].concat(profiles.map((p) => `<option value="${esc5(p.id)}" ${p.id === cur ? "selected" : ""}>${esc5(p.name)}${p.model ? ` \xB7 ${esc5(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc5(cur)}" selected>\u26A0 ${esc5(cur)}</option>`] : []);
+  const opts = [`<option value="" ${cur ? "" : "selected"}>${t("mindProfileSame")}</option>`].concat(profiles.map((p) => `<option value="${esc6(p.id)}" ${p.id === cur ? "selected" : ""}>${esc6(p.name)}${p.model ? ` \xB7 ${esc6(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc6(cur)}" selected>\u26A0 ${esc6(cur)}</option>`] : []);
   return field(t("mindProfile"), "mindProfileTip", `<select class="text_pole" data-set="mindProfileId">${opts.join("")}</select>`, t("mindProfileShort"));
 }
 function backupField(profiles, main) {
   const s = getSettings();
   const cur = String(s.taskBackupProfileId || "");
   const missing = cur && !profiles.some((p) => p.id === cur);
-  const opts = [`<option value="" ${cur ? "" : "selected"}>${t("taskBackupNone")}</option>`].concat(profiles.filter((p) => p.id !== main).map((p) => `<option value="${esc5(p.id)}" ${p.id === cur ? "selected" : ""}>${esc5(p.name)}${p.model ? ` \xB7 ${esc5(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc5(cur)}" selected>\u26A0 ${esc5(cur)}</option>`] : []);
-  return field(t("taskBackup"), "taskBackupTip", `<select class="text_pole" data-set="taskBackupProfileId">${opts.join("")}</select>`, t("taskBackupShort")) + (cur ? field(t("taskBackupExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskBackupExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc5(String(s.taskBackupExtraBody || ""))}</textarea>`, t("taskExtraBodyShort")) : "");
+  const opts = [`<option value="" ${cur ? "" : "selected"}>${t("taskBackupNone")}</option>`].concat(profiles.filter((p) => p.id !== main).map((p) => `<option value="${esc6(p.id)}" ${p.id === cur ? "selected" : ""}>${esc6(p.name)}${p.model ? ` \xB7 ${esc6(p.model)}` : ""}</option>`)).concat(missing ? [`<option value="${esc6(cur)}" selected>\u26A0 ${esc6(cur)}</option>`] : []);
+  return field(t("taskBackup"), "taskBackupTip", `<select class="text_pole" data-set="taskBackupProfileId">${opts.join("")}</select>`, t("taskBackupShort")) + (cur ? field(t("taskBackupExtraBody"), "taskExtraBodyTip", `<textarea class="text_pole canon-extra" rows="1" data-set="taskBackupExtraBody" placeholder="venice_parameters: {disable_thinking: true}">${esc6(String(s.taskBackupExtraBody || ""))}</textarea>`, t("taskExtraBodyShort")) : "");
 }
 var tipEl = null;
 var tipFor = null;
@@ -49519,7 +49799,7 @@ function openBindWizard(text) {
   const existing = chatLen > 1;
   const horae = H.sceneTracker?.status().scene;
   if (!p.ok || !p.summary) {
-    modal(`<h3>${t("wizardTitle")}</h3><div class="canon-note err">${t("validation")}: ${t("failed")}</div><ul class="canon-list">${p.errors.slice(0, 40).map((e) => `<li><code>${esc5(e.path)}</code> ${esc5(e.message)}</li>`).join("")}</ul><button class="menu_button" data-close>${t("close")}</button>`);
+    modal(`<h3>${t("wizardTitle")}</h3><div class="canon-note err">${t("validation")}: ${t("failed")}</div><ul class="canon-list">${p.errors.slice(0, 40).map((e) => `<li><code>${esc6(e.path)}</code> ${esc6(e.message)}</li>`).join("")}</ul><button class="menu_button" data-close>${t("close")}</button>`);
     return;
   }
   const S = p.summary;
@@ -49528,17 +49808,17 @@ function openBindWizard(text) {
   const defTick = covStart <= 480 ? 480 : covStart;
   const startDefault = formatTick(defTick, origin0).replace(/ \(D-?\d+\)$/, "");
   const originDefault = origin0 ? `${origin0.y}-${String(origin0.m).padStart(2, "0")}-${String(origin0.d).padStart(2, "0")}` : "";
-  const evOptions = E.previewEvents(text).map((e) => `<option value="${e.lo - 1}">${esc5(e.title)} (${esc5(formatTick(e.lo, origin0))})</option>`).join("");
+  const evOptions = E.previewEvents(text).map((e) => `<option value="${e.lo - 1}">${esc6(e.title)} (${esc6(formatTick(e.lo, origin0))})</option>`).join("");
   const el = modal(`<h3>${t("wizardTitle")}</h3>
-    <div><b>${esc5(S.title)}</b> v${esc5(S.version)} <small>(${esc5(S.packId)}, ${esc5(S.hash.slice(0, 12))})</small></div>
-    <div>${t("validation")}: <b>${t("ok")}</b> \xB7 ${t("coverage")}: ${esc5(S.coverage)} \xB7 ${t("hardCount")}: ${S.hardCount}</div>
-    ${p.warnings.length ? `<details><summary>${t("warnings")} (${p.warnings.length})</summary><ul class="canon-list">${p.warnings.map((w) => `<li>${esc5(w.path)} ${esc5(w.message)}</li>`).join("")}</ul></details>` : ""}
-    ${horae && (horae.date || horae.time) ? `<div class="canon-note">${t("horaeDetected")}: ${esc5(horae.date || "")} ${esc5(horae.time || "")} ${esc5(horae.location || "")}</div>` : ""}
+    <div><b>${esc6(S.title)}</b> v${esc6(S.version)} <small>(${esc6(S.packId)}, ${esc6(S.hash.slice(0, 12))})</small></div>
+    <div>${t("validation")}: <b>${t("ok")}</b> \xB7 ${t("coverage")}: ${esc6(S.coverage)} \xB7 ${t("hardCount")}: ${S.hardCount}</div>
+    ${p.warnings.length ? `<details><summary>${t("warnings")} (${p.warnings.length})</summary><ul class="canon-list">${p.warnings.map((w) => `<li>${esc6(w.path)} ${esc6(w.message)}</li>`).join("")}</ul></details>` : ""}
+    ${horae && (horae.date || horae.time) ? `<div class="canon-note">${t("horaeDetected")}: ${esc6(horae.date || "")} ${esc6(horae.time || "")} ${esc6(horae.location || "")}</div>` : ""}
     ${existing ? `<div class="canon-note">${t("existingChat")}</div>` : ""}
-    <label>${t("startTime")} <input class="text_pole canon-start" value="${esc5(startDefault)}" placeholder="${esc5(t("startPlaceholder"))}"></label>
+    <label>${t("startTime")} <input class="text_pole canon-start" value="${esc6(startDefault)}" placeholder="${esc6(t("startPlaceholder"))}"></label>
     <label>${t("startBefore")} <select class="canon-start-ev"><option value="">\u2014</option>${evOptions}</select></label>
-    <label>${t("originDate")} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD" value="${esc5(originDefault)}"></label>
-    ${S.originLabel ? `<div class="canon-note">${t("packOrigin")}: ${esc5(S.originLabel)}</div>` : ""}
+    <label>${t("originDate")} <input class="text_pole canon-origin" placeholder="YYYY-MM-DD" value="${esc6(originDefault)}"></label>
+    ${S.originLabel ? `<div class="canon-note">${t("packOrigin")}: ${esc6(S.originLabel)}</div>` : ""}
     <div class="canon-row"><button class="menu_button canon-confirm">${t("confirmBind")}</button><button class="menu_button" data-close>${t("close")}</button></div>
     <div class="canon-wizard-status"></div>`);
   el.querySelector(".canon-start-ev").addEventListener("change", (ev) => {
@@ -49566,10 +49846,10 @@ function openBindWizard(text) {
       const insp = E.inspector(false);
       const camp = E.campaign();
       el.querySelector(".canon-modal").innerHTML = `<h3>${t("bindingSummary")}</h3>
-        <div>${t("startTime")}: ${esc5(camp.binding.startLabel)} \xB7 ${esc5(E.packInfo()?.packId || "")}@${esc5(camp.packVersion)}</div>
+        <div>${t("startTime")}: ${esc6(camp.binding.startLabel)} \xB7 ${esc6(E.packInfo()?.packId || "")}@${esc6(camp.packVersion)}</div>
         <div>${t("examined")}: ${res.examined}</div>
-        <div>${t("deviations")}: ${insp?.deviations.length ? insp.deviations.map((d) => esc5(`${d.title}: ${d.disposition}`)).join("; ") : "\u2014"}</div>
-        <div>${t("unresolved")}: ${[...res.unresolved, camp.recoveryState.status !== "ok" ? camp.recoveryState.reason : ""].filter(Boolean).map(esc5).join("; ") || "\u2014"}</div>
+        <div>${t("deviations")}: ${insp?.deviations.length ? insp.deviations.map((d) => esc6(`${d.title}: ${d.disposition}`)).join("; ") : "\u2014"}</div>
+        <div>${t("unresolved")}: ${[...res.unresolved, camp.recoveryState.status !== "ok" ? camp.recoveryState.reason : ""].filter(Boolean).map(esc6).join("; ") || "\u2014"}</div>
         <div class="canon-row"><button class="menu_button" data-close>${t("keep")}</button><button class="menu_button canon-undo">${t("undoBind")}</button></div>`;
       el.querySelector(".canon-undo").addEventListener("click", async () => {
         H.setCampaign(null);
@@ -49578,7 +49858,7 @@ function openBindWizard(text) {
         refreshUi();
       });
     } catch (e) {
-      status.innerHTML = `<div class="canon-note err">${esc5(e.message)}</div>`;
+      status.innerHTML = `<div class="canon-note err">${esc6(e.message)}</div>`;
     }
     refreshUi();
   });
@@ -49606,12 +49886,12 @@ async function updateOrRelink(text) {
 function openUpdateWizard(text) {
   const d = E.diffPack(text);
   if (!d.ok) {
-    modal(`<div class="canon-note err">${d.errors.map((e) => esc5(e.message)).join("<br>")}</div><button class="menu_button" data-close>${t("close")}</button>`);
+    modal(`<div class="canon-note err">${d.errors.map((e) => esc6(e.message)).join("<br>")}</div><button class="menu_button" data-close>${t("close")}</button>`);
     return;
   }
   const el = modal(`<h3>${t("updatePack")}</h3><div class="canon-note">${t("updatePreview")}</div>
-    <div>changed: ${esc5(d.changed.join(", ") || "\u2014")}</div><div>deleted: ${esc5(d.deleted.join(", ") || "\u2014")}</div><div>added: ${esc5(d.added.join(", ") || "\u2014")}</div>
-    <div><b>HARD contract changes:</b> ${esc5(d.hardChanged.join(", ") || "\u2014")}</div>
+    <div>changed: ${esc6(d.changed.join(", ") || "\u2014")}</div><div>deleted: ${esc6(d.deleted.join(", ") || "\u2014")}</div><div>added: ${esc6(d.added.join(", ") || "\u2014")}</div>
+    <div><b>HARD contract changes:</b> ${esc6(d.hardChanged.join(", ") || "\u2014")}</div>
     <div class="canon-row"><button class="menu_button canon-exp">${t("exportBackup")}</button><button class="menu_button canon-apply" disabled>${t("applyUpdate")}</button><button class="menu_button" data-close>${t("close")}</button></div>`);
   el.querySelector(".canon-exp").addEventListener("click", () => {
     download(`canon-backup-before-update-${Date.now()}.json`, E.exportBackup());

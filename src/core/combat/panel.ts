@@ -90,7 +90,7 @@ export function combatView(idx: WorldIndex, spoilers: boolean, player: Id | null
   people.sort((a, b) => Number(!!b.fighting) - Number(!!a.fighting) || Number(!!b.player) - Number(!!a.player) || Number(b.states.length > 0) - Number(a.states.length > 0) || a.name.localeCompare(b.name, 'zh'));
   return {
     none: L.combat.none, basis: L.combat.basis,
-    fight: { ongoing: f.ongoing, people: f.participants.filter((x) => idx.entityExists(x)).map((id) => { const w = f.identified.find((x) => x.id === id); return { id, name: name(id), ...(w ? { as: w.as, asWhy: w.why } : {}) }; }), things: f.things.filter((x) => N.has(x.node)).map((x) => ({ node: x.node, name: N.get(x.node)!.name, why: x.why })), source: f.source, since: f.since === null ? null : formatTick(f.since, origin) },
+    fight: { ongoing: f.ongoing, people: f.participants.filter((x) => idx.entityExists(x)).map((id) => { const w = idx.namesNow().find((x) => x.id === id && x.source !== 'ui'); return { id, name: name(id), ...(w ? { as: w.words, asWhy: w.why || w.quote } : {}) }; }), things: f.things.filter((x) => N.has(x.node)).map((x) => ({ node: x.node, name: N.get(x.node)!.name, why: x.why })), source: f.source, since: f.since === null ? null : formatTick(f.since, origin) },
     rulings: rulings.slice(-5).reverse().map(({ tick: t, ruling: r }) => ({
       when: formatTick(t, origin),
       reasoning: r.reasoning || '',

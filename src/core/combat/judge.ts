@@ -169,11 +169,13 @@ export async function judgeFight(a: {
     who,
     of: walk.nodes.filter((w) => w.node.kind === 'ability' && !w.from.includes(who)).flatMap((w) => (w.node.parts || [{ part: 'effect' as const, text: '' }]).filter((p) => knowsNode(L, index.state, who, w.node.id, p.part)).map((p) => `${w.node.id}:${p.part}`)),
   }));
+  // the words the story uses for them now (称呼: the player's 「金发混混」 is 滨面)
+  const called = (id: Id) => { const w = index.namesNow().filter((n) => n.id === id).map((n) => n.words).slice(0, 4); return w.length ? { called: w } : {}; };
   const input = {
     basis: L.combat.basis,
     time: a.timeLabel,
     fighters: fighters.map((id) => ({
-      id, name: name(id), ...(id === a.playerId ? { player_character: true, ...(a.playerPublic ? { known_to_all: a.playerPublic.slice(0, 600) } : {}) } : {}), description: describe(id),
+      id, name: name(id), ...called(id), ...(id === a.playerId ? { player_character: true, ...(a.playerPublic ? { known_to_all: a.playerPublic.slice(0, 600) } : {}) } : {}), description: describe(id),
       states: statesNow(id),
       ...(holdsNow(id).length ? { holds: holdsNow(id) } : {}),
       // what the world says of them now (an arm cut off by the story, a condition): live, a judge that had only the
@@ -189,7 +191,7 @@ export async function judgeFight(a: {
     sources: [...sourceText].map(([ref, text]) => ({ ref, text: text.slice(0, 3000) })),
     relations, knows,
     ...(fixed.length ? { canon_fixed: fixed.map((f) => ({ ref: f.ref, who: `${f.who} | ${name(f.who)}`, what: `${f.outcome.predicate}${f.outcome.op === 'add' ? ' gains' : f.outcome.op === 'remove' ? ' loses' : ' becomes'} ${valueText(f.outcome.value)}`, only_by: L.events.get(f.event)!.title })) } : {}),
-    present: bystanders.map((id) => ({ id, name: name(id), description: describe(id), style: styleOf(L, index.state, id)?.style || null, linked: linksOf(L, index.state, id).map(linkLine), relations: fighters.map((f) => index.relationNow(id, f)).filter(Boolean).map((r) => r!.bond) })),
+    present: bystanders.map((id) => ({ id, name: name(id), ...called(id), description: describe(id), style: styleOf(L, index.state, id)?.style || null, linked: linksOf(L, index.state, id).map(linkLine), relations: fighters.map((f) => index.relationNow(id, f)).filter(Boolean).map((r) => r!.bond) })),
     player_message: a.playerMessage, statements: a.statements, recent: a.recent.slice(-2000),
   };
   const ask = (extra: object) => callStructured<CombatOut>(a.port, 'combat', PROMPTS.combat, { ...input, ...extra }, { signal: a.signal, operationId: a.operationId, log: a.log });
@@ -241,21 +243,21 @@ export async function judgeFight(a: {
     for (const q of checked.unfounded) { stands.push(q); checked.list.push({ quote: q, stands: true, why: 'no objective mechanism stops it', basis: [] }); }
   }
   const outcomes = checked.list;
-  const bystander = (x: unknown) => (bystanders.includes(String(x)) ? String(x) : (() => { const r = index.resolveEntity(String(x)); return r.ids.length === 1 && bystanders.includes(r.ids[0]) ? r.ids[0] : null; })());
+  const bystander = (x: unknown) => (bystanders.includes(String(x)) ? String(x) : (() => { const id = index.whoOne(x); return id && bystanders.includes(id) ? id : null; })());
   // someone present the ruling has act in the fight has joined it, said or not (live: the grudge holder's Level 3
   // friend attacked the player and his exchange was dropped as "not a fighter")
   const joined = uniq([...(out.joins || []), ...(out.exchanges || []).map((x) => x.actor)].map(bystander).filter((x): x is Id => !!x));
   fighters.push(...joined);
   const exchanges: RulingExchange[] = [];
   for (const x of out.exchanges || []) {
-    const actor = fighters.includes(x.actor) ? x.actor : (() => { const r = index.resolveEntity(String(x.actor)); return r.ids.length === 1 && fighters.includes(r.ids[0]) ? r.ids[0] : null; })();
+    const actor = fighters.includes(x.actor) ? x.actor : (() => { const id = index.whoOne(x.actor); return id && fighters.includes(id) ? id : null; })();
     if (!actor || !String(x.text || '').trim()) { notes.push(`ruling: an exchange of "${x.actor}" left out (not a fighter)`); continue; }
     const basis = (x.basis || []).map(fixRef).filter((b) => { const ok = basisOk(b); if (!ok) notes.push(`ruling: basis "${b.ref}" is not in what the fight was given (left out)`); return ok; });
     exchanges.push({ actor, text: String(x.text).trim().slice(0, 800), basis: basis.length ? basis : [{ ref: 'judgement' }], ...(x.unsupported || !basis.length || basis.every((b) => b.ref === 'judgement') ? { unsupported: true } : {}) });
   }
   const statuses: StatusChange[] = [];
   for (const s of out.statuses || []) {
-    const who = fighters.includes(s.who) ? s.who : (() => { const r = index.resolveEntity(String(s.who)); return r.ids.length === 1 && fighters.includes(r.ids[0]) ? r.ids[0] : null; })();
+    const who = fighters.includes(s.who) ? s.who : (() => { const id = index.whoOne(s.who); return id && fighters.includes(id) ? id : null; })();
     const text = String(s.text || '').trim().slice(0, 120);
     if (!who || !text) { notes.push(`ruling: a state of "${s.who}" left out (not a fighter)`); continue; }
     const count = typeof s.count === 'number' && Number.isFinite(s.count) ? Math.max(0, Math.round(s.count)) : null;
@@ -281,7 +283,7 @@ export async function judgeFight(a: {
   const heldHere = new Set([...fighters, ...bystanders].flatMap((id) => heldBy(L, index.state, id)));
   for (const x of out.handovers || []) {
     // an object or a person by id, "id | name" or name (live, the gun was handed over as 「女式手枪」 and left out)
-    const among = (v: string, ids: Iterable<Id>) => { const s = new Set(ids), w = v.split('|')[0].trim(); if (s.has(w)) return w; const r = index.resolveEntity(v.split('|').pop()!.trim()); const hit = r.ids.filter((id) => s.has(id)); return hit.length === 1 ? hit[0] : w; };
+    const among = (v: string, ids: Iterable<Id>) => { const s = new Set(ids), w = v.split('|')[0].trim(); if (s.has(w)) return w; const hit = index.whoIs(v.split('|').pop()!.trim()).filter((id) => s.has(id)); return hit.length === 1 ? hit[0] : w; };
     const obj = among(String(x.object || ''), heldHere), to = x.to ? among(String(x.to), [...fighters, ...bystanders]) : null;
     if (!heldHere.has(obj)) { notes.push(`ruling: "${obj}" changes hands, but nobody here holds it (left out)`); continue; }
     if (to && !fighters.includes(to) && !bystanders.includes(to)) { notes.push(`ruling: "${obj}" goes to "${to}", who is not here (left out)`); continue; }

@@ -255,7 +255,8 @@ export type RecordKind =
   | 'relation'
   | 'scene_frame'
   | 'combat'
-  | 'hostility';
+  | 'hostility'
+  | 'naming';
 
 /** What a player decision or a contact is about. event/arc: pack ids; faction: an organization entity id;
  *  contact: a world_contact record id; storyline: a free label (out-of-character "stop this line"). */
@@ -419,7 +420,15 @@ export interface LedgerRecord {
    *  becomes their name, the old one an alias. */
   renames?: { id: Id; name: string }[];
   danger?: { node: Id; place: Id | null };
+  /** 称呼: whom words of the story mean, as a step that read them found (names.ts); kind naming: the panel. */
+  names?: NameBinding[];
 }
+
+/** 称呼: whom some words of the story mean — a description (「金发混混」, "the woman with the hook") or another name —
+ *  as the step that read them found it. source: player (the reading of the player's message), fight (who the fight's
+ *  newcomer is), reply (the reading of the GM's reply), ui (the player in the panel: these words mean them from now on,
+ *  in any scene). removed (ui only): these words are not them. */
+export interface NameBinding { words: string; id: Id; quote: string; source: 'player' | 'fight' | 'reply' | 'ui'; why?: string; removed?: boolean }
 
 /** Someone who holds a grudge against the player character and means to come for them. comes: the earliest story
  *  time they come (tick). ended: why it is over — avenged (they came: a fight with the player began), reconciled (the
@@ -445,8 +454,6 @@ export interface StyleChange { entity: Id; style: Pick<CombatStyleVersion, 'star
 /** A fight under way or over, with who is in it. player: the player's message started it; engine: a reply or ruling
  *  found it so; ui: the player's correction in the panel (just the state from then on, no lock). */
 export interface FightChange { ongoing: boolean; participants: Id[]; source: 'player' | 'engine' | 'ui'; why?: string;
-  /** People of the world the player's message described without naming them: how it called them, and why. */
-  identified?: { id: Id; as: string; why: string }[];
   /** Things of the setting at work in the fight (a device, an object used, a field on the place): the walk starts from them too. */
   things?: { node: Id; why: string }[];
   /** Things at work in the fight that stopped (destroyed, switched off, carried off): no longer in it. */

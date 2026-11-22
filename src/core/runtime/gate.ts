@@ -1,7 +1,8 @@
 // Deterministic gate over evaluator output: evidence, references, time, Hard invariants,
 // player agency, plan transitions, state contradictions, containment and coverage.
 // The evaluator's own verdicts never bypass these checks.
-import type { ContactInfo, FactDelta, FactValue, Id, Occurrence, RuntimeEntity, ScopeKind, StoryTime, Until } from '../domain/types';
+import type { ContactInfo, FactDelta, FactValue, Id, NameBinding, Occurrence, RuntimeEntity, ScopeKind, SourceRef, StoryTime, Until } from '../domain/types';
+import { bindingFrom } from '../domain/names';
 import type { LoadedPack } from '../domain/pack';
 import { claimComparable, claimMatches, valuesEqual, coerceClaimValue } from '../domain/pack';
 import { cleanForms, cleanViews } from '../domain/address';
@@ -10,7 +11,7 @@ import { applyChange, deltaMeets, deltaText, outcomeDelta, withPackEnd } from '.
 import type { WorldIndex } from '../domain/world-query';
 import { toTick, formatTick } from '../domain/time';
 import type { TimeEvidence } from './scenetime';
-import { fightNow, gateCombat, type CombatEvalOut, type CombatReview } from '../combat';
+import { gateCombat, type CombatEvalOut, type CombatReview } from '../combat';
 import { gateHostility, type HostilityEvalOut, type HostilityReview } from '../hostility';
 import { isDue, nearHard, pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
@@ -127,6 +128,8 @@ export interface GateInput {
   combat?: CombatReview | null;
   /** 主动敌对: what was due in this reply (hostility/review.ts). */
   hostility?: HostilityReview | null;
+  /** 称呼 the reading of this reply found (discovery: references with one candidate), whom its words mean. */
+  names?: NameBinding[];
 }
 
 export interface GateResult {
@@ -182,6 +185,14 @@ function slug(s: string): string {
 /** A model's thinking marker left in a reply's text (<think>, <thinking>, DeepSeek's <｜begin▁of▁thinking｜>). */
 export const THINKING_MARK = /<[｜|]\s*(begin|end)[▁_ ]of[▁_ ]thinking\s*[｜|]>|<\/?think(ing)?>/i;
 
+/** The record of the 称呼 a step found (names.ts), or none: each words once (the latest). */
+export function namingRecord(names: readonly NameBinding[], st: StoryTime, src: SourceRef[], name: (id: Id) => string): RecordDraft | null {
+  const one = [...new Map(names.map((n) => [normalizeName(n.words), n])).values()];
+  if (!one.length) return null;
+  return { recordId: newId('rec'), kind: 'naming', storyTime: { ...st }, sourceRefs: src, factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] },
+    summary: `Names: ${one.map((n) => `「${n.words}」 = ${name(n.id)}`).join('; ').slice(0, 300)}`, evidenceKind: 'direct', names: one };
+}
+
 export function runGate(g: GateInput): GateResult {
   const { pack, index, text, evaluation: ev } = g;
   const violations: string[] = [];
@@ -196,6 +207,11 @@ export function runGate(g: GateInput): GateResult {
   const runtimeEntities: RuntimeEntity[] = [];
   const refToId = new Map<string, Id>();
   const renames: { id: Id; name: string }[] = [];
+  // 称呼 (names.ts): whom this reply's words mean — what its reading found, what the steps before found (the player's
+  // message, the fight: in the index), and what the review below finds of someone known under other words
+  const names: NameBinding[] = [...(g.names || [])];
+  // (at the time the reply ends: words unused for hours by then are over)
+  const at = ev.flashback ? g.clockTick : Math.max(g.clockTick, toStoryTime(ev.scene_end)?.lo ?? g.clockTick);
   for (const ne of ev.new_entities || []) {
     if (!hasQuote(ne.quote)) { warnings.push(`new entity "${ne.name}" dropped: evidence not found in text`); continue; }
     // someone already known under a description or another name, now named (live: 「初中男生」 and 「小仓航」 became two people)
@@ -204,22 +220,17 @@ export function runGate(g: GateInput): GateResult {
       refToId.set(ne.ref, same);
       refToId.set(ne.name, same);
       if (index.state.runtimeEntities.has(same) && index.entityName(same) !== ne.name) renames.push({ id: same, name: ne.name.slice(0, 80) });
+      else if (!index.isNameOf(ne.name, same)) { const b = bindingFrom(ne.name, same, ne.quote, 'reply', 'the review: the same one'); if (b) names.push(b); }
       continue;
     }
-    // someone this fight already took for a person of the world, by the words the player wrote for them, is that
-    // person (live: the blond thug 滨面 was in the fight became a new person "金发混混" of the reply)
-    const as = uniq(fightNow(index.state).identified.filter((p) => normalizeName(p.as) === normalizeName(ne.name)).map((p) => p.id));
-    if (as.length === 1 && index.entityKind(as[0]) === ne.kind) {
-      refToId.set(ne.ref, as[0]);
-      refToId.set(ne.name, as[0]);
-      warnings.push(`"${ne.name}" is ${index.entityName(as[0])}, as the fight took them; not registered as new`);
-      continue;
-    }
-    const existing = index.resolveEntity(ne.name);
-    if (existing.ids.length) {
-      // Renaming/duplicating a known identity cannot bypass its history (W17).
-      refToId.set(ne.ref, existing.ids[0]);
-      warnings.push(`"${ne.name}" resolves to existing entity ${existing.ids[0]}; not registered as new`);
+    // someone the words already mean is not new (live: the blond thug the fight knew as 滨面 became a new person
+    // 「金发混混」 of the reply): renaming or duplicating a known identity cannot bypass its history (W17)
+    const ids = index.whoIs(ne.name, { text, extra: names, at });
+    const existing = ids.find((id) => index.entityKind(id) === ne.kind) ?? ids[0];
+    if (existing) {
+      refToId.set(ne.ref, existing);
+      refToId.set(ne.name, existing);
+      warnings.push(`"${ne.name}" is ${index.entityName(existing)} (${existing}); not registered as new`);
       continue;
     }
     const id = `rt.${slug(ne.name)}.${newId('e').slice(2, 8)}`;
@@ -227,27 +238,13 @@ export function runGate(g: GateInput): GateResult {
     refToId.set(ne.ref, id);
     refToId.set(ne.name, id);
   }
-  // A name the player character shares with someone else (神光爱丽丝 and 爱丽丝·异典 are both 「爱丽丝」) is the player
-  // character in a reply to them, unless the reply also names the other by a name only they have (live: 「爱丽丝低头看了
-  // 看手里的枪」 was filed on 爱丽丝·异典, and every draft of the turn failed against the gun the player held).
-  const own = (n: string) => [n, ...n.split(/[·・\s]/)].map(normalizeName).filter((k) => k.length >= 2);
-  const playerNames = new Set(g.playerId ? [...index.allNames(g.playerId), g.personaName || ''].flatMap(own) : []);
-  const plain = normalizeName(text);
-  const playerByName = (id: Id): boolean => {
-    if (!g.playerId || id === g.playerId) return false;
-    const names = index.allNames(id).flatMap(own);
-    return names.some((k) => playerNames.has(k)) && !names.some((k) => !playerNames.has(k) && plain.includes(k));
-  };
+  // what the review writes for someone (an id, a new_entities ref, a name) is whom the reply's words mean (whoIs: an
+  // id the review gave for someone who shares a name with the player character is read like the name, live: 「爱丽丝低
+  // 头看了看手里的枪」 was filed on 爱丽丝·异典 by id)
   const resolveId = (x: string): Id | null => {
-    const id = ((): Id | null => {
-      if (refToId.has(x)) return refToId.get(x)!;
-      if (index.entityExists(x)) return x;
-      if (runtimeEntities.some((r) => r.id === x)) return x;
-      const r = index.resolveEntity(x);
-      if (r.ids.length > 1 && g.playerId && r.ids.includes(g.playerId) && r.ids.every((y) => y === g.playerId || playerByName(y))) return g.playerId;
-      return r.ids.length === 1 ? r.ids[0] : null;
-    })();
-    return id && playerByName(id) ? g.playerId! : id;
+    if (refToId.has(x)) return refToId.get(x)!;
+    if (runtimeEntities.some((r) => r.id === x)) return x;
+    return index.whoOne(x, { text, extra: names, readIds: true, at });
   };
   const entityKnown = (id: Id) => index.entityExists(id) || runtimeEntities.some((r) => r.id === id);
 
@@ -674,7 +671,8 @@ export function runGate(g: GateInput): GateResult {
       // someone else's line.
       if (!act && v.quote && g.playerId) {
         const names = uniq(g.index.allNames(g.playerId).flatMap((n) => [n, ...n.split(/[·・\s]/)]).filter((n) => n.length >= 2));
-        if (names.length && !names.some((n) => v.quote!.includes(n))) { warnings.push(`reviewer complaint about the player character ignored: its evidence is not something the player character does ("${v.quote.slice(0, 80)}"): ${v.detail.slice(0, 160)}`); continue; }
+        // (by a name, or by words the story uses for them: 称呼)
+        if (names.length && !names.some((n) => v.quote!.includes(n)) && !g.index.scanEntities(v.quote).some((m) => m.id === g.playerId)) { warnings.push(`reviewer complaint about the player character ignored: its evidence is not something the player character does ("${v.quote.slice(0, 80)}"): ${v.detail.slice(0, 160)}`); continue; }
       }
     }
     // a caricature is sent back once: a rewrite that still has it stands (the turn never fails over style)
@@ -748,14 +746,11 @@ export function runGate(g: GateInput): GateResult {
   const evidence = (q?: string | null) => hasQuote(q) || quoteInText(q || '', g.userText || '');
   const relationDrafts: RecordDraft[] = [];
   // an id, a new_entities ref, or a name as written (a looser match would tie someone new to a known person)
+  // (the player character by any of their names or by their id cut short, live "rt.player.神光爱丽丝" for
+  // rt.player.神光爱丽丝.bc6a3c: whoIs)
   const relationRef = (x: string): Id | null => {
-    if (refToId.has(x) || index.entityExists(x) || runtimeEntities.some((r) => r.id === x)) return resolveId(x);
-    // the player character by any of their names (the Persona's, the name the Persona gives them), or by their id cut
-    // short (live: "rt.player.神光爱丽丝" for rt.player.神光爱丽丝.bc6a3c): never a new person
-    if (g.playerId && x.length > 10 && x.startsWith('rt.player.') && g.playerId.startsWith(x)) return g.playerId;
-    if (g.playerId && [...index.allNames(g.playerId), g.personaName || ''].some((n) => n && normalizeName(n) === normalizeName(x))) return g.playerId;
-    const hit = index.resolveEntity(x).ids.filter((id) => index.allNames(id).some((n) => normalizeName(n) === normalizeName(x)));
-    return hit.length === 1 ? hit[0] : null;
+    if (refToId.has(x) || runtimeEntities.some((r) => r.id === x)) return resolveId(x);
+    return index.whoOne(x, { text, extra: names, exact: true, readIds: true, at });
   };
   const isPerson = (id: Id) => (index.entityExists(id) ? index.entityKind(id) : runtimeEntities.find((r) => r.id === id)?.kind) === 'person';
   const said = (t: string) => normalizeName(g.userText || '').includes(normalizeName(t));
@@ -906,6 +901,8 @@ export function runGate(g: GateInput): GateResult {
       if (fr) sceneFrame = fr;
     }
   }
+  const named = namingRecord(names.filter((n) => entityKnown(n.id)), { lo: sceneEnd.lo, hi: sceneEnd.lo, precision: sceneEnd.precision }, [], (id) => index.entityName(id));
+  if (named) records.push(named);
   const frameNow = g.index.state.sceneFrame?.frameId || MAIN_FRAME;
   if (sceneFrame && sceneFrame !== frameNow) {
     records.push({

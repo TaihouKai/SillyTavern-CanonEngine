@@ -287,8 +287,7 @@ async function modelAdjudicate(
   const resolve = (id: unknown): string | null => {
     if (typeof id !== 'string' || !id) return null;
     if (known(id)) return id;
-    const r = idx.resolveEntity(id);
-    return r.ids.length === 1 ? r.ids[0] : null;
+    return idx.whoOne(id);
   };
   for (const e of a.effects) {
     const p = pack.predicates.get(e.predicate);

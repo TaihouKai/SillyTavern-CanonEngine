@@ -192,22 +192,20 @@ export function styleOf(L: LoadedPack, state: WorldState, entity: Id): { style: 
 
 /** Whether a fight is under way now, and who is in it (the latest change: a player's correction in the panel is just
  *  the state from then on). */
-export function fightNow(state: WorldState): { ongoing: boolean; participants: Id[]; source: 'player' | 'engine' | 'ui' | null; since: number | null; identified: { id: Id; as: string; why: string }[]; things: { node: Id; why: string }[] } {
+export function fightNow(state: WorldState): { ongoing: boolean; participants: Id[]; source: 'player' | 'engine' | 'ui' | null; since: number | null; things: { node: Id; why: string }[] } {
   const fs = state.combat.fights;
   const f = fs[fs.length - 1];
-  if (!f) return { ongoing: false, participants: [], source: null, since: null, identified: [], things: [] };
-  // who the player's words were found to mean and what is at work in it, over this fight's records (a later change
-  // keeps the earlier findings)
-  const identified: { id: Id; as: string; why: string }[] = [];
+  if (!f) return { ongoing: false, participants: [], source: null, since: null, things: [] };
+  // what is at work in it, over this fight's records (a later change keeps the earlier findings; who the player's
+  // words were found to mean is 称呼, names.ts)
   const things: { node: Id; why: string }[] = [];
   // (a thing that stopped later is no longer in it: a device burned)
   const gone = new Set<Id>();
   for (let i = fs.length - 1; i >= 0 && fs[i].ongoing; i--) {
-    for (const x of fs[i].identified || []) if (f.participants.includes(x.id) && !identified.some((y) => y.id === x.id)) identified.push(x);
     for (const x of fs[i].things || []) if (!gone.has(x.node) && !things.some((y) => y.node === x.node)) things.push(x);
     for (const x of fs[i].ended || []) gone.add(x);
   }
-  return { ongoing: f.ongoing, participants: f.participants, source: f.source, since: f.tick, identified, things: f.ongoing ? things.reverse() : [] };
+  return { ongoing: f.ongoing, participants: f.participants, source: f.source, since: f.tick, things: f.ongoing ? things.reverse() : [] };
 }
 
 /** Whether `who` knows a node, or a part of an ability: public; their own (linked to them now); named as a knower; or

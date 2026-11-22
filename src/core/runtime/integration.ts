@@ -13,7 +13,7 @@ import { cleanViews } from '../domain/address';
 import { evalCondition, factAt, triLabel } from '../domain/reducer';
 import { agoLabel, formatTick, toTick } from '../domain/time';
 import { hashObject, newId, sha256, uniq } from '../domain/util';
-import { WorldIndex } from '../domain/world-query';
+import { PLAYER_PREFIX, WorldIndex } from '../domain/world-query';
 import { aspectReader, type Ability, type Aspects, type SettingLink } from '../domain/aspects';
 import { ENGINE_RELEASE } from './types';
 import type { AffiliationStatus, TieChange, IntegrationCache, Opportunity, PlayerNature, PlayerProfile, ProfileRevision, RecordDraft, SourceEntry } from './types';
@@ -651,7 +651,7 @@ export function unanswered(state: WorldState, tick: number): ContactEntry[] {
 }
 
 /** The player character's entity (buildProfile names it rt.player.…). */
-export const isPlayerId = (id: Id) => id.startsWith('rt.player.');
+export const isPlayerId = (id: Id) => id.startsWith(PLAYER_PREFIX);
 
 /** The decision in force on the matter of a contact: one on any contact about the same thing, or a later one on the
  *  thing itself (the newest). */
@@ -798,12 +798,12 @@ export function checkOpportunities(out: IntegrateOut, index: WorldIndex, profile
   const pending = unanswered(st, tick);
   for (const o of out.opportunities || []) {
     const ref = o.ref || '?';
-    const named = uniq((o.actors || []).map((a) => (index.entityExists(a) ? a : index.resolveEntity(a).ids.length === 1 ? index.resolveEntity(a).ids[0] : null)).filter(Boolean) as Id[]).filter((a) => a !== profile.playerId);
+    const named = uniq((o.actors || []).map((a) => index.whoOne(a)).filter(Boolean) as Id[]).filter((a) => a !== profile.playerId);
     // nobody dead acts (checked against the facts, not left to the model)
     const actors = named.filter((a) => { const f = factAt(st, a, 'alive', { tick }); return !(f.known && f.value === false); });
     // a small matter may come from a minor person it introduces (a customer, a neighbour), not yet anyone in the world
     const newcomers = quiet && o.side_job && !o.target_event_id && !named.length
-      ? uniq((o.actors || []).map((a) => String(a).trim()).filter((a) => a && !/^[a-z0-9._-]+$/.test(a) && !index.resolveEntity(a).ids.length)).slice(0, 3) : [];
+      ? uniq((o.actors || []).map((a) => String(a).trim()).filter((a) => a && !/^[a-z0-9._-]+$/.test(a) && !index.whoIs(a).length)).slice(0, 3) : [];
     if (!actors.length && !newcomers.length) { dropped.push({ id: ref, reason: named.length ? 'its actors are dead' : 'no known actor' }); continue; }
     let scopeKind = o.scope_kind, scopeRef = String(o.scope_ref || '').trim();
     let label = (o.scope_label || '').trim();
@@ -1099,7 +1099,7 @@ export function engagementRecord(s0: { stance?: string | null; scope_kind?: stri
   const pack = index.pack;
   if (kind === 'event') { if (!pack.events.has(ref)) return null; label ||= pack.events.get(ref)!.title; }
   else if (kind === 'arc') { const a = pack.pack.arcs.find((x) => x.id === ref); if (!a) return null; label ||= a.title; }
-  else if (kind === 'faction') { if (!index.entityExists(ref)) { const r = index.resolveEntity(ref); if (r.ids.length !== 1) return null; ref = r.ids[0]; } label ||= index.entityName(ref); }
+  else if (kind === 'faction') { if (!index.entityExists(ref)) { const id = index.whoOne(ref); if (!id) return null; ref = id; } label ||= index.entityName(ref); }
   else if (kind === 'contact') { const c = index.state.contacts.find((x) => x.recordId === ref); if (!c) return null; label ||= c.scopeLabel; }
   else if (kind === 'storyline') { label ||= ref; if (!label) return null; ref = slug(label); }
   else return null;

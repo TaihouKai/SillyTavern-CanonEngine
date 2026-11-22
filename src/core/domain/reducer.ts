@@ -7,6 +7,7 @@ import { UNKNOWN } from './types';
 import type { LoadedPack } from './pack';
 import { normalizeValue, valuesEqual } from './pack';
 import { applyChange } from './delta';
+import { applyNames, type NameEntry } from './names';
 
 export interface Transition {
   tick: number;
@@ -69,6 +70,8 @@ export interface WorldState {
   /** 主动敌对: grudges against the player and dangers that came to them (hostility/state.ts). */
   hostility: HostilityState;
   runtimeEntities: Map<Id, RuntimeEntity & { recordId: string }>;
+  /** 称呼: whom words of the story were found to mean, in record order (names.ts; WorldIndex.whoIs reads them). */
+  names: NameEntry[];
   enactedSteps: Map<string, string>;
   clock: StoryTime;
   /** The time frame the scene is in (scene_frame records; null: the main frame, never changed). */
@@ -101,6 +104,7 @@ export function emptyState(pack: LoadedPack): WorldState {
     combat: emptyCombatState(),
     hostility: emptyHostilityState(),
     runtimeEntities: new Map(),
+    names: [],
     enactedSteps: new Map(),
     clock: { lo: pack.coverage.start, hi: pack.coverage.start, precision: 'minute' },
     sceneFrame: null,
@@ -154,6 +158,7 @@ export function applyRecord(state: WorldState, rec: LedgerRecord): void {
     const re = state.runtimeEntities.get(r.id);
     if (re && re.name !== r.name) state.runtimeEntities.set(r.id, { ...re, name: r.name, aliases: [...new Set([...(re.aliases || []), re.name])].filter((x) => x !== r.name) });
   }
+  applyNames(state.names, rec, tick);
   for (const s of rec.enactedStepIds || []) if (!state.enactedSteps.has(s)) state.enactedSteps.set(s, rec.recordId);
   if (rec.kind === 'scene_frame' && rec.frameId) state.sceneFrame = { frameId: rec.frameId, since: tick, recordId: rec.recordId };
   // The committed clock moves only through time-advance/bootstrap records and never backwards;

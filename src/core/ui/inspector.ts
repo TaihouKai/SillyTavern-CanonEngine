@@ -8,6 +8,7 @@ import { t } from './i18n';
 import { addressText } from './graph';
 import { hostilityChange, hostilityHtml } from './hostility-panel';
 import { combatChange, combatHtml } from './combat-panel';
+import { namesChange, namesHtml } from './names-panel';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface InspectorDeps {
@@ -324,6 +325,7 @@ export function createInspector(d: InspectorDeps) {
       { label: t('ciNavWorld'), items: [
         ...(ni ? [['world', t('wsTitle'), w?.unchecked.length ? badge(w.unchecked.length, 'warn') : badge(w?.overrides.length || 0, 'muted')] as [string, string, string]] : []),
         ['combat', t('combat'), badge(E().fighting(), 'bad')],
+        ['names', t('nmTitle'), badge(E().namesView()?.now.length || 0, 'muted')],
         ['facts', t('tabFacts'), badge(v?.facts.length || 0, 'muted')],
         ['history', t('tabHistory'), badge(v?.occurrences.length || 0, 'muted')],
         ['deviations', t('tabDeviations'), badge(v?.deviations.length || 0, 'muted')],
@@ -349,6 +351,13 @@ export function createInspector(d: InspectorDeps) {
         const q = filters.get('combat') || '';
         const pg = combatHtml(E().combatView(spoilers, q, cbFocus), q, cbPicked, d.tip);
         return { ...pg, mount: (root) => pg.mount?.(root, (id) => { cbFocus = id; render(true); }) };
+      }
+      case 'names': {
+        const nm = namesHtml(E().namesView());
+        return {
+          html: sec('nm-now', t('nmNow'), nm.now + nm.add, '', d.tip('nmTip')) + (nm.denied ? sec('nm-denied', t('nmDenied'), nm.denied) : ''),
+          secs: [{ id: 'nm-now', label: t('nmNow') }, ...(nm.denied ? [{ id: 'nm-denied', label: t('nmDenied') }] : [])],
+        };
       }
       case 'facts': return facts(v);
       case 'history': return history(v);
@@ -520,6 +529,10 @@ export function createInspector(d: InspectorDeps) {
           const det = b.closest('details[data-key]') as HTMLElement | null;
           if (det) opened.delete(`${tab}|${det.dataset.key}`);
         });
+      } else if (act?.startsWith('nm-')) {
+        const change = namesChange(b);
+        if (!change) { (b as HTMLButtonElement).disabled = false; d.toast('warning', t('nmNeedText')); return; }
+        run(E0.editNames(change).then((ok) => { if (!ok) d.toast('warning', t('nmNotFound')); }), () => opened.delete(`${tab}|nm-add`));
       } else if (act === 'ni-answer') run(E0.answerContact(b.dataset.rec || '', b.dataset.stance as 'accepted' | 'declined' | 'done'));
       else if (act === 'ni-update') { b.textContent = t('niBusy'); run(E0.updateIdentity()); }
       else if (act === 'ni-keep') run(E0.keepIdentity());

@@ -8,6 +8,8 @@ import { factAt, factKey, factHistory } from './reducer';
 import { formatStoryTime, formatTick, occurrenceTime } from './time';
 import { deltaText } from './delta';
 import { mergeAddress } from './address';
+import { nameKey, namesAt, type NameDenied, type NameNow } from './names';
+import type { NameBinding } from './types';
 
 /** A relation in force (WorldIndex.relationNow): the whole of it, as this game has it now. source: where its last
  *  change came from (pack: the original story's own stage, nothing in this game changed the pair). */
@@ -58,6 +60,9 @@ export function addressDelta(prev: RelationStage | null, next: RelationStage): {
     return { who: v.who, address: [...changed, ...dropped] };
   }).filter((x) => x.address.length);
 }
+
+/** The player character's entity ids (integration.ts buildProfile names them so). */
+export const PLAYER_PREFIX = 'rt.player.';
 
 export interface ResolvedRef {
   phrase: string;
@@ -137,6 +142,9 @@ export class WorldIndex {
   private docTokens = new Map<string, Map<string, number>>();
   private df = new Map<string, number>();
   private runtimeAlias = new Map<string, Id[]>();
+  /** The player character (the latest Persona read's), or null before one. */
+  readonly playerId: Id | null;
+  private names: { now: Map<string, NameNow>; denied: Map<string, NameDenied> };
 
   constructor(pack: LoadedPack, state: WorldState) {
     this.pack = pack;
@@ -149,6 +157,9 @@ export class WorldIndex {
         this.runtimeAlias.set(k, [...(this.runtimeAlias.get(k) || []), re.id]);
       }
     }
+    const seed = [...state.records].reverse().find((r) => r.kind === 'persona_seed' && (r.runtimeEntities || []).some((e) => e.id.startsWith(PLAYER_PREFIX)));
+    this.playerId = seed ? seed.runtimeEntities!.find((e) => e.id.startsWith(PLAYER_PREFIX))!.id : null;
+    this.names = namesAt(state.names || [], state.clock.lo);
   }
 
   private indexOccurrence(o: OccurrenceEntry) {
@@ -294,19 +305,103 @@ export class WorldIndex {
     return { ids: hits, ambiguous: hits.length > 1 };
   }
 
-  /** Find entity mentions inside free text (deterministic name/alias scan). */
+  /** Find entity mentions inside free text (deterministic name/alias scan, and the words of 称呼 in force). A mention
+   *  by a name the player character shares with someone (playerByName) is the player character. */
   scanEntities(text: string): { id: Id; phrase: string }[] {
     const norm = normalizeName(text);
     const found = new Map<Id, string>();
     const consider = (id: Id, names: string[]) => {
       for (const n of names) {
         const nn = normalizeName(n);
-        if (nn.length >= 2 && norm.includes(nn)) { found.set(id, n); return; }
+        if (nn.length >= 2 && norm.includes(nn)) { const to = this.playerByName(id, norm) ? this.playerId! : id; if (!found.has(to)) found.set(to, n); return; }
       }
     };
     for (const e of this.pack.entities.values()) consider(e.id, [e.name, ...e.aliases]);
     for (const e of this.state.runtimeEntities.values()) consider(e.id, [e.name, ...e.aliases]);
+    for (const n of this.names.now.values()) if (n.key.length >= 2 && norm.includes(n.key) && this.entityExists(n.id) && !found.has(n.id)) found.set(n.id, n.words);
     return [...found].map(([id, phrase]) => ({ id, phrase }));
+  }
+
+  /** 称呼 as they stand at a story time (now, or later: a text that moves time on). */
+  private namesTable(at?: number): { now: Map<string, NameNow>; denied: Map<string, NameDenied> } {
+    if (at === undefined || at <= this.state.clock.lo) return this.names;
+    if (this.namesLater?.at !== at) this.namesLater = { at, table: namesAt(this.state.names || [], at) };
+    return this.namesLater.table;
+  }
+  private namesLater: { at: number; table: { now: Map<string, NameNow>; denied: Map<string, NameDenied> } } | null = null;
+
+  /** 称呼 in force now (names.ts): whom words of the story mean, the newest first. */
+  namesNow(): NameNow[] {
+    return [...this.names.now.values()].sort((a, b) => b.last - a.last);
+  }
+
+  /** The words the player said are not someone (and the text may not give them back). */
+  namesDenied(): NameDenied[] {
+    return [...this.names.denied.values()];
+  }
+
+  /** Whether the words are a name of theirs (as written: their name or an alias). */
+  isNameOf(words: string, id: Id): boolean {
+    const k = normalizeName(words);
+    return !!k && this.allNames(id).some((n) => normalizeName(n) === k);
+  }
+
+  /** Whether the player said these words are not this one. */
+  nameDenied(words: string, id: Id): boolean {
+    return this.names.denied.has(`${nameKey(words)}|${id}`);
+  }
+
+  /** Whether a name of someone is one the player character shares (神光爱丽丝 and 爱丽丝·异典 are both 「爱丽丝」) and the
+   *  text names them by none of their own: then the text means the player character (live: 「爱丽丝低头看了看手里的
+   *  枪」 was filed on 爱丽丝·异典). text: normalized. */
+  playerByName(id: Id, text: string): boolean {
+    const p = this.playerId;
+    if (!p || id === p || !this.entityExists(p)) return false;
+    const parts = (n: string) => [n, ...n.split(/[·・\s]/)].map(normalizeName).filter((k) => k.length >= 2);
+    const mine = new Set(this.allNames(p).flatMap(parts));
+    const theirs = this.allNames(id).flatMap(parts);
+    return theirs.some((k) => mine.has(k)) && !theirs.some((k) => !mine.has(k) && text.includes(k));
+  }
+
+  /** Whom some words of the story mean: the one place a step looks them up (an id, a reference, a name a model wrote).
+   *  - an id is itself (a runtime id cut short, the one it starts);
+   *  - words of 称呼 in force (this turn's own first: `extra`, what the steps before found in the same text) are whom
+   *    they were found to mean;
+   *  - else by name (resolveEntity; exact: names only, no containment), leaving out whom the player said the words are
+   *    not, and with a name the player character shares read as the player character (playerByName, on the text the
+   *    words are from and the words themselves).
+   *  kind: only entities of that kind. readIds: an id a model gave for words of the text is read like a name (one of
+   *  someone who shares a name with the player character, which the text does not name them by, is the player
+   *  character): for the analysis of a text, never for a closed list of ids. at: the story time the text is at, when
+   *  later than now (a reply or message that moves time on: words of the table unused since then are over). More than
+   *  one id: the words fit several. */
+  whoIs(words: unknown, o: { text?: string; extra?: readonly NameBinding[]; exact?: boolean; kind?: string; readIds?: boolean; at?: number } = {}): Id[] {
+    const w = String(words ?? '').trim();
+    if (!w) return [];
+    const fit = (id: Id) => !o.kind || this.entityKind(id) === o.kind;
+    if (this.entityExists(w)) { const id = o.readIds && this.playerByName(w, normalizeName(o.text || '')) ? this.playerId! : w; return fit(id) ? [id] : []; }
+    if (/^rt\.\S{6,}$/.test(w)) {
+      const cut = [...this.state.runtimeEntities.keys()].filter((id) => id.startsWith(w));
+      if (cut.length === 1) return fit(cut[0]) ? cut : [];
+    }
+    const k = normalizeName(w);
+    if (!k) return [];
+    const table = this.namesTable(o.at);
+    const extra = (o.extra || []).filter((n) => !n.removed && nameKey(n.words) === k && !table.denied.has(`${k}|${n.id}`));
+    const bound = table.now.get(k);
+    const byWords = bound?.source === 'ui' ? bound.id : extra.length ? extra[extra.length - 1].id : bound?.id;
+    if (byWords) return fit(byWords) ? [byWords] : [];
+    const plain = normalizeName(`${o.text || ''} ${w}`);
+    const named = o.exact ? [...new Set([...(this.pack.aliasIndex.get(k) || []), ...(this.runtimeAlias.get(k) || [])])] : this.resolveEntity(w).ids;
+    const notPlayer = !!this.playerId && table.denied.has(`${k}|${this.playerId}`);
+    const ids = [...new Set(named.map((id) => (!notPlayer && this.playerByName(id, plain) ? this.playerId! : id)))];
+    return ids.filter((id) => fit(id) && !table.denied.has(`${k}|${id}`));
+  }
+
+  /** The one entity the words mean, or null (none, or several). */
+  whoOne(words: unknown, o: Parameters<WorldIndex['whoIs']>[1] = {}): Id | null {
+    const ids = this.whoIs(words, o);
+    return ids.length === 1 ? ids[0] : null;
   }
 
   /** Lexical-semantic candidate search over occurrence accounts/evidence (CJK bigrams + words, IDF). */

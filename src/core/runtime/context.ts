@@ -113,8 +113,8 @@ export function retrieve(index: WorldIndex, spec: RetrievalSpec): Retrieval {
     const entityIds = new Set<Id>(candIds.filter((c) => index.entityExists(c)));
     const occIds = new Set<string>(candIds.filter((c) => index.state.occurrences.has(c)));
     const packIds = new Set<Id>(candIds.filter((c) => index.pack.events.has(c)));
-    const ent = index.resolveEntity(r.phrase);
-    if (r.kind !== 'event') ent.ids.forEach((x) => entityIds.add(x));
+    const ent = index.whoIs(r.phrase, { text: r.quote });
+    if (r.kind !== 'event') ent.forEach((x) => entityIds.add(x));
     if (r.kind === 'event' || r.temporal === 'past' || r.temporal === 'flashback' || r.kind === 'other') {
       const ev = index.resolveEventPhrase(r.phrase + ' ' + r.quote);
       ev.occurrenceIds.forEach((x) => occIds.add(x));
@@ -129,7 +129,7 @@ export function retrieve(index: WorldIndex, spec: RetrievalSpec): Retrieval {
         for (const a of [...oc.affected, ...oc.actors]) if (index.entityKind(a) === (r.kind === 'person' ? 'person' : index.entityKind(a))) entityIds.add(a);
       }
     }
-    if (ent.ambiguous && entityIds.size > 1 && !candIds.length) ambiguous.push(`${r.phrase}: ${[...entityIds].join(' | ')}`);
+    if (ent.length > 1 && entityIds.size > 1 && !candIds.length) ambiguous.push(`${r.phrase}: ${[...entityIds].join(' | ')}`);
     entry.resolved = { entityIds: [...entityIds], occurrenceIds: [...occIds], packEventIds: [...packIds] };
     entry.disposition = entityIds.size + occIds.size + packIds.size === 0 ? (r.kind === 'event' ? 'unresolved' : 'new') : entityIds.size > 1 && !candIds.length ? 'ambiguous' : 'resolved';
     for (const id of entityIds) pullEntity(id, 'mentioned', r.quote);
@@ -157,7 +157,7 @@ export function retrieve(index: WorldIndex, spec: RetrievalSpec): Retrieval {
   }
   // Claims: resolve their entity phrases to state lookups.
   for (const c of spec.claims) {
-    for (const ph of c.entityPhrases) for (const id of index.resolveEntity(ph).ids) pullEntity(id, 'scene', c.quote);
+    for (const ph of c.entityPhrases) for (const id of index.whoIs(ph, { text: c.quote })) pullEntity(id, 'scene', c.quote);
     if (c.expected && index.entityExists(c.expected.entity_id)) pullEntity(c.expected.entity_id, 'scene', c.quote);
   }
   return { entries, occurrences, entities, canonEvents, claims: spec.claims, ambiguous };

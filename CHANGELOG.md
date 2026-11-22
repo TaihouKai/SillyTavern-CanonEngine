@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.49.0 — 2026-11-22 (pack 7.1.1)
+
+- **称呼: one table of whom the words of the story mean.** The same kind of mistake kept coming back: the fight knew 「金发混混」 as 滨面 and the reply made him a new person; what the player asserted of 「金发混混」 was the words, nobody; the reply's 「爱丽丝」, the player character, was filed on 爱丽丝·异典. It had been fixed at least nine times, each in the step where it showed. The cause was that each step (reading the player's message, who a fight's newcomer is, reading and reviewing the reply, the ruling) looked words up on its own, about thirty places with slightly different rules, and what one step found was never kept for the next. Now:
+  - each step writes down whom it found words to mean, with the message or reply (a reference with one candidate by words that are not a name of theirs, never a pronoun; a fight's newcomer; a reply's newcomer the review says is someone known);
+  - every step looks words up through one lookup: this turn's words, then the table, then names. A name the player character shares with someone is the player character unless the text names the other by a name of their own;
+  - words found in the text hold for the scene: they are over three hours of story time after they were last used for that one. A message or reply that moves time on is read at that time;
+  - the reading steps are shown the words in force, and the ruling each fighter's;
+  - 检查面板 → 世界 → 称呼 shows them (whom, which step, the quote, until when). The player can make words mean someone from now on, say words are not someone, or take back their own word.
+  - The fight no longer keeps its own list of whom it identified (`FightChange.identified` is gone); the 战斗 page shows the table's words for each fighter.
+
 ## 1.48.6 — 2026-11-22 (pack 7.1.1)
 
 - **A link quoted as someone's state.** The ruling cited 「是 level-0」 as what is so of 滨面 (`world:hamazura-shiage`). That line is one of his links, so the basis was dropped. A `world:` basis whose words are one of that person's link lines now counts as that node.
