@@ -36101,7 +36101,7 @@ function voiceInput(v) {
 var EXTRACT_FIGHT = `fight (only for a pack with combat; fight_now says whether a fight is under way and who is in it): whether this message starts, goes on with or ends a CONFRONTATION \u2014 a contest whose result depends on one side's abilities against the other's: a fight, an attack on someone, a chase, sneaking past someone on watch, a contest of strength or skill. state: "starts" \u2014 the player character attacks, engages or is attacked in this message (not threats, plans or talk of fighting); "continues" \u2014 one is under way and the message goes on with it; "ends" \u2014 the player's own words end it (they surrender, walk away, stop); "none" otherwise. participants: everyone in it, the player character too \u2014 people and creatures acting of their own will; what a fighter's ability or equipment makes or calls up (a giant of flame, a construct, a conjured blade) is part of that fighter, not a participant: registry ids; for someone the registry does not have, their name as the message gives it (or a short description: "\u9EC4\u6BDB\u6DF7\u6DF7") and an entry in new_people with a one-line description and the words of the message that show them. things: what the message shows at work in the fight that is no participant and no fighter's own power or equipment (the player character's too) \u2014 a device running, a weapon or object someone uses, a field or effect on the place: quote (the message's words) and what (what it is in this world, by the name this world gives it when you know it, and what it does). why: one sentence.`;
 var EVAL_COMBAT = `   statuses: notable states of a person this reply (or player_action_scope) shows beginning, changing or ending \u2014 hurt (where, how badly), bleeding, ill, drunk, exhausted, knocked out, carrying or losing a notable object (equipment is a state: "\u6301\u6709\u9ED1\u952E"), a counted resource spent (count = what is left): who (registry id or new_entities ref), text (a few words), count when counted, until ({"minutes": n} for what passes by itself \u2014 numbness, a daze, being drunk; "lasting" for what stays until treated or changed \u2014 a fracture, an object held), removed: true when it ends (healed, put down, given away; a state in STATES the reply shows gone); a state in STATES that changes (numbness wearing off to stiffness): removed: true for it by its exact text in STATES, and the new one. quote (verbatim). Not a passing mood or a gesture. With fight_ruling given, leave out the fighters' changes: the ruling has them.
    fight (only when fight_ruling is not given, for a pack with combat): when the reply itself starts a confrontation the player character is in or sees \u2014 someone attacks, a fight breaks out \u2014: starts true, participants (ids or new_entities refs), quote; resolved_unruled true when the reply then goes on to decide it (blows land, someone wins or loses) instead of stopping where it begins. null when the reply has none.
-   ruling_conflicts (only when fight_ruling is given): every place the reply changes what the ruling decided \u2014 another result, someone hit or hurt who was not (or not hit who was), an attack, dodge or escape the ruling does not have, someone arriving or leaving, the fight carried past its stop_at, the player character doing what the player did not write \u2014: quote and why. NOT a conflict: embellishment \u2014 how it looks, sounds and feels, what people say, their taunts, looks, gestures and thoughts \u2014 as long as no result changes; and following the ruling where it rules against the player's message (the ruling has already decided that: its result stands, not the player's words).`;
+   ruling_conflicts (only when fight_ruling is given): every place the reply changes what the ruling decided \u2014 another result, someone hit or hurt who was not (or not hit who was), an attack, dodge or escape the ruling does not have, someone arriving or leaving, the fight carried past its stop_at, the player character doing what the player did not write \u2014: quote and why. NOT a conflict: embellishment \u2014 how it looks, sounds and feels, what people say, their taunts, looks, gestures and thoughts \u2014 as long as no result changes; a canon event of the story coming into the scene (canon_events_now, a companion's event that comes without warning): its people arriving and what is said with them \u2014 the story brings them, not the fight; and following the ruling where it rules against the player's message (the ruling has already decided that: its result stands, not the player's words).`;
 var COMBAT_TASK = `TASK: Judge this turn of a fight \u2014 a confrontation whose result depends on one side's abilities against the other's. The game master writes the reply from your ruling and may only embellish it: what happens is yours to decide.
 Input: basis (what this world runs on by default); fighters (id, name, called \u2014 words the story uses for them, as the player's message may: those words mean them \u2014, description, states now, world_now \u2014 what the world's record says of them at this moment: an injury, a condition, a form; hold the fight to it, as to their states \u2014, \u5BF9\u6297\u503E\u5411 \u2014 how they act in a fight \u2014, what they are linked to); nodes (the setting and what the fighters have: concepts, rules, abilities told in parts \u2014 each person's own and the player character's too \u2014, what an organization or object they belong to or hold is in a fight, precedents \u2014 how such fights went in the original story; a node with use_of is a use of that ability: the ability's conditions, cost, limits and counters hold for the use too); sources (lorebook entries and the player's Persona, each with a ref); relations between the fighters; knows (what each fighter knows of the others' abilities: a part not listed for them is unknown to them; of the player character's powers, each knows what their known_to_all says \u2014 someone famous is known by what they are famous for \u2014 and more only through what the story showed them); player_message (the player's own words this turn) and statements (what they establish as happening and what they only attempt); recent (the end of the story so far); time; canon_fixed, when given: what the story brings about later, each only by its event (only_by) \u2014 someone here caught or killed, a thing here destroyed: it does NOT happen in this fight, whatever anyone does. An attempt at it falls short in a way that fits (it misses, is held off or interrupted, the thing survives damaged, they get away), the fight goes on around it, and a player's outcome that would bring it about is stopped with basis [{"ref": that line's ref}]. Nobody in the story knows of these lines.
 1. Authority: an objective mechanism (a node, a source) > what the player's message establishes > your judgement. What the player writes their own character does, and what that act physically does \u2014 they pull the trigger and the bullet hits \u2014 happens. What it then does to someone else beyond what the player wrote is yours to judge by the mechanisms.
@@ -36468,7 +36468,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.49.0";
+var ENGINE_RELEASE = "1.49.1";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -38112,7 +38112,7 @@ function retrieve(index, spec) {
     const entityIds = new Set(candIds.filter((c) => index.entityExists(c)));
     const occIds = new Set(candIds.filter((c) => index.state.occurrences.has(c)));
     const packIds = new Set(candIds.filter((c) => index.pack.events.has(c)));
-    const ent = index.whoIs(r.phrase, { text: r.quote });
+    const ent = index.whoIs(r.phrase, { text: `${r.quote} ${spec.freeText.join(" ")}` });
     if (r.kind !== "event") ent.forEach((x) => entityIds.add(x));
     if (r.kind === "event" || r.temporal === "past" || r.temporal === "flashback" || r.kind === "other") {
       const ev = index.resolveEventPhrase(r.phrase + " " + r.quote);
@@ -38153,7 +38153,7 @@ function retrieve(index, spec) {
     for (const m of index.scanEntities(t2)) pullEntity(m.id, "mentioned", t2.slice(0, 400));
   }
   for (const c of spec.claims) {
-    for (const ph of c.entityPhrases) for (const id of index.whoIs(ph, { text: c.quote })) pullEntity(id, "scene", c.quote);
+    for (const ph of c.entityPhrases) for (const id of index.whoIs(ph, { text: `${c.quote} ${spec.freeText.join(" ")}` })) pullEntity(id, "scene", c.quote);
     if (c.expected && index.entityExists(c.expected.entity_id)) pullEntity(c.expected.entity_id, "scene", c.quote);
   }
   return { entries, occurrences, entities, canonEvents, claims: spec.claims, ambiguous };
@@ -39104,18 +39104,19 @@ function reviewStatuses(list, text, userText, resolve, skip) {
   }
   return { statuses, warnings };
 }
-function gateCombat(c, ev, text, userText, resolve, sceneEnd) {
-  const records = [], violations = [];
+function gateCombat(c, ev, text, userText, resolve, sceneEnd, story = () => false) {
+  const records = [], violations = [], warnings = [];
   const st = reviewStatuses(ev.statuses, text, userText, resolve, c.ruled ? c.fighters : []);
   if (st.statuses.length) records.push(combatRecord({ ...sceneEnd }, [], `States: ${st.statuses.map((s) => `${s.entity} ${s.removed ? "\u2212" : ""}${s.text}`).join("; ")}`, { statuses: st.statuses }));
   if (c.ruled) {
-    for (const x of ev.ruling_conflicts || []) if (quoteInText(x.quote, text)) violations.push(`The reply departs from the combat ruling ("${x.quote}"): ${x.why} Write the ruling's results as they are (embellish freely, change no result).`);
+    for (const x of ev.ruling_conflicts || []) if (quoteInText(x.quote, text) && story(`${x.quote} ${x.why}`)) warnings.push(`review's ruling departure about a canon event the story brings in ignored ("${x.quote.slice(0, 80)}"): ${String(x.why).slice(0, 160)}`);
+    else if (quoteInText(x.quote, text)) violations.push(`The reply departs from the combat ruling ("${x.quote}"): ${x.why} Write the ruling's results as they are (embellish freely, change no result).`);
   } else if (ev.fight?.starts) {
     const ps = uniq((ev.fight.participants || []).map((x) => resolve(String(x))).filter((x) => !!x));
     if (ev.fight.resolved_unruled && !c.failed) violations.push(`The reply decides a fight Canon Engine has not judged${ev.fight.quote ? ` ("${ev.fight.quote}")` : ""}. Stop where it begins \u2014 the attack comes, the fight breaks out \u2014 and leave how it goes to the next turn: Canon Engine judges it then.`);
     else if (ps.length >= 2) records.push(combatRecord({ ...sceneEnd }, [], `A fight breaks out: ${ps.join(", ")}`, { fight: { ongoing: true, participants: ps, source: "engine", why: String(ev.fight.quote || "").slice(0, 300) } }));
   }
-  return { records, violations, warnings: st.warnings };
+  return { records, violations, warnings: [...st.warnings, ...warnings] };
 }
 
 // src/core/combat/panel.ts
@@ -40240,7 +40241,8 @@ function runGate(g) {
   });
   records.push(...relationDrafts);
   if (g.combat) {
-    const cb = gateCombat(g.combat, ev, text, g.userText, (x) => relationRef(String(x)), sceneEnd);
+    const storyPeople = uniq([...(g.chanceCompanions || []).map((c) => c.eventId), ...ev.occurrences.map((o) => o.pack_event_id).filter((x) => !!x)].flatMap((e) => pack2.events.get(e)?.entity_ids || [])).filter((id) => pack2.entities.get(id)?.kind === "person" && !g.combat.fighters.includes(id) && id !== g.playerId);
+    const cb = gateCombat(g.combat, ev, text, g.userText, (x) => relationRef(String(x)), sceneEnd, (w) => !!storyPeople.length && index.scanEntities(w).some((m) => storyPeople.includes(m.id)));
     records.push(...cb.records);
     violations.push(...cb.violations);
     warnings.push(...cb.warnings);

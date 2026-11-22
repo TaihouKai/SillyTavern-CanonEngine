@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.49.1 — 2026-11-22 (pack 7.1.1)
+
+- **Someone a canon event brings in is the story's, not a departure from the ruling.** 半藏 had to come to 滨面 in the reply (their meeting comes without warning while 滨面 is with the player). The review then called his arrival, and the player character's answer to him, a departure from the fight's ruling. The two requirements left no reply that could pass. A ruling departure about a person whom a canon event brings into the reply, and who is not in the fight, is now a note, not a reason to write the reply again. The reviewer is also told so.
+
 ## 1.49.0 — 2026-11-22 (pack 7.1.1)
 
 - **称呼: one table of whom the words of the story mean.** The same kind of mistake kept coming back: the fight knew 「金发混混」 as 滨面 and the reply made him a new person; what the player asserted of 「金发混混」 was the words, nobody; the reply's 「爱丽丝」, the player character, was filed on 爱丽丝·异典. It had been fixed at least nine times, each in the step where it showed. The cause was that each step (reading the player's message, who a fight's newcomer is, reading and reviewing the reply, the ruling) looked words up on its own, about thirty places with slightly different rules, and what one step found was never kept for the next. Now:

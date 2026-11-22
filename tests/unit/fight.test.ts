@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeEngine, tick, at } from './fake';
 import { demoRaw } from './helpers';
-import { fightNow, linksOf, statusesOf, styleOf } from '../../src/core/combat';
+import { fightNow, gateCombat, linksOf, statusesOf, styleOf } from '../../src/core/combat';
 
 const PROFILE = { player: { name: 'Ash', aliases: [], summary: 'a dock worker who boxed as a youth', public_identity: 'works the piers' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
 const PERSONA = 'Ash, a dock worker. Boxed as a youth: a hard right hook. Carries no weapon.';
@@ -326,5 +326,17 @@ describe('someone here joins', () => {
     expect(r.joined).toEqual(['mira']);
     expect(r.exchanges.map((e) => e.actor)).toContain('mira');
     expect(fightNow(st(x)).participants).toContain('mira');
+  });
+
+  it("CF3c someone a canon event brings into the reply is the story's, not a departure from the ruling (live: 半藏 had to come to 滨面, and no draft could pass)", () => {
+    const ev = { ruling_conflicts: [{ quote: 'Hanzo walks up', why: 'Hanzo arriving is not in the ruling' }, { quote: 'the thug falls', why: 'the thug was not hit' }] } as any;
+    const text = 'Hanzo walks up; the thug falls.';
+    const st = { lo: 0, hi: 0, precision: 'minute' as const };
+    const story = (w: string) => /Hanzo/.test(w);
+    const r = gateCombat({ ruled: true, fighters: ['me', 'thug'] }, ev, text, '', () => null, st, story);
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0]).toMatch(/the thug falls/);
+    expect(r.warnings.join(' ')).toMatch(/canon event the story brings in ignored \("Hanzo walks up"\)/);
+    expect(gateCombat({ ruled: true, fighters: ['me', 'thug'] }, ev, text, '', () => null, st).violations).toHaveLength(2);
   });
 });

@@ -113,7 +113,8 @@ export function retrieve(index: WorldIndex, spec: RetrievalSpec): Retrieval {
     const entityIds = new Set<Id>(candIds.filter((c) => index.entityExists(c)));
     const occIds = new Set<string>(candIds.filter((c) => index.state.occurrences.has(c)));
     const packIds = new Set<Id>(candIds.filter((c) => index.pack.events.has(c)));
-    const ent = index.whoIs(r.phrase, { text: r.quote });
+    // (a name the player character shares is theirs unless the text names the other by a name of their own: whoIs)
+    const ent = index.whoIs(r.phrase, { text: `${r.quote} ${spec.freeText.join(' ')}` });
     if (r.kind !== 'event') ent.forEach((x) => entityIds.add(x));
     if (r.kind === 'event' || r.temporal === 'past' || r.temporal === 'flashback' || r.kind === 'other') {
       const ev = index.resolveEventPhrase(r.phrase + ' ' + r.quote);
@@ -157,7 +158,7 @@ export function retrieve(index: WorldIndex, spec: RetrievalSpec): Retrieval {
   }
   // Claims: resolve their entity phrases to state lookups.
   for (const c of spec.claims) {
-    for (const ph of c.entityPhrases) for (const id of index.whoIs(ph, { text: c.quote })) pullEntity(id, 'scene', c.quote);
+    for (const ph of c.entityPhrases) for (const id of index.whoIs(ph, { text: `${c.quote} ${spec.freeText.join(' ')}` })) pullEntity(id, 'scene', c.quote);
     if (c.expected && index.entityExists(c.expected.entity_id)) pullEntity(c.expected.entity_id, 'scene', c.quote);
   }
   return { entries, occurrences, entities, canonEvents, claims: spec.claims, ambiguous };

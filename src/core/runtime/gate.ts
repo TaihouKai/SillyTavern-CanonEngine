@@ -838,7 +838,10 @@ export function runGate(g: GateInput): GateResult {
   records.push(...relationDrafts);
   // ---- 战斗: states this reply changes, a fight it starts, and the reply held to the ruling (combat/review.ts) ----
   if (g.combat) {
-    const cb = gateCombat(g.combat, ev, text, g.userText, (x) => relationRef(String(x)), sceneEnd);
+    // the people a canon event brings into this reply (one it must show, or one it shows), who are not in the fight
+    const storyPeople = uniq([...(g.chanceCompanions || []).map((c) => c.eventId), ...ev.occurrences.map((o) => o.pack_event_id).filter((x): x is Id => !!x)]
+      .flatMap((e) => pack.events.get(e)?.entity_ids || [])).filter((id) => pack.entities.get(id)?.kind === 'person' && !g.combat!.fighters.includes(id) && id !== g.playerId);
+    const cb = gateCombat(g.combat, ev, text, g.userText, (x) => relationRef(String(x)), sceneEnd, (w) => !!storyPeople.length && index.scanEntities(w).some((m) => storyPeople.includes(m.id)));
     records.push(...cb.records);
     violations.push(...cb.violations);
     warnings.push(...cb.warnings);

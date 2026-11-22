@@ -56,17 +56,21 @@ function reviewStatuses(list: CombatEvalOut['statuses'], text: string, userText:
   return { statuses, warnings };
 }
 
-/** The gate's step for combat: the states this reply changes, the reply held to the ruling, and a fight it starts. */
-export function gateCombat(c: CombatReview, ev: CombatEvalOut, text: string, userText: string, resolve: (x: string) => Id | null, sceneEnd: StoryTime): { records: RecordDraft[]; violations: string[]; warnings: string[] } {
-  const records: RecordDraft[] = [], violations: string[] = [];
+/** The gate's step for combat: the states this reply changes, the reply held to the ruling, and a fight it starts.
+ *  story: whether words are about someone a canon event brings into this reply who is not in the fight (the story
+ *  brings them, not the fight: live, 半藏 had to come to 滨面 in this reply and the review called his arrival, and the
+ *  player character's answer to him, a departure from the ruling, so no draft could pass). */
+export function gateCombat(c: CombatReview, ev: CombatEvalOut, text: string, userText: string, resolve: (x: string) => Id | null, sceneEnd: StoryTime, story: (words: string) => boolean = () => false): { records: RecordDraft[]; violations: string[]; warnings: string[] } {
+  const records: RecordDraft[] = [], violations: string[] = [], warnings: string[] = [];
   const st = reviewStatuses(ev.statuses, text, userText, resolve, c.ruled ? c.fighters : []);
   if (st.statuses.length) records.push(combatRecord({ ...sceneEnd }, [], `States: ${st.statuses.map((s) => `${s.entity} ${s.removed ? '−' : ''}${s.text}`).join('; ')}`, { statuses: st.statuses }));
   if (c.ruled) {
-    for (const x of ev.ruling_conflicts || []) if (quoteInText(x.quote, text)) violations.push(`The reply departs from the combat ruling ("${x.quote}"): ${x.why} Write the ruling's results as they are (embellish freely, change no result).`);
+    for (const x of ev.ruling_conflicts || []) if (quoteInText(x.quote, text) && story(`${x.quote} ${x.why}`)) warnings.push(`review's ruling departure about a canon event the story brings in ignored ("${x.quote.slice(0, 80)}"): ${String(x.why).slice(0, 160)}`);
+    else if (quoteInText(x.quote, text)) violations.push(`The reply departs from the combat ruling ("${x.quote}"): ${x.why} Write the ruling's results as they are (embellish freely, change no result).`);
   } else if (ev.fight?.starts) {
     const ps = uniq((ev.fight.participants || []).map((x) => resolve(String(x))).filter((x): x is Id => !!x));
     if (ev.fight.resolved_unruled && !c.failed) violations.push(`The reply decides a fight Canon Engine has not judged${ev.fight.quote ? ` ("${ev.fight.quote}")` : ''}. Stop where it begins — the attack comes, the fight breaks out — and leave how it goes to the next turn: Canon Engine judges it then.`);
     else if (ps.length >= 2) records.push(combatRecord({ ...sceneEnd }, [], `A fight breaks out: ${ps.join(', ')}`, { fight: { ongoing: true, participants: ps, source: 'engine', why: String(ev.fight.quote || '').slice(0, 300) } }));
   }
-  return { records, violations, warnings: st.warnings };
+  return { records, violations, warnings: [...st.warnings, ...warnings] };
 }
