@@ -224,6 +224,15 @@
        "pronoun"
       ]
      },
+     "ref_kind": {
+      "enum": [
+       "person",
+       "place",
+       "object",
+       "organization",
+       "other"
+      ]
+     },
      "candidates": {
       "type": "array",
       "items": {

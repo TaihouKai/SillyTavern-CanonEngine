@@ -103,6 +103,16 @@ export function peopleOfNow(index: WorldIndex, tick = index.state.clock.lo): Id[
   return uniq(eventsOfNow(L, index.state, tick).flatMap((id) => L.events.get(id)!.entity_ids.filter((x) => L.entities.get(x)?.kind === 'person')));
 }
 
+/** Whether a reading's reference with one candidate says whom its words mean (称呼): words that describe them or are
+ *  another name of theirs (mode indirect or alias) — not a pronoun, and not words the reading called "direct" that are
+ *  no name of theirs (live: 「公园的自动贩卖机」, the machine in the park, was the park "directly", and the next message's
+ *  「机器」 the park too) — of the kind the reading says they are (a person, a place, an object, an organization). */
+export function bindable(index: WorldIndex, mode: string | undefined, kind: string | undefined, words: string, id: Id): boolean {
+  if (mode !== 'indirect' && mode !== 'alias') return false;
+  if (index.isNameOf(words, id)) return false;
+  return !kind || !['person', 'place', 'object', 'organization'].includes(kind) || index.entityKind(id) === kind;
+}
+
 /** An id the model gave: as it is when it is one; else, read as a name ("index-librorum-prohibitorum"), the one entity
  *  it names; else none. */
 export function candidateId(index: WorldIndex, x: string): Id | null {
@@ -165,7 +175,7 @@ export interface ExtractUserOut {
     kind: string; quote: string; summary: string; entities?: string[]; facts?: { entity_id: string; predicate: string; value: never; until?: unknown }[]; event_id?: string | null; time?: { day: number; minute: number } | null; ambiguous?: boolean;
     stance?: string | null; scope_kind?: string | null; scope_ref?: string | null; scope_label?: string | null; until?: { day: number; minute: number } | null;
   }[];
-  references: { phrase: string; quote: string; kind: 'entity' | 'event'; mode?: string; candidates?: string[] }[];
+  references: { phrase: string; quote: string; kind: 'entity' | 'event'; mode?: string; ref_kind?: string; candidates?: string[] }[];
   scene_entities?: string[];
   fight?: FightOut | null;
   scene_groups?: string[] | null;
@@ -865,7 +875,7 @@ export class CanonEngine {
     const refsOne = out.references.filter((r) => r.kind === 'entity' && r.candidates?.length === 1 && index.entityExists(r.candidates[0]) && quoteInText(r.quote, entry.text));
     const read = refsOne.map((r) => ({ r, b: bindingFrom(r.phrase, r.candidates![0], r.quote, 'player') })).filter((x): x is { r: typeof refsOne[number]; b: NameBinding } => !!x.b);
     const known = read.map((x) => x.b);
-    const names: NameBinding[] = read.filter((x) => x.r.mode !== 'pronoun' && !index.isNameOf(x.b.words, x.b.id)).map((x) => x.b);
+    const names: NameBinding[] = read.filter((x) => bindable(index, x.r.mode, x.r.ref_kind, x.b.words, x.b.id)).map((x) => x.b);
     // 战斗: the fight as this message starts, goes on with or ends it (combat/message.ts); someone it brings in without
     // a name may be a person of the world, something in it a thing of the setting (combat/who.ts)
     const who = await identifyInFight({
@@ -1371,8 +1381,8 @@ export class CanonEngine {
     const refs: RefInput[] = disc.references.filter((r) => quoteInText(r.quote, a.text) || !r.quote).map((r) => ({ id: r.id, quote: r.quote, phrase: r.phrase, kind: r.ref_kind, assertion: r.assertion, temporal: r.temporal, candidates: r.candidate_ids && uniq(r.candidate_ids.map(String).map(cand)) }));
     // 称呼 this reply's reading found (names.ts): a reference with one candidate, by words that are not a name of
     // theirs, never a pronoun; the gate writes them with the reply
-    const names = refs.filter((r, i) => r.kind !== 'event' && disc.references[i]?.mode !== 'pronoun' && r.candidates?.length === 1 && index.entityExists(r.candidates[0]) && r.quote && quoteInText(r.quote, a.text)
-      && !index.isNameOf(r.phrase, r.candidates[0])).map((r) => bindingFrom(r.phrase, r.candidates![0], r.quote, 'reply')).filter((b): b is NameBinding => !!b);
+    const names = refs.filter((r, i) => r.kind !== 'event' && r.candidates?.length === 1 && index.entityExists(r.candidates[0]) && r.quote && quoteInText(r.quote, a.text)
+      && bindable(index, disc.references[i]?.mode, r.kind, r.phrase, r.candidates[0])).map((r) => bindingFrom(r.phrase, r.candidates![0], r.quote, 'reply')).filter((b): b is NameBinding => !!b);
     const claims: ClaimInput[] = disc.claims.filter((c) => quoteInText(c.quote, a.text)).map((c) => ({ id: c.id, quote: c.quote, kind: c.kind, entityPhrases: c.entity_phrases || [], assertion: c.assertion, expected: c.expected || null }));
     // Deterministic discovery floor: every known entity/occurrence named in the text gets a lookup
     // and an explicit review item, even if the discovery model missed it.

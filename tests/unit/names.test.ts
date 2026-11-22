@@ -228,4 +228,20 @@ describe('称呼 in play', () => {
     const harborBinding = later.engine.current!.replay.state.names.find((n) => n.words === 'the cart');
     expect(harborBinding?.tick).toBe(tick(2, 8, 0));
   });
+
+  it('NM12 only words that describe someone or are another name of theirs are written down, and only of the kind the reading says (live: the vending machine in the park was the park "directly")', async () => {
+    const y = await game();
+    const msg = 'By the harbor vending machine a stranger in a grey coat waves; the old docks are quiet.';
+    y.host.addUser(msg);
+    y.model.on('extract_user', (i) => i.message === msg, { references: [
+      { phrase: 'the harbor vending machine', quote: 'harbor vending machine', kind: 'entity', mode: 'direct', candidates: ['harbor'] },
+      { phrase: 'the machine by the water', quote: 'harbor vending machine', kind: 'entity', mode: 'indirect', ref_kind: 'object', candidates: ['harbor'] },
+      { phrase: 'a stranger in a grey coat', quote: 'a stranger in a grey coat', kind: 'entity', mode: 'indirect', ref_kind: 'person', candidates: ['mira'] },
+      { phrase: 'the old docks', quote: 'the old docks', kind: 'entity', mode: 'indirect', ref_kind: 'place', candidates: ['harbor'] },
+    ] }, true);
+    y.model.draft('Quiet. [NM12]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[NM12]'), { scene_end: at(1, 9, 5) });
+    await y.engine.runOperation('normal');
+    expect(y.engine.current!.index.namesNow().map((n) => [n.words, n.id]).sort()).toEqual([['a stranger in a grey coat', 'mira'], ['the old docks', 'harbor']]);
+  });
 });

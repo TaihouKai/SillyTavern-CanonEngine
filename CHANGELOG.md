@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.49.2 — 2026-11-22 (pack 7.1.1)
+
+- **称呼: only words that describe someone or are another name of theirs, of the right kind.** The reading of the player's message called 「公园的自动贩卖机」 the park "directly" (the machine is in the park), and the words were written down as the park. The next message's 「机器」 was then the park too. Words are now written down only when the reading calls them a description or another name (never "direct" words that are no name of theirs). They must also be of the kind the reading says the words are: the reading of the player's message now says what each phrase is (a person, place, object or organization), as the reading of the reply already did. The reading is also told that a candidate is the entity the phrase is, never one it is only in or near.
+
 ## 1.49.1 — 2026-11-22 (pack 7.1.1)
 
 - **Someone a canon event brings in is the story's, not a departure from the ruling.** 半藏 had to come to 滨面 in the reply (their meeting comes without warning while 滨面 is with the player). The review then called his arrival, and the player character's answer to him, a departure from the fight's ruling. The two requirements left no reply that could pass. A ruling departure about a person whom a canon event brings into the reply, and who is not in the fight, is now a note, not a reason to write the reply again. The reviewer is also told so.
