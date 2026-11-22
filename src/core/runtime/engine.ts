@@ -846,6 +846,9 @@ export class CanonEngine {
     const leapWhy = leap ? leapProblem(leap, tick, origin) : null;
     if (leapWhy) throw new EngineError('invalid_input', leapWhy);
     const groups = prof ? recognitionGroups(index, prof.profile) : [];
+    // the people with the player character where the last reply ended: the message's words are most likely about them
+    // (live: the reply's 「寸头混混」 was nobody the next message's 「那个寸头」 could be read as)
+    const present = this.presentBefore(entry, index);
     const extractPrompt = groups.length ? `${PROMPTS.extract_user}\n${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
     const extractInput = {
       message: entry.text,
@@ -853,7 +856,7 @@ export class CanonEngine {
       persona,
       current_time: { label: formatTick(tick, origin), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...this.currentFrameInput(index, tick),
-      registry: this.registry(index, entry.text, [...(prof ? [prof.profile.playerId] : []), ...peopleOfNow(index)]),
+      registry: this.registry(index, entry.text, [...(prof ? [prof.profile.playerId] : []), ...peopleOfNow(index), ...present]),
       occurrences: this.occurrenceCatalogue(index, entry.text),
       opportunities,
       ...(prof ? { engagement_context: this.engagementContext(index, prof.profile, tick) } : {}),
@@ -891,7 +894,7 @@ export class CanonEngine {
     }
     const who = await identifyInFight({
       port: this.host.model, index, fight: fightIn, text: entry.text, timeLabel: formatTick(tick, origin), lore: await this.gameLore(),
-      near: uniq([...peopleOfNow(index), ...(extractInput.registry.entities as string[]).map((l) => l.split(' | ')[0])]), signal, operationId, log: (l) => this.debugLog('task', l),
+      near: uniq([...present, ...peopleOfNow(index), ...(extractInput.registry.entities as string[]).map((l) => l.split(' | ')[0])]), signal, operationId, log: (l) => this.debugLog('task', l),
       player: prof ? { id: prof.profile.playerId } : null, known, at,
     });
     warnings.push(...who.notes);
@@ -976,6 +979,16 @@ export class CanonEngine {
     };
     (interp as Interpretation & { refs?: RefInput[] }).refs = refs;
     return interp;
+  }
+
+  /** The people with the player character where the reply before a message ended (its review's present). */
+  private presentBefore(entry: SourceEntry, index: WorldIndex): Id[] {
+    const c = this.campaign();
+    if (!c) return [];
+    const tr = this.host.readTranscript().filter((e) => e.role !== 'system');
+    const i = tr.findIndex((e) => e.messageId === entry.messageId);
+    const prev = (i < 0 ? tr : tr.slice(0, i)).reverse().find((e) => e.role === 'gm');
+    return prev ? (interpretationsFor(c.interpretations, baseKey(prev))[0]?.present || []).filter((id) => index.entityExists(id)) : [];
   }
 
   /** What an interpretation was validated against: the state before its message, and what the earlier messages had

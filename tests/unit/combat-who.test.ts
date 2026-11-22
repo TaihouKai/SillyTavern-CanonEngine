@@ -159,4 +159,16 @@ describe('who and what the message brings into a fight', () => {
     expect(await identifyInFight({ port: none, index: idx, fight: { state: 'none' }, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't' })).toEqual({ notes: [], names: [] });
     expect(none.seen).toHaveLength(0);
   });
+
+  it("CW6 someone the story brought in earlier is a candidate for the message's words (live: the reply's 「寸头混混」 was not offered for 「那个寸头」, taken for someone of the setting)", async () => {
+    const L = pack();
+    const st = reduce(L, [{ recordId: 'r1', commitId: 'c', branchId: 'main', sequence: 1, kind: 'world_event', storyTime: { lo: T(0, 9), hi: T(0, 9), precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] }, summary: '', evidenceKind: 'direct', runtimeEntities: [{ id: 'rt.crewcut.abc123', name: 'crew-cut thug', aliases: [], kind: 'person', description: 'a thug with a crew cut and a tool bag' }] } as LedgerRecord]);
+    const idx = new WorldIndex(L, st);
+    const f: FightOut = { state: 'none', new_people: [{ name: 'the crew-cut one', description: 'the crew-cut one', quote: 'the crew-cut one' }] };
+    const p = port({ people: [{ name: 'the crew-cut one', id: 'rt.crewcut.abc123', why: 'the thug from before' }] });
+    const { names, notes } = await identifyInFight({ port: p, index: idx, fight: f, text: 'I ignore the crew-cut one.', timeLabel: 'D0 09:00', lore: [], near: ['rt.crewcut.abc123'], operationId: 't' });
+    expect(p.seen[0].input.candidates[0]).toMatchObject({ id: 'rt.crewcut.abc123', name: 'crew-cut thug', introduced: 'earlier in this story' });
+    expect(names).toMatchObject([{ words: 'the crew-cut one', id: 'rt.crewcut.abc123' }]);
+    expect(notes.join(' ')).toMatch(/is crew-cut thug/);
+  });
 });

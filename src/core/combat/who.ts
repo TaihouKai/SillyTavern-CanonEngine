@@ -80,7 +80,9 @@ export function whoCandidates(index: WorldIndex, words: string[], lore: LoreEntr
   const lists = words.map((w) => ranked(texts, w, PER_PERSON));
   const picked: Id[] = [];
   for (let i = 0; i < PER_PERSON; i++) for (const l of lists) if (l[i]) picked.push(l[i]);
-  const nearPeople = near.filter((id) => L.entities.get(id)?.kind === 'person');
+  // (the people near now include the ones the story brought in, live: the reply's 「寸头混混」 was not offered for the
+  // next message's 「那个寸头」, who was then taken for someone of the setting)
+  const nearPeople = near.filter((id) => index.entityKind(id) === 'person' && (L.entities.has(id) || (index.state.runtimeEntities.has(id) && id !== index.playerId)));
   // (more newcomers, more room: each keeps at least four of their own)
   const max = Math.max(MAX_CANDIDATES, Math.min(MAX_CANDIDATES / 2, nearPeople.length) + 4 * lists.length);
   return uniq([...nearPeople.slice(0, MAX_CANDIDATES / 2), ...picked]).slice(0, max);
@@ -132,7 +134,7 @@ export async function identifyInFight(a: {
   // the alchemist the reference named, and as a newcomer too, who was then matched to his double)
   const same = (x: string, y: string) => !!x && !!y && (normalizeName(x) === normalizeName(y) || (y.length >= 4 && x.includes(y)) || (x.length >= 4 && y.includes(x)));
   for (const p of [...(f.new_people || [])]) {
-    const k = (a.known || []).find((r) => a.index.entityExists(r.id) && L.entities.get(r.id)?.kind === 'person' && [r.words, r.quote].some((w) => same(String(p.name || ''), w) || same(String(p.quote || ''), w)));
+    const k = (a.known || []).find((r) => a.index.entityExists(r.id) && a.index.entityKind(r.id) === 'person' && [r.words, r.quote].some((w) => same(String(p.name || ''), w) || same(String(p.quote || ''), w)));
     if (!k) continue;
     f.new_people = (f.new_people || []).filter((x) => x !== p);
     const had = (f.participants || []).map(String).includes(k.id);
@@ -172,6 +174,8 @@ export async function identifyInFight(a: {
       fighters: fighters.map((id) => { const has = ownNames(a.index, id); return `${id} | ${a.index.entityName(id)}${has.length ? ` | has: ${has.join(', ')}` : ''}`; }),
       new_people: fresh.map((p) => ({ name: p.name, description: p.description || '', words: p.quote })),
       candidates: people.map((id) => {
+        const r = a.index.state.runtimeEntities.get(id);
+        if (!L.entities.has(id) && r) return { id, name: r.name, aliases: (r.aliases || []).slice(0, 6), description: (r.description || '').slice(0, 300), introduced: 'earlier in this story' };
         const e = L.entities.get(id)!; const n = READ(a.index, id).nature?.version;
         const lore = loreAbout(a.lore, [e.name, ...(e.aliases || [])])[0];
         return {
@@ -201,7 +205,7 @@ export async function identifyInFight(a: {
     if (!f.participants.includes(r.id)) f.participants.push(r.id);
     f.new_people = (f.new_people || []).filter((x) => x !== p);
     call(p, r.id, String(r.why || ''));
-    notes.push(`fight: "${p.name}" is ${L.entities.get(r.id)!.name} (${String(r.why || '').slice(0, 160)})`);
+    notes.push(`fight: "${p.name}" is ${a.index.entityName(r.id)} (${String(r.why || '').slice(0, 160)})`);
   }
   // what someone now in the fight has comes with them, not as a thing of its own (live: the flashlight of the
   // teleporter just identified was also put in the fight as a thing at work)

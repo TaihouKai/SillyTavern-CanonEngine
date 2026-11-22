@@ -36496,7 +36496,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.49.7";
+var ENGINE_RELEASE = "1.49.8";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -38933,7 +38933,7 @@ function whoCandidates(index, words, lore, near = []) {
   const lists = words.map((w) => ranked(texts, w, PER_PERSON));
   const picked = [];
   for (let i = 0; i < PER_PERSON; i++) for (const l of lists) if (l[i]) picked.push(l[i]);
-  const nearPeople = near.filter((id) => L.entities.get(id)?.kind === "person");
+  const nearPeople = near.filter((id) => index.entityKind(id) === "person" && (L.entities.has(id) || index.state.runtimeEntities.has(id) && id !== index.playerId));
   const max = Math.max(MAX_CANDIDATES, Math.min(MAX_CANDIDATES / 2, nearPeople.length) + 4 * lists.length);
   return uniq([...nearPeople.slice(0, MAX_CANDIDATES / 2), ...picked]).slice(0, max);
 }
@@ -38962,7 +38962,7 @@ async function identifyInFight(a) {
   };
   const same = (x, y) => !!x && !!y && (normalizeName(x) === normalizeName(y) || y.length >= 4 && x.includes(y) || x.length >= 4 && y.includes(x));
   for (const p of [...f.new_people || []]) {
-    const k = (a.known || []).find((r) => a.index.entityExists(r.id) && L.entities.get(r.id)?.kind === "person" && [r.words, r.quote].some((w) => same(String(p.name || ""), w) || same(String(p.quote || ""), w)));
+    const k = (a.known || []).find((r) => a.index.entityExists(r.id) && a.index.entityKind(r.id) === "person" && [r.words, r.quote].some((w) => same(String(p.name || ""), w) || same(String(p.quote || ""), w)));
     if (!k) continue;
     f.new_people = (f.new_people || []).filter((x) => x !== p);
     const had = (f.participants || []).map(String).includes(k.id);
@@ -39004,6 +39004,8 @@ async function identifyInFight(a) {
       }),
       new_people: fresh.map((p) => ({ name: p.name, description: p.description || "", words: p.quote })),
       candidates: people.map((id) => {
+        const r = a.index.state.runtimeEntities.get(id);
+        if (!L.entities.has(id) && r) return { id, name: r.name, aliases: (r.aliases || []).slice(0, 6), description: (r.description || "").slice(0, 300), introduced: "earlier in this story" };
         const e = L.entities.get(id);
         const n = READ4(a.index, id).nature?.version;
         const lore = loreAbout(a.lore, [e.name, ...e.aliases || []])[0];
@@ -39043,7 +39045,7 @@ async function identifyInFight(a) {
     if (!f.participants.includes(r.id)) f.participants.push(r.id);
     f.new_people = (f.new_people || []).filter((x) => x !== p);
     call(p, r.id, String(r.why || ""));
-    notes.push(`fight: "${p.name}" is ${L.entities.get(r.id).name} (${String(r.why || "").slice(0, 160)})`);
+    notes.push(`fight: "${p.name}" is ${a.index.entityName(r.id)} (${String(r.why || "").slice(0, 160)})`);
   }
   const owner = (id) => (f.participants || []).map(String).find((p) => a.index.entityExists(p) && linksOf(L, a.index.state, p).some((l) => l.node === id));
   for (const t2 of out.things || []) {
@@ -42118,6 +42120,7 @@ var CanonEngine = class {
     const leapWhy = leap2 ? leapProblem(leap2, tick, origin) : null;
     if (leapWhy) throw new EngineError("invalid_input", leapWhy);
     const groups = prof ? recognitionGroups(index, prof.profile) : [];
+    const present = this.presentBefore(entry, index);
     const extractPrompt = groups.length ? `${PROMPTS.extract_user}
 ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
     const extractInput = {
@@ -42126,7 +42129,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       persona,
       current_time: { label: formatTick(tick, origin), day: Math.floor(tick / 1440), minute: tick % 1440 },
       ...this.currentFrameInput(index, tick),
-      registry: this.registry(index, entry.text, [...prof ? [prof.profile.playerId] : [], ...peopleOfNow(index)]),
+      registry: this.registry(index, entry.text, [...prof ? [prof.profile.playerId] : [], ...peopleOfNow(index), ...present]),
       occurrences: this.occurrenceCatalogue(index, entry.text),
       opportunities,
       ...prof ? { engagement_context: this.engagementContext(index, prof.profile, tick) } : {},
@@ -42164,7 +42167,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       text: entry.text,
       timeLabel: formatTick(tick, origin),
       lore: await this.gameLore(),
-      near: uniq([...peopleOfNow(index), ...extractInput.registry.entities.map((l) => l.split(" | ")[0])]),
+      near: uniq([...present, ...peopleOfNow(index), ...extractInput.registry.entities.map((l) => l.split(" | ")[0])]),
       signal,
       operationId,
       log: (l) => this.debugLog("task", l),
@@ -42280,6 +42283,15 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
     };
     interp.refs = refs;
     return interp;
+  }
+  /** The people with the player character where the reply before a message ended (its review's present). */
+  presentBefore(entry, index) {
+    const c = this.campaign();
+    if (!c) return [];
+    const tr = this.host.readTranscript().filter((e) => e.role !== "system");
+    const i = tr.findIndex((e) => e.messageId === entry.messageId);
+    const prev = (i < 0 ? tr : tr.slice(0, i)).reverse().find((e) => e.role === "gm");
+    return prev ? (interpretationsFor(c.interpretations, baseKey(prev))[0]?.present || []).filter((id) => index.entityExists(id)) : [];
   }
   /** What an interpretation was validated against: the state before its message, and what the earlier messages had
    *  told about the entities it is about (replay.ts: the fast path and scopeHolds). */

@@ -276,4 +276,19 @@ describe('称呼 in play', () => {
     expect(await play([])).toEqual([]);
     expect(await play(['mira'])).toEqual(['mira']);
   });
+
+  it('NM15 the people where the last reply ended are offered to the reading of the next message (live: the reply’s 「寸头混混」 was nobody the next 「那个寸头」 could be)', async () => {
+    const y = await game();
+    y.host.addUser('I look around.');
+    y.model.draft('A crew-cut thug with a tool bag grins at me. [NM15]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[NM15]'), { scene_end: at(1, 9, 5), new_entities: [{ ref: 'n1', name: 'crew-cut thug', kind: 'person', description: 'a thug with a tool bag', quote: 'A crew-cut thug with a tool bag' }], present: ['n1'] });
+    await y.engine.runOperation('normal');
+    const m2 = 'I ignore the one with the haircut.';
+    y.host.addUser(m2);
+    y.model.draft('Quiet. [NM15b]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[NM15b]'), { scene_end: at(1, 9, 10) });
+    await y.engine.runOperation('normal');
+    const read = y.model.tasks('extract_user').find((c) => c.input.message === m2)!;
+    expect(read.input.registry.entities.some((l: string) => l.includes('| crew-cut thug |'))).toBe(true);
+  });
 });
