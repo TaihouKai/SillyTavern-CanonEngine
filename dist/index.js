@@ -36336,7 +36336,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.48.4";
+var ENGINE_RELEASE = "1.48.5";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -39410,6 +39410,13 @@ function runGate(g) {
       if (index.state.runtimeEntities.has(same) && index.entityName(same) !== ne.name) renames.push({ id: same, name: ne.name.slice(0, 80) });
       continue;
     }
+    const as = uniq(fightNow(index.state).identified.filter((p) => normalizeName(p.as) === normalizeName(ne.name)).map((p) => p.id));
+    if (as.length === 1 && index.entityKind(as[0]) === ne.kind) {
+      refToId.set(ne.ref, as[0]);
+      refToId.set(ne.name, as[0]);
+      warnings.push(`"${ne.name}" is ${index.entityName(as[0])}, as the fight took them; not registered as new`);
+      continue;
+    }
     const existing = index.resolveEntity(ne.name);
     if (existing.ids.length) {
       refToId.set(ne.ref, existing.ids[0]);
@@ -39421,12 +39428,24 @@ function runGate(g) {
     refToId.set(ne.ref, id);
     refToId.set(ne.name, id);
   }
+  const own = (n) => [n, ...n.split(/[·・\s]/)].map(normalizeName).filter((k) => k.length >= 2);
+  const playerNames = new Set(g.playerId ? [...index.allNames(g.playerId), g.personaName || ""].flatMap(own) : []);
+  const plain = normalizeName(text);
+  const playerByName = (id) => {
+    if (!g.playerId || id === g.playerId) return false;
+    const names = index.allNames(id).flatMap(own);
+    return names.some((k) => playerNames.has(k)) && !names.some((k) => !playerNames.has(k) && plain.includes(k));
+  };
   const resolveId = (x) => {
-    if (refToId.has(x)) return refToId.get(x);
-    if (index.entityExists(x)) return x;
-    if (runtimeEntities.some((r2) => r2.id === x)) return x;
-    const r = index.resolveEntity(x);
-    return r.ids.length === 1 ? r.ids[0] : null;
+    const id = (() => {
+      if (refToId.has(x)) return refToId.get(x);
+      if (index.entityExists(x)) return x;
+      if (runtimeEntities.some((r2) => r2.id === x)) return x;
+      const r = index.resolveEntity(x);
+      if (r.ids.length > 1 && g.playerId && r.ids.includes(g.playerId) && r.ids.every((y) => y === g.playerId || playerByName(y))) return g.playerId;
+      return r.ids.length === 1 ? r.ids[0] : null;
+    })();
+    return id && playerByName(id) ? g.playerId : id;
   };
   const entityKnown = (id) => index.entityExists(id) || runtimeEntities.some((r) => r.id === id);
   const checkDelta = (d, where) => {
@@ -41892,6 +41911,42 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
       { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: outputBudget(entry.text) }
     ), this.settings.taskTimeoutMs * 4, signal);
     for (const r of out.references || []) if (r.candidates) r.candidates = uniq(r.candidates.map((x) => candidateId(index, String(x))).filter((x) => !!x));
+    const warnings = [];
+    warnings.push(...await identifyInFight({
+      port: this.host.model,
+      index,
+      fight: out.fight,
+      text: entry.text,
+      timeLabel: formatTick(tick, origin),
+      lore: await this.gameLore(),
+      near: uniq([...peopleOfNow(index), ...extractInput.registry.entities.map((l) => l.split(" | ")[0])]),
+      signal,
+      operationId,
+      log: (l) => this.debugLog("task", l),
+      player: prof ? { id: prof.profile.playerId } : null,
+      known: out.references.filter((r) => r.kind === "entity" && r.candidates?.length === 1).map((r) => ({ words: r.phrase, quote: r.quote, id: r.candidates[0] }))
+    }));
+    const asPeople = [...out.fight?.identified || [], ...fightNow(index.state).identified];
+    const entityValue = (x) => {
+      const v = typeof x === "string" ? x.trim() : "";
+      if (!v) return null;
+      if (index.entityExists(v)) return v;
+      const as = uniq(asPeople.filter((p) => normalizeName(p.as) === normalizeName(v)).map((p) => p.id));
+      if (as.length === 1) return as[0];
+      const r = index.resolveEntity(v);
+      return r.ids.length === 1 ? r.ids[0] : null;
+    };
+    for (const s of out.statements) if (s.kind === "asserted_fact") s.facts = (s.facts || []).flatMap((f) => {
+      const p = pack2.predicates.get(f.predicate), eid = entityValue(f.entity_id);
+      if (!p || !eid) return [];
+      if (p.value_type !== "entity_ref" && p.value_type !== "entity_set") return [{ ...f, entity_id: eid }];
+      const ids = (Array.isArray(f.value) ? f.value : [f.value]).map(entityValue);
+      if (!ids.length || ids.some((x) => !x)) {
+        warnings.push(`assertion "${s.quote}": ${eid}.${f.predicate} = ${JSON.stringify(f.value)} names no known entity (left out)`);
+        return [];
+      }
+      return [{ ...f, entity_id: eid, value: p.value_type === "entity_ref" ? ids[0] : uniq(ids) }];
+    });
     const asserted = out.statements.filter((s) => s.kind === "asserted_fact" && !s.ambiguous && quoteInText(s.quote, entry.text)).flatMap((s) => s.facts || []).filter((f) => pack2.predicates.get(f.predicate) && pack2.predicates.get(f.predicate).value_type !== "entity_set" && index.entityExists(f.entity_id));
     await this.settleEnds(
       "extract_user",
@@ -41911,7 +41966,6 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
     const intents = [];
     const configRequests = [];
     const declines = [];
-    const warnings = [];
     let timeJumpTo;
     const st = { lo: tick, hi: tick, precision: "minute" };
     const due = pendingHard(pack2, index.state).filter((h) => isDue(h, tick));
@@ -41954,20 +42008,6 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
         intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
       }
     }
-    warnings.push(...await identifyInFight({
-      port: this.host.model,
-      index,
-      fight: out.fight,
-      text: entry.text,
-      timeLabel: formatTick(tick, origin),
-      lore: await this.gameLore(),
-      near: uniq([...peopleOfNow(index), ...extractInput.registry.entities.map((l) => l.split(" | ")[0])]),
-      signal,
-      operationId,
-      log: (l) => this.debugLog("task", l),
-      player: prof ? { id: prof.profile.playerId } : null,
-      known: out.references.filter((r) => r.kind === "entity" && r.candidates?.length === 1).map((r) => ({ words: r.phrase, quote: r.quote, id: r.candidates[0] }))
-    }));
     const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
     records.push(...fight.records);
     warnings.push(...fight.warnings);

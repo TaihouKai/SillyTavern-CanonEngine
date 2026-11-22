@@ -10,7 +10,7 @@ import { applyChange, deltaMeets, deltaText, outcomeDelta, withPackEnd } from '.
 import type { WorldIndex } from '../domain/world-query';
 import { toTick, formatTick } from '../domain/time';
 import type { TimeEvidence } from './scenetime';
-import { gateCombat, type CombatEvalOut, type CombatReview } from '../combat';
+import { fightNow, gateCombat, type CombatEvalOut, type CombatReview } from '../combat';
 import { gateHostility, type HostilityEvalOut, type HostilityReview } from '../hostility';
 import { isDue, nearHard, pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
@@ -206,6 +206,15 @@ export function runGate(g: GateInput): GateResult {
       if (index.state.runtimeEntities.has(same) && index.entityName(same) !== ne.name) renames.push({ id: same, name: ne.name.slice(0, 80) });
       continue;
     }
+    // someone this fight already took for a person of the world, by the words the player wrote for them, is that
+    // person (live: the blond thug 滨面 was in the fight became a new person "金发混混" of the reply)
+    const as = uniq(fightNow(index.state).identified.filter((p) => normalizeName(p.as) === normalizeName(ne.name)).map((p) => p.id));
+    if (as.length === 1 && index.entityKind(as[0]) === ne.kind) {
+      refToId.set(ne.ref, as[0]);
+      refToId.set(ne.name, as[0]);
+      warnings.push(`"${ne.name}" is ${index.entityName(as[0])}, as the fight took them; not registered as new`);
+      continue;
+    }
     const existing = index.resolveEntity(ne.name);
     if (existing.ids.length) {
       // Renaming/duplicating a known identity cannot bypass its history (W17).
@@ -218,12 +227,27 @@ export function runGate(g: GateInput): GateResult {
     refToId.set(ne.ref, id);
     refToId.set(ne.name, id);
   }
+  // A name the player character shares with someone else (神光爱丽丝 and 爱丽丝·异典 are both 「爱丽丝」) is the player
+  // character in a reply to them, unless the reply also names the other by a name only they have (live: 「爱丽丝低头看了
+  // 看手里的枪」 was filed on 爱丽丝·异典, and every draft of the turn failed against the gun the player held).
+  const own = (n: string) => [n, ...n.split(/[·・\s]/)].map(normalizeName).filter((k) => k.length >= 2);
+  const playerNames = new Set(g.playerId ? [...index.allNames(g.playerId), g.personaName || ''].flatMap(own) : []);
+  const plain = normalizeName(text);
+  const playerByName = (id: Id): boolean => {
+    if (!g.playerId || id === g.playerId) return false;
+    const names = index.allNames(id).flatMap(own);
+    return names.some((k) => playerNames.has(k)) && !names.some((k) => !playerNames.has(k) && plain.includes(k));
+  };
   const resolveId = (x: string): Id | null => {
-    if (refToId.has(x)) return refToId.get(x)!;
-    if (index.entityExists(x)) return x;
-    if (runtimeEntities.some((r) => r.id === x)) return x;
-    const r = index.resolveEntity(x);
-    return r.ids.length === 1 ? r.ids[0] : null;
+    const id = ((): Id | null => {
+      if (refToId.has(x)) return refToId.get(x)!;
+      if (index.entityExists(x)) return x;
+      if (runtimeEntities.some((r) => r.id === x)) return x;
+      const r = index.resolveEntity(x);
+      if (r.ids.length > 1 && g.playerId && r.ids.includes(g.playerId) && r.ids.every((y) => y === g.playerId || playerByName(y))) return g.playerId;
+      return r.ids.length === 1 ? r.ids[0] : null;
+    })();
+    return id && playerByName(id) ? g.playerId! : id;
   };
   const entityKnown = (id: Id) => index.entityExists(id) || runtimeEntities.some((r) => r.id === id);
 

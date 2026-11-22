@@ -11,6 +11,7 @@ import type { CanonPack, LedgerRecord } from '../../src/core/domain/types';
 import { makeEngine, tick, at } from './fake';
 import { demoRaw, load, T } from './helpers';
 import { validatePack } from '../../src/core/domain/pack';
+import { factAt } from '../../src/core/domain/reducer';
 
 let seq = 0;
 const rec = (t: number, extra: Partial<LedgerRecord>): LedgerRecord => ({
@@ -437,3 +438,86 @@ describe('what an event of now hands someone', () => {
   });
 });
 
+
+describe('whom the words of a turn mean', () => {
+  it('AS14 the newcomer the fight takes for Mira is Mira in what the player asserts and in the reply: the hook "a woman" holds is hers, and nobody new comes in', async () => {
+    const raw = harbor();
+    raw.events.find((e) => e.id === 'medic-ambush')!.canonical_effects.push({ op: 'set', fact: { entity_id: 'hook', predicate: 'holder', value: 'mira' }, until: 'lasting' });
+    const y = makeEngine();
+    (y.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
+    y.model.on('profile', null, PROFILE);
+    y.model.on('persona_abilities', null, { abilities: [], setting: [] });
+    await y.engine.bind(JSON.stringify(raw), { startTick: tick(1, 9, 30), mode: 'new' });
+    await y.engine.reconcile('test');
+    const pid = () => y.engine.playerProfile()!.profile.playerId;
+    const msg = 'A woman swings the cargo hook at me; I tear it from her hands.';
+    y.host.addUser(msg);
+    y.model.on('extract_user', (i) => i.message === msg, {
+      statements: [{ kind: 'asserted_fact', quote: 'A woman swings the cargo hook at me', summary: 'a woman holds the cargo hook', entities: ['hook'], facts: [{ entity_id: 'hook', predicate: 'holder', value: 'a woman', until: 'lasting' }], event_id: null, time: null, ambiguous: false }],
+      references: [{ phrase: 'cargo hook', quote: 'the cargo hook', kind: 'entity', mode: 'direct', candidates: ['hook'] }],
+      fight: { state: 'starts', participants: ['a woman'], new_people: [{ name: 'a woman', description: 'swings a hook', quote: 'A woman swings the cargo hook at me' }], why: 'x' } }, true);
+    y.model.on('combat', (i) => i.player_message === msg, () =>
+      ({ reasoning: 'x', exchanges: [{ actor: pid(), text: 'Ash tears the hook away.', basis: [{ ref: 'judgement' }], unsupported: true }], statuses: [], over: false, handovers: [{ object: 'hook', to: pid() }] }));
+    y.model.draft('A woman reels as Ash tears the hook away. [AS14]');
+    y.model.on('evaluate', null, { scene_end: at(1, 9, 35), new_entities: [{ ref: 'n1', name: 'a woman', kind: 'person', description: 'swings a hook', quote: 'A woman reels' }] });
+    expect(await y.engine.runOperation('normal')).toBe(true);
+    const R = y.engine.current!.replay;
+    const told = R.ledger.find((r) => r.kind === 'user_assertion')!;
+    expect(told.factsSetOrUnset).toMatchObject([{ entity_id: 'hook', predicate: 'holder', value: 'mira' }]);
+    expect(y.engine.combatView(false)!.rulings[0].notes.join(' ')).not.toMatch(/nobody here holds it/);
+    expect(tiesOf(R.state, pid()).holds).toEqual(['hook']);
+    expect([...R.state.runtimeEntities.values()].map((e) => e.name)).not.toContain('a woman');
+  });
+
+  it('AS14b a value the player asserts that names nobody is no fact (never the words themselves)', async () => {
+    const y = makeEngine();
+    (y.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
+    y.model.on('profile', null, PROFILE);
+    y.model.on('persona_abilities', null, { abilities: [], setting: [] });
+    await y.engine.bind(JSON.stringify(harbor()), { startTick: tick(1, 6, 0), mode: 'new' });
+    await y.engine.reconcile('test');
+    const msg = 'A stranger holds the cargo hook.';
+    y.host.addUser(msg);
+    y.model.on('extract_user', (i) => i.message === msg, {
+      statements: [{ kind: 'asserted_fact', quote: 'A stranger holds the cargo hook', summary: 'a stranger holds the hook', entities: ['hook'], facts: [{ entity_id: 'Cargo hook', predicate: 'holder', value: 'a stranger', until: 'lasting' }], event_id: null, time: null, ambiguous: false }] }, true);
+    y.model.draft('The stranger grins. [AS14b]');
+    y.model.on('evaluate', null, { scene_end: at(1, 6, 5) });
+    expect(await y.engine.runOperation('normal')).toBe(true);
+    const R = y.engine.current!.replay;
+    expect(R.ledger.filter((r) => r.kind === 'user_assertion')).toHaveLength(0);
+    expect(factAt(R.state, 'hook', 'holder').known).toBe(false);
+  });
+
+  it('AS15 a name the player character shares with someone else is the player character in the reply, unless it also names the other by a name only theirs', async () => {
+    const raw = harbor();
+    raw.entities.push({ id: 'ash-varn', name: 'Ash Varn', aliases: ['Ash'], kind: 'person', static_description: 'An old harbor pilot.', source_refs: ['example-source'], aspects: { combat_style: [{ from_event: null, start: '照常人', force: '照常人', response: '照常人', limit: '照常人', stop: '照常人' }] } });
+    const y = makeEngine();
+    (y.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
+    y.model.on('profile', null, PROFILE);
+    y.model.on('persona_abilities', null, { abilities: [], setting: [] });
+    await y.engine.bind(JSON.stringify(raw), { startTick: tick(1, 6, 0), mode: 'new' });
+    await y.engine.reconcile('test');
+    const pid = () => y.engine.playerProfile()!.profile.playerId;
+    const m1 = 'I hold the cargo hook.';
+    y.host.addUser(m1);
+    y.model.on('extract_user', (i) => i.message === m1, () => ({ statements: [{ kind: 'asserted_fact', quote: 'I hold the cargo hook', summary: 'Ash holds the hook', entities: ['hook'], facts: [{ entity_id: 'hook', predicate: 'holder', value: pid(), until: 'lasting' }], event_id: null, time: null, ambiguous: false }] }), true);
+    y.model.draft('The hook is heavy. [AS15a]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[AS15a]'), { scene_end: at(1, 6, 5) });
+    expect(await y.engine.runOperation('normal')).toBe(true);
+    expect(factAt(y.engine.current!.replay.state, 'hook', 'holder').value).toBe(pid());
+    // the reply's "Ash" filed on the pilot: the player character, who holds the hook
+    const m2 = 'I look at it.';
+    y.host.addUser(m2);
+    y.model.draft('Ash looks at the hook in her hand. [AS15b]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[AS15b]'), { scene_end: at(1, 6, 10), state_claims: [{ entity_id: 'hook', predicate: 'holder', value: 'ash-varn', quote: 'Ash looks at the hook in her hand' }] });
+    expect(await y.engine.runOperation('normal')).toBe(true);
+    expect(y.engine.lastTrace!.attempts[0].violations).toEqual([]);
+    // with the pilot named by his own name, "Ash" can be him: the claim stands against the state
+    const m3 = 'I look again.';
+    y.host.addUser(m3);
+    y.model.draft('Ash Varn nods; Ash looks at the hook in his hand. [AS15c]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[AS15c]'), { scene_end: at(1, 6, 15), state_claims: [{ entity_id: 'hook', predicate: 'holder', value: 'ash-varn', quote: 'Ash looks at the hook in his hand' }] });
+    await y.engine.runOperation('normal');
+    expect(y.engine.lastTrace!.attempts[0].violations.join(' ')).toMatch(/presupposes Cargo hook\.holder="ash-varn"/);
+  });
+});

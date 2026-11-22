@@ -844,6 +844,36 @@ export class CanonEngine {
     // a reference's candidate is an id; one written as a name made into an id is the one entity it names (live, the
     // silver-haired nun was "index-librorum-prohibitorum", an alias of 茵蒂克丝 as an id, and so nobody)
     for (const r of out.references || []) if (r.candidates) r.candidates = uniq(r.candidates.map((x) => candidateId(index, String(x))).filter((x): x is Id => !!x));
+    const warnings: string[] = [];
+    // 战斗: the fight as this message starts, goes on with or ends it (combat/message.ts); someone it brings in without
+    // a name may be a person of the world, something in it a thing of the setting (combat/who.ts)
+    warnings.push(...await identifyInFight({
+      port: this.host.model, index, fight: out.fight, text: entry.text, timeLabel: formatTick(tick, origin), lore: await this.gameLore(),
+      near: uniq([...peopleOfNow(index), ...(extractInput.registry.entities as string[]).map((l) => l.split(' | ')[0])]), signal, operationId, log: (l) => this.debugLog('task', l),
+      player: prof ? { id: prof.profile.playerId } : null,
+      known: out.references.filter((r) => r.kind === 'entity' && r.candidates?.length === 1).map((r) => ({ words: r.phrase, quote: r.quote, id: r.candidates![0] })),
+    }));
+    // someone a fact the player asserts names is an entity, by id or by name, or the person this message's fight takes
+    // them for (live: 「一个金发混混手持女式手枪」 wrote the gun's holder as the words "金发混混", nobody, while the fight
+    // knew him as 滨面, and the gun taken from him was "nobody's"); a value that names nobody is no fact
+    const asPeople = [...(out.fight?.identified || []), ...fightNow(index.state).identified];
+    const entityValue = (x: unknown): Id | null => {
+      const v = typeof x === 'string' ? x.trim() : '';
+      if (!v) return null;
+      if (index.entityExists(v)) return v;
+      const as = uniq(asPeople.filter((p) => normalizeName(p.as) === normalizeName(v)).map((p) => p.id));
+      if (as.length === 1) return as[0];
+      const r = index.resolveEntity(v);
+      return r.ids.length === 1 ? r.ids[0] : null;
+    };
+    for (const s of out.statements) if (s.kind === 'asserted_fact') s.facts = (s.facts || []).flatMap((f) => {
+      const p = pack.predicates.get(f.predicate), eid = entityValue(f.entity_id);
+      if (!p || !eid) return [];
+      if (p.value_type !== 'entity_ref' && p.value_type !== 'entity_set') return [{ ...f, entity_id: eid }];
+      const ids = (Array.isArray(f.value) ? f.value : [f.value]).map(entityValue);
+      if (!ids.length || ids.some((x) => !x)) { warnings.push(`assertion "${s.quote}": ${eid}.${f.predicate} = ${JSON.stringify(f.value)} names no known entity (left out)`); return []; }
+      return [{ ...f, entity_id: eid, value: (p.value_type === 'entity_ref' ? ids[0]! : uniq(ids as Id[])) as never }];
+    });
     // how long each fact the player asserts holds (ends.ts): only the facts that become records
     const asserted = out.statements.filter((s) => s.kind === 'asserted_fact' && !s.ambiguous && quoteInText(s.quote, entry.text)).flatMap((s) => s.facts || [])
       .filter((f) => pack.predicates.get(f.predicate) && pack.predicates.get(f.predicate)!.value_type !== 'entity_set' && index.entityExists(f.entity_id));
@@ -853,7 +883,6 @@ export class CanonEngine {
     const intents: Interpretation['intents'] = [];
     const configRequests: string[] = [];
     const declines: string[] = [];
-    const warnings: string[] = [];
     let timeJumpTo: number | undefined;
     const st: StoryTime = { lo: tick, hi: tick, precision: 'minute' };
     const due = pendingHard(pack, index.state).filter((h) => isDue(h, tick));
@@ -899,14 +928,6 @@ export class CanonEngine {
         intents.push({ quote: s.quote, summary: `[${s.kind}] ${s.summary}` });
       }
     }
-    // 战斗: the fight as this message starts, goes on with or ends it (combat/message.ts); someone it brings in without
-    // a name may be a person of the world, something in it a thing of the setting (combat/who.ts)
-    warnings.push(...await identifyInFight({
-      port: this.host.model, index, fight: out.fight, text: entry.text, timeLabel: formatTick(tick, origin), lore: await this.gameLore(),
-      near: uniq([...peopleOfNow(index), ...(extractInput.registry.entities as string[]).map((l) => l.split(' | ')[0])]), signal, operationId, log: (l) => this.debugLog('task', l),
-      player: prof ? { id: prof.profile.playerId } : null,
-      known: out.references.filter((r) => r.kind === 'entity' && r.candidates?.length === 1).map((r) => ({ words: r.phrase, quote: r.quote, id: r.candidates![0] })),
-    }));
     const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null);
     records.push(...fight.records);
     warnings.push(...fight.warnings);

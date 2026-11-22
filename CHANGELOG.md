@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.48.5 — 2026-11-22 (pack 7.1.1)
+
+- **What the player asserts names entities, never words.** 「一个金发混混手持女式手枪」 set the gun's holder to the words 「金发混混」, which are nobody. So although the fight knew the thug as 滨面, the ruling found no one holding the gun and dropped its handover. A person or object a player's assertion names is now resolved before it is recorded: by id, by the fight's identification of a newcomer (「金发混混」 → 滨面), or by a name that fits exactly one entity. A value that names nobody is left out rather than recorded as words. The fight's identification now runs before the assertions are read.
+- **Someone the fight has identified is not new in the reply.** The reply's 「金发混混」 used to become a new person beside 滨面. Now a newcomer the reply introduces under the words the fight identified is that person.
+- **A name the player character shares with someone else.** 神光爱丽丝 and the pack's 爱丽丝·异典 are both 「爱丽丝」. The reply's 「爱丽丝低头看了看手里的枪」 was filed on 爱丽丝·异典, and every draft of the turn failed against the gun the player held. In a reply to the player, such a name is now the player character, unless the reply also names the other one by a name only they have.
+
 ## 1.48.4 — 2026-11-21 (pack 7.1.1)
 
 - **A handover written by name.** The ruling handed the gun over as 「女式手枪」 instead of its id, and it was dropped as held by nobody. An object or a receiver is now also found by name, among what someone here holds and the people here.
