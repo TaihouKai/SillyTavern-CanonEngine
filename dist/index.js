@@ -36560,7 +36560,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.50.2";
+var ENGINE_RELEASE = "1.50.3";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -48042,7 +48042,18 @@ function createInspector(d) {
     const sc = el.querySelector(".ci-scroll");
     if (sc && lastTab) scrolls.set(lastTab, sc.scrollTop);
     const focusFilter = document.activeElement?.classList.contains("ci-filter");
-    el.innerHTML = html;
+    const box = tab === lastTab ? el.querySelector(".ci-search") : null;
+    if (box) {
+      const tpl = document.createElement("template");
+      tpl.innerHTML = html;
+      const fresh = tpl.content;
+      for (const sel of [".ci-headbar", ".ci-nav", ".ci-scroll", ".ci-jumps"]) {
+        const now = el.querySelector(sel), next = fresh.querySelector(sel);
+        if (now && next) now.replaceWith(next);
+        else if (now) now.remove();
+        else if (next && sel === ".ci-jumps") el.querySelector(".ci-tools")?.append(next);
+      }
+    } else el.innerHTML = html;
     lastHtml = html;
     lastTab = tab;
     for (const det of el.querySelectorAll("details[data-key]")) if (opened.has(`${tab}|${det.dataset.key}`)) det.open = true;
@@ -48050,7 +48061,7 @@ function createInspector(d) {
     if (sc2) sc2.scrollTop = scrolls.get(tab) || 0;
     applyFilter();
     pg.mount?.(el);
-    if (focusFilter) {
+    if (focusFilter && !box) {
       const f = el.querySelector(".ci-filter");
       f?.focus();
       f?.setSelectionRange(f.value.length, f.value.length);
@@ -48084,13 +48095,26 @@ function createInspector(d) {
         if (pending && !editing()) render();
       }, 0);
     });
+    let filterTimer = null;
+    const filtered = (f) => {
+      filters.set(tab, f.value);
+      if (tab !== "combat" && tab !== "setting") {
+        applyFilter();
+        return;
+      }
+      if (filterTimer) clearTimeout(filterTimer);
+      filterTimer = setTimeout(() => {
+        filterTimer = null;
+        render(true);
+      }, 250);
+    };
     el.addEventListener("input", (ev) => {
       const f = ev.target;
-      if (f.classList.contains("ci-filter")) {
-        filters.set(tab, f.value);
-        if (tab === "combat" || tab === "setting") render(true);
-        else applyFilter();
-      }
+      if (f.classList.contains("ci-filter") && !ev.isComposing) filtered(f);
+    });
+    el.addEventListener("compositionend", (ev) => {
+      const f = ev.target;
+      if (f.classList.contains("ci-filter")) filtered(f);
     });
     el.addEventListener("keydown", (ev) => {
       if (ev.key === "Escape" && !ev.target.closest("textarea")) toggle(false);

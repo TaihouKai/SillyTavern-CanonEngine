@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.50.3 — 2026-11-23 (pack 7.1.1)
+
+- **The inspector's search box works with an input method.** On 设定 and 战斗 every key rebuilt the page, search box included, and a Chinese input method lost its composition: typing yubanmeiqin gave 「yyubanmmeiqin」 and no candidates. A rebuild now leaves the search box alone, nothing is searched while a word is being composed (only once the characters are chosen), and those two pages wait a moment after the last key. An engine refresh while typing on any page keeps the box as well.
+
 ## 1.50.2 — 2026-11-23 (pack 7.1.1)
 
 - **设定 has its own page.** The pack's setting (concepts, rules, abilities, precedents, dangers, and the graph) was the last part of the 战斗 page. It is not only used in fights any more: 主动敌对 finds who may come for the player among the dangers of a place, and the player's abilities are linked to it. It is now 检查面板 → 世界 → 设定. A node's name on the 战斗 page opens it there.

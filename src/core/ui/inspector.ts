@@ -418,7 +418,20 @@ export function createInspector(d: InspectorDeps) {
     const sc = el!.querySelector('.ci-scroll');
     if (sc && lastTab) scrolls.set(lastTab, sc.scrollTop);
     const focusFilter = document.activeElement?.classList.contains('ci-filter');
-    el!.innerHTML = html;
+    // the same page rebuilt: everything but the search box (live: typing with an input method on 设定, every key rebuilt
+    // the page, the box was replaced and the composition lost — 「yyubanmeiqin」 instead of 御坂美琴)
+    const box = tab === lastTab ? el!.querySelector<HTMLElement>('.ci-search') : null;
+    if (box) {
+      const tpl = document.createElement('template');
+      tpl.innerHTML = html;
+      const fresh = tpl.content;
+      for (const sel of ['.ci-headbar', '.ci-nav', '.ci-scroll', '.ci-jumps']) {
+        const now = el!.querySelector(sel), next = fresh.querySelector(sel);
+        if (now && next) now.replaceWith(next);
+        else if (now) now.remove();
+        else if (next && sel === '.ci-jumps') el!.querySelector('.ci-tools')?.append(next);
+      }
+    } else el!.innerHTML = html;
     lastHtml = html;
     lastTab = tab;
     for (const det of el!.querySelectorAll<HTMLDetailsElement>('details[data-key]')) if (opened.has(`${tab}|${det.dataset.key}`)) det.open = true;
@@ -426,7 +439,7 @@ export function createInspector(d: InspectorDeps) {
     if (sc2) sc2.scrollTop = scrolls.get(tab) || 0;
     applyFilter();
     pg.mount?.(el!);
-    if (focusFilter) { const f = el!.querySelector<HTMLInputElement>('.ci-filter'); f?.focus(); f?.setSelectionRange(f.value.length, f.value.length); }
+    if (focusFilter && !box) { const f = el!.querySelector<HTMLInputElement>('.ci-filter'); f?.focus(); f?.setSelectionRange(f.value.length, f.value.length); }
   }
 
   function run(p: Promise<unknown>, after?: () => void) {
@@ -447,13 +460,23 @@ export function createInspector(d: InspectorDeps) {
       if (det.open) opened.add(k); else opened.delete(k);
     }, true);
     el.addEventListener('focusout', () => { setTimeout(() => { if (pending && !editing()) render(); }, 0); });
+    // the search box: what is typed applies when it is text (an input method's composition is not: it applies when the
+    // characters are chosen); 战斗 lists the people who matter now and 设定 the nodes, and any by name (a node by its
+    // text too) when searched for: those pages are rebuilt, a moment after the last key
+    let filterTimer: ReturnType<typeof setTimeout> | null = null;
+    const filtered = (f: HTMLInputElement) => {
+      filters.set(tab, f.value);
+      if (tab !== 'combat' && tab !== 'setting') { applyFilter(); return; }
+      if (filterTimer) clearTimeout(filterTimer);
+      filterTimer = setTimeout(() => { filterTimer = null; render(true); }, 250);
+    };
     el.addEventListener('input', (ev) => {
       const f = ev.target as HTMLInputElement;
-      if (f.classList.contains('ci-filter')) {
-        filters.set(tab, f.value);
-        // 战斗 lists the people who matter now and 设定 the nodes, and any by name (a node by its text too) when searched for: the page is rebuilt
-        if (tab === 'combat' || tab === 'setting') render(true); else applyFilter();
-      }
+      if (f.classList.contains('ci-filter') && !(ev as InputEvent).isComposing) filtered(f);
+    });
+    el.addEventListener('compositionend', (ev) => {
+      const f = ev.target as HTMLInputElement;
+      if (f.classList.contains('ci-filter')) filtered(f);
     });
     el.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !(ev.target as HTMLElement).closest('textarea')) toggle(false); });
     // drag the left edge to resize (remembered in this browser)
