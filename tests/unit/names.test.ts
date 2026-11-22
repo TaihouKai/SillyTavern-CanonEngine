@@ -61,6 +61,8 @@ describe('称呼: the table', () => {
     expect(bindingFrom('her', 'mira', 'her', 'player')).toBeNull();
     expect(bindingFrom('他', 'mira', '他', 'player')).toBeNull();
     expect(bindingFrom('对方', 'mira', '对方', 'player')).toBeNull();
+    for (const w of ['那家伙', '这位先生', '那个女人', 'that guy', 'The woman']) expect(bindingFrom(w, 'mira', w, 'reply')).toBeNull();
+    expect(bindingFrom('那个金发女人', 'mira', 'x', 'reply')).not.toBeNull();
     expect(bindingFrom('金发混混', 'mira', '一个金发混混', 'fight', 'x')).toEqual({ words: '金发混混', id: 'mira', quote: '一个金发混混', source: 'fight', why: 'x' });
   });
 });
@@ -238,6 +240,7 @@ describe('称呼 in play', () => {
       { phrase: 'the machine by the water', quote: 'harbor vending machine', kind: 'entity', mode: 'indirect', ref_kind: 'object', candidates: ['harbor'] },
       { phrase: 'a stranger in a grey coat', quote: 'a stranger in a grey coat', kind: 'entity', mode: 'indirect', ref_kind: 'person', candidates: ['mira'] },
       { phrase: 'the old docks', quote: 'the old docks', kind: 'entity', mode: 'indirect', ref_kind: 'place', candidates: ['harbor'] },
+      { phrase: 'her healing touch', quote: 'waves', kind: 'entity', mode: 'indirect', ref_kind: 'other', candidates: ['mira'] },
     ] }, true);
     y.model.draft('Quiet. [NM12]');
     y.model.on('evaluate', (i) => String(i.candidate).includes('[NM12]'), { scene_end: at(1, 9, 5) });

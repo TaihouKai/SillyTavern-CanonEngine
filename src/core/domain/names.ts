@@ -57,9 +57,13 @@ export function namesAt(list: readonly NameEntry[], tick: number): { now: Map<st
 /** Words a step found in the text it read, as a binding: only words that say something (a pronoun means whoever the
  *  sentence is about, and is never written down), with their quote. */
 const PRONOUN = /^(我|你|您|他|她|它|祂|我们|你们|他们|她们|它们|咱|咱们|自己|对方|其|此人|那人|这人|i|me|you|he|him|she|her|it|they|them|we|us|myself|yourself|himself|herself|themselves)$/i;
+/** Words that only point at someone — a demonstrative and a word for anyone (那家伙, 这位先生, that guy): they say
+ *  nothing of whom, and mean whoever the sentence is about (live: the reply's 「那家伙」 and 「这位先生」 were written down
+ *  as 滨面). */
+const POINTER = /^(那|这|那个|这个|那位|这位|那名|这名)(家伙|人|位|先生|小姐|女士|男人|女人|男的|女的|少年|少女|男生|女生|孩子|小子|丫头|姑娘|大叔|大姐|老头|小鬼|混蛋|东西)$|^(that|this|the)(guy|man|woman|person|one|girl|boy|kid|lady|gentleman|fellow|bastard)$/i;
 export function bindingFrom(words: unknown, id: Id, quote: unknown, source: NameBinding['source'], why?: string): NameBinding | null {
   const w = String(words || '').trim().slice(0, 80);
   const k = nameKey(w);
-  if (k.length < 2 || PRONOUN.test(k) || !id) return null;
+  if (k.length < 2 || PRONOUN.test(k) || POINTER.test(k) || !id) return null;
   return { words: w, id, quote: String(quote || w).slice(0, 200), source, ...(why ? { why: why.slice(0, 300) } : {}) };
 }

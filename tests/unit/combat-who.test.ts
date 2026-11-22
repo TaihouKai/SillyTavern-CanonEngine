@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { reduce } from '../../src/core/domain/reducer';
 import { WorldIndex } from '../../src/core/domain/world-query';
 import { fightFromMessage, fightNow, identifyInFight, walkCombat, type FightOut } from '../../src/core/combat';
+import { whoCandidates } from '../../src/core/combat/who';
+import { ordinary } from './helpers';
 import type { ModelPort } from '../../src/core/runtime/model';
 import type { LedgerRecord } from '../../src/core/domain/types';
 import { demoRaw, load, T } from './helpers';
@@ -115,5 +117,19 @@ describe('who and what the message brings into a fight', () => {
     const none = port({ people: [] });
     expect(await identifyInFight({ port: none, index: idx, fight: { state: 'none' }, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't' })).toEqual({ notes: [], names: [] });
     expect(none.seen).toHaveLength(0);
+  });
+
+  it("CW3 each newcomer gets their best candidates in turn (live: a thief's eight filled the list and the twin-tailed girl's best, 白井黑子, was never offered)", () => {
+    const raw = demoRaw() as any;
+    const person = (id: string, text: string) => ({ id, name: id, aliases: [], kind: 'person', static_description: text, source_refs: raw.entities.find((e: any) => e.id === 'mira').source_refs });
+    for (let i = 0; i < 8; i++) raw.entities.push(person(`near${i}`, 'a sailor of the harbor'));
+    for (let i = 0; i < 10; i++) raw.entities.push(person(`thief${i}`, `a pickpocket thief who robs bags with a knife number ${i}`));
+    raw.entities.push(person('twintail', 'a twin-tailed girl of the guard who teleports out of thin air and kicks'));
+    const L = load(ordinary(raw));
+    const idx = new WorldIndex(L, reduce(L, []));
+    const got = whoCandidates(idx, ['a thief robs a bag with a knife', 'a twin-tailed girl teleports out of thin air and kicks'], [], Array.from({ length: 8 }, (_, i) => `near${i}`));
+    expect(got).toContain('twintail');
+    expect(got.filter((x) => x.startsWith('thief')).length).toBeGreaterThanOrEqual(4);
+    expect(got.slice(0, 8)).toEqual(Array.from({ length: 8 }, (_, i) => `near${i}`));
   });
 });

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.49.3 — 2026-11-22 (pack 7.1.1)
+
+- **Each newcomer of a fight gets their own candidates.** A thief and a twin-tailed girl of 风纪委员 who appeared out of thin air came into the same fight. The list of people they might be has 16 places: the people near the story took 8, and the thief's best took the other 8. 白井黑子, the girl's best match, was never offered, so the girl was taken for someone else (炸纺). Each newcomer now gets their best in turn, and keeps at least four places of their own.
+- **称呼: words that only point are not written down.** 「那家伙」 and 「这位先生」 had been written down as 滨面. Words made only of a demonstrative and a word for anyone (那家伙, 这位先生, that guy) say nothing about whom they mean, and are now left out like pronouns. Words the reading calls something other than a person, place, object or organization (the player's power 「光之实体」) no longer mean a person.
+
 ## 1.49.2 — 2026-11-22 (pack 7.1.1)
 
 - **称呼: only words that describe someone or are another name of theirs, of the right kind.** The reading of the player's message called 「公园的自动贩卖机」 the park "directly" (the machine is in the park), and the words were written down as the park. The next message's 「机器」 was then the park too. Words are now written down only when the reading calls them a description or another name (never "direct" words that are no name of theirs). They must also be of the kind the reading says the words are: the reading of the player's message now says what each phrase is (a person, place, object or organization), as the reading of the reply already did. The reading is also told that a candidate is the entity the phrase is, never one it is only in or near.

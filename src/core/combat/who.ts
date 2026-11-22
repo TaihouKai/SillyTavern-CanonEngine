@@ -71,13 +71,19 @@ function personText(index: WorldIndex, id: Id, lore: LoreEntry[]): string {
 }
 
 /** The people of the world most like the words about each described newcomer, with the ones near the story now
- *  (`near`) always in. */
+ *  (`near`) always in. Each newcomer gets their best in turn: the first's best, the second's best, the first's
+ *  second… (live: a thief and a twin-tailed girl of 风纪委员 who appeared out of thin air; the thief's eight filled the
+ *  list, 白井黑子 — the girl's best — was never offered, and the girl was taken for someone else). */
 export function whoCandidates(index: WorldIndex, words: string[], lore: LoreEntry[], near: Id[] = []): Id[] {
   const L = index.pack;
   const texts = new Map([...L.entities.values()].filter((e) => e.kind === 'person').map((e) => [e.id, grams(personText(index, e.id, lore))]));
-  const picked = words.flatMap((w) => ranked(texts, w, PER_PERSON));
+  const lists = words.map((w) => ranked(texts, w, PER_PERSON));
+  const picked: Id[] = [];
+  for (let i = 0; i < PER_PERSON; i++) for (const l of lists) if (l[i]) picked.push(l[i]);
   const nearPeople = near.filter((id) => L.entities.get(id)?.kind === 'person');
-  return uniq([...nearPeople.slice(0, MAX_CANDIDATES / 2), ...picked]).slice(0, MAX_CANDIDATES);
+  // (more newcomers, more room: each keeps at least four of their own)
+  const max = Math.max(MAX_CANDIDATES, Math.min(MAX_CANDIDATES / 2, nearPeople.length) + 4 * lists.length);
+  return uniq([...nearPeople.slice(0, MAX_CANDIDATES / 2), ...picked]).slice(0, max);
 }
 
 /** The setting's abilities and dangers most like each thing the message shows (its words and what it is), that none

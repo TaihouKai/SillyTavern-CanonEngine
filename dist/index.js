@@ -29724,10 +29724,11 @@ function namesAt(list, tick) {
   return { now, denied };
 }
 var PRONOUN = /^(我|你|您|他|她|它|祂|我们|你们|他们|她们|它们|咱|咱们|自己|对方|其|此人|那人|这人|i|me|you|he|him|she|her|it|they|them|we|us|myself|yourself|himself|herself|themselves)$/i;
+var POINTER = /^(那|这|那个|这个|那位|这位|那名|这名)(家伙|人|位|先生|小姐|女士|男人|女人|男的|女的|少年|少女|男生|女生|孩子|小子|丫头|姑娘|大叔|大姐|老头|小鬼|混蛋|东西)$|^(that|this|the)(guy|man|woman|person|one|girl|boy|kid|lady|gentleman|fellow|bastard)$/i;
 function bindingFrom(words, id, quote, source, why) {
   const w = String(words || "").trim().slice(0, 80);
   const k = nameKey(w);
-  if (k.length < 2 || PRONOUN.test(k) || !id) return null;
+  if (k.length < 2 || PRONOUN.test(k) || POINTER.test(k) || !id) return null;
   return { words: w, id, quote: String(quote || w).slice(0, 200), source, ...why ? { why: why.slice(0, 300) } : {} };
 }
 
@@ -36489,7 +36490,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.49.2";
+var ENGINE_RELEASE = "1.49.3";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -38923,9 +38924,12 @@ function personText(index, id, lore) {
 function whoCandidates(index, words, lore, near = []) {
   const L = index.pack;
   const texts = new Map([...L.entities.values()].filter((e) => e.kind === "person").map((e) => [e.id, grams(personText(index, e.id, lore))]));
-  const picked = words.flatMap((w) => ranked(texts, w, PER_PERSON));
+  const lists = words.map((w) => ranked(texts, w, PER_PERSON));
+  const picked = [];
+  for (let i = 0; i < PER_PERSON; i++) for (const l of lists) if (l[i]) picked.push(l[i]);
   const nearPeople = near.filter((id) => L.entities.get(id)?.kind === "person");
-  return uniq([...nearPeople.slice(0, MAX_CANDIDATES / 2), ...picked]).slice(0, MAX_CANDIDATES);
+  const max = Math.max(MAX_CANDIDATES, Math.min(MAX_CANDIDATES / 2, nearPeople.length) + 4 * lists.length);
+  return uniq([...nearPeople.slice(0, MAX_CANDIDATES / 2), ...picked]).slice(0, max);
 }
 function thingCandidates(index, things, fighters, inFight = []) {
   const L = index.pack;
@@ -41370,7 +41374,8 @@ function peopleOfNow(index, tick = index.state.clock.lo) {
 function bindable(index, mode, kind, words, id) {
   if (mode !== "indirect" && mode !== "alias") return false;
   if (index.isNameOf(words, id)) return false;
-  return !kind || !["person", "place", "object", "organization"].includes(kind) || index.entityKind(id) === kind;
+  const k = index.entityKind(id), four = ["person", "place", "object", "organization"];
+  return !kind || (four.includes(kind) ? k === kind : !four.includes(k));
 }
 function candidateId(index, x) {
   if (index.entityExists(x) || index.pack.events.has(x) || index.state.occurrences.has(x)) return x;

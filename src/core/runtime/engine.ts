@@ -110,7 +110,10 @@ export function peopleOfNow(index: WorldIndex, tick = index.state.clock.lo): Id[
 export function bindable(index: WorldIndex, mode: string | undefined, kind: string | undefined, words: string, id: Id): boolean {
   if (mode !== 'indirect' && mode !== 'alias') return false;
   if (index.isNameOf(words, id)) return false;
-  return !kind || !['person', 'place', 'object', 'organization'].includes(kind) || index.entityKind(id) === kind;
+  // (words that are something else — an ability, "光之实体" — are not a person, place, object or organization: live, the
+  // player's own power was written down as the player character)
+  const k = index.entityKind(id), four = ['person', 'place', 'object', 'organization'];
+  return !kind || (four.includes(kind) ? k === kind : !four.includes(k));
 }
 
 /** An id the model gave: as it is when it is one; else, read as a name ("index-librorum-prohibitorum"), the one entity
