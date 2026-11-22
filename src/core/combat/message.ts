@@ -39,7 +39,8 @@ export function fightFromMessage(out: FightOut | null | undefined, index: WorldI
     const name = String(p.name || '').trim();
     if (!name) continue;
     if (!quoteInText(p.quote, text)) { warnings.push(`fight: new person "${name}" left out (their words are not in the message)`); continue; }
-    const known = index.whoOne(name, { text, extra: names, at });
+    // (a person: 「扎着双马尾的风纪委员少女」 has 风纪委员 in it, and was the organization, live)
+    const known = index.whoOne(name, { text, extra: names, at, kind: 'person' });
     if (known) { byName.set(normalizeName(name), known); continue; }
     const id = `rt.${slug(name)}.${newId('e').slice(2, 8)}`;
     made.push({ id, name, aliases: [], kind: 'person', description: String(p.description || '').slice(0, 300) });
@@ -48,7 +49,7 @@ export function fightFromMessage(out: FightOut | null | undefined, index: WorldI
   const people: Id[] = [];
   for (const x of out.participants || []) {
     const s = String(x).trim();
-    const id = byName.get(normalizeName(s)) ?? index.whoOne(s, { text, extra: names, at });
+    const id = byName.get(normalizeName(s)) ?? index.whoOne(s, { text, extra: names, at, exact: true });
     if (id) people.push(id); else warnings.push(`fight: "${s}" is nobody known (left out)`);
   }
   // everyone new_people brings in is in the fight, however participants calls them (live: the thugs of an ambush were

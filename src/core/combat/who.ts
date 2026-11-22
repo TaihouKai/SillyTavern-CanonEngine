@@ -151,7 +151,7 @@ export async function identifyInFight(a: {
     call(p, by[0], `holds ${a.index.entityName(obj.id)}, which ${a.index.entityName(by[0])} holds now`);
     notes.push(`fight: "${p.name}" is ${a.index.entityName(by[0])} (holds ${a.index.entityName(obj.id)})`);
   }
-  const fresh = (f.new_people || []).filter((p) => String(p.name || '').trim() && quoteInText(p.quote, a.text) && a.index.whoIs(p.name, { text: a.text, extra: a.known, at: a.at }).length !== 1);
+  const fresh = (f.new_people || []).filter((p) => String(p.name || '').trim() && quoteInText(p.quote, a.text) && a.index.whoIs(p.name, { text: a.text, extra: a.known, at: a.at, kind: 'person' }).length !== 1);
   const fighters = uniq([...(a.player ? [a.player.id] : []), ...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...(f.state === 'continues' && now.ongoing ? now.participants : [])]);
   const people = fresh.length ? whoCandidates(a.index, fresh.map((p) => `${p.name} ${p.description || ''} ${p.quote}`), a.lore, a.near).filter((id) => !fighters.includes(id)) : [];
   const shown = (f.things || []).filter((t) => quoteInText(t.quote, a.text)).slice(0, 12);

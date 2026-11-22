@@ -132,4 +132,18 @@ describe('who and what the message brings into a fight', () => {
     expect(got.filter((x) => x.startsWith('thief')).length).toBeGreaterThanOrEqual(4);
     expect(got.slice(0, 8)).toEqual(Array.from({ length: 8 }, (_, i) => `near${i}`));
   });
+
+  it('CW4 a newcomer whose words have an organization in them is a person, not the organization (live: 「扎着双马尾的风纪委员少女」 fought as 风纪委员)', async () => {
+    const L = pack();
+    const idx = new WorldIndex(L, reduce(L, []));
+    const text = 'A guard of the Council steps in and blocks my blow.';
+    const f: FightOut = { state: 'starts', participants: ['union', 'a guard of the Council'], new_people: [{ name: 'a guard of the Council', description: 'a guard', quote: 'A guard of the Council steps in' }], why: 'x' };
+    const p = port({ people: [] });
+    await identifyInFight({ port: p, index: idx, fight: f, text, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't' });
+    expect(p.seen.map((x) => x.task)).toEqual(['combat_who']);
+    const { records } = fightFromMessage(f, idx, text, [], { lo: T(0, 9), hi: T(0, 9), precision: 'minute' }, null);
+    const fighters = (records[0] as any).fight.participants as string[];
+    expect(fighters).not.toContain('council');
+    expect(records[0].runtimeEntities!.map((e) => e.name)).toEqual(['a guard of the Council']);
+  });
 });

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.49.4 — 2026-11-22 (pack 7.1.1)
+
+- **A newcomer whose words have an organization in them is a person.** 「扎着双马尾的风纪委员少女」 has 风纪委员 in it. The loose name match took her for the organization, which then fought in her place, and nobody asked who she was. This mistake is older than 称呼. A fight's newcomer is now only ever a person, and the people a fight names are found by exact name. A newcomer the reply introduces is someone known only if that one is of the same kind.
+- **What the reading of the reply finds is kept only for someone in the scene.** The reply's 「御坂美琴的妹妹」 meant the goggled sister standing right there, but the reading took it for 最后之作, who was nowhere near. That mistake was written down. The reading's words for someone are now written down only if the review finds that one in the scene: present, part of it, or in what happens in it. The review's own finding (a newcomer who is someone known) always stands.
+
 ## 1.49.3 — 2026-11-22 (pack 7.1.1)
 
 - **Each newcomer of a fight gets their own candidates.** A thief and a twin-tailed girl of 风纪委员 who appeared out of thin air came into the same fight. The list of people they might be has 16 places: the people near the story took 8, and the thief's best took the other 8. 白井黑子, the girl's best match, was never offered, so the girl was taken for someone else (炸纺). Each newcomer now gets their best in turn, and keeps at least four places of their own.

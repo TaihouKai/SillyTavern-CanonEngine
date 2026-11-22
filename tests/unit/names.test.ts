@@ -247,4 +247,27 @@ describe('称呼 in play', () => {
     await y.engine.runOperation('normal');
     expect(y.engine.current!.index.namesNow().map((n) => [n.words, n.id]).sort()).toEqual([['a stranger in a grey coat', 'mira'], ['the old docks', 'harbor']]);
   });
+
+  it('NM13 a newcomer of the reply whose words have someone else in them is not that one unless of the same kind', async () => {
+    const y = await game();
+    y.host.addUser('I look around.');
+    y.model.draft('A clerk of the Council nods. [NM13]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[NM13]'), { scene_end: at(1, 9, 5), new_entities: [{ ref: 'n1', name: 'a clerk of the Council', kind: 'person', description: 'a clerk', quote: 'A clerk of the Council nods' }] });
+    await y.engine.runOperation('normal');
+    expect([...y.engine.current!.replay.state.runtimeEntities.values()].map((e) => e.name)).toContain('a clerk of the Council');
+  });
+
+  it("NM14 what the reading of the reply found is written down only of someone the review finds in the scene (live: the goggled sister's 「御坂美琴的妹妹」 was taken for 最后之作, nowhere near)", async () => {
+    const play = async (present: string[]) => {
+      const y = await game();
+      y.host.addUser('I look around.');
+      y.model.draft('The old doctor smiles. [NM14]');
+      y.model.on('discover', (i) => String(i.text).includes('[NM14]'), { references: [{ id: 'r1', quote: 'The old doctor', phrase: 'the old doctor', ref_kind: 'person', mode: 'indirect', assertion: 'narrator', temporal: 'present', candidate_ids: ['mira'] }], claims: [] });
+      y.model.on('evaluate', (i) => String(i.candidate).includes('[NM14]'), { scene_end: at(1, 9, 5), present });
+      await y.engine.runOperation('normal');
+      return y.engine.current!.index.whoIs('the old doctor');
+    };
+    expect(await play([])).toEqual([]);
+    expect(await play(['mira'])).toEqual(['mira']);
+  });
 });

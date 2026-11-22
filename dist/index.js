@@ -36490,7 +36490,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.49.3";
+var ENGINE_RELEASE = "1.49.4";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -38549,7 +38549,7 @@ function fightFromMessage(out, index, text, src, st, playerId, names = [], at) {
       warnings.push(`fight: new person "${name2}" left out (their words are not in the message)`);
       continue;
     }
-    const known = index.whoOne(name2, { text, extra: names, at });
+    const known = index.whoOne(name2, { text, extra: names, at, kind: "person" });
     if (known) {
       byName.set(normalizeName(name2), known);
       continue;
@@ -38561,7 +38561,7 @@ function fightFromMessage(out, index, text, src, st, playerId, names = [], at) {
   const people = [];
   for (const x of out.participants || []) {
     const s = String(x).trim();
-    const id = byName.get(normalizeName(s)) ?? index.whoOne(s, { text, extra: names, at });
+    const id = byName.get(normalizeName(s)) ?? index.whoOne(s, { text, extra: names, at, exact: true });
     if (id) people.push(id);
     else warnings.push(`fight: "${s}" is nobody known (left out)`);
   }
@@ -38978,7 +38978,7 @@ async function identifyInFight(a) {
     call(p, by[0], `holds ${a.index.entityName(obj.id)}, which ${a.index.entityName(by[0])} holds now`);
     notes.push(`fight: "${p.name}" is ${a.index.entityName(by[0])} (holds ${a.index.entityName(obj.id)})`);
   }
-  const fresh = (f.new_people || []).filter((p) => String(p.name || "").trim() && quoteInText(p.quote, a.text) && a.index.whoIs(p.name, { text: a.text, extra: a.known, at: a.at }).length !== 1);
+  const fresh = (f.new_people || []).filter((p) => String(p.name || "").trim() && quoteInText(p.quote, a.text) && a.index.whoIs(p.name, { text: a.text, extra: a.known, at: a.at, kind: "person" }).length !== 1);
   const fighters = uniq([...a.player ? [a.player.id] : [], ...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...f.state === "continues" && now.ongoing ? now.participants : []]);
   const people = fresh.length ? whoCandidates(a.index, fresh.map((p) => `${p.name} ${p.description || ""} ${p.quote}`), a.lore, a.near).filter((id) => !fighters.includes(id)) : [];
   const shown = (f.things || []).filter((t2) => quoteInText(t2.quote, a.text)).slice(0, 12);
@@ -39602,8 +39602,7 @@ function runGate(g) {
       }
       continue;
     }
-    const ids = index.whoIs(ne.name, { text, extra: names, at });
-    const existing = ids.find((id2) => index.entityKind(id2) === ne.kind) ?? ids[0];
+    const existing = index.whoIs(ne.name, { text, extra: names, at }).find((id2) => index.entityKind(id2) === ne.kind || !index.entityExists(id2) && ne.kind === "person");
     if (existing) {
       refToId.set(ne.ref, existing);
       refToId.set(ne.name, existing);
@@ -40332,7 +40331,16 @@ function runGate(g) {
       if (fr) sceneFrame = fr;
     }
   }
-  const named = namingRecord(names.filter((n) => entityKnown(n.id)), { lo: sceneEnd.lo, hi: sceneEnd.lo, precision: sceneEnd.precision }, [], (id) => index.entityName(id));
+  const inScene = /* @__PURE__ */ new Set([
+    ...sceneEntities,
+    ...present,
+    ...places,
+    ...records.flatMap((r) => (r.occurrences || []).flatMap((o) => [...o.actors, ...o.affected, ...o.locations])),
+    ...stateClaims.map((c) => c.entity_id),
+    ...[...refToId.values()]
+  ]);
+  const fromReading = new Set(g.names || []);
+  const named = namingRecord(names.filter((n) => entityKnown(n.id) && (!fromReading.has(n) || inScene.has(n.id))), { lo: sceneEnd.lo, hi: sceneEnd.lo, precision: sceneEnd.precision }, [], (id) => index.entityName(id));
   if (named) records.push(named);
   const frameNow = g.index.state.sceneFrame?.frameId || MAIN_FRAME;
   if (sceneFrame && sceneFrame !== frameNow) {

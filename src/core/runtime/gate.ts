@@ -225,8 +225,8 @@ export function runGate(g: GateInput): GateResult {
     }
     // someone the words already mean is not new (live: the blond thug the fight knew as 滨面 became a new person
     // 「金发混混」 of the reply): renaming or duplicating a known identity cannot bypass its history (W17)
-    const ids = index.whoIs(ne.name, { text, extra: names, at });
-    const existing = ids.find((id) => index.entityKind(id) === ne.kind) ?? ids[0];
+    // (of the same kind: a newcomer 「扎着双马尾的风纪委员少女」 is not the organization her words have in them)
+    const existing = index.whoIs(ne.name, { text, extra: names, at }).find((id) => index.entityKind(id) === ne.kind || (!index.entityExists(id) && ne.kind === 'person'));
     if (existing) {
       refToId.set(ne.ref, existing);
       refToId.set(ne.name, existing);
@@ -904,7 +904,13 @@ export function runGate(g: GateInput): GateResult {
       if (fr) sceneFrame = fr;
     }
   }
-  const named = namingRecord(names.filter((n) => entityKnown(n.id)), { lo: sceneEnd.lo, hi: sceneEnd.lo, precision: sceneEnd.precision }, [], (id) => index.entityName(id));
+  // what the reading of the reply found is written down only of someone the review finds in the scene (here, part of
+  // it, or in what happens in it): live, the reading took the reply's 「御坂美琴的妹妹」 — the goggled sister right there
+  // — for 最后之作, who was nowhere near; the review's own finding (a newcomer who is someone known) always stands
+  const inScene = new Set<Id>([...sceneEntities, ...present, ...places, ...records.flatMap((r) => (r.occurrences || []).flatMap((o) => [...o.actors, ...o.affected, ...o.locations])),
+    ...stateClaims.map((c) => c.entity_id), ...[...refToId.values()]]);
+  const fromReading = new Set(g.names || []);
+  const named = namingRecord(names.filter((n) => entityKnown(n.id) && (!fromReading.has(n) || inScene.has(n.id))), { lo: sceneEnd.lo, hi: sceneEnd.lo, precision: sceneEnd.precision }, [], (id) => index.entityName(id));
   if (named) records.push(named);
   const frameNow = g.index.state.sceneFrame?.frameId || MAIN_FRAME;
   if (sceneFrame && sceneFrame !== frameNow) {
