@@ -880,9 +880,17 @@ export class CanonEngine {
     const known = read.map((x) => x.b);
     const names: NameBinding[] = read.filter((x) => bindable(index, x.r.mode, x.r.ref_kind, x.b.words, x.b.id)).map((x) => x.b);
     // 战斗: the fight as this message starts, goes on with or ends it (combat/message.ts); someone it brings in without
-    // a name may be a person of the world, something in it a thing of the setting (combat/who.ts)
+    // a name may be a person of the world, something in it a thing of the setting (combat/who.ts). Outside a fight the
+    // people it describes whom the reading could not say are asked about too (live: a thug with 滨面's gun, no fight yet).
+    const fightIn: FightOut = out.fight && out.fight.state !== 'none' ? out.fight : { ...(out.fight || {}), state: 'none' };
+    if (fightIn.state === 'none') {
+      const had = fightIn.new_people || [];
+      const unsaid = out.references.filter((r) => r.kind === 'entity' && r.ref_kind === 'person' && r.mode === 'indirect' && !(r.candidates || []).length && quoteInText(r.quote, entry.text)
+        && !had.some((p) => String(p.quote || '').includes(r.phrase) || String(r.quote).includes(String(p.name || ''))));
+      if (unsaid.length) fightIn.new_people = [...had, ...unsaid.map((r) => ({ name: r.phrase, description: r.phrase, quote: r.quote }))];
+    }
     const who = await identifyInFight({
-      port: this.host.model, index, fight: out.fight, text: entry.text, timeLabel: formatTick(tick, origin), lore: await this.gameLore(),
+      port: this.host.model, index, fight: fightIn, text: entry.text, timeLabel: formatTick(tick, origin), lore: await this.gameLore(),
       near: uniq([...peopleOfNow(index), ...(extractInput.registry.entities as string[]).map((l) => l.split(' | ')[0])]), signal, operationId, log: (l) => this.debugLog('task', l),
       player: prof ? { id: prof.profile.playerId } : null, known, at,
     });

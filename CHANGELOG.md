@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.49.7 — 2026-11-22 (pack 7.1.1)
+
+- **Who a newcomer is, outside a fight too.** Two thugs blocked the player's way, and one of them held the gun 滨面 held at that moment. Nobody had fought yet, so nobody asked who he was. The reply then made him a new person 「金发刺猬头混混」, and the next turn's gun was "his" against the world's 滨面. The people the player's message describes are now told apart whether or not a fight is under way. This covers a fight's newcomers and the people the reading described but could not name: by the message's own references, by what they hold, or by asking with candidates. Only things at work in a fight are left to fights. A newcomer the reply introduces holding an object the world says someone holds now is that someone, unless the reply also names them separately.
+
 ## 1.49.6 — 2026-11-22 (pack 7.1.1)
 
 - **称呼: a bare word for a kind of person is not written down.** The reply's 「混混」 was written down as 滨面, so the next thug in the scene would have been him too. A description now stands for someone only if it says more than a kind: at least three CJK characters or two words (「金发混混」, "the blond thug"). A nickname is another name and is kept as it is.

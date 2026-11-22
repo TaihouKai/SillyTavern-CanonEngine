@@ -9,7 +9,7 @@
 //   review  — the reply held to the ruling; states and GM-started fights recorded
 //   panel   — the timeline window's view and its edits
 export { indexCombat, lintCombat, type CombatIndex } from './graph';
-export { applyCombat, emptyCombatState, fightNow, knowsNode, linksOf, statusesOf, styleOf, walkCombat, type CombatState, type Replayed } from './state';
+export { applyCombat, emptyCombatState, fightNow, holderOf, knowsNode, linksOf, statusesOf, styleOf, walkCombat, type CombatState, type Replayed } from './state';
 export { fightFromMessage, fightNowInput, type FightOut } from './message';
 export { identifyInFight } from './who';
 export { DEFAULT_COMBAT, judgeFight, loreAbout, rulingRecord, type CombatSettings, type PlayerOutcome, type Ruling, type RulingExchange } from './judge';

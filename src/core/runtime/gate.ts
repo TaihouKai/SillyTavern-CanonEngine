@@ -11,7 +11,7 @@ import { applyChange, deltaMeets, deltaText, outcomeDelta, withPackEnd } from '.
 import type { WorldIndex } from '../domain/world-query';
 import { toTick, formatTick } from '../domain/time';
 import type { TimeEvidence } from './scenetime';
-import { gateCombat, type CombatEvalOut, type CombatReview } from '../combat';
+import { gateCombat, holderOf, type CombatEvalOut, type CombatReview } from '../combat';
 import { gateHostility, type HostilityEvalOut, type HostilityReview } from '../hostility';
 import { isDue, nearHard, pendingHard } from '../domain/schedule';
 import { breaksSceneBox, newId, quoteInText, sceneRoot, uniq } from '../domain/util';
@@ -232,6 +232,23 @@ export function runGate(g: GateInput): GateResult {
       refToId.set(ne.name, existing);
       warnings.push(`"${ne.name}" is ${index.entityName(existing)} (${existing}); not registered as new`);
       continue;
+    }
+    // someone new with an object in hand that the world says someone holds now is that one, unless the reply names
+    // them besides (live: the thug with the gun 滨面 held was a new person 「金发刺猬头混混」, and the gun then in
+    // nobody's hands as the story had it)
+    if (ne.kind === 'person') {
+      const words = `${ne.name} ${ne.quote} ${ne.description || ''}`;
+      const by = uniq(index.scanEntities(words).filter((m) => index.entityKind(m.id) === 'object').map((m) => holderOf(pack, index.state, m.id))
+        .filter((h): h is Id => !!h && h !== g.playerId && index.entityKind(h) === 'person'));
+      const plain = normalizeName(text);
+      if (by.length === 1 && !index.allNames(by[0]).some((n) => normalizeName(n).length >= 2 && plain.includes(normalizeName(n)))) {
+        refToId.set(ne.ref, by[0]);
+        refToId.set(ne.name, by[0]);
+        const b = describes(ne.name) ? bindingFrom(ne.name, by[0], ne.quote, 'reply', `holds what ${index.entityName(by[0])} holds now`) : null;
+        if (b) names.push(b);
+        warnings.push(`"${ne.name}" is ${index.entityName(by[0])}: holds what they hold now; not registered as new`);
+        continue;
+      }
     }
     const id = `rt.${slug(ne.name)}.${newId('e').slice(2, 8)}`;
     runtimeEntities.push({ id, name: ne.name, aliases: [], kind: ne.kind, description: ne.description });

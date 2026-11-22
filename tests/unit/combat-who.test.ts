@@ -146,4 +146,17 @@ describe('who and what the message brings into a fight', () => {
     expect(fighters).not.toContain('council');
     expect(records[0].runtimeEntities!.map((e) => e.name)).toEqual(['a guard of the Council']);
   });
+
+  it("CW5 outside a fight the message's described people are told apart too, and nothing is asked about things at work", async () => {
+    const L = pack();
+    const idx = new WorldIndex(L, reduce(L, []));
+    const f: FightOut = { state: 'none', new_people: [{ name: 'medic woman', description: "a woman in a medic's coat", quote: "A woman in a medic's coat" }], things: [{ quote: 'a canister of tear gas hisses open', what: 'tear gas' }] };
+    const p = port({ people: [{ name: 'medic woman', id: 'mira', why: 'a medic' }] });
+    const { names } = await identifyInFight({ port: p, index: idx, fight: f, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't' });
+    expect(p.seen[0].input.seen).toBeUndefined();
+    expect(names).toMatchObject([{ words: 'medic woman', id: 'mira', source: 'player' }]);
+    const none = port({ people: [] });
+    expect(await identifyInFight({ port: none, index: idx, fight: { state: 'none' }, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't' })).toEqual({ notes: [], names: [] });
+    expect(none.seen).toHaveLength(0);
+  });
 });

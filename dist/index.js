@@ -36145,7 +36145,7 @@ Input: basis (what this world runs on by default); fighters (id, name, called \u
 7. over: true when the fight ends this turn (someone beaten, fled, surrendered, both stop); over_why.
 8. reasoning (write it first): how you ruled, for the player to read \u2014 what decides the exchanges, the player's outcomes and the end: which nodes, sources or \u5BF9\u6297\u503E\u5411 and why, and where only judgement decided. Plainly, a few sentences, in the language of the player's message.
 SHAPE: {"reasoning":"","joins":[],"player_outcomes":[{"quote":"","stands":true,"basis":[{"ref":"","quote":""}],"why":""}],"exchanges":[{"actor":"","text":"","basis":[{"ref":"","quote":""}],"unsupported":false}],"statuses":[{"who":"","text":"","count":null,"until":"lasting","node":null,"removed":false,"replaces":null,"quote":""}],"witnessed":[{"node":"","part":null,"who":[]}],"handovers":[{"object":"","to":null,"quote":""}],"stops":[{"node":"","how":"destroyed","why":""}],"over":false,"over_why":"","stop_at":""}`;
-var COMBAT_WHO_TASK = `TASK: The player's message is part of a fight. Say what in it is of this world, though the message does not name it.
+var COMBAT_WHO_TASK = `TASK: The player's message brings people into the scene (often a fight). Say what in it is of this world, though the message does not name it.
 1. people: for each of new_people (people the message brings in without a name: how it calls them, its words about them), whether they are one of the candidates \u2014 people of this world, with what the setting and the user's lorebook say about them. id: a candidate's id when the message's words clearly fit that person: their looks, the ability or equipment the message shows, what they do or say, together with the time and the place, where that person could be then. null when nobody fits clearly, when two candidates fit as well, or when the words fit anyone (a thug, a passer-by, a girl in a uniform): a stranger the player made up stays a stranger, and a common look alone never makes them someone known. why: one short sentence.
 2. things: for each of seen (n: the message's words about something at work in the fight, and what it was read as), which of things (id | name | gist, of the setting; none is any fighter's own: fighters lists what each has) it is. id: one of things when the words clearly fit it (what it does, how it looks or sounds) and it is at work in this fight \u2014 a device running, a weapon or object someone uses, a field or effect on the place. null when none fits clearly, when it is only talked about, when it is what a fighter does with their own powers (the player character's too), or when it is what a fighter has or a candidate you name has (their own weapon or device comes with them: a thing that only looks like it is not meant). why: one short sentence.
 SHAPE: {"people":[{"name":"","id":null,"why":""}],"things":[{"seen":1,"id":null,"why":""}]}`;
@@ -36496,7 +36496,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.49.6";
+var ENGINE_RELEASE = "1.49.7";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -38952,11 +38952,12 @@ async function identifyInFight(a) {
   const f = a.fight;
   const L = a.index.pack;
   const names = [];
-  if (!f || f.state !== "starts" && f.state !== "continues" || L.combat.none !== null) return { notes: [], names };
+  const fighting = !!f && (f.state === "starts" || f.state === "continues");
+  if (!f || !fighting && !f.new_people?.length || L.combat.none !== null) return { notes: [], names };
   const now = fightNow(a.index.state);
   const notes = [];
   const call = (p, id, why) => {
-    const b = describes(String(p.name || "")) ? bindingFrom(p.name, id, p.quote, "fight", why) : null;
+    const b = describes(String(p.name || "")) ? bindingFrom(p.name, id, p.quote, fighting ? "fight" : "player", why) : null;
     if (b) names.push(b);
   };
   const same = (x, y) => !!x && !!y && (normalizeName(x) === normalizeName(y) || y.length >= 4 && x.includes(y) || x.length >= 4 && y.includes(x));
@@ -38987,7 +38988,7 @@ async function identifyInFight(a) {
   const fresh = (f.new_people || []).filter((p) => String(p.name || "").trim() && quoteInText(p.quote, a.text) && a.index.whoIs(p.name, { text: a.text, extra: a.known, at: a.at, kind: "person" }).length !== 1);
   const fighters = uniq([...a.player ? [a.player.id] : [], ...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...f.state === "continues" && now.ongoing ? now.participants : []]);
   const people = fresh.length ? whoCandidates(a.index, fresh.map((p) => `${p.name} ${p.description || ""} ${p.quote}`), a.lore, a.near).filter((id) => !fighters.includes(id)) : [];
-  const shown = (f.things || []).filter((t2) => quoteInText(t2.quote, a.text)).slice(0, 12);
+  const shown = fighting ? (f.things || []).filter((t2) => quoteInText(t2.quote, a.text)).slice(0, 12) : [];
   const things = thingCandidates(a.index, shown.map((t2) => `${t2.what || ""} ${t2.quote}`), fighters, now.ongoing ? now.things.map((t2) => t2.node) : []);
   if (!people.length && !things.length) return { notes, names };
   let out;
@@ -39614,6 +39615,19 @@ function runGate(g) {
       refToId.set(ne.name, existing);
       warnings.push(`"${ne.name}" is ${index.entityName(existing)} (${existing}); not registered as new`);
       continue;
+    }
+    if (ne.kind === "person") {
+      const words = `${ne.name} ${ne.quote} ${ne.description || ""}`;
+      const by = uniq(index.scanEntities(words).filter((m) => index.entityKind(m.id) === "object").map((m) => holderOf(pack2, index.state, m.id)).filter((h) => !!h && h !== g.playerId && index.entityKind(h) === "person"));
+      const plain = normalizeName(text);
+      if (by.length === 1 && !index.allNames(by[0]).some((n) => normalizeName(n).length >= 2 && plain.includes(normalizeName(n)))) {
+        refToId.set(ne.ref, by[0]);
+        refToId.set(ne.name, by[0]);
+        const b = describes(ne.name) ? bindingFrom(ne.name, by[0], ne.quote, "reply", `holds what ${index.entityName(by[0])} holds now`) : null;
+        if (b) names.push(b);
+        warnings.push(`"${ne.name}" is ${index.entityName(by[0])}: holds what they hold now; not registered as new`);
+        continue;
+      }
     }
     const id = `rt.${slug3(ne.name)}.${newId("e").slice(2, 8)}`;
     runtimeEntities.push({ id, name: ne.name, aliases: [], kind: ne.kind, description: ne.description });
@@ -42137,10 +42151,16 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
     const read = refsOne.map((r) => ({ r, b: bindingFrom(r.phrase, r.candidates[0], r.quote, "player") })).filter((x) => !!x.b);
     const known = read.map((x) => x.b);
     const names = read.filter((x) => bindable(index, x.r.mode, x.r.ref_kind, x.b.words, x.b.id)).map((x) => x.b);
+    const fightIn = out.fight && out.fight.state !== "none" ? out.fight : { ...out.fight || {}, state: "none" };
+    if (fightIn.state === "none") {
+      const had = fightIn.new_people || [];
+      const unsaid = out.references.filter((r) => r.kind === "entity" && r.ref_kind === "person" && r.mode === "indirect" && !(r.candidates || []).length && quoteInText(r.quote, entry.text) && !had.some((p) => String(p.quote || "").includes(r.phrase) || String(r.quote).includes(String(p.name || ""))));
+      if (unsaid.length) fightIn.new_people = [...had, ...unsaid.map((r) => ({ name: r.phrase, description: r.phrase, quote: r.quote }))];
+    }
     const who = await identifyInFight({
       port: this.host.model,
       index,
-      fight: out.fight,
+      fight: fightIn,
       text: entry.text,
       timeLabel: formatTick(tick, origin),
       lore: await this.gameLore(),

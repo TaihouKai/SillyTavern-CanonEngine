@@ -414,6 +414,41 @@ describe('a thing the story keeps is not destroyed in a fight', () => {
 });
 
 describe('what an event of now hands someone', () => {
+  it("AS11b outside a fight too: the player's newcomer with Mira's hook is Mira; the reply's newcomer with it is her, unless the reply names her besides", async () => {
+    const raw = harbor();
+    raw.initial_state.facts.push({ fact: { entity_id: 'hook', predicate: 'holder', value: 'mira' }, source_refs: ['example-source'], note: 'x' });
+    const y = makeEngine();
+    (y.host as any).persona = () => ({ name: 'Ash', description: PERSONA });
+    y.model.on('profile', null, PROFILE);
+    y.model.on('persona_abilities', null, { abilities: [], setting: [] });
+    await y.engine.bind(JSON.stringify(raw), { startTick: tick(1, 6, 0), mode: 'new' });
+    await y.engine.reconcile('test');
+    const m1 = 'A woman with the cargo hook blocks the pier and asks me for money.';
+    y.host.addUser(m1);
+    y.model.on('extract_user', (i) => i.message === m1, {
+      references: [{ phrase: 'cargo hook', quote: 'the cargo hook', kind: 'entity', mode: 'direct', ref_kind: 'object', candidates: ['hook'] }, { phrase: 'a woman with the cargo hook', quote: 'A woman with the cargo hook', kind: 'entity', mode: 'indirect', ref_kind: 'person', candidates: [] }],
+      fight: { state: 'none' } }, true);
+    y.model.draft('She waits. [AS11b]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[AS11b]'), { scene_end: at(1, 6, 5) });
+    await y.engine.runOperation('normal');
+    expect(y.engine.current!.index.whoIs('a woman with the cargo hook')).toEqual(['mira']);
+    expect(y.model.tasks('combat_who')).toHaveLength(0);
+    // the reply's newcomer with the hook
+    const m2 = 'I look at the dock.';
+    y.host.addUser(m2);
+    y.model.draft('A tall docker with the cargo hook spits. [AS11c]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[AS11c]'), { scene_end: at(1, 6, 10), new_entities: [{ ref: 'n1', name: 'a tall docker', kind: 'person', description: 'holds the cargo hook', quote: 'A tall docker with the cargo hook spits' }] });
+    await y.engine.runOperation('normal');
+    expect([...y.engine.current!.replay.state.runtimeEntities.values()].map((e) => e.name)).not.toContain('a tall docker');
+    expect(y.engine.current!.index.whoIs('a tall docker')).toEqual(['mira']);
+    const m3 = 'I look again.';
+    y.host.addUser(m3);
+    y.model.draft('Mira points; a stout docker with the cargo hook nods. [AS11d]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[AS11d]'), { scene_end: at(1, 6, 15), new_entities: [{ ref: 'n1', name: 'a stout docker', kind: 'person', description: 'holds the cargo hook', quote: 'a stout docker with the cargo hook nods' }] });
+    await y.engine.runOperation('normal');
+    expect([...y.engine.current!.replay.state.runtimeEntities.values()].map((e) => e.name)).toContain('a stout docker');
+  });
+
   it('AS13 the hook an event about to happen hands Mira, before the world says so: the newcomer with it is Mira, she holds it in the fight, and it can be taken from her', async () => {
     const raw = harbor();
     raw.events.find((e) => e.id === 'medic-ambush')!.canonical_effects.push({ op: 'set', fact: { entity_id: 'hook', predicate: 'holder', value: 'mira' }, until: 'lasting' });

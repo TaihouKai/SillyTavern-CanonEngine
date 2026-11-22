@@ -120,10 +120,14 @@ export async function identifyInFight(a: {
   const f = a.fight;
   const L = a.index.pack;
   const names: NameBinding[] = [];
-  if (!f || (f.state !== 'starts' && f.state !== 'continues') || L.combat.none !== null) return { notes: [], names };
+  // the people a message brings in are told apart in a fight or not (live: two thugs blocked the player's way, one
+  // with the gun 滨面 held; nobody fought yet, nobody asked who he was, and the reply made him someone new); what is
+  // at work in a fight only in one
+  const fighting = !!f && (f.state === 'starts' || f.state === 'continues');
+  if (!f || (!fighting && !f.new_people?.length) || L.combat.none !== null) return { notes: [], names };
   const now = fightNow(a.index.state);
   const notes: string[] = [];
-  const call = (p: { name?: string; quote?: string }, id: Id, why: string) => { const b = describes(String(p.name || '')) ? bindingFrom(p.name, id, p.quote, 'fight', why) : null; if (b) names.push(b); };
+  const call = (p: { name?: string; quote?: string }, id: Id, why: string) => { const b = describes(String(p.name || '')) ? bindingFrom(p.name, id, p.quote, fighting ? 'fight' : 'player', why) : null; if (b) names.push(b); };
   // a newcomer the reading already resolved is that person (live: the man in a white suit was among the fighters as
   // the alchemist the reference named, and as a newcomer too, who was then matched to his double)
   const same = (x: string, y: string) => !!x && !!y && (normalizeName(x) === normalizeName(y) || (y.length >= 4 && x.includes(y)) || (x.length >= 4 && y.includes(x)));
@@ -154,7 +158,7 @@ export async function identifyInFight(a: {
   const fresh = (f.new_people || []).filter((p) => String(p.name || '').trim() && quoteInText(p.quote, a.text) && a.index.whoIs(p.name, { text: a.text, extra: a.known, at: a.at, kind: 'person' }).length !== 1);
   const fighters = uniq([...(a.player ? [a.player.id] : []), ...(f.participants || []).map(String).filter((x) => a.index.entityExists(x)), ...(f.state === 'continues' && now.ongoing ? now.participants : [])]);
   const people = fresh.length ? whoCandidates(a.index, fresh.map((p) => `${p.name} ${p.description || ''} ${p.quote}`), a.lore, a.near).filter((id) => !fighters.includes(id)) : [];
-  const shown = (f.things || []).filter((t) => quoteInText(t.quote, a.text)).slice(0, 12);
+  const shown = fighting ? (f.things || []).filter((t) => quoteInText(t.quote, a.text)).slice(0, 12) : [];
   // (only the fighters' own are left out: a candidate's — a device one of them carries — may be what is at work, and
   // live it was: the Capacity Down a gang member holds was never offered for the noise in the gang's ambush)
   const things = thingCandidates(a.index, shown.map((t) => `${t.what || ''} ${t.quote}`), fighters, now.ongoing ? now.things.map((t) => t.node) : []);
