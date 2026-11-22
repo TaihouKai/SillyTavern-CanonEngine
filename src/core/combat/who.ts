@@ -7,7 +7,7 @@
 // The code picks the people and the things of the setting whose texts share the most with the message's words, and
 // a focused call says which of them are meant (combat_who). A stranger the player made up stays a stranger.
 import type { Id, NameBinding } from '../domain/types';
-import { bindingFrom } from '../domain/names';
+import { bindingFrom, describes } from '../domain/names';
 import { normalizeName } from '../domain/pack';
 import type { WorldIndex } from '../domain/world-query';
 import { quoteInText, uniq } from '../domain/util';
@@ -123,7 +123,7 @@ export async function identifyInFight(a: {
   if (!f || (f.state !== 'starts' && f.state !== 'continues') || L.combat.none !== null) return { notes: [], names };
   const now = fightNow(a.index.state);
   const notes: string[] = [];
-  const call = (p: { name?: string; quote?: string }, id: Id, why: string) => { const b = bindingFrom(p.name, id, p.quote, 'fight', why); if (b) names.push(b); };
+  const call = (p: { name?: string; quote?: string }, id: Id, why: string) => { const b = describes(String(p.name || '')) ? bindingFrom(p.name, id, p.quote, 'fight', why) : null; if (b) names.push(b); };
   // a newcomer the reading already resolved is that person (live: the man in a white suit was among the fighters as
   // the alchemist the reference named, and as a newcomer too, who was then matched to his double)
   const same = (x: string, y: string) => !!x && !!y && (normalizeName(x) === normalizeName(y) || (y.length >= 4 && x.includes(y)) || (x.length >= 4 && y.includes(x)));

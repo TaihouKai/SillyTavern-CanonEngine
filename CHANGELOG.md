@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.49.6 — 2026-11-22 (pack 7.1.1)
+
+- **称呼: a bare word for a kind of person is not written down.** The reply's 「混混」 was written down as 滨面, so the next thug in the scene would have been him too. A description now stands for someone only if it says more than a kind: at least three CJK characters or two words (「金发混混」, "the blond thug"). A nickname is another name and is kept as it is.
+
 ## 1.49.5 — 2026-11-22 (pack 7.1.1)
 
 - **称呼: words that only point at a place are not written down.** 「那边」 had been written down as a street. Words such as 那边, 这里 and there are now left out, like 那家伙 and 这位先生.

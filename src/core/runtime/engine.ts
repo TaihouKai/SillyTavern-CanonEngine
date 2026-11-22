@@ -3,7 +3,7 @@
 import { loreFor, type LoreBackground, type LoreEntry } from './lore';
 import type { Persona } from './host';
 import type { AddressForm, Id, LedgerRecord, MindProfile, NameBinding, NatureVersion, StoryTime, Until } from '../domain/types';
-import { bindingFrom } from '../domain/names';
+import { bindingFrom, describes } from '../domain/names';
 import { loadPinnedPack, validatePack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { normalizeName, valuesEqual } from '../domain/pack';
 import { renderSummary, type EventSummary } from '../domain/summary';
@@ -109,7 +109,7 @@ export function peopleOfNow(index: WorldIndex, tick = index.state.clock.lo): Id[
  *  「机器」 the park too) — of the kind the reading says they are (a person, a place, an object, an organization). */
 export function bindable(index: WorldIndex, mode: string | undefined, kind: string | undefined, words: string, id: Id): boolean {
   if (mode !== 'indirect' && mode !== 'alias') return false;
-  if (index.isNameOf(words, id)) return false;
+  if (index.isNameOf(words, id) || (mode === 'indirect' && !describes(words))) return false;
   // (words that are something else — an ability, "光之实体" — are not a person, place, object or organization: live, the
   // player's own power was written down as the player character)
   const k = index.entityKind(id), four = ['person', 'place', 'object', 'organization'];

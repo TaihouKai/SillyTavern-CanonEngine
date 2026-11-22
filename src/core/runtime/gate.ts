@@ -2,7 +2,7 @@
 // player agency, plan transitions, state contradictions, containment and coverage.
 // The evaluator's own verdicts never bypass these checks.
 import type { ContactInfo, FactDelta, FactValue, Id, NameBinding, Occurrence, RuntimeEntity, ScopeKind, SourceRef, StoryTime, Until } from '../domain/types';
-import { bindingFrom } from '../domain/names';
+import { bindingFrom, describes } from '../domain/names';
 import type { LoadedPack } from '../domain/pack';
 import { claimComparable, claimMatches, valuesEqual, coerceClaimValue } from '../domain/pack';
 import { cleanForms, cleanViews } from '../domain/address';
@@ -220,7 +220,7 @@ export function runGate(g: GateInput): GateResult {
       refToId.set(ne.ref, same);
       refToId.set(ne.name, same);
       if (index.state.runtimeEntities.has(same) && index.entityName(same) !== ne.name) renames.push({ id: same, name: ne.name.slice(0, 80) });
-      else if (!index.isNameOf(ne.name, same)) { const b = bindingFrom(ne.name, same, ne.quote, 'reply', 'the review: the same one'); if (b) names.push(b); }
+      else if (!index.isNameOf(ne.name, same) && describes(ne.name)) { const b = bindingFrom(ne.name, same, ne.quote, 'reply', 'the review: the same one'); if (b) names.push(b); }
       continue;
     }
     // someone the words already mean is not new (live: the blond thug the fight knew as 滨面 became a new person

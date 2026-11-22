@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { reduce } from '../../src/core/domain/reducer';
 import { WorldIndex } from '../../src/core/domain/world-query';
-import { SCENE_GAP, bindingFrom } from '../../src/core/domain/names';
+import { SCENE_GAP, bindingFrom, describes } from '../../src/core/domain/names';
 import type { CanonPack, LedgerRecord, NameBinding } from '../../src/core/domain/types';
 import { makeEngine, tick, at } from './fake';
 import { demoRaw, load, ordinary, T } from './helpers';
@@ -63,6 +63,8 @@ describe('称呼: the table', () => {
     expect(bindingFrom('对方', 'mira', '对方', 'player')).toBeNull();
     for (const w of ['那家伙', '这位先生', '那个女人', 'that guy', 'The woman', '那边', '这里', 'over there']) expect(bindingFrom(w, 'mira', w, 'reply')).toBeNull();
     expect(bindingFrom('那个金发女人', 'mira', 'x', 'reply')).not.toBeNull();
+    for (const w of ['混混', '小偷', 'thug', 'girl']) expect(describes(w)).toBe(false);
+    for (const w of ['金发混混', 'the blond thug', '短发JK']) expect(describes(w)).toBe(true);
     expect(bindingFrom('金发混混', 'mira', '一个金发混混', 'fight', 'x')).toEqual({ words: '金发混混', id: 'mira', quote: '一个金发混混', source: 'fight', why: 'x' });
   });
 });
@@ -243,11 +245,13 @@ describe('称呼 in play', () => {
       { phrase: 'a stranger in a grey coat', quote: 'a stranger in a grey coat', kind: 'entity', mode: 'indirect', ref_kind: 'person', candidates: ['mira'] },
       { phrase: 'the old docks', quote: 'the old docks', kind: 'entity', mode: 'indirect', ref_kind: 'place', candidates: ['harbor'] },
       { phrase: 'her healing touch', quote: 'waves', kind: 'entity', mode: 'indirect', ref_kind: 'other', candidates: ['mira'] },
+      { phrase: 'stranger', quote: 'a stranger', kind: 'entity', mode: 'indirect', ref_kind: 'person', candidates: ['mira'] },
+      { phrase: 'Doc', quote: 'waves', kind: 'entity', mode: 'alias', ref_kind: 'person', candidates: ['mira'] },
     ] }, true);
     y.model.draft('Quiet. [NM12]');
     y.model.on('evaluate', (i) => String(i.candidate).includes('[NM12]'), { scene_end: at(1, 9, 5) });
     await y.engine.runOperation('normal');
-    expect(y.engine.current!.index.namesNow().map((n) => [n.words, n.id]).sort()).toEqual([['a stranger in a grey coat', 'mira'], ['the old docks', 'harbor']]);
+    expect(y.engine.current!.index.namesNow().map((n) => [n.words, n.id]).sort()).toEqual([['Doc', 'mira'], ['a stranger in a grey coat', 'mira'], ['the old docks', 'harbor']]);
   });
 
   it('NM13 a newcomer of the reply whose words have someone else in them is not that one unless of the same kind', async () => {

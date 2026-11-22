@@ -29688,6 +29688,12 @@ function claimComparable(pack2, predicate, value) {
 
 // src/core/domain/names.ts
 var SCENE_GAP = 180;
+function describes(words) {
+  const w = String(words || "").normalize("NFKC").trim();
+  const cjk = (w.match(/[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/g) || []).length;
+  const latin = w.replace(/[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/g, " ").split(/[^\p{L}\p{N}]+/u).filter(Boolean).length;
+  return cjk >= 3 || latin >= 2 || cjk >= 2 && latin >= 1;
+}
 var nameKey = (words) => normalizeName(words);
 function applyNames(list, rec, tick) {
   for (const n of rec.names || []) if (String(n.words || "").trim() && n.id) list.push({ ...n, recordId: rec.recordId, seq: rec.sequence, tick });
@@ -36490,7 +36496,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.49.5";
+var ENGINE_RELEASE = "1.49.6";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -38950,7 +38956,7 @@ async function identifyInFight(a) {
   const now = fightNow(a.index.state);
   const notes = [];
   const call = (p, id, why) => {
-    const b = bindingFrom(p.name, id, p.quote, "fight", why);
+    const b = describes(String(p.name || "")) ? bindingFrom(p.name, id, p.quote, "fight", why) : null;
     if (b) names.push(b);
   };
   const same = (x, y) => !!x && !!y && (normalizeName(x) === normalizeName(y) || y.length >= 4 && x.includes(y) || x.length >= 4 && y.includes(x));
@@ -39596,7 +39602,7 @@ function runGate(g) {
       refToId.set(ne.ref, same);
       refToId.set(ne.name, same);
       if (index.state.runtimeEntities.has(same) && index.entityName(same) !== ne.name) renames.push({ id: same, name: ne.name.slice(0, 80) });
-      else if (!index.isNameOf(ne.name, same)) {
+      else if (!index.isNameOf(ne.name, same) && describes(ne.name)) {
         const b = bindingFrom(ne.name, same, ne.quote, "reply", "the review: the same one");
         if (b) names.push(b);
       }
@@ -41381,7 +41387,7 @@ function peopleOfNow(index, tick = index.state.clock.lo) {
 }
 function bindable(index, mode, kind, words, id) {
   if (mode !== "indirect" && mode !== "alias") return false;
-  if (index.isNameOf(words, id)) return false;
+  if (index.isNameOf(words, id) || mode === "indirect" && !describes(words)) return false;
   const k = index.entityKind(id), four = ["person", "place", "object", "organization"];
   return !kind || (four.includes(kind) ? k === kind : !four.includes(k));
 }

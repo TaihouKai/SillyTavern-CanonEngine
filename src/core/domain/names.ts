@@ -15,6 +15,16 @@ export interface NameEntry extends NameBinding { recordId: string; seq: number; 
 /** Words as they stand at a time: whom they mean, from which step, since when and when last used for them. */
 export interface NameNow { key: string; words: string; id: Id; source: NameBinding['source']; quote: string; why?: string; since: number; last: number; recordId: string }
 
+/** Whether words describe someone enough to stand for them: at least three CJK characters or two words. A bare word
+ *  for a kind of person or thing (混混, 小偷, girl) fits anyone of that kind (live: the reply's 「混混」 was written down
+ *  as 滨面, and the next thug would have been him). A nickname is another name, not a description: not asked of it. */
+export function describes(words: string): boolean {
+  const w = String(words || '').normalize('NFKC').trim();
+  const cjk = (w.match(/[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/g) || []).length;
+  const latin = w.replace(/[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/g, ' ').split(/[^\p{L}\p{N}]+/u).filter(Boolean).length;
+  return cjk >= 3 || latin >= 2 || (cjk >= 2 && latin >= 1);
+}
+
 /** Words the player said are not someone (the record that says so). */
 export interface NameDenied { words: string; id: Id; recordId: string; since: number }
 
