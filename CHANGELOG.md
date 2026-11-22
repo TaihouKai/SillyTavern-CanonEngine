@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.48.6 — 2026-11-22 (pack 7.1.1)
+
+- **A link quoted as someone's state.** The ruling cited 「是 level-0」 as what is so of 滨面 (`world:hamazura-shiage`). That line is one of his links, so the basis was dropped. A `world:` basis whose words are one of that person's link lines now counts as that node.
+
 ## 1.48.5 — 2026-11-22 (pack 7.1.1)
 
 - **What the player asserts names entities, never words.** 「一个金发混混手持女式手枪」 set the gun's holder to the words 「金发混混」, which are nobody. So although the fight knew the thug as 滨面, the ruling found no one holding the gun and dropped its handover. A person or object a player's assertion names is now resolved before it is recorded: by id, by the fight's identification of a newcomer (「金发混混」 → 滨面), or by a name that fits exactly one entity. A value that names nobody is left out rather than recorded as words. The fight's identification now runs before the assertions are read.

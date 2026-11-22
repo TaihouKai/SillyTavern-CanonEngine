@@ -36336,7 +36336,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.48.5";
+var ENGINE_RELEASE = "1.48.6";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -38559,9 +38559,15 @@ async function judgeFight(a) {
     const st = fighters.includes(id) || bystanders.includes(id) ? styleOf(L, index.state, id)?.style : null;
     return st ? [st.start, st.force, st.response, st.limit, st.stop].join(" ") : null;
   };
+  const linkedRef = (b) => {
+    const id = b.ref.startsWith("world:") ? b.ref.slice(6) : "";
+    if (!id || !b.quote || recordOk(b) || !fighters.includes(id) && !bystanders.includes(id)) return b;
+    const l = linksOf(L, index.state, id).find((x) => quoteInText(b.quote, linkLine(x)));
+    return l ? { ref: l.node } : b;
+  };
   const fixRef = (b) => {
     const r = String(b.ref || ""), i = r.lastIndexOf(":");
-    return i > 0 && N.has(r.slice(0, i)) && ABILITY_PARTS.includes(r.slice(i + 1)) ? { ...b, ref: r.slice(0, i) } : b;
+    return i > 0 && N.has(r.slice(0, i)) && ABILITY_PARTS.includes(r.slice(i + 1)) ? { ...b, ref: r.slice(0, i) } : linkedRef(b);
   };
   const recordOk = (b) => !!b.quote && !!recordText(b.ref) && quoteInText(b.quote, recordText(b.ref));
   const basisOk = (b) => b.ref === "judgement" || fixedRefs.has(b.ref) || N.has(b.ref) && walk2.nodes.some((w) => w.node.id === b.ref) || sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)) || !!b.quote && !!styleText(b.ref) && quoteInText(b.quote, styleText(b.ref)) || recordOk(b);

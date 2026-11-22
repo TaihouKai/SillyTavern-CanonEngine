@@ -278,6 +278,11 @@ describe('what is so of someone stops an outcome', () => {
     const b = await turn('Again: I swing my hook and my hook hits him.', 'the hook is his');
     expect(b.stopped).toEqual([]);
     expect(b.stands).toContain('my hook hits him');
+    // a line of their links quoted as what is so of them is that node, not a basis left out
+    const l = linksOf(y.engine.current!.index.pack, y.engine.current!.replay.state, 'council')[0];
+    const c = await turn('Once more: I swing my hook and my hook hits him.', `${l.label} ${l.node}`);
+    expect(b.notes.join(' ')).toMatch(/is not in what the fight was given/);
+    expect(c.notes.join(' ')).not.toMatch(/is not in what the fight was given/);
   });
 });
 

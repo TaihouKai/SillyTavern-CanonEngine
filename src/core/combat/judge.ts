@@ -200,8 +200,15 @@ export async function judgeFight(a: {
   const styleText = (ref: string) => { const id = ref.startsWith('style:') ? ref.slice(6) : ''; const st = fighters.includes(id) || bystanders.includes(id) ? styleOf(L, index.state, id)?.style : null; return st ? [st.start, st.force, st.response, st.limit, st.stop].join(' ') : null; };
   // a part of a node cited as "<node>:<part>" (the way knows lists them) is that node (live: the effect of a jamming
   // device a gang ran was cited so, and left out)
-  const fixRef = (b: { ref: string; quote?: string }) => { const r = String(b.ref || ''), i = r.lastIndexOf(':'); return i > 0 && N.has(r.slice(0, i)) && (ABILITY_PARTS as readonly string[]).includes(r.slice(i + 1)) ? { ...b, ref: r.slice(0, i) } : b; };
-  const recordOk = (b: { ref: string; quote?: string }) => !!b.quote && !!recordText(b.ref) && quoteInText(b.quote, recordText(b.ref)!);
+  // a line of someone's links quoted as what is so of them is that node (live: world:hamazura-shiage 「是 level-0」)
+  const linkedRef = (b: { ref: string; quote?: string }) => {
+    const id = b.ref.startsWith('world:') ? b.ref.slice(6) : '';
+    if (!id || !b.quote || recordOk(b) || (!fighters.includes(id) && !bystanders.includes(id))) return b;
+    const l = linksOf(L, index.state, id).find((x) => quoteInText(b.quote!, linkLine(x)));
+    return l ? { ref: l.node } : b;
+  };
+  const fixRef = (b: { ref: string; quote?: string }) => { const r = String(b.ref || ''), i = r.lastIndexOf(':'); return i > 0 && N.has(r.slice(0, i)) && (ABILITY_PARTS as readonly string[]).includes(r.slice(i + 1)) ? { ...b, ref: r.slice(0, i) } : linkedRef(b); };
+  const recordOk =(b: { ref: string; quote?: string }) => !!b.quote && !!recordText(b.ref) && quoteInText(b.quote, recordText(b.ref)!);
   const basisOk = (b: { ref: string; quote?: string }) => b.ref === 'judgement' || fixedRefs.has(b.ref) || N.has(b.ref) && walk.nodes.some((w) => w.node.id === b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!)) || (!!b.quote && !!styleText(b.ref) && quoteInText(b.quote, styleText(b.ref)!)) || recordOk(b);
   const objectiveOk = (b: { ref: string; quote?: string }) => objective.has(b.ref) || fixedRefs.has(b.ref) || (sourceText.has(b.ref) && !!b.quote && quoteInText(b.quote, sourceText.get(b.ref)!)) || recordOk(b);
   const checkOutcomes = (o: CombatOut) => {
