@@ -119,6 +119,7 @@ export class StHost implements HostPort {
   /** Reads the host's own settings (Persona Library sections). */
   settings: () => { ignorePersonaSections?: boolean } = () => ({});
   packStore?: HostPort['packStore'];
+  memo?: HostPort['memo'];
   model: ModelPort;
   private saving: Promise<void> = Promise.resolve();
   pendingStamp: null | { messageId: string; variantId: string; commitId: string } = null;

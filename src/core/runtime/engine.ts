@@ -39,6 +39,7 @@ import { answeredBy, contactDecision, playLinks, playedProfile, playerOrgs, name
 import { DEFAULT_PLAYER_VOICE, playerVoice, voiceAllows, voiceInput, voiceTurnNote, type PlayerVoice } from './voice';
 import { ENGINE_RELEASE, STORAGE_VERSION } from './types';
 import { oocNote, splitOoc } from './ooc';
+import { memoKey, PackMemo } from './memo';
 import { membershipView, namesView, natureView, relationsView, type MembershipView, type NamesViewData, type NatureViewData, type RelationsViewData } from './views';
 
 /** A Persona read before this release lacks what the profile has since (1.47.0: the player character's abilities,
@@ -248,6 +249,26 @@ export class CanonEngine {
   private tr(zh: string, en: string): string { return (this.settings as { uiLang?: string }).uiLang === 'en' ? en : zh; }
   epoch = 0;
   private packCache: { hash: string; loaded: LoadedPack } | null = null;
+  private memoCache: PackMemo | null = null;
+  /** The memo of the chat's pack (runtime/memo.ts), or null without a campaign. */
+  memo(): PackMemo | null {
+    const c = this.campaign();
+    if (!c) return null;
+    if (this.memoCache?.packHash !== c.packHash) this.memoCache = new PackMemo(this.host.memo, c.packHash, () => this.host.now(), (m) => this.host.log('warn', `[CanonEngine] ${m}`));
+    return this.memoCache;
+  }
+  /** A model question whose answer depends only on what it is given: an answer kept in the pack's memo for exactly
+   *  this question is taken (no call); else it is asked and kept. */
+  private async asked<T>(task: TaskName, system: string, input: unknown, call: () => Promise<T>): Promise<T> {
+    const m = this.memo();
+    const key = memoKey('call', task, system, input);
+    const got = m ? await m.get<T>(key) : undefined;
+    if (got !== undefined) { this.debugLog('task', { kind: 'memo', task }); return got; }
+    const out = await call();
+    await m?.put(key, out);
+    return out;
+  }
+  private async flushMemo(): Promise<void> { await this.memoCache?.flush(); }
   /** Discovery result per (operation, text): re-reviewing the same draft against staged history reuses it. */
   private discCache = new Map<string, DiscoverOut>();
   private gmRules(leap = false): string { return leap ? gmRulesFor(LEAP_VOICE, true) : gmRulesFor(playerVoice(this.settings.playerVoice)); }
@@ -283,7 +304,7 @@ export class CanonEngine {
   /** Per-step durations of the running operation, and the summary of the last finished one. */
   private stepTimes: { step: string; ms: number; retry?: boolean }[] = [];
   private rejects: string[] = [];
-  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number; retries: number }[]; ok: boolean; reply?: ReplyStats | null; repairs?: string[][]; rejects?: string[]; fixes?: string[]; tokens?: import('./model').TokenUsage | null } | null = null;
+  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number; retries: number }[]; ok: boolean; reply?: ReplyStats | null; repairs?: string[][]; rejects?: string[]; fixes?: string[]; tokens?: import('./model').TokenUsage | null; memo?: number } | null = null;
   private lastReply: ReplyStats | null = null;
   private timeStep<T>(step: string, p: Promise<T>): Promise<T> {
     const t0 = Date.now();
@@ -1227,18 +1248,31 @@ export class CanonEngine {
   private async judgeForeknowledge(list: import('./integration').CompanionEvent[], signal: AbortSignal, operationId: string): Promise<void> {
     const c = this.campaign();
     if (!c || !list.length) return;
-    const todo = list.filter((x) => !c.foreknowledge?.[foreknowKey(x)]);
-    if (!todo.length) return;
     const index = this.current!.index;
+    const pairOf = (x: (typeof list)[number]) => ({ person: index.entityName(x.personId), event: x.event.title, original_summary: x.event.summary, cause: causeOf(x.event) });
+    // a judgement about the pack's story alone: one a game before made for the same pair is taken (memo.ts)
+    const m = this.memo();
+    const keyOf = (x: (typeof list)[number]) => memoKey('foreknow', PROMPTS.foreknow, pairOf(x));
+    const todo: typeof list = [];
+    for (const x of list.filter((y) => !c.foreknowledge?.[foreknowKey(y)])) {
+      const got = m ? await m.get<{ knows: boolean; how: string }>(keyOf(x)) : undefined;
+      if (got) (c.foreknowledge ||= {})[foreknowKey(x)] = got;
+      else todo.push(x);
+    }
+    if (!todo.length) return;
     try {
       const out = await this.withTimeout(callStructured<{ judgements: { id: string; knows: boolean; how?: string }[] }>(this.host.model, 'foreknow', PROMPTS.foreknow, {
-        pairs: todo.map((x, i) => ({ id: `k${i + 1}`, person: index.entityName(x.personId), event: x.event.title, original_summary: x.event.summary, cause: causeOf(x.event) })),
+        pairs: todo.map((x, i) => ({ id: `k${i + 1}`, ...pairOf(x) })),
       }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 1500 }), this.settings.taskTimeoutMs * 2, signal);
       c.foreknowledge ||= {};
       for (const j of out.judgements) {
         const x = todo[Number(String(j.id).replace(/^k/, '')) - 1];
-        if (x) c.foreknowledge[foreknowKey(x)] = { knows: !!j.knows, how: String(j.how || '').slice(0, 80) };
+        if (!x) continue;
+        const v = { knows: !!j.knows, how: String(j.how || '').slice(0, 80) };
+        c.foreknowledge[foreknowKey(x)] = v;
+        await m?.put(keyOf(x), v);
       }
+      await this.flushMemo();
     } catch (e) {
       if (e instanceof EngineError && e.kind === 'cancelled') throw e;
       this.rejects.push(`foreknow: not judged this turn (${(e as Error).message.slice(0, 160)})`);
@@ -1730,6 +1764,7 @@ export class CanonEngine {
     this.rejects = [];
     this.lastReply = null;
     const opStart = Date.now();
+    const memoAt = this.memo()?.hits ?? 0;
     this.host.model.takeUsage?.(); // count this turn only
     taskDefaults.onDone = (task, ms, attempt) => { if (this.opActive?.operationId === operationId) this.stepTimes.push({ step: this.status.phase === 'reconciling' && !this.examiningInput ? 'reconcile' : task, ms, retry: attempt > 1 }); };
     // Why a structured reply was rejected and sent again (shown in the timing tooltip).
@@ -2126,7 +2161,7 @@ export class CanonEngine {
       const agg = new Map<string, { ms: number; count: number; retries: number }>();
       for (const s of this.stepTimes) { const a = agg.get(s.step) || { ms: 0, count: 0, retries: 0 }; a.ms += s.ms; a.count++; if (s.retry) a.retries++; agg.set(s.step, a); }
       const ok = trace.outcome === 'committed';
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: ok ? this.lastReply : null, repairs: trace.attempts.filter((a) => a.violations.length).map((a) => a.violations), ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null };
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: ok ? this.lastReply : null, repairs: trace.attempts.filter((a) => a.violations.length).map((a) => a.violations), ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null, memo: (this.memo()?.hits ?? memoAt) - memoAt };
       if (!committed && trace.outcome === 'failed') {
         // Keep the whole story of a failed turn where the user can read it later (saved with the chat).
         const c = this.campaign();
@@ -2295,25 +2330,30 @@ export class CanonEngine {
     let lore: LoreBackground[] = [];
     try { lore = loreFor((await this.host.lore?.entries()) || [], `${persona.name}\n${persona.description}`, pack); } catch (e) { this.host.log('warn', 'lorebook read failed: ' + (e as Error).message); }
     this.lastProfileLore = lore.map((l) => `${l.title}${l.via === 'related' ? ' (related)' : ''}`);
-    const out = await this.withTimeout(callStructured<ProfileOut>(this.host.model, 'profile', PROMPTS.profile, {
+    const profileInput = {
       persona: { name: persona.name, description: persona.description },
       world: { title: pack.pack.title, description: pack.pack.description, language: pack.pack.language },
       registry: { entities_format: 'id | name | aliases | kind | (organizations) leader; members', entities: [...pack.entities.values()].filter((e) => ['person', 'organization', 'place', 'other'].includes(e.kind)).map(ent) },
       ...(lore.length ? { background_lore: lore.map((l) => ({ title: l.title, entity_id: l.entity_id, via: l.via, text: l.text })) } : {}),
       ...(prev ? { previous_profile: { summary: prev.summary, affiliations: prev.affiliations.map((a) => a.name), places: prev.places.map((p) => p.name) } } : {}),
-    }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 6000 }), this.settings.taskTimeoutMs * 4, signal);
+    };
+    // the same Persona read against the same world again (a new game): the reading it had (memo.ts)
+    const out = await this.asked<ProfileOut>('profile', PROMPTS.profile, profileInput, () => this.withTimeout(callStructured<ProfileOut>(this.host.model, 'profile', PROMPTS.profile, profileInput,
+      { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 6000 }), this.settings.taskTimeoutMs * 4, signal));
     out.affiliations = await this.checkAffiliations(out, pack, persona, signal, operationId);
     const built = buildProfile(out, pack, index, persona, prev);
     if (lore.length) built.profile.lore = this.lastProfileLore;
     // what the player character can do, read into the abilities (and links into the setting) every person of the world
     // has: the same parts, the same readers (a failed read leaves them without, said in the notes)
     try {
-      const ab = await this.withTimeout(callStructured<PersonaAbilitiesOut>(this.host.model, 'persona_abilities', PROMPTS.persona_abilities, {
+      const abInput = {
         persona: { name: persona.name, description: persona.description },
         public_identity: built.profile.publicIdentity,
         setting: personaSettingMenu(pack),
         ...(lore.length ? { background_lore: lore.map((l) => ({ title: l.title, text: l.text.slice(0, 1500) })) } : {}),
-      }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 5000 }), this.settings.taskTimeoutMs * 2, signal);
+      };
+      const ab = await this.asked<PersonaAbilitiesOut>('persona_abilities', PROMPTS.persona_abilities, abInput, () => this.withTimeout(callStructured<PersonaAbilitiesOut>(this.host.model, 'persona_abilities', PROMPTS.persona_abilities, abInput,
+        { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 5000 }), this.settings.taskTimeoutMs * 2, signal));
       built.profile.notes.push(...applyPersonaAbilities(ab, built, pack));
     } catch (e) {
       if (signal?.aborted) throw e;
@@ -2348,8 +2388,9 @@ export class CanonEngine {
     ];
     let res: { organizations: { ref: string; status: 'member' | 'joining' | 'former' | 'none'; role?: string; leads?: boolean; secrecy?: 'public' | 'restricted' | 'secret' }[] };
     try {
-      res = await this.withTimeout(callStructured(this.host.model, 'affiliations', PROMPTS.affiliations, { persona: { name: persona.name, description: persona.description }, organizations: cands },
-        { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 3000 }), this.settings.taskTimeoutMs * 2, signal);
+      const input = { persona: { name: persona.name, description: persona.description }, organizations: cands };
+      res = await this.asked('affiliations', PROMPTS.affiliations, input, () => this.withTimeout(callStructured<typeof res>(this.host.model, 'affiliations', PROMPTS.affiliations, input,
+        { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 3000 }), this.settings.taskTimeoutMs * 2, signal));
     } catch (e) {
       if ((e as Error).name === 'AbortError') throw e;
       this.host.log('warn', `organizations of the Persona not checked: ${(e as Error).message}`);
@@ -2392,8 +2433,10 @@ export class CanonEngine {
 
   /** Check the lorebook entries and pack texts the changes' search words find (all of them, in batches read in full)
    *  and keep what they become in this game. The user's own edits of an entry still found are kept. No changes: no
-   *  call. Kept with the chat; applied to the host's lore scan and to this chat's pack. */
-  private async checkWorld(signal: AbortSignal | undefined, operationId: string): Promise<void> {
+   *  call. Kept with the chat; applied to the host's lore scan and to this chat's pack.
+   *  Each text's verdict is kept in the pack's memo (memo.ts) under the changes, the player and the text itself: a new
+   *  game with the same 本局设定 asks only about texts no game asked about (fresh, 重新检查: all asked again). */
+  private async checkWorld(signal: AbortSignal | undefined, operationId: string, fresh = false): Promise<void> {
     const c = this.campaign();
     if (!c) return;
     const changes0 = this.worldChanges();
@@ -2412,7 +2455,6 @@ export class CanonEngine {
     const base = this.basePack();
     const changes = changes0.map((ch) => ({ ...ch, terms: termsFor(ch, lore, base) }));
     const { items, generic } = worldItems(uniq(changes.flatMap((x) => x.terms)), lore, base);
-    const batches = worldBatches(items);
     const prof = this.playerProfile()?.profile;
     // an event's time and whether it comes before the game's start (live: the player's transfer into an organization,
     // decided now, was written into the organization's events of a year before)
@@ -2422,14 +2464,38 @@ export class CanonEngine {
       const s = it.kind === 'event' && it.target ? span.get(it.target) : undefined;
       return s ? { time: formatTick(s.lo, origin), when: s.lo < start ? 'before the game starts' : 'after the game starts (still to come)' } : {};
     };
+    const kindText = (it: (typeof items)[number]) => it.kind === 'lore' ? 'lorebook entry' : it.kind === 'entity' ? 'pack: who or what it is' : 'pack: event summary';
+    // what a verdict is a verdict about: the instructions, the changes, the player, and the text (with its time)
+    const memo = this.memo();
+    const basis = memoKey('world_check', PROMPTS.world_check, changes.map((x) => x.text), prof ? { name: prof.personaName, summary: prof.summary } : null);
+    const keyOf = (it: (typeof items)[number]) => memoKey(basis, kindText(it), it.title, it.text, timeOf(it));
+    type Verdict = Omit<WorldCheckOut['items'][number], 'ref'>;
+    const known: WorldCheckOut = { items: [] };
+    const ask: typeof items = [];
+    for (const it of items) {
+      const v = memo && !fresh ? await memo.get<Verdict>(keyOf(it)) : undefined;
+      if (v) known.items.push({ ...v, ref: it.ref }); else ask.push(it);
+    }
+    const addKey = memoKey(basis, 'additions');
+    const knownAdditions = memo && !fresh ? await memo.get<NonNullable<WorldCheckOut['additions']>>(addKey) : undefined;
+    if (knownAdditions) known.additions = knownAdditions;
+    const batches = worldBatches(ask);
     const check = (b: typeof items, i: number) => this.withTimeout(callStructured<WorldCheckOut>(this.host.model, 'world_check', PROMPTS.world_check, {
       game_start: formatTick(start, origin),
       changes: changes.map((x) => ({ id: x.id, text: x.text })),
       player: prof ? { name: prof.personaName, summary: prof.summary } : null,
       ...(batches.length > 1 ? { part: `${i + 1} of ${batches.length}` } : {}),
-      additions_wanted: i === 0,
-      items: b.map((it) => ({ ref: it.ref, kind: it.kind === 'lore' ? 'lorebook entry' : it.kind === 'entity' ? 'pack: who or what it is' : 'pack: event summary', title: it.title, ...timeOf(it), text: it.text })),
-    }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 12000 }), this.settings.taskTimeoutMs * 4, signal);
+      additions_wanted: i === 0 && !knownAdditions,
+      items: b.map((it) => ({ ref: it.ref, kind: kindText(it), title: it.title, ...timeOf(it), text: it.text })),
+    }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 12000 }), this.settings.taskTimeoutMs * 4, signal)
+      .then(async (out) => {
+        // what the model said about each text of the part is kept (a text it left out is asked again next time)
+        const refs = new Map(b.map((it) => [it.ref, it]));
+        for (const r of out.items || []) { const it = refs.get(r.ref); if (it) { const { ref: _ref, ...v } = r; await memo?.put(keyOf(it), v); } }
+        if (i === 0 && !knownAdditions) await memo?.put(addKey, out.additions || []);
+        return out;
+      });
+    if (memo && items.length) this.debugLog('task', { kind: 'world_check_memo', texts: items.length, known: items.length - ask.length, asked: ask.length, calls: batches.length });
     // one part failing does not lose the others (live: one of 45 timed out and the turn failed with all of them):
     // it is tried once more, then left unchecked and listed
     const unchecked: NonNullable<WorldSettings['unchecked']> = [];
@@ -2447,7 +2513,8 @@ export class CanonEngine {
     }));
     if (unchecked.length) this.notice('warn', this.tr(`本局设定：有 ${unchecked.length} 条没能检查（模型超时或连续出错两次），已列在 Canon Engine 面板里，点「重新检查」再查。`,
       `This game's world: ${unchecked.length} text(s) could not be checked (the model timed out or failed twice); they are listed in the Canon Engine panel — Check again checks them.`));
-    const res = worldResults(items, outs);
+    await this.flushMemo();
+    const res = worldResults(items, [known, ...outs]);
     // the user's own edits stay while their original is still found as it was
     const same = (a: WorldOverride, b: WorldOverride) => a.kind === b.kind && a.book === b.book && String(a.uid) === String(b.uid) && a.target === b.target;
     const overrides = res.overrides.filter((o) => !prev?.overrides.some((p) => p.edited && same(p, o)));
@@ -2467,7 +2534,7 @@ export class CanonEngine {
   /** 重新检查 (panel): check again with the changes as they are now. */
   async recheckWorld(): Promise<void> {
     return this.change(async () => {
-      await this.checkWorld(undefined, 'world');
+      await this.checkWorld(undefined, 'world', true);
       await this.host.save();
       await this.reconcileInner('world_settings', { allowModel: false });
     });
@@ -2564,6 +2631,7 @@ export class CanonEngine {
       c.manualRecords = [...(c.manualRecords || []), { afterMessageId: null, record: seedRecord(profile, runtimeEntities, c.binding.startTick, 1), at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `player profile read from the Persona "${persona.name}" (${persona.description.length} characters)` });
       await this.checkWorld(signal, operationId);
+      await this.flushMemo();
       await this.host.save();
       return;
     }
@@ -2607,6 +2675,7 @@ export class CanonEngine {
     delete c.integrationCache;
     c.configRevisions.push({ at: this.host.now(), summary: `player identity updated from the Persona "${persona.name}" (revision ${rev})` });
     await this.checkWorld(undefined, 'identity');
+    await this.flushMemo();
     await this.host.save();
     await this.reconcileInner('identity_updated', {});
   }

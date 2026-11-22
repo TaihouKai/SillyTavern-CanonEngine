@@ -342,6 +342,8 @@ const D: Record<string, { zh: string; en: string }> = {
   followHoraeTimeTip: { zh: '装了 Horae 时：每个新回合从 Horae 记录的时间开始（它每回合都会推算时间）。\n本回合本身经过的时间仍由 Canon Engine 估算。没有 Horae 或 Horae 尚未更新时自动不用。', en: 'With Horae installed: each new turn starts at the story time Horae recorded (it estimates time every turn).\nThe time the turn itself takes is still estimated by Canon Engine. Not used without Horae or while Horae is not up to date.' },
   replyLengthPlaceholder: { zh: '例如：正文约800~1200字', en: 'e.g. about 600-900 words' },
   lastTurn: { zh: '上一回合', en: 'Last turn' },
+  memoUsed: { zh: '沿用 {n} 条', en: '{n} reused' },
+  memoNote: { zh: '这些问题以前的对局用同一个历史包问过（同样的 Persona、世界书条目），直接沿用当时的回答，没有再调用模型。「本局设定」里点「重新检查」会重新问一遍。', en: 'Earlier games with this pack asked these same questions (same Persona, same lorebook entries); their answers were reused without calling the model. Check again under This game\'s world asks them anew.' },
   details: { zh: '详情', en: 'Details' },
   copy: { zh: '复制', en: 'Copy' },
   copied: { zh: '已复制', en: 'Copied' },

@@ -142,6 +142,15 @@ A turn is read by several steps: the reading of the player's message (`extract_u
 
 The Persona card's own people and places (`integration.ts`) and names typed into the panel are resolved by name only (`resolveEntity`): they are not words of the story.
 
+## 历史包备忘: an answer is not paid for twice
+
+Binding a pack calls no model: it is read, checked and indexed by code. What a new game pays for first is the model reading of the Persona against the world (`profile`, `affiliations`, `persona_abilities`) and the check of the lorebook and the pack's texts against this game's 本局设定 (`world_check`, live 45–115 calls, most of a first turn's cost). None of it is the pack's alone, so none of it can be done when a pack is imported; but a new game with the same pack, Persona and lorebook asks exactly the same questions.
+
+- **The memo** (`runtime/memo.ts`, `HostPort.memo`): answers kept per pack (ST: `canon-memo-<hash>.json` beside the pack in the user's files, removed with the pack; web: the browser's pack store). A key is a hash of everything a question is made of, the task's instructions included: a changed prompt, pack text, Persona or lorebook entry is a new question.
+- **What is kept**: a whole Persona reading (its exact input); the lorebook check per text (the changes, the player, the text and its time), so an edited lorebook entry is the only one asked again; whether a companion knows their next canon event (`foreknow`, per pair: the pack's story alone).
+- **Not history**: each game keeps what it used in its own chat as before; the memo only saves the call, and losing it loses nothing but the saving. A failed or left-out answer is not kept. 重新检查 asks every text again and keeps the new answers.
+- The turn's timing line says how many answers were reused (沿用 n 条).
+
 ## Deterministic gate (summary)
 
 Evidence quotes must exist in the candidate; entities/predicates/values are type-checked against pack + runtime registry (new entities get code ids; known identities cannot be renamed into new ones); time cannot move backwards outside flashbacks; a near HARD event's exact required outcome (one of the next two pending HARD events or within 2 days; a real change, not the value already holding) can only be produced by that event's own occurrence inside its authored bounds with a reviewer-confirmed depiction — other values of the same fact are ordinary story; crossed HARD deadlines must be realized onscreen or by staged offscreen adjudication; an end-time range that reaches a HARD checkpoint the reply does not depict is taken as ending before it (its lower bound already lies before; the event stays due); narrated player actions need a verbatim authorizing quote from the user's message; presupposed state is checked at the claim's own checkpoint (flashback claims at their time), including containment in destroyed parents (partial damage does not imply destruction; explicit exceptions win); a claimed change cannot validate itself without its own occurrence; engine labels/JSON in prose are rejected; plan enactments need an occurrence and evidence.

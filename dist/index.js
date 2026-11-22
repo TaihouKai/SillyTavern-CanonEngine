@@ -36496,7 +36496,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.49.10";
+var ENGINE_RELEASE = "1.50.0";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -41279,6 +41279,70 @@ function oocNote(ooc) {
   ].join("\n");
 }
 
+// src/core/runtime/memo.ts
+var VERSION = 1;
+var MEMO_MAX = 3e4;
+var memoKey = (...parts) => hashObject(parts).slice(0, 32);
+var PackMemo = class {
+  constructor(store, packHash, now, warn) {
+    this.store = store;
+    this.packHash = packHash;
+    this.now = now;
+    this.warn = warn;
+  }
+  store;
+  packHash;
+  now;
+  warn;
+  data = null;
+  loading = null;
+  dirty = false;
+  /** Answers taken from the memo since this was made (for the turn's notes and tests). */
+  hits = 0;
+  ready() {
+    if (this.data) return Promise.resolve();
+    return this.loading ||= (async () => {
+      let d = null;
+      try {
+        const t2 = this.store ? await this.store.load(this.packHash) : null;
+        if (t2) d = JSON.parse(t2);
+      } catch (e) {
+        this.warn(`the memo of this pack could not be read (${e.message}); it starts empty`);
+      }
+      this.data = d && d.v === VERSION && d.pack === this.packHash && d.entries && typeof d.entries === "object" ? d : { v: VERSION, pack: this.packHash, entries: {} };
+    })();
+  }
+  async get(key2) {
+    await this.ready();
+    const e = this.data.entries[key2];
+    if (!e) return void 0;
+    e.at = this.now();
+    this.hits++;
+    return deepClone(e.out);
+  }
+  async put(key2, out) {
+    await this.ready();
+    this.data.entries[key2] = { at: this.now(), out: deepClone(out) };
+    this.dirty = true;
+  }
+  /** Write what was added (nothing new: no write). A failed write is reported and kept for the next one. */
+  async flush() {
+    if (!this.dirty || !this.store || !this.data) return;
+    const keys = Object.keys(this.data.entries);
+    if (keys.length > MEMO_MAX) {
+      keys.sort((a, b) => this.data.entries[a].at - this.data.entries[b].at);
+      for (const k of keys.slice(0, keys.length - MEMO_MAX)) delete this.data.entries[k];
+    }
+    this.dirty = false;
+    try {
+      await this.store.save(this.packHash, JSON.stringify(this.data));
+    } catch (e) {
+      this.dirty = true;
+      this.warn(`the memo of this pack could not be saved (${e.message})`);
+    }
+  }
+};
+
 // src/core/runtime/views.ts
 function membershipView(idx, tick, origin, spoilers) {
   const s = idx.state, pack2 = idx.pack;
@@ -41488,6 +41552,31 @@ var CanonEngine = class {
   }
   epoch = 0;
   packCache = null;
+  memoCache = null;
+  /** The memo of the chat's pack (runtime/memo.ts), or null without a campaign. */
+  memo() {
+    const c = this.campaign();
+    if (!c) return null;
+    if (this.memoCache?.packHash !== c.packHash) this.memoCache = new PackMemo(this.host.memo, c.packHash, () => this.host.now(), (m) => this.host.log("warn", `[CanonEngine] ${m}`));
+    return this.memoCache;
+  }
+  /** A model question whose answer depends only on what it is given: an answer kept in the pack's memo for exactly
+   *  this question is taken (no call); else it is asked and kept. */
+  async asked(task, system, input, call) {
+    const m = this.memo();
+    const key2 = memoKey("call", task, system, input);
+    const got = m ? await m.get(key2) : void 0;
+    if (got !== void 0) {
+      this.debugLog("task", { kind: "memo", task });
+      return got;
+    }
+    const out = await call();
+    await m?.put(key2, out);
+    return out;
+  }
+  async flushMemo() {
+    await this.memoCache?.flush();
+  }
   /** Discovery result per (operation, text): re-reviewing the same draft against staged history reuses it. */
   discCache = /* @__PURE__ */ new Map();
   gmRules(leap2 = false) {
@@ -42549,18 +42638,30 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
   async judgeForeknowledge(list, signal, operationId) {
     const c = this.campaign();
     if (!c || !list.length) return;
-    const todo = list.filter((x) => !c.foreknowledge?.[foreknowKey(x)]);
-    if (!todo.length) return;
     const index = this.current.index;
+    const pairOf = (x) => ({ person: index.entityName(x.personId), event: x.event.title, original_summary: x.event.summary, cause: causeOf(x.event) });
+    const m = this.memo();
+    const keyOf = (x) => memoKey("foreknow", PROMPTS.foreknow, pairOf(x));
+    const todo = [];
+    for (const x of list.filter((y) => !c.foreknowledge?.[foreknowKey(y)])) {
+      const got = m ? await m.get(keyOf(x)) : void 0;
+      if (got) (c.foreknowledge ||= {})[foreknowKey(x)] = got;
+      else todo.push(x);
+    }
+    if (!todo.length) return;
     try {
       const out = await this.withTimeout(callStructured(this.host.model, "foreknow", PROMPTS.foreknow, {
-        pairs: todo.map((x, i) => ({ id: `k${i + 1}`, person: index.entityName(x.personId), event: x.event.title, original_summary: x.event.summary, cause: causeOf(x.event) }))
+        pairs: todo.map((x, i) => ({ id: `k${i + 1}`, ...pairOf(x) }))
       }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 1500 }), this.settings.taskTimeoutMs * 2, signal);
       c.foreknowledge ||= {};
       for (const j of out.judgements) {
         const x = todo[Number(String(j.id).replace(/^k/, "")) - 1];
-        if (x) c.foreknowledge[foreknowKey(x)] = { knows: !!j.knows, how: String(j.how || "").slice(0, 80) };
+        if (!x) continue;
+        const v = { knows: !!j.knows, how: String(j.how || "").slice(0, 80) };
+        c.foreknowledge[foreknowKey(x)] = v;
+        await m?.put(keyOf(x), v);
       }
+      await this.flushMemo();
     } catch (e) {
       if (e instanceof EngineError && e.kind === "cancelled") throw e;
       this.rejects.push(`foreknow: not judged this turn (${e.message.slice(0, 160)})`);
@@ -43123,6 +43224,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
     this.rejects = [];
     this.lastReply = null;
     const opStart = Date.now();
+    const memoAt = this.memo()?.hits ?? 0;
     this.host.model.takeUsage?.();
     taskDefaults.onDone = (task, ms, attempt) => {
       if (this.opActive?.operationId === operationId) this.stepTimes.push({ step: this.status.phase === "reconciling" && !this.examiningInput ? "reconcile" : task, ms, retry: attempt > 1 });
@@ -43563,7 +43665,7 @@ ${continuedEntry.text}` : ""), excludeLastAssistant: excludeLast, signal: abort.
         agg.set(s.step, a);
       }
       const ok = trace.outcome === "committed";
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: ok ? this.lastReply : null, repairs: trace.attempts.filter((a) => a.violations.length).map((a) => a.violations), ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null };
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: ok ? this.lastReply : null, repairs: trace.attempts.filter((a) => a.violations.length).map((a) => a.violations), ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null, memo: (this.memo()?.hits ?? memoAt) - memoAt };
       if (!committed && trace.outcome === "failed") {
         const c = this.campaign();
         if (c && c.recoveryState.status === "error") {
@@ -43738,23 +43840,37 @@ ${persona.description}`, pack2);
       this.host.log("warn", "lorebook read failed: " + e.message);
     }
     this.lastProfileLore = lore.map((l) => `${l.title}${l.via === "related" ? " (related)" : ""}`);
-    const out = await this.withTimeout(callStructured(this.host.model, "profile", PROMPTS.profile, {
+    const profileInput = {
       persona: { name: persona.name, description: persona.description },
       world: { title: pack2.pack.title, description: pack2.pack.description, language: pack2.pack.language },
       registry: { entities_format: "id | name | aliases | kind | (organizations) leader; members", entities: [...pack2.entities.values()].filter((e) => ["person", "organization", "place", "other"].includes(e.kind)).map(ent) },
       ...lore.length ? { background_lore: lore.map((l) => ({ title: l.title, entity_id: l.entity_id, via: l.via, text: l.text })) } : {},
       ...prev ? { previous_profile: { summary: prev.summary, affiliations: prev.affiliations.map((a) => a.name), places: prev.places.map((p) => p.name) } } : {}
-    }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 6e3 }), this.settings.taskTimeoutMs * 4, signal);
+    };
+    const out = await this.asked("profile", PROMPTS.profile, profileInput, () => this.withTimeout(callStructured(
+      this.host.model,
+      "profile",
+      PROMPTS.profile,
+      profileInput,
+      { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 6e3 }
+    ), this.settings.taskTimeoutMs * 4, signal));
     out.affiliations = await this.checkAffiliations(out, pack2, persona, signal, operationId);
     const built = buildProfile(out, pack2, index, persona, prev);
     if (lore.length) built.profile.lore = this.lastProfileLore;
     try {
-      const ab = await this.withTimeout(callStructured(this.host.model, "persona_abilities", PROMPTS.persona_abilities, {
+      const abInput = {
         persona: { name: persona.name, description: persona.description },
         public_identity: built.profile.publicIdentity,
         setting: personaSettingMenu(pack2),
         ...lore.length ? { background_lore: lore.map((l) => ({ title: l.title, text: l.text.slice(0, 1500) })) } : {}
-      }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 5e3 }), this.settings.taskTimeoutMs * 2, signal);
+      };
+      const ab = await this.asked("persona_abilities", PROMPTS.persona_abilities, abInput, () => this.withTimeout(callStructured(
+        this.host.model,
+        "persona_abilities",
+        PROMPTS.persona_abilities,
+        abInput,
+        { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 5e3 }
+      ), this.settings.taskTimeoutMs * 2, signal));
       built.profile.notes.push(...applyPersonaAbilities(ab, built, pack2));
     } catch (e) {
       if (signal?.aborted) throw e;
@@ -43797,13 +43913,14 @@ ${persona.description}`);
     ];
     let res;
     try {
-      res = await this.withTimeout(callStructured(
+      const input = { persona: { name: persona.name, description: persona.description }, organizations: cands };
+      res = await this.asked("affiliations", PROMPTS.affiliations, input, () => this.withTimeout(callStructured(
         this.host.model,
         "affiliations",
         PROMPTS.affiliations,
-        { persona: { name: persona.name, description: persona.description }, organizations: cands },
+        input,
         { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 3e3 }
-      ), this.settings.taskTimeoutMs * 2, signal);
+      ), this.settings.taskTimeoutMs * 2, signal));
     } catch (e) {
       if (e.name === "AbortError") throw e;
       this.host.log("warn", `organizations of the Persona not checked: ${e.message}`);
@@ -43853,8 +43970,10 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
   }
   /** Check the lorebook entries and pack texts the changes' search words find (all of them, in batches read in full)
    *  and keep what they become in this game. The user's own edits of an entry still found are kept. No changes: no
-   *  call. Kept with the chat; applied to the host's lore scan and to this chat's pack. */
-  async checkWorld(signal, operationId) {
+   *  call. Kept with the chat; applied to the host's lore scan and to this chat's pack.
+   *  Each text's verdict is kept in the pack's memo (memo.ts) under the changes, the player and the text itself: a new
+   *  game with the same 本局设定 asks only about texts no game asked about (fresh, 重新检查: all asked again). */
+  async checkWorld(signal, operationId, fresh = false) {
     const c = this.campaign();
     if (!c) return;
     const changes0 = this.worldChanges();
@@ -43875,7 +43994,6 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const base = this.basePack();
     const changes = changes0.map((ch) => ({ ...ch, terms: termsFor(ch, lore, base) }));
     const { items: items2, generic } = worldItems(uniq(changes.flatMap((x) => x.terms)), lore, base);
-    const batches = worldBatches(items2);
     const prof = this.playerProfile()?.profile;
     const origin = c.binding.originDate || null, start = c.binding.startTick;
     const span = new Map(base.timeIndex.map((x) => [x.id, x]));
@@ -43883,14 +44001,41 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       const s = it.kind === "event" && it.target ? span.get(it.target) : void 0;
       return s ? { time: formatTick(s.lo, origin), when: s.lo < start ? "before the game starts" : "after the game starts (still to come)" } : {};
     };
+    const kindText = (it) => it.kind === "lore" ? "lorebook entry" : it.kind === "entity" ? "pack: who or what it is" : "pack: event summary";
+    const memo = this.memo();
+    const basis = memoKey("world_check", PROMPTS.world_check, changes.map((x) => x.text), prof ? { name: prof.personaName, summary: prof.summary } : null);
+    const keyOf = (it) => memoKey(basis, kindText(it), it.title, it.text, timeOf(it));
+    const known = { items: [] };
+    const ask = [];
+    for (const it of items2) {
+      const v = memo && !fresh ? await memo.get(keyOf(it)) : void 0;
+      if (v) known.items.push({ ...v, ref: it.ref });
+      else ask.push(it);
+    }
+    const addKey = memoKey(basis, "additions");
+    const knownAdditions = memo && !fresh ? await memo.get(addKey) : void 0;
+    if (knownAdditions) known.additions = knownAdditions;
+    const batches = worldBatches(ask);
     const check2 = (b, i) => this.withTimeout(callStructured(this.host.model, "world_check", PROMPTS.world_check, {
       game_start: formatTick(start, origin),
       changes: changes.map((x) => ({ id: x.id, text: x.text })),
       player: prof ? { name: prof.personaName, summary: prof.summary } : null,
       ...batches.length > 1 ? { part: `${i + 1} of ${batches.length}` } : {},
-      additions_wanted: i === 0,
-      items: b.map((it) => ({ ref: it.ref, kind: it.kind === "lore" ? "lorebook entry" : it.kind === "entity" ? "pack: who or what it is" : "pack: event summary", title: it.title, ...timeOf(it), text: it.text }))
-    }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 12e3 }), this.settings.taskTimeoutMs * 4, signal);
+      additions_wanted: i === 0 && !knownAdditions,
+      items: b.map((it) => ({ ref: it.ref, kind: kindText(it), title: it.title, ...timeOf(it), text: it.text }))
+    }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 12e3 }), this.settings.taskTimeoutMs * 4, signal).then(async (out) => {
+      const refs = new Map(b.map((it) => [it.ref, it]));
+      for (const r of out.items || []) {
+        const it = refs.get(r.ref);
+        if (it) {
+          const { ref: _ref, ...v } = r;
+          await memo?.put(keyOf(it), v);
+        }
+      }
+      if (i === 0 && !knownAdditions) await memo?.put(addKey, out.additions || []);
+      return out;
+    });
+    if (memo && items2.length) this.debugLog("task", { kind: "world_check_memo", texts: items2.length, known: items2.length - ask.length, asked: ask.length, calls: batches.length });
     const unchecked = [];
     const outs = await Promise.all(batches.map(async (b, i) => {
       for (let attempt = 0; ; attempt++) {
@@ -43910,7 +44055,8 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       `\u672C\u5C40\u8BBE\u5B9A\uFF1A\u6709 ${unchecked.length} \u6761\u6CA1\u80FD\u68C0\u67E5\uFF08\u6A21\u578B\u8D85\u65F6\u6216\u8FDE\u7EED\u51FA\u9519\u4E24\u6B21\uFF09\uFF0C\u5DF2\u5217\u5728 Canon Engine \u9762\u677F\u91CC\uFF0C\u70B9\u300C\u91CD\u65B0\u68C0\u67E5\u300D\u518D\u67E5\u3002`,
       `This game's world: ${unchecked.length} text(s) could not be checked (the model timed out or failed twice); they are listed in the Canon Engine panel \u2014 Check again checks them.`
     ));
-    const res = worldResults(items2, outs);
+    await this.flushMemo();
+    const res = worldResults(items2, [known, ...outs]);
     const same = (a, b) => a.kind === b.kind && a.book === b.book && String(a.uid) === String(b.uid) && a.target === b.target;
     const overrides = res.overrides.filter((o) => !prev?.overrides.some((p) => p.edited && same(p, o)));
     for (const p of prev?.overrides || []) if (p.edited && items2.some((it) => it.kind === p.kind && it.book === p.book && String(it.uid) === String(p.uid) && it.target === p.target && textHash(it.text) === p.originalHash)) overrides.push(p);
@@ -43934,7 +44080,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
   /** 重新检查 (panel): check again with the changes as they are now. */
   async recheckWorld() {
     return this.change(async () => {
-      await this.checkWorld(void 0, "world");
+      await this.checkWorld(void 0, "world", true);
       await this.host.save();
       await this.reconcileInner("world_settings", { allowModel: false });
     });
@@ -44031,6 +44177,7 @@ ${lines.join("\n")}`;
       c.manualRecords = [...c.manualRecords || [], { afterMessageId: null, record: seedRecord(profile2, runtimeEntities, c.binding.startTick, 1), at: this.host.now() }];
       c.configRevisions.push({ at: this.host.now(), summary: `player profile read from the Persona "${persona.name}" (${persona.description.length} characters)` });
       await this.checkWorld(signal, operationId);
+      await this.flushMemo();
       await this.host.save();
       return;
     }
@@ -44078,6 +44225,7 @@ ${lines.join("\n")}`;
     delete c.integrationCache;
     c.configRevisions.push({ at: this.host.now(), summary: `player identity updated from the Persona "${persona.name}" (revision ${rev})` });
     await this.checkWorld(void 0, "identity");
+    await this.flushMemo();
     await this.host.save();
     await this.reconcileInner("identity_updated", {});
   }
@@ -45614,6 +45762,8 @@ var D = {
   followHoraeTimeTip: { zh: "\u88C5\u4E86 Horae \u65F6\uFF1A\u6BCF\u4E2A\u65B0\u56DE\u5408\u4ECE Horae \u8BB0\u5F55\u7684\u65F6\u95F4\u5F00\u59CB\uFF08\u5B83\u6BCF\u56DE\u5408\u90FD\u4F1A\u63A8\u7B97\u65F6\u95F4\uFF09\u3002\n\u672C\u56DE\u5408\u672C\u8EAB\u7ECF\u8FC7\u7684\u65F6\u95F4\u4ECD\u7531 Canon Engine \u4F30\u7B97\u3002\u6CA1\u6709 Horae \u6216 Horae \u5C1A\u672A\u66F4\u65B0\u65F6\u81EA\u52A8\u4E0D\u7528\u3002", en: "With Horae installed: each new turn starts at the story time Horae recorded (it estimates time every turn).\nThe time the turn itself takes is still estimated by Canon Engine. Not used without Horae or while Horae is not up to date." },
   replyLengthPlaceholder: { zh: "\u4F8B\u5982\uFF1A\u6B63\u6587\u7EA6800~1200\u5B57", en: "e.g. about 600-900 words" },
   lastTurn: { zh: "\u4E0A\u4E00\u56DE\u5408", en: "Last turn" },
+  memoUsed: { zh: "\u6CBF\u7528 {n} \u6761", en: "{n} reused" },
+  memoNote: { zh: "\u8FD9\u4E9B\u95EE\u9898\u4EE5\u524D\u7684\u5BF9\u5C40\u7528\u540C\u4E00\u4E2A\u5386\u53F2\u5305\u95EE\u8FC7\uFF08\u540C\u6837\u7684 Persona\u3001\u4E16\u754C\u4E66\u6761\u76EE\uFF09\uFF0C\u76F4\u63A5\u6CBF\u7528\u5F53\u65F6\u7684\u56DE\u7B54\uFF0C\u6CA1\u6709\u518D\u8C03\u7528\u6A21\u578B\u3002\u300C\u672C\u5C40\u8BBE\u5B9A\u300D\u91CC\u70B9\u300C\u91CD\u65B0\u68C0\u67E5\u300D\u4F1A\u91CD\u65B0\u95EE\u4E00\u904D\u3002", en: "Earlier games with this pack asked these same questions (same Persona, same lorebook entries); their answers were reused without calling the model. Check again under This game's world asks them anew." },
   details: { zh: "\u8BE6\u60C5", en: "Details" },
   copy: { zh: "\u590D\u5236", en: "Copy" },
   copied: { zh: "\u5DF2\u590D\u5236", en: "Copied" },
@@ -48219,6 +48369,7 @@ var StHost = class {
   /** Reads the host's own settings (Persona Library sections). */
   settings = () => ({});
   packStore;
+  memo;
   model;
   saving = Promise.resolve();
   pendingStamp = null;
@@ -49285,8 +49436,21 @@ var libraryPackStore = {
     return null;
   }
 };
+var memoName = (hash) => `canon-memo-${hash.slice(0, 16)}.json`;
+var memoPath = (hash) => `user/files/${memoName(hash)}`;
+var libraryMemoStore = {
+  load: async (hash) => {
+    const r = await fetch("/" + memoPath(hash), { cache: "no-store", headers: ctx().getRequestHeaders?.() || {} }).catch(() => null);
+    return r?.ok ? await r.text() : null;
+  },
+  save: async (hash, text) => {
+    const r = await fetch("/api/files/upload", { method: "POST", headers: headers(), body: JSON.stringify({ name: memoName(hash), data: toBase64(text) }) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  }
+};
 async function removeFromLibrary(e) {
   await fetch("/api/files/delete", { method: "POST", headers: headers(), body: JSON.stringify({ path: e.file }) }).catch(() => void 0);
+  await fetch("/api/files/delete", { method: "POST", headers: headers(), body: JSON.stringify({ path: memoPath(e.hash) }) }).catch(() => void 0);
   settingsObj().library = (settingsObj().library || []).filter((x) => x.hash !== e.hash);
   ctx().saveSettingsDebounced?.();
 }
@@ -49528,7 +49692,8 @@ function renderStatus() {
   const replyPart = rp ? ` \xB7 <span class="canon-reply${rp.finish === "length" ? " cut" : ""}" title="${esc6(replyBits)}">${t("replyLen")} ${rp.chars}${t("charsUnit")}${rp.finish === "length" ? ` ${t("cutOff")}` : ""}</span>` : "";
   const tk = tm?.tokens;
   const tokenPart = tk && tk.calls && tk.input + tk.output > 0 ? ` \xB7 <span class="canon-tokens" title="${esc6([`${t("tokIn")} ${tk.input.toLocaleString()} \xB7 ${t("tokOut")} ${tk.output.toLocaleString()} \xB7 ${tk.calls} ${t("tokCalls")}`, ...tk.storyInput !== void 0 ? [`${t("tokStory")} ${((tk.storyInput || 0) + (tk.storyOutput || 0)).toLocaleString()} \xB7 ${t("tokAnalysis")} ${(tk.input + tk.output - (tk.storyInput || 0) - (tk.storyOutput || 0)).toLocaleString()}`] : [], ...tk.unreported ? [t("tokUnreported").replace("{n}", String(tk.unreported))] : [], ...costLines(tk), ...tk.backup?.length ? [t("backupUsed").replace("{n}", String(tk.backup.length)), ...tk.backup] : [], t("tokNote")].join("\n"))}">${t("tokUsed")} ${(tk.input + tk.output).toLocaleString()} Token${tk.unreported ? "+" : ""}${costPart(tk)}${tk.backup?.length ? ` \xB7 ${t("backupShort").replace("{n}", String(tk.backup.length))}` : ""}</span>` : "";
-  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc6([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...E.settings.debug && tm.repairs?.length ? tm.repairs.flatMap((v, i) => ["", `${t("repairWhy").replace("{n}", String(i + 1))}:`, ...v.map((x) => `- ${x}`)]) : [], ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc6(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc6(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}</span>` : "";
+  const memoPart = tm?.memo ? ` \xB7 <span class="canon-memo" title="${esc6(t("memoNote"))}">${t("memoUsed").replace("{n}", String(tm.memo))}</span>` : "";
+  const timing = !busy && !conflict && tm && tm.steps.length ? `<span class="canon-timing" title="${esc6([...tm.steps.map((s) => `${t("step_" + s.step)}: ${dur(s.ms)}${s.count > 1 ? ` \xD7${s.count}` : ""}${s.retries ? ` (${t("resent")} ${s.retries})` : ""}`), ...E.settings.debug && tm.repairs?.length ? tm.repairs.flatMap((v, i) => ["", `${t("repairWhy").replace("{n}", String(i + 1))}:`, ...v.map((x) => `- ${x}`)]) : [], ...tm.rejects?.length ? ["", `${t("resentWhy")}:`, ...tm.rejects] : [], ...tm.fixes?.length ? ["", `${t("fixedWhy")}:`, ...tm.fixes] : []].join("\n"))}">${t("lastTurn")} ${dur(tm.totalMs)}\uFF1A${tm.steps.slice().sort((a, b) => b.ms - a.ms).map((s) => `${esc6(t("step_" + s.step))} ${dur(s.ms)}${s.count > 1 ? `\xD7${s.count}` : ""}${s.retries ? `\uFF08${esc6(t("resent"))}${s.retries}\uFF09` : ""}`).join(" \xB7 ")}${replyPart}${tokenPart}${memoPart}</span>` : "";
   el.dataset.phase = conflict ? "conflict" : phase;
   el.innerHTML = `<span class="canon-dot"></span><b>Canon</b> <span class="canon-phase">${esc6(t("phase_" + (conflict ? "conflict" : phase)))}</span>
     <span class="canon-msg" title="${esc6(msg)}">${esc6(msg)}</span>${timing}
@@ -50338,6 +50503,7 @@ async function init() {
   const model = new StModel();
   host = new StHost(model);
   host.packStore = libraryPackStore;
+  host.memo = libraryMemoStore;
   host.settings = () => globalSettings();
   model.horaePresent = !!HoraeAdapter.detect();
   model.taskProfileId = () => {

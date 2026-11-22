@@ -15,6 +15,10 @@ export class WebHost implements HostPort {
     save: async (text, meta) => { await packs.put(meta.hash, text); return { file: meta.hash }; },
     load: async (ref) => (await packs.get(ref.file || ref.hash)) ?? (await packs.get(ref.hash)) ?? null,
   };
+  memo: NonNullable<HostPort['memo']> = {
+    load: async (hash) => (await packs.get(`memo:${hash}`)) ?? null,
+    save: async (hash, text) => { await packs.put(`memo:${hash}`, text); },
+  };
 
   /** Does this tab hold the open game? (app.ts: one tab plays a saved game at a time.) */
   writerCheck: (() => boolean) | null = null;

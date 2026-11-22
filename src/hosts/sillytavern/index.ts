@@ -7,7 +7,7 @@ import { HoraeAdapter } from './horae';
 import { WriterLock } from '../browser/lock';
 import { CHAT_PROFILE, mountUi, refreshUi, renderMessageDecorations, t } from './ui';
 import { notifyDone, primeNotifications } from './notify';
-import { listLibrary, loadFromLibrary, libraryPackStore } from './library';
+import { listLibrary, loadFromLibrary, libraryMemoStore, libraryPackStore } from './library';
 import { applyLoreScan } from './lorescan';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -156,6 +156,7 @@ async function init() {
   const model = new StModel();
   host = new StHost(model);
   host.packStore = libraryPackStore;
+  host.memo = libraryMemoStore;
   host.settings = () => globalSettings();
   model.horaePresent = !!HoraeAdapter.detect();
   model.taskProfileId = () => { const id = String(globalSettings().taskProfileId || ''); return id === CHAT_PROFILE ? '' : id; };

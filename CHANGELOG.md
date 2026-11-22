@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.50.0 — 2026-11-23 (pack 7.1.1)
+
+- **A new game does not pay again for what an earlier game asked.** Binding a pack never called the model. What made a first turn cost four to five times a normal one was reading the Persona against the world and checking the lorebook and the pack's texts against the Persona's 本局设定: 43 to 115 calls, every new game, with the same answers. These answers are now kept beside the pack (`canon-memo-….json` in SillyTavern's user files) and reused by any later game with the same pack, Persona and lorebook entries; only what changed is asked again (an edited lorebook entry is the only text checked again). Whether a companion knows their next canon event is kept the same way. The turn's timing line shows how many answers were reused. 重新检查 still asks everything anew. Packs and chats are unchanged.
+
 ## 1.49.10 — 2026-11-22 (pack 7.1.1)
 
 - **Someone taking an object is not who held it.** In the reply, the player character stole the archive key from the archivist's desk. The reply's newcomer was taken for the archivist because their words had the key in them. An object that changes hands in the reply no longer tells who a newcomer is.

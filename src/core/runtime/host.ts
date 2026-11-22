@@ -90,6 +90,9 @@ export interface HostPort {
     save(text: string, meta: { title: string; packId: string; version: string; hash: string }): Promise<{ file: string }>;
     load(ref: { hash: string; file?: string }): Promise<string | null>;
   };
+  /** Where each pack's memo is kept (runtime/memo.ts: model answers a later game may take again). Without it every
+   *  game asks again. */
+  memo?: import('./memo').MemoStore;
   model: ModelPort;
   /** Wall clock for diagnostics only. Never story time. */
   now(): number;

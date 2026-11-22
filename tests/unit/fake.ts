@@ -33,6 +33,7 @@ export class FakeHost implements HostPort {
   sceneTracker: SceneTrackerPort | null = null;
   lore?: HostPort['lore'];
   packStore?: HostPort['packStore'];
+  memo?: HostPort['memo'];
   model: ScriptedModel;
   logs: string[] = [];
   /** Durable copy (what a reload would see). */

@@ -69,8 +69,23 @@ export const libraryPackStore = {
   },
 };
 
+/** Each pack's memo (core/runtime/memo.ts): one file beside the pack in the user's files folder, by the pack's hash. */
+const memoName = (hash: string) => `canon-memo-${hash.slice(0, 16)}.json`;
+const memoPath = (hash: string) => `user/files/${memoName(hash)}`;
+export const libraryMemoStore = {
+  load: async (hash: string): Promise<string | null> => {
+    const r = await fetch('/' + memoPath(hash), { cache: 'no-store', headers: ctx().getRequestHeaders?.() || {} }).catch(() => null);
+    return r?.ok ? await r.text() : null;
+  },
+  save: async (hash: string, text: string): Promise<void> => {
+    const r = await fetch('/api/files/upload', { method: 'POST', headers: headers(), body: JSON.stringify({ name: memoName(hash), data: toBase64(text) }) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  },
+};
+
 export async function removeFromLibrary(e: LibraryEntry): Promise<void> {
   await fetch('/api/files/delete', { method: 'POST', headers: headers(), body: JSON.stringify({ path: e.file }) }).catch(() => undefined);
+  await fetch('/api/files/delete', { method: 'POST', headers: headers(), body: JSON.stringify({ path: memoPath(e.hash) }) }).catch(() => undefined);
   settingsObj().library = (settingsObj().library || []).filter((x) => x.hash !== e.hash);
   ctx().saveSettingsDebounced?.();
 }
