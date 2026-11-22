@@ -7,7 +7,7 @@ import type { CanonEngine } from '../runtime/engine';
 import { t } from './i18n';
 import { addressText } from './graph';
 import { hostilityChange, hostilityHtml } from './hostility-panel';
-import { combatChange, combatHtml } from './combat-panel';
+import { combatChange, combatHtml, settingHtml } from './combat-panel';
 import { namesChange, namesHtml } from './names-panel';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -324,6 +324,7 @@ export function createInspector(d: InspectorDeps) {
       ] as [string, string, string][] }] : []),
       { label: t('ciNavWorld'), items: [
         ...(ni ? [['world', t('wsTitle'), w?.unchecked.length ? badge(w.unchecked.length, 'warn') : badge(w?.overrides.length || 0, 'muted')] as [string, string, string]] : []),
+        ['setting', t('cbSetting'), ''],
         ['combat', t('combat'), badge(E().fighting(), 'bad')],
         ['names', t('nmTitle'), badge(E().namesView()?.now.length || 0, 'muted')],
         ['facts', t('tabFacts'), badge(v?.facts.length || 0, 'muted')],
@@ -349,7 +350,10 @@ export function createInspector(d: InspectorDeps) {
       case 'world': return world();
       case 'combat': {
         const q = filters.get('combat') || '';
-        const pg = combatHtml(E().combatView(spoilers, q, cbFocus), q, cbPicked, d.tip);
+        return combatHtml(E().combatView(spoilers, q, cbFocus), q, cbPicked, d.tip);
+      }
+      case 'setting': {
+        const pg = settingHtml(E().combatView(spoilers, filters.get('setting') || '', cbFocus), d.tip);
         return { ...pg, mount: (root) => pg.mount?.(root, (id) => { cbFocus = id; render(true); }) };
       }
       case 'names': {
@@ -447,8 +451,8 @@ export function createInspector(d: InspectorDeps) {
       const f = ev.target as HTMLInputElement;
       if (f.classList.contains('ci-filter')) {
         filters.set(tab, f.value);
-        // 战斗 lists the people and nodes that matter now, and any by name (a node by its text too) when searched for: the page is rebuilt
-        if (tab === 'combat') render(true); else applyFilter();
+        // 战斗 lists the people who matter now and 设定 the nodes, and any by name (a node by its text too) when searched for: the page is rebuilt
+        if (tab === 'combat' || tab === 'setting') render(true); else applyFilter();
       }
     });
     el.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !(ev.target as HTMLElement).closest('textarea')) toggle(false); });
@@ -473,10 +477,11 @@ export function createInspector(d: InspectorDeps) {
       if (act === 'addr-add') { b.closest('.ci-side')?.querySelector('.ci-addr')?.insertAdjacentHTML('beforeend', addrRow(null)); return; }
       if (act === 'addr-del') { b.closest('.ci-addr-row')?.remove(); return; }
       if (act === 'spoilers' || act === 'ni-jobs') return;
-      // a node (or person) of the 战斗设定 named anywhere on the page: the graph's centre, scrolled to
+      // a node (or person) of the setting named on any page: the 设定 page, centred on it, the graph scrolled to
       if (act === 'cb-node' && b.dataset.node) {
         cbFocus = b.dataset.node;
         const inSetting = !!b.closest('[data-sec="cb-setting"]');
+        if (tab !== 'setting') { const sc = el.querySelector('.ci-scroll'); if (sc) scrolls.set(tab, sc.scrollTop); tab = 'setting'; }
         render(true);
         if (!inSetting) el.querySelector('.ci-cbgraph-wrap')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
         return;

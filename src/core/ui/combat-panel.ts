@@ -1,7 +1,9 @@
-// 战斗 as a page of the inspector: the fight now (with the player's correction), the last rulings, each person's
-// states (editable), 对抗倾向 (editable) and links, and the pack's setting: its basis, a graph around one focus
-// (combat-graph.ts) with the focus in full under it, and chips to move the focus (a node's name anywhere does too);
-// the data comes from the combat module (combat/panel.ts).
+// Two pages of the inspector from the combat module's data (combat/panel.ts):
+// - 战斗: the fight now (with the player's correction), the last rulings, each person's states (editable), 对抗倾向
+//   (editable) and links;
+// - 设定: the pack's setting — its basis, a graph around one focus (combat-graph.ts) with the focus in full under it,
+//   and chips to move the focus (a node's name on either page does too). Its own page under 世界 (user, 2026-11-20:
+//   the setting is not part of fighting; 主动敌对's dangers and the player's abilities hang on it too).
 import type { CombatChange, CombatViewData as CombatView } from '../combat';
 import { kindColor, mountCombatGraph } from './combat-graph';
 import { t } from './i18n';
@@ -16,10 +18,9 @@ const empty = (s: string) => `<div class="ci-empty">${esc(s)}</div>`;
 const linkWord = (l: { label: string | null; how?: string }, none = '') => (l.how ? t('cbHow_' + l.how) : l.label ?? none);
 const nodeBtn = (id: string, label: string) => `<button class="ci-nodelink" data-act="cb-node" data-node="${esc(id)}">${esc(label)}</button>`;
 
-/** The 战斗 page. query: the page's filter box (people by name; the setting's nodes by name or text, people by name);
- *  picked: the people ticked for a fight the player starts (kept across rebuilds). mount: draws the setting's graph
- *  once the page is in the document (pick: a point clicked). */
-export function combatHtml(v: CombatView | null, query: string, picked: ReadonlySet<string>, tip: (k: string) => string): { html: string; secs: { id: string; label: string }[]; mount?: (root: HTMLElement, pick: (id: string) => void) => void } {
+/** The 战斗 page. query: the page's filter box (people by name); picked: the people ticked for a fight the player
+ *  starts (kept across rebuilds). */
+export function combatHtml(v: CombatView | null, query: string, picked: ReadonlySet<string>, tip: (k: string) => string): { html: string; secs: { id: string; label: string }[] } {
   if (!v) return { html: empty(t('graphNoData')), secs: [] };
   if (v.none !== null) return { html: empty(t('combatNone').replace('{r}', v.none)), secs: [] };
   const q = query.trim().toLowerCase();
@@ -61,6 +62,18 @@ export function combatHtml(v: CombatView | null, query: string, picked: Readonly
     return `<div class="ci-item ci-cbperson" data-key="cbp-${esc(p.id)}" data-entity="${esc(p.id)}"><div class="ci-head">${head}</div><div class="ci-body">${states}${links}</div>${add}${style}</div>`;
   };
   const note = `<div class="ci-muted">${esc(t(q ? 'combatPeopleFound' : 'combatPeopleNote').replace('{n}', String(people.length)).replace('{all}', String(v.people.length)))}</div>`;
+  const secs = [{ id: 'cb-now', label: t('combatNow') }, { id: 'cb-rulings', label: t('combatRulings') }, { id: 'cb-people', label: t('combatPeople') }];
+  const html = sec('cb-now', t('combatNow'), fight, tip('combatTip'), 'ci-keep')
+    + sec('cb-rulings', t('combatRulings'), v.rulings.length ? v.rulings.map(ruling).join('') : empty(t('combatNoRulings')))
+    + sec('cb-people', t('combatPeople'), note + people.map(person).join('') + (v.hidden ? `<div class="ci-muted">${esc(t('combatHidden').replace('{n}', String(v.hidden)))}</div>` : ''));
+  return { html, secs };
+}
+
+/** The 设定 page. The filter box (query, in the view) finds nodes by name or text and people by name. mount: draws
+ *  the graph once the page is in the document (pick: a point clicked). */
+export function settingHtml(v: CombatView | null, tip: (k: string) => string): { html: string; secs: { id: string; label: string }[]; mount?: (root: HTMLElement, pick: (id: string) => void) => void } {
+  if (!v) return { html: empty(t('graphNoData')), secs: [] };
+  if (v.none !== null) return { html: empty(t('stNone').replace('{r}', v.none)), secs: [] };
   const knownBy = (k: string[] | null) => (k ? chip(k.length ? t('cbKnownBy').replace('{w}', k.join('、')) : t('cbSecret'), 'warn') : '');
   const S = v.setting;
   const dot = (k: string) => `<i class="ci-kdot" style="--k:${kindColor(k)}"></i>`;
@@ -93,16 +106,12 @@ export function combatHtml(v: CombatView | null, query: string, picked: Readonly
       + `<div class="ci-muted">${esc(t('cbSearchHint').replace('{all}', String(S.total)))}</div>`;
   const setting = fold('cb-basis', t('cbBasisFold'), `<div class="ci-muted">${esc(v.basis)}</div>`) + graph + `<div class="ci-cbfind">${finder}</div>`
     + (S.hidden ? `<div class="ci-muted">${esc(t('cbHidden').replace('{n}', String(S.hidden)))}</div>` : '');
-  const secs = [{ id: 'cb-now', label: t('combatNow') }, { id: 'cb-rulings', label: t('combatRulings') }, { id: 'cb-people', label: t('combatPeople') }, { id: 'cb-setting', label: t('cbSetting') }];
-  const html = sec('cb-now', t('combatNow'), fight, tip('combatTip'), 'ci-keep')
-    + sec('cb-rulings', t('combatRulings'), v.rulings.length ? v.rulings.map(ruling).join('') : empty(t('combatNoRulings')))
-    + sec('cb-people', t('combatPeople'), note + people.map(person).join('') + (v.hidden ? `<div class="ci-muted">${esc(t('combatHidden').replace('{n}', String(v.hidden)))}</div>` : ''))
-    + sec('cb-setting', t('cbSetting'), setting, tip('cbSettingTip'), 'ci-keep');
+  const html = sec('cb-setting', t('cbSetting'), setting, tip('cbSettingTip'), 'ci-keep');
   const mount = (root: HTMLElement, pick: (id: string) => void) => {
     const c = root.querySelector<HTMLCanvasElement>('canvas.ci-cbgraph');
     if (c && S.focus) mountCombatGraph(c, g, { pick, fought: t('cbFought') });
   };
-  return { html, secs, mount };
+  return { html, secs: [], mount };
 }
 
 /** The change a 战斗 page button makes (the engine keeps it as the player's own record); null: nothing to change. */

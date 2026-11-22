@@ -36560,7 +36560,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.50.1";
+var ENGINE_RELEASE = "1.50.2";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -45602,7 +45602,7 @@ var D = {
   naturePlayer: { zh: "\uFF08\u4F60\u7684\u89D2\u8272\uFF0C\u8BFB\u81EA Persona\uFF09", en: "(your character, from the Persona)" },
   relations: { zh: "\u89D2\u8272\u5173\u7CFB", en: "Relations" },
   combat: { zh: "\u6218\u6597", en: "Fights" },
-  combatTip: { zh: "\u6218\u6597\u5206\u6790\uFF1A\u73B0\u5728\u662F\u5426\u5728\u6218\u6597\u3001\u8C01\u5728\u6218\u6597\uFF08CanonEngine \u5224\u65AD\u9519\u4E86\u53EF\u4EE5\u624B\u52A8\u5F00\u59CB\u6216\u7ED3\u675F\uFF09\uFF0C\u6700\u8FD1\u51E0\u8F6E\u7684\u5224\u5B9A\uFF08\u6BCF\u4E00\u4E0B\u4EA4\u950B\u548C\u4F9D\u636E\uFF09\uFF0C\u6BCF\u4E2A\u4EBA\u7684\u72B6\u6001\uFF08\u4F24\u52BF\u3001\u643A\u5E26\u7684\u4E1C\u897F\u7B49\uFF0C\u53EF\u4EE5\u6DFB\u52A0\u3001\u53D6\u6D88\uFF09\u3001\u5BF9\u6297\u503E\u5411\uFF08\u53EF\u4EE5\u4FEE\u6539\uFF09\u548C\u5728\u6218\u6597\u8BBE\u5B9A\u91CC\u6302\u7740\u7684\u8282\u70B9\uFF0C\u4EE5\u53CA\u5267\u672C\u7684\u6218\u6597\u8BBE\u5B9A\u672C\u8EAB\u3002\n\u9ED8\u8BA4\u53EA\u5217\u51FA\u6218\u6597\u4E2D\u7684\u4EBA\u3001\u4F60\u3001\u6709\u72B6\u6001\u7684\u4EBA\u548C\u672C\u5C40\u6709\u6539\u52A8\u7684\u4EBA\uFF1B\u5728\u4E0A\u9762\u7684\u641C\u7D22\u6846\u8F93\u5165\u540D\u5B57\u53EF\u4EE5\u627E\u5230\u5267\u672C\u91CC\u7684\u4EFB\u4F55\u4EBA\u3002", en: "Combat analysis: whether a fight is under way and who is in it (start or end it by hand when Canon Engine got it wrong), the last rulings (each exchange and what it rests on), everyone's states (injuries, what they carry \u2014 add or take away), \u5BF9\u6297\u503E\u5411 (editable) and what they are linked to in the combat setting, and the pack's combat setting itself.\nListed: those fighting, you, anyone with states or changed in this game; type a name in the search box above to find anyone in the pack." },
+  combatTip: { zh: "\u6218\u6597\u5206\u6790\uFF1A\u73B0\u5728\u662F\u5426\u5728\u6218\u6597\u3001\u8C01\u5728\u6218\u6597\uFF08CanonEngine \u5224\u65AD\u9519\u4E86\u53EF\u4EE5\u624B\u52A8\u5F00\u59CB\u6216\u7ED3\u675F\uFF09\uFF0C\u6700\u8FD1\u51E0\u8F6E\u7684\u5224\u5B9A\uFF08\u6BCF\u4E00\u4E0B\u4EA4\u950B\u548C\u4F9D\u636E\uFF09\uFF0C\u6BCF\u4E2A\u4EBA\u7684\u72B6\u6001\uFF08\u4F24\u52BF\u3001\u643A\u5E26\u7684\u4E1C\u897F\u7B49\uFF0C\u53EF\u4EE5\u6DFB\u52A0\u3001\u53D6\u6D88\uFF09\u3001\u5BF9\u6297\u503E\u5411\uFF08\u53EF\u4EE5\u4FEE\u6539\uFF09\u548C\u5728\u8BBE\u5B9A\u91CC\u6302\u7740\u7684\u8282\u70B9\uFF08\u70B9\u8282\u70B9\u540D\u4F1A\u6253\u5F00\u300C\u8BBE\u5B9A\u300D\u9875\uFF09\u3002\n\u9ED8\u8BA4\u53EA\u5217\u51FA\u6218\u6597\u4E2D\u7684\u4EBA\u3001\u4F60\u3001\u6709\u72B6\u6001\u7684\u4EBA\u548C\u672C\u5C40\u6709\u6539\u52A8\u7684\u4EBA\uFF1B\u5728\u4E0A\u9762\u7684\u641C\u7D22\u6846\u8F93\u5165\u540D\u5B57\u53EF\u4EE5\u627E\u5230\u5267\u672C\u91CC\u7684\u4EFB\u4F55\u4EBA\u3002", en: "Combat analysis: whether a fight is under way and who is in it (start or end it by hand when Canon Engine got it wrong), the last rulings (each exchange and what it rests on), everyone's states (injuries, what they carry \u2014 add or take away), \u5BF9\u6297\u503E\u5411 (editable) and what they are linked to in the setting (a node's name opens the Setting page).\nListed: those fighting, you, anyone with states or changed in this game; type a name in the search box above to find anyone in the pack." },
   combatStyleNone: { zh: "\u6CA1\u6709\u5199", en: "none" },
   combatNow: { zh: "\u73B0\u5728", en: "Now" },
   combatPeople: { zh: "\u72B6\u6001 \xB7 \u5BF9\u6297\u503E\u5411", en: "States \xB7 \u5BF9\u6297\u503E\u5411" },
@@ -45649,15 +45649,16 @@ var D = {
   style_response: { zh: "\u5E94\u5BF9", en: "When attacked" },
   style_limit: { zh: "\u5E95\u7EBF", en: "Would risk their life for" },
   style_stop: { zh: "\u6536\u624B", en: "Stops" },
-  combatLinks: { zh: "\u6218\u6597\u8BBE\u5B9A\u91CC\u6302\u7740\u7684", en: "Linked in the combat setting" },
+  combatLinks: { zh: "\u8BBE\u5B9A\u91CC\u6302\u7740\u7684", en: "Linked in the setting" },
   combatSrc_ui: { zh: "\u4F60\u6539\u7684", en: "set by you" },
   combatSrc_persona: { zh: "Persona", en: "Persona" },
   combatSrc_play: { zh: "\u6E38\u620F\u4E2D", en: "from play" },
   combatSrc_pack: { zh: "\u5267\u672C", en: "pack" },
   combatSrc_fill: { zh: "\u8865\u586B", en: "filled in" },
   combatFighting: { zh: "\u6218\u6597\u4E2D", en: "fighting" },
-  cbSetting: { zh: "\u6218\u6597\u8BBE\u5B9A", en: "Combat setting" },
-  cbSettingTip: { zh: "\u5267\u672C\u7684\u6218\u6597\u8BBE\u5B9A\uFF1A\u9ED8\u8BA4\u6309\u4EC0\u4E48\u5224\u65AD\uFF08\u6BD4\u5982\u73B0\u5B9E\u7269\u7406\uFF09\uFF0C\u4EE5\u53CA\u6982\u5FF5\u3001\u89C4\u5219\u3001\u80FD\u529B\u3001\u5148\u4F8B\u3001\u5371\u9669\u8FD9\u4E9B\u8282\u70B9\u548C\u5B83\u4EEC\u4E4B\u95F4\u7684\u8FDE\u63A5\u3002\u6218\u6597\u65F6 CanonEngine \u4ECE\u53C2\u6218\u8005\u6302\u7740\u7684\u8282\u70B9\u51FA\u53D1\uFF0C\u6CBF\u8FDE\u63A5\u53D6\u8D44\u6599\u4EA4\u7ED9\u5224\u5B9A\u3002\n\u56FE\u4EE5\u4E00\u4E2A\u8282\u70B9\u6216\u4E00\u4E2A\u4EBA\u4E3A\u4E2D\u5FC3\uFF0C\u753B\u51FA\u5468\u56F4\u4E24\u5C42\uFF1A\u70B9\u56FE\u4E0A\u7684\u70B9\u5C31\u4EE5\u5B83\u4E3A\u4E2D\u5FC3\u5C55\u5F00\uFF0C\u9F20\u6807\u505C\u5728\u70B9\u4E0A\u80FD\u770B\u5230\u5B83\u7684\u6BCF\u6761\u8FDE\u63A5\uFF1B\u56FE\u4E0B\u9762\u662F\u4E2D\u5FC3\u7684\u5168\u6587\u548C\u8FDE\u63A5\u3002\u4E0B\u9762\u7684\u6807\u7B7E\u3001\u9875\u9762\u4E0A\u4EFB\u4F55\u84DD\u8272\u7684\u8282\u70B9\u540D\uFF0C\u4EE5\u53CA\u641C\u7D22\u6846\uFF08\u6309\u540D\u5B57\u6216\u5185\u5BB9\u627E\u8282\u70B9\uFF0C\u6309\u540D\u5B57\u627E\u4EBA\uFF09\u90FD\u80FD\u6362\u4E2D\u5FC3\u3002", en: "The pack's combat setting: what holds by default (e.g. real-world physics) and its nodes \u2014 concepts, rules, abilities, precedents, dangers \u2014 with their links. In a fight Canon Engine walks the links out from the nodes the fighters are linked to and gives what it finds to the ruling.\nThe graph shows two steps around one node or person: click a point to centre on it, hover one to see its links; under it the centre in full with its links. The chips below, any node name on the page and the search box (nodes by name or text, people by name) move the centre too." },
+  cbSetting: { zh: "\u8BBE\u5B9A", en: "Setting" },
+  stNone: { zh: "\u8FD9\u4E2A\u5267\u672C\u6CA1\u6709\u8BBE\u5B9A\uFF1A{r}", en: "This pack has no setting: {r}" },
+  cbSettingTip: { zh: "\u5267\u672C\u7684\u8BBE\u5B9A\uFF1A\u9ED8\u8BA4\u6309\u4EC0\u4E48\u5224\u65AD\uFF08\u6BD4\u5982\u73B0\u5B9E\u7269\u7406\uFF09\uFF0C\u4EE5\u53CA\u6982\u5FF5\u3001\u89C4\u5219\u3001\u80FD\u529B\u3001\u5148\u4F8B\u3001\u5371\u9669\u8FD9\u4E9B\u8282\u70B9\u548C\u5B83\u4EEC\u4E4B\u95F4\u7684\u8FDE\u63A5\u3002\u4EBA\u7269\uFF08\u5305\u62EC\u4F60\uFF09\u3001\u5730\u70B9\u548C\u7EC4\u7EC7\u6302\u5728\u8FD9\u4E9B\u8282\u70B9\u4E0A\uFF1A\u6218\u6597\u65F6 CanonEngine \u4ECE\u53C2\u6218\u8005\u6302\u7740\u7684\u8282\u70B9\u51FA\u53D1\uFF0C\u6CBF\u8FDE\u63A5\u53D6\u8D44\u6599\u4EA4\u7ED9\u5224\u5B9A\uFF1B\u4E3B\u52A8\u654C\u5BF9\u4ECE\u5730\u70B9\u6302\u7740\u7684\u5371\u9669\u91CC\u627E\u4F1A\u627E\u4E0A\u4F60\u7684\u4EBA\u3002\n\u56FE\u4EE5\u4E00\u4E2A\u8282\u70B9\u6216\u4E00\u4E2A\u4EBA\u4E3A\u4E2D\u5FC3\uFF0C\u753B\u51FA\u5468\u56F4\u4E24\u5C42\uFF1A\u70B9\u56FE\u4E0A\u7684\u70B9\u5C31\u4EE5\u5B83\u4E3A\u4E2D\u5FC3\u5C55\u5F00\uFF0C\u9F20\u6807\u505C\u5728\u70B9\u4E0A\u80FD\u770B\u5230\u5B83\u7684\u6BCF\u6761\u8FDE\u63A5\uFF1B\u56FE\u4E0B\u9762\u662F\u4E2D\u5FC3\u7684\u5168\u6587\u548C\u8FDE\u63A5\u3002\u4E0B\u9762\u7684\u6807\u7B7E\u3001\u9875\u9762\u4E0A\u4EFB\u4F55\u84DD\u8272\u7684\u8282\u70B9\u540D\uFF0C\u4EE5\u53CA\u641C\u7D22\u6846\uFF08\u6309\u540D\u5B57\u6216\u5185\u5BB9\u627E\u8282\u70B9\uFF0C\u6309\u540D\u5B57\u627E\u4EBA\uFF09\u90FD\u80FD\u6362\u4E2D\u5FC3\u3002", en: "The pack's setting: what holds by default (e.g. real-world physics) and its nodes \u2014 concepts, rules, abilities, precedents, dangers \u2014 with their links. People (you too), places and organizations are linked to them: in a fight Canon Engine walks the links out from the nodes the fighters are linked to and gives what it finds to the ruling; \u4E3B\u52A8\u654C\u5BF9 finds who may come for you among the dangers a place is linked to.\nThe graph shows two steps around one node or person: click a point to centre on it, hover one to see its links; under it the centre in full with its links. The chips below, any node name on the page and the search box (nodes by name or text, people by name) move the centre too." },
   cbFound: { zh: "\u641C\u7D22\u5230 {n} \u4E2A\uFF08\u8282\u70B9\u6309\u540D\u5B57\u6216\u5185\u5BB9\uFF0C\u4EBA\u6309\u540D\u5B57\uFF09\u3002\u70B9\u4E00\u4E2A\u653E\u5230\u56FE\u7684\u4E2D\u5FC3\u3002", en: "{n} found (nodes by name or text, people by name). Click one to centre the graph on it." },
   cbMore: { zh: "\u8FD8\u6709 {n} \u4E2A\u6CA1\u6709\u5217\u51FA\uFF0C\u8BF7\u8F93\u5165\u66F4\u5177\u4F53\u7684\u8BCD\u3002", en: "{n} more not listed: search for something more specific." },
   cbHidden: { zh: "{n} \u4E2A\u8282\u70B9\u5C5E\u4E8E\u5C1A\u672A\u5230\u6765\u7684\u5267\u60C5\uFF08\u5267\u900F\uFF09\uFF0C\u6CA1\u6709\u5217\u51FA\u3002", en: "{n} nodes belong to the story still to come (spoilers) and are not listed." },
@@ -45671,7 +45672,7 @@ var D = {
   niUses: { zh: "\u7528\u6CD5", en: "Uses" },
   cbMorePeople: { zh: "\u53E6\u6709 {n} \u4EBA\u8FDE\u7740\u5B83\uFF0C\u6CA1\u753B\u51FA\u6765", en: "{n} more people linked, not drawn" },
   cbGraphHint: { zh: "\u70B9\u4E00\u4E2A\u70B9\u5C31\u4EE5\u5B83\u4E3A\u4E2D\u5FC3 \xB7 \u9F20\u6807\u505C\u5728\u70B9\u4E0A\u770B\u5B83\u7684\u8FDE\u63A5", en: "Click a point to centre on it \xB7 hover to see its links" },
-  cbNoGraph: { zh: "\u8FD9\u4E2A\u5267\u672C\u7684\u6218\u6597\u8BBE\u5B9A\u91CC\u6CA1\u6709\u8282\u70B9\u3002", en: "This pack's combat setting has no nodes." },
+  cbNoGraph: { zh: "\u8FD9\u4E2A\u5267\u672C\u7684\u8BBE\u5B9A\u91CC\u6CA1\u6709\u8282\u70B9\u3002", en: "This pack's setting has no nodes." },
   cbStarts: { zh: "\u4ECE\u8FD9\u91CC\u770B\uFF1A", en: "Start from:" },
   cbSearchHint: { zh: "\u5728\u641C\u7D22\u6846\u8F93\u5165\u540D\u5B57\u6216\u5185\u5BB9\uFF0C\u53EF\u4EE5\u627E\u5230\u4EFB\u4F55\u8282\u70B9\uFF08\u5171 {all} \u4E2A\uFF09\u6216\u4EBA\u3002", en: "Type a name or words in the search box to find any node (of {all}) or person." },
   cbInMore: { zh: " \u7B49 {n} \u4E2A", en: " and {n} more" },
@@ -46260,13 +46261,13 @@ Also [OOC \u2026], \u3010OOC\uFF1A\u2026\u3011, or a line starting with "OOC:".
   adv_budgetChars: { zh: "\u6BCF\u56DE\u5408\u8D44\u6599\u4E0A\u9650\uFF08\u5B57\u7B26\uFF09", en: "Context limit per turn (chars)" },
   adv_budgetCharsTip: { zh: "\u6BCF\u56DE\u5408\u7ED9\u6A21\u578B\u770B\u7684\u5267\u60C5\u8D44\u6599\u6700\u591A\u591A\u5C11\u5B57\u3002\u4E0D\u591F\u65F6\u4F1A\u62A5\u9519\u63D0\u9192\u4F60\u8C03\u5927\u3002", en: "How much story material the model gets each turn. If it is not enough, you get an error telling you to raise it." },
   adv_combat: { zh: "\u6218\u6597\u5206\u6790", en: "Combat analysis" },
-  adv_combatTip: { zh: "\u6218\u6597\u65F6\uFF0CCanonEngine \u4ECE\u53C2\u6218\u8005\u51FA\u53D1\uFF0C\u6CBF\u5267\u672C\u7684\u6218\u6597\u8BBE\u5B9A\uFF08\u6982\u5FF5\u3001\u89C4\u5219\u3001\u80FD\u529B\u3001\u5148\u4F8B\u4E4B\u95F4\u7684\u8FDE\u63A5\uFF09\u5F80\u5916\u53D6\u8D44\u6599\u4EA4\u7ED9\u5224\u5B9A\u3002\u8FD9\u4E09\u4E2A\u6570\u51B3\u5B9A\u53D6\u591A\u8FDC\u3001\u53D6\u591A\u5C11\u3002", en: "In a fight Canon Engine walks the pack's combat setting (concepts, rules, abilities, precedents and their links) outward from the fighters and gives what it finds to the ruling. These three numbers say how far and how much." },
+  adv_combatTip: { zh: "\u6218\u6597\u65F6\uFF0CCanonEngine \u4ECE\u53C2\u6218\u8005\u51FA\u53D1\uFF0C\u6CBF\u5267\u672C\u7684\u8BBE\u5B9A\uFF08\u6982\u5FF5\u3001\u89C4\u5219\u3001\u80FD\u529B\u3001\u5148\u4F8B\u4E4B\u95F4\u7684\u8FDE\u63A5\uFF09\u5F80\u5916\u53D6\u8D44\u6599\u4EA4\u7ED9\u5224\u5B9A\u3002\u8FD9\u4E09\u4E2A\u6570\u51B3\u5B9A\u53D6\u591A\u8FDC\u3001\u53D6\u591A\u5C11\u3002", en: "In a fight Canon Engine walks the pack's combat setting (concepts, rules, abilities, precedents and their links) outward from the fighters and gives what it finds to the ruling. These three numbers say how far and how much." },
   adv_combatMaxDepth: { zh: "\u6700\u5927\u8282\u70B9\u8DDD\u79BB", en: "Max node distance" },
   adv_combatMaxDepthTip: { zh: "\u4ECE\u53C2\u6218\u8005\u51FA\u53D1\u6700\u591A\u6CBF\u8FDE\u63A5\u8D70\u51E0\u6B65\u3002\u9ED8\u8BA4 3\u3002\u8D8A\u5927\u8D44\u6599\u8D8A\u5168\uFF0C\u4F46\u5224\u5B9A\u8D8A\u6162\u3001\u8D8A\u8D35\u3002", en: "How many links out from the fighters at most. Default 3. Larger: more complete, slower and dearer." },
   adv_combatFullDepth: { zh: "\u7ED9\u5168\u6587\u7684\u8DDD\u79BB", en: "Full-text distance" },
   adv_combatFullDepthTip: { zh: "\u8FD9\u4E2A\u8DDD\u79BB\u4EE5\u5185\u7684\u8282\u70B9\u7ED9\u5168\u6587\uFF0C\u66F4\u8FDC\u7684\u53EA\u7ED9\u4E00\u53E5\u6458\u8981\u3002\u9ED8\u8BA4 2\u3002", en: "Nodes up to this distance are given whole, further ones as one sentence. Default 2." },
   adv_combatBudgetChars: { zh: "\u7BC7\u5E45\u4E0A\u9650\uFF08\u5B57\u7B26\uFF09", en: "Size limit (characters)" },
-  adv_combatBudgetCharsTip: { zh: "\u4EA4\u7ED9\u5224\u5B9A\u7684\u6218\u6597\u8BBE\u5B9A\u6700\u591A\u8FD9\u4E48\u591A\u5B57\u7B26\uFF0C\u8D85\u51FA\u65F6\u6700\u8FDC\u7684\u5148\u622A\u6389\uFF08\u8C03\u8BD5\u65E5\u5FD7\u91CC\u4F1A\u5199\u660E\u622A\u6389\u4E86\u4EC0\u4E48\uFF09\u3002\u9ED8\u8BA4 9000\u3002", en: "At most this many characters of the combat setting go to the ruling; past it the furthest are left out (the debug log lists them). Default 9000." },
+  adv_combatBudgetCharsTip: { zh: "\u4EA4\u7ED9\u5224\u5B9A\u7684\u8BBE\u5B9A\u6700\u591A\u8FD9\u4E48\u591A\u5B57\u7B26\uFF0C\u8D85\u51FA\u65F6\u6700\u8FDC\u7684\u5148\u622A\u6389\uFF08\u8C03\u8BD5\u65E5\u5FD7\u91CC\u4F1A\u5199\u660E\u622A\u6389\u4E86\u4EC0\u4E48\uFF09\u3002\u9ED8\u8BA4 9000\u3002", en: "At most this many characters of the combat setting go to the ruling; past it the furthest are left out (the debug log lists them). Default 9000." },
   adv_horizonMinutes: { zh: "\u63D0\u524D\u63D0\u9192\u591A\u4E45\uFF08\u5267\u60C5\u5206\u949F\uFF09", en: "Look-ahead (story minutes)" },
   adv_horizonMinutesTip: { zh: "\u539F\u4F5C\u5FC5\u53D1\u751F\u7684\u4E8B\u4EF6\u5728\u8FD9\u4E48\u4E45\u4E4B\u5185\u8981\u5230\u65F6\uFF0C\u4F1A\u63D0\u524D\u544A\u8BC9 GM\u3002\u9ED8\u8BA4 4320 = 3 \u5929\u3002", en: "Must-happen canon events coming within this time are shown to the GM in advance. Default 4320 = 3 days." },
   adv_taskTimeoutMs: { zh: "\u5185\u90E8\u68C0\u67E5\u8D85\u65F6\uFF08\u6BEB\u79D2\uFF09", en: "Check timeout (ms)" },
@@ -47563,6 +47564,13 @@ function combatHtml(v, query, picked, tip2) {
     return `<div class="ci-item ci-cbperson" data-key="cbp-${esc3(p.id)}" data-entity="${esc3(p.id)}"><div class="ci-head">${head}</div><div class="ci-body">${states}${links}</div>${add2}${style}</div>`;
   };
   const note = `<div class="ci-muted">${esc3(t(q ? "combatPeopleFound" : "combatPeopleNote").replace("{n}", String(people.length)).replace("{all}", String(v.people.length)))}</div>`;
+  const secs = [{ id: "cb-now", label: t("combatNow") }, { id: "cb-rulings", label: t("combatRulings") }, { id: "cb-people", label: t("combatPeople") }];
+  const html = sec("cb-now", t("combatNow"), fight, tip2("combatTip"), "ci-keep") + sec("cb-rulings", t("combatRulings"), v.rulings.length ? v.rulings.map(ruling).join("") : empty(t("combatNoRulings"))) + sec("cb-people", t("combatPeople"), note + people.map(person).join("") + (v.hidden ? `<div class="ci-muted">${esc3(t("combatHidden").replace("{n}", String(v.hidden)))}</div>` : ""));
+  return { html, secs };
+}
+function settingHtml(v, tip2) {
+  if (!v) return { html: empty(t("graphNoData")), secs: [] };
+  if (v.none !== null) return { html: empty(t("stNone").replace("{r}", v.none)), secs: [] };
   const knownBy = (k) => k ? chip2(k.length ? t("cbKnownBy").replace("{w}", k.join("\u3001")) : t("cbSecret"), "warn") : "";
   const S = v.setting;
   const dot = (k) => `<i class="ci-kdot" style="--k:${kindColor(k)}"></i>`;
@@ -47587,13 +47595,12 @@ function combatHtml(v, query, picked, tip2) {
   const graph = S.focus ? `<div class="ci-cbgraph-wrap"><canvas class="ci-cbgraph" data-sig="${esc3(`${S.focus.id}|${g.nodes.length}|${g.edges.length}`)}"></canvas><div class="ci-cbgraph-cap">${legend}<span class="ci-sp"></span>${g.morePeople ? `<span class="ci-muted">${esc3(t("cbMorePeople").replace("{n}", String(g.morePeople)))}</span>` : ""}<span class="ci-muted">${esc3(t("cbGraphHint"))}</span></div></div>${card2(S.focus)}` : empty(t("cbNoGraph"));
   const finder = S.found ? `<div class="ci-muted">${esc3(t("cbFound").replace("{n}", String(S.found.length)))}</div><div class="ci-chips">${S.found.map(nodeChip).join("")}</div>${S.more ? `<div class="ci-muted">${esc3(t("cbMore").replace("{n}", String(S.more)))}</div>` : ""}` : (S.starts.length ? `<div class="ci-chips"><span class="ci-muted">${esc3(t("cbStarts"))}</span>${S.starts.map(nodeChip).join("")}</div>` : "") + S.byKind.map((k) => fold(`cbk-${k.kind}`, `${t("cbKind_" + k.kind)} \xB7 ${k.items.length}`, `<div class="ci-chips">${k.items.map((i) => nodeChip({ ...i, kind: k.kind })).join("")}</div>`)).join("") + `<div class="ci-muted">${esc3(t("cbSearchHint").replace("{all}", String(S.total)))}</div>`;
   const setting = fold("cb-basis", t("cbBasisFold"), `<div class="ci-muted">${esc3(v.basis)}</div>`) + graph + `<div class="ci-cbfind">${finder}</div>` + (S.hidden ? `<div class="ci-muted">${esc3(t("cbHidden").replace("{n}", String(S.hidden)))}</div>` : "");
-  const secs = [{ id: "cb-now", label: t("combatNow") }, { id: "cb-rulings", label: t("combatRulings") }, { id: "cb-people", label: t("combatPeople") }, { id: "cb-setting", label: t("cbSetting") }];
-  const html = sec("cb-now", t("combatNow"), fight, tip2("combatTip"), "ci-keep") + sec("cb-rulings", t("combatRulings"), v.rulings.length ? v.rulings.map(ruling).join("") : empty(t("combatNoRulings"))) + sec("cb-people", t("combatPeople"), note + people.map(person).join("") + (v.hidden ? `<div class="ci-muted">${esc3(t("combatHidden").replace("{n}", String(v.hidden)))}</div>` : "")) + sec("cb-setting", t("cbSetting"), setting, tip2("cbSettingTip"), "ci-keep");
+  const html = sec("cb-setting", t("cbSetting"), setting, tip2("cbSettingTip"), "ci-keep");
   const mount = (root, pick) => {
     const c = root.querySelector("canvas.ci-cbgraph");
     if (c && S.focus) mountCombatGraph(c, g, { pick, fought: t("cbFought") });
   };
-  return { html, secs, mount };
+  return { html, secs: [], mount };
 }
 function combatChange(b, picked) {
   const act = b.dataset.act, entity = b.dataset.entity || "";
@@ -47921,6 +47928,7 @@ function createInspector(d) {
       ] }] : [],
       { label: t("ciNavWorld"), items: [
         ...ni ? [["world", t("wsTitle"), w?.unchecked.length ? badge(w.unchecked.length, "warn") : badge(w?.overrides.length || 0, "muted")]] : [],
+        ["setting", t("cbSetting"), ""],
         ["combat", t("combat"), badge(E2().fighting(), "bad")],
         ["names", t("nmTitle"), badge(E2().namesView()?.now.length || 0, "muted")],
         ["facts", t("tabFacts"), badge(v?.facts.length || 0, "muted")],
@@ -47950,7 +47958,10 @@ function createInspector(d) {
         return world();
       case "combat": {
         const q = filters.get("combat") || "";
-        const pg = combatHtml(E2().combatView(spoilers, q, cbFocus), q, cbPicked, d.tip);
+        return combatHtml(E2().combatView(spoilers, q, cbFocus), q, cbPicked, d.tip);
+      }
+      case "setting": {
+        const pg = settingHtml(E2().combatView(spoilers, filters.get("setting") || "", cbFocus), d.tip);
         return { ...pg, mount: (root) => pg.mount?.(root, (id) => {
           cbFocus = id;
           render(true);
@@ -48077,7 +48088,7 @@ function createInspector(d) {
       const f = ev.target;
       if (f.classList.contains("ci-filter")) {
         filters.set(tab, f.value);
-        if (tab === "combat") render(true);
+        if (tab === "combat" || tab === "setting") render(true);
         else applyFilter();
       }
     });
@@ -48130,6 +48141,11 @@ function createInspector(d) {
       if (act === "cb-node" && b.dataset.node) {
         cbFocus = b.dataset.node;
         const inSetting = !!b.closest('[data-sec="cb-setting"]');
+        if (tab !== "setting") {
+          const sc = el.querySelector(".ci-scroll");
+          if (sc) scrolls.set(tab, sc.scrollTop);
+          tab = "setting";
+        }
         render(true);
         if (!inSetting) el.querySelector(".ci-cbgraph-wrap")?.scrollIntoView({ block: "start", behavior: "smooth" });
         return;

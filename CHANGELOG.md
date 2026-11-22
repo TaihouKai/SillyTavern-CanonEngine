@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.50.2 — 2026-11-23 (pack 7.1.1)
+
+- **设定 has its own page.** The pack's setting (concepts, rules, abilities, precedents, dangers, and the graph) was the last part of the 战斗 page. It is not only used in fights any more: 主动敌对 finds who may come for the player among the dangers of a place, and the player's abilities are linked to it. It is now 检查面板 → 世界 → 设定. A node's name on the 战斗 page opens it there.
+
 ## 1.50.1 — 2026-11-23 (pack 7.1.1)
 
 - **The saving holds for a game started at another time too.** In the live test, a game with the same Persona started a day earlier paid the whole lorebook check again. The Persona reading is given who is in each organization at the start time, which differs from day to day (ITEM, the armed Level 0 group), so it is read again, and it also wrote the 本局设定 changes, worded a little differently each time. 本局设定 is now read on its own from the Persona, the world's description and the lorebook background, nothing that depends on the time, and the check is given the player by name only. A game at another start time takes the same changes and all their verdicts.
