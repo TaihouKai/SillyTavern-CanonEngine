@@ -29724,7 +29724,7 @@ function namesAt(list, tick) {
   return { now, denied };
 }
 var PRONOUN = /^(我|你|您|他|她|它|祂|我们|你们|他们|她们|它们|咱|咱们|自己|对方|其|此人|那人|这人|i|me|you|he|him|she|her|it|they|them|we|us|myself|yourself|himself|herself|themselves)$/i;
-var POINTER = /^(那|这|那个|这个|那位|这位|那名|这名)(家伙|人|位|先生|小姐|女士|男人|女人|男的|女的|少年|少女|男生|女生|孩子|小子|丫头|姑娘|大叔|大姐|老头|小鬼|混蛋|东西)$|^(that|this|the)(guy|man|woman|person|one|girl|boy|kid|lady|gentleman|fellow|bastard)$/i;
+var POINTER = /^(那|这|那个|这个|那位|这位|那名|这名)(家伙|人|位|先生|小姐|女士|男人|女人|男的|女的|少年|少女|男生|女生|孩子|小子|丫头|姑娘|大叔|大姐|老头|小鬼|混蛋|东西)$|^(那边|这边|那里|这里|那儿|这儿|此处|彼处|那头|这头|对面|附近)$|^(that|this|the)(guy|man|woman|person|one|girl|boy|kid|lady|gentleman|fellow|bastard|place|spot)$|^(here|there|overthere)$/i;
 function bindingFrom(words, id, quote, source, why) {
   const w = String(words || "").trim().slice(0, 80);
   const k = nameKey(w);
@@ -36490,7 +36490,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.49.4";
+var ENGINE_RELEASE = "1.49.5";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -44873,6 +44873,9 @@ ${lines.join("\n")}`;
       const who = "add" in change ? change.add.who.trim() : change.deny.id;
       const exact = idx.entityExists(who) ? [who] : uniq([...idx.pack.entities.values(), ...idx.state.runtimeEntities.values()].filter((e) => [e.name, ...e.aliases || []].some((n) => normalizeName(n) === normalizeName(who))).map((e) => e.id));
       if (!normalizeName(words) || exact.length !== 1) return false;
+      const had = idx.namesNow().find((n) => n.source === "ui" && n.key === normalizeName(words));
+      if ("add" in change && had?.id === exact[0]) return true;
+      if ("deny" in change && idx.nameDenied(words, exact[0])) return true;
       const tick = this.current.replay.state.clock.lo;
       const rec = {
         recordId: newId("rec"),

@@ -61,7 +61,7 @@ describe('称呼: the table', () => {
     expect(bindingFrom('her', 'mira', 'her', 'player')).toBeNull();
     expect(bindingFrom('他', 'mira', '他', 'player')).toBeNull();
     expect(bindingFrom('对方', 'mira', '对方', 'player')).toBeNull();
-    for (const w of ['那家伙', '这位先生', '那个女人', 'that guy', 'The woman']) expect(bindingFrom(w, 'mira', w, 'reply')).toBeNull();
+    for (const w of ['那家伙', '这位先生', '那个女人', 'that guy', 'The woman', '那边', '这里', 'over there']) expect(bindingFrom(w, 'mira', w, 'reply')).toBeNull();
     expect(bindingFrom('那个金发女人', 'mira', 'x', 'reply')).not.toBeNull();
     expect(bindingFrom('金发混混', 'mira', '一个金发混混', 'fight', 'x')).toEqual({ words: '金发混混', id: 'mira', quote: '一个金发混混', source: 'fight', why: 'x' });
   });
@@ -169,6 +169,8 @@ describe('称呼 in play', () => {
     y.model.on('evaluate', (i) => String(i.candidate).includes('[NM9]'), { scene_end: at(1, 9, 5) });
     await y.engine.runOperation('normal');
     expect(await y.engine.editNames({ add: { words: 'the old doctor', who: 'Doctor Mira' } })).toBe(true);
+    expect(await y.engine.editNames({ add: { words: 'The Old Doctor', who: 'mira' } })).toBe(true);
+    expect((y.engine.campaign()!.manualRecords || []).filter((m) => m.record.kind === 'naming')).toHaveLength(1);
     expect(y.engine.current!.index.whoIs('the old doctor')).toEqual(['mira']);
     const v = y.engine.namesView()!;
     expect(v.now).toMatchObject([{ words: 'the old doctor', name: 'Mira', source: 'ui', until: null }]);

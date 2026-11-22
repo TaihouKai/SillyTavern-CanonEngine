@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.49.5 — 2026-11-22 (pack 7.1.1)
+
+- **称呼: words that only point at a place are not written down.** 「那边」 had been written down as a street. Words such as 那边, 这里 and there are now left out, like 那家伙 and 这位先生.
+- **The same word of the player's twice is one record.** Adding words in 称呼 that already meant that one wrote a second record, so 撤销 took back only one of the two and the words still held. A word the player has already given (or already taken away) is now not written again.
+
 ## 1.49.4 — 2026-11-22 (pack 7.1.1)
 
 - **A newcomer whose words have an organization in them is a person.** 「扎着双马尾的风纪委员少女」 has 风纪委员 in it. The loose name match took her for the organization, which then fought in her place, and nobody asked who she was. This mistake is older than 称呼. A fight's newcomer is now only ever a person, and the people a fight names are found by exact name. A newcomer the reply introduces is someone known only if that one is of the same kind.

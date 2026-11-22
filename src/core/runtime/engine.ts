@@ -3399,6 +3399,10 @@ export class CanonEngine {
       // the one they mean: an id, or a name as written (not a looser match)
       const exact = idx.entityExists(who) ? [who] : uniq([...idx.pack.entities.values(), ...idx.state.runtimeEntities.values()].filter((e) => [e.name, ...(e.aliases || [])].some((n) => normalizeName(n) === normalizeName(who))).map((e) => e.id));
       if (!normalizeName(words) || exact.length !== 1) return false;
+      // the same word of the player's again is no new record (one take-back would leave the other)
+      const had = idx.namesNow().find((n) => n.source === 'ui' && n.key === normalizeName(words));
+      if ('add' in change && had?.id === exact[0]) return true;
+      if ('deny' in change && idx.nameDenied(words, exact[0])) return true;
       const tick = this.current.replay.state.clock.lo;
       const rec: RecordDraft = {
         recordId: newId('rec'), kind: 'naming', storyTime: { lo: tick, hi: tick, precision: 'minute' }, sourceRefs: [], factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] }, evidenceKind: 'direct',
