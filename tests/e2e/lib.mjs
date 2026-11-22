@@ -38,6 +38,14 @@ export async function openST(page) {
     await b.click().catch(() => {});
     await page.waitForTimeout(500);
   }
+  // every run starts without the packs' memos (core/runtime/memo.ts): a check that a model task is asked must not see
+  // the answer an earlier run left
+  await page.evaluate(async () => {
+    const c = SillyTavern.getContext();
+    for (const e of c.extensionSettings.canonEngine?.library || []) {
+      await fetch('/api/files/delete', { method: 'POST', headers: { ...c.getRequestHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `user/files/canon-memo-${e.hash.slice(0, 16)}.json` }) }).catch(() => undefined);
+    }
+  });
   await connect(page);
 }
 

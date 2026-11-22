@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.50.1 — 2026-11-23 (pack 7.1.1)
+
+- **The saving holds for a game started at another time too.** In the live test, a game with the same Persona started a day earlier paid the whole lorebook check again. The Persona reading is given who is in each organization at the start time, which differs from day to day (ITEM, the armed Level 0 group), so it is read again, and it also wrote the 本局设定 changes, worded a little differently each time. 本局设定 is now read on its own from the Persona, the world's description and the lorebook background, nothing that depends on the time, and the check is given the player by name only. A game at another start time takes the same changes and all their verdicts.
+- **A place inside the recorded one is no contradiction.** The reviewer refused a reply in which Index says 当麻 should be at the dormitory, because his recorded whereabouts were Academy City, and added its own guess of what she would do. A contradiction now needs a record that rules it out: a room of a building, a building of a district or city, agrees with it.
+
 ## 1.50.0 — 2026-11-23 (pack 7.1.1)
 
 - **A new game does not pay again for what an earlier game asked.** Binding a pack never called the model. What made a first turn cost four to five times a normal one was reading the Persona against the world and checking the lorebook and the pack's texts against the Persona's 本局设定: 43 to 115 calls, every new game, with the same answers. These answers are now kept beside the pack (`canon-memo-….json` in SillyTavern's user files) and reused by any later game with the same pack, Persona and lorebook entries; only what changed is asked again (an edited lorebook entry is the only text checked again). Whether a companion knows their next canon event is kept the same way. The turn's timing line shows how many answers were reused. 重新检查 still asks everything anew. Packs and chats are unchanged.

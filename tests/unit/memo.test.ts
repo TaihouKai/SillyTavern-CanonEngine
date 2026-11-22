@@ -18,7 +18,8 @@ const BOOK = () => [
   lore(3, '御坂美琴', ['御坂'], '御坂美琴是第三位Level 5。'),
 ];
 const PERSONA = '姓名：田中太郎\n能力：Level 5 火焰能力者\n身份: 第8位Level 5 (本局设定)';
-const PROFILE = { player: { name: '田中太郎', aliases: [], summary: '第八位Level 5', public_identity: '' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [], world_changes: [{ text: '身份：第8位Level 5', terms: ['Level 5', '第七位'] }] };
+const PROFILE = { player: { name: '田中太郎', aliases: [], summary: '第八位Level 5', public_identity: '' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
+const CHANGES = { world_changes: [{ text: '身份：第8位Level 5', terms: ['Level 5', '第七位'] }] };
 
 function store(): MemoStore & { files: Map<string, string>; saves: number } {
   const files = new Map<string, string>();
@@ -34,6 +35,7 @@ async function game(memo: MemoStore | undefined, opts: { persona?: string; book?
   const book = opts.book || BOOK();
   x.host.lore = { entries: async () => book, appliesOverrides: false };
   x.model.on('profile', null, PROFILE);
+  x.model.on('world_changes', null, CHANGES);
   x.model.on('world_check', null, (i: any) => ({ items: i.items.map((it: any) => it.title === 'Level 5'
     ? { ref: it.ref, action: 'replace', untrue: ['共有七人'], content: '学园都市的Level 5共有八人，第七位是削板军霸。', reason: '第8位' }
     : { ref: it.ref, action: 'keep' }), additions: i.additions_wanted ? [{ title: '田中太郎', keys: ['田中'], content: '第八位Level 5。', reason: 'new' }] : [] }));
@@ -55,7 +57,7 @@ describe("the pack's memo", () => {
     expect(asked(a, 'world_check')).toBeGreaterThan(0);
     expect(s.files.size).toBe(1);
     const b = await game(s);
-    for (const t of ['profile', 'affiliations', 'persona_abilities', 'world_check']) expect(asked(b, t)).toBe(0);
+    for (const t of ['profile', 'world_changes', 'affiliations', 'persona_abilities', 'world_check']) expect(asked(b, t)).toBe(0);
     expect(view(b)).toEqual(view(a));
     expect(view(b).overrides).toEqual([['Level 5', 'replace', '学园都市的Level 5共有八人，第七位是削板军霸。']]);
     expect(view(b).additions).toEqual(['第八位Level 5。']);
@@ -80,6 +82,18 @@ describe("the pack's memo", () => {
     expect(asked(c, 'profile')).toBe(1);
   });
 
+  it("ME7 a game started at another time takes the same 本局设定 and every verdict: the Persona's changes are its own, read apart from what depends on the time", async () => {
+    const s = store();
+    const a = await game(s);
+    const b = await game(s, { start: tick(1, 7, 0) });
+    expect(asked(b, 'world_changes')).toBe(0);
+    expect(asked(b, 'world_check')).toBe(0);
+    expect(view(b).overrides).toEqual(view(a).overrides);
+    // the check is given the player by name only: nothing of the start-dependent reading is in its question
+    expect(a.model.tasks('world_check')[0].input.player).toEqual({ name: '田中太郎' });
+    expect(a.model.tasks('world_changes')[0].input).not.toHaveProperty('registry');
+  });
+
   it('ME3 重新检查 asks every text again and keeps the new answers for the next game', async () => {
     const s = store();
     const a = await game(s);
@@ -101,6 +115,7 @@ describe("the pack's memo", () => {
     (x.host as any).persona = () => ({ name: '田中太郎', description: PERSONA });
     x.host.lore = { entries: async () => BOOK(), appliesOverrides: false };
     x.model.on('profile', null, PROFILE);
+    x.model.on('world_changes', null, CHANGES);
     x.model.failTask.world_check = 2;
     await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
     await x.engine.reconcile('test');

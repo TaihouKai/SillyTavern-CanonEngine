@@ -24,7 +24,7 @@ const BOOK = [
   lore(4, '风纪委员', ['风纪委员'], '学生组成的治安组织。'),
 ];
 const PERSONA = '姓名：田中太郎\n能力：Level 5 火焰能力者\n身份: 第8位Level 5 (本局设定)\n喜欢吃拉面。';
-const PROFILE = (world: any[] = []) => ({ player: { name: '田中太郎', aliases: [], summary: '第八位Level 5', public_identity: '' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [], world_changes: world });
+const PROFILE = () => ({ player: { name: '田中太郎', aliases: [], summary: '第八位Level 5', public_identity: '' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] });
 
 describe('this game\'s changes of the world', () => {
   it('WS1 a marked line is always a change (by the code, the mark taken off), with the analysis\' search words when it gave them; others are added', () => {
@@ -39,7 +39,8 @@ describe('this game\'s changes of the world', () => {
     ]);
     // the analysis found it: its search words are kept, it is not listed twice
     expect(worldChangesOf({ world_changes: [{ text: '身份：第8位Level 5', terms: ['Level 5', '第七位'] }] }, PERSONA)).toEqual([{ text: '身份: 第8位Level 5', terms: ['Level 5', '第七位'], marked: true }]);
-    expect(PROMPTS.profile).toMatch(/world_changes: how this game's world differs[^\n]*Every line marked "\(本局设定\)" is one/);
+    expect(PROMPTS.world_changes).toMatch(/world_changes: how this game's world differs[^\n]*Every line marked "\(本局设定\)" is one/);
+    expect(PROMPTS.profile).not.toMatch(/world_changes/);
   });
 
   it('WS2 the search: the given words plus lorebook keys and pack names in the change; every entry a word finds in keys, title or text; a word in a third of a big lorebook is too common', () => {
@@ -71,7 +72,8 @@ describe('in the game', () => {
     const x = makeEngine();
     (x.host as any).persona = () => ({ name: '田中太郎', description: persona });
     x.host.lore = { entries: async () => BOOK, appliesOverrides: false };
-    x.model.on('profile', null, PROFILE(world));
+    x.model.on('profile', null, PROFILE());
+    x.model.on('world_changes', null, { world_changes: world });
     await x.engine.bind(demo, { startTick: tick(1, 9, 30), mode: 'new' });
     await x.engine.reconcile('test');
     return x;
@@ -165,7 +167,7 @@ describe('in the game', () => {
     const x = makeEngine();
     (x.host as any).persona = () => ({ name: 'Ash', description: 'Ash.' });
     x.host.lore = { entries: async () => [], appliesOverrides: false };
-    x.model.on('profile', null, PROFILE([{ text: 'The Council is taking Ash on as a clerk', terms: ['conflict'] }]));
+    x.model.on('world_changes', null, { world_changes: [{ text: 'The Council is taking Ash on as a clerk', terms: ['conflict'] }] });
     x.model.on('world_check', null, (i: any) => ({ items: i.items.filter((it: any) => ['The harbor conflict begins', 'Union victory'].includes(it.title)).map((it: any) => ({ ref: it.ref, action: 'replace', untrue: [it.text.slice(-12)], content: `${it.text}!`, reason: 'r' })), additions: [] }));
     await x.engine.bind(demo, { startTick: tick(2, 12, 0), mode: 'new' });
     await x.engine.reconcile('test');

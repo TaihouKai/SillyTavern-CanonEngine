@@ -1,0 +1,34 @@
+{
+ "type": "object",
+ "properties": {
+  "world_changes": {
+   "type": "array",
+   "maxItems": 30,
+   "items": {
+    "type": "object",
+    "properties": {
+     "text": {
+      "type": "string",
+      "maxLength": 600
+     },
+     "terms": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+       "type": "string",
+       "maxLength": 60
+      }
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "world_changes"
+ ],
+ "additionalProperties": false
+}

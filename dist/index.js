@@ -25172,7 +25172,7 @@ function validate98(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate98.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 var profile = validate99;
-var schema141 = { "type": "object", "properties": { "player": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "aliases": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 10 }, "summary": { "type": "string", "maxLength": 1500 }, "public_identity": { "type": "string", "maxLength": 800 } }, "required": ["name", "summary"], "additionalProperties": false }, "affiliations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "kind": { "enum": ["organization", "other"] }, "role": { "type": "string", "maxLength": 400 }, "status": { "enum": ["member", "joining", "former"] }, "leads": { "type": "boolean" }, "members": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } }, "secrecy": { "enum": ["public", "restricted", "secret"] }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name", "status"], "additionalProperties": false } }, "places": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "use": { "type": "string", "maxLength": 400 }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "resources": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "goals": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 12 }, "relationships": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "they": { "anyOf": [{ "type": "object", "properties": { "address": { "type": ["array", "null"], "items": { "type": "object", "properties": { "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes"] }, "when": { "type": "string", "maxLength": 200 } }, "required": ["term", "use"], "additionalProperties": false } }, "sees": { "type": ["string", "null"], "maxLength": 400 } }, "additionalProperties": false }, { "type": "null" }] }, "player": { "anyOf": [{ "type": "object", "properties": { "address": { "type": ["array", "null"], "items": { "type": "object", "properties": { "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes"] }, "when": { "type": "string", "maxLength": 200 } }, "required": ["term", "use"], "additionalProperties": false } }, "sees": { "type": ["string", "null"], "maxLength": 400 } }, "additionalProperties": false }, { "type": "null" }] } }, "required": ["name"], "additionalProperties": false } }, "knowers": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 } }, "required": ["who", "level", "about", "basis"], "additionalProperties": false } }, "uncertain": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "roles": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["role"], "additionalProperties": false, "properties": { "role": { "type": "string", "maxLength": 200 }, "brings": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "from": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 8 }, "style": { "type": "string", "maxLength": 300 } } } }, "not_suited": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "voice": { "type": "string", "maxLength": 600 }, "world_changes": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "text": { "type": "string", "maxLength": 600 }, "terms": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 60 } } }, "required": ["text"], "additionalProperties": false } }, "recognized_by": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 }, "everywhere": { "type": "boolean" }, "as": { "type": "string", "maxLength": 400 } }, "required": ["who", "as"], "additionalProperties": false } }, "nature": { "type": "object", "properties": { "habits": { "type": "string", "maxLength": 500 }, "uses": { "type": "string", "maxLength": 500 }, "others": { "type": "string", "maxLength": 500 }, "limits": { "type": "string", "maxLength": 500 }, "perceives": { "type": ["object", "null"], "properties": { "kinds": { "type": "array", "uniqueItems": true, "items": { "enum": ["thoughts", "memories", "emotions", "hidden", "whereabouts", "lies", "past"] } }, "how": { "type": "string", "maxLength": 300 } }, "additionalProperties": false } }, "additionalProperties": false }, "defenses": { "type": "string", "maxLength": 500 } }, "required": ["player", "affiliations", "relationships", "knowers"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:profile", "title": "Canon Engine task output: profile" };
+var schema141 = { "type": "object", "properties": { "player": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "aliases": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 10 }, "summary": { "type": "string", "maxLength": 1500 }, "public_identity": { "type": "string", "maxLength": 800 } }, "required": ["name", "summary"], "additionalProperties": false }, "affiliations": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "kind": { "enum": ["organization", "other"] }, "role": { "type": "string", "maxLength": 400 }, "status": { "enum": ["member", "joining", "former"] }, "leads": { "type": "boolean" }, "members": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 200 } }, "secrecy": { "enum": ["public", "restricted", "secret"] }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name", "status"], "additionalProperties": false } }, "places": { "type": "array", "maxItems": 12, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "use": { "type": "string", "maxLength": 400 }, "description": { "type": "string", "maxLength": 800 } }, "required": ["name"], "additionalProperties": false } }, "resources": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "goals": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 12 }, "relationships": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "relation": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "they": { "anyOf": [{ "type": "object", "properties": { "address": { "type": ["array", "null"], "items": { "type": "object", "properties": { "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes"] }, "when": { "type": "string", "maxLength": 200 } }, "required": ["term", "use"], "additionalProperties": false } }, "sees": { "type": ["string", "null"], "maxLength": 400 } }, "additionalProperties": false }, { "type": "null" }] }, "player": { "anyOf": [{ "type": "object", "properties": { "address": { "type": ["array", "null"], "items": { "type": "object", "properties": { "term": { "type": "string", "maxLength": 60 }, "use": { "enum": ["always", "usually", "sometimes"] }, "when": { "type": "string", "maxLength": 200 } }, "required": ["term", "use"], "additionalProperties": false } }, "sees": { "type": ["string", "null"], "maxLength": 400 } }, "additionalProperties": false }, { "type": "null" }] } }, "required": ["name"], "additionalProperties": false } }, "knowers": { "type": "array", "maxItems": 30, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "level": { "enum": ["exists", "identity", "secrets"] }, "about": { "type": "string", "maxLength": 400 }, "basis": { "enum": ["persona_stated", "implied"] }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 } }, "required": ["who", "level", "about", "basis"], "additionalProperties": false } }, "uncertain": { "type": "array", "items": { "type": "string", "maxLength": 400 }, "maxItems": 20 }, "roles": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["role"], "additionalProperties": false, "properties": { "role": { "type": "string", "maxLength": 200 }, "brings": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "from": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 8 }, "style": { "type": "string", "maxLength": 300 } } } }, "not_suited": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 10 }, "voice": { "type": "string", "maxLength": 600 }, "recognized_by": { "type": "array", "maxItems": 10, "items": { "type": "object", "properties": { "who": { "type": "string", "maxLength": 300 }, "existing_id": { "type": ["string", "null"], "maxLength": 200 }, "places": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 }, "everywhere": { "type": "boolean" }, "as": { "type": "string", "maxLength": 400 } }, "required": ["who", "as"], "additionalProperties": false } }, "nature": { "type": "object", "properties": { "habits": { "type": "string", "maxLength": 500 }, "uses": { "type": "string", "maxLength": 500 }, "others": { "type": "string", "maxLength": 500 }, "limits": { "type": "string", "maxLength": 500 }, "perceives": { "type": ["object", "null"], "properties": { "kinds": { "type": "array", "uniqueItems": true, "items": { "enum": ["thoughts", "memories", "emotions", "hidden", "whereabouts", "lies", "past"] } }, "how": { "type": "string", "maxLength": 300 } }, "additionalProperties": false } }, "additionalProperties": false }, "defenses": { "type": "string", "maxLength": 500 } }, "required": ["player", "affiliations", "relationships", "knowers"], "additionalProperties": false, "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "urn:canon-engine:task:profile", "title": "Canon Engine task output: profile" };
 function validate99(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
@@ -26912,11 +26912,11 @@ function validate99(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
-    if (data.world_changes !== void 0) {
-      let data70 = data.world_changes;
+    if (data.recognized_by !== void 0) {
+      let data70 = data.recognized_by;
       if (Array.isArray(data70)) {
-        if (data70.length > 30) {
-          const err153 = { instancePath: instancePath + "/world_changes", schemaPath: "#/properties/world_changes/maxItems", keyword: "maxItems", params: { limit: 30 }, message: "must NOT have more than 30 items" };
+        if (data70.length > 10) {
+          const err153 = { instancePath: instancePath + "/recognized_by", schemaPath: "#/properties/recognized_by/maxItems", keyword: "maxItems", params: { limit: 10 }, message: "must NOT have more than 10 items" };
           if (vErrors === null) {
             vErrors = [err153];
           } else {
@@ -26928,8 +26928,8 @@ function validate99(data, { instancePath = "", parentData, parentDataProperty, r
         for (let i16 = 0; i16 < len16; i16++) {
           let data71 = data70[i16];
           if (data71 && typeof data71 == "object" && !Array.isArray(data71)) {
-            if (data71.text === void 0) {
-              const err154 = { instancePath: instancePath + "/world_changes/" + i16, schemaPath: "#/properties/world_changes/items/required", keyword: "required", params: { missingProperty: "text" }, message: "must have required property 'text'" };
+            if (data71.who === void 0) {
+              const err154 = { instancePath: instancePath + "/recognized_by/" + i16, schemaPath: "#/properties/recognized_by/items/required", keyword: "required", params: { missingProperty: "who" }, message: "must have required property 'who'" };
               if (vErrors === null) {
                 vErrors = [err154];
               } else {
@@ -26937,141 +26937,141 @@ function validate99(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
+            if (data71.as === void 0) {
+              const err155 = { instancePath: instancePath + "/recognized_by/" + i16, schemaPath: "#/properties/recognized_by/items/required", keyword: "required", params: { missingProperty: "as" }, message: "must have required property 'as'" };
+              if (vErrors === null) {
+                vErrors = [err155];
+              } else {
+                vErrors.push(err155);
+              }
+              errors++;
+            }
             for (const key11 in data71) {
-              if (!(key11 === "text" || key11 === "terms")) {
-                const err155 = { instancePath: instancePath + "/world_changes/" + i16, schemaPath: "#/properties/world_changes/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key11 }, message: "must NOT have additional properties" };
+              if (!(key11 === "who" || key11 === "existing_id" || key11 === "places" || key11 === "everywhere" || key11 === "as")) {
+                const err156 = { instancePath: instancePath + "/recognized_by/" + i16, schemaPath: "#/properties/recognized_by/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key11 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
-                  vErrors = [err155];
+                  vErrors = [err156];
                 } else {
-                  vErrors.push(err155);
+                  vErrors.push(err156);
                 }
                 errors++;
               }
             }
-            if (data71.text !== void 0) {
-              let data72 = data71.text;
+            if (data71.who !== void 0) {
+              let data72 = data71.who;
               if (typeof data72 === "string") {
-                if (func2(data72) > 600) {
-                  const err156 = { instancePath: instancePath + "/world_changes/" + i16 + "/text", schemaPath: "#/properties/world_changes/items/properties/text/maxLength", keyword: "maxLength", params: { limit: 600 }, message: "must NOT have more than 600 characters" };
+                if (func2(data72) > 300) {
+                  const err157 = { instancePath: instancePath + "/recognized_by/" + i16 + "/who", schemaPath: "#/properties/recognized_by/items/properties/who/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
                   if (vErrors === null) {
-                    vErrors = [err156];
+                    vErrors = [err157];
                   } else {
-                    vErrors.push(err156);
+                    vErrors.push(err157);
                   }
                   errors++;
                 }
               } else {
-                const err157 = { instancePath: instancePath + "/world_changes/" + i16 + "/text", schemaPath: "#/properties/world_changes/items/properties/text/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                const err158 = { instancePath: instancePath + "/recognized_by/" + i16 + "/who", schemaPath: "#/properties/recognized_by/items/properties/who/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 if (vErrors === null) {
-                  vErrors = [err157];
+                  vErrors = [err158];
                 } else {
-                  vErrors.push(err157);
+                  vErrors.push(err158);
                 }
                 errors++;
               }
             }
-            if (data71.terms !== void 0) {
-              let data73 = data71.terms;
-              if (Array.isArray(data73)) {
-                if (data73.length > 12) {
-                  const err158 = { instancePath: instancePath + "/world_changes/" + i16 + "/terms", schemaPath: "#/properties/world_changes/items/properties/terms/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
+            if (data71.existing_id !== void 0) {
+              let data73 = data71.existing_id;
+              if (typeof data73 !== "string" && data73 !== null) {
+                const err159 = { instancePath: instancePath + "/recognized_by/" + i16 + "/existing_id", schemaPath: "#/properties/recognized_by/items/properties/existing_id/type", keyword: "type", params: { type: schema141.properties.recognized_by.items.properties.existing_id.type }, message: "must be string,null" };
+                if (vErrors === null) {
+                  vErrors = [err159];
+                } else {
+                  vErrors.push(err159);
+                }
+                errors++;
+              }
+              if (typeof data73 === "string") {
+                if (func2(data73) > 200) {
+                  const err160 = { instancePath: instancePath + "/recognized_by/" + i16 + "/existing_id", schemaPath: "#/properties/recognized_by/items/properties/existing_id/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
                   if (vErrors === null) {
-                    vErrors = [err158];
+                    vErrors = [err160];
                   } else {
-                    vErrors.push(err158);
+                    vErrors.push(err160);
                   }
                   errors++;
                 }
-                const len17 = data73.length;
+              }
+            }
+            if (data71.places !== void 0) {
+              let data74 = data71.places;
+              if (Array.isArray(data74)) {
+                if (data74.length > 12) {
+                  const err161 = { instancePath: instancePath + "/recognized_by/" + i16 + "/places", schemaPath: "#/properties/recognized_by/items/properties/places/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
+                  if (vErrors === null) {
+                    vErrors = [err161];
+                  } else {
+                    vErrors.push(err161);
+                  }
+                  errors++;
+                }
+                const len17 = data74.length;
                 for (let i17 = 0; i17 < len17; i17++) {
-                  let data74 = data73[i17];
-                  if (typeof data74 === "string") {
-                    if (func2(data74) > 60) {
-                      const err159 = { instancePath: instancePath + "/world_changes/" + i16 + "/terms/" + i17, schemaPath: "#/properties/world_changes/items/properties/terms/items/maxLength", keyword: "maxLength", params: { limit: 60 }, message: "must NOT have more than 60 characters" };
+                  let data75 = data74[i17];
+                  if (typeof data75 === "string") {
+                    if (func2(data75) > 200) {
+                      const err162 = { instancePath: instancePath + "/recognized_by/" + i16 + "/places/" + i17, schemaPath: "#/properties/recognized_by/items/properties/places/items/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
                       if (vErrors === null) {
-                        vErrors = [err159];
+                        vErrors = [err162];
                       } else {
-                        vErrors.push(err159);
+                        vErrors.push(err162);
                       }
                       errors++;
                     }
                   } else {
-                    const err160 = { instancePath: instancePath + "/world_changes/" + i16 + "/terms/" + i17, schemaPath: "#/properties/world_changes/items/properties/terms/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    const err163 = { instancePath: instancePath + "/recognized_by/" + i16 + "/places/" + i17, schemaPath: "#/properties/recognized_by/items/properties/places/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                     if (vErrors === null) {
-                      vErrors = [err160];
+                      vErrors = [err163];
                     } else {
-                      vErrors.push(err160);
+                      vErrors.push(err163);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err161 = { instancePath: instancePath + "/world_changes/" + i16 + "/terms", schemaPath: "#/properties/world_changes/items/properties/terms/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                const err164 = { instancePath: instancePath + "/recognized_by/" + i16 + "/places", schemaPath: "#/properties/recognized_by/items/properties/places/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
-                  vErrors = [err161];
+                  vErrors = [err164];
                 } else {
-                  vErrors.push(err161);
+                  vErrors.push(err164);
                 }
                 errors++;
               }
             }
-          } else {
-            const err162 = { instancePath: instancePath + "/world_changes/" + i16, schemaPath: "#/properties/world_changes/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            if (vErrors === null) {
-              vErrors = [err162];
-            } else {
-              vErrors.push(err162);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err163 = { instancePath: instancePath + "/world_changes", schemaPath: "#/properties/world_changes/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err163];
-        } else {
-          vErrors.push(err163);
-        }
-        errors++;
-      }
-    }
-    if (data.recognized_by !== void 0) {
-      let data75 = data.recognized_by;
-      if (Array.isArray(data75)) {
-        if (data75.length > 10) {
-          const err164 = { instancePath: instancePath + "/recognized_by", schemaPath: "#/properties/recognized_by/maxItems", keyword: "maxItems", params: { limit: 10 }, message: "must NOT have more than 10 items" };
-          if (vErrors === null) {
-            vErrors = [err164];
-          } else {
-            vErrors.push(err164);
-          }
-          errors++;
-        }
-        const len18 = data75.length;
-        for (let i18 = 0; i18 < len18; i18++) {
-          let data76 = data75[i18];
-          if (data76 && typeof data76 == "object" && !Array.isArray(data76)) {
-            if (data76.who === void 0) {
-              const err165 = { instancePath: instancePath + "/recognized_by/" + i18, schemaPath: "#/properties/recognized_by/items/required", keyword: "required", params: { missingProperty: "who" }, message: "must have required property 'who'" };
-              if (vErrors === null) {
-                vErrors = [err165];
-              } else {
-                vErrors.push(err165);
+            if (data71.everywhere !== void 0) {
+              if (typeof data71.everywhere !== "boolean") {
+                const err165 = { instancePath: instancePath + "/recognized_by/" + i16 + "/everywhere", schemaPath: "#/properties/recognized_by/items/properties/everywhere/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err165];
+                } else {
+                  vErrors.push(err165);
+                }
+                errors++;
               }
-              errors++;
             }
-            if (data76.as === void 0) {
-              const err166 = { instancePath: instancePath + "/recognized_by/" + i18, schemaPath: "#/properties/recognized_by/items/required", keyword: "required", params: { missingProperty: "as" }, message: "must have required property 'as'" };
-              if (vErrors === null) {
-                vErrors = [err166];
+            if (data71.as !== void 0) {
+              let data77 = data71.as;
+              if (typeof data77 === "string") {
+                if (func2(data77) > 400) {
+                  const err166 = { instancePath: instancePath + "/recognized_by/" + i16 + "/as", schemaPath: "#/properties/recognized_by/items/properties/as/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err166];
+                  } else {
+                    vErrors.push(err166);
+                  }
+                  errors++;
+                }
               } else {
-                vErrors.push(err166);
-              }
-              errors++;
-            }
-            for (const key12 in data76) {
-              if (!(key12 === "who" || key12 === "existing_id" || key12 === "places" || key12 === "everywhere" || key12 === "as")) {
-                const err167 = { instancePath: instancePath + "/recognized_by/" + i18, schemaPath: "#/properties/recognized_by/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key12 }, message: "must NOT have additional properties" };
+                const err167 = { instancePath: instancePath + "/recognized_by/" + i16 + "/as", schemaPath: "#/properties/recognized_by/items/properties/as/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 if (vErrors === null) {
                   vErrors = [err167];
                 } else {
@@ -27080,131 +27080,132 @@ function validate99(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data76.who !== void 0) {
-              let data77 = data76.who;
-              if (typeof data77 === "string") {
-                if (func2(data77) > 300) {
-                  const err168 = { instancePath: instancePath + "/recognized_by/" + i18 + "/who", schemaPath: "#/properties/recognized_by/items/properties/who/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err168];
-                  } else {
-                    vErrors.push(err168);
-                  }
-                  errors++;
-                }
+          } else {
+            const err168 = { instancePath: instancePath + "/recognized_by/" + i16, schemaPath: "#/properties/recognized_by/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            if (vErrors === null) {
+              vErrors = [err168];
+            } else {
+              vErrors.push(err168);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err169 = { instancePath: instancePath + "/recognized_by", schemaPath: "#/properties/recognized_by/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err169];
+        } else {
+          vErrors.push(err169);
+        }
+        errors++;
+      }
+    }
+    if (data.nature !== void 0) {
+      let data78 = data.nature;
+      if (data78 && typeof data78 == "object" && !Array.isArray(data78)) {
+        for (const key12 in data78) {
+          if (!(key12 === "habits" || key12 === "uses" || key12 === "others" || key12 === "limits" || key12 === "perceives")) {
+            const err170 = { instancePath: instancePath + "/nature", schemaPath: "#/properties/nature/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key12 }, message: "must NOT have additional properties" };
+            if (vErrors === null) {
+              vErrors = [err170];
+            } else {
+              vErrors.push(err170);
+            }
+            errors++;
+          }
+        }
+        if (data78.habits !== void 0) {
+          let data79 = data78.habits;
+          if (typeof data79 === "string") {
+            if (func2(data79) > 500) {
+              const err171 = { instancePath: instancePath + "/nature/habits", schemaPath: "#/properties/nature/properties/habits/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
+              if (vErrors === null) {
+                vErrors = [err171];
               } else {
-                const err169 = { instancePath: instancePath + "/recognized_by/" + i18 + "/who", schemaPath: "#/properties/recognized_by/items/properties/who/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err169];
-                } else {
-                  vErrors.push(err169);
-                }
-                errors++;
+                vErrors.push(err171);
               }
-            }
-            if (data76.existing_id !== void 0) {
-              let data78 = data76.existing_id;
-              if (typeof data78 !== "string" && data78 !== null) {
-                const err170 = { instancePath: instancePath + "/recognized_by/" + i18 + "/existing_id", schemaPath: "#/properties/recognized_by/items/properties/existing_id/type", keyword: "type", params: { type: schema141.properties.recognized_by.items.properties.existing_id.type }, message: "must be string,null" };
-                if (vErrors === null) {
-                  vErrors = [err170];
-                } else {
-                  vErrors.push(err170);
-                }
-                errors++;
-              }
-              if (typeof data78 === "string") {
-                if (func2(data78) > 200) {
-                  const err171 = { instancePath: instancePath + "/recognized_by/" + i18 + "/existing_id", schemaPath: "#/properties/recognized_by/items/properties/existing_id/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err171];
-                  } else {
-                    vErrors.push(err171);
-                  }
-                  errors++;
-                }
-              }
-            }
-            if (data76.places !== void 0) {
-              let data79 = data76.places;
-              if (Array.isArray(data79)) {
-                if (data79.length > 12) {
-                  const err172 = { instancePath: instancePath + "/recognized_by/" + i18 + "/places", schemaPath: "#/properties/recognized_by/items/properties/places/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
-                  if (vErrors === null) {
-                    vErrors = [err172];
-                  } else {
-                    vErrors.push(err172);
-                  }
-                  errors++;
-                }
-                const len19 = data79.length;
-                for (let i19 = 0; i19 < len19; i19++) {
-                  let data80 = data79[i19];
-                  if (typeof data80 === "string") {
-                    if (func2(data80) > 200) {
-                      const err173 = { instancePath: instancePath + "/recognized_by/" + i18 + "/places/" + i19, schemaPath: "#/properties/recognized_by/items/properties/places/items/maxLength", keyword: "maxLength", params: { limit: 200 }, message: "must NOT have more than 200 characters" };
-                      if (vErrors === null) {
-                        vErrors = [err173];
-                      } else {
-                        vErrors.push(err173);
-                      }
-                      errors++;
-                    }
-                  } else {
-                    const err174 = { instancePath: instancePath + "/recognized_by/" + i18 + "/places/" + i19, schemaPath: "#/properties/recognized_by/items/properties/places/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                    if (vErrors === null) {
-                      vErrors = [err174];
-                    } else {
-                      vErrors.push(err174);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err175 = { instancePath: instancePath + "/recognized_by/" + i18 + "/places", schemaPath: "#/properties/recognized_by/items/properties/places/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                if (vErrors === null) {
-                  vErrors = [err175];
-                } else {
-                  vErrors.push(err175);
-                }
-                errors++;
-              }
-            }
-            if (data76.everywhere !== void 0) {
-              if (typeof data76.everywhere !== "boolean") {
-                const err176 = { instancePath: instancePath + "/recognized_by/" + i18 + "/everywhere", schemaPath: "#/properties/recognized_by/items/properties/everywhere/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
-                if (vErrors === null) {
-                  vErrors = [err176];
-                } else {
-                  vErrors.push(err176);
-                }
-                errors++;
-              }
-            }
-            if (data76.as !== void 0) {
-              let data82 = data76.as;
-              if (typeof data82 === "string") {
-                if (func2(data82) > 400) {
-                  const err177 = { instancePath: instancePath + "/recognized_by/" + i18 + "/as", schemaPath: "#/properties/recognized_by/items/properties/as/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err177];
-                  } else {
-                    vErrors.push(err177);
-                  }
-                  errors++;
-                }
-              } else {
-                const err178 = { instancePath: instancePath + "/recognized_by/" + i18 + "/as", schemaPath: "#/properties/recognized_by/items/properties/as/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err178];
-                } else {
-                  vErrors.push(err178);
-                }
-                errors++;
-              }
+              errors++;
             }
           } else {
-            const err179 = { instancePath: instancePath + "/recognized_by/" + i18, schemaPath: "#/properties/recognized_by/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            const err172 = { instancePath: instancePath + "/nature/habits", schemaPath: "#/properties/nature/properties/habits/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err172];
+            } else {
+              vErrors.push(err172);
+            }
+            errors++;
+          }
+        }
+        if (data78.uses !== void 0) {
+          let data80 = data78.uses;
+          if (typeof data80 === "string") {
+            if (func2(data80) > 500) {
+              const err173 = { instancePath: instancePath + "/nature/uses", schemaPath: "#/properties/nature/properties/uses/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
+              if (vErrors === null) {
+                vErrors = [err173];
+              } else {
+                vErrors.push(err173);
+              }
+              errors++;
+            }
+          } else {
+            const err174 = { instancePath: instancePath + "/nature/uses", schemaPath: "#/properties/nature/properties/uses/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err174];
+            } else {
+              vErrors.push(err174);
+            }
+            errors++;
+          }
+        }
+        if (data78.others !== void 0) {
+          let data81 = data78.others;
+          if (typeof data81 === "string") {
+            if (func2(data81) > 500) {
+              const err175 = { instancePath: instancePath + "/nature/others", schemaPath: "#/properties/nature/properties/others/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
+              if (vErrors === null) {
+                vErrors = [err175];
+              } else {
+                vErrors.push(err175);
+              }
+              errors++;
+            }
+          } else {
+            const err176 = { instancePath: instancePath + "/nature/others", schemaPath: "#/properties/nature/properties/others/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err176];
+            } else {
+              vErrors.push(err176);
+            }
+            errors++;
+          }
+        }
+        if (data78.limits !== void 0) {
+          let data82 = data78.limits;
+          if (typeof data82 === "string") {
+            if (func2(data82) > 500) {
+              const err177 = { instancePath: instancePath + "/nature/limits", schemaPath: "#/properties/nature/properties/limits/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
+              if (vErrors === null) {
+                vErrors = [err177];
+              } else {
+                vErrors.push(err177);
+              }
+              errors++;
+            }
+          } else {
+            const err178 = { instancePath: instancePath + "/nature/limits", schemaPath: "#/properties/nature/properties/limits/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err178];
+            } else {
+              vErrors.push(err178);
+            }
+            errors++;
+          }
+        }
+        if (data78.perceives !== void 0) {
+          let data83 = data78.perceives;
+          if (!(data83 && typeof data83 == "object" && !Array.isArray(data83)) && data83 !== null) {
+            const err179 = { instancePath: instancePath + "/nature/perceives", schemaPath: "#/properties/nature/properties/perceives/type", keyword: "type", params: { type: schema141.properties.nature.properties.perceives.type }, message: "must be object,null" };
             if (vErrors === null) {
               vErrors = [err179];
             } else {
@@ -27212,169 +27213,45 @@ function validate99(data, { instancePath = "", parentData, parentDataProperty, r
             }
             errors++;
           }
-        }
-      } else {
-        const err180 = { instancePath: instancePath + "/recognized_by", schemaPath: "#/properties/recognized_by/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err180];
-        } else {
-          vErrors.push(err180);
-        }
-        errors++;
-      }
-    }
-    if (data.nature !== void 0) {
-      let data83 = data.nature;
-      if (data83 && typeof data83 == "object" && !Array.isArray(data83)) {
-        for (const key13 in data83) {
-          if (!(key13 === "habits" || key13 === "uses" || key13 === "others" || key13 === "limits" || key13 === "perceives")) {
-            const err181 = { instancePath: instancePath + "/nature", schemaPath: "#/properties/nature/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key13 }, message: "must NOT have additional properties" };
-            if (vErrors === null) {
-              vErrors = [err181];
-            } else {
-              vErrors.push(err181);
-            }
-            errors++;
-          }
-        }
-        if (data83.habits !== void 0) {
-          let data84 = data83.habits;
-          if (typeof data84 === "string") {
-            if (func2(data84) > 500) {
-              const err182 = { instancePath: instancePath + "/nature/habits", schemaPath: "#/properties/nature/properties/habits/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
-              if (vErrors === null) {
-                vErrors = [err182];
-              } else {
-                vErrors.push(err182);
-              }
-              errors++;
-            }
-          } else {
-            const err183 = { instancePath: instancePath + "/nature/habits", schemaPath: "#/properties/nature/properties/habits/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err183];
-            } else {
-              vErrors.push(err183);
-            }
-            errors++;
-          }
-        }
-        if (data83.uses !== void 0) {
-          let data85 = data83.uses;
-          if (typeof data85 === "string") {
-            if (func2(data85) > 500) {
-              const err184 = { instancePath: instancePath + "/nature/uses", schemaPath: "#/properties/nature/properties/uses/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
-              if (vErrors === null) {
-                vErrors = [err184];
-              } else {
-                vErrors.push(err184);
-              }
-              errors++;
-            }
-          } else {
-            const err185 = { instancePath: instancePath + "/nature/uses", schemaPath: "#/properties/nature/properties/uses/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err185];
-            } else {
-              vErrors.push(err185);
-            }
-            errors++;
-          }
-        }
-        if (data83.others !== void 0) {
-          let data86 = data83.others;
-          if (typeof data86 === "string") {
-            if (func2(data86) > 500) {
-              const err186 = { instancePath: instancePath + "/nature/others", schemaPath: "#/properties/nature/properties/others/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
-              if (vErrors === null) {
-                vErrors = [err186];
-              } else {
-                vErrors.push(err186);
-              }
-              errors++;
-            }
-          } else {
-            const err187 = { instancePath: instancePath + "/nature/others", schemaPath: "#/properties/nature/properties/others/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err187];
-            } else {
-              vErrors.push(err187);
-            }
-            errors++;
-          }
-        }
-        if (data83.limits !== void 0) {
-          let data87 = data83.limits;
-          if (typeof data87 === "string") {
-            if (func2(data87) > 500) {
-              const err188 = { instancePath: instancePath + "/nature/limits", schemaPath: "#/properties/nature/properties/limits/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
-              if (vErrors === null) {
-                vErrors = [err188];
-              } else {
-                vErrors.push(err188);
-              }
-              errors++;
-            }
-          } else {
-            const err189 = { instancePath: instancePath + "/nature/limits", schemaPath: "#/properties/nature/properties/limits/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err189];
-            } else {
-              vErrors.push(err189);
-            }
-            errors++;
-          }
-        }
-        if (data83.perceives !== void 0) {
-          let data88 = data83.perceives;
-          if (!(data88 && typeof data88 == "object" && !Array.isArray(data88)) && data88 !== null) {
-            const err190 = { instancePath: instancePath + "/nature/perceives", schemaPath: "#/properties/nature/properties/perceives/type", keyword: "type", params: { type: schema141.properties.nature.properties.perceives.type }, message: "must be object,null" };
-            if (vErrors === null) {
-              vErrors = [err190];
-            } else {
-              vErrors.push(err190);
-            }
-            errors++;
-          }
-          if (data88 && typeof data88 == "object" && !Array.isArray(data88)) {
-            for (const key14 in data88) {
-              if (!(key14 === "kinds" || key14 === "how")) {
-                const err191 = { instancePath: instancePath + "/nature/perceives", schemaPath: "#/properties/nature/properties/perceives/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key14 }, message: "must NOT have additional properties" };
+          if (data83 && typeof data83 == "object" && !Array.isArray(data83)) {
+            for (const key13 in data83) {
+              if (!(key13 === "kinds" || key13 === "how")) {
+                const err180 = { instancePath: instancePath + "/nature/perceives", schemaPath: "#/properties/nature/properties/perceives/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key13 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
-                  vErrors = [err191];
+                  vErrors = [err180];
                 } else {
-                  vErrors.push(err191);
+                  vErrors.push(err180);
                 }
                 errors++;
               }
             }
-            if (data88.kinds !== void 0) {
-              let data89 = data88.kinds;
-              if (Array.isArray(data89)) {
-                const len20 = data89.length;
-                for (let i20 = 0; i20 < len20; i20++) {
-                  let data90 = data89[i20];
-                  if (!(data90 === "thoughts" || data90 === "memories" || data90 === "emotions" || data90 === "hidden" || data90 === "whereabouts" || data90 === "lies" || data90 === "past")) {
-                    const err192 = { instancePath: instancePath + "/nature/perceives/kinds/" + i20, schemaPath: "#/properties/nature/properties/perceives/properties/kinds/items/enum", keyword: "enum", params: { allowedValues: schema141.properties.nature.properties.perceives.properties.kinds.items.enum }, message: "must be equal to one of the allowed values" };
+            if (data83.kinds !== void 0) {
+              let data84 = data83.kinds;
+              if (Array.isArray(data84)) {
+                const len18 = data84.length;
+                for (let i18 = 0; i18 < len18; i18++) {
+                  let data85 = data84[i18];
+                  if (!(data85 === "thoughts" || data85 === "memories" || data85 === "emotions" || data85 === "hidden" || data85 === "whereabouts" || data85 === "lies" || data85 === "past")) {
+                    const err181 = { instancePath: instancePath + "/nature/perceives/kinds/" + i18, schemaPath: "#/properties/nature/properties/perceives/properties/kinds/items/enum", keyword: "enum", params: { allowedValues: schema141.properties.nature.properties.perceives.properties.kinds.items.enum }, message: "must be equal to one of the allowed values" };
                     if (vErrors === null) {
-                      vErrors = [err192];
+                      vErrors = [err181];
                     } else {
-                      vErrors.push(err192);
+                      vErrors.push(err181);
                     }
                     errors++;
                   }
                 }
-                let i21 = data89.length;
+                let i19 = data84.length;
                 let j0;
-                if (i21 > 1) {
-                  outer0: for (; i21--; ) {
-                    for (j0 = i21; j0--; ) {
-                      if (func0(data89[i21], data89[j0])) {
-                        const err193 = { instancePath: instancePath + "/nature/perceives/kinds", schemaPath: "#/properties/nature/properties/perceives/properties/kinds/uniqueItems", keyword: "uniqueItems", params: { i: i21, j: j0 }, message: "must NOT have duplicate items (items ## " + j0 + " and " + i21 + " are identical)" };
+                if (i19 > 1) {
+                  outer0: for (; i19--; ) {
+                    for (j0 = i19; j0--; ) {
+                      if (func0(data84[i19], data84[j0])) {
+                        const err182 = { instancePath: instancePath + "/nature/perceives/kinds", schemaPath: "#/properties/nature/properties/perceives/properties/kinds/uniqueItems", keyword: "uniqueItems", params: { i: i19, j: j0 }, message: "must NOT have duplicate items (items ## " + j0 + " and " + i19 + " are identical)" };
                         if (vErrors === null) {
-                          vErrors = [err193];
+                          vErrors = [err182];
                         } else {
-                          vErrors.push(err193);
+                          vErrors.push(err182);
                         }
                         errors++;
                         break outer0;
@@ -27383,33 +27260,33 @@ function validate99(data, { instancePath = "", parentData, parentDataProperty, r
                   }
                 }
               } else {
-                const err194 = { instancePath: instancePath + "/nature/perceives/kinds", schemaPath: "#/properties/nature/properties/perceives/properties/kinds/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                const err183 = { instancePath: instancePath + "/nature/perceives/kinds", schemaPath: "#/properties/nature/properties/perceives/properties/kinds/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
-                  vErrors = [err194];
+                  vErrors = [err183];
                 } else {
-                  vErrors.push(err194);
+                  vErrors.push(err183);
                 }
                 errors++;
               }
             }
-            if (data88.how !== void 0) {
-              let data91 = data88.how;
-              if (typeof data91 === "string") {
-                if (func2(data91) > 300) {
-                  const err195 = { instancePath: instancePath + "/nature/perceives/how", schemaPath: "#/properties/nature/properties/perceives/properties/how/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
+            if (data83.how !== void 0) {
+              let data86 = data83.how;
+              if (typeof data86 === "string") {
+                if (func2(data86) > 300) {
+                  const err184 = { instancePath: instancePath + "/nature/perceives/how", schemaPath: "#/properties/nature/properties/perceives/properties/how/maxLength", keyword: "maxLength", params: { limit: 300 }, message: "must NOT have more than 300 characters" };
                   if (vErrors === null) {
-                    vErrors = [err195];
+                    vErrors = [err184];
                   } else {
-                    vErrors.push(err195);
+                    vErrors.push(err184);
                   }
                   errors++;
                 }
               } else {
-                const err196 = { instancePath: instancePath + "/nature/perceives/how", schemaPath: "#/properties/nature/properties/perceives/properties/how/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                const err185 = { instancePath: instancePath + "/nature/perceives/how", schemaPath: "#/properties/nature/properties/perceives/properties/how/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 if (vErrors === null) {
-                  vErrors = [err196];
+                  vErrors = [err185];
                 } else {
-                  vErrors.push(err196);
+                  vErrors.push(err185);
                 }
                 errors++;
               }
@@ -27417,43 +27294,43 @@ function validate99(data, { instancePath = "", parentData, parentDataProperty, r
           }
         }
       } else {
-        const err197 = { instancePath: instancePath + "/nature", schemaPath: "#/properties/nature/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        const err186 = { instancePath: instancePath + "/nature", schemaPath: "#/properties/nature/type", keyword: "type", params: { type: "object" }, message: "must be object" };
         if (vErrors === null) {
-          vErrors = [err197];
+          vErrors = [err186];
         } else {
-          vErrors.push(err197);
+          vErrors.push(err186);
         }
         errors++;
       }
     }
     if (data.defenses !== void 0) {
-      let data92 = data.defenses;
-      if (typeof data92 === "string") {
-        if (func2(data92) > 500) {
-          const err198 = { instancePath: instancePath + "/defenses", schemaPath: "#/properties/defenses/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
+      let data87 = data.defenses;
+      if (typeof data87 === "string") {
+        if (func2(data87) > 500) {
+          const err187 = { instancePath: instancePath + "/defenses", schemaPath: "#/properties/defenses/maxLength", keyword: "maxLength", params: { limit: 500 }, message: "must NOT have more than 500 characters" };
           if (vErrors === null) {
-            vErrors = [err198];
+            vErrors = [err187];
           } else {
-            vErrors.push(err198);
+            vErrors.push(err187);
           }
           errors++;
         }
       } else {
-        const err199 = { instancePath: instancePath + "/defenses", schemaPath: "#/properties/defenses/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        const err188 = { instancePath: instancePath + "/defenses", schemaPath: "#/properties/defenses/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
-          vErrors = [err199];
+          vErrors = [err188];
         } else {
-          vErrors.push(err199);
+          vErrors.push(err188);
         }
         errors++;
       }
     }
   } else {
-    const err200 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err189 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err200];
+      vErrors = [err189];
     } else {
-      vErrors.push(err200);
+      vErrors.push(err189);
     }
     errors++;
   }
@@ -27863,13 +27740,182 @@ function validate100(data, { instancePath = "", parentData, parentDataProperty, 
   return errors === 0;
 }
 validate100.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var world_check = validate101;
-var schema143 = { "type": "object", "properties": { "items": { "type": "array", "maxItems": 80, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 40 }, "action": { "type": "string", "enum": ["keep", "replace", "disable"] }, "content": { "type": "string", "maxLength": 2e4 }, "name": { "type": "string", "maxLength": 200 }, "untrue": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 200 } }, "reason": { "type": "string", "maxLength": 600 } }, "required": ["ref", "action"], "additionalProperties": false } }, "additions": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "title": { "type": "string", "maxLength": 200 }, "keys": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 100 } }, "content": { "type": "string", "maxLength": 4e3 }, "reason": { "type": "string", "maxLength": 600 } }, "required": ["title", "keys", "content"], "additionalProperties": false } } }, "required": ["items"], "additionalProperties": false, "$id": "urn:canon-engine:world_check" };
+var world_changes = validate101;
 function validate101(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   ;
   let vErrors = null;
   let errors = 0;
   const evaluated0 = validate101.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.world_changes === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "world_changes" }, message: "must have required property 'world_changes'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "world_changes")) {
+        const err1 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err1];
+        } else {
+          vErrors.push(err1);
+        }
+        errors++;
+      }
+    }
+    if (data.world_changes !== void 0) {
+      let data0 = data.world_changes;
+      if (Array.isArray(data0)) {
+        if (data0.length > 30) {
+          const err2 = { instancePath: instancePath + "/world_changes", schemaPath: "#/properties/world_changes/maxItems", keyword: "maxItems", params: { limit: 30 }, message: "must NOT have more than 30 items" };
+          if (vErrors === null) {
+            vErrors = [err2];
+          } else {
+            vErrors.push(err2);
+          }
+          errors++;
+        }
+        const len0 = data0.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          let data1 = data0[i0];
+          if (data1 && typeof data1 == "object" && !Array.isArray(data1)) {
+            if (data1.text === void 0) {
+              const err3 = { instancePath: instancePath + "/world_changes/" + i0, schemaPath: "#/properties/world_changes/items/required", keyword: "required", params: { missingProperty: "text" }, message: "must have required property 'text'" };
+              if (vErrors === null) {
+                vErrors = [err3];
+              } else {
+                vErrors.push(err3);
+              }
+              errors++;
+            }
+            for (const key1 in data1) {
+              if (!(key1 === "text" || key1 === "terms")) {
+                const err4 = { instancePath: instancePath + "/world_changes/" + i0, schemaPath: "#/properties/world_changes/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
+                if (vErrors === null) {
+                  vErrors = [err4];
+                } else {
+                  vErrors.push(err4);
+                }
+                errors++;
+              }
+            }
+            if (data1.text !== void 0) {
+              let data2 = data1.text;
+              if (typeof data2 === "string") {
+                if (func2(data2) > 600) {
+                  const err5 = { instancePath: instancePath + "/world_changes/" + i0 + "/text", schemaPath: "#/properties/world_changes/items/properties/text/maxLength", keyword: "maxLength", params: { limit: 600 }, message: "must NOT have more than 600 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err5];
+                  } else {
+                    vErrors.push(err5);
+                  }
+                  errors++;
+                }
+              } else {
+                const err6 = { instancePath: instancePath + "/world_changes/" + i0 + "/text", schemaPath: "#/properties/world_changes/items/properties/text/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err6];
+                } else {
+                  vErrors.push(err6);
+                }
+                errors++;
+              }
+            }
+            if (data1.terms !== void 0) {
+              let data3 = data1.terms;
+              if (Array.isArray(data3)) {
+                if (data3.length > 12) {
+                  const err7 = { instancePath: instancePath + "/world_changes/" + i0 + "/terms", schemaPath: "#/properties/world_changes/items/properties/terms/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
+                  if (vErrors === null) {
+                    vErrors = [err7];
+                  } else {
+                    vErrors.push(err7);
+                  }
+                  errors++;
+                }
+                const len1 = data3.length;
+                for (let i1 = 0; i1 < len1; i1++) {
+                  let data4 = data3[i1];
+                  if (typeof data4 === "string") {
+                    if (func2(data4) > 60) {
+                      const err8 = { instancePath: instancePath + "/world_changes/" + i0 + "/terms/" + i1, schemaPath: "#/properties/world_changes/items/properties/terms/items/maxLength", keyword: "maxLength", params: { limit: 60 }, message: "must NOT have more than 60 characters" };
+                      if (vErrors === null) {
+                        vErrors = [err8];
+                      } else {
+                        vErrors.push(err8);
+                      }
+                      errors++;
+                    }
+                  } else {
+                    const err9 = { instancePath: instancePath + "/world_changes/" + i0 + "/terms/" + i1, schemaPath: "#/properties/world_changes/items/properties/terms/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err9];
+                    } else {
+                      vErrors.push(err9);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err10 = { instancePath: instancePath + "/world_changes/" + i0 + "/terms", schemaPath: "#/properties/world_changes/items/properties/terms/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err10];
+                } else {
+                  vErrors.push(err10);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err11 = { instancePath: instancePath + "/world_changes/" + i0, schemaPath: "#/properties/world_changes/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            if (vErrors === null) {
+              vErrors = [err11];
+            } else {
+              vErrors.push(err11);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err12 = { instancePath: instancePath + "/world_changes", schemaPath: "#/properties/world_changes/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err13 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err13];
+    } else {
+      vErrors.push(err13);
+    }
+    errors++;
+  }
+  validate101.errors = vErrors;
+  return errors === 0;
+}
+validate101.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var world_check = validate102;
+var schema144 = { "type": "object", "properties": { "items": { "type": "array", "maxItems": 80, "items": { "type": "object", "properties": { "ref": { "type": "string", "maxLength": 40 }, "action": { "type": "string", "enum": ["keep", "replace", "disable"] }, "content": { "type": "string", "maxLength": 2e4 }, "name": { "type": "string", "maxLength": 200 }, "untrue": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 200 } }, "reason": { "type": "string", "maxLength": 600 } }, "required": ["ref", "action"], "additionalProperties": false } }, "additions": { "type": "array", "maxItems": 8, "items": { "type": "object", "properties": { "title": { "type": "string", "maxLength": 200 }, "keys": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 100 } }, "content": { "type": "string", "maxLength": 4e3 }, "reason": { "type": "string", "maxLength": 600 } }, "required": ["title", "keys", "content"], "additionalProperties": false } } }, "required": ["items"], "additionalProperties": false, "$id": "urn:canon-engine:world_check" };
+function validate102(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  ;
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate102.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = void 0;
   }
@@ -27976,7 +28022,7 @@ function validate101(data, { instancePath = "", parentData, parentDataProperty, 
                 errors++;
               }
               if (!(data3 === "keep" || data3 === "replace" || data3 === "disable")) {
-                const err9 = { instancePath: instancePath + "/items/" + i0 + "/action", schemaPath: "#/properties/items/items/properties/action/enum", keyword: "enum", params: { allowedValues: schema143.properties.items.items.properties.action.enum }, message: "must be equal to one of the allowed values" };
+                const err9 = { instancePath: instancePath + "/items/" + i0 + "/action", schemaPath: "#/properties/items/items/properties/action/enum", keyword: "enum", params: { allowedValues: schema144.properties.items.items.properties.action.enum }, message: "must be equal to one of the allowed values" };
                 if (vErrors === null) {
                   vErrors = [err9];
                 } else {
@@ -28310,10 +28356,10 @@ function validate101(data, { instancePath = "", parentData, parentDataProperty, 
     }
     errors++;
   }
-  validate101.errors = vErrors;
+  validate102.errors = vErrors;
   return errors === 0;
 }
-validate101.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+validate102.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 
 // src/core/domain/types.ts
 var EXACT_PRECISIONS = ["minute", "range"];
@@ -34089,31 +34135,6 @@ var profile_schema_default = {
       type: "string",
       maxLength: 600
     },
-    world_changes: {
-      type: "array",
-      maxItems: 30,
-      items: {
-        type: "object",
-        properties: {
-          text: {
-            type: "string",
-            maxLength: 600
-          },
-          terms: {
-            type: "array",
-            maxItems: 12,
-            items: {
-              type: "string",
-              maxLength: 60
-            }
-          }
-        },
-        required: [
-          "text"
-        ],
-        additionalProperties: false
-      }
-    },
     recognized_by: {
       type: "array",
       maxItems: 10,
@@ -35551,6 +35572,42 @@ var persona_abilities_schema_default = {
   additionalProperties: false
 };
 
+// schemas/runtime/world-changes.schema.json
+var world_changes_schema_default = {
+  type: "object",
+  properties: {
+    world_changes: {
+      type: "array",
+      maxItems: 30,
+      items: {
+        type: "object",
+        properties: {
+          text: {
+            type: "string",
+            maxLength: 600
+          },
+          terms: {
+            type: "array",
+            maxItems: 12,
+            items: {
+              type: "string",
+              maxLength: 60
+            }
+          }
+        },
+        required: [
+          "text"
+        ],
+        additionalProperties: false
+      }
+    }
+  },
+  required: [
+    "world_changes"
+  ],
+  additionalProperties: false
+};
+
 // src/core/runtime/model.ts
 var TASK_SCHEMAS = {
   extract_user: extract_user_schema_default,
@@ -35572,7 +35629,8 @@ var TASK_SCHEMAS = {
   combat: combat_schema_default,
   combat_fill: combat_fill_schema_default,
   combat_who: combat_who_schema_default,
-  persona_abilities: persona_abilities_schema_default
+  persona_abilities: persona_abilities_schema_default,
+  world_changes: world_changes_schema_default
 };
 var TASK_TAG = (t2) => `[CANON_ENGINE_TASK:${t2}]`;
 var validators = {
@@ -35595,7 +35653,8 @@ var validators = {
   combat,
   combat_fill,
   combat_who,
-  persona_abilities
+  persona_abilities,
+  world_changes
 };
 function extractJson(text) {
   const s = String(text ?? "").replace(/^﻿/, "");
@@ -36198,7 +36257,7 @@ SHAPE: {"references":[{"id":"r1","quote":"","phrase":"","ref_kind":"person|place
 Enum fields take EXACTLY one of the listed values ("a|b|c" lists the choices). A described or epithet reference ("the girl in the nun habit") is mode "indirect". Something happening now is not a claim kind: put it under the fitting kind (state/presence/location/operation/causal) with assertion "new_event". A plan, intention or appointment is not a claim kind either: use the fitting kind with assertion "plan".`,
   evaluate: `${COMMON}
 TASK: Final review of a candidate GM reply (or of a retained transcript message when mode="retained"). You receive the COMPLETE candidate, the player's exact action scope, retrieved ACTUAL HISTORY and ENTITY STATE for every discovered reference (fetched freshly by the controller), staged offscreen events, due HARD contracts, plan steps, and the discovered claims list.
-1. For EVERY claim id in "claims" return a claim_check verdict: consistent (agrees with retrieved records/state), contradiction (conflicts: e.g. a destroyed place shown operating, a dead person greeting, wrong actor/outcome of a past event, using a missing object), unsupported (asserts a NOTABLE past with no supporting record: a death, serious injury, major fight or crime, a canonical event, or a relationship, rank, membership or secret knowledge \u2014 e.g. who is the player's superior, who knows their secret identity \u2014 that the player profile and records do not give), belief_ok (a character's belief/rumor/lie presented as such), new_detail (compatible new detail; also small invented backstory that contradicts no record, state, canonical event or the player profile \u2014 an anecdote, habit or minor earlier incident, including one shared with the player character such as "last time she helped us catch a bag-snatcher she scorched half a street of billboards" between people who already know each other \u2014 record it as an occurrence with backstory=true; also a character's everyday account of another person's recent whereabouts or doings \u2014 out all night, busy, not answering the phone \u2014 when no record or due event says otherwise), not_applicable. Cite record_ids you relied on.
+1. For EVERY claim id in "claims" return a claim_check verdict: consistent (agrees with retrieved records/state), contradiction (conflicts: e.g. a destroyed place shown operating, a dead person greeting, wrong actor/outcome of a past event, using a missing object; a record must rule it out: a place within the recorded one \u2014 a room of a building, a building of a district or city \u2014 agrees with it, and what you think someone would or would not do is no record), unsupported (asserts a NOTABLE past with no supporting record: a death, serious injury, major fight or crime, a canonical event, or a relationship, rank, membership or secret knowledge \u2014 e.g. who is the player's superior, who knows their secret identity \u2014 that the player profile and records do not give), belief_ok (a character's belief/rumor/lie presented as such), new_detail (compatible new detail; also small invented backstory that contradicts no record, state, canonical event or the player profile \u2014 an anecdote, habit or minor earlier incident, including one shared with the player character such as "last time she helped us catch a bag-snatcher she scorched half a street of billboards" between people who already know each other \u2014 record it as an occurrence with backstory=true; also a character's everyday account of another person's recent whereabouts or doings \u2014 out all night, busy, not answering the phone \u2014 when no record or due event says otherwise), not_applicable. Cite record_ids you relied on.
    Ordinary present-scene details with no record (weather, crowds, shops, decorations, minor NPCs) are new_detail, never contradiction. Preparations, schedules, anticipation or rumors of a FUTURE event ("flags for tomorrow's festival") do not assert that the event has started. A different wording of a free-text state ("\u6B63\u5E38\u8FD0\u8F6C" vs "operating normally") is consistent.
 2. Extract what the candidate ESTABLISHES as actually happening in this scene: transitions (typed fact changes with verbatim quote; EVERY transition with op "set" MUST give "until" \u2014 never leave it out: ${UNTIL_RULE}; an entity-set fact such as an organization's members changes by who joins \u2014 op "add", value: the ids joining \u2014 or leaves \u2014 op "remove" \u2014 never as the whole list; the player character (player_entity) being taken on by an organization or leaving it in this scene is such a change too), occurrences (significant actual events with a concise account incl. actors and result; pack_event_id + disposition when the reply depicts a canonical event occurring or being changed; causes = ids of actual occurrences that caused it; backstory=true for small invented past the reply establishes (see new_detail), with time = its approximate past time or null), state_claims (facts the narration presupposes \u2014 what it takes as already true before or apart from this scene; a change the reply itself shows happening (someone is hit and falls, a machine is wrecked, an object is taken) is a TRANSITION with the new value, not a state_claim; give "at" = the story time the claim refers to when it is a flashback/earlier scene, else null; put each claim on the entity the quote is actually about \u2014 a building, room, door or object that is not in the registry is NOT its district or city: leave such a claim out rather than file it on a containing place), player_actions (player-character acts depicted \u2014 dialogue, reactions and actions; authorized_by_quote = a span COPIED VERBATIM from the player's message that covers it, or null; category = the kind of act: dialogue|reactions|actions|trivial|movement|items|skills|combat|decisions|secrets|intervention \u2014 the most committing kind that fits: agreeing to a job in a line of dialogue is decisions, burning someone is combat, cutting off or stopping what another character is doing (a canonical event, someone's significant act) \u2014 even with one line like "stop fanning her" \u2014 is intervention; noticing or suspecting it is only a reaction; reacting to an offer or question without saying yes or no \u2014 an opinion, a complaint, a joke, a question back, "maybe", "we'll see" \u2014 is dialogue, not decisions; so is answering a question, an excuse or teasing back; secrets is only revealing one \u2014 denying, dodging or a cover story that keeps it is dialogue; trivial everyday matters that commit the character to nothing are trivial, never items or decisions \u2014 accepting a snack or a small gift, paying for a drink, taking a flyer, sitting with someone who asks: items and decisions are for what commits the character (equipment, valuables, key items, notable money; a task, plan, promise, joining something)). An action is authorized when it carries out what the player wrote, including its natural steps and immediate details (for "I take her back to the cell and lock her up": stopping her, taking her belongings, escorting her, locking the door) and HOW it is done: for "I burn the traps along the way", each trap burned, the spell, its incantation and what the fire looks like are all authorized; for a line whose gist the player gave, its exact words. Never require the player to have specified such details. An authorized act is fine whatever its category. player_ooc_instructions, when given, are the player's out-of-character directions for this reply (not part of player_action_scope): an act that carries one out is authorized (authorized_by_quote = a span copied from that instruction) only when its condition actually happens in the candidate; if the condition does not happen, null. Use null only for a NEW decision, goal or line of dialogue the player did not express, step_enactments, new_entities (genuinely new people/places/objects introduced; same_as: the registry id when the entry is someone the registry already has under another name or only a description \u2014 "\u521D\u4E2D\u7537\u751F" whose name this reply gives \u2014 else null).
 3. scene_end: story time when the reply ends ({day, minute} with minute = minutes after midnight on a 24-hour clock: noon / \u4E2D\u534812\u70B9 is 720, 12:10 is 730, midnight is 0; \u665A\u4E0A/\u4E0B\u5348 hours are after 12:00). lo is the MINIMUM time the depicted events actually need, added to the time the scene starts: add up everything the reply shows in order \u2014 dialogue, actions, fighting, movement. Spoken dialogue takes about as long as saying it: a short line a few seconds, a dozen lines of small talk about 1-2 minutes; a single action beat or fight moment under a minute, a whole fight a few minutes; moving by distance (across a room seconds, down the street a few minutes, a train ride to another district 15-30); only a long conversation with many long speeches 10-20 minutes; a whole meal shown from sitting down to leaving 30-60 (a meal already under way before this reply counts only what this reply shows: eating while talking takes as long as the talk); walking/travel by distance; waiting lasts as long as what the text says fills it (reading two articles while waiting is several minutes); sleeping until the stated waking. Activity that runs "until" a part of the day ("\u4E00\u76F4\u5199\u5230\u5929\u9ED1", "until evening") ends at that part of the day's usual clock time for the date (dark in September about 18:00-18:30), not a guessed duration. Time the text does not state (lingering, unstated filler) goes into hi, never into lo; when unsure, keep lo low \u2014 an overestimate can never be taken back. An explicit time, duration or skip in the PLAYER'S MESSAGE (player_action_scope) or in the reply ("13\u70B951\u5206", "\u5927\u69822\u5206\u949F", "two hours later", "\u508D\u665A") anchors scene_end and wins over estimates. A clock someone in the reply reads or states as the time now ("\u90FD\u5FEB\u5341\u4E00\u70B9\u4E86", "\u5DF2\u7ECF\u4E09\u70B9\u4E86", "it's 11:30") is the time at that point of the reply: lo is that time plus only what the reply shows after it. precision "approx" for an estimate, "minute" only when a time is stated. current_time.label gives the calendar date with the day number ("2020-07-21 16:25 (D2)": D3 is 2020-07-22). player_time_jump, when given, is where the player's message moves story time, already worked out from their words ("\u7B2C\u4E8C\u5929\u508D\u665A"): the scene starts there, and a reply set at that date and time is right. horae_time, when given, is an independent tracker's story time at the end of the PREVIOUS reply: if it is later than current_time, the scene starts no earlier than horae_time. flashback=true if the reply is framed as a flashback. time_evidence: every expression of time in the player's message (player_action_scope) and the reply \u2014 clock times, parts of the day, other days, amounts of time, skips \u2014 each once, in the order they come, judged by what it says in its sentence, inside dialogue or not and however the dialogue is marked: quote \u2014 the words exactly as written, a short run that contains the expression; kind \u2014 "now" where the story reaches that time at that point: a clock someone reads or states as the time now ("\u90FD\u5FEB\u5341\u4E00\u70B9\u4E86", a phone showing "\u516B\u70B9\u4E8C\u5341\u51FA\u5934", \u300C\u90FD\u5DF2\u7ECF\u516B\u70B9\u4E86\uFF01\u300D), the narration arriving at a time ("\u7B49\u5230\u516B\u70B9\uFF0C\u5979\u7EC8\u4E8E\u6765\u4E86", "\u508D\u665A\u65F6\u5206", "\u7B2C\u4E8C\u5929\u65E9\u4E0A", "\u5929\u5DF2\u7ECF\u9ED1\u4E86", "\u4E00\u89C9\u7761\u5230\u5929\u4EAE"), with at: {lo, hi} the time it means, as scene_end gives times ("\u516B\u70B9\u4E8C\u5341\u51FA\u5934" 8:20 to 8:30, "\u5FEB\u5341\u4E00\u70B9" a few minutes before 11:00, a part of the day its usual clock span for the date); "elapsed" where a stated amount of time passes in the story ("\u53C8\u8D70\u4E86\u5341\u5206\u949F", "\u4E24\u5C0F\u65F6\u540E\uFF0C\u96E8\u505C\u4E86", "\u7B49\u4E86\u4E00\u4E2A\u534A\u5C0F\u65F6"), with minutes; "mentioned" where a time is only spoken of and the story does not get there in this reply \u2014 a plan, an appointment, a deadline, another day, the past, a question ("\u660E\u5929\u516B\u70B9\u89C1", "\u7EA6\u597D\u4E09\u70B9\u5728\u6821\u95E8\u53E3\u96C6\u5408", "\u516B\u70B9\u524D\u5FC5\u987B\u8D76\u5230", "\u6628\u665A\u5341\u70B9\u7684\u4E8B", "\u4ECA\u665A\u6709\u7A7A\u5417"). Not an expression of time: a word that only looks like one ("\u4E00\u70B9\u70B9" is "a little"), a name. [] when there is none. scene_end agrees with it: it is not before a time the story reaches.
@@ -36242,7 +36301,6 @@ TASK: Read the player's Persona (their character in this story world) and descri
 - player.aliases: every other name the story may call them by \u2014 the given name or the family name alone (a name of two parts written together too: say each part that is used on its own), nicknames, titles, the name in another script (live: the short given name of the player character was missing, and a reply using it was taken for another person of that name).
 - existing_id: a registry id when the Persona names a person, organization or place of this world; null for an original one (the engine creates it). Match names loosely (another script or language, a short form or a name without its prefix).
 - affiliations: every organization (or group) the Persona puts the player in, canon or original \u2014 also one they are about to join or have left. status, at the start of the game as the Persona describes it: "member" (they belong to it now), "joining" (about to join, a candidate, a newcomer not yet taken on: "not yet joined", "starts next week", "applied"), "former" (left, expelled, retired from it). leads (only for a member): true when the Persona makes the player its head or leader. members: the other people the Persona says belong to it (by name; mostly for an original organization) \u2014 never guessed, never the canon members a registry organization already lists.
-- world_changes: how this game's world differs from the original setting, as the Persona states it \u2014 a count or ranking that changes (a world with one more of a famous kind of people), who holds a post or belongs somewhere in canon, something that exists or happened only in this game. Every line marked "(\u672C\u5C40\u8BBE\u5B9A)" is one (its text without the mark); find the others in the rest of the Persona. Not the player's own traits that change nothing about the world (their looks, a friend of their own). text: the change as a plain statement; terms: names and words a lorebook entry about it would contain (the ranking's name, the people and organizations it touches, their titles), in the Persona's language and the world's usual spellings.
 - background_lore (when given): the user's lorebook entries for the names the Persona uses, and registry organizations list their leader and members. They are world background to recognise what the Persona means \u2014 they never make anyone related to the player or aware of them, and never put the player into an organization the Persona does not.
 - basis "persona_stated" also covers what follows directly from what the Persona says about a named person: the handler or superior it names (a contact, a superior in the chain) knows who the player is \u2014 list them as a knower with that basis and say the role in the relationship.
 - relationships: basis "persona_stated" (the Persona says it) or "implied" (follows from the role, e.g. the members of an organization the player leads). An implied relationship never names a specific known character of this world: a known person is related to the player only if the Persona says so. relation: what they are to each other, one short phrase. they / player: for a named person, each side as the Persona gives it \u2014 address: how that side addresses or refers to the other where it is not simply by name (a nickname, a title, an honorific, the surname or given name alone\u2026), each form with use: always (the only form), usually or sometimes (with when: in what situation); [] when the Persona gives none; sees: how that side regards and treats the other, one sentence. Only what the Persona states; null for a side it says nothing about.
@@ -36255,7 +36313,7 @@ TASK: Read the player's Persona (their character in this story world) and descri
 - defenses: what the Persona says shields the player from other people's powers or senses (a mind that cannot be read, a presence that cannot be sensed, immunity to a kind of ability), one sentence; empty when it says nothing of the kind.
 - public_identity: everything about the player that is public. Public by default is whatever the Persona does not mark as secret or as known only to certain people: their skills or powers if they have any, school or workplace, looks, temperament, reputation, what they are known for. Secret even when not marked is what is secret by nature in this world: membership in a hidden organization or secret society, covert work, and anything the Persona says only certain people know. uncertain: what the Persona leaves open that matters.
 Write in the Persona's language. Keep each text short.
-SHAPE: {"player":{"name":"","aliases":[],"summary":"","public_identity":""},"affiliations":[{"name":"","existing_id":null,"kind":"organization","role":"","status":"member","leads":false,"members":[],"secrecy":"secret","description":""}],"places":[{"name":"","existing_id":null,"use":"","description":""}],"resources":[],"goals":[],"roles":[{"role":"","brings":[],"from":[],"style":""}],"not_suited":[],"voice":"","nature":{"habits":"","uses":"","others":"","limits":"","perceives":null},"defenses":"","relationships":[{"name":"","existing_id":null,"relation":"","basis":"persona_stated","they":{"address":[{"term":"","use":"usually","when":""}],"sees":""},"player":null}],"knowers":[{"who":"","existing_id":null,"level":"exists","about":"","basis":"implied","places":[]}],"recognized_by":[{"who":"","existing_id":null,"places":[],"everywhere":false,"as":""}],"uncertain":[],"world_changes":[{"text":"","terms":[]}]}`,
+SHAPE: {"player":{"name":"","aliases":[],"summary":"","public_identity":""},"affiliations":[{"name":"","existing_id":null,"kind":"organization","role":"","status":"member","leads":false,"members":[],"secrecy":"secret","description":""}],"places":[{"name":"","existing_id":null,"use":"","description":""}],"resources":[],"goals":[],"roles":[{"role":"","brings":[],"from":[],"style":""}],"not_suited":[],"voice":"","nature":{"habits":"","uses":"","others":"","limits":"","perceives":null},"defenses":"","relationships":[{"name":"","existing_id":null,"relation":"","basis":"persona_stated","they":{"address":[{"term":"","use":"usually","when":""}],"sees":""},"player":null}],"knowers":[{"who":"","existing_id":null,"level":"exists","about":"","basis":"implied","places":[]}],"recognized_by":[{"who":"","existing_id":null,"places":[],"everywhere":false,"as":""}],"uncertain":[]}`,
   integrate: `${COMMON}
 TASK: The story world reacts to the player character. Given who the player is (player: identity, organizations, who knows what about them), what actually happened with them (player.actual_history: only what they themself took part in; player.lately: what their organizations and places went through without them in the last weeks \u2014 background, not their history), what is happening or about to happen (candidate_events, each with its people and status), and the player's own decisions (engagement), work out how the world could reach the player now, so that they become part of the story without having to look for a way in.
 1. assessments: for each candidate event (and any situation from actual history worth it): direct_impact (something already in motion reaches or affects the player: someone who knows of them has their own reason to act toward them, or the event's effects reach where they are), opportunity (a plausible, interesting contact could be made), or no_connection; with a short reason.
@@ -36297,6 +36355,11 @@ ${COMBAT_FILL_TASK}`,
 ${COMBAT_WHO_TASK}`,
   // User: the player's Persona is a person of this world like any other: what they can do is read into the same
   // abilities, told in the same parts, that the pack gives its people (and the same links into the setting).
+  world_changes: `${COMMON}
+TASK: Read the player's Persona (their character in this story world) for world_changes: how this game's world differs from the original setting, as the Persona states it \u2014 a count or ranking that changes (a world with one more of a famous kind of people), who holds a post or belongs somewhere in canon, something that exists or happened only in this game. Every line marked "(\u672C\u5C40\u8BBE\u5B9A)" is one (its text without the mark); find the others in the rest of the Persona. Not the player's own traits that change nothing about the world (their looks, a friend of their own). text: the change as a plain statement; terms: names and words a lorebook entry about it would contain (the ranking's name, the people and organizations it touches, their titles), in the Persona's language and the world's usual spellings.
+background_lore (when given): the user's lorebook entries for the names the Persona uses \u2014 the original setting, to tell what the Persona changes.
+Write in the Persona's language.
+SHAPE: {"world_changes":[{"text":"","terms":[]}]}`,
   persona_abilities: `${COMMON}
 TASK: Read the player's Persona (their character in this story world) into what a story engine knows of any person of the world: what they can do, and what kind of being they are in the setting. The engine judges fights and plays the world from this, for the player character exactly as for everyone else.
 1. abilities: every power, technique, spell, art, skill or piece of equipment of their own that the Persona gives them and that matters in what they do (a fight, a chase, an investigation, their work), each ONCE: name (as the Persona calls it), gist (one sentence: what it is and does), text (2 to 4 sentences), parts \u2014 principle (how it works), effect (what it does, how strong), conditions (what it needs to work), cost (what it costs them), limits (what it cannot do), counters (known ways to beat it) \u2014 only what the Persona states or what follows directly from how it works; leave out a part it says nothing about; every ability has an effect. of: null, or \u2014 for a way of using another of their abilities (a technique, form, mode or application the Persona gives under a power: a light blade and a light beam of one power over light) \u2014 the name of that power exactly as you wrote it. A power and its uses: the power is one entry (its effect says what the power does as such, without listing the uses again; its conditions, cost, limits and counters, written once, hold for every use), and each use is an entry of its own with of = the power, telling only what is its own (its own effect, and a condition or limit only it has). Never a use of a use. Something that stands on its own (a martial art, a weapon, a second power) has of null. secret: true for an ability (or a part) the Persona marks as secret or as known only to certain people; what it does not mark is public. links: setting nodes (by id, from setting) the ability belongs to or depends on ("\u5C5E\u4E8E\u7535\u51FB\u4F7F\u80FD\u529B"), with a short label; [] when none fits. An ordinary person with no special abilities: only the skills the Persona makes notable, or none.
@@ -36396,7 +36459,8 @@ var SCHEMAS = {
   combat: combat_schema_default,
   combat_fill: combat_fill_schema_default,
   combat_who: combat_who_schema_default,
-  persona_abilities: persona_abilities_schema_default
+  persona_abilities: persona_abilities_schema_default,
+  world_changes: world_changes_schema_default
 };
 var EVAL_FRAMES_NOTE = `7. TIME FRAMES (this pack has them; see time_frames): also return "scene_frame" in the reply object: the id of the frame the scene is in at the END of the reply \u2014 where the player character is \u2014 when the reply shows them arriving in another frame or coming back (time travel, crossing into another world, entering or waking from a dream); "main" for the main frame; null when they stay in scene_frame_now. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame's conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).`;
 var PROMPTS = Object.fromEntries(Object.entries(RAW_PROMPTS).map(([k, v]) => [k, annotateShape(v, SCHEMAS[k])]));
@@ -36496,7 +36560,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.50.0";
+var ENGINE_RELEASE = "1.50.1";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -41476,7 +41540,7 @@ function candidateId(index, x) {
   if (index.entityExists(x) || index.pack.events.has(x) || index.state.occurrences.has(x)) return x;
   return index.whoOne(x.replace(/[-_.]+/g, " ").trim());
 }
-var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check", profile: "reading the Persona", integrate: "how the world reacts to the player", foreknow: "what the people with you have planned", leap: "planning the time leap", world_check: "checking the lorebook against this game", mind: "what the people here think and plan", relate: "how the relations change", combat: "judging the fight", combat_fill: "what the fighters are", combat_who: "who the fighters are", persona_abilities: "reading what your character can do" };
+var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check", profile: "reading the Persona", integrate: "how the world reacts to the player", foreknow: "what the people with you have planned", leap: "planning the time leap", world_check: "checking the lorebook against this game", mind: "what the people here think and plan", relate: "how the relations change", combat: "judging the fight", combat_fill: "what the fighters are", combat_who: "who the fighters are", persona_abilities: "reading what your character can do", world_changes: "reading this game world changes" };
 var formatUsd = (v) => `$${v < 0.1 ? v.toFixed(4) : v < 10 ? v.toFixed(3) : v.toFixed(2)}`;
 var replyChars = (text) => String(text || "").replace(/\s+/g, "").length;
 var DEFAULT_SETTINGS = {
@@ -43854,6 +43918,19 @@ ${persona.description}`, pack2);
       profileInput,
       { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 6e3 }
     ), this.settings.taskTimeoutMs * 4, signal));
+    const wcInput = {
+      persona: { name: persona.name, description: persona.description },
+      world: { title: pack2.pack.title, description: pack2.pack.description, language: pack2.pack.language },
+      ...lore.length ? { background_lore: lore.map((l) => ({ title: l.title, text: l.text })) } : {}
+    };
+    const wc = await this.asked("world_changes", PROMPTS.world_changes, wcInput, () => this.withTimeout(callStructured(
+      this.host.model,
+      "world_changes",
+      PROMPTS.world_changes,
+      wcInput,
+      { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 4e3 }
+    ), this.settings.taskTimeoutMs * 2, signal));
+    out.world_changes = wc.world_changes;
     out.affiliations = await this.checkAffiliations(out, pack2, persona, signal, operationId);
     const built = buildProfile(out, pack2, index, persona, prev);
     if (lore.length) built.profile.lore = this.lastProfileLore;
@@ -44003,7 +44080,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     };
     const kindText = (it) => it.kind === "lore" ? "lorebook entry" : it.kind === "entity" ? "pack: who or what it is" : "pack: event summary";
     const memo = this.memo();
-    const basis = memoKey("world_check", PROMPTS.world_check, changes.map((x) => x.text), prof ? { name: prof.personaName, summary: prof.summary } : null);
+    const basis = memoKey("world_check", PROMPTS.world_check, changes.map((x) => x.text), prof ? prof.personaName : null);
     const keyOf = (it) => memoKey(basis, kindText(it), it.title, it.text, timeOf(it));
     const known = { items: [] };
     const ask = [];
@@ -44019,7 +44096,9 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const check2 = (b, i) => this.withTimeout(callStructured(this.host.model, "world_check", PROMPTS.world_check, {
       game_start: formatTick(start, origin),
       changes: changes.map((x) => ({ id: x.id, text: x.text })),
-      player: prof ? { name: prof.personaName, summary: prof.summary } : null,
+      // the player by name only: what about them changes the world is in the changes (a summary of the whole Persona
+      // is read anew with every start time, and would make every verdict a new question)
+      player: prof ? { name: prof.personaName } : null,
       ...batches.length > 1 ? { part: `${i + 1} of ${batches.length}` } : {},
       additions_wanted: i === 0 && !knownAdditions,
       items: b.map((it) => ({ ref: it.ref, kind: kindText(it), title: it.title, ...timeOf(it), text: it.text }))
@@ -44029,7 +44108,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
         const it = refs.get(r.ref);
         if (it) {
           const { ref: _ref, ...v } = r;
-          await memo?.put(keyOf(it), v);
+          await memo?.put(keyOf(it), r.action === "keep" ? { action: "keep" } : v);
         }
       }
       if (i === 0 && !knownAdditions) await memo?.put(addKey, out.additions || []);
@@ -45792,6 +45871,7 @@ var D = {
   limit: { zh: "\u4E0A\u9650", en: "limit" },
   step_extract_user: { zh: "\u8BFB\u53D6\u73A9\u5BB6\u8F93\u5165", en: "read input" },
   step_profile: { zh: "\u8BFB\u53D6 Persona", en: "read Persona" },
+  step_world_changes: { zh: "\u8BFB\u53D6\u672C\u5C40\u8BBE\u5B9A", en: "read this game\u2019s world changes" },
   step_integrate: { zh: "\u4E16\u754C\u53CD\u5E94", en: "world reaction" },
   step_leap: { zh: "\u89C4\u5212\u65F6\u95F4\u8DF3\u8DC3", en: "plan time leap" },
   step_world_check: { zh: "\u68C0\u67E5\u672C\u5C40\u8BBE\u5B9A", en: "check this game\u2019s world" },

@@ -372,6 +372,7 @@ const D: Record<string, { zh: string; en: string }> = {
   limit: { zh: '上限', en: 'limit' },
   step_extract_user: { zh: '读取玩家输入', en: 'read input' },
   step_profile: { zh: '读取 Persona', en: 'read Persona' },
+  step_world_changes: { zh: '读取本局设定', en: 'read this game’s world changes' },
   step_integrate: { zh: '世界反应', en: 'world reaction' },
   step_leap: { zh: '规划时间跳跃', en: 'plan time leap' },
   step_world_check: { zh: '检查本局设定', en: 'check this game’s world' },

@@ -124,7 +124,7 @@ export function candidateId(index: WorldIndex, x: string): Id | null {
   return index.whoOne(x.replace(/[-_.]+/g, ' ').trim());
 }
 
-const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change', combat: 'judging the fight', combat_fill: 'what the fighters are', combat_who: 'who the fighters are', persona_abilities: 'reading what your character can do' };
+const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change', combat: 'judging the fight', combat_fill: 'what the fighters are', combat_who: 'who the fighters are', persona_abilities: 'reading what your character can do', world_changes: 'reading this game world changes' };
 
 /** Length and provider stats of the published reply, shown after the turn timings. */
 export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
@@ -2340,6 +2340,17 @@ export class CanonEngine {
     // the same Persona read against the same world again (a new game): the reading it had (memo.ts)
     const out = await this.asked<ProfileOut>('profile', PROMPTS.profile, profileInput, () => this.withTimeout(callStructured<ProfileOut>(this.host.model, 'profile', PROMPTS.profile, profileInput,
       { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 6000 }), this.settings.taskTimeoutMs * 4, signal));
+    // 本局设定 is the Persona's alone, read apart from the start-dependent rest (the organizations' people at the game's
+    // time): a game started at another time takes the same reading, and with it every lorebook verdict made for it
+    // (memo.ts; live: a reading made with the rest worded the changes anew, and the whole check was asked again)
+    const wcInput = {
+      persona: { name: persona.name, description: persona.description },
+      world: { title: pack.pack.title, description: pack.pack.description, language: pack.pack.language },
+      ...(lore.length ? { background_lore: lore.map((l) => ({ title: l.title, text: l.text })) } : {}),
+    };
+    const wc = await this.asked<{ world_changes: NonNullable<ProfileOut['world_changes']> }>('world_changes', PROMPTS.world_changes, wcInput, () => this.withTimeout(callStructured(this.host.model, 'world_changes', PROMPTS.world_changes, wcInput,
+      { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 4000 }), this.settings.taskTimeoutMs * 2, signal));
+    out.world_changes = wc.world_changes;
     out.affiliations = await this.checkAffiliations(out, pack, persona, signal, operationId);
     const built = buildProfile(out, pack, index, persona, prev);
     if (lore.length) built.profile.lore = this.lastProfileLore;
@@ -2467,7 +2478,7 @@ export class CanonEngine {
     const kindText = (it: (typeof items)[number]) => it.kind === 'lore' ? 'lorebook entry' : it.kind === 'entity' ? 'pack: who or what it is' : 'pack: event summary';
     // what a verdict is a verdict about: the instructions, the changes, the player, and the text (with its time)
     const memo = this.memo();
-    const basis = memoKey('world_check', PROMPTS.world_check, changes.map((x) => x.text), prof ? { name: prof.personaName, summary: prof.summary } : null);
+    const basis = memoKey('world_check', PROMPTS.world_check, changes.map((x) => x.text), prof ? prof.personaName : null);
     const keyOf = (it: (typeof items)[number]) => memoKey(basis, kindText(it), it.title, it.text, timeOf(it));
     type Verdict = Omit<WorldCheckOut['items'][number], 'ref'>;
     const known: WorldCheckOut = { items: [] };
@@ -2483,7 +2494,9 @@ export class CanonEngine {
     const check = (b: typeof items, i: number) => this.withTimeout(callStructured<WorldCheckOut>(this.host.model, 'world_check', PROMPTS.world_check, {
       game_start: formatTick(start, origin),
       changes: changes.map((x) => ({ id: x.id, text: x.text })),
-      player: prof ? { name: prof.personaName, summary: prof.summary } : null,
+      // the player by name only: what about them changes the world is in the changes (a summary of the whole Persona
+      // is read anew with every start time, and would make every verdict a new question)
+      player: prof ? { name: prof.personaName } : null,
       ...(batches.length > 1 ? { part: `${i + 1} of ${batches.length}` } : {}),
       additions_wanted: i === 0 && !knownAdditions,
       items: b.map((it) => ({ ref: it.ref, kind: kindText(it), title: it.title, ...timeOf(it), text: it.text })),
@@ -2491,7 +2504,8 @@ export class CanonEngine {
       .then(async (out) => {
         // what the model said about each text of the part is kept (a text it left out is asked again next time)
         const refs = new Map(b.map((it) => [it.ref, it]));
-        for (const r of out.items || []) { const it = refs.get(r.ref); if (it) { const { ref: _ref, ...v } = r; await memo?.put(keyOf(it), v); } }
+        // (a keep is only its action: nothing else of it is used, and most of thousands of texts are kept)
+        for (const r of out.items || []) { const it = refs.get(r.ref); if (it) { const { ref: _ref, ...v } = r; await memo?.put(keyOf(it), r.action === 'keep' ? { action: 'keep' } : v); } }
         if (i === 0 && !knownAdditions) await memo?.put(addKey, out.additions || []);
         return out;
       });

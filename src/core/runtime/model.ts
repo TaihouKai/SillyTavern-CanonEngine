@@ -22,13 +22,14 @@ import combatSchema from '../../../schemas/runtime/combat.schema.json';
 import combatFillSchema from '../../../schemas/runtime/combat-fill.schema.json';
 import combatWhoSchema from '../../../schemas/runtime/combat-who.schema.json';
 import personaAbilitiesSchema from '../../../schemas/runtime/persona-abilities.schema.json';
+import worldChangesSchema from '../../../schemas/runtime/world-changes.schema.json';
 
 const TASK_SCHEMAS: Record<string, Record<string, any>> = {
-  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema, world_check: worldCheckSchema, mind: mindSchema, affiliations: affiliationsSchema, ends: endsSchema, relate: relateSchema, combat: combatSchema, combat_fill: combatFillSchema, combat_who: combatWhoSchema, persona_abilities: personaAbilitiesSchema,
+  extract_user: extractUserSchema, discover: discoverSchema, evaluate: evaluateSchema, adjudicate: adjudicateSchema, impact: impactSchema, plan: planSchema, digest: digestSchema, profile: profileSchema, integrate: integrateSchema, foreknow: foreknowSchema, leap: leapSchema, world_check: worldCheckSchema, mind: mindSchema, affiliations: affiliationsSchema, ends: endsSchema, relate: relateSchema, combat: combatSchema, combat_fill: combatFillSchema, combat_who: combatWhoSchema, persona_abilities: personaAbilitiesSchema, world_changes: worldChangesSchema,
 };
 import { EngineError } from '../domain/util';
 
-export type TaskName = 'extract_user' | 'discover' | 'evaluate' | 'adjudicate' | 'impact' | 'plan' | 'digest' | 'profile' | 'integrate' | 'foreknow' | 'leap' | 'world_check' | 'mind' | 'affiliations' | 'ends' | 'relate' | 'combat' | 'combat_fill' | 'combat_who' | 'persona_abilities';
+export type TaskName = 'extract_user' | 'discover' | 'evaluate' | 'adjudicate' | 'impact' | 'plan' | 'digest' | 'profile' | 'integrate' | 'foreknow' | 'leap' | 'world_check' | 'mind' | 'affiliations' | 'ends' | 'relate' | 'combat' | 'combat_fill' | 'combat_who' | 'persona_abilities' | 'world_changes';
 
 export interface ChatMsg { role: 'system' | 'user' | 'assistant'; content: string }
 
@@ -100,6 +101,7 @@ const validators: Record<TaskName, ((d: unknown) => boolean) & { errors?: { inst
   combat_fill: V.combat_fill,
   combat_who: V.combat_who,
   persona_abilities: V.persona_abilities,
+  world_changes: V.world_changes,
 };
 
 /** Extract the first balanced JSON object from model text (handles code fences / prose around it). */

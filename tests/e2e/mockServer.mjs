@@ -58,6 +58,7 @@ function defaultTask(task, input) {
     case 'combat_fill': return { people: [] };
     case 'combat_who': return { people: [], things: [] };
     case 'persona_abilities': return { abilities: [], setting: [] };
+    case 'world_changes': return { world_changes: [] };
     case 'ends': return { ends: [...String(input.question || '').matchAll(/^(\d+)\. /gm)].map((m) => ({ n: Number(m[1]), until: 'lasting', why: 'mock' })) };
     case 'affiliations': return { organizations: (input.organizations || []).filter((o) => o.read).map((o) => ({ ref: o.ref, status: o.read.status })) };
     case 'relate': return { pairs: (input.pairs || []).map((p) => ({ n: p.n, changed: false })) };
