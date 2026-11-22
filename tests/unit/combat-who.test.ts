@@ -171,4 +171,17 @@ describe('who and what the message brings into a fight', () => {
     expect(names).toMatchObject([{ words: 'the crew-cut one', id: 'rt.crewcut.abc123' }]);
     expect(notes.join(' ')).toMatch(/is crew-cut thug/);
   });
+
+  it('CW7 a pack without combat tells the people a message describes apart too', async () => {
+    const raw = demoRaw() as any;
+    raw.combat = { none: 'a quiet story' };
+    for (const e of raw.entities) if (e.aspects) { delete e.aspects.combat_style; delete e.aspects.abilities; delete e.aspects.setting; delete e.aspects.fighting; }
+    const L = load(raw);
+    const idx = new WorldIndex(L, reduce(L, []));
+    const f: FightOut = { state: 'none', new_people: [{ name: 'medic woman', description: "a woman in a medic's coat", quote: "A woman in a medic's coat" }] };
+    const p = port({ people: [{ name: 'medic woman', id: 'mira', why: 'a medic' }] });
+    const { names } = await identifyInFight({ port: p, index: idx, fight: f, text: TEXT, timeLabel: 'D0 09:00', lore: [], near: [], operationId: 't' });
+    expect(p.seen[0].input.candidates.map((c: any) => c.id)).toContain('mira');
+    expect(names).toMatchObject([{ words: 'medic woman', id: 'mira', source: 'player' }]);
+  });
 });

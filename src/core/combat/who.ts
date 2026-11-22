@@ -125,8 +125,9 @@ export async function identifyInFight(a: {
   // the people a message brings in are told apart in a fight or not (live: two thugs blocked the player's way, one
   // with the gun 滨面 held; nobody fought yet, nobody asked who he was, and the reply made him someone new); what is
   // at work in a fight only in one
-  const fighting = !!f && (f.state === 'starts' || f.state === 'continues');
-  if (!f || (!fighting && !f.new_people?.length) || L.combat.none !== null) return { notes: [], names };
+  const fighting = !!f && (f.state === 'starts' || f.state === 'continues') && L.combat.none === null;
+  // (whoever someone is does not need a setting with fights: a pack without combat tells its people apart too)
+  if (!f || ((!fighting || L.combat.none !== null) && !f.new_people?.length)) return { notes: [], names };
   const now = fightNow(a.index.state);
   const notes: string[] = [];
   const call = (p: { name?: string; quote?: string }, id: Id, why: string) => { const b = describes(String(p.name || '')) ? bindingFrom(p.name, id, p.quote, fighting ? 'fight' : 'player', why) : null; if (b) names.push(b); };

@@ -36496,7 +36496,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.49.8";
+var ENGINE_RELEASE = "1.49.9";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -38952,8 +38952,8 @@ async function identifyInFight(a) {
   const f = a.fight;
   const L = a.index.pack;
   const names = [];
-  const fighting = !!f && (f.state === "starts" || f.state === "continues");
-  if (!f || !fighting && !f.new_people?.length || L.combat.none !== null) return { notes: [], names };
+  const fighting = !!f && (f.state === "starts" || f.state === "continues") && L.combat.none === null;
+  if (!f || (!fighting || L.combat.none !== null) && !f.new_people?.length) return { notes: [], names };
   const now = fightNow(a.index.state);
   const notes = [];
   const call = (p, id, why) => {

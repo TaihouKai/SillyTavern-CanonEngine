@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.49.9 — 2026-11-22 (pack 7.1.1)
+
+- **A pack without combat tells its people apart too.** Telling who a described newcomer is had sat with the fight analysis, and a pack whose story has no fighting skipped it altogether. It is now done in any pack. Only things at work in a fight still need a pack with combat.
+
 ## 1.49.8 — 2026-11-22 (pack 7.1.1)
 
 - **Someone the story brought in is who the next message may mean.** The reply registered the crew-cut thug as a new person 「寸头混混」. The next message's 「那个寸头」 could not be read as him: the reading was not shown who was with the player, and the list of whom a newcomer might be held only the setting's people. So the thug was taken for 杉谷. The people with the player character where the last reply ended are now shown to the reading, and the people the story brought in are offered as candidates too.
