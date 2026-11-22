@@ -447,6 +447,14 @@ describe('what an event of now hands someone', () => {
     y.model.on('evaluate', (i) => String(i.candidate).includes('[AS11d]'), { scene_end: at(1, 6, 15), new_entities: [{ ref: 'n1', name: 'a stout docker', kind: 'person', description: 'holds the cargo hook', quote: 'a stout docker with the cargo hook nods' }] });
     await y.engine.runOperation('normal');
     expect([...y.engine.current!.replay.state.runtimeEntities.values()].map((e) => e.name)).toContain('a stout docker');
+    // someone taking it in this reply is not who held it
+    const m4 = 'I wait.';
+    y.host.addUser(m4);
+    y.model.draft('A wiry boy snatches the cargo hook and runs. [AS11e]');
+    y.model.on('evaluate', (i) => String(i.candidate).includes('[AS11e]'), { scene_end: at(1, 6, 20), new_entities: [{ ref: 'n1', name: 'a wiry boy', kind: 'person', description: 'snatches the cargo hook', quote: 'A wiry boy snatches the cargo hook' }],
+      transitions: [{ op: 'set', entity_id: 'hook', predicate: 'holder', value: 'n1', until: 'lasting', quote: 'snatches the cargo hook', occurrence_ref: null }] });
+    await y.engine.runOperation('normal');
+    expect([...y.engine.current!.replay.state.runtimeEntities.values()].map((e) => e.name)).toContain('a wiry boy');
   });
 
   it('AS13 the hook an event about to happen hands Mira, before the world says so: the newcomer with it is Mira, she holds it in the fight, and it can be taken from her', async () => {

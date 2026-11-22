@@ -49,13 +49,15 @@ function defaultTask(task, input) {
     }
     case 'digest': return { groups: (input.events || []).length > 1 ? [{ member_ids: input.events.map((e) => e.id), title: 'mock episode', summary: 'mock' }] : [] };
     case 'impact': return { changed: [], affected_anchors: [], affected_steps: [], scope: 'local', severity: 'none', replan: false, explanation: 'mock' };
-    case 'profile': return { player: { name: input.persona?.name || 'player', aliases: [], summary: `mock profile of ${input.persona?.name || 'player'}`, public_identity: '' }, affiliations: [], places: [], capabilities: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
+    case 'profile': return { player: { name: input.persona?.name || 'player', aliases: [], summary: `mock profile of ${input.persona?.name || 'player'}`, public_identity: '' }, affiliations: [], places: [], resources: [], goals: [], relationships: [], knowers: [], uncertain: [] };
     case 'integrate': return { assessments: [], opportunities: [] };
     case 'leap': return { events: [], mention: [], impossible: [], life: [], landing: '' };
     case 'foreknow': return { judgements: [] };
     case 'world_check': return { items: [], additions: [] };
     case 'combat': return { reasoning: 'scripted', player_outcomes: [], exchanges: [], statuses: [], witnessed: [], over: false, over_why: '', stop_at: '' };
     case 'combat_fill': return { people: [] };
+    case 'combat_who': return { people: [], things: [] };
+    case 'persona_abilities': return { abilities: [], setting: [] };
     case 'ends': return { ends: [...String(input.question || '').matchAll(/^(\d+)\. /gm)].map((m) => ({ n: Number(m[1]), until: 'lasting', why: 'mock' })) };
     case 'affiliations': return { organizations: (input.organizations || []).filter((o) => o.read).map((o) => ({ ref: o.ref, status: o.read.status })) };
     case 'relate': return { pairs: (input.pairs || []).map((p) => ({ n: p.n, changed: false })) };

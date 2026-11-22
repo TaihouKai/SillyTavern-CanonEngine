@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.49.10 — 2026-11-22 (pack 7.1.1)
+
+- **Someone taking an object is not who held it.** In the reply, the player character stole the archive key from the archivist's desk. The reply's newcomer was taken for the archivist because their words had the key in them. An object that changes hands in the reply no longer tells who a newcomer is.
+- **The browser tests run again.** The mock model had no answers for the tasks added since 1.46 (who a newcomer is, reading the Persona's abilities). Its Persona reading still gave a field the format had dropped, and one test still wrote a person's 常态 and 思考方式 in the format from before 1.47. Every turn had failed at the Persona reading, so 22 of 111 checks passed. All 127 now pass, and the story session's 12 pass as well.
+
 ## 1.49.9 — 2026-11-22 (pack 7.1.1)
 
 - **A pack without combat tells its people apart too.** Telling who a described newcomer is had sat with the fight analysis, and a pack whose story has no fighting skipped it altogether. It is now done in any pack. Only things at work in a fight still need a pack with combat.

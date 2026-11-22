@@ -69,7 +69,7 @@ try {
     check(results, 'I01 draft uses ST full prompt: card + persona + Author\'s Note + keyword lore + Horae + engine context', ml.length === 1 && p.includes('Seraphina') && p.includes('PERSONA_MARKER_5512') && p.includes('AN_MARKER_7731') && p.includes('What is Eldoria') && p.includes('[CANON ENGINE CONTEXT') && p.includes('Current State Snapshot'), `main=${ml.length}`);
     check(results, 'I09 the private draft is streamed to the provider (with usage) and folded into one reply; global streaming setting untouched', ml[0] && ml[0].stream === true && ml[0].includeUsage === true && streamBefore === true && (await page.evaluate(() => SillyTavern.getContext().chatCompletionSettings.stream_openai)) === true);
     const tl = await taskLogs();
-    check(results, 'I08 internal tasks are isolated (2 messages; no card/AN/lore/Horae injection; Persona only as an explicit input of the extractor and the Persona reader; no recursive story turn)', tl.length >= 3 && tl.every((t) => t.messages.length === 2 && !promptText(t).includes("Seraphina's Personality") && !promptText(t).includes('AN_MARKER_7731') && !promptText(t).includes('What is Eldoria') && !promptText(t).includes('Current State Snapshot')) && tl.filter((t) => promptText(t).includes('PERSONA_MARKER_5512')).every((t) => (t.task === 'extract_user' || t.task === 'profile') && JSON.stringify(t.input.persona).includes('PERSONA_MARKER_5512')) && ml.length === 1, tl.map((t) => `${t.task}:${t.messages.length}`).join(','));
+    check(results, 'I08 internal tasks are isolated (2 messages; no card/AN/lore/Horae injection; Persona only as an explicit input of the extractor and the Persona reader; no recursive story turn)', tl.length >= 3 && tl.every((t) => t.messages.length === 2 && !promptText(t).includes("Seraphina's Personality") && !promptText(t).includes('AN_MARKER_7731') && !promptText(t).includes('What is Eldoria') && !promptText(t).includes('Current State Snapshot')) && tl.filter((t) => promptText(t).includes('PERSONA_MARKER_5512')).every((t) => (t.task === 'extract_user' || t.task === 'profile' || t.task === 'persona_abilities') && JSON.stringify(t.input.persona).includes('PERSONA_MARKER_5512')) && ml.length === 1, tl.map((t) => `${t.task}:${t.messages.length}`).join(','));
     const prof = tl.find((t) => t.task === 'profile');
     check(results, 'NI01 narrative integration: the Persona reader gets the active ST Persona (name + standard description) once, before the first turn', !!prof && !!prof.input.persona.name && prof.input.persona.description.includes('PERSONA_MARKER_5512') && tl.filter((t) => t.task === 'profile').length === 1 && tl.some((t) => t.task === 'integrate' && t.input.player?.name === prof.input.persona.name), tl.map((t) => t.task).join(','));
     check(results, 'I14 analysis requests are streamed to the provider too (no gateway timeout on slow models)', tl.length >= 3 && tl.every((t) => t.stream === true && t.includeUsage === true), tl.map((t) => `${t.task}:${t.stream}`).join(','));
@@ -874,10 +874,11 @@ try {
     await mock('/control', { mainQueue: [], mainRules: [], taskRules: [], auxRules: [], malformedNext: {}, clearLogs: true });
     await newChat(page);
     const p = JSON.parse(packText('demo.canon.json'));
-    p.entities.find((e) => e.id === 'mira').nature = [
+    const miraAsp = (p.entities.find((e) => e.id === 'mira').aspects ||= {});
+    miraAsp.nature = [
       { from_event: null, habits: 'NT_NOW 缝伤口时总哼着歌', uses: '谁受伤都会顺手处理', others: '码头工人信任她', limits: '救不回已经死去的人', perceives: { kinds: ['thoughts'], how: '视线之内' } },
       { from_event: 'conflict-begins', until_event: null, why: 'NT_LATER_WHY', habits: 'NT_LATER 手会发抖', uses: '仍然缝合，但更慢', others: '工人们担心她', limits: '做不了精细活' }];
-    p.entities.find((e) => e.id === 'mira').mind = { deliberation: 'habitual', sharpness: 'sharp', approach: 'MD_APPROACH 先问清楚再动手', speaks: '只问不答' };
+    miraAsp.mind = { deliberation: 'habitual', sharpness: 'sharp', approach: 'MD_APPROACH 先问清楚再动手', speaks: '只问不答' };
     await bind(page, JSON.stringify(p), tick(0, 8));
     await mock('/control', { mainQueue: ['米拉抬起头。NT_A'], clearLogs: true, taskRules: [rule('extract_user', '去找那位医生', { references: [{ phrase: '那位医生', quote: '那位医生', kind: 'entity', mode: 'indirect', candidates: ['mira'] }], scene_entities: ['mira'] })] });
     await send(page, '我去找那位医生聊聊。');

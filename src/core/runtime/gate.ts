@@ -238,7 +238,9 @@ export function runGate(g: GateInput): GateResult {
     // nobody's hands as the story had it)
     if (ne.kind === 'person') {
       const words = `${ne.name} ${ne.quote} ${ne.description || ''}`;
-      const by = uniq(index.scanEntities(words).filter((m) => index.entityKind(m.id) === 'object').map((m) => holderOf(pack, index.state, m.id))
+      // (not an object that changes hands in this reply: someone taking it is not who held it)
+      const moving = new Set((ev.transitions || []).filter((t) => t.predicate === 'holder').map((t) => index.whoOne(t.entity_id) || String(t.entity_id)));
+      const by = uniq(index.scanEntities(words).filter((m) => index.entityKind(m.id) === 'object' && !moving.has(m.id)).map((m) => holderOf(pack, index.state, m.id))
         .filter((h): h is Id => !!h && h !== g.playerId && index.entityKind(h) === 'person'));
       const plain = normalizeName(text);
       if (by.length === 1 && !index.allNames(by[0]).some((n) => normalizeName(n).length >= 2 && plain.includes(normalizeName(n)))) {
