@@ -64,4 +64,13 @@ describe('a second look at each rewrite of this game world', () => {
     expect(ws(x).overrides.map((o) => o.title).sort()).toEqual(['Level 5', '旧研究所']);
     expect(ws(x).rejected?.map((r) => r.title)).toEqual(['白井黑子']);
   });
+
+  it('WCF3 what two changes say together can be quoted, each quote being a change of its own', async () => {
+    const x = await game((i: any) => i.text.title === 'Level 5'
+      ? { about: 'the count', change_says: '神光爱丽丝是第八位Level 5 / 住在御坂美琴隔壁', ok: true, why: '' }
+      : i.text.title === '旧研究所' ? { about: '', change_says: '神光爱丽丝是第八位Level 5 / 研究所已经拆了', ok: true, why: '' }
+        : { about: '', change_says: '', ok: false, why: 'nothing about her roommate' });
+    expect(ws(x).overrides.map((o) => o.title)).toEqual(['Level 5']);
+    expect(ws(x).rejected?.map((r) => r.title).sort()).toEqual(['旧研究所', '白井黑子']);
+  });
 });

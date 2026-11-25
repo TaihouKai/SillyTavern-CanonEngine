@@ -2569,8 +2569,9 @@ export class CanonEngine {
       const out = await this.withTimeout(callStructured<{ about?: string; change_says?: string; ok: boolean; why?: string }>(this.host.model, 'world_confirm', PROMPTS.world_confirm, input,
         { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 600 }), this.settings.taskTimeoutMs, signal);
       const flat = (s: string) => s.normalize('NFKC').replace(/\s+/g, '');
-      const says = flat(String(out.change_says || ''));
-      const quoted = !!says && changes.some((c) => flat(c).includes(says));
+      // every quote (several changes may be quoted, " / " between them) is a change's own words
+      const quotes = String(out.change_says || '').split(' / ').map(flat).filter(Boolean);
+      const quoted = quotes.length > 0 && quotes.every((q) => changes.some((c) => flat(c).includes(q)));
       if (out.ok && quoted) return null;
       return this.tr(`再看一次：${out.ok ? '引用的改动原文对不上' : String(out.why || '这条改动并不让原文这几个字不成立')}`, `On a second look: ${out.ok ? 'the change it quoted is not one of the changes' : String(out.why || 'the change does not make these words untrue')}`).slice(0, 300);
     } catch (e) {

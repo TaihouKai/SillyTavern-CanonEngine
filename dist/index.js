@@ -36713,7 +36713,7 @@ SHAPE: {"world_changes":[{"text":"","terms":[],"alters":[]}]}`,
   // out of being her roommate, two runs in three; asked about one text, step by step, it did so once in nine.
   world_confirm: `${COMMON}
 TASK: A check of this game's world proposed to rewrite a text of the world (a lorebook entry or a history-pack text) because one of the changes \u2014 how this game's world differs from the original setting \u2014 makes some of its words untrue. Decide whether that is so: read the change exactly as it is written, and the text as it is.
-Answer in steps. about: whom or what the quoted words (untrue) are about, and what they say of them (one short sentence). change_says: the words of a change (verbatim, copied exactly) that say something about that same person or thing; "" when no change says anything about it. ok: true only when those words cannot hold together with the quoted words (a count or ranking the change moves, a post or membership it gives to someone else, someone or something it makes not exist, an event it makes go otherwise).
+Answer in steps. about: whom or what the quoted words (untrue) are about, and what they say of them (one short sentence). change_says: the words of the changes (verbatim, copied exactly; from one change or several, each quote separated by " / ") that say something about that same person or thing \u2014 what follows from two changes together counts (someone is a Level 5, and someone is a student of a school: that school has one more Level 5); "" when no change says anything about it. ok: true only when those words cannot hold together with the quoted words (a count or ranking the change moves, a post or membership it gives to someone else, someone or something it makes not exist, an event it makes go otherwise).
 - false when the quoted words can still be true in this game: the change is about the player (where they live, whom they live or work with, whom they know or are close to) and says nothing that takes anyone else's place, home, roommate, post or relation; or it only adds something next to what the text says.
 - Time: the changes describe the world at game_start; an event before it is untrue only where the change's fact already held then.
 why: one sentence.
@@ -36919,7 +36919,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.51.3";
+var ENGINE_RELEASE = "1.51.4";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -44578,8 +44578,8 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
         { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 600 }
       ), this.settings.taskTimeoutMs, signal);
       const flat = (s) => s.normalize("NFKC").replace(/\s+/g, "");
-      const says = flat(String(out.change_says || ""));
-      const quoted = !!says && changes.some((c) => flat(c).includes(says));
+      const quotes = String(out.change_says || "").split(" / ").map(flat).filter(Boolean);
+      const quoted = quotes.length > 0 && quotes.every((q) => changes.some((c) => flat(c).includes(q)));
       if (out.ok && quoted) return null;
       return this.tr(`\u518D\u770B\u4E00\u6B21\uFF1A${out.ok ? "\u5F15\u7528\u7684\u6539\u52A8\u539F\u6587\u5BF9\u4E0D\u4E0A" : String(out.why || "\u8FD9\u6761\u6539\u52A8\u5E76\u4E0D\u8BA9\u539F\u6587\u8FD9\u51E0\u4E2A\u5B57\u4E0D\u6210\u7ACB")}`, `On a second look: ${out.ok ? "the change it quoted is not one of the changes" : String(out.why || "the change does not make these words untrue")}`).slice(0, 300);
     } catch (e) {

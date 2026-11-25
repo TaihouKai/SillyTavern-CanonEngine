@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.51.4 — 2026-11-25 (pack 7.1.1)
+
+- **The second look may quote two changes together.** 「常盘台中学目前有两名 Level 5」 is untrue only from two changes at once (the player is a Level 5; the player is a student there); asked for one change's words, the second look compared each alone and kept the old count. It may now quote several changes, each quote checked as a change's own words. A Persona that says its character is a Level 5 "not counted among the seven" is still read as it is written: the count of seven may stay.
+
 ## 1.51.3 — 2026-11-25 (pack 7.1.1)
 
 - **Each rewrite of this game's world gets a second look.** In both live games the check rewrote 白井黑子 (and 常盘台宿舍, 洁斋雪紫) so that she was no longer 美琴's roommate, because the player "lives next to 美琴 and has no roommate". Replayed, the check did so in two runs of three, and a rule against it in its instructions did not stop it. Every rewrite or removal the check proposes is now asked about on its own: what the text's words are about, the change's own words about that same thing (quoted, and the quote is checked against the changes), and only then whether they cannot both hold. One that does not hold up is not made and is listed under 未采用的改写 with why. On the live cases this stopped 8 of the 9 wrong rewrites and kept 17 of 18 right ones, for about $0.005 a game. A second look that fails leaves the verdict as it was.
