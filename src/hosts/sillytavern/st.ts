@@ -419,6 +419,7 @@ let usageTapped = false;
 /** Folds an OpenAI-style event stream back into one chat.completion object (null if the text is not a stream). */
 export function sseToCompletion(text: string): any {
   let content = '', reasoning = '', finish: string | null = null, usage: any, id: any, model: any, seen = false, cost: any, unlid: any;
+  const calls: { id?: string; type: string; function: { name: string; arguments: string } }[] = [];
   for (const line of text.split(/\r?\n/)) {
     if (!line.startsWith('data:')) continue;
     const data = line.slice(5).trim();
@@ -437,12 +438,56 @@ export function sseToCompletion(text: string): any {
     if (typeof d.content === 'string') content += d.content;
     const r = d.reasoning_content ?? d.reasoning;
     if (typeof r === 'string') reasoning += r;
+    // tool calls come in pieces: the first piece of each carries its id and name, the rest more of its arguments
+    for (const tc of Array.isArray(d.tool_calls) ? d.tool_calls : []) {
+      const i = Number.isInteger(tc?.index) ? tc.index : calls.length ? calls.length - 1 : 0;
+      const c = (calls[i] ??= { type: 'function', function: { name: '', arguments: '' } });
+      if (tc.id) c.id = tc.id;
+      if (tc.function?.name) c.function.name += tc.function.name;
+      if (typeof tc.function?.arguments === 'string') c.function.arguments += tc.function.arguments;
+    }
     if (ch.finish_reason) finish = ch.finish_reason;
   }
   if (!seen) return null;
   const message: any = { role: 'assistant', content };
   if (reasoning) message.reasoning_content = reasoning;
+  if (calls.length) message.tool_calls = calls.filter(Boolean);
   return { id, object: 'chat.completion', model, choices: [{ index: 0, message, finish_reason: finish }], ...(usage ? { usage } : {}), ...(cost !== undefined ? { cost } : {}), ...(unlid !== undefined ? { unlid } : {}) };
+}
+
+/** Fields of a reply tool that hold the model's thinking, not the reply. */
+const THINK_FIELDS = new Set(['think', 'thinking', 'thought', 'thoughts', 'reasoning', 'reasoning_content', 'analysis']);
+
+/** A story reply the model gave as tool calls instead of text. Some presets make the model answer through a tool
+ *  (live, 2026-11-26: a preset's `mie_reply` with fields story_scene, status, think…, its own extension turning the
+ *  call into text for ordinary replies); Canon's draft is a quiet generation that extension does not see, so the
+ *  text was empty. The call's text fields in the order given: one field as it is, several each in a tag of its name
+ *  (unless it already starts with that tag); thinking fields apart. Arguments cut off mid-way are read as far as
+ *  they go. Null when the message has no tool call with any text. */
+export function toolCallReply(message: any): { text: string; reasoning: string } | null {
+  const calls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+  const text: [string, string][] = [], think: string[] = [];
+  const unescape = (s: string) => { try { return JSON.parse(`"${s}"`) as string; } catch { return s.replace(/\\n/g, '\n').replace(/\\"/g, '"'); } };
+  for (const c of calls) {
+    const raw = c?.function?.arguments;
+    let args: any = raw;
+    if (typeof raw === 'string') {
+      try { args = JSON.parse(raw); } catch {
+        args = {};
+        for (const m of raw.matchAll(/"([^"\\]+)"\s*:\s*"((?:\\.|[^"\\])*)/g)) args[m[1]] = unescape(m[2].replace(/\\$/, ''));
+      }
+    }
+    if (typeof args === 'string') { if (args.trim()) text.push(['', args]); continue; }
+    if (!args || typeof args !== 'object') continue;
+    for (const [k, v] of Object.entries(args)) {
+      const s = typeof v === 'string' ? v : Array.isArray(v) && v.every((x) => typeof x === 'string') ? v.join('\n') : v == null ? '' : JSON.stringify(v, null, 2);
+      if (!s.trim()) continue;
+      if (THINK_FIELDS.has(k.toLowerCase())) think.push(s.trim()); else text.push([k, s.trim()]);
+    }
+  }
+  if (!text.length) return null;
+  const tagged = (k: string, s: string) => (!k || s.startsWith(`<${k}`) ? s : `<${k}>\n${s}\n</${k}>`);
+  return { text: text.length === 1 ? text[0][1] : text.map(([k, s]) => tagged(k, s)).join('\n\n'), reasoning: think.join('\n\n') };
 }
 
 /** The request's cost as the provider reports it in the response, in USD (null when it reports none). */
@@ -748,6 +793,7 @@ export class StModel implements ModelPort {
       // request's response (identified by the engine context in its body), as ST does for normal replies.
       const origFetch = window.fetch;
       let apiReasoning: Promise<string> | null = null;
+      let toolReply: Promise<{ text: string; reasoning: string } | null> | null = null;
       const tap = async (input: RequestInfo | URL, init?: RequestInit) => {
         const res = await origFetch(input, init);
         try {
@@ -755,7 +801,9 @@ export class StModel implements ModelPort {
           if (url.includes('/api/backends/chat-completions/generate') && typeof init?.body === 'string' && init.body.includes('[CANON ENGINE CONTEXT') && res.ok) {
             let maxTokens: number | undefined;
             try { const b = JSON.parse(init.body); maxTokens = Number(b.max_tokens ?? b.max_completion_tokens) || undefined; } catch { /* stats are optional */ }
-            apiReasoning = res.clone().json().then((d) => {
+            const body = res.clone().json().catch(() => null);
+            toolReply = body.then((d) => toolCallReply(d?.choices?.[0]?.message)).catch(() => null);
+            apiReasoning = body.then((d) => {
               const u = d?.usage || {};
               gen.lastDraftInfo = { finish: d?.choices?.[0]?.finish_reason || undefined, outputTokens: u.completion_tokens, reasoningTokens: u.completion_tokens_details?.reasoning_tokens, maxTokens };
               return String(rmod.extractReasoningFromData?.(d) || '');
@@ -792,10 +840,13 @@ export class StModel implements ModelPort {
         }
         // Reasoning inside the text (auto-parse templates such as <think>): split it off as ST would.
         let text = String(out ?? '');
+        // a reply given as a tool call (no text): its text (toolCallReply)
+        const viaTool = !text.trim() && toolReply ? await toolReply : null;
+        if (viaTool) text = viaTool.text;
         let parsed = '';
         const stripped = typeof rmod.removeReasoningFromString === 'function' ? String(rmod.removeReasoningFromString(text)) : text;
         if (stripped !== text) { parsed = String(rmod.parseReasoningFromString?.(text)?.reasoning || ''); text = stripped; }
-        gen.lastDraftReasoning = (apiReasoning ? await apiReasoning : '') || parsed;
+        gen.lastDraftReasoning = [(apiReasoning ? await apiReasoning : '') || parsed, viaTool?.reasoning || ''].filter(Boolean).join('\n\n');
         return text;
       } finally {
         if (window.fetch === (tap as typeof fetch)) window.fetch = origFetch;

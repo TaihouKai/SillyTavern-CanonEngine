@@ -97,12 +97,18 @@ function send(res, status, body, headers = {}) {
   res.end(typeof body === 'string' ? body : JSON.stringify(body));
 }
 const completion = (content, model) => ({ id: 'mock-' + Date.now(), object: 'chat.completion', created: Math.floor(Date.now() / 1000), model, choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });
-function streamCompletion(res, content, model, { reasoning = null, finish = null, usage = null, includeUsage = false } = {}) {
+function streamCompletion(res, content, model, { reasoning = null, finish = null, usage = null, includeUsage = false, toolArgs = null } = {}) {
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*' });
   const chunk = (delta, fr = null) => res.write(`data: ${JSON.stringify({ id: 'mock', object: 'chat.completion.chunk', model, choices: [{ index: 0, delta, finish_reason: fr }] })}\n\n`);
   for (const c of (reasoning || '').match(/[\s\S]{1,40}/g) || []) chunk({ reasoning_content: c });
   for (const c of content.match(/[\s\S]{1,40}/g) || ['']) chunk({ content: c });
-  chunk({}, finish || 'stop');
+  // a reply given as a tool call (some presets make the model answer through a tool): arguments in pieces
+  if (toolArgs) {
+    const args = JSON.stringify(toolArgs);
+    chunk({ tool_calls: [{ index: 0, id: 'call_mock', type: 'function', function: { name: 'reply_tool', arguments: '' } }] });
+    for (const c of args.match(/[\s\S]{1,30}/g) || []) chunk({ tool_calls: [{ index: 0, function: { arguments: c } }] });
+  }
+  chunk({}, finish || (toolArgs ? 'tool_calls' : 'stop'));
   // like OpenAI/Venice: the usage chunk (empty choices) only when stream_options.include_usage is set
   // like Venice: the usage chunk also carries what the request cost
   if (includeUsage) res.write(`data: ${JSON.stringify({ id: 'mock', object: 'chat.completion.chunk', model, choices: [], usage: usage || { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }, cost: { usd: 0.0005, diem: 0 } })}\n\n`);
@@ -114,6 +120,7 @@ function reply(res, body, content, extra = {}) {
   if (body.stream) return streamCompletion(res, content, body.model, { ...extra, includeUsage: !!body.stream_options?.include_usage });
   const out = completion(content, body.model);
   if (extra.reasoning) out.choices[0].message.reasoning_content = extra.reasoning;
+  if (extra.toolArgs) { out.choices[0].message.tool_calls = [{ id: 'call_mock', type: 'function', function: { name: 'reply_tool', arguments: JSON.stringify(extra.toolArgs) } }]; out.choices[0].finish_reason = 'tool_calls'; }
   if (extra.finish) out.choices[0].finish_reason = extra.finish;
   if (extra.usage) out.usage = extra.usage;
   return send(res, 200, out);
@@ -206,9 +213,9 @@ const server = http.createServer(async (req, res) => {
 
 `); return; }
     // A queued { content, reasoning } reply carries API-level reasoning (reasoning_content), like DeepSeek/Venice.
-    let reasoning = null, finish = null, usage = null;
-    if (content && typeof content === 'object') { ({ reasoning, finish, usage } = content); content = content.content; }
-    return reply(res, body, content, { reasoning, finish, usage });
+    let reasoning = null, finish = null, usage = null, toolArgs = null;
+    if (content && typeof content === 'object') { ({ reasoning, finish, usage, toolArgs } = content); content = content.content; }
+    return reply(res, body, content, { reasoning, finish, usage, toolArgs });
   }
   send(res, 404, { error: 'not found', url });
 });

@@ -715,6 +715,17 @@ try {
       o.oai_settings.show_thoughts = v.show; p.power_user.reasoning.auto_parse = v.parse;
     }, prev);
   }
+  if (want('S14')) {
+    console.log('\n== S14b a reply given as a tool call ==');
+    await freshChat();
+    // live (2026-11-26): a preset made the model answer through a tool; the draft had no text and was taken for empty
+    await mock('/control', { mainQueue: [{ content: '', toolArgs: { think: 'TOOL_THINK_31: 写码头。', story_scene: '<story_scene>\n码头上的吊车停了下来。TOOL_SCENE_A\n</story_scene>', status: 'TOOL_STATUS_晴' } }], clearLogs: true });
+    await send(page, '我走向码头。');
+    const t = await page.evaluate(() => { const c = SillyTavern.getContext().chat; const m = c[c.length - 1]; return { mes: m.mes, user: m.is_user, reasoning: m.extra?.reasoning || '' }; });
+    const mains = (await mock('/logs')).filter((l) => l.type === 'main').length;
+    check(results, 'Q04 a reply given as a tool call is published as the reply (its fields in their tags), not resent as empty', !t.user && t.mes.includes('TOOL_SCENE_A') && t.mes.includes('<status>') && mains === 1, JSON.stringify({ t, mains }));
+    check(results, 'Q05 the tool call\'s thinking field goes to the reasoning, not the text', !t.mes.includes('TOOL_THINK_31') && t.reasoning.includes('TOOL_THINK_31'), JSON.stringify(t));
+  }
   if (want('S15')) {
     console.log('\n== S15 reply length readout ==');
     await freshChat();

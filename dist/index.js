@@ -36929,7 +36929,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.51.7";
+var ENGINE_RELEASE = "1.51.8";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -49269,6 +49269,7 @@ var usage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, story
 var usageTapped = false;
 function sseToCompletion(text) {
   let content = "", reasoning = "", finish = null, usage2, id, model, seen = false, cost, unlid;
+  const calls = [];
   for (const line of text.split(/\r?\n/)) {
     if (!line.startsWith("data:")) continue;
     const data = line.slice(5).trim();
@@ -49292,12 +49293,60 @@ function sseToCompletion(text) {
     if (typeof d.content === "string") content += d.content;
     const r = d.reasoning_content ?? d.reasoning;
     if (typeof r === "string") reasoning += r;
+    for (const tc of Array.isArray(d.tool_calls) ? d.tool_calls : []) {
+      const i = Number.isInteger(tc?.index) ? tc.index : calls.length ? calls.length - 1 : 0;
+      const c = calls[i] ??= { type: "function", function: { name: "", arguments: "" } };
+      if (tc.id) c.id = tc.id;
+      if (tc.function?.name) c.function.name += tc.function.name;
+      if (typeof tc.function?.arguments === "string") c.function.arguments += tc.function.arguments;
+    }
     if (ch.finish_reason) finish = ch.finish_reason;
   }
   if (!seen) return null;
   const message = { role: "assistant", content };
   if (reasoning) message.reasoning_content = reasoning;
+  if (calls.length) message.tool_calls = calls.filter(Boolean);
   return { id, object: "chat.completion", model, choices: [{ index: 0, message, finish_reason: finish }], ...usage2 ? { usage: usage2 } : {}, ...cost !== void 0 ? { cost } : {}, ...unlid !== void 0 ? { unlid } : {} };
+}
+var THINK_FIELDS = /* @__PURE__ */ new Set(["think", "thinking", "thought", "thoughts", "reasoning", "reasoning_content", "analysis"]);
+function toolCallReply(message) {
+  const calls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+  const text = [], think = [];
+  const unescape = (s) => {
+    try {
+      return JSON.parse(`"${s}"`);
+    } catch {
+      return s.replace(/\\n/g, "\n").replace(/\\"/g, '"');
+    }
+  };
+  for (const c of calls) {
+    const raw2 = c?.function?.arguments;
+    let args = raw2;
+    if (typeof raw2 === "string") {
+      try {
+        args = JSON.parse(raw2);
+      } catch {
+        args = {};
+        for (const m of raw2.matchAll(/"([^"\\]+)"\s*:\s*"((?:\\.|[^"\\])*)/g)) args[m[1]] = unescape(m[2].replace(/\\$/, ""));
+      }
+    }
+    if (typeof args === "string") {
+      if (args.trim()) text.push(["", args]);
+      continue;
+    }
+    if (!args || typeof args !== "object") continue;
+    for (const [k, v] of Object.entries(args)) {
+      const s = typeof v === "string" ? v : Array.isArray(v) && v.every((x) => typeof x === "string") ? v.join("\n") : v == null ? "" : JSON.stringify(v, null, 2);
+      if (!s.trim()) continue;
+      if (THINK_FIELDS.has(k.toLowerCase())) think.push(s.trim());
+      else text.push([k, s.trim()]);
+    }
+  }
+  if (!text.length) return null;
+  const tagged = (k, s) => !k || s.startsWith(`<${k}`) ? s : `<${k}>
+${s}
+</${k}>`;
+  return { text: text.length === 1 ? text[0][1] : text.map(([k, s]) => tagged(k, s)).join("\n\n"), reasoning: think.join("\n\n") };
 }
 function costOf(d) {
   const num2 = (x) => typeof x === "number" && Number.isFinite(x) ? x : typeof x === "string" && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null;
@@ -49615,6 +49664,7 @@ var StModel = class {
       gen.lastDraftInfo = null;
       const origFetch = window.fetch;
       let apiReasoning = null;
+      let toolReply = null;
       const tap = async (input, init2) => {
         const res = await origFetch(input, init2);
         try {
@@ -49626,7 +49676,9 @@ var StModel = class {
               maxTokens = Number(b.max_tokens ?? b.max_completion_tokens) || void 0;
             } catch {
             }
-            apiReasoning = res.clone().json().then((d) => {
+            const body = res.clone().json().catch(() => null);
+            toolReply = body.then((d) => toolCallReply(d?.choices?.[0]?.message)).catch(() => null);
+            apiReasoning = body.then((d) => {
               const u = d?.usage || {};
               gen.lastDraftInfo = { finish: d?.choices?.[0]?.finish_reason || void 0, outputTokens: u.completion_tokens, reasoningTokens: u.completion_tokens_details?.reasoning_tokens, maxTokens };
               return String(rmod.extractReasoningFromData?.(d) || "");
@@ -49665,13 +49717,15 @@ var StModel = class {
           throw new EngineError("capacity", "SillyTavern dropped the Canon Engine context from the prompt because it did not fit the configured context size. Increase \u201CContext Size (tokens)\u201D in the API settings, or lower budgetChars in Canon Engine advanced settings.");
         }
         let text = String(out ?? "");
+        const viaTool = !text.trim() && toolReply ? await toolReply : null;
+        if (viaTool) text = viaTool.text;
         let parsed = "";
         const stripped = typeof rmod.removeReasoningFromString === "function" ? String(rmod.removeReasoningFromString(text)) : text;
         if (stripped !== text) {
           parsed = String(rmod.parseReasoningFromString?.(text)?.reasoning || "");
           text = stripped;
         }
-        gen.lastDraftReasoning = (apiReasoning ? await apiReasoning : "") || parsed;
+        gen.lastDraftReasoning = [(apiReasoning ? await apiReasoning : "") || parsed, viaTool?.reasoning || ""].filter(Boolean).join("\n\n");
         return text;
       } finally {
         if (window.fetch === tap) window.fetch = origFetch;
