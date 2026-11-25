@@ -96,14 +96,21 @@ export function searchTerms(changes: Pick<WorldChange, 'terms' | 'alters'>[], lo
   const large = texts.length >= SEARCH_WORLD_MIN;
   const df = new Map<string, number>();
   const count = (w: string) => { const k = norm(w); if (!df.has(k)) df.set(k, texts.reduce((n, t) => n + (t.includes(k) ? 1 : 0), 0)); return df.get(k)!; };
-  // other names of an altered thing: the keys of a lorebook entry about it (its title names it, and the word is a key)
-  const others = (w: string) => live.filter((e) => e.keys.some((k) => norm(k) === norm(w)) && (norm(e.title).includes(norm(w)) || (!!e.title.trim() && norm(w).includes(norm(e.title)))))
+  // other names of an altered thing: the keys of a lorebook entry about it — one whose title is the word, or names it
+  // and has it as a key (live: the altered thing given as the entry's title, 「Level 5/超能力者」, not as a key)
+  const others = (w: string) => live.filter((e) => norm(e.title) === norm(w) || (e.keys.some((k) => norm(k) === norm(w)) && (norm(e.title).includes(norm(w)) || (!!e.title.trim() && norm(w).includes(norm(e.title))))))
     .flatMap((e) => e.keys.filter(plainKey).map((k) => k.trim()));
   const use = new Set<string>(), seen = new Set<string>();
   for (const ch of changes) {
     for (const w of ch.terms) seen.add(w);
     if (!large || !ch.alters) { for (const w of ch.terms) use.add(w); continue; }
+    // an altered thing given another way than as one of the terms: its parts ("Level 5/超能力者") that are terms, and a
+    // longer term naming it, are altered too (never a shorter one it contains: 学园都市 in 学园都市统括理事会)
     const altered = new Set(ch.alters.filter((w) => w.trim().length >= 2));
+    for (const w of [...altered]) {
+      for (const part of w.split(/[\/／、,，|｜]/)) for (const t of ch.terms) if (norm(t) === norm(part.trim())) altered.add(t);
+      for (const t of ch.terms) if (t.trim().length >= 2 && norm(t).includes(norm(w))) altered.add(t);
+    }
     for (const w of [...altered]) for (const o of others(w)) altered.add(o);
     const cap = (altered.size ? COMMON_SHARE : RARE_SHARE) * texts.length;
     for (const w of altered) use.add(w);

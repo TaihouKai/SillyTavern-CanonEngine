@@ -56,4 +56,12 @@ describe('the words the 本局设定 check searches with', () => {
     const small = book.slice(0, SEARCH_WORLD_MIN - 10);
     expect(searchTerms([{ terms: ['学园都市', 'Level 5'], alters: [] }], small, null).use).toEqual(['学园都市', 'Level 5']);
   });
+
+  it("WSR5 what a change alters given as the lorebook entry's title (live: 「Level 5/超能力者」) finds by that entry's keys; a longer name never makes the shorter word in it altered", () => {
+    const book = world();
+    const { use } = searchTerms([{ terms: ['Level 5', '学园都市', '学园都市统括理事会'], alters: ['Level 5/超能力者', '统括理事会'] }], book, null);
+    expect(use).toEqual(expect.arrayContaining(['Level 5', '超能力者', 'LV5', '学园都市统括理事会']));
+    expect(use).not.toContain('学园都市');
+    expect(found(use, book)).toContain('大霸星祭');
+  });
 });

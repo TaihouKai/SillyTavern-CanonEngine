@@ -30682,7 +30682,7 @@ function searchTerms(changes, lore, pack2) {
     if (!df.has(k)) df.set(k, texts.reduce((n, t2) => n + (t2.includes(k) ? 1 : 0), 0));
     return df.get(k);
   };
-  const others = (w) => live.filter((e) => e.keys.some((k) => norm2(k) === norm2(w)) && (norm2(e.title).includes(norm2(w)) || !!e.title.trim() && norm2(w).includes(norm2(e.title)))).flatMap((e) => e.keys.filter(plainKey).map((k) => k.trim()));
+  const others = (w) => live.filter((e) => norm2(e.title) === norm2(w) || e.keys.some((k) => norm2(k) === norm2(w)) && (norm2(e.title).includes(norm2(w)) || !!e.title.trim() && norm2(w).includes(norm2(e.title)))).flatMap((e) => e.keys.filter(plainKey).map((k) => k.trim()));
   const use = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set();
   for (const ch of changes) {
     for (const w of ch.terms) seen.add(w);
@@ -30691,6 +30691,10 @@ function searchTerms(changes, lore, pack2) {
       continue;
     }
     const altered = new Set(ch.alters.filter((w) => w.trim().length >= 2));
+    for (const w of [...altered]) {
+      for (const part of w.split(/[\/／、,，|｜]/)) for (const t2 of ch.terms) if (norm2(t2) === norm2(part.trim())) altered.add(t2);
+      for (const t2 of ch.terms) if (t2.trim().length >= 2 && norm2(t2).includes(norm2(w))) altered.add(t2);
+    }
     for (const w of [...altered]) for (const o of others(w)) altered.add(o);
     const cap = (altered.size ? COMMON_SHARE : RARE_SHARE) * texts.length;
     for (const w of altered) use.add(w);
@@ -36521,7 +36525,7 @@ ${COMBAT_WHO_TASK}`,
   // User: the player's Persona is a person of this world like any other: what they can do is read into the same
   // abilities, told in the same parts, that the pack gives its people (and the same links into the setting).
   world_changes: `${COMMON}
-TASK: Read the player's Persona (their character in this story world) for world_changes: how this game's world differs from the original setting, as the Persona states it \u2014 a count or ranking that changes (a world with one more of a famous kind of people), who holds a post or belongs somewhere in canon, something that exists or happened only in this game. Every line marked "(\u672C\u5C40\u8BBE\u5B9A)" is one (its text without the mark); find the others in the rest of the Persona. Not the player's own traits that change nothing about the world (their looks, a friend of their own). text: the change as a plain statement; terms: names and words a lorebook entry about it would contain (the ranking's name, the people and organizations it touches, their titles), in the Persona's language and the world's usual spellings. alters: the terms for what the change makes different in the world as the lorebook describes it \u2014 the ranking or count it changes, the post or group whose holders or members change, the place whose residents change, a person or thing whose own facts change. Not what it only mentions or relates to without changing it: the player being someone's neighbor or friend changes nothing about that person; the player living in a city changes nothing about the city. [] when it alters nothing that exists in the original setting (it is only about the player).
+TASK: Read the player's Persona (their character in this story world) for world_changes: how this game's world differs from the original setting, as the Persona states it \u2014 a count or ranking that changes (a world with one more of a famous kind of people), who holds a post or belongs somewhere in canon, something that exists or happened only in this game. Every line marked "(\u672C\u5C40\u8BBE\u5B9A)" is one (its text without the mark); find the others in the rest of the Persona. Not the player's own traits that change nothing about the world (their looks, a friend of their own). text: the change as a plain statement; terms: names and words a lorebook entry about it would contain (the ranking's name, the people and organizations it touches, their titles), in the Persona's language and the world's usual spellings. alters: those of terms (copied from terms, word for word) that name what the change makes different in the world as the lorebook describes it \u2014 the ranking or count it changes, the post or group whose holders or members change, the place whose residents change, a person or thing whose own facts change. Not what it only mentions or relates to without changing it: the player being someone's neighbor or friend changes nothing about that person; the player living in a city changes nothing about the city. [] when it alters nothing that exists in the original setting (it is only about the player). alters never decides whether a change is listed: list every change as above, also one whose alters is [].
 background_lore (when given): the user's lorebook entries for the names the Persona uses \u2014 the original setting, to tell what the Persona changes.
 Write in the Persona's language.
 SHAPE: {"world_changes":[{"text":"","terms":[],"alters":[]}]}`,
@@ -36725,7 +36729,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.51.0";
+var ENGINE_RELEASE = "1.51.1";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
