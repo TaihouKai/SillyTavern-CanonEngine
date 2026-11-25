@@ -59,7 +59,8 @@ export class WebModel implements ModelPort {
     return { text: String(ch?.message?.content ?? ''), finish: ch?.finish_reason };
   }
 
-  async runTask(_task: TaskName, messages: ChatMsg[], opts: { signal?: AbortSignal; maxTokens?: number }): Promise<string> {
+  async runTask(_task: TaskName, messages: ChatMsg[], opts: { signal?: AbortSignal; maxTokens?: number; onStart?: () => void }): Promise<string> {
+    opts.onStart?.();
     const c = this.tasks() || this.story();
     // an empty reply is usually a reasoning model that spent the budget thinking: once more with a larger one
     let budget = opts.maxTokens || 4096;

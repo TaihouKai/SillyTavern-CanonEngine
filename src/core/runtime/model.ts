@@ -72,8 +72,12 @@ export interface TaskUsage { calls: number; input: number; cached: number; outpu
 export interface ModelPort {
   /** Optional: which connection/model internal tasks use (shown in timeout errors). */
   describeTaskConnection?(): string;
-  /** Isolated structured task (no character card/persona/lore injection). */
-  runTask(task: TaskName, messages: ChatMsg[], opts: { signal?: AbortSignal; maxTokens?: number }): Promise<string>;
+  /** Isolated structured task (no character card/persona/lore injection). A port that queues its calls (one at a
+   *  time) calls onStart when this one is really sent, and says so with reportsStart. */
+  runTask(task: TaskName, messages: ChatMsg[], opts: { signal?: AbortSignal; maxTokens?: number; onStart?: () => void }): Promise<string>;
+  /** runTask calls opts.onStart when the call is really sent (a call's time limit counts from then, not from when it
+   *  was queued). A port without it: the time counts from the call. */
+  reportsStart?: boolean;
   /** GM draft through the host's full prompt assembly; must stay private (not a chat message). */
   generateDraft(req: DraftRequest): Promise<string>;
   /** Optional: provider stats of the most recent draft (finish reason, token use, output limit). */
@@ -435,11 +439,16 @@ async function runStructured<T>(port: ModelPort, task: TaskName, messages: ChatM
     const onOuterAbort = () => ac.abort();
     opts.signal?.addEventListener('abort', onOuterAbort, { once: true });
     let timedOut = false;
-    const timer = callTimeoutMs ? setTimeout(() => { timedOut = true; ac.abort(); }, callTimeoutMs) : null;
-    const callStart = Date.now();
+    // The limit counts from when the call is really sent. Live (2026-11-25, a new user's first turn timed out): the
+    // SillyTavern host sends one call at a time, and the 本局设定 check queues dozens at once; the later ones had
+    // waited their whole limit in the queue and timed out without being sent.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let callStart = Date.now();
+    const start = () => { callStart = Date.now(); if (callTimeoutMs && !timer) timer = setTimeout(() => { timedOut = true; ac.abort(); }, callTimeoutMs); };
+    if (!port.reportsStart) start();
     try {
       raw = await Promise.race([
-        port.runTask(task, messages, { signal: ac.signal, maxTokens: budget }),
+        port.runTask(task, messages, { signal: ac.signal, maxTokens: budget, onStart: start }),
         new Promise<never>((_, rej) => ac.signal.addEventListener('abort', () => rej(new Error('aborted')), { once: true })),
       ]);
     } catch (e) {

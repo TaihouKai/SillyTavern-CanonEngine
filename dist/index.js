@@ -36370,14 +36370,19 @@ async function runStructured(port, task, messages, opts) {
     const onOuterAbort = () => ac.abort();
     opts.signal?.addEventListener("abort", onOuterAbort, { once: true });
     let timedOut = false;
-    const timer = callTimeoutMs ? setTimeout(() => {
-      timedOut = true;
-      ac.abort();
-    }, callTimeoutMs) : null;
-    const callStart = Date.now();
+    let timer = null;
+    let callStart = Date.now();
+    const start = () => {
+      callStart = Date.now();
+      if (callTimeoutMs && !timer) timer = setTimeout(() => {
+        timedOut = true;
+        ac.abort();
+      }, callTimeoutMs);
+    };
+    if (!port.reportsStart) start();
     try {
       raw2 = await Promise.race([
-        port.runTask(task, messages, { signal: ac.signal, maxTokens: budget }),
+        port.runTask(task, messages, { signal: ac.signal, maxTokens: budget, onStart: start }),
         new Promise((_, rej) => ac.signal.addEventListener("abort", () => rej(new Error("aborted")), { once: true }))
       ]);
     } catch (e) {
@@ -36924,7 +36929,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.51.6";
+var ENGINE_RELEASE = "1.51.7";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -44491,7 +44496,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     if (knownAdditions) known.additions = knownAdditions;
     const batches = worldBatches(ask);
     const doubted = [];
-    const check2 = (b, i) => this.withTimeout(callStructured(this.host.model, "world_check", PROMPTS.world_check, {
+    const check2 = (b, i) => callStructured(this.host.model, "world_check", PROMPTS.world_check, {
       game_start: formatTick(start, origin),
       changes: changes.map((x) => ({ id: x.id, text: x.text })),
       // the player by name only: what about them changes the world is in the changes (a summary of the whole Persona
@@ -44500,7 +44505,9 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       ...batches.length > 1 ? { part: `${i + 1} of ${batches.length}` } : {},
       additions_wanted: i === 0 && !knownAdditions,
       items: b.map((it) => ({ ref: it.ref, kind: kindText(it), title: it.title, ...timeOf(it), text: it.text }))
-    }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 12e3 }), this.settings.taskTimeoutMs * 4, signal).then(async (out) => {
+      // (no whole-step limit: the parts wait for each other in a host that sends one call at a time; each call has its
+      // own limit from when it is sent)
+    }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 12e3 }).then(async (out) => {
       const refs = new Map(b.map((it) => [it.ref, it]));
       await Promise.all((out.items || []).map(async (r) => {
         const it = refs.get(r.ref);
@@ -44575,13 +44582,13 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       proposed: r.action
     };
     try {
-      const out = await this.withTimeout(callStructured(
+      const out = await callStructured(
         this.host.model,
         "world_confirm",
         PROMPTS.world_confirm,
         input,
         { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 600 }
-      ), this.settings.taskTimeoutMs, signal);
+      );
       const flat = (s) => s.normalize("NFKC").replace(/\s+/g, "");
       const quotes = String(out.change_says || "").split(" / ").map(flat).filter(Boolean);
       const quoted = quotes.length > 0 && quotes.every((q) => changes.some((c) => flat(c).includes(q)));
@@ -49533,9 +49540,12 @@ var StModel = class {
     this.queue = p.catch(() => void 0);
     return p;
   }
+  /** Calls go out one at a time (serialize): a call's time limit counts from when it is sent (onStart). */
+  reportsStart = true;
   runTask(task, messages, opts) {
     return this.serialize(async () => {
       if (opts.signal?.aborted) throw new Error("aborted");
+      opts.onStart?.();
       const c = ctx();
       const msgs = messages.map((m) => ({ ...m }));
       if (this.horaePresent) msgs[0].content += `

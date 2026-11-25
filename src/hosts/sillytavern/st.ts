@@ -675,9 +675,12 @@ export class StModel implements ModelPort {
     return p;
   }
 
-  runTask(task: TaskName, messages: ChatMsg[], opts: { signal?: AbortSignal; maxTokens?: number }): Promise<string> {
+  /** Calls go out one at a time (serialize): a call's time limit counts from when it is sent (onStart). */
+  readonly reportsStart = true;
+  runTask(task: TaskName, messages: ChatMsg[], opts: { signal?: AbortSignal; maxTokens?: number; onStart?: () => void }): Promise<string> {
     return this.serialize(async () => {
       if (opts.signal?.aborted) throw new Error('aborted');
+      opts.onStart?.();
       const c = ctx();
       const msgs = messages.map((m) => ({ ...m }));
       // Horae fork convention: skip its context injection / vector recall for this internal request.

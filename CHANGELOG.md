@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.51.7 — 2026-11-25 (pack 7.1.1)
+
+- **A call's time limit counts from when it is sent, not from when it was queued.** A new user's first game timed out. SillyTavern's Canon Engine sends one model call at a time, and the first turn's 本局设定 check queues all its parts at once (tens of them), each with the 5-minute call limit already running. With a model that takes 20 seconds a part, the later parts used up their whole limit waiting in the queue and failed without ever being sent, were tried once more the same way, and were then left unchecked; the second looks at rewrites queued behind them were skipped the same way. (With DeepSeek at about 7 seconds a part the queue stayed under the limit, which is why it did not show in testing.) The limit now starts when the call goes out, and the check's parts and second looks have no whole-step limit counted from the queue; each call still has its own limit and a bounded number of tries.
+
 ## 1.51.6 — 2026-11-25 (pack 7.1.1)
 
 - **称呼 are of people, organizations and objects, not places.** The 称呼 page showed 「宿舍楼下」 and 「隔壁宿舍」 as 宿舍: a spot below the dorm and the room next door, neither a name of the dorm, kept for hours as if they were. The table is for who words mean (the people a fight or a reply is about, an organization, the thing someone holds); nothing reads a place's words through it. Words for places and other things are no longer written down, and those written before are left out (they disappear from the page in games already started). The panel does not take a place either. Within the turn that reads them, such words still lead to the place.

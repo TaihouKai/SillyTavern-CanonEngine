@@ -2497,7 +2497,7 @@ export class CanonEngine {
     if (knownAdditions) known.additions = knownAdditions;
     const batches = worldBatches(ask);
     const doubted: NonNullable<WorldSettings['rejected']> = [];
-    const check = (b: typeof items, i: number) => this.withTimeout(callStructured<WorldCheckOut>(this.host.model, 'world_check', PROMPTS.world_check, {
+    const check = (b: typeof items, i: number) => callStructured<WorldCheckOut>(this.host.model, 'world_check', PROMPTS.world_check, {
       game_start: formatTick(start, origin),
       changes: changes.map((x) => ({ id: x.id, text: x.text })),
       // the player by name only: what about them changes the world is in the changes (a summary of the whole Persona
@@ -2506,7 +2506,9 @@ export class CanonEngine {
       ...(batches.length > 1 ? { part: `${i + 1} of ${batches.length}` } : {}),
       additions_wanted: i === 0 && !knownAdditions,
       items: b.map((it) => ({ ref: it.ref, kind: kindText(it), title: it.title, ...timeOf(it), text: it.text })),
-    }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 12000 }), this.settings.taskTimeoutMs * 4, signal)
+    // (no whole-step limit: the parts wait for each other in a host that sends one call at a time; each call has its
+    // own limit from when it is sent)
+    }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 12000 })
       .then(async (out) => {
         const refs = new Map(b.map((it) => [it.ref, it]));
         // every rewrite or removal gets a second look of its own (world_confirm); one it does not hold up is kept as
@@ -2566,8 +2568,8 @@ export class CanonEngine {
     const input = { game_start: gameStart, changes, player: player ? { name: player } : null, text: { kind, title: it.title, ...time, text: it.text },
       untrue: r.action === 'disable' ? ['(the whole text: it is about something that does not exist in this game)'] : (r.untrue || []), proposed: r.action };
     try {
-      const out = await this.withTimeout(callStructured<{ about?: string; change_says?: string; ok: boolean; why?: string }>(this.host.model, 'world_confirm', PROMPTS.world_confirm, input,
-        { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 600 }), this.settings.taskTimeoutMs, signal);
+      const out = await callStructured<{ about?: string; change_says?: string; ok: boolean; why?: string }>(this.host.model, 'world_confirm', PROMPTS.world_confirm, input,
+        { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 600 });
       const flat = (s: string) => s.normalize('NFKC').replace(/\s+/g, '');
       // every quote (several changes may be quoted, " / " between them) is a change's own words
       const quotes = String(out.change_says || '').split(' / ').map(flat).filter(Boolean);
