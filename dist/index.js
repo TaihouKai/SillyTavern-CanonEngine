@@ -36919,7 +36919,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.51.4";
+var ENGINE_RELEASE = "1.51.5";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -46769,6 +46769,11 @@ Also [OOC \u2026], \u3010OOC\uFF1A\u2026\u3011, or a line starting with "OOC:".
   g_rel_cause: { zh: "\u672C\u5C40\u56E0\u679C", en: "actual cause" },
   g_rel_pack: { zh: "\u539F\u4F5C\u5173\u7CFB", en: "pack relation" },
   startPlaceholder: { zh: "D0 08:00 \u6216 2020-07-20 08:00\uFF08\u9700\u586B\u5199\u4E0B\u65B9\u7B2C0\u5929\u65E5\u671F\uFF09", en: "D0 08:00 or 2020-07-20 08:00 (needs the day-0 date below)" },
+  mainWarnTitle: { zh: "Canon Engine\uFF1A\u4F60\u88C5\u7684\u662F\u5F00\u53D1\u7248\uFF08main \u5206\u652F\uFF09", en: "Canon Engine: this is the development version (main branch)" },
+  mainWarnBody: { zh: "main \u5206\u652F\u4E0A\u662F\u6700\u65B0\u7684\u6539\u52A8\uFF0C\u53EF\u80FD\u8FD8\u6CA1\u6709\u7ECF\u8FC7\u5B8C\u6574\u7684\u9A8C\u8BC1\uFF0C\u53EF\u80FD\u6709\u95EE\u9898\uFF0C\u4E5F\u53EF\u80FD\u968F\u65F6\u518D\u53D8\u3002", en: "The main branch has the newest changes. They may not be fully verified yet, may have problems, and may change at any time." },
+  mainWarnHow: { zh: "\u60F3\u7528\u9A8C\u8BC1\u8FC7\u7684\u7248\u672C\uFF1A\u5148\u5728\u300C\u6269\u5C55 \u2192 \u7BA1\u7406\u6269\u5C55\u300D\u91CC\u5220\u6389\u73B0\u5728\u8FD9\u4E2A Canon Engine\uFF0C\u518D\u5728\u300C\u5B89\u88C5\u6269\u5C55\u300D\u91CC\u586B\u540C\u6837\u7684\u4ED3\u5E93\u5730\u5740\uFF0C\u5206\u652F\u4E00\u680F\u586B <b>release</b>\uFF08\u4EE5\u540E\u7167\u5E38\u70B9\u300C\u66F4\u65B0\u300D\u5373\u53EF\uFF09\uFF1B\u6216\u586B\u4ED3\u5E93 Tags \u91CC\u7684\u4E00\u4E2A\u7248\u672C\u53F7\uFF08\u5F62\u5982 <b>v1.51.4-pack7.1.1</b>\uFF1B\u7248\u672C\u53F7\u5B89\u88C5\u4E0D\u80FD\u7528\u300C\u66F4\u65B0\u300D\uFF0C\u5347\u7EA7\u8981\u5220\u6389\u91CD\u88C5\uFF09\u3002\u4F60\u7684\u6218\u5F79\u6570\u636E\u5728\u804A\u5929\u6587\u4EF6\u91CC\uFF0C\u91CD\u88C5\u4E0D\u4F1A\u4E22\u3002", en: "For a verified version: delete this Canon Engine in Extensions \u2192 Manage extensions, then Install extension with the same repository address and <b>release</b> as the branch (updates work as usual), or a version from the Tags of the repository (like <b>v1.51.4-pack7.1.1</b>; a version cannot be updated: reinstall to upgrade). Your campaigns live in your chat files; reinstalling keeps them." },
+  mainWarnOnce: { zh: "\u6BCF\u6B21\u66F4\u65B0\u5230 main \u7684\u65B0\u63D0\u4EA4\u65F6\u63D0\u9192\u4E00\u6B21\u3002", en: "Shown once for each new commit of main you update to." },
+  mainWarnOk: { zh: "\u77E5\u9053\u4E86", en: "Got it" },
   gmConflictShort: { zh: "GM \u89D2\u8272\u5361\u91CC\u6709\u65E7\u7684\u201C\u5386\u53F2\u770B\u4E16\u754C\u4E66\u201D\u89C4\u5219\u3002", en: 'The GM card has an old "history comes from lore" rule.' }
 };
 function t(key2) {
@@ -50930,6 +50935,46 @@ function applyLoreScan(lists, scan, template) {
   return { applied, stale: [...new Set(stale)] };
 }
 
+// src/hosts/sillytavern/channel.ts
+function folderOf(url) {
+  const m = /\/scripts\/extensions\/third-party\/([^/?#]+)\//.exec(decodeURIComponent(url));
+  return m ? m[1] : null;
+}
+async function installedFrom(folder) {
+  const c = ctx();
+  const headers2 = c.getRequestHeaders();
+  let global = false;
+  try {
+    const list = await (await fetch("/api/extensions/discover", { headers: headers2 })).json();
+    global = Array.isArray(list) && list.some((x) => x?.name === `third-party/${folder}` && x?.type === "global");
+  } catch {
+  }
+  try {
+    const r = await fetch("/api/extensions/version", { method: "POST", headers: headers2, body: JSON.stringify({ extensionName: folder, global }) });
+    if (!r.ok) return null;
+    const v = await r.json();
+    return v?.currentBranchName ? { branch: String(v.currentBranchName), commit: String(v.currentCommitHash || "") } : null;
+  } catch {
+    return null;
+  }
+}
+async function warnIfMain(settings, url = import.meta.url) {
+  if (globalThis.__canonNoInstallCheck) return false;
+  const folder = folderOf(url);
+  if (!folder) return false;
+  const at = await installedFrom(folder);
+  if (!at || at.branch !== "main") return false;
+  const s = settings();
+  if (s.mainWarnedCommit === at.commit) return false;
+  const c = ctx();
+  const html = `<h3>${t("mainWarnTitle")}</h3><p>${t("mainWarnBody")}</p><p>${t("mainWarnHow")}</p><p><small>${t("mainWarnOnce")}</small></p>`;
+  s.mainWarnedCommit = at.commit;
+  c.saveSettingsDebounced?.();
+  if (typeof c.callGenericPopup === "function") await c.callGenericPopup(html, c.POPUP_TYPE?.TEXT ?? 1, "", { okButton: t("mainWarnOk"), wide: false });
+  else globalThis.toastr?.warning?.(t("mainWarnBody"), t("mainWarnTitle"), { timeOut: 2e4 });
+  return true;
+}
+
 // src/hosts/sillytavern/index.ts
 var SETTINGS_KEY = "canonEngine";
 var engine = null;
@@ -51158,6 +51203,9 @@ async function init() {
     engine.onChatLoaded().catch(() => void 0).finally(() => refreshUi());
   }
   console.log(`[CanonEngine] ${ENGINE_RELEASE} loaded`);
+  setTimeout(() => {
+    warnIfMain(() => globalSettings()).catch((e) => console.warn("[CanonEngine] install check failed", e));
+  }, 6e3);
 }
 (async () => {
   try {

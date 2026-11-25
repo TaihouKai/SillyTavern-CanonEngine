@@ -4,10 +4,11 @@ Canon Engine 是一个独立的 SillyTavern 扩展：它记录故事里**实际�
 
 ## 一、安装（一次）
 
-1. 在扩展面板「安装扩展」里填本仓库地址；或把整个 `SillyTavern-CanonEngine` 文件夹放进下面任一位置：
+1. 在扩展面板「安装扩展」里填本仓库地址，分支一栏填 **release**（最新的、经过完整测试的版本，以后点「更新」也一直停在 release 上）；或把整个 `SillyTavern-CanonEngine` 文件夹放进下面任一位置：
    - `SillyTavern/data/<你的用户名>/extensions/`
    - 或 `SillyTavern/public/scripts/extensions/third-party/`
 2. 刷新 SillyTavern 页面。扩展面板里会出现「Canon Engine 历史引擎」。
+   - `main` 是开发分支，上面的改动可能还没验证过；从 main 装的会弹窗提醒（每个新提交一次）。也可以在分支一栏填版本号（tag，形如 `v1.51.5-pack7.1.1`），但酒馆没法更新 tag 安装，升级要删掉重装。
 3. 不需要数据库、后台程序或编译。更新时在扩展管理里点更新（或替换文件夹）再刷新；你的战役数据保存在聊天文件里，不会因为更新扩展而丢失。
 
 要求：SillyTavern 1.19.0（已测试），使用 Chat Completion 连接（你现有的任何模型都可以），单个 GM 角色的对话。Horae 可选（已测试 1.15.1 Metadata 分支）。

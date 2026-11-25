@@ -3,6 +3,8 @@ import { DEFAULT_SETTINGS, type EngineSettings } from '../../core';
 
 export interface StSettings extends EngineSettings {
   inspectorOpen: boolean;
+  /** The main-branch commit the "not a release" warning was last shown for (channel.ts). */
+  mainWarnedCommit?: string;
   uiLang?: string;
   /** Canon reads Persona Library's core text without its Additional Sections (the GM still gets everything). */
   ignorePersonaSections: boolean;

@@ -22,6 +22,8 @@ export async function mock(path, body) {
 export async function launch() {
   const browser = await chromium.launch({ headless: !process.env.HEADED });
   const context = await browser.newContext({ viewport: { width: 1400, height: 1000 } });
+  // the main-branch warning is for people, not for tests (channel.ts)
+  await context.addInitScript(() => { globalThis.__canonNoInstallCheck = true; });
   const page = await context.newPage();
   const consoleLines = [];
   page.on('console', (m) => consoleLines.push(`[${m.type()}] ${m.text()}`));

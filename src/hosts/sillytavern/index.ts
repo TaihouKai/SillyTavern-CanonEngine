@@ -9,6 +9,7 @@ import { CHAT_PROFILE, mountUi, refreshUi, renderMessageDecorations, t } from '.
 import { notifyDone, primeNotifications } from './notify';
 import { listLibrary, loadFromLibrary, libraryMemoStore, libraryPackStore } from './library';
 import { applyLoreScan } from './lorescan';
+import { warnIfMain } from './channel';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -221,6 +222,8 @@ async function init() {
     engine.onChatLoaded().catch(() => undefined).finally(() => refreshUi());
   }
   console.log(`[CanonEngine] ${ENGINE_RELEASE} loaded`);
+  // installed from main, not a release: say so once per commit (after the page has settled)
+  setTimeout(() => { warnIfMain(() => globalSettings()).catch((e) => console.warn('[CanonEngine] install check failed', e)); }, 6000);
 }
 
 // ST loads extension modules after the app initializes; init immediately when possible.

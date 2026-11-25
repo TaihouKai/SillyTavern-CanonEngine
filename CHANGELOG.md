@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.51.5 — 2026-11-25 (pack 7.1.1)
+
+- **A copy installed from main says so.** main carries changes not yet verified. When Canon Engine finds (through SillyTavern's own extension API) that it was installed from the main branch, it shows a popup once per commit: what main is, and how to install a verified version instead. The new **`release`** branch is always the latest version that was tested end to end (each is also a tag); installed from it, SillyTavern's update keeps you there. A tag can be installed as well, but SillyTavern cannot update a tag install (its update and branch switch only know branches). Installs from `release`, from a tag, or not from git show nothing.
+
 ## 1.51.4 — 2026-11-25 (pack 7.1.1)
 
 - **The second look may quote two changes together.** 「常盘台中学目前有两名 Level 5」 is untrue only from two changes at once (the player is a Level 5; the player is a student there); asked for one change's words, the second look compared each alone and kept the old count. It may now quote several changes, each quote checked as a change's own words. A Persona that says its character is a Level 5 "not counted among the seven" is still read as it is written: the count of seven may stay.

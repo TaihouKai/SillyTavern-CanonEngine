@@ -80,10 +80,12 @@ Each player message goes through these steps before a reply is published. The st
 
 The repository folder **is** the extension (it contains `manifest.json`, the built bundle `dist/index.js` and `style.css`; no compilation needed).
 
-1. *Extensions → Install extension* with the repository URL, or copy (`git clone`) this folder into **one** of
+1. *Extensions → Install extension* with the repository URL and **`release`** as the branch (the latest verified version; *update* keeps you on it), or copy (`git clone -b release`) this folder into **one** of
    - `SillyTavern/data/<your-user>/extensions/SillyTavern-CanonEngine`, or
    - `SillyTavern/public/scripts/extensions/third-party/SillyTavern-CanonEngine`.
 2. Reload SillyTavern. *Extensions* now shows a **Canon Engine** drawer.
+
+Branches and versions: `release` is the latest version that was tested end to end (each one is also a tag, `v<engine>-pack<pack>`); `main` is development and may hold changes not yet verified — a copy installed from `main` says so in a popup, once per commit. A tag can be installed too (the branch field takes it), but SillyTavern cannot update a tag: reinstall to upgrade.
 
 **Update:** *Extensions → Manage extensions → update*, or replace the folder (`git pull`) and reload. Campaign data lives in your chat files, not in the extension folder, so updating never touches it.
 

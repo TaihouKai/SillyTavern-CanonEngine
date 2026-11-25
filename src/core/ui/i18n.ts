@@ -826,6 +826,11 @@ const D: Record<string, { zh: string; en: string }> = {
   g_rel_cause: { zh: '本局因果', en: 'actual cause' },
   g_rel_pack: { zh: '原作关系', en: 'pack relation' },
   startPlaceholder: { zh: 'D0 08:00 或 2020-07-20 08:00（需填写下方第0天日期）', en: 'D0 08:00 or 2020-07-20 08:00 (needs the day-0 date below)' },
+  mainWarnTitle: { zh: 'Canon Engine：你装的是开发版（main 分支）', en: 'Canon Engine: this is the development version (main branch)' },
+  mainWarnBody: { zh: 'main 分支上是最新的改动，可能还没有经过完整的验证，可能有问题，也可能随时再变。', en: 'The main branch has the newest changes. They may not be fully verified yet, may have problems, and may change at any time.' },
+  mainWarnHow: { zh: '想用验证过的版本：先在「扩展 → 管理扩展」里删掉现在这个 Canon Engine，再在「安装扩展」里填同样的仓库地址，分支一栏填 <b>release</b>（以后照常点「更新」即可）；或填仓库 Tags 里的一个版本号（形如 <b>v1.51.4-pack7.1.1</b>；版本号安装不能用「更新」，升级要删掉重装）。你的战役数据在聊天文件里，重装不会丢。', en: 'For a verified version: delete this Canon Engine in Extensions → Manage extensions, then Install extension with the same repository address and <b>release</b> as the branch (updates work as usual), or a version from the Tags of the repository (like <b>v1.51.4-pack7.1.1</b>; a version cannot be updated: reinstall to upgrade). Your campaigns live in your chat files; reinstalling keeps them.' },
+  mainWarnOnce: { zh: '每次更新到 main 的新提交时提醒一次。', en: 'Shown once for each new commit of main you update to.' },
+  mainWarnOk: { zh: '知道了', en: 'Got it' },
   gmConflictShort: { zh: 'GM 角色卡里有旧的“历史看世界书”规则。', en: 'The GM card has an old "history comes from lore" rule.' },
 };
 
