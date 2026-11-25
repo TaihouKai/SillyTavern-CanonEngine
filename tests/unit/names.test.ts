@@ -216,7 +216,7 @@ describe('称呼 in play', () => {
       y.host.addUser(m2);
       y.model.on('extract_user', (i) => i.message === m2, {
         statements: skip ? [{ kind: 'time_proposal', quote: 'The next morning', summary: 'next morning', entities: [], facts: [], event_id: null, time: { day: 2, minute: 480 }, ambiguous: false }] : [],
-        references: [{ phrase: 'the cart', quote: 'attacks me', kind: 'entity', mode: 'indirect', candidates: ['harbor'] }],
+        references: [{ phrase: 'the board', quote: 'attacks me', kind: 'entity', mode: 'indirect', candidates: ['council'] }],
         fight: { state: 'starts', participants: ['the woman with the bag'], new_people: [{ name: 'the woman with the bag', description: 'swings a bag', quote: 'the woman with the bag attacks me' }], why: 'x' } });
       y.model.on('combat_who', null, { people: [] });
       y.model.draft('She swings. [NM11b]');
@@ -231,8 +231,8 @@ describe('称呼 in play', () => {
     expect(fighters).not.toContain('mira');
     expect(fighters.some((x) => x.startsWith('rt.') && !x.startsWith('rt.player.'))).toBe(true);
     // what the skipping message wrote is stamped at the time it skips to (it holds from the next morning on)
-    const harborBinding = later.engine.current!.replay.state.names.find((n) => n.words === 'the cart');
-    expect(harborBinding?.tick).toBe(tick(2, 8, 0));
+    const boardBinding = later.engine.current!.replay.state.names.find((n) => n.words === 'the board');
+    expect(boardBinding?.tick).toBe(tick(2, 8, 0));
   });
 
   it('NM12 only words that describe someone or are another name of theirs are written down, and only of the kind the reading says (live: the vending machine in the park was the park "directly")', async () => {
@@ -251,7 +251,9 @@ describe('称呼 in play', () => {
     y.model.draft('Quiet. [NM12]');
     y.model.on('evaluate', (i) => String(i.candidate).includes('[NM12]'), { scene_end: at(1, 9, 5) });
     await y.engine.runOperation('normal');
-    expect(y.engine.current!.index.namesNow().map((n) => [n.words, n.id]).sort()).toEqual([['Doc', 'mira'], ['a stranger in a grey coat', 'mira'], ['the old docks', 'harbor']]);
+    // a place's words are no 称呼 (live: 「宿舍楼下」 and 「隔壁宿舍」 were written down as 宿舍): the old docks are not kept
+    expect(y.engine.current!.index.namesNow().map((n) => [n.words, n.id]).sort()).toEqual([['Doc', 'mira'], ['a stranger in a grey coat', 'mira']]);
+    expect(y.engine.current!.replay.state.names.some((n) => n.id === 'harbor')).toBe(false);
   });
 
   it('NM13 a newcomer of the reply whose words have someone else in them is not that one unless of the same kind', async () => {
@@ -290,5 +292,16 @@ describe('称呼 in play', () => {
     await y.engine.runOperation('normal');
     const read = y.model.tasks('extract_user').find((c) => c.input.message === m2)!;
     expect(read.input.registry.entities.some((l: string) => l.includes('| crew-cut thug |'))).toBe(true);
+  });
+
+  it("NM16 a place's words are no 称呼: one written down before is left out when read, and the panel does not add one (live: 「宿舍楼下」 and 「隔壁宿舍」 as 宿舍)", async () => {
+    const L = load(withPilot());
+    const idx = new WorldIndex(L, reduce(L, [seed(), clock(T(0, 9)), rec(T(0, 9), { names: [bind('the old docks', 'harbor'), bind('the medic', 'mira'), bind('the board', 'council')] })]));
+    expect(idx.namesNow().map((n) => n.words).sort()).toEqual(['the board', 'the medic']);
+    expect(idx.whoIs('the old docks')).toEqual([]);
+    expect(idx.whoIs('the medic')).toEqual(['mira']);
+    const y = await game();
+    expect(await y.engine.editNames({ add: { words: 'the waterfront', who: 'harbor' } })).toBe(false);
+    expect(await y.engine.editNames({ add: { words: 'the old doctor', who: 'mira' } })).toBe(true);
   });
 });

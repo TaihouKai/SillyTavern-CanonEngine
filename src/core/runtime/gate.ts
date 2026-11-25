@@ -2,7 +2,7 @@
 // player agency, plan transitions, state contradictions, containment and coverage.
 // The evaluator's own verdicts never bypass these checks.
 import type { ContactInfo, FactDelta, FactValue, Id, NameBinding, Occurrence, RuntimeEntity, ScopeKind, SourceRef, StoryTime, Until } from '../domain/types';
-import { bindingFrom, describes } from '../domain/names';
+import { NAMED_KINDS, bindingFrom, describes } from '../domain/names';
 import type { LoadedPack } from '../domain/pack';
 import { claimComparable, claimMatches, valuesEqual, coerceClaimValue } from '../domain/pack';
 import { cleanForms, cleanViews } from '../domain/address';
@@ -186,8 +186,8 @@ function slug(s: string): string {
 export const THINKING_MARK = /<[｜|]\s*(begin|end)[▁_ ]of[▁_ ]thinking\s*[｜|]>|<\/?think(ing)?>/i;
 
 /** The record of the 称呼 a step found (names.ts), or none: each words once (the latest). */
-export function namingRecord(names: readonly NameBinding[], st: StoryTime, src: SourceRef[], name: (id: Id) => string): RecordDraft | null {
-  const one = [...new Map(names.map((n) => [normalizeName(n.words), n])).values()];
+export function namingRecord(names: readonly NameBinding[], st: StoryTime, src: SourceRef[], name: (id: Id) => string, kind: (id: Id) => string): RecordDraft | null {
+  const one = [...new Map(names.filter((n) => NAMED_KINDS.has(kind(n.id))).map((n) => [normalizeName(n.words), n])).values()];
   if (!one.length) return null;
   return { recordId: newId('rec'), kind: 'naming', storyTime: { ...st }, sourceRefs: src, factsSetOrUnset: [], eventOccurrenceIds: [], visibility: { mode: 'public', knower_ids: [] },
     summary: `Names: ${one.map((n) => `「${n.words}」 = ${name(n.id)}`).join('; ').slice(0, 300)}`, evidenceKind: 'direct', names: one };
@@ -929,7 +929,7 @@ export function runGate(g: GateInput): GateResult {
   const inScene = new Set<Id>([...sceneEntities, ...present, ...places, ...records.flatMap((r) => (r.occurrences || []).flatMap((o) => [...o.actors, ...o.affected, ...o.locations])),
     ...stateClaims.map((c) => c.entity_id), ...[...refToId.values()]]);
   const fromReading = new Set(g.names || []);
-  const named = namingRecord(names.filter((n) => entityKnown(n.id) && (!fromReading.has(n) || inScene.has(n.id))), { lo: sceneEnd.lo, hi: sceneEnd.lo, precision: sceneEnd.precision }, [], (id) => index.entityName(id));
+  const named = namingRecord(names.filter((n) => entityKnown(n.id) && (!fromReading.has(n) || inScene.has(n.id))), { lo: sceneEnd.lo, hi: sceneEnd.lo, precision: sceneEnd.precision }, [], (id) => index.entityName(id), (id) => index.entityKind(id));
   if (named) records.push(named);
   const frameNow = g.index.state.sceneFrame?.frameId || MAIN_FRAME;
   if (sceneFrame && sceneFrame !== frameNow) {

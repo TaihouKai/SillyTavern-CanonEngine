@@ -10,6 +10,12 @@ import { normalizeName } from './pack';
  *  (another blond thug next week is someone else). The player's own word in the panel holds until taken away. */
 export const SCENE_GAP = 180;
 
+/** 称呼 are of people and of what can be someone's or act as one (an organization, an object someone holds): who the
+ *  words mean. Not of places or anything else: live (2026-11-25) the table held 「宿舍楼下」 and 「隔壁宿舍」 as 宿舍 — a
+ *  spot below the dorm and the room next door, neither a name of the dorm — and nothing reads a place's words through
+ *  it. Words for those are neither written down nor read (bindings to them from before are left out). */
+export const NAMED_KINDS: ReadonlySet<string> = new Set(['person', 'organization', 'object']);
+
 export interface NameEntry extends NameBinding { recordId: string; seq: number; tick: number }
 
 /** Words as they stand at a time: whom they mean, from which step, since when and when last used for them. */

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.51.6 — 2026-11-25 (pack 7.1.1)
+
+- **称呼 are of people, organizations and objects, not places.** The 称呼 page showed 「宿舍楼下」 and 「隔壁宿舍」 as 宿舍: a spot below the dorm and the room next door, neither a name of the dorm, kept for hours as if they were. The table is for who words mean (the people a fight or a reply is about, an organization, the thing someone holds); nothing reads a place's words through it. Words for places and other things are no longer written down, and those written before are left out (they disappear from the page in games already started). The panel does not take a place either. Within the turn that reads them, such words still lead to the place.
+
 ## 1.51.5 — 2026-11-25 (pack 7.1.1)
 
 - **A copy installed from main says so.** main carries changes not yet verified. When Canon Engine finds (through SillyTavern's own extension API) that it was installed from the main branch, it shows a popup once per commit: what main is, and how to install a verified version instead. The new **`release`** branch is always the latest version that was tested end to end (each is also a tag); installed from it, SillyTavern's update keeps you there. A tag can be installed as well, but SillyTavern cannot update a tag install (its update and branch switch only know branches). Installs from `release`, from a tag, or not from git show nothing.

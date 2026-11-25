@@ -8,7 +8,7 @@ import { factAt, factKey, factHistory } from './reducer';
 import { formatStoryTime, formatTick, occurrenceTime } from './time';
 import { deltaText } from './delta';
 import { mergeAddress } from './address';
-import { nameKey, namesAt, type NameDenied, type NameNow } from './names';
+import { NAMED_KINDS, nameKey, namesAt, type NameDenied, type NameNow } from './names';
 import type { NameBinding } from './types';
 
 /** A relation in force (WorldIndex.relationNow): the whole of it, as this game has it now. source: where its last
@@ -159,7 +159,12 @@ export class WorldIndex {
     }
     const seed = [...state.records].reverse().find((r) => r.kind === 'persona_seed' && (r.runtimeEntities || []).some((e) => e.id.startsWith(PLAYER_PREFIX)));
     this.playerId = seed ? seed.runtimeEntities!.find((e) => e.id.startsWith(PLAYER_PREFIX))!.id : null;
-    this.names = namesAt(state.names || [], state.clock.lo);
+    this.names = namesAt(this.namedOnly(), state.clock.lo);
+  }
+
+  /** The 称呼 entries of the kinds the table holds (names.ts NAMED_KINDS). */
+  private namedOnly() {
+    return (this.state.names || []).filter((n) => NAMED_KINDS.has(this.entityKind(n.id)));
   }
 
   private indexOccurrence(o: OccurrenceEntry) {
@@ -325,7 +330,7 @@ export class WorldIndex {
   /** 称呼 as they stand at a story time (now, or later: a text that moves time on). */
   private namesTable(at?: number): { now: Map<string, NameNow>; denied: Map<string, NameDenied> } {
     if (at === undefined || at <= this.state.clock.lo) return this.names;
-    if (this.namesLater?.at !== at) this.namesLater = { at, table: namesAt(this.state.names || [], at) };
+    if (this.namesLater?.at !== at) this.namesLater = { at, table: namesAt(this.namedOnly(), at) };
     return this.namesLater.table;
   }
   private namesLater: { at: number; table: { now: Map<string, NameNow>; denied: Map<string, NameDenied> } } | null = null;

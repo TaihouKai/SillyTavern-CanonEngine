@@ -29902,6 +29902,7 @@ function claimComparable(pack2, predicate, value) {
 
 // src/core/domain/names.ts
 var SCENE_GAP = 180;
+var NAMED_KINDS = /* @__PURE__ */ new Set(["person", "organization", "object"]);
 function describes(words) {
   const w = String(words || "").normalize("NFKC").trim();
   const cjk = (w.match(/[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/g) || []).length;
@@ -31063,7 +31064,11 @@ var WorldIndex = class _WorldIndex {
     }
     const seed = [...state.records].reverse().find((r) => r.kind === "persona_seed" && (r.runtimeEntities || []).some((e) => e.id.startsWith(PLAYER_PREFIX)));
     this.playerId = seed ? seed.runtimeEntities.find((e) => e.id.startsWith(PLAYER_PREFIX)).id : null;
-    this.names = namesAt(state.names || [], state.clock.lo);
+    this.names = namesAt(this.namedOnly(), state.clock.lo);
+  }
+  /** The 称呼 entries of the kinds the table holds (names.ts NAMED_KINDS). */
+  namedOnly() {
+    return (this.state.names || []).filter((n) => NAMED_KINDS.has(this.entityKind(n.id)));
   }
   indexOccurrence(o) {
     for (const e of [...o.actors, ...o.affected, ...o.locations]) {
@@ -31226,7 +31231,7 @@ var WorldIndex = class _WorldIndex {
   /** 称呼 as they stand at a story time (now, or later: a text that moves time on). */
   namesTable(at) {
     if (at === void 0 || at <= this.state.clock.lo) return this.names;
-    if (this.namesLater?.at !== at) this.namesLater = { at, table: namesAt(this.state.names || [], at) };
+    if (this.namesLater?.at !== at) this.namesLater = { at, table: namesAt(this.namedOnly(), at) };
     return this.namesLater.table;
   }
   namesLater = null;
@@ -36919,7 +36924,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.51.5";
+var ENGINE_RELEASE = "1.51.6";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -39991,8 +39996,8 @@ function slug3(s) {
   return (String(s).normalize("NFKC").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "entity").slice(0, 24);
 }
 var THINKING_MARK = /<[｜|]\s*(begin|end)[▁_ ]of[▁_ ]thinking\s*[｜|]>|<\/?think(ing)?>/i;
-function namingRecord(names, st, src, name2) {
-  const one = [...new Map(names.map((n) => [normalizeName(n.words), n])).values()];
+function namingRecord(names, st, src, name2, kind) {
+  const one = [...new Map(names.filter((n) => NAMED_KINDS.has(kind(n.id))).map((n) => [normalizeName(n.words), n])).values()];
   if (!one.length) return null;
   return {
     recordId: newId("rec"),
@@ -40787,7 +40792,7 @@ function runGate(g) {
     ...[...refToId.values()]
   ]);
   const fromReading = new Set(g.names || []);
-  const named = namingRecord(names.filter((n) => entityKnown(n.id) && (!fromReading.has(n) || inScene.has(n.id))), { lo: sceneEnd.lo, hi: sceneEnd.lo, precision: sceneEnd.precision }, [], (id) => index.entityName(id));
+  const named = namingRecord(names.filter((n) => entityKnown(n.id) && (!fromReading.has(n) || inScene.has(n.id))), { lo: sceneEnd.lo, hi: sceneEnd.lo, precision: sceneEnd.precision }, [], (id) => index.entityName(id), (id) => index.entityKind(id));
   if (named) records.push(named);
   const frameNow = g.index.state.sceneFrame?.frameId || MAIN_FRAME;
   if (sceneFrame && sceneFrame !== frameNow) {
@@ -42795,7 +42800,7 @@ ${EXTRACT_GROUPS_NOTE}` : PROMPTS.extract_user;
     const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null, names, at);
     records.push(...fight.records);
     warnings.push(...fight.warnings);
-    const named = namingRecord(names, { lo: at, hi: at, precision: "minute" }, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], (id) => index.entityName(id));
+    const named = namingRecord(names, { lo: at, hi: at, precision: "minute" }, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], (id) => index.entityName(id), (id) => index.entityKind(id));
     if (named) records.push(named);
     const refs = out.references.map((r, i) => ({ id: `u${i + 1}`, quote: r.quote, phrase: r.phrase, kind: r.kind, assertion: "user_input", temporal: r.kind === "event" ? "past" : "present", candidates: r.candidates }));
     const interp = {
@@ -45569,7 +45574,7 @@ ${lines.join("\n")}`;
       const words = ("add" in change ? change.add.words : change.deny.words).trim().slice(0, 80);
       const who = "add" in change ? change.add.who.trim() : change.deny.id;
       const exact = idx.entityExists(who) ? [who] : uniq([...idx.pack.entities.values(), ...idx.state.runtimeEntities.values()].filter((e) => [e.name, ...e.aliases || []].some((n) => normalizeName(n) === normalizeName(who))).map((e) => e.id));
-      if (!normalizeName(words) || exact.length !== 1) return false;
+      if (!normalizeName(words) || exact.length !== 1 || !NAMED_KINDS.has(idx.entityKind(exact[0]))) return false;
       const had = idx.namesNow().find((n) => n.source === "ui" && n.key === normalizeName(words));
       if ("add" in change && had?.id === exact[0]) return true;
       if ("deny" in change && idx.nameDenied(words, exact[0])) return true;

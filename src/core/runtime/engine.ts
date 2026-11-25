@@ -3,7 +3,7 @@
 import { loreFor, type LoreBackground, type LoreEntry } from './lore';
 import type { Persona } from './host';
 import type { AddressForm, Id, LedgerRecord, MindProfile, NameBinding, NatureVersion, StoryTime, Until } from '../domain/types';
-import { bindingFrom, describes } from '../domain/names';
+import { NAMED_KINDS, bindingFrom, describes } from '../domain/names';
 import { loadPinnedPack, validatePack, validatePackText, type LoadedPack, type LintIssue } from '../domain/pack';
 import { normalizeName, valuesEqual } from '../domain/pack';
 import { renderSummary, type EventSummary } from '../domain/summary';
@@ -989,7 +989,7 @@ export class CanonEngine {
     const fight = fightFromMessage(out.fight, index, entry.text, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], st, prof?.profile.playerId ?? null, names, at);
     records.push(...fight.records);
     warnings.push(...fight.warnings);
-    const named = namingRecord(names, { lo: at, hi: at, precision: 'minute' }, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], (id) => index.entityName(id));
+    const named = namingRecord(names, { lo: at, hi: at, precision: 'minute' }, [{ messageId: entry.messageId, variantId: entry.variantId, contentHash: entry.contentHash, spans: [] }], (id) => index.entityName(id), (id) => index.entityKind(id));
     if (named) records.push(named);
     const refs: RefInput[] = out.references.map((r, i) => ({ id: `u${i + 1}`, quote: r.quote, phrase: r.phrase, kind: r.kind, assertion: 'user_input', temporal: r.kind === 'event' ? 'past' : 'present', candidates: r.candidates }));
     const interp: Interpretation = {
@@ -3537,7 +3537,7 @@ export class CanonEngine {
       const who = 'add' in change ? change.add.who.trim() : change.deny.id;
       // the one they mean: an id, or a name as written (not a looser match)
       const exact = idx.entityExists(who) ? [who] : uniq([...idx.pack.entities.values(), ...idx.state.runtimeEntities.values()].filter((e) => [e.name, ...(e.aliases || [])].some((n) => normalizeName(n) === normalizeName(who))).map((e) => e.id));
-      if (!normalizeName(words) || exact.length !== 1) return false;
+      if (!normalizeName(words) || exact.length !== 1 || !NAMED_KINDS.has(idx.entityKind(exact[0]))) return false;
       // the same word of the player's again is no new record (one take-back would leave the other)
       const had = idx.namesNow().find((n) => n.source === 'ui' && n.key === normalizeName(words));
       if ('add' in change && had?.id === exact[0]) return true;
