@@ -52,7 +52,7 @@ export interface ProfileOut {
   relationships: { name: string; existing_id?: string | null; relation?: string; basis?: 'persona_stated' | 'implied'; they?: { address?: unknown; sees?: string } | null; player?: { address?: unknown; sees?: string } | null }[];
   knowers: { who: string; existing_id?: string | null; level: 'exists' | 'identity' | 'secrets'; about: string; basis: 'persona_stated' | 'implied'; places?: string[] }[];
   recognized_by?: { who: string; existing_id?: string | null; places?: string[]; everywhere?: boolean; as: string }[];
-  world_changes?: { text: string; terms?: string[] }[];
+  world_changes?: { text: string; terms?: string[]; alters?: string[] }[];
   uncertain?: string[];
 }
 
@@ -61,11 +61,12 @@ const slug = (s: string) => (String(s).normalize('NFKC').toLowerCase().replace(/
 /** 本局设定 from a Persona read: every line marked "(本局设定)" (taken by the code, so none is lost, with the
  *  analysis' search words when it gave that line), then the other changes the analysis found. */
 export function worldChangesOf(out: Pick<ProfileOut, 'world_changes'>, personaText: string): NonNullable<PlayerProfile['worldChanges']> {
-  const found = (out.world_changes || []).filter((w) => w?.text?.trim()).map((w) => ({ text: w.text.trim().slice(0, 600), terms: (w.terms || []).map((t) => String(t).trim()).filter(Boolean).slice(0, 12) }));
+  const words = (xs: unknown) => (Array.isArray(xs) ? xs : []).map((t) => String(t).trim()).filter(Boolean).slice(0, 12);
+  const found = (out.world_changes || []).filter((w) => w?.text?.trim()).map((w) => ({ text: w.text.trim().slice(0, 600), terms: words(w.terms), ...(Array.isArray(w.alters) ? { alters: words(w.alters) } : {}) }));
   const n = (s: string) => s.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
   const marked = markedLines(personaText).map((line) => {
     const same = found.find((w) => n(w.text).includes(n(line)) || n(line).includes(n(w.text)));
-    return { text: line.slice(0, 600), terms: same?.terms || [], marked: true };
+    return { text: line.slice(0, 600), terms: same?.terms || [], ...(same?.alters ? { alters: same.alters } : {}), marked: true };
   });
   const rest = found.filter((w) => !marked.some((m) => n(m.text).includes(n(w.text)) || n(w.text).includes(n(m.text)))).map((w) => ({ ...w, marked: false }));
   return [...marked, ...rest].slice(0, 30);

@@ -27696,7 +27696,7 @@ function validate101(data, { instancePath = "", parentData, parentDataProperty, 
               errors++;
             }
             for (const key1 in data1) {
-              if (!(key1 === "text" || key1 === "terms")) {
+              if (!(key1 === "text" || key1 === "terms" || key1 === "alters")) {
                 const err4 = { instancePath: instancePath + "/world_changes/" + i0, schemaPath: "#/properties/world_changes/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
                   vErrors = [err4];
@@ -27773,32 +27773,77 @@ function validate101(data, { instancePath = "", parentData, parentDataProperty, 
                 errors++;
               }
             }
+            if (data1.alters !== void 0) {
+              let data5 = data1.alters;
+              if (Array.isArray(data5)) {
+                if (data5.length > 12) {
+                  const err11 = { instancePath: instancePath + "/world_changes/" + i0 + "/alters", schemaPath: "#/properties/world_changes/items/properties/alters/maxItems", keyword: "maxItems", params: { limit: 12 }, message: "must NOT have more than 12 items" };
+                  if (vErrors === null) {
+                    vErrors = [err11];
+                  } else {
+                    vErrors.push(err11);
+                  }
+                  errors++;
+                }
+                const len2 = data5.length;
+                for (let i2 = 0; i2 < len2; i2++) {
+                  let data6 = data5[i2];
+                  if (typeof data6 === "string") {
+                    if (func2(data6) > 60) {
+                      const err12 = { instancePath: instancePath + "/world_changes/" + i0 + "/alters/" + i2, schemaPath: "#/properties/world_changes/items/properties/alters/items/maxLength", keyword: "maxLength", params: { limit: 60 }, message: "must NOT have more than 60 characters" };
+                      if (vErrors === null) {
+                        vErrors = [err12];
+                      } else {
+                        vErrors.push(err12);
+                      }
+                      errors++;
+                    }
+                  } else {
+                    const err13 = { instancePath: instancePath + "/world_changes/" + i0 + "/alters/" + i2, schemaPath: "#/properties/world_changes/items/properties/alters/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err13];
+                    } else {
+                      vErrors.push(err13);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err14 = { instancePath: instancePath + "/world_changes/" + i0 + "/alters", schemaPath: "#/properties/world_changes/items/properties/alters/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err14];
+                } else {
+                  vErrors.push(err14);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err11 = { instancePath: instancePath + "/world_changes/" + i0, schemaPath: "#/properties/world_changes/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            const err15 = { instancePath: instancePath + "/world_changes/" + i0, schemaPath: "#/properties/world_changes/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err11];
+              vErrors = [err15];
             } else {
-              vErrors.push(err11);
+              vErrors.push(err15);
             }
             errors++;
           }
         }
       } else {
-        const err12 = { instancePath: instancePath + "/world_changes", schemaPath: "#/properties/world_changes/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err16 = { instancePath: instancePath + "/world_changes", schemaPath: "#/properties/world_changes/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err12];
+          vErrors = [err16];
         } else {
-          vErrors.push(err12);
+          vErrors.push(err16);
         }
         errors++;
       }
     }
   } else {
-    const err13 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err17 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err13];
+      vErrors = [err17];
     } else {
-      vErrors.push(err13);
+      vErrors.push(err17);
     }
     errors++;
   }

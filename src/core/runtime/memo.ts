@@ -18,7 +18,9 @@ const VERSION = 1;
 /** Entries kept per pack; the ones used longest ago go first. */
 export const MEMO_MAX = 30000;
 
-interface MemoFile { v: number; pack: string; entries: Record<string, { at: number; out: unknown }> }
+/** entries: t = the task that asked (older files have none); prompts: the task's instructions its answers were given
+ *  under (a hash) */
+interface MemoFile { v: number; pack: string; entries: Record<string, { at: number; out: unknown; t?: string }>; prompts?: Record<string, string> }
 
 export const memoKey = (...parts: unknown[]) => hashObject(parts).slice(0, 32);
 
@@ -28,6 +30,8 @@ export class PackMemo {
   private dirty = false;
   /** Answers taken from the memo since this was made (for the turn's notes and tests). */
   hits = 0;
+  /** Tasks whose kept answers were dropped because the engine now asks them differently (taken by takeStale). */
+  private stale = new Set<string>();
 
   constructor(private store: MemoStore | undefined, readonly packHash: string, private now: () => number, private warn: (msg: string) => void) {}
 
@@ -52,11 +56,31 @@ export class PackMemo {
     return deepClone(e.out) as T;
   }
 
-  async put(key: string, out: unknown): Promise<void> {
+  async put(key: string, out: unknown, task?: string): Promise<void> {
     await this.ready();
-    this.data!.entries[key] = { at: this.now(), out: deepClone(out) };
+    this.data!.entries[key] = { at: this.now(), out: deepClone(out), ...(task ? { t: task } : {}) };
     this.dirty = true;
   }
+
+  /** Said before a task's answers are looked up, with the instructions it is asked with. When they are not the ones
+   *  the kept answers were given under (an engine update changed how the task is asked), none of those answers can be
+   *  found again: they are dropped and the task is reported (takeStale), so that "nothing reused" has its reason. */
+  async asking(task: string, instructions: string): Promise<void> {
+    await this.ready();
+    const h = hashObject(instructions).slice(0, 16);
+    const prompts = (this.data!.prompts ||= {});
+    if (prompts[task] === h) return;
+    if (prompts[task] !== undefined) {
+      let dropped = 0;
+      for (const [k, e] of Object.entries(this.data!.entries)) if (e.t === task) { delete this.data!.entries[k]; dropped++; }
+      if (dropped) this.stale.add(task);
+    }
+    prompts[task] = h;
+    this.dirty = true;
+  }
+
+  /** The tasks found asked differently since the last call. */
+  takeStale(): string[] { const s = [...this.stale]; this.stale.clear(); return s; }
 
   /** Write what was added (nothing new: no write). A failed write is reported and kept for the next one. */
   async flush(): Promise<void> {

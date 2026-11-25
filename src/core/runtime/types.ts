@@ -4,7 +4,7 @@ import type { CanonPack, FactDelta, FactValue, Id, LedgerRecord, NatureVersion, 
 export const STORAGE_VERSION = 1;
 /** Release version: shown to users, and written into campaigns and backups as the version that made them (kept equal
  *  to package.json/manifest.json by a unit test). */
-export const ENGINE_RELEASE = '1.50.3';
+export const ENGINE_RELEASE = '1.51.0';
 
 export type RecordDraft = Omit<LedgerRecord, 'sequence' | 'branchId' | 'commitId'>;
 
@@ -298,7 +298,7 @@ export interface PlayerProfile {
   /** What the Persona says shields the player from other people's powers (a mind that cannot be read…). */
   defenses?: string;
   /** 本局设定: how this game's world differs from the original setting, as the Persona states it (marked lines always). */
-  worldChanges?: { text: string; terms: string[]; marked: boolean }[];
+  worldChanges?: { text: string; terms: string[]; alters?: string[]; marked: boolean }[];
   /** The player's relationships. Read from the Persona they are the start; playedProfile() gives them as play has
    *  changed them since (basis "play"/"ui" for a new one, `changed` for one play or the user changed). person: the other
    *  side is a person — then it is a relation of the world like anyone's (persona_seed starts it, relation records

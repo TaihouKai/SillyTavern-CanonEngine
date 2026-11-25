@@ -5,7 +5,9 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(process.env.PLAYWRIGHT_PATH || 'C:/Users/agent/e2e-tools/package.json');
-const { chromium } = require('playwright');
+// the tools folder may hold canon-playwright.cjs: Playwright with the browser under a process name of its own, so that
+// another project's clean-up stopping every chrome-headless-shell by name does not close these tests' browser
+const { chromium } = (() => { try { return require('./canon-playwright.cjs'); } catch { return require('playwright'); } })();
 
 export const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000';
 export const MOCK_URL = process.env.MOCK_URL || 'http://127.0.0.1:5555';

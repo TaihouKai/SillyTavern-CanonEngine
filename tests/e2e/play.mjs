@@ -7,7 +7,9 @@ import { extname, join, normalize } from 'node:path';
 import { ROOT, MOCK_URL, mock, sleep } from './lib.mjs';
 
 const require = createRequire(process.env.PLAYWRIGHT_PATH || 'C:/Users/agent/e2e-tools/package.json');
-const { chromium } = require('playwright');
+// the tools folder may hold canon-playwright.cjs: Playwright with the browser under a process name of its own, so that
+// another project's clean-up stopping every chrome-headless-shell by name does not close these tests' browser
+const { chromium } = (() => { try { return require('./canon-playwright.cjs'); } catch { return require('playwright'); } })();
 const SITE = join(ROOT, 'site');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 const server = createServer(async (req, res) => {

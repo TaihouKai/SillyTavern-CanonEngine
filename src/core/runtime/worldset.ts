@@ -15,7 +15,9 @@ import { keyMatches, type LoreEntry } from './lore';
 /** The mark, in Chinese or English: `(本局设定)` or `(world change)`. */
 export const WORLD_MARK_RE = /[(（]\s*(?:本局设定|world change)\s*[)）]/i;
 
-export interface WorldChange { id: string; text: string; terms: string[]; source: 'marked' | 'persona' | 'manual' }
+/** alters: the words (of terms) for what the change makes different in the world (the Persona read says; a change
+ *  added by hand has none given: every word of it searches). */
+export interface WorldChange { id: string; text: string; terms: string[]; alters?: string[]; source: 'marked' | 'persona' | 'manual' }
 
 /** What one lorebook entry or pack text becomes in this game. */
 export interface WorldOverride {
@@ -68,6 +70,46 @@ export function termsFor(change: Pick<WorldChange, 'text' | 'terms'>, lore: Lore
   for (const e of lore) for (const k of e.keys) if (plainKey(k) && t.includes(norm(k))) out.add(k.trim());
   if (pack) for (const e of pack.entities.values()) for (const n of [e.name, ...e.aliases]) if (n && n.length >= 2 && t.includes(norm(n))) out.add(n);
   return [...out].slice(0, 24);
+}
+
+/** In a large world (this many texts or more) a common word finds texts only for a change that alters it. */
+export const SEARCH_WORLD_MIN = 300;
+/** A word is common when it is in more than this share of the world's texts; for a change that alters nothing that
+ *  exists (only about the player), when it is in more than RARE_SHARE. */
+export const COMMON_SHARE = 0.04, RARE_SHARE = 0.01;
+
+/** The words the check searches with, and the ones it leaves out as common. Live (2026-11-25, 魔禁, a Persona with 8
+ *  changes): every lorebook entry and pack text with any word of any change was read in full — 2321 texts, because
+ *  学园都市, 御坂美琴 and 能力者 are in a fifth of the world's texts, though none of those texts was changed for them;
+ *  the texts that were changed each had a word of what the change alters (Level 5, 超能力者, 宿舍, 常盘台中学).
+ *  So per change: the words for what it alters always search, with the other keys of a lorebook entry about that
+ *  thing (its other names: 超能力者 for Level 5); its other words only when they are not common in this world (a
+ *  change about the player alone: only rare ones). A change alters a common thing ("美琴 is a boy here"): all its
+ *  texts are read. A change without the altered words given (added by hand) searches with all its words. */
+export function searchTerms(changes: Pick<WorldChange, 'terms' | 'alters'>[], lore: LoreEntry[], pack: LoadedPack | null): { use: string[]; common: string[] } {
+  const live = lore.filter((e) => !e.disabled && e.content.trim());
+  const texts = [
+    ...live.map((e) => norm(`${e.title} ${e.keys.join(' ')} ${e.content}`)),
+    ...(pack ? [...pack.entities.values()].filter((e) => e.static_description.trim()).map((e) => norm(`${e.name} ${e.aliases.join(' ')} ${e.static_description}`)) : []),
+    ...(pack ? [...pack.events.values()].map((ev) => norm(`${ev.title} ${ev.summary}`)) : []),
+  ];
+  const large = texts.length >= SEARCH_WORLD_MIN;
+  const df = new Map<string, number>();
+  const count = (w: string) => { const k = norm(w); if (!df.has(k)) df.set(k, texts.reduce((n, t) => n + (t.includes(k) ? 1 : 0), 0)); return df.get(k)!; };
+  // other names of an altered thing: the keys of a lorebook entry about it (its title names it, and the word is a key)
+  const others = (w: string) => live.filter((e) => e.keys.some((k) => norm(k) === norm(w)) && (norm(e.title).includes(norm(w)) || (!!e.title.trim() && norm(w).includes(norm(e.title)))))
+    .flatMap((e) => e.keys.filter(plainKey).map((k) => k.trim()));
+  const use = new Set<string>(), seen = new Set<string>();
+  for (const ch of changes) {
+    for (const w of ch.terms) seen.add(w);
+    if (!large || !ch.alters) { for (const w of ch.terms) use.add(w); continue; }
+    const altered = new Set(ch.alters.filter((w) => w.trim().length >= 2));
+    for (const w of [...altered]) for (const o of others(w)) altered.add(o);
+    const cap = (altered.size ? COMMON_SHARE : RARE_SHARE) * texts.length;
+    for (const w of altered) use.add(w);
+    for (const w of ch.terms) if (count(w) <= cap) use.add(w);
+  }
+  return { use: [...use], common: [...seen].filter((w) => !use.has(w)) };
 }
 
 export interface WorldItem { ref: string; kind: 'lore' | 'entity' | 'event'; title: string; text: string; book?: string; uid?: string | number; target?: Id; hits: string[] }

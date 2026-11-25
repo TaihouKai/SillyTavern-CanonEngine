@@ -142,6 +142,20 @@ A turn is read by several steps: the reading of the player's message (`extract_u
 
 The Persona card's own people and places (`integration.ts`) and names typed into the panel are resolved by name only (`resolveEntity`): they are not words of the story.
 
+## Paying for model input once
+
+DeepSeek (and other providers with a prompt cache) charge a small part of the price for input that starts a request
+the way an earlier request started. What a request shares with an earlier one counts only from its first character
+up to the first difference, so the layout of a request decides what is paid in full:
+
+- `taskMessages` (model.ts) orders a task's input fields by `cacheOrdered`: what holds for the whole game (Persona,
+  HARD register, plan) first, then the large context (retrieved history, entities), then what changes with every call
+  (registry, references, claims), and last the thing the call is about (the reply, the message, the time).
+- A task's instructions are the same every call; an instruction for a field that is only sometimes given is included
+  anyway (the review's chance events), so the instructions never differ from turn to turn.
+- Not done, measured (2026-11-25): the retrieved history changes by about half from one turn to the next (records
+  are found by what the turn mentions), so no order of its records keeps a long shared start across turns.
+
 ## 历史包备忘: an answer is not paid for twice
 
 Binding a pack calls no model: it is read, checked and indexed by code. What a new game pays for first is the model reading of the Persona against the world (`profile`, `affiliations`, `persona_abilities`) and the check of the lorebook and the pack's texts against this game's 本局设定 (`world_check`, live 45–115 calls, most of a first turn's cost). None of it is the pack's alone, so none of it can be done when a pack is imported; but a new game with the same pack, Persona and lorebook asks exactly the same questions.

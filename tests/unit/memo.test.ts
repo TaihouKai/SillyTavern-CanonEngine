@@ -8,6 +8,7 @@ import { makeEngine, tick } from './fake';
 import { ROOT } from './helpers';
 import { MEMO_MAX, PackMemo, type MemoStore } from '../../src/core/runtime/memo';
 import type { LoreEntry } from '../../src/core/runtime/lore';
+import { PROMPTS } from '../../src/core/runtime/prompts';
 
 const demo = readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8');
 const lore = (uid: number, comment: string, keys: string[], content: string): LoreEntry =>
@@ -179,5 +180,41 @@ describe("the pack's memo", () => {
     expect(b.model.tasks('foreknow')).toHaveLength(0);
     expect(b.engine.campaign()!.foreknowledge).toEqual(a.engine.campaign()!.foreknowledge);
     expect(Object.values(b.engine.campaign()!.foreknowledge!)).toEqual([{ knows: false, how: 'chance' }]);
+  });
+
+  it('ME8 an engine update that asks a step differently: its old answers are dropped, the turn says why nothing was reused, the next game reuses the new ones', async () => {
+    const s = store();
+    const a = await game(s);
+    expect(a.engine.lastTimings!.memoStale).toEqual([]);
+    const wcKeys = (st: typeof s) => Object.entries(JSON.parse([...st.files.values()][0]).entries as Record<string, { t?: string }>).filter(([, e]) => e.t === 'world_check').map(([k]) => k);
+    const before = wcKeys(s);
+    expect(before.length).toBeGreaterThan(0);
+    const old = PROMPTS.world_check;
+    try {
+      (PROMPTS as Record<string, string>).world_check = old + ' (asked differently)';
+      const b = await game(s);
+      expect(asked(b, 'world_check')).toBeGreaterThan(0);
+      for (const t of ['profile', 'world_changes', 'affiliations', 'persona_abilities']) expect(asked(b, t)).toBe(0);
+      expect(b.engine.lastTimings!.memoStale).toEqual(['world_check']);
+      expect(b.engine.lastTimings!.memo).toBeGreaterThan(0); // the Persona's answers were still reused
+      expect(view(b)).toEqual(view(a));
+      // only the new answers are kept for that step
+      const after = wcKeys(s);
+      expect(after.length).toBe(before.length);
+      expect(after.filter((k) => before.includes(k))).toEqual([]);
+      const c = await game(s);
+      expect(asked(c, 'world_check')).toBe(0);
+      expect(c.engine.lastTimings!.memoStale).toEqual([]);
+    } finally { (PROMPTS as Record<string, string>).world_check = old; }
+    // a file from before this (no record of the instructions) is not reported as asked differently
+    const s2 = store();
+    await game(s2);
+    const f = JSON.parse([...s2.files.values()][0]);
+    delete f.prompts;
+    for (const e of Object.values(f.entries as Record<string, { t?: string }>)) delete e.t;
+    s2.files.set([...s2.files.keys()][0], JSON.stringify(f));
+    const d = await game(s2);
+    expect(d.engine.lastTimings!.memoStale).toEqual([]);
+    expect(asked(d, 'world_check')).toBe(0);
   });
 });

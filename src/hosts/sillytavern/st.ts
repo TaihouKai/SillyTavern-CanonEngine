@@ -414,7 +414,7 @@ export class StHost implements HostPort {
 
 /** Provider-reported token use of Canon Engine's own requests (story drafts carry the engine context,
  *  analysis calls carry a task tag); other extensions' requests are not counted. */
-const usage: import('../../core').TokenUsage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0, costUsd: 0, storyCostUsd: 0, costUnreported: 0, diem: 0 };
+const usage: import('../../core').TokenUsage = { input: 0, output: 0, calls: 0, unreported: 0, storyInput: 0, storyOutput: 0, costUsd: 0, storyCostUsd: 0, costUnreported: 0, diem: 0, byTask: {} };
 let usageTapped = false;
 /** Folds an OpenAI-style event stream back into one chat.completion object (null if the text is not a stream). */
 export function sseToCompletion(text: string): any {
@@ -584,6 +584,11 @@ function tapUsage() {
           }
           if (c.usd !== null) { usage.costUsd! += c.usd; if (story) usage.storyCostUsd! += c.usd; } else usage.costUnreported!++;
           usage.diem! += c.diem;
+          // per task, with the part of the input the provider's prompt cache served (DeepSeek, OpenAI-style)
+          const task = story ? 'draft' : (/\[CANON_ENGINE_TASK:([A-Za-z_]+)\]/.exec(body)?.[1] || 'task');
+          const tu = (usage.byTask![task] ||= { calls: 0, input: 0, cached: 0, output: 0, usd: 0 });
+          tu.calls++; tu.input += i; tu.output += o; tu.usd += c.usd ?? 0;
+          tu.cached += Number(u?.prompt_cache_hit_tokens ?? u?.prompt_tokens_details?.cached_tokens ?? 0) || 0;
         }).catch(() => { usage.unreported++; usage.costUnreported!++; });
       }
     } catch { /* counting is optional */ }
@@ -597,7 +602,7 @@ export const looksRefused = (out: string) => !/[{[]/.test(out);
 export class StModel implements ModelPort {
   constructor() { tapUsage(); }
   lastDraftInfo() { return gen.lastDraftInfo; }
-  takeUsage() { const u: import('../../core').TokenUsage = { ...usage, ...(this.backupUses.length ? { backup: this.backupUses.splice(0) } : {}) }; usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0; return u; }
+  takeUsage() { const u: import('../../core').TokenUsage = { ...usage, ...(this.backupUses.length ? { backup: this.backupUses.splice(0) } : {}) }; usage.input = usage.output = usage.calls = usage.unreported = usage.storyInput = usage.storyOutput = usage.costUsd = usage.storyCostUsd = usage.costUnreported = usage.diem = 0; usage.byTask = {}; return u; }
   private queue: Promise<unknown> = Promise.resolve();
   horaePresent = false;
   /** Read at call time so the drawer setting applies immediately. */

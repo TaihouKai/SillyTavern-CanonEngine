@@ -18,6 +18,14 @@
        "type": "string",
        "maxLength": 60
       }
+     },
+     "alters": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+       "type": "string",
+       "maxLength": 60
+      }
      }
     },
     "required": [

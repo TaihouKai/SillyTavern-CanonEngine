@@ -9,7 +9,7 @@ import { normalizeName, valuesEqual } from '../domain/pack';
 import { renderSummary, type EventSummary } from '../domain/summary';
 import { cleanViews } from '../domain/address';
 import { buildBootstrap, causeOf, eventsOfNow, isDue, pendingHard, forcedCompletion, linkedCompletion, focusedLive } from '../domain/schedule';
-import { loreOverrideMap, overlayPack, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
+import { loreOverrideMap, overlayPack, searchTerms, termsFor, textHash, worldBatches, worldItems, worldResults, type WorldAddition, type WorldChange, type WorldCheckOut, type WorldOverride, type WorldSettings } from './worldset';
 import { effectTarget, effectToDelta } from '../domain/delta';
 import { WorldIndex } from '../domain/world-query';
 import { aspectReader } from '../domain/aspects';
@@ -261,11 +261,12 @@ export class CanonEngine {
    *  this question is taken (no call); else it is asked and kept. */
   private async asked<T>(task: TaskName, system: string, input: unknown, call: () => Promise<T>): Promise<T> {
     const m = this.memo();
+    await m?.asking(task, system);
     const key = memoKey('call', task, system, input);
     const got = m ? await m.get<T>(key) : undefined;
     if (got !== undefined) { this.debugLog('task', { kind: 'memo', task }); return got; }
     const out = await call();
-    await m?.put(key, out);
+    await m?.put(key, out, task);
     return out;
   }
   private async flushMemo(): Promise<void> { await this.memoCache?.flush(); }
@@ -304,7 +305,7 @@ export class CanonEngine {
   /** Per-step durations of the running operation, and the summary of the last finished one. */
   private stepTimes: { step: string; ms: number; retry?: boolean }[] = [];
   private rejects: string[] = [];
-  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number; retries: number }[]; ok: boolean; reply?: ReplyStats | null; repairs?: string[][]; rejects?: string[]; fixes?: string[]; tokens?: import('./model').TokenUsage | null; memo?: number } | null = null;
+  lastTimings: { op: string; totalMs: number; steps: { step: string; ms: number; count: number; retries: number }[]; ok: boolean; reply?: ReplyStats | null; repairs?: string[][]; rejects?: string[]; fixes?: string[]; tokens?: import('./model').TokenUsage | null; memo?: number; memoStale?: string[] } | null = null;
   private lastReply: ReplyStats | null = null;
   private timeStep<T>(step: string, p: Promise<T>): Promise<T> {
     const t0 = Date.now();
@@ -1252,6 +1253,7 @@ export class CanonEngine {
     const pairOf = (x: (typeof list)[number]) => ({ person: index.entityName(x.personId), event: x.event.title, original_summary: x.event.summary, cause: causeOf(x.event) });
     // a judgement about the pack's story alone: one a game before made for the same pair is taken (memo.ts)
     const m = this.memo();
+    await m?.asking('foreknow', PROMPTS.foreknow);
     const keyOf = (x: (typeof list)[number]) => memoKey('foreknow', PROMPTS.foreknow, pairOf(x));
     const todo: typeof list = [];
     for (const x of list.filter((y) => !c.foreknowledge?.[foreknowKey(y)])) {
@@ -1270,7 +1272,7 @@ export class CanonEngine {
         if (!x) continue;
         const v = { knows: !!j.knows, how: String(j.how || '').slice(0, 80) };
         c.foreknowledge[foreknowKey(x)] = v;
-        await m?.put(keyOf(x), v);
+        await m?.put(keyOf(x), v, 'foreknow');
       }
       await this.flushMemo();
     } catch (e) {
@@ -1476,7 +1478,7 @@ export class CanonEngine {
     });
     const due = pendingHard(pack, index.state).filter((h) => h.lo <= tick + this.settings.horizonMinutes);
     const groups = prof ? recognitionGroups(index, prof.profile) : [];
-    const evalPrompt = [PROMPTS.evaluate, pack.frames.frames.size ? EVAL_FRAMES_NOTE : '', groups.length ? EVAL_GROUPS_NOTE : '', a.chance?.length ? EVAL_CHANCE_NOTE : '', a.leapTo ? EVAL_LEAP_NOTE : ''].filter(Boolean).join('\n');
+    const evalPrompt = [PROMPTS.evaluate, pack.frames.frames.size ? EVAL_FRAMES_NOTE : '', groups.length ? EVAL_GROUPS_NOTE : '', EVAL_CHANCE_NOTE, a.leapTo ? EVAL_LEAP_NOTE : ''].filter(Boolean).join('\n');
     const evalInput = {
       mode: a.mode,
       candidate: a.text,
@@ -2161,7 +2163,7 @@ export class CanonEngine {
       const agg = new Map<string, { ms: number; count: number; retries: number }>();
       for (const s of this.stepTimes) { const a = agg.get(s.step) || { ms: 0, count: 0, retries: 0 }; a.ms += s.ms; a.count++; if (s.retry) a.retries++; agg.set(s.step, a); }
       const ok = trace.outcome === 'committed';
-      this.lastTimings = { op, totalMs: Date.now() - opStart, ok, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: ok ? this.lastReply : null, repairs: trace.attempts.filter((a) => a.violations.length).map((a) => a.violations), ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null, memo: (this.memo()?.hits ?? memoAt) - memoAt };
+      this.lastTimings = { op, totalMs: Date.now() - opStart, ok, steps: [...agg].map(([step, a]) => ({ step, ...a })), reply: ok ? this.lastReply : null, repairs: trace.attempts.filter((a) => a.violations.length).map((a) => a.violations), ...splitRejects(this.rejects), tokens: this.host.model.takeUsage?.() || null, memo: (this.memo()?.hits ?? memoAt) - memoAt, memoStale: this.memo()?.takeStale() };
       if (!committed && trace.outcome === 'failed') {
         // Keep the whole story of a failed turn where the user can read it later (saved with the chat).
         const c = this.campaign();
@@ -2437,7 +2439,7 @@ export class CanonEngine {
     const c = this.campaign();
     const prof = this.playerProfile()?.profile;
     return [
-      ...(prof?.worldChanges || []).map((w) => ({ id: `wc_${textHash(w.text)}`, text: w.text, terms: w.terms, source: (w.marked ? 'marked' : 'persona') as WorldChange['source'] })),
+      ...(prof?.worldChanges || []).map((w) => ({ id: `wc_${textHash(w.text)}`, text: w.text, terms: w.terms, ...(w.alters ? { alters: w.alters } : {}), source: (w.marked ? 'marked' : 'persona') as WorldChange['source'] })),
       ...(c?.worldManual || []),
     ];
   }
@@ -2465,7 +2467,9 @@ export class CanonEngine {
     try { lore = (await this.host.lore?.entries()) || []; } catch (e) { this.host.log('warn', 'lorebook read failed: ' + (e as Error).message); }
     const base = this.basePack();
     const changes = changes0.map((ch) => ({ ...ch, terms: termsFor(ch, lore, base) }));
-    const { items, generic } = worldItems(uniq(changes.flatMap((x) => x.terms)), lore, base);
+    const search = searchTerms(changes, lore, base);
+    const found = worldItems(search.use, lore, base);
+    const items = found.items, generic = uniq([...found.generic, ...search.common]);
     const prof = this.playerProfile()?.profile;
     // an event's time and whether it comes before the game's start (live: the player's transfer into an organization,
     // decided now, was written into the organization's events of a year before)
@@ -2478,6 +2482,7 @@ export class CanonEngine {
     const kindText = (it: (typeof items)[number]) => it.kind === 'lore' ? 'lorebook entry' : it.kind === 'entity' ? 'pack: who or what it is' : 'pack: event summary';
     // what a verdict is a verdict about: the instructions, the changes, the player, and the text (with its time)
     const memo = this.memo();
+    await memo?.asking('world_check', PROMPTS.world_check);
     const basis = memoKey('world_check', PROMPTS.world_check, changes.map((x) => x.text), prof ? prof.personaName : null);
     const keyOf = (it: (typeof items)[number]) => memoKey(basis, kindText(it), it.title, it.text, timeOf(it));
     type Verdict = Omit<WorldCheckOut['items'][number], 'ref'>;
@@ -2505,8 +2510,8 @@ export class CanonEngine {
         // what the model said about each text of the part is kept (a text it left out is asked again next time)
         const refs = new Map(b.map((it) => [it.ref, it]));
         // (a keep is only its action: nothing else of it is used, and most of thousands of texts are kept)
-        for (const r of out.items || []) { const it = refs.get(r.ref); if (it) { const { ref: _ref, ...v } = r; await memo?.put(keyOf(it), r.action === 'keep' ? { action: 'keep' } : v); } }
-        if (i === 0 && !knownAdditions) await memo?.put(addKey, out.additions || []);
+        for (const r of out.items || []) { const it = refs.get(r.ref); if (it) { const { ref: _ref, ...v } = r; await memo?.put(keyOf(it), r.action === 'keep' ? { action: 'keep' } : v, 'world_check'); } }
+        if (i === 0 && !knownAdditions) await memo?.put(addKey, out.additions || [], 'world_check');
         return out;
       });
     if (memo && items.length) this.debugLog('task', { kind: 'world_check_memo', texts: items.length, known: items.length - ask.length, asked: ask.length, calls: batches.length });
