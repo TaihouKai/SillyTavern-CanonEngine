@@ -3,7 +3,11 @@
 // first game, because words like 学园都市 and 御坂美琴 are in a fifth of the world's texts; none of the texts changed
 // was found by those words alone.
 import { describe, expect, it } from 'vitest';
-import { searchTerms, worldItems, SEARCH_WORLD_MIN } from '../../src/core/runtime/worldset';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { searchTerms, worldItems, SEARCH_WORLD_MIN, type WorldSearch } from '../../src/core/runtime/worldset';
+import { validatePackText } from '../../src/core/domain/pack';
+import { ROOT } from './helpers';
 import type { LoreEntry } from '../../src/core/runtime/lore';
 
 const lore = (uid: number, title: string, keys: string[], content: string): LoreEntry =>
@@ -18,7 +22,7 @@ function world(): LoreEntry[] {
   out.push(lore(502, '常盘台宿舍', ['常盘台宿舍'], '御坂美琴与白井黑子住在常盘台宿舍。'));
   return out;
 }
-const found = (words: string[], book: LoreEntry[]) => worldItems(words, book, null).items.map((i) => i.title);
+const found = (words: WorldSearch[], book: LoreEntry[]) => worldItems(words, book, null).items.map((i) => i.title);
 
 describe('the words the 本局设定 check searches with', () => {
   it('WSR1 what a change alters searches, with its other names; a common word it only mentions does not', () => {
@@ -63,5 +67,24 @@ describe('the words the 本局设定 check searches with', () => {
     expect(use).toEqual(expect.arrayContaining(['Level 5', '超能力者', 'LV5', '学园都市统括理事会']));
     expect(use).not.toContain('学园都市');
     expect(found(use, book)).toContain('大霸星祭');
+  });
+
+  it("WSR6 a person's name searches only with another thing the change names (live: 'X knows her secret' brought every text about X); a common altered word too; never with another name of the same one", () => {
+    const pack = validatePackText(readFileSync(join(ROOT, 'examples', 'demo.canon.json'), 'utf8')).loaded!;
+    const book = world();
+    for (let i = 0; i < 30; i++) book.push(lore(600 + i, `Mira ${i}`, ['Mira'], `Mira walks the harbor, day ${i}.` + (i === 3 ? ' Doctor Mira keeps the archive key.' : '')));
+    // "Mira knows the player's secret": Mira named alone finds nothing; with the archive key, the one text about both
+    const a = searchTerms([{ terms: ['Mira', 'archive key'], alters: ['Mira'] }], book, pack);
+    expect(a.use).toEqual(expect.arrayContaining([['Mira', 'archive key']]));
+    expect(a.use).not.toContain('Mira');
+    expect(found(a.use, book)).toEqual(['Mira 3']);
+    // a change about the player that only mentions Mira: the same
+    expect(found(searchTerms([{ terms: ['Mira', 'archive key'], alters: [] }], book, pack).use, book)).toEqual(['Mira 3']);
+    // another name of Mira is no partner; a change that names nothing else reads every text about her
+    const b = searchTerms([{ terms: ['Mira', 'Doctor Mira'], alters: ['Mira'] }], book, pack);
+    expect(found(b.use, book).length).toBe(30);
+    // a common altered word (学园都市, in every text) only with the change's other words
+    const c = searchTerms([{ terms: ['学园都市', '大霸星祭'], alters: ['学园都市'] }], book, null);
+    expect(found(c.use, book)).toEqual(['大霸星祭']);
   });
 });

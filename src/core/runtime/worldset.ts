@@ -78,15 +78,26 @@ export const SEARCH_WORLD_MIN = 300;
  *  exists (only about the player), when it is in more than RARE_SHARE. */
 export const COMMON_SHARE = 0.04, RARE_SHARE = 0.01;
 
-/** The words the check searches with, and the ones it leaves out as common. Live (2026-11-25, 魔禁, a Persona with 8
+/** A search: one word, or words that must all be in the text. */
+export type WorldSearch = string | string[];
+
+/** What the check searches with, and the words it leaves out as common. Live (2026-11-25, 魔禁, a Persona with 8
  *  changes): every lorebook entry and pack text with any word of any change was read in full — 2321 texts, because
  *  学园都市, 御坂美琴 and 能力者 are in a fifth of the world's texts, though none of those texts was changed for them;
  *  the texts that were changed each had a word of what the change alters (Level 5, 超能力者, 宿舍, 常盘台中学).
- *  So per change: the words for what it alters always search, with the other keys of a lorebook entry about that
- *  thing (its other names: 超能力者 for Level 5); its other words only when they are not common in this world (a
- *  change about the player alone: only rare ones). A change alters a common thing ("美琴 is a boy here"): all its
- *  texts are read. A change without the altered words given (added by hand) searches with all its words. */
-export function searchTerms(changes: Pick<WorldChange, 'terms' | 'alters'>[], lore: LoreEntry[], pack: LoadedPack | null): { use: string[]; common: string[] } {
+ *  Per change (the Persona read says which of its words name what it alters):
+ *  - what it alters searches, with the other keys of a lorebook entry about that thing (its other names: 超能力者 for
+ *    Level 5); a common one (in more than COMMON_SHARE of the texts) only together with another word of the change;
+ *  - its other words only when they are not common in this world (a change about the player alone: only rare ones);
+ *  - a person's name only together with another word of the change that is not a person's: a text about that person
+ *    is about this change only when it also has what the change is about. Live (塞拉菲娜, 12 changes): "土御门 knows
+ *    her secret", "she is friends with 芙兰达 and 绢旗", "she lives next to 美琴" each brought every text about those
+ *    people (100–550 each, 2788 in all); a text can contradict such a change only where it speaks of the same thing.
+ *  The partner word is another thing the change names, never another name of the same one (美琴 + 超电磁炮 is still
+ *  only 美琴). A change that alters a common thing and names nothing else ("美琴 is a boy here") reads every text
+ *  about it. A change without the altered words given (added by hand) searches with each of its words, as does any
+ *  change in a small world. */
+export function searchTerms(changes: Pick<WorldChange, 'terms' | 'alters'>[], lore: LoreEntry[], pack: LoadedPack | null): { use: WorldSearch[]; common: string[] } {
   const live = lore.filter((e) => !e.disabled && e.content.trim());
   const texts = [
     ...live.map((e) => norm(`${e.title} ${e.keys.join(' ')} ${e.content}`)),
@@ -96,14 +107,18 @@ export function searchTerms(changes: Pick<WorldChange, 'terms' | 'alters'>[], lo
   const large = texts.length >= SEARCH_WORLD_MIN;
   const df = new Map<string, number>();
   const count = (w: string) => { const k = norm(w); if (!df.has(k)) df.set(k, texts.reduce((n, t) => n + (t.includes(k) ? 1 : 0), 0)); return df.get(k)!; };
+  const people = new Set(pack ? [...pack.entities.values()].filter((e) => e.kind === 'person').flatMap((e) => [e.name, ...e.aliases]).filter(Boolean).map(norm) : []);
+  const person = (w: string) => people.has(norm(w));
   // other names of an altered thing: the keys of a lorebook entry about it — one whose title is the word, or names it
   // and has it as a key (live: the altered thing given as the entry's title, 「Level 5/超能力者」, not as a key)
   const others = (w: string) => live.filter((e) => norm(e.title) === norm(w) || (e.keys.some((k) => norm(k) === norm(w)) && (norm(e.title).includes(norm(w)) || (!!e.title.trim() && norm(w).includes(norm(e.title))))))
     .flatMap((e) => e.keys.filter(plainKey).map((k) => k.trim()));
-  const use = new Set<string>(), seen = new Set<string>();
+  const common = COMMON_SHARE * texts.length;
+  const use = new Map<string, WorldSearch>(), seen = new Set<string>();
+  const add = (x: WorldSearch) => use.set(JSON.stringify(Array.isArray(x) ? [...x].map(norm).sort() : norm(x)), x);
   for (const ch of changes) {
     for (const w of ch.terms) seen.add(w);
-    if (!large || !ch.alters) { for (const w of ch.terms) use.add(w); continue; }
+    if (!large || !ch.alters) { for (const w of ch.terms) add(w); continue; }
     // an altered thing given another way than as one of the terms: its parts ("Level 5/超能力者") that are terms, and a
     // longer term naming it, are altered too (never a shorter one it contains: 学园都市 in 学园都市统括理事会)
     const altered = new Set(ch.alters.filter((w) => w.trim().length >= 2));
@@ -111,39 +126,62 @@ export function searchTerms(changes: Pick<WorldChange, 'terms' | 'alters'>[], lo
       for (const part of w.split(/[\/／、,，|｜]/)) for (const t of ch.terms) if (norm(t) === norm(part.trim())) altered.add(t);
       for (const t of ch.terms) if (t.trim().length >= 2 && norm(t).includes(norm(w))) altered.add(t);
     }
-    for (const w of [...altered]) for (const o of others(w)) altered.add(o);
+    // the names of each altered thing (the word and the keys of the entry about it)
+    const names = new Map<string, Set<string>>();
+    for (const w of [...altered]) {
+      const group = new Set([w, ...others(w)]);
+      for (const x of group) { altered.add(x); names.set(x, new Set([...(names.get(x) || []), ...group])); }
+    }
+    const words = [...new Set([...ch.terms, ...altered])].filter((w) => w.trim().length >= 2);
+    const partnersOf = (w: string) => {
+      const same = [...(names.get(w) || [w])].map(norm);
+      return words.filter((p) => !person(p) && !same.some((y) => norm(p).includes(y) || y.includes(norm(p))) && count(p) > 0 && count(p) <= common);
+    };
+    const withPartners = (w: string, alone: boolean) => {
+      const ps = partnersOf(w);
+      if (ps.length) for (const p of ps) add([w, p]); else if (alone) add(w);
+    };
     const cap = (altered.size ? COMMON_SHARE : RARE_SHARE) * texts.length;
-    for (const w of altered) use.add(w);
-    for (const w of ch.terms) if (count(w) <= cap) use.add(w);
+    for (const w of words) {
+      if (altered.has(w)) {
+        if (person(w) || count(w) > common) withPartners(w, true);
+        else add(w);
+      } else if (person(w)) withPartners(w, false);
+      else if (count(w) <= cap) add(w);
+    }
   }
-  return { use: [...use], common: [...seen].filter((w) => !use.has(w)) };
+  const used = new Set([...use.values()].flatMap((x) => (Array.isArray(x) ? x : [x])).map(norm));
+  return { use: [...use.values()], common: [...seen].filter((w) => !used.has(norm(w))) };
 }
 
 export interface WorldItem { ref: string; kind: 'lore' | 'entity' | 'event'; title: string; text: string; book?: string; uid?: string | number; target?: Id; hits: string[] }
 
-/** Every lorebook entry (enabled) and pack text a search word finds: in its keys, title or text. A word found in more
- *  than a third of a large lorebook is too common to search by (reported, not used). No size cap: all are checked. */
-export function worldItems(terms: string[], lore: LoreEntry[], pack: LoadedPack | null): { items: WorldItem[]; generic: string[] } {
+/** Every lorebook entry (enabled) and pack text a search finds — a word, or all the words of a list — in its keys,
+ *  title or text. A word found alone in more than a third of a large lorebook is too common to search by (reported,
+ *  not used). No size cap: all are checked. */
+export function worldItems(terms: WorldSearch[], lore: LoreEntry[], pack: LoadedPack | null): { items: WorldItem[]; generic: string[] } {
   const live = lore.filter((e) => !e.disabled && e.content.trim());
   const generic: string[] = [];
   const hit = (text: string, term: string) => norm(text).includes(norm(term));
-  const loreHits = (e: LoreEntry, term: string) => hit(e.content, term) || hit(e.title, term) || e.keys.some((k) => hit(k, term) || keyMatches(k, term, e));
+  const loreHit = (e: LoreEntry, term: string) => hit(e.content, term) || hit(e.title, term) || e.keys.some((k) => hit(k, term) || keyMatches(k, term, e));
   const useful = terms.filter((term) => {
-    if (live.length >= 60 && live.filter((e) => loreHits(e, term)).length > live.length / 3) { generic.push(term); return false; }
+    if (typeof term === 'string' && live.length >= 60 && live.filter((e) => loreHit(e, term)).length > live.length / 3) { generic.push(term); return false; }
     return true;
   });
+  // the words of the searches that find a text
+  const hitsOf = (has: (term: string) => boolean) => [...new Set(useful.filter((t) => (Array.isArray(t) ? t.every(has) : has(t))).flatMap((t) => (Array.isArray(t) ? t : [t])))];
   const items: WorldItem[] = [];
   for (const e of live) {
-    const hits = useful.filter((term) => loreHits(e, term));
+    const hits = hitsOf((term) => loreHit(e, term));
     if (hits.length) items.push({ ref: `l${items.length + 1}`, kind: 'lore', title: e.title || e.keys[0] || String(e.uid), text: e.content, book: e.book, uid: e.uid, hits });
   }
   if (pack) {
     for (const e of pack.entities.values()) {
-      const hits = useful.filter((term) => hit(`${e.name} ${e.aliases.join(' ')} ${e.static_description}`, term));
+      const hits = hitsOf((term) => hit(`${e.name} ${e.aliases.join(' ')} ${e.static_description}`, term));
       if (hits.length && e.static_description.trim()) items.push({ ref: `e${items.length + 1}`, kind: 'entity', title: e.name, text: e.static_description, target: e.id, hits });
     }
     for (const ev of pack.events.values()) {
-      const hits = useful.filter((term) => hit(`${ev.title} ${ev.summary}`, term));
+      const hits = hitsOf((term) => hit(`${ev.title} ${ev.summary}`, term));
       if (hits.length) items.push({ ref: `v${items.length + 1}`, kind: 'event', title: ev.title, text: ev.summary, target: ev.id, hits });
     }
   }

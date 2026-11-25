@@ -30682,12 +30682,16 @@ function searchTerms(changes, lore, pack2) {
     if (!df.has(k)) df.set(k, texts.reduce((n, t2) => n + (t2.includes(k) ? 1 : 0), 0));
     return df.get(k);
   };
+  const people = new Set(pack2 ? [...pack2.entities.values()].filter((e) => e.kind === "person").flatMap((e) => [e.name, ...e.aliases]).filter(Boolean).map(norm2) : []);
+  const person = (w) => people.has(norm2(w));
   const others = (w) => live.filter((e) => norm2(e.title) === norm2(w) || e.keys.some((k) => norm2(k) === norm2(w)) && (norm2(e.title).includes(norm2(w)) || !!e.title.trim() && norm2(w).includes(norm2(e.title)))).flatMap((e) => e.keys.filter(plainKey).map((k) => k.trim()));
-  const use = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set();
+  const common = COMMON_SHARE * texts.length;
+  const use = /* @__PURE__ */ new Map(), seen = /* @__PURE__ */ new Set();
+  const add2 = (x) => use.set(JSON.stringify(Array.isArray(x) ? [...x].map(norm2).sort() : norm2(x)), x);
   for (const ch of changes) {
     for (const w of ch.terms) seen.add(w);
     if (!large || !ch.alters) {
-      for (const w of ch.terms) use.add(w);
+      for (const w of ch.terms) add2(w);
       continue;
     }
     const altered = new Set(ch.alters.filter((w) => w.trim().length >= 2));
@@ -30695,37 +30699,61 @@ function searchTerms(changes, lore, pack2) {
       for (const part of w.split(/[\/／、,，|｜]/)) for (const t2 of ch.terms) if (norm2(t2) === norm2(part.trim())) altered.add(t2);
       for (const t2 of ch.terms) if (t2.trim().length >= 2 && norm2(t2).includes(norm2(w))) altered.add(t2);
     }
-    for (const w of [...altered]) for (const o of others(w)) altered.add(o);
+    const names = /* @__PURE__ */ new Map();
+    for (const w of [...altered]) {
+      const group = /* @__PURE__ */ new Set([w, ...others(w)]);
+      for (const x of group) {
+        altered.add(x);
+        names.set(x, /* @__PURE__ */ new Set([...names.get(x) || [], ...group]));
+      }
+    }
+    const words = [.../* @__PURE__ */ new Set([...ch.terms, ...altered])].filter((w) => w.trim().length >= 2);
+    const partnersOf = (w) => {
+      const same = [...names.get(w) || [w]].map(norm2);
+      return words.filter((p) => !person(p) && !same.some((y) => norm2(p).includes(y) || y.includes(norm2(p))) && count(p) > 0 && count(p) <= common);
+    };
+    const withPartners = (w, alone) => {
+      const ps = partnersOf(w);
+      if (ps.length) for (const p of ps) add2([w, p]);
+      else if (alone) add2(w);
+    };
     const cap = (altered.size ? COMMON_SHARE : RARE_SHARE) * texts.length;
-    for (const w of altered) use.add(w);
-    for (const w of ch.terms) if (count(w) <= cap) use.add(w);
+    for (const w of words) {
+      if (altered.has(w)) {
+        if (person(w) || count(w) > common) withPartners(w, true);
+        else add2(w);
+      } else if (person(w)) withPartners(w, false);
+      else if (count(w) <= cap) add2(w);
+    }
   }
-  return { use: [...use], common: [...seen].filter((w) => !use.has(w)) };
+  const used = new Set([...use.values()].flatMap((x) => Array.isArray(x) ? x : [x]).map(norm2));
+  return { use: [...use.values()], common: [...seen].filter((w) => !used.has(norm2(w))) };
 }
 function worldItems(terms, lore, pack2) {
   const live = lore.filter((e) => !e.disabled && e.content.trim());
   const generic = [];
   const hit = (text, term) => norm2(text).includes(norm2(term));
-  const loreHits = (e, term) => hit(e.content, term) || hit(e.title, term) || e.keys.some((k) => hit(k, term) || keyMatches(k, term, e));
+  const loreHit = (e, term) => hit(e.content, term) || hit(e.title, term) || e.keys.some((k) => hit(k, term) || keyMatches(k, term, e));
   const useful = terms.filter((term) => {
-    if (live.length >= 60 && live.filter((e) => loreHits(e, term)).length > live.length / 3) {
+    if (typeof term === "string" && live.length >= 60 && live.filter((e) => loreHit(e, term)).length > live.length / 3) {
       generic.push(term);
       return false;
     }
     return true;
   });
+  const hitsOf = (has) => [...new Set(useful.filter((t2) => Array.isArray(t2) ? t2.every(has) : has(t2)).flatMap((t2) => Array.isArray(t2) ? t2 : [t2]))];
   const items2 = [];
   for (const e of live) {
-    const hits = useful.filter((term) => loreHits(e, term));
+    const hits = hitsOf((term) => loreHit(e, term));
     if (hits.length) items2.push({ ref: `l${items2.length + 1}`, kind: "lore", title: e.title || e.keys[0] || String(e.uid), text: e.content, book: e.book, uid: e.uid, hits });
   }
   if (pack2) {
     for (const e of pack2.entities.values()) {
-      const hits = useful.filter((term) => hit(`${e.name} ${e.aliases.join(" ")} ${e.static_description}`, term));
+      const hits = hitsOf((term) => hit(`${e.name} ${e.aliases.join(" ")} ${e.static_description}`, term));
       if (hits.length && e.static_description.trim()) items2.push({ ref: `e${items2.length + 1}`, kind: "entity", title: e.name, text: e.static_description, target: e.id, hits });
     }
     for (const ev of pack2.events.values()) {
-      const hits = useful.filter((term) => hit(`${ev.title} ${ev.summary}`, term));
+      const hits = hitsOf((term) => hit(`${ev.title} ${ev.summary}`, term));
       if (hits.length) items2.push({ ref: `v${items2.length + 1}`, kind: "event", title: ev.title, text: ev.summary, target: ev.id, hits });
     }
   }
@@ -36525,7 +36553,7 @@ ${COMBAT_WHO_TASK}`,
   // User: the player's Persona is a person of this world like any other: what they can do is read into the same
   // abilities, told in the same parts, that the pack gives its people (and the same links into the setting).
   world_changes: `${COMMON}
-TASK: Read the player's Persona (their character in this story world) for world_changes: how this game's world differs from the original setting, as the Persona states it \u2014 a count or ranking that changes (a world with one more of a famous kind of people), who holds a post or belongs somewhere in canon, something that exists or happened only in this game. Every line marked "(\u672C\u5C40\u8BBE\u5B9A)" is one (its text without the mark); find the others in the rest of the Persona. Not the player's own traits that change nothing about the world (their looks, a friend of their own). text: the change as a plain statement; terms: names and words a lorebook entry about it would contain (the ranking's name, the people and organizations it touches, their titles), in the Persona's language and the world's usual spellings. alters: those of terms (copied from terms, word for word) that name what the change makes different in the world as the lorebook describes it \u2014 the ranking or count it changes, the post or group whose holders or members change, the place whose residents change, a person or thing whose own facts change. Not what it only mentions or relates to without changing it: the player being someone's neighbor or friend changes nothing about that person; the player living in a city changes nothing about the city. [] when it alters nothing that exists in the original setting (it is only about the player). alters never decides whether a change is listed: list every change as above, also one whose alters is [].
+TASK: Read the player's Persona (their character in this story world) for world_changes: how this game's world differs from the original setting, as the Persona states it \u2014 a count or ranking that changes (a world with one more of a famous kind of people), who holds a post or belongs somewhere in canon, something that exists or happened only in this game. Every line marked "(\u672C\u5C40\u8BBE\u5B9A)" is one (its text without the mark); find the others in the rest of the Persona. Not the player's own traits that change nothing about the world (their looks, a friend of their own). text: the change as a plain statement; terms: names and words a lorebook entry about it would contain (the ranking's name, the people and organizations it touches, their titles), in the Persona's language and the world's usual spellings. alters: those of terms (copied from terms, word for word) that name what the change makes different in the world as the lorebook describes it \u2014 the ranking or count it changes, the post or group whose holders or members change, the place whose residents change, a person or thing whose own facts change. Not what it only mentions or relates to without changing it. Anything between someone and the player changes nothing about that person: knowing the player or their secrets, being their friend, lover, partner, neighbor, roommate, superior, handler or subordinate, thinking of them. Nor does the player living, working or being housed somewhere change that place, or the player being made or used by a group change the group (unless the change says who belongs to it, how many there are, or what it is). [] when it alters nothing that exists in the original setting (it is only about the player). alters never decides whether a change is listed: list every change as above, also one whose alters is [].
 background_lore (when given): the user's lorebook entries for the names the Persona uses \u2014 the original setting, to tell what the Persona changes.
 Write in the Persona's language.
 SHAPE: {"world_changes":[{"text":"","terms":[],"alters":[]}]}`,
@@ -36729,7 +36757,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.51.1";
+var ENGINE_RELEASE = "1.51.2";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;

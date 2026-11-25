@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.51.2 — 2026-11-25 (pack 7.1.1)
+
+- **A person's name finds texts only with what the change is about.** With 塞拉菲娜 (12 changes: who knows her secret, whom she is friends with, whom she lives next to) the first game's check read 2788 texts in 71 calls, $0.30 at peak: the Persona reading marked those people as altered, and every text about each of them (100–550 apiece) was read. A text can contradict "土御门 knows her secret" only where it also speaks of what the change is about. A person's name now searches only together with another word of the same change that is not a person's name and not another name of the same one (美琴 with 宿舍, not 美琴 with 超电磁炮); an altered word that is common in the world (学园都市, 暗部) the same way. A change that names nothing else still reads every text about its person. The reading is also told plainly that knowing the player, being their friend, lover, neighbor, superior or subordinate changes nothing about that person. On the live games' own changes: 880–1675 texts for 塞拉菲娜 instead of 1800–2790, 314 for 神光爱丽丝 instead of 1468; none of the 16 and 9 texts the games changed was left out.
+
 ## 1.51.1 — 2026-11-25 (pack 7.1.1)
 
 - **What a change alters is found under its other names when it is given as an entry's title.** In the live test the Persona reading gave the altered thing as the lorebook entry's title, 「Level 5/超能力者」, instead of copying the word from the change's terms, so 超能力者 did not search, and a text that says only 「七位超能力者」 was not checked. An altered thing now finds by the keys of an entry whose title it is, by its parts that are terms, and by a longer term naming it (never by a shorter word inside it: 学园都市 in 学园都市统括理事会). The reading is told to copy the words from terms, and that what a change alters never decides whether the change is listed.
