@@ -124,7 +124,7 @@ export function candidateId(index: WorldIndex, x: string): Id | null {
   return index.whoOne(x.replace(/[-_.]+/g, ' ').trim());
 }
 
-const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change', combat: 'judging the fight', combat_fill: 'what the fighters are', combat_who: 'who the fighters are', persona_abilities: 'reading what your character can do', world_changes: 'reading this game world changes' };
+const TASK_LABEL: Record<string, string> = { extract_user: 'reading the player message', discover: 'finding references', evaluate: 'checking consistency', plan: 'planning', adjudicate: 'offscreen events', impact: 'impact check', profile: 'reading the Persona', integrate: 'how the world reacts to the player', foreknow: 'what the people with you have planned', leap: 'planning the time leap', world_check: 'checking the lorebook against this game', mind: 'what the people here think and plan', relate: 'how the relations change', combat: 'judging the fight', combat_fill: 'what the fighters are', combat_who: 'who the fighters are', persona_abilities: 'reading what your character can do', world_changes: 'reading this game world changes', world_confirm: 'a second look at a rewrite of this game world' };
 
 /** Length and provider stats of the published reply, shown after the turn timings. */
 export interface ReplyStats { chars: number; finish?: string; outputTokens?: number; reasoningTokens?: number; maxTokens?: number }
@@ -2496,6 +2496,7 @@ export class CanonEngine {
     const knownAdditions = memo && !fresh ? await memo.get<NonNullable<WorldCheckOut['additions']>>(addKey) : undefined;
     if (knownAdditions) known.additions = knownAdditions;
     const batches = worldBatches(ask);
+    const doubted: NonNullable<WorldSettings['rejected']> = [];
     const check = (b: typeof items, i: number) => this.withTimeout(callStructured<WorldCheckOut>(this.host.model, 'world_check', PROMPTS.world_check, {
       game_start: formatTick(start, origin),
       changes: changes.map((x) => ({ id: x.id, text: x.text })),
@@ -2507,8 +2508,16 @@ export class CanonEngine {
       items: b.map((it) => ({ ref: it.ref, kind: kindText(it), title: it.title, ...timeOf(it), text: it.text })),
     }, { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 12000 }), this.settings.taskTimeoutMs * 4, signal)
       .then(async (out) => {
-        // what the model said about each text of the part is kept (a text it left out is asked again next time)
         const refs = new Map(b.map((it) => [it.ref, it]));
+        // every rewrite or removal gets a second look of its own (world_confirm); one it does not hold up is kept as
+        // it is and listed with why. A second look that fails leaves the verdict as it was.
+        await Promise.all((out.items || []).map(async (r) => {
+          const it = refs.get(r.ref);
+          if (!it || r.action === 'keep') return;
+          const why = await this.secondLook(it, r, changes.map((x) => x.text), formatTick(start, origin), prof?.personaName || null, timeOf(it), kindText(it), signal, operationId);
+          if (why) { doubted.push({ title: it.title, kind: it.kind, reason: r.reason || '', why }); r.action = 'keep'; }
+        }));
+        // what the model said about each text of the part is kept (a text it left out is asked again next time)
         // (a keep is only its action: nothing else of it is used, and most of thousands of texts are kept)
         for (const r of out.items || []) { const it = refs.get(r.ref); if (it) { const { ref: _ref, ...v } = r; await memo?.put(keyOf(it), r.action === 'keep' ? { action: 'keep' } : v, 'world_check'); } }
         if (i === 0 && !knownAdditions) await memo?.put(addKey, out.additions || [], 'world_check');
@@ -2542,12 +2551,32 @@ export class CanonEngine {
     c.worldSettings = {
       basis: hashObject(changes.map((x) => [x.text, x.terms])), at: this.host.now(), changes, overrides, additions,
       checked: { lore: items.filter((x) => x.kind === 'lore').length, entities: items.filter((x) => x.kind === 'entity').length, events: items.filter((x) => x.kind === 'event').length, generic },
-      ...(res.rejected.length ? { rejected: res.rejected } : {}),
+      ...(res.rejected.length || doubted.length ? { rejected: [...res.rejected, ...doubted] } : {}),
       ...(unchecked.length ? { unchecked } : {}),
     };
     this.overlayCache = null;
     c.configRevisions.push({ at: this.host.now(), summary: this.tr(`本局设定已检查：${changes.length} 处改动，读了 ${items.length} 条，改写或停用 ${overrides.length} 条，新增 ${additions.length} 条`,
       `This game's world checked: ${changes.length} change(s), ${items.length} text(s) read, ${overrides.length} rewritten or disabled, ${additions.length} added`) });
+  }
+
+  /** Why a proposed rewrite or removal does not hold up on a second look, or null when it does (or the look failed).
+   *  The model must quote the change's own words about what the text's untrue words are about (checked here). */
+  private async secondLook(it: { title: string; text: string }, r: WorldCheckOut['items'][number], changes: string[], gameStart: string, player: string | null,
+    time: { time?: string; when?: string }, kind: string, signal: AbortSignal | undefined, operationId: string): Promise<string | null> {
+    const input = { game_start: gameStart, changes, player: player ? { name: player } : null, text: { kind, title: it.title, ...time, text: it.text },
+      untrue: r.action === 'disable' ? ['(the whole text: it is about something that does not exist in this game)'] : (r.untrue || []), proposed: r.action };
+    try {
+      const out = await this.withTimeout(callStructured<{ about?: string; change_says?: string; ok: boolean; why?: string }>(this.host.model, 'world_confirm', PROMPTS.world_confirm, input,
+        { signal, operationId, log: (l) => this.debugLog('task', l), maxTokens: 600 }), this.settings.taskTimeoutMs, signal);
+      const flat = (s: string) => s.normalize('NFKC').replace(/\s+/g, '');
+      const says = flat(String(out.change_says || ''));
+      const quoted = !!says && changes.some((c) => flat(c).includes(says));
+      if (out.ok && quoted) return null;
+      return this.tr(`再看一次：${out.ok ? '引用的改动原文对不上' : String(out.why || '这条改动并不让原文这几个字不成立')}`, `On a second look: ${out.ok ? 'the change it quoted is not one of the changes' : String(out.why || 'the change does not make these words untrue')}`).slice(0, 300);
+    } catch (e) {
+      if (signal?.aborted || (e instanceof EngineError && e.kind === 'cancelled')) throw e;
+      return null;
+    }
   }
 
   /** 重新检查 (panel): check again with the changes as they are now. */

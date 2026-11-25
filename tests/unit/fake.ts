@@ -192,6 +192,7 @@ export function defaultTask(task: TaskName, input: any): any {
     case 'combat_fill': return { people: [] };
     case 'persona_abilities': return { abilities: [], setting: [] };
     case 'world_changes': return { world_changes: [] };
+    case 'world_confirm': return { ok: true, change_says: String(input.changes?.[0] ?? '').slice(0, 20), why: '' };
     case 'ends': return { ends: (input.items || []).map((x: any) => ({ n: x.n, until: 'lasting', why: 'scripted' })) };
     case 'impact': return { changed: [], affected_anchors: [], affected_steps: [], scope: 'local', severity: 'none', replan: false, explanation: 'scripted' };
     case 'plan': {

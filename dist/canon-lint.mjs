@@ -28301,6 +28301,128 @@ function validate102(data, { instancePath = "", parentData, parentDataProperty, 
   return errors === 0;
 }
 validate102.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+function validate103(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  ;
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate103.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.ok === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "ok" }, message: "must have required property 'ok'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "about" || key0 === "change_says" || key0 === "ok" || key0 === "why")) {
+        const err1 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err1];
+        } else {
+          vErrors.push(err1);
+        }
+        errors++;
+      }
+    }
+    if (data.about !== void 0) {
+      let data0 = data.about;
+      if (typeof data0 === "string") {
+        if (func2(data0) > 400) {
+          const err2 = { instancePath: instancePath + "/about", schemaPath: "#/properties/about/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+          if (vErrors === null) {
+            vErrors = [err2];
+          } else {
+            vErrors.push(err2);
+          }
+          errors++;
+        }
+      } else {
+        const err3 = { instancePath: instancePath + "/about", schemaPath: "#/properties/about/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err3];
+        } else {
+          vErrors.push(err3);
+        }
+        errors++;
+      }
+    }
+    if (data.change_says !== void 0) {
+      let data1 = data.change_says;
+      if (typeof data1 === "string") {
+        if (func2(data1) > 800) {
+          const err4 = { instancePath: instancePath + "/change_says", schemaPath: "#/properties/change_says/maxLength", keyword: "maxLength", params: { limit: 800 }, message: "must NOT have more than 800 characters" };
+          if (vErrors === null) {
+            vErrors = [err4];
+          } else {
+            vErrors.push(err4);
+          }
+          errors++;
+        }
+      } else {
+        const err5 = { instancePath: instancePath + "/change_says", schemaPath: "#/properties/change_says/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err5];
+        } else {
+          vErrors.push(err5);
+        }
+        errors++;
+      }
+    }
+    if (data.ok !== void 0) {
+      if (typeof data.ok !== "boolean") {
+        const err6 = { instancePath: instancePath + "/ok", schemaPath: "#/properties/ok/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+    if (data.why !== void 0) {
+      let data3 = data.why;
+      if (typeof data3 === "string") {
+        if (func2(data3) > 600) {
+          const err7 = { instancePath: instancePath + "/why", schemaPath: "#/properties/why/maxLength", keyword: "maxLength", params: { limit: 600 }, message: "must NOT have more than 600 characters" };
+          if (vErrors === null) {
+            vErrors = [err7];
+          } else {
+            vErrors.push(err7);
+          }
+          errors++;
+        }
+      } else {
+        const err8 = { instancePath: instancePath + "/why", schemaPath: "#/properties/why/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err9 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err9];
+    } else {
+      vErrors.push(err9);
+    }
+    errors++;
+  }
+  validate103.errors = vErrors;
+  return errors === 0;
+}
+validate103.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 
 // src/core/domain/types.ts
 var EXACT_PRECISIONS = ["minute", "range"];

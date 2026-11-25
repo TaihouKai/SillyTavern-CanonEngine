@@ -1,0 +1,24 @@
+{
+ "type": "object",
+ "properties": {
+  "about": {
+   "type": "string",
+   "maxLength": 400
+  },
+  "change_says": {
+   "type": "string",
+   "maxLength": 800
+  },
+  "ok": {
+   "type": "boolean"
+  },
+  "why": {
+   "type": "string",
+   "maxLength": 600
+  }
+ },
+ "required": [
+  "ok"
+ ],
+ "additionalProperties": false
+}

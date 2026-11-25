@@ -28405,6 +28405,129 @@ function validate102(data, { instancePath = "", parentData, parentDataProperty, 
   return errors === 0;
 }
 validate102.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var world_confirm = validate103;
+function validate103(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  ;
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate103.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.ok === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "ok" }, message: "must have required property 'ok'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "about" || key0 === "change_says" || key0 === "ok" || key0 === "why")) {
+        const err1 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err1];
+        } else {
+          vErrors.push(err1);
+        }
+        errors++;
+      }
+    }
+    if (data.about !== void 0) {
+      let data0 = data.about;
+      if (typeof data0 === "string") {
+        if (func2(data0) > 400) {
+          const err2 = { instancePath: instancePath + "/about", schemaPath: "#/properties/about/maxLength", keyword: "maxLength", params: { limit: 400 }, message: "must NOT have more than 400 characters" };
+          if (vErrors === null) {
+            vErrors = [err2];
+          } else {
+            vErrors.push(err2);
+          }
+          errors++;
+        }
+      } else {
+        const err3 = { instancePath: instancePath + "/about", schemaPath: "#/properties/about/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err3];
+        } else {
+          vErrors.push(err3);
+        }
+        errors++;
+      }
+    }
+    if (data.change_says !== void 0) {
+      let data1 = data.change_says;
+      if (typeof data1 === "string") {
+        if (func2(data1) > 800) {
+          const err4 = { instancePath: instancePath + "/change_says", schemaPath: "#/properties/change_says/maxLength", keyword: "maxLength", params: { limit: 800 }, message: "must NOT have more than 800 characters" };
+          if (vErrors === null) {
+            vErrors = [err4];
+          } else {
+            vErrors.push(err4);
+          }
+          errors++;
+        }
+      } else {
+        const err5 = { instancePath: instancePath + "/change_says", schemaPath: "#/properties/change_says/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err5];
+        } else {
+          vErrors.push(err5);
+        }
+        errors++;
+      }
+    }
+    if (data.ok !== void 0) {
+      if (typeof data.ok !== "boolean") {
+        const err6 = { instancePath: instancePath + "/ok", schemaPath: "#/properties/ok/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+    if (data.why !== void 0) {
+      let data3 = data.why;
+      if (typeof data3 === "string") {
+        if (func2(data3) > 600) {
+          const err7 = { instancePath: instancePath + "/why", schemaPath: "#/properties/why/maxLength", keyword: "maxLength", params: { limit: 600 }, message: "must NOT have more than 600 characters" };
+          if (vErrors === null) {
+            vErrors = [err7];
+          } else {
+            vErrors.push(err7);
+          }
+          errors++;
+        }
+      } else {
+        const err8 = { instancePath: instancePath + "/why", schemaPath: "#/properties/why/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err9 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err9];
+    } else {
+      vErrors.push(err9);
+    }
+    errors++;
+  }
+  validate103.errors = vErrors;
+  return errors === 0;
+}
+validate103.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 
 // src/core/domain/types.ts
 var EXACT_PRECISIONS = ["minute", "range"];
@@ -35726,6 +35849,32 @@ var world_changes_schema_default = {
   additionalProperties: false
 };
 
+// schemas/runtime/world-confirm.schema.json
+var world_confirm_schema_default = {
+  type: "object",
+  properties: {
+    about: {
+      type: "string",
+      maxLength: 400
+    },
+    change_says: {
+      type: "string",
+      maxLength: 800
+    },
+    ok: {
+      type: "boolean"
+    },
+    why: {
+      type: "string",
+      maxLength: 600
+    }
+  },
+  required: [
+    "ok"
+  ],
+  additionalProperties: false
+};
+
 // src/core/runtime/model.ts
 var TASK_SCHEMAS = {
   extract_user: extract_user_schema_default,
@@ -35748,7 +35897,8 @@ var TASK_SCHEMAS = {
   combat_fill: combat_fill_schema_default,
   combat_who: combat_who_schema_default,
   persona_abilities: persona_abilities_schema_default,
-  world_changes: world_changes_schema_default
+  world_changes: world_changes_schema_default,
+  world_confirm: world_confirm_schema_default
 };
 var TASK_TAG = (t2) => `[CANON_ENGINE_TASK:${t2}]`;
 var validators = {
@@ -35772,7 +35922,8 @@ var validators = {
   combat_fill,
   combat_who,
   persona_abilities,
-  world_changes
+  world_changes,
+  world_confirm
 };
 function extractJson(text) {
   const s = String(text ?? "").replace(/^﻿/, "");
@@ -36553,10 +36704,20 @@ ${COMBAT_WHO_TASK}`,
   // User: the player's Persona is a person of this world like any other: what they can do is read into the same
   // abilities, told in the same parts, that the pack gives its people (and the same links into the setting).
   world_changes: `${COMMON}
-TASK: Read the player's Persona (their character in this story world) for world_changes: how this game's world differs from the original setting, as the Persona states it \u2014 a count or ranking that changes (a world with one more of a famous kind of people), who holds a post or belongs somewhere in canon, something that exists or happened only in this game. Every line marked "(\u672C\u5C40\u8BBE\u5B9A)" is one (its text without the mark); find the others in the rest of the Persona. Not the player's own traits that change nothing about the world (their looks, a friend of their own). text: the change as a plain statement; terms: names and words a lorebook entry about it would contain (the ranking's name, the people and organizations it touches, their titles), in the Persona's language and the world's usual spellings. alters: those of terms (copied from terms, word for word) that name what the change makes different in the world as the lorebook describes it \u2014 the ranking or count it changes, the post or group whose holders or members change, the place whose residents change, a person or thing whose own facts change. Not what it only mentions or relates to without changing it. Anything between someone and the player changes nothing about that person: knowing the player or their secrets, being their friend, lover, partner, neighbor, roommate, superior, handler or subordinate, thinking of them. Nor does the player living, working or being housed somewhere change that place, or the player being made or used by a group change the group (unless the change says who belongs to it, how many there are, or what it is). [] when it alters nothing that exists in the original setting (it is only about the player). alters never decides whether a change is listed: list every change as above, also one whose alters is [].
+TASK: Read the player's Persona (their character in this story world) for world_changes: how this game's world differs from the original setting, as the Persona states it \u2014 a count or ranking that changes (a world with one more of a famous kind of people), who holds a post or belongs somewhere in canon, something that exists or happened only in this game. Every line marked "(\u672C\u5C40\u8BBE\u5B9A)" is one (its text without the mark); find the others in the rest of the Persona. Not the player's own traits that change nothing about the world (their looks, a friend of their own). text: the change as a plain statement that names whose each thing is \u2014 every person by name, never a pronoun or "that room"; a detail of the player's own (their room, their roommate, their post) says it is the player's; terms: names and words a lorebook entry about it would contain (the ranking's name, the people and organizations it touches, their titles), in the Persona's language and the world's usual spellings. alters: those of terms (copied from terms, word for word) that name what the change makes different in the world as the lorebook describes it \u2014 the ranking or count it changes, the post or group whose holders or members change, the place whose residents change, a person or thing whose own facts change. Not what it only mentions or relates to without changing it. Anything between someone and the player changes nothing about that person: knowing the player or their secrets, being their friend, lover, partner, neighbor, roommate, superior, handler or subordinate, thinking of them. Nor does the player living, working or being housed somewhere change that place, or the player being made or used by a group change the group (unless the change says who belongs to it, how many there are, or what it is). [] when it alters nothing that exists in the original setting (it is only about the player). alters never decides whether a change is listed: list every change as above, also one whose alters is [].
 background_lore (when given): the user's lorebook entries for the names the Persona uses \u2014 the original setting, to tell what the Persona changes.
 Write in the Persona's language.
 SHAPE: {"world_changes":[{"text":"","terms":[],"alters":[]}]}`,
+  // A second look at one rewrite the world check proposed. Live (2026-11-25): in batches of 40 texts the check kept
+  // reading "the player lives next to 美琴 and has no roommate" as "美琴 has no roommate" and rewrote 白井黑子 (and 洁斋雪紫)
+  // out of being her roommate, two runs in three; asked about one text, step by step, it did so once in nine.
+  world_confirm: `${COMMON}
+TASK: A check of this game's world proposed to rewrite a text of the world (a lorebook entry or a history-pack text) because one of the changes \u2014 how this game's world differs from the original setting \u2014 makes some of its words untrue. Decide whether that is so: read the change exactly as it is written, and the text as it is.
+Answer in steps. about: whom or what the quoted words (untrue) are about, and what they say of them (one short sentence). change_says: the words of a change (verbatim, copied exactly) that say something about that same person or thing; "" when no change says anything about it. ok: true only when those words cannot hold together with the quoted words (a count or ranking the change moves, a post or membership it gives to someone else, someone or something it makes not exist, an event it makes go otherwise).
+- false when the quoted words can still be true in this game: the change is about the player (where they live, whom they live or work with, whom they know or are close to) and says nothing that takes anyone else's place, home, roommate, post or relation; or it only adds something next to what the text says.
+- Time: the changes describe the world at game_start; an event before it is untrue only where the change's fact already held then.
+why: one sentence.
+SHAPE: {"about":"","change_says":"","ok":true,"why":""}`,
   persona_abilities: `${COMMON}
 TASK: Read the player's Persona (their character in this story world) into what a story engine knows of any person of the world: what they can do, and what kind of being they are in the setting. The engine judges fights and plays the world from this, for the player character exactly as for everyone else.
 1. abilities: every power, technique, spell, art, skill or piece of equipment of their own that the Persona gives them and that matters in what they do (a fight, a chase, an investigation, their work), each ONCE: name (as the Persona calls it), gist (one sentence: what it is and does), text (2 to 4 sentences), parts \u2014 principle (how it works), effect (what it does, how strong), conditions (what it needs to work), cost (what it costs them), limits (what it cannot do), counters (known ways to beat it) \u2014 only what the Persona states or what follows directly from how it works; leave out a part it says nothing about; every ability has an effect. of: null, or \u2014 for a way of using another of their abilities (a technique, form, mode or application the Persona gives under a power: a light blade and a light beam of one power over light) \u2014 the name of that power exactly as you wrote it. A power and its uses: the power is one entry (its effect says what the power does as such, without listing the uses again; its conditions, cost, limits and counters, written once, hold for every use), and each use is an entry of its own with of = the power, telling only what is its own (its own effect, and a condition or limit only it has). Never a use of a use. Something that stands on its own (a martial art, a weapon, a second power) has of null. secret: true for an ability (or a part) the Persona marks as secret or as known only to certain people; what it does not mark is public. links: setting nodes (by id, from setting) the ability belongs to or depends on ("\u5C5E\u4E8E\u7535\u51FB\u4F7F\u80FD\u529B"), with a short label; [] when none fits. An ordinary person with no special abilities: only the skills the Persona makes notable, or none.
@@ -36657,7 +36818,8 @@ var SCHEMAS = {
   combat_fill: combat_fill_schema_default,
   combat_who: combat_who_schema_default,
   persona_abilities: persona_abilities_schema_default,
-  world_changes: world_changes_schema_default
+  world_changes: world_changes_schema_default,
+  world_confirm: world_confirm_schema_default
 };
 var EVAL_FRAMES_NOTE = `7. TIME FRAMES (this pack has them; see time_frames): also return "scene_frame" in the reply object: the id of the frame the scene is in at the END of the reply \u2014 where the player character is \u2014 when the reply shows them arriving in another frame or coming back (time travel, crossing into another world, entering or waking from a dream); "main" for the main frame; null when they stay in scene_frame_now. A frame is entered only when the reply shows them there, not when it is talked about, watched from afar or planned. scene_end stays on the main clock: a local time stated in the text converts with its frame's conversion; a move between frames takes the main-clock time the text shows (never the gap between local dates).`;
 var PROMPTS = Object.fromEntries(Object.entries(RAW_PROMPTS).map(([k, v]) => [k, annotateShape(v, SCHEMAS[k])]));
@@ -36757,7 +36919,7 @@ function withUntil(d, u) {
 
 // src/core/runtime/types.ts
 var STORAGE_VERSION = 1;
-var ENGINE_RELEASE = "1.51.2";
+var ENGINE_RELEASE = "1.51.3";
 
 // src/core/runtime/integration.ts
 var INTEGRATION_LEAD_MINUTES = 24 * 60;
@@ -41765,7 +41927,7 @@ function candidateId(index, x) {
   if (index.entityExists(x) || index.pack.events.has(x) || index.state.occurrences.has(x)) return x;
   return index.whoOne(x.replace(/[-_.]+/g, " ").trim());
 }
-var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check", profile: "reading the Persona", integrate: "how the world reacts to the player", foreknow: "what the people with you have planned", leap: "planning the time leap", world_check: "checking the lorebook against this game", mind: "what the people here think and plan", relate: "how the relations change", combat: "judging the fight", combat_fill: "what the fighters are", combat_who: "who the fighters are", persona_abilities: "reading what your character can do", world_changes: "reading this game world changes" };
+var TASK_LABEL = { extract_user: "reading the player message", discover: "finding references", evaluate: "checking consistency", plan: "planning", adjudicate: "offscreen events", impact: "impact check", profile: "reading the Persona", integrate: "how the world reacts to the player", foreknow: "what the people with you have planned", leap: "planning the time leap", world_check: "checking the lorebook against this game", mind: "what the people here think and plan", relate: "how the relations change", combat: "judging the fight", combat_fill: "what the fighters are", combat_who: "who the fighters are", persona_abilities: "reading what your character can do", world_changes: "reading this game world changes", world_confirm: "a second look at a rewrite of this game world" };
 var formatUsd = (v) => `$${v < 0.1 ? v.toFixed(4) : v < 10 ? v.toFixed(3) : v.toFixed(2)}`;
 var replyChars = (text) => String(text || "").replace(/\s+/g, "").length;
 var DEFAULT_SETTINGS = {
@@ -44323,6 +44485,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
     const knownAdditions = memo && !fresh ? await memo.get(addKey) : void 0;
     if (knownAdditions) known.additions = knownAdditions;
     const batches = worldBatches(ask);
+    const doubted = [];
     const check2 = (b, i) => this.withTimeout(callStructured(this.host.model, "world_check", PROMPTS.world_check, {
       game_start: formatTick(start, origin),
       changes: changes.map((x) => ({ id: x.id, text: x.text })),
@@ -44334,6 +44497,15 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       items: b.map((it) => ({ ref: it.ref, kind: kindText(it), title: it.title, ...timeOf(it), text: it.text }))
     }, { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 12e3 }), this.settings.taskTimeoutMs * 4, signal).then(async (out) => {
       const refs = new Map(b.map((it) => [it.ref, it]));
+      await Promise.all((out.items || []).map(async (r) => {
+        const it = refs.get(r.ref);
+        if (!it || r.action === "keep") return;
+        const why = await this.secondLook(it, r, changes.map((x) => x.text), formatTick(start, origin), prof?.personaName || null, timeOf(it), kindText(it), signal, operationId);
+        if (why) {
+          doubted.push({ title: it.title, kind: it.kind, reason: r.reason || "", why });
+          r.action = "keep";
+        }
+      }));
       for (const r of out.items || []) {
         const it = refs.get(r.ref);
         if (it) {
@@ -44377,7 +44549,7 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       overrides,
       additions,
       checked: { lore: items2.filter((x) => x.kind === "lore").length, entities: items2.filter((x) => x.kind === "entity").length, events: items2.filter((x) => x.kind === "event").length, generic },
-      ...res.rejected.length ? { rejected: res.rejected } : {},
+      ...res.rejected.length || doubted.length ? { rejected: [...res.rejected, ...doubted] } : {},
       ...unchecked.length ? { unchecked } : {}
     };
     this.overlayCache = null;
@@ -44385,6 +44557,35 @@ ${persona.description}`, pack2).map((l) => `${l.title}${l.via === "related" ? " 
       `\u672C\u5C40\u8BBE\u5B9A\u5DF2\u68C0\u67E5\uFF1A${changes.length} \u5904\u6539\u52A8\uFF0C\u8BFB\u4E86 ${items2.length} \u6761\uFF0C\u6539\u5199\u6216\u505C\u7528 ${overrides.length} \u6761\uFF0C\u65B0\u589E ${additions.length} \u6761`,
       `This game's world checked: ${changes.length} change(s), ${items2.length} text(s) read, ${overrides.length} rewritten or disabled, ${additions.length} added`
     ) });
+  }
+  /** Why a proposed rewrite or removal does not hold up on a second look, or null when it does (or the look failed).
+   *  The model must quote the change's own words about what the text's untrue words are about (checked here). */
+  async secondLook(it, r, changes, gameStart, player, time, kind, signal, operationId) {
+    const input = {
+      game_start: gameStart,
+      changes,
+      player: player ? { name: player } : null,
+      text: { kind, title: it.title, ...time, text: it.text },
+      untrue: r.action === "disable" ? ["(the whole text: it is about something that does not exist in this game)"] : r.untrue || [],
+      proposed: r.action
+    };
+    try {
+      const out = await this.withTimeout(callStructured(
+        this.host.model,
+        "world_confirm",
+        PROMPTS.world_confirm,
+        input,
+        { signal, operationId, log: (l) => this.debugLog("task", l), maxTokens: 600 }
+      ), this.settings.taskTimeoutMs, signal);
+      const flat = (s) => s.normalize("NFKC").replace(/\s+/g, "");
+      const says = flat(String(out.change_says || ""));
+      const quoted = !!says && changes.some((c) => flat(c).includes(says));
+      if (out.ok && quoted) return null;
+      return this.tr(`\u518D\u770B\u4E00\u6B21\uFF1A${out.ok ? "\u5F15\u7528\u7684\u6539\u52A8\u539F\u6587\u5BF9\u4E0D\u4E0A" : String(out.why || "\u8FD9\u6761\u6539\u52A8\u5E76\u4E0D\u8BA9\u539F\u6587\u8FD9\u51E0\u4E2A\u5B57\u4E0D\u6210\u7ACB")}`, `On a second look: ${out.ok ? "the change it quoted is not one of the changes" : String(out.why || "the change does not make these words untrue")}`).slice(0, 300);
+    } catch (e) {
+      if (signal?.aborted || e instanceof EngineError && e.kind === "cancelled") throw e;
+      return null;
+    }
   }
   /** 重新检查 (panel): check again with the changes as they are now. */
   async recheckWorld() {
@@ -46110,6 +46311,7 @@ var D = {
   step_affiliations: { zh: "\u8BFB\u53D6\u4F60\u7684\u7EC4\u7EC7", en: "read your organizations" },
   step_persona_abilities: { zh: "\u8BFB\u53D6\u4F60\u7684\u80FD\u529B", en: "read your abilities" },
   step_foreknow: { zh: "\u5224\u65AD\u540C\u4F34\u662F\u5426\u4E8B\u5148\u77E5\u9053", en: "judge what companions know ahead" },
+  step_world_confirm: { zh: "\u590D\u6838\u672C\u5C40\u8BBE\u5B9A\u7684\u6539\u5199", en: "second look at world rewrites" },
   step_world_check: { zh: "\u68C0\u67E5\u672C\u5C40\u8BBE\u5B9A", en: "check this game\u2019s world" },
   leap: { zh: "\u65F6\u95F4\u8DF3\u8DC3", en: "Time leap" },
   leapTip: { zh: "\u4E00\u6B21\u5FEB\u8FDB\u5230\u6307\u5B9A\u65F6\u95F4\uFF1A\u671F\u95F4\u4F60\u7684\u89D2\u8272\u7531 GM \u6309\u4EBA\u8BBE\u4EE3\u4F60\u8FC7\u65E5\u5B50\uFF0C\u539F\u4F5C\u4E8B\u4EF6\u7167\u5E38\u53D1\u751F\uFF0C\u9664\u975E\u4F60\u7684\u63CF\u8FF0\u6539\u53D8\u4E86\u5B83\u4EEC\u3002", en: "Leap to a given time in one reply: the GM lives your character's life in between as the Persona would, and canon events happen as in the original unless your description changes them." },

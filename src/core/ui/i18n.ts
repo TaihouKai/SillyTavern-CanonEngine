@@ -381,6 +381,7 @@ const D: Record<string, { zh: string; en: string }> = {
   step_affiliations: { zh: '读取你的组织', en: 'read your organizations' },
   step_persona_abilities: { zh: '读取你的能力', en: 'read your abilities' },
   step_foreknow: { zh: '判断同伴是否事先知道', en: 'judge what companions know ahead' },
+  step_world_confirm: { zh: '复核本局设定的改写', en: 'second look at world rewrites' },
   step_world_check: { zh: '检查本局设定', en: 'check this game’s world' },
   leap: { zh: '时间跳跃', en: 'Time leap' },
   leapTip: { zh: '一次快进到指定时间：期间你的角色由 GM 按人设代你过日子，原作事件照常发生，除非你的描述改变了它们。', en: 'Leap to a given time in one reply: the GM lives your character\'s life in between as the Persona would, and canon events happen as in the original unless your description changes them.' },
